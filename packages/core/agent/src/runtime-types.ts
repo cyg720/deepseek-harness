@@ -1,4 +1,15 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】dsh-agent 的公共类型面：Agent 接口、创建/恢复选项、生命周期事件与扩展点事件的完整声明，是智能体能力的“契约文件”。
+ * 【技术维度】纯类型模块（含 declare module 合并）；Agent 接口描述能力，事件通过 Scoped<Agent> 限定作用域；扩展点用 waterfall/serial/emit 三种模式标注。
+ * 【产品维度】任何想“给 agent 加行为”的插件都在这份契约上接线：拦步骤（pre-step）、换模型（request）、处理失败（request-error）、监听生命周期。
+ * 【逻辑维度】AgentOptions/CancelOptions 等基础类型 → Agent 接口（cancel/whenIdle/runMaintenance/send/followup/steer/inject）
+ * → Cordis Events 合并（生命周期 + 扩展点 + 错误通知）。
+ * 【关键边界】模型可见输入必须走已记录通道；scope 过滤要求事件带 agent 载体；turn/step 的持久化事实归 dsh-session 管，本文件只定义 live 运行时事件。
+ * 【新手阅读建议】先通读 Agent 接口的六个方法，再看 Events 合并区：@mode 标注（emit/serial/waterfall）决定监听器写法，waterfall 监听器必须调用 next()。
+ * ==========================================================================
+ */
+/**
  * Public agent types and live-runtime events. Durable transcript facts and
  * turn/step boundaries remain `@deepseek-ai/dsh-session` events.
  *
@@ -21,22 +32,29 @@ declare module '@deepseek-ai/dsh-system-prompt' {
 }
 
 /** Merge-extensible agent creation options. Persona belongs to system-prompt sections. */
+// 可合并扩展的 agent 创建选项：只含模型路由相关字段；人设等个性内容属于 system-prompt 段，不在此处。
 export interface AgentOptions {
   /** Provider route (must have a registered adapter at call time). */
+  // 提供方路由名：发请求时必须存在已注册的适配器，否则报 NO_ADAPTER。
   provider?: string
   /** Model id interpreted by the selected provider adapter. */
+  // 模型 id：由选中的 provider 适配器解释。
   model?: string
   /** Maximum output tokens for each conversation-model request. */
+  // 每次对话模型请求的最大输出 token 数。
   maxTokens?: number
 }
 
 /** Options for {@link Agent.cancel}. */
+// Agent.cancel 的可选参数。
 export interface CancelOptions {
   /**
    * Preserve queued and steering inbox items instead of discarding them. The
    * active turn is still aborted, but un-started and pending work survives for a
    * later turn and no canceled inbox splice is logged.
    */
+  // 为 true 时保留排队/转向的收件箱条目：活动轮次照常中止，但未启动的工作留给后续轮次，
+  // 且不会记录 outcome: 'canceled' 的 splice 事件。
   keepInbox?: boolean | undefined
 }
 
@@ -47,32 +65,44 @@ export interface CancelOptions {
  * closes, or checkpoints turns. Disposal removes the agent from its registry;
  * it is not a third observable status.
  */
+// agent 的生命周期状态：idle = 无驱动器；running = 驱动器活跃（可取消）。
+// 注意：处置（disposal）只是从注册表移除，不是第三种对外状态。
 export type AgentStatus = 'idle' | 'running'
 
 /** Whether and with which messages the loop enters a proposed step. */
+// 预步决策：reject = 拒绝进入步骤；enter = 带着（可能被改写过的）消息进入步骤。
 export type PreStepDecision =
   | { kind: 'reject' }
   | { kind: 'enter'; messages: UserMessage[] }
 
 /** Action returned by a listener that owns model-request recovery. */
+// 请求失败恢复动作：监听器返回 { kind: 'retry' } 表示自己接管重试；undefined 表示失败是终局。
 export type RequestErrorAction = { kind: 'retry' } | undefined
 
 /** Why a session lifecycle began; seeded creates are `startup`, while persisted loads are `resume`. */
+// 会话生命周期起点：新建为 startup，恢复持久化会话为 resume，还有 clear/compact 两种维护性起点。
 export type SessionStartSource = 'startup' | 'resume' | 'clear' | 'compact'
 
 /** Public live-agent handle. */
+// 公共的在线 agent 句柄：所有能力层都面向这个接口编程，具体实现由 agent-loop 提供。
 export interface Agent {
   /** The single identity shared with {@link session}. */
+  // 唯一身份：与 session.id 相同，注册表/事件都按它路由。
   readonly id: SessionId
   /** The provider route and model this agent's requests use. */
+  // 本 agent 请求使用的 provider 路由与模型。
   readonly options: AgentOptions
   /** The live session this agent drives; its log is the durable source of truth. */
+  // 被驱动的在线会话：其日志是唯一可信的持久化事实来源。
   readonly session: Session
   /** The agent-owned projection of durable pending work. */
+  // 待处理工作的投影（next-turn/next-step 两个队列）。
   readonly inbox: Inbox
   /** The current lifecycle state, mirrored on every `agent/status` transition. */
+  // 当前生命周期状态（每次翻转都伴随 agent/status 事件）。
   readonly status: AgentStatus
   /** Agent-scoped context; its contributions are agent-local, unwind on disposal, and reject registration afterward. */
+  // agent 作用域上下文：其下注册的一切仅本 agent 可见，处置时统一拆除，之后拒绝再注册。
   readonly ctx: Context
 
   /**
@@ -82,6 +112,7 @@ export interface Agent {
    * @param cause - the stable caller intent carried by the active operation signal.
    * @param options - cancellation options; `keepInbox` preserves pending work.
    */
+  // 取消：清队列（除非 keepInbox）并中止当前活动；首个取消原因对该活动生效；无活动时是空操作。
   cancel(cause: AgentCancelCause, options?: CancelOptions): void
 
   /**
@@ -90,6 +121,7 @@ export interface Agent {
    * but does not identify the settlement of any particular message.
    * @returns fulfillment after no active driver or maintenance task remains.
    */
+  // 等整机活动收敛：会追随观察期内替换启动的新活动，但不承诺任何特定消息的归属。
   whenIdle(): Promise<void>
 
   /**
@@ -101,6 +133,7 @@ export interface Agent {
    * @throws synchronously when turn-driving or another maintenance task already owns the agent.
    * @returns the task promise.
    */
+  // 在真正的 idle 相位跑一个非轮次维护任务：任务期间到来的唤醒输入留在收件箱，状态对外保持 idle。
   runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>
 
   /**
@@ -114,6 +147,7 @@ export interface Agent {
    * @param target - the preferred next-turn or next-step inbox boundary.
    * @param wakeup - whether delivery may wake the driver.
    */
+  // 通用投递：把输入放进指定收件箱边界并可选唤醒驱动器；中止后的唤醒输入转投下一轮。
   send(message: UserMessage, target: InboxTarget, wakeup: boolean): void
 
   /**
@@ -121,6 +155,7 @@ export interface Agent {
    * sole ordinary message of its own turn.
    * @param message - identified prompt content and the source that supplied it.
    */
+  // 普通追问：入下一轮队列并唤醒（成为那一轮唯一的普通消息）。
   followup(message: UserMessage): void
 
   /**
@@ -130,6 +165,7 @@ export interface Agent {
    * wake; cancellation or disposal may discard pending steering.
    * @param message - identified steering content and the source that supplied it.
    */
+  // 转向输入：投到最近一步边界并唤醒；被拒的步骤会让转向留在收件箱等下次唤醒。
   steer(message: UserMessage): void
 
   /**
@@ -140,6 +176,7 @@ export interface Agent {
    * batch. Cancellation or disposal may discard pending context.
    * @param message - identified injected context and the source that supplied it.
    */
+  // 上下文注入：入 next-step 但不唤醒；正在运行的驱动器在最近步骤边界消费，可能错过已领取的批次。
   inject(message: UserMessage): void
 }
 
@@ -156,6 +193,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode emit
      */
+    // agent/created：配置完成并发布后发出。同步抛错会否决发布；异步拒绝只上报。
     'agent/created'(this: Scoped<Agent>, payload: { agent: Agent }): void
     /**
      * An agent left the registry; AgentLoop emits this after driver quiescence
@@ -165,6 +203,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode emit
      */
+    // agent/disposed：agent 离开注册表（驱动器收敛且作用域注册拆除之后、会话解绑之前）。
     'agent/disposed'(this: Scoped<Agent>, payload: { agent: Agent }): void
     /**
      * Agent status changed (`idle` ⇄ `running`). A waking delivery enters
@@ -175,6 +214,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode emit
      */
+    // agent/status：状态翻转通知（idle 与 running 之间），payload.status 是新进入的状态。
     'agent/status'(this: Scoped<Agent>, payload: { agent: Agent; status: AgentStatus }): void
     /**
      * One message entered the live inbox.
@@ -183,6 +223,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode emit
      */
+    // agent/inbox/inserted：一条消息进入收件箱。
     'agent/inbox/inserted'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage }): void
     /**
      * One message left the inbox inside its open turn. If the proposed step
@@ -194,6 +235,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode emit
      */
+    // agent/inbox/claimed：步骤边界领取了一条消息；若该步被拒，消息在此终结（不丢弃也不进 user/message）。
     'agent/inbox/claimed'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage; turn: number }): void
     /**
      * One message was discarded from the live inbox.
@@ -202,6 +244,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode emit
      */
+    // agent/inbox/discarded：一条消息被从收件箱丢弃（取消/清除）。
     'agent/inbox/discarded'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage }): void
     // ---- session lifecycle (emit) ----
     /**
@@ -214,6 +257,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode emit
      */
+    // agent/session-start：会话生命周期开始（首个轮次之前），纯通知不可否决；可用 agent.inject() 注入种子上下文。
     'agent/session-start'(this: Scoped<Agent>, payload: { agent: Agent; source: SessionStartSource }): void
 
     // ---- the machine's extension points ----
@@ -228,6 +272,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode waterfall
      */
+    // agent/pre-step：预步瀑布。返回 { kind: 'reject' } 拒绝该步；返回 enter 可改写进入步骤的消息；调 next() 保持原样。
     'agent/pre-step'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>
     /**
      * Replace the frozen call configuration. `await next()` yields the config
@@ -241,6 +286,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode waterfall
     */
+    // agent/request：请求配置瀑布。返回替换配置可换 provider/model 等；模型可见内容必须走已记录的通道，不能在此改消息。
     'agent/request'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; signal: AbortSignal }, next: () => Promise<LlmCallConfig>): Promise<LlmCallConfig>
     /**
      * Handle one failed model-request attempt before the loop retries or closes
@@ -257,6 +303,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode waterfall
      */
+    // agent/request-error：请求失败恢复瀑布。返回 { kind: 'retry' }（不调 next）自己接管重试；调 next() 委托；默认 undefined 即失败终局。
     'agent/request-error'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; provider: string; failure: LlmFailure; retryPolicy: ResolvedRetryPolicy | undefined; signal: AbortSignal }, next: () => Promise<RequestErrorAction>): Promise<RequestErrorAction>
     /**
      * The turn is about to close: the model owes no response (no live tool
@@ -275,6 +322,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode serial
      */
+    // agent/turn-stopping：轮次关闭前的串行钩子。监听器可用 agent.steer() 补投输入让轮次继续；结论由数据决定，不因监听器顺序改变。
     'agent/turn-stopping'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; signal: AbortSignal }): Promise<void> | void
     // ---- error notifications (emit) ----
     /**
@@ -287,6 +335,7 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
      * @mode emit
      */
+    // agent/error：步骤或轮次出错通知（error 原样携带）；即使错误没有轮次内位置也会上报。
     'agent/error'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; error: unknown }): void
   }
 }

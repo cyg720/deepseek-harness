@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 token-meter 投影单元共享的 O(1) 表面 token 折叠。
+ * 【技术维度】投影状态必须保持有界（持久化投影缓存会检查点每个单元的整个
+ * 状态，若携带定价表面（每条模型可见消息一个节点）会让检查点随会话无限增长）。
+ * 因此替换走压缩缝合层的"影子价格协议"：表面 replace 事件紧邻其前的计量事件
+ * （compaction/summary 或 compaction/prune）声明被替换区间的启发式价格，折叠
+ * 只维护运行总量 + 至多一个待处理 claim，绝不保留逐节点价格。
+ * 【产品维度】压缩会遮蔽一段表面：影子价格让 O(1) 状态也能准确反映压缩带来的
+ * token 减少，从而让占用展示在压缩瞬间正确收缩。
+ * 【逻辑维度】影子价格 claim 类型 → 折叠结果类型 → foldSurfaceProjection
+ * （计量事件武装 claim → 表面事件消费 claim 或按 append 增量）。
+ * 【关键边界】无 claim 的 replace 按零增量折叠（有界状态无法重建被替换区间，
+ * 牺牲精确性换取回放可行）；claim 范围与实际 replace 不一致是活跃生产者的
+ * 契约违反，必须 fail loud。
+ * 【新手阅读建议】先读英文模块注释理解"为何投影不能携带完整表面"，再看
+ * foldSurfaceProjection 的三路分支。
+ * ==========================================================================
+ */
+
+/**
  * The O(1) surface-token fold shared by the token-meter projection units.
  *
  * A projection state must stay bounded — the persisted projection cache
@@ -24,27 +44,53 @@ import type {} from '@deepseek-ai/dsh-compaction'
 import { estimateMessage } from './estimate.ts'
 
 /**
+ * （中文）一个已武装的影子价格：紧随其后的表面 replace 事件要替换的区间，
+ * 其启发式 token 数。武装期间属于持久单元状态的一部分，因此必须是纯 JSON。
+ */
+/**
  * One armed shadow price: the heuristic tokens of the surface range the
  * IMMEDIATELY following event replaces. Plain JSON — it is part of the
  * persisted unit state while armed.
  */
 export interface ShadowPriceClaim {
   /** Declared inclusive first surface-node seq of the priced range. */
+  // 中文：被定价区间的首个表面节点 seq（含）。
   start: number
   /** Declared inclusive last surface-node seq of the priced range. */
+  // 中文：被定价区间的最后一个表面节点 seq（含）。
   end: number
   /** Heuristic tokens of the priced range under the fixed estimator. */
+  // 中文：固定估计器下该区间的启发式 token 数。
   tokens: number
 }
 
 /** One event's effect on a running surface-token total. */
+/**
+ * （中文）一个事件对运行中表面 token 总量的影响。
+ */
 export interface SurfaceTokensFold {
   /** Signed change in the surface total; 0 for events off the surface. */
+  // 中文：表面总量的有符号变化；非表面事件为 0。
   readonly deltaTokens: number
   /** Claim to carry into the next event; undefined when none survives. */
+  // 中文：要带入下一个事件的 claim；无存活时为 undefined。
   readonly claim: ShadowPriceClaim | undefined
 }
 
+/**
+ * （中文）把一个已提交事件折叠到运行中的表面 token 总量上。
+ * 影子价格事件武装一个 claim；任何其他事件使其过期；表面 replace 消费"命名其
+ * 精确区间"的 claim——生产者把计量事件与替换事件同步相邻追加，因此存活的
+ * claim 总是为紧接着的下一个事件定价。无 claim 的 replace 按零增量折叠（有界
+ * 状态无法重建被替换区间）。武装了其他区间的 claim 仍会失败，因为相邻事件
+ * 相互矛盾。
+ * @param claim 紧邻前一个事件武装的 claim（若有）。
+ * @param event 下一个已提交的会话事件。
+ * @returns 有符号 token 增量与该事件之后的 claim 状态。
+ * @throws 当替换事件带着"指向不同区间"的武装 claim 到达时——计量事件本应
+ *   相邻，这是活跃生产者的影子价格契约违反（而非历史数据），必须 fail loud
+ *   而不是让总量漂移。
+ */
 /**
  * Fold one committed event onto a running surface-token total.
  *
@@ -67,6 +113,7 @@ export function foldSurfaceProjection(
   claim: ShadowPriceClaim | undefined,
   event: SessionEvent,
 ): SurfaceTokensFold {
+  // 中文：计量事件（压缩摘要/剪枝）：武装 claim（记录被遮蔽区间与其价格）。
   if (event.type === 'compaction/summary' || event.type === 'compaction/prune') {
     const { shadowedRange, shadowedTokenCount } = event.data
     return {
@@ -74,6 +121,7 @@ export function foldSurfaceProjection(
       claim: { start: shadowedRange.start, end: shadowedRange.end, tokens: shadowedTokenCount },
     }
   }
+  // 中文：非表面事件：零增量、无 claim。
   if (!isSurfaceEvent(event)) return { deltaTokens: 0, claim: undefined }
   const message = deriveEventMessage(event)
   const tokens = message === null ? 0 : estimateMessage(message)
@@ -83,7 +131,10 @@ export function foldSurfaceProjection(
   // no adjacent metering event; the bounded state cannot reconstruct the
   // replaced range's price, so fold those neutrally — historical replay
   // degrades to drift instead of failing.
+  // 中文：影子价格协议之前记录的会话，其替换没有相邻计量事件；有界状态无法
+  // 重建被替换区间的价格，因此中性折叠——历史回放退化为漂移而非失败。
   if (claim === undefined) return { deltaTokens: 0, claim: undefined }
+  // 中文：claim 与替换区间不一致 → 活跃生产者契约违反，fail loud。
   if (claim.start !== op.start || claim.end !== op.end) {
     throw new Error(
       `token surface: replace at seq ${event.seq} over range ${op.start}-${op.end} has no adjacent shadow price`

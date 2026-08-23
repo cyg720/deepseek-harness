@@ -1,3 +1,22 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】以 Cordis 伴生插件形式校验 dsh-llm-retry 的持久重试事件：
+ * llm/retry 与 llm/retry-started 必须满足字段、上下文与链式关系约束。
+ * 【技术维度】基于 @deepseek-ai/dsh-invariants 的 InvariantInstaller 机制；
+ * 对已加载会话全量校验，并对新追加事件（internal/dispatch 钩子）增量校验；
+ * 通过 providerForOpenStep 核对"调度重试的 provider 与失败请求的 provider
+ * 一致"，通过历史链核对 retry 序号连续、retryId 跨链不重用。
+ * 【产品维度】重试记录进入持久会话日志后会被回放/投影消费，格式与语义错误
+ * 会造成错误路由；不变量在写入边界尽早暴露破坏，属于工程质量护栏。
+ * 【逻辑维度】失败负载校验 → 调度记录校验 → 启动记录校验 → 会话全量校验 →
+ * 安装（挂三个钩子）→ apply 注册。
+ * 【关键边界】校验只读不改；llm/retry 必须在打开的 turn/step 内、retry 为
+ * 正安全整数且 ≤ maxRetries、delayMs 在 0..MAX_TIMER_DELAY_MS。
+ * 【新手阅读建议】先读 validateRetry 的"上下文边界 + 链一致性"两段，理解
+ * 持久重试日志的合法形态。
+ * ==========================================================================
+ */
+
 /** Package-owned durable retry-event invariants. @module @deepseek-ai/dsh-llm-retry/invariant */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -8,14 +27,19 @@ import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-inva
 import { providerForOpenStep } from './history.ts'
 import type {} from './index.ts'
 
+// 中文：注册不变量时使用的包名标识。
 const PACKAGE_NAME = '@deepseek-ai/dsh-llm-retry'
 
 /** Cordis companion plugin name. */
+// 中文：Cordis 伴生插件名。
 export const name = 'llm-retry-invariant'
 /** Service required before the companion can reserve package ownership. */
+// 中文：要求 invariants 服务先就绪。
 export const inject = ['invariants']
 
 /** Validate the complete provider-neutral failure payload at the durable boundary. */
+// 中文：在持久边界校验完整的 provider 中立失败负载（message/code 非空、
+// status 为 100~599 整数、延迟为正有限数、requestId 非空）。
 function validateFailure(value: unknown, fail: InvariantFailure): asserts value is LlmFailure {
   if (typeof value !== 'object' || value === null) {
     fail('llm/retry failure must be an object')
@@ -42,6 +66,9 @@ function validateFailure(value: unknown, fail: InvariantFailure): asserts value 
 }
 
 /** Validate one retry record against the currently open request step. */
+// 中文：对照当前打开的请求步骤校验一条调度记录：字段合法性、normal/always
+// 模式约束、必须在打开的 turn/step 内、provider 与失败请求一致、retry 序号
+// 连续、retryId 跨链不重用。
 function validateRetry(
   history: readonly SessionEvent[],
   event: SessionEvent<'llm/retry'>,
@@ -62,6 +89,8 @@ function validateRetry(
   if (typeof policyKey !== 'string' || policyKey.length === 0) {
     fail('llm/retry policyKey must be a non-empty string')
   }
+  // 中文：模式约束：normal 的 retry 不得超过 maxRetries；always 不得携带
+  // maxRetries；模式取值只能是两者之一。
   switch (mode) {
     case 'normal': {
       const { maxRetries } = event.data
@@ -81,6 +110,7 @@ function validateRetry(
     fail(`llm/retry delayMs must be a finite number within 0..${MAX_TIMER_DELAY_MS}`)
   }
 
+  // 中文：上下文边界：记录必须在打开的 turn/step 内，且 turn/step 一致。
   const turnBoundary = history.findLast(prior =>
     prior.type === 'turn/start' || prior.type === 'turn/end')
   if (turnBoundary?.type !== 'turn/start') {
@@ -98,11 +128,14 @@ function validateRetry(
   if (step !== stepBoundary.data.step || turn !== stepBoundary.data.turn) {
     fail(`llm/retry names turn ${turn}/step ${step}, but the open step is ${stepBoundary.data.turn}/${stepBoundary.data.step}`)
   }
+  // 中文：provider 路由必须与失败请求一致（从历史请求头解析）。
   const routedProvider = providerForOpenStep(history, turn, step)
   if (routedProvider !== provider) {
     fail(`llm/retry provider ${provider} does not match the failed request provider ${String(routedProvider)}`)
   }
 
+  // 中文：链一致性：retry 序号必须等于同策略链前一条 +1；同一策略链必须
+  // 复用同一个 retryId；新链的 retryId 不得被其他链占用。
   const priorPolicyRetry = history.findLast((prior): prior is SessionEvent<'llm/retry'> =>
     prior.type === 'llm/retry'
     && prior.data.turn === turn
@@ -124,6 +157,8 @@ function validateRetry(
 }
 
 /** Validate one wait-complete transition against its scheduled attempt. */
+// 中文：对照其调度记录校验一条"等待完成"转换：必须能找到同 retryId/retry 的
+// 调度记录、turn/step 一致、且同一调度不得重复启动。
 function validateStarted(
   history: readonly SessionEvent[],
   event: SessionEvent<'llm/retry-started'>,
@@ -146,6 +181,8 @@ function validateStarted(
 }
 
 /** Validate every retry record already present in one loaded session. */
+// 中文：校验一个已加载会话里已有的每条重试记录（每条都只对"其之前的事件"
+// 做校验）。
 function validateSession(session: Session, fail: InvariantFailure): void {
   for (const [index, event] of session.events.entries()) {
     if (event.type === 'llm/retry') validateRetry(session.events.slice(0, index), event, fail)
@@ -154,6 +191,8 @@ function validateSession(session: Session, fail: InvariantFailure): void {
 }
 
 /** Install validation for loaded and newly appended retry records. */
+// 中文：安装校验：对已加载会话全量校验，并挂三个全局钩子——session/created
+// 校验新会话、internal/dispatch 拦截新追加事件做增量校验。
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   for (const session of ctx.sessions.list()) validateSession(session, fail)
   ctx.on('session/created', (session) => { validateSession(session, fail) }, { global: true })
@@ -165,6 +204,11 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   }, { global: true })
 }, { inject: ['sessions'] })
 
+/**
+ * （中文）注册 LLM 重试不变量伴生插件。
+ * @param ctx 携带 invariants 服务的 Cordis 上下文。
+ * @returns 安装成功后返回可撤销登记的 disposer。
+ */
 /**
  * Register the LLM retry invariant companion.
  * @param ctx - Cordis context carrying the invariant service.

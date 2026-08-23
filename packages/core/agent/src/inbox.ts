@@ -1,4 +1,15 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】Inbox：agent 待处理消息队列的增量投影。把持久化的 agent/inbox/spliced 会话事件重放并增量应用到内存中 next-turn/next-step 两个列表。
+ * 【技术维度】投影模式：构造时从 seedLength 之后的事件重放，运行中每次变更先写会话日志（durable）再改内存（live），并发布 inserted/discarded/claimed 通知。
+ * 【产品维度】用户消息、steering（转向）、inject（上下文注入）都先进入 inbox，由循环按轮次/步骤边界消费；取消（clear）会记录 outcome: 'canceled'。
+ * 【逻辑维度】InboxState/InboxNotifications 类型 → Inbox 类（构造重放 → 两个 getter + hasPending → clear/claim/append/prepend/replace/remove
+ * → splice/mutate 核心 → apply/validate 内部助手）。
+ * 【关键边界】所有变更必须先 append 会话事件再改内存，同步观察者可读到 splice 前状态；消息身份（id）在任一列表中不得重复；start/deleteCount 经过规范化（负索引、NaN 容错）。
+ * 【新手阅读建议】先看构造函数的重放逻辑，再看 mutate()（所有变更的唯一出口），最后看 claim() 理解“一步消费一批”的语义。
+ * ==========================================================================
+ */
+/**
  * Incremental projection of durable agent inbox events.
  *
  * @module @deepseek-ai/dsh-agent/inbox
@@ -9,52 +20,65 @@ import type { Session, SessionEventMap, UserMessage } from '@deepseek-ai/dsh-ses
 import type { InboxTarget } from './types.ts'
 
 /** Mutable state privately owned by an {@link Inbox}. */
+// 内部可变状态：两个待处理列表（普通轮次队列 + 步骤边界输入），Inbox 之外的代码不可直接修改。
 type InboxState = Record<InboxTarget, UserMessage[]>
 
 /** Live notifications committed by inbox mutations. */
+// 变更后向外部发布的通知回调集：由调用方（ReactLoopAgent 构造函数）提供，用于转发成 agent 事件。
 export interface InboxNotifications {
   /** Publish one inserted message. */
+  // 发布一条新插入的消息。
   inserted(message: UserMessage): void
   /** Publish one discarded message. */
+  // 发布一条被丢弃的消息。
   discarded(message: UserMessage): void
   /** Publish one claimed message inside its owning turn. */
+  // 在所属轮次内发布一条被领取的消息。
   claimed(message: UserMessage, turn: number): void
 }
 
 /** A replay-once projection that incrementally consumes later inbox splices. */
+// 收件箱：对持久化 inbox 事件做“重放一次 + 增量消费”的投影，内存列表与会话日志保持同步。
 export class Inbox {
+  // 两个待处理列表的初始状态；此后每次变更都必须先写会话事件再改这里。
   private readonly state: InboxState = { 'next-turn': [], 'next-step': [] }
 
   constructor(
     private readonly session: Session,
     private readonly notifications: InboxNotifications,
   ) {
+    // 重放：从 seedLength（重建起点）之后的事件开始，把历史上的 inbox 变更事件重新应用到内存列表。
     for (const event of session.events.slice(session.header.seedLength ?? 0)) {
       if (event.type !== 'agent/inbox/spliced') continue
       try {
         this.apply(event.data)
       } catch (error: unknown) {
+        // 持久化的 splice 无法重放说明日志损坏：带上事件序号报错，便于定位。
         throw new Error(`invalid persisted inbox splice at session seq ${event.seq}`, { cause: error })
       }
     }
   }
 
   /** Prompts awaiting individual turns. */
+  // 等待独立轮次的普通消息（只读视图）。
   get nextTurn(): readonly UserMessage[] {
     return this.state['next-turn']
   }
 
   /** Input awaiting the next step boundary. */
+  // 等待最近一步边界消费的转向/上下文输入（只读视图）。
   get nextStep(): readonly UserMessage[] {
     return this.state['next-step']
   }
 
   /** Whether either pending-message list contains work. */
+  // 任一列表有内容即认为有未处理的工作（唤醒驱动器的判断依据）。
   get hasPending(): boolean {
     return this.nextTurn.length > 0 || this.nextStep.length > 0
   }
 
   /** Durably cancel all pending input, clearing next-step before next-turn. */
+  // 持久化地清空全部待处理输入；先清 next-step 再清 next-turn，保证取消记录顺序稳定。
   clear(): void {
     this.splice('next-step', 0, this.nextStep.length, [])
     this.splice('next-turn', 0, this.nextTurn.length, [])
@@ -68,6 +92,7 @@ export class Inbox {
    * @returns next-step input followed by the queued turn, when requested.
    * @internal - The agent loop's step-boundary operation, not a plugin extension point.
    */
+  // 领取一步要消费的整批消息：先取全部 next-step，若目标含 next-turn 再取队首一条普通消息；随后逐个发布 claimed 通知。
   claim(target: InboxTarget, turn: number): UserMessage[] {
     const claimed = this.mutate('next-step', 0, this.nextStep.length, [], false)
     if (target === 'next-turn') {
@@ -83,6 +108,7 @@ export class Inbox {
    * @param message - message to append.
    * @throws if the message identity is already pending.
    */
+  // 追加一条消息到指定列表尾部并持久化记录。
   append(target: InboxTarget, message: UserMessage): void {
     this.splice(target, this.state[target].length, 0, [message])
   }
@@ -93,6 +119,7 @@ export class Inbox {
    * @param message - message to prepend.
    * @throws if the message identity is already pending.
    */
+  // 把一条消息插到指定列表头部并持久化记录（steering 等需要优先消费的场景使用）。
   prepend(target: InboxTarget, message: UserMessage): void {
     this.splice(target, 0, 0, [message])
   }
@@ -106,6 +133,7 @@ export class Inbox {
    * @returns whether the message was still pending.
    * @throws if the replacement duplicates another pending message identity.
    */
+  // 原位替换一条待处理消息（可换身份）；替换成功后旧消息发布 discarded、新消息发布 inserted。
   replace(messageId: MessageId, newMessage: UserMessage): boolean {
     const location = this.locate(messageId)
     if (location === undefined) return false
@@ -118,6 +146,7 @@ export class Inbox {
    * @param messageId - identity of the pending message to remove.
    * @returns whether the message was still pending.
    */
+  // 按身份移除一条待处理消息并持久化记录为取消。
   remove(messageId: MessageId): boolean {
     const location = this.locate(messageId)
     if (location === undefined) return false
@@ -136,6 +165,7 @@ export class Inbox {
    * @param inserted - messages to insert at the resolved position.
    * @returns messages removed by the splice.
    */
+  // 对外暴露的标准 splice 语义：参数规范化后交给 mutate 执行，返回被移除的消息。
   splice(
     target: InboxTarget,
     start: number,
@@ -146,6 +176,7 @@ export class Inbox {
   }
 
   /** Locate one pending identity across both owned lists. */
+  // 在两个列表里按消息身份查找其位置；找不到返回 undefined。
   private locate(messageId: MessageId): { target: InboxTarget; index: number } | undefined {
     for (const target of ['next-turn', 'next-step'] as const) {
       const index = this.state[target].findIndex(message => message.id === messageId)
@@ -155,6 +186,7 @@ export class Inbox {
   }
 
   /** Commit one normalized mutation and publish its live notifications. */
+  // 所有变更的唯一出口：规范化坐标 → 校验 → 先写会话事件（durable）→ 再改内存并发布通知。
   private mutate(
     target: InboxTarget,
     start: number,
@@ -163,6 +195,7 @@ export class Inbox {
     discardRemoved: boolean,
   ): UserMessage[] {
     const inbox = this.state[target]
+    // 坐标规范化：非整数取整、NaN 视为 0、负索引按数组尾部偏移、越界钳制到边界。
     const truncatedStart = Math.trunc(start)
     const offset = Number.isNaN(truncatedStart) ? 0 : truncatedStart
     const actualStart = offset < 0
@@ -173,7 +206,9 @@ export class Inbox {
       Math.max(Number.isNaN(truncatedDeleteCount) ? 0 : truncatedDeleteCount, 0),
       inbox.length - actualStart,
     )
+    // 无删除也无插入的空操作：不产生任何事件与通知。
     if (actualDeleteCount === 0 && inserted.length === 0) return []
+    // 有删除且 discardRemoved 为真（对外 splice）时标记 outcome: 'canceled'，供工作审计区分“领取”与“丢弃”。
     const outcome = discardRemoved && actualDeleteCount > 0 ? 'canceled' as const : undefined
     const splice = {
       target,
@@ -183,8 +218,10 @@ export class Inbox {
       ...(outcome === undefined ? {} : { outcome }),
     }
     this.validate(splice)
+    // 先持久化：事件落盘后同步观察者还能读到变更前的列表。
     const event = this.session.append('agent/inbox/spliced', splice)
     const removed = inbox.splice(actualStart, actualDeleteCount, ...event.data.inserted)
+    // 再改内存：被丢弃的逐条发 discarded，新插入的逐条发 inserted。
     if (discardRemoved) {
       for (const message of removed) this.notifications.discarded(message)
     }
@@ -193,6 +230,7 @@ export class Inbox {
   }
 
   /** Apply one normalized durable splice to the projection. */
+  // 重放用：把一个已持久化的 splice 直接应用到内存投影（不写事件、不发布通知）。
   private apply(splice: SessionEventMap['agent/inbox/spliced']): UserMessage[] {
     this.validate(splice)
     const inbox = this.state[splice.target]
@@ -200,6 +238,7 @@ export class Inbox {
   }
 
   /** Validate one normalized splice against the current projection. */
+  // 校验：坐标必须在合法范围内，且变更后任一列表中不得出现重复的消息身份。
   private validate(splice: SessionEventMap['agent/inbox/spliced']): void {
     const inbox = this.state[splice.target]
     const removedCount = splice.removedCount ?? 0
@@ -210,6 +249,7 @@ export class Inbox {
     }
     const candidate = inbox.toSpliced(splice.start, removedCount, ...splice.inserted)
     const ids = new Set<string>()
+    // 变更后的目标列表要与另一列表合并检查，确保消息身份在“全局”唯一。
     for (const message of splice.target === 'next-turn'
       ? [...candidate, ...this.nextStep]
       : [...this.nextTurn, ...candidate]) {
