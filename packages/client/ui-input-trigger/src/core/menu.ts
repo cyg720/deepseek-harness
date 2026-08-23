@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】菜单归约的纯核心：按源分组维护菜单状态，代际（generation）门控
+ *             结算，空的 ready 分组自动关闭菜单。
+ * 【技术维度】纯 reducer（零 React / DOM / Cordis）：陈旧或无变化的事件返回同一引用，
+ *             让快照订阅者跳过重渲染。
+ * 【产品维度】'/' 与 '@' 菜单的分组展示、高亮移动、空菜单自动关闭等交互状态。
+ * 【逻辑维度】seedGroups 播种分组 → menuReduce 处理 hit/source-settled/source-failed/
+ *             move/close 五类事件 → exactMatch 供精确名查询。
+ * 【关键边界】hit 事件不带源花名册，分组只能由壳层播种；代际不符的迟到结算被丢弃。
+ * 【新手阅读建议】先看 MENU_CLOSED 与 seedGroups，再沿 menuReduce 的分支读归约逻辑。
+ * ==========================================================================
+ */
+/**
  * Menu reduction pure core. One group per source;
  * generation-gated settlement; empty ready groups auto-close. Zero React /
  * DOM / cordis. Stale or no-op events return the same state reference so
@@ -24,6 +37,7 @@ export const MENU_CLOSED: MenuState = { open: false, hit: null, generation: 0, g
  * @param sources - Sources registered for the hit trigger, in menu order.
  * @returns State carrying the new pending roster; highlight cleared.
  */
+// 菜单打开时由壳层先行调用：按顺序把源播种成 pending 分组并清空高亮。
 export function seedGroups(
   state: MenuState,
   sources: readonly Pick<InputTriggerSource, 'name' | 'showGroupTitle'>[],

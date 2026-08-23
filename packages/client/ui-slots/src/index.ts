@@ -1,4 +1,22 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】槽位注册表纯核心：槽位契约（SlotMap）的类型之家与 register 的
+ *             编译期约束，以及部分核心运行时（SlotCore 注册/投影/订阅）。
+ * 【技术维度】零运行时依赖（仅 React 类型）；声明合并驱动一切：所有者把槽位契约
+ *             并入 SlotMap，register 一次调用贡献组件 + 子槽位声明 + store + 业务面；
+ *             SlotCore 是纯注册表（无 cordis）。
+ * 【产品维度】整个客户端 UI 的组合机制：任意插件把组件挂到任意声明槽位，
+ *             并受编译期"键 ⊆ 声明"的强制约束。
+ * 【逻辑维度】类型层：SlotMap/SlotSpec/ComposedProps/InjectFace 等组合约束；
+ *             运行时层：SlotCore.register（含负载校验与阴影/链规则）、entries/
+ *             entriesOfSlot 投影、订阅与声明生命周期、崩溃上报。
+ * 【关键边界】声明即认领：重复声明报错；共享 store handle 只能挂一个作用域；
+ *             单/键控/列表槽位同格同优先级二次注册报错。
+ * 【新手阅读建议】先看 SlotMap 与 SlotEntryDef 的类型轴，再读 SlotCore.register 的
+ *             校验与分派规则。
+ * ==========================================================================
+ */
+/**
  * Slot registry pure core. Owners declare slot
  * contracts by merging into {@link SlotMap}; one `register` call contributes a
  * component AND (optionally) declares child slots, a store seat, and the

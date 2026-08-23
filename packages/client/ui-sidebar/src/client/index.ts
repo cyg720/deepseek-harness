@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】侧边栏包的浏览器侧入口：把侧边栏外壳注册进布局拥有的槽位，
+ *             并声明品牌/工作区/设置/页脚动作等子槽位。
+ * 【技术维度】Cordis 浏览器插件：ctx.slots.register 声明五个子槽位并提供
+ *             注入面（startSession、toggleSidebar）；文案走 sidebar 命名空间。
+ * 【产品维度】应用左侧栏外壳：品牌区、工作区浏览区、设置入口与页脚动作。
+ * 【逻辑维度】1) 注册字典；2) 注册 sidebar 槽位（含子槽位声明与注入）。
+ * 【关键边界】外壳拥有几何；工作区浏览区由 ui-workspace 注册，设置触发与面板
+ *             由 ui-settings-general 注册。
+ * 【新手阅读建议】先看 contract/slots.ts 的 owner props，再看本文件的注册。
+ * ==========================================================================
+ */
 /** Registers the sidebar shell into the layout-owned slot. */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).

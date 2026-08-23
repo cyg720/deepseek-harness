@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】ui-workspace 契约：两个注册共享的槽位类型——工作区浏览区注入面、
+ *             英雄区选择器注入面，以及"目录流程孔位"（directory-flow hole）契约。
+ * 【技术维度】纯类型：目录流程孔位让组合的选择包客户端半部把挑选交互（无渲染
+ *             原生选择器或应用内浏览对话框）填进去；占用状态经 hooks 舱绑定为
+ *             useDirectoryFlow 选择器。
+ * 【产品维度】工作区浏览区与英雄区选择器的注入面、目录选择交互的对接契约。
+ * 【逻辑维度】DirectoryFlowOwnerProps 会话契约 → 两个孔位声明 → DirectoryPicking
+ *             占用面 → WorkspaceBrowser/Picker 全量 props。
+ * 【关键边界】每个孔位只有一个声明条目，故存在两个孔位（两个菜单表面是独立
+ *             槽位条目）；占用者拥有 open 到选定路径之间的一切（含新建目录）。
+ * 【新手阅读建议】先读 DirectoryFlowOwnerProps 的会话契约，再看两个注入面。
+ * ==========================================================================
+ */
+/**
  * ui-workspace contracts. Two registrations share this package:
  *
  * - WorkspaceBrowser fills the sidebar shell's `sidebar.workspaces` hole —

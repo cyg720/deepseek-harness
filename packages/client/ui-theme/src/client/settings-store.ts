@@ -1,4 +1,16 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】外观设置行的槽位存储：主题服务快照的镜像。插件的 apply 世界
+ *             变更监听器是唯一写入者；行组件经 props.useStore 读取。
+ * 【技术维度】defineStore 工厂 + 修订号守卫：revision 单调比较，防止旧快照
+ *             覆盖新状态（初始 -1 使修订 0 也能作为一次变更落地）。
+ * 【产品维度】设置页"外观"行：显示当前主题偏好（浅色/深色/跟随系统）。
+ * 【逻辑维度】sync 动作在修订号前进时更新偏好与修订号。
+ * 【关键边界】读取偏好永远用持久化偏好而非解析后的活动主题。
+ * 【新手阅读建议】与 ui-theme/client/index.ts 的接线对照阅读。
+ * ==========================================================================
+ */
+/**
  * Appearance row slot store: a mirror of the theme service snapshot. The
  * plugin's apply-world change listener is the only writer; the row component
  * reads via props.useStore.

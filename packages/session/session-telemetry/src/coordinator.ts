@@ -1,4 +1,22 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】遥测能力缝的捕获协调器：live 捕获订阅会话火线与 agent/error 中继，
+ *   对每条事件应用固定 chunk 投影、构建逻辑记录、跑过 session-telemetry/record
+ *   瀑布（脱敏），再交给后端。
+ * 【技术维度】Cordis 监听 + contain 逐事件异常隔离（cordis emit 是遇抛即停，后端异常
+ *   绝不能饿死其他订阅者）；模块级 WeakMap 手渡游标（HMR 无状态交接 API 的窄例外）。
+ * 【产品维度】live 捕获保证"进程内已接受的事件尽可能上报"；按需捕获只在请求时
+ *   回放规范日志（配合反馈同意机制）。
+ * 【逻辑维度】按代码顺序：类型 → 手渡游标 → SessionTelemetryCoordinator（构造器安装
+ *   监听、captureSession/adopt/track/captureEvent/redact/deliver/hintFlush/relayAgentError/
+ *   seen/contain）→ shutdownRecord/severityOf/errorDetail/identityOf。
+ * 【关键边界】chunk 投影只发每个 (turn,step) 的首块（流启动信号）；游标只在
+ *   后端接受后推进；dispose 先发 shutdown 标记再等后端 shutdown（失败仅告警）。
+ * 【新手阅读建议】先看 captureEvent 的投影与 redact 的瀑布，再看 adopt 的"游标后回放"。
+ * ==========================================================================
+ */
+
+/**
  * Capture coordinator for the telemetry capability. Live capture subscribes to
  * the session firehose plus the one live-bus relay (`agent/error`). Both
  * capture paths apply the fixed chunk projection, build logical records, and
@@ -20,9 +38,11 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { SessionTelemetrySink, SessionTelemetryRecord, SessionTelemetrySeverity } from './index.ts'
 
 /** Whether capture follows live events or reads the canonical log only when requested. */
+// 中文：捕获模式：live 跟随实时事件；on-demand 只在被请求时回放规范日志。
 export type SessionTelemetryCapture = 'live' | 'on-demand'
 
 /** One projected record ready for backend handoff. */
+// 中文：一条待投递的投影记录：seq 是后端接受后才推进的游标水位（无则无游标推进）。
 interface ProjectedRecord {
   readonly record: SessionTelemetryRecord
   /** Ledger cursor advanced only after the backend accepts this record. */
@@ -40,6 +60,9 @@ interface ProjectedRecord {
  * "re-hand everything". Advanced only at emit time — the cursor marks
  * handed-off, not delivered.
  */
+// 中文：手渡游标（模块级弱表）：每会话记录已交给后端的最新 seq。刻意用模块级
+// 环境态（窄例外）——cordis 没有 HMR 状态交接 API，且按 Session 对象键控才能让
+// 重新收养的 fiber 续传而非重放整段历史。仅在后端接受时推进（标记已交接，非已投递）。
 const handoffCursor = new WeakMap<Session, number>()
 
 /**
@@ -57,6 +80,9 @@ const handoffCursor = new WeakMap<Session, number>()
  * instead of throwing — best-effort reporting must not fail application
  * teardown.
  */
+// 中文：遥测捕获协调器：为一个后端在上下文中安装捕获侧——live 模式注册持续监听
+// （含 agent/error 中继）并扫过已活会话；on-demand 模式不注册持续监听，
+// 由 captureSession 显式回放规范日志。
 export class SessionTelemetryCoordinator {
   /**
    * Sessions adopted by THIS fiber and still live, for double-adoption
@@ -135,6 +161,9 @@ export class SessionTelemetryCoordinator {
    * @param session - session whose current canonical-log prefix may be handed over.
    * @param throughSeq - optional last sequence included in this capture.
    */
+  // 中文：投影并交出规范会话日志在手渡游标之后的后缀（可停在包含式 seq 边界）。
+  // 脱敏在本调用期间执行（按需调用方不会在请求前保留任何副本）；
+  // 每个事件的后端/策略失败都被 contain 隔离，不饿死同一回放里的后续事件。
   captureSession(session: Session, throughSeq?: number): void {
     const cursor = handoffCursor.get(session) ?? session.firstLiveSeq - 1
     // Containment is PER EVENT: one rejected record is withheld fail-closed
@@ -163,6 +192,8 @@ export class SessionTelemetryCoordinator {
    * backfills records a previous process failed to deliver.
    * @param session - the live session to adopt; a second adoption is a no-op.
    */
+  // 中文：收养一个会话：从手渡游标处回放其日志过投影，之后交给火线；
+  // 无游标时从 firstLiveSeq 起（构造器种子事件从不在火线上发布）。
   private adopt(session: Session): void {
     if (this.adopted.has(session)) return
     this.adopted.add(session)

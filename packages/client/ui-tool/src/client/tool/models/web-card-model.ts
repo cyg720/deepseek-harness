@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】从冻结调用切片纯推导 web 卡片 props：web_search/web_fetch 在结果
+ *             时声明的 card:'web' 渲染意图经 resultView 到达，本文件是把它变成
+ *             WebBlock 可绘制内容的唯一位置。
+ * 【技术维度】纯派生：两个对话渲染点（聊天行内/展开体与详情面板输出段）共用；
+ *             结果侧专属（web 工具保持通用 pending 视图）。
+ * 【产品维度】对话/详情中的网页搜索卡片（来源 + 答案）与抓取卡片（URL + 状态）。
+ * 【逻辑维度】webCardModel 判 card → 按 kind 分派 search/fetch → 未知 kind
+ *             回退通用路径。
+ * 【关键边界】未知 kind 是线缆数据（更新宿主可能带来新值），显式 else 空回退
+ *             而非按 fetch 渲染（避免空 URL 与 'HTTP undefined'）。
+ * 【新手阅读建议】先看 WebBlockProps 两种形态，再读 kind 分派。
+ * ==========================================================================
+ */
+/**
  * Pure derivation of the web-card props from a frozen call slice: the
  * `card:'web'` render intent the `web_search`/`web_fetch` tools declare at
  * result time arrives on the snapshot as `resultView`, and this is the one

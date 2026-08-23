@@ -1,3 +1,17 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】轨迹目标下"请求头"状态机：从 request/header 事件捕获每次请求的系统提示词
+ *             与工具目录快照，并计算相对上次的变更（初始 / 仅系统 / 仅工具 / 系统+工具）。
+ * 【技术维度】ConversationNodeDefinition 状态机（match / start / update / buildViewNode）；
+ *             start 时对比前一个请求头快照，产出 RequestPromptChange。
+ * 【产品维度】轨迹里每条系统提示词变更都能展示"变更前后"详情，辅助排查模型输入漂移。
+ * 【逻辑维度】1) requestPrompt 提取快照；2) promptChange 计算变更；3) 定义状态机；
+ *             4) 注册函数。
+ * 【关键边界】只有 reason 为 'initial' 或确有 system/tools 变化时才记录 change；
+ *             tools 对比用 JSON 序列化。
+ * 【新手阅读建议】先看 promptChange 的四种变更类型判定。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ConversationMatch, ConversationNodeDefinition, ConversationPromptSnapshot,
@@ -19,6 +33,13 @@ function requestPrompt(match: ConversationMatch): ConversationPromptSnapshot {
   }
 }
 
+/**
+ * 计算本次请求头相对上次提示词快照的变更；无变化（或首次且非 initial）返回 undefined。
+ * @param previous - 上一次的提示词快照（可能没有）。
+ * @param prompt - 本次请求头的提示词快照。
+ * @param match - 当前请求头事件匹配。
+ * @returns 变更描述；无变更时不记录。
+ */
 function promptChange(
   previous: ConversationPromptSnapshot | undefined,
   prompt: ConversationPromptSnapshot,
@@ -42,6 +63,7 @@ function promptChange(
   }
 }
 
+/** 轨迹请求头状态机：匹配 request/header，start 时计算提示词变更并产出视图节点。 */
 const trajectoryRequestHeaderDefinition: ConversationNodeDefinition<TrajectoryRequestHeaderState> = {
   kind: 'trajectory-request-header',
   target: 'trajectory',
@@ -74,6 +96,10 @@ const trajectoryRequestHeaderDefinition: ConversationNodeDefinition<TrajectoryRe
  * Register Trajectory request-header facts.
  *
  * @param ctx - Plugin context receiving the Definition.
+ */
+/**
+ * 注册轨迹请求头事实状态机。
+ * @param ctx - 接收该 Definition 的插件上下文。
  */
 export function registerTrajectoryRequestHeaderDefinition(ctx: Context): void {
   ctx.conversationEvents.register(trajectoryRequestHeaderDefinition)

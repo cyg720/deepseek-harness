@@ -1,4 +1,14 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】session-telemetry-otel 包的 invariant 伴生插件：注册空安装器，
+ *   说明本包无运行时不变量（模式选择只改变捕获交接与 SDK 装配，导出留在 SDK 内部）。
+ * 【技术维度】标准 invariants 插件形态（name/inject/apply）；文件被 jscpd:ignore 包裹。
+ * 【逻辑维度】name/inject → 空 install（附论证）→ apply。
+ * 【新手阅读建议】读 install 上方英文注释理解论证。
+ * ==========================================================================
+ */
+
+/**
  * Package-owned invariant companion for `@deepseek-ai/dsh-session-telemetry-otel`.
  * @module @deepseek-ai/dsh-session-telemetry-otel/invariant
  */

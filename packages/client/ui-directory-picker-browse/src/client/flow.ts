@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】浏览式目录选择的流程占用者：把工作区目录流程孔位的"所有者会话"
+ *             适配到应用内浏览对话框上——确认目录即选定路径，关闭即取消。
+ * 【技术维度】React 组件包装：createElement 装配 DirectoryBrowser；
+ *             注入面（BrowseFlowInjected）由 apply 闭包绑定线缆调用与文案。
+ * 【产品维度】选择工作区目录时的应用内浏览对话框。
+ * 【逻辑维度】BrowseDirectoryFlow 把 owner 会话的 onPicked/onCancel 映射为
+ *             对话框的 onOpen/onClose，浏览失败留在对话框自己的告警面里。
+ * 【关键边界】包内私有模块（./client 只暴露 Loader 导出）；不驱动 owner 的 onError。
+ * 【新手阅读建议】结合 ui-workspace 的孔位契约与 DirectoryBrowser.tsx 阅读。
+ * ==========================================================================
+ */
+/**
  * The browse picking occupant (package-internal; the `./client` surface
  * exposes only the Loader exports). Same-package tests exercise it directly
  * through this module.

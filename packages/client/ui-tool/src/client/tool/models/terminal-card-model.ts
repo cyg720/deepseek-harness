@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】从冻结调用切片纯推导终端卡片 props：shell 工具声明的
+ *             card:'terminal' 渲染意图经 callView/resultView 到达，本文件是
+ *             把这对数据变成 TerminalBlock 可绘制内容的唯一位置。
+ * 【技术维度】纯派生：两个对话渲染点（聊天行展开体与详情面板输出段）共用；
+ *             含 cwd 解析（绝对/相对/省略三态）与路径段归一化（含 UNC 根）。
+ * 【产品维度】对话/详情中的终端卡片：命令、工作目录、输出与退出状态。
+ * 【逻辑维度】terminalCardModel 组合 call/result 两侧 → 运行中/已结算两分支 →
+ *             terminalFailed 判定失败退出；terminalBlockLabels 装配文案。
+ * 【关键边界】窗口截断可能丢失调用头（命令回退结果标题再回退空串）；
+ *             只有现存调用视图能表示"省略 cwd 即工作区"。
+ * 【新手阅读建议】先看 TerminalCardModel 结构，再读 cwd 解析与归一化。
+ * ==========================================================================
+ */
+/**
  * Pure derivation of the terminal-card props from a frozen call slice: the
  * `card:'terminal'` render intent the shell tools declare arrives on the
  * snapshot as `callView`/`resultView`, and this is the one place that turns

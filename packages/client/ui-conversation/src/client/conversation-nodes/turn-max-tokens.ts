@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】"回合被输出 token 上限截断"的通知状态机：匹配 reason 为 max-tokens 的
+ *             turn/end，产出通知节点。
+ * 【技术维度】ConversationNodeDefinition（target: 'chat'）；noticeAnchor 把通知锚在
+ *             关闭 assistant 与回合尾之间（保回合尾为回合最后节点，分支动作可用）。
+ * 【产品维度】回答被截断时明确告知用户并提示"发送继续"。
+ * 【逻辑维度】1) 数据映射扩充；2) lastStep / noticeAnchor / stateFrom；
+ *             3) 状态机；4) 注册函数。
+ * 【关键边界】没有可保护的关闭文本 assistant 时退回 turn/end seq 锚点。
+ * 【新手阅读建议】noticeAnchor 是理解重点（合成序偏移的用途）。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, TurnMaxTokensNode,

@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】权限预设包的浏览器侧入口：一个挂在宿主 /permission 命令上的
+ *             popupSelect 装饰（当前会话切换权限）+ 一个设置行（新会话默认权限）。
+ * 【技术维度】Cordis 浏览器插件：装饰只接管裸调用，宿主命令保留目录行与带参路径；
+ *             选项读会话的 permissions 投影；Full access 行带显式风险确认门。
+ * 【产品维度】当前会话通过 /permission 弹窗切换权限；设置页为新会话设默认权限。
+ * 【逻辑维度】1) 注册风险门字典；2) 设置行控制器（共享镜像）；
+ *             3) 注册 /permission 装饰（选项来自投影、选择提交命令行）。
+ * 【关键边界】custom 值只作展示不作目标；投影缺失时装饰不存活（落回宿主命令）。
+ * 【新手阅读建议】先读 settings-store.ts 与 presentation.ts，再看装饰的接线。
+ * ==========================================================================
+ */
+/**
  * Permission preset plugin, browser half — a popupSelect DECORATION hung on
  * the host `/permission` command: one flat list of presets, current value
  * marked active, a pick executes the switch. The decoration owns only the

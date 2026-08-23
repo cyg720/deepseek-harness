@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】侧边栏槽位契约：布局拥有的 sidebar 槽位的注册者侧 props 组合，
+ *             以及本外壳声明的五个孔位（品牌标/品牌名/工作区/设置/页脚动作）。
+ * 【技术维度】纯类型：SlotMap 声明合并 + owner props 接口；外壳只跨壳/区边界
+ *             传递折叠状态。
+ * 【产品维度】侧边栏外壳的孔位形态：品牌区、工作区浏览区、设置席位与页脚动作。
+ * 【逻辑维度】五个槽位声明 → 各 owner props → SidebarRootInjected（startSession/
+ *             toggleSidebar）→ SidebarRootComponentProps 全量组合。
+ * 【关键边界】外壳拥有列几何（折叠状态机、品牌行、New Session）；段头与列表底
+ *             之间的区域归 ui-workspace，页脚归 ui-settings。
+ * 【新手阅读建议】先看各 owner props 的 wide 折叠语义，再看注入面。
+ * ==========================================================================
+ */
+/**
  * Sidebar slot contract: the registrant-side props composition for the
  * layout-owned `sidebar` slot, plus the holes this shell declares. The shell
  * owns column geometry (fold state machine, brand row, New Session);

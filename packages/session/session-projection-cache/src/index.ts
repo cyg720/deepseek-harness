@@ -1,4 +1,22 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】持久化投影缓存服务（ctx.sessionProjectionCache）：把每个客户端可见或显式
+ *   持久化投影单元的状态按会话写入耐用存储（session_projcache 域），并提供冷读梯子。
+ * 【技术维度】Cordis Service + storage-domain 的 KvTable；写后置（write-behind）节流
+ *   （count/interval 两触发器）+ 两个强制写点（turn/end、会话 detach）；冷读走
+ *   "缓存行 → 持久化 readFrom 尾 → 注册表 restore → 写回"的梯子。
+ * 【产品维度】让"离线/冷"会话的投影无需全日志加载即可读取：行可能过期但绝不错误
+ *   （seq 说明过期程度，ver 不匹配直接废弃而非迁移）。
+ * 【逻辑维度】按代码顺序：Config → DirtyState → SessionProjectionCache（init/recordFor/
+ *   cachedSnapshot/write/coldSnapshot/installWritePath/flushSoft/markClean/put/putSoft）→
+ *   identityOf/identityMatches。
+ * 【关键边界】所有耐用写都是 fail-soft（丢失只导致下次冷读更长尾回放）；记录绑定日志身份
+ *   （createdAt+cwd），同 ID 不同生命周期不串味。
+ * 【新手阅读建议】先看 write 的"先 flush 后落行"耐久屏障，再看 coldSnapshot 的梯子与回退。
+ * ==========================================================================
+ */
+
+/**
  * Persisted projection cache (`ctx.sessionProjectionCache`): durable
  * checkpoints of every client-visible or explicitly persisted projection unit's state, one record per
  * session on the domain data form (`session_projcache` domain — the shipped
@@ -39,6 +57,8 @@ declare module '@deepseek-ai/cordis' {
  * (cordis.yml); the two mandatory write points (`turn/end` and session
  * disposal) are policy, not tunables, and always fire.
  */
+// 中文：插件配置：两个节流触发器是部署选择（无普适正确值，由 cordis.yml 显式声明）；
+// 两个强制写点（turn/end 与会话销毁）是策略而非可调项，始终触发。
 export interface Config {
   /** Committed events per session that force a durable checkpoint write between mandatory points. */
   writeEveryEvents: number
@@ -52,6 +72,8 @@ export const Config: z<Config> = z.object({
 })
 
 /** Per-session write-behind bookkeeping (live sessions only; dropped at retire). */
+// 中文：每会话的写后置记账（仅活会话，退役即丢弃）：pending 是上次耐用写以来的
+// 已提交事件数，timer 是首个脏事件后武装的间隔触发器。
 interface DirtyState {
   /** Committed events since the last durable write. */
   pending: number
@@ -68,12 +90,16 @@ interface DirtyState {
  * `restore`, durable write-back. Every durable write is fail-soft: failures
  * log a warning and the cache self-heals on the next write or cold read.
  */
+// 中文：持久化投影缓存服务：init 打开 session_projcache 域，节流写后置 + 两个强制写点
+// 落检查点，冷读梯子服务"离线会话"的投影读取；所有耐用写 fail-soft。
 export class SessionProjectionCache extends Service {
   static inject = ['storageDomain', 'sessionProjections', 'sessionPersistence', 'sessions']
 
   static Config: z<Config> = Config
 
+  // 中文：域表句柄（Service.init 时打开 session_projcache 域获得）。
   private table?: KvTable<SessionId, CheckpointRecord>
+  // 中文：活会话 → 写后置记账；会话退役时删除。
   private readonly dirty = new Map<Session, DirtyState>()
 
   constructor(ctx: Context, public config: Config) {
@@ -137,6 +163,8 @@ export class SessionProjectionCache extends Service {
    * @param session - the live session to checkpoint.
    * @returns resolution after durability and event emission.
    */
+  // 中文：立即持久化检查点一个活会话：先取注册表切面并标记干净，再在耐久屏障
+  // （先 flush 后落行，保证切面内事件已持久化）后整行替换存储记录。
   async write(session: Session): Promise<void> {
     const rows = this.ctx.sessionProjections.checkpoint(session)
     this.markClean(session)

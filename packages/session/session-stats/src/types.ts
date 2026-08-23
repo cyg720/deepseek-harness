@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】session-stats 域的纯类型：sessionStats 投影键声明的唯一出处，
+ *   不含宿主侧值导入（cordis context、zod、llm 块谓词）。
+ * 【技术维度】export {} 使本文件成为模块，从而"增强"投影表而非声明环境模块；
+ *   types（宿主）与 client（客户端）两个命名空间投影同一份内容。
+ * 【产品维度】字段名与客户端窗口折叠逐字对齐，无此单元的组装可整体回退到窗口折叠。
+ * 【逻辑维度】SessionStatsProjection 接口 → 声明合并注册 sessionStats 键。
+ * 【关键边界】所有字段从 0 起，首条贡献事件落地前保持 0。
+ * 【新手阅读建议】把八个字段与 projection.ts 的折叠分支对照阅读。
+ * ==========================================================================
+ */
+
+/**
  * Pure types of the session-stats domain: the ONE home of the `sessionStats`
  * projection-key declaration, free of this package's host-side value imports
  * (cordis context, zod, the llm chunk predicate). Two namespace projections

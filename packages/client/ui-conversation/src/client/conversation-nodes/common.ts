@@ -1,3 +1,14 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】聊天业务节点共用的工具：合成序偏移（把中断 / 通知等安排在稳定事件的
+ *             seq 邻域内）、Context 位置解析、最终聊天节点封装与坐标校验。
+ * 【技术维度】纯函数 + 常量；chatNode 用引擎持有的 key 构建 chat 目标节点。
+ * 【产品维度】各业务状态机产出统一形态的聊天节点，渲染器按 kind 分发。
+ * 【逻辑维度】1) 合成序偏移表；2) contextLocation；3) chatNode 封装；4) coordinate 校验。
+ * 【关键边界】max-tokens 通知的偏移设计保证回合尾保持回合最后节点（分支动作可用）。
+ * 【新手阅读建议】先看 CHAT_SYNTHETIC_SEQ_OFFSETS 的取值意图。
+ * ==========================================================================
+ */
 import type {
   ConversationLocation, ConversationNodeContext,
 } from '@deepseek-ai/dsh-client-runtime/client'

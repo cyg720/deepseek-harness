@@ -1,3 +1,18 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】纯的、与提供者无关的谓词：对逻辑会话记录与事件文本应用 AND 语义的
+ *   过滤条款，并负责"物化"（拷贝 + 校验）调用方传入的过滤器。
+ * 【技术维度】sessionPredicate/eventPredicate 把条款编译成谓词；text 条款用
+ *   compileSessionTextFilter 生成字面量正则（转义全部元字符，防正则注入）。
+ * 【产品维度】让 sqlite 之外的实现（内存后端、模型工具）共用同一套确定性过滤语义。
+ * 【逻辑维度】filterSessionResults/filterSessionEventDocuments → materialize 两个 →
+ *   compileSessionTextFilter → 谓词编译器与校验辅助。
+ * 【关键边界】物化在异步边界前完成（脱离调用方所有权）；未知 kind 一律
+ *   SESSION_QUERY_INVALID_FILTER。
+ * 【新手阅读建议】先看 materialize（校验/拷贝），再看两个 predicate 编译器。
+ * ==========================================================================
+ */
+
 /** Pure provider-independent predicates for logical sessions and event text. */
 
 import type {
@@ -15,6 +30,7 @@ import { SessionQueryError } from './config.ts'
  * @param filters - clauses whose list values are ORed within each clause.
  * @returns records accepted by every clause.
  */
+// 中文：对逻辑会话记录应用 AND 语义过滤条款（保持输入顺序）。
 export function filterSessionResults<T extends SessionRecord>(
   records: readonly T[],
   filters: readonly SessionResultFilter[] = [],

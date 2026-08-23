@@ -1,3 +1,14 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】`feedback` 命名空间的双语文案字典（消息反馈控件文案）。
+ * 【技术维度】zh 为键集基准，en 受 Record<MessageFeedbackKey, string> 约束；
+ *             同时做 LocaleNamespaceMap 的声明合并。
+ * 【产品维度】赞/踩按钮、备注对话框与错误提示的文案。
+ * 【逻辑维度】zh 定义键 → MessageFeedbackKey 推导 → LocaleNamespaceMap 合并 → en 补齐。
+ * 【关键边界】zh 是键的单一事实来源。
+ * 【新手阅读建议】纯数据文件。
+ * ==========================================================================
+ */
 /** `feedback` namespace dictionaries. */
 
 /** Simplified Chinese dictionary (the key-set source of truth). */

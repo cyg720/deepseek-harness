@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】web-search 设置卡片的控制器：把 web-search-deepseek 命名空间作用域
+ *             与凭据域桥接到卡片表单上。
+ * 【技术维度】CardForm 复用 + 凭据域（credentials Remote）：密钥是唯一不在设置段
+ *             里的控件——其字面值从不随响应往返，卡片只知是否已配置，经段名引用的
+ *             凭据参考写入。
+ * 【产品维度】设置页"插件"中的 web-search 卡片：密钥、端点与每次请求搜索上限。
+ * 【逻辑维度】构造建表单（含 secret 规格）→ readCredential 询问凭据域（带引用
+ *             守卫）→ projection 装配 → refreshCredential 响应失效信号重读。
+ * 【关键边界】凭据应答与其描述的引用一起存储：apiKeyEnv 可能在请求与应答间变化，
+ *             两次读取可乱序结算，故只在仍对应当前引用时发布。
+ * 【新手阅读建议】先看 card-form.ts 的 secret 规格，再读 readCredential 的引用守卫。
+ * ==========================================================================
+ */
+/**
  * The web-search card's staged form over the `web-search-deepseek` settings
  * namespace.
  *

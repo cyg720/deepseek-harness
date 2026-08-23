@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】InputTriggerService（ctx.inputTriggers）：触发器管线的根半部——
+ *             无状态源注册表 + 按会话的控制器映射。
+ * 【技术维度】Cordis Service：registerSource 注册源（重名报错）、sessionOf 懒解析
+ *             会话控制器并随作用域销毁；注册表变化会通知所有活跃控制器。
+ * 【产品维度】'/'-'@' 触发管线的源注册与服务入口。
+ * 【逻辑维度】registerSource 登记源并通知活跃控制器 → sessionOf 按会话作用域
+ *             创建/复用控制器（出生时预热花名册一次）。
+ * 【关键边界】注册顺序即菜单分组顺序与裁决轮询顺序；源回调故障被隔离（记录而非中断注册）。
+ * 【新手阅读建议】先看 sessionOf 的控制器生命周期，再看 registerSource 的注册与通知。
+ * ==========================================================================
+ */
+/**
  * InputTriggerService (`ctx.inputTriggers`): the root half of the trigger pipeline — the
  * stateless source registry plus the per-session controller map. Every piece
  * of mutable interaction state (hit, menu, fetch) lives on the
@@ -17,6 +30,8 @@ import type { InputTriggerServiceContract } from './contract.ts'
  * the caller-ctx tracker, so mutation goes through one property read — never
  * field assignment on `this`.
  */
+// 服务全部可变状态集中于一处：Cordis 服务方法运行在调用方 ctx 跟踪器之后，
+// 变更统一经一次属性读取，绝不直接给 this 上的字段赋值。
 interface LiveState {
   /** Registration order = menu group order = matchSpace/matchEnter poll order. */
   readonly sources: InputTriggerSource[]
@@ -25,6 +40,7 @@ interface LiveState {
 }
 
 /** The `ctx.inputTriggers` trigger pipeline service (root registry + controller resolution). */
+// 触发管线服务：根注册表 + 会话控制器解析。
 export class InputTriggerService extends Service implements InputTriggerServiceContract {
   static inject = ['sessions']
 

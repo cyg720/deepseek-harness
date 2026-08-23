@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】主题偏好（light/dark/system）的设置契约：命名空间、字段、可持久化
+ *             类型与宿主模式/浏览器作用域共用的耐久模式段。
+ * 【技术维度】schemastery 模式：同一模式既作宿主注册，也作浏览器作用域校验的
+ *             线缆信封；偏好集合以 as const 固定。
+ * 【产品维度】设置页"外观"行的持久化载体：跟随系统/浅色/深色。
+ * 【逻辑维度】常量（偏好列表/命名空间/字段/默认值）→ ThemeSettings 接口与模式
+ *             → isThemePreference 类型守卫。
+ * 【关键边界】DEFAULT_PREFERENCE 为 'system'；未知值在设置/注册边界被拒绝。
+ * 【新手阅读建议】与 settings-store.ts 和 client/index.ts 的读写对照阅读。
+ * ==========================================================================
+ */
 /** Theme preferences stored in the Host user-settings document. */
 
 import z from '@deepseek-ai/schemastery'

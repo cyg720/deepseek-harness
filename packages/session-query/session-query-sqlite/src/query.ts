@@ -1,3 +1,17 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】SQLite 查询构建层：请求规范化、参数化谓词与结果展示（摘录/游标指纹）。
+ * 【技术维度】把逻辑过滤器编译成参数化 SQL 片段（绑定数受 SQLite 便携上限约束）；
+ *   用户查询被当作数据引用（FTS5 短语加引号 + 转义），永不当作可执行 FTS 语法；
+ *   高亮标记用 U+FDD0/U+FDD1 两个非字符保证与正文无碰撞。
+ * 【产品维度】决定"搜什么、怎么筛、如何分页、摘录怎么截"的确定性规则。
+ * 【逻辑维度】按代码顺序：常量与上限断言 → 类型 → normalize 两个请求 → build 两个 WHERE →
+ *   quote/sanitize/makeSnippet/requestFingerprint → 私有辅助（addList/addRange/规范指纹等）。
+ * 【关键边界】绑定数上限 32766、FTS5 外层谓词预算 14；makeSnippet 以码点为长度单位。
+ * 【新手阅读建议】先读 normalize → buildWhere 的编译路径，再看 makeSnippet 的截取逻辑。
+ * ==========================================================================
+ */
+
 /** Request normalization, parameterized predicates, and result presentation. */
 
 import {

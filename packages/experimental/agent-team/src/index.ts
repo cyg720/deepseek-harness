@@ -1,3 +1,21 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】Agent Teams 服务门面（ctx.agentTeams）：把名册、邮箱、共享任务板与
+ *   运行时生命周期四个子所有者组合成一个可调用的服务。
+ * 【技术维度】Cordis Service；持久化状态以 log-only 会话事件存放在"精确活体 Lead
+ *   会话日志"里（team/member、team/task、team/message/*），经 fold 严格回放。
+ * 【产品维度】多代理团队协作原型：Lead 可创建持久队友、互相发消息、共享任务板、
+ *   等待团队活动变化、中断队友回合。
+ * 【逻辑维度】按代码顺序：默认限制常量 → TeamService（构造装配子所有者与监听、
+ *   membership/listMembers/spawnTeammate/sendMessage/createTask/getTask/listTasks/
+ *   updateTask/waitForChange/interrupt/tryMembership、私有恢复与拆解）。
+ * 【关键边界】本包是 experimental 私有原型（@deepseek-ai/dsh-experimental-*），
+ *   不放松工程/安全/文档要求；拆卸有 disposalTimeoutMs 期限。
+ * 【新手阅读建议】先读 types.ts 的数据形状，再按 roster → mailbox → task-board
+ *   的顺序看子所有者。
+ * ==========================================================================
+ */
+
 /** Agent Teams service façade over roster, mailbox, task, and runtime lifecycle owners. */
 
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -53,6 +71,8 @@ function positiveLimit(name: string, value: number): number {
 }
 
 /** Agent Teams service backed by the exact live Lead Session log. */
+// 中文：Agent Teams 服务门面：装配名册/邮箱/任务板/生命周期/活动五个子所有者，
+// 挂接会话事件（邮箱收据）、agent 状态（活动通知）与恢复调度。
 export class TeamService extends Service {
   static inject = ['agents', 'sessions', 'sessionPersistence', 'subagents']
 

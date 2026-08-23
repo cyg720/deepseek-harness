@@ -1,3 +1,19 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话插件全部槽位声明（SlotMap）与组合出的组件 props 类型：会话骨架、会话头、
+ *             视图环、聊天节点座位、输入区各区域、审批链、Hero 与详情面板等；以及注入面、
+ *             审批领域门面（PendingApproval）与滚动记忆结构。
+ * 【技术维度】纯类型文件（仅 PendingApproval 有少量运行时逻辑）；通过 declare module 把
+ *             各槽位注册进 ui-slots 的 SlotMap，并扩充 SessionStandardProps 与 Context。
+ * 【产品维度】这是"哪些插件可以往会话页面哪里插组件"的权威契约——其它插件按这里声明的
+ *             kind / scope / owner / inject 组合 props。
+ * 【逻辑维度】1) SlotMap 槽位声明（含每个槽位的语义注释）；2) 标准套件扩充；
+ *             3) 各 owner / injected 类型；4) 组合 props 别名；5) PendingApproval 领域面。
+ * 【关键边界】每个槽位的 kind（single / list / keyed / chain）与 scope（session / root /
+ *             session-maybe）决定渲染方式与生命周期；declared-claiming：谁声明谁拥有。
+ * 【新手阅读建议】先读 SlotMap 各槽位的语义注释（这段注释就是设计文档），再读组合 props。
+ * ==========================================================================
+ */
 /** Conversation slot declarations and their composed component props. */
 import type { ReactNode, RefObject } from 'react'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
@@ -23,6 +39,7 @@ import type { ChatNode, ChatNodeKind } from './chat-nodes.ts'
 import type { CallId, SelectionTarget, ViewTab } from './views.ts'
 
 /** Browser-owned image that has not crossed the durable host boundary. */
+// 尚未越过持久化宿主边界的浏览器自有图片（草稿态）。
 export interface ComposerAttachment {
   kind: 'image'
   id: DraftAttachmentId
@@ -31,16 +48,22 @@ export interface ComposerAttachment {
 }
 
 /** Input state handed to the optional attachment presentation plugin. */
+// 交给可选附件展示插件的输入状态（草稿图片与拖放能力）。
 export interface ComposerAttachmentsOwnerProps {
   /** Browser-owned draft images in input order. */
+  // 按输入顺序排列的浏览器自有草稿图片。
   attachments: readonly ComposerAttachment[]
   /** Whether a document-level file drop may add images now. */
+  // 当前是否允许文档级拖放添加图片。
   canAcceptDrop: boolean
   /** Add one dropped batch through the composer's validation path. */
+  // 通过输入框校验路径添加一批拖放的文件。
   onAddImages: (files: readonly File[]) => void
   /** Remove one draft image through the conversation service. */
+  // 经会话服务移除一张草稿图片。
   onRemoveImage: (id: DraftAttachmentId) => void
   /** Display-ready limits for the drop invitation. */
+  // 拖放邀请展示用的限额（数量与大小文案）。
   dropLimits?: { readonly count: number; readonly size: string } | undefined
 }
 

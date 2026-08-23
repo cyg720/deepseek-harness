@@ -1,4 +1,21 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】基于 SQLite FTS5 的会话查询服务具体实现：在 live 优先逻辑语料上
+ *   提供全文检索（跨会话与会话内）、继承父类全部精确读/过滤/追踪能力。
+ * 【技术维度】node:sqlite + FTS5 虚拟表；查询前做"对账"（观察持久化快照与活会话，
+ *   稳定后增量写索引）；主/本地双 generation 使游标失效可检测；操作串行化入队。
+ * 【产品维度】把会话历史变成可全文搜索的产品能力（含高亮摘录、分页游标、可用性过滤）。
+ * 【逻辑维度】按代码顺序：常量与声明合并 → Config/内部接口 → SqliteSessionQueryEngine
+ *   （构造/init/searchSessions/searchEvents/close/对账/观察/索引替换/查询/游标）→
+ *   模块级辅助（headerBindings/selectedDocumentsSql/observe*、page/encode/decodeCursor/
+ *   resolveConfig/等待与取消辅助）。
+ * 【关键边界】openAt:'never' 时绝不导入 node:sqlite；每个查询在串行队列内执行；
+ *   游标绑定请求指纹与 generation，语料变化即 STALE_CURSOR。
+ * 【新手阅读建议】先读 searchSessions 的串行执行 + 对账流程，再看 query.ts 的 SQL 构建。
+ * ==========================================================================
+ */
+
+/**
  * Concrete session-query service with SQLite FTS5 over the live-preferred corpus.
  *
  * @module @deepseek-ai/dsh-session-query-sqlite
@@ -193,6 +210,8 @@ interface CursorPayload {
 }
 
 /** Concrete SQLite owner of the combined `ctx.sessionQuery` service. */
+// 中文：SQLite 全文检索会话查询引擎：构造时校验配置并绑定可选持久化；searchSessions/
+// searchEvents 在串行队列内"确保就绪 → 对账 → 查询"，close 等在途操作静默后关库。
 export class SqliteSessionQueryEngine extends SessionQueryEngine {
   static override inject = ['sessions']
 

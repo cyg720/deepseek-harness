@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】无头（headless）的 popupSelect 弹出面板状态控制器：每个会话一个实例，
+ *             由 CommandUiRuntime 的会话级映射持有，随会话作用域销毁。
+ * 【技术维度】SnapshotStore 状态存储；面板是瞬时层（不进输入状态机）：打开时加载一次
+ *             选项，之后只做本地过滤，通过打开时捕获的上下文回调结算选择。
+ * 【产品维度】/ 命令菜单里那些"弹出选项面板"的命令（如选择工作区、选择预设）都走此壳。
+ * 【逻辑维度】open 打开并拉取选项 → setSearch/move/highlight 本地交互 → select/confirm
+ *             结算（消费 token、关闭、聚焦回输入框）；dismiss/dispose 关闭并作废结算权。
+ * 【关键边界】绑定身份（binding）决定结算权：被替换/关闭后的迟到结算不写状态、不消费 token。
+ * 【新手阅读建议】先看 PopupState 与 TokenSegment，再沿 open → select → settle 读主流程。
+ * ==========================================================================
+ */
+/**
  * Headless popupSelect shell state: one controller per client
  * session, owned by CommandUiRuntime's per-session map and torn down by the
  * session scope disposer. The shell is a transient layer (never in the input
@@ -21,6 +34,8 @@ import type { SelectOption } from './contract.ts'
  * is unchanged, an enter-path line iff the trimmed draft still equals the
  * bare token.
  */
+// 面板打开瞬间快照的命令 token 片段：结算成功后回放给注入的 consume 回调；
+// 由输入侧做 CAS 守卫（菜单路径要求草稿版本未变，回车路径要求草稿仍等于裸 token）。
 export type TokenSegment =
   | { readonly via: 'menu'; readonly span: TokenSpan }
   | { readonly via: 'enter'; readonly token: string }
@@ -31,6 +46,7 @@ export type TokenSegment =
  * session wiring passes its session projection; the controller only carries
  * it from open() to the callbacks).
  */
+// 面板结算依赖的业务规格：options 每次打开只加载一次，onSelect 用打开时捕获的上下文结算。
 export interface PopupSpec<TCtx> {
   /** Load the option rows once per open (retry after failure reuses the same signal). */
   options(context: TCtx, signal: AbortSignal): Promise<readonly SelectOption[]>
@@ -39,6 +55,7 @@ export interface PopupSpec<TCtx> {
 }
 
 /** Injected session-wiring callbacks of one controller (tests pass fakes). */
+// 注入的会话接线回调：token 消费（成功结算后）与输入框聚焦恢复。
 export interface PopupSelectDeps {
   /**
    * Consume the open-time token segment after a successful onSelect (the
@@ -53,6 +70,7 @@ export interface PopupSelectDeps {
 }
 
 /** Popup shell state (the shell component renders from here; closed = render null). */
+// 弹窗壳状态：渲染组件直接订阅它；open 为 false 时渲染 null。
 export interface PopupState {
   readonly open: boolean
   /** Command name the shell is open for (null while closed). */
@@ -75,6 +93,7 @@ export interface PopupState {
   readonly error: string | null
 }
 
+/** 弹窗壳的关闭态常量：所有字段取安全默认值，open 为 false。 */
 const CLOSED: PopupState = {
   open: false, command: null, status: 'pending', options: [], search: '', active: 0,
   submitting: false, confirming: null, acknowledged: false, error: null,
@@ -87,6 +106,7 @@ const CLOSED: PopupState = {
  * @param search - the shell's search text.
  * @returns the rows the shell shows and highlights over.
  */
+// 本地过滤选项：对 label 与 detail 做不区分大小写的子串匹配；空搜索保留全部行。
 export function filterOptions(options: readonly SelectOption[], search: string): readonly SelectOption[] {
   const query = search.trim().toLowerCase()
   if (query === '') return options
@@ -113,6 +133,8 @@ function errorText(error: unknown): string {
  * swap the binding, so a settling options fetch or onSelect that no longer
  * matches writes nothing and consumes nothing.
  */
+// 一个会话的弹窗选择壳控制器：结算权随绑定身份（binding）走，被关闭/替换后的
+// 迟到结算不写状态、不消费 token。
 export class PopupSelectController<TCtx = unknown> {
   /** Shell state store (the overlay component subscribes here). */
   readonly state: SnapshotStore<PopupState> = createSnapshotStore<PopupState>(CLOSED)
@@ -132,6 +154,7 @@ export class PopupSelectController<TCtx = unknown> {
    * @param context - open-time context snapshot, handed verbatim to options/onSelect.
    * @param segment - open-time token segment snapshot for post-select consumption.
    */
+  // 打开面板：发布 pending 状态并按业务规格拉取一次选项；重新打开会作废旧面板的结算权。
   open(command: string, spec: PopupSpec<TCtx>, context: TCtx, segment: TokenSegment): void {
     this.binding?.abort.abort()
     const binding: OpenBinding<TCtx> = { command, spec, context, segment, abort: new AbortController() }
@@ -211,6 +234,7 @@ export class PopupSelectController<TCtx = unknown> {
    * @param index - filtered-row index (callers pass the highlight or the clicked row).
    * @returns settled when the attempt has closed the shell or surfaced its failure.
    */
+  // 选中一行：单飞（submitting 期间其他操作忽略）；带风险确认的选项先进入确认门。
   async select(index: number): Promise<void> {
     const binding = this.binding
     const s = this.state.getSnapshot()
@@ -250,6 +274,7 @@ export class PopupSelectController<TCtx = unknown> {
   }
 
   /** Run the business settlement for an already admitted option. */
+  // 结算一个已准入的选项：单飞执行 onSelect；成功后消费 token、关闭面板并聚焦回输入框。
   private async settle(binding: OpenBinding<TCtx>, option: SelectOption): Promise<void> {
     const s = this.state.getSnapshot()
     if (this.binding !== binding || !s.open || s.submitting) return
@@ -275,6 +300,7 @@ export class PopupSelectController<TCtx = unknown> {
    * target takes focus); Escape passes focusComposer to return focus explicitly.
    * @param opts - focusComposer: also restore composer focus (Escape path).
    */
+  // 关闭面板：中止飞行中的拉取并作废结算权；Escape 路径额外恢复输入框焦点。
   dismiss(opts?: { readonly focusComposer?: boolean }): void {
     if (this.binding === null) return
     this.binding.abort.abort()
@@ -284,6 +310,7 @@ export class PopupSelectController<TCtx = unknown> {
   }
 
   /** Scope-teardown disposer: abort in-flight work and clear state (no focus side effect). */
+  // 作用域销毁清理：中止飞行中工作并清空状态（不触发焦点副作用）。
   dispose(): void {
     this.binding?.abort.abort()
     this.binding = null

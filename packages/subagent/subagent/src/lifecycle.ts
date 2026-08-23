@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】子代理生命周期事件的发布实现：包含的发射器（emitter）、一次性运行的观察器、
+ *   可续聊 Activation 的观察器。公开载荷类型在 types.ts，本模块只保留实现与包内私有的
+ *   ActivationObserver 契约。
+ * 【技术维度】createLifecycleEmitter 用 ctx.events.dispatch 手动派发并逐个隔离监听器异常；
+ *   observeRun 用 run.result.then 挂终止观察；createActivationObserver 记录日志边界
+ *   （boundary）只统计本 epoch 的后缀，避免冷恢复把旧回合算进来。
+ * 【产品维度】一次性与续聊子代理对外呈现同一套 start/end 事件对，观察者无需关心子代理
+ *   是 resident、被唤醒还是冷恢复的。
+ * 【逻辑维度】按代码顺序：ActivationTerminal → ActivationObserver → LifecycleEmitter →
+ *   createLifecycleEmitter → observeRun → createActivationObserver → epochStopReason →
+ *   renderThrown。
+ * 【关键边界】创建在"驻留前"失败不发任何生命周期边（不虚构生命周期）；
+ *   拆解失败（teardown failure）覆盖本 epoch 自身的结果并扣留输出。
+ * 【新手阅读建议】先看 observeRun 的 start→end 配对，再看 createActivationObserver 的
+ *   start/capture/settle 顺序契约。
+ * ==========================================================================
+ */
+
+/**
  * Lifecycle-edge publication for both subagent shapes: the contained emitter,
  * the one-shot run observer, and the continuable Activation observer.
  *
@@ -28,6 +48,8 @@ import type { SubagentResult, SubagentRun, SubagentRunEndInfo, SubagentRunInfo }
  * How one Activation's residency epoch ended, as both the terminal lifecycle
  * edge and the manager's own parent delivery report it.
  */
+// 中文：一次 Activation 驻留 epoch 的终结信息：既作为 subagent/end 事件载荷的一部分，
+// 也作为管理器向父代理投递结算通知的依据。
 export interface ActivationTerminal {
   /** Why this epoch's last ordinary turn ended, or `error` when teardown failed. */
   readonly stopReason: SubagentResult['stopReason']
@@ -41,6 +63,9 @@ export interface ActivationTerminal {
  * continuation manager is the only consumer, and its call ordering is an
  * in-package contract rather than a published extension point.
  */
+// 中文：一次 Activation 驻留 epoch 的生命周期观察器（包内私有）：续聊管理器按
+// start → capture → terminal → settle 的顺序调用，使续聊子代理与一次性运行
+// 对外呈现完全相同的 start/end 事件对。
 export interface ActivationObserver {
   /**
    * Publish the start edge once the epoch is resident.
@@ -82,6 +107,8 @@ export interface ActivationObserver {
  * exact service instance, whose own context filter composes into the carrier;
  * a narrowed stand-in would silently change scope filtering.
  */
+// 中文：生命周期发射器签名：前两个重载携带"委托父代理"用于作用域派发，
+// provider 移除事件没有父代理载体，不做作用域过滤。
 export type LifecycleEmitter = {
   (name: 'subagent/start', info: SubagentRunInfo, parent: Agent): void
   (name: 'subagent/end', info: SubagentRunEndInfo, parent: Agent): void
@@ -97,6 +124,8 @@ export type LifecycleEmitter = {
  * @param carrier - resolve the scoped dispatch carrier for one delegating parent.
  * @returns the emitter both observers and the provider registry publish through.
  */
+// 中文：构建"包含式"生命周期发射器：手动派发事件；同步抛出或被 reject 的监听器返回
+// 都被记录成 warn 日志，不影响其他监听器、运行本身或销毁流程。
 export function createLifecycleEmitter(
   ctx: Context,
   carrier: (parent: Agent) => object,
@@ -130,6 +159,8 @@ export function createLifecycleEmitter(
  * @param run - the published run whose settlement closes the pair.
  * @returns the same run, unchanged.
  */
+// 中文：为一次性运行发射 start/end 事件对：先在运行结果上挂终结观察（reject 也发 end，
+// 停止原因记 error），再同步发射 start，保证观察者先看到 start 后看到 end。
 export function observeRun(
   emit: LifecycleEmitter,
   provider: string,
@@ -172,6 +203,9 @@ export function observeRun(
  * @param parent - the exact live direct parent keying scoped dispatch.
  * @returns the observer whose edges this epoch publishes.
  */
+// 中文：为一次续聊 Activation 驻留 epoch 构建观察器：start 记录日志边界并发射 start 边，
+// capture 在句柄释放前快照本 epoch 的终止事实，settle 在处置结果已知后发射 end 边；
+// 驻留前失败不发任何边。
 export function createActivationObserver(
   emit: LifecycleEmitter,
   provider: string,
@@ -232,6 +266,9 @@ export function createActivationObserver(
  * @returns its terminal stop reason; `completed` only for an epoch that both
  *   closed cleanly and had nothing left to run.
  */
+// 中文：从本 epoch 的事件后缀推导停止原因：以子代理自己的日志为准（teardown 成功
+// 不代表模型没出错）；foldConsumedWork 提供"本 epoch 消耗的回合"与"被取消的未跑工作"
+// 两个线索，已记录的失败优先于取消。
 function epochStopReason(events: readonly SessionEvent[]): SubagentResult['stopReason'] {
   const { end, droppedUnrun } = foldConsumedWork(events)
   switch (end?.data.reason.kind) {
@@ -260,6 +297,8 @@ function epochStopReason(events: readonly SessionEvent[]): SubagentResult['stopR
 }
 
 /** Render any listener-thrown value without letting coercion escape containment. */
+// 中文：把监听器抛出的任意值渲染成可读字符串；渲染过程自身失败时给出固定兜底文本，
+// 保证日志记录永远不会再抛。
 function renderThrown(value: unknown): string {
   try {
     return value instanceof Error ? `${value.name}: ${value.message}` : String(value)

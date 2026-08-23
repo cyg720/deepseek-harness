@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】目录选择（浏览式）包的浏览器侧入口：把"应用内浏览选目录"对话框
+ *             注册进工作区的两个目录流程孔位，并注册对话框双语字典。
+ * 【技术维度】Cordis 浏览器插件：ctx.effect 注册字典（两个字典作为一个事务）、
+ *             ctx.slots.inject 嵌套注册两个孔位（生成器使两个注册成为事务性效果）。
+ * 【产品维度】新建/更换工作区目录时，用户可浏览目录树、编辑路径或新建文件夹。
+ * 【逻辑维度】1) 注册 zh/en 字典（失败回滚）；2) 注入 browse 面的调用；
+ *             3) 把 BrowseDirectoryFlow 注册进两个 directoryFlow 孔位。
+ * 【关键边界】依赖 ui-workspace 声明的孔位契约；嵌套注入使两注册同生共灭。
+ * 【新手阅读建议】先看 flow.ts 的占用者适配，再看本文件的接线与字典注册。
+ * ==========================================================================
+ */
+/**
  * Browser half of the browse directory-picker backend: fills ui-workspace's
  * two directory-flow holes with the in-app Select Workspace Directory dialog
  * (figma `Harness` 813-23126 family), driving the node half's

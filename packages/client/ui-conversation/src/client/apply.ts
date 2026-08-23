@@ -1,3 +1,20 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话插件的装配点 apply：注册会话节点与渲染器、字典；创建共享 store、输入
+ *             状态机（InputHub）、提交策略与压缩器块注册表；把会话骨架、输入栏、审批面板、
+ *             聊天视图、统计行、详情面板等一批槽位组件注册进 slot 系统；并挂载 conversation
+ *             服务与队列 / 任务停靠条目。
+ * 【技术维度】Cordis 插件装配；slots.register / slots.inject 声明槽位与子槽；sessions.provide
+ *             提供标准 input 钩子；ctx.plugin 挂载类插件服务；settingsScope 绑定设置。
+ * 【产品维度】一条完整会话页：Hero → 会话头部 → 消息流 → 输入栏（含附件 / 命令菜单 /
+ *             停止 / 审批）→ 统计与详情，全部由此装配。
+ * 【逻辑维度】1) 常量与注入面；2) 槽位声明：conversation 骨架、session、header、composer.bar、
+ *             chat.view、composer（审批链）、details；3) provide 输入标准件；4) 服务与停靠挂载。
+ * 【关键边界】无会话时的 hooks 用模块级常量（保证 hook 缓存身份稳定）；跨会话草稿在切换
+ *             工作区时迁移；'trajectory' 页签可能未注册，inspectCall 以回退行为保护。
+ * 【新手阅读建议】按 slots.register 的先后顺序读，理解"哪个组件占了哪个槽位"。
+ * ==========================================================================
+ */
 /** Registers the conversation components, shared store, and service callbacks. */
 import type { Context } from '@deepseek-ai/cordis'
 import { resolveSlotLabel, type BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
@@ -48,6 +65,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Services required by the conversation plugin. */
+// 会话插件所需的服务：槽位、布局、会话 / 工作区 / 本地化 / 连接 / 远端 / 设置作用域、
+// 会话事件与视图注册表。
 export const inject = [
   'slots', 'layout', 'sessions', 'workspaces', 'locale', 'connection', 'remote', 'settingsScope',
   'conversationEvents', 'conversationViews',
@@ -56,11 +75,14 @@ export const inject = [
 // Static no-session sources for the composer-bar hooks compartment: module
 // constants so the render side's per-source hook cache (observableHook) keeps
 // one identity across every no-session render.
+// 无会话时输入栏 hooks 仓的静态空数据源：用模块常量，保证渲染端按数据源缓存的
+// hook 身份（observableHook）在所有无会话渲染间保持唯一。
 const ABSENT_NOTICES = {
   getSnapshot: (): InputNotice | null => null,
   subscribe: () => () => {},
 }
 /** No session, therefore nothing to block; same one-identity rule as above. */
+// 没有会话就没有阻塞项；与上面相同的"单一身份"规则。
 const ABSENT_BLOCK = {
   getSnapshot: (): ComposerBlock | undefined => undefined,
   subscribe: () => () => {},
@@ -75,6 +97,7 @@ const ABSENT_MENU_LAUNCHER = {
   subscribe: () => () => {},
 }
 
+// 聊天节点的共享注入：给渲染器提供"按节点读回合数据"的 hooks 座位。
 const CHAT_NODE_INJECT: ChatNodeTurnDataInjected = {
   hooks: {
     turnData: ({ useSession }, nodeKey) => function useTurnData(key) {
@@ -89,6 +112,7 @@ const CHAT_NODE_INJECT: ChatNodeTurnDataInjected = {
 }
 
 /** Resolve the session-scoped conversation face (scope-addressed send/cancel), failing loud. */
+// 解析会话作用域下的 conversation 服务面（作用域寻址的发送 / 取消）；解析不到直接抛错。
 function scopedConversation(sessions: ISessions, id: SessionId): IConversation {
   const scoped = sessions.scope(id)
   if (scoped === undefined) throw new Error(`ui-conversation: session "${id}" resolved no scope`)
@@ -111,6 +135,11 @@ function selectApproval({ interactions }: ComposerChainProps): ApprovalWait | nu
 
 /** Mounts the conversation plugin.
  * @param ctx - Client root context.
+ */
+/**
+ * 装载会话插件：注册节点 / 渲染器 / 字典，创建 store 与输入状态机，注册全部槽位组件，
+ * 挂载 conversation 服务与停靠条目。
+ * @param ctx - 客户端根上下文。
  */
 export function apply(ctx: Context): void {
   const sessions = ctx.sessions

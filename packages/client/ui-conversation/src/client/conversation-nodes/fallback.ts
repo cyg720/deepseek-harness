@@ -1,3 +1,15 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】未认领的"追加面"事件兜底 Definition：任何没有业务状态机声明的
+ *             append-surface 事件都渲染成通用的 unknown 行。
+ * 【技术维度】ConversationNodeDefinition（registerFallback 注册）；isAppendSurfaceEvent
+ *             判定范围；载荷原样进入 UnknownSurfaceNode。
+ * 【产品维度】新事件类型在界面至少可见（不至于丢失），便于后续识别与接管。
+ * 【逻辑维度】1) 数据映射扩充；2) 兜底定义；3) 注册函数。
+ * 【关键边界】兜底只在没有更具体的定义认领时生效。
+ * 【新手阅读建议】理解"兜底 = 最低可见性保障"。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ConversationNodeDefinition, UnknownSurfaceNode,

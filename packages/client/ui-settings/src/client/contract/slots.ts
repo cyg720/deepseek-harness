@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】设置槽位契约：全部设置槽位类型的规范之家，由设置域基础层拥有，
+ *             而非渲染它们的外壳（ui-settings-general）。
+ * 【技术维度】纯类型：SlotMap 声明合并 + 各槽位的 owner props 接口；
+ *             外壳自身零文案（所有文字来自注册者）。
+ * 【产品维度】设置面板触发行、头部、动作、关闭、分区、插件页签、引导步骤与
+ *             通用偏好行的槽位形态。
+ * 【逻辑维度】八个槽位声明（trigger/header/action/close/section/plugins.tab/
+ *             onboarding/general.item）+ 六个 owner props 接口。
+ * 【关键边界】功能拥有自己的设置页（加设置不必改外壳）；槽位声明的 owner props
+ *             决定渲染方得到的共享信息。
+ * 【新手阅读建议】先看 settings.section 与 settings.general.item 两处最常用的槽位。
+ * ==========================================================================
+ */
+/**
  * Settings slot contract — the canonical home of every settings slot type,
  * owned by the settings domain base rather than by the shell that renders
  * them (ui-settings-general, which occupies `sidebar.settings`). The shell has

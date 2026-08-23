@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】session-title 包的 invariant 伴生插件：核对每一条 session/title 事件
+ *   的"来源与引用消息序列"持久化关系——自动标题必须至少引用一条人类 user/message seq，
+ *   显式用户重命名必须一条都不引用。
+ * 【技术维度】internal/dispatch 拦截（在事件公开发布前拒绝非法追加）；global 监听。
+ * 【产品维度】无论谁写入标题事件，持久化关系都被守护。
+ * 【逻辑维度】name/inject → install（internal/dispatch 校验）→ apply。
+ * 【关键边界】在 session/event 公开监听之前拦截，才能拒绝尚未提交的日志。
+ * 【新手阅读建议】理解 messageSeqs 空与否 ⟺ source.kind 为 user 的等价关系。
+ * ==========================================================================
+ */
+
+/**
  * Package-owned invariant companion for `@deepseek-ai/dsh-session-title`.
  * @module @deepseek-ai/dsh-session-title/invariant
  */

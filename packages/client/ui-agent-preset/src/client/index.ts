@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】ui-agent-preset 包在浏览器侧的插件入口：把"Agent 预设"的四个 UI 面
+ *             （设置行、新会话页芯片、会话头部标签、管理分区）注册进对应槽位。
+ * 【技术维度】Cordis 浏览器插件：ctx.effect() 注册副作用、ctx.slots.register() 挂载 UI、
+ *             ctx.inject() 注入后续作用域，通过 remote 事件（settings/document-updated、
+ *             agent-preset/selected）与宿主同步。
+ * 【产品维度】一套预设是一份插件组合（工具、提示词、能力）。用户可设默认预设，
+ *             新会话开场前在芯片上挑选预设，会话头部显示该会话实际使用的预设，
+ *             设置页可复制/删除预设或进入其目录编辑。
+ * 【逻辑维度】1) apply 建立设置行控制器并监听外部变更刷新；
+ *             2) 注入会话作用域，建立"芯片+头部标签"共享控制器，监听会话列表变化
+ *                以应用暂存的预设选择；
+ *             3) 注册管理分区，暴露增删改查与打开目录等操作。
+ * 【关键边界】运行中的会话保持开始时的预设，宿主拒绝中途换预设——这是"选择"与
+ *             "显示"分离的原因；预设按 id 存于目录，删除/复制是文件级操作。
+ * 【新手阅读建议】先读 settings-store / seat-store / section-store 三个控制器，
+ *             再看本文件如何把它们挂到槽位上。
+ * ==========================================================================
+ */
+/**
  * Agent-preset surface plugin, browser half — four surfaces over one roster:
  * a General-settings row for the default preset, a chip on the new-session
  * screen for the session about to start, a read-only label in the session
@@ -46,18 +66,23 @@ export type { AgentPresetOption, AgentPresetSettingsState } from './settings-sto
 export { AGENT_PRESET_SETTINGS_NS, writeDefaultPreset } from './settings-store.ts'
 
 /** Required services (cordis fiber inject). */
+// 本插件依赖的服务名清单：槽位、本地化、连接、远程网关与设置作用域，缺一不可。
 export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope']
 
 /**
  * Mount the General-settings row.
  * @param ctx - the browser plugin context.
  */
+// 浏览器侧插件入口：把四个"Agent 预设"表面（设置行、新会话芯片、会话头部标签、
+// 管理分区）注册进对应槽位，并连接它们与宿主之间的同步事件。
 export function apply(ctx: ClientContext): void {
   const { api } = ctx.get('connection') as ConnectionHandle
   const controller = new AgentPresetSettingsController(api, ctx.settingsScope.describe())
   // One roster, four surfaces. The chip is registered in a later scope, so it
   // subscribes here rather than being reached from this one.
+  // 共享清单刷新回调集合：任何表面改变预设目录（复制/删除）后都会通知所有订阅者重读。
   const rosterReaders = new Set<() => void>()
+  // 管理分区控制器：其 rosterChanged 回调会刷新设置行并通知所有共享订阅者。
   const section = new AgentPresetSectionController(api, () => {
     void controller.load()
     for (const read of rosterReaders) read()
@@ -95,12 +120,17 @@ export function apply(ctx: ClientContext): void {
   // conversation scope below (the seat and the session flow live there) and
   // unbound with it, so the section's face reads the current binding per
   // render and simply hides the button while no flow exists.
+  // 设置分区里的"创作草稿"入口：暂存创造模式预设并启动一个新会话落到它上面。
+  // 该绑定在下面的会话作用域内创建与销毁，分区渲染时按当前绑定决定是否显示按钮。
   let creatorDraft: (() => void) | undefined
 
   // The new-session chip and the header label: one controller, because the
   // staged choice belongs to the flow rather than to any one session.
+  // 新会话芯片与会话头部标签共用一个控制器：暂存的选择属于"新会话流程"，
+  // 不属于任何一个具体的会话。
   ctx.inject(['slots', 'conversation', 'sessions', 'workspaces'], (scope: ClientContext) => {
     const api = (scope.get('connection') as ConnectionHandle).api
+    // 芯片控制器：读取当前会话摘要（供应用暂存选择）、把应用结果写回会话列表。
     const seat = new AgentPresetSeatController(api, (): SeatSessionSummary | undefined => {
       const state = scope.sessions.list.getSnapshot()
       const summary = state.current === undefined ? undefined : state.byId[state.current]
@@ -115,6 +145,7 @@ export function apply(ctx: ClientContext): void {
       scope.sessions.noteAgentPreset(sessionId as never, agentPreset)
     })
 
+    // 芯片注入面：把芯片的 store 与动作暴露给槽位渲染层。
     const seatInjected = (): AgentPresetSeatInjected => ({
       hooks: { agentPresetSeat: seat.store },
       load: () => seat.load(),
@@ -122,6 +153,7 @@ export function apply(ctx: ClientContext): void {
       introduced: () => { seat.introduced() },
     })
 
+    // 头部标签注入面：暴露控制器 store 与 load，标签据此显示当前会话的预设。
     const labelInjected = (): AgentPresetLabelInjected => ({
       hooks: { agentPresets: controller.store },
       load: () => controller.load(),
@@ -187,6 +219,7 @@ export function apply(ctx: ClientContext): void {
     }, 'ui-agent-preset: new-session chip and header label')
   })
 
+  // 管理分区注入面：把分区的 store 与全部操作暴露给渲染层。
   const sectionInjected = (): AgentPresetSectionInjected => ({
     hooks: { agentPresetSection: section.store },
     load: () => section.load(),

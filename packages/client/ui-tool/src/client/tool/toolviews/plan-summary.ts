@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】todo_write 行单行摘要的纯计划推导：多个项可同时 in_progress
+ *             （并行工作），故摘要必须计数全部活动项而非只点名一个。
+ * 【技术维度】纯派生：输入是未经验证的模型 JSON（任何字段可能缺失/错型）；
+ *             摘要两半刻意不预连接（行会省略号截断，计数放在不可收缩的 span 里）。
+ * 【产品维度】对话中 todo_write 工具行的"X/Y 完成 + 正在进行的任务名"摘要。
+ * 【逻辑维度】planSummary 过滤 in_progress/completed → 命名首个活动项内容 →
+ *             计数其余活动项。
+ * 【关键边界】activeContent 为空/错型/纯空白时回退为仅计数（被拒调用保留原参数）；
+ *             与计划条带头部各自内联计数、互不共享。
+ * 【新手阅读建议】先看 PlanSummary 结构，再读 planSummary 的容错路径。
+ * ==========================================================================
+ */
+/**
  * Pure plan derivation for the todo_write row's one-line summary. Several items
  * may be `in_progress` at once — parallel work runs concurrent tasks, so a
  * summary built from one active item would silently drop the rest. The plan

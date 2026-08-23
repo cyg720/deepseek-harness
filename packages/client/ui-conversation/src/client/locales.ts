@@ -1,10 +1,25 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话插件的 'conversation' 命名空间字典：覆盖视图标签、输入框、图片、上下文、
+ *             统计、设置、审批、队列、终端等全量 UI 文案的中英双语。
+ * 【技术维度】zh 字典是键集合的事实来源（satisfies Record<string, string>），ConversationKey
+ *             由 keyof typeof zh 推导；en 用 satisfies Record<ConversationKey, string> 保证覆盖。
+ * 【产品维度】桌面客户端全部会话界面文案随语言切换。
+ * 【逻辑维度】1) 共享字符串常量；2) zh 字典；3) 键联合类型；4) en 字典。
+ * 【关键边界】新增文案必须同时改两份字典；支持 {placeholder} 插值；部分文案（如 LLM、
+ *             tok/s）是产品既定的英文术语。
+ * 【新手阅读建议】需要加文案时，在 zh 加键 → 类型自动收紧 → en 必须补齐。
+ * ==========================================================================
+ */
 /** `conversation` namespace dictionaries. */
 
 /** Dictionary namespace owned by this plugin. */
+// 本插件拥有的字典命名空间名。
 export const NS = 'conversation'
 
 // The claimed /plan hint and the plan-mode textarea placeholder share one
 // string: both describe the same next action.
+// /plan 提示与计划模式输入框占位符共用同一字符串：两者描述的是同一个下一步动作。
 const PLAN_NEXT_ACTION_ZH = '描述你的任务以生成计划'
 const PLAN_NEXT_ACTION_EN = 'describe your task to generate plan'
 
@@ -183,6 +198,7 @@ export const zh = {
 } satisfies Record<string, string>
 
 /** The conversation namespace key union. */
+// conversation 命名空间的键联合（由 zh 键集合推导）。
 export type ConversationKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */

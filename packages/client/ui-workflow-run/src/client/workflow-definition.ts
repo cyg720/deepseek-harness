@@ -1,3 +1,17 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】把持久的工作流事件族折叠成一个键控（keyed）聊天节点：工作流运行的
+ *             名称、状态与按阶段（phase）分组的成员（子代理）。
+ * 【技术维度】ConversationNodeDefinition 声明合并：match 只认 tool-workflow 事件族；
+ *             状态从 stopReason/outcome/位置闭合推导（中断态）。
+ * 【产品维度】对话中展示工作流运行：运行名、整体状态与各阶段成员状态。
+ * 【逻辑维度】match/start/update 累积状态 → projectWorkflow 投影（成员按阶段分组、
+ *             中断推导）→ buildViewNode 产出节点。
+ * 【关键边界】阶段键要区分"缺失"与"空串"两种身份（workflowPhaseKey 带长度前缀）；
+ *             只有实际启动的成员进入数据。
+ * 【新手阅读建议】先看 WorkflowRunChatData 数据形态，再读投影与累积两个方向。
+ * ==========================================================================
+ */
 import type {
   ChatConversationViewNode, ConversationLocation, ConversationNodeContext,
   ConversationNodeDefinition,

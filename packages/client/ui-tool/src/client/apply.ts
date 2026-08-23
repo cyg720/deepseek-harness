@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】ui-tool 包的浏览器侧装配入口：注册工具调用树（ToolCallTree）、
+ *             详情渲染器与全部内置原子工具视图。
+ * 【技术维度】Cordis 浏览器插件：conversation.chat.node 键控注册（key 'tool-call'，
+ *             声明 tool.call.toolview 键控子槽位）；details 槽位注册详情面板；
+ *             ctx.plugin 挂载各内置工具视图插件。
+ * 【产品维度】对话中所有工具调用的行式呈现（搜索/读取/写/编辑/终端等）与详情面板。
+ * 【逻辑维度】1) 注册工具调用树节点；2) 注册详情面板；3) 挂载七个内置工具视图。
+ * 【关键边界】注入面只含 hostDescription（供 POSIX '~' 缩写）。
+ * 【新手阅读建议】先读 models/tool-call-model.ts 的行模型，再看本文件的装配。
+ * ==========================================================================
+ */
 /** Register the Tool call tree, details renderer, and built-in atomic views. */
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'

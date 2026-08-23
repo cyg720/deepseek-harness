@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】浏览器 UI 渲染器：在 Cordis 依赖激活后安装槽位渲染器，并暴露
+ *             web 启动内核在客户端花名册就绪后使用的挂载操作。
+ * 【技术维度】React 18 + react-dom：createSlotRenderer 安装槽位渲染、buildRenderApp
+ *             组装应用；挂载时保留框架无关的启动 DOM（hydrate 接力）。
+ * 【产品维度】应用在浏览器中的渲染与启动接管（boot DOM → React 应用）。
+ * 【逻辑维度】apply 安装槽位渲染器并提供 uiRenderer.mount → mountApp 选择
+ *             hydrate（有 boot DOM）或 createRoot（无）。
+ * 【关键边界】uiRenderer 是框架无关启动内核的唯一挂载入口；
+ *             客户端渲染（CSR）专用，无服务端快照接线。
+ * 【新手阅读建议】先看 mountApp 的 hydrate 分支，再看 apply 的安装。
+ * ==========================================================================
+ */
+/**
  * Browser UI renderer. It installs the slot renderer after its Cordis
  * dependencies activate and exposes the mount operation used by the web boot
  * kernel after the complete client roster settles.

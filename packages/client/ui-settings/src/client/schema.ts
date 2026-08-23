@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】设置域拥有的同步模式（schema）服务：settingsSchema —— 提供
+ *             模式重水合、校验、按路径解析，以及不可变地读写嵌套设置值。
+ * 【技术维度】Cordis Service 包装 schemastery：动态客户端插件通过该实体协作，
+ *             而非互相导入可执行辅助函数（客户端包纯度门禁）。
+ * 【产品维度】设置编辑的校验与按路径修改的数据层基础。
+ * 【逻辑维度】rehydrate 还原模式 → validate 校验草稿 → nodeAtPath/getPath 路径解析
+ *             → setPath/deletePath 不可变修改（cloneSpine 沿路径复制）。
+ * 【关键边界】路径支持对象键与数组下标；setPath/deletePath 要求非空路径。
+ * 【新手阅读建议】先看 cloneSpine/cloneContainer 的复制策略，再看各方法的路径语义。
+ * ==========================================================================
+ */
 /** Synchronous schema introspection and immutable settings-draft edits. */
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'

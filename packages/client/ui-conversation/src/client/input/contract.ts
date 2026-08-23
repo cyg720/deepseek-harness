@@ -1,4 +1,21 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】输入状态机的冻结契约（仅类型）：三层可见性——业务包经 InputZone 看
+ *             InputState；作用域输入事件携带变更动词；只有会话装配层看完整的 SessionInput。
+ *             InputMachine 是包私有的，从不导出。
+ * 【技术维度】纯类型文件；输入事件（InputEvent）是机器唯一写路径（一个事务 = 草稿编辑 +
+ *             出现次数重排 + 撤销日志入栈，dispatch 内原子完成）；效果（InputEffect）由
+ *             SessionInput shell 执行（机器保持纯函数）。
+ * 【产品维度】输入框的撤销 / 重做 / 粘贴升级 / 提交仲裁 / 引用 chip 等行为的类型契约。
+ * 【逻辑维度】1) 各身份类型（草稿图片 id、编辑选择）；2) SessionInput / SessionInputResolver /
+ *             InputActions 三面；3) ComposerKeyboard 键盘命令面；4) 出现次数与粘贴结构；
+ *             5) InputState / SubmitAttempt；6) InputEvent 判别联合；7) InputEffect。
+ * 【关键边界】draftRev 是 span CAS 的版本依据（相等 ⟹ 草稿相同 ⟹ span 内容相同）；
+ *             过期提交尝试被丢弃（防回流）。
+ * 【新手阅读建议】先读 InputEvent 的判别联合（机器能做什么），再读 InputState（状态形状）。
+ * ==========================================================================
+ */
+/**
  * Frozen input-machine contract. Types
  * only. Three-tier visibility: business packages see InputState via the
  * InputZone currency; the scoped input events carry the mutation verbs; the
@@ -15,6 +32,7 @@ import type { QueueRow } from '../contract/queue.ts'
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
 
 /** Browser-runtime identity of one unsent image draft. */
+// 一张未发送图片草稿的浏览器运行时身份。
 export type DraftAttachmentId = Branded<'DraftAttachmentId'>
 
 /**

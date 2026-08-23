@@ -1,3 +1,18 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话全文索引的 SQLite schema：打开/校验/初始化持久与连接本地 schema。
+ * 【技术维度】application_id + user_version 双重识别"派生存储"；版本不兼容时原地重置；
+ *   journal_mode 等可变 pragma 只在拒绝外来/规范文件后应用；FTS5 表用 unicode61 分词。
+ * 【产品维度】保证索引文件是"可丢弃的派生物"：损坏/旧版只重放重建，绝不误伤其他数据库。
+ * 【逻辑维度】按代码顺序：版本/应用 ID/日志模式 → 派生表清单 → openSearchDatabase →
+ *   listUserTables/assertDerivedUserTables/resetDerivedSchema/ensurePersistentSchema/
+ *   ensureTemporarySchema/quoteIdentifier。
+ * 【关键边界】非空且无 application_id 的文件被拒绝（不是空库也不是已识别派生索引）；
+ *   schema 版本 8，不兼容即整体重置。
+ * 【新手阅读建议】先看 openSearchDatabase 的"识别 → 校验 → 重置 → 建表"四步。
+ * ==========================================================================
+ */
+
 /** SQLite schema for the disposable session full-text read model. */
 
 import type { DatabaseSync } from 'node:sqlite'
@@ -5,6 +20,7 @@ import { mkdir, open } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 /** Current derived-index schema version. Incompatible versions reset in place. */
+// 中文：当前派生索引 schema 版本：不兼容的版本会在原地重置重建。
 export const SESSION_QUERY_SQLITE_SCHEMA_VERSION = 8
 
 /** SQLite application id protecting unrelated databases from derived resets. */

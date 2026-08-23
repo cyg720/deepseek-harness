@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】可选"本地设置文档"动作的状态所有者：从共享镜像派生本地文档
+ *             可用性，并调用无路径的宿主打开操作。
+ * 【技术维度】SnapshotStore + 共享镜像（SettingsDescribeFace）：hasDocument
+ *             来自镜像；打开操作走 settings.openDocument（loopback）。
+ * 【产品维度】设置页头部"打开设置文档"动作的可用性状态与执行。
+ * 【逻辑维度】load 跟随镜像并派生可用性 → open 单飞调用宿主打开 → derive
+ *             按 hasDocument 决定 ready/unavailable。
+ * 【关键边界】open 只在 ready 且未在打开时执行；错误只作诊断（UI 只展示本地化文案）。
+ * 【新手阅读建议】与权限设置的 settings-store.ts 对比（同属镜像派生模式）。
+ * ==========================================================================
+ */
 /** State owner for the optional local settings-document action. */
 
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'

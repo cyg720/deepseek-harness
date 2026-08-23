@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】从冻结调用切片纯推导搜索卡片 props：grep/glob 声明的
+ *             card:'search' 渲染意图经 resultView 到达，本文件是把它变成
+ *             SearchBlock 可绘制内容的唯一位置。
+ * 【技术维度】纯派生：两个对话渲染点（聊天行内体与详情面板输出段）都调用它，
+ *             分组匹配或路径列表只推导一次；结果时限（运行中返回 null）。
+ * 【产品维度】对话/详情中的搜索匹配分组与路径列表展示，以及截断结果的恢复定位。
+ * 【逻辑维度】searchCardModel 判 card/shape → 校验 files/paths（线缆不可信数据）
+ *             → 产出 matches 或 paths 卡片 + 截断恢复文本。
+ * 【关键边界】files/paths 不受宿主模式校验，显式守卫防 SearchBlock 崩溃；
+ *             未知 shape 回退通用路径；CHAT_SEARCH_MAX_LINES 是行几何设计常量。
+ * 【新手阅读建议】先看 SearchCardModel 结构，再读两个可信度守卫函数。
+ * ==========================================================================
+ */
+/**
  * Pure derivation of the search-card props from a frozen call slice: the
  * `card:'search'` render intent the `grep` and `glob` tools declare arrives on
  * the snapshot as `resultView`, and this is the one place that turns it into

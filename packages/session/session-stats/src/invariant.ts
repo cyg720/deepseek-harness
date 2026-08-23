@@ -1,4 +1,15 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】session-stats 包的 invariant 伴生插件：本包无运行时不变量（纯投影折叠，
+ *   载荷由投影注册表在每次快照/馈送时 schema 校验；事件关系由 agent-loop 与
+ *   session 表面运行时检查）。
+ * 【技术维度】标准 invariants 插件形态，install 为空函数；文件被 jscpd:ignore 包裹。
+ * 【逻辑维度】name/inject → 空 install（附论证）→ apply。
+ * 【新手阅读建议】读 install 上方英文注释理解"为何无需不变量"。
+ * ==========================================================================
+ */
+
+/**
  * Package-owned invariant companion for `@deepseek-ai/dsh-session-stats`.
  * @module @deepseek-ai/dsh-session-stats/invariant
  */

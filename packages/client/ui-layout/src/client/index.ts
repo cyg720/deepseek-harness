@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】ui-layout 包在浏览器侧的插件入口：一次 register() 把 AppFrame 贡献进
+ *             运行时内置的 'root' 槽位，同时声明四个子槽位、安置布局存储并接线
+ *             ctx.layout 服务面；第二个 effect 安置主题呈现器。
+ * 【技术维度】Cordis 浏览器插件 + 槽位声明（声明即独占渲染权）+ defineStore 工厂
+ *             （框架按入口实例化）+ ThemePresenter 纯 DOM 写。
+ * 【产品维度】应用三栏主框架（侧边栏/中栏/详情栏 + 全局浮层），以及主题对 document 的投影。
+ * 【逻辑维度】1) 注册 ctx.layout 服务；2) 注册 'root'（带四个子槽位声明与 store）；
+ *             3) 注入钩子把 store 动作交给服务；4) 主题呈现器跟随 theme/change 事件。
+ * 【关键边界】子槽位由同一 register() 声明，会话所有者不传 sessionId（框架注入）。
+ * 【新手阅读建议】先看 stores.ts 与 columns.ts，再看本文件如何一次性完成注册与接线。
+ * ==========================================================================
+ */
+/**
  * Layout plugin, browser half: one register() call contributes AppFrame into
  * the runtime's built-in 'root' slot and, in the same breath, declares the
  * four child slots (declaration = exclusive render authority), seats the

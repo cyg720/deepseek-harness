@@ -1,4 +1,15 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】session-projection-cache 包的 invariant 伴生插件：注册空安装器，
+ *   说明本包无运行时不变量（行的正确性只能重跑折叠来核对——那是复制实现而非发现漂移；
+ *   过期是设计使然（fail-soft 写），耐久边界已由 storage-domain 层 schema 校验）。
+ * 【技术维度】标准 invariants 插件形态；文件被 jscpd:ignore 包裹。
+ * 【逻辑维度】name/inject → 空 install（附论证）→ apply。
+ * 【新手阅读建议】读 install 上方英文注释理解论证。
+ * ==========================================================================
+ */
+
+/**
  * Package-owned invariant companion for `@deepseek-ai/dsh-session-projection-cache`.
  * @module @deepseek-ai/dsh-session-projection-cache/invariant
  */

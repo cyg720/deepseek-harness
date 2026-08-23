@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】sessionStats 投影单元：把步骤边界、流式块、工具对与组装后的助手消息
+ *   折叠成全日志的计数与耗时（turns/steps/llmMs/toolMs/ttftMs/decodeMs/decodeTokens）。
+ * 【技术维度】Zod 校验状态与视图；计数以 step/end 为权威（每条已进入步骤恰好一条，
+ *   finally 中追加）；耗时折叠与客户端窗口折叠逐字段对齐（模型耗时=step/start→
+ *   assistant/message，首 token=首个非空 delta 块，解码=首 token→消息组装）。
+ * 【产品维度】前端展示整场会话统计，不因历史分页/压缩而漂移。
+ * 【逻辑维度】按代码顺序：SessionStatsTotals → SessionStatsState → schema →
+ *   usageOutputTokens → sessionStatsProjectionDefinition（init/apply 各事件分支/wire）。
+ * 【关键边界】apply 对不感兴趣的事件返回同一引用（Object.is 门控变更馈送）；
+ *   pendingCalls 用 Object.hasOwn 防原型污染；turn/end 清理未落地调用。
+ * 【新手阅读建议】对照 apply 的各 case 与顶部英文 JSDoc 的"为什么以 step/end 计数"。
+ * ==========================================================================
+ */
+
+/**
  * The `sessionStats` projection unit: a pure fold of step boundaries, stream
  * chunks, tool pairs, and assembled assistant messages into whole-log counts
  * and wall times.
@@ -28,6 +44,8 @@ import { isTokenDelta } from '@deepseek-ai/dsh-llm/message'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 
 /** Accumulated whole-log figures (the view is exactly these totals). */
+// 中文：累计的全日志统计（视图就是这些总数）：回合/步骤计数、模型与工具耗时、
+// 首 token 延迟、解码耗时与 token 数。
 interface SessionStatsTotals {
   /** Distinct turns with at least one closed step so far. */
   turns: number
@@ -53,6 +71,8 @@ interface SessionStatsTotals {
  * `lastTurn` slot decides "first closed step of a new turn"; the state is
  * plain JSON per the unit contract (persisted-cache precondition).
  */
+// 中文：折叠状态 = 总数 + 进行中边界：lastTurn 判"新回合首个已关闭步骤"、
+// openStep 记录未完成步骤的边界事实、pendingCalls 按 callId 记未落地工具分发时刻。
 interface SessionStatsState extends SessionStatsTotals {
   /** Turn of the last counted `step/end`; null before the first. */
   lastTurn: number | null
@@ -102,6 +122,7 @@ const sessionStatsStateSchema = sessionStatsSchema.extend({
  * @param usage - the assistant/message event's optional usage record.
  * @returns the output-token count, or null when unreported or invalid.
  */
+// 中文：读取 provider 上报的完成 token 数，校验方式与窗口折叠一致：未上报或非法返回 null。
 function usageOutputTokens(usage: unknown): number | null {
   if (typeof usage !== 'object' || usage === null) return null
   const value = (usage as { outputTokens?: unknown }).outputTokens
@@ -109,6 +130,9 @@ function usageOutputTokens(usage: unknown): number | null {
 }
 
 /** The `sessionStats` unit registered on `ctx.sessionProjections` (exported for the unit spec). */
+// 中文：sessionStats 投影单元：step/start 开窗、chunk 记首 token、assistant/message
+// 结算模型耗时与解码、tool/call↔result 配对累计工具耗时、step/end 计数，
+// turn/end 清理未落地调用；视图就是八个总数。
 export const sessionStatsProjectionDefinition = {
   key: 'sessionStats',
   stateVersion: 1,

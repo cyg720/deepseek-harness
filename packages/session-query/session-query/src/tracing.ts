@@ -1,3 +1,18 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】一次性会话血缘与事件关系追踪辅助：把原始事件日志做一次规范表面折叠，
+ *   产出轻量记录、当前表面、事件替换链/来源/衍生关系，以及会话树的血缘追踪。
+ * 【技术维度】基于 dsh-session 的 foldSurface（三态分类 + 替换记录）；
+ *   事件来源通过 SurfaceEvent 的 sourceEventSeqs 关联；后代树用显式栈无递归构建。
+ * 【产品维度】回答"这条会话/这个事件从哪来、被谁引用、派生到什么"的产品能力。
+ * 【逻辑维度】按代码顺序：EventLogAnalysis → eventRecords/currentSurfaceEvents/traceEvent/
+ *   traceSession → analyzeEventLog/eventSources/buildDescendants/cloneRecord。
+ * 【关键边界】血缘环检测（SESSION_QUERY_INVALID_LINEAGE）；表面损坏映射为
+ *   SESSION_QUERY_INVALID_SURFACE。
+ * 【新手阅读建议】先读 analyzeEventLog 的一次折叠，再对照 traceEvent/traceSession 的用法。
+ * ==========================================================================
+ */
+
 /** One-shot session-lineage and event-relationship tracing helpers. */
 
 import { foldSurface, isSurfaceEvent, snapshotSessionEvent } from '@deepseek-ai/dsh-session'

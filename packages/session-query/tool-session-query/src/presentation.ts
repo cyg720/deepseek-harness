@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】模型文本渲染与通用工具调用展示：把查询/追踪/读取结果格式化成
+ *   模型可读文本，并为每个工具生成调用卡片视图。
+ * 【技术维度】纯文本拼装（含工作区外占位 [outside workspace] 与可用性标注）；
+ *   GenericCallView 表达 UI 渲染意图（generic 卡片 + search/read 类型）。
+ * 【产品维度】决定模型"看到什么格式的结果与调用展示"。
+ * 【逻辑维度】formatSessionSearch/formatEventSearch/formatSessionTrace/formatEventTrace/
+ *   formatEventRead → 渲染辅助（renderDescendants/formatNeighbor/availabilityText 等）
+ *   → present*Call → presentation 聚合导出。
+ * 【新手阅读建议】对照 operations.ts 各 execute 的调用点阅读格式化函数。
+ * ==========================================================================
+ */
+
+/**
  * Model text rendering and generic tool-call presentation.
  *
  * @module @deepseek-ai/dsh-tool-session-query/presentation

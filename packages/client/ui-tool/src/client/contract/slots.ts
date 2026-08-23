@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】工具 UI 槽位声明与组合组件 props：键控原子工具视图
+ *             （tool.call.toolview）及其所有者货币（ToolCallOwnerProps）。
+ * 【技术维度】纯类型：SlotMap 声明合并 + PropsRuntime/PropsRenderSlots 组合；
+ *             键域开放（任意线缆工具名，含本包自注册的工具）。
+ * 【产品维度】对话中单个工具调用的原子视图定制；已发货组合覆盖的键可被替换。
+ * 【逻辑维度】槽位声明（keyed/session）→ ToolCallOwnerProps 所有者货币 →
+ *             ToolCallViewProps/ToolTreeProps/ToolDetailsProps 全量组合。
+ * 【关键边界】键域开放故无编译期键集（拼错键名只是不渲染）；未认领键回退通用行。
+ * 【新手阅读建议】先看 ToolCallOwnerProps 的所有者货币，再看各全量 props 组合。
+ * ==========================================================================
+ */
 /** Tool UI slot declarations and their composed component props. */
 import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'

@@ -1,3 +1,18 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】槽位注册与运行时引擎的框架中立存储契约：选择器 hook、动作声明表、
+ *             存储规格与实例类型。
+ * 【技术维度】纯类型：immer 草稿式动作（ActionsDecl）→ 烘焙动作（BakedActions）；
+ *             StoreSpec 是声明（init/persist/actions），StoreHandle 是"规格 +
+ *             身份 + 工厂"。
+ * 【产品维度】槽位注册的 store 选项、注入面动作参数与组件 PropsStore 的类型基础。
+ * 【逻辑维度】SnapshotSelectorHook → ActionsDecl/BakedActions → StoreSpec/
+ *             StoreInstance/StoreHandle → StoreFactory/StoreDecl → PropsStore。
+ * 【关键边界】模块级永不导出 handle（模块缓存身份是跨插件重载的伪装单例）；
+ *             持久化按作用域键后缀隔离。
+ * 【新手阅读建议】先看 ActionsDecl 与 BakedActions 的草稿剥离，再看 StoreDecl 两种形态。
+ * ==========================================================================
+ */
 /** Framework-neutral store contracts for slot registrations and the runtime engine. */
 
 /**

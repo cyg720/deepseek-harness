@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话查询服务的错误包含与模型安全翻译：把服务层失败转成稳定的、
+ *   模型可见的错误码与信息。
+ * 【技术维度】SAFE_SESSION_QUERY_FAILURES 白名单映射（含 TOOL_FAILED 兜底）；
+ *   sanitizeError 记录完整诊断到日志但只向模型暴露安全文本；UNAUTHORIZED 透传。
+ * 【产品维度】模型拿到"可行动的失败原因"而不会看到内部堆栈/敏感细节。
+ * 【逻辑维度】SAFE 映射表 → unauthorizedTarget → call → sanitizeError → 渲染辅助
+ *   → serviceBoundary 聚合导出。
+ * 【关键边界】完整错误经 cause 链渲染后仅入日志；未知/未列入的失败一律 TOOL_FAILED。
+ * 【新手阅读建议】先看 SAFE 映射表，再看 sanitizeError 的两路输出。
+ * ==========================================================================
+ */
+
+/**
  * Session-query service error containment and model-safe translation.
  *
  * @module @deepseek-ai/dsh-tool-session-query/service-boundary

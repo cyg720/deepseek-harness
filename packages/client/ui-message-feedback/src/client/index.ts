@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】消息反馈包的浏览器侧入口：把赞/踩条目注册进助手消息操作条，
+ *             每个会话一个反馈控制器（一次列表读取种子化整段对话）。
+ * 【技术维度】Cordis 浏览器插件：变更经生成的 messageFeedback Remote，
+ *             宿主拥有按项比较并交换（CAS）；控制器按会话懒创建、随条目清理。
+ * 【产品维度】用户可对每条助手消息点赞/踩、加备注或清除。
+ * 【逻辑维度】1) 注册字典；2) 按会话懒建控制器；3) 重连时对已读会话 resync；
+ *             4) 注册 assistant-actions 条目（按会话注入）。
+ * 【关键边界】重连只失效已读过的数据；冷会话保持冷直到被请求。
+ * 【新手阅读建议】先读 controller.ts 的 CAS 语义，再看本文件的接线。
+ * ==========================================================================
+ */
+/**
  * Message feedback plugin, browser half: the Like/Dislike entry in the
  * conversation.chat.assistant-actions strip. One MessageFeedbackController per
  * Session backs every message control in that Session, so a single list read

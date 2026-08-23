@@ -1,4 +1,21 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】SessionInput 外壳（SessionInputShell）：纯输入机器的唯一调用者与效果执行者。
+ *             拥有 InputState store（机器状态 + 队列叠加）、通知通道与提交事务管道
+ *             （经会话 InputTriggerController 仲裁；claim.submit；默认 sink）。
+ *             包私有——仅 InputHub 构造它并接线作用域事件。
+ * 【技术维度】SnapshotStore 发布；机器 dispatch → 效果 fan-out；队列只读面叠加；
+ *             图片发送去重（一次一单）；镜像写聊天 store 草稿。
+ * 【产品维度】输入框对外暴露 setDraft / submit / 撤销 / 粘贴等全部行为，同时把状态
+ *             经 provide 通道发布给会话 UI。
+ * 【逻辑维度】1) 依赖面（thunk 化解析）；2) 外壳类（state / notices / actions / core）；
+ *             3) SessionInput 面实现；4) 键盘面实现；5) 内部 run / publish / 效果执行。
+ * 【关键边界】斜杠 / 弹出面用 thunk 延迟解析（shell 在 provide 物化期创建，此时作用域
+ *             记录尚不可查询）；忙碌准入阶段拒绝图片增删；成功发送提交不清撤销历史。
+ * 【新手阅读建议】先看 submit 的三种出口（纯图片发送 / 认领前置校验 / 正常事务）。
+ * ==========================================================================
+ */
+/**
  * SessionInput shell over the pure input machine: the sole machine caller
  * and effect executor. Owns the InputState store (machine state + the queue
  * overlay), the notice channel, and the submit transaction plumbing
@@ -79,6 +96,9 @@ const EMPTY_LEXICON: ReadonlyMap<'/' | '@', readonly string[]> = new Map()
 /**
  * The per-session input facade: scoped-event application verbs +
  * setDraft/submit + the published InputState store.
+ */
+/**
+ * 每会话输入门面：作用域事件动词 + setDraft/submit + 发布的 InputState store。
  */
 export class SessionInputShell implements SessionInput {
   /** Published machine state + queue overlay (the InputZone currency source). */

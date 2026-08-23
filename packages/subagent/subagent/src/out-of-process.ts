@@ -1,4 +1,25 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】进程外（out-of-process）子代理后端的共享词汇：零能力声明、定时上限校验、
+ *   子代理工作目录解析（配置覆盖，否则取父会话工作区）、永不 reject 的结果结算、
+ *   以及标准的运行句柄发布。
+ * 【技术维度】无任何能力（NO_START_CAPABILITIES）是进程外后端的声明：父代理强制的启动特性
+ *   无法在另一个进程里兑现，因此服务端在 start 前就拒绝；settleRunResult 用"本地取消优先 +
+ *   失败扁平化为 error"保证 result 永不 reject。
+ * 【产品维度】ACP、fork 等外部进程子代理在此统一契约，避免把服务器进程的工作目录
+ *   意外当成子代理的工作区（一个服务器服务多个会话，各有各的 cwd）。
+ * 【逻辑维度】按代码顺序：诊断文本截断 → NO_START_CAPABILITIES → assertPositiveFinite →
+ *   isEnterableDirectory → assertUsableCwd → validateConfiguredCwd → resolveChildCwd →
+ *   toError → RunResultSettlement → settleRunResult → SubprocessRunHandleParts →
+ *   subprocessRunHandle。
+ * 【关键边界】cwd 必须是绝对路径且可进入（X_OK）；diagnostic 截断不切断 UTF-8 序列；
+ *   dispose() 幂等（记忆化一次 teardown）。
+ * 【新手阅读建议】先读 settleRunResult 理解"result 永不 reject"的契约，再读
+ *   subprocessRunHandle 的幂等 dispose。
+ * ==========================================================================
+ */
+
+/**
  * Provider-side vocabulary for OUT-OF-PROCESS subagent backends — the pieces
  * that enforce this seam's own contracts around a child in another process:
  * the no-capabilities advertisement, timing-bound validation, child
@@ -28,6 +49,8 @@ const utf8Decoder = new TextDecoder()
  * @param diagnostic - safe diagnostic text produced by the provider.
  * @returns the original text, or a visibly truncated value within the limit.
  */
+// 中文：把 provider 提供的失败详情限制在 4KB 内；截断位置回退到 UTF-8 字符边界，
+// 避免切断多字节序列产生乱码，并附加截断提示后缀。
 function limitSubagentDiagnostic(diagnostic: string): string {
   const bytes = utf8Encoder.encode(diagnostic)
   if (bytes.byteLength <= MAX_SUBAGENT_DIAGNOSTIC_BYTES) return diagnostic
@@ -47,6 +70,9 @@ function limitSubagentDiagnostic(diagnostic: string): string {
  * (`outputSchema`/`maxDepth`/`toolFilter`/`persona`), so the service rejects a
  * request needing any of them before `start` runs — never accepted-then-ignored.
  */
+// 中文：进程外后端的启动能力声明——全部为 false。另一个进程里的子代理无法兑现
+// outputSchema/maxDepth/toolFilter/persona 这些父进程强制的特性，因此任何需要
+// 这些能力的请求都会在 start 前被服务端拒绝（绝不接受后静默忽略）。
 export const NO_START_CAPABILITIES: SubagentCapabilities = Object.freeze({
   outputSchema: false,
   depthLimit: false,
@@ -61,6 +87,7 @@ export const NO_START_CAPABILITIES: SubagentCapabilities = Object.freeze({
  * @param name - the config field name, for the diagnostic.
  * @param value - the configured value.
  */
+// 中文：校验定时类配置必须是"正的有限数"（0、负数、NaN 会让等待被跳过或卡死）。
 export function assertPositiveFinite(prefix: string, name: string, value: number): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`${prefix}: ${name} must be a positive finite number`)
@@ -95,6 +122,8 @@ function isEnterableDirectory(path: string): boolean {
  * @param cwd - the candidate working directory.
  * @returns `cwd`, validated.
  */
+// 中文：校验候选工作目录：必须是绝对路径（相对路径会被重新锚定到服务器进程的启动目录）
+// 且是"可进入"的目录（spawn 需要 X_OK 权限），失败在进程边界之前报错。
 export function assertUsableCwd(prefix: string, label: string, cwd: string): string {
   if (!isAbsolute(cwd)) {
     throw new Error(`${prefix}: ${label} must be an absolute path: ${cwd}`)
@@ -115,6 +144,8 @@ export function assertUsableCwd(prefix: string, label: string, cwd: string): str
  * @param cwd - the configured override, or `undefined` when the config omits it.
  * @returns the validated absolute override, or `undefined` when omitted.
  */
+// 中文：插件加载时一次性校验配置的 cwd 覆盖：拒绝空串（path.resolve('') 会悄悄退回
+// 服务器启动目录）、相对路径按启动目录解析、并要求是"可进入"的目录。
 export function validateConfiguredCwd(prefix: string, cwd: string | undefined): string | undefined {
   if (cwd === undefined) return undefined
   if (cwd === '') {
@@ -136,6 +167,8 @@ export function validateConfiguredCwd(prefix: string, cwd: string | undefined): 
  * @param parentCwd - the delegating parent session's workspace cwd, if any.
  * @returns the absolute child working directory.
  */
+// 中文：解析子代理工作目录：配置覆盖优先（加载时已校验），否则用父会话的工作区并在此
+// 校验；两者都没有就报错，绝不悄悄退回服务器进程的启动目录。
 export function resolveChildCwd(prefix: string, configured: string | undefined, parentCwd: string | undefined): string {
   if (configured !== undefined) return configured
   if (parentCwd === undefined) {
@@ -145,6 +178,8 @@ export function resolveChildCwd(prefix: string, configured: string | undefined, 
 }
 
 /** Normalize an unknown thrown value to an Error (the catch binding is `unknown`). */
+// 中文：把 catch 到的 unknown 归一化为 Error：类型化表面只会抛 Error，
+// String(value) 分支只是对非 Error 抛出的防御性兜底。
 function toError(value: unknown): Error {
   // The rejecting surfaces (wire clients, spawn failures) only throw
   // `Error`s; the `String(value)` arm is a defensive fallback for a non-Error
@@ -154,6 +189,9 @@ function toError(value: unknown): Error {
 }
 
 /** Inputs to {@link settleRunResult}. */
+// 中文：进程外结果结算的输入集合：attempt 是回合尝试、collectOutput 快照输出、
+// collectDiagnostic 快照诊断、cancelled 判本地取消、onError 是失败诊断槽、
+// signal/onAbort 是取消信号及其监听器。
 export interface RunResultSettlement {
   /** The turn attempt (typically racing local cancellation); returns the terminal result. */
   attempt: () => Promise<SubagentResult>
@@ -180,6 +218,9 @@ export interface RunResultSettlement {
  * @param parts - the attempt, output snapshot, cancellation state, sink, and signal wiring.
  * @returns the terminal result (never a rejection).
  */
+// 中文：进程外运行结果的结算：attempt 正常完成且未取消则原样返回；本地取消已生效则
+// 返回 aborted；其他拒绝被扁平化为 stopReason:'error'（诊断经 onError 记录）；任何
+// 路径都在 finally 中移除 abort 监听器，保证 result 永不 reject。
 export async function settleRunResult(parts: RunResultSettlement): Promise<SubagentResult> {
   try {
     const result = await parts.attempt()
@@ -210,6 +251,8 @@ export async function settleRunResult(parts: RunResultSettlement): Promise<Subag
 }
 
 /** Inputs to {@link subprocessRunHandle}. */
+// 中文：subprocessRunHandle 的输入：父作用域运行 ID、永不 reject 的结果、取消信号
+// 及其监听器、本地取消结算器、以及后端自带的"拆解到静默"流程。
 export interface SubprocessRunHandleParts {
   /** The parent-scoped run id. */
   id: SubagentRun['id']
@@ -233,6 +276,8 @@ export interface SubprocessRunHandleParts {
  * @param parts - the run identity, result, cancellation wiring, and teardown.
  * @returns the seam run handle (`localAgent` is `undefined` for remote runs).
  */
+// 中文：发布进程外子代理的运行句柄：dispose() 幂等——只执行一次"移除 abort 监听 →
+// 结算本地取消 → 等待后端 teardown 到真正退出"的记忆化流程。
 export function subprocessRunHandle(parts: SubprocessRunHandleParts): SubagentRun {
   let disposal: Promise<void> | undefined
   return {

@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】模型选择包的浏览器侧入口：一个会话级目录支撑两个选择入口——
+ *             /model 弹窗贡献与输入条 model 席位，二者共享同一状态。
+ * 【技术维度】Cordis 浏览器插件 + ModelDirectoryResolver 服务：两个入口都经
+ *             session.models 加载、经 session.selectModel 提交；宿主报告的
+ *             当前选择是两表面共同回显的唯一事实。
+ * 【产品维度】用户可通过 /model 命令或输入条选择器切换会话模型（含推理等级）。
+ * 【逻辑维度】1) 挂载服务并注册字典；2) 注册 /model popupSelect 贡献；
+ *             3) 注册输入条 model 席位（注入可用性、目录、加载与选择）。
+ * 【关键边界】寻址子代理会话不暴露任一入口；失败走各自的重试面，不分叉状态。
+ * 【新手阅读建议】先读 directory.ts 与 service.ts，再看两个入口如何共享目录。
+ * ==========================================================================
+ */
+/**
  * Model selection plugin, browser half — TWO entries over ONE per-session
  * directory owned by ModelDirectoryResolver (`ctx.modelDirectories`). The /model popupSelect
  * contribution and the composer's named `conversation.input.model` seat both

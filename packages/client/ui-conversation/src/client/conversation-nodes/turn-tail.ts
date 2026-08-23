@@ -1,3 +1,18 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】已完成回合的页脚状态机（回合尾）：独立于任何 assistant 行，聚合回合的
+ *             关闭助手、分支可用性、TTFT 与吞吐，产出回合尾数据与节点。
+ * 【技术维度】ConversationNodeDefinition（target: 'chat'）+ buildLocationData 发布回合
+ *             数据（ConversationTurnDataMap）；closingAnchor 用合成序偏移把尾锚在回合
+ *             最后可见节点之后。
+ * 【产品维度】回合底部的操作条（分支 / 继续）与性能小字。
+ * 【逻辑维度】1) 映射扩充；2) 文本证据判断；3) closingAnchor / tailData；4) 状态机；
+ *             5) 注册函数。
+ * 【关键边界】branchUnavailable 由"关闭助手缺失或其后仍有更新 seq"推导；关闭助手取
+ *             最后一个带文本的 final assistant。
+ * 【新手阅读建议】先读 tailData 的聚合逻辑，再看 closingAnchor 的锚定。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, TurnLocation,

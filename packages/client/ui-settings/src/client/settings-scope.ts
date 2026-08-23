@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】设置命名空间作用域契约的宿主传输：按命名空间在共享 describe 镜像上
+ *             派生出该作用域的快照，并序列化该命名空间的宿主写入。
+ * 【技术维度】Cordis Service + SnapshotStore：读取从不触网（镜像唯一读取者）；
+ *             写入携带最新命名空间修订号、应答回折进镜像、拆除等待正在过网的
+ *             操作（tail 队列）。
+ * 【产品维度】每个偏好行的持久化基础：读派生自镜像、写序列化过网。
+ * 【逻辑维度】SettingsScopeController.derive 从镜像派生 → set/unset 入队写入
+ *             （带修订号与失败恢复）→ dispose 等待队列静默；SettingsScopeBinder
+ *             在调用方 fiber 上绑定作用域。
+ * 【关键边界】写入串行（enqueue）；被取代的写入把修订号留给后继者（pendingRevision）；
+ *             非回环浏览器为 memory 模式（写入直接忽略）。
+ * 【新手阅读建议】先看 write/enqueue 的队列与修订协议，再看 derive/decode 的派生。
+ * ==========================================================================
+ */
+/**
  * Host transport for the settings-namespace scope contract. The contract types
  * live in `dsh-client-runtime` (the common dependency of every feature that
  * owns a preference); this file owns the per-namespace derivation over the

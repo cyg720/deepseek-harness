@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】全局主题 DOM 应用器：把解析后的主题快照投影到 document 上——
+ *             根元素 color-scheme、body 的暗色属性、令牌变量内联样式与
+ *             theme-color 元数据。
+ * 【技术维度】纯 DOM 写、无 React：只撤销自己写过的东西，外来的属性/样式原样保留；
+ *             每个插件 fiber 一个实例。
+ * 【产品维度】深色/浅色主题在浏览器原生 UI（滚动条、表单控件、标签页颜色）上的呈现。
+ * 【逻辑维度】apply 设置 scheme 与暗色属性 → 移除旧令牌 → 写入新令牌 → 更新
+ *             theme-color；dispose 全部撤销。
+ * 【关键边界】colorScheme 来自 active（'system' 已在上游解析）；只含快照令牌。
+ * 【新手阅读建议】对比 apply 与 dispose 的对称撤销逻辑。
+ * ==========================================================================
+ */
+/**
  * Global theme DOM applier: projects the resolved ThemeSnapshot onto the
  * document — `html { color-scheme }` for native UA chrome (scrollbars, form
  * controls), `body[data-ds-dark-theme]` for the token palette, the active

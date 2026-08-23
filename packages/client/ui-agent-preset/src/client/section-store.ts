@@ -1,4 +1,21 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】"Agent 预设管理分区"控制器：预设清单（roster）展示、复制对话框、
+ *             只读查看器、目录打开/路径揭示、删除与设为默认。
+ * 【技术维度】SnapshotStore 模式 + 远程 API（agentPresets.* 系列调用）；浏览器不直接
+ *             编辑预设文本，复制由宿主在文件层面完成（{ from, id, name? } 过网）。
+ * 【产品维度】复制是创建新预设的唯一入口；页面还负责把用户带到预设文件所在目录，
+ *             因为创建之后的编辑都发生在预设自己的文件里。
+ * 【逻辑维度】1) load() 读清单；2) view/closeView 只读查看；
+ *             3) beginCopy/confirmCopy 完成复制（校验 id、调宿主、重读清单）；
+ *             4) openLocation 打开目录或揭示路径；5) confirmDelete/remove 删除；
+ *             6) makeDefault 写默认值。
+ * 【关键边界】宿主是唯一事实源：每次变更后都重读清单；复制不覆盖已存在 id；
+ *             无桌面打开器的环境以文本路径代替打开。
+ * 【新手阅读建议】先读状态接口 AgentPresetSectionState，再按"加载→复制→定位"主线读方法。
+ * ==========================================================================
+ */
+/**
  * Agent-preset management controller: the roster as a list, a copy dialog as
  * the only way a preset is created, and a read-only viewer over the shipped
  * compositions.
@@ -19,9 +36,11 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 import { beginRosterRead, messageOf, writeDefaultPreset } from './settings-store.ts'
 
 /** Ids a preset directory may be named, mirroring the host's own rule. */
+// 预设目录名（即 id）的合法格式：小写字母或数字开头，后续可含连字符。
 const PRESET_ID = /^[a-z0-9][a-z0-9-]*$/
 
 /** One preset row the page renders. */
+// 页面上的一行预设：id 是目录名，其余字段是可选的展示元数据。
 export interface PresetRow {
   /** Preset id and directory name; the display name falls back to it. */
   id: string
@@ -43,6 +62,7 @@ export interface PresetRow {
 }
 
 /** The copy dialog: a new id and optional display name over a fixed source. */
+// 复制对话框的草稿状态：源预设固定，用户输入新 id 与可选显示名。
 export interface CopyDraft {
   /** The preset being copied. */
   from: string
@@ -59,6 +79,7 @@ export interface CopyDraft {
 }
 
 /** The read-only composition viewer over one shipped preset. */
+// 只读查看器的数据：展示某个已发布预设的组装文本（agent.cordis.yml）。
 export interface PresetView {
   /** The preset whose composition is shown. */
   id: string
@@ -69,6 +90,7 @@ export interface PresetView {
 }
 
 /** Page snapshot. */
+// 管理分区的整页快照：加载状态、清单行、复制对话框、查看器、删除确认等。
 export interface AgentPresetSectionState {
   status: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
   /** Whole-load failure text; a copy failure stays on the dialog. */
@@ -94,6 +116,7 @@ export interface AgentPresetSectionState {
   revealedPaths: Readonly<Record<string, string>>
 }
 
+/** 管理分区初始快照：空闲状态、空清单、无对话框、无查看器、无删除确认。 */
 const INITIAL: AgentPresetSectionState = {
   status: 'idle',
   error: null,
@@ -115,6 +138,8 @@ const INITIAL: AgentPresetSectionState = {
  * @param rows - the roster, for the collision check.
  * @returns the blocking reason's locale key, or undefined when submittable.
  */
+// 复制前的本地校验：id 为空、格式非法或与现有预设重名时给出对应的文案键；
+// 仅供对话框即时反馈，宿主会在提交时再次校验。
 export function draftBlocker(
   draft: CopyDraft,
   rows: readonly PresetRow[],
@@ -128,8 +153,10 @@ export function draftBlocker(
 }
 
 /** Reads the roster and drives the copy dialog, viewer, and location reveals. */
+// 管理分区控制器：读清单并驱动复制对话框、只读查看器与目录位置揭示。
 export class AgentPresetSectionController {
   /** Page snapshot the renderer subscribes to. */
+  // 渲染层订阅的快照存储：整页状态都通过它发布。
   readonly store: SnapshotStore<AgentPresetSectionState> = createSnapshotStore(INITIAL)
 
   constructor(
@@ -145,10 +172,12 @@ export class AgentPresetSectionController {
     private readonly rosterChanged: () => void = () => {},
   ) {}
 
+  // 合并写入整页快照。
   private set(patch: Partial<AgentPresetSectionState>): void {
     this.store.set({ ...this.store.getSnapshot(), ...patch })
   }
 
+  // 合并写入复制对话框草稿；对话框未打开时忽略。
   private patchCopy(patch: Partial<CopyDraft>): void {
     const { copy } = this.store.getSnapshot()
     if (copy === null) return
@@ -161,6 +190,7 @@ export class AgentPresetSectionController {
    * reports `unavailable` and renders nothing.
    * @returns once the snapshot reflects the host.
    */
+  // 加载清单：空清单是合法部署（显示不可用而非报错）；路径揭示会随清单刷新保留有效项。
   async load(): Promise<void> {
     const roster = await beginRosterRead(this.api, this.store)
     if (roster === undefined) return
@@ -190,6 +220,7 @@ export class AgentPresetSectionController {
    * @param id - the preset to view.
    * @returns once the composition loaded or the failure is on the page.
    */
+  // 在只读查看器中打开某个预设的组装文本。
   async view(id: string): Promise<void> {
     this.set({ error: null })
     try {
@@ -206,6 +237,7 @@ export class AgentPresetSectionController {
   }
 
   /** Close the read-only viewer. */
+  // 关闭只读查看器。
   closeView(): void {
     this.set({ view: null })
   }
@@ -214,6 +246,7 @@ export class AgentPresetSectionController {
    * Open the copy dialog over one preset.
    * @param from - the preset the copy will start from.
    */
+  // 打开复制对话框：以选中行的名为默认标题，草稿初始为空 id。
   beginCopy(from: string): void {
     const row = this.store.getSnapshot().rows.find(candidate => candidate.id === from)
     this.set({
@@ -223,6 +256,7 @@ export class AgentPresetSectionController {
   }
 
   /** Close the copy dialog, discarding whatever was typed. */
+  // 关闭复制对话框并丢弃已输入内容。
   cancelCopy(): void {
     this.set({ copy: null })
   }
@@ -231,6 +265,7 @@ export class AgentPresetSectionController {
    * Name the preset the copy creates.
    * @param id - the id typed into the dialog.
    */
+  // 更新对话框中的 id 输入并清除旧错误。
   setCopyId(id: string): void {
     this.patchCopy({ id, error: null })
   }
@@ -239,6 +274,7 @@ export class AgentPresetSectionController {
    * Name the copy's display name.
    * @param name - the display name typed into the dialog.
    */
+  // 更新对话框中的显示名输入并清除旧错误。
   setCopyName(name: string): void {
     this.patchCopy({ name, error: null })
   }
@@ -246,9 +282,10 @@ export class AgentPresetSectionController {
   /**
    * Submit the copy, re-read the roster, then take the user to the new
    * preset's files — the directory opens where the host has a desktop, and
-   * its path appears on the new row where it does not.
+   * then its path appears on the new row where it does not.
    * @returns once the copy settled and the page reflects it.
    */
+  // 提交复制：先本地校验，再让宿主复制文件，随后重读清单、通知外部并打开新预设目录。
   async confirmCopy(): Promise<void> {
     const draft = this.store.getSnapshot().copy
     if (draft === null || draft.saving) return
@@ -282,6 +319,7 @@ export class AgentPresetSectionController {
    * @param id - the preset whose files the user wants.
    * @returns once the host answered and the page reflects it.
    */
+  // 打开预设目录：宿主有桌面打开器则直接打开，否则把路径揭示在对应行上。
   async openLocation(id: string): Promise<void> {
     try {
       const response = await this.api.agentPresets.openDocument({ agentPreset: id })
@@ -301,6 +339,7 @@ export class AgentPresetSectionController {
    * Ask for confirmation before deleting one preset.
    * @param id - the preset to delete, or null to dismiss the confirmation.
    */
+  // 设置待删除确认的预设；传 null 则取消确认。
   confirmDelete(id: string | null): void {
     if (this.store.getSnapshot().deleting) return
     this.set({ pendingDelete: id })
@@ -313,6 +352,7 @@ export class AgentPresetSectionController {
    * mounted at creation and nothing re-reads the file.
    * @returns once the delete settled and the page reflects it.
    */
+  // 删除待确认的预设：删除后重读清单并通知外部；已运行的会话不受影响。
   async remove(): Promise<void> {
     const { pendingDelete, deleting } = this.store.getSnapshot()
     if (pendingDelete === null || deleting) return

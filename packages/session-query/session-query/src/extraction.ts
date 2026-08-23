@@ -1,3 +1,17 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话查询消费者的第一方语义文本提取：从会话事件中抽出可搜索的
+ *   纯文本（结构性边界、流式块、请求信封与未知合并事件不贡献文本）。
+ * 【技术维度】按事件类型分派；对工具调用/结果、todo 写入、回合结束原因等做
+ *   字段级拼接；未知类型走 default 返回空串（合并可扩展纪律）。
+ * 【产品维度】决定"哪些事件内容能进全文索引"的唯一规则。
+ * 【逻辑维度】extractSessionEventText → turnEndText/contentText/blockText/joinText。
+ * 【关键边界】语义与结构刻意区分：结构事件不索引，未知事件不因载荷碰巧含字符串
+ *   而变得可搜索。
+ * 【新手阅读建议】对照各 case 理解"什么算语义文本"。
+ * ==========================================================================
+ */
+
 /** First-party semantic text extraction for session-query consumers. */
 
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -10,6 +24,8 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
  * @param event - event to inspect.
  * @returns newline-joined semantic text, or an empty string when non-searchable.
  */
+// 中文：从单条会话事件抽出可搜索语义文本：按类型分派到各字段拼接；
+// 结构边界/流式块/请求信封/未知类型返回空串。
 export function extractSessionEventText(event: SessionEvent): string {
   switch (event.type) {
     case 'user/message':

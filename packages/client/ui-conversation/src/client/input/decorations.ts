@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】草稿装饰的纯核心：从输入状态推导镜像层的装饰产物——引用令牌高亮范围、
+ *             chip 渲染指令、纯文本引用范围与幽灵提示文本。零 React，测试直接驱动。
+ * 【技术维度】纯函数；两个正则扫描纯文本引用（/name、@name 与 @folder/ 语法）；
+ *             chips 从 occurrences 表投影（offset 排序）。
+ * 【产品维度】输入框背层渲染引用 chip、被认领命令令牌的高亮与参数提示。
+ * 【逻辑维度】1) 三种装饰数据结构；2) scanTextRefs 扫描（词边界纪律 + 词典命中）；
+ *             3) deriveDecorations 从输入状态合成全部装饰。
+ * 【关键边界】引用令牌只在 claimed/submitting 且草稿以令牌开头时高亮；编辑文本使其
+ *             脱离匹配形状，下一个扫描周期自然丢弃该范围。
+ * 【新手阅读建议】先读 DraftDecorations 四个字段，再看 scanTextRefs 的匹配纪律。
+ * ==========================================================================
+ */
+/**
  * Draft decoration pure core (references render from occurrence ranges; the
  * claim token renders as a mirror-layer
  * highlight, the claim hint as ghost text). Zero React — the skeleton renders
@@ -68,6 +82,13 @@ const FOLDER_REF_RE = /(^|\s)(@(?:"[^"\n]*\/|[^\s"]+\/))/g
  * @param draft - draft text.
  * @param lexicon - per-trigger name lists (a missing trigger scans nothing).
  * @returns matched ranges in draft order.
+ */
+/**
+ * 按热词典扫描草稿中的纯文本引用令牌。词边界纪律：触发器必须位于草稿开头或空白之后
+ * （'x/name' 永不匹配）；名字必须是词典的精确成员。
+ * @param draft - 草稿文本。
+ * @param lexicon - 按触发符区分的名字列表（缺失的触发符不扫描）。
+ * @returns 按草稿顺序排列的命中范围。
  */
 export function scanTextRefs(
   draft: string, lexicon: ReadonlyMap<'/' | '@', readonly string[]>,

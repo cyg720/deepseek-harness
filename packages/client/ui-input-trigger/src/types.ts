@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】输入触发器管线的跨包冻结契约（全部为类型，无运行时代码）：
+ *             定义触发字符、菜单候选、提交裁决所需的一切类型。
+ * 【技术维度】纯类型模块：ui-commands / ui-skill / ui-reference 等"源"与对话输入层
+ *             都从这里导入；Provider 每次调用只拿到 ClientSessionContext 投影，
+ *             绝不接触 Cordis 上下文或可变 Session。
+ * 【产品维度】用户敲 '/'（命令）或 '@'（文件/技能引用）时的菜单、空格补全与回车
+ *             执行决策所依赖的数据形态。
+ * 【逻辑维度】TriggerChar/TriggerPosition/PickVia 基础类型 → InputTriggerCandidate/
+ *             TokenSpan 菜单数据 → CommandClaim/ReferenceInsert/PickOutcome 结算结果
+ *             → InputTriggerSource 源接口与四类 scoped 输入事件。
+ * 【关键边界】类型变更需主线程仲裁（跨包）；带参提交的图片附件有严格媒体类型限制。
+ * 【新手阅读建议】先看 InputTriggerSource（源接口）与 PickOutcome，再回看各数据形态。
+ * ==========================================================================
+ */
+/**
  * Frozen cross-package contract for the input trigger pipeline. Types only —
  * no runtime code. Sources (ui-commands / ui-skill / ui-reference) and the
  * conversation input layer import from here; changes require main-thread

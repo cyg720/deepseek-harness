@@ -1,3 +1,19 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】槽位宿主与已安装渲染器之间的无 React 契约：渲染器消费的
+ *             locale 面、存储实例面、会话标准套件与渲染分派选项。
+ * 【技术维度】纯类型契约：SlotRendererHost 是运行时槽位注册表向渲染器呈现的
+ *             宿主 API；SlotRenderer 是安装契约（运行时拥有 install/renderSlot，
+ *             ui-renderer 实现渲染）。
+ * 【产品维度】槽位渲染机制的类型基础：locale 修订驱动的 t 席位、按会话的
+ *             store 实例、渲染分派与错误上报。
+ * 【逻辑维度】LocaleFace（绑定 + 修订）→ StoreInstanceLike（快照 + 动作）→
+ *             SessionProvideInfo（会话标准套件）→ RenderOpts → SlotRendererHost
+ *             → SlotRenderer 安装契约。
+ * 【关键边界】locale 面必须在首次需要席位的渲染前安装（outlet 挂载即绑定订阅）。
+ * 【新手阅读建议】先看 SlotRendererHost 的条目快照与 storeOf，再看分派选项。
+ * ==========================================================================
+ */
 /** React-free contracts between the slot host and an installed renderer. */
 import type { ReactNode } from 'react'
 import type { SlotEntryDef, SlotSpec, StoredEntry, Translate } from './index.ts'

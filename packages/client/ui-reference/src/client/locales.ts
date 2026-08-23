@@ -1,3 +1,14 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】`reference` 命名空间的双语文案字典（统一 '@' 引用源的菜单文案）。
+ * 【技术维度】zh 为键集基准，en 受 Record<ReferenceKey, string> 约束，
+ *             同时做 LocaleNamespaceMap 的声明合并。
+ * 【产品维度】'@' 引用菜单的分组标题（文件与文件夹 / Session 对话）与候选类型标签。
+ * 【逻辑维度】NS 常量、zh 键集、ReferenceKey 推导、en 补齐。
+ * 【关键边界】zh 是键的单一事实来源。
+ * 【新手阅读建议】纯数据文件。
+ * ==========================================================================
+ */
 /** `reference` namespace dictionaries for the unified `@` source. */
 
 import type {} from '@deepseek-ai/dsh-client-ui-slots'

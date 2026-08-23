@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】轨迹列表的"折叠"（fold）：把会话快照折叠成 回合 → 组（Message / Step N /
+ *             Compaction）→ 展开后的单元格；补全消息助手块、为 Message 附着用量、
+ *             计算自有时长、接入流式 partial 与运行中的工具调用、生成组描述（时长 + 工具
+ *             直方图）。
+ * 【技术维度】纯函数式投影；多个预索引（结果 / 调用 id / 后续 assistant / 调用开始时间）；
+ *             统一的有序布局条目（node / compaction / system / request）按 seq 排序；
+ *             prevAbsTime 游标推算时长。
+ * 【产品维度】轨迹列表按回合和步骤分组展示，用户能看清"这轮做了什么、每步花了多久、
+ *             调了哪些工具"，长会话依然可读。
+ * 【逻辑维度】1) 模型接口与内部桶结构；2) deriveTrajectoryLayout 主折叠（四类条目分支、
+ *             partial、runningCalls、孤儿 turn-0 折叠、schema 附着）；3) 助手块展开与
+ *             子调用内联（expandAssistant / withSubCalls / expandSubCalls）；4) 各类
+ *             摘要与详情提取；5) 回合归属与放置辅助。
+ * 【关键边界】孤儿工具折进 Turn 1；partial 用假节点流式展开；tool-result 只在本轮
+ *             没有对应 assistant 调用块时单独成行；图片源仅允许安全协议（data:image / blob / http(s)）。
+ * 【新手阅读建议】先读 deriveTrajectoryLayout 的条目分派循环，再看 expandAssistant。
+ * ==========================================================================
+ */
+/**
  * Trajectory list fold: expand assistant blocks, attach usage to Message,
  * own-duration times, in-flight partial/runningCalls, and group descriptions.
  */
@@ -20,6 +40,7 @@ import type {
 import { formatElapsedSeconds } from './trajectory-record.ts'
 
 /** One Message or Step group inside a turn. */
+// 回合内的一个组（Message / Step N / Compaction）：标题 + 可选描述 + 单元格列表。
 export interface TrajectoryGroupModel {
   title: string
   description?: string
@@ -27,12 +48,14 @@ export interface TrajectoryGroupModel {
 }
 
 /** One sticky turn, or a standalone compaction section between turns. */
+// 一个回合；turn 为 null 表示"回合之间的独立压缩段"。
 export interface TrajectoryTurnModel {
   turn: number | null
   groups: readonly TrajectoryGroupModel[]
 }
 
 /** Snapshot slice the trajectory view folds. */
+// 轨迹视图折叠所需的快照切片（节点 + 可选位置表 + 流式 partial + 运行中调用 + 请求）。
 export interface TrajectoryLayoutInput {
   nodes: ConversationSnapshot['nodes']
   eventLocations?: ReadonlyMap<number, ConversationLocation>
@@ -135,10 +158,18 @@ function inputCellDetail(node: InputNode): Pick<
  * @param input - nodes plus in-flight partial/runningCalls.
  * @returns turns ordered by first appearance.
  */
+/**
+ * 把快照折叠成 回合 → Message / Step 组 → 展开单元格 的布局。
+ * 使用示例：const turns = deriveTrajectoryLayout(snapshotSlice)；视图按 turns 渲染列表。
+ * @param input - 节点 + 流式 partial / 运行中调用（可带请求与 schema）。
+ * @returns 按首次出现顺序排列的回合列表。
+ */
 export function deriveTrajectoryLayout(input: TrajectoryLayoutInput): readonly TrajectoryTurnModel[] {
   const {
     nodes, eventLocations, partial, runningCalls, requests = [], callSchemas,
   } = input
+  // 预索引：工具结果（callId → 结果）、调用块（含运行中调用）、assistant 里已出现的
+  // 调用 id、每个节点"之后最近的 assistant"、调用开始时间。
   const resultByCall = indexResults(nodes)
   const callById = new Map<string, ToolCallBlock>(resultByCall)
   for (const call of runningCalls) callById.set(call.callId, call)
@@ -153,12 +184,15 @@ export function deriveTrajectoryLayout(input: TrajectoryLayoutInput): readonly T
     const startedAt = finiteTime(call.time)
     if (startedAt !== null) callStartById.set(call.callId, startedAt)
   }
+  // 回合桶：turn 号 → 组列表；独立压缩段单独收集，最后排在回合之后。
   const turns = new Map<number, TurnBucket>()
   const standaloneCompactions: TurnBucket[] = []
+  // index：全局记录序号游标（显示为 #N）；prevAbsTime：上一记录的绝对时间（推算时长）。
   let index = 0
   let prevAbsTime: number | null = null
   let lastAssistantTurn: number | null = null
 
+  // 取（或建）某个回合的桶。
   const bucket = (turn: number) => {
     let entry = turns.get(turn)
     if (entry === undefined) {
@@ -168,6 +202,7 @@ export function deriveTrajectoryLayout(input: TrajectoryLayoutInput): readonly T
     return entry
   }
 
+  // 把消息放入回合：若最后一个组已是 Message 则追加，否则新建 Message 组。
   const pushMessage = (turn: number, laid: LaidCell) => {
     const groups = bucket(turn).groups
     const last = groups.at(-1)
@@ -177,6 +212,7 @@ export function deriveTrajectoryLayout(input: TrajectoryLayoutInput): readonly T
     }
     groups.push({ title: 'Message', laid: [laid] })
   }
+  // 把步骤单元格放入回合的 Step N 组（不存在则新建）。
   const pushStep = (turn: number, step: number, laid: readonly LaidCell[]) => {
     if (laid.length === 0) return
     const groups = bucket(turn).groups
@@ -188,6 +224,7 @@ export function deriveTrajectoryLayout(input: TrajectoryLayoutInput): readonly T
     }
     groups.push({ title, laid: [...laid] })
   }
+  // 把"步骤输入"（steering）插到 Step N 组的请求占位（requestOnly）之前。
   const pushStepInput = (turn: number, step: number, laid: readonly LaidCell[]) => {
     if (laid.length === 0) return
     const groups = bucket(turn).groups
@@ -529,6 +566,14 @@ export function deriveTrajectoryLayout(input: TrajectoryLayoutInput): readonly T
  * @param lastIndex - Highest cell index in the finalized layout.
  * @returns The original layout without a partial, otherwise a layout sharing every unaffected turn.
  */
+/**
+ * 把变化中的"流式 assistant 单元格"追加到已定稿布局上：partial 为 null 时原样返回；
+ * 否则单独折叠出流式回合，与同回合的定稿组按标题合并（同 callId 的旧单元格被替换）。
+ * @param turns - 以空块 partial 锚点导出的定稿布局。
+ * @param partial - 当前在途的 assistant 投影。
+ * @param lastIndex - 定稿布局中的最大单元格序号。
+ * @returns 无 partial 时返回原布局；否则返回共享所有未受影响回合的新布局。
+ */
 export function appendTrajectoryPartialLayout(
   turns: readonly TrajectoryTurnModel[],
   partial: ConversationSnapshot['partial'],
@@ -663,6 +708,8 @@ function finiteTime(time: number | null | undefined): number | null {
   return typeof time === 'number' && Number.isFinite(time) ? time : null
 }
 
+// 把一条 assistant 节点展开成"消息单元格 + 每个工具调用单元格"的列表；
+// streaming 时跳过空块，时长与绝对时间用流式语义（null）。
 function expandAssistant(
   node: AssistantMessageNode,
   startIndex: number,

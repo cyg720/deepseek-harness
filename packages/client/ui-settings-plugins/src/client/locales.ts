@@ -1,3 +1,14 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】插件配置分区与其卡片（bash/agent-loop/web-search）的双语文案字典。
+ * 【技术维度】en 为键集基准（PluginsSettingsLocaleKey 由其推导），zh 受
+ *             Record 类型约束保证键一致。
+ * 【产品维度】插件设置分区导航、卡片编辑控件（超时/输出上限/并行数/密钥/端点）文案。
+ * 【逻辑维度】键联合类型 → en 字典 → zh 字典。
+ * 【关键边界】en 是键的单一事实来源（本包与多数包相反）。
+ * 【新手阅读建议】纯数据文件。
+ * ==========================================================================
+ */
 /** Locale bundles for the plugin configuration section and its plugin cards. */
 
 /** Locale keys these surfaces render. */

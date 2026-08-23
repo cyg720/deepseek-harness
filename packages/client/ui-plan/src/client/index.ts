@@ -1,4 +1,16 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】计划控制包的浏览器侧入口：占据输入条 plan 席位，以活动状态芯片
+ *             呈现 plan mode，并提供退出操作。
+ * 【技术维度】Cordis 浏览器插件 + 投影（useProjection）：plan mode 通过命令源进入；
+ *             投影有效目标为 plan mode 时芯片渲染，否则席位留空；退出执行 /plan off。
+ * 【产品维度】用户在 plan mode 下的状态指示与一键退出。
+ * 【逻辑维度】1) 注册字典；2) 把 PlanChip 注册进输入条 plan 席位（注入退出动作）。
+ * 【关键边界】零客户端 plan 状态；失败字符串保持英文（错误面不本地化策略）。
+ * 【新手阅读建议】组件实现见 PlanModeControl.tsx。
+ * ==========================================================================
+ */
+/**
  * Plan control plugin, browser half: occupies the composer's named
  * `conversation.input.plan` seat with an active-state status chip. Plan mode
  * is entered through the command source; while the projection's effective
@@ -31,6 +43,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 const NS = 'plan'
 
 /** Injected business face of the composer plan seat. */
+// 输入条 plan 席位的注入面：只含一个"退出 plan mode"动作。
 export interface PlanChipInjected {
   /**
    * Leave plan mode by executing /plan off.

@@ -1,3 +1,20 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】聊天目标（chat）的视图快照构建器：增量维护节点存储、位置索引（按回合 /
+ *             步骤）、引用标签投影与旧式片段兼容投影（StatsLine 等），产出 ChatSnapshot。
+ * 【技术维度】实现 ConversationViewBuilder；MutableChatNodeStore（按键 upsert + 惰性
+ *             values）；MutableChatLocationIndex（回合 / 步骤键索引，引用稳定）；
+ *             ReferenceLabelProjector（把"紧随其后的召回事件标签"贴到直接消息上）；
+ *             LegacySliceBuilder（兼容旧式顶层字段）。
+ * 【产品维度】聊天视图按稳定顺序渲染节点；回合 / 步骤检索、会话召回标签与统计行数据
+ *             都从这里来。
+ * 【逻辑维度】1) 空常量与引用比较；2) 节点存储 / 位置索引；3) 标签投影；4) 旧式兼容
+ *             投影；5) ChatSnapshotBuilder 主构建器；6) 目标工厂与注册。
+ * 【关键边界】order 驱动重建；位置索引在成员变化不动位时 touch 使其引用失效；
+ *             旧式字段为增量重建（finalized / running / partial / 时间线）。
+ * 【新手阅读建议】先读 ChatSnapshotBuilder 的 replace / apply / snapshot 三者关系。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ChatConversationViewNode, ChatLocationNodeIndex, ChatNodeStore, ChatSnapshot,

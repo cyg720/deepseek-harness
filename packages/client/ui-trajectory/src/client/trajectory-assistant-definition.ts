@@ -1,3 +1,21 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】轨迹目标下"assistant 步骤生命周期"状态机：累积流式块（文本 / 推理 / 工具
+ *             调用 / 用量），在步骤结束时产出最终 assistant 节点与请求（含 TTFT、用量、
+ *             重试信息），并处理中断与回合结束事件。
+ * 【技术维度】ConversationNodeDefinition 状态机（match / start / update / publication /
+ *             buildViewNode）；按 chunk 类型增量更新块数组；publication 控制流式发布
+ *             频率（usage/finish 不发布、其余按 animation-frame）。
+ * 【产品维度】轨迹中每条 assistant 回复展示流式内容、首 token 时间、token 用量与
+ *             重试 / 中断状态。
+ * 【逻辑维度】1) 状态与工具接口；2) updateChunk 按块类型累积；3) closedBoundary /
+ *             fallbackState / finalNode / assistantRequest 组装；4) 状态机定义；
+ *             5) 回合结束状态机；6) 注册函数。
+ * 【关键边界】块数组按 chunk.index 定位；firstVisibleSeq / firstTokenTime 只记首次；
+ *             llm/retry 会重置状态但保留首 token 时间与用量。
+ * 【新手阅读建议】先看 updateChunk 对五种 chunk 的处理，再看 finalNode 的两种收尾路径。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   AssistantBlock, AssistantMessageNode, ConversationLocation, ConversationMatch,
@@ -12,6 +30,7 @@ import { trajectoryNode } from './trajectory-definition-common.ts'
 /* jscpd:ignore-start -- Target-owned Definitions intentionally keep their event
  * state machines independent; see ../../../../../.agents/notes/implemented/
  * architecture/2026-08-09-client-conversation-node-assembly.md. */
+// token 用量（可选字段缺省为 0 处理）。
 interface UsageValue {
   readonly inputTokens: number
   readonly outputTokens: number
@@ -20,6 +39,7 @@ interface UsageValue {
   readonly reasoningTokens?: number
 }
 
+// LLM 重试信息：失败消息、重试次数、上限与延迟。
 interface RetryValue {
   readonly message: string
   readonly retry: number
@@ -27,6 +47,8 @@ interface RetryValue {
   readonly delayMs: number
 }
 
+// assistant 步骤状态：回合 / 步骤 / 起止时间、块数组、可见内容与首 token 时机、最终匹配、
+// 用量与重试、步骤结束匹配。
 interface AssistantState {
   readonly turn: number
   readonly step: number
@@ -44,6 +66,7 @@ interface AssistantState {
   readonly stepEnd: ConversationMatch | undefined
 }
 
+// 初始状态工厂：全部计时与累积字段归零。
 function initialState(
   turn: number,
   step: number,
@@ -198,6 +221,8 @@ function fallbackState(context: ConversationNodeContext<AssistantState>): Assist
   return state
 }
 
+/** 组装最终 assistant 节点：有 assistant/message 则用其内容；否则若步骤/回合已闭合且
+ *  有中断证据，合成"被打断"节点（seq 取边界前 0.9 以排到边界之前）。 */
 function finalNode(
   state: AssistantState,
   context: ConversationNodeContext<AssistantState>,
@@ -276,6 +301,7 @@ function assistantRequest(
 }
 
 /** Trajectory-owned Assistant streaming, settlement, and request lifecycle. */
+/** 轨迹拥有的 assistant 流式 / 定格 / 请求生命周期状态机。 */
 const trajectoryAssistantDefinition: ConversationNodeDefinition<AssistantState> = {
   kind: 'trajectory-assistant-step',
   target: 'trajectory',

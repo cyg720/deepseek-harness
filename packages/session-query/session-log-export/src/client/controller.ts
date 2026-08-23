@@ -1,3 +1,18 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】浏览器下载控制器：每个 Session 至多一个进行中的下载，向弹窗发布
+ *   "下载中/成功/错误"状态；HEAD 探测宿主导出端点后用浏览器下载管理器保存 ZIP。
+ * 【技术维度】快照 store（uSES）+ 每 Session 的 AbortController + 记忆化 done promise
+ *   （同一 Session 并发手势共享一次操作）；fetch/save 可注入便于测试。
+ * 【产品维度】会话头部按钮与 /export 命令共用的下载状态与弹窗数据源。
+ * 【逻辑维度】按代码顺序：状态类型 → 文件名/下载辅助 → SessionLogDownloadController
+ *   （download/dismiss/dispose/run/publish）。
+ * 【关键边界】dispose 后下载请求被忽略；dismiss 不取消进行中的下载；
+ *   文件名把不受信任的 Session id 折叠为安全字符集。
+ * 【新手阅读建议】先看 download 的记忆化，再看 run 的 HEAD → save 流程。
+ * ==========================================================================
+ */
+
 /** Browser download state shared by the Session Header button and `/export`. */
 
 import { createSnapshotStore, type SessionId, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'

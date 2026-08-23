@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】从宿主工作区顺序与成员关系推导工作区浏览器树：未分配会话归于
+ *             Ungrouped；只有选中的空白会话可见；另含扁平列表、搜索合并与相对时间。
+ * 【技术维度】纯派生函数（输入列表/工作区/归档集/视图状态 → 节点树）：派生不出
+ *             现在列表读取之前；搜索合并本地标题匹配与宿主内容匹配。
+ * 【产品维度】侧边栏工作区浏览器的分组/平铺列表、搜索与"多久前"时间标签。
+ * 【逻辑维度】groupByWorkspace 分组 → deriveGroups/deriveFlat 两模式 →
+ *             deriveSearchResults 合并搜索 → relativeTime 时间桶。
+ * 【关键边界】子代理子行用父目录头账本；归档会话到处不可见但保留账本槽位
+ *             （取消归档即恢复位置）；空白会话被查询排除（标题本地化）。
+ * 【新手阅读建议】先看 sessionVisible/sessionTitle 两个谓词，再读两个推导主函数。
+ * ==========================================================================
+ */
+/**
  * Derives the workspace browser tree from Host Workspace order and membership.
  * Unassigned Sessions trail under Ungrouped; only the selected blank Session
  * remains visible.

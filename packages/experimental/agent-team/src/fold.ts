@@ -1,3 +1,19 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】Agent Teams log-only 事件的严格回放折叠：把 Lead 会话日志里的
+ *   team/* 事件校验并重建成当前团队状态（成员/任务/消息/已投递集合）。
+ * 【技术维度】Zod 逐事件严格解码（version 校验 + 字段校验）；applyTeamEvent 执行
+ *   状态机约束（成员必须 provisioning 起步、任务 revision 连续、消息先入队后投递、
+ *   同名不可复用）；foldTeam 整体回放。
+ * 【产品维度】团队状态的唯一权威来源：任何时刻的团队数据都可从日志确定性重建。
+ * 【逻辑维度】schema 族 → TeamFoldState/emptyTeamFoldState → isTeamEvent →
+ *   parse 辅助 → applyTeamEvent（四类事件分支）→ foldTeam。
+ * 【关键边界】不同根 fork 继承的团队记录按 teamId 折叠出去（不影响本团队）；
+ *   非法转移/重复投递等严格抛错，invariant 插件据此守护。
+ * 【新手阅读建议】先读 applyTeamEvent 的四个 case，再看 foldTeam 的整体回放。
+ * ==========================================================================
+ */
+
 /** Strict replay fold for Agent Teams log-only events. */
 
 import { z } from 'zod'

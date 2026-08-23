@@ -1,3 +1,17 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】收件箱状态贡献：为 next-turn 与 next-step 两种目标各注册一个累积式
+ *             ConversationNodeDefinition，把 agent/inbox/spliced 事件折叠成
+ *             pending / claimed 两个集合。
+ * 【技术维度】ConversationNodeDefinition（无 target，纯状态）；applySplice 做数组
+ *             splice + claimed 集合维护；publication 为 none（不发会话事件）。
+ * 【产品维度】"下一回合 / 下一步"的待处理消息账本：steering 分类依赖 next-step 的
+ *             claimed 集合。
+ * 【逻辑维度】1) 数据结构；2) applySplice 折叠；3) inboxDefinition 工厂；4) 注册函数。
+ * 【关键边界】claimed 只对 next-step 目标维护；取消的插入会撤销 claimed。
+ * 【新手阅读建议】对照 message.ts 看 claimed 如何被 steering 分类消费。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ConversationNodeDefinition, ConversationPreviousContext,

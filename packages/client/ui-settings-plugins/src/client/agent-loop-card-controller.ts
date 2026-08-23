@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】agent-loop 设置卡片的控制器：把 agent-loop 命名空间作用域桥接到
+ *             卡片共享的暂存表单上。
+ * 【技术维度】CardForm 复用 + SnapshotStore 投影：字段为 maxParallelToolCalls
+ *             （数字字段）；命名空间名拼写在此（客户端包不得依赖宿主包）。
+ * 【产品维度】设置页"插件"中的 agent-loop 卡片：并行工具调用上限配置。
+ * 【逻辑维度】构造建表单与投影存储 → projection 装配 shell + 字段 → inject 暴露
+ *             快照与表单动作。
+ * 【关键边界】宿主的 agents 组合数组刻意不在此卡片中（只编辑单一字段）。
+ * 【新手阅读建议】先读 card-form.ts 的共享模型，再看本控制器的薄桥接。
+ * ==========================================================================
+ */
 /** The agent-loop card's staged form over the `agent-loop` settings namespace. */
 
 import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'

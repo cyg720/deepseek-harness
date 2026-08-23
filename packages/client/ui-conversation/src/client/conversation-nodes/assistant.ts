@@ -1,3 +1,18 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】assistant 步骤生命周期状态机：累积流式块，在步骤闭合时产出最终 assistant
+ *             节点（含中断），并发布每步的回合数据（AssistantProjection）。
+ * 【技术维度】ConversationNodeDefinition（target: 'chat'）+ buildLocationData 发布回合
+ *             数据；updateChunk 按 chunk 类型增量累积；closedBoundary 取步骤 / 回合
+ *             闭合边界；finalNode 组装最终节点或中断节点。
+ * 【产品维度】消息流中的助手回复：流式文本 / 推理 / 工具调用块与中断标记。
+ * 【逻辑维度】1) 状态与工具；2) updateChunk / resetForRetry；3) closedBoundary /
+ *             finalNode / fallbackState；4) projectAssistant；5) 状态机；6) 注册函数。
+ * 【关键边界】块数组按 chunk.index 定位；首可见内容与首 token 时机只记首次；
+ *             llm/retry 重置块但保留度量。
+ * 【新手阅读建议】先看 updateChunk 对五种 chunk 的处理，再看 finalNode 的收尾路径。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   AssistantBlock, AssistantMessageNode, ConversationLocation, ConversationMatch,

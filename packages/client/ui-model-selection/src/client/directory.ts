@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话级模型目录：两个选择入口（/model 弹窗与输入条选择器）共享的
+ *             唯一状态——同一个控制器加载与提交，宿主是唯一事实源。
+ * 【技术维度】SnapshotStore + 代数守卫（generation）：最新操作胜出，旧响应不覆盖
+ *             新状态；available 判定决定该会话能否用 Agent 绑定模型 RPC。
+ * 【产品维度】模型选择面板的目录加载、当前选择回显与提交。
+ * 【逻辑维度】load 刷新目录（失败保留最后好数据）→ select 提交选择（成功更新
+ *             current 与 routable）→ resetConnected 清空并重拉。
+ * 【关键边界】routable 为 null（首次加载前）不等于被阻断；对寻址子代理会话
+ *             不可用（assertAvailable 抛错）。
+ * 【新手阅读建议】先看 ModelDirectoryState 状态形状，再读 load/select 的代数守卫。
+ * ==========================================================================
+ */
+/**
  * Per-session model directory: the ONE state both selection entries share.
  * The /model popup and the composer-seat selector load through the same
  * controller and submit through the same selectModel call, so the host stays

@@ -1,4 +1,22 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】合并会话查询服务的 Service Definition：精确读、关系追踪、过滤器与全文检索。
+ *   提供 ctx.sessionQuery 抽象服务；后端（如 sqlite）实现全文观察、对账、排序、
+ *   游标生成与查询执行。
+ * 【技术维度】Cordis Service；抽象基类 SessionQueryEngine 提供与后端无关的确定性行为
+ *   （列表/读取/过滤/标题折叠/事件窗口/血缘追踪），后端只补全文检索部分。
+ * 【产品维度】把"会话日志历史"变成可查询/可搜索/可追溯的产品能力：列表、单条读取、
+ *   语义文档过滤、血缘与事件关系追踪。
+ * 【逻辑维度】按代码顺序：类型导出 → SessionQueryEngine（构造配置校验、searchSessions/
+ *   searchEvents 抽象、listSessions/readSession/filterSessions/readTitle*、listEvents/
+ *   filterEvents/readSurface/traceSession/traceEvent/readEvent + 私有辅助）。
+ * 【关键边界】readWindowMax 与 persistedInspectConcurrency 在构造时校验；
+ *   持久化读取失败映射为 SESSION_QUERY_PERSISTENCE_FAILED 等稳定错误码。
+ * 【新手阅读建议】先读 types.ts 的请求/响应类型，再看 SessionQueryEngine 的公开方法。
+ * ==========================================================================
+ */
+
+/**
  * Service Definition for combined session-history reads, traces, filters, and full-text search.
  *
  * @module @deepseek-ai/dsh-session-query
@@ -78,6 +96,8 @@ declare module '@deepseek-ai/cordis' {
  * A backend implements full-text observation, reconciliation, ranking, cursor
  * generations, and query execution on the same `ctx.sessionQuery` service.
  */
+// 中文：统一的 live 优先会话查询服务：精确读/过滤/追踪是与后端无关的确定性行为；
+// 后端（如 sqlite）在同一 ctx.sessionQuery 服务上实现全文观察、对账、排序、游标与执行。
 export abstract class SessionQueryEngine extends Service {
   static inject = ['sessions']
 
@@ -141,6 +161,8 @@ export abstract class SessionQueryEngine extends Service {
    * @returns cloned header and complete raw event log from one observation.
    * @throws when persistence, header compatibility, or replay validation fails.
    */
+  // 中文：读取并回放校验一个完整逻辑会话日志（不使其变活）：load → Session.create
+  // 触发校验 → 返回克隆的 header 与原始事件快照。
   async readSession(sessionId: SessionId): Promise<SessionLogSnapshot> {
     const loaded = await this._corpus.load(sessionId)
     Session.create(sessionId, loaded.events, loaded.header)

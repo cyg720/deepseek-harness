@@ -1,3 +1,19 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】live/持久化"逻辑语料"解析：把会话存储与会话持久化合并成一个
+ *   live 优先的逻辑语料，供列表/加载/批量投影使用。
+ * 【技术维度】机会式注入 sessionPersistence（可选）；listSessions 做 live 优先合并
+ *   并对同 ID 双源做 header 兼容校验；projectMany 用限并发工作池解析批量持久化检查。
+ * 【产品维度】让"历史会话"在无需复活为活体 Agent 的前提下可读可查。
+ * 【逻辑维度】按代码顺序：LogicalSession/Source 类型 → SessionCorpus（listSessions/
+ *   load/projectMany）→ 模块级辅助（projectSource/sourceLive/orderedResults/
+ *   listPersisted/inspectPersisted/snapshotLive/compareSessions/notFound/errorMessage）。
+ * 【关键边界】已知活体目标绝不 consult 持久化（可选后端故障不能让内存历史不可读）；
+ *   每个持久化读取都观察取消信号。
+ * 【新手阅读建议】先看 load 的 live 优先分支，再看 projectMany 的限并发工人。
+ * ==========================================================================
+ */
+
 /** Live/persisted logical-corpus resolution for session-query. */
 
 import type { Context, Fiber } from '@deepseek-ai/cordis'
@@ -8,6 +24,7 @@ import { SessionQueryError } from './config.ts'
 import { assertSessionHeadersCompatible } from './sources.ts'
 
 /** Detached source selected for one exact read. */
+// 中文：为一次精确读选定的"脱离"源：克隆的 header 与完整原始事件日志。
 export interface LogicalSession {
   /** Cloned source header. */
   header: SessionHeader

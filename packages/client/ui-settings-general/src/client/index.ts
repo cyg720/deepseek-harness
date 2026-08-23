@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】设置外壳与"无主文案"插件的浏览器侧入口：渲染 sidebar.settings
+ *             占用者（面板铬、分区导航、引导舞台），并注册不属于任何单个功能的
+ *             设置页内容（触发/头部铬、本地文档动作、通用分区与 settings 字典）。
+ * 【技术维度】Cordis 浏览器插件 + 槽位：外壳声明六个设置槽位；导航行与引导步骤
+ *             从槽位账本投影（uSES 缓存，含 locale 修订键）。
+ * 【产品维度】设置面板的外壳交互、导航与通用设置分区。
+ * 【逻辑维度】1) 注册字典；2) 建本地文档控制器（仅回环）；
+ *             3) 注册外壳（含槽位声明与注入）；4) 注册铬内容与通用分区。
+ * 【关键边界】功能拥有的行/分区留在各自功能包；文案新鲜度由框架的 t 席位与
+ *             导航标签 thunk 承担。
+ * 【新手阅读建议】先看 shell-contract.ts 的投影类型，再看 apply 的注册顺序。
+ * ==========================================================================
+ */
+/**
  * Settings shell and ownerless-copy plugin, browser half: renders the
  * `sidebar.settings` occupant — panel chrome, section navigation, and the
  * onboarding stage — and registers everything on the Settings pages that

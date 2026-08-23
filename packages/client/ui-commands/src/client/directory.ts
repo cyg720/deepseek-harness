@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】按会话键控的命令目录缓存：每个会话一条缓存（单飞拉取、软/硬失效、
+ *             epoch 守卫），把宿主的 command.list 结果缓存到浏览器侧。
+ * 【技术维度】Map<SessionId, Entry>；每个 Entry 维护状态机（cold/pending/ready/failed）、
+ *             纪元号（只允许最新一次拉取发布结果）与等待者队列；ensureReady 强等待。
+ * 【产品维度】支撑 / 命令菜单的即时打开：目录数据已预热时无需等待网络往返。
+ * 【逻辑维度】status/resolve 同步查询；invalidateAll 软失效（后台重拉、旧快照继续服务）；
+ *             resetConnected 重连硬重置并预热；warm 懒预热；refresh 发起单飞拉取；
+ *             ensureReady 强等待到可服务或失败。
+ * 【关键边界】每次拉取都有 epoch 守卫，过期结果不发布；失败时丢弃快照并报错。
+ * 【新手阅读建议】先看 Entry 与 DirectoryStatus 状态机，再读 refresh/ensureReady 的循环。
+ * ==========================================================================
+ */
+/**
  * Command-directory cache keyed by session: one entry per served catalog —
  * every session is agent-backed, so `command.list({sessionId})` is the only
  * request fields. Each entry keeps the single-flight / soft-hard invalidation
@@ -15,12 +29,16 @@ export type { CommandDescriptor } from '@deepseek-ai/dsh-commands/types'
  * ready = snapshot serving (a soft-invalidate repull keeps this status);
  * failed = last winning pull rejected, snapshot dropped.
  */
+// 目录缓存条目状态：cold 从未拉取；pending 拉取中且无可服务数据；
+// ready 快照可服务（软失效后台重拉保持该状态）；failed 最近一次拉取失败、快照已丢弃。
 export type DirectoryStatus = 'cold' | 'pending' | 'ready' | 'failed'
 
 /** Injected pull (the service binds command.list off the root connection). */
+// 注入的拉取函数：由服务绑定宿主命令列表 RPC，供缓存按会话拉取。
 export type FetchCommands = (sessionId: SessionId) => Promise<readonly CommandDescriptor[]>
 
 /** One session key's cache cell. */
+// 一个会话键的缓存单元：状态、命令快照、纪元号、最近错误与等待者队列。
 class Entry {
   state: DirectoryStatus = 'cold'
   commands: readonly CommandDescriptor[] = []
@@ -31,6 +49,7 @@ class Entry {
 }
 
 /** The session-keyed directory cache. Plain class — the owning service wires events and RPC. */
+// 按会话键控的命令目录缓存：纯类实现，事件与 RPC 由宿主服务接线。
 export class CommandDirectory {
   private readonly entries = new Map<SessionId, Entry>()
 
@@ -41,6 +60,7 @@ export class CommandDirectory {
    * @param sessionId - session key.
    * @returns the entry status (cold when never touched).
    */
+  // 查询某会话的缓存状态；从未触碰过的会话返回 cold。
   status(sessionId: SessionId): DirectoryStatus {
     return this.entries.get(sessionId)?.state ?? 'cold'
   }
@@ -58,6 +78,7 @@ export class CommandDirectory {
   }
 
   /** Soft invalidation (commands-changed): background repull on every touched key; ready snapshots keep serving. */
+  // 软失效：对所有已触碰的会话键后台重拉；ready 快照在重拉期间继续服务。
   invalidateAll(): void {
     for (const key of this.entries.keys()) void this.refresh(key)
   }
@@ -66,6 +87,7 @@ export class CommandDirectory {
    * Hard reset on reconnect: every entry drops its snapshot (the agent world
    * may have changed shape across the generation) and prewarms.
    */
+  // 重连硬重置：所有条目丢弃快照（跨代际 agent 世界可能已变化）并预热。
   resetConnected(): void {
     for (const [key, entry] of this.entries) {
       entry.state = 'cold'
@@ -79,6 +101,7 @@ export class CommandDirectory {
    * warm hook lands here).
    * @param sessionId - session key.
    */
+  // 后台预热：冷态或失败态时发起一次拉取（命令源的会话出生 warm 钩子落在这里）。
   warm(sessionId: SessionId): void {
     const entry = this.entry(sessionId)
     if (entry.state === 'cold' || entry.state === 'failed') void this.refresh(sessionId)
@@ -91,6 +114,7 @@ export class CommandDirectory {
    * @param sessionId - session key.
    * @returns settled when this pull's outcome is published or discarded.
    */
+  // 发起一次拉取：只在仍是最新一次（epoch 守卫）时发布 ready/failed；ready 快照不因拉取而降级。
   async refresh(sessionId: SessionId): Promise<void> {
     const entry = this.entry(sessionId)
     const epoch = ++entry.epoch
@@ -120,6 +144,8 @@ export class CommandDirectory {
    * @param signal - attempt-scoped abort (the SubmitAttempt signal).
    * @returns the hot command snapshot.
    */
+  // 强等待到目录可服务：ready 直接返回；cold/failed 发起新拉取；pending 挂到进行中的拉取；
+  // 拉取失败或信号中止时抛错。
   async ensureReady(sessionId: SessionId, signal: AbortSignal): Promise<readonly CommandDescriptor[]> {
     const entry = this.entry(sessionId)
     while (true) {

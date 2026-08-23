@@ -1,3 +1,17 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】模型重试链状态机：把共享同一 RetryId 的 llm/retry 与 llm/retry-started
+ *             事件累积成一条"重试链"行（scheduled → started，边界关闭后 scheduled 变
+ *             cancelled）。
+ * 【技术维度】ConversationNodeDefinition（target: 'chat'）；attempts 数组累积；
+ *             isClosed 按 step/turn 闭合状态判定。
+ * 【产品维度】消息流中一条重试行展示全部尝试与当前状态，用户看到重试在发生。
+ * 【逻辑维度】1) 数据映射扩充与 RetryState；2) scheduledNode / isClosed；
+ *             3) 状态机（match / start / update / buildViewNode）；4) 注册函数。
+ * 【关键边界】retryId 缺失不匹配；最后一条 scheduled 尝试在边界闭合后渲染为 cancelled。
+ * 【新手阅读建议】先看 buildViewNode 里 cancelled 的推导。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ConversationLocation, ConversationNodeDefinition, ModelRetryNode,

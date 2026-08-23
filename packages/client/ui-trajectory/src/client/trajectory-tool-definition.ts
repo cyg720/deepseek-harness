@@ -1,3 +1,22 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】轨迹目标下"根工具调用生命周期"状态机：跟踪一次工具调用的 call → result，
+ *             并内联折叠嵌套的 code-dispatch 子调用，最终产出带子调用树的工具块
+ *             （ToolCallBlock），含运行中（running）与被打断（interrupted）形态。
+ * 【技术维度】ConversationNodeDefinition 状态机；ToolState 用 calls / children / parents
+ *             三张表维护调用树；acceptsEdge 做环检测与最大深度（256）约束；
+ *             projectCall 深度优先投影子树；interruption 根据 step/turn 闭合状态合成
+ *             被打断的伪结果。
+ * 【产品维度】轨迹里每个工具调用展示完整调用链：run_code 的子调用逐层展开，进度 /
+ *             错误 / 打断一目了然。
+ * 【逻辑维度】1) 状态与分发数据结构；2) rootCall / rootResult / childCall / childResult
+ *             事件转节点；3) 树维护（acceptsEdge / updateDispatch）；4) 投影
+ *             （projectCall / fallbackState / interruption）；5) 状态机定义与注册。
+ * 【关键边界】深度上限 256 防环与防爆栈；code-dispatch 缺 rootCallId 时不匹配；
+ *             状态缺失时用 fallbackState 从匹配历史重建。
+ * 【新手阅读建议】先看 updateDispatch 如何把父子边建立起来，再看 projectCall 的递归。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
@@ -9,8 +28,10 @@ import { trajectoryNode } from './trajectory-definition-common.ts'
 /* jscpd:ignore-start -- Target-owned Definitions intentionally keep their event
  * state machines independent; see ../../../../../.agents/notes/implemented/
  * architecture/2026-08-09-client-conversation-node-assembly.md. */
+// 调用树的最大深度：防止环与深递归（256 层封顶）。
 const MAX_DEPTH = 256
 
+// 工具调用树状态：rootId 是根调用；calls 存节点块，children 存父子关系，parents 存反向边。
 interface ToolState {
   readonly rootId: string
   readonly calls: ReadonlyMap<string, ToolCallBlock>
@@ -18,6 +39,7 @@ interface ToolState {
   readonly parents: ReadonlyMap<string, string>
 }
 
+// code-dispatch 事件的数据：父调用、子调用、名称、参数与结果。
 interface DispatchData {
   readonly parentCallId: string
   readonly subCallId: string
@@ -27,6 +49,7 @@ interface DispatchData {
   readonly content?: ToolResultNode['content']
 }
 
+// 从 tool/call 事件构造根调用的"运行中"块（RunningToolCall）。
 function rootCall(match: ConversationMatch): RunningToolCall {
   if (match.event.type !== 'tool/call') {
     throw new Error('trajectory-tool-call start requires tool/call')
@@ -134,6 +157,7 @@ function acceptsEdge(state: ToolState, parent: string, child: string): boolean {
   return parentDepth + subtreeDepth <= MAX_DEPTH
 }
 
+// 把 code-dispatch（start / settle）事件折叠进调用树：start 建子调用块，settle 补结果块。
 function updateDispatch(state: ToolState, match: ConversationMatch): ToolState {
   const event = match.event
   if (event.type !== 'tool/code-dispatch-start' && event.type !== 'tool/code-dispatch') return state
@@ -216,6 +240,7 @@ function fallbackState(context: ConversationNodeContext<ToolState>): ToolState |
 }
 
 /** Trajectory-owned root Tool lifecycle with nested Code Dispatch calls. */
+/** 轨迹拥有的根工具调用生命周期状态机（含嵌套 code-dispatch 子调用）。 */
 const trajectoryToolDefinition: ConversationNodeDefinition<ToolState> = {
   kind: 'trajectory-tool-call',
   target: 'trajectory',
@@ -267,6 +292,10 @@ const trajectoryToolDefinition: ConversationNodeDefinition<ToolState> = {
  * Register the Trajectory Tool lifecycle.
  *
  * @param ctx - Plugin context receiving the Definition.
+ */
+/**
+ * 注册轨迹的工具调用生命周期状态机。
+ * @param ctx - 接收该 Definition 的插件上下文。
  */
 export function registerTrajectoryToolDefinition(ctx: Context): void {
   ctx.conversationEvents.register(trajectoryToolDefinition)

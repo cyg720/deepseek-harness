@@ -1,3 +1,15 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】ui-workflow-run 包在浏览器侧的插件入口：注册工作流运行的会话节点
+ *             定义、字典与键控聊天渲染器。
+ * 【技术维度】Cordis 浏览器插件：conversationEvents.register 注册定义、
+ *             slots 注册键控节点（注入 openSession 导航动作）。
+ * 【产品维度】对话中可点开工作流运行的成员会话。
+ * 【逻辑维度】1) 注册定义；2) 注册字典；3) 注册键控聊天节点。
+ * 【关键边界】节点键 'workflow-run' 与定义 kind 一致。
+ * 【新手阅读建议】先读 workflow-definition.ts 的投影，再看本文件的注册。
+ * ==========================================================================
+ */
 /** Browser plugin for durable workflow-run Conversation Nodes. */
 
 import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'

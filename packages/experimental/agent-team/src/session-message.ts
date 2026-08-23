@@ -1,3 +1,15 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】可持久化的 Session 消息接收判定：被 provisioning 与邮箱恢复共享，
+ *   判断某条消息是否"模型可见或仍在收件箱等待认领"。
+ * 【技术维度】把收件箱拼接事件（agent/inbox/spliced）折叠成待认领消息列表，
+ *   再与历史 user/message 一起按谓词匹配。
+ * 【产品维度】可靠判定"初始提示词/团队消息是否已持久接受"。
+ * 【逻辑维度】pendingInboxMessages → messageAccepted。
+ * 【新手阅读建议】理解 inbox/spliced 的 start/removedCount/inserted 语义。
+ * ==========================================================================
+ */
+
 /** Durable Session-message acceptance checks shared by provisioning and mailbox recovery. */
 
 import type { UserMessage } from '@deepseek-ai/dsh-llm'

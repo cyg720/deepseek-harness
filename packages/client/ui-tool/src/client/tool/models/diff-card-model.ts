@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】从冻结调用切片纯推导 diff 卡片 props：write/edit 工具声明的
+ *             card:'diff' 渲染意图经 callView/resultView 到达，本文件是把它
+ *             变成 DiffBlock 可绘制内容的唯一位置。
+ * 【技术维度】纯派生：两个对话渲染点（聊天行展开体与详情面板输出段）共用；
+ *             运行中显示调用侧意图 diff，结算后结果侧的应用 hunk 取代之。
+ * 【产品维度】对话/详情中的 diff 卡片：写/编辑工具的改动 hunk。
+ * 【逻辑维度】diffCardModel 分运行/结算两分支 → narrowDiffs 校验线缆 hunk →
+ *             产出 DiffBlock props。
+ * 【关键边界】diffs 是未经校验的线缆数据（只有 card 串受模式校验），显式
+ *             守卫防 DiffBlock 崩溃；title 刻意丢弃（行自供标题优先）。
+ * 【新手阅读建议】先看 narrowDiffs 的校验，再读两分支的取舍。
+ * ==========================================================================
+ */
+/**
  * Pure derivation of the diff-card props from a frozen call slice: the
  * `card:'diff'` render intent the write/edit tools declare arrives on the
  * snapshot as `callView`/`resultView`, and this is the one place that turns

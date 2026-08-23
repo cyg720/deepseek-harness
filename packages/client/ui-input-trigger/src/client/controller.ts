@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】InputTriggerController：触发器管线的会话级（per-session）半部——
+ *             持有全部可变交互状态（权威触发命中、菜单存储、候选拉取生命周期），
+ *             并通过 scoped 输入事件执行挑选结果。
+ * 【技术维度】SnapshotStore 状态 + Cordis scoped 事件（bail）：根服务只保存源花名册，
+ *             每个会话作用域一个控制器，随作用域 fiber 销毁。
+ * 【产品维度】'/' 与 '@' 菜单在会话中的完整交互：追踪输入、菜单打开/移动/选择、
+ *             空格裁决、回车裁决、引用序列化。
+ * 【逻辑维度】track 喂入输入变化 → fetchCandidates 拉候选 → pick/arbitrate 用户交互
+ *             → onSpace/adjudicate 空格与回车裁决 → execute 通过 scoped 事件执行结算。
+ * 【关键边界】空格裁决必须同步（只读热状态）；回车可强等待源预热；
+ *             序列化缺失时拒绝提交而非静默降级。
+ * 【新手阅读建议】先看 track 与 pick 两个入口，再看 execute 的事件分派。
+ * ==========================================================================
+ */
+/**
  * InputTriggerController: the per-session half of the trigger pipeline. Owns every
  * piece of mutable interaction state — the authoritative trigger hit (span
  * included; it outlives menu close for space adjudication), the menu store,
@@ -37,6 +53,7 @@ export interface InputTriggerControllerDeps {
  * inside; MenuView renders from {@link InputTriggerController.menu} and routes
  * pointer picks back through {@link InputTriggerController.pick}.
  */
+// 会话级触发管线：全部状态变更都在内部，MenuView 渲染 menu 并通过 pick 回传指针选择。
 export class InputTriggerController {
   /** Menu state store (per-session; survives session switches, dies with the scope). */
   readonly menu: SnapshotStore<MenuState> = createSnapshotStore<MenuState>(MENU_CLOSED)
@@ -86,6 +103,7 @@ export class InputTriggerController {
    * @param draftRev - the input machine's current draft revision, stamped
    * into the hit span for pick-time CAS.
    */
+  // 追踪输入变化：跑触发器检测并驱动菜单；相同命中（含启动器场景）时跳过刷新。
   track(draft: string, caret: number, guard: TriggerGuard, draftRev: number): void {
     if (this.disposed) return
     const launched = this.launcher.getSnapshot() !== null

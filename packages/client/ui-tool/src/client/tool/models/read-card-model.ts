@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】从冻结调用切片纯推导读取卡片 props：read 工具声明的 card:'read'
+ *             渲染意图经已结算结果节点的 resultView 到达，本文件是把它变成
+ *             ReadBlock 可绘制内容的唯一位置。
+ * 【技术维度】纯派生：两个对话渲染点（聊天行内体与详情面板输出段）共用；
+ *             结果侧专属（运行中无内容可展示，返回 null）。
+ * 【产品维度】对话/详情中的读取卡片：路径标签、行、总行数与语言。
+ * 【逻辑维度】readCardModel 判 card → 复制行（防持运行时缓存引用）→ 标签用
+ *             替换标题或工作区相对 + HOME 缩写路径。
+ * 【关键边界】行从冻结快照复制进原语行形态，卡片不持有运行时缓存的引用；
+ *             标签路径先相对工作区再 POSIX '~'。
+ * 【新手阅读建议】先看 ReadCardModel 结构，再读标签派生。
+ * ==========================================================================
+ */
+/**
  * Pure derivation of the read-card props from a frozen call slice: the
  * `card:'read'` render intent the read tool declares arrives on the snapshot as
  * the settled result node's `resultView`, and this is the one place that turns

@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】模型设置与产品引导插件的浏览器侧入口：注册 Models 页以及有序的
+ *             内测声明与官方 DeepSeek 引导对话框。
+ * 【技术维度】Cordis 浏览器插件：控制器（ModelsSettingsStore/WelcomeNoticeStore）
+ *             接线到连接；推送失效（settings/credentials/llm 适配器）收敛刷新；
+ *             欢迎确认的 memory 模式由作用域自身承担（无需 isLoopback 分支）。
+ * 【产品维度】模型设置页（提供方/密钥/模型目录）与首次运行引导。
+ * 【逻辑维度】1) 注册字典；2) 建两个控制器；3) 订阅推送失效；4) 注册
+ *             settings.section（models）与两个 settings.onboarding 步骤。
+ * 【关键边界】未打开过的页面不做后台拉取（refreshIfLoaded 守卫 idle 状态）。
+ * 【新手阅读建议】先读 store.ts 与 welcome-store.ts，再看本文件的注册与失效订阅。
+ * ==========================================================================
+ */
+/**
  * Models settings and product-onboarding plugin, browser half. It registers
  * the Models page plus the ordered internal-testing and official-DeepSeek
  * onboarding dialogs, whose UI shares this package's modal wrapper. The Host

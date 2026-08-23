@@ -1,4 +1,21 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】OpenTelemetry 遥测后端（能力缝的 Service Provider）：把 OTel JS SDK
+ *   原样组合（LoggerProvider + BatchLogRecordProcessor + OTLP/HTTP 导出器），
+ *   把协调器交来的每条记录映射到 logger.emit()。
+ * 【技术维度】SDK 原样透传（exporter/processor 两个 passthrough），本包只拥有
+ *   捕获模式与一个外部关闭期限（SDK 的导出超时不管它之前的 forceFlush 等待）。
+ * 【产品维度】把会话遥测（日志/反馈）上报到标准 OTel collector；FULL 实时上报、
+ *   FEEDBACK_ONLY 仅回放规范日志里的反馈记录、DISABLED 不上报。
+ * 【逻辑维度】按代码顺序：模式枚举/常量 → 模式解析与映射 → Config/schema →
+ *   OpenTelemetrySessionBackend（构造器三模式分支、emit、shutdown）。
+ * 【关键边界】batchSize 非正整数会让 shutdown 永远挂起 → 加载时校验；
+ *   shutdown 有外部期限（race 超时 reject）；DISABLED 不构造任何 SDK 状态。
+ * 【新手阅读建议】对照三模式构造分支理解捕获语义，再看 shutdown 的 deadline race。
+ * ==========================================================================
+ */
+
+/**
  * OpenTelemetry Service Provider for the DeepSeek Harness telemetry capability.
  *
  * Composes the OTel JS SDK as-is — a `LoggerProvider` with a
@@ -41,6 +58,8 @@ import { resourceFromAttributes } from '@opentelemetry/resources'
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string }
 
 /** Session-sharing policy selected by {@link Config.mode}. */
+// 中文：会话共享策略（Config.mode 选值）：FULL 实时上报全部记录、FEEDBACK_ONLY 仅
+// 回放规范日志里的反馈记录、DISABLED 不上报（本地仅告警）。
 export enum SessionTelemetryMode {
   FULL = 'FULL',
   FEEDBACK_ONLY = 'FEEDBACK_ONLY',
@@ -48,6 +67,7 @@ export enum SessionTelemetryMode {
 }
 
 /** Default session-sharing policy for schema and direct construction. */
+// 中文：默认会话共享策略（schema 与直接构造共用）：默认关闭（不上报）。
 export const DEFAULT_TELEMETRY_MODE = SessionTelemetryMode.DISABLED
 
 const DISABLED_FEEDBACK_WARNING = 'session telemetry is DISABLED; nothing will be shared and this feedback remains local'
@@ -55,6 +75,7 @@ const NON_CANONICAL_FEEDBACK_WARNING = 'session telemetry ignored a feedback eve
 const DROP_RECORD: SessionTelemetrySink['emit'] = () => {}
 
 /** Resolve the default and reject unknown runtime values before transport setup. */
+// 中文：解析配置的模式：未提供取默认值；拒绝未知运行时值（运输装配前 fail loud）。
 function resolveMode(mode: SessionTelemetryMode | undefined): SessionTelemetryMode {
   const resolved = mode ?? DEFAULT_TELEMETRY_MODE
   switch (resolved) {
@@ -73,6 +94,7 @@ function assertNever(value: never): never {
 }
 
 /** Map the serialized mode onto the seam's backend-independent sharing vocabulary. */
+// 中文：把序列化模式映射到能力缝与后端无关的共享词汇（full/feedback-only/disabled）。
 function sharingStatusFor(mode: SessionTelemetryMode): SessionTelemetrySharingStatus {
   switch (mode) {
     case SessionTelemetryMode.FULL: return 'full'
@@ -88,6 +110,8 @@ function sharingStatusFor(mode: SessionTelemetryMode): SessionTelemetrySharingSt
  * and one DSH-owned shutdown bound. Uploading modes validate their endpoint
  * and shutdown deadline at plugin load; `DISABLED` reads neither.
  */
+// 中文：插件配置：一个共享策略 + 两个逐字透传的 SDK 选项对象 + 一个 DSH 拥有的
+// 关闭期限。上传模式在插件加载时校验 endpoint 与关闭期限；DISABLED 两者都不读。
 export interface Config {
   /** Sharing policy; defaults to local-only `DISABLED` behavior. */
   mode?: SessionTelemetryMode
@@ -144,6 +168,8 @@ const SEVERITY: Record<SessionTelemetrySeverity, { severityNumber: SeverityNumbe
  * pipeline and compose {@link SessionTelemetryCoordinator}; `DISABLED` constructs no
  * SDK state and listens only to warn when recorded feedback stays local.
  */
+// 中文：遥测后端插件（部署方唯一入口）：总是注册 telemetry 服务；上传模式装配 SDK
+// 管线并组合捕获协调器，DISABLED 不构造任何 SDK 状态、只监听反馈记录告警本地化。
 export class OpenTelemetrySessionBackend extends SessionTelemetryBackend {
   static inject = ['sessions']
   static Config = Config

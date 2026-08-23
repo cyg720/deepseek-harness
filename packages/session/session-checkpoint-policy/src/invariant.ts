@@ -1,4 +1,14 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】session-checkpoint-policy 包的 invariant 伴生插件：注册空安装器，
+ *   说明本包无运行时不变量（检查点顺序在被拦截的瀑布与持久化缝上强制）。
+ * 【技术维度】标准 invariants 插件形态；文件被 jscpd:ignore 包裹。
+ * 【逻辑维度】name/inject → 空 install（附论证）→ apply。
+ * 【新手阅读建议】读 install 上方英文注释理解论证。
+ * ==========================================================================
+ */
+
+/**
  * Package-owned invariant companion for `@deepseek-ai/dsh-session-checkpoint-policy`.
  * @module @deepseek-ai/dsh-session-checkpoint-policy/invariant
  */

@@ -1,3 +1,15 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】一次性团队变更等待器：与持久状态投影无关的等待/唤醒机制。
+ * 【技术维度】每团队一个等待者集合；wait 用 Promise + 定时器 + abort 监听，保证
+ *   每个等待者恰好被释放一次（settled 标志 + 清理）；notify/close 唤醒全部。
+ * 【产品维度】wait_agent 工具的后端：等待下次团队活动或成员状态变化。
+ * 【逻辑维度】wait → notify → close。
+ * 【关键边界】timeoutMs 必须是 10000..3600000 的整数；close 后 wait 立即返回。
+ * 【新手阅读建议】看 wait 的 finish 函数理解"恰好一次"的释放。
+ * ==========================================================================
+ */
+
 /** One-shot Team change waiters independent of durable state projection. */
 
 import type { TeamId, TeamWaitResult } from './types.ts'

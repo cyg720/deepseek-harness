@@ -1,3 +1,14 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】权限相关的双语文案：设置行命名空间（settings.permission）与
+ *             当前会话弹窗风险门命名空间（permission.access）两组字典。
+ * 【技术维度】zh/accessZh 分别为两组键集基准，en/accessEn 受对应键联合约束。
+ * 【产品维度】设置页权限行文案与 Full access 风险确认弹窗文案。
+ * 【逻辑维度】zh/en 一组（设置行），accessZh/accessEn 一组（弹窗门）。
+ * 【关键边界】两组键集各自独立；zh 是各自键的单一事实来源。
+ * 【新手阅读建议】纯数据文件。
+ * ==========================================================================
+ */
 /** `settings.permission` namespace dictionaries (the Permission row's copy). */
 
 /** Simplified Chinese dictionary (the key-set source of truth). */

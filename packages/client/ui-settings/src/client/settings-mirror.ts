@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】宿主设置文档的客户端镜像：浏览器中唯一的 settings.describe 读取者，
+ *             所有设置消费方都从它派生（按命名空间作用域经 bind、跨命名空间经
+ *             describe 面）。
+ * 【技术维度】SnapshotStore + 单飞读取：并发 load 折叠为"飞行中的读取 + 一次重跑"，
+ *             中途中止的失效既不丢失也不重复；写入应答经 acceptView 回折。
+ * 【产品维度】设置面板所有行的启动成本与新鲜度都由本类决定，与功能数量无关。
+ * 【逻辑维度】load/ensure 触发读取 → run 执行读取（带重跑与代数守卫）→
+ *             acceptView 回折写入应答 → namespace 便捷查询。
+ * 【关键边界】宿主是事实源；'memory' 持久化（非回环浏览器）为终态 unavailable。
+ * 【新手阅读建议】先看 run 的"in-flight 槽位 + rerun"协议，再看 acceptView 的回折。
+ * ==========================================================================
+ */
+/**
  * Client mirror of the Host settings document: the one `settings.describe`
  * reader in the browser. Every settings consumer derives from this store —
  * per-namespace scopes through `SettingsScopeBinder.bind`, cross-namespace

@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】提问输入条槽位契约：conversation.composer 槽位的注册者侧 props
+ *             组合，以及运行时钟载体（PendingWait）之上的提问领域面。
+ * 【技术维度】纯类型 + 领域类：载体只负责信封传输；提问协议——答案值形态、取消
+ *             错误编码、回执检查——都住在本包（消费它的包）。
+ * 【产品维度】等待用户回答的提问载体：通用提问流程与 plan-review 决策卡片。
+ * 【逻辑维度】QuestionWait/QuestionAnswer 载体类型 → PlanReview/planReviewOf
+ *             收窄决策卡片 → PendingQuestion 领域面（answer/cancel 走线缆编码）。
+ * 【关键边界】planReviewOf 只认"单一问题 + plan-review 意图 + 至多两个选项且
+ *             非多选"的批——两个按钮表达不了第三选项或多选。
+ * 【新手阅读建议】先看 planReviewOf 的收窄规则，再看 PendingQuestion 的编码。
+ * ==========================================================================
+ */
+/**
  * Question-composer slot contract: the registrant-side props composition for
  * the conversation-owned `conversation.composer` slot, plus the question
  * domain face over the runtime's carrier object. The carrier (PendingWait)

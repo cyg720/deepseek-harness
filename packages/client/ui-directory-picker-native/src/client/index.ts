@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】目录选择（原生）包的浏览器侧入口：把无渲染的原生流程占用者注册进
+ *             工作区的两个目录流程孔位，每次 open 驱动宿主打开系统目录选择器。
+ * 【技术维度】Cordis 浏览器插件：ctx.slots.inject 嵌套注册两个孔位，
+ *             生成器使两个注册成为一个事务效果；占用者无渲染（返回 null）。
+ * 【产品维度】选择工作区目录时弹出操作系统原生单选目录对话框。
+ * 【逻辑维度】1) 注入 pick 调用（ctx.workspaces.pickDirectory）；
+ *             2) 把 NativeDirectoryFlow 注册进两个 directoryFlow 孔位。
+ * 【关键边界】客户端代码不分支能力种类：挂载本包即组合原生交互的完整两端。
+ * 【新手阅读建议】先看 flow.ts 的占用者（含 HMR 安全的 ref 逻辑），再看本文件接线。
+ * ==========================================================================
+ */
+/**
  * Browser half of the native directory-picker backend: fills ui-workspace's
  * two directory-flow holes with a renderless occupant that answers each
  * `open` by driving `host.pickDirectory` (the node half's OS chooser) and

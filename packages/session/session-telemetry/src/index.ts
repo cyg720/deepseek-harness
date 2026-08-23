@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】SessionTelemetryBackend Service Definition：拥有会话事件上报的"捕获侧"——
+ *   哪些记录存在（chunk 投影）、记录携带什么（逻辑记录）、何时捕获（收养、每追加火线、
+ *   生命周期转发）、live 与按需的规范日志捕获、HMR 游标。
+ * 【技术维度】Cordis Service + 声明合并的 session-telemetry/record 瀑布事件（脱敏扩展点，
+ *   本包不内置任何规则）；emit 之后的批处理/重试/排队/丢失策略归上报 SDK。
+ * 【产品维度】遥测上报的契约层：任何后端（如 OTel）实现该 Service 即可接入；
+ *   部署方可挂瀑布监听器做脱敏。
+ * 【逻辑维度】按代码顺序：事件声明合并 → 严重度/记录/接收器类型 → 共享状态 → 抽象后端类。
+ * 【关键边界】emit 必须是非阻塞入队（热路径同步调用）；flushes 与 shutdown 并发
+ *   交互危险（OTel 后端故意不实现 flush）；导出副本才被脱敏，规范日志永不重写。
+ * 【新手阅读建议】先读 SessionTelemetryRecord 与 SessionTelemetrySink，再看 coordinator.ts。
+ * ==========================================================================
+ */
+
+/**
  * SessionTelemetryBackend Service Definition for the DeepSeek Harness.
  *
  * This package owns the CAPTURE side of session-event reporting — which records
@@ -52,6 +68,9 @@ declare module '@deepseek-ai/cordis' {
  * `info`; `warn` remains available to `session-telemetry/record` policies and
  * backends.
  */
+// 中文：遥测记录的三级严重度，捕获时预映射：error 对应事件自带的结果标志（工具块
+// isError、turn/end 的 error 原因）与 agent-error 运维记录；其余默认 info，warn
+// 留给瀑布策略与后端使用。
 export type SessionTelemetrySeverity = 'info' | 'warn' | 'error'
 
 /**
@@ -61,6 +80,8 @@ export type SessionTelemetrySeverity = 'info' | 'warn' | 'error'
  * home (`agent-error`, `shutdown`) and deliberately omit `event.seq`-style
  * identity so they can never be mistaken for ledger rows.
  */
+// 中文：交给后端的一条逻辑记录：ledger（会话日志镜像）或 ops（运维信号）通道；
+// time 为毫秒时间戳、severity 已预映射、attributes 为精简身份字段、body 为深拷贝载荷。
 export interface SessionTelemetryRecord {
   /** Ledger (session-log mirror) or ops (operational signal) channel; backends keep the two under separate instrumentation scopes. */
   channel: 'ledger' | 'ops'
@@ -91,6 +112,9 @@ export interface SessionTelemetryRecord {
  * its service-registered form; tests compose the coordinator with a bare
  * implementation of this interface.
  */
+// 中文：协调器所需的最小后端契约：emit 必须是非阻塞入队（协调器在 session/event
+// 热路径上同步调用）；flush 是可选回合结束提示；shutdown 把 fiber 销毁转发给 SDK
+// （必须先交付已发射的一切）。
 export interface SessionTelemetrySink {
   /**
    * Hand one record to the backend's pipeline. MUST be a non-blocking
@@ -137,6 +161,8 @@ export interface SessionTelemetrySink {
  * any backend can disclose a policy without depending on the OTel package;
  * the values mirror the OTel backend's serialized `SessionTelemetryMode` choices.
  */
+// 中文：部署选择的会话共享策略披露值：后端必须披露，供 /feedback 确认文案等
+// 面向人类的确认面读取；消费者只在未挂载任何 telemetry 服务时渲染"未配置"。
 export type SessionTelemetrySharingStatus = 'full' | 'feedback-only' | 'disabled'
 
 /**

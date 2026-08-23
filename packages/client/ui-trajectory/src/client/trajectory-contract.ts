@@ -1,3 +1,19 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】轨迹目标的数据契约：各状态机产出的贡献（TrajectoryContribution）、视图节点
+ *             信封（TrajectoryConversationViewNode）、面向视图的阶段快照（TrajectorySnapshot），
+ *             以及请求头事实（TrajectoryRequestHeaderState）。
+ * 【技术维度】纯类型文件（无运行时代码）；通过模块扩充把 'trajectory' 注册进
+ *             ConversationViewSnapshotMap。
+ * 【产品维度】把"会话事件流 → 轨迹视图"之间的所有数据结构固定成共享契约，供 Definition、
+ *             快照构建器与视图组件三端引用。
+ * 【逻辑维度】1) 请求头状态；2) 六类贡献的判别联合；3) 视图节点信封；4) 阶段快照；
+ *             5) 视图快照映射的模块扩充。
+ * 【关键边界】contribution 的 kind 是判别字段，快照构建器据此分派；任何结构变化都需
+ *             同步更新构建器与视图。
+ * 【新手阅读建议】先读 TrajectoryContribution 的六种分支，再读 TrajectorySnapshot 的字段。
+ * ==========================================================================
+ */
 import type {
   AssistantMessageNode, ConversationLocation, ConversationNode,
   ConversationPromptSnapshot, ConversationViewNode, PartialAssistant,
@@ -5,6 +21,7 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 
 /** Request-header facts retained by the Trajectory target. */
+// 轨迹目标保留的"请求头"事实：请求的系统提示词快照、可选变更、位置与时间。
 export interface TrajectoryRequestHeaderState {
   readonly seq: number
   readonly time: number
@@ -14,6 +31,10 @@ export interface TrajectoryRequestHeaderState {
 }
 
 /** One independently assembled contribution to the legacy Trajectory ledger. */
+/**
+ * 一条独立组装的轨迹贡献（判别联合）：node / assistant / tool / request-header /
+ * compaction / session-end / turn-end 七种，kind 是判别字段。
+ */
 export type TrajectoryContribution =
   | {
     readonly kind: 'node'

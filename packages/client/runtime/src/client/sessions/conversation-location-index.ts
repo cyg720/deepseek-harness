@@ -1,3 +1,21 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话拥有的轮次/步骤时间线与"事件 -> 位置（Location）"索引：
+ *   把窗口内每个事件解析到 session/turn/step 层级，并维护引用稳定的
+ *   时间线快照与位置数据存储。
+ * 【技术维度】增量索引类：rebuild 全量重建；appendBoundary/appendNonBoundary
+ *   追加式更新；位置/时间线用 sameXxx 引用比较保证无变化时引用不变。
+ * 【产品维度】会话装配器需要知道每个事件落在哪个轮次/步骤，才能把节点
+ *   挂到正确的层级；位置数据（定义发布的业务值）也按层级存取。
+ * 【逻辑维度】坐标推导（显式负载优先，其次当前游标）；draft 构建轮次/
+ *   步骤边界；resolve 解析最终位置；MutableLocationDataStore 维护每层
+ *   位置数据（键唯一、属主冲突抛错）。
+ * 【关键边界】位置数据键的属主冲突 fail-loud；无轮次亲和的事件解析为
+ *   session 位置；坐标推导容忍 null/越界（防御畸形数据）。
+ * 【新手阅读建议】先读 contract/conversation.ts 的 Location 类型，
+ *   再看 rebuild 的主循环。
+ * ==========================================================================
+ */
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type {
   ConversationEventInput, ConversationLocation, ConversationLocationData,
@@ -5,25 +23,30 @@ import type {
   ConversationTurnDataMap, StepLocation, TurnLocation,
 } from '../contract/conversation.ts'
 
+/** 位置数据的内部记录：属主 + 值（键由外部 Map 键控）。 */
 interface OwnedLocationData {
   readonly owner: string
   readonly value: unknown
 }
 
 /** One Context's previous and next Location-data publication. */
+/** 一个上下文的先前与下一个位置数据发布。 */
 export interface ConversationLocationDataChange {
   readonly owner: string
   readonly previous: ConversationLocationData | null
   readonly next: ConversationLocationData | null
 }
 
+/** 可变的位置数据存储：按键持有 { 属主, 值 }，属主冲突抛错。 */
 class MutableLocationDataStore {
   private entries = new Map<string, OwnedLocationData>()
 
+  /** 按键读取值（不关心属主）。 */
   get(key: string): unknown {
     return this.entries.get(key)?.value
   }
 
+  /** 仅当属主匹配时移除；不匹配返回 false。 */
   remove(owner: string, key: string): boolean {
     const current = this.entries.get(key)
     if (current?.owner !== owner) return false
@@ -31,6 +54,7 @@ class MutableLocationDataStore {
     return true
   }
 
+  /** 仅当属主匹配（或键空闲）时写入；值相同返回 false（无变化）。 */
   set(owner: string, key: string, value: unknown): boolean {
     const current = this.entries.get(key)
     if (current !== undefined && current.owner !== owner) {
@@ -41,6 +65,7 @@ class MutableLocationDataStore {
     return true
   }
 
+  /** 整体替换条目集；内容完全相同时返回 false（引用稳定）。 */
   replace(entries: ReadonlyMap<string, OwnedLocationData>): boolean {
     let changed = this.entries.size !== entries.size
     if (!changed) {
@@ -57,12 +82,14 @@ class MutableLocationDataStore {
   }
 }
 
+/** 事件负载携带的坐标（turn/step 或 session 级）。 */
 interface Coordinates {
   readonly turn?: number
   readonly step?: number
   readonly session?: true
 }
 
+/** 步骤草稿：构建期间的边界信息，最终物化为 StepLocation。 */
 interface StepDraft {
   readonly turn: number
   readonly step: number
@@ -71,6 +98,7 @@ interface StepDraft {
   end?: SessionEvent<'step/end'>
 }
 
+/** 轮次草稿：构建期间的边界信息，最终物化为 TurnLocation。 */
 interface TurnDraft {
   readonly turn: number
   firstSeq: number
@@ -79,9 +107,10 @@ interface TurnDraft {
   readonly steps: Map<number, StepDraft>
 }
 
-const SESSION_LOCATION = { kind: 'session' } as const
-const UNRESOLVED_LOCATION = { kind: 'unresolved' } as const
+const SESSION_LOCATION = { kind: 'session' } as const // 会话级位置的共享常量
+const UNRESOLVED_LOCATION = { kind: 'unresolved' } as const // 未解析位置的共享常量
 
+/** 从事件负载读取显式坐标：turn/step 为 null 或非法时置为 undefined；两者皆无则标记 session 级。 */
 function payloadCoordinates(event: SessionEvent): Coordinates {
   const data = event.data as unknown as { turn?: unknown; step?: unknown }
   if (data.turn === null) return { session: true }
@@ -94,22 +123,26 @@ function payloadCoordinates(event: SessionEvent): Coordinates {
   return { ...turn === undefined ? {} : { turn }, ...step === undefined ? {} : { step } }
 }
 
+/** 逐元素引用比较两个只读数组（引用相等）。 */
 function sameReferences<T>(left: readonly T[], right: readonly T[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index])
 }
 
+/** 步骤位置引用比较：字段全部相等才算相同（用于保持引用稳定）。 */
 function sameStep(left: StepLocation | undefined, right: StepLocation): boolean {
   return left !== undefined
     && left.start === right.start && left.end === right.end && left.status === right.status
     && left.data === right.data
 }
 
+/** 轮次位置引用比较：字段与 steps 数组都相等才算相同。 */
 function sameTurn(left: TurnLocation | undefined, right: TurnLocation): boolean {
   return left !== undefined
     && left.start === right.start && left.end === right.end && left.status === right.status
     && left.data === right.data && sameReferences(left.steps, right.steps)
 }
 
+/** 位置引用比较：kind 不同即不同；session/unresolved 视为同值。 */
 function sameLocation(left: ConversationLocation | undefined, right: ConversationLocation | undefined): boolean {
   if (left === undefined || right === undefined || left.kind !== right.kind) return left === right
   if (left.kind === 'session' || left.kind === 'unresolved') return true
@@ -121,19 +154,24 @@ function sameLocation(left: ConversationLocation | undefined, right: Conversatio
 }
 
 /** Session-owned Turn/Step timeline and event-to-Location index. */
+/** 会话拥有的轮次/步骤时间线与事件到位置索引。 */
 export class ConversationLocationIndex {
-  private coordinates = new Map<number, Coordinates>()
-  private locations = new Map<number, ConversationLocation>()
-  private seqsByTurn = new Map<number, Set<number>>()
-  private timeline: ConversationTimelineSnapshot = { turnOrder: [], turns: new Map() }
-  private readonly turnDataStores = new Map<number, MutableLocationDataStore>()
-  private readonly stepDataStores = new Map<string, MutableLocationDataStore>()
-  private currentTurn: number | undefined
-  private currentStep: number | undefined
+  private coordinates = new Map<number, Coordinates>() // 事件 seq -> 坐标
+  private locations = new Map<number, ConversationLocation>() // 事件 seq -> 已解析位置
+  private seqsByTurn = new Map<number, Set<number>>() // 轮次号 -> 其中事件 seq 集合
+  private timeline: ConversationTimelineSnapshot = { turnOrder: [], turns: new Map() } // 引用稳定的时间线快照
+  private readonly turnDataStores = new Map<number, MutableLocationDataStore>() // 轮次号 -> 位置数据存储
+  private readonly stepDataStores = new Map<string, MutableLocationDataStore>() // "轮次:步骤" -> 位置数据存储
+  private currentTurn: number | undefined // 当前游标轮次（坐标推导回退）
+  private currentStep: number | undefined // 当前游标步骤
 
   /**
    * Return the current reference-stable timeline.
    * @returns current timeline snapshot.
+   */
+  /**
+   * 返回当前引用稳定的时间线。
+   * @returns 当前时间线快照。
    */
   snapshot(): ConversationTimelineSnapshot {
     return this.timeline
@@ -144,9 +182,14 @@ export class ConversationLocationIndex {
    * @param entries - complete current set of Definition-owned Location values.
    * @returns whether any published Location data changed.
    */
+  /**
+   * 替换所有定义拥有的位置值，同时保持读取器身份（存储对象不换）。
+   * @param entries 定义拥有位置值的完整当前集合。
+   * @returns 是否有任何已发布的位置数据发生变化。
+   */
   replaceData(entries: readonly { readonly owner: string; readonly data: ConversationLocationData }[]): boolean {
-    const turns = new Map<number, Map<string, OwnedLocationData>>()
-    const steps = new Map<string, Map<string, OwnedLocationData>>()
+    const turns = new Map<number, Map<string, OwnedLocationData>>() // 按轮次分组的待替换条目
+    const steps = new Map<string, Map<string, OwnedLocationData>>() // 按步骤分组的待替换条目
     for (const { owner, data } of entries) {
       const values = data.kind === 'turn'
         ? turns.get(data.turn) ?? new Map<string, OwnedLocationData>()
@@ -174,6 +217,11 @@ export class ConversationLocationIndex {
    * @param changes - incremental removals and replacements from published Contexts.
    * @returns whether any published Location data changed.
    */
+  /**
+   * 应用已发布上下文的变更，不重建轮次/步骤成员。
+   * @param changes 已发布上下文的增量移除与替换。
+   * @returns 是否有任何已发布的位置数据发生变化。
+   */
   applyData(changes: readonly ConversationLocationDataChange[]): boolean {
     let changed = false
     for (const change of changes) {
@@ -194,6 +242,11 @@ export class ConversationLocationIndex {
    * @param event - event already ingested into this index.
    * @returns current Location, falling back to session when it has no Turn/Step affinity.
    */
+  /**
+   * 解析一个事件的最近位置。
+   * @param event 已摄入本索引的事件。
+   * @returns 当前位置；事件无轮次/步骤亲和时回退为会话位置。
+   */
   locationOf(event: SessionEvent): ConversationLocation {
     return this.locations.get(event.seq) ?? SESSION_LOCATION
   }
@@ -202,6 +255,11 @@ export class ConversationLocationIndex {
    * Rebuild timeline facts after replace/prepend or a boundary append.
    * @param entries - complete current window in ascending seq order.
    * @returns seqs whose resolved Location changed.
+   */
+  /**
+   * 在替换/前插或边界追加后重建时间线事实。
+   * @param entries 当前完整窗口，按 seq 升序。
+   * @returns 已解析位置发生变化的 seq 集合。
    */
   rebuild(entries: readonly ConversationEventInput[]): ReadonlySet<number> {
     const previousLocations = this.locations
@@ -243,7 +301,7 @@ export class ConversationLocationIndex {
         currentStep = event.data.step
       }
       if (explicit.session !== true && explicit.turn !== undefined) {
-        if (currentTurn !== explicit.turn) currentStep = undefined
+        if (currentTurn !== explicit.turn) currentStep = undefined // 换轮次时清除步骤游标
         currentTurn = explicit.turn
         if (explicit.step !== undefined) currentStep = explicit.step
       }
@@ -269,7 +327,7 @@ export class ConversationLocationIndex {
       }
 
       if (event.type === 'step/end' && currentTurn === event.data.turn && currentStep === event.data.step) {
-        currentStep = undefined
+        currentStep = undefined // 步骤结束清除步骤游标
       }
       if (event.type === 'turn/end' && currentTurn === event.data.turn) {
         currentTurn = undefined
@@ -297,7 +355,7 @@ export class ConversationLocationIndex {
             data: this.stepData(candidate.turn, candidate.step),
           }
           const previous = previousSteps.get(candidate.step)
-          return sameStep(previous, value) ? previous as StepLocation : value
+          return sameStep(previous, value) ? previous as StepLocation : value // 无变化复用旧引用
         })
       const value: TurnLocation = {
         turn: draft.turn,
@@ -351,6 +409,11 @@ export class ConversationLocationIndex {
    * Append one Turn/Step boundary while revisiting only the owning Turn.
    * @param event - contiguous tail boundary event.
    * @returns seqs whose immutable Location reference changed.
+   */
+  /**
+   * 追加一个轮次/步骤边界，只复查所属轮次。
+   * @param event 连续尾部的边界事件。
+   * @returns 不可变位置引用发生变化的 seq 集合。
    */
   appendBoundary(event: SessionEvent): ReadonlySet<number> {
     if (event.type !== 'turn/start' && event.type !== 'turn/end'
@@ -441,6 +504,10 @@ export class ConversationLocationIndex {
    * Index one non-boundary tail event without rescanning the window.
    * @param event - contiguous appended event.
    */
+  /**
+   * 索引一个非边界尾部事件，不重扫窗口。
+   * @param event 连续追加的事件。
+   */
   appendNonBoundary(event: SessionEvent): void {
     const explicit = payloadCoordinates(event)
     if (explicit.session === true) {
@@ -463,38 +530,45 @@ export class ConversationLocationIndex {
     this.locations.set(event.seq, this.resolve(event.seq))
   }
 
+  /** 记录某轮次下的一个事件 seq（供 appendBoundary 复查用）。 */
   private indexTurnSeq(turn: number, seq: number): void {
     const current = this.seqsByTurn.get(turn) ?? new Set<number>()
     current.add(seq)
     this.seqsByTurn.set(turn, current)
   }
 
+  /** 取轮次数据存储的只读面（类型化收窄）。 */
   private turnData(turn: number): ConversationLocationDataStore<ConversationTurnDataMap> {
     return this.mutableTurnData(turn) as ConversationLocationDataStore<ConversationTurnDataMap>
   }
 
+  /** 取步骤数据存储的只读面（类型化收窄）。 */
   private stepData(turn: number, step: number): ConversationLocationDataStore<ConversationStepDataMap> {
     return this.mutableStepData(stepDataKey(turn, step)) as ConversationLocationDataStore<ConversationStepDataMap>
   }
 
+  /** 按需创建并缓存轮次数据存储（保持读取器身份稳定）。 */
   private mutableTurnData(turn: number): MutableLocationDataStore {
     const current = this.turnDataStores.get(turn) ?? new MutableLocationDataStore()
     this.turnDataStores.set(turn, current)
     return current
   }
 
+  /** 按需创建并缓存步骤数据存储（保持读取器身份稳定）。 */
   private mutableStepData(key: string): MutableLocationDataStore {
     const current = this.stepDataStores.get(key) ?? new MutableLocationDataStore()
     this.stepDataStores.set(key, current)
     return current
   }
 
+  /** 按数据形状定位其属主存储。 */
   private storeFor(data: ConversationLocationData): MutableLocationDataStore {
     return data.kind === 'turn'
       ? this.mutableTurnData(data.turn)
       : this.mutableStepData(stepDataKey(data.turn, requireStep(data)))
   }
 
+  /** 解析一个 seq 的最终位置：无轮次 -> session；轮次缺失 -> unresolved；无步骤 -> turn；有步骤 -> step。 */
   private resolve(seq: number): ConversationLocation {
     const coordinates = this.coordinates.get(seq)
     if (coordinates?.turn === undefined) return SESSION_LOCATION
@@ -506,10 +580,12 @@ export class ConversationLocationIndex {
   }
 }
 
+/** 步骤数据存储键："轮次:步骤"。 */
 function stepDataKey(turn: number, step: number): string {
   return `${turn}:${step}`
 }
 
+/** 从位置数据取必需的步骤号；step 数据缺步骤时抛错。 */
 function requireStep(data: ConversationLocationData): number {
   if (data.kind === 'step' && data.step !== undefined) return data.step
   throw new Error(`conversation Step data "${data.key}" requires a step`)

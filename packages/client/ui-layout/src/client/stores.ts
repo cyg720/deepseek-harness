@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】根入口的瞬时布局存储：面板几何以像素宽度偏好表示（0 = 关闭），
+ *             只导出工厂函数。
+ * 【技术维度】defineStore 工厂：模块级只导出工厂，避免模块缓存钉住存储身份
+ *             （否则会成为能挺过插件重载的事实单例）；注册时框架按入口实例化。
+ * 【产品维度】侧边栏/详情栏的宽度偏好与窄视口下的自动收起覆盖。
+ * 【逻辑维度】init 给出默认宽度 → 动作集：setSidebar/setDetails（拖拽，钳制区间）、
+ *             toggleSidebar（窄屏翻转覆盖）、setNarrow、openDetails/closeDetails。
+ * 【关键边界】偏好即宽度：关闭面板即遗忘拖拽宽度，重开恢复契约默认值；
+ *             窄屏切换只翻转覆盖位，不重写宽度偏好（变宽后自动恢复）。
+ * 【新手阅读建议】先看 columns.ts 的几何常量，再看动作集中窄屏覆盖的语义。
+ * ==========================================================================
+ */
+/**
  * The root entry's transient layout store: panel geometry as plain widths in
  * px (0 = closed). Module level exports the factory only — a module-level
  * handle would pin the store's identity in the module

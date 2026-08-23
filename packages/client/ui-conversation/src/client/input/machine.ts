@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】InputMachine：纯函数式的每会话输入状态机。事件进、效果出；零 React / DOM /
+ *             cordis / 环境时钟依赖。包私有——SessionInput shell 是唯一调用者与效果执行者。
+ * 【技术维度】判别联合事件（InputEvent）+ 纯 reducer（dispatch）；每事务原子完成"草稿编辑 +
+ *             出现次数重排 + 撤销日志入栈"，并递增 draftRev；撤销环深度上限 100；
+ *             SubmitAttempt 自持 AbortController。
+ * 【产品维度】输入框撤销 / 重做、粘贴升级、提交仲裁、引用 chip 的全部行为逻辑。
+ * 【逻辑维度】1) 常量与工具（占位符、引用投影、diff 编辑恢复）；2) 撤销单元 Transaction；
+ *             3) InputMachine 类（草稿 / 出现次数 / 阶段 / 撤销日志 / 提交尝试状态机）。
+ * 【关键边界】draft 持有引用的完整内联显示文本；draftRev 相等 ⟹ 草稿相同 ⟹ span CAS
+ *             可化简为版本相等检查；过期提交尝试丢弃（同状态零效果）。
+ * 【新手阅读建议】先读模块头的英文说明，再读 dispatch 的 reducer 结构。
+ * ==========================================================================
+ */
+/**
  * InputMachine: the pure per-session input state machine.
  * Events in, effects out; zero React / DOM / cordis / ambient
  * clock. Package-private — the SessionInput shell is the only caller and the
@@ -21,6 +36,7 @@ import type {
 } from './contract.ts'
 
 /** Legacy fixed-width object replacement character rejected from pasted text. */
+// 从粘贴文本中剔除的旧式固定宽度对象替换字符。
 export const PLACEHOLDER = '￼'
 
 const REFERENCE_PLACEHOLDER_RE = /[\uE100-\uE11D\uFFFC]/gu

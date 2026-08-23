@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】模型设置页存储：一份快照联接可配置提供者目录（llm.providers）、
+ *             设置命名空间（共享镜像）与被引用的凭据（credentials.describe）。
+ * 【技术维度】SnapshotStore + 代数守卫：每次变更都过网写，页面从下一次
+ *             describe（推送或重取）重渲染；凭据描述是批量增强（失败不拖垮整页）。
+ * 【产品维度】模型设置页：提供者行（配置/可移除/密钥状态）、首次运行就绪判定。
+ * 【逻辑维度】load 并行取目录与镜像 → 联接行（configured/removable/apiKeyEnv）
+ *             → 批量描述凭据 → providerUsable/onboardingReadiness 推导就绪。
+ * 【关键边界】PROBE_ROUTE 探针路由从模式中读协议选择（不漂移）；官方 DeepSeek
+ *             路由决定"提示能否帮助"。
+ * 【新手阅读建议】先看 ProviderRow 的联接语义，再读 load 与 onboardingReadiness。
+ * ==========================================================================
+ */
+/**
  * Models settings page store: one snapshot joining the configurable-provider
  * directory (`llm.providers`), the settings namespaces (shared settings mirror),
  * and the referenced credentials (`credentials.describe`). The host stays the

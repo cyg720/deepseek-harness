@@ -1,8 +1,21 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话查询服务的公共配置与定型失败：两个默认常量、可继承 Config、
+ *   封闭错误码族与 SessionQueryError。
+ * 【技术维度】继承 HarnessError 并在类型上把 code 收窄为封闭联合成员。
+ * 【产品维度】让所有查询失败都有稳定的机器可路由错误码。
+ * 【逻辑维度】按代码顺序：两个默认常量 → Config → 错误码联合 → SessionQueryError。
+ * 【关键边界】错误码是封闭枚举（非可合并扩展）。
+ * 【新手阅读建议】记住默认窗口 50 与默认并发 4，其余看错误码清单。
+ * ==========================================================================
+ */
+
 /** Public configuration and typed failures for the combined session-query service. */
 
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 
 /** Default maximum `before`/`after` raw-event window. */
+// 中文：默认的最大 before/after 原始事件窗口（读事件上下文时两侧各最多 50 条）。
 export const SESSION_QUERY_READ_WINDOW_MAX = 50
 
 /** Default maximum number of concurrent persisted-log inspections in one batch read. */

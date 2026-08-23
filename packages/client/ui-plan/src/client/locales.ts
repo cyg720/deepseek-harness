@@ -1,3 +1,13 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】`plan` 命名空间的双语文案字典（输入条 plan 芯片文案）。
+ * 【技术维度】zh 为键集基准，en 受 Record<PlanKey, string> 约束。
+ * 【产品维度】plan mode 芯片的标题与无障碍标签。
+ * 【逻辑维度】zh 定义键，PlanKey 推导，en 补齐。
+ * 【关键边界】zh 是键的单一事实来源。
+ * 【新手阅读建议】纯数据文件。
+ * ==========================================================================
+ */
 /** `plan` namespace dictionaries (the composer plan chip's copy). */
 
 /** Simplified Chinese dictionary (the key-set source of truth). */

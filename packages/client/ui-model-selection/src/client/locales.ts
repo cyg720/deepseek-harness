@@ -1,4 +1,15 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】`model` 命名空间的双语文案字典（模型选择两表面的文案）。
+ * 【技术维度】zh 为键集基准，en 受 Record<ModelKey, string> 约束；
+ *             trigger.selectAria 与 trigger.fallback 刻意分立为两个键。
+ * 【产品维度】/model 弹窗与输入条选择器的命令描述、触发器文案、菜单与错误提示。
+ * 【逻辑维度】zh 定义键 → ModelKey 推导 → en 补齐。
+ * 【关键边界】zh 是键的单一事实来源。
+ * 【新手阅读建议】纯数据文件。
+ * ==========================================================================
+ */
+/**
  * `model` namespace dictionaries.
  *
  * `trigger.selectAria` reads identically to `trigger.fallback` today and is

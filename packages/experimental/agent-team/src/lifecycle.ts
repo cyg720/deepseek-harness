@@ -1,3 +1,15 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】团队运行时的共享准入截止与有界结算：单一 AbortController 作为
+ *   "服务开始拆卸"的唯一事实，settle 等待已准入操作并保留非取消的失败。
+ * 【技术维度】isCancellation 沿 cause 链识别运行时期取消（TEAM_DISPOSED）；
+ *   withTimeout 用 Promise.race 给结算操作套期限，防 HMR/进程退出被卡死。
+ * 【产品维度】保证团队运行时拆卸"有界、不吞失败"。
+ * 【逻辑维度】signal/disposed/reason → isCancellation → close → settle → withTimeout。
+ * 【新手阅读建议】先看 close 的取消原因，再看 settle 如何过滤预期取消。
+ * ==========================================================================
+ */
+
 /** Shared admission cutoff and bounded settlement for the Team runtime. */
 
 import { TeamError } from './error.ts'

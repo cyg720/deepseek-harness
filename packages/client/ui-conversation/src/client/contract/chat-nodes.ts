@@ -1,15 +1,32 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】最终聊天节点（ChatNode）的类型体系：按渲染器 kind 的可合并载荷注册表
+ *             （ChatNodeDataMap）+ 判别联合 + 各业务行载荷（assistant / tool / 压缩 /
+ *             重试 / 回合尾），以及工具是否已定格的判定函数。
+ * 【技术维度】纯类型 + 两个类型守卫；ChatNodeDataMap 是"可合并扩充"的注册表，业务模块
+ *             通过声明合并加入新的 kind 与载荷。
+ * 【产品维度】渲染器按 kind 分发节点；数据形状由各业务状态机定义。
+ * 【逻辑维度】1) 载荷注册表与 kind；2) ChatNode 判别联合；3) 各行载荷接口；
+ *             4) isSettledTool / isRunningTool 守卫。
+ * 【关键边界】'kind' in block 是运行中 / 已定格工具块的判别依据。
+ * 【新手阅读建议】先看 ChatNodeDataMap 如何被 conversation-nodes 扩充。
+ * ==========================================================================
+ */
 import type {
   AssistantBlock, AssistantMessageNode, ChatConversationViewNode, CommandNode,
   CompactionSummaryNode, ModelRetryNode, RunningToolCall, ToolCallBlock,
 } from '@deepseek-ai/dsh-client-runtime/client'
 
 /** Merge-extensible payload registry keyed by final Chat renderer kind. */
+// 按最终聊天渲染器 kind 键控的可合并载荷注册表（业务模块经声明合并扩充）。
 export interface ChatNodeDataMap {}
 
 /** Renderer kinds contributed by the currently installed Chat business modules. */
+// 当前已安装的聊天业务模块贡献的渲染器 kind。
 export type ChatNodeKind = Extract<keyof ChatNodeDataMap, string>
 
 /** Final Chat Node narrowed to one registered renderer kind and payload. */
+// 窄化到某个已注册渲染器 kind 与载荷的最终聊天节点（判别联合）。
 export type ChatNode<Kind extends ChatNodeKind = ChatNodeKind> = {
   [RegisteredKind in Kind]: ChatConversationViewNode & {
     readonly kind: RegisteredKind

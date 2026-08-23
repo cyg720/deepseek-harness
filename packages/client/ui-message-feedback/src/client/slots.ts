@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】消息反馈条目的注入面：定义助手消息操作条（assistant-actions）槽位
+ *             需要的钩子与变更动词。
+ * 【技术维度】纯类型：槽位由 ui-conversation 声明，本包只贡献条目；
+ *             每条消息的实时状态经 feedback 钩子（标准套件绑定进 useFeedback）到达。
+ * 【产品维度】消息上的赞/踩操作及其交互形态。
+ * 【逻辑维度】MessageFeedbackInjected 定义 hooks.feedback（会话级反馈视图）与
+ *             ensure/rate/toggle/clearNote/clear 五个动作。
+ * 【关键边界】toggle 从已提交项判定（首次列表读取前的点击仍能切换存储值）。
+ * 【新手阅读建议】与 controller.ts 的对象层对照阅读。
+ * ==========================================================================
+ */
+/**
  * The feedback entry's injected face. The target
  * 'conversation.chat.assistant-actions' slot is declared and typed by
  * ui-conversation; this package only contributes the entry, so no SlotMap

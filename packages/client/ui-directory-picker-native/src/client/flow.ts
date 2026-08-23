@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】原生目录选择的流程占用者：每次工作区孔位 open 时调用宿主原生选择器
+ *             一次，并把唯一结果（路径/取消/失败）回传给所有者会话。
+ * 【技术维度】React 无渲染组件：armed ref 保证一次 open 只弹一次选择器；
+ *             outcome ref 保证回调总是走最新 props；alive ref 处理卸载
+ *             （HMR 替换）时丢弃迟到结果。
+ * 【产品维度】选择工作区目录时使用操作系统原生对话框。
+ * 【逻辑维度】open 上升沿 → armed 置位 → pick() → 按 alive 判定 → onPicked/onCancel/onError。
+ * 【关键边界】无渲染、无状态留存；宿主选择器无按请求取消，卸载后的答案落地即弃。
+ * 【新手阅读建议】注意三个 ref 各自解决的问题：armed（防重复）、outcome（防陈旧）、alive（防卸载写入）。
+ * ==========================================================================
+ */
+/**
  * The native picking occupant (package-internal; the `./client` surface
  * exposes only the Loader exports). Same-package tests exercise it directly
  * through this module.

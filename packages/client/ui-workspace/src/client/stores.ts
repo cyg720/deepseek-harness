@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】工作区浏览器的视图存储：会话列表的分组/排序模式，跨重载持久化。
+ * 【技术维度】defineStore 工厂（模块级只导出工厂，避免模块缓存钉住身份）；
+ *             持久化键 'dsh.workspace.view.v5'；动作集含分组/排序/展开状态与
+ *             会话顺序账本同步。
+ * 【产品维度】工作区浏览器按工作区分组或平铺、手动或按活跃度排序、分组展开态。
+ * 【逻辑维度】init 默认（按工作区、按活跃度）→ 动作：setGroupBy/setOrderBy/
+ *             setGroupExpanded/retainAccountKeys/syncSessionOrderAccount/setSessionOrder。
+ * 【关键边界】order 账本键随工作区保留/回收（retainAccountKeys 过滤已消失工作区）。
+ * 【新手阅读建议】先看状态形状与持久化键，再看账本同步动作的语义。
+ * ==========================================================================
+ */
+/**
  * The workspace browser's viewing store: the session-list grouping mode,
  * persisted across reloads. Module level exports the factory only (a
  * module-level handle would pin the store identity across plugin reloads);

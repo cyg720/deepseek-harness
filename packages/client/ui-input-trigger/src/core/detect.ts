@@ -1,4 +1,18 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】触发器检测的纯核心：从光标处向左扫描，在当前守卫等级下判定是否存在
+ *             存活的触发字符，并应用词边界规则。
+ * 【技术维度】零 React / DOM / Cordis；'@' 复用共享文件引用语法（支持带引号含空格的
+ *             打开 token），'/' 接受标点边界并做 URL 豁免。
+ * 【产品维度】输入框里敲 / 或 @ 时能否唤起菜单，以及唤起的查询词与位置判定。
+ * 【逻辑维度】先走 '@' 的共享语法检测（activeAtToken）；未命中再向左扫描 '/'，
+ *             逐字符做词边界判定（含 URL 豁免）。
+ * 【关键边界】user@host 与 URL 中的 '/' 不触发；guard 等级（plain/claimed/frozen）
+ *             决定哪些字符存活。
+ * 【新手阅读建议】先看 boundaryOk 的边界规则，再看 detectTrigger 的双路径扫描。
+ * ==========================================================================
+ */
+/**
  * Trigger detection pure core. Scans backward from
  * the caret for a live trigger char under the guard tier and applies the
  * word-boundary rules. Zero React / DOM / cordis.
@@ -17,6 +31,8 @@ const WHITESPACE = /\s/u
  * itself follows a non-whitespace char (scheme separator, `https:/…`), and
  * '/' directly after another '/' (second slash of `//`).
  */
+// 词边界规则：触发字符只在草稿开头、空白（含换行）后或标点后生效；
+// 两个 URL 豁免让 '/' 在 URL 内不触发（方案分隔符 ':' 之后、以及 '//' 的第二个斜杠）。
 function boundaryOk(draft: string, index: number, char: TriggerChar): boolean {
   if (index === 0) return true
   const prev = draft.charAt(index - 1)

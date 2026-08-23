@@ -1,3 +1,16 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】用户 / 转向 / 上下文注入三类消息的分类状态机：把 user/message 事件按来源
+ *             与收件箱 claimed 集合分类，产出对应的聊天节点。
+ * 【技术维度】ConversationNodeDefinition（target: 'chat'）；压缩检查点（compact 插件
+ *             的 replacement 事件）不认领（由压缩节点处理）；claimed 判定引用
+ *             inbox-next-step 状态。
+ * 【产品维度】消息流区分普通用户消息、被认领的转向消息与系统上下文注入。
+ * 【逻辑维度】1) 带引用标签的节点类型与映射扩充；2) 检查点排除；3) 状态机；4) 注册函数。
+ * 【关键边界】steering 判定依赖收件箱 claimed 集合；压缩检查点事件被显式排除。
+ * 【新手阅读建议】与 inbox.ts 的 claimed 集合对照阅读。
+ * ==========================================================================
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ContextMessageNode, ConversationNodeDefinition, SteeringMessageNode, UserMessageNode,

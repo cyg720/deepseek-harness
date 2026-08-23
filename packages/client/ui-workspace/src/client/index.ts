@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】工作区包的浏览器侧入口：两个注册——WorkspaceBrowser 填充侧边栏
+ *             壳的 sidebar.workspaces 孔位，WorkspacePicker 填充对话英雄区的
+ *             workspace 孔位。
+ * 【技术维度】Cordis 浏览器插件：两表面都经全局 useWorkspaces hook 读真实宿主
+ *             工作区；各声明自己的 single 目录流程子孔位（供目录选择包客户端半部）。
+ * 【产品维度】侧边栏工作区浏览区（搜索/分组/排序/重命名/归档）与英雄区工作区选择器。
+ * 【逻辑维度】1) 注册字典；2) 注入两个表面的业务回调；3) 注册浏览器（含目录流程
+ *             子孔位与视图存储）与选择器。
+ * 【关键边界】目标槽位由 ui-sidebar/ui-conversation 声明，激活顺序不受约束——
+ *             用 slots.inject() 而非假设顺序。
+ * 【新手阅读建议】先读 tree.ts/stores.ts 的派生与存储，再看本文件的接线。
+ * ==========================================================================
+ */
+/**
  * Workspace plugin, browser half. Two registrations: WorkspaceBrowser fills
  * the sidebar shell's `sidebar.workspaces` hole (the whole browsing region),
  * and WorkspacePicker fills the conversation hero's picker hole

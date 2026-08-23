@@ -1,4 +1,17 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】欢迎通知状态：从欢迎设置作用域派生；协调"宿主持久确认"与
+ *             "远端浏览器进程本地回退"两种持久化。
+ * 【技术维度】SnapshotStore + SettingsScope：回环浏览器跟随持久宿主段，
+ *             远端浏览器的 memory 模式永不作答，确认保持进程本地。
+ * 【产品维度】首次运行欢迎页的"已读确认"持久化。
+ * 【逻辑维度】load 跟随作用域 → derive 按模式/状态推导 → acknowledge 写版本号
+ *             （memory 模式只置本地位）→ 以写后状态判定成功。
+ * 【关键边界】判定成功看写后留下的状态；拒绝或失败写入在恢复读取后报 false。
+ * 【新手阅读建议】先看 derive 的分支（memory/loading/unavailable/ready），再看 acknowledge。
+ * ==========================================================================
+ */
+/**
  * Welcome-notice state derived from the welcome settings scope. The scope is
  * the transport: a loopback browser follows the durable Host section, while a
  * remote browser's memory-mode scope never answers and the acknowledgement

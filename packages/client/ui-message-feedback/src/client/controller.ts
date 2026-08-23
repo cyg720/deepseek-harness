@@ -1,4 +1,19 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话级消息反馈的浏览器本地对象层：一个会话一个实例，支撑该会话内
+ *             所有消息控件的赞/踩状态；一次列表读取种子化全部。
+ * 【技术维度】HostObservable（快照 + 订阅）+ CAS：每次变更携带控制器最后观察到的
+ *             版本号；version-conflict 应答带权威条目，丢失的竞争从应答本身调和。
+ * 【产品维度】每条助手消息的赞/踩、备注与清除操作的数据层。
+ * 【逻辑维度】ensure 懒加载 → mutate 串行化变更（排队等待前一变更、先种子读取）
+ *             → putCommitted/deleteCommitted 带版本提交 → 冲突时用应答条目调和
+ *             → commit/publish 发布新视图。
+ * 【关键边界】变更必须串行（否则旧版本覆盖新提交）；resync 供重连使用（避免
+ *             反序列化的旧列表覆盖新版本）；dispose 后拒绝一切工作。
+ * 【新手阅读建议】先看 mutate 的串行化模型，再看 rate/toggle 如何基于已提交条目决策。
+ * ==========================================================================
+ */
+/**
  * Browser-local object layer over one Session's durable message-feedback
  * sidecar. The Host owns per-item compare-and-set: every mutation carries the
  * version this controller last observed, and a `version-conflict` reply carries
@@ -44,6 +59,7 @@ export interface MessageFeedbackRemote {
 export type MessageFeedbackStatus = 'cold' | 'loading' | 'ready' | 'error'
 
 /** Immutable view published to every per-message control in one Session. */
+// 发布给会话内所有消息控件的不可变视图：状态、按消息的条目表与最近错误。
 export interface MessageFeedbackView {
   status: MessageFeedbackStatus
   /** Current item per message, keyed by the addressed message id. */

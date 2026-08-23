@@ -1,3 +1,13 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】Session 导出浏览器反馈的语言包命名空间：NS 名 + 中英文文案 + 键类型。
+ * 【技术维度】zh 为基准对象（as const），en 用 keyof 保证键对齐。
+ * 【产品维度】弹窗文案随界面语言切换。
+ * 【逻辑维度】NS → zh → en → SessionLogDownloadKey。
+ * 【新手阅读建议】新增文案时保持 zh/en 键一致即可。
+ * ==========================================================================
+ */
+
 /** Locale namespace owned by Session export browser feedback. */
 export const NS = 'session-log-download'
 
