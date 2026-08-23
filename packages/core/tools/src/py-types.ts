@@ -1,4 +1,23 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】Code Mode 代码生成的 Python 风味：把注册工具的 schema 纯投影为
+ *   Python SDK 文本（TypedDict 类 + Tools Protocol + tools 单例），供模型在
+ *   runtime.language === 'python' 时编程使用。
+ * 【技术维度】与 ts-types.ts 平行的帧式遍历渲染；额外承担大量"Python 语法合法性"
+ *   防线——标识符 Unicode 判定（XID + NFKC 稳定）、保留字降级、docstring 转义、
+ *   控制字符/孤立代理对转义、list 嵌套上限等，保证生成的块永远是可解析的 Python。
+ * 【产品维度】code 模式下原生 schema 不下发，这份文本是模型了解工具形状的唯一来源；
+ *   对象渲染成具名 TypedDict 而非 dict[str, Any]，把字段名/必填性/类型完整带给模型。
+ * 【逻辑维度】标识符/保留字判定 → 描述折叠与转义 → 类名分配（限长+去重）→ 标量与
+ *   Literal 渲染 → 帧式类型遍历 renderType（收集 TypedDict 声明）→ 两个导出入口。
+ * 【关键边界】注解只是建议性提示文本（运行时不检查）；任何畸形 schema 降级为 Any
+ *   而不抛错；类名长度与 list 嵌套深度有硬上限以保证线性时间与语法有效。
+ * 【新手阅读建议】先读 jsonSchemaToPy / renderToolsSdkPy 两个入口理解输出形态，
+ *   再按需深入 isBareIdentifier 与 renderType 的英文长注释（版本偏斜等细节）。
+ * ==========================================================================
+ */
+
+/**
  * Code Mode codegen — Python flavor. The pure projection from registered tool schemas to the
  * Python SDK text the model programs against under `runtime.language === 'python'`. Sibling of
  * {@link ./ts-types.ts | ts-types.ts}; the two files are two projections of the same registry
@@ -96,6 +115,15 @@ const IDENTIFIER = /^[\p{XID_Start}_]\p{XID_Continue}*$/u
  * @param name - the raw schema field or tool name.
  * @returns whether the name can be emitted bare.
  */
+/**
+ * 【中文】判断一个名字能否作为裸 Python 标识符输出（否则走下标/`dict[str, Any]` 路径）。
+ *   两个条件缺一不可：① 匹配 XID 语法（Unicode 标识符，非 ASCII——中文路径等合法
+ *   名字不应被降级）；② NFKC 规范化后不变（CPython 编译时会规范化标识符，而 JSON
+ *   键按原字节比较，不稳定的名字会造成"声明的键与实际接受的键不一致"）。整体刻意
+ *   比 str.isidentifier() 更严格。详细版本偏斜分析见上方英文注释。
+ * @param name - 原始的 schema 字段名或工具名。
+ * @returns 该名字是否可以裸写。
+ */
 function isBareIdentifier(name: string): boolean {
   return IDENTIFIER.test(name) && name.normalize('NFKC') === name
 }
@@ -118,6 +146,13 @@ function isBareIdentifier(name: string): boolean {
  * ``object``/``type`` resolves before the proxy hook, and implicit
  * special-method lookup bypasses the hook.
  */
+/**
+ * 【中文】Python 硬保留字集合：名为 `class`/`lambda` 的工具或字段在语法上不能作为
+ *   属性/类体字段，因此这类工具降级为下标访问、这类对象整体降级为 dict[str, Any]，
+ *   模型仍可触达一切、不会撞名。软关键字（match/case/type/_）刻意不在列——它们只在
+ *   特定句法位置特殊，作字段名完全合法，收进来只会无谓降级常见字段。`__debug__`
+ *   不是保留字但 CPython 拒绝对它赋值，效果等同。
+ */
 const RESERVED = new Set([
   'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class',
   'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global',
@@ -130,9 +165,16 @@ const RESERVED = new Set([
 ])
 
 /** `typing` symbols this module may emit, in the deterministic import order. */
+/**
+ * 【中文】本模块可能用到的 typing 符号及其固定的导入顺序——渲染时只导入实际
+ *   用到的符号，顺序固定保证输出确定。
+ */
 const TYPING_ORDER = ['Any', 'Literal', 'NotRequired', 'Protocol', 'TypedDict'] as const
 
 /** `indent`-deep line prefix (four spaces per level to match PEP 8 output). */
+/**
+ * 【中文】缩进前缀：每层四个空格，符合 PEP 8 输出风格。
+ */
 function pad(indent: number): string {
   return '    '.repeat(indent)
 }
@@ -142,6 +184,12 @@ function pad(indent: number): string {
  * declarations (nested classes precede the parent that references them), the
  * class names already taken (for collision suffixing), a per-base collision
  * counter, and the `typing` symbols the render actually used.
+ */
+/**
+ * 【中文】贯穿 renderType 的收集器状态：classes 存放生成的 TypedDict 类声明
+ *   （嵌套类声明在引用它的父类之前）；usedClassNames 已占用的类名（冲突时加序号
+ *   后缀）；nextClassCounter 是每个基名的下一个可用序号；typing 收集实际用到的
+ *   typing 符号，决定最终 import 行。
  */
 interface RenderState {
   readonly classes: string[]
@@ -185,6 +233,12 @@ interface RenderState {
  * `XID_Continue`. The `description` path escapes NEL under the class above and
  * folds LS and PS in {@link describe}'s `\s+` collapse, both being `\s`.
  */
+/**
+ * 【中文】"不可打印且在空白折叠后幸存"的控制字符集合（C0 控制符、DEL、C1 控制符），
+ *   describe 会把它们转义成 `\xNN`。关键动机：CPython 直接拒绝源码中出现 NUL
+ *   字节——一个 NUL 就能让整份生成的 SDK 无法解析；其余控制符虽合法但不可见，
+ *   统一转义保持可读与一致。详见上方英文注释。
+ */
 const UNPRINTABLE = /[\u0000-\u0008\u000e-\u001f\u007f-\u009f]/g
 
 /**
@@ -199,6 +253,12 @@ const UNPRINTABLE = /[\u0000-\u0008\u000e-\u001f\u007f-\u009f]/g
  * anywhere in the text — measured on 3.9 for a string literal and for a `#`
  * comment alike. A raw or MCP tool description reaches this: `JSON.parse` on a
  * wire `"\ud800"` escape yields exactly such a code point.
+ */
+/**
+ * 【中文】孤立代理对码点（D800–DFFF）：describe 将其转义为 `\uNNNN`（`\xNN` 只到
+ *   U+00FF，故用独立形式）。u 标志保证"配对良好"的代理对被视为单个星体码点——
+ *   描述里的 emoji 原样幸存。动机同 NUL：Python 源码必须能 UTF-8 编码，孤立代理对
+ *   会让 compile() 抛 UnicodeEncodeError。
  */
 const LONE_SURROGATE = /[\ud800-\udfff]/gu
 
@@ -220,7 +280,15 @@ const LONE_SURROGATE = /[\ud800-\udfff]/gu
  * emitted literally by both consumers, since {@link docLines} doubles it into a
  * Python source escape and a `#` comment carries it verbatim.
  */
+/**
+ * 【中文】取 schema 节点折叠后的单行 description；无描述或折叠后为空则返回
+ *   undefined（空描述对文档毫无增益，还会留下空 docstring/裸 `#` 行）。控制字符
+ *   转义为 `\xNN`、孤立代理对转义为 `\uNNNN`，转义的反斜杠由消费方按字面输出。
+ * @param schema - 已验证的节点对象（只读它的 description 字段）。
+ * @returns 折叠转义后的单行描述，或 undefined。
+ */
 function describe(schema: object): string | undefined {
+  // 【中文】所有调用方传入的都是对象，因此只需对 description 字段做防御。
   const description = (schema as Record<string, unknown>).description
   if (typeof description !== 'string') return undefined
   const collapsed = description
@@ -238,9 +306,18 @@ function describe(schema: object): string | undefined {
  * would otherwise merge with (or escape) the closing triple quote and make
  * the generated block — Code Mode's only SDK — syntactically invalid Python.
  */
+/**
+ * 【中文】把工具描述渲染为一行 `"""docstring"""`；无描述则不产生行。转义顺序关键：
+ *   先双写反斜杠、再转义引号——否则以引号或奇数反斜杠结尾的描述会"吞掉"收尾的
+ *   三引号，让整份 SDK（code 模式下模型唯一的工具说明）变成非法 Python。
+ * @param description - 原始描述（任意值）。
+ * @param indent - 缩进层级。
+ * @returns 零或一行 docstring。
+ */
 function docLines(description: unknown, indent: number): string[] {
   const collapsed = describe({ description })
   if (collapsed === undefined) return []
+  // 【中文】先双写反斜杠再转义双引号，保证三引号字符串安全闭合。
   const escaped = collapsed.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
   return [`${pad(indent)}"""${escaped}"""`]
 }
@@ -274,6 +351,15 @@ function docLines(description: unknown, indent: number): string[] {
  * @param raw - the schema field or tool name to derive from.
  * @returns a class-name segment safe to emit.
  */
+/**
+ * 【中文】把名字驼峰化成 Python 类型标识符：非标识符字符与下划线都作为分词点，
+ *   不能开头的头部补 `Tool` 前缀；结果 NFKC 规范化（生成的名字不与 JSON 键比对，
+ *   规范化免费且保证"所见 = CPython 所编译"）。Unicode 保留——`路径` 字段产出
+ *   基于它的类名而非裸前缀。注意本函数同样读引擎 Unicode 表，携带与
+ *   isBareIdentifier 相互独立的版本偏斜（详见英文注释）。
+ * @param raw - 待派生的 schema 字段名或工具名。
+ * @returns 可安全输出的类名片段。
+ */
 function camelCase(raw: string): string {
   const joined = raw
     .split(/[^\p{XID_Continue}]+|_+/u)
@@ -285,6 +371,10 @@ function camelCase(raw: string): string {
 }
 
 /** Class-name base cap keeping each emitted name — and total text — linear in schema depth. */
+/**
+ * 【中文】类名基名长度上限（120）：子类名由父类名派生，不设上限时深嵌套单字段
+ *   对象链会让名字与总文本按深度平方膨胀；截断基名使每个名字与总输出对深度线性。
+ */
 const MAX_CLASS_NAME_BASE = 120
 
 /**
@@ -326,6 +416,12 @@ const MAX_CLASS_NAME_BASE = 120
  * grammatical validity; see the `oneOf` arm in {@link renderType} for the one
  * interpreter limit deliberately left uncapped.
  */
+/**
+ * 【中文】单个注解里 `list[…]` 的最大嵌套层数（180），超过即降级为 Any。依据是
+ *   CPython 分词器的 200 层同时开括号硬限制（超限直接 SyntaxError）——不设上限会
+ *   生成根本不是合法 Python 的 SDK 块。180 为各发射位置的最坏括号情况留了余量。
+ *   这是解释器语法限制而非部署选项，故固定不可配置。完整逐位置分析见英文注释。
+ */
 const MAX_LIST_NESTING = 180
 
 /**
@@ -334,6 +430,10 @@ const MAX_LIST_NESTING = 180
  * an astral character straddling the boundary would be cut in half and leave a
  * lone surrogate — not an identifier character, and not even well-formed text;
  * drop it rather than emit it.
+ */
+/**
+ * 【中文】把类名基名截断到 MAX_CLASS_NAME_BASE。slice 按 UTF-16 码元计数，星体字符
+ *   可能被拦腰切断留下孤立代理项——那既不是合法标识符字符也不是良构文本，宁可丢弃。
  */
 function capClassNameBase(base: string): string {
   if (base.length <= MAX_CLASS_NAME_BASE) return base
@@ -351,6 +451,14 @@ function capClassNameBase(base: string): string {
  * the per-base counter in `state.nextClassCounter` rather than rescanning from
  * `2`, so a deep chain sharing one capped base stays O(1) per allocation
  * (amortized) instead of Θ(depth²) in time.
+ */
+/**
+ * 【中文】从基名分配一个未占用的类名，冲突时追加 `2`、`3`… 后缀。基名先截断；
+ *   冲突序号从 nextClassCounter 续取而非每次从 2 重扫——共享同一截断基名的深层
+ *   链条保持每级 O(1)（摊还）的分配开销。
+ * @param base - 期望的类名基名。
+ * @param state - 渲染收集器（读写名字集合与计数器）。
+ * @returns 唯一且长度受控的类名。
  */
 function allocateClassName(base: string, state: RenderState): string {
   const capped = capClassNameBase(base)
@@ -382,6 +490,15 @@ function allocateClassName(base: string, state: RenderState): string {
  * O(cap + segment) per level, the same order as the `slice` it feeds. The other
  * two join points need no counterpart: `Args`/`Output` start with `A`/`O` and
  * {@link allocateClassName}'s suffix is digits, none of which compose backwards.
+ */
+/**
+ * 【中文】把子名片段拼接到父类名基上并截断。关键在"传播时即截断"：深 oneOf/对象链
+ *   否则会拖着越来越长的字符串逐层重算，退化为平方级时间。拼接结果做 NFKC 规范化——
+ *   两侧各自规范化的字符串拼接后未必仍规范化（如韩文字母组合），不规范化会出现
+ *   "声明的名字 ≠ CPython 编译出的符号"。
+ * @param base - 父级类名基。
+ * @param segment - 子名片段（字段名的驼峰形式或序号）。
+ * @returns 截断且规范化后的新基名。
  */
 function childClassName(base: string, segment: string): string {
   return capClassNameBase(`${base}${segment}`.normalize('NFKC'))
@@ -433,10 +550,19 @@ function childClassName(base: string, segment: string): string {
  * through its own call to the same `JSON.stringify`, never through this
  * function, and inherits both halves — escapes and pass-throughs alike.
  */
+/**
+ * 【中文】把已验证的标量渲染为 Python 字面量：true/false → True/False；字符串经
+ *   JSON.stringify（其全部转义恰好都是合法且等值的 Python 转义，输出因此必然可
+ *   解析）；超出安全范围的整数用 BigInt 精确展开十进制数字——Python 整数任意精度，
+ *   数字即值本身，而 String() 会给出四舍五入或科学计数法形式的错误整数。
+ * @param value - 已验证的标量（null 不会到达这里）。
+ * @returns Python 字面量文本。
+ */
 function pyScalar(value: JsonSchemaScalar): string {
   if (value === true) return 'True'
   if (value === false) return 'False'
   if (typeof value === 'string') return JSON.stringify(value)
+  // 【中文】超安全范围整数：String 会丢精度（2**60 打成 ...847000），BigInt 精确。
   if (typeof value === 'number' && Number.isInteger(value) && !Number.isSafeInteger(value)) {
     return BigInt(value).toString()
   }
@@ -453,6 +579,11 @@ function pyScalar(value: JsonSchemaScalar): string {
  * PEP 586 admits int parameters. Harmless either way — the stub is advisory
  * prompt text, only required to parse — and keeping the exact value
  * communicates the constraint to the model.
+ */
+/**
+ * 【中文】渲染已验证标量的 const/enum 为 `Literal[...]`，无约束则回退宽类型。
+ *   刻意偏离 PEP 586（其 Literal 参数限 int/bool/str/bytes/enum/None）：非整数
+ *   数字会输出 float 字面量——反正注解只是提示文本，保真传达约束更有价值。
  */
 function renderConstrainedScalar(node: JsonSchemaNode, broad: string, state: RenderState): string {
   if (node.const !== undefined) {
@@ -477,7 +608,23 @@ function renderConstrainedScalar(node: JsonSchemaNode, broad: string, state: Ren
  * {@link ./ts-types.ts | ts-types} renderer. {@link jsonSchemaToPy} is the
  * context-free entry point; this is the collecting core.
  */
+/**
+ * 【中文】渲染内核：把一个 JSON-Schema 节点映射为 Python 类型表达式，同时把生成的
+ *   TypedDict 类声明与用到的 typing 符号收进 state。oneOf → `X | Y`；const/enum →
+ *   Literal[...]；integer → int；null → None；对象 → 具名 TypedDict（无命名上下文或
+ *   字段名不合法时整体降级 dict[str, Any]）；数组超嵌套上限降级 Any。畸形 schema 在
+ *   一次性整树校验处抛出并被捕获、降级为 Any——与 ts 风味的 unknown 回退对称。
+ * @param schema - 任意形状的 JSON-Schema 节点。
+ * @param className - 对象节点的类名（及其嵌套对象的前缀）；'' 表示无命名上下文。
+ * @param state - 收集器：类声明、已占名字、冲突计数、typing 符号。
+ * @returns Python 类型表达式文本。
+ */
 function renderType(schema: unknown, className: string, state: RenderState): string {
+  /**
+   * 【中文】渲染遍历的显式帧：phase 在 start（分类本节点并调度子帧）与 children
+   * （聚合子结果）间切换；listDepth 记录当前注解中已开的 `list[` 深度（用于
+   * MAX_LIST_NESTING 降级）；typeddict 帧在 start 时分配类名并暂存 entries。
+   */
   interface Frame {
     // A validated JSON-schema node past the root `assertSupportedJsonSchema`
     // (the root frame's schema is asserted before any frame is built), so the
@@ -496,9 +643,12 @@ function renderType(schema: unknown, className: string, state: RenderState): str
     entries: [string, JsonSchemaNode][]
     allocated?: string
   }
+  // 【中文】帧构造器：聚合状态全部归零。
   const newFrame = (schema: JsonSchemaNode, className: string, listDepth: number): Frame =>
     ({ schema, className, phase: 'start', listDepth, children: [], childIndex: 0, childTypes: [], entries: [] })
   try {
+    // 【中文】一次性校验整棵树，之后完全信任它（类型化同进程边界的既定约定）。
+    //   不支持的 schema 在此抛出、于外层 catch 降级为 Any。
     // Validate the WHOLE tree once, then trust it — the same contract the
     // sibling ts-types renderer follows at a typed same-process boundary. Every
     // node past this point is a validated JSON-schema node, so the walk reads
@@ -506,6 +656,7 @@ function renderType(schema: unknown, className: string, state: RenderState): str
     // here (before anything is emitted) and degrades to `Any`, the Python
     // counterpart of the TS flavor's `unknown`.
     assertSupportedJsonSchema(schema)
+    // 【中文】显式帧栈；result 接住根帧的最终类型表达式。
     const frames: Frame[] = [newFrame(schema, className, 0)]
     let result: string | undefined
     /* jscpd:ignore-start -- the explicit-stack walk skeleton deliberately parallels
@@ -723,14 +874,28 @@ function renderType(schema: unknown, className: string, state: RenderState): str
  * @param schema - the JSON-Schema node.
  * @returns the Python type text.
  */
+/**
+ * 【中文】导出入口（无上下文版）：把 JSON-Schema 节点映射为独立的 Python 类型
+ *   表达式。带属性的对象因无处声明 TypedDict 而降级 dict[str, Any]；畸形输入返回
+ *   Any 不抛错。注解仅为提示，运行时并不检查。
+ * @param schema - JSON-Schema 节点。
+ * @returns Python 类型文本。
+ */
 export function jsonSchemaToPy(schema: unknown): string {
   // A throwaway state whose class collector never escapes: an object with
   // properties has nowhere to declare its TypedDict and degrades to
   // dict[str, Any]. renderToolsSdkPy drives the named-TypedDict path.
+  // 【中文】一次性收集器：类声明无处安放即整体降级；具名 TypedDict 路径由 renderToolsSdkPy 驱动。
   return renderType(schema, '', { classes: [], usedClassNames: new Set(), nextClassCounter: new Map(), typing: new Set() })
 }
 
 /** The fixed model-facing usage contract rendered above the declarations. */
+/**
+ * 【中文】固定不变的模型侧使用说明（Python 风味）：run_code 两个必填参数、运行时
+ *   只绑定 tools 与 ToolCallError 两个名字（TypedDict 类不存在，参数要用 dict/list
+ *   字面量构造而非 FooArgs(field=1)）、asyncio.gather 并发规则与输出策展要求。
+ *   文本逐字固定，勿随意改动。
+ */
 const SDK_INSTRUCTIONS = `## Writing code for run_code
 
 \`run_code\` takes two required arguments: \`code\` — the body of an async Python function (top-level \`await\` and \`return\` both work) — and \`description\`, a short summary of what the program does. At run time exactly two of the names declared below are bound: \`tools\` and \`ToolCallError\`. Everything else is a STATIC STUB describing argument and return types — in particular the \`TypedDict\` classes do NOT exist at run time, so build arguments as plain \`dict\`/\`list\` JSON values: \`await tools.name({"field": 1})\`, never \`FooArgs(field=1)\`, which raises \`NameError\`. Inside the program:
@@ -761,7 +926,9 @@ The available tools:`
  * @returns the complete section text.
  */
 export function renderToolsSdkPy(schemas: ToolSdkSchema[]): string {
+  // 【中文】按名字典序排序：同集合必得逐字节相同的输出（确定性契约）。
   const sorted = [...schemas].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+  // 【中文】渲染收集器；Protocol 预先计入——Tools 协议类必然用到。
   const state: RenderState = { classes: [], usedClassNames: new Set(), nextClassCounter: new Map(), typing: new Set(['Protocol']) }
   // ONE ordered member stream, matching the documented lexicographic contract
   // and the TypeScript flavor (which quotes exotic keys in place rather than
@@ -769,7 +936,10 @@ export function renderToolsSdkPy(schemas: ToolSdkSchema[]): string {
   // two `async def` lines is not a statement, so it changes nothing about how
   // the class body parses.
   const members: string[] = []
+  // 【中文】已发射的方法语句数：类体若只有注释（下标条目）将无法解析，为 0 时需补 pass。
   let statements = 0
+  // 【中文】逐个工具产出成员：可裸写的名字发射 async def 方法 + docstring；
+  //   保留字/异形/下划线开头的名字只发射 `# tools["名字"]` 注释（运行时走 __getitem__）。
   for (const schema of sorted) {
     const argType = renderType(schema.parameters, `${camelCase(schema.name)}Args`, state)
     const outputType = renderType(schema.output, `${camelCase(schema.name)}Output`, state)
@@ -808,10 +978,14 @@ export function renderToolsSdkPy(schemas: ToolSdkSchema[]): string {
   // Subscript entries are COMMENTS, not statements: a class body of only
   // comments fails to parse, so `pass` is required whenever no method was
   // emitted — including the subscript-only tool set.
+  // 【中文】纯注释类体不合法：一条方法都没有时补 `pass`。
   const bodyLines = statements > 0 ? members : [`${pad(1)}pass`, ...members]
   const body = bodyLines.join('\n')
+  // 【中文】import 行只列实际用到的符号，按 TYPING_ORDER 固定顺序。
   const imports = TYPING_ORDER.filter(symbol => state.typing.has(symbol))
+  // 【中文】生成的 TypedDict 类块（嵌套类先于引用者）；无类时为空串。
   const classBlock = state.classes.length > 0 ? `${state.classes.join('\n\n')}\n\n` : ''
+  // 【中文】错误类声明与最终组装：typing 导入 → ToolCallError → 类块 → Tools 协议 → tools 单例。
   const errorDeclaration = 'class ToolCallError(Exception):\n    toolName: str'
   const declaration = `from typing import ${imports.join(', ')}\n\n${errorDeclaration}\n\n${classBlock}class Tools(Protocol):\n${body}\n\ntools: Tools`
   return `${SDK_INSTRUCTIONS}\n\n\`\`\`python\n${declaration}\n\`\`\``

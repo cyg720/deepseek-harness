@@ -1,4 +1,23 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】构建 Code Mode 的保留传输工具 `run_code`：模型编写的程序通过它以内嵌
+ *   执行（sub-dispatch）调用注册表里代理可见的全部工具，并遵循原生并发契约。
+ * 【技术维度】defineTool 定义外壳 + 每次运行内建一个"单车道调度器"（有序阶段串行、
+ *   只有工具体并发）；绑定函数经 TOOL_RUNTIME_SCHEDULER 分阶段走完整流水线；每个
+ *   子调用写入 tool/code-dispatch-start / tool/code-dispatch 两个日志事件。
+ * 【产品维度】让模型用一段代码批量编排工具调用——只有 print/return 的内容进入模型
+ *   上下文，中间结果不占 token；含图片的子结果在运行后作为附加上下文回传。
+ * 【逻辑维度】语言风味表 → resolveFlavor → 错误类与参数归一化 → JSON 展示渲染器 →
+ *   RunCodeBridgeOptions 能力注入 → createRunCodeTool 组装定义（execute 内含
+ *   调度器、binding 绑定函数、functions 命名空间与语言感知的 schema getter）。
+ * 【关键边界】run_code 名字全局保留不可被注册/限制；模型直呼其他工具名会被拒绝；
+ *   程序结束即中止所有在途子分派并排空提交队列；日志事件只入会话日志不入模型消息。
+ * 【新手阅读建议】先读 createRunCodeTool 的 execute 理解一次运行的完整生命周期，
+ *   再回头细看 drive() 单车道循环的顺序保证；binding() 是子调用的入口。
+ * ==========================================================================
+ */
+
+/**
  * Code Mode `run_code` transport. Programs call the registry's agent-visible
  * tools through nested executions scheduled under the native concurrency
  * contract; each sub-dispatch is logged for reconstruction, while only the
@@ -17,9 +36,16 @@ import type { CodeDispatchLog, ToolDefinition, ToolExecutionResult, ToolRuntime,
 import type {} from './types.ts'
 
 /** The model-facing name of the Code Mode tool. */
+/**
+ * 【中文】Code Mode 传输工具的模型可见名字，全局保留：任何代理都不能注册或遮蔽它。
+ */
 export const RUN_CODE_NAME = 'run_code'
 
 /** The `tools:sdk` section order: inside the 100–199 tool-guidance band, after per-tool guidance sections. */
+/**
+ * 【中文】`tools:sdk` 提示段的位置序号：落在 100–199 的"逐工具引导"区间内、
+ *   排在各工具自己的引导段之后。
+ */
 export const SDK_SECTION_ORDER = 150
 
 /**
@@ -32,8 +58,10 @@ export const SDK_SECTION_ORDER = 150
  */
 interface RunCodeFlavor {
   /** The tool `description` the model sees for this language. */
+  /** 【中文】该语言下模型看到的 run_code 工具描述。 */
   readonly description: string
   /** The `code` parameter's description for this language. */
+  /** 【中文】该语言下 code 参数的描述文本。 */
   readonly codeDescription: string
 }
 
@@ -79,9 +107,19 @@ const PYTHON_FLAVOR: RunCodeFlavor = {
  * is an unconstrained `string`: this union pins what the harness ships, while the
  * `Object.hasOwn` guards reject what a mounted runtime may report.
  */
+/**
+ * 【中文】Code Mode 目前支持的语言联合。两张按语言索引的表（本文件的
+ *   RUN_CODE_FLAVORS 与 index.ts 的 SDK_RENDERERS）都用 satisfies 对齐这个联合，
+ *   新增语言漏掉任何一张表都会在 typecheck 阶段报错。表本身声明为
+ *   Record<string, …> 是因为 CodeRuntime.language 是无约束 string——由 Object.hasOwn
+ *   守卫拒绝运行时报告的未知语言。
+ */
 export type CodeSdkLanguage = 'typescript' | 'python'
 
 /** Per-language `run_code` schema flavors (see {@link RunCodeFlavor}); one entry per {@link CodeSdkLanguage}. */
+/**
+ * 【中文】按语言索引的 run_code 模式文本表；satisfies 保证每种支持语言都有条目。
+ */
 const RUN_CODE_FLAVORS: Record<string, RunCodeFlavor> = {
   typescript: TYPESCRIPT_FLAVOR,
   python: PYTHON_FLAVOR,
@@ -111,6 +149,13 @@ const RUN_CODE_DESCRIPTION_PARAM_DESCRIPTION
  * `SDK_RENDERERS` is the compiler's job ({@link CodeSdkLanguage}); what this
  * guard owns is the runtime-supplied language neither table knows, which never
  * yields a wrong-language schema for a real runtime.
+ */
+/**
+ * 【中文】按已加载运行时的语言解析 run_code 的模式文本。无运行时挂载 → 降级为
+ *   TypeScript 缺省（只有文档目录采集等不喂模型的读取路径会走到）；语言未知 →
+ *   大声报错，绝不给真实运行时输出错误语言的 schema。
+ * @param peekRuntime - 读取 ctx.codeRuntime 但不抛错的探测函数。
+ * @returns 对应语言的描述与 code 参数描述。
  */
 function resolveFlavor(peekRuntime: () => CodeRuntime | undefined): RunCodeFlavor {
   const runtime = peekRuntime()
@@ -150,7 +195,16 @@ export class CodeRunFailedError extends HarnessError {
  * detached value again so dispatch and logging stay independent without
  * reintroducing structured-clone's platform-specific nesting limit.
  */
+/**
+ * 【中文】把绑定调用的一次参数做两次快照：先归一化为无损 JSON（作为真正下发执行的
+ *   值），再对快照再快照一份（作为日志记录的独立副本）。两次分离保证执行与日志互不
+ *   影响——工具若原地改参数，也不会让日志与实际收到的值脱节；同时绕开了
+ *   structured-clone 的平台相关嵌套深度限制。
+ * @param value - 程序传入的原始参数（任意形状）。
+ * @returns dispatched（下发值）与 logged（独立日志副本）。
+ */
 function jsonNormalizeArgs(value: unknown): { dispatched: unknown; logged: unknown } {
+  // 【中文】第一次快照：归一化 + 校验无损 JSON（失败即报错，模型可自纠）。
   let snapshot: JsonValue | undefined
   try {
     snapshot = snapshotJsonValue(value) as JsonValue | undefined
@@ -169,6 +223,9 @@ function jsonNormalizeArgs(value: unknown): { dispatched: unknown; logged: unkno
 }
 
 /** Two-space JSON presentation, matching the existing shallow `run_code` text contract. */
+/**
+ * 【中文】JSON 展示的缩进单位：两个空格，与既有 run_code 文本契约保持一致。
+ */
 const JSON_INDENT = '  '
 
 /**
@@ -179,12 +236,21 @@ const JSON_INDENT = '  '
 const MAX_JSON_INDENT_CHARS = 10
 
 /** A pending fragment in the iterative JSON presentation traversal. */
+/**
+ * 【中文】JSON 展示遍历的栈任务：text 直接输出；value 是待渲染值，depth 记层级、
+ *   compact 标记"已超缩进上限，此后紧凑输出"。
+ */
 type JsonRenderTask =
   | { kind: 'text'; text: string }
   | { kind: 'value'; value: JsonValue; depth: number; compact: boolean }
 
 /** Render one non-string JSON root without recursive traversal or unbounded indentation growth. */
+/**
+ * 【中文】把非字符串 JSON 值渲染为模型可读文本：显式栈遍历（无递归）；缩进总量封顶
+ *   10 空格——更深的子树自动转紧凑模式，保证格式化输出对规范 JSON 大小保持线性。
+ */
 function renderJsonValue(value: Exclude<JsonValue, string>): string {
+  // 【中文】chunks 收集片段；tasks 为待处理工作栈。
   const chunks: string[] = []
   const tasks: JsonRenderTask[] = [{ kind: 'value', value, depth: 0, compact: false }]
   for (let task = tasks.pop(); task !== undefined; task = tasks.pop()) {
@@ -254,11 +320,17 @@ function renderJsonValue(value: Exclude<JsonValue, string>): string {
 }
 
 /** Render one present program completion value for the model-facing result text. */
+/**
+ * 【中文】渲染程序完成值：字符串原样输出，其余走格式化 JSON 渲染器。
+ */
 function renderValue(value: JsonValue): string {
   return typeof value === 'string' ? value : renderJsonValue(value)
 }
 
 /** Canonical value returned by the outer Code Mode transport. */
+/**
+ * 【中文】run_code 外层工具的规范输出：捕获的程序日志 + 可选的返回值。
+ */
 type RunCodeOutput = { logs: string[]; result?: JsonValue }
 
 /**
@@ -268,6 +340,7 @@ type RunCodeOutput = { logs: string[]; result?: JsonValue }
  */
 export interface RunCodeBridgeOptions {
   /** Resolves `ctx.codeRuntime` or throws the loud misconfiguration error (shared with the registry's assembly-time checks). */
+  /** 【中文】解析代码运行时，缺失时抛出可操作的误配置错误（与装配期检查共用）。 */
   requireRuntime: () => CodeRuntime
   /**
    * Reads `ctx.codeRuntime` without throwing: `undefined` when none is mounted.
@@ -295,6 +368,8 @@ export interface RunCodeBridgeOptions {
  */
 export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeOptions): ToolDefinition {
   const { requireRuntime, peekRuntime, maxParallel, shapeDispatchLog } = options
+  // 【中文】用 defineTool 搭出 run_code 的外壳：静态参数 spec（code/description 两个
+  //   必填字符串）负责参数校验；语言相关的描述/参数文本由下方 getter 延迟解析。
   const definition = defineTool({
     name: RUN_CODE_NAME,
     // The description and `code` parameter description are placeholders here:
@@ -328,6 +403,14 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
       },
     },
     async execute(args, exec): Promise<RunCodeOutput> {
+      // 【中文】一次 run_code 运行的完整生命周期：
+      //   ① 建立运行级中止控制器（跟随外部信号进入，运行结束因任何原因落定时触发，
+      //      在途子分派被中止、未启动的排队分派被放弃）；
+      //   ② 构建单车道调度器：有序阶段（开始事件、pre-execute/guards、post-execute、
+      //      落定事件）严格串行，只有 around-dispatch/工具体阶段并发；parallel 类调用
+      //      最多 maxParallel 个重叠，exclusive 调用独占并形成屏障直到提交完成；
+      //   ③ 为每个可见工具生成绑定函数，程序经 tools.name(args) 调用它们；
+      //   ④ runtime.run 执行程序；finally 中先中止并排空全部分派再关闭回合。
       if (args.description.trim().length === 0) {
         throw new Error('invalid description: expected a non-empty string')
       }
@@ -341,6 +424,7 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
       const onOuterAbort = (): void => { runController.abort(exec.signal.reason) }
       exec.signal.addEventListener('abort', onOuterAbort, { once: true })
 
+      // 【中文】已提交的分派计数：子调用 id `<parent>:code:<n>` 的序号来源。
       let dispatches = 0
       // The per-run scheduler uses the registry's staged interface and follows
       // the same concurrency rules as the native loop. It also follows the
@@ -371,15 +455,21 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
         /** The classification this entry started under; an exclusive holds its barrier through commit(). */
         mode?: 'parallel' | 'exclusive'
       }
+      // 【中文】待启动队列（提交顺序）；inFlight 在飞的工具体 promise 集合。
       const pendingQueue: PendingDispatch[] = []
       const inFlight = new Set<Promise<void>>()
       /** Tracked settle-event side work (log-content listener + append), drained at run settlement. */
+      // 【中文】落定事件的附属工作（日志内容监听 + 追加），运行收尾时统一排空——
+      //   它们绝不能延迟程序拿值或占用分派槽位。
       const logWork = new Set<Promise<void>>()
+      // 【中文】提交队列：按提交顺序等待 commit 的条目（头指针游标推进）。
       const commitQueue: PendingDispatch[] = []
+      // 【中文】独占屏障状态：exclusive 调用从启动到提交完成期间为 true。
       let exclusiveActive = false
       let driving = false
       let driverRun: Promise<void> = Promise.resolve()
       let wake: (() => void) | undefined
+      // 【中文】唤醒机制：wake 是当前睡眠等待的 resolve；wakeup 触发它让 drive 醒来重查状态。
       const wakeup = (): void => {
         const release = wake
         wake = undefined
@@ -393,6 +483,7 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
        * empty-queues/empty-pool state is quiescence.
        */
       const drive = (): Promise<void> => {
+        // 【中文】driving/driverRun：单例化——并发提交只共享同一条驱动循环。
         if (driving) return driverRun
         driving = true
         driverRun = (async () => {
@@ -448,6 +539,11 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
         return driverRun
       }
       /** Every dispatch settled AND committed; nothing can start (the run is aborted at call time). */
+      /**
+       * 【中文】排空所有子分派：驱动循环会放弃未启动的排队项、等完在飞池、按序跑完
+       *   提交车道（含程序返回时已在进行的 commit）；随后排空全部日志附属工作，
+       *   保证每个落定事件都写在开放的回合内。
+       */
       const drainDispatches = async (): Promise<void> => {
         // The abort already fired: the driver abandons queued-unstarted
         // entries, awaits the live pool, and drains the ordered commit lane —
@@ -463,6 +559,15 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
       // would be narrowed away by control flow analysis.
       const runOver = (): boolean => runController.signal.aborted
 
+      /**
+       * 【中文】绑定函数工厂：为工具名 name 生成程序可 await 的函数。每次调用：
+       *   运行已结束 → 拒绝；参数两次快照归一化；生成子调用 id 并入队；经调度器的
+       *   prepare/dispatch/finalize/finish 分阶段执行；落定时立即把值交给程序
+       *   （日志追加是异步附属工作）；错误转成普通 Error 抛出（worker 侧包装为
+       *   ToolCallError）。
+       * @param name - 要绑定的工具名。
+       * @returns 程序调用的异步绑定函数。
+       */
       const binding = (name: string): CodeBindingFunction => async (rawArgs: unknown): Promise<JsonValue> => {
         if (runOver()) {
           throw new Error(`run_code run is over (${String(runController.signal.reason)}); ${name} not dispatched`)
@@ -480,8 +585,12 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
           signal: runController.signal,
         }
         type DispatchOutcome = { isError: true; message: string } | { isError: false; value: JsonValue }
+        // 【中文】经注册表的私有调度接口走完整流水线（pre/guards → body → post）。
         const scheduler = registry[TOOL_RUNTIME_SCHEDULER]
+        // 【中文】outcome：子调用的最终结果；settle 在落定瞬间 resolve 给程序，
+        //   日志追加则作为 logWork 附属任务异步进行。
         const outcome = await new Promise<DispatchOutcome>((resolve, reject) => {
+          // 【中文】parked：dispatch 阶段停靠的结果，commit 按提交顺序消费它。
           // Set by the dispatch stage (or start() for a pre-settled result): what commit() finalizes in submission order.
           let parked:
             | { kind: 'post-result' | 'final-result'; exec: ToolRunContext; result: ToolExecutionResult }
@@ -606,11 +715,16 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
       // own key (a plain-object assignment would hit the prototype setter,
       // silently dropping the binding), and the runtime host resolves
       // binding names as own properties only.
+      // 【中文】绑定命名空间：null 原型 + defineProperty——名为 `__proto__` 的工具
+      //   必须成为普通自有键（普通赋值会命中原型 setter 静默丢绑定），且运行时宿主
+      //   只按自有属性解析绑定名。
       const functions: Record<string, CodeBindingFunction> = Object.create(null) as Record<string, CodeBindingFunction>
       // Enumerate the CALLING AGENT's visible set (scoped tools join,
       // restricted globals vanish) — the same view the SDK section declared,
       // so a program can bind exactly what its prompt promised; sub-dispatch
       // re-resolves per call through the same view (exec.agent threads down).
+      // 【中文】枚举"调用代理的可见集合"（scoped 工具加入、被限制的全局工具消失）——
+      //   与 SDK 段声明的视图完全一致；run_code 自身不绑定。
       for (const schema of registry.schemas(exec.agent)) {
         if (schema.name === RUN_CODE_NAME) continue
         Object.defineProperty(functions, schema.name, { enumerable: true, value: binding(schema.name) })
@@ -632,10 +746,14 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
           // Abort sub-dispatches and drain every in-flight dispatch before
           // closing the turn (queued-unstarted ones are abandoned unlogged).
           // Binding failures remain observable through their individual promises.
+          // 【中文】程序落定（无论成败）先中止并排空全部子分派，再关闭回合——
+          //   保证每个落定事件都写在开放的 turn 里；未启动的排队项被静默放弃。
           runController.abort('run_code settled')
           await drainDispatches()
         }
 
+        // 【中文】程序自身失败（异常/预算耗尽/中止/宿主死亡）：附上捕获日志抛出，
+        //   注册表会转成结构化 isError 结果供模型自纠。
         if (result.error) {
           const logsText = result.logs.length > 0 ? `\nCaptured output:\n${result.logs.join('\n')}` : ''
           throw new CodeRunFailedError(`code run failed (${result.error.kind}): ${result.error.message}${logsText}`)
@@ -664,6 +782,8 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
   // schema (`schemaOf` destructures `description`/`parameters`). The definition
   // is minted once at registration, before a runtime is known; deferring here
   // is the least invasive point that still emits the loaded runtime's language.
+  // 【中文】语言风味延迟到"注册表投影 schema 的那一刻"才解析（定义在注册时就已
+  //   创建、早于运行时挂载），这是仍能输出正确语言的最小侵入点。
   Object.defineProperty(definition, 'description', {
     enumerable: true,
     get: () => resolveFlavor(peekRuntime).description,

@@ -1,4 +1,25 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】工具系统的产品 API 主干：ToolRuntime 服务（工具注册表 + 执行流水线）、
+ *   模型呈现模式（native/code/both）、pre/execute/post 三段 waterfall 策略事件、
+ *   单调 guard、以及本包全部公开类型的再导出。
+ * 【技术维度】Cordis 服务类（static inject/Config）+ 作用域分层注册表（ScopedLayers，
+ *   子作用域遮蔽全局）；执行流水线分 prepare/dispatch/finalize/finish 四个阶段供并行
+ *   调度器交错调用；结果经快照-校验-渲染-物化-冻结后发布；取消信号在环绕包装层
+ *   与调用方信号融合。
+ * 【产品维度】所有工具的"注册 → 呈现给模型 → 审批/守卫 → 执行 → 后处理 → 日志/UI"
+ *   全链路都在这里收口；Code Mode 的 run_code 传输由本服务按需构建并保留。
+ * 【逻辑维度】常量与 SDK 渲染表 → 事件声明合并 → 输入/执行/结果等核心类型 → 错误类
+ *   与小工具函数 → ToolLayer 与视图派生 → ToolRuntime 服务类（注册/限制/守卫/
+ *   视图/schema 投影/四阶段流水线）→ 模块级辅助函数。
+ * 【关键边界】模型可见 ⟺ 可由日志重建：参数在策略前做无损 JSON 快照并深冻结；
+ *   结果发布前整体冻结；run_code 名字保留、不可注册/限制；guard 只能拒绝不能放行。
+ * 【新手阅读建议】先读 ToolDefinition 理解一个工具长什么样，再顺着 execute 的注释走
+ *   一遍流水线，最后看 view()/modeFor() 理解作用域与呈现模式的解析规则。
+ * ==========================================================================
+ */
+
+/**
  * Tool registry, model presentation modes, and pre/guard/around/post/result
  * execution pipeline.
  * @module @deepseek-ai/dsh-tools
@@ -48,6 +69,10 @@ import { renderToolsSdkPy } from './py-types.ts'
  * the 100-199 per-tool guidance band, so the model reads which tools it may
  * call before it reads what each one is for.
  */
+/**
+ * 【中文】"code 收拢"声明在提示词中的次序：人设之后、100–199 的逐工具引导段之前——
+ *   让模型先知道"只能怎么调"，再读每个工具是干什么的。
+ */
 const COLLAPSE_SECTION_ORDER = 99
 
 /**
@@ -55,8 +80,14 @@ const COLLAPSE_SECTION_ORDER = 99
  * (the call fails) and the route (inside the program), because a rule the
  * model can only discover by being denied is one it corrects too late.
  */
+/**
+ * 【中文】面向模型的 code 收拢规则文本：直呼 run_code 以外的工具会失败、必须进程序
+ *   里调。提前讲清后果与替代路径，而不是等模型被拒绝后才自我纠正。
+ */
 const CODE_ONLY_INSTRUCTION = `\`${RUN_CODE_NAME}\` is the only tool you can call directly — a tool call naming any other tool fails. Reach every tool the SDK declares below from inside the program.`
 
+// 【中文】语言 → SDK 段渲染器表：装配 tools:sdk 提示段时按运行时语言查表；
+//   satisfies 保证与 CodeSdkLanguage 联合同步（新增语言漏条目即编译失败）。
 const SDK_RENDERERS: Record<string, (schemas: ToolSdkSchema[]) => string> = {
   typescript: renderToolsSdk,
   python: renderToolsSdkPy,
@@ -149,6 +180,11 @@ declare module '@deepseek-ai/cordis' {
      * @param exec - the pending call (name, parsed arguments, caller agent).
      * @mode waterfall
      */
+    /**
+     * 【中文】分发前的可扩展闸门：监听者返回 allow / deny / ask（ask 走审批服务，
+     *   无审批支持时按拒绝降级）。next() 即放行；异步监听必须观察 exec.signal。
+     *   作用域过滤：代理级监听只收到该代理的调用。
+     */
     'tools/pre-execute'(this: Scoped<ToolRuntime>, exec: ToolExecution, next: () => Promise<PreToolDecision>): Promise<PreToolDecision>
     /**
      * Around-dispatch waterfall for timeout, retry, or metrics. `next()` returns
@@ -159,6 +195,11 @@ declare module '@deepseek-ai/cordis' {
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent's calls.
      * @param exec - the allowed call about to dispatch (name, parsed arguments, caller agent, signal).
      * @mode waterfall
+     */
+    /**
+     * 【中文】环绕分发 waterfall：适合超时、重试、指标等包装。next() 返回规范化
+     *   结果；包装者只能替换 exec.signal（调用身份不可变），注册表会在工具体前把
+     *   原调用方信号融合回来，替换无法脱离调用方取消。
      */
     'tools/execute'(this: Scoped<ToolRuntime>, exec: ToolDispatchExecution, next: () => Promise<ToolExecutionResult>): Promise<ToolExecutionResult>
     /**
@@ -171,6 +212,11 @@ declare module '@deepseek-ai/cordis' {
      * @param exec - the call that just ran (name, parsed arguments, caller agent).
      * @param result - the dispatch outcome a listener may accept, replace, or block.
      * @mode waterfall
+     */
+    /**
+     * 【中文】分发后的可扩展策略：接受（可替换 content 或 value）、附加下一轮上下文、
+     *   或把纠正性反馈转成错误结果（block）。next() 表示原样接受；抛错的工具也会
+     *   经过这里。监听者落定后若调用方已取消，仅"成功的接受结果"会被取消覆盖。
      */
     'tools/post-execute'(this: Scoped<ToolRuntime>, exec: ToolExecution, result: Readonly<ToolExecutionResult>, next: () => Promise<PostToolDecision>): Promise<PostToolDecision>
     /**
@@ -186,6 +232,11 @@ declare module '@deepseek-ai/cordis' {
      * @param dispatch - the parent execution, sub-call identity, and the settled content to log.
      * @mode waterfall
      */
+    /**
+     * 【中文】允许监听者在桥接层写入 tool/code-dispatch 事件前，替换某条 run_code
+     *   子调用结果的"日志副本"（如超大文本结果的预览 + 定位器）。只影响日志——
+     *   程序已拿到完整值、模型看不到；监听者抛错被包容，退回记录原始内容。
+     */
     'tools/code-dispatch-log'(this: Scoped<ToolRuntime>, dispatch: CodeDispatchLog, next: () => Promise<ContentBlock[]>): Promise<ContentBlock[]>
     /**
      * Observe the frozen, lossless-JSON final outcome. Listener failures are contained.
@@ -193,6 +244,10 @@ declare module '@deepseek-ai/cordis' {
      * @param exec - the execution object that traversed the pipeline.
      * @param result - a deep-frozen snapshot of the final returned result.
      * @mode emit
+     */
+    /**
+     * 【中文】最终结果的只读通知（emit 模式）：exec 与 result 都是深冻结快照。
+     *   监听者失败被包容、不影响结果本身；按 exec.agent 做作用域键路由。
      */
     'tools/result'(this: Scoped<ToolRuntime>, exec: Readonly<ToolExecution>, result: Readonly<ToolExecutionResult>): undefined
     /**
@@ -204,21 +259,36 @@ declare module '@deepseek-ai/cordis' {
      * scope's.
      * @mode emit
      */
+    /**
+     * 【中文】工具被注册/注销或作用域限制变化时发出（可用工具集变化）。刻意不做
+     *   作用域过滤：全局变化关系到每个代理的下一次装配，作用域监听者也能看到全部变化。
+     */
     'tools/change'(): void
   }
 }
 
 /** Tool-owned canonical output contract used after the body returns a JSON value. */
+/**
+ * 【中文】工具自有的规范输出契约：工具体返回 JSON 值后，先按 schema 校验，再经
+ *   render 投影为模型内容；presentationMeta 为 UI 生成可回放的呈现元数据。
+ */
 export interface ToolOutputDefinition {
   /** Raw supported JSON Schema enforced against every successful canonical value. */
+  /** 【中文】原始受支持 JSON Schema：对每个成功的规范值强制校验。 */
   readonly schema: JsonSchemaNode
   /** Pure projection from validated arguments and value to Native/model content. */
+  /** 【中文】纯函数投影：已验证参数 + 规范值 → 模型/原生内容块。 */
   render(args: unknown, value: JsonValue): ContentBlock[]
   /** Pure replayable presentation projection, computed only for top-level calls. */
+  /** 【中文】纯可回放的呈现元数据投影；仅为顶层调用计算（嵌套子调用跳过）。 */
   presentationMeta?(args: unknown, value: JsonValue): JsonValue
 }
 
 /** A registered tool: its schema plus the execution function. */
+/**
+ * 【中文】一个已注册工具的完整定义：模型可见 schema + 必备输出契约 + 执行函数，
+ *   以及可选的取消预算、并发分类器、内容终加工与两个纯呈现回调。
+ */
 export interface ToolDefinition extends ToolSchema {
   /** Mandatory canonical output declaration. */
   readonly output: ToolOutputDefinition
@@ -288,15 +358,24 @@ export interface ToolDefinition extends ToolSchema {
 }
 
 /** The completed outcome handed to {@link ToolDefinition.presentResult}. */
+/**
+ * 【中文】交给 presentResult 的完成态结果：与 tool/result 事件同源的最终投影。
+ */
 export interface ToolResult {
   /** The final model-facing content (or the rendered error text on failure). */
+  /** 【中文】最终模型侧内容（失败时为渲染后的错误文本）。 */
   content: ContentBlock[]
   /** Whether the call failed. */
+  /** 【中文】本次调用是否失败。 */
   isError: boolean
   /**
    * The tool-private presentation payload projected by its output declaration
    * and threaded verbatim from the `tool/result` event. Absent when the tool
    * declared no projector or the call was nested under a composite transport.
+   */
+  /**
+   * 【中文】工具私有呈现载荷：由输出声明的 presentationMeta 投影并原样透传；
+   *   工具未声明投影器或调用嵌套在复合传输之下时缺省。
    */
   meta?: JsonValue
 }
@@ -304,6 +383,10 @@ export interface ToolResult {
 declare const toolExecutionTokenBrand: unique symbol
 
 /** Opaque call identity that permits correlation without exposing mutable execution state. */
+/**
+ * 【中文】不透明的调用身份令牌（品牌化 symbol）：允许跨层关联父子调用，却不把
+ *   可变的执行状态泄漏给外部。
+ */
 export type ToolExecutionToken = symbol & { readonly [toolExecutionTokenBrand]: true }
 
 /**
@@ -312,6 +395,7 @@ export type ToolExecutionToken = symbol & { readonly [toolExecutionTokenBrand]: 
  * callers do not choose that token.
  */
 export interface ToolExecutionInput {
+  /** 模型请求的本次调用 id。 */
   readonly callId: CallId
   /**
    * Root model-requested call owning this execution tree. Callers omit it for
@@ -342,7 +426,9 @@ export interface ToolExecutionInput {
  * `exclusive` runs alone and forms an ordering barrier.
  */
 export type ToolExecutionMode =
+  /** 可与兄弟调用重叠执行。 */
   | { kind: 'parallel' }
+  /** 独占运行，构成排序屏障。 */
   | { kind: 'exclusive' }
 
 /**
@@ -356,6 +442,7 @@ export type ToolExecutionMode =
  */
 export interface CodeDispatchLog {
   /** The outer `run_code` execution. */
+  /** 【中文】外层 run_code 执行（会话归属与外层调用身份）。 */
   readonly exec: ToolExecution
   /** The calling agent (the scope routing key and the spill owner), when the outer call has one. */
   readonly agent?: Agent
@@ -376,8 +463,14 @@ export interface CodeDispatchLog {
  * readonly. The registry freezes the complete object before `tools/result`
  * observers run.
  */
+/**
+ * 【中文】注册表流水线内的一个待处理工具调用：参数在策略之前已跨过无损 JSON
+ *   物化边界并深冻结；调用身份、调用方信号与注册表分配的 token 均为只读。
+ *   tools/result 观察者运行前整个对象会被冻结。
+ */
 export interface ToolExecution extends ToolExecutionInput {
   /** Root model-requested call, resolved for every root and nested execution. */
+  /** 【中文】根模型请求调用：无论根级还是嵌套执行都会被解析填充。 */
   readonly rootCallId: CallId
   /** Registry-assigned identity shared with nested calls only as their opaque `parent` token. */
   readonly token: ToolExecutionToken
@@ -390,6 +483,7 @@ export interface ToolExecution extends ToolExecutionInput {
  */
 export interface ToolDispatchExecution extends Omit<ToolExecution, 'signal'> {
   /** Cancellation signal visible to the next wrapper or tool body. */
+  /** 【中文】对下一层包装或工具体可见的取消信号（唯一可被包装者替换的字段）。 */
   signal: AbortSignal
 }
 
@@ -421,12 +515,21 @@ export interface ToolRunContext extends ToolExecution {
 }
 
 /** Registry-owned live execution object; public pipeline views stay readonly. */
+/**
+ * 【中文】注册表内部持有的可变执行对象：仅 signal 可变（供环绕包装替换），
+ *   其余字段与公开只读视图一致。
+ */
 type MutableToolRunContext = Omit<ToolRunContext, 'signal'> & { signal: AbortSignal }
 
 /**
  * Scheduler-only result after ordered pre-execute and guards. A `post-result`
  * still receives post-execute; a `final-result` bypasses it.
  * @internal
+ */
+/**
+ * 【中文】调度器专用：pre-execute 与 guard 有序闸门跑完后的三种走向——dispatch
+ * （正常分发）、post-result（已有结果但还要走 post-execute）、final-result
+ * （已是终态，跳过 post-execute）。
  */
 export type ScheduledToolPreparation =
   | { kind: 'dispatch'; exec: ToolRunContext }
@@ -463,12 +566,17 @@ export interface ToolRuntimeScheduler {
  * Scheduler entry point omitted from the generated named service API.
  * @internal
  */
+/**
+ * 【中文】调度器入口的 symbol 键：挂在 ToolRuntime 实例上供并行调度器（agent-loop）
+ *   使用，刻意不出现在生成的命名服务 API 里——它不是插件扩展点。
+ */
 export const TOOL_RUNTIME_SCHEDULER: unique symbol = Symbol('@deepseek-ai/dsh-tools.scheduler')
 
 /** Canonical error code for cancellation after a tool body was invoked. */
+/** 【中文】规范错误码：工具体已启动后的取消。 */
 export const TOOL_ABORTED = 'ABORTED'
 
-/** Canonical error code for cancellation before a tool body was invoked. */
+/** 【中文】规范错误码：工具体尚未启动前的取消。 */
 export const TOOL_ABORTED_BEFORE_DISPATCH = 'ABORTED_BEFORE_DISPATCH'
 
 /** Structured error metadata for a failed tool call (alongside the model-facing text). */
@@ -512,6 +620,7 @@ export class ToolNotFoundError extends HarnessError {
 /** Thrown when a tool body or post-policy value violates its declared output. */
 export class ToolOutputError extends HarnessError {
   /** Schema/value violations in validation order. */
+  /** 【中文】按校验顺序排列的 schema/值违规列表。 */
   readonly violations: string[]
 
   constructor(toolName: string, violations: string[]) {
@@ -522,11 +631,19 @@ export class ToolOutputError extends HarnessError {
 }
 
 /** Convert one projector exception into the canonical invalid-output failure. */
+/**
+ * 【中文】把 render/presentationMeta 投影器抛出的异常转换为规范的
+ *   ToolOutputError（INVALID_TOOL_OUTPUT），让工具失败可路由、可诊断。
+ */
 function projectionError(toolName: string, projector: 'render' | 'presentationMeta', error: unknown): ToolOutputError {
   return new ToolOutputError(toolName, [`output.${projector} failed: ${errorMessage(error)}`])
 }
 
 /** Snapshot one projector result before later durable-result materialization. */
+/**
+ * 【中文】对投影结果做无损 JSON 快照（为持久化物化做准备）：非无损 JSON 或快照
+ *   失败都转为规范的 invalid-output 错误；已是 ToolOutputError 的原样重抛。
+ */
 function snapshotProjection<T>(toolName: string, projector: 'render' | 'presentationMeta', candidate: T): T {
   try {
     const detached = snapshotJsonValue(candidate)
@@ -554,6 +671,7 @@ function snapshotToolValue(toolName: string, candidate: unknown): JsonValue {
 
 /** Successful canonical tool execution, including its Native/model projection. */
 export interface ToolExecutionSuccess {
+  /** 判别字段：成功结果。 */
   readonly isError: false
   /** Execution-local canonical value; deliberately omitted from durable events. */
   readonly value: JsonValue
@@ -567,6 +685,7 @@ export interface ToolExecutionSuccess {
 
 /** Failed canonical tool execution; failures never carry a successful value. */
 export interface ToolExecutionFailure {
+  /** 判别字段：失败结果。 */
   readonly isError: true
   readonly error: ToolFailure
   readonly value?: never
@@ -577,6 +696,10 @@ export interface ToolExecutionFailure {
 }
 
 /** The discriminated, execution-local outcome of one tool call. */
+/**
+ * 【中文】一次工具调用的判别式联合结果（执行本地视角）：成功含 value，失败含
+ *   error；两者都带模型侧 content 与可选 meta/上下文。按 isError 判别。
+ */
 export type ToolExecutionResult = ToolExecutionSuccess | ToolExecutionFailure
 
 /**
@@ -586,8 +709,11 @@ export type ToolExecutionResult = ToolExecutionSuccess | ToolExecutionFailure
  * presented.
  */
 export type PreToolDecision =
+  /** 放行。 */
   | { kind: 'allow' }
+  /** 拒绝并给出模型可见原因（物化为错误结果）。 */
   | { kind: 'deny'; reason: string }
+  /** 交由审批服务裁决；无审批支持时按拒绝降级。 */
   | { kind: 'ask'; reason?: string }
 
 /**
@@ -595,8 +721,10 @@ export type PreToolDecision =
  * next request, or block by turning corrective feedback into an error result.
  */
 export type PostToolDecision =
+  /** 接受（可替换模型内容或规范值，二者只能择一），并可附加下一轮上下文。 */
   | { kind: 'accept'; content?: ContentBlock[]; value?: never; additionalContexts?: UserMessage[] }
   | { kind: 'accept'; value: JsonValue; content?: never; additionalContexts?: UserMessage[] }
+  /** 阻断：把纠正性反馈转成 isError 结果（模型可据此自纠）。 */
   | { kind: 'block'; feedback: ContentBlock[]; additionalContexts?: UserMessage[] }
 
 /**
@@ -648,6 +776,10 @@ function errorInfo(error: unknown): ToolErrorInfo | undefined {
 }
 
 /** How the registry presents its tools to the model (see {@link Config.mode}). */
+/**
+ * 【中文】注册表向模型呈现工具的三种模式：native（原生函数调用 schema）、
+ *   code（只发 run_code + 生成 SDK 文本）、both（两者都发）。
+ */
 export type ToolPresentationMode = 'native' | 'code' | 'both'
 
 /** Plugin config: how the registered tools are presented to the model. */
@@ -679,6 +811,7 @@ export interface Config {
  */
 export interface ToolRestriction {
   /** Global tool names that stay visible; everything else is removed. */
+  /** 【中文】保持可见的全局工具名白名单；其余全部移除。 */
   readonly allow?: readonly string[]
   /** Global tool names removed from visibility. */
   readonly deny?: readonly string[]
@@ -691,6 +824,11 @@ interface CompiledToolRestriction {
 }
 
 /** One scope's complete registry view, derived in a single layer traversal. */
+/**
+ * 【中文】一次层遍历派生出的某作用域完整注册表视图：visible（应用限制、遮蔽与
+ *   传输插入后的可见定义）、knownNames（限制前能力名，供提示词次序校验）、
+ *   restrictableNames（当前可被 restrict 点名的全局名）。
+ */
 interface ToolView {
   /** Visible definitions after restrictions, scoped shadowing, and transport insertion. */
   readonly visible: ReadonlyMap<string, ToolDefinition>
@@ -711,9 +849,17 @@ interface ToolView {
 export type ToolGuard = (execution: Readonly<ToolExecution>) => string | undefined
 
 /** One scope's complete tool-registry contribution. */
+/**
+ * 【中文】一个作用域对注册表的完整贡献层：命名工具表（重名报错）、编译后的
+ *   限制过滤器、守卫函数，以及本作用域声明的呈现模式。实现 ScopeLayer 参与
+ *   作用域链的聚合与遮蔽。
+ */
 class ToolLayer implements ScopeLayer {
+  /** 命名工具表：插入重名即抛错，错误信息区分全局/作用域两种场景。 */
   readonly tools: NamedEntries<ToolDefinition>
+  /** 匿名限制过滤器集合（追加式，多个限制取交集）。 */
   readonly restrictions = new AnonymousEntries<CompiledToolRestriction>()
+  /** 匿名守卫集合（追加式，任一拒绝即拒绝）。 */
   readonly guards = new AnonymousEntries<ToolGuard>()
   /**
    * Presentation this scope's agent declared for itself, shadowing the
@@ -754,24 +900,42 @@ class ToolLayer implements ScopeLayer {
 }
 
 /** Approval decision plus whether the approval channel reported cancellation. */
+/**
+ * 【中文】审批解析结果：最终 allow/deny 决定 + 审批通道是否报告了"取消"
+ *   （后者用于把取消与普通拒绝在取消语义上区分开）。
+ */
 interface ToolAskResolution {
   readonly decision: Extract<PreToolDecision, { kind: 'allow' | 'deny' }>
   readonly approvalCancelled: boolean
 }
 
 /** Caller cancellation and dispatch state kept outside the around-wrapper view. */
+/**
+ * 【中文】保存在环绕包装视图之外的取消状态：原始调用方信号 + 工具体是否已启动
+ *   （决定取消结果用 ABORTED 还是 ABORTED_BEFORE_DISPATCH）。
+ */
 interface ToolCancellationState {
+  /** 原始调用方信号——包装层替换 signal 也改不了它。 */
   readonly callerSignal: AbortSignal
+  /** 工具体是否已开始执行。 */
   bodyInvoked: boolean
 }
 
 /** One dispatch-scoped fused signal plus listener cleanup after the body settles. */
+/**
+ * 【中文】单次分派作用域的融合信号（调用方 + 包装者信号任一中止即中止），
+ *   附带工具体落定后的监听器清理函数，避免监听器泄漏。
+ */
 interface FusedToolSignal {
   readonly signal: AbortSignal
   dispose(): void
 }
 
 /** Resolve the run_code overlap cap at the owning config boundary (direct construction bypasses the Loader schema). */
+/**
+ * 【中文】在配置归属边界解析 run_code 子调用并发上限：缺省 10；非正整数立即抛错
+ *   （直构绕过了 Loader 的 schema 校验，这里兜底"误配置大声失败"）。
+ */
 function resolveMaxParallelSubCalls(value: number | undefined): number {
   const maxParallelSubCalls = value ?? 10
   if (!Number.isInteger(maxParallelSubCalls) || maxParallelSubCalls < 1) {
@@ -784,7 +948,17 @@ function resolveMaxParallelSubCalls(value: number | undefined): number {
  * Tool registry and execution pipeline. Scoped registrations shadow globals;
  * one visibility resolver feeds presentation, lookup, and dispatch.
  */
+/**
+ * 【中文】工具注册表与执行流水线（Cordis 服务）。核心职责：
+ *   ① 注册/限制/守卫——作用域分层，子作用域遮蔽全局，run_code 名字保留；
+ *   ② 呈现——按作用域解析 native/code/both 模式，装配原生 schema 或生成 SDK 提示段；
+ *   ③ 执行——prepare(预策略+守卫) → dispatch(环绕分发+工具体) → finalize(post 策略)
+ *   → finish(内容终加工+物化+通知) 四阶段流水线；工具与监听者失败一律物化为
+ *   结构化错误结果；调用方取消按"工具体是否已启动"选择两种规范取消码。
+ *   一个可见性解析器（view()）同时喂给呈现、查找与分发。
+ */
 export class ToolRuntime extends Service {
+  /** 依赖系统提示服务：用于注册 schema 提供者与 SDK/收拢提示段。 */
   static inject = ['systemPrompt']
 
   static Config: z<Config> = z.object({
@@ -793,6 +967,10 @@ export class ToolRuntime extends Service {
   })
 
   /** Internal staged view consumed by `dsh-agent-loop`'s parallel scheduler. */
+  /**
+   * 【中文】内部四阶段调度视图：并行调度器用它把"有序策略"与"可并发工具体"
+   *   拆开交错执行。普通调用方请走 execute()。
+   */
   readonly [TOOL_RUNTIME_SCHEDULER]: ToolRuntimeScheduler = {
     prepare: exec => this.prepareScheduledExecution(exec),
     dispatch: exec => this.dispatchScheduledExecution(exec),
@@ -801,18 +979,23 @@ export class ToolRuntime extends Service {
   }
 
   /** Context deferred by a running tool body, keyed by its scheduler-owned execution. */
+  /** 【中文】运行中工具体延迟的上下文，按其执行对象为键。 */
   private deferredContexts = new WeakMap<ToolRunContext, UserMessage[]>()
   /** Executions whose tool body declared the current turn complete. */
+  /** 【中文】工具体已宣告"本轮终结"的执行集合。 */
   private concludingExecutions = new WeakSet<ToolExecution>()
   /** Original caller cancellation, kept outside the wrapper-mutable execution object. */
+  /** 【中文】原始调用方取消状态——保存在包装层可变对象之外，包装替换改不了它。 */
   private cancellationStates = new WeakMap<ToolRunContext, ToolCancellationState>()
   /** Definition-owned final content transform snapshotted before policy begins. */
+  /** 【中文】在策略开始前快照的定义级内容终加工回调（防执行期间被偷换）。 */
   private contentFinalizers = new WeakMap<ToolRunContext, ToolDefinition['finalizeContent']>()
   private readonly layers = new ScopedLayers(
     scope => new ToolLayer(scope),
     () => { this.ctx.emit('tools/change') },
   )
   /** Presentation for scopes that declare none; {@link presentAs} shadows it per scope. */
+  /** 【中文】部署默认呈现模式：未自行声明的作用域都沿用（presentAs 可按作用域覆盖）。 */
   private readonly defaultMode: ToolPresentationMode
   private readonly maxParallelSubCalls: number
   /**
@@ -823,6 +1006,10 @@ export class ToolRuntime extends Service {
    */
   private codeTransport: ToolDefinition | undefined
 
+  /**
+   * 【中文】构造：解析默认模式与并发上限；向系统提示注册 schema 提供者；
+   *   非原生模式时再注册"仅可直呼 run_code"收拢段与生成 SDK 段。
+   */
   constructor(ctx: Context, config: Config = {}) {
     super(ctx, 'tools')
     // The schema already defaulted an omitted mode; the ?? narrows the
@@ -852,6 +1039,10 @@ export class ToolRuntime extends Service {
    * `both` renders empty: native calls do execute there, so the rule is false.
    * @returns the section registration.
    */
+  /**
+   * 【中文】"仅可直呼 run_code"提示段：与执行器用同一个收拢判定，保证提示词说的
+   *   规则与注册表执行的规则永不漂移；非 code 模式渲染为空（空段会被丢弃）。
+   */
   private collapseSection(): { name: string; order: number; text: (context: { scope?: ScopeKey }) => string } {
     return {
       name: 'tools:code-only',
@@ -871,6 +1062,10 @@ export class ToolRuntime extends Service {
    * deployment still sees the global registration, and an empty section is
    * dropped from the rendered prompt.
    * @returns the section registration.
+   */
+  /**
+   * 【中文】生成 SDK 提示段：按调用方作用域重新生成可见工具的类型声明；原生呈现
+   *   的代理渲染为空。语言无渲染器时在装配期大声失败。
    */
   private sdkSection(): { name: string; order: number; text: (context: { scope?: ScopeKey }) => string } {
     return {
@@ -896,6 +1091,11 @@ export class ToolRuntime extends Service {
    * deployment default.
    * @param scope - the calling agent, or undefined for the global view.
    * @returns the resolved presentation mode.
+   */
+  /**
+   * 【中文】解析某作用域的呈现模式：沿作用域链从近到远取第一个显式声明，
+   *   都没有则用部署默认。模式决定模型"看到什么"，正是沿链继承的事实类别。
+   * @param scope - 调用代理；undefined 表示全局视图。
    */
   private modeFor(scope?: ScopeKey): ToolPresentationMode {
     // Nearest scope wins along the chain: a preset's standing declaration
@@ -943,6 +1143,13 @@ export class ToolRuntime extends Service {
    * @param mode - the presentation the covered agents' models see.
    * @returns the exact disposer that restores the deployment default.
    */
+  /**
+   * 【中文】让调用作用域以指定模式呈现工具（仅限 scoped 上下文，每作用域一份声明）。
+   *   这是代理预设把 Code Mode 代理与原生代理组合进同一进程的机制；进程级覆盖
+   *   请用 mode 配置字段。非原生模式时同时按作用域注册收拢段与 SDK 段。
+   * @param mode - 被覆盖代理的模型将看到的呈现模式。
+   * @returns 恢复部署默认的 disposer。
+   */
   presentAs(mode: ToolPresentationMode): () => void {
     const ctx = this.ctx
     if (scopeOf(ctx) === undefined) {
@@ -976,6 +1183,11 @@ export class ToolRuntime extends Service {
   /**
    * Build one scope's wire schemas and names for prompt-order validation.
    * Restrictions do not make known tools invalid, but a mode collapse does.
+   */
+  /**
+   * 【中文】为一个作用域构建线上 schema 与名字集（供提示词次序校验）：
+   *   native 全量；both 加上 run_code；code 只留 run_code（收拢）。限制不使已知
+   *   工具非法，但模式收拢会使它们不可直呼。
    */
   private wireSchemas(scope?: ScopeKey): ToolProviderResult {
     const view = this.view(scope)
@@ -1034,6 +1246,13 @@ export class ToolRuntime extends Service {
    * @param definition - tool schema, execution, and optional finalization/presentation callbacks.
    * @returns the exact disposer that unregisters the tool.
    */
+  /**
+   * 【中文】全局或调用代理作用域注册工具：校验 output 契约结构、schema 合法性与
+   *   timeoutMs；run_code 名字无条件保留（任何代理都可能自选 code 模式）。
+   *   作用域内重名立即报错；作用域注册遮蔽同名全局工具。
+   * @param definition - 工具 schema、执行与可选的终加工/呈现回调。
+   * @returns 精确注销该工具的 disposer。
+   */
   register(definition: ToolDefinition): () => void {
     const name = definition.name
     const output = (definition as Partial<ToolDefinition>).output
@@ -1067,6 +1286,12 @@ export class ToolRuntime extends Service {
    * intersect; scoped registrations remain visible.
    * @param filter - global-tool mask: `allow` (keep only) and/or `deny` (remove).
    * @returns the exact disposer that lifts this restriction.
+   */
+  /**
+   * 【中文】为调用代理作用域限制全局工具：allow/deny 至少其一；空过滤器、未知名字、
+   *   作用域自有名与保留传输名都报错。多个限制相交；作用域自有注册不受影响。
+   * @param filter - 全局工具掩码。
+   * @returns 解除该限制的 disposer。
    */
   restrict(filter: ToolRestriction): () => void {
     const scope = scopeOf(this.ctx)
@@ -1106,6 +1331,12 @@ export class ToolRuntime extends Service {
    * HMR cleanup.
    * @param guard - synchronous check; a returned string denies the execution.
    * @returns the exact disposer that unregisters the guard.
+   */
+  /**
+   * 【中文】注册单调守卫（在可扩展的 pre-execute 之后、工具体之前求值）：
+   *   返回原因字符串即拒绝；任何守卫都无法把他人的拒绝翻成放行。
+   * @param guard - 同步检查函数。
+   * @returns 注销该守卫的 disposer。
    */
   guard(guard: ToolGuard): () => void {
     return this.layers.effect(
@@ -1201,6 +1432,12 @@ export class ToolRuntime extends Service {
    * @param scope - the viewing scope (the agent); omitted = the global view.
    * @returns the definition the scope resolves, or undefined when none is visible.
    */
+  /**
+   * 【中文】按某作用域的视角查找工具（作用域遮蔽全局；被限制掉的全局名视为不存在）。
+   *   呈现层应传调用代理，保证渲染卡片与实际执行的定义一致。
+   * @param name - 注册时的工具名。
+   * @param scope - 观察作用域；省略 = 全局视图。
+   */
   get(name: string, scope?: ScopeKey): ToolDefinition | undefined {
     return this.view(scope).visible.get(name)
   }
@@ -1230,6 +1467,11 @@ export class ToolRuntime extends Service {
    * excluding execution and presentation callbacks.
    * @param scope - the viewing scope (the agent); omitted = the global view.
    * @returns one deep-cloned schema per visible tool.
+   */
+  /**
+   * 【中文】把可见工具投影为模型可见 schema（深拷贝参数，剔除执行/呈现回调），
+   *   供原生函数调用与外部展示使用。
+   * @param scope - 观察作用域；省略 = 全局视图。
    */
   schemas(scope?: ScopeKey): ToolSchema[] {
     return [...this.view(scope).visible.values()].map(definition => this.schemaOf(definition, true))
