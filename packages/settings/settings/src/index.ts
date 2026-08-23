@@ -6,6 +6,25 @@
  * @module @deepseek-ai/dsh-settings
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】用户设置能力缝（capability seam）的"服务定义"：声明全局 ctx.settings 服务，
+ *   抽象出 Provider（负责原始文档存取）与注册者（插件注册命名空间 schema 并读取解析值）双方契约。
+ * 【技术维度】Cordis Service 抽象基类；Schemastery schema 驱动解析；按"schema 默认值 → 合成层
+ *   base → 用户文档层"三层合并解析；序列化写队列；JSON 深度相等做变更检测。
+ * 【产品维度】插件需要持久化的可配置项：配置界面读写设置、插件注册自己的命名空间并感知变更；
+ *   事件 settings/updated 让 UI 与逻辑及时刷新。
+ * 【逻辑维度】register 注册命名空间 → resolve 三层合并解析 → update/replace/mutate 三种写入路径
+ *   （经 cloneJsonShaped 校验与队列串行化）→ persist 落盘 → commit 通知 watcher 并发出事件；
+ *   publish 供 Provider 推送外部变更；describe 向配置界面输出描述；installSettingsSection 是
+ *   可选设置消费方的标准接线。
+ * 【关键边界】写入只接受 JSON 兼容数据；跨写队列做修订号冲突检测（SettingsConflictError）；
+ *   watcher/监听失败被包含并记日志，INVARIANT 类失败向上抛出；redactSecrets 用于跨线脱敏。
+ * 【新手阅读建议】先通读本文件建立"注册/解析/写入/通知"心智模型，再看 settings-file 包的
+ *   Provider 实现，最后看 types.ts（事件声明）与 redact.ts（秘密字段脱敏）。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import type z from '@deepseek-ai/schemastery'
 import { redactSecrets } from './redact.ts'
@@ -16,6 +35,7 @@ export { redactSecrets } from './redact.ts'
 export type { RedactedSecret, RedactedValue } from './redact.ts'
 export type { SettingsNamespace, SettingsUpdateSource } from './types.ts'
 
+// 命名空间合法性正则：小写字母开头，只允许小写字母、数字、连字符（kebab-case），与插件短名风格一致。
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/
 
 /**
@@ -23,6 +43,7 @@ const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/
  * @param value - candidate namespace; lowercase kebab-case, as in plugin short names.
  * @returns the branded namespace.
  */
+// 把普通字符串"升级"为品牌类型 SettingsNamespace 并做格式校验；不匹配就抛 TypeError，防止非法键进注册表。
 export function settingsNamespace(value: string): SettingsNamespace {
   if (!NAMESPACE_PATTERN.test(value)) {
     throw new TypeError(`settings namespace "${value}" must match ${String(NAMESPACE_PATTERN)}`)
@@ -30,9 +51,11 @@ export function settingsNamespace(value: string): SettingsNamespace {
   return value as SettingsNamespace
 }
 
+// 命名空间变更何时生效：'live' 立即生效，'restart' 需重启后生效（此处仅作声明，供配置 UI 展示）。
 /** When a namespace's changes take effect for its owner. */
 export type SettingsApplies = 'live' | 'restart'
 
+// 注册选项：合成层 base 值、生效时机、以及 schema 表达不了的跨字段校验钩子。
 /** Registration options beyond the namespace schema. */
 export interface SettingsRegisterOptions<T> {
   /** Composition-layer values resolved below the user layer (entry-config subset). */
@@ -61,6 +84,7 @@ export interface SettingsRegisterOptions<T> {
   validate?: (value: T) => void
 }
 
+// 注册面输出：向配置 UI 描述一个命名空间的 schema、当前值、修订号与各分层，UI 据此渲染表单。
 /** One registered namespace as surfaced to configuration UIs. */
 export interface SettingsDescriptor {
   // TODO(settings-namespace-vocabulary): Rename `ns` to `namespace` across the
@@ -89,6 +113,7 @@ export interface SettingsDescriptor {
   secrets?: RedactedSecret[]
 }
 
+// describe 的选项：是否脱敏；跨线传输必须开启，原样（含秘密）默认值只允许同进程配置 UI 使用。
 /** Options for {@link SettingsProvider.describe}. */
 export interface SettingsDescribeOptions {
   /**
@@ -99,6 +124,7 @@ export interface SettingsDescribeOptions {
   redactSecrets?: boolean
 }
 
+// 注册方向拥有者返回的句柄：读解析值、订阅变更、合并更新或整体替换用户层。
 /** Owner-facing handle for one registered namespace. */
 export interface SettingsScope<T> {
   /** Current resolved value: schema defaults, then `base`, then the user layer. */
@@ -142,6 +168,7 @@ declare module '@deepseek-ai/cordis' {
  * @param b - the other JSON-compatible value.
  * @returns whether the two values are structurally equal.
  */
+// 全局唯一的变更检测谓词：对 JSON 兼容数据做结构深度相等；invariant 伴随插件也用同一函数核对事件。
 export function deepEqualJson(a: unknown, b: unknown): boolean {
   if (a === b) return true
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
@@ -161,11 +188,16 @@ export function deepEqualJson(a: unknown, b: unknown): boolean {
  * Service Definition's serialized write queue orders writes; it cannot tell a fresh writer
  * from one holding a stale snapshot, which is what this reports.
  */
+// 写冲突错误：写队列能排序写入，却无法分辨"新写入者"与"拿着过期快照的旧写入者"；
+// 调用方携带的期望修订号与实际修订号不一致时抛出，提示其重新读取再写。
 export class SettingsConflictError extends Error {
+  // 稳定的机器可读错误码，供跨线层映射到自己的错误分类。
   /** Stable machine code for wire layers mapping this to their own taxonomy. */
   readonly code = 'SETTINGS_CONFLICT'
+  // 调用方写时所期望的修订号。
   /** The revision the write expected. */
   readonly expected: number
+  // 命名空间实际所处的修订号。
   /** The revision the namespace actually stands at. */
   readonly actual: number
 
@@ -182,6 +214,7 @@ export class SettingsConflictError extends Error {
   }
 }
 
+// 判断是否"普通数据对象"：非数组、非 null、原型为 Object 或 null（排除类实例）。
 /** Whether a value is a plain data object (not an array, null, or class instance). */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
@@ -197,10 +230,13 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * restating the section: a wholesale `replace` rebuilt from a redacted
  * document silently deletes every secret the wire never returned.
  */
+// 路径编辑操作：set 写入某路径 / unset 删除某路径；供持有"不完整视图"的调用方（如只见过脱敏值
+// 的配置 UI）在不重述整段的情况下定点修改，避免整体 replace 把未返回的秘密一并删掉。
 export type SettingsPathOp =
   | { op: 'set'; path: readonly string[]; value: unknown }
   | { op: 'unset'; path: readonly string[] }
 
+// 把单个路径操作应用到"脱离原值"的段落副本，返回新段落；空路径指向段落根，中间缺失的对象自动创建。
 /** Apply one path op to a detached section, returning the next section. */
 function applyPathOp(section: Record<string, unknown>, op: SettingsPathOp): Record<string, unknown> {
   const [head, ...rest] = op.path
@@ -227,6 +263,7 @@ function applyPathOp(section: Record<string, unknown>, op: SettingsPathOp): Reco
   return { ...section, [head]: applyPathOp(child, { ...op, path: rest }) }
 }
 
+// 为无法无损 JSON 化的值生成人类可读标签（如 "a Date"、"undefined"），用于构造校验报错信息。
 /** Human label for a value that lossless JSON cannot represent (numbers reject inline). */
 function describeRejected(value: unknown): string {
   if (value === undefined) return 'undefined'
@@ -250,6 +287,8 @@ function describeRejected(value: unknown): string {
  * @param reject - builds the validation error from a value label and its `$`-rooted path.
  * @returns the detached JSON-compatible clone.
  */
+// 单次遍历完成"脱离原值 + JSON 兼容校验"：只放行普通对象/数组/字符串/有限数字/布尔/null，
+// 拒绝 Date/Map/BigInt/循环引用——否则 YAML/JSON 存储会在重载往返时悄悄变形。
 function cloneJsonShaped(
   root: Record<string, unknown>,
   reject: (label: string, path: string) => TypeError,
@@ -291,9 +330,11 @@ function cloneJsonShaped(
  * Layer `over` onto `under`: plain objects merge recursively, every other
  * value (arrays included) replaces the lower layer wholesale. `over` never
  * carries `undefined` entries — sections come from parsed documents and write
- * snapshots pass {@link cloneJsonShaped}, which strips them so a sparse patch
+ * snapshots pass {@link cloneJsonShaped}, which* strips them so a sparse patch
  * cannot erase lower keys.
  */
+// 分层合并：普通对象递归合并，其他值（数组在内）整体替换下层；over 永不携带 undefined 条目，
+// 因此稀疏补丁不会抹掉下层键。
 function mergeLayers(under: unknown, over: unknown): unknown {
   if (over === undefined) return under
   if (!isPlainObject(under) || !isPlainObject(over)) return over

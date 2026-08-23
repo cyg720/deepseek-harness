@@ -5,8 +5,22 @@
  * @module @deepseek-ai/dsh-authorization/types
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】授权缝的"线上安全"类型词汇表：方法、通知、提问、状态、结算、结果与条目；
+ *   不含 cordis/service 导入，浏览器端类型链（apiproxy → client）可安全消费。
+ * 【技术维度】纯类型模块；AuthorizationPrompt 是带可选信号的判别联合（text/secret/select）。
+ * 【产品维度】定义 flow 与交互面之间中立的对话词汇：一条进度通知、一个必须回答的问题、一次选择。
+ * 【逻辑维度】方法 → 通知 → 提问选项 → 提问联合 → 状态/结算 → 结果 → 注册条目。
+ * 【关键边界】secret 与 text 仅展示差异（输入掩码、不进日志）；failed 结算只出现在事件流上
+ *   ——发起者看到的是抛出的错误，旁观者靠它区分"拒绝"与"故障"。
+ * 【新手阅读建议】对照 index.ts 的 AuthorizationSession 与 AuthorizationInteraction 接口阅读。
+ * ==========================================================================
+ */
+
 import type { CredentialKey } from '@deepseek-ai/dsh-credentials/types'
 
+// 一种获取凭据的方式，由提供它的 flow 命名：id 供调用方选择，label 供 UI 展示。
 /** One way a flow can obtain its credential, named by the flow that offers it. */
 export interface AuthorizationMethod {
   /** Flow-owned identifier, echoed back when a caller picks this method. */
@@ -15,6 +29,7 @@ export interface AuthorizationMethod {
   label: string
 }
 
+// 运行中 flow 给旁观者的进度报告：正在发生什么 / 人下一步要做什么；永不携带秘密。
 /** A running flow's report to whoever is watching it. Never carries a secret. */
 export interface AuthorizationNotice {
   /** What is happening, or what the human must do next. */

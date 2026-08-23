@@ -26,6 +26,24 @@
  * @module @deepseek-ai/dsh-authorization
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】授权能力缝（ctx.authorization）的服务定义：登记"如何获取凭据"的流程（flow），
+ *   并主持一次授权尝试的完整生命周期——启动、与人类对话（通知/提问）、确认凭据提交、结算并释放。
+ * 【技术维度】Cordis Service；每个 key 同时最多一次尝试（running map）；flow 通过
+ *   AuthorizationSession 与调用方提供的交互面（interaction）对话；尝试期间订阅
+ *   credentials/record-updated 亲眼确认提交；settle 做包含式事件分发。
+ * 【产品维度】获取任何纯配置无法提供的凭据（需要人参与的 OAuth、授权码等）；缝拥有对话与
+ *   生命周期、不拥有协议——新协议以新 flow 形式加入，渲染一种 flow 的界面即可渲染所有 flow。
+ * 【逻辑维度】registerFlow 注册 → list/describe 列出 → begin 启动（校验 key/method/并发）
+ *   → attempt 运行 flow（通知/提问/与取消信号竞速）→ 确认提交 → settle 发事件并释放 key 槽位。
+ * 【关键边界】同 key 并发尝试被拒（ALREADY_IN_FLIGHT）；flow 未在本尝试内提交记录则
+ *   NOT_COMMITTED；人类拒绝与信号撤回都结算为 cancelled；flow 中途注销会中止其进行中的尝试。
+ * 【新手阅读建议】先读 types.ts 的词汇表，再按 begin → attempt 的顺序理解生命周期，
+ *   最后看 registerFlow 的 effect 注册方式（含中途注销的清理）。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { CredentialKey } from '@deepseek-ai/dsh-credentials'
 import { HarnessError } from '@deepseek-ai/dsh-llm'

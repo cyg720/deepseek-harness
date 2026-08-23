@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】本文件是 dsh-tool-skill 包：提供可持久化的会话技能目录（catalog）与面向模型
+ *             的 skill 加载工具，同时支持用户以 /name 手势直接唤起技能。
+ * 【技术维度】defineTool 定义 skill 工具；两个 agent/pre-step 瀑布监听器分别处理"用户手势
+ *             注入"与"目录发布/更新"；目录作为 catalog 形式上下文写入会话，保证可回放。
+ * 【产品维度】模型在动手前可加载技能全文照做；用户在消息里输入 /name 可强制加载指定技能；
+ *             目录随技能集合变化自动重发替换版，避免模型用过期技能名。
+ * 【逻辑维度】目录源类型与事件声明 → 工具定义 → 用户手势注入监听器 → 目录发布监听器 →
+ *             渲染/摘要/手势匹配等纯函数。
+ * 【关键边界】只有 source.kind 为 user 的消息才能触发手势；目录只在"本插件注册的工具恰好
+ *             可见"时才发布；加载结果与目录条目都做摘要长度归一化与校验。
+ * 【新手阅读建议】先读 apply() 里的两个监听器（手势注入、目录发布），再读
+ *             invokedSkillNames 与 digestCatalogEntries 理解匹配与去重。
+ * ==========================================================================
+ */
+/**
  * Durable session skill catalog and model-facing `skill` loader tool.
  *
  * @module @deepseek-ai/dsh-tool-skill
@@ -24,6 +40,7 @@ import {
 export const name = 'tool-skill'
 export const inject = ['agents', 'tools', 'skills']
 
+// 目录中技能描述的默认最大长度。
 const DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH = 500
 /**
  * Durable provider and item records for one published session skill catalog. The catalog is a
@@ -31,15 +48,21 @@ const DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH = 500
  * model-facing prose: a consumer presenting the list must not re-parse the
  * `<available_skills>` block, whose framing exists for the model.
  */
+// 一份已发布的会话技能目录的可持久化来源记录。目录是 catalog 形式的上下文，因此它把发布
+// 的条目与面向模型的散文并列记录：展示方呈现列表时不应重解析 <available_skills> 块——
+// 那个框架是写给模型看的。
 export interface SkillCatalogSource {
   readonly kind: 'skill-catalog'
   readonly form: 'catalog'
   /** Marks a replacement catalog rather than this session's first publication. */
+  // 标记这是"替换版"目录，而非本会话的首次发布。
   readonly update?: true
   /** Exactly the entries this message published, in catalog order. */
+  // 本条消息实际发布的条目，按目录顺序。
   readonly entries: readonly { readonly name: string; readonly description: string }[]
 }
 
+// 类型合并：把 skill-catalog 来源登记进消息来源表，使目录上下文可被会话日志识别。
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
     'skill-catalog': SkillCatalogSource
@@ -47,6 +70,7 @@ declare module '@deepseek-ai/dsh-llm' {
 }
 
 /** Durable entry list mirroring the rendered catalog lines, for non-model consumers. */
+// 与渲染出的目录行一一对应的可持久化条目列表，供非模型消费方使用。
 function catalogSourceEntries(
   skills: SkillSummary[],
   descriptionMaxLength: number,
@@ -58,12 +82,15 @@ function catalogSourceEntries(
 }
 
 /** Model-facing skill catalog configuration. */
+// 面向模型的技能目录配置。
 export interface Config {
   /** Maximum normalized description length rendered in the session catalog; minimum 3. */
+  // 会话目录中渲染的归一化描述最大长度；最小 3。
   catalogDescriptionMaxLength?: number
 }
 
 /** Validate and default the model-facing skill catalog configuration. */
+// 校验并默认化面向模型的技能目录配置。
 export const Config: z<Config> = z.object({
   catalogDescriptionMaxLength: z.number().default(DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH),
 })
@@ -74,6 +101,9 @@ export const Config: z<Config> = z.object({
  * resolves this plugin's exact tool registration; a restriction or scoped
  * same-name shadow therefore removes both the schema and its call guidance.
  */
+// 注册面向模型的技能加载器，以及与其可见性匹配的可持久化会话目录。目录只在调用代理
+// 能解析到本插件注册的"那个精确工具"时才发布；因此禁用或作用域内同名遮蔽会同时
+// 移除 schema 与其调用指引。
 export function apply(ctx: Context, config: Config = {}): void {
   const catalogDescriptionMaxLength = config.catalogDescriptionMaxLength ?? DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH
   assertPositiveInteger('catalogDescriptionMaxLength', catalogDescriptionMaxLength, 3)
@@ -130,6 +160,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       }
       // The agent is its own scope key, so the lookup resolves the layered
       // registry exactly as this agent's composition sees it.
+      // 代理本身就是作用域键，因此这次查找会按"该代理组合所见"的方式解析分层注册表。
       const lookup = { cwd: exec.agent?.session.header.cwd, signal: exec.signal, scope: exec.agent }
       const summary = (await ctx.skills.list(lookup)).find(skill => skill.name === args.name)
       if (!summary) {
@@ -174,6 +205,15 @@ export function apply(ctx: Context, config: Config = {}): void {
   // namespace, resolved client-side before a line ever becomes a prompt).
   // This is the only entry point for `disable-model-invocation` skills; the
   // catalog and the `skill` tool below never see them.
+  // 用户显式技能唤起：被认领的用户消息中，以 /<name> 开头并指名一个用户可唤起的技能时，
+  // 这是一个确定性的加载手势。渲染后的正文以"注入的 instructions 上下文"进入本步，追加在
+  // 所有其它注入之后——背景类内容在前（工作区规则、运行时策略、目录），模型必须执行的
+  // 材料放在最后、离它的回答最近。注册顺序保证了这种排布是确定性的：本监听器先于目录
+  // 监听器注册，瀑布会把带目录的消息列表交给它扩展。
+  // 只扫描 source.kind 为 user 的消息——外部文本无法伪造手势——指名不到任何用户可唤起
+  // 技能的 token 保持普通散文（命令注册表是另一个封闭命名空间，在一行话成为提示词之前
+  // 就在客户端解析掉了）。
+  // 这是 disable-model-invocation 技能的唯一入口；下面的目录与 skill 工具永远看不到它们。
   ctx.on('agent/pre-step', async (
     { agent, messages, signal },
     next,
@@ -192,6 +232,8 @@ export function apply(ctx: Context, config: Config = {}): void {
       // gesture was never a claim this boundary recognizes. The check sits
       // on the loaded definition — the single lookup that produces what is
       // actually injected.
+      // 未知名称与用户禁用的技能保持普通散文：该手势从未被本边界识别为"认领"。
+      // 检查落在"已加载的定义"上——即唯一一次会产出实际注入内容的查找。
       if (skill === undefined || !isUserInvocable(skill)) continue
       const source: SkillInvocationSource = { kind: 'skill-invocation', name, form: 'instructions' }
       injections.push(createUserMessage({
@@ -210,6 +252,10 @@ export function apply(ctx: Context, config: Config = {}): void {
   // a lookup of its own name: `register()` files into the CALLING context's
   // scope, so a plugin mounted inside an agent preset registers for that agent
   // alone and an unscoped lookup correctly finds nothing.
+  // 在工具之后注册，使反向销毁先移除指引。精确的定义身份比较防止"恰好也叫 skill 的作用域
+  // 遮蔽"继承这份目录。
+  // 比较对象是本插件注册的定义，而不是按名字反查：register() 归档进"调用方 context"的
+  // 作用域，因此挂在代理预设内的插件只为该代理注册，而无作用域反查正确地找不到它。
   ctx.on('agent/pre-step', async (
     { agent, signal },
     next,
@@ -251,6 +297,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   })
 }
 
+// 渲染首次发布的目录消息：system-reminder 框架 + <available_skills> 列表。
 function renderCatalogMessage(entries: SkillCatalogSource['entries']): UserMessage {
   return createUserMessage({
     content: [{
@@ -276,6 +323,7 @@ function renderCatalogMessage(entries: SkillCatalogSource['entries']): UserMessa
   })
 }
 
+// 渲染"目录已变化"的替换版消息：明确提示此目录取代本会话之前的所有技能列表。
 function renderCatalogUpdate(entries: SkillCatalogSource['entries']): UserMessage {
   const availability = entries.length === 0
     ? [
@@ -316,6 +364,8 @@ function renderCatalogUpdate(entries: SkillCatalogSource['entries']): UserMessag
  * is applied here and never stored. Names are `isSkillName`-validated and carry
  * no escapable character.
  */
+// 面向模型的目录行，由来源记录的同一批条目投影而来。伪 XML 转义属于"展示框架"而非
+// "已发布事实"，所以只在这里应用、永不落库。名称经 isSkillName 校验，不含需转义字符。
 function renderCatalogEntries(entries: SkillCatalogSource['entries']): string[] {
   return entries.map(entry => `- \`${entry.name}\`: ${escapeText(entry.description)}`)
 }
@@ -325,9 +375,13 @@ function renderCatalogEntries(entries: SkillCatalogSource['entries']): string[] 
  * The entries are what changes; the surrounding `<system-reminder>` framing is
  * written for the model and must not decide whether a republish is needed.
  */
+// 目录身份基于可持久化条目列表而非渲染散文。会变化的是条目；外围的 <system-reminder>
+// 框架是写给模型的，不能由它决定是否需要重新发布。
 function digestCatalogEntries(entries: SkillCatalogSource['entries']): string {
   // JSON per entry rather than a separator character: every separator is itself
   // a legal description character, so only quoting makes the boundary exact.
+  // 逐条目 JSON 化而非用分隔符拼接：任何分隔符本身都可能是合法描述字符，
+  // 只有引号化（JSON）才能让边界精确。
   const canonical = entries.map(entry => JSON.stringify([entry.name, entry.description])).join('\n')
   return createHash('sha256')
     .update(canonical)
@@ -345,6 +399,11 @@ function digestCatalogEntries(entries: SkillCatalogSource['entries']): string {
  * rather than throwing inside the step listener, which would fail every
  * subsequent turn of that session.
  */
+// 读取一条可持久化目录消息的条目；记录不是可用目录时返回 undefined。
+// agent.session.events 可能是恢复、分叉或外部写入的种子，种子校验只保证 source 对象带
+// 非空 kind，不检查任何 per-kind 字段。因此不可读的记录被当作"不是本插件的目录"——
+// 与先前"替换内容摘要"的姿态一致——而不是在步骤监听器里抛错（那会让该会话的
+// 每一轮后续都失败）。
 function readCatalogEntries(source: unknown): SkillCatalogSource['entries'] | undefined {
   const entries = (source as { entries?: unknown }).entries
   if (!Array.isArray(entries)) return undefined
@@ -358,12 +417,14 @@ function readCatalogEntries(source: unknown): SkillCatalogSource['entries'] | un
   return readable
 }
 
+// 从代理会话历史中找目录：返回"模型当前可见的目录摘要"与"是否曾发布过目录"。
 function catalogHistory(agent: Agent): { visibleDigest?: string; published: boolean } {
   const visible = new Set(agent.session.surface.nodes)
   const events = agent.session.events
   let published = false
   for (let index = events.length - 1; index >= 0; index -= 1) {
     // The loop bounds prove the read-only event view contains this index.
+    // 循环边界保证只读事件视图包含该下标。
     // oxlint-disable-next-line typescript/no-non-null-assertion
     const event = events[index]!
     if (event.type !== 'user/message' || event.data.source.kind !== 'skill-catalog') continue
@@ -376,6 +437,7 @@ function catalogHistory(agent: Agent): { visibleDigest?: string; published: bool
   return { published }
 }
 
+// 在当前步骤消息中查找已有的目录消息（首个可读目录）。
 function catalogMessage(
   messages: readonly UserMessage[],
 ): { message: UserMessage; entries: SkillCatalogSource['entries'] } | undefined {
@@ -388,11 +450,13 @@ function catalogMessage(
 }
 
 /** Normalized, length-bounded description exactly as the catalog publishes it (unescaped). */
+// 与目录发布完全一致的归一化、定长描述（未转义）。
 function catalogDescription(value: string, maxLength: number): string {
   const normalized = value.replaceAll(/\s+/g, ' ').trim()
   return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 3)}...`
 }
 
+// 校验正整数配置。
 function assertPositiveInteger(name: string, value: number, minimum = 1): void {
   if (!Number.isInteger(value) || value < minimum) {
     throw new Error(`tool-skill: ${name} must be an integer greater than or equal to ${minimum}`)
@@ -406,6 +470,9 @@ function assertPositiveInteger(name: string, value: number, minimum = 1): void {
  * `/` or any non-boundary character breaks the match, which keeps file paths
  * (`/usr/bin`) and fractions (`5/8`) out.
  */
+// 文本中任意位置、以空白为界的 /name token（公共技能名文法）——与转录稿徽章装饰所用的
+// 词边界形状一致，因此手势无论位于句中何处都被读作一个整体。第二个 / 或任何非边界字符
+// 都会打断匹配，从而把文件路径（/usr/bin）和分数（5/8）排除在外。
 const SKILL_GESTURE = /(^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/g
 
 /**
@@ -415,6 +482,8 @@ const SKILL_GESTURE = /(^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)/g
  * @param messages - the step's claimed batch.
  * @returns candidate skill names, unvalidated against the registry.
  */
+// 从被认领的用户消息中提取 /name 手势 token，按首次出现顺序去重。只扫描直接用户输入的
+// 每个文本块；没有任何其它来源能伪造手势。
 function invokedSkillNames(messages: readonly UserMessage[]): string[] {
   const names: string[] = []
   for (const message of messages) {

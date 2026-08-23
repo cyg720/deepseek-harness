@@ -7,8 +7,25 @@
  * @module @deepseek-ai/dsh-commands/types
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】dsh-commands 的"持久化命令事件词汇 + 注册表事件声明"，供纯类型消费方共享：
+ *   命令的不可变描述（CommandDescriptor）、执行结果（CommandResult）、输入描述等。
+ * 【技术维度】declaration merging 扩展 Cordis Events 与 dsh-session 的 SessionEventMap；
+ *   CommandSourceMap 是"可合并扩展"的和类型，镜像 MessageSourceMap 的形状。
+ * 【产品维度】command/run 与 command/done 事件按 commandId 配对，记录一次命令执行的完整
+ *   生命周期——对应工具调用的 tool/call ↔ tool/result 配对，供投影单元与富命令卡片消费。
+ * 【逻辑维度】输入描述 → 结果联合 → 执行对象 → 命令描述 → 来源映射 → 注册表事件 →
+ *   会话生命周期事件对。
+ * 【关键边界】command/run 只记录不送模型（log-only）；args 携带的是 parseCommand 的原始切分
+ *   （名字 + 原样 rawInput，含分隔空白），消费方不得重新解析一行。
+ * 【新手阅读建议】对照 index.ts 的 execute 方法理解两个生命周期事件如何产生与配对。
+ * ==========================================================================
+ */
+
 import type { CommandId } from './brand.ts'
 
+// 命令可选自由输入的元数据：hint 是输入框占位文案；images 声明是否允许随调用附带图片附件。
 /** Immutable metadata for a command's optional unstructured input. */
 export interface CommandInputDescriptor {
   /** Placeholder shown before the user supplies free-form input. */
@@ -23,6 +40,7 @@ export interface CommandInputDescriptor {
   readonly images?: boolean
 }
 
+// 命令预期结果：success（可带文本与更权威域事件的序号，供 UI 做富展示）或 error（必带非空文本）。
 /** Expected command outcome rendered directly by the dispatching UI. */
 export type CommandResult =
   | {
@@ -39,6 +57,7 @@ export type CommandResult =
  * so a dispatching surface can correlate the Remote acknowledgment with the
  * flow node those events produce.
  */
+// 一次已结算的执行：handler 的规范化结果 + 本次生命周期事件的配对 id，UI 借此把远端确认与事件流节点对上。
 export interface CommandExecution {
   /** Pairing id carried by this execution's lifecycle events. */
   readonly commandId: CommandId
@@ -46,6 +65,7 @@ export interface CommandExecution {
   readonly result: CommandResult
 }
 
+// 不含 handler 的不可变命令视图，供发现类 UI（命令列表/帮助）使用。
 /** Handler-free immutable command view returned to UI adapters. */
 export interface CommandDescriptor {
   /** Lowercase command name without the leading slash. */
@@ -62,10 +82,12 @@ export interface CommandDescriptor {
  * shape; minimal today because every executor caller is a human-facing UI
  * surface dispatching a human-typed line, so the sole variant is `user`.
  */
+// 命令发起者的来源映射（可扩展和类型）：目前只有 user——所有执行器调用方都是人在 UI 上敲的命令行。
 export interface CommandSourceMap {
   user: { kind: 'user' }
 }
 
+// 来源联合：一次命令行是谁发出的。
 /** The union over {@link CommandSourceMap} — who issued a command line. */
 export type CommandSource = CommandSourceMap[keyof CommandSourceMap]
 

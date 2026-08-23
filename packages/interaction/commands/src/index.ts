@@ -3,6 +3,24 @@
  * @module @deepseek-ai/dsh-commands
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】人用斜杠命令注册表（CommandRuntime）：插件注册命令（含发现元数据与直接 UI 处理器），
+ *   交互 UI 适配器列出/查找/执行命令——执行全程不经过模型。
+ * 【技术维度】TypertRemoteService（跨进程 RPC）暴露 list/find/execute；ScopedLayers 实现
+ *   "全局定义 + 按 agent 遮蔽"的分层注册；command/run、command/done 生命周期事件直写会话日志；
+ *   图片附件在注册表边界做准入校验。
+ * 【产品维度】用户在输入框敲 /命令 直接执行动作（如打开设置、跑脚本），不消耗模型 token；
+ *   多 agent 场景下可对单个 agent 遮蔽全局命令。
+ * 【逻辑维度】parseCommand 解析 → normalizeDefinition 校验 → register 写入层 → view 合并有效视图
+ *   → execute 执行（记录 run → 准入图片 → 调 handler → 记录 done）→ notifyChange 通知 UI 刷新。
+ * 【关键边界】handler 抛错/中止以 kind:'error' 结算；命令名需过小写正则；取消信号在 handler
+ *   进入前必须被尊重（准入可能 await 慢存储）；command/run 记录失败要 loud fail。
+ * 【新手阅读建议】先读 types.ts 弄清事件与结果类型，再重点读 CommandRuntime 的 register 与
+ *   execute 两个核心方法，最后看 parseCommand 与 normalizeDefinition 的校验细节。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { AttachmentError, admitEncodedImages } from '@deepseek-ai/dsh-attachment'
@@ -23,13 +41,17 @@ import type {
 export { CommandId } from './brand.ts'
 export type * from './types.ts'
 
+// 插件注册名：装载本注册表服务的 Cordis 插件名。
 export const name = 'commands'
 
+// 命令名合法性正则：小写字母开头，可含小写字母/数字/下划线/连字符。
 const COMMAND_NAME = /^[a-z][a-z0-9_-]*$/u
 
+// 无图片调用时共享的空附件数组（冻结，避免每次调用分配新对象）。
 /** Shared frozen attachments value for image-free invocations. */
 const NO_ATTACHMENTS: readonly ImageBlock[] = Object.freeze([])
 
+// 传给命令 handler 的一次调用：配对 id、接收 agent、原样输入文本、准入后的图片附件与取消信号。
 /** Invocation passed to one registered command handler. */
 export interface CommandInvocation {
   /** Pairing id already written to this invocation's `command/run` event. */
@@ -50,6 +72,7 @@ export interface CommandInvocation {
   readonly signal: AbortSignal
 }
 
+// 插件的命令注册：名字、描述、可选输入提示、是否记录 rawInput、以及直接执行的 handler。
 /** Plugin-owned command registration. */
 export interface CommandDefinition {
   /** Lowercase command name without the leading slash. */
@@ -68,6 +91,7 @@ export interface CommandDefinition {
   readonly handler: (invocation: CommandInvocation) => CommandResult | Promise<CommandResult>
 }
 
+// 语法合法的斜杠命令（尚未查注册表）：名字 + 原样输入文本。
 /** Syntactically valid slash command before registry resolution. */
 export interface ParsedCommand {
   /** Lowercase command name without the leading slash. */
@@ -76,11 +100,13 @@ export interface ParsedCommand {
   readonly rawInput: string
 }
 
+// 注册表内部存储：原始定义（执行用）+ 规范化只读描述（展示用）。
 interface RegisteredCommand {
   readonly definition: CommandDefinition
   readonly descriptor: CommandDescriptor
 }
 
+// 某一作用域（全局或某 agent）下的全部命令注册；重复注册时报出带作用域上下文的错误。
 /** All command registrations owned by one global or scoped layer. */
 class CommandLayer implements ScopeLayer {
   readonly commands: NamedEntries<RegisteredCommand>
@@ -113,6 +139,8 @@ declare module '@deepseek-ai/cordis' {
  * @param line - Complete candidate command line.
  * @returns The parsed command, or `undefined` when the line is not a command.
  */
+// 解析一行斜杠命令：匹配 /名字（须过小写正则），返回名字与"名字之后的原样文本"（含分隔空白，
+// 不做规整）；不是命令则返回 undefined。
 export function parseCommand(line: string): ParsedCommand | undefined {
   const match = /^\/([a-z][a-z0-9_-]*)(?=$|[\t\n\r ])/u.exec(line)
   if (match === null) return undefined
@@ -122,17 +150,20 @@ export function parseCommand(line: string): ParsedCommand | undefined {
   return Object.freeze({ name, rawInput: line.slice(match[0].length) })
 }
 
+// 把各种取消原因归一化为一个稳定的 Error：Error 型原因原样复用，其他原因兜底为 "command aborted"。
 /** Convert arbitrary abort reasons to one stable rejected Error. */
 function abortError(signal: AbortSignal): Error {
   if (signal.reason instanceof Error) return signal.reason
   return new Error(typeof signal.reason === 'string' ? signal.reason : 'command aborted')
 }
 
+// 信号已中止则返回归一化错误，否则 undefined；用于在 handler 进入前检查取消。
 /** The signal's normalized abort error when it is already aborted. */
 function cancellationOf(signal: AbortSignal): Error | undefined {
   return signal.aborted ? abortError(signal) : undefined
 }
 
+// 把任意抛出值安全转成字符串（不信任其 toString 实现），转不出来就返回占位文案。
 /** Render arbitrary thrown values without trusting their string coercion. */
 function renderThrown(value: unknown): string {
   try {
@@ -141,7 +172,7 @@ function renderThrown(value: unknown): string {
     return '<unrenderable thrown value>'
   }
 }
-
+// 让等待与调用方的取消信号赛跑：一旦中止就拒绝，避免不配合的 handler 挂住整个 UI 请求。
 /** Stop awaiting an uncooperative handler once its owning UI request aborts. */
 function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) return Promise.reject(abortError(signal))

@@ -30,7 +30,9 @@
 | --- | --- | --- |
 | R1 | core/session, core/system-prompt, core/tools, session/session-persistence, session/session-persistence-jsonl | ✅ 完成（commit ebec78c98e，34 文件 +4392 行） |
 | R2 | core/agent, core/agent-loop, core/scope, core/agent-default-model, core/agent-tool-presentation, api/gateway, api/remotes, typert/*, llm/* | ✅ 完成（commit dd12c5c1a7，92 文件 +5984 行） |
-| R3 | host/*, extensions/*, fs/*, storage/*, shell/*, subprocess/*, terminal/* | 进行中 |
+| R3 | host/*, extensions/*, fs/*, storage/*, shell/*, subprocess/*, terminal/* | ✅ 完成（commit 09ddfc5747，209 文件 +9894 行） |
+| R4 | client/*, subagent/subagent, session 剩余（projection/stats/telemetry/title/checkpoint）, session-query/*, experimental/* | ✅ 完成（commit 7c18405bbb，420 文件 +10570 行） |
+| R5 | web/*, skill/*, context/*, compaction/*, schedule/*, goal/*, preset/*, settings/*, credentials/*, interaction/*, jobs/*, plan/*, spill/*, util/*, boot/*, bundle/*, feedback/*, guard/*, identity/*, lsp/*, mcp/*, runtime-diagnostics/*, code-runtime/*, attachment/*, e2b/*, workspace/*, todo/*, acp/* | 进行中 |
 
 ## 已完成目录清单
 

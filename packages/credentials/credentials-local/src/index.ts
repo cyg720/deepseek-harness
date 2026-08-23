@@ -35,6 +35,24 @@
  * @module @deepseek-ai/dsh-credentials-local
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】本地文件凭据提供者（LocalCredentialProvider）：以 $DSH_HOME/.credentials.yaml 为
+ *   可写存储，按"继承进程环境 > 托管文件 > 项目 .env > 用户 .env"的信任分层解析凭据引用。
+ * 【技术维度】Cordis Service；chokidar 监听 + 去抖；跨进程写锁 + 原子写；YAML 注释保留式修补；
+ *   文档严格解析（拒绝而非跳过）；启动时校验文件权限（拒绝其他用户可读的凭据文件）。
+ * 【产品维度】用户在 Models 页面保存的密钥即时生效、不被旧 .env 顶掉；外部编辑热发布；
+ *   历史密钥在启动期即被拒绝读取，守护秘密安全。
+ * 【逻辑维度】resolveSpec 解析配置 → assertOwnerOnly 权限检查 → loadInitial 启动读（含预发布
+ *   旧布局自动迁移）→ 引用半区 resolve/describe/set/unset → 记录半区 readRecord/modifyRecord/
+ *   deleteRecord → refresh/reconcileFromDisk 热更新 → notifyUpdated/notifyRecordUpdated 发布事件。
+ * 【关键边界】继承环境优先且只读（向其写入会被拒绝而非静默遮蔽）；空值视为"未配置"；文档严格
+ *   解析，未知顶层键/错误类型/重复键一律 loud fail。
+ * 【新手阅读建议】先读 dsh-credentials/index.ts 的抽象契约，再按"分层解析 → 引用写 → 记录写 →
+ *   热更新"的顺序读本文件，最后对照 settings-file 看两份 Provider 的刻意对称。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { watch as chokidarWatch } from 'chokidar'
@@ -57,9 +75,11 @@ import type {
 } from '@deepseek-ai/dsh-credentials'
 import type { LaunchEnvironmentEntry } from '@deepseek-ai/dsh-launch-environment'
 
+// 凭据文档在 harness 主目录内的固定文件名（点开头，属隐藏文件）。
 /** Basename of the credentials document inside the harness home. */
 export const CREDENTIALS_FILENAME = '.credentials.yaml'
 
+// 插件配置：文件位置与热更新行为，由 cordis.yml 传入。
 /** Plugin config: file location and hot-reload behavior. */
 export interface Config {
   /** Credentials document path; defaults to `.credentials.yaml` under the harness home. */
