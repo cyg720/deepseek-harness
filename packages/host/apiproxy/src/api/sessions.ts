@@ -1,4 +1,25 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】sessions 域契约（会话域，最核心的域）：列表/搜索/创建/历史/
+ * 模型/重命名/分叉/提示/附件/队列/取消的签名与全部载荷实体类型。方法签名是
+ * 事实来源：一元方法接收 RpcRequest<P> 窄形式、实现回显 rpcId，其余全部引用
+ * RequestPayload<'session.*'> / ResponseValue<'session.*'>。
+ * 【技术维度】纯类型契约（浏览器可导入）；通过声明合并把本域两个投影键
+ * （sessionListMetadata / imageLimits）注册进 SessionProjectionStateMap，把
+ * 'user-rpc' 消息来源注册进 MessageSourceMap；历史/投影/提示载荷在此定义。
+ * 【产品维度】远程 GUI 的会话面板全部数据交互：列表与搜索、新建会话（可归属
+ * 工作区）、分页历史、模型选择、重命名、分叉、发送提示（含图片）、附件读取、
+ * 队列编辑与取消。
+ * 【逻辑维度】投影/消息来源声明合并 → 列表元数据/历史条目/投影基线 → 提示
+ * 内容/模型选择/推理/目录/失败 → 会话摘要 → SessionsApi 十二个方法。
+ * 【关键边界】SessionEvent 来自可合并扩展的会话事件 API（data 宽类型）；提示
+ * 图片由宿主提升为持久化引用（浏览器只发 base64）；ProjectionBlock 的 asOfSeq
+ * 与 session/projection 帧 seq 可直接按 higher-seq-wins 比较。
+ * 【新手阅读建议】先读 SessionsApi 接口把握方法面，再逐个读载荷实体；对照
+ * sessions.schema.ts 与 api-proxy.ts 的 sessions 域实现理解完整链路。
+ * ==========================================================================
+ */
+/**
  * sessions domain contract. Method signatures are the source of truth:
  * unary methods take the RpcRequest<P> narrow form and the impl echoes rpcId; everything
  * else references RequestPayload<'session.*'> / ResponseValue<'session.*'>.
@@ -10,6 +31,8 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
 // The pure-type outlet: api/ is browser-importable, and the package root's
 // cordis Context merge (via dsh-agent) must not enter client aggregates.
+// 纯类型出口：api/ 浏览器可导入，包根（经 dsh-agent 的）cordis Context 合并不得
+// 进入客户端聚合。
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
 import type { RpcId, RpcRequest, RpcResponse } from './rpc.ts'
 import type { ToolEventView } from './events.ts'

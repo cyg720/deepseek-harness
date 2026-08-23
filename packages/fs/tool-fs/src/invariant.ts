@@ -1,6 +1,23 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】tool-fs 包的"不变式伴生插件"：登记一个空的自检安装器。
+ * 【技术维度】Cordis 伴生插件形态：导出 name/inject/apply；install 为空函数。
+ * 【产品维度】本包是模型侧适配器：没有独立生命周期流，执行关系由它调用的能力接缝
+ * 拥有，所以无运行时自检，仅做体系占位。
+ * 【逻辑维度】按出现顺序：PACKAGE_NAME（注册名）→ name/inject（插件元信息）→
+ * install（空自检安装器）→ apply（注册入口）。
+ * 【关键边界】文件主体被 jscpd 重复检测豁免块（jscpd:ignore-start 与
+ * jscpd:ignore-end 两个 pragma）包裹，元素级中文注释统一省略。
+ * 【新手阅读建议】先读英文模块注释理解"为什么没有自检"，再看 apply 理解占位注册。
+ * ==========================================================================
+ */
+/**
  * Package-owned invariant companion for `@deepseek-ai/dsh-tool-fs`.
  * @module @deepseek-ai/dsh-tool-fs/invariant
+ */
+/**
+ * 模块总览：工具层是薄适配器，执行关系由能力接缝（dsh-fs 等）拥有，
+ * 故 install 为空，仅做体系占位。
  */
 
 /* jscpd:ignore-start */

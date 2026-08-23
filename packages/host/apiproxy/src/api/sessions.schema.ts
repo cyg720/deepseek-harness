@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】sessions 域的 zod schema 集合（名字从地图键派生）：session.list /
+ * search / create / rename / fork / history / models / selectModel / prompt /
+ * attachment / updateQueue / cancel 的请求载荷与响应值校验，以及会话事件、
+ * 模型目录、投影基线等共用 schema。
+ * 【技术维度】SessionEvent 透传 = 严格信封（type/seq/time）+ 宽 data：可合并
+ * 扩展的事件 API 在联合层保留未知类型分支、无字段级透传；sessionIdSchema 是
+ * 本域唯一品牌铸造点（workspaceIdSchema 也托管在此以避免 schema 模块环）。
+ * 【产品维度】会话面板全部数据交互的校验来源：列表/搜索/创建/历史/模型选择/
+ * 提示/附件/队列/取消。
+ * 【逻辑维度】品牌铸造点（sessionId/messageId/workspaceId）→ 事件/摘要/搜索/
+ * 创建/重命名/分叉/历史 → 模型目录 → 投影基线 → 提示/附件/队列/取消。
+ * 【关键边界】session.create 用 refine 强制 workspaceId 与 cwd 至少其一（不可
+ * 同时给出）；搜索查询去首尾空白、最长 500 字符、拒绝 NUL；工具视图透传只锁
+ * for 判别与 view 存在性（内部词汇属 dsh-tools，深校验会漂移）。
+ * 【新手阅读建议】先看品牌铸造点与事件透传 schema，再按方法对照 sessions.ts
+ * 契约阅读各请求/响应 schema。
+ * ==========================================================================
+ */
+/**
  * sessions domain zod schemas (names derived from map keys: sessionListRequestSchema /
  * sessionListValueSchema). SessionEvent passthrough = strict envelope (type/seq/time) + wide
  * data: the merge-extensible event API keeps an unknown-type branch at the union level,

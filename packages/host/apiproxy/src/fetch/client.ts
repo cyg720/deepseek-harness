@@ -1,4 +1,26 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】fetch 载体的客户端半边：AbstractApiClient 持有全部协议不变量
+ * （rpcId 铸造、四象限信封包装/解包、zod 解析、进程内 SSE 帧解码、载荷直达
+ * 的 IApiClient 领域方法），平台差异被抽象为 doFetch（传输）与 onEnvelope
+ * （观察钩子）两个方面。
+ * 【技术维度】一元调用走 POST JSON（可选默认超时 30s 与调用方信号合并），SSE
+ * 流走流式 fetch + 双换行帧解析；信封观察使用微任务批量缓冲（帧风暴不会每个
+ * 帧触发一次消费者更新）；InProcessApiClient 让同一进程内的 handler 注入完全
+ * 不经过网络（同构点）。
+ * 【产品维度】浏览器/Node 客户端共享同一套协议客户端：业务代码从不铸造 rpcId
+ * 或构造信封，只传业务载荷；可订阅信封观察者用于诊断/日志。
+ * 【逻辑维度】IApiClient 接口（载荷直达视图）→ 方法→schema 值表（UNARY_VALUE_
+ * SCHEMAS）→ 超时策略/内部基址常量 → AbstractApiClient（信封批缓冲、postJson、
+ * callUnary、readSse、各域方法组、respond）→ InProcessApiClient（进程内传输）。
+ * 【关键边界】应答 rpcId 必须回显请求 rpcId（不匹配即抛错）；单帧解析失败只
+ * 记录并跳过（损坏帧不杀死流，缺口检测兜底）；宿主机挂死不会让调用方无限等待
+ * （默认超时）；pickDirectory 属用户节奏调用，不走默认超时。
+ * 【新手阅读建议】先读 IApiClient 与 AbstractApiClient 类头，再看 callUnary 与
+ * readSse 两个核心协议路径，最后读 InProcessApiClient 理解同构注入。
+ * ==========================================================================
+ */
+/**
  * Client side of the fetch carrier. AbstractApiClient holds every protocol invariant: rpcId minting,
  * four-quadrant envelope wrap/unwrap, zod parsing, in-process SSE frame decoding, and the payload-direct
  * IApiClient domain methods (business code never mints). Platform differences ride two aspects:
@@ -241,10 +263,17 @@ const INTERNAL_BASE = 'http://dsh.internal'
  * and observers subscribe via subscribeEnvelopes. The isomorphic point survives: an in-process
  * subclass whose doFetch is toFetchHandler(api).fetch never touches the network.
  */
+// 抽象 fetch 载体客户端：子类提供传输（doFetch）并可微调逐消息钩子（onEnvelope），
+// 平台差异留在子类，协议不变量集中在此。信封观察是一等公民——实例持有微任务
+// 批量缓冲（帧风暴不必每帧更新一次消费者），观察者经 subscribeEnvelopes 订阅。
+// 同构点：进程内子类把 doFetch 指向 toFetchHandler(api).fetch 就完全不经过网络。
 export abstract class AbstractApiClient implements IApiClient {
   /** Instance-owned observation buffer (module-level state would leak across instances/tests). */
+  // 实例自有的观察缓冲：用实例级而非模块级状态，避免跨实例/测试泄漏。
   private envelopeBatch: RpcMessage[] = []
+  /** 是否已安排微任务冲刷：防止同一批内重复入队冲刷。 */
   private flushScheduled = false
+  /** 信封观察者集合：每个消费者在冲刷时收到整批消息。 */
   private readonly envelopeListeners = new Set<(batch: readonly RpcMessage[]) => void>()
 
   /** @param timeoutMs - timeout for bounded unary calls; user-paced calls and streams do not use it. */
@@ -268,6 +297,8 @@ export abstract class AbstractApiClient implements IApiClient {
   }
 
   /** Per-message tap: feeds the instance buffer. Subclasses may override to observe unbatched (call super to keep batching). */
+  // 逐消息钩子：把消息喂进实例缓冲；若已有观察者，则安排一个微任务在批边界
+  // 冲刷。监听器抛错被隔离（观察绝不能破坏载体本身）。
   protected onEnvelope(message: RpcMessage): void {
     if (this.envelopeListeners.size === 0) return
     this.envelopeBatch.push(message)
@@ -304,6 +335,8 @@ export abstract class AbstractApiClient implements IApiClient {
    * Shared POST leg of both C→S carriers (callUnary/respond): JSON body,
    * optional default timeout merged with the caller's external signal, non-2xx → transport throw.
    */
+  // 两种 C→S 载体（callUnary/respond）共用的 POST 腿：JSON 请求体，默认超时与
+  // 调用方外部信号合并（caller-signal-only 策略则只用调用方信号），非 2xx 抛传输错误。
   private async postJson(
     path: string,
     body: ClientRequest | ClientResponse,
@@ -330,6 +363,8 @@ export abstract class AbstractApiClient implements IApiClient {
    * echo → value parse → tap → narrow. Virtual so a fake carrier (fixture) can
    * override transport at this layer.
    */
+  // 一元协议路径：铸造 rpcId → 观察 → POST 完整信封 → 信封解析 → 校验回显 rpcId
+  // → 二级值解析 → 观察 → 收窄返回。virtual 供假载体（fixture）在传输层覆写。
   protected async callUnary<K extends keyof RpcMethodMap>(
     method: K,
     payload: RequestPayload<K>,
@@ -364,8 +399,11 @@ export abstract class AbstractApiClient implements IApiClient {
    * frame-schema parse, tap, narrow yield. onOpen fires once the response headers are in and the
    * body is readable — the stream-established signal, before any frame arrives. A frame that fails
    * either parse level is reported and skipped (one corrupt frame must not kill the stream; the
-   * client's gap detection covers whatever the frame carried).
+   * client's gap detection covers whatever the frame carried.
    */
+  // SSE 协议路径：流式 fetch（非 EventSource）按 '\n\n' 分帧，解析 ServerRequest
+  // 信封 + 帧 schema，观察后逐帧 yield。onOpen 在响应头到达、body 可读时触发
+  // （流已建立信号，早于任何帧）；任一解析级别失败的单帧只记录并跳过，不杀死流。
   protected async *readSse<F extends MuxFrame | HostFrame>(
     path: string,
     signal: AbortSignal,
@@ -517,6 +555,8 @@ export abstract class AbstractApiClient implements IApiClient {
  * `new InProcessApiClient(toFetchHandler(api))` never touches the network). Lives here because
  * in-process injection is this package's own capability (handler and client are both local).
  */
+// 进程内客户端：在注入的 fetch 形 handler 上运行（同构点——与 toFetchHandler(api)
+// 组合完全不经网络）。放在本文件是因为进程内注入是本包自己的能力。
 export class InProcessApiClient extends AbstractApiClient {
   constructor(private readonly handler: { fetch: typeof fetch }, timeoutMs?: number) {
     super(timeoutMs)
@@ -541,6 +581,8 @@ export class InProcessApiClient extends AbstractApiClient {
 }
 
 /** Mirror fetch's abort rejection: the signal's reason when present, else a DOMException-style AbortError. */
+// 模拟 fetch 的取消拒绝形态：优先用信号自身携带的 reason，否则构造 AbortError
+// 风格错误，保证调用方对取消的识别方式与真实 fetch 一致。
 function abortError(signal: AbortSignal): Error {
   const reason: unknown = signal.reason
   if (reason instanceof Error) return reason

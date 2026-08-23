@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】llm 域的 zod schema 集合：llm.providers / llm.models /
+ * llm.discoverModels 三个方法的请求载荷与响应值校验（名字从地图键派生）。
+ * 【技术维度】全部用 satisfies Wire<RequestPayload|ResponseValue> 对齐契约类型；
+ * 可配置提供者/发现模型视图与 sessions.schema 的目录/失败 schema 复用。
+ * 【产品维度】LLM 配置界面的数据校验：提供者拓扑、模型目录与草稿端点探测的
+ * 请求/响应在线上边界被确定性校验。
+ * 【逻辑维度】configurableProviderViewSchema → providers 请求/响应 → models
+ * 请求/响应 → discoveredModelViewSchema → discoverModels 请求/响应。
+ * 【关键边界】discoverModels 的 apiKey 在宿主侧只写：仅用于本次探测、绝不存储
+ * 或回传；它与其他含密载荷一样会出现在出站信封中，subscribeEnvelopes 观察者可
+ * 见——对该钩子的脱敏是配置平面级别的改动，不应由本方法单独承担。
+ * 【新手阅读建议】与 llm.ts 契约及 api-proxy.ts 的 llm 域实现对照阅读。
+ * ==========================================================================
+ */
+/**
  * llm domain zod schemas (names derived from map keys: llmProvidersRequestSchema /
  * llmProvidersValueSchema / llmModelsRequestSchema / llmModelsValueSchema).
  */
@@ -10,6 +26,7 @@ import type { ConfigurableProviderView, DiscoveredModelView } from './llm.ts'
 import { modelCatalogFailureSchema, modelProviderGroupSchema } from './sessions.schema.ts'
 
 /** ConfigurableProviderView row of llm.providers. */
+// llm.providers 的可配置提供者行。
 export const configurableProviderViewSchema = z.object({
   provider: z.string().min(1),
   displayName: z.string().min(1),

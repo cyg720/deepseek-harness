@@ -1,4 +1,21 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】workspace 域契约：宿主侧工作区实体（@deepseek-ai/dsh-workspace）
+ * 的线上投影——目录路径上的稳定 id、显示标题与有序会话账目。方法签名是事实
+ * 来源（与 sessions 域一致）。
+ * 【技术维度】纯类型契约；WorkspaceId 在此重声明而非从 dsh-workspace 导入：
+ * api/ 必须零宿主包依赖、浏览器可导入，品牌字符串一致即可结构兼容。
+ * 【产品维度】远程 GUI 的工作区组织：多项目分组、命名、排序与会话归档管理。
+ * 【逻辑维度】WorkspaceId → WorkspaceView → WorkspaceApi 七个方法（list/create/
+ * rename/delete/insertBefore/insertSessionBefore/archiveSession）。
+ * 【关键边界】create 只覆盖已存在目录（不 mkdir）；delete 不触碰目录与日志；
+ * 归档会话保留日志与账目槽位（可取消归档恢复）；同标题冲突与移动非法有专属
+ * 错误码。
+ * 【新手阅读建议】与 workspace.schema.ts 及 api-proxy.ts 的 workspace 域实现
+ * （workspaceCreationChain 串行链）对照阅读。
+ * ==========================================================================
+ */
+/**
  * workspace domain contract. Wire projection of the host-side workspace
  * entity (@deepseek-ai/dsh-workspace): a stable id over a directory path,
  * a display title, and the ordered session account. Method signatures are the
@@ -15,27 +32,37 @@ import type { RpcRequest, RpcResponse } from './rpc.ts'
  * host-package dependencies, and the brand string matches, so both sides
  * agree structurally.
  */
+// 线上工作区 id 品牌：刻意在此重声明而非从 dsh-workspace 导入——api/ 必须零
+// 宿主包依赖、浏览器可导入；品牌字符串一致即可结构兼容。
 export type WorkspaceId = Branded<'WorkspaceId'>
 
 /** One workspace row: the record projection every workspace.* value carries. */
+// 一个工作区行：所有 workspace.* 值携带的记录投影。
 export interface WorkspaceView {
   workspaceId: WorkspaceId
   /** Canonical directory path (host-side realpath canon). */
+  // 规范目录路径（宿主侧 realpath 规范化）。
   path: string
   /** Display title (defaults to the path basename at create). */
+  // 显示标题（创建时默认取路径基名）。
   title: string
   /**
    * Sessions accounted under this workspace, in manually owned order
    * (attach prepends, insertSessionBefore reorders; activity never does).
    */
+  // 本工作区账目下的会话（手工维护顺序：attach 前置、insertSessionBefore 重排，
+  // 活动状态从不影响顺序）。
   sessionIds: SessionId[]
   /** ISO-8601 creation instant. */
+  // ISO-8601 创建时刻。
   createdAt: string
   /** ISO-8601 last-mutation instant. */
+  // ISO-8601 最后变更时刻。
   updatedAt: string
 }
 
 /** Workspace-domain unary methods (the map keys workspace.* of RpcMethodMap). */
+// 工作区域一元方法接口。
 export interface WorkspaceApi {
   /**
    * Lists all workspaces in the registry's durable display order, plus the

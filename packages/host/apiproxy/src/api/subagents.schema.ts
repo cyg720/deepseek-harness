@@ -1,5 +1,7 @@
 /** Zod schemas for the browser-safe subagent domain. */
-
+// 浏览器安全子代理域的 zod schema 集合：目录行（健康/诊断）、list/history/
+// prompt/interrupt 的请求载荷与响应值。contentBlock、historyEntry、sessionId、
+// projections 块等复用 sessions.schema。
 import { z } from 'zod'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { RequestPayload, ResponseValue } from './rpc-map.ts'
@@ -10,6 +12,7 @@ import {
 import type { SubagentListEntry } from './subagents.ts'
 
 /** Healthy and diagnostic durable catalog rows. */
+// 健康与诊断两类持久化目录行的联合 schema（判别字段 kind/mode）。
 export const subagentListEntrySchema = z.union([
   z.object({
     kind: z.literal('child'),

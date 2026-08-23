@@ -29,7 +29,8 @@
 | 轮次 | 目录范围 | 状态 |
 | --- | --- | --- |
 | R1 | core/session, core/system-prompt, core/tools, session/session-persistence, session/session-persistence-jsonl | ✅ 完成（commit ebec78c98e，34 文件 +4392 行） |
-| R2 | core/agent, core/agent-loop, core/scope, core/agent-default-model, core/agent-tool-presentation | 进行中 |
+| R2 | core/agent, core/agent-loop, core/scope, core/agent-default-model, core/agent-tool-presentation, api/gateway, api/remotes, typert/*, llm/* | ✅ 完成（commit dd12c5c1a7，92 文件 +5984 行） |
+| R3 | host/*, extensions/*, fs/*, storage/*, shell/*, subprocess/*, terminal/* | 进行中 |
 
 ## 已完成目录清单
 
@@ -38,3 +39,24 @@
 - packages/core/tools/src（10 文件）
 - packages/session/session-persistence/src（6 文件）
 - packages/session/session-persistence-jsonl/src（7 文件）
+- packages/core/agent-loop/src（6 文件）
+- packages/core/agent/src（8 文件）
+- packages/core/scope/src（4 文件）
+- packages/core/agent-default-model/src（2 文件）
+- packages/core/agent-tool-presentation/src（2 文件）
+- packages/api/gateway/src（4 文件）
+- packages/api/remotes/src（6 文件）
+- packages/typert/generator/src（9 文件）
+- packages/typert/loader/src（2 文件）
+- packages/typert/protocol/src（3 文件）
+- packages/typert/registry/src（5 文件）
+- packages/llm/llm/src（14 文件）
+- packages/llm/llm-deepseek/src（11 文件）
+- packages/llm/llm-retry/src（5 文件）
+- packages/llm/token-meter/src（10 文件）
+
+## 验证记录
+
+- R1 修复：注释中 `*/` 序列破坏注释块（2 处）、常量重复声明（1 处）、超长行拆行（5 处）后，pre-commit lint 通过
+- R2 修复：中文注释误插在 `oxlint-disable-next-line` 与目标行之间（3 处），已上移
+- `pnpm run typecheck` 全量通过（R2 后）；deletions 全部源于行尾注释导致的行变更，无真实代码删除

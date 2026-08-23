@@ -1,4 +1,33 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】本文件是 apiproxy 包的核心实现：把宿主端（Host）本地 Cordis
+ * 运行时中各种服务（会话、子代理、工作区、Agent 预设、技能、设置、凭据、
+ * LLM、目标、事件流、下载等）统一实现为 ApiProxy 契约，供远程客户端通过
+ * RPC 网关调用。它相当于"宿主能力的统一翻译层"。
+ * 【技术维度】基于 Cordis 插件体系：createApiProxy(ctx, defaults) 在一个已
+ * 装配好宿主脊柱（Host spine）的 Context 上返回 ApiProxy 实现对象；方法签
+ * 名遵守"窄形式（narrow form）"纪律——一元方法接收 RpcRequest<P> 并在
+ * RpcResponse<T> 中回显 request.rpcId。大量使用类型化事件、WeakMap 缓存、
+ * Promise 串行链（如 workspaceCreationChain）与 SSE 帧队列。
+ * 【产品维度】支撑桌面宿主 GUI 的远程操作：会话列表/搜索/新建/续写/分叉、
+ * 模型选择、队列编辑与 steering、审批与提问的 mux 流、Agent 预设管理、
+ * 工作区组织、目录选择、会话日志 ZIP 下载等，全部通过一个 ApiProxy 网关暴露。
+ * 【逻辑维度】文件按"工具函数 → 类型定义 → createApiProxy 工厂"组织。工厂
+ * 内部先建各类状态表（模型选择、预设切换、会话创建、审批/提问、mux 队列），
+ * 再注册事件监听与投影单元，最后返回按域分组的 ApiProxy 实现（sessions、
+ * subagents、workspace、host、goals、agentPresets、skills、settings、
+ * credentials、llm、events、downloads、respond）。
+ * 【关键边界】业务错误绝不 throw，而是折叠为 RpcResult 的错误分支；只有实现
+ * 自身崩溃才抛异常。对远端子代理会话有所有权检查（SubagentSessionOwnership）。
+ * 多处能力缺失（未装配 settings、credentials、presets 等）显式降级为带说明
+ * 的错误响应而非静默。模型选择、预设、cwd 冲突等有严格一致性校验。
+ * 【新手阅读建议】先读 index.ts 与 api/rpc.ts 理解消息模型，再读本文件的
+ * createApiProxy 开头（状态表与事件注册），然后按域名逐个阅读实现方法；
+ * events.mux 与 respond 是理解审批/提问双向交互的关键入口。
+ * ==========================================================================
+ */
+
+/**
  * Host-side ApiProxy implementation. Signature discipline: unary takes the
  * narrow RpcRequest<P> and echoes request.rpcId on the RpcResponse<T>.
  */
@@ -112,20 +141,27 @@ import {
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
 
 /** Page size when history is called without maxMessages. */
+// 历史分页的默认页大小：调用方未指定 maxMessages 时，每页最多返回 50 条消息。
 const DEFAULT_MAX_MESSAGES = 50
 
 /** Provider work budget: at most 100 calls and 2,000 inspected hits. */
+// 会话搜索的工作预算：限制对搜索提供者的调用次数，防止异常实现导致无界循环。
 const SESSION_SEARCH_PROVIDER_CALL_LIMIT = 100
 
 /** Bound cold-log stat fan-out and settle each started batch before cancellation returns. */
+// 冷会话摘要的批大小：一次并发处理 16 个冷会话，且每批全部落定后才响应取消。
 const COLD_SUMMARY_BATCH_SIZE = 16
 /** Default maximum artifact size eligible for one cold blankness read. */
+// 冷会话"是否空白"探测的默认字节上限：超过 1024 字节的持久化日志不再读取校验。
 export const DEFAULT_COLD_BLANK_PROBE_MAX_BYTES = 1024
 
 /** Conversation message event types (the pagination counting unit). */
+// 会话消息事件类型集合：分页计数、搜索命中和"空白"判定都以这两类事件为单元。
 const MESSAGE_TYPES = new Set(['user/message', 'assistant/message'])
 
 /** Validate one prompt as a batch before publishing any durable image object. */
+// 校验并转换一条提示词：纯文本直接透传；含图片时先把所有图片编码为持久化
+// 附件引用（admitEncodedImages 一次性受理），再逐块组装为 LLM 可用的内容块。
 async function durablePromptContent(ctx: Context, content: readonly PromptContentPart[]): Promise<ContentBlock[]> {
   if (content.every(part => part.type === 'text')) {
     return content.map(part => ({ type: 'text', text: part.text }))
@@ -139,6 +175,8 @@ async function durablePromptContent(ctx: Context, content: readonly PromptConten
 }
 
 /** Search durable content for an image reference, including nested tool results. */
+// 在内容数组中递归查找满足条件的图片引用；tool-result 的嵌套内容也会深入搜索，
+// 用于后续判断某附件是否确实被某个会话的日志引用过。
 function imageBlockIn(content: unknown, match: (ref: ImageAttachmentRef) => boolean): ImageAttachmentRef | undefined {
   if (!Array.isArray(content)) return undefined
   for (const value of content) {
@@ -157,6 +195,8 @@ function imageBlockIn(content: unknown, match: (ref: ImageAttachmentRef) => bool
 }
 
 /** Search every durable event carrier that can own model-visible content. */
+// 扫描单个会话事件的所有可能承载模型可见内容的载体：直接 content、message 包装、
+// inserted 消息列表、以及助手分块结束时的 block，逐一查找匹配的图片引用。
 function imageInEvent(event: SessionEvent, match: (ref: ImageAttachmentRef) => boolean): ImageAttachmentRef | undefined {
   const data = event.data as {
     content?: unknown
@@ -183,6 +223,8 @@ function imageInEvent(event: SessionEvent, match: (ref: ImageAttachmentRef) => b
 }
 
 /** Resolve the first reference matching one opaque id. */
+// 在整个会话事件流中按附件 id 找到第一处图片引用；找不到返回 undefined，
+// 用于会话附件读取前的授权校验（附件必须确实被该会话引用过）。
 function referencedImage(events: readonly SessionEvent[], attachmentId: string): ImageAttachmentRef | undefined {
   for (const event of events) {
     const found = imageInEvent(event, ref => String(ref.attachmentId) === attachmentId)
@@ -192,9 +234,13 @@ function referencedImage(events: readonly SessionEvent[], attachmentId: string):
 }
 
 /** Strict browser-zone profile: UTC or an IANA Area/Location-style identifier. */
+// 校验浏览器上报时区的正则：只接受 UTC 或形如 "Area/Location"（如 Asia/Shanghai）
+// 的 IANA 时区名，防止任意字符串注入 Intl API。
 const IANA_TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+.-]*(?:\/[A-Za-z0-9_+.-]+)+$/
 
 /** Validate and canonicalize one browser-supplied IANA zone at the wire boundary. */
+// 在网关边界校验并规范化浏览器传来的时区：先做格式检查，再用 Intl 解析为标准
+// 名称；失败返回 undefined，调用方据此返回 invalid-time-zone 错误。
 function canonicalClientTimeZone(value: string): string | undefined {
   if (value.length === 0 || value.trim() !== value
     || (value !== 'UTC' && !IANA_TIME_ZONE.test(value))) return undefined
@@ -211,6 +257,7 @@ function canonicalClientTimeZone(value: string): string | undefined {
 }
 
 /** Read live abort state across awaits without treating it as synchronously immutable. */
+// 统一的取消判定辅助：直接读取 AbortSignal 的同步状态，避免各处重复写判断逻辑。
 function isAborted(signal: AbortSignal): boolean {
   return signal.aborted
 }
@@ -225,6 +272,9 @@ function isAborted(signal: AbortSignal): boolean {
  * group via sourceEventSeqs — never cut mid-message). The tail page naturally
  * includes the in-progress partial.
  */
+// 按消息边界做历史分页：从窗口尾部向前数 maxMessages 条用户/助手消息，
+// 截断点落在最老一组消息的起始 seq（同一消息的分块通过 sourceEventSeqs 归组，
+// 绝不从消息中间切断）。替换性副本不占配额，保证分页是连续的原始区间。
 function paginate(
   events: readonly SessionEvent[],
   beforeSeq: number | undefined,
@@ -254,6 +304,7 @@ function paginate(
 }
 
 /** Wrap an ok result echoing the request's rpcId. */
+// 成功响应包装：构造 ok:true 的 RpcResult，并回显请求携带的 rpcId。
 function ok<T>(request: RpcRequest<unknown>, value: T): RpcResponse<T> {
   return { rpcId: request.rpcId, result: { ok: true, value } }
 }
@@ -266,6 +317,9 @@ function ok<T>(request: RpcRequest<unknown>, value: T): RpcResponse<T> {
  * owning catalog stops advertising it. Per-provider failures ride `failures`
  * without failing the sound groups; groups that advertise nothing are dropped.
  */
+// 构建"提供者 → 模型"目录，供 session.models 与 llm.models 共用。逐提供者
+// 枚举模型并解析其推理配置；单个提供者失败只进入 failures 列表，不拖垮其余
+// 组；一个模型都没有的组会被过滤掉。目录只是建议性信息，不强制会话选择。
 async function buildModelCatalog(ctx: Context): Promise<{
   groups: ModelProviderGroup[]
   failures: ModelCatalogFailure[]
@@ -318,6 +372,7 @@ async function buildModelCatalog(ctx: Context): Promise<{
 }
 
 /** Wrap an error result echoing the request's rpcId. */
+// 失败响应包装：构造 ok:false 的 RpcResult，回显请求 rpcId，错误信息走 RpcError。
 function err<T>(request: RpcRequest<unknown>, error: RpcError): RpcResponse<T> {
   return { rpcId: request.rpcId, result: { ok: false, error } }
 }
@@ -333,6 +388,9 @@ function err<T>(request: RpcRequest<unknown>, error: RpcError): RpcResponse<T> {
  * @param error - the thrown value.
  * @returns the refusal, or undefined when the caller should keep handling.
  */
+// 把预设相关异常统一翻译成 RPC 拒绝响应：UnknownPresetError → agent-preset-not-found，
+// PresetMountError → agent-preset-invalid；其他异常返回 undefined 交给调用方继续处理，
+// 保证会话创建与预设切换两条路径对客户端使用一致的错误措辞。
 function presetFailure(request: RpcRequest<unknown>, error: unknown): RpcResponse<never> | undefined {
   if (error instanceof UnknownPresetError) {
     return err(request, {
@@ -351,23 +409,31 @@ function presetFailure(request: RpcRequest<unknown>, error: unknown): RpcRespons
   return undefined
 }
 
-/** Simple async queue: core callbacks push, the AsyncIterable pulls; abort/return cleans up. */
+/** Simple async queue: core callbacks push, the SSE stream pulls; abort/return cleans up. */
+// 简单异步帧队列：事件回调向 buffer 推送帧，SSE 流消费者异步拉取；支持结束标记、
+// 取消信号与清理回调，是 mux/host 事件流推送的底层缓冲结构。
 class FrameQueue<F> {
+  /** 待推送的帧缓冲（FIFO）。 */
   private buffer: F[] = []
+  /** 当前等待拉取的消费者回调；push/end 时唤醒它。 */
   private waiter: (() => void) | undefined
+  /** 队列是否已结束；结束后 push 静默丢弃。 */
   private done = false
 
+  /** 生产者推送一帧：入队并唤醒等待中的消费者。 */
   push(item: F): void {
     if (this.done) return
     this.buffer.push(item)
     this.waiter?.()
   }
 
+  /** 标记队列结束并唤醒消费者，让其正常退出迭代。 */
   end(): void {
     this.done = true
     this.waiter?.()
   }
 
+  /** 异步迭代器：挂接取消监听，逐帧产出；abort 或结束即退出并执行清理。 */
   async *iterate(signal: AbortSignal, cleanup: () => void): AsyncGenerator<F> {
     const onAbort = (): void => { this.end() }
     signal.addEventListener('abort', onAbort, { once: true })
@@ -390,6 +456,8 @@ class FrameQueue<F> {
  * frames — approval/question requested — mint their stable id in their
  * pending registries instead).
  */
+// 服务端帧铸造：普通推送帧每次铸造全新 rpcId（可回答帧的稳定 id 由各自的
+// pending 注册表负责），然后包成 RpcRequest<F> 推给订阅者。
 function frame<F>(payload: F): RpcRequest<F> {
   return { rpcId: RpcId(randomUUID()), payload }
 }
@@ -408,6 +476,8 @@ function frame<F>(payload: F): RpcRequest<F> {
  * @param args - the emitter's argument list.
  * @returns the same arguments typed as JSON values.
  */
+// 把白名单宿主事件的参数列表收窄为可无损 JSON 序列化的值；任一参数不满足即抛错
+// （这是白名单维护失误而非恶意输入），由事件发射方的监听器容器捕获并记日志丢帧。
 export function assertJsonArgs(event: string, args: readonly unknown[]): JsonValue[] {
   for (const [index, arg] of args.entries()) {
     if (!isJsonValue(arg)) {
@@ -418,6 +488,8 @@ export function assertJsonArgs(event: string, args: readonly unknown[]): JsonVal
 }
 
 /** Queue the subscription baseline frame. */
+// 推送订阅基线帧：告知客户端某会话已订阅成功及其起始 seq（当前 seq - 1），
+// 客户端据此从下一条事件开始增量同步。
 function subscribeSession(queue: FrameQueue<RpcRequest<MuxFrame>>, session: Session): void {
   queue.push(frame({ type: 'session/subscribed', sessionId: session.id, lastSeq: session.seq - 1 }))
 }
@@ -426,6 +498,7 @@ function subscribeSession(queue: FrameQueue<RpcRequest<MuxFrame>>, session: Sess
  * Project registry snapshots onto the wire view, dropping the three internal
  * fields {@link JobView} documents as absent.
  */
+// 把后台任务注册表的快照投影为线上视图：剔除 JobView 声明为缺失的三个内部字段。
 function jobViews(snapshots: readonly JobSnapshot[]): JobView[] {
   return snapshots.map(job => ({
     id: job.id,
@@ -445,11 +518,16 @@ function jobViews(snapshots: readonly JobSnapshot[]): JobView[] {
  * running `/plan` or `/goal` on a fresh session keeps it blank
  * (list-hidden, reusable).
  */
+// 判断会话是否"空白"：只要还没有任何 turn/start 事件即视为空白。命令生命周期、
+// plan/mode、标题、目标等独立事件不会开启回合，因此在全新会话上运行 /plan 或
+// /goal 后它仍是空白的（列表中隐藏、可复用）。
 function sessionBlank(session: Session): boolean {
   return !session.events.some(event => event.type === 'turn/start')
 }
 
 /** Advance the Session-list hint projection by one committed event. */
+// 投影单元的状态折叠函数：每来一条事件更新"空白"与"最近提示时间"两个提示字段，
+// 供会话列表排序和空白标记使用（无变化时返回原状态引用，避免产生变更帧）。
 function applySessionListMetadata(state: SessionListMetadata, event: SessionEvent): SessionListMetadata {
   const blank = state.blank && event.type !== 'turn/start'
   const lastPromptAt = event.type === 'user/message' && event.data.source.kind === 'user'
@@ -461,6 +539,7 @@ function applySessionListMetadata(state: SessionListMetadata, event: SessionEven
 }
 
 /** Fold exact list metadata for an attached Session. */
+// 对附着（内存中）会话的完整事件流从头折叠出精确的列表元数据。
 function sessionListMetadata(events: readonly SessionEvent[]): SessionListMetadata {
   let state: SessionListMetadata = { blank: true, lastPromptAt: null }
   for (const event of events) state = applySessionListMetadata(state, event)
@@ -468,11 +547,15 @@ function sessionListMetadata(events: readonly SessionEvent[]): SessionListMetada
 }
 
 /** Sort by creation or latest human prompt, whichever is newer. */
+// 会话列表排序键：取"创建时间"与"最近用户提示时间"中较新者。
 function sessionListUpdatedAt(header: SessionHeader, metadata: SessionListMetadata | undefined): number {
   return Math.max(header.createdAt, metadata?.lastPromptAt ?? 0)
 }
 
 /** Shared Session-header projection for list baselines and creation frames. */
+// 会话头公共投影：把 header 中的父会话、来源、cwd 与日志解析出的 agent preset
+// 组装为列表/创建帧共用的字段集合（preset 从日志而非 header 读取，因为空白会话
+// 切换预设后 header 与真实运行组合会不一致）。
 function sessionListFields(header: SessionHeader, events: readonly SessionEvent[] = []): {
   parentSessionId?: SessionId
   origin?: 'subagent'
@@ -492,6 +575,7 @@ function sessionListFields(header: SessionHeader, events: readonly SessionEvent[
 }
 
 /** SessionSummary projection for attached (in-memory) sessions. */
+// 内存中附着会话的摘要投影：合并列表元数据、排序键与公共头字段。
 function summarize(session: Session, running: boolean): SessionSummary {
   const metadata = sessionListMetadata(session.events)
   return {
@@ -510,6 +594,9 @@ function summarize(session: Session, running: boolean): SessionSummary {
  * resolve to visible (`false`); listing must never hide a conversation on a
  * cache hint or an unavailable optimization.
  */
+// 冷会话"空白"校验：只有物理日志文件小于配置上限时才读取探测；缓存提示为
+// blank、缓存行缺失、文件过大或读取失败一律按"可见"处理——列表绝不能因
+// 缓存提示或不可用优化而隐藏真实对话。
 async function probeColdSessionMetadata(
   ctx: Context,
   persistence: SessionPersistence,
@@ -542,6 +629,8 @@ async function probeColdSessionMetadata(
 }
 
 /** SessionSummary projection for a cold persisted Session. */
+// 冷会话（持久化但未附着）的摘要投影：缓存不可靠时做空白探测，只读 header，
+// 避免为切换预设读取整条日志（附着后会被 summarize 替换为精确值）。
 async function summarizeCold(
   ctx: Context,
   persistence: SessionPersistence,
@@ -566,6 +655,8 @@ async function summarizeCold(
 }
 
 /** Map a browse-primitive failure onto the wire error vocabulary (unknown throws stay internal). */
+// 把目录浏览原语的失败映射为线上错误词汇：DirectoryPickerError 直接复用其
+// code/path，其余未知异常一律归为 internal。
 function directoryError(error: unknown): RpcError {
   if (error instanceof DirectoryPickerError) {
     return { code: error.code, message: error.message, details: { path: error.path } }
@@ -574,6 +665,8 @@ function directoryError(error: unknown): RpcError {
 }
 
 /** Resolved Agent model and project-directory defaults consumed by the API implementation. */
+// ApiProxy 实现所需的宿主默认配置：模型选择读写器、默认项目目录、原生路径
+// 打开能力、会话日志压缩级别与冷会话空白探测上限等，由网关插件注入。
 export interface ApiProxyDefaults {
   /**
    * The model selection a session starts from when its own log names none. Read on
@@ -611,12 +704,15 @@ export interface ApiProxyDefaults {
 }
 
 /** The tool/call payload fields the presenter path reads. */
+// 工具调用事件中展示层需要读取的字段：callId、工具名与 JSON 字符串形式的参数。
 interface ToolCallData { callId: string; name: string; arguments: string }
 /**
  * One outstanding approval question: the stable server-request id, the frame
  * material replayed to late mux subscribers, and the resolver that settles the
  * answerer's promise back into `ctx.approval`.
  */
+// 一条待决审批记录：稳定 rpcId、会话/审批/工具信息，以及把审批结果回写给
+// ctx.approval 的 resolve 回调；同时用于 mux 重连时重放 requested 帧。
 interface PendingApproval {
   rpcId: RpcId
   sessionId: SessionId
@@ -628,6 +724,8 @@ interface PendingApproval {
 }
 
 /** Project a pending entry into its answerable mux frame (initial push and mux-open replay share it). */
+// 把待决审批投影为可回答的 mux 帧（approval/requested）：首次推送与 mux 重连
+// 重放共用同一投影逻辑，保证客户端拿到一致的帧形态与稳定 rpcId。
 function requestedFrame(pending: PendingApproval): RpcRequest<MuxFrame> {
   return {
     rpcId: pending.rpcId,
@@ -643,6 +741,8 @@ function requestedFrame(pending: PendingApproval): RpcRequest<MuxFrame> {
 }
 
 /** One host-owned question wait, addressed by the stable server-request id. */
+// 一条宿主发起的提问等待记录：以稳定 rpcId 为键，保存问题列表、解析/拒绝回调
+// 与可选的取消信号，供客户端通过 respond 回答或通过 abort 取消。
 interface PendingQuestion {
   rpcId: RpcId
   sessionId: SessionId
@@ -654,6 +754,8 @@ interface PendingQuestion {
 }
 
 /** Validate one answer batch against the exact question request it resolves. */
+// 校验客户端回答批次与原始问题请求是否精确匹配：会话 id、答案数量、选项 id、
+// 单选/多选约束、自定义文本与选项标签都必须合法，防止越权或格式错误回答。
 function matchesQuestions(payload: QuestionResponsePayload, pending: PendingQuestion): boolean {
   if (payload.sessionId !== pending.sessionId) return false
   const answers = payload.answer.answers
@@ -682,6 +784,9 @@ function matchesQuestions(payload: QuestionResponsePayload, pending: PendingQues
  * which soft-falls to no view. Presenter or JSON.parse throws also soft-fall:
  * the client's documented default (generic JSON card) covers every miss.
  */
+// 为工具调用/结果事件计算渲染意图：通过注册的 presenter 生成展示视图。结果事件
+// 需要借助 argsFor 找到其调用参数；presenter 抛错或参数解析失败都软降级为无视图
+// （客户端默认用通用 JSON 卡片兜底），绝不阻断事件投递。
 function viewFor(
   ctx: Context,
   event: SessionEvent,
@@ -726,6 +831,8 @@ function viewFor(
  * window — a cross-page pairing soft-falls to no view) and by live-path table
  * misses after a reconnect-eviction.
  */
+// 在事件窗口内从后往前扫描，为结果事件找回匹配的 tool/call（含 JSON 参数解析）；
+// 历史路径用它配对，实时路径在连接重连导致的表项驱逐后也用它兜底。
 function backscanArgs(events: readonly SessionEvent[], callId: string): { name: string; args: unknown } | undefined {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i] as SessionEvent
@@ -743,6 +850,7 @@ function backscanArgs(events: readonly SessionEvent[], callId: string): { name: 
 }
 
 /** Render one detached history page through the same presenter path as ordinary history. */
+// 渲染一页历史：先按消息边界分页，再逐事件走 presenter 路径附加展示视图。
 function historyPage(
   ctx: Context,
   events: readonly SessionEvent[],
@@ -775,10 +883,14 @@ function historyPage(
  * read together in one synchronous step; a detached one is already a frozen
  * inspection.
  */
+// 历史读取的数据来源判别：附着会话直接读实时对象（会持续追加事件），分离会话
+// 则是已冻结的持久化检查结果（header + events 快照）。
 type HistorySource =
   | { readonly kind: 'attached'; readonly session: Session }
   | { readonly kind: 'detached'; readonly header: SessionHeader; readonly events: SessionEvent[] }
 
+// 取附着会话的投影基线快照：从投影注册表一次性同步读取，保证 values 与 asOfSeq
+// 处于同一逻辑时刻；注册表未装配时返回 undefined（客户端视为能力缺失）。
 function projectionsFor(ctx: Context, session: Session): SessionProjectionsBlock | undefined {
   const registry = ctx.get('sessionProjections')
   if (registry === undefined) return undefined
@@ -795,6 +907,9 @@ function projectionsFor(ctx: Context, session: Session): SessionProjectionsBlock
  * empty value set — yields an absent block: a listing without projections
  * is degraded, never broken.
  */
+// 会话列表行的投影基线（软失败）：附着会话取实时水印快照，冷会话取持久化缓存
+// 中经过身份校验的行——两者都不加载完整日志。空值集或任何异常都返回 undefined，
+// 列表降级服务而非报错。
 function listProjectionsFor(ctx: Context, meta: SessionHeader, session: Session | undefined): SessionProjectionsBlock | undefined {
   try {
     const block = session !== undefined
@@ -808,6 +923,7 @@ function listProjectionsFor(ctx: Context, meta: SessionHeader, session: Session 
 }
 
 /** Projection baseline for a detached history tail without Agent activation. */
+// 分离（冷）历史尾页的投影基线：不激活 Agent，直接用事件流离线折叠投影快照。
 function detachedProjectionsFor(
   ctx: Context,
   events: readonly SessionEvent[],
@@ -826,6 +942,8 @@ function detachedProjectionsFor(
  * @param compute - the arm-specific fold (live watermark or detached restore).
  * @returns the projections block, or undefined when the fold failed.
  */
+// 子代理历史页的投影装饰（软失败）：compute 折叠抛错时记日志并返回 undefined，
+// 页面照常服务，只是缺少投影块。
 function subagentHistoryProjections(
   ctx: Context,
   childSessionId: SessionId,
@@ -840,6 +958,8 @@ function subagentHistoryProjections(
 }
 
 /** Map continuation admission failures without exposing provider details. */
+// 子代理续写失败的线上映射：取消/不可恢复/未授权/临时不可用分别对应稳定错误码，
+// 其余一律归为 internal 且不泄露提供者细节。
 function subagentPromptError(
   request: RpcRequest<{ childSessionId: SessionId }>,
   error: unknown,
@@ -880,6 +1000,8 @@ function subagentPromptError(
 }
 
 /** Stable RPC face of the missing projections capability, shared by every catalog read path. */
+// 投影能力缺失的固定错误响应：所有目录读取路径共用，指明缺少 sessionProjections
+// 注册表并提示应装配哪个包。
 function projectionsUnavailableError(): RpcError {
   return {
     code: 'internal',
@@ -889,6 +1011,8 @@ function projectionsUnavailableError(): RpcError {
 }
 
 /** Verify one address and mode against the complete direct-child catalog. */
+// 校验子代理地址与访问模式：从完整直属子目录中核对 (parentSessionId, childSessionId,
+// mode)，返回子条目或对应的线上错误（未找到/诊断/取消/投影缺失/内部失败）。
 async function catalogChild(
   ctx: Context,
   address: SubagentAddress,
@@ -940,6 +1064,7 @@ async function catalogChild(
  * is therefore a caller error rather than a switch.
  */
 /** The roster is absent: this deployment composes no agent presets at all. */
+// 预设名册缺失时的统一错误：部署完全未装配 agentPresets 服务时使用。
 function noRoster(agentPreset: string): RpcError {
   return {
     code: 'agent-preset-not-found',
@@ -949,6 +1074,8 @@ function noRoster(agentPreset: string): RpcError {
 }
 
 /** Map one authoring/roster failure onto its wire code. */
+// 把预设创作/名册操作的异常映射为线上错误码：未找到、只读、非法/重名分别对应
+// 稳定代码，其余归为 internal。
 function presetError(agentPreset: string, error: unknown): RpcError {
   if (error instanceof UnknownPresetError) {
     return {
@@ -966,6 +1093,8 @@ function presetError(agentPreset: string, error: unknown): RpcError {
   return { code: 'internal', message: `agent preset "${agentPreset}": ${String(error)}`, details: {} }
 }
 
+// 预设冲突异常：请求为会话指定了一个与其现有预设不同的预设。会话的组合在创建时
+// 固定（历史是在该预设工具集下产出的），因此命名不同预设是调用方错误而非一次切换。
 class AgentPresetConflict extends Error {
   constructor(
     readonly sessionId: SessionId,
@@ -983,6 +1112,8 @@ class AgentPresetConflict extends Error {
 }
 
 /** Requested identity already belongs to a session with another project cwd. */
+// cwd 冲突异常：请求想以某个 sessionId 创建/采用会话，但该身份已存在于另一个
+// 项目目录下，身份与目录的绑定不允许被改写。
 class SessionCwdConflict extends Error {
   constructor(
     readonly sessionId: SessionId,
@@ -997,6 +1128,7 @@ class SessionCwdConflict extends Error {
 }
 
 /** An explicit Host naming operation would duplicate another Workspace title. */
+// 工作区标题冲突异常：显式命名操作要求标题在现有工作区中唯一。
 class WorkspaceNameConflictError extends Error {
   constructor(readonly workspaceName: string) {
     super(`workspace name '${workspaceName}' is already in use`)
@@ -1005,6 +1137,7 @@ class WorkspaceNameConflictError extends Error {
 }
 
 /** Shared workspace-not-found error response of the workspace.* mutation rows. */
+// workspace.* 变更行共用的"工作区不存在"错误响应。
 function workspaceNotFound<T>(request: RpcRequest<unknown>, workspaceId: string): RpcResponse<T> {
   return err(request, {
     code: 'workspace-not-found',
@@ -1014,6 +1147,7 @@ function workspaceNotFound<T>(request: RpcRequest<unknown>, workspaceId: string)
 }
 
 /** Wire projection of one workspace entity (the workspace.* value row). */
+// 单个工作区实体的线上投影（workspace.* 的值行）：把内部字段整理为对外视图。
 function workspaceView(workspace: Workspace): WorkspaceView {
   return {
     workspaceId: workspace.id,
@@ -1026,6 +1160,7 @@ function workspaceView(workspace: Workspace): WorkspaceView {
 }
 
 /** Wire projection of the durable record carried by `domain/changed`. */
+// domain/changed 事件中持久化记录的线上投影：先用 schema 解析原始记录再转为视图。
 function changedWorkspaceView(workspaceId: string, value: unknown): WorkspaceView {
   const record: WorkspaceRecord = workspaceRecord.parse(value)
   return {
@@ -1044,7 +1179,11 @@ function changedWorkspaceView(workspaceId: string, value: unknown): WorkspaceVie
  * @param defaults - host routing and project-directory defaults.
  * @returns the ApiProxy implementation.
  */
+// 网关工厂：在已装配宿主脊柱与工作区注册表的 Context 上实现整个 ApiProxy 契约。
+// 先建立各类状态表（模型选择、预设切换、会话创建去重、审批/提问注册表、mux
+// 队列、图片受理串行链），再注册投影单元与事件转发，最后按域名返回实现对象。
 export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiProxy {
+  // 会话日志 ZIP 的 DEFLATE 压缩级别与冷会话空白探测字节上限：默认值在配置缺失时兜底。
   const sessionExportCompressionLevel = defaults.sessionExportCompressionLevel
     ?? DEFAULT_SESSION_LOG_COMPRESSION_LEVEL
   const coldBlankProbeMaxBytes = defaults.coldBlankProbeMaxBytes
@@ -1055,6 +1194,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     return { provider, model }
   }
   type WebModelSelectionRef = ModelSelectionRef & { current: ModelSelection }
+  // 每个 Agent 的会话级模型选择引用（WeakMap，随 Agent 回收）；current 读取走三级
+  // 优先级（进程内选择 > 会话日志 > 默认），避免跨 Agent 泄漏。
   const selections = new WeakMap<Agent, WebModelSelectionRef>()
   /**
    * Serializes `agentPreset.select` per session. Two concurrent selects both
@@ -1065,15 +1206,20 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    */
   const presetSwitches = new Map<SessionId, Promise<unknown>>()
   /** Client-chosen identity creation/resume, deduplicated across concurrent retries. */
+  // 会话创建/续写去重表：同一 sessionId 的并发请求共享同一次创建 Promise。
   const sessionCreations = new Map<SessionId, Promise<Agent>>()
   /** Serializes path ownership and explicit title checks with Workspace mutations. */
+  // 工作区变更串行链：保证路径归属、标题唯一性与删除等操作按提交顺序生效。
   let workspaceCreationChain = Promise.resolve()
+  // 待决提问与待决审批注册表（均以稳定 rpcId 为键）；mux 队列集合保存所有活跃订阅流。
   const pendingQuestions = new Map<RpcId, PendingQuestion>()
   const pendingApprovals = new Map<RpcId, PendingApproval>()
   const muxQueues = new Set<FrameQueue<RpcRequest<MuxFrame>>>()
+  // 每个 Agent 的图片受理串行链：模型选择与图片受理共享同一串行化通道。
   const imageAdmissionChains = new WeakMap<Agent, Promise<void>>()
 
   /** Serialize image admission with model selection for one agent. */
+  // 将操作串行化到该 Agent 的受理链尾部，防止并发提交图片时顺序错乱。
   function serializeImageAdmission<T>(agent: Agent, operation: () => Promise<T>): Promise<T> {
     const result = (imageAdmissionChains.get(agent) ?? Promise.resolve()).then(operation)
     imageAdmissionChains.set(agent, result.then(() => undefined, () => undefined))
@@ -1092,6 +1238,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * per-session override tier on this wire — if one returns (a create-options
    * contribution), it must fold in between the selection and the log.
    */
+  // 获取（或首次创建并安装）某 Agent 的会话级模型选择引用。current 的读取优先级：
+  // 进程内已选 → 会话日志中最近的请求/头配置 → 实时 Agent 默认；每次都重新计算
+  // 而非播种一次，保证"切换默认后空白会话能读到"与"已有选择的会话回显日志值"。
   function selectionFor(agent: Agent): WebModelSelectionRef {
     const installed = selections.get(agent)
     if (installed !== undefined) return installed
@@ -1122,6 +1271,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Pre-publication setup used by both fresh and resumed Web agents. */
+  // 新建/续写 Web Agent 发布前共用的装配步骤：为其安装会话级模型选择引用。
   function installSelection(agentCtx: Context): void {
     const agent = agentCtx.agent
     if (agent === undefined) throw new Error('api-proxy: agent setup has no scoped agent')
@@ -1140,6 +1290,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * session has switched.
    * @throws when both are present and differ.
    */
+  // 拒绝在既有会话上换预设：未命名预设一律按原样采用（重连/续写/重试不受影响），
+  // 只有"请求命名了 A、会话实际运行 B 且 A ≠ B"才抛 AgentPresetConflict。
   function assertPresetUnchanged(
     sessionId: SessionId,
     requested: string | undefined,
@@ -1165,6 +1317,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * @returns the id to record on the header (absent without a roster) and the setup callback.
    * @throws when the roster supplies no such preset.
    */
+  // 解析会话要组合的预设并返回装配回调：预设 id 在会话创建前解析（meta 快照
+  // 发生在异步装配开始之前），装配失败则整个创建回滚；无名册部署不组合任何预设，
+  // 所有会话共享宿主组合（即预设功能出现前的行为）。
   async function composeAgent(presetId: string | undefined): Promise<{
     agentPreset?: string
     setup: (agentCtx: Context) => Promise<void>
@@ -1188,10 +1343,12 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     }
   }
 
+  // 远端子代理所有权判定：某会话是否属于远程子代理（不可被宿主直接操作）。
   const hasSubagentOwner = (
     session: Pick<Session, 'header'>,
     agent: Agent | undefined,
   ): boolean => hasApiRemoteSubagentOwner(ctx, session, agent)
+  // 子代理所有权的稳定线上错误；inspectServable 负责读取可服务会话（含远程会话）。
   const subagentOwnershipError = (sessionId: SessionId): RpcError =>
     apiRemoteSubagentOwnershipError(sessionId)
   const inspectServable = (sessionId: SessionId): Promise<{ meta: SessionHeader; events: SessionEvent[] }> =>
@@ -1205,6 +1362,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   // composition, and the header is written once at creation. Reading the
   // header here would silently undo the switch on the next restart and
   // restore that history under the old tool set.
+  // Agent 解析器：按 sessionId 解析（可能隐式冷续写）Agent，续写时组合会话日志
+  // 中记录的预设（而非 header），保证重启后仍按原组合重建工具集。
   const agentFor = createApiRemoteAgentResolver(ctx, {
     agentOptions,
     setup: async ({ meta, events }) =>
@@ -1212,6 +1371,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   })
 
   /** Send one transient frame to every connected mux consumer. */
+  // 向所有已连接的 mux 订阅流广播一帧：逐队列推送（帧带全新 rpcId）。
   function broadcast(payload: MuxFrame): void {
     const envelope = frame(payload)
     for (const queue of muxQueues) queue.push(envelope)
@@ -1265,6 +1425,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   })
 
   /** Project both durable inbox lists, optionally including the splice currently being emitted. */
+  // 投影 Agent 的两个待处理队列（next-turn 与 next-step），可选地把正在发射的
+  // splice 合并进去；next-step 里仅用户来源消息标为 steering（可操作），
+  // 注入的上下文（审批通知、任务完成、快照）只作 context 展示。
   const queueItems = (
     agent: Agent,
     splice?: SessionEventMap['agent/inbox/spliced'],
@@ -1296,6 +1459,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   })
 
   /** Remove a wait before settling it: synchronous deletion makes the first claimant win. */
+  // 结算一条提问等待：先同步从注册表删除（保证并发下第一个响应者胜出），再
+  // 摘除取消监听并广播 question/resolved 帧通知所有订阅者。
   function claimQuestion(pending: PendingQuestion, outcome: 'answered' | 'cancelled'): void {
     pendingQuestions.delete(pending.rpcId)
     if (pending.signal !== undefined && pending.onAbort !== undefined) {
@@ -1307,6 +1472,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     })
   }
 
+  // 注册"提问提供者"：把 ctx.userQuestions 的 ask 转发为 mux 流上的
+  // question/requested 可回答帧；客户端通过 respond 回答，abort 则按取消结算。
+  // 网关销毁时统一以取消结算所有待决提问。
   const disposeProvider = ctx.userQuestions.registerProvider({
     ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer> {
       const sessionId = request.agent?.id
@@ -1352,6 +1520,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   // client disconnects — mux-open replays still-pending requested frames with
   // the same rpcId (the refresh-recovery baseline) — and withdraws on the
   // ask's own abort signal (turn cancel), pushing `cancelled` to subscribers.
+  // 审批注册表：宿主每个 Agent 的审批请求（approval/request）都经这里变为 mux 流
+  // 上可回答的 approval/requested 帧（稳定 rpcId），由 POST /api/respond 结算。
+  // 条目在客户端断线期间存续（重连时重放），随 ask 自身的取消信号撤回。
   if (ctx.get('approval') !== undefined) {
     // Teardown parity with the question provider above: a gateway disposed
     // while approvals are pending settles every entry as 'cancelled' (the
@@ -1436,6 +1607,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Read one stable session prefix without acquiring an Agent owner. */
+  // 读取一个稳定的会话前缀（不获取 Agent 所有权）：附着会话取内存快照，否则走
+  // 远程/持久化检查，供只读操作（分叉、附件授权）使用。
   async function readSessionState(sessionId: SessionId): Promise<SessionReadState> {
     const attached = ctx.sessions.get(sessionId)
     if (attached !== undefined) {
@@ -1450,6 +1623,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Resolve the Workspace inherited by a fork without making ordinary loose lineage grouped. */
+  // 为分叉解析继承的工作区：普通会话直接找包含它的工作区；子代理会话则沿祖先
+  // 链找到最近的拥有者，避免把普通松散的谱系错误归组。
   async function forkWorkspace(source: Pick<Session, 'id' | 'header'>): Promise<Workspace | undefined> {
     const workspaces = ctx.workspaceRegistry.list()
     const direct = workspaces.find(workspace => workspace.sessionIds.includes(source.id))
@@ -1471,6 +1646,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * @returns the attached session, or the inspected detached header and events.
    * @throws {@link ApiRemoteSessionNotFound} when no project-backed session has that identity.
    */
+  // 解析一次转写读取的数据来源（不获取 Agent 所有权）：附着会话返回实时对象，
+  // 否则返回远程/持久化检查得到的分离 header 与 events。
   async function historySourceFor(sessionId: SessionId): Promise<HistorySource> {
     const attached = ctx.sessions.get(sessionId)
     if (attached !== undefined) return { kind: 'attached', session: attached }
@@ -1484,6 +1661,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * @param source - the live or detached session this read is served from.
    * @returns that session's creation header and its events.
    */
+  // 从读取来源取出 presenter 范围判定所需的"可预设会话"视图（header + events）。
   function sourceSession(source: HistorySource): PresetBearingSession {
     if (source.kind === 'detached') return { header: source.header, events: source.events }
     return { header: source.session.header, events: source.session.events }
@@ -1501,6 +1679,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * @param includeProjections - whether the caller asked for the baseline (a tail page does).
    * @returns the events and, when asked, the baseline for that same position.
    */
+  // 取一次读取的事件切片与（可选）同一逻辑时刻的投影基线：附着会话先复制事件
+  // 再同步取基线，保证事件与基线描述同一日志位置（中间绝无 await）。
   function historyCutOf(
     source: HistorySource,
     includeProjections: boolean,
@@ -1534,6 +1714,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * @param session - that session's header and log (attached or inspected).
    * @returns the scope to pass to presenter lookups, or undefined for global.
    */
+  // 计算转写展示层使用的注册表视图作用域：实时 Agent 即作用域本身；冷会话按日志
+  // 解析预设的 standing 键（只装配插件，不启动 Agent/回合）；无预设或名册不再提供
+  // 该预设时回退到全局层，保证转写总能以通用卡片兜底渲染。
   async function presenterScopeFor(
     sessionId: SessionId,
     session: PresetBearingSession,
@@ -1556,6 +1739,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Resolve one requested identity to a live agent, creating or resuming it once. */
+  // 把请求的身份解析为实时 Agent（创建或续写恰好一次）：先查去重表，再进行
+  // 所有权检查（远程子代理拒绝）、持久化身份核对（cwd/预设一致性）、目录创建，
+  // 最终创建或续写 Agent；并发竞态由 catch 分支回查实时状态兜底。
   async function ensureSession(
     sessionId: SessionId,
     cwd: string,
@@ -1648,6 +1834,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Resolve or create one path while holding the Host's workspace-create chain. */
+  // 在工作区创建链上解析或创建路径对应的工作区：已存在则复用，否则新建；所有
+  // 同链操作串行执行，避免并发创建同一路径。
   function ensureWorkspace(path: string): Promise<{ workspace: Workspace; created: boolean }> {
     const operation = workspaceCreationChain.then(async () => {
       const existing = await ctx.workspaceRegistry.resolveByPath(path)
@@ -1663,6 +1851,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * Attached sessions come from memory; servable cold sessions merge from
    * persistence, and the final order is newest-first.
    */
+  // 构建会话列表基线（列表与搜索可见性共用）：内存会话直接摘要，冷会话分批从
+  // 持久化合并并做空白探测，最终按 updatedAt 降序排列；批内并发受 COLD_SUMMARY_
+  // BATCH_SIZE 限制，取消信号在每批边界检查。
   async function listVisibleSessionSummaries(signal?: AbortSignal): Promise<SessionSummary[]> {
     signal?.throwIfAborted()
     const summarizeAttached = (session: Session): SessionSummary => {
@@ -1734,6 +1925,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * is keyed by the agent, and only a deployment composing it nowhere is
    * genuinely absent.
    */
+  // 解析某 Agent 实际运行的目标服务：预设可能把 dsh-goal 挂进隔离 realm，宿主
+  // 根 context 查不到，因此按 Agent 查找，只有任何组合都不装配它才算真正缺失。
   function goalServiceFor(agent: Agent): NonNullable<ReturnType<typeof ctx.get<'goals'>>> | { error: RpcError } {
     const presets = ctx.get('agentPresets')
     const goals = presets?.serviceFor(agent, 'goals') ?? ctx.get('goals')
@@ -1744,12 +1937,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Map one goal-domain rejection to the wire error (stable GoalError codes ride in details). */
+  // 目标域拒绝的线上映射：GoalError 的稳定错误码放进 details，其余归为 internal。
   function goalError(request: RpcRequest<unknown>, error: unknown): RpcResponse<never> {
     const details = error instanceof GoalError ? { goalCode: error.code } : {}
     return err(request, { code: 'internal', message: String(error), details })
   }
 
   /** Resolve a session's agent, apply one goal mutation, and acknowledge with the new CAS ref. */
+  // 目标变更的通用执行器：解析会话 Agent → 取目标服务 → 应用变更 → 用新的 CAS
+  // 引用（id + revision）回执，失败统一走 goalError。
   async function mutateGoal(
     request: RpcRequest<{ sessionId: SessionId }>,
     mutation: (goals: NonNullable<ReturnType<typeof ctx.get<'goals'>>>, agent: Agent) => CoreGoalRef,
@@ -1774,6 +1970,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * A composition with no llm registry at all cannot judge and says yes —
    * the dispatch it would have refused fails on its own terms.
    */
+  // 判断是否有适配器正在服务某提供者：目录成员资格回答不了（适配器可能服务目录
+  // 已停止宣传的模型），无 llm 注册表的组合无法判断则返回 true（让调度自行失败）。
   function routeServed(provider: string): boolean {
     const llm = ctx.get('llm')
     return llm === undefined || llm.listProviders().some(entry => entry.id === provider)
@@ -1788,6 +1986,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * This is `session.prompt`'s enforcement boundary: a client that disables
    * its input is an affordance, and the method stays callable regardless.
    */
+  // 回合启动方法的 Agent 解析与预检：解析 Agent 后校验其当前模型选择的提供者确有
+  // 适配器服务，否则在草稿阶段就拒绝（model-unavailable），避免把错误拖到适配器内部。
   async function turnAgentFor<T>(
     request: RpcRequest<unknown>, sessionId: SessionId,
   ): Promise<{ agent: Agent } | { refused: RpcResponse<T> }> {
@@ -1808,11 +2008,14 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Missing-service report shared by the settings domain (skills-domain stance). */
+  // 设置域共用的"服务缺失"错误：部署未装配任何设置提供者时使用。
   function settingsAbsent(): RpcError {
     return { code: 'internal', message: 'settings service is absent: this deployment does not mount a settings provider (e.g. @deepseek-ai/dsh-settings-file) in its composition', details: {} }
   }
 
   /** Open one Host-resolved target and map native failures onto the wire vocabulary. */
+  // 打开一个宿主解析好的目标：调用注入的 open 实现，成功回执 { opened: true }，
+  // 取消与失败分别映射为 cancelled / internal。
   async function openTarget(
     request: RpcRequest<unknown>, path: string, signal: AbortSignal,
     open: (path: string, signal: AbortSignal) => Promise<void>,
@@ -1837,6 +2040,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Open one Host-resolved path with its default application. */
+  // 用默认应用打开路径：优先使用注入的 openPath，否则回退到平台原生的 openNativePath。
   function openPath(
     request: RpcRequest<unknown>, path: string, signal: AbortSignal,
   ): Promise<RpcResponse<{ opened: true }>> {
@@ -1846,6 +2050,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Open one Host-resolved text document in a native editor. */
+  // 在原生编辑器中打开文本文档：优先注入实现，否则回退到 openNativeTextFile。
   function openTextFile(
     request: RpcRequest<unknown>, path: string, signal: AbortSignal,
   ): Promise<RpcResponse<{ opened: true }>> {
@@ -1855,6 +2060,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Whether this deployment can hand a path to a native opener at all. */
+  // 判断当前部署能否把路径交给原生打开器：显式配置优先，否则注入的 openPath 视为
+  // 可用，再退化为平台探测（canOpenNativePath）。
   function canOpenPaths(): boolean {
     if (defaults.canOpenPath !== undefined) return defaults.canOpenPath()
     // An injected opener is by definition usable; otherwise ask the platform.
@@ -1862,11 +2069,13 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /** Missing-service report shared by the credentials domain. */
+  // 凭据域共用的"服务缺失"错误：部署未装配任何凭据提供者时使用。
   function credentialsAbsent(): RpcError {
     return { code: 'internal', message: 'credentials service is absent: this deployment does not mount a credential provider (e.g. @deepseek-ai/dsh-credentials-local) in its composition', details: {} }
   }
 
   /** Map one redacted settings descriptor to its wire view. */
+  // 把脱敏后的设置描述符投影为线上视图：秘密路径打散为数组，其余字段透传。
   function namespaceView(descriptor: SettingsDescriptor): SettingsNamespaceView {
     return {
       ns: String(descriptor.ns),
@@ -1886,6 +2095,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * namespace, read-only provider, schema validation, storage — becomes one
    * `settings-rejected` carrying the seam's own message.
    */
+  // 执行一次设置写入（update 合并 / replace 整体替换 / mutate 路径操作），回执
+  // 命名空间的新脱敏视图。stale 写入（expectedRevision 不匹配）映射为
+  // settings-conflict，其余拒绝（未知命名空间、只读提供者、schema 校验、存储失败）
+  // 映射为 settings-rejected 并携带接缝自己的消息。
   async function settingsWrite(
     request: RpcRequest<unknown>,
     ns: string,
@@ -1935,16 +2148,21 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     return ok(request, namespaceView(descriptor))
   }
 
+  // 以下按域名返回 ApiProxy 实现：每个方法都遵循"窄形式"签名，统一用 ok/err
+  // 包装结果并回显 rpcId，业务失败绝不抛出。
   return {
     sessions: {
       // Attached sessions summarize from memory; persisted-but-unattached (cold)
       // sessions merge in from the persistence store so history survives restarts.
       // Logs without a cwd are not served; every session records its project
       // at create time.
+      // 会话列表：内存附着会话 + 持久化冷会话合并，按更新时间倒序。
       async list(request) {
         return ok(request, { items: await listVisibleSessionSummaries() })
       },
 
+      // 会话搜索：以"宿主可见会话"为授权边界，逐页消费搜索提供者的全局排名结果，
+      // 只放行命中可见会话且最佳匹配为当前消息的结果，受工作预算与结果上限约束。
       async search(request, signal) {
         const cancelled = () => err<{ items: SessionSearchItem[]; hasMore: boolean }>(request, {
           code: 'cancelled',
@@ -2076,6 +2294,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 会话创建/采用：可显式指定 sessionId 与 workspace；调用 ensureSession 创建
+      // 或续写 Agent，处理预设/cwd/所有权冲突，成功后回执会话组合实际运行的预设。
       async create(request) {
         const sessionId = request.payload.sessionId ?? `session-${randomUUID()}` as SessionId
         let workspace: Workspace | undefined
@@ -2151,6 +2371,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { sessionId, ...createdPreset === undefined ? {} : { agentPreset: createdPreset } })
       },
 
+      // 历史分页读取：先解析数据来源与展示作用域，再在同一逻辑时刻取事件切片与
+      // 投影基线，最后附加 presenter 视图；缺失会话返回 session-not-found。
       async history(request) {
         const { sessionId, beforeSeq, maxMessages } = request.payload
         try {
@@ -2181,6 +2403,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 查询会话当前模型与完整模型目录；routable 标记当前选择是否可被适配器服务。
       async models(request) {
         const { sessionId } = request.payload
         const found = await agentFor(sessionId)
@@ -2191,6 +2414,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { current: { ...current }, routable, groups, failures })
       },
 
+      // 切换会话模型：在图片受理串行链内解析并应用选择，同时尝试保存为新默认；
+      // 保存失败只告警不回滚（切换已对本会话生效）。
       async selectModel(request) {
         const { sessionId, provider, model, reasoningEffort } = request.payload
         const found = await agentFor(sessionId)
@@ -2230,6 +2455,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         })
       },
 
+      // 重命名会话：调用会话标题服务，仅输入非法映射为 title-invalid。
       async rename(request) {
         const { sessionId, title } = request.payload
         const found = await agentFor(sessionId)
@@ -2260,6 +2486,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 会话分叉：以最近的完整回合（可选 atSeq 锚定）为边界切出种子事件，子会话
+      // 继承父会话的组合与工作区；无完整回合时返回 fork-unavailable。
       async fork(request) {
         const { sessionId, atSeq } = request.payload
         let source: SessionReadState
@@ -2358,6 +2586,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { sessionId: childId })
       },
 
+      // 发送提示词：经 turnAgentFor 预检后，把内容（含可选图片受理与模型图片能力
+      // 校验）组装为持久化用户消息，按 mode 走 steer 或 followup。
       async prompt(request) {
         const { sessionId, mode, content, clientTimeZone } = request.payload
         const canonicalTimeZone = clientTimeZone === undefined
@@ -2416,6 +2646,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return hasImage ? serializeImageAdmission(agent, admit) : admit()
       },
 
+      // 附件读取：先校验附件确实被该会话日志引用（授权边界），再以 base64 返回图片。
       async attachment(request) {
         const { sessionId, attachmentId } = request.payload
         let state: SessionReadState
@@ -2465,6 +2696,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 队列操作：对 next-turn/next-step 队列项执行编辑/移除/立即 steering。
       updateQueue(request) {
         const { sessionId, itemId, action } = request.payload
         if (action.kind === 'edit' && action.content.some(block => block.type !== 'text')) {
@@ -2515,6 +2747,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return Promise.resolve(ok(request, { accepted: true as const }))
       },
 
+      // 取消会话进行中的回合（保留队列）。
       cancel(request) {
         const { sessionId } = request.payload
         const agent = ctx.agents.get(sessionId)
@@ -2534,6 +2767,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     subagents: {
+      // 子代理目录：列出某父会话的直接子代理，标注活动状态与父可用性。
       async list(request, signal) {
         try {
           const entries = await ctx.subagents.listChildren(request.payload.parentSessionId, signal)
@@ -2565,6 +2799,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 子代理历史：先经 catalogChild 校验地址与模式，再走通用历史数据平面
+      // （附着内存快照 + 实时水印投影，或冷检查 + 分离折叠）。
       async history(request, signal) {
         const {
           parentSessionId, childSessionId, mode, beforeSeq, maxMessages,
@@ -2634,6 +2870,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { ...page, ...projections === undefined ? {} : { projections } })
       },
 
+      // 子代理续写：父会话必须在线，经 catalogChild 校验为可续写子代理后调用
+      // followup，失败映射为对应的稳定错误码。
       async prompt(request, signal) {
         const { parentSessionId, childSessionId, content, clientTimeZone } = request.payload
         const canonicalTimeZone = clientTimeZone === undefined
@@ -2677,6 +2915,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       // the core primitive alone authorizes the durable address against the
       // live Activation, which is what keeps a live child interruptible while
       // its parent Agent is offline. Absent targets are accepted no-ops there.
+      // 中断子代理：直接以持久化地址授权核心原语（不做目录/父 Agent 查询），
+      // 使在线子代理在其父离线时仍可被中断；不存在的目标被当作无操作接受。
       interrupt(request) {
         const { parentSessionId, childSessionId } = request.payload
         try {
@@ -2700,6 +2940,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     workspace: {
+      // 工作区列表：返回全部工作区视图与已归档会话 id 集合。
       list(request) {
         return Promise.resolve(ok(request, {
           items: ctx.workspaceRegistry.list().map(workspaceView),
@@ -2707,6 +2948,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }))
       },
 
+      // 创建/复用工作区：路径不解析到已存在目录时返回 workspace-invalid-path。
       async create(request) {
         const { path } = request.payload
         try {
@@ -2724,6 +2966,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 重命名工作区：标题唯一性与同标题无操作都挂在工作区创建链上串行判定。
       async rename(request) {
         const { payload } = request
         const workspace = ctx.workspaceRegistry.get(brandWorkspaceId(payload.workspaceId))
@@ -2756,6 +2999,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { workspace: workspaceView(workspace) })
       },
 
+      // 删除工作区（串行链上执行）；不存在时返回 workspace-not-found。
       async delete(request) {
         const { workspaceId } = request.payload
         const operation = workspaceCreationChain.then(() =>
@@ -2765,6 +3009,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { deleted: true as const })
       },
 
+      // 调整工作区顺序：把某工作区插到另一工作区之前，返回新的顺序列表。
       async insertBefore(request) {
         const { workspaceId, beforeWorkspaceId } = request.payload
         try {
@@ -2779,6 +3024,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 在工作区中移动会话到指定位置；非法移动映射为 workspace-move-invalid。
       async insertSessionBefore(request) {
         const { payload } = request
         const workspace = ctx.workspaceRegistry.get(brandWorkspaceId(payload.workspaceId))
@@ -2802,6 +3048,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { workspace: workspaceView(workspace) })
       },
 
+      // 归档会话：从工作区归档集合中移除会话，回执最新归档 id 列表。
       async archiveSession(request) {
         const { sessionId } = request.payload
         try {
@@ -2821,6 +3068,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     host: {
+      // 宿主信息：版本、默认项目目录、当前默认模型、附着会话数与原生打开能力。
       describe(request) {
         // TODO: version should read apps/cli's package.json; placeholder for now.
         const selection = defaults.defaultModelSelection()
@@ -2839,6 +3087,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }))
       },
 
+      // 原生目录选择对话框（用户节奏，不受一元超时约束）；非原生能力时拒绝。
       async pickDirectory(request, signal) {
         const capability = ctx.directoryPicker.capability()
         if (capability.kind !== 'native') {
@@ -2867,6 +3116,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 浏览目录内容：需要 browse 能力，取消信号直接中止后端扫描。
       async listDirectory(request, signal) {
         const capability = ctx.directoryPicker.capability()
         if (capability.kind !== 'browse') {
@@ -2890,6 +3140,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 在目录中创建子目录：需要 browse 能力。
       async createDirectory(request) {
         const capability = ctx.directoryPicker.capability()
         if (capability.kind !== 'browse') {
@@ -2906,6 +3157,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      // 用默认应用打开宿主解析的路径。
       async openPath(request, signal) {
         return openPath(request, request.payload.path, signal)
       },
@@ -2917,6 +3169,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       // resume, the command.* precedent) and acknowledges with the new CAS
       // ref; the committed goal/change event carries the whole value to every
       // client through the projection frames.
+      // 目标域：只提供变更操作（读取走 goal 会话投影）。每个动词解析会话 Agent
+      // 并以新的 CAS 引用回执；提交的 goal/change 事件经投影帧把完整值广播给所有客户端。
       async create(request) {
         const { objective, maxGoalRounds } = request.payload
         return mutateGoal(request, (goals, agent) => goals.create(agent, {
@@ -2963,6 +3217,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       // A deployment with no roster answers with an empty list rather than an
       // error: composing no presets is a valid deployment, and the browser
       // simply offers no choice.
+      // 预设列表：无名册部署返回空列表而非错误（不组合任何预设是合法部署）；
+      // authorable 与 hasDocument 分别标记可创作性与原生文档打开能力。
       async list(request) {
         const presets = ctx.get('agentPresets')
         if (presets === undefined) return ok(request, { presets: [], authorable: false, hasDocument: false })
@@ -2984,6 +3240,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       // Recomposing is limited to a blank session because a started
       // conversation's history was produced under its preset's tools; the
       // agent and the session survive, only the composition is swapped.
+      // 切换预设：仅限空白会话（已开始的会话历史产自原预设工具集，换组合会重放
+      // 无法执行的工具调用）；同一会话的并发切换经 presetSwitches 串行化，提交
+      // 成功后写 agent-preset/selected 日志。
       async select(request) {
         const { sessionId, agentPreset } = request.payload
         const presets = ctx.get('agentPresets')
@@ -3037,6 +3296,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       // a composition names the plugins a session runs, so reading one is
       // reconnaissance, and copy/remove/openDocument manage the roster and
       // drive the host desktop.
+      // 预设创作/管理（特权操作）：读取预设内容是侦察面，copy/remove/openDocument
+      // 负责管理名册并驱动宿主桌面；ship 安装（trust 非 user）不可被打开编辑。
       async read(request) {
         const { agentPreset } = request.payload
         const presets = ctx.get('agentPresets')
@@ -3107,6 +3368,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       // Skill lookup never creates or resumes an agent: the session address
       // resolves to a canonical cwd from the host-resident session header, and
       // the view scope is the live agent or the preset's standing key.
+      // 技能列表：查找技能绝不创建/续写 Agent——会话地址解析为宿主侧 header 的
+      // cwd，展示作用域为实时 Agent 或预设 standing 键；只返回可被用户调用的技能。
       async list(request) {
         const { sessionId } = request.payload
         const session = ctx.sessions.get(sessionId)
@@ -3159,6 +3422,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     settings: {
+      // 设置总览：可写性、文档路径能力与各命名空间的脱敏视图。
       describe(request) {
         const settings = ctx.get('settings')
         if (settings === undefined) return Promise.resolve(err(request, settingsAbsent()))
@@ -3168,6 +3432,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           namespaces: settings.describe({ redactSecrets: true }).map(namespaceView),
         }))
       },
+      // 在本地编辑器中打开设置文档：准备路径（含多次取消检查）后交给 openTextFile。
       async openDocument(request, signal) {
         const settings = ctx.get('settings')
         if (settings === undefined) return err(request, settingsAbsent())
@@ -3211,12 +3476,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
         return openTextFile(request, path, signal)
       },
+      // 三种写模式分别委托 settingsWrite：update 合并补丁、replace 整体替换、
+      // mutate 执行路径操作；均支持 expectedRevision 乐观并发。
       update: request => settingsWrite(request, request.payload.ns, 'update', request.payload.patch, request.payload.expectedRevision),
       replace: request => settingsWrite(request, request.payload.ns, 'replace', request.payload.section, request.payload.expectedRevision),
       mutate: request => settingsWrite(request, request.payload.ns, 'mutate', request.payload.ops, request.payload.expectedRevision),
     },
 
     credentials: {
+      // 凭据总览：批量查询各引用的配置状态/来源/可写性（只读，不含值本身）。
       async describe(request) {
         const credentials = ctx.get('credentials')
         if (credentials === undefined) return err(request, credentialsAbsent())
@@ -3232,6 +3500,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { credentials: Object.fromEntries(entries) })
       },
 
+      // 设置凭据值；拒绝（只读遮蔽层或存储失败）映射为 credential-rejected。
       async set(request) {
         const credentials = ctx.get('credentials')
         if (credentials === undefined) return err(request, credentialsAbsent())
@@ -3248,6 +3517,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, {})
       },
 
+      // 清除凭据值；拒绝同样映射为 credential-rejected。
       async unset(request) {
         const credentials = ctx.get('credentials')
         if (credentials === undefined) return err(request, credentialsAbsent())
@@ -3266,6 +3536,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     llm: {
+      // 提供者目录：把"可配置提供者目录 + 已注册路由"合并为带 active 标记的视图。
       providers(request) {
         const registered = ctx.llm.listProviders()
         const active = new Set(registered.map(provider => provider.id))
@@ -3295,10 +3566,13 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return Promise.resolve(ok(request, { providers: views }))
       },
 
+      // 全量模型目录：委托 buildModelCatalog（与 session.models 同一实现）。
       async models(request) {
         return ok(request, await buildModelCatalog(ctx))
       },
 
+      // 探测草稿提供者的模型列表：失败统一映射为 model-discovery-failed，
+      // 详情只回显调用方已发送的端点信息，绝不泄露凭据。
       async discoverModels(request, signal) {
         const { settingsNs, provider, baseURL, api, apiKey } = request.payload
         try {
@@ -3325,6 +3599,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     events: {
+      // mux 事件流（SSE）：新订阅先回放各会话基线（订阅/提问/审批/队列/任务帧），
+      // 再实时转发会话事件；维护每会话的开放调用表供结果视图配对。
       mux(_request, signal) {
         const queue = new FrameQueue<RpcRequest<MuxFrame>>()
         muxQueues.add(queue)
@@ -3429,6 +3705,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         })
       },
 
+      // host 事件流（SSE）：以当前工作区集合为去重基线，实时转发会话增删、
+      // Agent 状态、工作区变更（含顺序/归档）与白名单宿主事件（原样包装）。
       host(_request, signal) {
         const queue = new FrameQueue<RpcRequest<HostFrame>>()
         const committedWorkspaces = ctx.workspaceRegistry.list()
@@ -3535,6 +3813,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     downloads: {
+      // 会话日志 ZIP 下载（GET 流）：先做干净的错误路径（缺服务 500 / 无原始
+      // 工件支持 501 / 根工件缺失 404），再增量流式压缩整份归档。
       async sessionLog(request, signal) {
         // Clean error path first: missing services answer 500 and a missing
         // root artifact 404 before any zip byte is produced. The root content
@@ -3591,6 +3871,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
     },
 
+    // 客户端应答入口：按回显的 rpcId 路由到审批或提问注册表（共享 UUID 空间），
+    // 校验应答载荷与审计关联后结算，返回传输回执（late/重复应答为 not-pending）。
     respond(message: ClientResponse): Promise<RpcReceipt> {
       // Route by the echoed rpcId (the wire correlation): approvals first,
       // then questions — the two registries share one id space of UUIDs.

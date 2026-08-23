@@ -1,4 +1,26 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】events 域契约：两条逻辑事件流（mux 聚合流 + host 宿主流）的签名
+ * 与帧联合。四象限语义：流产出窄形式 RpcRequest<Frame>（server-request 视图）
+ * ——rpcId 必须暴露给业务层，因为可回答帧（approval/question requested）的响应
+ * 要回显它；纯推送帧用它标识该次推送。
+ * 【技术维度】纯类型契约；signal 是本地流控制参数、独立于请求（绝不上线）；
+ * ToolEventView 是宿主在发射时刻经注册 presenter 计算的渲染意图（纯派生、不
+ * 持久化）；声明合并从 dsh-tools 重新导出展示词汇。
+ * 【产品维度】会话列表/消息流的实时推送（mux）与宿主级信息（会话增删、运行
+ * 状态、工作区变更、归档集、白名单宿主事件）推送（host）。
+ * 【逻辑维度】ToolEventView / QueuedInboxItem → EventsApi（mux/host 打开器）→
+ * MuxFrame 联合（事件透传 + 控制 + 审批/提问 + 队列/任务/投影快照）→ HostFrame
+ * 联合（会话/状态/工作区/远程事件）。
+ * 【关键边界】mux 打开时先为每个附着会话发 subscribed 控制帧，再重放仍待决的
+ * 审批/提问帧（rpcId 原样复用，是刷新恢复基线）；since 是 v1 未实现的续传钩子
+ * （传了也被忽略），重连 = 重开流 + 重取历史；session/queue 与 session/jobs 发
+ * 整快照（无持久化事件可回放）；host/remote-event 原样转发、不投影不脱敏。
+ * 【新手阅读建议】先读 MuxFrame 与 HostFrame 两个联合，再看 EventsApi 打开器
+ * 的基线语义，最后对照 api-proxy.ts 的 events 域实现。
+ * ==========================================================================
+ */
+/**
  * events domain contract: signatures and frame unions for the two logical
  * streams. Four-quadrant: streams yield the narrow form `RpcRequest<Frame>` (server-request
  * view) — rpcId must be exposed to the business layer, because responses to answerable frames
@@ -19,6 +41,7 @@ import type { WorkspaceView } from './workspace.ts'
 
 // Client-side consumers take the render-intent vocabulary from the contract;
 // dsh-tools remains its owner.
+// 客户端消费者从契约取渲染意图词汇；dsh-tools 仍是其属主。
 export type { ToolCallView, ToolResultView } from '@deepseek-ai/dsh-tools/presentation'
 
 /**
@@ -29,21 +52,29 @@ export type { ToolCallView, ToolResultView } from '@deepseek-ai/dsh-tools/presen
  * `for` names which vocabulary applies without re-inspecting the event type.
  * An absent view means the client's documented default (generic JSON card).
  */
+// 宿主在发射时刻为 tool/call 或 tool/result 事件计算的渲染意图：参数/结果经
+// 注册的 presenter 纯派生，绝不持久化——同一事件后续投递可能带不同视图（或
+// 没有）；缺失视图 = 客户端默认（通用 JSON 卡片）。
 export type ToolEventView =
   | { for: 'call'; view: ToolCallView }
   | { for: 'result'; view: ToolResultView }
 
 /** One pending inbox occurrence in the authoritative `session/queue` snapshot. */
+// 权威 session/queue 快照中的一条待处理收件箱记录。
 export interface QueuedInboxItem {
   /** Message identity used by inbox mutations. */
+  // 收件箱变更使用的消息身份。
   id: MessageId
   /** Agent-resolved FIFO placement; queued and steering items render on different surfaces, context items stay invisible until claimed. */
+  // Agent 解析的 FIFO 位置：queued/steering 渲染在不同表面，context 在被认领前不可见。
   placement: 'queued' | 'steering' | 'context'
   /** Complete pending message; it is not durable until the Agent claims it. */
+  // 完整待处理消息；Agent 认领前不持久化。
   message: Message
 }
 
 /** Streaming face of the contract: the two logical stream openers (mux + host). */
+// 契约的流式面孔：两个逻辑流打开器。
 export interface EventsApi {
   /**
    * All-session aggregated mux stream. On open, emits a subscribed control frame for every

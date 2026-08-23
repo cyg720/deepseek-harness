@@ -1,4 +1,22 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】apiproxy 包的入口（barrel + 网关插件装配）：导出契约层（api/）、
+ * fetch 载体对（fetch/）与宿主实现（api-proxy.ts），并注册 ApiProxyService 网关
+ * 插件，把宿主能力以 `ctx.apiProxy` 服务的形式提供给整个 Cordis 应用。
+ * 【技术维度】Cordis Service 插件：通过声明式依赖注入（static inject）装配所需
+ * 服务，用 schemastery 定义 Config，构造时调用 createApiProxy 工厂并在成员上
+ * 逐一绑定各域实现。导出声明合并把 apiProxy 注入 Context 类型。
+ * 【产品维度】这是远程客户端访问宿主能力的统一网关入口：任何物理载体（HTTP、
+ * WebSocket、进程内）都基于 `ctx.apiProxy` 组装，实现"传输无关"的网关设计。
+ * 【逻辑维度】重导出 api/ 契约与 fetch/ 载体工具 → 声明 Context.apiProxy 类型 →
+ * 定义 Config（原生打开、压缩级别、冷探测上限）→ ApiProxyService 类装配实现。
+ * 【关键边界】本包不注册任何物理路由（路由由各物理载体自己实现）；模型默认值
+ * 依赖 ctx.agentDefaultModel 服务，切换模型经该服务持久化，已记录选择的会话不受影响。
+ * 【新手阅读建议】从本文件了解包的对外形状，再读 api/rpc.ts（消息模型）与
+ * api-proxy.ts（实现），最后读 fetch/handler.ts 与 fetch/client.ts（载体）。
+ * ==========================================================================
+ */
+/**
  * @deepseek-ai/dsh-host-apiproxy — the API gateway every client shape shares:
  * the ApiProxy contract (api/: types + zod schemas, browser-safe), the fetch
  * carrier pair (fetch/: toFetchHandler on the host side, AbstractApiClient +
@@ -38,6 +56,9 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Gateway plugin configuration. */
+// 网关插件配置：nativeOpen 显式覆盖平台探测（如容器内无可见显示器）；
+// sessionExportCompressionLevel 控制日志 ZIP 压缩级别（0 不压缩、9 最小体积）；
+// coldBlankProbeMaxBytes 限制冷会话空白探测的工件大小（0 禁用探测）。
 export interface Config {
   /**
    * Whether this deployment can hand paths to a native desktop opener —
@@ -66,12 +87,17 @@ export interface Config {
  * host context and provides it as `ctx.apiProxy`. The Host cwd is the default
  * project directory.
  */
+// 网关服务插件：在装配好的宿主 Context 上实现 ApiProxy 契约并作为
+// ctx.apiProxy 提供服务。构造时用 createApiProxy 工厂生成实现，把各域成员
+// 绑定到实例（respond 因工厂返回闭包而需要 bind）。
 export class ApiProxyService extends Service implements ApiProxy {
+  // 声明式注入列表：网关实现依赖的宿主服务，由 Cordis 在插件启动前装配。
   static inject = [
     'agentDefaultModel', 'agents', 'attachments', 'directoryPicker', 'llm', 'sessions', 'subagents', 'sessionQuery',
     'tools', 'userQuestions', 'workspaceRegistry',
   ]
 
+  // schemastery 配置 schema：三个可选字段，分别提供默认值（压缩级别 6、探测上限 1024）。
   static Config: z<Config> = z.object({
     nativeOpen: z.boolean(),
     sessionExportCompressionLevel: z.number().step(1).min(0).max(9)
@@ -79,6 +105,7 @@ export class ApiProxyService extends Service implements ApiProxy {
     coldBlankProbeMaxBytes: z.natural().default(DEFAULT_COLD_BLANK_PROBE_MAX_BYTES),
   })
 
+  // 各域实现成员：类型均取自 ApiProxy 契约，构造时从工厂实现绑定到实例。
   readonly sessions: ApiProxy['sessions']
   readonly subagents: ApiProxy['subagents']
   readonly workspace: ApiProxy['workspace']

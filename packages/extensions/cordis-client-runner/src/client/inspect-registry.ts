@@ -1,3 +1,20 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】浏览器侧"只读 Cordis 能力查询"注册表：登记 Client 提供者、向 Host
+ *             发布完整清单镜像，并分派 Host 广播来的实时查询（首个本地结果回送）。
+ * 【技术维度】ClientCordisInspectHost 是折叠传输的远端接缝；publish 用
+ *             queueMicrotask + 链式同步合并突发注册；query 用 AbortController 支持
+ *             取消；close 取消已被其他页面应答的查询。
+ * 【产品维度】模型在写插件前可对 Client 侧提问（槽位/主题/服务），本页有能力就
+ *             实时回答，且"先到先得"由 Host 裁决。
+ * 【逻辑维度】类型（QueryContext/Registration/Host）→ 注册表类：register/publish
+ *             → query（执行 + 应答）→ close（取消）→ 服务提供函数。
+ * 【关键边界】应答只在"仍可应答"时发送（已取消不发送）；注册 ID 与方法名唯一；
+ *             提供者错误折叠为结构化 reason 而非裸异常。
+ * 【新手阅读建议】先看 register/publish 的发布流程，再看 query 的执行与取消分支。
+ * ==========================================================================
+ */
+
 /** Browser registry for read-only Cordis capability providers. */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -36,10 +53,18 @@ export interface ClientCordisInspectHost {
 }
 
 /** Client provider registry, manifest publisher, and live query dispatcher. */
+/**
+ * 浏览器侧 inspect 注册表：登记提供者、发布完整清单给 Host，并把 Host 广播来的
+ * 查询分派到本地提供者后回送首个有效结果。
+ */
 export class ClientCordisInspectRegistry {
+  // 提供者表：ID -> 注册项
   private readonly providers = new Map<string, ClientCordisInspectProviderRegistration>()
+  // 活动查询：请求 ID -> 取消控制器
   private readonly active = new Map<CordisInspectRequestId, AbortController>()
+  // 发布去重：同一微任务内的多次注册合并为一次清单同步
   private publishQueued = false
+  // 同步链：串行执行清单推送，失败不断链
   private syncChain = Promise.resolve()
 
   /** @param host - folded manifest and query result transport. */
@@ -49,6 +74,9 @@ export class ClientCordisInspectRegistry {
    * Register one Client provider and publish a new complete manifest.
    * @param registration - provider manifest and local handler.
    * @returns idempotent disposer.
+   */
+  /**
+   * 注册一个 Client 提供者并发布新清单：ID 与重复方法名校验；返回幂等卸载函数。
    */
   register(registration: ClientCordisInspectProviderRegistration): () => void {
     const { manifest } = registration
@@ -73,6 +101,9 @@ export class ClientCordisInspectRegistry {
   }
 
   /** Publish the current complete manifest, including after reconnect. */
+  /**
+   * 发布当前完整清单（重连后也调用）：微任务合并突发注册，链式串行同步防乱序。
+   */
   publish(): void {
     if (this.publishQueued) return
     this.publishQueued = true
@@ -91,6 +122,10 @@ export class ClientCordisInspectRegistry {
    * Execute and answer one Host-broadcast query.
    * @param request - exact provider query and Session correlation received from Host.
    * @returns after the first local result has been sent back to Host.
+   */
+  /**
+   * 执行并应答一次 Host 广播的查询：提供者/方法缺失与执行错误折叠为结构化 reason；
+   * 已取消的查询不发送应答。
    */
   async query(request: CordisInspectQueryRequest): Promise<void> {
     if (this.active.has(request.requestId)) return
@@ -126,6 +161,9 @@ export class ClientCordisInspectRegistry {
   /**
    * Cancel local work after another page answered or the Tool call ended.
    * @param requestId - query correlation that is no longer answerable.
+   */
+  /**
+   * 取消本地查询工作（其他页面已应答或工具调用已结束）。
    */
   close(requestId: CordisInspectRequestId): void {
     this.active.get(requestId)?.abort()

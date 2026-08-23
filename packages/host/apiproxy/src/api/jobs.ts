@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】浏览器安全的后台任务（job）域契约：定义客户端可见的任务视图
+ * JobView。注册表的内部记录绝不直接过线，每次推送都新铸一个视图子集。
+ * 【技术维度】纯类型契约（零依赖、浏览器可导入）；JobId 是品牌化字符串；
+ * kind 保持开放字符串以便生产者插件经声明合并扩展 kind 映射。
+ * 【产品维度】客户端任务面板（如 bash 命令、pty 发送、子代理委派等后台任务）
+ * 的列表渲染依据：展示命令/委派描述、生命周期状态与起止时间。
+ * 【逻辑维度】JobView 接口：id、kind、label、status、可选 detail、startedAt、
+ * 可选 finishedAt。
+ * 【关键边界】三个注册表字段刻意缺席：ownerSession（与帧自带 sessionId 冗余）、
+ * reported（内部通知位）、outputLimitBytes（生产者模型展示策略）。
+ * 【新手阅读建议】与 jobs.schema.ts 的 taskViewSchema 对照阅读，并留意 api-proxy.ts
+ * 中 jobViews 投影函数如何把它从 JobSnapshot 提炼出来。
+ * ==========================================================================
+ */
+/**
  * Browser-safe background-job domain contract. The registry's live records
  * never cross the wire; a view is the subset a human list needs, minted fresh
  * per push.

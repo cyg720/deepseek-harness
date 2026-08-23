@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】结构化 index 注入：插件贡献给启动 HTML 的类型化行，替代原始的
+ * tapIndex 字符串转换。行是纯 JSON 可序列化数据，因为一张表喂两个渲染器——
+ * 服务端表单把行渲染进 index.html 文本（renderIndexInjections），静态 worker
+ * 部署则把同样的行随启动载荷交给页面侧解释器。
+ * 【技术维度】IndexInjection 是判别联合（global/script/script-src/style/html）；
+ * global 行的名字与值都做 JSON.stringify 并对 '<' 转义（防脚本元素逃逸）；
+ * 文本型行的内容被约定为不得包含闭合标签序列（会提前关闭元素）。
+ * 【产品维度】宿主 Web 启动页的按需注入：主题、模块图、插件脚本等可声明式
+ * 注入，保证任何无法表达为行的标记仍走 tapIndex 逃生口。
+ * 【逻辑维度】放置类型 → 行联合 → 属性转义/穷尽断言 → 单行渲染（renderRow）→
+ * 文本拼接（splice）→ 入口（renderIndexInjections：按 head/body 分组插入）。
+ * 【关键边界】head/body 标签缺失时分别采用前置/追加策略（无头夹具页、无体
+ * 片段）；script/script-src 的 text/src 必须避免闭合序列；global 值 undefined
+ * 渲染为字面 'undefined'。
+ * 【新手阅读建议】先看 IndexInjection 五种行的语义，再看 renderRow 与
+ * renderIndexInjections 的插入策略。
+ * ==========================================================================
+ */
+/**
  * Structured index injections: the typed rows plugins contribute to the boot
  * HTML instead of raw `tapIndex` string transforms. Rows are pure
  * JSON-serializable data because one table feeds two renderers: the served
@@ -9,26 +29,35 @@
  */
 
 /** Document region a rendered row lands in: after the opening head or body tag. */
+// 渲染行落地的文档区域：开标签 head 或 body 之后。
 export type IndexInjectionPlacement = 'head' | 'body'
 
 /** One structured index injection row. */
+// 一条结构化 index 注入行：五种判别联合形态之一。
 export type IndexInjection =
   /** Assign a JSON-serializable value to a `globalThis` property, ahead of later script rows. */
+  // 把 JSON 可序列化值赋给一个 globalThis 属性（先于后续脚本行执行）。
   | { kind: 'global'; name: string; value: unknown }
   /** Inline classic script. `text` must not contain `</script`, which would close the element early. */
+  // 内联经典脚本；text 不得包含闭合序列（会提前关闭元素）。
   | { kind: 'script'; placement: IndexInjectionPlacement; text: string }
   /**
    * External classic script, executed in table order: a parser-blocking tag
    * when served, an awaited fetch-and-execute in the worker form (whose
    * loader resolves worker-only URLs such as `/plugins/...`).
    */
+  // 外部经典脚本：服务端形态是解析阻塞标签，worker 形态是先取后执行（其加载器
+  // 解析 worker 专属 URL 如 /plugins/...）。
   | { kind: 'script-src'; placement: IndexInjectionPlacement; src: string }
   /** A `<style>` element in the head. `text` must not contain `</style`, which would close the element early. */
+  // head 中的 <style> 元素；text 不得包含闭合序列。
   | { kind: 'style'; text: string }
   /** Raw markup fragment. */
+  // 原始标记片段。
   | { kind: 'html'; placement: IndexInjectionPlacement; html: string }
 
 /** Escape a row value before placing it in a quoted HTML attribute. */
+// 行值放进带引号的 HTML 属性前的转义：&、"、<、> 四字符。
 function escapeHtmlAttribute(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -42,6 +71,7 @@ function assertNever(row: never): never {
 }
 
 /** Render one row to markup with its placement. */
+// 把一行渲染为带放置位置的标记：按 kind 分派五种形态。
 function renderRow(row: IndexInjection): { placement: IndexInjectionPlacement; markup: string } {
   switch (row.kind) {
     case 'global': {
@@ -67,6 +97,7 @@ function renderRow(row: IndexInjection): { placement: IndexInjectionPlacement; m
 }
 
 /** Insert `markup` into `html` at `at`. */
+// 在指定下标处把标记插入 HTML 文本。
 function splice(html: string, at: number, markup: string): string {
   return `${html.slice(0, at)}${markup}${html.slice(at)}`
 }
@@ -79,6 +110,8 @@ function splice(html: string, at: number, markup: string): string {
  * @param rows - the collected injection table.
  * @returns the html with every row rendered.
  */
+// 把行渲染进 index.html：head 行紧跟开 head 标签之后、body 行紧跟开 body 标签
+// 之后，组内保持表顺序。无 <head> 的无头页前置、无 <body> 的片段追加到末尾。
 export function renderIndexInjections(html: string, rows: readonly IndexInjection[]): string {
   let head = ''
   let body = ''

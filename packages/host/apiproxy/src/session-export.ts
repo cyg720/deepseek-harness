@@ -1,4 +1,25 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】宿主侧会话日志下载：把一个会话（及其可选的全部子代理后代）的
+ * 持久化日志与引用的媒体对象流式打包成 ZIP 归档，供远程客户端下载。
+ * 【技术维度】基于 fflate 的流式 Zip API：每个条目分块 DEFLATE 压缩，受
+ * ReadableStream 背压（高水位 64 KiB + 容量闸门）约束，宿主从不一次性持有整
+ * 份归档。会话 id 经清洗后才进入归档路径，防止路径穿越。
+ * 【产品维度】用户可在桌面宿主 GUI 中"导出会话"：下载的 ZIP 里每个文件与后
+ * 端持久化工件逐字节一致（根日志 session.jsonl、子代理 subagents/<id>/<file>、
+ * 媒体 media/<attachmentId>.<ext>），无需清单即可自描述。
+ * 【逻辑维度】服务解析（sessionLogExportDeps）→ 活会话刷盘（flushLiveSessionLog）
+ * → 逐条目产出（sessionLogZipEntries：根工件 + 谱系后代 + 去重媒体）→ 分块
+ * 推送压缩（pushArtifactChunks / pushBinaryChunks）→ 背压容量闸门（ResponseCapacityGate）
+ * → 组装流（streamSessionLogZip）。
+ * 【关键边界】必须支持原始工件读取（supportsRawArtifacts）否则 501；子代理缺失
+ * 时 fail-loud 报错而非静默少导出；代理对压缩级别做白名单校验（0-9）；取消与
+ * 消费者取消共享一个生产者信号并终止压缩器。
+ * 【新手阅读建议】从 streamSessionLogZip 入手看流的组装，再读 sessionLogZipEntries
+ * 了解条目顺序，最后看两个 pushChunks 理解背压与代理对边界。
+ * ==========================================================================
+ */
+/**
  * Host-side session-log download: streams one ZIP archive whose files are the
  * sessions' stored artifact text verbatim plus every referenced media object.
  * The root artifact sits under its original base name (`session.jsonl`); each
@@ -27,12 +48,15 @@ import type { SessionId, SessionStore } from '@deepseek-ai/dsh-session'
 import type { SessionPersistence, SessionRawArtifact } from '@deepseek-ai/dsh-session-persistence'
 
 /** Valid fflate DEFLATE levels accepted by session-log export. */
+// fflate 合法的 DEFLATE 压缩级别（0 不压缩 ~ 9 最大压缩），导出时做白名单校验。
 export type SessionLogCompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
 /** Balanced default used when a direct createApiProxy caller omits deployment config. */
+// 均衡的默认压缩级别：直接调用 createApiProxy 而未配置部署参数时使用。
 export const DEFAULT_SESSION_LOG_COMPRESSION_LEVEL: SessionLogCompressionLevel = 6
 
 /** The services a session-log export needs (the live-session store is optional). */
+// 日志导出所需的服务集合（活会话存储可选）：查询引擎、持久化、附件存储与会话存储。
 export interface SessionLogExportDeps {
   readonly sessionQuery: SessionQueryEngine | undefined
   readonly sessionPersistence: SessionPersistence | undefined
@@ -41,6 +65,7 @@ export interface SessionLogExportDeps {
 }
 
 /** The export services narrowed to the mounted ones streaming actually reads. */
+// 收窄后的导出服务：流式导出实际读取的已装配服务（sessions 仍可选——冷会话无需刷盘）。
 export interface SessionLogExportReady {
   readonly sessionQuery: SessionQueryEngine
   readonly sessionPersistence: SessionPersistence
@@ -53,6 +78,7 @@ export interface SessionLogExportReady {
  * @param ctx - the composed host context.
  * @returns the export services (absent when the deployment does not mount them).
  */
+// 从组合后的宿主 Context 解析导出所需服务（缺装配时对应字段为 undefined）。
 export function sessionLogExportDeps(ctx: Context): SessionLogExportDeps {
   return {
     sessionQuery: ctx.get('sessionQuery'),
@@ -70,6 +96,8 @@ export function sessionLogExportDeps(ctx: Context): SessionLogExportDeps {
  * @param id - the session whose artifact is about to be read.
  * @param signal - optional cancellation observed around the flush barrier.
  */
+// 在读取某活会话原始工件前，经存储的权威持久化屏障把内存日志刷盘；冷会话或
+// 不存在的 id 没有可刷的内存工作，直接返回。
 export async function flushLiveSessionLog(
   deps: Pick<SessionLogExportDeps, 'sessions'>,
   id: SessionId,
@@ -85,11 +113,13 @@ export async function flushLiveSessionLog(
 }
 
 /** One exported file: a stored artifact text or one referenced media object. */
+// 一条导出条目：要么是存储的工件文本，要么是某个被引用的媒体对象字节。
 export type SessionLogZipEntry =
   | { readonly path: string; readonly content: string }
   | { readonly path: string; readonly data: Uint8Array }
 
 /** Zip extension for each accepted raster media type. */
+// 各类可接受光栅媒体类型对应的 zip 扩展名映射。
 const MEDIA_TYPE_EXTENSIONS: Record<ImageAttachmentRef['mediaType'], string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
@@ -104,6 +134,8 @@ const MEDIA_TYPE_EXTENSIONS: Record<ImageAttachmentRef['mediaType'], string> = {
  * @param ref - the durable reference from a session log.
  * @returns the archive path.
  */
+// 媒体对象在归档中的路径：按附件 id 内容寻址，共享图片只落一份，日志中的 id
+// 无需清单即可映射回归档条目。
 function mediaEntryPath(ref: ImageAttachmentRef): string {
   return `media/${String(ref.attachmentId)}.${MEDIA_TYPE_EXTENSIONS[ref.mediaType]}`
 }
@@ -114,6 +146,8 @@ function mediaEntryPath(ref: ImageAttachmentRef): string {
  * @param content - an event content array (or nested tool-result content).
  * @param refs - the dedupe map being filled (keyed by attachment id).
  */
+// 在一个内容数组中收集全部图片引用（用显式栈做迭代式深度优先，递归下降进
+// 嵌套工具结果，与实时附件路由的遍历方式一致），按附件 id 去重。
 function collectImageRefs(content: unknown, refs: Map<string, ImageAttachmentRef>): void {
   if (!Array.isArray(content)) return
   const pending: unknown[] = []
@@ -139,6 +173,8 @@ function collectImageRefs(content: unknown, refs: Map<string, ImageAttachmentRef
  * @param event - one parsed JSONL event object.
  * @param refs - the dedupe map being filled (keyed by attachment id).
  */
+// 收集单条会话事件携带的全部图片引用：覆盖实时附件路由扫描的同一批载体
+// （直接 content、消息 content、插入消息、助手分块 block-end）。
 function collectEventImageRefs(event: unknown, refs: Map<string, ImageAttachmentRef>): void {
   const data = (event as { data?: unknown }).data
   if (typeof data !== 'object' || data === null) return
@@ -163,6 +199,8 @@ function collectEventImageRefs(event: unknown, refs: Map<string, ImageAttachment
  * @param content - the stored artifact text.
  * @returns the dedupe map keyed by attachment id.
  */
+// 收集一份工件文本点名引用的全部媒体：逐行 JSON 解析（解析失败的行不可能引用
+// 媒体，跳过——工件文本本身无论何种情况都原样导出）。
 function imageRefsInArtifact(content: string): Map<string, ImageAttachmentRef> {
   const refs = new Map<string, ImageAttachmentRef>()
   for (const line of content.split('\n')) {
@@ -187,6 +225,8 @@ function imageRefsInArtifact(content: string): Map<string, ImageAttachmentRef> {
  * @param id - the raw session id.
  * @returns a filesystem-safe single path segment.
  */
+// 从不信任的会话 id 生成安全路径段：宿主铸造的 UUID 虽不可能包含危险字符，但
+// 品牌允许任意非空字符串，因此把 ../、点段与分隔符替换掉，防止塑造归档条目。
 function safeSessionIdSegment(id: string): string {
   return id.replace(/[^A-Za-z0-9_-]/g, '_')
 }
@@ -196,6 +236,7 @@ function safeSessionIdSegment(id: string): string {
  * @param sessionId - the root session id (sanitized to one safe path segment).
  * @returns the attachment filename for the session's export archive.
  */
+// 根会话导出归档的文件名：dsh-session-<sanitized-id>.zip。
 export function sessionLogZipFilename(sessionId: string): string {
   return `dsh-session-${safeSessionIdSegment(sessionId)}.zip`
 }
@@ -216,6 +257,9 @@ export function sessionLogZipFilename(sessionId: string): string {
  * @param signal - optional cancellation forwarded to lineage, persistence, and attachment reads.
  * @returns the export entries in zip order.
  */
+// 按 zip 顺序产出导出条目：根工件最先，然后按谱系顺序产出每个子代理后代（活的
+// 先刷盘、读取后即弃，宿主最多同时持有根工件 + 一个后代工件 + 一个媒体对象），
+// 最后产出全部去重后的媒体对象。
 export async function* sessionLogZipEntries(
   deps: SessionLogExportReady,
   root: SessionRawArtifact,
@@ -266,16 +310,21 @@ export async function* sessionLogZipEntries(
 }
 
 /** How many code units of artifact text one zip push carries (bounded encode memory). */
+// 一次 zip 推送携带的工件文本代码单元数：限制编码内存占用。
 const PUSH_CHUNK_CODE_UNITS = 1 << 16
 
 /** How many bytes of media one zip push carries (bounded memory; images are already size-capped). */
+// 一次 zip 推送携带的媒体字节数（图片本身已有大小上限，这里进一步约束内存）。
 const PUSH_CHUNK_BYTES = 1 << 16
 
 /** Byte capacity retained by the response stream before ZIP production waits for pull. */
+// 响应流保留的字节容量（高水位）：达到后 ZIP 生产等待消费者拉取。
 const RESPONSE_HIGH_WATER_MARK_BYTES = 1 << 16
 
 /** One producer waiter released only when ReadableStream pull restores capacity. */
+// 生产容量闸门：只有当 ReadableStream pull 恢复容量（或取消）时才释放等待中的生产者。
 class ResponseCapacityGate {
+  /** 当前被挂起的生产者释放回调；pull 时调用它。 */
   private releasePending: (() => void) | undefined
 
   /**
@@ -283,6 +332,8 @@ class ResponseCapacityGate {
    * @param controller - response controller whose desired size owns capacity.
    * @param signal - combined request/consumer cancellation.
    */
+  // 等待响应队列出现正字节容量或取消胜出：有容量立即返回，否则挂起自己，
+  // 由 pull 或取消信号唤醒（唤醒后再检查一次取消）。
   async wait(
     controller: ReadableStreamDefaultController<Uint8Array>,
     signal: AbortSignal,
@@ -302,6 +353,7 @@ class ResponseCapacityGate {
   }
 
   /** Release the current producer waiter after a consumer pull. */
+  // 消费者拉取后释放当前等待中的生产者。
   pulled(): void {
     this.releasePending?.()
   }
@@ -316,6 +368,7 @@ class ResponseCapacityGate {
  * @param capacity - pull-driven response-capacity gate.
  * @param signal - cancellation; throws when aborted.
  */
+// 把媒体对象字节分块推入 deflate 流：与工件文本路径一样，块间等待消费者容量。
 async function pushBinaryChunks(
   deflate: ZipDeflate,
   data: Uint8Array,
@@ -344,6 +397,8 @@ async function pushBinaryChunks(
  * @param capacity - pull-driven response-capacity gate.
  * @param signal - cancellation; throws when aborted.
  */
+// 把工件文本分块推入 deflate 流：块边界绝不落在代理对中间——否则孤代理高位会
+// 被重编码为 U+FFFD，静默损坏导出的工件。
 async function pushArtifactChunks(
   deflate: ZipDeflate,
   content: string,
@@ -385,6 +440,9 @@ async function pushArtifactChunks(
  * @param signal - request cancellation combined with response-consumer cancellation.
  * @returns the zip byte stream.
  */
+// 流式产出会话日志 ZIP：根工件由调用方预先读取并校验（缺失根/缺服务在产生任何
+// 字节前干净应答），随后逐条分块编码压缩；后代读取失败会让流报错（fail-loud，
+// 绝不静默少导出）。消费者取消与请求取消合并为一个生产者信号，终止压缩器。
 export function streamSessionLogZip(
   deps: SessionLogExportReady,
   root: SessionRawArtifact,

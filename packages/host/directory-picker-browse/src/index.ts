@@ -1,4 +1,26 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】directory-picker 接缝的 browse 后端：以 browse 能力注册
+ * ctx.directoryPicker——经 Node 标准库（已自带各 OS 适配）在宿主文件系统上
+ * 提供单层目录列表与子目录创建。宿主显示器上不渲染任何东西，因此它服务的是
+ * 对话框后端够不到的远程客户端。
+ * 【技术维度】流式列表：opendir 逐 dirent 读取，用 maxEntries+1 的有界窗口做
+ * 名称排序与截断标记，超大目录内存保持 O(keep)；每个文件系统 await 都与调用
+ * 方信号赛跑（raceAbort），停滞的网络文件系统不会拖住已离开的调用方；符号链
+ * 接需 stat 探针判可进入。
+ * 【产品维度】远程 GUI 的应用内目录浏览器：逐层浏览（含面包屑）、新建文件夹；
+ * 完全限定路径栅栏防止相对/驱动根路径在宿主 cwd 下静默重基。
+ * 【逻辑维度】面包屑/完全限定判定/候选窗口/取消赛跑/行投影等工具 → Config →
+ * BrowseDirectoryPicker 类（list 流式枚举 + createDirectory 校验与创建）。
+ * 【关键边界】list/create 都拒绝未完全限定的路径；createDirectory 用非递归
+ * mkdir（父缺失是真失败）；策略决策（隐藏条目标记后返回、跟随符号链接、全文
+ * 件系统范围）记录在接缝的 Agent Note 中；窗口内候选不可进入（坏链接）不从
+ * 窗口外回填——已被逐出即已标记截断，这是诚实答案。
+ * 【新手阅读建议】先读 fullyQualified 与 boundedInsert，再读 list 的流式窗口
+ * 逻辑与 raceAbort 的取消语义，最后看 createDirectory 的校验栅栏。
+ * ==========================================================================
+ */
+/**
  * Browse backend of the directory-picker seam: registers `ctx.directoryPicker`
  * with the `browse` capability — one-level directory listing and child-directory
  * creation over the host filesystem via Node's stdlib (which already carries
@@ -25,6 +47,8 @@ import type {
  * Ancestor chain from the filesystem root to `target` inclusive — the
  * breadcrumb rows of a listing, every one a jump target.
  */
+// 从文件系统根到 target（含）的祖先链——列表的面包屑行，每个都是跳转目标；
+// 根的面包屑用其完整路径（'/'、'C:\'）作名。
 function ancestryCrumbs(target: string): DirectoryEntry[] {
   const crumbs: DirectoryEntry[] = []
   let current = target
@@ -47,6 +71,10 @@ function ancestryCrumbs(target: string): DirectoryEntry[] {
  * @param platform - replaces `process.platform` for deterministic tests.
  * @returns whether the path is fully qualified on the platform.
  */
+// 判路径是否命名一个不随进程状态变化的固定文件系统位置：POSIX 绝对路径即可；
+// Windows 只认带驱动器限定（C:\…）或完整 UNC（\\server\share…）的形式——
+// 带根但无驱动器的形式（\foo、/foo）与不完整 UNC 前缀虽过 isAbsolute，仍会
+// 相对进程当前驱动器解析。
 export function fullyQualified(path: string, platform: NodeJS.Platform = process.platform): boolean {
   return platform === 'win32'
     ? win32.isAbsolute(path) && /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/]+[\\/]+[^\\/]+)/.test(path)
@@ -54,6 +82,7 @@ export function fullyQualified(path: string, platform: NodeJS.Platform = process
 }
 
 /** One streamed listing candidate: the dirent facts a row needs, nothing else retained. */
+// 一条流式列表候选：行需要的 dirent 事实，其余一律不保留。
 export interface ListingCandidate {
   /** Base name within the streamed level. */
   name: string
@@ -73,6 +102,9 @@ export interface ListingCandidate {
  * @param keep - the window bound.
  * @returns true when an eviction happened (the level has candidates beyond the window).
  */
+// 把流式候选插入按名排序的有界窗口，窗口超限时逐出名字最大的候选——任意大
+// 目录的内存保持 O(keep)。满窗口且名字不小于窗口尾部时一次比较即拒绝（O(1)
+// 而非窗口扫描）；二分插入让保留候选只花 O(log keep) 次比较。
 export function boundedInsert(window: ListingCandidate[], candidate: ListingCandidate, keep: number): boolean {
   // Full window, name at or beyond the tail: one comparison rejects, so an
   // oversized level costs O(1) per candidate past the head instead of a
@@ -105,6 +137,9 @@ export function boundedInsert(window: ListingCandidate[], candidate: ListingCand
  * @param signal - caller lifetime; absent means plain awaiting.
  * @returns the operation's value.
  */
+// 等待 operation，但信号一中断就以其 reason 拒绝：Node 的文件系统读取不可
+// 收回，操作本身仍会对着调用方随后关闭的句柄继续跑——其迟到结算在此被吞掉，
+// 使被放弃的读取不会变成未处理拒绝。
 export function raceAbort<T>(operation: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
   if (signal === undefined) return operation
   return new Promise<T>((resolve, reject) => {
@@ -154,6 +189,8 @@ function messageOf(error: unknown): string {
  * non-directories and broken/cyclic links (skipped silently — the browser
  * shows what can be entered, and a broken link cannot).
  */
+// 为一个 dirent 生成目录行，符号链接则跟进到目录；非目录与坏/循环链接返回
+// null（静默跳过——浏览器只显示可进入者，坏链接不可进入）。
 async function directoryRow(
   parent: string, name: string, isDirectory: boolean, isSymbolicLink: boolean, signal: AbortSignal | undefined,
 ): Promise<DirectoryEntry | null> {
@@ -184,6 +221,7 @@ export interface Config {
 }
 
 /** The `ctx.directoryPicker` browse implementation (stable capability object per service life). */
+// ctx.directoryPicker 的 browse 实现（能力对象在服务生命周期内稳定）。
 export default class BrowseDirectoryPicker extends DirectoryPicker {
   /**
    * `maxEntries` bounds the complete listing level a single `list` call may
@@ -196,6 +234,7 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
     maxEntries: z.natural().min(1).default(1000),
   })
 
+  /** 稳定的 browse 能力对象：绑定本实例的 list/createDirectory 方法。 */
   private readonly browseCapability: DirectoryPickerCapability = {
     kind: 'browse',
     list: (path, signal) => this.list(path, signal),
@@ -219,6 +258,8 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
     // The seam contract takes fully qualified paths only; resolve() would
     // silently rebase a relative or empty wire value under the host process
     // cwd (or, for rooted drive-less Windows forms, its current drive).
+    // 接缝契约只接受完全限定路径：resolve() 会把相对/空线上值静默重基到宿主
+    // 进程 cwd（或 Windows 带根无驱动器形式的当前驱动器）下——必须先拒绝。
     if (path !== undefined && !fullyQualified(path)) {
       throw new DirectoryPickerError('directory-unreadable', path, `cannot list "${path}": not a fully qualified path`)
     }

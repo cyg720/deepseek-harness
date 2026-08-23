@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】fetch 载体的服务端半边：把 ApiProxy 实现映射为一个纯 WHATWG
+ * Request→Response 函数，即"传输无关的 HTTP 适配层"。
+ * 【技术维度】两级解析：先校验完整信封（type/rpcId/method 且 path 与方法一致），
+ * 再按方法分发表（UNARY_ROUTES）校验业务载荷并调用对应实现。SSE 流走独立
+ * GET 通道（events.mux / events.host / session.export 下载），无信封。
+ * 【产品维度】远程客户端（浏览器/桌面/CLI）通过本载体访问宿主能力；HTTP 状态
+ * 只表达载体层问题（404/400/415/500），业务错误一律 200 + ServerResponse，
+ * 保证客户端协议解析统一。
+ * 【逻辑维度】分发表定义与路由查找 → 错误/完整响应包装 → 一元方法处理
+ * （handleUnary）→ SSE 流包装（sseResponse）→ toFetchHandler 组装（无信封
+ * 通道、跨站写栅栏、JSON 信封解析、respond 通道、一元分发）。
+ * 【关键边界】跨站写栅栏：只接受 application/json，强制简单 POST 走预检；
+ * 信封 rpcId 不可读时用固定哨兵 invalid-request 保证响应仍是合法 ServerResponse；
+ * 实现崩溃返回 500 而非错误信封。
+ * 【新手阅读建议】从 toFetchHandler 的 fetch 函数读起，沿路径分派阅读各分支；
+ * handleUnary 与 sseResponse 是理解错误/流语义的关键。
+ * ==========================================================================
+ */
+/**
  * Server side of the fetch carrier: maps an ApiProxy onto a pure
  * WHATWG Request->Response function. Two-level parse: full form (type/rpcId/method +
  * path==method) -> payload dispatched per method. HTTP status expresses only the carrier
@@ -80,6 +100,9 @@ import {
  * Every invoke receives the carrier Request's signal; routes whose contract
  * declares a signal parameter forward it, and the rest ignore it.
  */
+// 一元分发表：以 RpcMethodMap 为键并由编译器锁定——地图有行而这里无路由行会编译
+// 失败，且每行的 schema/invoke 配对与该行载荷类型逐一校验（schema 贴错行是类型
+// 错误而非运行期意外）。schema 锚定 Wire<> 宽度，分发点是唯一的 Wire→精确收窄处。
 type UnaryRoutes = {
   [K in keyof RpcMethodMap]: {
     schema: z.ZodType<Wire<RequestPayload<K>>>
@@ -87,6 +110,8 @@ type UnaryRoutes = {
   }
 }
 
+// 一元路由表本体：每个方法名一行，schema 校验请求载荷、invoke 调用对应实现；
+// 声明了 signal 参数的路由把载体请求信号转发给实现，其余忽略。
 const UNARY_ROUTES: UnaryRoutes = {
   'session.list': { schema: sessionListRequestSchema, invoke: (api, r) => api.sessions.list(r) },
   'session.search': { schema: sessionSearchRequestSchema, invoke: (api, r, signal) => api.sessions.search(r, signal) },
@@ -143,6 +168,7 @@ const UNARY_ROUTES: UnaryRoutes = {
 }
 
 /** Route lookup that narrows an arbitrary path segment to a map key (single cast point for the string→key refinement). */
+// 把任意路径段收窄为路由表键：存在性检查通过后做唯一的字符串→键 cast。
 function methodFor(path: string): keyof RpcMethodMap | undefined {
   return Object.hasOwn(UNARY_ROUTES, path) ? path as keyof RpcMethodMap : undefined
 }
@@ -152,15 +178,20 @@ function methodFor(path: string): keyof RpcMethodMap | undefined {
  * must still be a valid ServerResponse (a self-violating shape would turn the server's explicit
  * bad-request report into a client-side parse failure). Fixed value, documented here as wire contract.
  */
+// 错误响应的哨兵 rpcId：当请求信封的 rpcId 不可读时使用。响应仍必须是合法
+// ServerResponse——自违反形状会把服务端明确的 bad-request 报告变成客户端解析
+// 失败。固定值，作为线上契约在此文档化。
 const INVALID_REQUEST_RPC_ID = RpcId('invalid-request')
 
 /** Wrap a business error as a ServerResponse full form (rpcId backfilled; an unreadable rpcId uses the invalid-request sentinel). */
+// 把业务错误包装为 ServerResponse 完整形式（rpcId 回填；不可读时用哨兵）。
 function errorResponse(rpcId: RpcId, error: RpcError): Response {
   const body: ServerResponse = { type: 'server-response', rpcId, result: { ok: false, error } }
   return Response.json(body)
 }
 
 /** Complete the impl's narrow form into a ServerResponse full form. */
+// 把实现的窄形式响应补全为 ServerResponse 完整形式（补上 type 标签）。
 function fullResponse(narrow: RpcResponse<unknown>): Response {
   const body: ServerResponse = { type: 'server-response', rpcId: narrow.rpcId, result: narrow.result }
   return Response.json(body)
@@ -172,6 +203,9 @@ function fullResponse(narrow: RpcResponse<unknown>): Response {
  * Wire<> widening back to the exact payload (undefined-valued properties and
  * absent ones are indistinguishable after JSON transport).
  */
+// 解析载荷并调用一条一元路由：泛型 K 保证行内 schema/invoke 配对类型检查；
+// 唯一的 cast 把 Wire<> 宽度收窄回精确载荷（JSON 传输后"值为 undefined 的属性"
+// 与"缺失属性"无法区分）。载荷校验失败返回 bad-request，实现崩溃则 500。
 // K appears once in the signature but ties the UNARY_ROUTES[K] row lookup to its own
 // schema/invoke pairing; a union parameter degrades the row to an uninvokable intersection.
 // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
@@ -192,6 +226,7 @@ async function handleUnary<K extends keyof RpcMethodMap>(
 }
 
 /** SSE frame: complete the narrow RpcRequest<frame> into a ServerRequest full form (method = frame type). */
+// 把窄形式帧补全为 ServerRequest 完整形式（method 取帧类型）。
 function fullFrame(narrow: RpcRequest<MuxFrame | HostFrame>): ServerRequest {
   return { type: 'server-request', rpcId: narrow.rpcId, method: narrow.payload.type, payload: narrow.payload }
 }
@@ -200,6 +235,9 @@ function fullFrame(narrow: RpcRequest<MuxFrame | HostFrame>): ServerRequest {
  * Wrap a frame stream as an SSE Response; stops when req.signal aborts. An
  * impl throw mid-stream emits one stream/error frame and then closes.
  */
+// 把帧流包装为 SSE Response：打开时先发一条注释行（: connected）让客户端/代理
+// 看到活通道（host 流无基线帧，空闲时否则零字节）；流中途实现抛错则补发一帧
+// stream/error 后关闭——客户端必须看到失败而非静默结束（那会被当成正常断开）。
 function sseResponse(frames: AsyncIterable<RpcRequest<MuxFrame | HostFrame>>): Response {
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
@@ -240,6 +278,8 @@ function sseResponse(frames: AsyncIterable<RpcRequest<MuxFrame | HostFrame>>): R
  * @param api - the host-side ApiProxy implementation.
  * @returns an object holding `fetch(Request)`; paths outside /api/ return 404.
  */
+// 把 ApiProxy 包装为纯 fetch 函数（同构点：把返回值直接喂给 InProcessApiClient
+// 即可进程内直连）。/api/ 之外的路径一律 404；无信封的 SSE 与下载通道在此直接应答。
 export function toFetchHandler(api: ApiProxy): { fetch: typeof fetch } {
   return {
     // Signature matches global fetch: the isomorphic point hands this function to InProcessApiClient as its transport aspect,

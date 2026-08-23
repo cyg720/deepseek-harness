@@ -1,3 +1,21 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】动态 Cordis 插件工具共用的"模型系统提示词"：指导模型何时该用动态
+ *             插件、推荐工具工作流、版本/审批语义、高频错误与修复指引。
+ * 【技术维度】一个以模板字符串定义的常量；通过 ctx.systemPrompt.section 注入到
+ *             系统提示词中（见 index.ts 的 apply）。
+ * 【产品维度】让 AI 助手在会话里"现场写并激活 Cordis 插件"时有统一的行为准则：
+ *             先查再写、绝不静默另建插件、失败后自主修复等，避免模型乱用工具。
+ * 【逻辑维度】使用时机判断 → 推荐工作流（inspect→define→run→stop/undefine）→
+ *             身份/版本/审批语义 → @pluginId 引用流程 → 高频错误清单 → Host/Client
+ *             分工 → 异步结果与恢复策略。
+ * 【关键边界】内容会进入每次模型请求的上下文，务必精简；措辞与工具 description
+ *             一致，避免模型获得矛盾指令。
+ * 【新手阅读建议】先浏览"Recommended workflow"一节，再对照 index.ts 的工具注册
+ *             逐个理解。
+ * ==========================================================================
+ */
+
 /** Model guidance shared by the Cordis dynamic-plugin tools. */
 
 export const CORDIS_SYSTEM_PROMPT = `# Dynamic Cordis Plugins

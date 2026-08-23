@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】agent-presets 域契约：浏览器在启动会话时提供的预设名册，以及
+ * 其背后的创作调用。list 是普通调用（携带 id 与信任级别，所有预设选择器都需要）；
+ * 创作调用是特权且回环固定的——组合点名了会话运行的插件，读取它是侦察面，
+ * 复制/删除仍会重排部署提供的内容。
+ * 【技术维度】纯类型契约；AgentPresetEntry 携带 trust（system/user）与 broken
+ * 状态；copy 是唯一创作写操作（无组合文本、无路径过线，全是宿主按自身根解析
+ * 的 id）。
+ * 【产品维度】预设选择器与预设管理：选择会话组合、只读查看组合文本、复制创作
+ * 本地预设、打开预设目录编辑、删除本地预设。
+ * 【逻辑维度】AgentPresetEntry → AgentPresetsApi（list/select/read/copy/
+ * openDocument/remove）。
+ * 【关键边界】select 仅限空白会话（已开始则 agent-preset-locked）；copy 保留
+ * 来源描述但不保留名字（名字来自请求或 id 兜底）；openDocument 只接受本地
+ * 创作预设（ship 安装被拒），无原生打开器时回退为返回目录路径文本。
+ * 【新手阅读建议】与 agent-presets.schema.ts 及 api-proxy.ts 的 agentPresets 域
+ * 实现对照阅读。
+ * ==========================================================================
+ */
+/**
  * agent-presets domain contract: the roster a browser offers when starting a
  * session, plus the authoring calls behind it.
  *
@@ -13,6 +33,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { RpcRequest, RpcResponse } from './rpc.ts'
 
 /** One preset the deployment can compose a session's agent from. */
+// 部署可用于组合会话 Agent 的一个预设条目。
 export interface AgentPresetEntry {
   /** Stable identifier, also the display name until presets carry metadata. */
   readonly id: string

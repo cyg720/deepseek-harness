@@ -1,4 +1,22 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】webserver 包的"不变量伴生插件"：向不变量服务注册本包拥有者
+ * 身份，并断言"HTTP 与 upgrade 路由注册及释放必须对称"这一属主关系。
+ * 【技术维度】Cordis 伴生插件：监听 internal/plugin（每次 fiber 卸载）时，用
+ * 注册-释放探针验证 register() 的释放函数确实删除了路由条目——若残留，第二次
+ * 注册会抛重复错误，从而暴露不对称。
+ * 【产品维度】守护路由表与插件生命周期的一致性：某插件卸载后，其路径绝不应
+ * 继续应答（残留路由会继续调用已释放插件的 handler）。
+ * 【逻辑维度】包名/注入声明 → install：探针注册两次（第一次注册+释放、第二次
+ * 应成功）与 upgrade 同款探针 → 任何抛错触发 fail → apply 注册并返回 disposer。
+ * 【关键边界】webServer 未装配时跳过（无本组合可断言）；探针路径固定为
+ * /__dsh_invariant_probe__ 与 /__dsh_invariant_upgrade_probe__，且每次注册立即
+ * 释放，不留残留。
+ * 【新手阅读建议】本文件是"非空不变量伴生插件"的典型样例，可与 invariant 模板
+ * 对比，理解探针式断言的思路。
+ * ==========================================================================
+ */
+/**
  * Package-owned invariant companion for `@deepseek-ai/dsh-host-webserver`.
  * @module @deepseek-ai/dsh-host-webserver/invariant
  */
@@ -7,11 +25,14 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 
+// 本包在不变量注册表中使用的包名键。
 const PACKAGE_NAME = '@deepseek-ai/dsh-host-webserver'
 
 /** Cordis companion plugin name. */
+// 伴生插件的 Cordis 插件名。
 export const name = 'host-webserver-invariant'
 /** Service required before the companion can register. */
+// 启动前必须注入的服务：不变量注册服务。
 export const inject = ['invariants']
 
 /**
@@ -23,6 +44,8 @@ export const inject = ['invariants']
  * against the set of live fibers' registrations indirectly, by probing that
  * dispose really removed the entry — the register() disposer contract.
  */
+// 不变量安装器：每次插件 fiber 卸载后，用"注册-释放-再注册"探针验证路由释放
+// 函数真的删除了条目——若释放残留，第二次注册会抛重复错误，即为不对称。
 const install: InvariantInstaller = (ctx, fail) => {
   ctx.on('internal/plugin', () => {
     const server = ctx.get('webServer') as

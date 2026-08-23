@@ -1,4 +1,23 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】子进程能力缝的本地 Service Provider（LocalSubprocessRuntime）：每次 spawn
+ * 都是按规格 stdio 配置的分离进程树；正常拆解终止并等待整树退出；Node 同步退出阶段
+ * 强制终止服务仍拥有的所有树。
+ * 【技术维度】继承 SubprocessRuntime；spawn 委托 spawn.ts 的 spawnSubprocess；
+ * 终端用 node-pty（terminal.ts 的 LocalTerminalHandle）；可执行文件解析按 PATH/
+ * PATHEXT 候选（含 Windows 大小写不敏感环境读取）；进程表检查经 process-inspector.ts。
+ * 【产品维度】所有子进程能力的本地地基：可执行文件解析、环境擦除、树范围终止、
+ * 宿主退出兜底，无需配置（部署级选择都在调用方）。
+ * 【逻辑维度】构造时挂宿主 exit 监听与拆解 → spawn/spawnTerminal 登记句柄 →
+ * 拆解时 terminate + waitForExit 整树 → 宿主退出时同步 force-stop。
+ * 【关键边界】无配置（所有配置与上限随规格而来）；live/terminals 两集合在等待期间
+ * 保持权威（短退出边界仍可 force-kill）；释放所有权以整树消失为准。
+ * 【新手阅读建议】先看 spawn 的所有权管理（live 集合与整树等待），再看
+ * resolveExecutable 的候选解析，最后看 spawnTerminal 的 node-pty 组装。
+ * ==========================================================================
+ */
+
+/**
  * Local Service Provider for the subprocess capability seam. Each spawn is a detached
  * process tree with the spec's per-stream stdio dispositions. Normal disposal
  * terminates and joins live trees; Node's synchronous exit phase force-stops
@@ -34,18 +53,28 @@ import { LocalTerminalHandle } from './terminal.ts'
  * SIGTERM→grace→SIGKILL escalation, plus synchronous final termination during
  * JavaScript-observable host exit.
  */
+/**
+ * 本地子进程服务：分离进程树、Node 形状 stdio 配置（原始管道/继承/带溢出文件的有界
+ * 尾部收集）、凭据擦除环境、SIGTERM→grace→SIGKILL 升级的树范围信号，以及 JavaScript
+ * 可观察宿主退出期间的同步最终终止。
+ */
 export class LocalSubprocessRuntime extends SubprocessRuntime {
   /** Live handles retained for normal disposal and synchronous host-exit finalization. */
+  /** 存活句柄集合：供正常拆解与同步宿主退出兜底使用。 */
   private live = new Set<LocalSubprocessHandle>()
   /** Live terminals retained through normal quiescence or host-exit finalization. */
+  /** 存活终端集合：保留到正常静默或宿主退出兜底。 */
   private terminals = new Set<LocalTerminalHandle>()
   /** Test hook: spill and platform knobs forwarded to spawnSubprocess. */
+  /** 测试钩子：透传给 spawnSubprocess 的溢出/平台旋钮。 */
   internals: SpawnInternals = {}
   /** Test hook for platform process inspection; production resolves lazily on terminal spawn. */
+  /** 测试钩子：平台进程检查器；生产环境在终端 spawn 时惰性解析。 */
   terminalInspector: ProcessInspector | undefined
 
   constructor(ctx: Context) {
     super(ctx)
+    // 组合体生命周期：宿主 exit 时同步强杀，拆解时异步终止并等待整树退出。
     ctx.effect(() => {
       const onHostExit = (): void => { this.terminateForHostExit() }
       process.prependListener('exit', onHostExit)
@@ -59,12 +88,14 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     }, 'local subprocess teardown')
   }
 
+  // Node 退出阶段无法 await：对每个存活句柄做同步强杀，单个失败不阻塞其余。
   private terminateForHostExit(): void {
     for (const handle of this.live) {
       try {
         handle.terminateForHostExit()
       } catch (_ordinaryTreeTerminationFailed) {
         // Host exit cannot await or report one target; continue with the rest.
+        // 宿主退出无法等待或上报单个目标；继续处理其余目标。
       }
     }
     for (const terminal of this.terminals) {
@@ -72,19 +103,28 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
         terminal.terminateForHostExit()
       } catch (_terminalTerminationFailed) {
         // One terminal must not prevent final termination of another target.
+        // 一个终端不能阻止其它目标的最终终止。
       }
     }
   }
 
+  /**
+   * 拆解受管进程：先全部 terminate（升级终止），再等待整树退出而非仅直接子进程
+   * 落定——即使 TERM 陷阱后代也不能比组合体活得更久。等待期间两集合保持权威，
+   * 更短的进程级退出边界仍可 force-kill 它们。
+   */
   private async disposeManagedProcesses(): Promise<void> {
     // Terminate (escalating), then await WHOLE-TREE exit — not just the
     // direct child's settlement — so even a TERM-trapping descendant cannot
     // outlive the fiber. Keep both sets authoritative while these waits are
     // pending so a shorter process-level exit bound can still force-kill them.
+    // 先终止（升级），再等待整树退出——而非仅直接子进程落定——使 TERM 陷阱后代
+    // 也无法比 fiber 活得更久；等待期间保持两集合权威，更短的进程级退出边界仍可强杀。
     const pending: Promise<unknown>[] = []
     for (const handle of this.live) {
       handle.terminate()
       // Spawn-failure rejections already settled and left the live set.
+      // spawn 失败的拒绝已落定并离开 live 集合。
       pending.push(handle.done.catch(() => {}).then(() => handle.waitForExit()))
     }
     for (const terminal of this.terminals) {
@@ -94,6 +134,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     const failures = outcomes.flatMap<unknown>(outcome => outcome.status === 'rejected'
       ? [outcome.reason as unknown]
       : [])
+    // 有失败时退回同步强杀兜底，避免清理不彻底。
     if (failures.length > 0) this.terminateForHostExit()
     this.live.clear()
     this.terminals.clear()
@@ -101,6 +142,14 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     if (failures.length > 1) throw new AggregateError(failures, 'local subprocess teardown failed')
   }
 
+  /**
+   * 解析可执行文件：绝对路径验证存在且可执行；裸名称按 PATH（Windows 含 PATHEXT
+   * 扩展）生成候选；含分隔符的相对路径直接拒绝（解析基准未定义，响亮失败）。
+   * @param command 绝对可执行路径或裸 PATH 名称
+   * @param env 用于查找的显式环境条目
+   * @param signal 中止查找
+   * @returns 规范化后的可执行路径
+   */
   async resolveExecutable(
     command: string,
     env?: Readonly<Record<string, string>>,
@@ -110,6 +159,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     signal?.throwIfAborted()
     const environment = childEnv(env)
     const absolute = isAbsolute(command)
+    // 相对路径（含分隔符）无法确定解析基准，直接拒绝。
     if (!absolute && (command.includes('/') || (process.platform === 'win32' && command.includes('\\')))) {
       throw new Error(
         `subprocess-local: command ${JSON.stringify(command)} is a relative path; use an absolute path or a bare PATH name`,
@@ -119,6 +169,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     for (const candidate of candidates) {
       signal?.throwIfAborted()
       try {
+        // 必须是文件且具有执行权限；候选不可用就试下一个。
         const info = await stat(candidate)
         if (!info.isFile()) continue
         await access(candidate, constants.X_OK)
@@ -126,6 +177,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
         return candidate
       } catch {
         // Try the next PATH candidate; the final miss receives one stable error.
+        // 试下一个 PATH 候选；最终全部落空时给出一个稳定的错误。
       }
     }
     signal?.throwIfAborted()
@@ -134,6 +186,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       : `subprocess-local: command ${JSON.stringify(command)} was not found on PATH`)
   }
 
+  /** 按 PATH 目录与（Windows 的）PATHEXT 扩展生成候选路径列表。 */
   private executableCandidates(command: string, env: NodeJS.ProcessEnv): string[] {
     const path = environmentValue(env, 'PATH') ?? ''
     const extensions = process.platform === 'win32' && extname(command) === ''
@@ -143,6 +196,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       extensions.map(extension => resolve(process.cwd(), directory, command + extension)))
   }
 
+  /** 启动一个受管子进程并登记所有权；整树消失后才释放。 */
   spawn(spec: SubprocessSpawnSpec): SubprocessHandle {
     const handle = spawnSubprocess(spec, this.internals)
     this.live.add(handle)
@@ -150,6 +204,9 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     // settlement — a TERM-trapping helper that outlives the leader must stay
     // owned so teardown can still escalate it. For the common no-survivor
     // case waitForExit resolves immediately after settlement.
+    // 只在整树消失后释放所有权，而非直接子进程落定时——比 leader 活得久的
+    // TERM 陷阱辅助进程必须保持被拥有，拆解才能继续升级它；常见无幸存者时
+    // waitForExit 在落定后立即 resolve。
     const release = (): Promise<void> =>
       handle.waitForExit().then(() => { this.live.delete(handle) })
     handle.done.then(release, release)
@@ -157,6 +214,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
   }
 
   // Local PTY allocation is synchronous, but the provider contract permits remote asynchronous allocation.
+  // 本地 PTY 分配是同步的，但提供者契约允许远程异步分配（注释置于 pragma 上方）。
   // oxlint-disable-next-line typescript/require-await -- Preserve promise rejection semantics at the async provider contract.
   async spawnTerminal(spec: SubprocessTerminalSpawnSpec): Promise<SubprocessTerminalHandle> {
     const file = spec.argv[0]
@@ -164,6 +222,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       throw new Error('subprocess-local: terminal argv must contain a program')
     }
     spec.signal?.throwIfAborted()
+    // 组装 node-pty 的 fork 选项：dumb 终端名、尺寸、cwd 与擦除后的环境。
     const options: IPtyForkOptions = {
       name: 'dumb',
       rows: spec.rows,
@@ -175,6 +234,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     const terminal = nodePty.spawn(file, [...spec.argv.slice(1)], options)
     const handle = new LocalTerminalHandle(terminal, inspector, spec.graceMs)
     this.terminals.add(handle)
+    // 句柄落定后终止会话并移出集合（release 内部的 terminate 幂等）。
     const release = async (): Promise<void> => {
       await handle.terminate()
       this.terminals.delete(handle)
@@ -185,6 +245,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
 }
 
 /** Read a Windows environment key using the platform's case-insensitive semantics. */
+/** 读取 Windows 环境键（平台大小写不敏感语义）：精确命中优先，否则按大写比较查找。 */
 function environmentValue(env: NodeJS.ProcessEnv, name: 'PATH' | 'PATHEXT'): string | undefined {
   const exact = env[name]
   if (exact !== undefined || process.platform !== 'win32') return exact

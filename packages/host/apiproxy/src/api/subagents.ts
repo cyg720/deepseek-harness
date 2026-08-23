@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】subagents 域契约（浏览器安全）：持久化转写读取绝不激活 Agent，
+ * 而可续写提示经"确切的实时直属父"路由进子 Agent 的收件箱。
+ * 【技术维度】纯类型契约；SubagentListEntry 是完整持久化直属子目录行（含诊断
+ * 行）；SubagentAddress 是选择客户端子代理传输的持久化父/子地址。
+ * 【产品维度】远程 GUI 的子代理管理：目录列表、历史读取、续写提示与中断。
+ * 【逻辑维度】SubagentListEntry → SubagentPromptReceipt / SubagentInterruptReceipt
+ * → SubagentAddress / SubagentCatalog → SubagentsApi 四个方法。
+ * 【关键边界】list 不加载任一侧；history 不做 Agent 激活；prompt 只接受
+ * continuable 模式并经实时父的续写属主投递；interrupt 以持久化直属父权限授权、
+ * 不要求父 Agent 在线，fire-and-return（accepted 只是受理信号，不代表目标已静止）。
+ * 【新手阅读建议】与 subagents.schema.ts 及 api-proxy.ts 的 subagents 域实现
+ * （catalogChild、subagentPromptError）对照阅读。
+ * ==========================================================================
+ */
+/**
  * Browser-safe subagent domain contract. Persisted transcript reads never
  * activate an Agent, while continuable prompts route through the exact live
  * direct parent into the child's Agent inbox.
@@ -11,6 +27,7 @@ import type { RpcRequest, RpcResponse } from './rpc.ts'
 import type { HistoryEntry, SessionProjectionsBlock } from './sessions.ts'
 
 /** Complete durable direct-child catalog row. */
+// 完整的持久化直属子目录行：健康子（one-shot/continuable）或诊断行。
 export type SubagentListEntry =
   | {
     kind: 'child'

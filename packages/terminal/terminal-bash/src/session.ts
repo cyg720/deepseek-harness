@@ -1,4 +1,24 @@
 /** Persistent PTY session over the subprocess seam's terminal primitive. */
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 TerminalBackendSession：LocalPtySession 把子进程缝的终端句柄
+ * （SubprocessTerminalHandle）包装为一次一个排他发送的后端会话——净化输出、滚动区
+ * 缓冲、就绪轮询（提示符标记/前台组/静默）、信号、关闭与传输失败处理。
+ * 【技术维度】TerminalSanitizer 净化控制序列并识别 OSC 提示符标记；BoundedTextBuffer
+ * 做行/字节双上限的滚动区与操作输出缓冲；就绪判定经 pollReadiness（提示符 + 前台组
+ * 归属 + 静默/精确 syscall 探测）；LocalSendOperation 携带"写前前台组"证据以区分
+ * 真正的 stdin 等待。
+ * 【产品维度】持久化终端会话的核心逻辑：模型发送文本后可靠知道"命令完成/等待输入/
+ * 超时/会话退出"，输出不爆内存，传输故障会终止会话并拒绝悬挂。
+ * 【逻辑维度】构造（输出事件接线）→ initialize/startSend → beginSend（写 + 轮询）→
+ * pollReadiness 落定 → closeOnce 拆解 → 传输失败 onTransportFailure。
+ * 【关键边界】每会话至多一个活跃发送（SEND_ACTIVE）；取消经 SIGINT 中断前台组；
+ * 关闭期间保留活跃操作并以 session_exit 落定（不得误落定为 stdin_read 等）；
+ * promptSeen 只在 bash 拥有前台时才被轮询接受（防子进程伪造标记）。
+ * 【新手阅读建议】先看 LocalSendOperation 的 acceptsStdinWait（写前前台组证据），
+ * 再看 pollReadiness 的四条落定路径，最后看 closeOnce 的保留式落定。
+ * ==========================================================================
+ */
 
 import { Buffer } from 'node:buffer'
 import type {
@@ -23,6 +43,7 @@ import type {
 import type { ResolvedConfig } from './config.ts'
 import { CONTROLLED_PROMPT, TerminalSanitizer } from './sanitize.ts'
 
+/** 按 UTF-8 字节上限取文本尾部（不切半字符），并报告是否截断。 */
 function utf8Tail(text: string, maxBytes: number): { text: string; truncated: boolean } {
   if (Buffer.byteLength(text) <= maxBytes) return { text, truncated: false }
   const chars = Array.from(text)
@@ -37,6 +58,7 @@ function utf8Tail(text: string, maxBytes: number): { text: string; truncated: bo
   return { text: chars.slice(start).join(''), truncated: true }
 }
 
+/** 行数 + 字节数双上限的文本缓冲（滚动区与操作输出共用）。 */
 class BoundedTextBuffer {
   private value = ''
   private dropped = false
@@ -46,6 +68,7 @@ class BoundedTextBuffer {
     private readonly maxLines?: number,
   ) {}
 
+  /** 追加文本：先按行数裁剪旧行，再按字节取尾部；被丢弃时置 dropped。 */
   append(text: string): void {
     if (text.length === 0) return
     this.value += text
@@ -61,6 +84,7 @@ class BoundedTextBuffer {
     this.dropped ||= tail.truncated
   }
 
+  /** 消耗式读取：清空缓冲并返回增量与截断标志（供后台 readOutput 使用）。 */
   consume(): TerminalSendRead {
     const delta = this.value
     const truncated = this.dropped
@@ -69,11 +93,13 @@ class BoundedTextBuffer {
     return { delta, truncated }
   }
 
+  /** 快照式读取（不消耗）。 */
   snapshot(): { text: string; truncated: boolean } {
     return { text: this.value, truncated: this.dropped }
   }
 }
 
+/** 一次发送操作的后端实现：携带输出缓冲、落定/失败状态、取消与"写前前台组"证据。 */
 class LocalSendOperation implements TerminalSendOperation {
   private readonly output: BoundedTextBuffer
   private readonly promise: PromiseWithResolvers<TerminalSendResult>
@@ -104,10 +130,12 @@ class LocalSendOperation implements TerminalSendOperation {
     return this.cancellationRequested
   }
 
+  /** 追加操作输出（落定后忽略）。 */
   append(text: string): void {
     if (!this.finished) this.output.append(text)
   }
 
+  /** 以给定等待原因、会话状态与继承截断落定（只落定一次）。 */
   settle(waitReason: TerminalWaitReason, sessionStatus: TerminalSessionStatus, inheritedTruncation: boolean): void {
     if (this.finished) return
     this.finished = true
@@ -120,6 +148,7 @@ class LocalSendOperation implements TerminalSendOperation {
     })
   }
 
+  /** 失败落定（只落定一次）。 */
   fail(error: unknown): void {
     if (this.finished) return
     this.finished = true
@@ -130,20 +159,29 @@ class LocalSendOperation implements TerminalSendOperation {
     return this.output.consume()
   }
 
+  /** 记录写前的初始前台组与"是否已离开等待"，供 acceptsStdinWait 判定。 */
   setInitialForeground(foreground: SubprocessTerminalForeground | undefined): void {
     this.initialForegroundPgid = foreground?.processGroupId
     this.initialForegroundLeftWait = foreground?.inputWaiting !== true
   }
 
+  /**
+   * 判断一次前台组的 stdin 等待是否可接受为"命令等待输入"：同一组在写前可能已存在
+   * 等待，必须观察到它先离开（initialForegroundLeftWait）再回来，才能证明是写后的
+   * 新等待。
+   */
   acceptsStdinWait(pgid: number, waiting: boolean): boolean {
     // The same group may still expose the wait that existed before terminal.write.
     // Observe every poll so a departure before the exact-settlement threshold
     // still makes a later return to that wait post-write evidence.
+    // 同一组可能仍暴露写前就存在的等待；每次轮询都观察，使精确落定阈值前的一次离开
+    // 仍能成为其后回归该等待的写后证据。
     if (pgid !== this.initialForegroundPgid) return waiting
     if (!waiting) this.initialForegroundLeftWait = true
     return waiting && this.initialForegroundLeftWait
   }
 
+  /** 请求取消（SIGINT）；落定后返回 false。 */
   cancel(): boolean {
     if (this.finished) return false
     this.cancellationRequested = true
@@ -153,6 +191,7 @@ class LocalSendOperation implements TerminalSendOperation {
 }
 
 /** Backend session wrapping one provider-owned terminal process. */
+/** 包装一个提供者自有终端进程的后端会话。 */
 export class LocalPtySession implements TerminalBackendSession {
   motd = ''
   readonly pid: number

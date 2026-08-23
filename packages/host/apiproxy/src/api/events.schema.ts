@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】events 域的 zod schema：MuxFrame / HostFrame 两个帧联合
+ * （discriminatedUnion('type')）的运行时校验。帧是 ServerRequest 完整形式的
+ * payload 槽；session/event 帧内的 SessionEvent 复用 sessions.schema 的
+ * "严格信封 + 宽 data 透传"分支。
+ * 【技术维度】askUserQuestionItemSchema 严格对照核心 dsh-user-questions；帧的
+ * 投射值（session/projection）与远程事件参数（host/remote-event）保持宽类型——
+ * 它们已在宿主侧通过各自 schema，深校验会导入全部域 schema 进载体。
+ * 【产品维度】客户端对 mux/host 流的每一帧在线上边界做确定性校验，未知帧类型
+ * 被拒绝而非静默泛化渲染。
+ * 【逻辑维度】问题项 schema → 队列消息信封 → MuxFrame 联合（事件/订阅/审批/
+ * 提问/队列/任务/投影/流错误）→ HostFrame 联合（会话/状态/工作区/远程事件）。
+ * 【关键边界】question/requested 的 questions 数组非空（线上契约：核心在
+ * ask() 拒绝空批次）；session/queue 的 placement 三值枚举；host/session-added
+ * 携带谱系锚点、来源、cwd 与空白位。
+ * 【新手阅读建议】与 events.ts 的帧类型对照阅读，理解"类型 + schema"互为镜像
+ * 的维护方式。
+ * ==========================================================================
+ */
+/**
  * events domain zod schemas: MuxFrame / HostFrame unions (discriminatedUnion('type')).
  * A frame is the payload slot of the ServerRequest full form; the SessionEvent inside
  * a session/event frame reuses sessions.schema's strict-envelope + wide-data passthrough branch.

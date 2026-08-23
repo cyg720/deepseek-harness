@@ -1,4 +1,26 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】koffi 背书的 Win32 绑定：文件夹对话框背后的 COM vtable 调用与
+ * 驱动用来服务取消的跨线程窗口关闭器。模块在每个平台都会加载，但 koffi 只在
+ * 各函数内部惰性导入——非 Windows 进程绝不加载它（与仓库其他 win32.ts 模块
+ * 相同的隔离）。
+ * 【技术维度】这里的 COM 表面（IModalWindow/IFileDialog/IFileOpenDialog 与
+ * IShellItem 的 vtable 顺序、GUID、FOS_* 与 SIGDN_FILESYSPATH）自 Vista 起就是
+ * 冻结的 Windows ABI；槽位是对象首指针之后 vtable 的偏移；UTF-16 出参直接读
+ * 内存而非 koffi.decode 解引用（后者会崩溃）。
+ * 【产品维度】Windows 现代目录选择器的底层：无 shell、无 PowerShell 兜底，
+ * 直接 COM 对话。
+ * 【逻辑维度】koffi 类型桩 → UTF-16 读取 → 常量（COM/DPI/WM_CLOSE/vtable 槽位）
+ * → GUID 编码 → loadWin32DialogBindings（懒载 koffi、绑定函数、装配对话框表面）
+ * → closeThreadWindows（枚举线程窗口并投递 WM_CLOSE）。
+ * 【关键边界】DPI 感知尽力而为（宿主不接受任何上下文或 API 缺失仍显示现代对
+ * 话框，至多高缩放下模糊）；ia32/x64 的指针宽度由 koffi.sizeof 报告，vtable
+ * 槽位偏移据此计算。
+ * 【新手阅读建议】先读常量与槽位注释，再看 loadWin32DialogBindings 的函数绑定
+ * 与对话框表面装配，最后读 closeThreadWindows 的取消杠杆。
+ * ==========================================================================
+ */
+/**
  * koffi-backed Win32 bindings for the folder dialog: the COM vtable calls
  * behind {@link Win32DialogBindings} plus the cross-thread window closer the
  * driver uses to service aborts. The module loads on every platform; koffi
@@ -34,6 +56,9 @@ interface Koffi {
  * `koffi.decode(addr, 'str16')` would dereference it as a pointer — crash
  * on real Windows — so view the memory directly instead.
  */
+// 在原生地址读取 NUL 结尾的 UTF-16 字符串：koffi 的 _Out_ void** 出参浮现的是
+// 原始地址，koffi.decode(addr, 'str16') 会把它当指针解引用（在真实 Windows 上
+// 崩溃），因此改为直接查看内存。
 function readUtf16(koffi: Koffi, address: unknown): string {
   const bytes = Buffer.from(koffi.view(address, 32768))
   let end = 0
@@ -51,16 +76,22 @@ const SIGDN_FILESYSPATH = 0x80058000 | 0
  * cascades to the best one the host accepts; DPI stays a cosmetic
  * best-effort — an unsupported host still gets the modern dialog.
  */
+// 线程 DPI 感知上下文（从优到劣）：per-monitor-v2（Win10 1703+）、per-monitor
+// （1607+）、system-aware。SetThreadDpiAwarenessContext 对不支持的上下文返回
+// NULL 而非抛错，调用方级联取宿主接受的最佳者；DPI 只是尽力而为的观感——
+// 不支持的宿主仍获得现代对话框。
 const DPI_AWARENESS_CONTEXTS = [-4, -3, -2]
 const WM_CLOSE = 0x10
 
 /** IFileOpenDialog vtable slots (IUnknown 0-2, IModalWindow 3, IFileDialog 4+). */
+// IFileOpenDialog 的 vtable 槽位（IUnknown 0-2、IModalWindow 3、IFileDialog 4+）。
 const SLOT_RELEASE = 2
 const SLOT_SHOW = 3
 const SLOT_SET_OPTIONS = 9
 const SLOT_SET_TITLE = 17
 const SLOT_GET_RESULT = 20
 /** IShellItem vtable slot for `GetDisplayName`. */
+// IShellItem 的 GetDisplayName vtable 槽位。
 const SLOT_GET_DISPLAY_NAME = 5
 
 /**
@@ -68,6 +99,8 @@ const SLOT_GET_DISPLAY_NAME = 5
  * @param text - the `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` form.
  * @returns the in-memory GUID bytes CoCreateInstance expects.
  */
+// 把规范 GUID 字符串编码为 16 个 little-endian 字节（CoCreateInstance 期望的
+// 内存形态）。
 function guidBytes(text: string): Buffer {
   const match = /^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})$/i.exec(text) as RegExpExecArray
   const bytes = Buffer.alloc(16)
@@ -85,6 +118,9 @@ const IID_IFILE_OPEN_DIALOG = guidBytes('d57c7288-d4ad-4768-be02-9d969532d960')
  * Load koffi and expose the dialog bindings for this thread.
  * @returns the bindings {@link runFolderDialog} sequences against.
  */
+// 惰性加载 koffi 并为本线程暴露对话框绑定：绑定 ole32/user32/kernel32 的函数，
+// 用指针宽度计算 vtable 槽位偏移，装配 createFolderDialog 表面（含 DPI 感知、
+// COM 初始化/反初始化、线程 id、结果路径读取与释放）。
 export async function loadWin32DialogBindings(): Promise<Win32DialogBindings> {
   const koffi = (await import('koffi')).default as unknown as Koffi
   const ole32 = koffi.load('ole32.dll')
@@ -177,6 +213,8 @@ export async function loadWin32DialogBindings(): Promise<Win32DialogBindings> {
  * `HRESULT_CANCELLED` and the worker unwinds normally.
  * @param threadId - the dialog thread's native id (from the `showing` notice).
  */
+// 向某原生线程的全部窗口投递 WM_CLOSE——驱动针对阻塞在 Show 内的子进程的取消
+// 杠杆；此后 Show 返回 HRESULT_CANCELLED，子进程正常收尾。
 export async function closeThreadWindows(threadId: number): Promise<void> {
   const koffi = (await import('koffi')).default as unknown as Koffi
   const user32 = koffi.load('user32.dll')

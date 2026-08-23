@@ -1,4 +1,25 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】Win32 文件夹对话框的主线程驱动：派生子进程（阻塞在模态 Show
+ * 内），把其消息协议映射为 promise，并通过向对话框线程的窗口投递 WM_CLOSE
+ * 服务取消，直到子进程回报。真实进程/窗口表面可注入，因此驱动每条路径都能
+ * 在任何平台测试。
+ * 【技术维度】子进程消息协议：showing（带线程 id，供取消杠杆）→ done/error；
+ * 取消服务按 CLOSE_RETRY_MS 周期重投 WM_CLOSE，超预算（CLOSE_MAX_ATTEMPTS）
+ * 后 kill 子进程兜底；worker.unref() 保证卡在原生模态调用里的子进程不会阻塞
+ * 进程退出。
+ * 【产品维度】Windows 上的现代目录选择器：与桌面一致的体验，且事件循环保持
+ * 活跃、可被远程调用方取消。
+ * 【逻辑维度】进程表面接口（Win32DialogWorkerLike）→ 可注入内部件 → 常量 →
+ * pickWin32Directory（信号预检 → spawn → 消息/错误/退出监听 → 取消服务）。
+ * 【关键边界】showing 通知先于阻塞 Show，首次 WM_CLOSE 可能与窗口创建竞速，
+ * 因此取消预算无条件运行（abort 先于 showing 也以 kill 收尾，绝不让 promise
+ * 悬空）；settle 只执行一次；对话框标题固定为 Select Workspace Directory。
+ * 【新手阅读建议】先读 Win32DialogWorkerLike 与消息协议，再读 pickWin32Directory
+ * 的 settle/取消服务两条路径。
+ * ==========================================================================
+ */
+/**
  * Main-thread driver for the Win32 folder dialog: spawns the dialog child
  * process (which blocks inside the modal `Show`), maps its message protocol
  * onto a promise, and services aborts by posting `WM_CLOSE` to the dialog
@@ -10,6 +31,7 @@ import { closeThreadWindows as hostCloseThreadWindows, spawnDialogWorker } from 
 import type { Win32DialogWorkerData, Win32DialogWorkerMessage } from './win32-dialog-worker.ts'
 
 /** The child-process surface the driver drives (satisfied by `node:child_process`). */
+// 驱动操作的子进程表面（由 node:child_process 满足）。
 export interface Win32DialogWorkerLike {
   /**
    * Subscribe to a child-process event.
@@ -43,14 +65,18 @@ export interface Win32DialogInternals {
 }
 
 /** The dialog title every host shows. */
+// 所有宿主显示的对话框标题。
 export const DIALOG_TITLE = 'Select Workspace Directory'
 
 /** `WM_CLOSE` re-post cadence while an abort waits for the worker to unwind. */
+// 取消等待子进程收尾期间重投 WM_CLOSE 的周期。
 const CLOSE_RETRY_MS = 150
 /** Abort-service attempts before force-terminating the worker. */
+// 强制终止子进程前的取消服务尝试次数上限。
 const CLOSE_MAX_ATTEMPTS = 20
 
 /** Fail loudly if the closed worker-to-driver union gains an unhandled member. */
+// 封闭联合兜底：子进程消息种类新增而未处理时编译失败并抛错。
 /* v8 ignore start -- closed-union backstop; unreachable without a TypeScript contract violation */
 function assertNever(value: never): never {
   throw new TypeError(`unknown win32 dialog worker message kind: ${String(value)}`)
@@ -63,6 +89,9 @@ function assertNever(value: never): never {
  * @param internals - Worker/window hooks for deterministic tests.
  * @returns the selected path, or null when the user cancels.
  */
+// 在事件循环之外打开现代 Win32 文件夹选择器：spawn 对话框子进程，监听其
+// showing/done/error 消息与 error/exit 事件，settle 只结算一次；abort 触发
+// 取消服务（周期重投 WM_CLOSE，超预算后 kill 兜底）并以取消错误拒绝。
 export async function pickWin32Directory(
   signal: AbortSignal,
   internals: Win32DialogInternals = {},

@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】host 域的 zod schema 集合（名字从地图键派生）：describe /
+ * pickDirectory / listDirectory / createDirectory / openPath 的请求载荷与
+ * 响应值校验。
+ * 【技术维度】satisfies Wire<> 对齐契约类型；createDirectory 用 refine 强制目录
+ * 名是单个非空路径段（禁止 . / .. 与斜杠）。
+ * 【产品维度】宿主面板（快照/目录选择/目录浏览/新建文件夹/打开路径）的数据
+ * 校验。
+ * 【逻辑维度】describe → pickDirectory（path 可空 = 用户取消）→ 目录行/列表 →
+ * createDirectory（单段名校验）→ openPath。
+ * 【关键边界】pickDirectory 的 path 允许 null（用户取消）；createDirectory 的
+ * name 必须是单个非空路径段；openPath 的 path 最小长度 1。
+ * 【新手阅读建议】与 host.ts 契约及 api-proxy.ts 的 host 域实现对照。
+ * ==========================================================================
+ */
+/**
  * host domain zod schemas (names derived from map keys).
  */
 
@@ -8,6 +24,7 @@ import type { RequestPayload, ResponseValue } from './rpc-map.ts'
 import type { Wire } from './rpc.schema.ts'
 
 /** host.describe request payload (empty object literal). */
+// host.describe 请求载荷（空对象字面量）。
 export const hostDescribeRequestSchema = z.object({}) satisfies z.ZodType<Wire<RequestPayload<'host.describe'>>>
 
 /** host.describe response value. */

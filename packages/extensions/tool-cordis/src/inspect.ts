@@ -1,4 +1,24 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】cordis_runtime_inspect 工具的文本渲染层：把"运行期事实"（服务存储、
+ *             插件注册表）与"能力目录"（生成自 api-catalog.ts）联接成人类可读的
+ *             分段报告——services/plugins/tools/temporary/api/events 各节。
+ * 【技术维度】liveImpls 从 ctx.reflect.store 读取服务注册（含 Fiber 归属与状态）；
+ *             目录数据来自 api-catalog.ts 的生成条目；FiberState 镜像（fiber-state.ts）
+ *             提供状态文案；report 只读，不产生任何副作用。
+ * 【产品维度】让模型在写插件前快速掌握当前运行时：有哪些服务/插件/工具、动态包
+ *             状态如何、某个服务的准确签名与类型形状，避免靠猜调用 API。
+ * 【逻辑维度】liveImpls/liveServices 取数 → withinFiber/providedServices/missingServices
+ *             归属与缺失判定 → describe* 系列分节渲染（services/plugins/tools/
+ *             dynamic/api/events）→ typeClosure/serviceLines 细节渲染。
+ * 【关键边界】全部只读；动态包信息按 agent 会话作用域；目录与运行期不一致时保留
+ *             未收录项并标注"运行中但目录无签名"。
+ * 【新手阅读建议】先看 liveImpls 与 liveServices 理解"运行期 × 目录"联接，再看
+ *             describeApi 与 describeDynamic 两个最大的分节。
+ * ==========================================================================
+ */
+
+/**
  * Text renderers for `cordis_runtime_inspect`. Live facts come from the service store and
  * the plugin registry; what each service CAN DO comes from the generated
  * `api-catalog.ts`. This module owns the join of the two plus presentation: which
@@ -17,6 +37,10 @@ import type { EventApiEntry, InheritedApiEntry, ServiceApiEntry, ServiceApiMetho
 import { FiberState, STATE_LABELS } from './fiber-state.ts'
 
 /** One live service joined with what the generated catalog knows about it. */
+/**
+ * 一个运行中的服务与其目录知识的联接结果：名称、提供者 Fiber、生命周期状态、
+ * 目录摘要与方法签名（目录未收录时方法为空且 catalogued 为 false）。
+ */
 interface LiveService {
   /** The `ctx.<name>` key. */
   name: string
@@ -33,6 +57,9 @@ interface LiveService {
 }
 
 /** The live service registrations, read from the reflect store. */
+/**
+ * 从反射存储读取所有活的服务注册：store 是对象，用自身符号键枚举每个实现记录。
+ */
 function liveImpls(ctx: Context): { name: string; fiber: Fiber }[] {
   const store = ctx.reflect.store
   return Object.getOwnPropertySymbols(store)
@@ -47,6 +74,7 @@ function liveImpls(ctx: Context): { name: string; fiber: Fiber }[] {
  * thing.
  */
 function plainSummary(summary: string): string {
+  // 去掉 JSDoc 的 {@link Foo.bar} 链接语法（报告是阅读文本而非编译产物，保留裸符号即可）
   return summary.replace(/\{@link\s+([^}]+)\}/g, '$1')
 }
 
@@ -55,6 +83,10 @@ function plainSummary(summary: string): string {
  * RUNNING comes from the store, what each service CAN DO comes from the catalog,
  * and a live service the catalog does not cover stays in the list as reachable
  * with no signatures rather than being dropped.
+ */
+/**
+ * 联接运行期与目录：每个活服务一行，带提供者名、生命周期状态、目录摘要与签名；
+ * 目录未收录的活服务保留在列表中（无签名）而非丢弃。
  */
 function liveServices(ctx: Context, api: readonly ServiceApiEntry[]): LiveService[] {
   const catalogued = new Map(api.map(entry => [entry.key, entry]))
@@ -74,6 +106,9 @@ function liveServices(ctx: Context, api: readonly ServiceApiEntry[]): LiveServic
 }
 
 /** Catalogued services with no live provider: loadable in principle, absent here. */
+/**
+ * 目录已收录但当前没有活提供者的服务：原则上可加载、此处未运行。
+ */
 function absentServices(ctx: Context, api: readonly ServiceApiEntry[]): string[] {
   const live = new Set(liveImpls(ctx).map(impl => impl.name))
   return api.filter(entry => !live.has(entry.key)).map(entry => entry.key).sort()
@@ -84,6 +119,9 @@ function absentServices(ctx: Context, api: readonly ServiceApiEntry[]): string[]
  * @param fiber - the fiber to locate.
  * @param root - the subtree root to test against.
  * @returns true when `fiber` belongs to that subtree.
+ */
+/**
+ * 判断 fiber 是否就是 root 本身或挂载在 root 子树内的任意位置（沿 parent 链上溯）。
  */
 export function withinFiber(fiber: Fiber, root: Fiber): boolean {
   let current = fiber
@@ -101,6 +139,9 @@ export function withinFiber(fiber: Fiber, root: Fiber): boolean {
  * @param fiber - the root of the mounted fiber subtree.
  * @returns the provided service names in lexical order.
  */
+/**
+ * 某次挂载（fiber 子树）提供的全部服务名：取其子树内所有活服务实现，按字典序返回。
+ */
 export function providedServices(ctx: Context, fiber: Fiber): string[] {
   return liveImpls(ctx)
     .filter(impl => withinFiber(impl.fiber, fiber))
@@ -116,6 +157,10 @@ export function providedServices(ctx: Context, fiber: Fiber): string[] {
  * @param fiber - the fiber whose `inject` declarations are checked.
  * @returns the missing service names, in declaration order.
  */
+/**
+ * 某 fiber 声明但尚不存在的服务名：已挂载未激活的 fiber 恰好等这些服务
+ * （Cordis 语义：服务出现时自动激活）。
+ */
 export function missingServices(ctx: Context, fiber: Fiber): string[] {
   return Object.keys(fiber.inject).filter(service => ctx.get(service) === undefined)
 }
@@ -127,6 +172,10 @@ export function missingServices(ctx: Context, fiber: Fiber): string[] {
  * @param ctx - the runtime to enumerate.
  * @param api - the generated service entries whose summaries annotate the live ones.
  * @returns one line per service, or a single placeholder line when none are provided.
+ */
+/**
+ * 渲染 services 分节：每个活服务一行（提供者 + 状态 + 目录摘要）；api 分节才带签名，
+ * 本分节回答"存在什么、谁提供的"。
  */
 export function describeServices(ctx: Context, api: readonly ServiceApiEntry[] = SERVICE_API): string[] {
   const live = liveServices(ctx, api)
@@ -146,6 +195,10 @@ export function describeServices(ctx: Context, api: readonly ServiceApiEntry[] =
  * @param ctx - the runtime whose registry is enumerated.
  * @returns one line per loaded plugin fiber.
  */
+/**
+ * 渲染 plugins 分节：注册表里每个 Fiber 一行（含生命周期状态），按插件名排序；
+ * 同一插件多次挂载会重复出现（每个实例一行）。
+ */
 export function describePlugins(ctx: Context): string[] {
   const fibers: Fiber[] = []
   for (const runtime of ctx.registry.values()) {
@@ -164,6 +217,10 @@ export function describePlugins(ctx: Context): string[] {
  * @param scope - the calling agent (the viewing scope); omitted = global view.
  * @returns one line per visible tool.
  */
+/**
+ * 渲染 tools 分节：当前调用 agent 可见的工具名（其作用域层对受限全局工具集的
+ * 遮蔽/合并结果），是工具描述里"你能调什么"的诚实答案。
+ */
 export function describeTools(ctx: Context, scope?: ScopeKey): string[] {
   return ctx.tools.schemas(scope).map(schema => `- ${schema.name}`)
 }
@@ -176,6 +233,10 @@ export function describeTools(ctx: Context, scope?: ScopeKey): string[] {
  * @param ctx - the runtime the packages live in.
  * @param agent - the calling agent; without one there is no definition space to report.
  * @returns one line per package, or a single placeholder line when none exist.
+ */
+/**
+ * 渲染 temporary 分节：每个动态包一行，含当前/目标版本、活动运行、两端提供/等待、
+ * 注册的 Host 方法与最近渲染失败；无动态包时给出"仅进程内存"的说明行。
  */
 export function describeDynamic(ctx: Context, agent?: Agent): string[] {
   const rows = agent === undefined ? [] : ctx.dynamicCordisRunner.snapshot(agent)
@@ -213,6 +274,8 @@ export function describeDynamic(ctx: Context, agent?: Agent): string[] {
  * by the seed texts — the runtime scoping that keeps the `api` section to the
  * shapes the LIVE signatures actually mention.
  */
+// 类型形状的传递闭包：从种子文本出发，反复把被引用（词边界匹配）的类型声明加入，
+// 直到不再新增——保证 api 分节只包含活签名真正提到的类型形状
 function typeClosure(seeds: string[], types: readonly TypeApiEntry[]): TypeApiEntry[] {
   const included = new Map<string, TypeApiEntry>()
   let frontier = seeds
@@ -232,6 +295,10 @@ function typeClosure(seeds: string[], types: readonly TypeApiEntry[]): TypeApiEn
 }
 
 /** Render one live catalogued service; `documented` is non-empty only for an exact-name report. */
+/**
+ * 渲染一个已收录的活服务：服务行 + 每个方法的签名；精确名称报告时额外带上方法的
+ * 描述、参数、返回值与抛出条件。
+ */
 function serviceLines(
   service: LiveService,
   documented: readonly ServiceApiMethod[],
@@ -260,6 +327,10 @@ function serviceLines(
  * @param inherited - inherited `ctx` entries, replaceable in tests.
  * @param types - public type shapes, replaceable in tests.
  * @returns the section lines.
+ */
+/**
+ * 渲染 api 分节：活且已收录的服务带方法签名；精确名称时给结构化契约；未收录的活
+ * 服务、可加载未运行的服务、被引用类型形状、继承 ctx API 依次列出。
  */
 export function describeApi(
   ctx: Context,
@@ -310,6 +381,10 @@ export function describeApi(
  * @param events - the event catalog (the generated one by default; injectable for tests).
  * @param name - exact event name whose signature should include its structured contract; omitted for the compact catalog.
  * @returns the section lines.
+ */
+/**
+ * 渲染 events 分节：每个事件一行（名称/模式/摘要/签名），精确名称时补结构化契约；
+ * 末尾固定附上水瀑布监听器必须调用 next() 的告诫。
  */
 export function describeEvents(events: readonly EventApiEntry[] = EVENT_API, name?: string): string[] {
   let selected = events

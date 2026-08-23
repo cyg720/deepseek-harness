@@ -1,4 +1,20 @@
 /**
+ * ================================ 文件注释 ================================
+ * 【文件职责】goals 域的 zod schema 集合：六个变更动词（create/edit/pause/
+ * resume/complete/clear）的请求载荷与响应值校验。
+ * 【技术维度】纯变更形状：除 clear 外的值 schema 都是 { ref } 回执（clear 是
+ * { cleared }）——当前目标状态完全走 'goal' 会话投影，不经过本域值；edit 用
+ * refine 强制 objective 与 maxGoalRounds 至少其一。
+ * 【产品维度】目标管理界面的数据校验：创建/编辑/暂停/恢复/完成/清除目标，
+ * 回执新 CAS 引用（id + revision）。
+ * 【逻辑维度】goalRefSchema → 共享 { ref } 值 schema → 各动词的请求/值 schema。
+ * 【关键边界】revision 为正整数（CAS 版本号）；edit 至少提供一个可编辑字段；
+ * clear 的值是 { cleared: true } 字面量。
+ * 【新手阅读建议】与 goals.ts 契约及 api-proxy.ts 的 goals 域实现（mutateGoal）
+ * 对照阅读。
+ * ==========================================================================
+ */
+/**
  * goals domain zod schemas. Mutation-only shapes: every value schema is a
  * `{ ref }` acknowledgement (clear: `{ cleared }`) — the current goal state
  * travels exclusively on the 'goal' session projection.
@@ -9,12 +25,14 @@ import type { Wire } from './rpc.schema.ts'
 import type { GoalRef, RequestPayload, ResponseValue } from './index.ts'
 
 /** GoalRef schema. */
+// 目标 CAS 引用：id + 正整数 revision。
 export const goalRefSchema = z.object({
   id: z.string(),
   revision: z.number().int().positive(),
 }) as unknown as z.ZodType<Wire<GoalRef>>
 
 /** Shared `{ ref }` acknowledgement value of every non-clear mutation. */
+// 除 clear 外所有变更动词共用的 { ref } 回执值。
 const goalRefValueSchema = z.object({ ref: goalRefSchema })
 
 /** goal.create request payload. */

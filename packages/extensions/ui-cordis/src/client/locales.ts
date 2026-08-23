@@ -1,8 +1,23 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】Cordis 动态插件 UI 的中英文字典：所有面板/卡片文案的键与两套翻译，
+ *             并向 locale 系统声明本命名空间。
+ * 【技术维度】NS 常量 + zh/en 两个 satisfies 约束的对象（zh 的键派生 CordisKey，
+ *             en 必须与 zh 键完全一致）；声明合并把命名空间注册进 LocaleNamespaceMap。
+ * 【产品维度】让面板/卡片文案跟随用户界面语言切换，文案统一管理、可类型检查。
+ * 【逻辑维度】命名空间 → 中文字典（键集合源头）→ 键类型 → 英文字典。
+ * 【关键边界】键只能在 zh 中增删，en 必须同步；{...} 占位符由调用方替换。
+ * 【新手阅读建议】无需深入：知道"键在 zh 定义、en 对齐"即可。
+ * ==========================================================================
+ */
+
 /** Cordis dynamic-plugin UI dictionaries. */
 
 export const NS = 'cordis'
+// 字典命名空间：本包所有 UI 文案都以 NS 为前缀注册
 
 /** Simplified Chinese Cordis UI messages. */
+/** 简体中文文案表：Cordis UI 的每个展示字符串。 */
 export const zh = {
   'row.defineTitle': '注册 Cordis 插件',
   'row.runTitle': '运行 Cordis 插件',
@@ -56,16 +71,19 @@ export const zh = {
 } satisfies Record<string, string>
 
 /** Translation keys owned by the Cordis UI namespace. */
+/** 本 UI 命名空间拥有的翻译键集合（以 zh 的键为准）。 */
 export type CordisKey = keyof typeof zh
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Dynamic Cordis UI copy. */
+    // 向 locale 系统声明本命名空间及其键，让其他组件可类型安全地引用
     cordis: CordisKey
   }
 }
 
 /** English Cordis UI messages. */
+/** 英文文案表：键与 zh 完全一致，满足类型约束。 */
 export const en = {
   'row.defineTitle': 'Register Cordis Plugin',
   'row.runTitle': 'Run Cordis Plugin',
