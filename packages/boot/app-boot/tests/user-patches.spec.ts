@@ -3,6 +3,14 @@
  * (a profile's `cordis.patch.yml`) and `boot()` applying the user layer over
  * a real Loader tree, kept live through transactional HMR.
  */
+/**
+ * 文件职责：验证用户补丁文件的可选加载、严格解析、启动叠加和事务式HMR更新。
+ * 技术维度：使用Vitest、真实Loader/Include/HMR/Timer插件和临时ESM模块执行集成测试。
+ * 产品维度：允许用户在官方Bundle之后安全自定义配置，并在编辑错误时保留上一份有效运行树。
+ * 逻辑维度：先测试loadOptionalPatches错误与表达式，再用writeTree生成真实树并观察补丁热更新。
+ * 关键边界：不存在文件表示无用户层；存在但不可读或非法必须失败；文件监视测试有10秒期限。
+ * 新手阅读建议：先看加载器的四类输入，再看writeTree生成的插件，最后跟踪HMR成功与失败代际。
+ */
 
 import { mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -21,11 +29,15 @@ import {
   watchUserPatches,
 } from '../src/index.ts'
 
+// 用户补丁错误消息使用的固定测试入口名。
 const NAME = 'dsh-test-bin'
 
+/** 创建用户补丁测试使用的隔离临时目录。 */
 const tmp = (): string => mkdtempSync(join(tmpdir(), 'dsh-user-patches-'))
 
+/** 在10秒内轮询条件，超时后抛出调用者提供的诊断。 */
 async function eventually(test: () => boolean, message: string): Promise<void> {
+  // 轮询允许的绝对截止时间。
   const deadline = Date.now() + 10_000
   while (!test()) {
     if (Date.now() >= deadline) throw new Error(message)
@@ -33,6 +45,7 @@ async function eventually(test: () => boolean, message: string): Promise<void> {
   }
 }
 
+/** 等待chokidar变更节流窗口结束。 */
 const settleChokidarChangeThrottle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 75))
 
 describe('loadOptionalPatches', () => {

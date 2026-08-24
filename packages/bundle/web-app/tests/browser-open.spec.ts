@@ -1,4 +1,12 @@
 /** Default-browser startup over a real Loader tree and listening Web server. */
+/**
+ * 文件职责：验证Web应用仅在真实Loader树稳定且页面可访问后才把规范URL交给默认浏览器。
+ * 技术维度：使用Vitest、真实WebServer/Loader/Include、临时dist和可控浏览器钩子执行端到端启动测试。
+ * 产品维度：避免用户看到未就绪或已失败的页面，并确保自动打开地址使用实际操作系统分配端口。
+ * 逻辑维度：建立临时前端与桥接模块，加载两行配置，等待浏览器钩子内fetch成功后断言URL和状态码。
+ * 关键边界：所有上下文和临时目录在afterEach释放；不调用真实操作系统浏览器。
+ * 新手阅读建议：先看临时cordis.yml两行，再跟随Loader await，最后看openBrowser钩子如何证明页面已就绪。
+ */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -11,9 +19,13 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import WebServer from '@deepseek-ai/dsh-host-webserver'
 import { apply, internals } from '../src/index.ts'
 
+// 当前测试创建并在结束时释放的Cordis上下文。
 const contexts: Context[] = []
+// 当前测试创建并在结束时删除的临时根目录。
 const tempRoots: string[] = []
+// 原始前端dist解析钩子。
 const originalResolveDistIndex = internals.resolveDistIndex
+// 原始默认浏览器交接钩子。
 const originalOpenBrowser = internals.openBrowser
 
 beforeEach(() => {

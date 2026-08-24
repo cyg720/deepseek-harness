@@ -3,6 +3,14 @@
  * the task becomes injected runner config, while help and usage errors leave
  * the consumer pending.
  */
+/**
+ * 文件职责：验证headless命令行提供者通过真实Loader树把位置参数发布为运行器task配置。
+ * 技术维度：使用Vitest、Commander桥接、临时ESM条目和Cordis Loader/Include执行注入顺序测试。
+ * 产品维度：支持自然语言多词任务，并在缺少任务或请求帮助时不启动运行器。
+ * 逻辑维度：bootStartup生成提供者和消费者两行配置，注入内部argv，等待Loader后比较服务、配置、输出和退出码。
+ * 关键边界：空白任务视为缺失；帮助以0退出；所有夹具上下文在afterEach释放。
+ * 新手阅读建议：先看Observed，再跟踪bootStartup生成的cordis.yml，最后比较成功、缺失和帮助三类用例。
+ */
 
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,12 +24,14 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { apply, HEADLESS_STARTUP_SERVICE, type HeadlessStartupValues } from '../src/startup.ts'
 
 /** What one boot of the fixture tree observed. */
+/** 一次夹具启动观察到的退出、输出和运行器配置。 */
 interface Observed {
   exits: number[]
   out: string
   runnerConfig?: unknown
 }
 
+// 已启动夹具树的释放函数列表。
 const disposers: (() => Promise<void>)[] = []
 
 afterEach(async () => {

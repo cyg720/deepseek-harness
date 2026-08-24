@@ -2,6 +2,14 @@
  * The Web command-line provider over a real Loader tree: its ordinary service
  * releases a consumer whose config reads `ctx.webStartup` directly.
  */
+/**
+ * 文件职责：验证Web命令行提供者在真实Loader树中发布服务，并按注入顺序释放读取ctx.webStartup的消费者。
+ * 技术维度：使用Vitest、临时ESM插件、Commander桥接和Cordis Loader/Include执行配置表达式测试。
+ * 产品维度：确保显式Web参数覆盖部署值，省略参数保留消费者默认值，帮助或非法输入不会启动Web条目。
+ * 逻辑维度：bootProvider生成提供者/读取者两行，传入argv并等待Loader，再核对服务值、消费者配置和退出输出。
+ * 关键边界：0.0.0.0和非数字端口被拒绝；帮助不提供服务；每个夹具树在afterEach释放。
+ * 新手阅读建议：先看cordis.yml中的!!js默认表达式，再比较完整参数、空参数和错误参数用例。
+ */
 
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,12 +23,14 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { apply, WEB_STARTUP_SERVICE, type WebStartupValues } from '../src/startup.ts'
 
 /** What one fixture boot observed. */
+/** 一次Web启动夹具观察到的退出码、终端输出和消费者配置。 */
 interface Observed {
   exits: number[]
   out: string
   readerConfig?: unknown
 }
 
+// 已启动夹具上下文的异步释放函数。
 const disposers: (() => Promise<void>)[] = []
 
 afterEach(async () => {

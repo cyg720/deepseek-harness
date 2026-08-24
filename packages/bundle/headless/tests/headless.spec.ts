@@ -1,4 +1,12 @@
 /** Direct one-shot Agent driving, durable aggregation, flushing, and exit mapping. */
+/**
+ * 文件职责：验证headless运行器的一次性代理驱动、持久事件汇总、会话刷新和退出码映射。
+ * 技术维度：使用Vitest、真实代理/会话注册表和脚本化Agent工厂精确控制事件与空闲时机。
+ * 产品维度：确保CLI只打印当前任务最终答案，先持久刷新再退出，并为中止或异常返回失败状态。
+ * 逻辑维度：appendTurn生成会话事件，bench装配服务与假代理，各用例编排任务前后事件并观察输出顺序。
+ * 关键边界：测试替换internals输出流并在afterEach恢复；假代理只实现运行器实际使用的方法。
+ * 新手阅读建议：先看appendTurn的事件序列，再读bench如何创建Agent，最后比较成功、中止和异常用例。
+ */
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -10,14 +18,17 @@ import SessionStore from '@deepseek-ai/dsh-session'
 import type { Session, UserMessage } from '@deepseek-ai/dsh-session'
 import { apply, Config, internals } from '../src/index.ts'
 
+// 测试开始前保存的真实输出流，afterEach用于恢复。
 const originalInternals = { ...internals }
 afterEach(() => { Object.assign(internals, originalInternals) })
 
+/** 控制假代理创建前状态和收到提示后事件的测试脚本。 */
 interface Script {
   before?(session: Session): void
   afterPrompt(session: Session, message: UserMessage): Promise<void> | void
 }
 
+/** 向会话追加一个完整或用户中止的确定性轮次事件序列。 */
 function appendTurn(
   session: Session,
   turn: number,
@@ -48,6 +59,7 @@ function appendTurn(
 }
 
 /** Mount the real registries around a small scripted Agent factory. */
+/** 在脚本化Agent工厂周围挂载真实注册表并返回可运行测试入口。 */
 async function bench(script: Script): Promise<{
   ctx: Context
   run(): Promise<{ code: number; out: string; err: string; order: string[] }>

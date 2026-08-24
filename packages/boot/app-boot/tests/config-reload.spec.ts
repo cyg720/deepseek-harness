@@ -3,6 +3,14 @@
  * HMR contains rejected refreshes; direct callers receive the error after the
  * previous generation has been retained or restored.
  */
+/**
+ * 文件职责：验证启动后Include与Loader树对配置替换执行事务式热重载。
+ * 技术维度：使用Vitest、真实Cordis Loader/Include和临时插件模块制造成功与失败配置代际。
+ * 产品维度：保证错误配置不会破坏仍在服务的上一代插件树，修正后可继续刷新。
+ * 逻辑维度：启动初始树，修改配置并触发直接或HMR刷新，再检查旧代保留、错误传播和新代接管。
+ * 关键边界：直接调用者接收错误，HMR路径容纳错误；每个测试使用独立临时目录。
+ * 新手阅读建议：先读成功替换，再读候选失败时旧代如何保留，最后观察恢复后的再次刷新。
+ */
 
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

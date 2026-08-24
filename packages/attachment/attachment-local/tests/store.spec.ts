@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证本地内容寻址附件存储的目录耐久性、去重、权限、完整性和错误映射。
+ * 技术维度：使用Vitest文件系统模拟、真实临时目录、sharp图片和Node.js权限/摘要API执行存储级测试。
+ * 产品维度：证明附件引用在崩溃、并发写入、文件损坏和部署限制变化后仍保持安全且可诊断。
+ * 逻辑维度：记录目录同步与读取信号，创建临时存储根，再覆盖发布、读取、规范化、取消和故障关闭。
+ * 关键边界：目录fsync用例在Windows跳过；每个临时根在afterEach删除；损坏测试只操作隔离目录。
+ * 新手阅读建议：先看root和parentChainToRoot，再读正常保存往返，最后比较缺失、损坏和发布冲突的错误码。
+ */
 import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { chmod, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
@@ -10,6 +18,7 @@ import type { ImageAttachmentLimits } from '@deepseek-ai/dsh-attachment'
 import type { NormalizationPolicy } from '../src/normalization.ts'
 import { commitPreparedImageFile, prepareImageFile, readImageFile, saveImageFile } from '../src/store.ts'
 
+// 提升到模块模拟之前的可观察文件系统信号记录器。
 const fsControl = vi.hoisted(() => ({
   readSignals: [] as AbortSignal[],
   syncedDirectories: [] as string[],
@@ -34,13 +43,16 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   }
 })
 
+// 固定1×1 PNG字节，供内容寻址和损坏测试重复使用。
 const PNG = Uint8Array.from(Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC',
   'base64',
 ))
 
+// 测试默认使用的规范化长边和字节策略。
 const POLICY: NormalizationPolicy = { maxDimension: 2048, maxBytes: 1024 * 1024 }
 
+// 测试默认使用的来源图片准入限制。
 const LIMITS: ImageAttachmentLimits = {
   maxImageBytes: 1024,
   maxImagesPerMessage: 2,
@@ -50,17 +62,24 @@ const LIMITS: ImageAttachmentLimits = {
   mediaTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
 }
 
+// 当前测试创建的临时根目录，结束后统一删除。
 const roots: string[] = []
 
+/** 创建并记录一个版本化附件存储根。 */
 async function root(): Promise<string> {
+  // 位于系统临时目录的隔离DSH_HOME候选目录。
   const value = await mkdtemp(join(tmpdir(), 'dsh-attachment-'))
   roots.push(value)
   return join(value, 'attachments', 'v1')
 }
 
+/** 从指定目录向文件系统根收集全部父目录。 */
 function parentChainToRoot(path: string): string[] {
+  // 按由近到远顺序积累的父目录列表。
   const parents: string[] = []
+  // 当前向上遍历的绝对目录。
   let level = resolve(path)
+  // 当前卷或文件系统的根路径。
   const root = parse(level).root
   while (level !== root) {
     level = dirname(level)

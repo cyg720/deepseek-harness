@@ -2,6 +2,14 @@
  * The bundle's substance is its patch file: the `dsh.bundle.patch` manifest
  * field must name a real, parseable patch list.
  */
+/**
+ * 文件职责：验证dsh-base Bundle清单指向可解析补丁，并检查核心条目数量、遥测表达式和平台Shell对称门控。
+ * 技术维度：使用Vitest、js-yaml、Include模式和Loader表达式求值读取真实Bundle产物。
+ * 产品维度：确保基础Profile装配完整能力且每个平台只挂载可用Shell栈，不意外携带外部子代理提供方。
+ * 逻辑维度：读取package.json和cordis.patch.yml，解析插入条目，再在模拟win32/linux上下文中求值disabled表达式。
+ * 关键边界：测试直接验证真实清单与补丁；平台门控必须成对对称；不存在独立Windows补丁文件。
+ * 新手阅读建议：先看第一用例如何从清单找到补丁，再看rows提取，最后对照四个Shell条目的平台预期。
+ */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'

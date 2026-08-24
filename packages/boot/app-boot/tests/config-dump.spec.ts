@@ -6,6 +6,14 @@
  * `warn` instead of failing — mirroring the Loader's boot-time warning for a
  * shared overlay whose row exists only on another surface.
  */
+/**
+ * 文件职责：验证renderConfigDump离线组合与真实boot一致，并正确展示表达式、来源分组和跳过警告。
+ * 技术维度：使用Vitest、临时YAML文件和Cordis Include相同解析/补丁算法比较配置输出。
+ * 产品维度：让用户在启动前查看最终配置，并理解每层补丁来源而不执行插件树。
+ * 逻辑维度：构造基础配置及多层补丁，渲染转储，重新解析输出并核对组合结果与警告。
+ * 关键边界：输出必须仍是单个可加载YAML文档；!!js表达式保持原文；不适用补丁只警告。
+ * 新手阅读建议：先看最小转储用例，再关注多来源分组，最后比较离线结果与boot树。
+ */
 
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

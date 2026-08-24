@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证应用启动配置文件及符号链接在HMR监视下的刷新、重命名和恢复行为。
+ * 技术维度：使用Vitest、真实HMR/Loader/Timer插件、临时文件和可选轮询监视执行文件系统集成测试。
+ * 产品维度：让长生命周期前端在配置保存、原子替换或链接切换后可靠加载最新插件树。
+ * 逻辑维度：bootHmr装配真实监视树，各用例修改目标文件或链接并等待上下文状态更新。
+ * 关键边界：文件事件具有平台时序差异，测试使用轮询与等待；所有路径位于临时目录。
+ * 新手阅读建议：先看bootHmr装配，再读普通文件修改，最后研究符号链接目标变化场景。
+ */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

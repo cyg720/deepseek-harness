@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证应用启动胶水的配置路径、环境分层、失败守卫、Loader激活和系统提示来源段。
+ * 技术维度：使用Vitest、临时文件、真实Cordis上下文与可控进程替身执行启动单元和集成测试。
+ * 产品维度：确保所有入口共享一致启动规则，并在配置或插件失败时快速退出且保留清晰诊断。
+ * 逻辑维度：按路径、环境、补丁、失败处理、条目校验和完整boot场景分组测试。
+ * 关键边界：测试会临时修改cwd和process.env，均在用例内恢复；不会启动真实模型服务。
+ * 新手阅读建议：先看resolveConfigPath和loadEnv基础用例，再阅读installFailLoud，最后看boot装配场景。
+ */
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
@@ -11,8 +19,10 @@ import {
   installFailLoud, loadEnv, loadLayeredEnv, loadOverlayPatches, resolveConfigPath, type FailLoudProcess,
 } from '../src/index.ts'
 
+// 所有启动诊断断言使用的固定测试入口名。
 const NAME = 'dsh-test-bin'
 
+/** 创建并返回一个隔离临时目录。 */
 const tmp = (): string => mkdtempSync(join(tmpdir(), 'dsh-app-boot-'))
 
 describe('resolveConfigPath', () => {

@@ -21,6 +21,14 @@
  * plugin Node-resolvable from any profile through the ordinary parent-walk.
  * @module @deepseek-ai/dsh-app-boot/profile
  */
+/**
+ * 文件职责：发现、初始化并组合dsh配置档案及其有序Bundle补丁层，同时维护模块解析回退链接。
+ * 技术维度：使用Node.js同步文件API、createRequire、符号链接和Cordis Include补丁组合实现两锚点模块解析。
+ * 产品维度：允许用户以命名profile复用官方Bundle，再叠加个人插件依赖、补丁文件和启动器临时覆盖。
+ * 逻辑维度：解析profile目录与清单，初始化模板，修复共享node_modules链接，解析Bundle，加载各层并顺序组合条目。
+ * 关键边界：profile名称不得遍历目录；Bundle必须声明dsh.bundle.patch；用户文件不会被初始化流程覆盖。
+ * 新手阅读建议：先看Profile和ProfileLayer数据结构，再读initProfile，随后跟踪loadProfile到composeEntries的顺序。
+ */
 
 import { createRequire } from 'node:module'
 import {
@@ -33,20 +41,26 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { loadOverlayPatches } from './index.ts'
 
 /** Directory under the Harness home holding every profile. */
+/** Harness主目录下保存全部profile的固定目录名。 */
 export const PROFILES_DIR = 'profiles'
 
 /** The user patch layer inside a profile directory (hot-reloaded on long-lived surfaces). */
+/** 每个profile内用户自己的补丁文件名，长生命周期前端会热重载它。 */
 export const PROFILE_PATCH_FILENAME = 'cordis.patch.yml'
 
 /** The bundle half of the `dsh` manifest section: what a bundle package exports. */
+/** Bundle包在package.json的dsh段中导出的补丁元数据。 */
 export interface DshBundleManifest {
   /** The patch layer this bundle exports, relative to its package root. */
+  /** 相对Bundle包根目录的补丁文件路径。 */
   patch: string
 }
 
 /** The profile half of the `dsh` manifest section: what a profile directory composes. */
+/** Profile清单在dsh段中声明的组合元数据。 */
 export interface DshProfileManifest {
   /** Ordered bundle layer list (package names). */
+  /** 按应用顺序排列的Bundle包名列表。 */
   bundles?: string[]
 }
 
@@ -56,42 +70,60 @@ export interface DshProfileManifest {
  */
 export interface DshManifestSection {
   /** Bundle metadata consumed by the profile launcher. */
+  /** Profile启动器读取的可选Bundle导出元数据。 */
   bundle?: DshBundleManifest
   /** Profile metadata consumed by the profile launcher. */
+  /** Profile启动器读取的可选组合元数据。 */
   profile?: DshProfileManifest
 }
 
 /** The slice of package.json both profiles and bundles use. */
+/** Profile目录与Bundle包共同使用的package.json字段子集。 */
 export interface ProfileManifest {
+  /** 可选包或profile名称。 */
   name?: string
+  /** Profile安装或Bundle解析使用的普通依赖。 */
   dependencies?: Record<string, string>
+  /** 需要由宿主提供的对等依赖。 */
   peerDependencies?: Record<string, string>
+  /** dsh拥有的Bundle与Profile元数据段。 */
   dsh?: DshManifestSection
 }
 
 /** One resolved bundle layer of a profile. */
+/** Profile中一个已经解析并加载的Bundle补丁层。 */
 export interface ProfileLayer {
   /** The bundle's package name, as listed in `dsh.profile.bundles`. */
+  /** dsh.profile.bundles中声明的Bundle包名。 */
   packageName: string
   /** Absolute directory of the resolved bundle package. */
+  /** Bundle包解析后的绝对目录。 */
   packageDir: string
   /** Absolute path of the bundle's patch file. */
+  /** Bundle补丁文件的绝对路径。 */
   patchPath: string
   /** The parsed patch list. */
+  /** 从补丁文件解析出的有序补丁列表。 */
   patches: PatchOptions[]
 }
 
 /** A loaded profile: resolved bundle layers plus the user's own patch layer. */
+/** 已加载Profile，由有序Bundle层和最后应用的用户层组成。 */
 export interface Profile {
   /** The profile name (its directory basename). */
+  /** Profile名称，即目录末级名。 */
   name: string
   /** Absolute profile directory. */
+  /** Profile绝对目录。 */
   dir: string
   /** Bundle layers in `dsh.profile.bundles` order. */
+  /** 按清单顺序解析的Bundle层。 */
   layers: ProfileLayer[]
   /** Absolute path of the profile's own patch file. */
+  /** Profile用户补丁文件绝对路径。 */
   patchPath: string
   /** The profile's own patches; empty when the file is absent. */
+  /** 用户自己的补丁列表，文件不存在时为空。 */
   patches: PatchOptions[]
 }
 
@@ -111,19 +143,23 @@ export function resolveProfileDir(name: string, home: string = resolveDshHome())
 }
 
 /** The shipped profile templates auto-initialized on first use, by name. */
+/** 首次使用时自动初始化的官方Profile名称与Bundle组合。 */
 export const PROFILE_TEMPLATES: Record<string, readonly string[]> = {
   web: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
   headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
 }
 
 /** Installation-owned bundle tuples normalized to the shipped template. */
+/** 可识别并迁移到当前官方模板的历史安装方Bundle组合。 */
 const INSTALLATION_OWNED_PROFILE_TUPLES: Record<string, readonly string[]> = {
   headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'],
 }
 
 /** The bundle list a `dsh plugin` init uses for a name with no shipped template. */
+/** dsh plugin初始化非官方名称时使用的默认Bundle列表。 */
 export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-base']
 
+// 新Profile用户补丁文件的说明与空列表模板。
 const PROFILE_PATCH_TEMPLATE = `# Your patch layer for this dsh profile, applied after every bundle layer:
 # a top-level YAML array of loader patch entries (id-targeted config
 # overrides, disables, and insert lists; \`!!js\` expressions allowed).
@@ -135,6 +171,7 @@ const PROFILE_PATCH_TEMPLATE = `# Your patch layer for this dsh profile, applied
 // profiles/node_modules installation fallback, so every plugin shares the
 // installation's single cordis instance instead of a duplicate. pnpm ≥10
 // reads its settings from pnpm-workspace.yaml, not .npmrc.
+// Profile内pnpm工作区使用提升链接器，以便缺失对等依赖回退到安装方共享模块。
 const PROFILE_PNPM_WORKSPACE = `packages:
   - .
 

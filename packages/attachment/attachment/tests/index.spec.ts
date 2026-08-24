@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证AttachmentStore抽象服务的批量准入顺序、限制检查、请求投影默认失败和错误分类。
+ * 技术维度：使用Vitest与两个内存派生类观察模板方法调用序列和稳定错误码。
+ * 产品维度：保证所有附件后端遵守先全量验证再写入的共同语义，并安全声明不支持的请求投影。
+ * 逻辑维度：定义记录型与不支持投影型存储，构造最小图片，再覆盖批量成功、准入失败、写入失败和分类。
+ * 关键边界：测试派生类不执行真实存储；部分对象可能已写入但失败批次不得返回部分引用。
+ * 新手阅读建议：先看RecordingStore如何记录调用，再按saveImages正常和失败用例理解抽象类模板流程。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
 import AttachmentStore, {
@@ -13,6 +21,7 @@ import AttachmentStore, {
   type StoredImageAttachment,
 } from '../src/index.ts'
 
+// 两个测试存储实现共享的严格小额度图片准入限制。
 const LIMITS = {
   maxImageBytes: 4,
   maxImagesPerMessage: 2,
@@ -22,19 +31,28 @@ const LIMITS = {
   mediaTypes: ['image/png'] as const,
 }
 
+/** 记录验证、保存和请求投影调用顺序的内存附件后端。 */
 class RecordingStore extends AttachmentStore {
+  /** 测试后端公布的固定准入限制。 */
   readonly imageLimits = LIMITS
+  /** 按发生顺序记录的验证、保存与请求调用。 */
   readonly calls: string[] = []
+  /** 命中首字节时让验证阶段失败的可选值。 */
   rejectValidationAt: number | undefined
+  /** 命中首字节时让保存阶段失败的可选值。 */
   rejectSaveAt: number | undefined
 
+  /** 验证图片并按首字节记录或制造失败。 */
   async validateImage(input: SaveImageAttachment): Promise<void> {
+    // 用作确定性测试标识的图片首字节，空数据按0处理。
     const value = input.data[0] ?? 0
     this.calls.push(`validate:${value}`)
     if (value === this.rejectValidationAt) throw new Error(`invalid:${value}`)
   }
 
+  /** 保存图片并返回由首字节构造的确定性引用。 */
   async saveImage(input: SaveImageAttachment): Promise<ImageAttachmentRef> {
+    // 用作调用记录与引用摘要的图片首字节。
     const value = input.data[0] ?? 0
     this.calls.push(`save:${value}`)
     if (value === this.rejectSaveAt) throw new Error(`write:${value}`)
@@ -48,10 +66,12 @@ class RecordingStore extends AttachmentStore {
     }
   }
 
+  /** 此测试后端不需要读取，调用即明确失败。 */
   readImage(_ref: ImageAttachmentRef): Promise<StoredImageAttachment> {
     throw new Error('not used')
   }
 
+  /** 记录请求投影并返回引用字段组成的确定性版本。 */
   override readImageRequest(
     ref: ImageAttachmentRef,
     _policy: ImageRequestPolicy,
@@ -72,7 +92,9 @@ class RecordingStore extends AttachmentStore {
   }
 }
 
+/** 仅实现必需存储方法、保留默认请求投影失败行为的后端。 */
 class UnsupportedProjectionStore extends AttachmentStore {
+  /** 测试后端公布的固定准入限制。 */
   readonly imageLimits = LIMITS
 
   validateImage(): Promise<void> {
@@ -88,6 +110,13 @@ class UnsupportedProjectionStore extends AttachmentStore {
   }
 }
 
+/**
+ * 用单字节值构造可区分的最小保存输入。
+ * @param value 同时用于内容和显示名的数字。
+ * @param mediaType 可覆盖的媒体类型。
+ * @returns RecordingStore可处理的保存输入。
+ * @example image(1)
+ */
 function image(value: number, mediaType: ImageMediaType = 'image/png'): SaveImageAttachment {
   return { data: Uint8Array.of(value), mediaType, name: `${value}.png` }
 }

@@ -4,6 +4,14 @@
  * prompt section and bash runtime variables, and readiness publication through
  * the URL line and default-browser handoff.
  */
+/**
+ * 文件职责：验证Web运行时胶水的dist挂载、提示与Shell贡献、LAN信任、URL公告和浏览器子进程处理。
+ * 技术维度：使用Vitest模块模拟、假WebServer、系统提示服务、LaunchEnvironment快照和ChildProcess替身。
+ * 产品维度：保证Web GUI地址、模型上下文和浏览器交接准确，同时不会因SSH或启动器失败误导用户。
+ * 逻辑维度：stageDist准备页面，fakeHttpServer记录fallback，provideLoader控制就绪，再按运行场景检查贡献与日志。
+ * 关键边界：网络接口与spawn均被模拟；每次测试恢复internals和环境变量；不会打开真实浏览器。
+ * 新手阅读建议：先看三个夹具辅助函数，再读正常挂载用例，最后比较SSH抑制和浏览器失败诊断。
+ */
 
 import { EventEmitter } from 'node:events'
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -31,6 +39,7 @@ vi.mock('node:os', async importOriginal => ({
   }),
 }))
 
+// 当前测试暂存的前端dist根目录，结束后删除。
 let dist: string | undefined
 
 beforeEach(() => {
@@ -48,17 +57,22 @@ afterEach(() => {
   dist = undefined
 })
 
+// 测试前保存的真实dist解析钩子。
 const originalResolve = internals.resolveDistIndex
+// 测试前保存的真实浏览器交接钩子。
 const originalOpenBrowser = internals.openBrowser
 
+/** 带可写入stderr流的浏览器启动子进程替身类型。 */
 type BrowserLauncher = ChildProcess & { stderr: PassThrough }
 
 /** Minimal browser-launcher process for the native handoff adapter. */
+/** 构造满足浏览器交接适配器观察字段的最小子进程。 */
 function launcher(): BrowserLauncher {
   return Object.assign(new EventEmitter(), { stderr: new PassThrough() }) as unknown as BrowserLauncher
 }
 
 /** Stage a dist fixture and point the bundle's resolver at it. */
+/** 创建临时index.html并让Bundle解析钩子指向它。 */
 function stageDist(): string {
   dist = mkdtempSync(join(tmpdir(), 'dsh-web-app-'))
   mkdirSync(join(dist, 'dist'))
@@ -69,6 +83,7 @@ function stageDist(): string {
 }
 
 /** A fake webServer capturing the fallback seat and index taps. */
+/** 构造记录fallback席位并提供固定host/port的WebServer替身。 */
 function fakeHttpServer(host: '127.0.0.1' | '0.0.0.0' = '127.0.0.1'): { server: WebServer; seat: () => unknown } {
   let fallback: unknown
   const server = {
@@ -84,6 +99,7 @@ function fakeHttpServer(host: '127.0.0.1' | '0.0.0.0' = '127.0.0.1'): { server: 
 }
 
 /** A fake Loader whose settlement the test controls (the URL line waits on it). */
+/** 在上下文提供可控settlement的最小Loader服务。 */
 function provideLoader(ctx: Context, settle: () => Promise<void> = async () => {}): void {
   ctx.provide('loader', { await: settle } as never)
 }

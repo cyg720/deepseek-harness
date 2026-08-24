@@ -3,6 +3,14 @@
  * profile boot mounts it: Loader holds each row until its injections are
  * active, then resolves that row's config against its injection-ready context.
  */
+/**
+ * 文件职责：验证启动器内部命令行通过真实Loader树到达应用action，并影响后续条目配置解析。
+ * 技术维度：使用Vitest、Commander、临时ESM插件、Cordis Loader/Include和!!js表达式执行集成测试。
+ * 产品维度：确保应用参数覆盖配置值，帮助和错误触发受控退出，且依赖服务未就绪时条目保持等待。
+ * 逻辑维度：定义示例命令与解析器，bootFixture生成两行插件组合，再覆盖成功、错误、帮助和服务顺序。
+ * 关键边界：全局测试桥接变量和输出流在每次测试后恢复；临时插件只委托已导入的真实解析函数。
+ * 新手阅读建议：先看demoCommand与resolveDemo，再跟随bootFixture的两行依赖关系，最后阅读终止型参数用例。
+ */
 
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -19,17 +27,23 @@ import { internals, parseCmdline, provideCmdline } from '../src/index.ts'
 /** Every value one boot of the fixture tree observed. */
 interface Observed {
   /** Config the reading row started with; absent means it never started. */
+  /** 读取条目启动时得到的配置；缺失表示该条目未启动。 */
   started?: Record<string, unknown>
+  /** 启动器收到的受控退出码序列。 */
   exits: number[]
+  /** Commander写入stdout和stderr的合并文本。 */
   out: string
 }
 
 /** A booted fixture tree: what it observed, and its root for direct parser calls. */
 interface Fixture {
+  /** 整个夹具树观察到的状态。 */
   observed: Observed
+  /** 已启动Loader树的根上下文。 */
   ctx: Context
 }
 
+// 所有已启动夹具的异步释放函数，afterEach依次调用。
 const disposers: (() => Promise<void>)[] = []
 
 afterEach(async () => {
@@ -39,12 +53,15 @@ afterEach(async () => {
 })
 
 /** The fixture app's flag family: one `--port` its rows read from the service. */
+/** 构造带--port选项且覆盖直接退出的示例Commander程序。 */
 function demoCommand(): Command {
   return new Command().name('demo').exitOverride().option('--port <port>', 'listen port')
 }
 
 /** The fixture app's action body: the resolved values its rows read. */
+/** 解析并验证示例--port值，返回供应用服务发布的数值。 */
 const resolveDemo = (program: Command): { port?: number } => {
+  // Commander解析出的可选端口字符串。
   const port = program.opts<{ port?: string }>().port
   if (port === undefined) return {}
   if (!/^\d+$/.test(port)) program.error(`error: --port must be a number, got ${JSON.stringify(port)}`)
@@ -52,6 +69,7 @@ const resolveDemo = (program: Command): { port?: number } => {
 }
 
 /** A YAML `!!js` expression node, as the include parses one out of a patch file. */
+/** 构造Include从YAML !!js标签产生的表达式节点。 */
 const expression = (source: string): unknown => ({ __jsExpr: source })
 
 /**
@@ -66,7 +84,9 @@ async function bootFixture(
   resolve: (program: Command) => unknown = resolveDemo,
   options: { objectInject?: boolean; withoutProvider?: boolean } = {},
 ): Promise<Fixture> {
+  // 当前夹具插件文件和cordis.yml所在的临时目录。
   const dir = mkdtempSync(join(tmpdir(), 'dsh-cmdline-'))
+  // 由插件树和Commander输出共同更新的观察状态。
   const observed: Observed = { exits: [], out: '' }
   writeFileSync(join(dir, 'reader.mjs'), `
 export const name = 'reader'
@@ -82,9 +102,11 @@ export const inject = ['cmdlineArgs']
 export function apply(ctx) { return globalThis.__provideDemoArgs(ctx) }
 `)
   writeFileSync(join(dir, 'cordis.yml'), '[]\n')
+  // 把Commander两条输出流合并记录到observed.out的写入器。
   const observing = { write: (chunk: string) => { observed.out += chunk; return true } }
   internals.stdout = observing
   internals.stderr = observing
+  // 临时ESM插件与测试源码之间共享的全局桥接字段。
   const globals = globalThis as unknown as { __observed: Observed; __provideDemoArgs: (ctx: Context) => void }
   globals.__observed = observed
   globals.__provideDemoArgs = (ctx: Context) => {
