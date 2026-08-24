@@ -1,5 +1,12 @@
 /* Block, not inline-flex: consumers wrap full-width list rows and an
  * inline wrapper would shrink them; the card still measures this rect. */
+/* 文件职责：定义悬停预览卡片的定位、复制反馈和无障碍状态样式。
+ * 技术维度：使用 CSS Module、fixed 定位、组件级变量、焦点选择器和视觉隐藏技巧。
+ * 产品维度：让列表项悬停时展示稳定预览，并在复制操作后提供可见与读屏反馈。
+ * 逻辑维度：root 提供定位参照，card 构建浮层，copyable 与 feedback 处理交互反馈，status 服务读屏器。
+ * 关键边界：root 必须保持块级宽度；card 需要可命中以维持 grace close，不能禁用 pointer-events。
+ * 新手阅读建议：先看 root 与 card 的定位关系，再阅读复制焦点、反馈和隐藏状态。 */
+/* 根包装器保持块级宽度，并作为测量悬停目标的相对定位容器。 */
 .root {
   position: relative;
   display: block;
@@ -10,7 +17,9 @@
  * light/dark identical), so a component-level variable, not a theme token.
  * Hit-testable on purpose: resting the pointer on the card holds it open
  * (HoverCard's grace close), which a `pointer-events: none` card cannot do. */
+/* 固定定位预览卡；宽 244px，使用组件固定深色背景和三级阴影，并允许指针停留。 */
 .card {
+  /* 卡片背景常量；设计稿规定两种主题均为同一颜色，因此不进入全局主题令牌。 */
   --dsw-hovercard-bg: #2C2C2E;
   position: fixed;
   z-index: 100;
@@ -22,21 +31,25 @@
   box-shadow: var(--dsw-shadow-lv3);
 }
 
+/* 可复制内容区域；手形光标提示点击会触发复制。 */
 .copyable {
   cursor: pointer;
 }
 
+/* 键盘访问复制区域时显示业务色焦点环。 */
 .copyable:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary);
   outline-offset: 2px;
 }
 
+/* 复制结果反馈容器；水平和垂直居中内容。 */
 .feedback {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* “已复制”可见文案；固定使用适合深色卡片的白色。 */
 .copied {
   color: #FFFFFF;
   font-size: 14px;
@@ -44,6 +57,7 @@
   text-align: center;
 }
 
+/* 读屏状态文本；保留在无障碍树中但压缩到不可见的 1px 区域。 */
 .status {
   position: absolute;
   width: 1px;

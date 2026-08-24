@@ -1,3 +1,10 @@
+/* 文件职责：定义会话消息中图片画廊、缩略图、加载和失败状态的样式。
+ * 技术维度：使用 CSS Module、弹性换行、data 属性变体、对象裁切和主题令牌。
+ * 产品维度：让用户以整齐画廊查看附件，并能点击放大或重试失败图片。
+ * 逻辑维度：gallery 管理排列，frame 管理图片容器，tile 固定缩略图，loading/error 展示状态。
+ * 关键边界：tile 必须保持 64px 网格；普通图片最大宽度受父容器限制，失败项仍可点击。
+ * 新手阅读建议：先看 gallery 对齐变体，再比较 frame 普通与 tile，最后看加载和错误状态。 */
+/* 可换行图片画廊；项目间距 10px，宽度不超过消息容器。 */
 .gallery {
   display: flex;
   flex-wrap: wrap;
@@ -5,16 +12,19 @@
   max-width: 100%;
 }
 
+/* 末端对齐画廊，通常用于用户消息。 */
 .gallery[data-align='end'] {
   justify-content: flex-end;
   align-self: flex-end;
 }
 
+/* 起始对齐画廊，通常用于助手消息。 */
 .gallery[data-align='start'] {
   justify-content: flex-start;
   align-self: flex-start;
 }
 
+/* 可点击图片框；最小点击区域 44px，裁切溢出并显示放大光标。 */
 .frame {
   display: grid;
   flex: 0 0 auto;
@@ -29,6 +39,7 @@
   cursor: zoom-in;
 }
 
+/* 固定网格缩略图变体；四个尺寸属性共同防止弹性布局改变 64px 单元。 */
 .frame[data-variant='tile'] {
   width: 64px;
   height: 64px;
@@ -36,6 +47,7 @@
   min-height: 64px;
 }
 
+/* 图片填满容器并以 cover 保持比例裁切。 */
 .frame img {
   display: block;
   width: 100%;
@@ -43,7 +55,9 @@
   object-fit: cover;
 }
 
+/* 加载与错误提示的共享小号次要文字样式。 */
 .loading,
+/* 可点击错误卡；限制宽度并使用危险悬停背景。 */
 .error {
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
@@ -60,6 +74,7 @@
 }
 
 /* A failed tile keeps the 64px grid cell instead of growing to its copy. */
+/* 失败的 tile 仍保持 64px 网格，不因错误文案增长。 */
 .error[data-variant='tile'] {
   width: 64px;
   height: 64px;

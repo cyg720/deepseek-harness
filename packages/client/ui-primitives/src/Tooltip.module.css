@@ -4,13 +4,21 @@
    one text color across both themes (the plate stays dark in light and dark
    mode). Behavior (fixed positioning off the anchor rect) is local — the
    upstream Floating stack is intentionally not vendored. */
+/* 文件职责：定义无箭头工具提示气泡的定位、尺寸、换行和入场动画。
+ * 技术维度：使用 CSS Module、fixed 定位、data 方位选择器、关键帧和减少动态媒体查询。
+ * 产品维度：为图标和紧凑操作提供清晰说明，同时避免长路径或 URL 超出视口。
+ * 逻辑维度：bubble 提供公共外观，各 data-side 变换对齐锚点，动画与媒体查询控制入场。
+ * 关键边界：气泡不接收指针事件；最大宽度为半个视口，无法断开的文本必须换行。
+ * 新手阅读建议：先看 bubble 的尺寸策略，再比较三个方位变换，最后看动画降级。 */
 
+/* 固定定位气泡；按标签内容取宽，最多占半个视口。 */
 .bubble {
   position: fixed;
   z-index: 100;
   /* Fixed-position shrink-to-fit measures only the space from `left` to the
      viewport edge, so anchors near the right edge would wrap early;
      max-content sizes by the label alone, capped at half the viewport. */
+  /* max-content 只按标签测量宽度，50vw 上限防止靠右锚点导致过早换行或越界。 */
   width: max-content;
   max-width: 50vw;
   padding: 3px 7px;
@@ -21,27 +29,33 @@
   line-height: 20px;
   white-space: pre-line;
   /* Unbreakable tokens (URLs, paths) must not push past max-width. */
+  /* URL 和路径等不可自然断词内容仍必须在最大宽度内换行。 */
   overflow-wrap: break-word;
   pointer-events: none;
   animation: tooltip-in 150ms var(--ds-ease-in-out);
 }
 
+/* 右侧气泡沿自身高度向上移动一半，与锚点垂直居中。 */
 .bubble[data-side='right'] {
   transform: translateY(-50%);
 }
 
+/* 底部气泡沿自身宽度左移一半，与锚点水平居中。 */
 .bubble[data-side='bottom'] {
   transform: translateX(-50%);
 }
 
+/* 顶部气泡同时水平居中并整体上移到锚点上方。 */
 .bubble[data-side='top'] {
   transform: translate(-50%, -100%);
 }
 
+/* 入场动画只改变透明度，定位由方位变换负责。 */
 @keyframes tooltip-in {
   from { opacity: 0; }
 }
 
+/* 用户偏好减少动态效果时完全停用入场动画。 */
 @media (prefers-reduced-motion: reduce) {
   .bubble {
     animation: none;
