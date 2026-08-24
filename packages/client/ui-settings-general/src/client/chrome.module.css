@@ -1,5 +1,13 @@
 /* Trigger row label (the shell's button provides layout/colors; the label
  * only guards against overflow during the sidebar collapse crossfade). */
+/*
+ * 文件职责：限制设置入口行标签在侧栏折叠动画中的文本溢出。
+ * 技术维度：使用 CSS Modules，并以 overflow 与 white-space 控制单行裁切。
+ * 产品维度：侧栏收起的淡出过程中标签不会挤坏按钮布局或突然换行。
+ * 逻辑维度：`.triggerLabel` 隐藏超出容器的部分，并强制文本保持单行。
+ * 关键边界：按钮布局和颜色由外壳提供；此文件只处理标签溢出。
+ * 新手阅读建议：先观察侧栏折叠动画，再在设置入口组件中定位该类名。
+ */
 
 .triggerLabel {
   overflow: hidden;
