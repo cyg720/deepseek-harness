@@ -25,6 +25,15 @@
 // Zero model calls: registering a workspace and opening its blank session are
 // host RPCs with no model involvement. A stray stream would fail loud with
 // NO_ADAPTER.
+// 中文说明：通过故意挂起 session.history 响应，真实观察自动选择工作区期间 Hero 与编辑器是否持续可见。
+/**
+ * 文件职责：验证启动自动选择最近工作区并打开空会话时不会短暂隐藏 Hero、编辑器和页头。
+ * 技术维度：使用 Playwright 网络路由挂起、真实 Host RPC、DOM 身份记录、Vitest 和相位追踪。
+ * 产品维度：避免每次启动出现类似整页刷新的空白闪烁，保持首屏稳定。
+ * 逻辑维度：先注册工作区，重载页面并拦截 history 响应，在请求悬挂期间检查可见性与节点身份。
+ * 关键边界：必须挂起真实网络往返才能形成可观察窗口；零模型调用；重载连接警告需显式确认。
+ * 新手阅读建议：先理解 HISTORY_ROUTE 与 ROOT_PHASE，再读 recordedPhases，最后看路由挂起和释放顺序。
+ */
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
@@ -32,15 +41,19 @@ import { acknowledgeReloadConnectionLoss, launchWebScaffold, watchConsole, type 
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
 /** Wire path of the history round-trip the conversation root waits out (POST /api/session.history). */
+/** 会话根节点启动时等待的 history RPC 路由匹配式。 */
 const HISTORY_ROUTE = '**/api/session.history'
 
 /**
  * The conversation root's own phase attribute. `div` disambiguates it from the
  * composer textarea, which carries an unrelated `data-phase` of its own.
  */
+/** 中文说明：用 div 限定会话根，避免匹配同样带 data-phase 的编辑器文本框。 */
+/** 定位会话根自身阶段属性的选择器。 */
 const ROOT_PHASE = 'div[data-phase]'
 
 /** Every distinct `data-phase` the conversation root shows, in order, across one page load. */
+/** 读取 page 一次加载期间记录的全部不同会话阶段并返回数组。 */
 function recordedPhases(page: Page): Promise<string[]> {
   return page.evaluate(() => (window as unknown as { __conversationPhases: string[] }).__conversationPhases)
 }

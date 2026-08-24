@@ -3,6 +3,15 @@
 // with their marker while user-disabled quadrants stay hidden. A real
 // chromium connects a fresh workspace seeded with all four policy quadrants;
 // no model call is issued, so a stray stream fails loud on the open LLM seam.
+// 中文说明：真实主机按四种调用策略向浏览器斜杠菜单投影技能，场景全程不发起模型请求。
+/**
+ * 文件职责：验证技能的用户调用与模型调用策略组合如何决定斜杠菜单可见性和标记。
+ * 技术维度：使用 Playwright、Vitest、本地 SKILL.md frontmatter、真实技能发现和无障碍快照。
+ * 产品维度：让用户只看到允许手动执行的技能，并识别仅用户可调用而模型不可调用的技能。
+ * 逻辑维度：在临时工作区写入四种策略技能，连接 Web，打开斜杠菜单并比较可见条目与标记。
+ * 关键边界：用户禁用的两个象限必须隐藏；模型禁用但用户启用的技能必须保留专用标记；零模型调用。
+ * 新手阅读建议：先看 SeedSkill 与 SKILLS 四象限，再读 seedSkills，最后对照菜单快照断言。
+ */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -20,16 +29,24 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 技能调用策略菜单的快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skill-invocation-policy', import.meta.url))
+/** 四象限技能菜单的预期快照。 */
 const MENU_EXPECTED = join(SNAPSHOT_DIR, 'menu.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
+/** 描述要写入工作区的一个测试技能及其策略 frontmatter。 */
 interface SeedSkill {
+  /** 技能目录和调用名称。 */
   name: string
+  /** 菜单中显示的技能用途。 */
   description: string
+  /** 控制用户与模型调用权限的 YAML 片段。 */
   frontmatter: string
 }
 
+/** 覆盖共享、仅模型、仅用户和仅受信调用者四种策略组合。 */
 const SKILLS: readonly SeedSkill[] = [
   {
     name: 'policy-shared',

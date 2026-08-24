@@ -9,6 +9,15 @@
 // and no event references the workspace, so the lane replays on any host
 // with a usable `pwsh` — the lane mounts the pwsh stack through an overlay
 // (the shipped tree keeps the bash stack).
+// 中文说明：手写跨平台会话通过覆盖层挂载 pwsh 工具，验证其使用与 bash 一致的终端卡片和退出状态。
+/**
+ * 文件职责：验证 PowerShell 工具调用在 Web 中使用终端卡片展示，而不是通用代码块。
+ * 技术维度：使用 Playwright、Vitest、pwsh 路径解析、组合覆盖和冷注入会话。
+ * 产品维度：让 Windows/PowerShell 用户获得与 bash 一致的命令输出、状态和错误阅读体验。
+ * 逻辑维度：探测 pwsh，可用时启动覆盖组合，注入失败命令记录，再检查终端卡片与状态胶囊。
+ * 关键边界：没有可用 pwsh 或录制模式时自跳过；fixture 不含宿主相关 cwd；不会调用模型。
+ * 新手阅读建议：先看 HAS_PWSH 探测，再看 overlay 如何启动脚手架，最后读终端卡片断言。
+ */
 import { spawnSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -24,12 +33,19 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** PowerShell 会话记录和预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/pwsh-terminal', import.meta.url))
+/** 手写的失败 pwsh 调用会话日志。 */
 const SEED = join(SNAPSHOT_DIR, 'seed.jsonl')
+/** 终端卡片的预期无障碍快照。 */
 const TERMINAL_EXPECTED = join(SNAPSHOT_DIR, 'terminal-card.expected.md')
+/** 用 pwsh 栈替换默认 bash 栈的组合覆盖文件。 */
 const OVERLAY = fileURLToPath(new URL('./pwsh-terminal.overlay.yml', import.meta.url))
+/** fixture 中用户提出的固定命令任务。 */
 const PROMPT = 'Run a PowerShell command that fails, then stop.'
+/** 注入会话时使用的稳定标识。 */
 const SEED_ID = 'pwsh-terminal-web-e2e'
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
 // The overlay swaps the shipped bash executor for @deepseek-ai/dsh-pwsh-local;
@@ -38,14 +54,19 @@ const MODE = webSnapshotMode()
 // resolution (Program Files installs on Windows are found even when bare
 // `pwsh` is not on PATH), the same judgment the tool-pwsh tests reuse; record
 // mode skips the lane anyway, so the probe stays inert there.
+// 中文说明：探测复用执行器的路径解析；录制模式无需本地 pwsh，因此不运行探测。
+/** 表示宿主是否能成功启动非交互式 pwsh。 */
 const HAS_PWSH = MODE === 'record' ? false : spawnSync(
   resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'],
   { encoding: 'utf8' },
 ).status === 0
 
 describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bash terminal-card layout', () => {
+  /** 通过覆盖层提供 pwsh 工具展示的脚手架。 */
   let scaffold: WebScaffold
+  /** 执行真实终端卡片布局的 Chromium 实例。 */
   let browser: Browser
+  /** 当前测试页面。 */
   let page: Page
 
   beforeAll(async () => {

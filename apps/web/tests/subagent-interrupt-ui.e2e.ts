@@ -10,6 +10,15 @@
 // (claiming the overridden primary) and the parent's one UI prompt — needed
 // so the non-blank parent renders its header catalog — binds to a derived
 // child fixture afterwards.
+// 中文说明：子代理先占用可挂起的主回放脚本，父会话随后绑定派生脚本，从而稳定验证编辑器停止与恢复队列。
+/**
+ * 文件职责：验证子代理编辑器中的发送与停止按钮共存，并通过 subagent.interrupt 中止正在运行的可续接子代理。
+ * 技术维度：使用 Playwright、Vitest、挂起回放条目、真实 RPC/SSE、会话事件和无障碍快照。
+ * 产品维度：让用户能停止后台子代理而不丢失已排队跟进，并在稍后发送时按顺序恢复。
+ * 逻辑维度：先挂起子回合，排入跟进，点击停止，确认中止与离线编辑器，再发送唤醒消息推进队列。
+ * 关键边界：必须调用 subagent.interrupt 而非 session.cancel；挂起脚本按首次调用绑定；清理需释放临时文件。
+ * 新手阅读建议：先读各消息常量与 waitForAbortedTurn，再看回放绑定说明，最后跟踪停止、停放、唤醒流程。
+ */
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -26,11 +35,16 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 派生父会话完成脚本的基础单回合 fixture。 */
 const BASE_FIXTURE = fileURLToPath(new URL('./snapshots/live-interactions/session.jsonl', import.meta.url))
 
+/** 子代理停止场景的快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/subagent-interrupt', import.meta.url))
+/** 父代理离线时子会话编辑器状态的预期快照。 */
 const OFFLINE_COMPOSER_EXPECTED = join(SNAPSHOT_DIR, 'offline-composer.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 被中止子代理的显示标签。 */
 const LABEL = 'event-sourcing researcher'
 const INITIAL = 'Explain event sourcing in one sentence.'
 const REARM = 'Keep working until I stop you again.'
@@ -42,6 +56,7 @@ const PARKED_ANSWER = 'parked follow-up answer'
 const WAKING_ANSWER = 'waking answer'
 
 /** Poll a synchronous condition (hook-safe; expect.poll is test-body only). */
+/** 轮询 predicate 直到成功；what 用于超时说明，timeoutMs 默认三十秒。 */
 async function waitFor(predicate: () => boolean, what: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (!predicate()) {
@@ -51,6 +66,7 @@ async function waitFor(predicate: () => boolean, what: string, timeoutMs = 30_00
 }
 
 /** Resolve on one exact child's next aborted turn end. */
+/** 等待 childId 的下一条 aborted 回合结束事件，无返回值。 */
 function waitForAbortedTurn(scaffold: WebScaffold, childId: SessionId): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {

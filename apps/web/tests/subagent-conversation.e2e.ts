@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证持久化子代理会话的树形导航、可用性、继续对话、嵌套关系和分支行为。
+ * 技术维度：使用 Playwright、Vitest、会话日志变换、子代理描述符、回放覆盖和无障碍快照。
+ * 产品维度：让用户从父会话进入子代理历史、继续可续接任务，并理解过期或不可用后代状态。
+ * 逻辑维度：从基础 fixture 派生子会话及续篇，建立多层关系，操作侧栏与会话，再验证重载和分支。
+ * 关键边界：派生日志序号必须连续且会话标识唯一；不可续接子代理不能接受跟进；重载会丢失活动连接。
+ * 新手阅读建议：先看标签与提示常量，再读 childFixture 的日志变换，最后按树、续接、嵌套和分支场景阅读。
+ */
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -17,17 +25,25 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 派生所有子代理模型脚本的基础单回合记录。 */
 const BASE_FIXTURE = fileURLToPath(new URL('./snapshots/live-interactions/session.jsonl', import.meta.url))
+/** 可续接子代理会话界面的预期快照。 */
 const AVAILABLE_CHILD_EXPECTED = fileURLToPath(new URL('./snapshots/subagent-conversation/ui.expected.md', import.meta.url))
+/** 父子会话树结构的预期快照。 */
 const TREE_EXPECTED = fileURLToPath(new URL('./snapshots/subagent-conversation/tree.expected.md', import.meta.url))
+/** 不带分支能力的子会话界面快照。 */
 const BRANCHLESS_EXPECTED = fileURLToPath(new URL('./snapshots/subagent-conversation/branchless.expected.md', import.meta.url))
 const STALE_CATALOG_EXPECTED = fileURLToPath(new URL('./snapshots/subagent-conversation/stale-catalog.expected.md', import.meta.url))
 const SIDEBAR_EXPECTED = fileURLToPath(new URL('./snapshots/subagent-conversation/sidebar.expected.md', import.meta.url))
 const UNAVAILABLE_GRANDCHILD_EXPECTED = fileURLToPath(new URL('./snapshots/subagent-conversation/nested.expected.md', import.meta.url))
 const FORK_EXPECTED = fileURLToPath(new URL('./snapshots/subagent-conversation/fork.expected.md', import.meta.url))
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 主要可续接研究子代理的显示标签。 */
 const LABEL = 'event-sourcing researcher'
+/** 一次性评审子代理的显示标签。 */
 const ONE_SHOT_LABEL = 'event-sourcing reviewer'
+/** 嵌套孙级子代理的显示标签。 */
 const NESTED_LABEL = 'example editor'
 const PARENT_PROMPT = 'Ask a research subagent to explain event sourcing.'
 const INITIAL_PROMPT = 'Explain event sourcing in one sentence.'
@@ -36,6 +52,7 @@ const NESTED_PROMPT = 'Give one concrete event sourcing example.'
 const FOLLOWUP = 'Now give the same explanation to a human reader.'
 const POST_FORK_FOLLOWUP = 'Continue the original conversation after the fork.'
 
+/** 从 source 派生 fixtureId 子会话；withContinuation 决定是否追加第二回合，返回 JSONL。 */
 function childFixture(source: string, fixtureId: string, withContinuation: boolean): string {
   const [header, ...eventLines] = source.trimEnd().split('\n')
   if (header === undefined) throw new Error('base replay fixture has no header')
@@ -50,6 +67,7 @@ function childFixture(source: string, fixtureId: string, withContinuation: boole
   return [childHeader, ...eventLines, ...continued, ''].join('\n')
 }
 
+/** 等待 scaffold 中 id 智能体退出活动表，无返回值。 */
 async function waitForAgentToSettle(scaffold: WebScaffold, id: SessionId): Promise<void> {
   const deadline = Date.now() + 30_000
   while (scaffold.ctx.agents.get(id) !== undefined) {

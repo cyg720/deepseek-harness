@@ -62,6 +62,15 @@
 // '::-webkit-scrollbar-thumb')`, so that query reports the hover colour at
 // rest and cannot pin either state (measured by deleting the hover rule live:
 // the same query flipped from the hover colour to the resting one).
+// 中文说明：该长说明界定无头 Chromium 覆盖滚动条的测量方法，以及为何必须同时检查预留带宽和时间文本遮盖。
+/**
+ * 文件职责：验证侧栏会话列表在明暗主题下预留滚动条空间、显示正确滑块颜色且不遮挡时间。
+ * 技术维度：使用 Playwright 真实 CSS 布局、伪元素像素取样、冷注入会话、Vitest 和几何快照。
+ * 产品维度：保障长会话列表滚动时仍能读清每行时间，并让滚动条在悬停与静止状态符合主题。
+ * 逻辑维度：注入足量会话制造溢出，测量列表带宽与行内距，再分别采集明暗主题和指针状态。
+ * 关键边界：无头 Chromium 使用覆盖滚动条；不能依赖标准 scrollbar-color；快照记录关系而非平台像素。
+ * 新手阅读建议：先读 ListMetrics 字段，再读 measureList 与 measurePalette，最后看指针和主题场景。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -74,7 +83,9 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 只读复用以批量创建会话行的冷历史 fixture。 */
 const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
+/** 滚动条几何与颜色快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/sidebar-scrollbar', import.meta.url))
 /**
  * Committed golden of the resolved scrollbar style and geometry, in both
@@ -84,12 +95,17 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/sidebar-scrollbar', impo
  * makes an unintended shift in thumb colour, band width, or rendering path a
  * reviewable diff rather than an assertion someone has to think about.
  */
+/** 中文说明：无障碍树无法表达滚动条样式，本快照直接记录明暗主题下的颜色和几何关系。 */
+/** 明暗主题滚动条测量结果的预期快照。 */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 /** Enough rows that the list overflows the 800px-tall viewport's sidebar; the scenario asserts the overflow rather than trusting it. */
+/** 保证 800 像素高侧栏发生溢出的冷会话数量。 */
 const SEED_COUNT = 24
 
 /** Geometry and resolved scrollbar style of one scroll container, measured in the page. */
+/** 当前侧栏列表的滚动、预留带宽和时间遮盖几何摘要。 */
 interface ListMetrics {
   /** Resolved `scrollbar-gutter`. */
   gutter: string
@@ -137,6 +153,7 @@ interface ListMetrics {
  * @returns the list's resolved scrollbar style and the geometry the
  * scrollbar-gutter/thin-scrollbar declarations shape.
  */
+/** 在 page 中测量侧栏滚动布局并返回摘要。示例：await measureList(page)。 */
 function measureList(page: Page): Promise<ListMetrics> {
   return page.evaluate(() => {
     const list = document.querySelector<HTMLElement>('[role="tree"][aria-label="Sessions"]')

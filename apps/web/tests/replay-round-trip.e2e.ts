@@ -8,6 +8,15 @@
 // is asserted from the persisted assistant/chunk events, not transient DOM.
 // Record: DSH_SNAPSHOT=record rewrites session.jsonl, then a keyless
 // DSH_SNAPSHOT=refresh regenerates ui.expected.md.
+// 中文说明：真实浏览器、传输、代理、循环和 bash 全部参与；仅模型响应在无密钥模式下回放。
+/**
+ * 文件职责：验证从 Web 编辑器发送提示、执行 bash、持久化流式事件到完成界面的完整往返。
+ * 技术维度：使用 Playwright、Vitest、模型回放/录制、真实 agent loop、bash 工具和无障碍快照。
+ * 产品维度：保障用户提交任务后能看到工具执行、逐步回复和稳定完成状态。
+ * 逻辑维度：启动真实组合，连接临时工作区，发送固定任务，等待完成，再核对事件、系统提示和界面。
+ * 关键边界：录制步骤不能依赖模型具体措辞；回放和刷新才执行内容断言；临时 DOM 不作为流式证据。
+ * 新手阅读建议：先理解 MODE 三种模式，再跟踪 PROMPT 从输入到 settled，最后查看事件与快照断言。
+ */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,15 +31,22 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, REPO_ROOT, saveFailureShot } from './support.ts'
 
+/** 新鲜往返的日志和预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/fresh-round-trip', import.meta.url))
+/** 录制真实模型往返的会话日志。 */
 const FIXTURE = fileURLToPath(new URL('./snapshots/fresh-round-trip/session.jsonl', import.meta.url))
+/** 完成后会话界面的预期快照。 */
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/fresh-round-trip/ui.expected.md', import.meta.url))
+/** 本轮模型系统提示的预期快照。 */
 const SYSTEM_PROMPT_EXPECTED = fileURLToPath(new URL('./snapshots/fresh-round-trip/system-prompt.expected.md', import.meta.url))
+/** 当前回放、录制或刷新模式。 */
 const MODE = webSnapshotMode()
 
 // The scenario's one drive prompt. Record sends it; replay asserts the
 // committed fixture recorded exactly it, so drive script and fixture cannot
 // drift apart.
+// 中文说明：录制与回放共用同一驱动提示，并检查 fixture 中的用户消息，防止两者悄然偏离。
+/** 要求真实 bash 输出固定文本并以 DONE 结束的唯一驱动提示。 */
 const PROMPT = 'Use the bash tool to run exactly: echo WEB_E2E_OK. Then reply with the single word DONE and stop.'
 
 describe('web e2e: fresh round trip through the real assembly', () => {

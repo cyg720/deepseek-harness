@@ -4,6 +4,15 @@
 // prompt, injects the rendered body as instructions context named after the
 // skill, and starts a turn answered by the replay adapter. The transcript shows
 // the gesture bubble, the collapsed context-injection row, and the reply.
+// 中文说明：用户输入 /name args 后，真实主机把技能正文作为指令上下文注入，并由回放模型完成普通回合。
+/**
+ * 文件职责：验证用户可通过编辑器显式调用禁止模型自主调用的技能，并把参数与技能正文送入回合。
+ * 技术维度：使用 Playwright、Vitest、临时 SKILL.md、回放覆盖、真实 skill.invoke 和无障碍快照。
+ * 产品维度：允许用户主动使用模型不可自行选择的敏感或专用技能，同时保留透明的上下文记录。
+ * 逻辑维度：写入仅用户技能，生成固定回放响应，输入斜杠命令，等待完成并检查消息、上下文行和回复。
+ * 关键边界：技能必须标记 disable-model-invocation；录制模式跳过；临时目录和脚手架必须清理。
+ * 新手阅读建议：先读 seedUserOnlySkill 的 frontmatter，再看 REPLAY，最后跟踪斜杠命令产生的三类会话行。
+ */
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -23,14 +32,21 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 用户显式技能调用的预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skill-user-invoke', import.meta.url))
+/** 命令、上下文注入和回复的预期快照。 */
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
+/** 临时仅用户技能的调用名称。 */
 const SKILL_NAME = 'user-invoke-demo'
+/** 斜杠命令传给技能的附加参数文本。 */
 const ARGS_TEXT = 'and confirm the fixture wiring'
+/** 回放模型返回的固定确认文本。 */
 const REPLY = 'USER_INVOKE_REPLY acknowledged; following the injected skill.'
 
+/** 在 workspaceCwd 下写入仅用户可调用的技能，无返回值。 */
 async function seedUserOnlySkill(workspaceCwd: string): Promise<void> {
   const directory = join(workspaceCwd, 'workspace', '.agents', 'skills', SKILL_NAME)
   await mkdir(directory, { recursive: true })
@@ -46,6 +62,7 @@ async function seedUserOnlySkill(workspaceCwd: string): Promise<void> {
   ].join('\n'))
 }
 
+/** 为一次技能调用回合提供完整固定文本响应的回放脚本。 */
 const REPLAY: ReplayOverrideDoc = [{
   kind: 'chunks',
   chunks: [

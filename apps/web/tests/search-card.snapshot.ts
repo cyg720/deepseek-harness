@@ -14,12 +14,22 @@
 // derivation over the result view, pinned at every render site by the
 // ui-conversation suite; here the fixture turn exercises the assembled card
 // fields and its cap.
+// 中文说明：固定 fixture 提供 grep 匹配、截断摘要和首尾上限，验证已构建插件图中的真实搜索卡片。
+/**
+ * 文件职责：验证已构建客户端能把 grep 工具结果渲染为搜索卡片并展示截断与恢复信息。
+ * 技术维度：使用 Vitest、jsdom、Testing Library、真实客户端 bundle 和文本文件快照。
+ * 产品维度：让用户按文件查看搜索命中、折叠大量结果，并理解因截断可能需要继续搜索。
+ * 逻辑维度：启动组装应用，打开固定历史会话，展开 grep 工具行，归一化卡片字段并比较快照。
+ * 关键边界：依赖已构建客户端和 turn 67 fixture；不会调用模型；刷新模式会写入预期文件。
+ * 新手阅读建议：先读 cardShape 输出字段，再看测试如何等待 bash 基线、展开 grep 行并固定卡片。
+ */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { hasClass, installAssembledBootEnv, mountAssembledApp, REFRESHING_GOLDEN } from './assembled-boot.ts'
 
+/** 搜索卡片稳定文本字段的预期快照路径。 */
 const EXPECTED = join(process.cwd(), 'apps/web/tests/snapshots/search-card/grep-card.expected.txt')
 
 installAssembledBootEnv()
@@ -27,11 +37,15 @@ installAssembledBootEnv()
 /** Normalize a rendered search card to stable text fields: the kind, the banner
  *  summary, each file header (path + count), each visible match line, the expand
  *  control label, and the recovery footer. */
+/** 中文说明：root 是工具行根元素，返回类型、摘要、文件、命中行、展开标签和恢复提示的稳定文本。 */
 function cardShape(root: Element): string {
+  /** 当前工具行内的搜索卡片根节点。 */
   const card = root.querySelector('[data-search]')
   if (card === null) return '<no search card>'
+  /** 从 from 中筛选带指定 CSS 模块类名的后代元素。 */
   const pick = (from: Element, name: string): Element[] =>
     [...from.querySelectorAll('*')].filter(el => hasClass(el, name))
+  /** 按固定顺序累积的快照文本行。 */
   const lines: string[] = [`kind=${card.getAttribute('data-search')}`]
   const summary = pick(card, 'summary')[0]?.textContent?.trim()
   if (summary !== undefined && summary !== '') lines.push(`summary=${summary}`)

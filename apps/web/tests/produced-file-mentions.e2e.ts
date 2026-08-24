@@ -6,6 +6,15 @@
 // locations reaching the prose as an opener. The click itself is not driven
 // here: it hands the path to the Host's opener, which would launch a real
 // application on the machine running the suite (the produced-files restraint).
+// 中文说明：测试只确认可点击文件提及的解析与展示，不实际点击，以免主机在测试机上启动原生应用。
+/**
+ * 文件职责：验证完成回复中的行内代码文件名只在能唯一对应本轮写入文件时变成打开按钮。
+ * 技术维度：使用 Session API 构造写工具事件，并通过 Playwright、Vitest 检查组装 Web 界面。
+ * 产品维度：让用户能从回答直接打开刚生成的文件，同时避免歧义名称或未生成文件造成误跳转。
+ * 逻辑维度：构造三次写入和包含唯一、歧义、未知提及的结束回复，注入页面后检查按钮集合。
+ * 关键边界：不触发真实 Host 文件打开；同名 style.css 必须保持惰性；测试零模型调用。
+ * 新手阅读建议：先看 WRITES 与结束回复的三类提及，再读 mentionFixture 中工具事件和最终定位断言。
+ */
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
@@ -17,21 +26,29 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
+/** 注入构造会话时使用的稳定标识。 */
 const SEED_ID = 'produced-file-mentions-web-e2e'
+/** 确认结束回复完全渲染的尾部标记。 */
 const DONE = 'FILE_MENTION_DONE'
 
 /** One-part text content for a built message. */
+/** 将 value 包装成单段文本内容，返回消息内容数组。示例：text('done')。 */
 function text(value: string): { type: 'text'; text: string }[] {
   return [{ type: 'text', text: value }]
 }
 
 /** The files the built turn writes; `notes.md` is named in prose but never written. */
+/** 本轮实际写入的三个相对路径；notes.md 只会在回复中出现。 */
 const WRITES = ['site/report.html', 'a/style.css', 'b/style.css']
 
 /** Build a settled write turn whose closing prose mentions files in inline code. */
+/** 构造含写入事件与文件提及的已完成会话 JSONL。示例：mentionFixture()。 */
 function mentionFixture(): string {
+  /** 累积固定写入回合事件的内存会话。 */
   const session = Session.create(SessionId('produced-file-mentions-source'))
+  /** 固定事件时间起点，减少运行时间差异。 */
   const eventTimeOrigin = new Date().setHours(12, 0, 0, 0)
   session.append('turn/start', { turn: 1 })
   const user = session.append('user/message', createUserMessage({
@@ -44,6 +61,7 @@ function mentionFixture(): string {
     source: { kind: 'fallback' },
   })
   session.append('step/start', { turn: 1, step: 1 })
+  /** 每个写入路径对应的稳定工具调用元数据。 */
   const calls = WRITES.map((path, index) => ({
     path,
     callId: CallId(`file-mention-${String(index)}`),

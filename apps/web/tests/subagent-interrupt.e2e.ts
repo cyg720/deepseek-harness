@@ -5,6 +5,15 @@
 // parked without auto-starting a new turn, and a later waking send resumed the
 // preserved FIFO order. No browser: the RPC surface is the product surface
 // under test, and subagent-interrupt-ui.e2e.ts owns the composer interaction.
+// 中文说明：不启动浏览器，直接通过真实 HTTP 产品接口验证子代理中止、跟进停放和后续先进先出恢复。
+/**
+ * 文件职责：验证 subagent.interrupt RPC 能中止可续接子代理当前回合而保留已排队跟进。
+ * 技术维度：使用 Vitest、真实 Web 组合、HTTP RPC、挂起模型回放、会话状态和临时覆盖文件。
+ * 产品维度：让外部客户端可靠停止子代理，并在稍后唤醒时继续未丢失的工作。
+ * 逻辑维度：创建挂起子代理，HTTP 排入跟进并中止，检查回合状态，再发送唤醒消息验证执行顺序。
+ * 关键边界：场景测试 RPC 而非浏览器；中止后队列不得自动开始；录制模式跳过并严格清理临时目录。
+ * 新手阅读建议：先读 RpcResult 与 rpc，再看 waitFor 和 textCompletion，最后跟踪主场景的状态转换。
+ */
 import { existsSync } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -14,14 +23,20 @@ import { SessionId as sessionId, type SessionId } from '@deepseek-ai/dsh-session
 import type {} from '@deepseek-ai/dsh-agent'
 import { launchWebScaffold, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 启动子代理首个挂起回合的消息。 */
 const INITIAL = 'Explain event sourcing in one sentence.'
+/** 中止前排入且必须保留的跟进消息。 */
 const FOLLOWUP = 'Now give the same explanation to a human reader.'
+/** 中止后触发队列继续执行的唤醒消息。 */
 const WAKING = 'And add one concrete example.'
 
+/** 一元 RPC 的成功值或带代码与消息的失败结果。 */
 type RpcResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
 
 /** POST one unary RPC through the real HTTP carrier and unwrap its result. */
+/** 向 baseUrl 的 method 发送 payload 并返回业务结果。示例：await rpc(url, 'subagent.interrupt', payload)。 */
 async function rpc<T>(baseUrl: string, method: string, payload: unknown): Promise<RpcResult<T>> {
   const response = await fetch(`${baseUrl}/api/${method}`, {
     method: 'POST',
@@ -38,6 +53,7 @@ async function rpc<T>(baseUrl: string, method: string, payload: unknown): Promis
 }
 
 /** Poll a synchronous condition (hook-safe; expect.poll is test-body only). */
+/** 轮询 predicate；what 用于超时错误，timeoutMs 默认三十秒，成功时无返回值。 */
 async function waitFor(predicate: () => boolean, what: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (!predicate()) {
@@ -47,6 +63,7 @@ async function waitFor(predicate: () => boolean, what: string, timeoutMs = 30_00
 }
 
 /** One text-only scripted model completion (no tool calls: real tools are mounted). */
+/** 把 text 包装为一次无工具的完整模型回放对象。示例：textCompletion('done')。 */
 function textCompletion(text: string): object {
   return {
     kind: 'chunks',

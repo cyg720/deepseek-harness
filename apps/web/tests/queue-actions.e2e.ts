@@ -2,6 +2,15 @@
 // composition and real HTTP/SSE wire. Replay overrides park consecutive turns
 // so the page can edit and remove exact occurrences, then stop the active turn
 // while proving the preserved Queue advances in FIFO order.
+// 中文说明：回放覆盖会停住连续回合，使页面能精确编辑、删除队列项，并验证停止当前回合后仍按先进先出推进。
+/**
+ * 文件职责：验证待发送消息队列的折叠、编辑、删除、停止保留和先进先出执行行为。
+ * 技术维度：使用 Playwright、Vitest、回放脚本覆盖、临时就绪标记、SSE 和会话事件。
+ * 产品维度：让用户在生成期间管理后续消息，并确保停止当前回答不会意外丢失待办内容。
+ * 逻辑维度：派生基础回放并插入挂起项，排入多条消息，操作指定行，停止当前回合后观察保留项执行。
+ * 关键边界：覆盖文档与就绪标记只存在于临时目录；清理错误也必须失败；回放模式零密钥。
+ * 新手阅读建议：先看各消息常量，再读 replay 数组如何挂起回合，最后按队列 UI 操作顺序理解断言。
+ */
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -18,23 +27,38 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 队列各界面状态的快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/queue-actions', import.meta.url))
+/** 借用并派生回放脚本的基础成功会话。 */
 const FIXTURE = fileURLToPath(new URL('./snapshots/live-interactions/session.jsonl', import.meta.url))
+/** 队列折叠状态快照。 */
 const COLLAPSED_EXPECTED = join(SNAPSHOT_DIR, 'collapsed.expected.md')
+/** 单条队列消息编辑状态快照。 */
 const EDITING_EXPECTED = join(SNAPSHOT_DIR, 'editing.expected.md')
+/** 队列与编辑器对齐关系快照。 */
 const LAYOUT_EXPECTED = join(SNAPSHOT_DIR, 'layout.expected.md')
+/** 停止当前回合后保留队列的快照。 */
 const PRESERVED_EXPECTED = join(SNAPSHOT_DIR, 'preserved.expected.md')
+/** 展开队列并完成编辑删除后的界面快照。 */
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
+/** 启动基础活动回合的固定提示词。 */
 const ACTIVE_PROMPT = 'Reply with a one-sentence description of event sourcing, then stop.'
+/** 应从队列删除的消息文本。 */
 const REMOVE = 'Queue item to remove'
+/** 应进入编辑状态的原始消息文本。 */
 const EDIT = 'Queue item to edit'
+/** 保存编辑后替换原内容的消息文本。 */
 const EDITED = 'Edited queue item'
+/** 停止当前回合后必须保留的队尾消息。 */
 const TAIL = 'Queue item preserved after stop'
+/** 用于唤醒并推进保留队列的后续消息。 */
 const WAKE = 'Wake the preserved queue'
 
 /** Durable turn-end classifications observed by the scenario. */
+/** 从 events 提取持久化回合结束类型并返回数组。示例：turnEndReasons(sessionEvents)。 */
 function turnEndReasons(events: readonly SessionEvent[]): string[] {
   return events.flatMap(event => event.type === 'turn/end' ? [event.data.reason.kind] : [])
 }

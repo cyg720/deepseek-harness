@@ -10,6 +10,15 @@
 // fixture under the same record discipline as every other: DSH_SNAPSHOT=record drives the turn
 // live through the composer (real read tool against seeded workspace files)
 // and harvests seed.jsonl; replay/refresh seed it cold and only render.
+// 中文说明：真实持久化接口冷载入一段丰富历史，无模型调用地覆盖恢复、工具视图、命令行和反馈展示。
+/**
+ * 文件职责：验证记录会话从冷启动列表、恢复附着到按日志顺序渲染历史工具与命令状态。
+ * 技术维度：使用 Playwright、Vitest、Session 日志变换、压缩事件、真实持久化和无障碍快照。
+ * 产品维度：保障用户重开应用后仍能完整查看旧会话、压缩、权限、反馈和文件打开结果。
+ * 逻辑维度：录制富工具回合，回放时追加确定性压缩生命周期，冷注入后逐项检查历史界面与命令。
+ * 关键边界：回放阶段零模型调用；追加压缩的影子价格必须精确；录制与渲染 fixture 不得漂移。
+ * 新手阅读建议：先读 PROMPT 和 withCompaction，再看 beforeAll 如何冷注入，最后按历史界面场景阅读。
+ */
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
@@ -28,16 +37,26 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 冷历史 fixture 与全部预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/seeded-history', import.meta.url))
+/** 真实录制的富工具会话日志。 */
 const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
+/** 冷恢复后主会话界面的预期快照。 */
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/seeded-history/ui.expected.md', import.meta.url))
 // Command-row goldens over the same conversation after direct host commands.
+// 中文说明：这些快照在同一历史会话上执行主机命令后固定相应命令行。
+/** 压缩与权限命令行的预期快照。 */
 const COMMAND_ROW_EXPECTED = fileURLToPath(new URL('./snapshots/seeded-history/command-row.expected.md', import.meta.url))
+/** 反馈命令展开后的预期快照。 */
 const FEEDBACK_ROW_EXPECTED = fileURLToPath(new URL('./snapshots/seeded-history/feedback-row.expected.md', import.meta.url))
+/** 文件打开失败反馈的预期快照。 */
 const FILE_OPEN_FAILURE_EXPECTED = fileURLToPath(new URL('./snapshots/seeded-history/file-open-failure.expected.md', import.meta.url))
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 冷注入会话时使用的稳定标识。 */
 const SEED_ID = 'seeded-history-web-e2e'
 
+/** 录制包含 bash 和两次 read 的固定用户提示。 */
 const PROMPT = 'Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop.'
 
 /**
@@ -54,6 +73,7 @@ const PROMPT = 'Use the read tool twice in one assistant message: read a.txt and
  * it verbatim.
  * @returns the fixture with a manual compaction lifecycle appended.
  */
+/** 中文说明：raw 是已实现占位符的日志，meter 计算精确影子价格，返回追加手动压缩后的 fixture。 */
 function withCompaction(raw: string, meter: TokenMeter): string {
   const decoded = parseSeedFixture(raw)
   const events = decoded.events as unknown as Array<{

@@ -2,6 +2,15 @@
 // transfers one queued occurrence, while the complementary composer gestures
 // choose Queue or Steer. The question tool supplies a deterministic pending-
 // steering snapshot before the step can drain.
+// 中文说明：问题工具稳定挂起回合，使测试能观察队列单项转向和编辑器快捷键选择 Queue 或 Steer 的中间状态。
+/**
+ * 文件职责：验证队列行转向、编辑器快捷转向和空草稿整队转向的持久化与界面行为。
+ * 技术维度：使用 Playwright、Vitest、模型回放覆盖、问题交互、队列事件和无障碍快照。
+ * 产品维度：让用户在生成过程中插入更高优先级指示，并精确控制一条或全部排队消息。
+ * 逻辑维度：用问题工具挂起回合，排入消息后触发不同转向入口，检查中途队列投影及最终用户消息。
+ * 关键边界：操作必须在回放首块时间窗内完成；中途与结束状态来自不同事件；录制模式可调用模型。
+ * 新手阅读建议：先看 PROMPT、STEER 和 REPLAY_PACE_MS，再读两个事件辅助函数，最后比较四组场景。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -16,22 +25,32 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 单项转向 fixture 与预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/steering', import.meta.url))
+/** 记录问题工具与转向后回复的会话日志。 */
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 // Two goldens pin the transient Host projection and its durable handoff: the
 // mid-turn state renders accepted steering from session/queue while the
 // question blocks admission, then the settled state renders the same message
 // from user/message beside the reply that obeys it.
+// 中文说明：中途快照读取 session/queue，完成快照读取持久 user/message 与遵循转向的回复。
+/** 转向已接受但问题仍阻塞时的预期快照。 */
 const MID_EXPECTED = join(SNAPSHOT_DIR, 'mid-steer.expected.md')
+/** 转向持久化并完成回复后的预期快照。 */
 const SETTLED_EXPECTED = join(SNAPSHOT_DIR, 'settled.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 // The question composer replaces the textarea, so fill → Queue row → Steer
 // must finish inside the first replay chunk window. At 15 ms that window is
 // shorter than Playwright's round trips; 50 ms supplies test-only headroom,
 // while larger values lengthen all three replay scenarios linearly.
+// 中文说明：五十毫秒为 Playwright 完成填入、排队和转向提供余量，同时避免显著拉长全部回放。
+/** 每个回放片段之间的测试专用延迟毫秒数。 */
 const REPLAY_PACE_MS = 50
 
+/** 要求模型提出固定问题以稳定挂起回合的提示词。 */
 const PROMPT = 'Use the ask_user_question tool to ask me exactly one question with id "checkpoint", question "Ready to continue?", header "Checkpoint", and options labeled "Yes" and "No". After I answer, reply with one short sentence acknowledging my answer and stop.'
+/** 单项转向要求最终回复包含 BANANA 的消息。 */
 const STEER = 'Interjection: include the word BANANA in your final reply.'
 
 // Empty-draft flush scenario: an override-only fixture. The whole-script
@@ -47,6 +66,7 @@ const STEER_ONE = 'Interjection: include the word BANANA in your final reply.'
 const STEER_TWO = 'Interjection: include the word ORANGE in your final reply.'
 
 /** Concatenated assistant text deltas — the model-visible reply body. */
+/** 拼接 events 中助手文本增量并返回模型可见回复正文。示例：assistantText(events)。 */
 function assistantText(events: SessionEvent[]): string {
   return events
     .filter(e => e.type === 'assistant/chunk')

@@ -7,6 +7,15 @@
 // chunks, the composer wait is real, and the answer click is the test's own
 // gesture (the ONE place a drive step legitimately reacts to model content:
 // the turn cannot complete without it, in record and replay alike).
+// 中文说明：问题内容可回放，但等待和回答是真实用户交互；点击答案前回合在两种模式下都不能完成。
+/**
+ * 文件职责：验证 ask_user_question 在编辑器区域显示常驻问题卡，并把用户答案写回同一回合。
+ * 技术维度：使用 Playwright、Vitest、模型回放、用户交互服务、会话事件与几何测量。
+ * 产品维度：让智能体能在执行中询问结构化问题，用户可选择选项或填写自定义答案。
+ * 逻辑维度：发送固定提问任务，等待问题卡，检查布局与增长上限，选择答案后核对日志和完成快照。
+ * 关键边界：回答前回合必须阻塞；文本框最多显示六行后内部滚动；录制模式可调用真实模型。
+ * 新手阅读建议：先读 capMetrics，再看 PROMPT 定义的问题，最后跟踪 composer 从等待到回答后的状态。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -21,14 +30,22 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 问题编辑器 fixture 与预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/question-composer', import.meta.url))
+/** 记录模型提问与回答后续的会话日志。 */
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
+/** 问题卡初始界面的预期快照。 */
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
+/** 问题等待期间侧栏状态快照。 */
 const SIDEBAR_EXPECTED = join(SNAPSHOT_DIR, 'sidebar.expected.md')
+/** 自定义答案编辑状态快照。 */
 const COMPOSED_EXPECTED = join(SNAPSHOT_DIR, 'composed.expected.md')
 // Final golden: the answered transcript — the question resolved into its tool
 // round trip and the final reply, the state the composer goldens cannot see.
+// 中文说明：最终快照固定问题工具往返和结束回复，即问题卡消失后留下的会话状态。
+/** 回答问题并完成回合后的预期快照。 */
 const ANSWERED_EXPECTED = join(SNAPSHOT_DIR, 'answered.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
 // The composer's own growth cap, in text lines (QuestionComposer.module.css
@@ -36,6 +53,8 @@ const MODE = webSnapshotMode()
 // carry different padding, and a cap measured in border-box pixels silently
 // means a different line count in each — which is exactly how the optionless
 // field came to stop two thirds of a line short.
+// 中文说明：用文本行而非边框盒像素定义增长上限，避免不同内边距导致实际可见行数不一致。
+/** 自定义答案文本框在转为内部滚动前最多显示的完整文本行数。 */
 const CAP_LINES = 6
 
 /**
@@ -44,10 +63,13 @@ const CAP_LINES = 6
  * @param field - the composer's custom-answer textarea.
  * @returns whole text lines the content box holds, and whether the field scrolls.
  */
+/** 中文说明：field 是自定义答案框，返回完整可见行数和是否滚动。示例：await capMetrics(field)。 */
 async function capMetrics(field: Locator): Promise<{ textLines: number; scrolls: boolean }> {
   await field.fill('x\n'.repeat(40))
   return field.evaluate((el: HTMLTextAreaElement) => {
+    /** 文本框当前计算样式，用于扣除内边距并读取行高。 */
     const style = getComputedStyle(el)
+    /** 文本内容区域的实际高度，不含上下内边距。 */
     const text = el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
     return {
       textLines: Math.round(text / parseFloat(style.lineHeight)),
@@ -59,6 +81,8 @@ async function capMetrics(field: Locator): Promise<{ textLines: number; scrolls:
 // The options carry long descriptions on purpose: the squeeze assertion below
 // needs option copy that WRAPS, which is the only text layout that reproduces a
 // collapsed row painting its copy outside its own box.
+// 中文说明：长选项说明会真实换行，从而覆盖折叠行文字越界的历史布局问题。
+/** 要求模型提出固定多选问题并在回答后回复 DONE 的录制提示词。 */
 const PROMPT = 'Use the ask_user_question tool to ask me exactly one multi-select question with id "color", question "Which color do you prefer?", header "Pick one", and two options: label "Blue" with description "A cool recessive hue that reads as calm and trustworthy in long reading sessions and dense dashboards.", and label "Green" with description "A restful mid-spectrum hue with the highest perceived brightness, easiest on the eye over long sessions." Set multi_select to true. After I answer, reply with the single word DONE and stop.'
 
 describe('web e2e: resident question composer round trip', () => {

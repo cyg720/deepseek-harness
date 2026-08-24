@@ -1,4 +1,13 @@
 /** Keyless assembled-Web evidence for conversational Schedule delivery. */
+/** 无密钥验证组装 Web 中通过对话创建并投递定时提醒。 */
+/**
+ * 文件职责：验证 after、at 和 every 三类会话提醒从创建、触发到助手回复的完整 Web 流程。
+ * 技术维度：使用 Playwright、Vitest、Schedule 事件折叠、自定义 LLM 适配器和真实会话上下文。
+ * 产品维度：让用户通过自然语言安排一次性或周期提醒，并在原会话中收到正确通知。
+ * 逻辑维度：挂载日程示例组合，为三种提供方生成确定回复，驱动时间触发并比较会话快照。
+ * 关键边界：固定浏览器时区；周期 fixture 人为老化；录制模式跳过且无需真实模型密钥。
+ * 新手阅读建议：先区分 AFTER、AT、EVERY 常量组，再读 textResponse 和时间辅助函数，最后读三个场景。
+ */
 
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -27,18 +36,31 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, conversationContextKey, saveFailureShot } from './support.ts'
 
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
+/** 挂载 schedule 能力和 Web 集成的示例组合文件。 */
 const OVERLAY = fileURLToPath(new URL('../../../examples/web-schedule/cordis.yml', import.meta.url))
+/** 三类提醒会话的预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/schedule-after', import.meta.url))
+/** 延迟提醒投递后的会话快照。 */
 const AFTER_EXPECTED = join(SNAPSHOT_DIR, 'conversation.expected.md')
+/** 指定本地时间提醒投递后的会话快照。 */
 const AT_EXPECTED = join(SNAPSHOT_DIR, 'at-conversation.expected.md')
+/** 周期提醒合并投递后的会话快照。 */
 const EVERY_EXPECTED = join(SNAPSHOT_DIR, 'every-conversation.expected.md')
+/** 延迟提醒场景的测试提供方标识。 */
 const AFTER_PROVIDER = 'schedule-after-web-test'
+/** 指定时间场景的测试提供方标识。 */
 const AT_PROVIDER = 'schedule-at-web-test'
+/** 周期提醒场景的测试提供方标识。 */
 const EVERY_PROVIDER = 'schedule-every-web-test'
+/** 三个确定性适配器共同公开的模型名称。 */
 const MODEL = 'reply'
+/** 延迟提醒的任务文本。 */
 const AFTER_PROMPT = 'Check the deployment log'
+/** 延迟提醒触发后的固定回复。 */
 const AFTER_REPLY = 'Reminder: Check the deployment log.'
+/** 指定时间场景使用的浏览器本地时区。 */
 const AT_BROWSER_ZONE = 'Asia/Shanghai'
 const AT_USER_PROMPT = 'Remind me to review the release window in a few seconds in my local time.'
 const AT_PROMPT = 'Review the release window'
@@ -51,6 +73,7 @@ const EVERY_INTERVAL_SECONDS = 60 * 60
 const EVERY_FIXTURE_AGE_MS = 90 * 60 * 1_000
 
 /** Emit one complete assistant text response. */
+/** 将 text 包装为完整助手流片段数组。示例：textResponse('Reminder')。 */
 function textResponse(text: string): StreamChunk[] {
   return [
     { type: 'block-start', index: 0, blockType: 'text' },

@@ -3,6 +3,15 @@
 // assembled lane keeps a precise +N and a capability-gated folder handoff.
 // The folder request is intercepted so one real browser click can exercise
 // the full client carrier without launching a native application in CI.
+// 中文说明：拦截文件夹打开请求，使真实浏览器点击覆盖完整客户端链路而不会在 CI 启动原生应用。
+/**
+ * 文件职责：验证已完成回合末尾生成文件摘要的数量折叠、单行布局和“在文件夹中显示”交接。
+ * 技术维度：使用 Session API 构造十次写入，并通过 Playwright、Vitest 与 Host 方法侦听检查界面。
+ * 产品维度：让用户快速看到本轮创建的主要文件、剩余数量，并能跳转到输出目录。
+ * 逻辑维度：注入十次成功写入，定位摘要行，检查可见文件与 +N，拦截并验证文件夹打开请求。
+ * 关键边界：窄布局必须保持单行；原生打开动作必须被侦听替代；全程零模型调用。
+ * 新手阅读建议：先看 PRODUCED 的文件顺序，再读 producedFixture，最后看按钮、+N 和几何断言。
+ */
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
@@ -15,12 +24,17 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
+/** 为场景启用所需 Host 文件打开能力的组合覆盖文件。 */
 const OVERLAY = fileURLToPath(new URL('./produced-files.overlay.yml', import.meta.url))
+/** 注入构造会话时使用的稳定标识。 */
 const SEED_ID = 'produced-files-web-e2e'
+/** 确认结束回复渲染完成的尾部标记。 */
 const DONE = 'PRODUCED_FILES_DONE'
 
 /** Short leading names plus a long third name make the narrow lane deterministically show two. */
+/** 十个生成文件按显示顺序排列，第三个长名称使窄布局稳定只显示前两个。 */
 const PRODUCED = [
   '关于我.md',
   'index.html',
@@ -35,8 +49,11 @@ const PRODUCED = [
 ] as const
 
 /** Build one settled turn whose successful write calls carry ten locations. */
+/** 构造十次成功写入的已完成会话 JSONL。示例：producedFixture()。 */
 function producedFixture(): string {
+  /** 累积生成文件回合事件的内存会话。 */
   const session = Session.create(SessionId('produced-files-source'))
+  /** 固定事件时间起点，减少快照随时间变化。 */
   const eventTimeOrigin = new Date().setHours(12, 0, 0, 0)
   session.append('turn/start', { turn: 1 })
   const user = session.append('user/message', createUserMessage({
@@ -47,6 +64,7 @@ function producedFixture(): string {
     title: 'Produced files overflow', messageSeqs: [user.seq], source: { kind: 'fallback' },
   })
   session.append('step/start', { turn: 1, step: 1 })
+  /** 每个生成路径对应的稳定写工具调用元数据。 */
   const calls = PRODUCED.map((path, index) => ({
     path,
     callId: CallId(`produced-files-${String(index)}`),

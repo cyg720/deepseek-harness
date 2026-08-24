@@ -7,6 +7,15 @@
 // Replay is deterministic: the plan content arrives from replayed chunks, the
 // review wait is real, and the approve click is the test's own gesture (the
 // turn cannot complete without it, in record and replay alike).
+// 中文说明：计划内容可回放，但等待审批是真实交互；无论录制还是回放，必须由测试点击批准才能完成回合。
+/**
+ * 文件职责：验证 /plan 任务进入计划复审接管界面，并通过决策卡批准后完成同一回合。
+ * 技术维度：使用 Playwright、Vitest、模型回放、用户交互服务、会话事件和无障碍快照。
+ * 产品维度：让用户在执行前明确审阅计划，并把批准结果可靠记录到会话历史。
+ * 逻辑维度：提交带任务的 /plan，等待复审卡，比较等待界面，点击批准，再核对结果事件与完成快照。
+ * 关键边界：批准前回合不能结束；录制模式可调用真实模型；任务禁止读写文件以保持 fixture 稳定。
+ * 新手阅读建议：先读 TASK 与 LINE，再跟踪 settled 在批准前后的变化，最后查看 tool/result 断言。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -20,29 +29,44 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 计划复审 fixture 和界面快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/plan-review', import.meta.url))
+/** 录制计划输出与后续完成回复的会话日志。 */
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 // The waiting golden owns the decision card; the approved golden owns the
 // transcript the approval leaves behind — the state the card cannot see.
+// 中文说明：等待快照固定决策卡，批准快照固定卡片消失后留在会话中的结果。
+/** 等待用户决定时的计划卡快照。 */
 const REVIEW_EXPECTED = join(SNAPSHOT_DIR, 'review.expected.md')
+/** 计划等待期间侧栏状态的预期快照。 */
 const SIDEBAR_EXPECTED = join(SNAPSHOT_DIR, 'sidebar.expected.md')
+/** 批准后会话主体的预期快照。 */
 const APPROVED_EXPECTED = join(SNAPSHOT_DIR, 'approved.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
 // One command line: /plan enters plan mode and submits the rest as the turn's
 // message. The task is deliberately self-contained (nothing to explore in a
 // fresh workspace) so the recorded turn is a plan and its review, and the
 // approved continuation is one word.
+// 中文说明：命令余下内容直接作为本轮消息，任务自包含且批准后只需回复一个单词。
+/** 要求模型生成短计划并在批准后结束的固定任务。 */
 const TASK = 'Plan a small change: add a --greeting flag to a CLI. Do not read or write any files. '
   + 'Call exit_plan_mode with a short plan of at most five bullet points. '
   + 'Once the plan is approved, reply with the single word DONE and stop.'
+/** 实际填入编辑器的完整 /plan 命令行。 */
 const LINE = `/plan ${TASK}`
 
 describe('web e2e: plan review takeover round trip', () => {
+  /** 提供计划模式、回放模型和交互服务的脚手架。 */
   let scaffold: WebScaffold
+  /** 执行真实决策卡交互的 Chromium 实例。 */
   let browser: Browser
+  /** 当前测试页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
+  /** 本轮写入的会话事件，用于确认审批结果。 */
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {

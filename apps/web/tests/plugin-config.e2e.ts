@@ -4,6 +4,15 @@
 // that layering produces. Zero model calls: everything is client state plus
 // the settings document on a blank frame, so there is no fixture and a stray
 // stream would fail loud on the open llm seam.
+// 中文说明：场景只操作客户端状态和设置文档，通过真实接口验证插件配置覆盖与重置，全程不调用模型。
+/**
+ * 文件职责：验证插件设置页按主机公开命名空间生成配置卡，并可保存、显示覆盖标记和恢复默认值。
+ * 技术维度：使用 Playwright、Vitest、真实 settings 文档、中文界面与无障碍快照。
+ * 产品维度：让部署管理员在界面中调整插件参数，并清楚识别哪些值覆盖了系统默认配置。
+ * 逻辑维度：打开插件配置页，检查卡片，修改命令超时，验证落盘与标记，再执行重置。
+ * 关键边界：多个场景共享同一设置文档；打开新对话框前要关闭旧遮罩；不会产生模型请求。
+ * 新手阅读建议：先读 openPlugins 的共享页面处理，再读 settingsDocument，最后按保存与重置场景查看。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
@@ -16,14 +25,21 @@ import {
 } from './scaffold.ts'
 import { ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
+/** 插件配置页预期快照所在目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/plugin-config', import.meta.url))
+/** 插件配置分区的预期无障碍快照。 */
 const SECTION_EXPECTED = join(SNAPSHOT_DIR, 'section.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
 describe('web e2e: plugin configuration section', () => {
+  /** 提供真实设置接口和隔离 harness home 的脚手架。 */
   let scaffold: WebScaffold
+  /** 执行设置页真实交互的 Chromium 实例。 */
   let browser: Browser
+  /** 使用中文区域设置的共享页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
@@ -48,12 +64,14 @@ describe('web e2e: plugin configuration section', () => {
    * dialog a previous scenario opened closed first — its mask would otherwise
    * swallow the trigger click.
    */
+  /** 中文说明：关闭旧设置框后打开插件分区，返回当前设置对话框。示例：await openPlugins()。 */
   async function openPlugins() {
     if (await page.getByRole('dialog', { name: '设置' }).count() > 0) {
       await page.keyboard.press('Escape')
       await expect.poll(() => page.getByRole('dialog', { name: '设置' }).count(), { timeout: 5_000 }).toBe(0)
     }
     await page.getByRole('button', { name: '设置', exact: true }).click()
+    /** 新打开并切换到插件分区的设置对话框。 */
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: '插件', exact: true }).click()
@@ -67,6 +85,7 @@ describe('web e2e: plugin configuration section', () => {
   }
 
   /** The settings document as the Host has written it so far. */
+  /** 读取主机当前 settings.yaml；文件尚未创建时返回空字符串。示例：await settingsDocument()。 */
   async function settingsDocument(): Promise<string> {
     return readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8').catch(() => '')
   }

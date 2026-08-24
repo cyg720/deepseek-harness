@@ -1,4 +1,13 @@
 // Shared plumbing for the web smoke tests (dist location, free port, failure shots).
+// Web 冒烟与浏览器 E2E 的共享基础设施：构建路径、空闲端口、页面区域设置、工作区连接和失败截图。
+/**
+ * 文件职责：集中提供 Web 测试的构建检查、浏览器创建、工作区连接、端口探测和失败证据辅助函数。
+ * 技术维度：使用 Node 文件系统与 TCP 服务、Playwright 页面/浏览器以及固定仓库路径解析。
+ * 产品维度：让所有 Web 场景以一致语言、视口和启动流程验证真实产品，并在失败时留下截图。
+ * 逻辑维度：声明仓库和 dist 路径，创建英文页面，探测端口，驱动中英文工作区连接，再保存产物。
+ * 关键边界：空闲端口在返回前已释放，存在竞争窗口；dist 缺失应立即失败；截图错误不能遮盖原测试失败。
+ * 新手阅读建议：先看三个路径/区域常量，再读 newEnglishPage 与 requireDist，最后看工作区连接辅助函数。
+ */
 import { existsSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
@@ -6,8 +15,10 @@ import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 
 /** The built page under test; `pnpm run test:web` rebuilds it before running. */
+/** 被测试的已构建 Web 首页；test:web 会在运行前重新构建。 */
 export const DIST_INDEX = fileURLToPath(new URL('../dist/index.html', import.meta.url))
 
+/** 当前仓库根目录的绝对路径。 */
 export const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 
 /**
@@ -15,6 +26,7 @@ export const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
  * surface: with no stored preference the client derives its initial locale
  * from the browser, and Playwright's default browser asks for English.
  */
+/** 中文说明：需要验证中文产品界面时，页面应在客户端启动前声明此浏览器语言。 */
 export const ZH_BROWSER_LOCALE = 'zh-CN'
 
 /**
@@ -27,11 +39,13 @@ export const ZH_BROWSER_LOCALE = 'zh-CN'
  * @param height - Viewport height; width is fixed to the lane baseline.
  * @returns the initialized page.
  */
+/** 中文说明：browser 拥有页面，height 控制高度且宽度固定，返回初始化的英文页面。 */
 export async function newEnglishPage(browser: Browser, height = 1000): Promise<Page> {
   return await browser.newPage({ viewport: { width: 1680, height }, locale: 'en-US' })
 }
 
 /** Fail loud on a stale checkout instead of testing yesterday's bundle. */
+/** 检查 dist 首页存在，否则抛出构建提示；无参数、无返回值。 */
 export function requireDist(): void {
   if (!existsSync(DIST_INDEX)) {
     throw new Error('web app dist not built — run `pnpm run build` from the repository root (`pnpm run test:web` does this first)')
@@ -39,6 +53,7 @@ export function requireDist(): void {
 }
 
 /** OS-assigned free port, released before use (the spawned `dsh web` needs a concrete --port). */
+/** 请求操作系统分配空闲端口，关闭探针后返回端口号。示例：await probeFreePort()。 */
 export function probeFreePort(): Promise<number> {
   return new Promise((resolvePort, reject) => {
     const probe = createServer()

@@ -14,6 +14,15 @@
 // Flow order matters: chat rounds first (the bash round reuses the first
 // send's session), geometry and theme after, reload recovery last. Tests run
 // sequentially in-file.
+// 中文说明：该冒烟测试使用真实 CLI、浏览器和可选真实密钥顺序走完整产品流程，并把每屏截图保存到产物目录。
+/**
+ * 文件职责：验证已构建 dsh web 在真实主机上的无密钥启动与有密钥完整交互冒烟流程。
+ * 技术维度：使用 Node 子进程、Playwright、真实 HTTP RPC、临时工作区、截图和可选 DeepSeek API。
+ * 产品维度：在发布前确认正式 CLI 能启动、连接工作区、完成聊天工具回合、主题切换和重载恢复。
+ * 逻辑维度：探测构建与插件产物，启动真实 Web 主机，等待地址，按固定顺序操作页面并采集证据。
+ * 关键边界：无 DEEPSEEK_API_KEY 时真实模型组自跳过；测试必须串行；所有会话写入临时目录。
+ * 新手阅读建议：先读 waitForReadyLine 与 rpc，再看无密钥 CLI smoke，最后阅读有密钥浏览器流程。
+ */
 import type { ChildProcess } from 'node:child_process'
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -27,11 +36,15 @@ import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { REPO_ROOT, connectFreshWorkspace, newEnglishPage, probeFreePort, requireDist, saveFailureShot } from './support.ts'
 
+/** 正式 Web 模型可见界面指导的预期提示文件。 */
 const WEB_SURFACE_PROMPT = fileURLToPath(new URL('./snapshots/web-runtime-context/web-surface-prompt.expected.md', import.meta.url))
 
+/** 等待 child 输出 Web 就绪地址并返回 URL。示例：await waitForReadyLine(host)。 */
 function waitForReadyLine(child: ChildProcess): Promise<string> {
   return new Promise((resolveReady, reject) => {
+    /** 累积标准输出与错误输出，用于跨块匹配和失败诊断。 */
     let out = ''
+    /** 九十秒就绪期限，避免主机启动异常时永久等待。 */
     const timer = setTimeout(() => { reject(new Error(`dsh web not ready in 90s; output:\n${out}`)) }, 90_000)
     const onData = (chunk: Buffer): void => {
       out += chunk.toString()
@@ -50,6 +63,7 @@ function waitForReadyLine(child: ChildProcess): Promise<string> {
   })
 }
 
+/** 向 baseUrl 调用 method，发送 payload 并返回类型 T 的业务结果。 */
 async function rpc<T>(baseUrl: string, method: string, payload: unknown): Promise<T> {
   const response = await fetch(`${baseUrl}/api/${method}`, {
     method: 'POST',
@@ -69,11 +83,13 @@ async function rpc<T>(baseUrl: string, method: string, payload: unknown): Promis
   return body.result.value
 }
 
+/** session.history RPC 返回的最小分页字段。 */
 interface HistoryPage {
   events: { event: { type: string; data: unknown } }[]
   hasMore: boolean
 }
 
+/** 判断 value 是否为非空对象记录并返回类型保护结果。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }

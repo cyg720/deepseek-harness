@@ -21,6 +21,15 @@
 // actionability check: clicking the chip fails in a real engine when the
 // element center does not receive pointer events. jsdom resolves no layout,
 // so only a real engine can answer any of these facts.
+// 中文说明：只有真实浏览器能验证 800×720 下计划按钮的中心命中、视口归属和与模型按钮不重叠。
+/**
+ * 文件职责：验证窄视口中计划模式按钮与模型选择按钮保持独立点击区域，并能关闭计划模式。
+ * 技术维度：使用 Playwright 几何测量、真实命令通道、会话事件、Vitest 和关系快照。
+ * 产品维度：避免小窗口中按钮互相遮挡，确保用户能可靠退出计划模式。
+ * 逻辑维度：启动仅提供模型目录的脚手架，执行 /plan，测量两个按钮，点击计划按钮并核对日志。
+ * 关键边界：固定 800×720 视口；不记录绝对坐标；全程无模型调用，必须由真实布局引擎执行。
+ * 新手阅读建议：先看 VIEWPORT 与 CHIP_ARIA，再读几何关系计算，最后看 plan/mode 事件断言。
+ */
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
@@ -36,22 +45,33 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 窄视口计划控件场景的 fixture 与快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/plan-narrow-viewport', import.meta.url))
+/** 只提供回放模型目录而不含响应脚本的 fixture。 */
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
+/** 两个控件几何关系的预期快照。 */
 const LAYOUT_EXPECTED = join(SNAPSHOT_DIR, 'layout.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
 /** The reported viewport: 800×720, where the composer card is 448px wide at 0.0.1. */
+/** 外部问题报告对应的固定视口，宽 800、高 720。 */
 const VIEWPORT = { width: 800, height: 720 } as const
 
 /** Chip aria-label on the English page; the seat renders only while plan is the effective target. */
+/** 英文界面中计划模式开启按钮的无障碍名称。 */
 const CHIP_ARIA = 'Plan mode on, press to turn off'
 
 describe('web e2e: plan chip click area at the narrow viewport', () => {
+  /** 提供真实命令通道和会话事件的 Web 脚手架。 */
   let scaffold: WebScaffold
+  /** 执行真实布局的 Chromium 实例。 */
   let browser: Browser
+  /** 固定窄视口的测试页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
+  /** 命令执行后主机写入的会话事件。 */
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {

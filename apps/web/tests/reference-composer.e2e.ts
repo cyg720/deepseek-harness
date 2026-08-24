@@ -1,6 +1,15 @@
 // Web e2e scenario: the shipped composition discovers local files and cold
 // sessions through the real Host, groups both domains in the shared @ menu,
 // and projects each pick as a complete inline range without issuing a model call.
+// 中文说明：真实主机同时发现本地文件和历史会话，并把选择结果作为完整行内引用插入编辑器，全程不调用模型。
+/**
+ * 文件职责：验证 @ 引用菜单统一搜索文件与会话，并正确处理插入顺序、光标编辑和持久上下文。
+ * 技术维度：使用 Playwright、Vitest、真实 Host 搜索、Session API、输入背板与无障碍快照。
+ * 产品维度：让用户在提示词中可靠引用本地文件或旧会话，便于为智能体补充上下文。
+ * 逻辑维度：创建本地文件和两个固定会话，打开 @ 菜单，选择两类引用，测试光标修改并验证日志顺序。
+ * 关键边界：录制模式跳过；引用必须作为完整范围处理；直接消息必须在回忆上下文之前持久化。
+ * 新手阅读建议：先读两个 fixture 构造函数，再看 composerSegments 如何观察背板，最后读三个交互场景。
+ */
 import { writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -27,20 +36,30 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 引用菜单和编辑行为的预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/reference-composer', import.meta.url))
+/** 文件与会话分组菜单的预期快照。 */
 const MENU_EXPECTED = join(SNAPSHOT_DIR, 'menu.expected.md')
+/** 直接消息和回忆上下文持久顺序的预期快照。 */
 const ORDER_EXPECTED = join(SNAPSHOT_DIR, 'order.expected.md')
+/** 引用附近光标编辑行为的预期快照。 */
 const CARET_EXPECTED = join(SNAPSHOT_DIR, 'caret-edits.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 供菜单发现的历史源会话稳定标识。 */
 const SOURCE_SESSION_ID = 'reference-source-session'
+/** 验证消息与回忆事件顺序的目标会话稳定标识。 */
 const TARGET_SESSION_ID = 'reference-order-target-session'
 
 /** Build one closed source session with a stable title for reference discovery. */
+/** 构造带稳定标题的已关闭源会话 JSONL。示例：sourceSessionFixture()。 */
 function sourceSessionFixture(): string {
+  /** 累积源会话事件的内存会话。 */
   const session = Session.create(SessionId(SOURCE_SESSION_ID))
   session.append('turn/start', {
     turn: 1,
   })
+  /** 供稳定会话标题引用的用户消息事件。 */
   const user = session.append('user/message', createUserMessage({
     content: [{ type: 'text', text: 'Research context for the reference menu.' }],
     source: { kind: 'user' },
@@ -65,9 +84,12 @@ function sourceSessionFixture(): string {
 }
 
 /** Build one target log with the direct message durably before its recalled context. */
+/** 构造直接消息先于回忆上下文持久化的目标会话 JSONL。示例：targetSessionFixture()。 */
 function targetSessionFixture(): string {
+  /** 累积目标顺序事件的内存会话。 */
   const session = Session.create(SessionId(TARGET_SESSION_ID))
   session.append('turn/start', { turn: 1 })
+  /** 应先于引用上下文持久化的直接用户消息事件。 */
   const user = session.append('user/message', createUserMessage({
     content: [{ type: 'text', text: '@Research notes what changed?' }],
     source: { kind: 'user' },
@@ -117,11 +139,15 @@ function targetSessionFixture(): string {
  * @param page - the assembled app page.
  * @returns the golden text for the composer's decoration layer.
  */
+/** 读取 page 编辑器背板的文本与引用分段并返回稳定字符串。示例：await composerSegments(page)。 */
 async function composerSegments(page: Page): Promise<string> {
   return page.evaluate(() => {
+    /** 与文本框同步绘制引用范围的输入背板。 */
     const backdrop = document.querySelector('[data-input-backdrop]')
+    /** 提供当前原始输入值和光标的文本框。 */
     const textarea = document.querySelector('textarea')
     if (backdrop === null || textarea === null) return 'composer absent'
+    /** 将背板每个直接节点归一化后的分段说明。 */
     const rows = [...backdrop.childNodes].map((node) => {
       if (!(node instanceof HTMLElement)) return `plain    ${JSON.stringify(node.textContent ?? '')}`
       const decoration = node.dataset['decoration'] ?? 'unknown'
