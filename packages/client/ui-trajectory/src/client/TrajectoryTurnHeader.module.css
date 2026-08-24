@@ -1,6 +1,13 @@
 /* Sticky turn bar: full-bleed ghost-active fill across the panel; title +
  * metric labels sit in a centered 880 content lane (4×71 + 3×12 = 320). */
+/* 文件职责：定义轨迹轮次粘性标题栏、居中内容通道和四个指标列标签样式。
+ * 技术维度：使用 CSS Modules、sticky 定位、Flexbox 和精确列宽计算对齐轨迹单元格。
+ * 产品维度：滚动长轨迹时固定当前轮次，并让输入、输出、思考、耗时标签与数据列对齐。
+ * 逻辑维度：root 固定栏位，inner 限制 880 像素内容宽，columns 排列四列，column 定义单列排版。
+ * 关键边界：四列总宽固定为 320 像素；修改列宽或间距必须同步轨迹单元格布局。
+ * 新手阅读建议：先核算 4×71+3×12，再看 margin-right 如何与单元格尾部留白对齐。 */
 
+/* root：全宽粘性轮次栏，滚动时固定在面板顶部。 */
 .root {
   position: sticky;
   top: 0;
@@ -11,6 +18,7 @@
   background: var(--dsw-alias-button-ghost-active-fill);
 }
 
+/* inner：把标题和指标列限制在居中的 880 像素内容通道内。 */
 .inner {
   display: flex;
   align-items: center;
@@ -23,12 +31,14 @@
   padding: 0 16px;
 }
 
+/* title：不伸缩的 Turn N 主标题。 */
 .title {
   flex: none;
   font: var(--dsw-font-xs-strong-13);
   color: var(--dsw-alias-label-primary);
 }
 
+/* columns：固定 320 像素宽的四列指标标签容器。 */
 .columns {
   flex: none;
   display: flex;
@@ -36,9 +46,11 @@
   width: 320px;
   gap: 12px;
   /* Match cell padding-right: 8 so Time lines up with the trailing lane. */
+  /* 与单元格右内边距保持 8 像素一致，使 Time 标签对齐尾部数据列。 */
   margin-right: 8px;
 }
 
+/* column：每个指标标签固定 71 像素并左对齐。 */
 .column {
   flex: none;
   width: 71px;
