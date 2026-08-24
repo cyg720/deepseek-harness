@@ -30,6 +30,15 @@
 // Zero model calls: a fresh workspace's blank session already carries a live
 // composer, and the scenario only types into it. A stray stream would fail loud
 // with NO_ADAPTER.
+// 场景只在空白会话输入草稿，不调用模型；任何意外流请求都会以 NO_ADAPTER 失败。
+/**
+ * 文件职责：验证超过 14 行的编辑器草稿中，可见文字、选择区和光标共用同一滚动坐标。
+ * 技术维度：使用 Playwright、真实浏览器布局、Range 几何、双层文字渲染和黄金关系报告。
+ * 产品维度：用户滚动或粘贴长草稿时，光标不会领先于装饰文字，首尾行与换行都保持可见。
+ * 逻辑维度：生成长草稿，测量顶部、底部、尾换行和粘贴状态，再输出跨平台稳定的关系快照。
+ * 关键边界：jsdom 无真实滚动，必须使用浏览器；黄金只记录相对关系，不固定字体相关绝对坐标。
+ * 新手阅读建议：先理解 textarea/backdrop/mirror 三层，再读 measureComposer 的 gap 探针与报告生成。
+ */
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
@@ -41,6 +50,7 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-draft-scroll', import.meta.url))
 /**
  * Committed golden of the composer's two-layer scroll geometry. The change
@@ -49,14 +59,20 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-draft-scroll', 
  * makes a shift in the cap or in the layer coupling a reviewable diff rather
  * than an assertion someone has to reconstruct.
  */
+/** 记录编辑器两层滚动关系而非可访问文本的几何黄金文件。 */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 
 /** Marks the first and last line so a Range can find them in the backdrop's text. */
+/** 第一行标记，供 Range 在装饰文本中定位。 */
 const FIRST_MARKER = 'FIRST-LINE-MARKER'
+/** 最后一行标记，供 Range 在装饰文本中定位。 */
 const LAST_MARKER = 'LAST-LINE-MARKER'
 /** Comfortably past the 14-line cap, so the draft overflows however the lines wrap. */
+/** 明显超过 14 行上限的草稿行数。 */
 const DRAFT_LINES = 40
+/** 带首尾标记的 40 行标准长草稿。 */
 const DRAFT = Array.from({ length: DRAFT_LINES }, (_unused, index) => {
   if (index === 0) return FIRST_MARKER
   if (index === DRAFT_LINES - 1) return LAST_MARKER
@@ -71,9 +87,11 @@ const DRAFT = Array.from({ length: DRAFT_LINES }, (_unused, index) => {
  * and so decides the height for both, which is why the backdrop needs no
  * padding of its own — but only a draft with a trailing newline can show it.
  */
+/** 末尾带换行的长草稿，用于验证光标保留的最终空行。 */
 const DRAFT_TRAILING_NEWLINE = `${DRAFT}\n`
 
 /** The composer's text layers as the browser lays them out. */
+/** 浏览器实际布局出的编辑器滚动、宽度和光标文字对齐指标。 */
 interface ComposerMetrics {
   /** True when the draft is taller than the capped box — the situation under test. */
   overflows: boolean
@@ -125,48 +143,73 @@ interface ComposerMetrics {
  * @param page - the page under test.
  * @returns the offset, the caret-to-glyph gap, and where the draft's first and last lines sit.
  */
+/**
+ * 在光标坐标系内测量编辑器三层布局。
+ * @param page 当前真实浏览器页面。
+ * @returns 滚动范围、换行宽度、光标文字间距和首尾行位置。
+ * @example `await measureComposer(page)`
+ */
 function measureComposer(page: Page): Promise<ComposerMetrics> {
   return page.evaluate(({ first, last }) => {
+    /** 当前可用的真实 textarea。 */
     const input = document.querySelector<HTMLTextAreaElement>('textarea:enabled')
     if (input === null) throw new Error('no live composer textarea in the DOM')
+    /** 同时承载 textarea 与 backdrop 的唯一滚动容器。 */
     const scroll = input.closest<HTMLElement>('[data-input-scroll]')
     if (scroll === null) throw new Error('the composer textarea is not inside a draft scrollport')
+    /** 绘制可见文字和高亮的装饰层。 */
     const backdrop = input.parentElement?.querySelector<HTMLElement>('[data-input-backdrop]')
     if (backdrop === undefined || backdrop === null) throw new Error('no decoration backdrop beside the composer textarea')
     // The hidden auto-grow mirror: the textarea's next sibling, and the layer
     // that decides the box's height, so its wrap width matters as much as the
     // two that carry glyphs.
+    // 隐藏自动增高镜像决定共同高度，其换行宽度必须与另外两层一致。
+    /** textarea 后方决定自动高度的隐藏镜像层。 */
     const mirror = input.nextElementSibling
     if (!(mirror instanceof HTMLElement)) throw new Error('no auto-grow mirror after the composer textarea')
     // The draft carries no chips or claim token, so the decoration walk emits it
     // as a single text node, which is what the Range below needs.
+    // 本草稿没有芯片或声明标记，装饰遍历会生成单个文本节点，便于 Range 定位。
+    /** backdrop 中承载完整草稿的首个文本节点。 */
     const text = backdrop.firstChild
     if (!(text instanceof Text)) throw new Error('backdrop does not open with a plain text node')
+    /** textarea 计算后的单行高度。 */
     const lineHeight = Number.parseFloat(getComputedStyle(input).lineHeight)
     /** Where the backdrop paints the line holding `marker`, in viewport coordinates. */
+    /** 返回 backdrop 中目标标记所在文字框的视口顶部坐标。 */
     const glyphTop = (marker: string): number => {
+      /** 标记在完整装饰文本中的字符偏移。 */
       const at = text.data.indexOf(marker)
       if (at < 0) throw new Error(`marker ${marker} missing from the backdrop text`)
+      /** 围住标记文本并读取布局框的 DOM Range。 */
       const range = document.createRange()
       range.setStart(text, at)
       range.setEnd(text, at + marker.length)
       return range.getBoundingClientRect().top
     }
+    /** textarea 内容区顶部内边距。 */
     const paddingTop = Number.parseFloat(getComputedStyle(input).paddingTop)
     // Where the CARET sits on the draft's first line: the textarea lays its own
     // (transparent) glyphs out from its border box, shifted by any offset it
     // holds itself. Reading the caret's frame this way rather than the
     // scrollport's is what makes the gap the user-visible quantity — it stays
     // honest if the textarea ever starts scrolling on its own again.
+    // 直接从 textarea 自身坐标读取光标位置，即使未来它恢复独立滚动，指标仍代表用户所见偏差。
+    /** 计算第一行光标框与 backdrop 字形框的垂直间距。 */
     const gap = (): number =>
       Math.round(input.getBoundingClientRect().top + paddingTop - input.scrollTop - glyphTop(first))
     // The same-task probe: move the offset and re-read the gap before the task
     // ends, which is before any scroll event could have run a listener.
+    // 在同一任务中移动滚动量并立即复测，早于任何 scroll 监听器执行。
+    /** 改变滚动前的基准光标文字间距。 */
     const before = gap()
+    /** 测量后需要恢复的原滚动位置。 */
     const restore = scroll.scrollTop
     scroll.scrollTop = restore === 0 ? 120 : 0
+    /** 同一任务中滚动导致的间距变化，正确实现应为零。 */
     const gapShiftOnScroll = Math.abs(gap() - before)
     scroll.scrollTop = restore
+    /** 滚动容器相对视口的布局框。 */
     const box = scroll.getBoundingClientRect()
     return {
       inputWrapWidth: input.clientWidth,
@@ -201,6 +244,7 @@ function measureComposer(page: Page): Promise<ComposerMetrics> {
  * @param pasted - metrics right after a long block was pasted at the draft's end.
  * @returns the golden body, without a trailing newline.
  */
+/** 把四种编辑器状态转换为只包含跨平台关系的 Markdown 黄金正文。 */
 function renderGeometry(
   top: ComposerMetrics, bottom: ComposerMetrics, trailingNewline: ComposerMetrics, pasted: ComposerMetrics,
 ): string {
@@ -246,9 +290,13 @@ function renderGeometry(
 }
 
 describe('web e2e: composer draft scrolling', () => {
+  /** 真实 Web 主机和空白工作区夹具。 */
   let scaffold: WebScaffold
+  /** 本场景使用的 Chromium 实例。 */
   let browser: Browser
+  /** 输入和滚动长草稿的页面。 */
   let page: Page
+  /** 页面错误和警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {

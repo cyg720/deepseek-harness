@@ -11,6 +11,15 @@
 // Geometry is the point of the scenario. The command is unbounded model text,
 // and an uncapped card grows with it until the refuse/allow buttons leave the
 // viewport — an approval the user could see and not answer.
+// 命令文本无长度上限，若卡片不限制高度，操作按钮可能被推到视口外而无法回答。
+/**
+ * 文件职责：端到端验证长命令审批接管编辑器时的高度限制、操作可达性和批准执行结果。
+ * 技术维度：使用 Playwright、真实沙箱审批链、模型回放夹具、几何测量和 ARIA 快照。
+ * 产品维度：即使模型生成很长命令，用户仍能看到并操作拒绝/允许按钮，批准后命令正常执行。
+ * 逻辑维度：发起只读写文件请求，等待真实审批，比较面板快照，在两种视口测量后允许一次。
+ * 关键边界：记录模式会重录模型夹具；跨平台拒绝文本不同，因此完成态用文件和事件验证。
+ * 新手阅读建议：先看 TOKENS 为何必须足够长，再读编辑器高度探针与审批面板几何对比。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -20,6 +29,7 @@ import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 // Empty type import: carries the approval package's session-event merge, so
 // the decided-outcome assertion below type-checks against the real union.
+// 空类型导入让审批包的会话事件声明合并生效，下面可按真实联合类型检查结果。
 import type {} from '@deepseek-ai/dsh-user-approval'
 import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
@@ -27,11 +37,16 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景夹具和黄金文件目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/approval-composer', import.meta.url))
+/** 确定性模型回放会话夹具。 */
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 // The scenario's one golden: the waiting panel. Everything the answered state
 // proves is asserted directly — see the world-state block at the end.
+// 唯一黄金文件只固定等待面板；回答后的状态由文件、事件和 DOM 直接验证。
+/** 等待用户回答时的审批面板 ARIA 快照。 */
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 
 // Irreducible payload: the command has to be long enough to pass the card's
@@ -40,17 +55,26 @@ const MODE = webSnapshotMode()
 // model compressed into `printf 'alpha %.0s' {1..400}` while recording, and a
 // short command proves nothing here. The formula keeps the source small; the
 // model receives the expanded literal it has to put in the command.
+// 载荷必须超过卡片高度上限，且使用不同词元避免模型把重复词压缩成短命令。
+/** 生成足够长且不易压缩的命令文本内容。 */
 const TOKENS = Array.from({ length: 220 }, (_, index) => `tok${((index + 1) * 7919 % 99991).toString(36)}`).join(' ')
+/** 要求模型用单条 Bash 命令写入长文本的用户提示。 */
 const PROMPT = `Write a file named notes.txt in the workspace containing exactly this text on one line: ${TOKENS}. Use one bash command with the literal text inline. Then reply with the single word DONE and stop.`
 
 /** Draft used to measure the composer's own text cap: enough lines to pass it. */
+/** 用于测量普通编辑器文本上限的多行草稿。 */
 const CAP_PROBE = Array.from({ length: 40 }, (_, index) => `line ${index}`).join('\n')
 
 describe('web e2e: approval takeover keeps its actions reachable', () => {
+  /** 真实 Web 主机与工作区夹具。 */
   let scaffold: WebScaffold
+  /** 本场景的 Chromium 实例。 */
   let browser: Browser
+  /** 执行审批交互的页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
+  /** 本场景捕获的会话事件，用于验证批准结果已持久化。 */
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {

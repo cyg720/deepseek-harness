@@ -10,6 +10,15 @@
 // because the host answers `agent-preset-locked` to anything else.
 //
 // Zero model calls: no replay fixture mounts, so a stray stream fails loud.
+// 本场景不安装回放模型，任何意外模型请求都会立即失败。
+/**
+ * 文件职责：端到端验证新会话预设选择、会话锁定、命令目录重组和已播种会话头展示。
+ * 技术维度：使用 Playwright、真实发布预设、会话持久化、HTTP RPC 和 ARIA 黄金快照。
+ * 产品维度：用户可在空白会话选择能力组合，开始对话后预设固定且恢复时保持原选择。
+ * 逻辑维度：播种技能与历史会话，启动真实名册，依次验证首页、菜单、切换、斜杠目录和会话头。
+ * 关键边界：只有新会话允许切换；技能目录必须跟随会话组合重建；全程禁止模型调用。
+ * 新手阅读建议：先读三个 seed 辅助函数，再看 livePreset RPC，最后按页面状态变化阅读用例。
+ */
 import { fileURLToPath } from 'node:url'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -26,15 +35,23 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景所有黄金文件所在目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/agent-preset-selection', import.meta.url))
+/** 新会话预设芯片区域快照。 */
 const HERO_EXPECTED = join(SNAPSHOT_DIR, 'hero.expected.md')
+/** 发布预设菜单快照。 */
 const MENU_EXPECTED = join(SNAPSHOT_DIR, 'menu.expected.md')
+/** 已开始会话头部预设标签和操作快照。 */
 const HEADER_EXPECTED = join(SNAPSHOT_DIR, 'header.expected.md')
 /** The shipped roster, beside the composition that names it. */
+/** 与 CLI 组合一同发布的系统预设根目录。 */
 const SHIPPED_PRESETS = fileURLToPath(new URL('../../cli/config/agent-presets', import.meta.url))
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
+/** 播种历史会话的固定编号。 */
 const SEED_ID = 'agent-preset-selection-web-e2e'
 /** A project skill only a preset that mounts `skill-filesystem` can discover. */
+/** 只有挂载 skill-filesystem 的预设才能发现的项目技能名。 */
 const SKILL_NAME = 'preset-catalog-demo'
 
 /**
@@ -45,7 +62,9 @@ const SKILL_NAME = 'preset-catalog-demo'
  * skill group a statement about the session's composition.
  * @param workspaceCwd - the scaffold's temp project parent.
  */
+/** 在连接工作区下创建只供完整预设发现的项目技能。 */
 async function seedWorkspaceSkill(workspaceCwd: string): Promise<void> {
+  /** 技能目录的绝对路径。 */
   const directory = join(workspaceCwd, 'workspace', '.agents', 'skills', SKILL_NAME)
   await mkdir(directory, { recursive: true })
   await writeFile(join(directory, 'SKILL.md'), [
@@ -65,8 +84,11 @@ async function seedWorkspaceSkill(workspaceCwd: string): Promise<void> {
  * the golden to a provider's wording for no gain.
  * @returns a tokenized session log ending on a closed turn.
  */
+/** 创建一个已结束且不含模型回复的一轮会话日志。 */
 function seedLog(): string {
+  /** 保持快照稳定的固定会话时间。 */
   const time = 1784974100000
+  /** 为事件补充连续序号和固定递增时间的序列化函数。 */
   const at = (index: number, event: Record<string, unknown>): string =>
     JSON.stringify({ ...event, seq: index, time: time + index })
   return [
@@ -88,8 +110,11 @@ function seedLog(): string {
  * @param scaffold - the booted Web scaffold.
  * @param parentId - the seeded session whose header the browser opens.
  */
+/** 持久化一个 minimal 子会话，使头部快照同时覆盖子代理操作贡献。 */
 async function seedSubagent(scaffold: WebScaffold, parentId: SessionId): Promise<void> {
+  /** 固定子会话编号。 */
   const childId = sessionId('agent-preset-selection-child')
+  /** 固定子会话创建时间。 */
   const createdAt = 1784974100100
   await scaffold.ctx.sessionPersistence.create({
     version: SESSION_FORMAT_VERSION,
@@ -144,7 +169,9 @@ async function seedSubagent(scaffold: WebScaffold, parentId: SessionId): Promise
  * @param baseUrl - the scaffold's origin.
  * @returns the live session's preset, or undefined before it is listed.
  */
+/** 通过会话列表 RPC 查询当前空白会话实际采用的预设。 */
 async function livePreset(baseUrl: string): Promise<string | undefined> {
+  /** session.list RPC 的 HTTP 响应。 */
   const response = await fetch(`${baseUrl}/api/session.list`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -152,6 +179,7 @@ async function livePreset(baseUrl: string): Promise<string | undefined> {
       type: 'client-request', rpcId: 'agent-preset-live', method: 'session.list', payload: {},
     }),
   })
+  /** 只保留本测试读取字段的 RPC 响应体。 */
   const body = await response.json() as {
     result: { value?: { items: { sessionId: string; agentPreset?: string }[] } }
   }
@@ -159,16 +187,22 @@ async function livePreset(baseUrl: string): Promise<string | undefined> {
 }
 
 /** Every option label the trigger menu currently lists. */
+/** 返回触发建议列表当前显示的所有选项文本。 */
 async function menuOptions(page: Page): Promise<string[]> {
+  /** 编辑器触发建议的列表框。 */
   const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
   await menu.waitFor({ timeout: 10_000 })
   return await menu.getByRole('option').allTextContents()
 }
 
 describe('web e2e: agent-preset selection', () => {
+  /** 真实 Web 主机和工作区夹具。 */
   let scaffold: WebScaffold
+  /** 本场景使用的 Chromium 实例。 */
   let browser: Browser
+  /** 展示预设选择界面的页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
@@ -178,6 +212,8 @@ describe('web e2e: agent-preset selection', () => {
     // A resumed session runs what it was created with; seeding one that
     // records `minimal` is what makes the header label a claim about the
     // session rather than an echo of the current default.
+    // 播种 minimal 会话证明头部标签来自会话记录，而不是当前部署默认值。
+    /** 已播种历史会话的品牌化编号。 */
     const seededId = await seedSession(scaffold, seedLog(), SEED_ID, 'minimal')
     await seedSubagent(scaffold, seededId)
     await seedWorkspaceSkill(scaffold.workspaceCwd)

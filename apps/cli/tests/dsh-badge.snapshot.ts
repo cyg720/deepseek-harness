@@ -1,14 +1,29 @@
+/**
+ * 文件职责：快照验证正式应用中 dsh-badge 技能的默认禁用与显式启用行为。
+ * 技术维度：使用 Loader 冒烟运行器、内联快照和路径归一化比较完整模型可见输出。
+ * 产品维度：保证徽章技能只在用户选择后出现，并向代理提供稳定且官方的使用说明。
+ * 逻辑维度：分别启动默认和启用配置，解析输出，替换机器路径后对比目录与技能内容快照。
+ * 关键边界：本地资源绝对路径必须替换为占位符；两个运行都需使用真实装配配置。
+ * 新手阅读建议：先看五个路径常量，再比较 disabledSnapshot 与 enabledSnapshot 的结构差异。
+ */
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
+/** 技能快照夹具的源启动脚本。 */
 const binScript = fileURLToPath(new URL('./fixtures/dsh-badge/snapshot.ts', import.meta.url))
+/** 显式启用徽章技能的装配配置。 */
 const configPath = fileURLToPath(new URL('./fixtures/dsh-badge/cordis.yml', import.meta.url))
+/** 保持徽章技能禁用的默认装配配置。 */
 const defaultConfigPath = fileURLToPath(new URL('./fixtures/dsh-badge/default.cordis.yml', import.meta.url))
+/** 冒烟运行源码入口时使用的仓库 TypeScript 配置。 */
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
+/** 快照输出中需要归一化的徽章资源绝对目录。 */
 const badgeAssetsPath = fileURLToPath(new URL('../../../packages/skill/skill-badge/assets/', import.meta.url))
 
 describe('dsh badge assembled snapshot', () => {
+  /** 默认装配应报告技能不可用，启用装配应公布并加载完整官方说明。 */
   it('advertises and loads the opt-in bundled skill through the shipped app', async () => {
+    /** 使用默认配置运行得到的禁用技能结果。 */
     const disabled = await runLoaderSmoke({
       label: 'disabled dsh badge skill snapshot',
       tempDirPrefix: 'headless-snapshot-dsh-badge-disabled-',
@@ -17,6 +32,7 @@ describe('dsh badge assembled snapshot', () => {
       configPath: defaultConfigPath,
       tsconfigPath,
     })
+    /** 使用显式启用配置运行得到的技能目录和加载结果。 */
     const enabled = await runLoaderSmoke({
       label: 'dsh badge skill snapshot',
       tempDirPrefix: 'headless-snapshot-dsh-badge-',
@@ -25,7 +41,9 @@ describe('dsh badge assembled snapshot', () => {
       configPath,
       tsconfigPath,
     })
+    /** 默认输出解析出的结构化快照值。 */
     const disabledSnapshot = JSON.parse(disabled.stdout) as unknown
+    /** 启用输出解析并归一化资源路径后的结构化快照值。 */
     const enabledSnapshot = JSON.parse(
       enabled.stdout.replaceAll(badgeAssetsPath, '{{badgeAssetsPath}}'),
     ) as unknown

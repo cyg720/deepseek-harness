@@ -3,6 +3,15 @@
 // send/settle/render cycles, including two real bash executions and one long,
 // multi-chunk final turn. Assertions stay semantic: no host timing, heap, or
 // mounted-row cardinality is treated as a correctness contract.
+// 断言只关注语义结果，不把宿主时序、内存或已挂载行数当成正确性标准。
+/**
+ * 文件职责：验证通过真实编辑器连续增长的十二轮会话在发送、工具执行和渲染中保持语义身份。
+ * 技术维度：使用 Playwright、LLM 回放覆盖、真实 Bash 工具、会话事件和确定性增量流。
+ * 产品维度：长时间连续对话不会丢失早期消息、工具结果或最终长回复，编辑器始终可继续使用。
+ * 逻辑维度：生成十二轮规格和回放脚本，逐轮发送并等待完成，最后交叉检查 DOM 与会话日志。
+ * 关键边界：记录模式跳过生成式场景；临时回放目录、浏览器和服务即使失败也必须全部清理。
+ * 新手阅读建议：先看 turnSpec 如何描述一轮，再比较 textStream/toolStream，最后读十二轮断言。
+ */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,11 +29,16 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, conversationContextKey, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 当前 Web 快照运行模式。 */
 const MODE = webSnapshotMode()
+/** 连续对话总轮数。 */
 const TURN_COUNT = 12
+/** 需要真实执行 Bash 工具的轮次。 */
 const TOOL_TURNS = [4, 9] as const
+/** 回放增量之间的发送间隔，单位毫秒。 */
 const STREAM_PACE_MS = 10
 
+/** 一轮连续对话的用户标记、回复增量和可选工具身份。 */
 interface TurnSpec {
   readonly index: number
   readonly prompt: string
@@ -36,10 +50,12 @@ interface TurnSpec {
   readonly toolResultMarker?: string
 }
 
+/** 把轮次编号补齐为三位稳定后缀。 */
 function suffix(index: number): string {
   return String(index).padStart(3, '0')
 }
 
+/** 为最后一轮生成足够长、包含早期所有权要求的多行提示。 */
 function longFinalPrompt(userMarker: string): string {
   return [
     `${userMarker} Reconcile this accumulated conversation without losing earlier turn ownership.`,
@@ -51,12 +67,19 @@ function longFinalPrompt(userMarker: string): string {
   ].join('\n')
 }
 
+/** 根据轮次生成普通或工具轮的完整确定性规格。 */
 function turnSpec(index: number): TurnSpec {
+  /** 三位轮次标识。 */
   const id = suffix(index)
+  /** 当前轮用户消息中的唯一标记。 */
   const userMarker = `CONTINUOUS_CHAT_USER_${id}`
+  /** 当前轮首个模型增量标记。 */
   const firstMarker = `CONTINUOUS_CHAT_FIRST_${id}`
+  /** 当前轮完成标记。 */
   const doneMarker = `CONTINUOUS_CHAT_DONE_${id}`
+  /** 最终轮比普通轮发送更多增量。 */
   const deltaCount = index === TURN_COUNT ? 36 : 8
+  /** 当前轮依次回放的文本增量。 */
   const deltas = Array.from({ length: deltaCount }, (_, chunkIndex) => {
     if (chunkIndex === 0) return `${firstMarker} `
     if (chunkIndex === deltaCount - 1) return `${doneMarker}.`
@@ -86,7 +109,9 @@ function turnSpec(index: number): TurnSpec {
   }
 }
 
+/** 把普通轮规格转换为完整 LLM 文本流。 */
 function textStream(spec: TurnSpec): StreamChunk[] {
+  /** 所有增量拼接后的最终助手文本。 */
   const response = spec.deltas.join('')
   return [
     { type: 'block-start', index: 0, blockType: 'text' },
@@ -103,10 +128,12 @@ function textStream(spec: TurnSpec): StreamChunk[] {
   ]
 }
 
+/** 把工具轮规格转换为 Bash 工具调用流。 */
 function toolStream(spec: TurnSpec): StreamChunk[] {
   if (spec.callId === undefined || spec.toolResultMarker === undefined) {
     throw new Error(`turn ${String(spec.index)} has no tool identity`)
   }
+  /** 发送给 Bash 工具的 JSON 参数文本。 */
   const args = JSON.stringify({
     command: `printf '${spec.toolResultMarker}\\n'`,
     description: spec.toolResultMarker,
@@ -130,8 +157,10 @@ function toolStream(spec: TurnSpec): StreamChunk[] {
   ]
 }
 
+/** 将轮次规格展开为回放提供方按调用顺序消费的条目。 */
 function replayScript(specs: readonly TurnSpec[]): ReplayOverrideDoc {
   return specs.flatMap((spec): ReplayEntry[] => {
+    /** 当前轮最终文本回复条目。 */
     const final: ReplayEntry = { kind: 'chunks', chunks: textStream(spec) }
     return spec.callId === undefined
       ? [final]
@@ -139,6 +168,7 @@ function replayScript(specs: readonly TurnSpec[]): ReplayOverrideDoc {
   })
 }
 
+/** 提取用户消息事件中的全部文本块。 */
 function userText(event: Extract<SessionEvent, { type: 'user/message' }>): string {
   return event.data.content
     .filter(block => block.type === 'text')
@@ -146,6 +176,7 @@ function userText(event: Extract<SessionEvent, { type: 'user/message' }>): strin
     .join('')
 }
 
+/** 提取助手消息事件中的全部文本块。 */
 function assistantText(event: Extract<SessionEvent, { type: 'assistant/message' }>): string {
   return event.data.message.content
     .filter(block => block.type === 'text')
@@ -153,6 +184,7 @@ function assistantText(event: Extract<SessionEvent, { type: 'assistant/message' 
     .join('')
 }
 
+/** 提取工具结果事件首条消息中的全部文本块。 */
 function toolResultText(event: Extract<SessionEvent, { type: 'tool/result' }>): string {
   return event.data.message.content[0].content
     .filter(block => block.type === 'text')
@@ -160,26 +192,37 @@ function toolResultText(event: Extract<SessionEvent, { type: 'tool/result' }>): 
     .join('')
 }
 
+/** 计算用户消息在聊天虚拟列表中的稳定语义键。 */
 function messageKey(event: SessionEvent<'user/message'>): string {
   return conversationContextKey('input-message', String(event.data.id))
 }
 
+/** 计算助手步骤在聊天虚拟列表中的稳定语义键。 */
 function assistantKey(event: SessionEvent<'assistant/message'>): string {
   return conversationContextKey('assistant-step', `${event.data.turn}:${event.data.step}`)
 }
 
 describe('web e2e: continuous conversation grown through the composer', () => {
+  /** 本场景使用的 Chromium 实例。 */
   let browser: Browser
+  /** 连续发送十二轮消息的页面。 */
   let page: Page
+  /** 临时回放覆盖目录。 */
   let replayDir: string
+  /** 真实 Web 主机与工作区夹具。 */
   let scaffold: WebScaffold
+  /** 页面错误和一般警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
+  /** 额外捕获的控制台 warning 文本。 */
   const consoleWarnings: string[] = []
+  /** 主机持久化的全部会话事件。 */
   const sessionEvents: SessionEvent[] = []
+  /** 十二轮按顺序生成的确定性规格。 */
   const specs = Array.from({ length: TURN_COUNT }, (_, offset) => turnSpec(offset + 1))
 
   beforeAll(async () => {
     replayDir = await mkdtemp(join(tmpdir(), 'dsh-continuous-chat-replay-'))
+    /** 回放提供方读取的覆盖 JSON 文件。 */
     const replayOverride = join(replayDir, 'replay.override.json')
     await writeFile(replayOverride, JSON.stringify(replayScript(specs)))
     scaffold = await launchWebScaffold({
@@ -203,6 +246,7 @@ describe('web e2e: continuous conversation grown through the composer', () => {
   }, 120_000)
 
   afterAll(async () => {
+    /** 清理浏览器、服务或临时目录时收集的错误。 */
     const failures: unknown[] = []
     await browser?.close().catch((error: unknown) => failures.push(error))
     await scaffold?.close().catch((error: unknown) => failures.push(error))

@@ -2,6 +2,15 @@
 // rendering. It reports measurements without timing assertions because host
 // speed is not a correctness contract; structural assertions keep the number
 // of workspaces and history entries from silently shrinking.
+// 性能数字只报告不设时限断言，结构断言防止工作区或历史规模悄然缩小。
+/**
+ * 文件职责：基准测量高基数侧栏、500 轮复杂历史、持续对话和增量渲染的浏览器成本。
+ * 技术维度：使用 Playwright、Chrome DevTools Protocol、合成会话日志、模型回放和 DOM 变更探针。
+ * 产品维度：帮助维护者发现大规模真实使用场景的时间、内存、节点和监听器增长趋势。
+ * 逻辑维度：构建大历史与回放世界，分阶段测量加载、输入、流式回复、工具轮和百轮浸泡结果。
+ * 关键边界：该性能测试按需执行且不固定宿主速度；结构数量必须精确，所有世界和临时目录需清理。
+ * 新手阅读建议：先看常量定义的数据规模，再读 Measurement/PerformanceWorld，最后沿报告生成函数阅读。
+ */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -24,6 +33,7 @@ import {
   SessionId,
 } from '@deepseek-ai/dsh-session'
 // Carries the session/title event declaration into the fixture builder.
+// 空类型导入让 session/title 事件声明合并进入合成会话构建器。
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
   launchWebScaffold,
@@ -34,35 +44,59 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage } from './support.ts'
 
+/** 侧栏基准创建的会话总数。 */
 const SIDEBAR_SESSION_COUNT = 1_000
+/** 500 轮长历史会话编号。 */
 const LONG_SESSION_ID = 'perf-long-history'
+/** 长历史会话的稳定标题标记。 */
 const LONG_SESSION_TITLE = 'LONG_PERF_SENTINEL 500-turn session'
+/** 长历史基准的总轮数。 */
 const LONG_HISTORY_TURNS = 500
+/** 每隔多少轮生成一个工具轮。 */
 const TOOL_TURN_INTERVAL = 10
+/** 每个工具轮内的合成工具调用数量。 */
 const TOOLS_PER_TOOL_TURN = 10
+/** 长历史中预期生成的总工具调用数。 */
 const EXPECTED_TOOL_CALLS = LONG_HISTORY_TURNS / TOOL_TURN_INTERVAL * TOOLS_PER_TOOL_TURN
+/** 500 轮复杂历史预期投影出的语义轨迹行总数。 */
 const EXPECTED_TRAJECTORY_ROWS = 2_100
+/** 普通历史性能场景默认轮数。 */
 const DEFAULT_HISTORY_TURNS = 24
+/** 性能回放避免上下文裁剪的窗口大小。 */
 const PERF_REPLAY_CONTEXT_WINDOW = 10_000_000
+/** 性能流增量发送间隔。 */
 const STREAM_PACE_MS = 8
+/** 单次长流回复的增量数量。 */
 const STREAM_DELTA_COUNT = 120
+/** 对照会话轮数。 */
 const COMPARISON_TURNS = 8
+/** 对照流的增量数量。 */
 const COMPARISON_DELTA_COUNT = 24
+/** 对照会话工具轮间隔。 */
 const COMPARISON_TOOL_INTERVAL = 3
+/** 长时间持续对话新增轮数。 */
 const SOAK_TURNS = 100
+/** 浸泡完成后用于验证渲染的额外轮次编号。 */
 const POST_SOAK_RENDER_TURN = SOAK_TURNS + 1
+/** 浸泡轮每次文本回复的增量数量。 */
 const SOAK_DELTA_COUNT = 8
+/** 浸泡对话工具轮间隔。 */
 const SOAK_TOOL_INTERVAL = 10
+/** 浸泡过程中记录保留状态的轮次间隔。 */
 const SOAK_CHECKPOINT_INTERVAL = 10
+/** 长历史继续轮用户、首增量与完成标记前缀。 */
 const LONG_CONTINUATION_USER_PREFIX = 'LONG_CONTINUATION_USER'
 const LONG_CONTINUATION_FIRST_PREFIX = 'LONG_CONTINUATION_FIRST'
 const LONG_CONTINUATION_DONE_PREFIX = 'LONG_CONTINUATION_DONE'
+/** 浸泡轮用户、首增量与完成标记前缀。 */
 const SOAK_USER_PREFIX = 'SOAK_CONVERSATION_USER'
 const SOAK_FIRST_PREFIX = 'SOAK_CONVERSATION_FIRST'
 const SOAK_DONE_PREFIX = 'SOAK_CONVERSATION_DONE'
+/** 单次实时性能轮的用户、首增量与完成标记。 */
 const LIVE_PROMPT_MARKER = 'STREAM_PERF_USER_INPUT'
 const STREAM_FIRST_MARKER = 'STREAM_PERF_FIRST'
 const STREAM_DONE_MARKER = 'STREAM_PERF_DONE'
+/** 包含混合语言和代码块的长实时性能提示。 */
 const LIVE_PROMPT = [
   LIVE_PROMPT_MARKER,
   'Analyze the following mixed-language project context and return a concise diagnostic.',
@@ -79,16 +113,19 @@ const LIVE_PROMPT = [
   ),
   '```',
 ].join('\n')
+/** 单次实时性能回复使用的确定性增量列表。 */
 const STREAM_DELTAS = Array.from({ length: STREAM_DELTA_COUNT }, (_, index) => {
   if (index === 0) return `${STREAM_FIRST_MARKER} `
   if (index === STREAM_DELTA_COUNT - 1) return `${STREAM_DONE_MARKER}.`
   return `chunk-${String(index).padStart(3, '0')} ${'response'.repeat(3)} `
 })
 
+/** CDP Performance.getMetrics 返回的指标名值映射。 */
 interface ChromiumMetrics {
   readonly [name: string]: number
 }
 
+/** 一段用户操作或渲染阶段的时间与资源变化测量。 */
 interface Measurement {
   readonly wallMs: number
   readonly taskMs: number
@@ -103,11 +140,13 @@ interface Measurement {
   readonly heapMb: number
 }
 
+/** MutationObserver 在测量窗口内记录的批次和记录数。 */
 interface MutationProbeResult {
   readonly batches: number
   readonly records: number
 }
 
+/** 从可信点击到 DOM 与绘制完成的用户渲染延迟。 */
 interface UserRenderProbeResult {
   readonly trustedClick: boolean
   readonly sendToDomMs: number
@@ -117,6 +156,7 @@ interface UserRenderProbeResult {
   readonly mutationRecords: number
 }
 
+/** 某个检查点浏览器保留的 DOM、节点、监听器与堆状态。 */
 interface RetainedBrowserState {
   readonly domElements: number
   readonly nodes: number
@@ -124,6 +164,7 @@ interface RetainedBrowserState {
   readonly heapMb: number
 }
 
+/** 一轮继续对话各阶段的测量与流式事件统计。 */
 interface ContinuedTurnReport {
   readonly ordinal: number
   readonly resultingTurns: number
@@ -142,6 +183,7 @@ interface ContinuedTurnReport {
   }
 }
 
+/** 生成一轮性能对话回放所需的提示、增量和标记。 */
 interface ConversationTurnSpec {
   readonly prompt: string
   readonly deltas: readonly string[]
@@ -151,11 +193,13 @@ interface ConversationTurnSpec {
   readonly toolResultMarker?: string
 }
 
+/** 浸泡过程某轮的浏览器保留状态检查点。 */
 interface RetainedCheckpoint {
   readonly turns: number
   readonly state: RetainedBrowserState
 }
 
+/** 多轮持续对话的起止保留状态、检查点和逐轮报告。 */
 interface ConversationReport {
   readonly startingTurns: number
   readonly turnsAdded: number
@@ -167,6 +211,7 @@ interface ConversationReport {
   readonly turns: readonly ContinuedTurnReport[]
 }
 
+/** 一个隔离性能场景拥有的服务、页面、事件和可选回放目录。 */
 interface PerformanceWorld {
   readonly scaffold: WebScaffold
   readonly page: Page
@@ -176,6 +221,7 @@ interface PerformanceWorld {
   readonly replayDir?: string
 }
 
+/** 创建性能世界时选择的浏览器、回放和数据规模。 */
 interface PerformanceWorldOptions {
   readonly browser: Browser
   readonly replay?: ReplayOverrideDoc
@@ -183,10 +229,12 @@ interface PerformanceWorldOptions {
   readonly seedLongHistory?: boolean
 }
 
+/** 将字符串包装为单个 LLM 文本内容块数组。 */
 function text(value: string): { type: 'text'; text: string }[] {
   return [{ type: 'text', text: value }]
 }
 
+/** 为合成会话追加稳定的回退标题事件。 */
 function appendTitle(session: Session, title: string, messageSeq: number): void {
   session.append('session/title', {
     title,
@@ -195,6 +243,7 @@ function appendTitle(session: Session, title: string, messageSeq: number): void 
   })
 }
 
+/** 为指定轮次与步骤追加合成模型请求头。 */
 function appendRequestHeader(session: Session, turn: number, step: number): void {
   session.append('request/header', {
     header: {
@@ -205,6 +254,7 @@ function appendRequestHeader(session: Session, turn: number, step: number): void
   })
 }
 
+/** 为合成会话追加带用量信息的助手文本步骤。 */
 function appendAssistant(
   session: Session,
   turn: number,
@@ -226,14 +276,18 @@ function appendAssistant(
   }, { surfaceOp: 'append' })
 }
 
+/** 为合成会话追加指定数量的工具调用与结果步骤。 */
 function appendToolStep(
   session: Session,
   turn: number,
   step: number,
   toolCount: number,
 ): void {
+  /** 当前工具轮生成的调用编号、顺序和参数。 */
   const calls = Array.from({ length: toolCount }, (_, index) => {
+    /** 当前合成工具调用的稳定编号。 */
     const callId = CallId(`perf-call-${String(turn)}-${String(index)}`)
+    /** 当前工具调用的确定性 JSON 参数。 */
     const args = JSON.stringify({
       turn,
       index,

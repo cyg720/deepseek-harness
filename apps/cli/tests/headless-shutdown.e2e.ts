@@ -1,3 +1,11 @@
+/**
+ * 文件职责：在真实伪终端中验证 headless CLI 连续两次 Ctrl+C 的有界关闭升级行为。
+ * 技术维度：使用 Python PTY 驱动、Execa、临时配置和真实 Cordis Loader 进程。
+ * 产品维度：即使插件释放永不完成，用户第二次中断也能让无头任务以标准 130 退出。
+ * 逻辑维度：创建含阻塞释放插件的临时配置，PTY 等待两个标记并发送两次 Ctrl+C，检查输出。
+ * 关键边界：依赖 POSIX PTY 和 python3，Windows 明确跳过；超时后必须强杀并清理临时目录。
+ * 新手阅读建议：先读 runHeadlessPtySmoke 的 TypeScript 外层，再把 Python 驱动按等待标记顺序阅读。
+ */
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,12 +14,16 @@ import { execa } from 'execa'
 import { describe, expect, it } from 'vitest'
 import { LOADER_SMOKE_TEST_TIMEOUT_MS, resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
 
+/** dsh CLI 的 TypeScript 源启动脚本。 */
 const dshBinScript = fileURLToPath(new URL('../src/bin.ts', import.meta.url))
+/** 源启动解析工作区包所需的根 TypeScript 配置。 */
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
+/** 故意永不完成释放的测试插件文件 URL。 */
 const neverDisposePlugin = pathToFileURL(
   fileURLToPath(new URL('./fixtures/never-dispose.mjs', import.meta.url)),
 ).href
 
+/** POSIX 子进程脚本：创建 PTY、等待阶段标记、发送两次 Ctrl+C 并验证退出码。 */
 const POSIX_HEADLESS_PTY_DRIVER = String.raw`
 import errno, json, os, pty, select, signal, sys, time
 node, launch_args_json, launch_env_json, cwd, timeout_seconds = sys.argv[1:]
@@ -61,12 +73,21 @@ if actual_exit != 130:
     sys.exit(125)
 `
 
+/**
+ * 在隔离目录中运行真实 headless CLI 的两阶段中断冒烟测试。
+ * @returns PTY 捕获的完整标准输出。
+ * @example `const output = await runHeadlessPtySmoke()`
+ */
 async function runHeadlessPtySmoke(): Promise<string> {
+  /** 本次运行的隔离工作目录。 */
   const cwd = await mkdtemp(join(tmpdir(), 'dsh-headless-shutdown-'))
   try {
+    /** 临时 DSH_HOME，包含预初始化的 headless 配置。 */
     const home = join(cwd, '.dsh')
     // Pre-initialize the headless profile with the never-dispose row in its
     // user patch layer (the same file a long-lived profile boot hot-reloads).
+    // 在用户补丁层预装阻塞释放插件，与长期运行配置的热重载文件相同。
+    /** 临时 headless 配置目录。 */
     const profileDir = join(home, 'profiles', 'headless')
     await mkdir(profileDir, { recursive: true })
     await writeFile(join(profileDir, 'package.json'), JSON.stringify({
@@ -81,6 +102,7 @@ async function runHeadlessPtySmoke(): Promise<string> {
       `      name: '${neverDisposePlugin}'`,
       '',
     ].join('\n'))
+    /** 跨平台解析出的源码启动命令、参数和环境。 */
     const launch = resolveExampleLaunch({
       srcBin: dshBinScript,
       configArgs: ['--profile', 'headless', 'never complete'],
@@ -93,7 +115,9 @@ async function runHeadlessPtySmoke(): Promise<string> {
         DSH_TEST_SHUTDOWN_ARM_FILE: join(cwd, 'shutdown-armed'),
       },
     })
+    /** PTY 驱动自身允许的最长执行时间。 */
     const timeoutMs = 15_000
+    /** Python PTY 驱动的完成结果。 */
     const result = await execa('python3', [
       '-c',
       POSIX_HEADLESS_PTY_DRIVER,
@@ -122,7 +146,9 @@ async function runHeadlessPtySmoke(): Promise<string> {
 }
 
 describe.skipIf(process.platform === 'win32')('headless process shutdown (real Loader tree in a PTY)', () => {
+  /** 首次中断开始释放，第二次中断必须强制退出且保留两个启动标记。 */
   it('lets a second Ctrl+C force exit while the first signal is draining', async () => {
+    /** PTY 捕获的 headless 进程输出。 */
     const output = await runHeadlessPtySmoke()
     expect(output).not.toContain('dsh: observing at ')
     expect(output).toContain('dsh-test: never-dispose ready')
