@@ -2,7 +2,17 @@
    IconActions sit below the body with an explicit 16px top margin (figma
    43:32997) — separate from the body's internal gap so the footer spacing
    stays fixed when the body is a single block. */
+/* 助手消息正文采用全宽叙述排版，并将正文内部间距与底部操作区间距分开控制。 */
+/*
+ * 文件职责：定义助手 Markdown 正文、宽表格、停止标记和底部操作区的局部样式。
+ * 技术维度：使用 CSS Modules、容器查询单位、全局选择器和设计令牌实现响应式排版。
+ * 产品维度：让回答正文在普通文本、宽表格和中断状态下都保持清晰且一致的阅读体验。
+ * 逻辑维度：先建立纵向正文布局，再扩展宽表格，最后修饰状态标记与操作区。
+ * 关键边界：宽表格依赖聊天容器宽度和内容宽度变量，缺失这些变量会影响横向对齐。
+ * 新手阅读建议：先看 root 与 body 的基础布局，再结合宽表格计算理解负外边距的用途。
+ */
 
+/* 助手消息根容器，按列排列正文和底部操作。 */
 .root {
   display: flex;
   flex-direction: column;
@@ -11,6 +21,7 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* Markdown 正文容器，各块之间保持固定间距。 */
 .body {
   display: flex;
   flex-direction: column;
@@ -27,19 +38,24 @@
    viewports keep the plain in-column scroll with no sideways shift.
    Percentages resolve against the wrapper's containing block, so a table
    indented inside a list still reaches the same transcript edges. */
+/* 四列及以上的宽表格可突破消息列宽，但仍与聊天记录区域左右边缘对齐。 */
 .body :global(.md-table-wide) {
+  /* 表格两侧可利用的额外空间，不允许得到负值。 */
   --dsh-table-spare: max(0px, calc((100cqw - var(--dsh-chat-content-width)) / 2));
+  /* 表格左侧需要补偿的距离，用来保持内容起点不变。 */
   --dsh-table-lead: calc(var(--dsh-table-spare) + min(var(--dsh-chat-content-width), 100cqw) - 100%);
   box-sizing: border-box;
   width: calc(100% + var(--dsh-table-lead) + var(--dsh-table-spare));
   /* The base .tableScroll caps at the column (max-width: 100%); the breakout
      is exactly the case that must exceed it. */
+  /* 基础滚动容器限制为列宽，此处必须取消限制才能让宽表格向外展开。 */
   max-width: none;
   margin-left: calc(-1 * var(--dsh-table-lead));
   padding-left: var(--dsh-table-lead);
 }
 
 /* Interrupted-turn terminal marker: quiet inline tag, no animation. */
+/* 回答被中断时显示低强调、无动画的行内状态标记。 */
 .stopped {
   align-self: flex-start;
   padding: 0 6px;
@@ -51,8 +67,10 @@
 }
 
 /* Finalized footer offset (figma 43:32997); chrome lives in MessageIconActions. */
+/* 已完成消息的操作区偏移，按钮外观由 MessageIconActions 负责。 */
 .actions {
   margin-top: 16px;
   /* Optical align with 28px icon hit targets that pad 6px past the glyph. */
+  /* 向左补偿图标点击区域的内边距，使图形在视觉上与正文对齐。 */
   margin-left: -6px;
 }

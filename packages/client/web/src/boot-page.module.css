@@ -1,11 +1,27 @@
 /* The framework-free boot page cannot depend on theme delivery succeeding. */
+/* 无框架启动页不能假定主题系统已经成功加载，因此提供完整的颜色回退值。 */
+/*
+ * 文件职责：定义 Web 客户端框架启动前的加载页和启动失败页样式。
+ * 技术维度：使用 CSS Modules、自定义属性、设计令牌回退、遮罩和关键帧动画。
+ * 产品维度：应用加载或失败时立即给用户稳定反馈，避免白屏并兼容深浅主题。
+ * 逻辑维度：先声明独立颜色令牌，再布局加载卡片和旋转指示器，最后处理失败信息。
+ * 关键边界：该页面必须在主题与组件框架不可用时独立显示，因此不能只依赖外部设计令牌。
+ * 新手阅读建议：先看 boot 中的回退变量，再比较深色覆盖，最后理解 spinner 的圆锥渐变。
+ */
 
+/* 启动页根容器，同时提供主题系统失效时使用的浅色回退令牌。 */
 .boot {
+  /* 页面背景的浅色回退值。 */
   --dsh-boot-bg: #fff;
+  /* 主要文字的浅色回退值。 */
   --dsh-boot-label-primary: #0f1115;
+  /* 次要文字的浅色回退值。 */
   --dsh-boot-label-secondary: #61666b;
+  /* 提示文字的浅色回退值。 */
   --dsh-boot-label-tertiary: #81858c;
+  /* 加载环边框的浅色回退值。 */
   --dsh-boot-border: rgb(0 0 0 / 10%);
+  /* 品牌强调色的浅色回退值。 */
   --dsh-boot-brand: #0f1115;
 
   height: 100%;
@@ -14,6 +30,7 @@
   background: var(--dsw-alias-bg-base, var(--dsh-boot-bg));
 }
 
+/* 深色主题下替换全部独立回退令牌。 */
 :global(body[data-ds-dark-theme]) .boot {
   --dsh-boot-bg: #151517;
   --dsh-boot-label-primary: #f9fafb;
@@ -23,6 +40,7 @@
   --dsh-boot-brand: #f9fafb;
 }
 
+/* 居中排列品牌名、指示器和提示文字的内容卡片。 */
 .card {
   display: flex;
   flex-direction: column;
@@ -30,6 +48,7 @@
   gap: 16px;
 }
 
+/* 产品文字标识。 */
 .wordmark {
   font-size: 16px;
   line-height: 24px;
@@ -38,12 +57,14 @@
   color: var(--dsw-alias-label-primary, var(--dsh-boot-label-primary));
 }
 
+/* 启动阶段的低强调提示文字。 */
 .hint {
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-label-tertiary, var(--dsh-boot-label-tertiary));
 }
 
+/* 固定尺寸的旋转加载环容器。 */
 .spinner {
   position: relative;
   width: 20px;
@@ -53,6 +74,7 @@
   animation: spin 0.8s linear infinite;
 }
 
+/* 使用圆锥渐变和径向遮罩绘制加载环的高亮弧段。 */
 .spinner::after {
   content: '';
   position: absolute;
@@ -66,10 +88,12 @@
   mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
 }
 
+/* 让加载环持续完成整圈旋转。 */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
+/* 启动失败信息容器，限制宽度并纵向排列诊断内容。 */
 .failed {
   max-width: 480px;
   display: flex;
@@ -77,6 +101,7 @@
   gap: 8px;
 }
 
+/* 启动失败区域的标题。 */
 .failedTitle {
   font-size: 14px;
   line-height: 22px;
@@ -84,6 +109,7 @@
   color: var(--dsw-alias-label-primary, var(--dsh-boot-label-primary));
 }
 
+/* 单条失败诊断，使用代码字体并保留换行。 */
 .failedItem {
   font-family: var(
     --ds-font-family-code,
