@@ -1,3 +1,13 @@
+/*
+ * 中文说明：
+ * - 文件职责：定义会话输入区权限模式选择器的触发按钮、标签、图标和展开状态样式。
+ * - 技术维度：使用 CSS Modules、设计令牌、伪类、容器查询和 transform 过渡。
+ * - 产品维度：让用户在有限的输入栏空间内清楚查看并切换代理权限模式。
+ * - 逻辑维度：先设置按钮基础与交互态，再布局图标和文本，最后处理窄容器与箭头旋转。
+ * - 关键边界：460px 规则依赖父级建立容器查询；仅带模式图标的触发器会隐藏文字。
+ * - 新手阅读建议：按 trigger、内部元素、容器查询、chevronOpen 的顺序观察选择器状态变化。
+ */
+/* 权限选择器的主触发按钮；宽度最多 220px，过长标签由内部文本省略。 */
 .trigger {
   display: inline-flex;
   align-items: center;
@@ -8,6 +18,7 @@
   padding: 0 4px 0 8px;
   border: none;
   /* Rounded chip chrome, matching the sibling model trigger. */
+  /* 中文：使用胶囊圆角，使权限按钮与旁边的模型选择按钮保持一致。 */
   border-radius: 24px;
   outline: none;
   background: transparent;
@@ -18,19 +29,23 @@
   cursor: pointer;
 }
 
+/* 可用按钮悬停态；禁用时不显示交互背景。 */
 .trigger:hover:not(:disabled) {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* 键盘焦点态；仅在 focus-visible 时显示两像素轮廓。 */
 .trigger:focus-visible {
   box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);
 }
 
+/* 禁用态；降低文字强调并移除手型光标。 */
 .trigger:disabled {
   color: var(--dsw-alias-label-dimmed);
   cursor: default;
 }
 
+/* 模式图标容器；保持固定尺寸，不参与剩余空间伸缩。 */
 .triggerIcon {
   display: inline-flex;
   flex: 0 0 auto;
@@ -38,11 +53,13 @@
 
 /* The shared 16px glyphs render one step smaller on the exposed trigger;
    the dropdown rows keep the full 16px. */
+/* 中文：公共图标在触发按钮上缩为 14px；下拉选项仍使用完整 16px。 */
 .triggerIcon svg {
   width: 14px;
   height: 14px;
 }
 
+/* 权限模式标签；空间不足时单行显示省略号。 */
 .triggerLabel {
   min-width: 0;
   overflow: hidden;
@@ -53,6 +70,7 @@
 .chevron {
   /* inline-flex, not inline: an inline seat reserves baseline descent under
      the svg and floats the glyph off-center in the 28px trigger. */
+  /* 中文：使用 inline-flex 避免行内基线给 SVG 预留下降空间，从而让箭头在 28px 高按钮内垂直居中。 */
   display: inline-flex;
   flex: 0 0 auto;
   color: var(--dsw-alias-label-caption);
@@ -65,12 +83,14 @@
    The 460px cut is the point where the row (attach + modes + model + send)
    starts squeezing labels; the container is the composer row (InputBar .row —
    anonymous query because CSS modules hash container-names per module). */
+/* 中文：容器不超过 460px 时，有模式图标的按钮隐藏文字，只保留图标和箭头；无图标模式仍保留名称用于识别。 */
 @container (max-width: 460px) {
   .trigger:has(.triggerIcon) .triggerLabel {
     display: none;
   }
 }
 
+/* 下拉菜单打开态；将箭头旋转 180 度提示当前展开。 */
 .chevronOpen {
   transform: rotate(180deg);
 }

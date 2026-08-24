@@ -1,7 +1,18 @@
 /* Details third column, minimal fill: header (name + close) over a
    scrolling body of Input/Output code sections. Panel width/squeeze belongs
    to layout; this fills whatever the column gives. */
+/* 中文：详情页第三列采用“标题栏加滚动输入/输出代码区”的最小填充布局；列宽和压缩由外层布局负责。 */
+/*
+ * 中文说明：
+ * - 文件职责：定义会话详情侧栏的根容器、标题、关闭按钮、滚动正文和代码块样式。
+ * - 技术维度：使用 CSS Modules、Flex/Grid、设计令牌和 data-error 属性选择器。
+ * - 产品维度：让用户查看工具或消息的输入输出详情，并清晰识别错误内容。
+ * - 逻辑维度：根容器纵向布局，固定标题栏，正文占满剩余空间并滚动，内部按节展示代码。
+ * - 关键边界：本文件不决定侧栏宽度；高度 100% 依赖父布局提供可计算高度。
+ * - 新手阅读建议：先看 root 的纵向 Flex，再看 body 的滚动条件，最后比较普通与错误代码颜色。
+ */
 
+/* 详情侧栏根节点，填满所属列并绘制左侧分隔线。 */
 .root {
   display: flex;
   flex-direction: column;
@@ -12,6 +23,7 @@
 }
 
 /* figma RightSidebar header frame (I54:42735;43:36451): pad 14/12/12/12, gap 8. */
+/* 中文：标题栏间距来自 Figma 右侧栏设计稿，左右排列标题与关闭按钮。 */
 .header {
   display: flex;
   align-items: center;
@@ -22,6 +34,7 @@
 }
 
 /* figma I54:42735;43:41479: 14/20 wt500. */
+/* 中文：标题使用设计稿规定的 14px 字号、20px 行高和 500 字重，过长时省略。 */
 .title {
   overflow: hidden;
   font-size: 14px;
@@ -32,6 +45,7 @@
   white-space: nowrap;
 }
 
+/* 圆形关闭按钮；用 Grid 将图标居中且不参与伸缩。 */
 .close {
   display: grid;
   flex: none;
@@ -45,10 +59,12 @@
   cursor: pointer;
 }
 
+/* 关闭按钮悬停背景。 */
 .close:hover {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* 可滚动正文；flex:1 占据标题栏之外的空间，min-height:0 允许收缩。 */
 .body {
   flex: 1;
   min-height: 0;
@@ -56,6 +72,7 @@
   overflow-y: auto;
 }
 
+/* 没有详情数据时的弱提示文字。 */
 .empty {
   padding: 8px 0;
   font-size: 13px;
@@ -63,10 +80,12 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* 单个输入或输出区段；用底部外边距分隔后续区段。 */
 .section {
   margin-bottom: 16px;
 }
 
+/* 区段标题，例如 Input 或 Output。 */
 .sectionLabel {
   margin-bottom: 6px;
   font-size: 12px;
@@ -76,6 +95,7 @@
 }
 
 /* figma Code-block (I54:42735;43:41429): r12, pad 16, mono 13/22. */
+/* 中文：代码块圆角、内边距和等宽字体参数来自设计稿。 */
 .code {
   margin: 0;
   padding: 16px;
@@ -89,6 +109,7 @@
   word-break: break-word;
 }
 
+/* 错误代码块；存在 data-error 属性时改用错误状态颜色。 */
 .code[data-error] {
   color: var(--dsw-alias-state-error-primary);
 }
