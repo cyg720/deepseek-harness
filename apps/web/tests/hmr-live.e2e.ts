@@ -1,4 +1,13 @@
 /** Published dsh web + pnpm dev:web → browser HMR, with no page reload. */
+/** 已发布的 dsh Web 与开发监听器之间应通过热更新刷新界面，而不重新加载页面。 */
+/**
+ * 文件职责：验证真实客户端源码修改能由开发构建链路热更新到已打开的浏览器页面。
+ * 技术维度：使用 Vitest、Playwright、Cordis 子进程服务和文件系统临时目录驱动端到端场景。
+ * 产品维度：保障扩展开发者修改界面文案后能立即看到结果，并保留当前页面状态。
+ * 逻辑维度：启动监听器与 Web 主机，修改源码，等待页面更新，再恢复源码、构建产物和进程。
+ * 关键边界：依赖预先构建的 CLI、可用的 Chromium 和完整清理；失败时仍必须恢复被改文件。
+ * 新手阅读建议：先读主测试的启动与恢复流程，再读输出等待器和进程树停止辅助函数。
+ */
 
 import { existsSync, globSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -13,6 +22,7 @@ import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-sub
 import { readClientBuildRecord } from '../../../scripts/client-build-environment.ts'
 import { REPO_ROOT } from './support.ts'
 
+/** 创建子进程启动参数；argv 是命令参数，cwd 是目录，env 是可选环境，返回可执行配置。示例：spawnSpec(['pnpm'], REPO_ROOT)。 */
 function spawnSpec(argv: readonly string[], cwd: string, env?: Record<string, string>): SubprocessSpawnSpec {
   return {
     argv,
@@ -23,33 +33,42 @@ function spawnSpec(argv: readonly string[], cwd: string, env?: Record<string, st
   }
 }
 
+/** 等待 child 输出匹配 pattern；label 用于错误说明，返回捕获文本。示例：await waitForOutput(host, /ready/, 'host')。 */
 function waitForOutput(child: SubprocessHandle, pattern: RegExp, label: string): Promise<string> {
   return new Promise((resolveReady, reject) => {
+    /** 累积两个输出流，便于跨数据块匹配并在失败时诊断。 */
     let output = ''
+    /** 标记等待是否结束，防止重复完成 Promise。 */
     let settled = false
+    /** 解除计时器与输出监听，避免残留资源。 */
     const cleanup = (): void => {
       clearTimeout(timer)
       child.stdout?.off('data', onData)
       child.stderr?.off('data', onData)
     }
+    /** 使用首次匹配值成功结束等待。 */
     const resolveOnce = (value: string): void => {
       if (settled) return
       settled = true
       cleanup()
       resolveReady(value)
     }
+    /** 使用首次错误结束等待。 */
     const rejectOnce = (error: Error): void => {
       if (settled) return
       settled = true
       cleanup()
       reject(error)
     }
+    /** 合并一个输出块并检查就绪标记。 */
     const onData = (chunk: Buffer): void => {
       output += chunk.toString()
+      /** 当前累积输出的就绪匹配；为空时继续监听。 */
       const match = pattern.exec(output)
       if (match === null) return
       resolveOnce(match[1] ?? match[0])
     }
+    /** 最长等待一分钟，防止测试永久挂起。 */
     const timer = setTimeout(() => { rejectOnce(new Error(`${label} not ready:\n${output}`)) }, 60_000)
     child.stdout?.on('data', onData)
     child.stderr?.on('data', onData)
@@ -61,34 +80,53 @@ function waitForOutput(child: SubprocessHandle, pattern: RegExp, label: string):
   })
 }
 
+/** 终止 child 进程树并等待退出，无返回值。示例：await stopTree(watcher)。 */
 async function stopTree(child: SubprocessHandle): Promise<void> {
   child.terminate()
+  /** 表示进程树是否在十五秒期限内退出。 */
   const stopped = await child.waitForExit(AbortSignal.timeout(15_000))
   if (!stopped) throw new Error(`process tree ${String(child.pid)} did not stop after termination escalation`)
   await child.done
 }
 
 it('hot-reloads a real client-plugin source edit without refreshing the page', async () => {
+  /** 隔离本次 Web 主机配置与会话数据的临时目录。 */
   const world = await mkdtemp(join(tmpdir(), 'dsh-web-hmr-world-'))
+  /** 被临时替换文案的真实客户端源码路径。 */
   const sourcePath = join(REPO_ROOT, 'packages/client/ui-conversation/src/client/locales.ts')
+  /** 启动已构建 Web 主机所需的 CLI 入口。 */
   const binPath = join(REPO_ROOT, 'apps/cli/lib/bin.js')
   if (!existsSync(binPath)) throw new Error('HMR browser test needs the built dsh bin; run pnpm run build first')
+  /** 与当前客户端构建记录一致的环境变量。 */
   const clientBuildEnvironment = readClientBuildRecord(REPO_ROOT).environment
+  /** 监听器可能重写、因此需要恢复的客户端构建产物路径。 */
   const clientBundlePaths = globSync('packages/*/*/lib/client.js{,.map}', { cwd: REPO_ROOT })
     .map(path => join(REPO_ROOT, path))
+  /** 每个客户端构建产物在测试前的原始字节。 */
   const originalClientBundles = await Promise.all(clientBundlePaths.map(async path => [path, await readFile(path)] as const))
+  /** 源码文件在测试前的原始字节，用于无条件恢复。 */
   const originalSource = await readFile(sourcePath)
+  /** 页面首次加载时应显示的原始标题。 */
   const oldText = 'Into the Unknown'
+  /** 在源码中精确定位原始标题的文本片段。 */
   const sourceNeedle = "'hero.headline': 'Into the Unknown'"
+  /** 用于确认热更新完成的新标题。 */
   const newText = `HMR UPDATED ${'x'.repeat(80)}`
+  /** 只替换目标标题后的临时源码内容。 */
   const updatedSource = originalSource.toString().replace(sourceNeedle, `'hero.headline': '${newText}'`)
   if (updatedSource === originalSource.toString()) throw new Error(`HMR source lacks ${JSON.stringify(sourceNeedle)}`)
 
+  /** 承载本地子进程插件生命周期的独立上下文。 */
   const subprocessCtx = new Context()
+  /** 子进程插件的生命周期句柄。 */
   let subprocessFiber: Fiber | undefined
+  /** 开发构建监听进程。 */
   let watcher: SubprocessHandle | undefined
+  /** 已构建 Web 服务进程。 */
   let host: SubprocessHandle | undefined
+  /** 用于观察真实热更新的浏览器实例。 */
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
+  /** 汇总测试主体和清理阶段错误。 */
   const failures: unknown[] = []
   try {
     subprocessFiber = await subprocessCtx.plugin(LocalSubprocessRuntime)
@@ -106,14 +144,19 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
         DSH_HOME: join(world, '.dsh'),
       },
     ))
+    /** Web 主机输出的随机端口地址。 */
     const baseUrl = await waitForOutput(host, /dsh web: (http:\/\/[^\s]+)/, 'built dsh web')
     browser = await chromium.launch()
+    /** 保持打开以检测是否整页刷新的浏览器页面。 */
     const page = await browser.newPage()
+    /** 页面未处理错误的文本集合。 */
     const pageErrors: string[] = []
     page.on('pageerror', error => pageErrors.push(String(error)))
     await page.goto(baseUrl, { waitUntil: 'load' })
     await page.getByText(oldText, { exact: true }).waitFor({ timeout: 15_000 })
+    /** 写入 window 的身份值；更新后保留即说明未整页刷新。 */
     const pageIdentity = await page.evaluate(() => {
+      /** 当前文档实例独有的随机标识。 */
       const identity = crypto.randomUUID()
       Object.defineProperty(window, '__dshHmrPageIdentity', { value: identity })
       return identity

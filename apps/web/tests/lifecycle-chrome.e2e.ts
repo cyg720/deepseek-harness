@@ -10,6 +10,15 @@
 // theme/layout golden: aria snapshots are color-blind (lane scope: the
 // browser-e2e-lane Agent Note); the hero's waiting state gets the one golden
 // here.
+// 中文说明：该浏览器测试用真实 HTTP、SSE 和主机网关固定工作区首发、重载恢复与主题切换行为。
+/**
+ * 文件职责：验证 Web 应用从空状态创建会话、持久化恢复、命令菜单和明暗主题的完整生命周期。
+ * 技术维度：使用 Vitest、Playwright、回放 fixture、HTTP RPC、SSE 以及无障碍快照。
+ * 产品维度：保障用户首次发送、刷新页面、执行命令和切换主题时获得连续且一致的体验。
+ * 逻辑维度：启动真实 Web 脚手架，覆盖菜单与计划状态，发送固定请求，重载恢复并比较主题样式。
+ * 关键边界：依赖 Chromium、已准备的 fixture 与快照；录制和回放模式走不同分支。
+ * 新手阅读建议：先看 beforeAll 的环境搭建，再读首发与重载测试，最后理解命令菜单和 CSS 取样。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -23,26 +32,43 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本组场景的 fixture、覆盖文档和预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/lifecycle-chrome', import.meta.url))
+/** 记录一次真实模型回合的会话日志。 */
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
+/** 控制回放行为的覆盖文档。 */
 const REPLAY_OVERRIDE = join(SNAPSHOT_DIR, 'replay.override.json')
+/** 空状态首发等待界面的预期快照。 */
 const HERO_EXPECTED = join(SNAPSHOT_DIR, 'hero.expected.md')
+/** 命令菜单初始状态的预期快照。 */
 const COMMAND_MENU_EXPECTED = join(SNAPSHOT_DIR, 'command-menu.expected.md')
+/** 命令菜单模糊检索后的预期快照。 */
 const FUZZY_COMMAND_MENU_EXPECTED = join(SNAPSHOT_DIR, 'command-menu-fuzzy.expected.md')
+/** 计划模式启用后的预期快照。 */
 const PLAN_ACTIVE_EXPECTED = join(SNAPSHOT_DIR, 'plan-active.expected.md')
 // Post-reload golden: the same settled conversation rebuilt purely from
 // persistence + history — byte-equal rendering is exactly the recovery claim.
+// 中文说明：重载后的会话完全由持久化历史重建，字节一致快照用于证明恢复结果不漂移。
+/** 页面重载并完成历史恢复后的预期快照。 */
 const RELOADED_EXPECTED = join(SNAPSHOT_DIR, 'reloaded.expected.md')
+/** 当前运行是录制快照还是校验快照。 */
 const MODE = webSnapshotMode()
 
+/** 录制 fixture 时发送给模型的固定提示词。 */
 const PROMPT = 'Reply with the single word LIGHTHOUSE and stop.'
+/** 回放每个片段之间的延迟，用于稳定观察加载状态。 */
 const REPLAY_PACE_MS = 100
 
 describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', () => {
+  /** 提供真实 Web 服务、fixture 回放和会话查询的脚手架。 */
   let scaffold: WebScaffold
+  /** 所有场景共享的 Chromium 实例。 */
   let browser: Browser
+  /** 当前场景操作的浏览器页面。 */
   let page: Page
+  /** 收集页面错误和控制台警告的监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
+  /** 主机实际写入的会话事件，用于验证持久化生命周期。 */
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {

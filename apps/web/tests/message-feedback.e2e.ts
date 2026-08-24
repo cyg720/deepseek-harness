@@ -2,6 +2,15 @@
 // settled two-turn transcript (zero model calls), rates one assistant message,
 // attaches a note, proves both survive a full page reload from the Host's
 // message-feedback sidecar, then retracts the rating.
+// 中文说明：测试无模型调用地验证评分与备注经主机持久化后可在整页重载中恢复，并可撤销评分。
+/**
+ * 文件职责：验证单条助手消息的评分和备注可以持久化、重载恢复并撤销。
+ * 技术维度：使用 Playwright、Vitest、冷注入会话和 Host 消息反馈存储。
+ * 产品维度：保障用户反馈不会因刷新页面丢失，并能随时删除已有评分。
+ * 逻辑维度：打开固定会话，添加评分与备注，重载页面验证恢复，再撤销评分并检查编辑入口消失。
+ * 关键边界：复用会话必须含已完成助手消息；录制模式跳过断言；重载连接丢失需显式确认。
+ * 新手阅读建议：先读 openSeededSession 的树结构处理，再按评分、备注、重载、撤销顺序阅读主测试。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
@@ -15,15 +24,24 @@ import { newEnglishPage, saveFailureShot } from './support.ts'
 
 // Borrowed read-only: this scenario needs any settled assistant message to
 // address, not a new recording (message-actions / sidebar-scrollbar pattern).
+// 中文说明：只需任意已完成助手消息作为反馈目标，因此只读复用既有记录。
+/** 提供可评分助手消息的只读会话 fixture。 */
 const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
+/** 注入借用会话时使用的稳定标识。 */
 const SEED_ID = 'message-feedback-web-e2e'
+/** 测试保存并在重载后恢复的固定备注内容。 */
 const NOTE = 'Read both files before answering.'
 
 describe('web e2e: durable per-message feedback', () => {
+  /** 提供真实 Web 服务与反馈持久化的脚手架。 */
   let scaffold: WebScaffold
+  /** 执行真实页面交互的 Chromium 实例。 */
   let browser: Browser
+  /** 当前测试页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
@@ -47,10 +65,13 @@ describe('web e2e: durable per-message feedback', () => {
    * expanded on a fresh load, so clicking it unconditionally would collapse it
    * and hide the session row.
    */
+  /** 中文说明：仅在工作区未展开时点击它，再打开其下方固定会话；完成后无返回值。 */
   async function openSeededSession(): Promise<void> {
+    /** 会话侧栏的工作区树项。 */
     const groupRow = page.locator('[role="treeitem"]').first()
     await groupRow.waitFor({ timeout: 15_000 })
     if (await groupRow.getAttribute('aria-expanded') !== 'true') await groupRow.click()
+    /** 工作区下方的固定会话树项。 */
     const sessionRow = page.locator('[role="treeitem"]').nth(1)
     await sessionRow.waitFor({ timeout: 15_000 })
     await sessionRow.click()
@@ -64,6 +85,7 @@ describe('web e2e: durable per-message feedback', () => {
     // transcript reveals on hover/focus like copy and branch. Wait for the
     // settled closing text first: the strip mounts with that turn's tail.
     await page.getByText('DONE', { exact: true }).waitFor({ timeout: 30_000 })
+    /** 首条助手消息的点赞按钮。 */
     const like = page.getByRole('button', { name: 'Good response' }).first()
     await like.waitFor({ timeout: 30_000 })
     await like.scrollIntoViewIfNeeded()
@@ -71,11 +93,13 @@ describe('web e2e: durable per-message feedback', () => {
     await like.click()
     // A recorded rating relabels the button to what the next click would do,
     // so the pressed control is addressed by the retract label from here on.
+    /** 已评分状态下的撤销评分按钮。 */
     const rated = page.getByRole('button', { name: 'Remove rating' }).first()
     await expect.poll(() => rated.getAttribute('aria-pressed'), { timeout: 10_000 }).toBe('true')
 
     // A rated message offers the note editor; an unrated one does not.
     await page.getByRole('button', { name: 'Add a note' }).first().click()
+    /** 输入并保存反馈备注的文本框。 */
     const editor = page.getByRole('textbox', { name: 'Feedback note' })
     await editor.fill(NOTE)
     await page.getByRole('button', { name: 'Save', exact: true }).click()

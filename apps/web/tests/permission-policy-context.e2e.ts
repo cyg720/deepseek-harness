@@ -3,6 +3,15 @@
 // the real provider, while replay keeps the same provider-authored behavior
 // keyless. Assertions read the exact durable header, runtime-context messages,
 // and tool calls, so assistant prose alone cannot satisfy the scenario.
+// 中文说明：断言直接读取持久化策略头、运行时上下文和工具调用，不能由助手文本伪造通过。
+/**
+ * 文件职责：验证 /permission 命令切换三种沙箱策略后，模型上下文、持久日志与工具行为保持一致。
+ * 技术维度：使用 Playwright、Vitest、真实或回放模型、会话事件和规范化文件路径。
+ * 产品维度：让用户明确控制智能体的文件与命令权限，并确保后续回合准确理解当前策略。
+ * 逻辑维度：启动工作区，依次执行三种权限预设，发送固定任务，再核对请求头、上下文事件和工具调用。
+ * 关键边界：录制模式需要真实提供方；回放模式无密钥；只检查权威日志和实际调用，不依赖回答措辞。
+ * 新手阅读建议：先看三个预设和提示词常量，再读事件筛选辅助逻辑，最后按策略切换顺序理解主测试。
+ */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'

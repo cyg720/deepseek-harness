@@ -1,3 +1,11 @@
+/**
+ * 文件职责：固定消息反馈 Host Remote 接口的列表、写入、版本冲突和删除协议。
+ * 技术维度：使用 Vitest、真实 Web Host、HTTP fetch、会话 fixture 和 JSON 文件快照。
+ * 产品维度：保障评分与备注在客户端和主机之间可靠保存，并能识别并发版本冲突。
+ * 逻辑维度：启动主机并注入会话，依次发起协议调用，归一化运行时 UUID 与时间后比较快照。
+ * 关键边界：只归一化本次运行生成的版本和时间，端点名、请求字段和业务响应必须精确保留。
+ * 新手阅读建议：先看 ProtocolExchange，再读 invoke 如何组装线协议，最后按调用顺序查看快照场景。
+ */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,12 +18,18 @@ import {
   type WebScaffold,
 } from './scaffold.ts'
 
+/** 协议 fixture 与预期 JSON 所在目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/message-feedback-protocol', import.meta.url))
+/** 提供目标消息的固定会话日志。 */
 const SESSION_FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
+/** 归一化协议交换的预期快照。 */
 const PROTOCOL_EXPECTED = join(SNAPSHOT_DIR, 'protocol.expected.json')
+/** 注入主机时使用的稳定会话标识。 */
 const SESSION_ID = 'message-feedback-protocol'
+/** fixture 中被评分的稳定消息 UUID。 */
 const MESSAGE_ID = '11111111-1111-4111-8111-111111111111'
 
+/** 记录一次 HTTP 协议调用的端点、请求、状态码和响应。 */
 interface ProtocolExchange {
   readonly endpoint: string
   readonly request: unknown
@@ -23,11 +37,13 @@ interface ProtocolExchange {
   readonly response: unknown
 }
 
+/** 判断 value 是否为非空对象记录，返回类型保护结果。示例：isRecord(response)。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
 /** Extract the opaque item version while keeping every surrounding wire field snapshot-owned. */
+/** 从成功响应提取不透明版本号；响应字段不完整时抛错。示例：createdVersion(created)。 */
 function createdVersion(response: unknown): string {
   if (!isRecord(response) || !isRecord(response.result) || response.result.ok !== true
     || !isRecord(response.result.value) || response.result.value.ok !== true
@@ -39,6 +55,7 @@ function createdVersion(response: unknown): string {
 }
 
 /** Replace only run-owned UUID/time values; all protocol names and business fields stay exact. */
+/** 仅替换 version 和时间运行值并返回 JSON；其余协议字段保持精确。示例：normalizeProtocol(items, version)。 */
 function normalizeProtocol(exchanges: readonly ProtocolExchange[], version: string): string {
   return JSON.stringify(exchanges, (key, value: unknown) => {
     if ((key === 'version' || key === 'ifVersion') && value === version) return '{{version}}'
@@ -48,6 +65,7 @@ function normalizeProtocol(exchanges: readonly ProtocolExchange[], version: stri
 }
 
 describe('message feedback Host Remote protocol', () => {
+  /** 提供真实 Host Remote 端点的 Web 脚手架。 */
   let scaffold: WebScaffold
 
   beforeAll(async () => {
@@ -60,8 +78,11 @@ describe('message feedback Host Remote protocol', () => {
   })
 
   it('snapshots strict list, put, conflict, and delete calls through the shipped Web Host', async () => {
+    /** 按发生顺序收集的协议交换记录。 */
     const exchanges: ProtocolExchange[] = []
+    /** 调用 endpoint；rpcId 标识请求，request 是业务参数，返回解析后的响应。 */
     const invoke = async (rpcId: string, endpoint: string, request: unknown): Promise<unknown> => {
+      /** Host Remote 要求的 args.request 外层载荷。 */
       const payload = { args: { request } }
       const response = await fetch(`${scaffold.baseUrl}/api/${endpoint}`, {
         method: 'POST',

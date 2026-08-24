@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 Markdown 行内代码中的安全 URL 可点击，而命令文本与危险协议保持普通代码。
+ * 技术维度：使用 Session API 生成固定会话，并通过 Vitest、Playwright 与无障碍快照检查浏览器行为。
+ * 产品维度：方便用户直接打开模型给出的本地预览地址，同时避免误把命令或脚本协议变成链接。
+ * 逻辑维度：构造含多种代码片段的回复，注入页面，检查链接属性、弹窗行为和稳定快照。
+ * 关键边界：只有完整且受支持的 URL 才可链接；javascript 协议和带命令前缀的代码必须惰性显示。
+ * 新手阅读建议：先读 markdownFixture 中四种样例，再看浏览器测试如何区分链接和普通 code 元素。
+ */
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
@@ -17,17 +25,26 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景的预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/markdown-inline-code-links', import.meta.url))
+/** 行内代码链接界面的预期快照。 */
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/markdown-inline-code-links/ui.expected.md', import.meta.url))
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 注入脚手架时使用的稳定会话标识。 */
 const SEED_ID = 'markdown-inline-code-links-web-e2e'
+/** 确认整段回复渲染完成的尾部标记。 */
 const DONE = 'INLINE_CODE_LINK_DONE'
 
 /** Build a settled assistant reply with linkable URL code and inert code controls. */
+/** 用 linkUrl 构造已完成回复并返回 JSONL；示例：markdownFixture('http://127.0.0.1:3000')。 */
 function markdownFixture(linkUrl: string): string {
+  /** 累积固定事件的内存会话。 */
   const session = Session.create(SessionId('markdown-inline-code-links-source'))
+  /** 固定事件时间起点，避免快照随当前时间漂移。 */
   const eventTimeOrigin = new Date().setHours(12, 0, 0, 0)
   session.append('turn/start', { turn: 1 })
+  /** 供会话标题引用的用户消息事件。 */
   const user = session.append('user/message', createUserMessage({
     content: [{ type: 'text', text: 'Show the local preview URL.' }],
     source: { kind: 'user' },
@@ -82,10 +99,15 @@ function markdownFixture(linkUrl: string): string {
 }
 
 describe('web e2e: Markdown inline-code links', () => {
+  /** 提供真实 Web 服务和会话注入能力的脚手架。 */
   let scaffold: WebScaffold
+  /** 执行链接交互的 Chromium 实例。 */
   let browser: Browser
+  /** 当前场景页面。 */
   let page: Page
+  /** 注入回复并期望打开的本地预览地址。 */
   let linkUrl: string
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {

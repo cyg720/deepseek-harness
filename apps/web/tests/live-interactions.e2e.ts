@@ -9,6 +9,15 @@
 // (single-sourced against the fixture via deriveReplayScript — no committed
 // copy of recorded chunks); the file is a per-run artifact in the temp
 // workspace. One recorded base fixture serves every scenario.
+// 中文说明：一个基础回放配合每次运行生成的覆盖文档，稳定复现取消、失败、重试成功和重试耗尽。
+/**
+ * 文件职责：通过真实 Web 组合与传输验证生成中的取消、错误展示和模型重试生命周期。
+ * 技术维度：使用 Vitest、Playwright、回放适配器、临时覆盖文档、SSE 和会话事件日志。
+ * 产品维度：保障用户能中止卡住的回答，理解失败原因，并在暂时故障后看到自动恢复结果。
+ * 逻辑维度：每个场景启动隔离脚手架，发送同一提示词，注入不同回放行为，再检查界面和事件。
+ * 关键边界：覆盖文件必须在脚手架启动前创建；清理失败也视为测试失败；错误文本不得泄漏密钥。
+ * 新手阅读建议：先读 launch 和 sendPrompt，再依次比较取消、认证失败、恢复成功与耗尽场景。
+ */
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -27,25 +36,38 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本组场景的日志、覆盖材料和预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/live-interactions', import.meta.url))
+/** 所有场景共用的一次成功回合记录。 */
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 // One golden pins the stable mid-turn loading state; the other four capture
 // what the user is left looking at after cancel, after a non-retryable failure,
 // after retry recovery, and after retry exhaustion.
+// 中文说明：五份快照分别固定生成中、取消后、不可重试失败、恢复成功和重试耗尽后的界面。
+/** 用户取消生成后的预期快照。 */
 const CANCEL_EXPECTED = join(SNAPSHOT_DIR, 'cancel.expected.md')
+/** 回合仍在生成时的预期快照。 */
 const LOADING_EXPECTED = join(SNAPSHOT_DIR, 'loading.expected.md')
+/** 认证失败后的预期快照。 */
 const ERROR_EXPECTED = join(SNAPSHOT_DIR, 'error-auth.expected.md')
+/** 暂时故障重试成功后的预期快照。 */
 const RETRY_EXPECTED = join(SNAPSHOT_DIR, 'retry.expected.md')
+/** 重试次数耗尽后的预期快照。 */
 const RETRY_EXHAUSTED_EXPECTED = join(SNAPSHOT_DIR, 'retry-exhausted.expected.md')
+/** 当前运行的快照录制或校验模式。 */
 const MODE = webSnapshotMode()
+/** 模拟提供商认证失败并包含待脱敏密钥的原始消息。 */
 const AUTH_PROVIDER_MESSAGE = 'Authentication Fails, Your api key: sk-preview-secret is invalid'
 
 // The recorded base: one text-only turn whose derived script the sidecars
 // patch. Kept deliberately tool-free so the derived script is exactly one
 // model call.
+// 中文说明：基础记录不含工具调用，因此派生脚本恰好只有一次模型请求，便于精确插入故障。
+/** 录制基础 fixture 及所有回放场景使用的固定提示词。 */
 const PROMPT = 'Reply with a one-sentence description of event sourcing, then stop.'
 
 /** turn/end reasons observed, in order. */
+/** 按事件顺序提取回合结束原因；events 是会话事件，返回原因标识数组。示例：turnEndReasons(sessionEvents)。 */
 function turnEndReasons(events: SessionEvent[]): string[] {
   return events
     .filter(e => e.type === 'turn/end')
@@ -53,20 +75,29 @@ function turnEndReasons(events: SessionEvent[]): string[] {
 }
 
 describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
+  /** 当前场景的 Web 服务和回放脚手架，清理后重置为空。 */
   let scaffold: WebScaffold | undefined
+  /** 当前场景的 Chromium 实例，清理后重置为空。 */
   let browser: Browser | undefined
+  /** 当前场景操作的浏览器页面。 */
   let page: Page
+  /** 页面错误和控制台警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
+  /** 当前回合产生的会话事件集合。 */
   let sessionEvents: SessionEvent[]
+  /** 当前覆盖文档所在的临时目录；无覆盖时为空。 */
   let sidecarDir: string | undefined
 
   afterEach(async () => {
     // scaffold.close() failures MUST fail the scenario: assertConsumed() is
     // the fixture-drift tripwire and cleanup problems are real defects. Run
     // every teardown step regardless, then rethrow what failed.
+    // 中文说明：所有清理步骤都要尝试执行，最后统一抛出错误，防止前一个失败掩盖资源泄漏。
+    /** 汇总浏览器、脚手架和临时目录清理错误。 */
     const failures: unknown[] = []
     await browser?.close().catch((error: unknown) => failures.push(error))
     browser = undefined
+    /** 本轮需要关闭的脚手架快照，先清空共享引用避免重复清理。 */
     const closing = scaffold
     scaffold = undefined
     await closing?.close().catch((error: unknown) => failures.push(error))
@@ -77,16 +108,19 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
   })
 
   /** Boot scaffold + page with an optional override doc materialized per run. */
+  /** 启动场景；buildOverride 生成可选覆盖，retryPolicy 配置重试，完成后无返回值。示例：await launch()。 */
   async function launch(
     buildOverride?: (sidecarHome: string) => ReplayOverrideDoc,
     retryPolicy?: RetryPolicyConfig,
   ): Promise<void> {
     sessionEvents = []
+    /** 本轮生成的回放覆盖文档路径；未注入故障时为空。 */
     let overridePath: string | undefined
     if (buildOverride !== undefined) {
       // The sidecar CONTENT is authored in this spec; the file is a per-run
       // artifact minted in a spec-owned temp dir. It must exist BEFORE the
       // scaffold boots — installLlmReplay resolves the script at install.
+      // 中文说明：覆盖内容由测试生成且必须先落盘，因为回放插件在安装阶段读取脚本。
       sidecarDir = await mkdtemp(join(tmpdir(), 'dsh-web-e2e-sidecar-'))
       overridePath = join(sidecarDir, 'replay.override.json')
       await writeFile(overridePath, JSON.stringify(buildOverride(sidecarDir)))
@@ -112,9 +146,12 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
    * flattened by the caller's await, blocking on turn/end before the caller
    * can act mid-turn (the cancel scenario's whole point).
    */
+  /** 中文说明：发送固定提示并返回包装后的完成等待，使调用者能在回合中途执行取消等动作。 */
   async function sendPrompt(timeoutMs?: number): Promise<{ settled: ReturnType<WebScaffold['whenTurnSettled']> }> {
+    /** 当前页面的主消息编辑器。 */
     const input = page.locator('textarea').first()
     await input.waitFor({ timeout: 10_000 })
+    /** 在发送前预置的回合完成等待，避免错过快速结束事件。 */
     const settled = scaffold!.whenTurnSettled(timeoutMs)
     await input.fill(PROMPT)
     await input.press('Enter')

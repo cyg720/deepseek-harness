@@ -20,6 +20,15 @@
 //
 // Zero model calls: the hero is the boot state, so nothing is seeded and no
 // replay row mounts. A stray stream would fail loud with NO_ADAPTER.
+// 首页启动态不播种会话或回放；任何意外模型流都会以 NO_ADAPTER 失败。
+/**
+ * 文件职责：验证会话中心列只允许纵向滚动，装饰光晕横向溢出不会形成用户可滚动条。
+ * 技术维度：使用 Playwright、真实浏览器滚动几何、视口宽度扫描和 overflow-x 变更对照。
+ * 产品维度：窗口或侧栏缩窄时用户不会看到整列横向滚动条，同时纵向会话滚动仍可用。
+ * 逻辑维度：扫描多个视口，记录光晕溢出与滚动范围，再强制 auto 作为对照并发送横向滚轮。
+ * 关键边界：必须证明光晕确实越界以避免空洞断言；只记录关系和布尔值，不固定平台像素。
+ * 新手阅读建议：先理解 glowBleeds 与 bleedRange 的区别，再看 wheelHorizontally 如何区分 hidden/auto。
+ */
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
@@ -31,6 +40,7 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/conversation-column-overflow', import.meta.url))
 /**
  * Committed golden of the one-axis relation at every stop. It records
@@ -38,21 +48,28 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/conversation-column-over
  * the viewport and the sidebar, and a golden carrying pixels would document the
  * platform instead of the behavior.
  */
+/** 记录各宽度溢出关系与横向输入结果的几何黄金文件。 */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 /** Narrow sweep stop where the mutation control retains overflow across scrollbar implementations. */
+/** 在不同滚动条实现下仍能保证对照溢出的窄视口宽度。 */
 const CONTROL_VIEWPORT = 600
 /**
  * Viewport widths bracketing the glow: the narrow stops retain the reported
  * bleed while the widest stop proves the relation can also be false.
  */
+/** 从无溢出的宽视口到产生光晕溢出的窄视口扫描点。 */
 const WIDTHS = [1680, 1200, 1000, 800, CONTROL_VIEWPORT]
 /** Element id of the mutation control's injected sheet, so the test can take it back out. */
+/** 强制横向 auto 的对照样式元素编号。 */
 const CONTROL_STYLE_ID = 'dsh-column-overflow-control'
 /** Horizontal wheel delta per gesture; must exceed the widest bleed the sweep can produce. */
+/** 每次横向滚轮输入量，需大于扫描中最大溢出范围。 */
 const WHEEL_DELTA = 300
 
 /** One viewport stop: whether the glow bleeds past the column, and whether that bleed scrolls. */
+/** 一个视口宽度下的中心列溢出、滚动范围和纵向能力。 */
 interface ColumnMetrics {
   /** Viewport width the stop was measured at. */
   width: number
@@ -85,11 +102,15 @@ interface ColumnMetrics {
  */
 function measureColumn(page: Page, width: number): Promise<ColumnMetrics> {
   return page.evaluate((viewportWidth) => {
+    /** 会话中心列滚动容器。 */
     const scroller = document.querySelector<HTMLElement>('[data-conversation-scroll]')
     if (scroller === null) throw new Error('conversation scroll container not in the DOM')
+    /** 首页装饰光晕 SVG。 */
     const glow = scroller.querySelector<SVGElement>('[class*="heroGlow"]')
     if (glow === null) throw new Error('hero glow not in the DOM — the boot state is not the hero')
+    /** 中心滚动容器与光晕的视口矩形。 */
     const box = scroller.getBoundingClientRect()
+    /** 光晕的视口矩形。 */
     const glowBox = glow.getBoundingClientRect()
     return {
       width: viewportWidth,
@@ -98,6 +119,7 @@ function measureColumn(page: Page, width: number): Promise<ColumnMetrics> {
       // `clientWidth` is the content edge, which is what the scrollable
       // overflow region is measured against; either side counts as a bleed,
       // though only the right one can produce a bar in this writing mode.
+      // clientWidth 是滚动内容边缘；任一侧越界都算 bleed，当前书写方向只有右侧会产生条带。
       glowBleeds: glowBox.right > box.left + scroller.clientWidth + 0.5 || glowBox.left < box.left - 0.5,
       bleedRange: scroller.scrollWidth - scroller.clientWidth,
       scrollsVertically: getComputedStyle(scroller).overflowY === 'auto',
@@ -119,14 +141,18 @@ function measureColumn(page: Page, width: number): Promise<ColumnMetrics> {
  * @returns `scrollLeft` after one horizontal wheel over the column.
  */
 async function wheelHorizontally(page: Page): Promise<number> {
+  /** 避开嵌套编辑器滚动区的中心列输入坐标。 */
   const origin = await page.evaluate(() => {
     const scroller = document.querySelector<HTMLElement>('[data-conversation-scroll]')
     if (scroller === null) throw new Error('conversation scroll container not in the DOM')
     // Start from the origin so the reading is this gesture's own effect.
+    // 每次从零开始，使结果只反映当前滚轮手势。
     scroller.scrollLeft = 0
+    /** 中心列滚动容器的视口矩形。 */
     const box = scroller.getBoundingClientRect()
     // Near the top of the column, clear of the centered hero card: the wheel
     // must reach the column, not a nested scroller the composer owns.
+    // 坐标位于列顶部且避开编辑器，确保滚轮到达外层中心列。
     return { x: box.left + box.width / 2, y: box.top + 60 }
   })
   await page.mouse.move(origin.x, origin.y)
@@ -137,6 +163,7 @@ async function wheelHorizontally(page: Page): Promise<number> {
   // generous enough to cover a smooth-scroll animation on any engine the lane
   // runs on. The timing is identical on both sides of the mutation control
   // below, which is what makes a 0 reading evidence rather than a race won.
+  // 固定等待和两帧绘制避免从初始零值过早通过；对照两侧使用完全相同的时序。
   await page.waitForTimeout(400)
   return page.evaluate(() => new Promise<number>((resolve) => {
     requestAnimationFrame(() => {

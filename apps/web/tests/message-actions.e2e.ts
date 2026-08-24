@@ -2,6 +2,15 @@
 // completed-turn-tail fork case (zero model calls) and pins the settled
 // conversation aria after the footers are focus-revealed — the surface package
 // jsdom tests cannot substitute for (docs/testing.md snapshot rule).
+// 中文说明：真实浏览器固定消息操作按钮、时钟和分支入口，包级 jsdom 测试不能替代此产品界面证据。
+/**
+ * 文件职责：验证已完成会话中消息复制、分支操作和时间显示在真实浏览器中的可见性与语义。
+ * 技术维度：使用 Playwright、Vitest、冷注入会话 fixture 和无障碍快照。
+ * 产品维度：保障用户能复制回复、从合法回合末尾创建分支，并理解每条消息的时间。
+ * 逻辑维度：改造借用 fixture 为两回合历史，打开会话，聚焦操作栏，检查按钮、位置和分支结果。
+ * 关键边界：中断回合的中间回复不能作为分支点；测试不会调用模型；动态标识会被归一化。
+ * 新手阅读建议：先读 completedTailFixture 如何构造合法分支尾部，再看两个浏览器场景的操作顺序。
+ */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,17 +24,27 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景的界面和分支快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/message-actions', import.meta.url))
 // Borrowed read-only: this scenario needs any settled user+assistant pair, not
 // a new recording (workspace-management / sidebar-scrollbar pattern).
+// 中文说明：场景只需任意已完成的用户与助手消息对，因此只读复用现有记录。
+/** 被借用并改造成两回合历史的原始会话日志。 */
 const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
+/** 消息操作栏的预期界面快照。 */
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
+/** 创建分支后的会话树预期快照。 */
 const FORK_EXPECTED = join(SNAPSHOT_DIR, 'fork.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 注入改造后会话时使用的稳定标识。 */
 const SEED_ID = 'message-actions-web-e2e'
 
+/** 借用记录中原始首回合的提示词。 */
 const PROMPT = 'Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop.'
+/** 插入首回合中途回复的文本，用于验证非法分支点。 */
 const MID_TURN_TEXT = 'I will read both files before answering.'
+/** 构造第二个合法完成回合的用户提示词。 */
 const SECOND_PROMPT = 'Now give the final answer.'
 
 /**
@@ -35,8 +54,11 @@ const SECOND_PROMPT = 'Now give the final answer.'
  * @param raw - Recorded seeded-history JSONL.
  * @returns A contiguous, closed two-turn fixture.
  */
+/** 中文说明：raw 是借用的 JSONL，返回连续闭合的两回合 fixture。示例：completedTailFixture(raw)。 */
 function completedTailFixture(raw: string): string {
+  /** 解析后的会话头和事件。 */
   const decoded = parseSeedFixture(raw)
+  /** 保留并按需改写的首回合事件。 */
   const kept = decoded.events.filter(event => event.seq < 101).map((event) => {
     if (event.type === 'assistant/message' && event.seq === 64) {
       const data = event.data as unknown as { content?: unknown[] }
@@ -49,13 +71,17 @@ function completedTailFixture(raw: string): string {
     }
     return event
   })
+  /** 新增尾部事件的下一个连续序号。 */
   let seq = kept.length
+  /** 新增尾部事件的下一个单调时间值。 */
   let time = (kept.at(-1)?.time ?? -1) + 1
+  /** 为一条新增事件补上连续序号和时间。 */
   const at = (event: Record<string, unknown>): { seq: number; time: number } & Record<string, unknown> => ({
     ...event,
     seq: seq++,
     time: time++,
   })
+  /** 关闭中断回合并追加一个普通完成回合的事件尾部。 */
   const tail = [
     at({ type: 'step/end', data: { turn: 1, step: 2 } }),
     at({ type: 'turn/end', data: { turn: 1, reason: { kind: 'aborted' } } }),
@@ -70,9 +96,13 @@ function completedTailFixture(raw: string): string {
 }
 
 describe('web e2e: message IconActions and clocks on settled history', () => {
+  /** 提供真实 Web 服务与会话注入的脚手架。 */
   let scaffold: WebScaffold
+  /** 执行真实布局和交互的 Chromium 实例。 */
   let browser: Browser
+  /** 当前测试页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {

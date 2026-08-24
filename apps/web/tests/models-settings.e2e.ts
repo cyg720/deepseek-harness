@@ -13,6 +13,15 @@
 // never shadow the derived reference. The deletion dialog distinguishes a
 // reference-free profile from a page-managed key before the credential and
 // settings unsets reach the wire.
+// 中文说明：该无模型调用场景通过真实设置、凭据和模型域接口验证提供方从添加、编辑到删除的完整流程。
+/**
+ * 文件职责：验证模型设置页对休眠提供方、自定义路由、API 密钥和删除确认的端到端管理。
+ * 技术维度：使用 Playwright、Vitest、真实 Host Remote 设置与凭据存储以及无障碍快照。
+ * 产品维度：让用户安全配置不同模型提供方，密钥只写存储，并能编辑模型列表或清理配置。
+ * 逻辑维度：从空目录添加 minimax-cn，覆盖原生认证与密钥认证，再编辑路由、模型并验证两类删除。
+ * 关键边界：密钥不得写入 settings 或回显；测试不调用模型；使用 minimax-cn 避免宿主环境密钥干扰。
+ * 新手阅读建议：按测试顺序理解“添加—保存—定制—选模型—声明路由—删除”，并对照落盘文件断言。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -25,20 +34,33 @@ import {
 } from './scaffold.ts'
 import { ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
+/** 模型设置页各状态的快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/models-settings', import.meta.url))
+/** 尚未配置提供方时的添加卡片快照。 */
 const EMPTY_EXPECTED = join(SNAPSHOT_DIR, 'empty.expected.md')
+/** 保存 minimax-cn 后的配置快照。 */
 const CONFIGURED_EXPECTED = join(SNAPSHOT_DIR, 'configured.expected.md')
+/** 声明自定义提供方后的快照。 */
 const DECLARED_EXPECTED = join(SNAPSHOT_DIR, 'declared.expected.md')
+/** 编辑声明路由后的快照。 */
 const DECLARED_EDIT_EXPECTED = join(SNAPSHOT_DIR, 'declared-edit.expected.md')
+/** 模型选择对话框快照。 */
 const MODEL_PICKER_EXPECTED = join(SNAPSHOT_DIR, 'model-picker.expected.md')
+/** 无页面托管密钥时的删除确认快照。 */
 const NATIVE_DELETE_EXPECTED = join(SNAPSHOT_DIR, 'native-delete.expected.md')
+/** 含页面托管密钥时的删除确认快照。 */
 const DELETE_EXPECTED = join(SNAPSHOT_DIR, 'delete.expected.md')
+/** 当前快照录制或校验模式。 */
 const MODE = webSnapshotMode()
 
 describe('web e2e: Models settings page configures a dormant provider', () => {
+  /** 提供真实设置、凭据与模型域服务的 Web 脚手架。 */
   let scaffold: WebScaffold
+  /** 执行设置页真实布局和交互的 Chromium 实例。 */
   let browser: Browser
+  /** 使用中文区域设置的测试页面。 */
   let page: Page
+  /** 页面错误和控制台警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {

@@ -42,6 +42,15 @@
 //
 // Zero model calls: a seeded cold session renders from its log, and switching
 // tabs asks the host for nothing. A stray stream would fail loud with NO_ADAPTER.
+// 冷会话仅切换标签，不请求主机模型；任何意外流请求都会以 NO_ADAPTER 失败。
+/**
+ * 文件职责：验证聊天与轨迹标签中的编辑器卡片在宽窄视口下保持相同水平位置和宽度。
+ * 技术维度：使用 Playwright、真实滚动条布局、CSS 变更对照和跨标签矩形几何测量。
+ * 产品维度：用户切换聊天/轨迹或改变窗口宽度时，底部输入卡不会因滚动条边带左右跳动。
+ * 逻辑维度：播种长会话，稳定响应式布局，测量两标签，再注入取消补偿 CSS 证明场景有效。
+ * 关键边界：必须显示真实滚动条且禁用 Playwright hide-scrollbars；黄金只记录标签间相对位移。
+ * 新手阅读建议：先理解 Chat sticky 与 Trajectory overlay 两种定位，再读 compareTabs 和对照样式。
+ */
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
@@ -54,6 +63,7 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-tab-geometry', import.meta.url))
 /**
  * Committed golden of where the input card sits in each tab, at a wide viewport
@@ -66,19 +76,25 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-tab-geometry', 
  * the bar's width when it does not — including under the control, so the golden
  * carries the shift the uncompensated cascade produces rather than only its absence.
  */
+/** 记录宽窄视口中两标签卡片相对几何与无补偿对照的黄金文件。 */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 
 /** Long enough that the transcript overflows the lane's 1000px viewport; the scenario asserts the overflow rather than trusting it. */
+/** 足以让聊天列在 1000 像素高视口产生真实滚动条的长会话夹具。 */
 const FIXTURE = createChatScrollFixture({
   markerPrefix: 'TAB_GEOMETRY',
   title: 'COMPOSER_TAB_GEOMETRY long session',
   turns: 24,
 })
+/** 播种长会话的固定编号。 */
 const SEED_ID = 'composer-tab-geometry-web-e2e'
 
 /** Viewport widths the scenario measures at: the card capped, and the card shrinking with the column. */
+/** 编辑器达到最大宽度时的宽视口。 */
 const WIDE_VIEWPORT = { width: 1680, height: 1000 }
+/** 编辑器随中心列缩小时的窄视口。 */
 const NARROW_VIEWPORT = { width: 800, height: 1000 }
 
 /**
@@ -88,6 +104,7 @@ const NARROW_VIEWPORT = { width: 800, height: 1000 }
  * @param viewport - the viewport dimensions to apply.
  * @param sidebarCollapsed - the sidebar state expected at this width.
  */
+/** 调整到测量视口并等待侧栏与中心列宽度连续三帧稳定。 */
 async function setMeasuredViewport(
   page: Page,
   viewport: { width: number; height: number },
@@ -99,11 +116,15 @@ async function setMeasuredViewport(
     timeout: 10_000,
   })
   await page.locator('[data-conversation-scroll]').evaluate(async (host) => {
+    /** 等待响应式列轨道稳定的截止时间。 */
     const deadline = performance.now() + 5_000
+    /** 上一帧中心列宽度。 */
     let previous = host.getBoundingClientRect().width
+    /** 连续宽度未变化的帧数。 */
     let stableFrames = 0
     while (performance.now() < deadline) {
       await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
+      /** 当前动画帧中心列宽度。 */
       const current = host.getBoundingClientRect().width
       stableFrames = Math.abs(current - previous) < 0.01 ? stableFrames + 1 : 0
       if (stableFrames >= 3) return
@@ -120,12 +141,15 @@ async function setMeasuredViewport(
  * rules without a rebuild, and the id lets the control be lifted again in the
  * same session.
  */
+/** 注入无补偿对照样式时使用的元素编号。 */
 const CONTROL_STYLE_ID = 'composer-tab-geometry-control'
+/** 将轨迹覆盖编辑器右侧补偿归零的对照 CSS。 */
 const CONTROL_CSS = `
 [data-conversation-scroll]:has([data-conversation-composer-overlay]) > [data-composer-seat] { right: 0 !important; }
 `
 
 /** The column scroller and the input card as the browser lays them out, in one tab. */
+/** 单个标签下中心列滚动样式和编辑器卡片矩形指标。 */
 interface TabMetrics {
   /** Resolved `scrollbar-gutter` on the column's scroller. */
   gutter: string
@@ -146,6 +170,7 @@ interface TabMetrics {
 }
 
 /** One tab's metrics beside the other's, plus the distances between them. */
+/** Chat 与 Trajectory 指标及两者卡片边缘和宽度差。 */
 interface TabComparison {
   chat: TabMetrics
   trajectory: TabMetrics
@@ -164,12 +189,17 @@ interface TabComparison {
  */
 function measureTab(page: Page): Promise<TabMetrics> {
   return page.evaluate(() => {
+    /** 当前标签的会话列滚动容器。 */
     const host = document.querySelector<HTMLElement>('[data-conversation-scroll]')
     if (host === null) throw new Error('conversation column scroller not in the DOM')
+    /** 会话列中可见的编辑器卡片。 */
     const card = host.querySelector<HTMLElement>('[data-composer-seat] [data-composer-card]')
     if (card === null) throw new Error('no input card inside the composer seat')
+    /** 滚动容器的最终 CSS 样式。 */
     const style = getComputedStyle(host)
+    /** 滚动容器的视口矩形。 */
     const hostRect = host.getBoundingClientRect()
+    /** 编辑器卡片的视口矩形。 */
     const cardRect = card.getBoundingClientRect()
     return {
       gutter: style.scrollbarGutter,
@@ -195,6 +225,7 @@ async function showTab(page: Page, tab: 'Chat' | 'Trajectory'): Promise<void> {
   else await page.locator('[data-conversation-scroll] [data-chat-anchor-key]').first().waitFor({ timeout: 30_000 })
   // Both measurements are taken after a paint, so a rectangle read mid-transition
   // cannot be reported as a shift the cascade did not cause.
+  // 两次测量都跨过两个绘制帧，避免把标签过渡中的矩形误报为位移。
   await page.evaluate(() => new Promise<void>((settle) => {
     requestAnimationFrame(() => { requestAnimationFrame(() => { settle() }) })
   }))
@@ -207,8 +238,10 @@ async function showTab(page: Page, tab: 'Chat' | 'Trajectory'): Promise<void> {
  */
 async function compareTabs(page: Page): Promise<TabComparison> {
   await showTab(page, 'Chat')
+  /** Chat 标签指标。 */
   const chat = await measureTab(page)
   await showTab(page, 'Trajectory')
+  /** Trajectory 标签指标。 */
   const trajectory = await measureTab(page)
   await showTab(page, 'Chat')
   return {
@@ -229,6 +262,7 @@ async function compareTabs(page: Page): Promise<TabComparison> {
  */
 async function compareTabsWithoutCompensation(page: Page): Promise<TabComparison> {
   await page.evaluate(({ id, css }) => {
+    /** 动态插入的无补偿 style 元素。 */
     const style = document.createElement('style')
     style.id = id
     style.textContent = css

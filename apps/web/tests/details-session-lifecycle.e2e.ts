@@ -1,6 +1,15 @@
 // Keyless browser regression for the details column's default visibility and Session ownership.
 // The shipped composition starts closed after selection and reload, retains an explicitly opened width through
 // unselected states, and closes it only when a different Session takes ownership.
+// 发布组合选中或重载会话后默认关闭详情列，显式宽度可跨未选中状态保留，换会话所有者才关闭。
+/**
+ * 文件职责：验证详情列默认关闭、侧栏尺寸持久化和会话所有权切换规则。
+ * 技术维度：使用 Playwright、真实 AppFrame 网格轨道、拖拽手势、重载和播种会话。
+ * 产品维度：详情面板不会意外占据空间，用户调整的侧栏宽度可保留，切换会话时状态可预测。
+ * 逻辑维度：完成一轮对话，测量并拖动列把手，重载后依次切换新会话、原会话和播种会话。
+ * 关键边界：快照只记录把手语义不固定平台坐标；重载连接丢失警告需按预期确认。
+ * 新手阅读建议：先看三个轨道/快照辅助函数，再按首次加载、拖拽、重载和会话切换阅读。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -14,36 +23,49 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/details-session-lifecycle', import.meta.url))
+/** 两个列尺寸把手的稳定关系快照。 */
 const HANDLES_EXPECTED = join(SNAPSHOT_DIR, 'handles.expected.md')
+/** 驱动 LIGHTHOUSE 回复的生命周期回放夹具。 */
 const FIXTURE = fileURLToPath(new URL('./snapshots/lifecycle-chrome/session.jsonl', import.meta.url))
+/** 用于验证切换所有者的已有历史会话夹具。 */
 const SEED_FIXTURE = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
+/** 回放夹具中唯一用户提示。 */
 const PROMPT = 'Reply with the single word LIGHTHOUSE and stop.'
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 
 /** Last AppFrame grid track in CSS pixels. */
+/** 返回 AppFrame 最后一列详情轨道的 CSS 像素宽度。 */
 async function detailsTrack(page: Page): Promise<number> {
   return await appFrame(page).evaluate((element) => {
+    /** AppFrame 解析后的网格列宽列表。 */
     const tracks = getComputedStyle(element).gridTemplateColumns.split(' ')
     return Number.parseFloat(tracks.at(-1) ?? 'NaN')
   })
 }
 
 /** First AppFrame grid track in CSS pixels. */
+/** 返回 AppFrame 第一列侧栏轨道的 CSS 像素宽度。 */
 async function sidebarTrack(page: Page): Promise<number> {
   return await appFrame(page).evaluate((element) => {
+    /** AppFrame 解析后的网格列宽列表。 */
     const tracks = getComputedStyle(element).gridTemplateColumns.split(' ')
     return Number.parseFloat(tracks[0] ?? 'NaN')
   })
 }
 
 /** AppFrame is the only product element with an inline grid track template. */
+/** 返回唯一带内联网格列模板的 AppFrame 定位器。 */
 function appFrame(page: Page) {
   return page.locator('[style*="grid-template-columns"]').first()
 }
 
 /** Render the two column-resize handles without platform-dependent coordinates. */
+/** 渲染不含平台坐标的两列尺寸把手 Markdown 快照。 */
 async function handleSnapshot(page: Page): Promise<string> {
+  /** 每个把手的侧别、光标和伪元素存在性。 */
   const handles = await page.locator('[class*="handle"]').evaluateAll(elements =>
     elements.map(element => ({
       side: element.getAttribute('data-side'),
@@ -65,12 +87,17 @@ async function handleSnapshot(page: Page): Promise<string> {
 }
 
 describe.skipIf(MODE === 'record')('web e2e: details panel follows the current Session lifecycle', () => {
+  /** 真实 Web 主机和播种会话夹具。 */
   let scaffold: WebScaffold
+  /** 本场景使用的 Chromium 实例。 */
   let browser: Browser
+  /** 驱动列拖拽和会话切换的页面。 */
   let page: Page
+  /** 页面错误和警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
+    /** 已提交回放夹具的完整日志。 */
     const fixture = await readFile(FIXTURE, 'utf8')
     expect(fixtureUserPrompts(fixture)).toEqual([PROMPT])
     scaffold = await launchWebScaffold({ replayFixture: FIXTURE, paceMs: 5 })
@@ -90,7 +117,9 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
 
   it('starts and reloads closed, then stays closed across Session ownership changes', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-details-session-lifecycle'))
+    /** 等待当前提示轮次结束的 Promise。 */
     const settled = scaffold.whenTurnSettled()
+    /** 当前聊天编辑器。 */
     const input = page.locator('textarea').first()
     await input.fill(PROMPT)
     await input.press('Enter')
@@ -101,10 +130,14 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     expect(await page.getByText('Details', { exact: true }).isVisible()).toBe(false)
     await compareOrRefreshGolden(HANDLES_EXPECTED, await handleSnapshot(page), MODE)
 
+    /** 拖拽前的侧栏轨道宽度。 */
     const sidebarBefore = await sidebarTrack(page)
+    /** 侧栏与中心列之间的拖拽把手。 */
     const sidebarHandle = page.locator('[data-side="sidebar"]')
+    /** 侧栏把手的视口矩形。 */
     const sidebarBox = await sidebarHandle.boundingBox()
     expect(sidebarBox).not.toBeNull()
+    /** 拖拽手势起始横坐标。 */
     const dragStartX = sidebarBox!.x + sidebarBox!.width / 2
     await page.mouse.move(dragStartX, sidebarBox!.y + 200)
     await page.mouse.down()
@@ -112,6 +145,7 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     await page.mouse.up()
     await expect.poll(() => sidebarTrack(page), { timeout: 5_000 }).toBe(sidebarBefore + 70)
 
+    /** 重载前已有控制台警告数量。 */
     const warningStart = tripwire.warnings.length
     await page.reload({ waitUntil: 'load' })
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
@@ -125,14 +159,18 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     await expect.poll(() => detailsTrack(page), { timeout: 5_000 }).toBe(0)
     expect(await page.getByText('Details', { exact: true }).isVisible()).toBe(false)
 
+    /** 原始 LIGHTHOUSE 会话树行。 */
     const original = page.locator('[role=treeitem]').filter({ hasText: 'Reply with the single word' }).first()
     await original.click()
     await page.getByText('LIGHTHOUSE', { exact: true }).waitFor({ timeout: 15_000 })
     await expect.poll(() => detailsTrack(page), { timeout: 5_000 }).toBe(0)
     expect(await page.getByText('Details', { exact: true }).isVisible()).toBe(false)
 
+    /** Ungrouped 分组标题。 */
     const ungrouped = page.getByText('Ungrouped', { exact: true })
+    /** Ungrouped 的可展开树行。 */
     const ungroupedRow = ungrouped.locator('..').locator('..')
+    /** 包含 Ungrouped 子会话的分组区域。 */
     const ungroupedSection = ungroupedRow.locator('..')
     await expect.poll(async () => {
       if (await ungroupedRow.getAttribute('aria-expanded') !== 'true') {
@@ -141,6 +179,7 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
       }
       return await ungroupedRow.getAttribute('aria-expanded')
     }, { timeout: 5_000 }).toBe('true')
+    /** Ungrouped 下第二个播种会话行。 */
     const seeded = ungroupedSection.locator('[role="treeitem"]').nth(1)
     await seeded.click()
     await page.getByText('DONE', { exact: true }).waitFor({ timeout: 15_000 })

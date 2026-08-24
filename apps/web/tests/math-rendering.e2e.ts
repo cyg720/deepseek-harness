@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证助手 Markdown 中各类数学公式分隔符在真实浏览器中正确渲染。
+ * 技术维度：使用 Session API、Vitest、Playwright、数学渲染插件和无障碍快照。
+ * 产品维度：保障技术与科研回答中的行内公式、块级公式和表格内公式保持可读。
+ * 逻辑维度：构造覆盖所有支持分隔符的固定回复，注入页面后检查公式节点与快照。
+ * 关键边界：只验证项目声明支持的分隔符，不执行真实模型请求；动态种子标识会被归一化。
+ * 新手阅读建议：先看 mathFixture 的公式样例，再看测试对渲染数量、文本和快照的断言。
+ */
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
@@ -17,19 +25,28 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 数学渲染场景的快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/math-rendering', import.meta.url))
+/** 公式界面的预期无障碍快照。 */
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/math-rendering/ui.expected.md', import.meta.url))
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 注入测试会话时使用的稳定标识。 */
 const SEED_ID = 'math-rendering-web-e2e'
+/** 确认回复完整渲染的尾部标记。 */
 const DONE = 'MATH_RENDERING_DONE'
 
 /** Build a settled assistant reply that exercises every supported math delimiter. */
+/** 构造覆盖全部受支持公式分隔符的已完成回复并返回 JSONL。示例：mathFixture()。 */
 function mathFixture(): string {
+  /** 累积数学回复事件的内存会话。 */
   const session = Session.create(SessionId('math-rendering-source'))
+  /** 固定事件时间起点，减少快照变化。 */
   const eventTimeOrigin = new Date().setHours(12, 0, 0, 0)
   session.append('turn/start', {
     turn: 1,
   })
+  /** 供会话标题来源引用的用户消息事件。 */
   const user = session.append('user/message', createUserMessage({
     content: [{ type: 'text', text: 'Render this mathematical proof.' }],
     source: { kind: 'user' },
@@ -86,9 +103,13 @@ function mathFixture(): string {
 }
 
 describe('web e2e: settled Markdown math rendering', () => {
+  /** 提供 Web 服务与会话注入的脚手架。 */
   let scaffold: WebScaffold
+  /** 执行真实公式布局的 Chromium 实例。 */
   let browser: Browser
+  /** 当前场景页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {

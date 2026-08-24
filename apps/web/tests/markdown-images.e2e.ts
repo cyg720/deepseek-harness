@@ -2,6 +2,15 @@
 // assembled through the Session API is seeded cold into the real web
 // composition, then a separate image origin proves that the browser receives
 // a real network image while local-path Markdown remains inert alt text.
+// 中文说明：独立图片服务器证明远程图片会真实加载，而本地路径只保留为不可执行的替代文本。
+/**
+ * 文件职责：验证 Markdown 远程图片加载与本地路径图片隔离的浏览器行为。
+ * 技术维度：使用 Node HTTP 服务、Session API、Vitest、Playwright 和无障碍快照。
+ * 产品维度：让用户能安全查看网络图片，同时避免模型输出的本地路径被浏览器擅自读取。
+ * 逻辑维度：启动确定性图片源，注入含两类图片的会话，检查请求、渲染和快照后关闭资源。
+ * 关键边界：仅允许绝对 HTTP(S) 图片发起请求；测试图片是一像素 PNG，服务只监听本机。
+ * 新手阅读建议：先读 ImageOrigin 和 startImageOrigin，再看 markdownImageFixture 与最终浏览器断言。
+ */
 import { createServer, type Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
@@ -26,26 +35,40 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景预期快照所在目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/markdown-images', import.meta.url))
+/** 图片渲染界面的预期无障碍快照。 */
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/markdown-images/ui.expected.md', import.meta.url))
+/** 当前快照录制或校验模式。 */
 const MODE = webSnapshotMode()
+/** 注入测试会话时使用的稳定标识。 */
 const SEED_ID = 'markdown-images-web-e2e'
+/** 远程图片的替代文本，用作浏览器定位条件。 */
 const REMOTE_ALT = 'Remote test image'
+/** 本地路径图片的替代文本，用于确认其保持惰性。 */
 const LOCAL_ALT = 'Local test image'
+/** 图片服务器返回的一像素 PNG 字节。 */
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64',
 )
 
+/** 描述测试图片源的服务器、访问地址和收到的请求记录。 */
 interface ImageOrigin {
+  /** 可在清理阶段关闭的 HTTP 服务器。 */
   server: Server
+  /** 注入 Markdown 的绝对图片 URL。 */
   url: string
+  /** 服务器收到的路径与来源页头，用于证明真实网络访问。 */
   requests: Array<{ path: string | undefined; referer: string | undefined }>
 }
 
 /** Start the deterministic remote image origin used by this browser scenario. */
+/** 启动确定性远程图片源，无参数，返回服务器及请求记录。示例：await startImageOrigin()。 */
 async function startImageOrigin(): Promise<ImageOrigin> {
+  /** 保存服务器收到的所有图片请求。 */
   const requests: ImageOrigin['requests'] = []
+  /** 监听本机随机端口并始终返回固定 PNG 的服务器。 */
   const server = createServer((request, response) => {
     requests.push({ path: request.url, referer: request.headers.referer })
     response.writeHead(200, {
@@ -59,6 +82,7 @@ async function startImageOrigin(): Promise<ImageOrigin> {
     server.once('error', reject)
     server.listen(0, '127.0.0.1', resolve)
   })
+  /** 服务器开始监听后暴露的实际套接字地址。 */
   const address = server.address()
   if (address === null || typeof address === 'string') {
     throw new Error('image origin did not expose an IP socket')

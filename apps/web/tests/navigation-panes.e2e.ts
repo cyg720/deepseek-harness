@@ -6,6 +6,15 @@
 // under the standard discipline: turn 1 produces a bash call plus two
 // parallel reads in one assistant message (tool-call density for the
 // trajectory ledger/timing lanes), turn 2 a markdown-rich reply.
+// 中文说明：一个两回合固定会话同时支撑轨迹、详情、时间概览、搜索、导出和终端卡片等导航界面。
+/**
+ * 文件职责：验证会话侧栏搜索、轨迹视图、事件详情、时间概览、日志导出和终端卡片。
+ * 技术维度：使用 Playwright、Vitest、冷注入/录制会话、ZIP 解包、Host RPC 和无障碍快照。
+ * 产品维度：保障用户能查找会话、审阅智能体执行轨迹、查看工具结果并导出完整日志。
+ * 逻辑维度：准备富两回合 fixture，打开固定会话，再分别覆盖搜索、轨迹交互、导出和终端展示。
+ * 关键边界：回放阶段零模型调用；基线 RPC 必须成功；下载内容与另一页面观察者状态需一致。
+ * 新手阅读建议：先读两个 PROMPT 了解 fixture 内容，再读 ensureSeedOpen，最后按各 it 场景浏览界面。
+ */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -21,20 +30,31 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本组导航场景的 fixture 与预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/navigation-panes', import.meta.url))
+/** 含工具调用与 Markdown 回复的两回合会话记录。 */
 const SEED = join(SNAPSHOT_DIR, 'seed.jsonl')
+/** 轨迹视图的预期无障碍快照。 */
 const TRAJECTORY_EXPECTED = join(SNAPSHOT_DIR, 'trajectory.expected.md')
+/** 侧栏搜索结果的预期快照。 */
 const SEARCH_EXPECTED = join(SNAPSHOT_DIR, 'search-results.expected.md')
+/** bash 终端卡片的预期快照。 */
 const TERMINAL_EXPECTED = join(SNAPSHOT_DIR, 'terminal-card.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 注入固定会话时使用的稳定标识。 */
 const SEED_ID = 'navigation-panes-web-e2e'
 
 // Turn 1 leads with a distinctive word: the session-title fallback takes the
 // first words of the first message, so the sidebar-search scenario has a
 // known-matching query ('navscenario') without depending on a live title call.
+// 中文说明：首条提示以独特词开头，使标题降级逻辑产生可预测的侧栏搜索词。
+/** 录制首回合工具密集轨迹的固定提示词。 */
 const PROMPT_TURN1 = 'NavScenario: first run bash to print exactly NAVIGATION_OK, then read nav-a.md and nav-b.md using two read calls in ONE assistant message, then reply with the single word FIRST_DONE and stop.'
+/** 录制第二回合 Markdown 丰富回复的固定提示词。 */
 const PROMPT_TURN2 = 'Reply in markdown with: a level-2 heading "Navigation Summary", a bulleted list of exactly two items, and a fenced code block containing echo WATERFALL. Then stop.'
 
+/** 等待 page 的指定列表 RPC 响应并返回它。示例：await baselineResponse(page, 'session.list')。 */
 async function baselineResponse(
   page: Page,
   method: 'session.list' | 'workspace.list',
@@ -45,12 +65,14 @@ async function baselineResponse(
   ), { timeout: 30_000 })
 }
 
+/** 断言 response 的 HTTP 与 RPC 层成功；method 用于失败说明，无返回值。 */
 async function assertBaselineSucceeded(response: Response, method: string): Promise<void> {
   expect(response.ok(), `${method} baseline HTTP response`).toBe(true)
   const body = await response.json() as { result?: { ok?: unknown } }
   expect(body.result?.ok, `${method} baseline RPC result`).toBe(true)
 }
 
+/** 确保 page 已关闭欢迎层并打开固定会话的聊天页，无返回值。 */
 async function ensureSeedOpen(page: Page): Promise<void> {
   const welcome = page.locator('[class*="onboardingOverlay"]')
   if (await welcome.count() > 0) {

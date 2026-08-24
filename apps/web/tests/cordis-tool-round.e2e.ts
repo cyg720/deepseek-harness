@@ -8,6 +8,15 @@
 // stop turn. The package therefore carries a browser half whose only
 // job is to be visible (`[data-snapshot-probe]`): its absence before the answer
 // and presence after it is the v3 user gate, proven rather than described.
+// 浏览器探针在批准前不存在、批准后出现，以实际 DOM 事实证明 v3 用户门禁。
+/**
+ * 文件职责：端到端验证可选 Cordis 工具的检查、定义、审批运行、停止和专属卡片生命周期。
+ * 技术维度：使用真实 Cordis 工具、模型回放、用户审批、动态浏览器插件和 ARIA 快照。
+ * 产品维度：用户可安全地让代理定义扩展，明确批准后才在页面运行，并随时停止撤销客户端代码。
+ * 逻辑维度：驱动 inspect/define/run，人工点击批准，等待浏览器探针，再发送 stop 并检查日志与卡片。
+ * 关键边界：审批动作从不记录进模型夹具；工具真实执行；批准前浏览器代码绝不能下载或挂载。
+ * 新手阅读建议：先看 PACKAGE_CODE/CLIENT_CODE，再读日志完整性函数，最后跟随批准前后探针变化。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
@@ -20,41 +29,56 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** Cordis 工具轮次的确定性会话夹具。 */
 const FIXTURE = fileURLToPath(new URL('./snapshots/cordis-tool-round/session.jsonl', import.meta.url))
+/** Cordis 专属卡片的聊天 ARIA 快照。 */
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/cordis-tool-round/ui.expected.md', import.meta.url))
+/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
+/** 一个完整生命周期应按序调用的四个 Cordis 工具。 */
 const CORDIS_TOOLS = ['cordis_inspect_self', 'cordis_define', 'cordis_run', 'cordis_stop'] as const
+/** 动态包的无操作主机端源码。 */
 const PACKAGE_CODE = 'return { name: "snapshot-noop", apply(ctx) {} }'
 // The browser half is the PROBE this scenario turns on: it renders a marker into
 // the frame-wide overlay, so "did the plugin actually run in this page" becomes a
 // DOM fact. A host-only package would sidestep the approval round trip entirely
 // (the host runs those immediately), which would drop the v3 user gate out of
 // coverage — the one thing this scenario exists to prove.
+// 客户端半部只渲染探针；主机专用包会绕过批准，因此不能覆盖本场景要证明的用户门禁。
+/** 批准后向全框架覆盖插槽注册可见探针的客户端源码。 */
 const CLIENT_CODE = 'return { inject: ["slots"], apply(ctx) { ctx.slots.register('
   + '{ name: "shell.overlay", id: "snapshot-probe" }, '
   + '() => React.createElement("div", { "data-snapshot-probe": "loaded" })) } }'
+/** 要求模型完成检查、定义和运行的第一轮提示。 */
 const PROMPT = 'Use only Cordis tools. First call cordis_inspect_self with no arguments. '
   + 'Then call cordis_define with plugin kind "new", idPrefix "snap", name "snapshot noop", '
   + 'purpose "does nothing, for the snapshot", '
   + `code.host exactly ${JSON.stringify(PACKAGE_CODE)} and code.client exactly ${JSON.stringify(CLIENT_CODE)}. `
   + 'Read its returned pluginId and packageId, then call cordis_run with those exact IDs and mode "run". '
   + 'After the run request returns, reply exactly CORDIS_UI_READY and stop.'
+/** 要求模型停止刚运行插件的第二轮提示。 */
 const STOP_PROMPT = 'Use only Cordis tools. Call cordis_stop with pluginId "snap-1". '
   + 'After it succeeds, reply exactly CORDIS_UI_DONE and stop.'
 
+/** 断言持久事件包含按顺序成功完成的整个 Cordis 工具生命周期。 */
 function assertCompleteCordisLifecycle(events: readonly SessionEvent[]): void {
+  /** 最后一个轮次结束事件。 */
   const turnEnd = events.findLast(
     (event): event is Extract<SessionEvent, { type: 'turn/end' }> => event.type === 'turn/end',
   )
+  /** 最终轮次结束原因。 */
   const reason = turnEnd?.data.reason
   expect(reason).toEqual({ kind: 'completed' })
 
+  /** 持久化的全部工具调用事件。 */
   const calls = events.filter(
     (event): event is Extract<SessionEvent, { type: 'tool/call' }> => event.type === 'tool/call',
   )
   expect(calls.map(event => event.data.name)).toEqual(CORDIS_TOOLS)
 
+  /** 用于关联结果的工具调用编号集合。 */
   const callIds = new Set(calls.map(event => String(event.data.callId)))
+  /** 与目标调用关联的工具结果事件。 */
   const results = events.filter(
     (event): event is Extract<SessionEvent, { type: 'tool/result' }> =>
       event.type === 'tool/result' && callIds.has(String(event.data.message.source.callId)),
@@ -64,10 +88,15 @@ function assertCompleteCordisLifecycle(events: readonly SessionEvent[]): void {
 }
 
 describe('web e2e: Cordis tools use their owned cards', () => {
+  /** 真实 Web 主机与工作区夹具。 */
   let scaffold: WebScaffold
+  /** 本场景使用的 Chromium 实例。 */
   let browser: Browser
+  /** 驱动 Cordis 生命周期的页面。 */
   let page: Page
+  /** 页面错误和警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
+  /** 本场景捕获的全部持久会话事件。 */
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {

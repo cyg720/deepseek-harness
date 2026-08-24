@@ -21,6 +21,15 @@
 // behavior.
 //
 // Zero model calls: a settled transcript is cold-seeded, so nothing streams.
+// 中文说明：场景冷注入已完成会话，不会产生模型请求或流式布局干扰。
+/**
+ * 文件职责：验证反馈备注编辑器以浮层呈现，并且不会挤压消息操作栏或被会话列裁切。
+ * 技术维度：使用 Playwright 真实几何测量、固定定位浮层、Vitest 和关系型快照。
+ * 产品维度：保障从桌面到窄窗口都能完整看到评分、分支、时钟和备注编辑器。
+ * 逻辑维度：注入已完成会话，遍历视口宽度，分别测量编辑器关闭和打开状态，再比较布局关系。
+ * 关键边界：快照只记录布尔关系和计数，不固定平台相关像素；浮层必须挂载到会话列之外。
+ * 新手阅读建议：先读 PopoverMetrics 字段含义，再读 measurePopover，最后看 settleAt 与 sweep。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -33,20 +42,28 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 本场景的几何关系快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/message-feedback-layout', import.meta.url))
 /**
  * Committed golden of the popover relations at every stop. Booleans and counts
  * only, never absolute coordinates.
  */
+/** 中文说明：快照只保存每个视口下的关系、布尔值与计数，不保存绝对坐标。 */
+/** 所有视口测量结果的预期快照。 */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 /** Borrowed read-only: this scenario needs any settled assistant message to rate. */
+/** 只读复用的已完成会话，提供可评分的助手消息。 */
 const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
+/** 注入会话时使用的稳定标识。 */
 const SEED_ID = 'message-feedback-layout-e2e'
 /** Viewport widths from full-screen desktop down to a narrow window. */
+/** 从全屏桌面到窄窗口的视口宽度，单位为 CSS 像素。 */
 const WIDTHS = [1680, 1280, 1024, 900, 700, 600]
 
 /** One viewport stop: how the row reads with the note editor closed and open, plus the popover's own relations. */
+/** 一个视口停点的操作栏与备注浮层关系摘要。 */
 export interface PopoverMetrics {
   /** Viewport width the stop was measured at. */
   width: number
@@ -77,12 +94,16 @@ export interface PopoverMetrics {
  * @param editorOpen - true to also read the popover's relations; throws if it is absent.
  * @returns the stop's relations.
  */
+/** 中文说明：page 是目标页面，width 是当前宽度，editorOpen 决定是否读取浮层，返回本停点关系。 */
 function measurePopover(page: Page, width: number, editorOpen: boolean): Promise<PopoverMetrics> {
   return page.evaluate(({ viewportWidth, open }) => {
+    /** 已评分消息上的撤销评分按钮，用于定位操作栏。 */
     const rated = document.querySelector<HTMLElement>('button[aria-label="Remove rating"]')
     if (rated === null) throw new Error('no rated feedback control in the DOM')
+    /** 包含评分、备注、分支和时钟的消息操作栏。 */
     const row = rated.parentElement?.closest<HTMLElement>('div[class*="actions"]') ?? null
     if (row === null) throw new Error('the IconActions row is not an ancestor of the feedback control')
+    /** 打开反馈备注浮层的触发按钮。 */
     const trigger = row.querySelector<HTMLElement>('button[aria-haspopup="dialog"]')
     if (trigger === null) throw new Error('the note trigger is not in the row')
 
@@ -95,6 +116,7 @@ function measurePopover(page: Page, width: number, editorOpen: boolean): Promise
      * @param element - the row whose items to read.
      * @returns the real flex-item boxes, in flex/DOM order.
      */
+    /** 读取 element 的直接弹性项目矩形，返回可见项目列表。 */
     const flexItemBoxes = (element: HTMLElement): DOMRect[] => {
       const boxes: DOMRect[] = []
       for (const child of Array.from(element.children)) {
@@ -113,6 +135,7 @@ function measurePopover(page: Page, width: number, editorOpen: boolean): Promise
      * @param boxes - the row items' boxes, in DOM order.
      * @returns the number of distinct lines.
      */
+    /** 按顶部坐标聚类 boxes 并返回弹性布局行数。 */
     const countFlexLines = (boxes: DOMRect[]): number => {
       const centres: number[] = []
       for (const box of boxes) {

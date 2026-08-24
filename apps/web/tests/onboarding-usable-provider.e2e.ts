@@ -4,6 +4,15 @@
 // credential throughout, so the only thing that ends onboarding here is the
 // pi-ai route the user configures through the real wire. Zero model calls:
 // configuration is pure settings/credentials/llm-domain traffic.
+// 中文说明：用户配置任意可用提供方后即可结束首次引导，不会被强制要求官方 DeepSeek 密钥。
+/**
+ * 文件职责：验证其他可用模型提供方也能结束首次引导，并且设置卡片可独立关闭。
+ * 技术维度：使用 Playwright、Vitest、真实设置/凭据/模型域接口和中文界面快照。
+ * 产品维度：允许用户按自身账号选择提供方，稍后再配置 DeepSeek，而不会阻塞产品使用。
+ * 逻辑维度：先关闭官方密钥步骤，再在设置中配置 minimax-cn，重载后确认引导不再出现。
+ * 关键边界：关闭引导不能误删相邻的添加提供方草稿；整个场景零模型调用。
+ * 新手阅读建议：先看第一个测试如何区分两张独立卡片，再看第二个测试如何验证落盘与重载。
+ */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -16,15 +25,23 @@ import {
 } from './scaffold.ts'
 import { ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
+/** 其他提供方引导场景的快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/onboarding-usable-provider', import.meta.url))
+/** 关闭官方配置卡后模型设置页的预期快照。 */
 const DISMISSED_EXPECTED = join(SNAPSHOT_DIR, 'dismissed.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 官方 DeepSeek 凭据步骤的中文标题。 */
 const CREDENTIAL_STEP = '添加一个 API Key 开始使用'
 
 describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-run onboarding', () => {
+  /** 提供缺少 DeepSeek 凭据状态和真实设置服务的脚手架。 */
   let scaffold: WebScaffold
+  /** 执行真实设置交互的 Chromium 实例。 */
   let browser: Browser
+  /** 使用中文区域设置的当前页面。 */
   let page: Page
+  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
