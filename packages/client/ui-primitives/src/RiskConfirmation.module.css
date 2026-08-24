@@ -1,21 +1,31 @@
+/* 文件职责：定义高风险操作确认对话框的尺寸、警告、勾选确认和操作按钮样式。
+ * 技术维度：使用 CSS Module、动态视口单位、主题令牌以及键盘焦点和禁用状态选择器。
+ * 产品维度：让风险说明清晰可读，并要求用户明确勾选确认后再执行危险操作。
+ * 逻辑维度：外层限制对话框，内容区独立滚动，警告与确认行负责信息层级，按钮设置最小宽度。
+ * 关键边界：内容过高时只能在 confirmationContent 内滚动；键盘焦点必须保持可见。
+ * 新手阅读建议：先看两层容器如何控制高度，再阅读 warning、acknowledgement 和按钮尺寸。 */
+/* 确认对话框外壳；宽度不超过 440px，并为视口四周保留 24px 空间。 */
 .confirmation {
   width: min(440px, 100%);
   max-height: calc(100vh - 48px);
   overflow: hidden;
 }
 
+/* 可滚动正文区域；min-height: 0 允许它在弹性布局中正确收缩。 */
 .confirmationContent {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
+/* 支持动态视口单位时使用 100dvh，避免移动端浏览器工具栏造成高度误差。 */
 @supports (height: 100dvh) {
   .confirmation {
     max-height: calc(100dvh - 48px);
   }
 }
 
+/* 风险警告行；图标和正文顶部对齐，使用次要文字色。 */
 .warning {
   display: flex;
   align-items: flex-start;
@@ -25,16 +35,19 @@
   line-height: 22px;
 }
 
+/* 清除警告段落默认外边距，间距由父容器统一管理。 */
 .warning p {
   margin: 0;
 }
 
+/* 不可伸缩的错误色警告图标，并用 2px 顶距校准文字基线。 */
 .warningIcon {
   flex: none;
   margin-top: 2px;
   color: var(--dsw-alias-state-error-primary);
 }
 
+/* 用户确认勾选行；整行可点击，并与警告区保持 20px 间距。 */
 .acknowledgement {
   display: flex;
   align-items: flex-start;
@@ -46,6 +59,7 @@
   cursor: pointer;
 }
 
+/* 原生复选框尺寸和主题强调色；不允许在弹性布局中缩小。 */
 .acknowledgement input {
   flex: none;
   width: 16px;
@@ -55,19 +69,23 @@
   cursor: pointer;
 }
 
+/* 键盘导航焦点环；只在 focus-visible 时出现。 */
 .acknowledgement input:focus-visible {
   outline: 2px solid var(--dsw-alias-border-l4);
   outline-offset: 2px;
 }
 
+/* 禁用复选框恢复默认光标，避免暗示仍可点击。 */
 .acknowledgement input:disabled {
   cursor: default;
 }
 
+/* 通用模态框操作按钮的最小宽度。 */
 .modalAction {
   min-width: 72px;
 }
 
+/* 主确认按钮的较大最小宽度，用于容纳完整风险操作文案。 */
 .confirmAction {
   min-width: 136px;
 }

@@ -3,29 +3,57 @@
    Light values on :root, dark overrides on the body attribute — the same
    cascade as every other token sheet. Background/foreground deliberately
    alias the markdown code-block tokens so highlighted and plain blocks agree. */
+/* 文件职责：定义 Shiki 语法高亮在浅色和深色主题下使用的颜色令牌。
+ * 技术维度：使用 CSS 自定义属性和 data-ds-dark-theme 属性选择器覆盖 Shiki 变量主题。
+ * 产品维度：保证代码块在两种主题中具有清晰对比度，并与普通 Markdown 代码块背景一致。
+ * 逻辑维度：:root 提供浅色默认值，深色 body 仅覆盖需要变化的语法颜色。
+ * 关键边界：变量名由 ui-primitives CodeBlock 输出约定决定；背景与前景必须复用主题别名。
+ * 新手阅读建议：先对照 :root 和深色覆盖，再观察每种语法角色如何使用同名变量。 */
 
+/* 浅色主题默认令牌；未启用深色属性时由整个文档继承。 */
 :root {
+  /* 普通代码前景色；复用主文字主题令牌。 */
   --shiki-foreground: var(--dsw-alias-label-primary);
+  /* 代码块背景色；与未高亮 Markdown 代码块保持一致。 */
   --shiki-background: var(--dsw-alias-markdown-code-block);
+  /* 数字、布尔值等常量的浅色主题颜色。 */
   --shiki-token-constant: #1c7ed6;
+  /* 普通字符串字面量的浅色主题颜色。 */
   --shiki-token-string: #2f9e44;
+  /* 代码注释的浅色主题颜色。 */
   --shiki-token-comment: #868e96;
+  /* 语言关键字的浅色主题颜色。 */
   --shiki-token-keyword: #d6336c;
+  /* 函数参数标识符的浅色主题颜色。 */
   --shiki-token-parameter: #e8590c;
+  /* 函数名称的浅色主题颜色。 */
   --shiki-token-function: #6741d9;
+  /* 模板字符串表达式的浅色主题颜色。 */
   --shiki-token-string-expression: #2b8a3e;
+  /* 括号、逗号等标点的浅色主题颜色。 */
   --shiki-token-punctuation: #495057;
+  /* 链接令牌的浅色主题颜色。 */
   --shiki-token-link: #1971c2;
 }
 
+/* 深色主题覆盖；只替换语法角色颜色，前景和背景继续使用全局主题别名。 */
 body[data-ds-dark-theme] {
+  /* 常量在深色背景上的高对比度颜色。 */
   --shiki-token-constant: #4dabf7;
+  /* 字符串在深色背景上的高对比度颜色。 */
   --shiki-token-string: #69db7c;
+  /* 注释在深色背景上的柔和颜色。 */
   --shiki-token-comment: #adb5bd;
+  /* 关键字在深色背景上的颜色。 */
   --shiki-token-keyword: #faa2c1;
+  /* 参数在深色背景上的颜色。 */
   --shiki-token-parameter: #ffa94d;
+  /* 函数名在深色背景上的颜色。 */
   --shiki-token-function: #b197fc;
+  /* 字符串表达式在深色背景上的颜色。 */
   --shiki-token-string-expression: #8ce99a;
+  /* 标点在深色背景上的颜色。 */
   --shiki-token-punctuation: #ced4da;
+  /* 链接在深色背景上的颜色。 */
   --shiki-token-link: #74c0fc;
 }

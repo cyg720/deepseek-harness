@@ -2,6 +2,13 @@
    none — the layer is decoration; drag events must keep hitting the page so
    the owner's enter/leave count stays balanced. The frosted sheet color is
    the theme's drop-mask alias (dark override lives with the theme owner). */
+/* 文件职责：定义附件拖入页面时全屏遮罩、插图和说明文字的视觉样式。
+ * 技术维度：使用 CSS Module、主题变量、背景模糊、关键帧动画和减少动态效果媒体查询。
+ * 产品维度：明确提示用户可释放文件上传，同时保持页面继续接收拖拽进入和离开事件。
+ * 逻辑维度：mask 构建固定遮罩，fade-in 控制入场，wrap 与子元素负责居中排版。
+ * 关键边界：mask 必须保持 pointer-events: none；深色颜色覆盖由主题包负责。
+ * 新手阅读建议：先看 mask 的定位和事件策略，再看动画降级，最后阅读内部文字布局。 */
+/* 全屏装饰遮罩；z-index 为 1000，且不截获任何指针事件。 */
 .mask {
   position: fixed;
   inset: 0;
@@ -15,17 +22,20 @@
   animation: fade-in 160ms ease-out;
 }
 
+/* 遮罩入场动画；透明度从 0 过渡到 1。 */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
+/* 尊重系统减少动态效果设置；命中时完全停用入场动画。 */
 @media (prefers-reduced-motion: reduce) {
   .mask {
     animation: none;
   }
 }
 
+/* 遮罩中央内容容器；纵向排列并略微上移以改善视觉重心。 */
 .wrap {
   display: flex;
   flex-direction: column;
@@ -36,16 +46,19 @@
   text-align: center;
 }
 
+/* 拖放插图的固定显示尺寸。 */
 .illustration {
   width: 115px;
   height: 84px;
 }
 
+/* 主标题排版；使用主题的大号字体令牌。 */
 .title {
   margin-top: 16px;
   font: var(--dsw-font-l-20);
 }
 
+/* 辅助说明排版；保留文案中的换行并使用次要文字颜色。 */
 .desc {
   margin-top: 16px;
   font: var(--dsw-font-s-14);
