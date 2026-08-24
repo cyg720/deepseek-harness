@@ -1,8 +1,16 @@
+/* 文件职责：定义模型设置首次引导对话框的尺寸、滚动内容和标题排版。
+ * 技术维度：使用 CSS Modules、Flexbox、视口计算和媒体查询实现响应式对话框。
+ * 产品维度：让新用户在不同屏幕上都能顺畅完成模型接入引导。
+ * 逻辑维度：dialog 限制外框宽度，content 管理滚动区域，title 与 body 组织内容层级，媒体查询缩小移动端留白。
+ * 关键边界：最大高度依赖视口；实际焦点管理和对话框语义由 React 组件负责。
+ * 新手阅读建议：先看 dialog 与 content 的尺寸关系，再观察窄屏媒体查询只调整了内边距。 */
+/* dialog：把引导对话框宽度限制为 600 像素以内，并允许在窄容器中收缩。 */
 .dialog {
   width: min(600px, 100%);
   padding: 0;
 }
 
+/* content：纵向排列内容，并在超过可用视口高度时启用内部滚动。 */
 .content {
   display: flex;
   flex-direction: column;
@@ -12,6 +20,7 @@
   overflow-y: auto;
 }
 
+/* title：定义可聚焦标题的字体、颜色，并移除默认轮廓以配合组件自己的焦点处理。 */
 .title {
   margin: 0;
   font-size: 20px;
@@ -21,11 +30,14 @@
   outline: none;
 }
 
+/* body：在标题与主体内容之间保留固定间距。 */
 .body {
   margin-top: 20px;
 }
 
+/* 窄屏规则：当视口不超过 560 像素时适度压缩内容内边距。 */
 @media (max-width: 560px) {
+  /* content：移动端使用 24 像素内边距，为正文保留更多可用宽度。 */
   .content {
     padding: 24px;
   }

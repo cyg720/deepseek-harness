@@ -1,5 +1,13 @@
 /* Full-bleed, fixed-height host for the trajectory ledger. */
+/* 文件职责：定义轨迹账本视图的全尺寸宿主、滚动区域和底部输入框避让距离。
+ * 技术维度：使用 CSS Modules、Flexbox、层叠隔离和 CSS 自定义属性组织可伸缩布局。
+ * 产品维度：让任务轨迹填满工作区，并避免浮动输入框遮挡底部内容。
+ * 逻辑维度：root 建立纵向全尺寸容器并声明工具栏高度，ledger 占据剩余空间并计算底部留白。
+ * 关键边界：默认输入框高度为 152 像素；实际组件应及时更新 --dsh-composer-height。
+ * 新手阅读建议：先理解 root 的 height 与 min-height，再跟踪两个自定义属性由谁读取和覆盖。 */
+/* root：轨迹视图根容器，并发布供子元素使用的工具栏高度常量。 */
 .root {
+  /* --dsh-trajectory-toolbar-height：工具栏固定高度，当前取 32 像素。 */
   --dsh-trajectory-toolbar-height: 32px;
 
   display: flex;
@@ -13,6 +21,7 @@
   background: var(--dsw-alias-bg-layer-1);
 }
 
+/* ledger：占据根容器剩余空间，并建立独立层叠环境承载轨迹内容。 */
 .ledger {
   position: relative;
   z-index: 0;
@@ -24,5 +33,7 @@
   overflow: hidden;
 
   /* ConversationRoot publishes the floating composer's live height. */
+  /* ConversationRoot 会发布浮动输入框的实时高度。 */
+  /* --dsh-trajectory-bottom-clearance：输入框高度加 16 像素安全间距；未发布高度时使用 152 像素。 */
   --dsh-trajectory-bottom-clearance: calc(var(--dsh-composer-height, 152px) + 16px);
 }

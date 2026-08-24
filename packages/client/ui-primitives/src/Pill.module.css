@@ -1,3 +1,10 @@
+/* 文件职责：定义通用胶囊标签的基础、可交互、悬停和激活状态样式。
+ * 技术维度：使用 CSS Modules、Flexbox、圆角和设计令牌构造可复用小型控件外观。
+ * 产品维度：为筛选项、状态标签等紧凑信息提供一致的视觉和交互反馈。
+ * 逻辑维度：pill 提供基础盒模型，interactive 开启指针反馈，hover 与 active 表示交互状态。
+ * 关键边界：interactive 只改变鼠标外观；键盘可访问性和点击行为必须由使用它的组件提供。
+ * 新手阅读建议：先掌握 pill 的基础样式，再比较 hover 与 active 在背景、文字和边框上的差异。 */
+/* pill：胶囊控件的基础容器，负责尺寸、排列、圆角和默认配色。 */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -12,14 +19,17 @@
   background: var(--dsw-alias-bg-layer-2);
 }
 
+/* interactive：标记可点击胶囊，鼠标悬停时使用手形指针。 */
 .interactive {
   cursor: pointer;
 }
 
+/* interactive:hover：为可交互胶囊提供悬停背景反馈。 */
 .interactive:hover {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* active：显示已选中状态，并用内阴影形成不改变尺寸的边框。 */
 .active {
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-button-ghost-active-fill);

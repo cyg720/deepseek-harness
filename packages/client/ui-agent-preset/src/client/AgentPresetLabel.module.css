@@ -1,5 +1,12 @@
 /* Session-header agent-preset label: static chrome, never a control. */
+/* 文件职责：定义会话标题栏中只读代理预设标签的外观。
+ * 技术维度：使用 CSS Modules、Flexbox、设计令牌和文本截断规则构造紧凑标签。
+ * 产品维度：让用户快速识别当前会话使用的代理预设，同时避免将标签误解为按钮。
+ * 逻辑维度：label 管理容器和截断，icon 固定图标尺寸并降低视觉权重。
+ * 关键边界：标签不是交互控件；最大宽度为 180 像素，过长名称会显示省略号。
+ * 新手阅读建议：重点关注 overflow、text-overflow 和 white-space 三项如何配合完成单行截断。 */
 
+/* label：代理预设的只读标签容器，负责排列图标并截断过长名称。 */
 .label {
   display: inline-flex;
   align-items: center;
@@ -17,6 +24,7 @@
   text-overflow: ellipsis;
 }
 
+/* icon：禁止图标随标签收缩，并用透明度弱化其视觉权重。 */
 .icon {
   flex: none;
   opacity: 0.7;

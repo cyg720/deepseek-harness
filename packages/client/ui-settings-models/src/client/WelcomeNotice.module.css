@@ -1,17 +1,27 @@
+/* 文件职责：定义模型欢迎提示的正文、错误消息、操作区和主按钮响应式样式。
+ * 技术维度：使用 CSS Modules、设计令牌、Flexbox 和媒体查询组织通知内容。
+ * 产品维度：帮助首次使用者阅读接入说明、识别错误并完成主要操作。
+ * 逻辑维度：先设置正文段落节奏，再定义错误提示和右对齐操作区，最后让移动端按钮占满宽度。
+ * 关键边界：本文件不控制通知何时出现，也不处理按钮点击和错误状态来源。
+ * 新手阅读建议：按 copy、error、actions、primary 的顺序理解从信息到操作的视觉流程。 */
+/* copy：欢迎说明正文的基础字号、行高和次要文字颜色。 */
 .copy {
   font-size: 14px;
   line-height: 24px;
   color: var(--dsw-alias-label-secondary);
 }
 
+/* copy p：清除浏览器默认段落外边距，交由相邻规则统一控制节奏。 */
 .copy p {
   margin: 0;
 }
 
+/* copy p + p：只为后续段落增加上间距，首段不受影响。 */
 .copy p + p {
   margin-top: 12px;
 }
 
+/* error：在正文下方显示产品错误色的提示信息。 */
 .error {
   margin: 16px 0 0;
   font-size: 14px;
@@ -19,17 +29,21 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
+/* actions：把操作按钮排列在通知底部右侧。 */
 .actions {
   display: flex;
   justify-content: flex-end;
   margin-top: 24px;
 }
 
+/* primary：保证主要操作按钮在桌面端具有易点击的最小宽度。 */
 .primary {
   min-width: 120px;
 }
 
+/* 窄屏规则：当视口不超过 560 像素时扩展主按钮宽度。 */
 @media (max-width: 560px) {
+  /* primary：移动端占满操作区，提升触控可用性。 */
   .primary {
     width: 100%;
   }

@@ -1,9 +1,17 @@
 /* The adoption error dialog's footer and message styles; the dialog itself is
  * the shared Modal (same figma dialog family as the browser's own dialogs). */
+/* 文件职责：定义工作区选择器在接管失败时使用的对话框操作区和状态文本样式。
+ * 技术维度：使用 CSS Modules、设计令牌和组合选择器隔离局部视觉规则。
+ * 产品维度：让用户在工作区无法接管时清楚看到错误，并获得尺寸稳定的操作按钮。
+ * 逻辑维度：先约束操作按钮宽度，再共享状态文本排版，最后区分错误与普通状态颜色。
+ * 关键边界：对话框容器由共享 Modal 提供；本文件不能改变其布局和交互行为。
+ * 新手阅读建议：先看 modalError 与 menuStatus 的共享规则，再比较两者不同的颜色用途。 */
+/* modalAction：保证页脚操作按钮具有稳定的最小点击宽度。 */
 .modalAction {
   min-width: 72px;
 }
 
+/* modalError 与 menuStatus：共享小号状态文字的上边距、字号和行高。 */
 .modalError,
 .menuStatus {
   margin-top: 8px;
@@ -11,10 +19,12 @@
   line-height: 18px;
 }
 
+/* modalError：用错误状态令牌突出显示工作区接管失败信息。 */
 .modalError {
   color: var(--dsw-alias-state-error-primary);
 }
 
+/* menuStatus：用次要文字颜色展示非错误的菜单状态提示。 */
 .menuStatus {
   color: var(--dsw-alias-label-secondary);
 }

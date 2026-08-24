@@ -1,5 +1,12 @@
 /* First-run stage: keep the product top bar visible, then let onboarding own
    the complete workspace instead of presenting another settings modal. */
+/* 文件职责：定义首次引导覆盖层、遮罩和全工作区引导舞台的布局。
+ * 技术维度：使用 CSS Modules、固定定位、层叠上下文和背景模糊实现覆盖式引导。
+ * 产品维度：在保留产品顶部栏的同时，让首次引导专注占用其余工作区。
+ * 逻辑维度：overlay 覆盖视口，mask 从顶部栏下方开始遮罩，stage 在其上承载引导内容。
+ * 关键边界：遮罩顶部固定为 80 像素并依赖当前顶部栏高度；z-index 必须与全局浮层约定一致。
+ * 新手阅读建议：先比较 overlay、mask、stage 的定位和层级，再理解为何遮罩不覆盖顶部 80 像素。 */
+/* onboardingOverlay：覆盖整个视口并建立高于普通页面内容的引导层。 */
 .onboardingOverlay {
   position: fixed;
   inset: 0;
@@ -7,6 +14,8 @@
 }
 
 /* Mask */
+/* 遮罩：降低顶部栏以下原工作区的视觉权重。 */
+/* onboardingMask：从 80 像素顶部栏下沿延伸到视口底部。 */
 .onboardingMask {
   position: absolute;
   left: 0px;
@@ -15,9 +24,11 @@
   bottom: 0px;
   background: rgba(0, 0, 0, 0.24);
   /* Mask-blur */
+  /* 遮罩模糊：轻微模糊遮罩后的原工作区内容。 */
   backdrop-filter: blur(2px);
 }
 
+/* onboardingStage：位于遮罩之上，居中承载首次引导的完整内容。 */
 .onboardingStage {
   position: absolute;
   z-index: 1;

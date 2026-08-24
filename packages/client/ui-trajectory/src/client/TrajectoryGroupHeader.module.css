@@ -1,5 +1,12 @@
 /* Message / Step group title row inside a turn body. */
+/* 文件职责：定义单轮轨迹正文中消息组或步骤组标题行的布局与文字层级。
+ * 技术维度：使用 CSS Modules、Flexbox、设计字体令牌和单行省略规则。
+ * 产品维度：帮助用户快速区分一轮任务中的不同内容分组，并浏览较长的辅助说明。
+ * 逻辑维度：root 建立固定高度标题行，title 保持主标题稳定，description 占用剩余空间并截断。
+ * 关键边界：描述只显示一行；完整内容需要由其他界面机制提供，不能依赖此处展开。
+ * 新手阅读建议：先看 title 的 flex:none，再看 description 的 flex 和溢出规则如何分配空间。 */
 
+/* root：标题行外层，负责固定高度、水平排列和左右留白。 */
 .root {
   display: flex;
   align-items: center;
@@ -10,12 +17,14 @@
   min-width: 0;
 }
 
+/* title：主标题不参与伸缩，始终保持其内容宽度。 */
 .title {
   flex: none;
   font: var(--dsw-font-xs-13);
   color: var(--dsw-alias-label-primary);
 }
 
+/* description：占据剩余空间，并在内容过长时显示省略号。 */
 .description {
   flex: 1 1 auto;
   min-width: 0;
