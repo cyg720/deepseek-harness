@@ -6,6 +6,14 @@
 // the parallel-active count riding ToolRow's non-shrinking summary suffix so a
 // narrow row never clips it; the durable list itself renders in the TodoPanel
 // above the composer, so the row stays one line until expanded.
+/**
+ * 文件职责：实现工具调用的 todo-row 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示工具调用参数、结果和状态。
+ * 逻辑维度：接收类型化数据，选择专用视图并渲染层级与详情。
+ * 关键边界：组件不执行工具；未知或失败结果必须保留可诊断信息。
+ * 新手阅读建议：先读 Props，再看视图选择、派生值和 JSX。
+ */
 
 import { IconChecklistOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '@deepseek-ai/cordis'
@@ -17,8 +25,10 @@ import { CONVERSATION_NS as NS } from '../../locale.ts'
 import { planSummary, type PlanItemLike } from './plan-summary.ts'
 
 /** Todo row props: the toolview runtime share plus the standard locale seat. */
+/** 中文说明：类型或类 TodoRowProps 约束工具或轨迹数据职责。 */
 type TodoRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
+/** 中文说明：函数 isItem 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function isItem(value: unknown): value is PlanItemLike {
   return typeof value === 'object' && value !== null
 }
@@ -28,12 +38,15 @@ function isItem(value: unknown): value is PlanItemLike {
  * is the parallel-active count that must not, so a narrow row never clips the
  * one part that says several tasks are running.
  */
+/** 中文说明：类型或类 RowSummary 约束工具或轨迹数据职责。 */
 interface RowSummary {
   text: string
   extra: number
 }
 
+/** 中文说明：函数 summarize 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function summarize(argsRaw: string, t: TodoRowProps['t']): RowSummary | null {
+  /** 中文说明：视图局部值 parsed: unknown，由紧邻初始化决定。 */
   let parsed: unknown
   try {
     parsed = JSON.parse(argsRaw)
@@ -44,9 +57,12 @@ function summarize(argsRaw: string, t: TodoRowProps['t']): RowSummary | null {
   // Valid JSON with invalid todo fields (null root, non-array todos, null items —
   // a rejected tool/call retains such args verbatim): same generic fallback.
   if (typeof parsed !== 'object' || parsed === null) return null
+  /** 中文说明：视图局部值 todos，由紧邻初始化决定。 */
   const todos = (parsed as { todos?: unknown }).todos
   if (!Array.isArray(todos) || !todos.every(isItem)) return null
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const { done, total, activeContent, activeExtra } = planSummary(todos)
+  /** 中文说明：视图局部值 head，由紧邻初始化决定。 */
   const head = t('todo.completed', { done, total })
   return {
     text: activeContent === null ? head : `${head} · ${activeContent}`,
@@ -58,9 +74,13 @@ function summarize(argsRaw: string, t: TodoRowProps['t']): RowSummary | null {
  *  sections, ToolRow's unified expand). Non-ok execution states keep the
  *  shared row's dot semantics — a cancelled call wrote no todo/write, so it
  *  must not read as a completed update. */
+/** 中文说明：函数 TodoRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function TodoRow({ toolName, block, inspect, t }: TodoRowProps) {
+  /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
+  /** 中文说明：视图局部值 argsRaw，由紧邻初始化决定。 */
   const argsRaw = ('kind' in block ? block.call?.argsRaw : block.argsRaw) ?? ''
+  /** 中文说明：视图局部值 summary，由紧邻初始化决定。 */
   const summary = summarize(argsRaw, t) ?? { text: model.summary, extra: 0 }
   return (
     <ToolRow
@@ -84,6 +104,7 @@ export function TodoRow({ toolName, block, inspect, t }: TodoRowProps) {
  * The todo row as a plain registrant plugin following the atomic Tool-view
  * declaration across independent activation and reload lifetimes.
  */
+/** 中文说明：视图局部值 todoToolview，由紧邻初始化决定。 */
 export const todoToolview = {
   name: 'todo-toolview',
   inject: ['slots'],

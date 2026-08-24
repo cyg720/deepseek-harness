@@ -3,6 +3,14 @@
 // over callView/resultView, and both conversation render sites that consume it
 // — the chat tool row's expanded body (GenericToolCard / FileMutationRow) and
 // the details panel's Output section.
+/**
+ * 文件职责：验证工具调用的 diff-card.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
+ * 产品维度：防止工具调用展示与展开交互回归。
+ * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
+ * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
+ * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
+ */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
@@ -28,31 +36,39 @@ import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.t
 afterEach(cleanup)
 
 /** FileMutationRow's full prop shape (ToolRow runtime share + conversation locale seat). */
+/** 中文说明：类型或类 FileMutationRowProps 约束工具或轨迹数据职责。 */
 type FileMutationRowProps = Parameters<typeof FileMutationRow>[0]
 
+/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = makeTranslate(zh, commonZh)
 
+/** 中文说明：测试局部值 ARGS，由紧邻初始化决定。 */
 const ARGS = '{"file_path":"notes/demo.txt","old_string":"hello","new_string":"hello fixture"}'
 
 /** The edit tool's own call view (a call-time diff derived from the arguments). */
+/** 中文说明：测试局部值 callDiff，由紧邻初始化决定。 */
 const callDiff = (over?: Partial<Extract<ToolCallView, { card: 'diff' }>>): ToolCallView => ({
   card: 'diff', title: 'Edit notes/demo.txt',
   diffs: [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixture' }], ...over,
 })
 
 /** The edit tool's own result view (the applied hunk diff). */
+/** 中文说明：测试局部值 resultDiff，由紧邻初始化决定。 */
 const resultDiff = (over?: Partial<Extract<ToolResultView, { card: 'diff' }>>): ToolResultView => ({
   card: 'diff', title: 'Edit notes/demo.txt',
   diffs: [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixture' }], ...over,
 })
 
+/** 中文说明：测试局部值 running，由紧邻初始化决定。 */
 const running = (over?: Partial<RunningToolCall>): RunningToolCall => ({
   callId: 'c1', name: 'edit', argsRaw: ARGS,
   turn: 1, step: 1, time: 1_000, callView: callDiff(), subCalls: [], ...over,
 })
 
+/** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
 const settled = (over?: Partial<ToolResultNode>): ToolResultNode => ({
   kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
   call: { name: 'edit', argsRaw: ARGS },
@@ -91,6 +107,7 @@ describe('diffCardModel', () => {
     expect(diffCardModel(settled({ resultView: { card: 'generic' } }))).toBeNull()
     // A card tag this UI version does not know arrives over the wire; the
     // documented generic-card default takes it, not a crash.
+    /** 中文说明：测试局部值 future，由紧邻初始化决定。 */
     const future = { card: 'chart', title: 'plot' } as unknown as ToolCallView
     expect(diffCardModel(running({ callView: future }))).toBeNull()
     expect(diffCardModel(settled({
@@ -102,6 +119,7 @@ describe('diffCardModel', () => {
     // toolEventViewSchema validates only the `card` string, so a version
     // mismatch can deliver a diff card with an unusable diffs field. Each shape
     // routes to the generic path instead of throwing inside DiffBlock.
+    /** 中文说明：测试局部值 bad，由紧邻初始化决定。 */
     const bad = (diffs: unknown): ToolResultView => ({ card: 'diff', diffs } as unknown as ToolResultView)
     expect(diffCardModel(settled({ resultView: bad(undefined) }))).toBeNull()
     expect(diffCardModel(settled({ resultView: bad([]) }))).toBeNull()
@@ -116,12 +134,14 @@ describe('diffCardModel', () => {
 })
 
 describe('chat row diff body', () => {
+  /** 中文说明：测试局部值 ownerProps，由紧邻初始化决定。 */
   const ownerProps = (block: RunningToolCall | ToolResultNode): GenericToolCardProps => ({
     callId: 'c1', toolName: 'edit', block, openFile: vi.fn(), t,
   })
 
   it('the expanded body is the applied diff, capped tighter than the panel', () => {
     expect(CHAT_DIFF_MAX_LINES).toBeLessThan(16)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled())} />)
     // Collapsed: the summary row (path) only, no diff body.
     expect(view.queryByText('hello fixture')).toBeNull()
@@ -132,6 +152,7 @@ describe('chat row diff body', () => {
   })
 
   it('a running diff call expands to its intended change', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(running())} />)
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
     expect(view.container.querySelector('[data-diff]')).not.toBeNull()
@@ -140,6 +161,7 @@ describe('chat row diff body', () => {
   it('a non-diff call keeps the args-JSON text body', () => {
     // A non-file tool name so the row is not single-file (no path link), and its
     // args body is the fallback the diff card must not have replaced.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...{
       callId: 'c1', toolName: 'some_tool', openFile: vi.fn(), t,
       block: settled({
@@ -154,6 +176,7 @@ describe('chat row diff body', () => {
 })
 
 describe('FileMutationRow diff card', () => {
+  /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
   const list = () => createSnapshotStore<SessionListState>({
     ids: [SID],
     byId: { [SID]: { id: SID, displayTitle: 'r', running: false, blank: false, updatedAt: 0, cwd: '/w/app' } },
@@ -163,6 +186,7 @@ describe('FileMutationRow diff card', () => {
     currentAddress: undefined,
   })
 
+  /** 中文说明：测试局部值 rowProps，由紧邻初始化决定。 */
   const rowProps = (block: RunningToolCall | ToolResultNode, toolName = 'edit'): FileMutationRowProps => ({
     callId: 'c1', toolName, block, openFile: vi.fn(), cwd: '/w/app',
     sessionId: SID, useSessions: bindSnapshotSelector(list()),
@@ -170,11 +194,13 @@ describe('FileMutationRow diff card', () => {
   } as unknown as FileMutationRowProps)
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
+  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }
 
   it('collapses to the summary row; expanding reveals the applied diff card', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled())} />)
     // The diff card is collapsed by default — not in the DOM until expanded.
     expect(view.container.querySelector('[data-diff]')).toBeNull()
@@ -186,7 +212,9 @@ describe('FileMutationRow diff card', () => {
   })
 
   it('the summary is a path link that opens the tool path through the host', () => {
+    /** 中文说明：测试局部值 openFile，由紧邻初始化决定。 */
     const openFile = vi.fn()
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...{ ...rowProps(settled()), openFile }} />)
     // The path link rides the collapsed summary, so it opens without expanding.
     fireEvent.click(view.getByRole('button', { name: 'notes/demo.txt' }))
@@ -196,7 +224,9 @@ describe('FileMutationRow diff card', () => {
   })
 
   it('registers under write too, rendering a create as an added-only diff', () => {
+    /** 中文说明：测试局部值 writeArgs，由紧邻初始化决定。 */
     const writeArgs = '{"file_path":"notes/new.txt","content":"hello fixture\\n"}'
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
       call: { name: 'write', argsRaw: writeArgs },
       callView: { card: 'diff', title: 'Write notes/new.txt', diffs: [{ path: 'notes/new.txt', oldText: null, newText: 'hello fixture' }] },
@@ -208,14 +238,17 @@ describe('FileMutationRow diff card', () => {
   })
 
   it('reflects the run state on its leading slot', () => {
+    /** 中文说明：测试局部值 runningView，由紧邻初始化决定。 */
     const runningView = render(<FileMutationRow {...rowProps(running())} />)
     expect(runningView.container.querySelector('[data-state="running"]')).not.toBeNull()
     cleanup()
+    /** 中文说明：测试局部值 errorView，由紧邻初始化决定。 */
     const errorView = render(<FileMutationRow {...rowProps(settled({ isError: true, resultView: null, callView: null }))} />)
     expect(errorView.container.querySelector('[data-state="error"]')).not.toBeNull()
   })
 
   it('a mutation call with no diff view renders the summary row alone', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({ callView: null, resultView: null }))} />)
     // No diff material: expanding shows the args-JSON body, never a diff card.
     expect(view.container.querySelector('[data-diff]')).toBeNull()
@@ -227,6 +260,7 @@ describe('FileMutationRow diff card', () => {
     // write/edit return undefined from presentResult on isError, so the failure
     // has no diff — ToolRow shows the model-facing error text as the collapsed
     // summary's first line (errorSummary) instead of a bare red dot.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
       isError: true, callView: null, resultView: null,
       content: [{ type: 'text', text: 'old_string not found in notes/demo.txt' }],
@@ -236,6 +270,7 @@ describe('FileMutationRow diff card', () => {
   })
 
   it('falls back to the error name/code when an errored result has no text block', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
       isError: true, callView: null, resultView: null, content: [],
       error: { name: 'ToolError', code: 'sandbox_denied' },
@@ -245,14 +280,17 @@ describe('FileMutationRow diff card', () => {
 
   it('shows no error summary for a successful diff or a running call', () => {
     // ToolRow's error-color summary line is set only on the error state.
+    /** 中文说明：测试局部值 ok，由紧邻初始化决定。 */
     const ok = render(<FileMutationRow {...rowProps(settled())} />)
     expect(ok.container.querySelector('[class*="_errorSummary_"]')).toBeNull()
     cleanup()
+    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
     const run = render(<FileMutationRow {...rowProps(running())} />)
     expect(run.container.querySelector('[class*="_errorSummary_"]')).toBeNull()
   })
 
   it('shows the stopped state when the call was interrupted', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
       callView: null, resultView: null, isError: true,
       error: { name: 'ToolError', code: 'interrupted' },
@@ -265,6 +303,7 @@ describe('FileMutationRow diff card', () => {
 
   it('renders a plain summary span when the call carries no file path', () => {
     // Empty args leave deriveFilePath undefined, so the summary is not a link.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
       call: { name: 'edit', argsRaw: '' }, callView: null, resultView: null,
     }))} />)
@@ -275,19 +314,26 @@ describe('FileMutationRow diff card', () => {
 
 describe('fileMutationToolview registration', () => {
   it('registers one component under both edit and write, and each disposes', () => {
+    /** 中文说明：测试局部值 registered，由紧邻初始化决定。 */
     const registered: { key: string; locale: unknown; disposed: boolean }[] = []
+    /** 中文说明：测试局部值 disposers，由紧邻初始化决定。 */
     const disposers: (() => void)[] = []
+    /** 中文说明：测试局部值 disposeInjection，由紧邻初始化决定。 */
     let disposeInjection = (): void => {}
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = {
       slots: {
         inject: (_name: string, callback: () => Iterable<() => void>) => {
+          /** 中文说明：测试局部值 active，由紧邻初始化决定。 */
           const active = [...callback()]
           disposeInjection = () => { for (const dispose of active.reverse()) dispose() }
           return disposeInjection
         },
         register: ({ key, locale }: { name: string; key: string; locale?: string }) => {
+          /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
           const entry = { key, locale, disposed: false }
           registered.push(entry)
+          /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
           const dispose = () => { entry.disposed = true }
           disposers.push(dispose)
           return dispose
@@ -306,10 +352,13 @@ describe('fileMutationToolview registration', () => {
 })
 
 describe('DetailsPanel diff Output section', () => {
+  /** 中文说明：函数 mount 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
   function mount(snapshot: ConversationSnapshot, selection: SelectionTarget | null, cwd?: string) {
     localStorage.clear()
+    /** 中文说明：测试局部值 chat，由紧邻初始化决定。 */
     const chat = createChatStore().create()
     if (selection !== null) chat.actions.select(selection)
+    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = createSnapshotStore<SessionListState>(cwd === undefined
       ? { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined }
       : {
@@ -320,6 +369,7 @@ describe('DetailsPanel diff Output section', () => {
         subagentsByParent: {}, jobsBySession: {},
         currentAddress: undefined,
       })
+    /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
     const workspaces = createSnapshotStore<WorkspaceListState>({
       items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
       baselinesReady: true, recentWorkspaceId: undefined,
@@ -349,8 +399,11 @@ describe('DetailsPanel diff Output section', () => {
     )
   }
 
+  /** 中文说明：函数 snapshot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
   function snapshot(over: Partial<ConversationSnapshot> = {}): ConversationSnapshot {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = over.nodes ?? []
+    /** 中文说明：测试局部值 runningCalls，由紧邻初始化决定。 */
     const runningCalls = over.runningCalls ?? []
     return {
       sessionId: SID, views: EMPTY_CONVERSATION_VIEWS,
@@ -362,9 +415,11 @@ describe('DetailsPanel diff Output section', () => {
     }
   }
 
+  /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
   const target: SelectionTarget = { turnSeq: 10, callId: 'c1', toolName: 'edit' }
 
   it('renders the applied diff at full height, keeping the JSON Input section', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({ nodes: [settled()] }), target)
     expect(view.getByText(/"file_path"/)).toBeTruthy()
     expect(view.container.querySelector('[data-diff]')).not.toBeNull()
@@ -372,12 +427,14 @@ describe('DetailsPanel diff Output section', () => {
   })
 
   it('a running diff call renders its intended change, not the 运行中… placeholder', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({ runningCalls: [running()] }), target)
     expect(view.container.querySelector('[data-diff]')).not.toBeNull()
     expect(view.queryByText('运行中…')).toBeNull()
   })
 
   it('a non-diff result keeps the flattened pre', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       nodes: [settled({
         callView: null, resultView: null,

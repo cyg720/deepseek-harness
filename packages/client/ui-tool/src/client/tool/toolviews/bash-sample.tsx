@@ -12,6 +12,14 @@
 // and the expanded card max-height-scrolls inside its own surface with the
 // full output (maxLines Infinity — no middle collapse). An error row's
 // collapsed summary is the failure's first line in the error color.
+/**
+ * 文件职责：实现工具调用的 bash-sample 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示工具调用参数、结果和状态。
+ * 逻辑维度：接收类型化数据，选择专用视图并渲染层级与详情。
+ * 关键边界：组件不执行工具；未知或失败结果必须保留可诊断信息。
+ * 新手阅读建议：先读 Props，再看视图选择、派生值和 JSX。
+ */
 
 import { useState, type KeyboardEvent } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
@@ -27,8 +35,10 @@ import { CONVERSATION_NS as NS } from '../../locale.ts'
 import css from './bash-sample.module.css'
 
 /** Bash row props: the toolview runtime share plus the standard locale seat. */
+/** 中文说明：类型或类 BashRowProps 约束工具或轨迹数据职责。 */
 type BashRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
+/** 中文说明：函数 leadingFor 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function leadingFor(state: ToolRowState) {
   switch (state) {
     case 'error': return <StateDot state="error" />
@@ -39,6 +49,7 @@ function leadingFor(state: ToolRowState) {
 }
 
 /** Visually hidden status — StateDot is aria-hidden; AT needs a text label. */
+/** 中文说明：函数 stateStatus 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function stateStatus(state: ToolRowState, t: BashRowProps['t']): string | null {
   switch (state) {
     case 'running': return t('bash.running')
@@ -53,36 +64,50 @@ function stateStatus(state: ToolRowState, t: BashRowProps['t']): string | null {
  * whole row toggling the command's terminal or generic error card (ToolRow's unified
  * expand interaction, replicated locally per the registrant posture).
  */
+/** 中文说明：函数 BashRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }: BashRowProps) {
+  /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
   // Session workspace root: the terminal view's cwd resolves against it (an
   // omitted workdir IS the workspace), which the pure presenter cannot do.
+  /** 中文说明：视图局部值 cwd，由紧邻初始化决定。 */
   const cwd = useSessions(list => list.byId[sessionId]?.cwd)
+  /** 中文说明：视图局部值 terminal，由紧邻初始化决定。 */
   const terminal = terminalCardModel(block, cwd)
   // A failing exit status is the terminal card's own error signal (the call
   // itself settles isError:false), surfaced as the row's red state dot.
+  /** 中文说明：视图局部值 state，由紧邻初始化决定。 */
   const state = model.state === 'ok' && terminal !== null && terminalFailed(terminal)
     ? 'error'
     : model.state
+  /** 中文说明：视图局部值 status，由紧邻初始化决定。 */
   const status = stateStatus(state, t)
+  /** 中文说明：视图局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(false)
   // Execution failures (for example cancellation before the process reports a
   // terminal result) use the generic presenter. Keep their recorded args and
   // full error reachable instead of collapsing the row to the first line.
+  /** 中文说明：视图局部值 genericError，由紧邻初始化决定。 */
   const genericError = terminal === null
     && model.state === 'error'
     && (model.body !== null || model.output !== null)
+  /** 中文说明：视图局部值 expandable，由紧邻初始化决定。 */
   const expandable = terminal !== null || genericError
+  /** 中文说明：视图局部值 open，由紧邻初始化决定。 */
   const open = expanded && expandable
+  /** 中文说明：视图局部值 failureLine，由紧邻初始化决定。 */
   const failureLine = model.state === 'error' ? model.errorSummary : null
+  /** 中文说明：视图局部值 toggleExpand，由紧邻初始化决定。 */
   const toggleExpand = () => {
     setExpanded(v => !v)
   }
+  /** 中文说明：视图局部值 toggleFromKeyboard，由紧邻初始化决定。 */
   const toggleFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!expandable || (event.key !== 'Enter' && event.key !== ' ')) return
     event.preventDefault()
     toggleExpand()
   }
+  /** 中文说明：视图局部值 leading，由紧邻初始化决定。 */
   const leading = open
     ? <IconChevronDownOutline14 className={css.chevron} />
     : expandable
@@ -167,6 +192,7 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
  * The sample as a plain registrant plugin. Slot injection follows the chat
  * toolview declaration across independent activation and reload lifetimes.
  */
+/** 中文说明：视图局部值 bashToolviewSample，由紧邻初始化决定。 */
 export const bashToolviewSample = {
   name: 'bash-toolview-sample',
   inject: ['slots'],

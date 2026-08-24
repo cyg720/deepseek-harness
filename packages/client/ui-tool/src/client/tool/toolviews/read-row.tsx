@@ -6,6 +6,14 @@
 // has. The summary path is an openable host link. A running read (no result
 // yet) and a non-read result render the summary row alone: the read intent is
 // result-side only, so there is no running-state read card to draw.
+/**
+ * 文件职责：实现工具调用的 read-row 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示工具调用参数、结果和状态。
+ * 逻辑维度：接收类型化数据，选择专用视图并渲染层级与详情。
+ * 关键边界：组件不执行工具；未知或失败结果必须保留可诊断信息。
+ * 新手阅读建议：先读 Props，再看视图选择、派生值和 JSX。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { IconBrowseOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -17,6 +25,7 @@ import { ToolRow } from '../components/ToolRow.tsx'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
 
 /** Full row props: the toolview runtime share plus the standard locale seat. */
+/** 中文说明：类型或类 ReadRowProps 约束工具或轨迹数据职责。 */
 type ReadRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /**
@@ -24,8 +33,11 @@ type ReadRowProps = ToolCallViewProps & PropsLocale<'conversation'>
  * read card as the row's collapsed-by-default card body. The summary path is an
  * openable host link when the row names a single file.
  */
+/** 中文说明：函数 ReadRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function ReadRow({ toolName, block, cwd, home, openFile, inspect, t }: ReadRowProps) {
+  /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block, cwd, home)
+  /** 中文说明：视图局部值 read，由紧邻初始化决定。 */
   const read = readCardModel(block, cwd, home)
   return (
     <ToolRow
@@ -51,6 +63,7 @@ export function ReadRow({ toolName, block, cwd, home, openFile, inspect, t }: Re
  * The read row as a plain registrant plugin following the atomic Tool-view
  * declaration across independent activation and reload lifetimes.
  */
+/** 中文说明：视图局部值 readToolview，由紧邻初始化决定。 */
 export const readToolview = {
   name: 'read-toolview',
   inject: ['slots'],

@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证工具调用的 tool-call-tree.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
+ * 产品维度：防止工具调用展示与展开交互回归。
+ * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
+ * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
+ * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
+ */
 /** ToolCallTree-owned root/subcall markers and selection projection. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
@@ -12,20 +20,26 @@ import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.t
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: ToolTreeProps['t'] = makeTranslate(zh, commonZh)
 
+/** 中文说明：测试局部值 root，由紧邻初始化决定。 */
 const root = (callId: string, call: ToolResultNode['call']): ToolResultNode => ({
   kind: 'tool-result', seq: 3, time: 3_000, callId, call, callTime: 2_000,
   content: [], isError: false, callView: null, resultView: null, subCalls: [],
 })
 
+/** 中文说明：函数 props 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function props(
   block: ToolResultNode,
   selectedCallId?: string,
   description?: HostDescription,
 ): ToolTreeProps {
+  /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
   const snapshot = {} as ConversationSnapshot
+  /** 中文说明：测试局部值 useSession，由紧邻初始化决定。 */
   const useSession = ((selector: (value: ConversationSnapshot) => unknown) => selector(snapshot)) as ToolTreeProps['useSession']
+  /** 中文说明：测试局部值 renderSlot，由紧邻初始化决定。 */
   const renderSlot = ((_key: string, _owner: object, options?: { fallback?: React.ReactNode }) =>
     options?.fallback ?? null) as unknown as ToolTreeProps['renderSlot']
   return {
@@ -53,8 +67,11 @@ function props(
 
 describe('ToolCallTree', () => {
   it('owns the root marker, generic fallback, and selected state for a window-truncated call', () => {
+    /** 中文说明：测试局部值 block，由紧邻初始化决定。 */
     const block = root('w1', null)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolCallTree {...props(block, 'w1')} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.container.querySelector('[data-chat-call-id="w1"]')
     expect(row?.getAttribute('data-chat-anchor-key')).toBe('call:w1')
     expect(row?.getAttribute('data-selected')).toBe('true')
@@ -63,16 +80,21 @@ describe('ToolCallTree', () => {
   })
 
   it('recursively renders a selected leaf without selecting its ancestors', () => {
+    /** 中文说明：测试局部值 leaf，由紧邻初始化决定。 */
     const leaf = root('parent:code:1:code:1', { name: 'read', argsRaw: '{"path":"a.ts"}' })
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = {
       ...root('parent:code:1', { name: 'run_code', argsRaw: '{"code":"return 1"}' }),
       subCalls: [leaf],
     }
+    /** 中文说明：测试局部值 block，由紧邻初始化决定。 */
     const block = {
       ...root('parent', { name: 'run_code', argsRaw: '{"code":"return 1"}' }),
       subCalls: [child],
     }
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolCallTree {...props(block, leaf.callId)} />)
+    /** 中文说明：测试局部值 nests，由紧邻初始化决定。 */
     const nests = view.container.querySelectorAll('[data-subcalls]')
     expect(nests[0]?.parentElement).toBe(view.container.querySelector('[data-chat-call-id="parent"]'))
     expect(nests[1]?.parentElement).toBe(view.container.querySelector('[data-chat-call-id="parent:code:1"]'))
@@ -83,7 +105,9 @@ describe('ToolCallTree', () => {
   })
 
   it('abbreviates a POSIX home path in the generic tool summary', () => {
+    /** 中文说明：测试局部值 block，由紧邻初始化决定。 */
     const block = root('w1', { name: 'read', argsRaw: '{"path":"/h/docs/a.ts"}' })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolCallTree {...props(block, 'w1', {
       version: '0', cwd: '/tmp', attachedSessions: 0, home: '/h', canOpenPath: false,
     })} />)

@@ -3,6 +3,14 @@
 // derivation over callView/resultView, and both conversation render sites that
 // consume it — the chat tool row's expanded body (GenericToolCard / BashRow)
 // and the details panel's Output section.
+/**
+ * 文件职责：验证工具调用的 terminal-card.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
+ * 产品维度：防止工具调用展示与展开交互回归。
+ * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
+ * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
+ * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
+ */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
@@ -25,9 +33,11 @@ import { BashRow } from '../src/client/tool/toolviews/bash-sample.tsx'
 import { renderToolDetails, SessionProviderStub, toolChatSnapshot } from './tool-details-render.client.tsx'
 import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
 
+/** 中文说明：类型或类 BashRowProps 约束工具或轨迹数据职责。 */
 type BashRowProps = Parameters<typeof BashRow>[0]
 
 // Mirrors the real lookup chain (conversation namespace, then common).
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: GenericToolCardProps['t'] = makeTranslate(zh, commonZh)
 
 afterEach(cleanup)
@@ -37,32 +47,40 @@ afterEach(cleanup)
  * alignment this card exists to preserve is exactly what the default
  * whitespace-collapsing matcher would hide.
  */
+/** 中文说明：测试局部值 RAW，由紧邻初始化决定。 */
 const RAW = { normalizer: (text: string) => text }
 
 /** The rendered card's run-state dot state, so a render site cannot silently drop it. */
+/** 中文说明：函数 runStateOf 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function runStateOf(container: HTMLElement): string | null {
   return container.querySelector('[data-terminal] [data-state]')?.getAttribute('data-state') ?? null
 }
 
+/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
+/** 中文说明：测试局部值 ARGS，由紧邻初始化决定。 */
 const ARGS = '{"command":"ls -la","description":"List files"}'
 
 /** The bash tool's own call view for a foreground command. */
+/** 中文说明：测试局部值 callTerminal，由紧邻初始化决定。 */
 const callTerminal = (over?: Partial<Extract<ToolCallView, { card: 'terminal' }>>): ToolCallView => ({
   card: 'terminal', title: 'ls -la', description: 'List files', ...over,
 })
 
 /** The bash tool's own result view for a settled foreground command. */
+/** 中文说明：测试局部值 resultTerminal，由紧邻初始化决定。 */
 const resultTerminal = (over?: Partial<Extract<ToolResultView, { card: 'terminal' }>>): ToolResultView => ({
   card: 'terminal', output: 'a.ts  b.ts\nc.ts  d.ts\n', exitCode: 0, ...over,
 })
 
+/** 中文说明：测试局部值 running，由紧邻初始化决定。 */
 const running = (over?: Partial<RunningToolCall>): RunningToolCall => ({
   callId: 'c1', name: 'bash', argsRaw: ARGS,
   turn: 1, step: 1, time: 1_000, callView: callTerminal(), subCalls: [], ...over,
 })
 
+/** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
 const settled = (over?: Partial<ToolResultNode>): ToolResultNode => ({
   kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
   call: { name: 'bash', argsRaw: ARGS },
@@ -216,6 +234,7 @@ describe('terminalCardModel', () => {
 
   it('a window-truncated call side falls back to the result title, then to an empty command', () => {
     // Truncation drops both the call head and its view (conversation.ts).
+    /** 中文说明：测试局部值 truncated，由紧邻初始化决定。 */
     const truncated = { call: null, callView: null }
     expect(terminalCardModel(settled({
       ...truncated, resultView: resultTerminal({ title: 'ls -la' }),
@@ -232,6 +251,7 @@ describe('terminalCardModel', () => {
     expect(terminalCardModel(settled({ resultView: { card: 'generic' } }))).toBeNull()
     // A card tag this UI version does not know arrives over the wire; the
     // documented generic-card default takes it, not a crash.
+    /** 中文说明：测试局部值 future，由紧邻初始化决定。 */
     const future = { card: 'chart', title: 'plot' } as unknown as ToolCallView
     expect(terminalCardModel(running({ callView: future }))).toBeNull()
     expect(terminalCardModel(settled({
@@ -241,16 +261,19 @@ describe('terminalCardModel', () => {
 })
 
 describe('chat row terminal body', () => {
+  /** 中文说明：测试局部值 ownerProps，由紧邻初始化决定。 */
   const ownerProps = (block: RunningToolCall | ToolResultNode): GenericToolCardProps => ({
     callId: 'c1', toolName: 'bash', block, openFile: vi.fn(), t,
   })
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
+  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }
 
   it('the expanded body is the command output inside the row scroll container', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled())} />)
     // Collapsed: the one-line summary row only, no output.
     expect(view.getByText('List files')).toBeTruthy()
@@ -263,7 +286,9 @@ describe('chat row terminal body', () => {
   })
 
   it('a long output renders in full — the scroll container replaces the middle collapse', () => {
+    /** 中文说明：测试局部值 lines，由紧邻初始化决定。 */
     const lines = Array.from({ length: 20 }, (_, i) => `line-${i}`)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled({
       resultView: resultTerminal({ output: `${lines.join('\n')}\n` }),
     }))} />)
@@ -274,10 +299,12 @@ describe('chat row terminal body', () => {
   })
 
   it('renders a multi-line command as one prompt row per line', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled({
       callView: callTerminal({ title: 'ls -la\necho done' }),
     }))} />)
     toggleRow(view)
+    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows = view.container.querySelectorAll('[class^="_promptLine_"]')
     expect([...rows].map(row => row.textContent)).toEqual(['$ls -la', '$echo done'])
     // Still one dot for the call, on the first row.
@@ -287,6 +314,7 @@ describe('chat row terminal body', () => {
   it('the fallback row shows the presenter description, not the args summary', () => {
     // Any terminal-declaring tool without its own keyed row lands here, so the
     // contract's above-card description has to win at this render site as well.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled({
       callView: callTerminal({ description: 'Terminal 3' }),
     }))} />)
@@ -298,6 +326,7 @@ describe('chat row terminal body', () => {
     // The contract puts the description ABOVE the card. The collapsed summary is
     // hidden while a row is open, so an expanded terminal row has to draw it
     // itself or the description would only ever be visible collapsed.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled({
       callView: callTerminal({ description: 'Terminal 3' }),
     }))} />)
@@ -308,6 +337,7 @@ describe('chat row terminal body', () => {
   })
 
   it('a running terminal call expands to the prompt line with no output yet', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(running())} />)
     toggleRow(view)
     expect(view.getByText('ls -la')).toBeTruthy()
@@ -318,6 +348,7 @@ describe('chat row terminal body', () => {
   })
 
   it('a non-terminal call keeps the args-JSON text body', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled({
       callView: null, resultView: null,
     }))} />)
@@ -327,6 +358,7 @@ describe('chat row terminal body', () => {
 
   it('a terminal call with no args still expands, through its terminal body alone', () => {
     // Empty args make the text body null; the terminal material carries the row.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled({
       call: { name: 'bash', argsRaw: '' },
     }))} />)
@@ -335,6 +367,7 @@ describe('chat row terminal body', () => {
   })
 
   it('a failing exit status surfaces as the collapsed row\'s error state', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...ownerProps(settled({
       resultView: resultTerminal({ exitCode: 2 }),
     }))} />)
@@ -343,6 +376,7 @@ describe('chat row terminal body', () => {
 })
 
 describe('BashRow terminal card', () => {
+  /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
   const list = () => createSnapshotStore<SessionListState>({
     ids: [SID],
     byId: { [SID]: { id: SID, displayTitle: 'r', running: false, blank: false, updatedAt: 0 } },
@@ -352,6 +386,7 @@ describe('BashRow terminal card', () => {
     currentAddress: undefined,
   })
 
+  /** 中文说明：测试局部值 rowProps，由紧邻初始化决定。 */
   const rowProps = (block: RunningToolCall | ToolResultNode): BashRowProps => ({
     callId: 'c1', toolName: 'bash', block, openFile: vi.fn(),
     sessionId: SID, useSessions: bindSnapshotSelector(list()),
@@ -359,6 +394,7 @@ describe('BashRow terminal card', () => {
   } as unknown as BashRowProps)
 
   it('collapses to the summary row; the whole row toggles the command output', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<BashRow {...rowProps(settled())} />)
     expect(view.getByText('List files')).toBeTruthy()
     expect(view.queryByText(/a\.ts/)).toBeNull()
@@ -375,11 +411,13 @@ describe('BashRow terminal card', () => {
   // command, so a running row whose card claimed 'done' would be a contradiction
   // the reader sees on one line.
   it('agrees with the summary row about the run state', () => {
+    /** 中文说明：测试局部值 runningView，由紧邻初始化决定。 */
     const runningView = render(<BashRow {...rowProps(running())} />)
     expect(runningView.container.querySelector('[data-variant="bash"]')?.getAttribute('data-state')).toBe('running')
     fireEvent.click(runningView.container.querySelector('[data-expandable]')!)
     expect(runStateOf(runningView.container)).toBe('ongoing')
     cleanup()
+    /** 中文说明：测试局部值 settledView，由紧邻初始化决定。 */
     const settledView = render(<BashRow {...rowProps(settled())} />)
     expect(settledView.container.querySelector('[data-variant="bash"]')?.getAttribute('data-state')).toBe('ok')
     fireEvent.click(settledView.container.querySelector('[data-expandable]')!)
@@ -387,6 +425,7 @@ describe('BashRow terminal card', () => {
   })
 
   it('a failing exit status surfaces as the collapsed row\'s error state', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<BashRow {...rowProps(settled({
       resultView: resultTerminal({ exitCode: 2 }),
     }))} />)
@@ -396,6 +435,7 @@ describe('BashRow terminal card', () => {
   it('shows the terminal presenter\'s description instead of the args summary', () => {
     // `terminal_send`-style presenters author a description the args do not
     // repeat; the contract puts it above the card, which is this row's summary.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<BashRow {...rowProps(settled({
       callView: callTerminal({ description: 'Terminal 3' }),
     }))} />)
@@ -404,6 +444,7 @@ describe('BashRow terminal card', () => {
   })
 
   it('keeps the args-derived summary when the presenter authored no description', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<BashRow {...rowProps(settled({
       callView: { card: 'terminal', title: 'ls -la' },
     }))} />)
@@ -411,6 +452,7 @@ describe('BashRow terminal card', () => {
   })
 
   it('a non-terminal bash call (background start) renders the summary row alone', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<BashRow {...rowProps(settled({
       callView: { card: 'generic', title: 'sleep 30', kind: 'execute' },
       resultView: { card: 'generic' },
@@ -421,12 +463,14 @@ describe('BashRow terminal card', () => {
   })
 
   it('expands a generic execution error to its original args and full output', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<BashRow {...rowProps(settled({
       content: [{ type: 'text', text: 'Error: command aborted' }],
       isError: true,
       callView: { card: 'generic', title: 'ls -la', kind: 'execute' },
       resultView: { card: 'generic' },
     }))} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.container.querySelector('[data-sample="bash"]')!
     expect(row.getAttribute('role')).toBe('button')
     expect(row.getAttribute('aria-expanded')).toBe('false')
@@ -443,10 +487,13 @@ describe('BashRow terminal card', () => {
 })
 
 describe('DetailsPanel Output section', () => {
+  /** 中文说明：函数 mount 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
   function mount(snapshot: ConversationSnapshot, selection: SelectionTarget | null, cwd?: string) {
     localStorage.clear()
+    /** 中文说明：测试局部值 chat，由紧邻初始化决定。 */
     const chat = createChatStore().create()
     if (selection !== null) chat.actions.select(selection)
+    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = createSnapshotStore<SessionListState>(cwd === undefined
       ? { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined }
       : {
@@ -457,6 +504,7 @@ describe('DetailsPanel Output section', () => {
         subagentsByParent: {}, jobsBySession: {},
         currentAddress: undefined,
       })
+    /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
     const workspaces = createSnapshotStore<WorkspaceListState>({
       items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
       baselinesReady: true, recentWorkspaceId: undefined,
@@ -480,8 +528,11 @@ describe('DetailsPanel Output section', () => {
     )
   }
 
+  /** 中文说明：函数 snapshot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
   function snapshot(over: Partial<ConversationSnapshot> = {}): ConversationSnapshot {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = over.nodes ?? []
+    /** 中文说明：测试局部值 runningCalls，由紧邻初始化决定。 */
     const runningCalls = over.runningCalls ?? []
     return {
       sessionId: SID, views: EMPTY_CONVERSATION_VIEWS,
@@ -493,12 +544,15 @@ describe('DetailsPanel Output section', () => {
     }
   }
 
+  /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
   const target: SelectionTarget = { turnSeq: 10, callId: 'c1', toolName: 'bash' }
 
   // The panel never unmounts between selections, so per-call view state has to
   // be keyed off the selected call or it leaks into the next one.
   it('resets the card\'s expand state when the selected call changes', () => {
+    /** 中文说明：测试局部值 long，由紧邻初始化决定。 */
     const long = Array.from({ length: 20 }, (_, i) => `row-${i}`)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       nodes: [settled({ resultView: resultTerminal({ output: `${long.join('\n')}\n` }) })],
     }), target)
@@ -506,6 +560,7 @@ describe('DetailsPanel Output section', () => {
     expect(view.getByRole('button', { name: '收起输出' })).toBeTruthy()
     // A second call, selected without unmounting the panel, starts collapsed.
     cleanup()
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = mount(snapshot({
       nodes: [settled({
         callId: 'c2', resultView: resultTerminal({ output: `${long.join('\n')}\n` }),
@@ -515,10 +570,13 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('renders the presenter description above the card', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       nodes: [settled({ callView: callTerminal({ description: 'Terminal 3' }) })],
     }), target)
+    /** 中文说明：测试局部值 description，由紧邻初始化决定。 */
     const description = view.getByText('Terminal 3')
+    /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
     const card = view.container.querySelector('[data-terminal]')
     expect(card).not.toBeNull()
     // Above, not below: document order is what places it as the card's heading.
@@ -526,13 +584,16 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('resolves the prompt cwd against the session workspace', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({ nodes: [settled()] }), target, '/w/app')
     // No workdir in the call view: the prompt label is the workspace basename.
     expect(view.getByText('app')).toBeTruthy()
   })
 
   it('renders the terminal card at full height, keeping the JSON Input section', () => {
+    /** 中文说明：测试局部值 long，由紧邻初始化决定。 */
     const long = Array.from({ length: 20 }, (_, i) => `row-${i}`)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       nodes: [settled({ resultView: resultTerminal({ output: `${long.join('\n')}\n` }) })],
     }), target)
@@ -544,6 +605,7 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('a running terminal call shows the prompt line, not the 运行中… placeholder', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({ runningCalls: [running()] }), target)
     expect(view.getByText('ls -la')).toBeTruthy()
     expect(view.queryByText('运行中…')).toBeNull()
@@ -551,17 +613,20 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('a running non-terminal call keeps the 运行中… placeholder', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({ runningCalls: [running({ callView: null })] }), target)
     expect(view.getByText('运行中…')).toBeTruthy()
   })
 
   it('a non-terminal result keeps the flattened pre with its error styling', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       nodes: [settled({
         callView: null, resultView: null, isError: true,
         content: [{ type: 'text', text: 'permission denied' }],
       })],
     }), target)
+    /** 中文说明：测试局部值 pre，由紧邻初始化决定。 */
     const pre = view.container.querySelector('pre[data-error]')
     expect(pre?.textContent).toBe('permission denied')
   })
@@ -574,7 +639,9 @@ describe('DetailsPanel Output section', () => {
   // pins the resolution path with views injected directly, and the arm below
   // pins what the shipped path actually shows today.
   it('a run_code sub-dispatch resolves to its own terminal card once views reach it', () => {
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = settled({ callId: 'c1' })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       runningCalls: [running({ callId: 'p1', subCalls: [child] })],
     }), target)
@@ -582,18 +649,22 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('a sub-dispatch as the wire actually delivers it (no views) keeps the flattened form', () => {
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = settled({ callId: 'c1', callView: null, resultView: null })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       runningCalls: [running({ callId: 'p1', subCalls: [child] })],
     }), target)
     // No terminal card: the generic path renders the result text in the Output
     // section's <pre> (the Input section has its own, hence the scoping).
     expect(view.container.querySelector('[data-terminal]')).toBeNull()
+    /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
     const output = view.getByText('输出').closest('section')
     expect(output?.querySelector('pre')?.textContent).toContain('a.ts  b.ts')
   })
 
   it('a running run_code sub-dispatch resolves through the running material', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       // The leading non-matching sub-call exercises the scan's skip.
       runningCalls: [running({
@@ -605,6 +676,7 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('a window-truncated call head titles the panel by callId and drops the Input section', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       nodes: [settled({ call: null, callView: null, resultView: resultTerminal({ title: 'ls -la' }) })],
     }), target)
@@ -614,6 +686,7 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('scans past other nodes and other calls before reporting the call out of window', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       nodes: [
         { kind: 'assistant', seq: 1, time: 1_000, turn: 1, step: 1, blocks: [] },
@@ -625,21 +698,27 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('no selection at all renders the guidance line and the default title', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot(), null)
     expect(view.getByText('详情')).toBeTruthy()
     expect(view.getByText('点击消息流中的工具行查看详情')).toBeTruthy()
   })
 
   it('a step selection without a callId renders the guidance line too', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot(), { turnSeq: 3, stepSeq: 1 })
     expect(view.getByText('点击消息流中的工具行查看详情')).toBeTruthy()
   })
 
   it('the close button reaches closeDetails', () => {
     localStorage.clear()
+    /** 中文说明：测试局部值 chat，由紧邻初始化决定。 */
     const chat = createChatStore().create()
+    /** 中文说明：测试局部值 closeDetails，由紧邻初始化决定。 */
     const closeDetails = vi.fn()
+    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshot()
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <DetailsPanel
         SessionProvider={SessionProviderStub}
@@ -669,6 +748,7 @@ describe('DetailsPanel Output section', () => {
   })
 
   it('a non-text result block renders as JSON, and an empty result falls back to its error', () => {
+    /** 中文说明：测试局部值 nonText，由紧邻初始化决定。 */
     const nonText = mount(snapshot({
       nodes: [settled({
         callView: null, resultView: null,
@@ -680,6 +760,7 @@ describe('DetailsPanel Output section', () => {
     expect(nonText.getByText('输出').closest('section')?.querySelector('pre')?.textContent)
       .toBe('{\n  "type": "reasoning",\n  "text": "why"\n}')
     cleanup()
+    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = mount(snapshot({
       nodes: [settled({
         callView: null, resultView: null, content: [], isError: true,

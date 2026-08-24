@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证工具调用的 ask-question-row.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
+ * 产品维度：防止工具调用展示与展开交互回归。
+ * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
+ * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
+ * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
+ */
+/**
  * ask_user_question toolview acceptance: `waiting` summary while running,
  * answered-count from the result JSON once settled (skipped answers
  * excluded), the cancelled/interrupted verdicts off ASK_CANCELLED and
@@ -18,8 +26,10 @@ import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.t
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 ARGS，由紧邻初始化决定。 */
 const ARGS = JSON.stringify({ questions: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] })
 
+/** 中文说明：测试局部值 resultNode，由紧邻初始化决定。 */
 const resultNode = (argsRaw: string, resultText: string | null, over?: Partial<ToolResultNode>): ToolResultNode => ({
   kind: 'tool-result', seq: 10, time: 2_000, callTime: 1_000, callId: 'c1',
   call: { name: 'ask_user_question', argsRaw },
@@ -27,12 +37,15 @@ const resultNode = (argsRaw: string, resultText: string | null, over?: Partial<T
   isError: false, callView: null, resultView: null, subCalls: [], ...over,
 })
 
+/** 中文说明：测试局部值 runningCall，由紧邻初始化决定。 */
 const runningCall = (argsRaw: string) =>
   ({ callId: 'c1', name: 'ask_user_question', argsRaw, turn: 1, step: 1, time: 1_000, callView: null, subCalls: [] })
 
 // Standard locale seat stub mirroring the real ns → common → key chain.
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = makeTranslate(zh, commonZh)
 
+/** 中文说明：函数 rowProps 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function rowProps(block: unknown): Parameters<typeof AskQuestionRow>[0] {
   return {
     callId: 'c1', toolName: 'ask_user_question', block, t,
@@ -42,10 +55,12 @@ function rowProps(block: unknown): Parameters<typeof AskQuestionRow>[0] {
   } as unknown as Parameters<typeof AskQuestionRow>[0]
 }
 
+/** 中文说明：测试局部值 answers，由紧邻初始化决定。 */
 const answers = (entries: unknown[]): string => JSON.stringify({ answers: entries })
 
 describe('AskQuestionRow', () => {
   it('running call reads waiting (args-independent: the composer takeover shows the questions)', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<AskQuestionRow {...rowProps(runningCall(ARGS))} />)
     expect(screen.getByText('提问')).toBeTruthy()
     expect(screen.getByText('等待回答')).toBeTruthy()
@@ -62,6 +77,7 @@ describe('AskQuestionRow', () => {
   })
 
   it('skipped questions (no selection, no custom) stay out of the answered count', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<AskQuestionRow {...rowProps(resultNode(ARGS, answers([
       { id: 'a', selected: ['x'] },
       { id: 'b', selected: [], custom: '' },
@@ -85,6 +101,7 @@ describe('AskQuestionRow', () => {
 
   it('user cancellation names the verdict instead of the generic failed shape', () => {
     // ASK_CANCELLED: the apiproxy ask_user_question handler's cancel error.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<AskQuestionRow {...rowProps(resultNode(ARGS, null,
       { isError: true, error: { name: 'UserQuestionError', code: 'ASK_CANCELLED' } }))} />)
     expect(screen.getByText('已取消')).toBeTruthy()
@@ -93,6 +110,7 @@ describe('AskQuestionRow', () => {
 
   it('a turn abort while pending reads interrupted with stopped semantics', () => {
     // ASK_ABORTED: the apiproxy ask handler's turn-abort settlement.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<AskQuestionRow {...rowProps(resultNode(ARGS, null,
       { isError: true, error: { name: 'UserQuestionError', code: 'ASK_ABORTED' } }))} />)
     expect(screen.getByText('已中断')).toBeTruthy()
@@ -100,6 +118,7 @@ describe('AskQuestionRow', () => {
   })
 
   it('an interrupted turn reads as stopped, not cancelled', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<AskQuestionRow {...rowProps(resultNode(ARGS, null,
       { isError: true, error: { name: 'Interrupted', code: 'interrupted' } }))} />)
     expect(view.container.querySelector('[data-state="stopped"]')).not.toBeNull()
@@ -108,6 +127,7 @@ describe('AskQuestionRow', () => {
   })
 
   it('other tool errors keep the generic summary with the error state', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<AskQuestionRow {...rowProps(resultNode(ARGS, null, { isError: true }))} />)
     expect(view.container.querySelector('[data-state="error"]')).not.toBeNull()
     expect(screen.getByText(`ask_user_question · ${ARGS}`)).toBeTruthy()
@@ -127,7 +147,9 @@ describe('AskQuestionRow', () => {
   it('askQuestionToolview injects the toolview declaration directly', () => {
     expect(askQuestionToolview.name).toBe('ask-question-toolview')
     expect(askQuestionToolview.inject).toEqual(['slots'])
+    /** 中文说明：测试局部值 register，由紧邻初始化决定。 */
     const register = vi.fn(() => () => undefined)
+    /** 中文说明：测试局部值 inject，由紧邻初始化决定。 */
     const inject = vi.fn((_name: string, callback: () => () => void) => callback())
     askQuestionToolview.apply({ slots: { inject, register } } as never)
     expect(inject).toHaveBeenCalledWith('tool.call.toolview', expect.any(Function))

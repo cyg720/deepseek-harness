@@ -16,6 +16,14 @@
 // links that open through the host (stopPropagation keeps the two gestures
 // independent); an error row's collapsed summary is the failure's first line in
 // the error color.
+/**
+ * 文件职责：实现工具调用的 ToolRow 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示工具调用参数、结果和状态。
+ * 逻辑维度：接收类型化数据，选择专用视图并渲染层级与详情。
+ * 关键边界：组件不执行工具；未知或失败结果必须保留可诊断信息。
+ * 新手阅读建议：先读 Props，再看视图选择、派生值和 JSX。
+ */
 
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import clsx from 'clsx'
@@ -31,6 +39,7 @@ import { terminalBlockLabels, type TerminalCardModel } from '../models/terminal-
 import type { ToolRowState, ToolRowVariant } from '../models/tool-call-model.ts'
 import css from './ToolRow.module.css'
 
+/** 中文说明：类型或类 ToolRowProps 约束工具或轨迹数据职责。 */
 export interface ToolRowProps {
   /** The render site's conversation locale seat (terminal/code body copy). */
   t: TranslateNS<'conversation'>
@@ -104,6 +113,7 @@ export interface ToolRowProps {
 /** Leading-slot state substitution: the tool icon yields to the terminal state
  *  semantic (error = red, interrupted = amber halo). Running keeps the icon —
  *  the row sweep (CSS on data-state) carries the in-flight signal. */
+/** 中文说明：函数 leadingFor 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function leadingFor(state: ToolRowState, icon: ReactNode): ReactNode {
   switch (state) {
     case 'error': return <StateDot state="error" />
@@ -116,6 +126,7 @@ function leadingFor(state: ToolRowState, icon: ReactNode): ReactNode {
  *  aria-hidden / colour-only, so assistive technology needs this text to know a
  *  row is running, failed, or interrupted. null in the ok state (the icon and
  *  summary already describe a settled row). */
+/** 中文说明：函数 stateStatus 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function stateStatus(state: ToolRowState, t: TranslateNS<'conversation'>): string | null {
   switch (state) {
     case 'running': return t('row.running')
@@ -125,6 +136,7 @@ function stateStatus(state: ToolRowState, t: TranslateNS<'conversation'>): strin
   }
 }
 
+/** 中文说明：函数 ToolRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function ToolRow({
   t,
   variant,
@@ -146,34 +158,51 @@ export function ToolRow({
   onOpenFile,
   inspect,
 }: ToolRowProps) {
+  /** 中文说明：视图局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(false)
+  /** 中文说明：视图局部值 terminalBody，由紧邻初始化决定。 */
   const terminalBody = terminal ?? null
+  /** 中文说明：视图局部值 diffBody，由紧邻初始化决定。 */
   const diffBody = diff ?? null
+  /** 中文说明：视图局部值 readBody，由紧邻初始化决定。 */
   const readBody = read ?? null
+  /** 中文说明：视图局部值 searchBody，由紧邻初始化决定。 */
   const searchBody = search ?? null
+  /** 中文说明：视图局部值 webBody，由紧邻初始化决定。 */
   const webBody = web ?? null
+  /** 中文说明：视图局部值 outputText，由紧邻初始化决定。 */
   const outputText = output ?? null
   // A card replaces the text body; a call carries at most one card kind, so the
   // card props are mutually exclusive. Any of them, or a text body/output,
   // makes the row expandable.
+  /** 中文说明：视图局部值 card，由紧邻初始化决定。 */
   const card = terminalBody ?? diffBody ?? readBody ?? searchBody ?? webBody
+  /** 中文说明：视图局部值 expandable，由紧邻初始化决定。 */
   const expandable = body !== null || outputText !== null || card !== null
+  /** 中文说明：视图局部值 open，由紧邻初始化决定。 */
   const open = expanded && expandable
   // The run-state label AT needs: the StateDot and the running sweep are both
   // aria-hidden / colour-only, so a stopped or running row is otherwise silent.
+  /** 中文说明：视图局部值 status，由紧邻初始化决定。 */
   const status = stateStatus(state, t)
   // An error row's collapsed summary IS the failure: the first error line in
   // the error color outranks both the args summary and a terminal description.
+  /** 中文说明：视图局部值 failureLine，由紧邻初始化决定。 */
   const failureLine = state === 'error' ? errorSummary ?? null : null
+  /** 中文说明：视图局部值 summaryText，由紧邻初始化决定。 */
   const summaryText = failureLine ?? summary
   // The failure line replaces the summary wholesale, so a suffix derived from
   // the call args has nothing left to sit beside.
+  /** 中文说明：视图局部值 suffix，由紧邻初始化决定。 */
   const suffix = failureLine === null ? summarySuffix ?? null : null
   // The failure line is error prose, not the path: no open-file affordance.
+  /** 中文说明：视图局部值 fileLink，由紧邻初始化决定。 */
   const fileLink = filePath !== undefined && onOpenFile !== undefined && failureLine === null
+  /** 中文说明：视图局部值 toggleExpand，由紧邻初始化决定。 */
   const toggleExpand = () => {
     setExpanded(v => !v)
   }
+  /** 中文说明：视图局部值 openFile，由紧邻初始化决定。 */
   const openFile = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
     if (filePath !== undefined) onOpenFile?.(filePath)
@@ -182,11 +211,13 @@ export function ToolRow({
   // keydown handler, which would preventDefault() the key and toggle expand
   // instead of activating the link — the keyboard analogue of openFile's
   // stopPropagation. The native button still fires its own onClick from the key.
+  /** 中文说明：视图局部值 fileLinkKeyDown，由紧邻初始化决定。 */
   const fileLinkKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Enter' || event.key === ' ') event.stopPropagation()
   }
   // The code variant's program renders through CodeBlock (shiki), so only its
   // output joins the IN/OUT card; every other variant's input does too.
+  /** 中文说明：视图局部值 cardBody，由紧邻初始化决定。 */
   const cardBody = variant === 'code' ? null : body
   // The state substitution rides the idle icon slot, so an expandable error
   // row keeps DisclosureRow's icon→chevron hover preview (its default) instead

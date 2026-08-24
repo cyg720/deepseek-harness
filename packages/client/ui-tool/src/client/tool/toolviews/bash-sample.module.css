@@ -1,5 +1,13 @@
 /* Bash toolview: same geometry/tokens as ToolRow (figma Bash · description),
    plus the expand-gated terminal card under the summary line. */
+/**
+ * 文件职责：定义 bash-sample 的局部样式。
+ * 技术维度：CSS Modules、代码字体、状态颜色和布局规则。
+ * 产品维度：让工具调用内容清晰区分状态与层级。
+ * 逻辑维度：按容器、标题、内容和状态组织样式。
+ * 关键边界：长命令与结果必须可滚动或换行，颜色不能单独承载含义。
+ * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+ */
 
 /* Summary line over the terminal card; the summary row keeps its own 24px
    height, so the card is a column around it rather than a change to it. */
@@ -13,8 +21,11 @@
    pinned; 224px = the 260px card cap minus the ~36px banner); the margin
    replaces the primitive's standalone vertical margin with the flow's. */
 .terminal {
+  /* 中文说明：自定义属性 --dsl-terminal-font 保存工具或轨迹视图复用的样式值。 */
   --dsl-terminal-font: var(--dsw-font-markdown-code-block-small);
+  /* 中文说明：自定义属性 --dsl-terminal-line-height 保存工具或轨迹视图复用的样式值。 */
   --dsl-terminal-line-height: 18px;
+  /* 中文说明：自定义属性 --dsl-terminal-output-max-height 保存工具或轨迹视图复用的样式值。 */
   --dsl-terminal-output-max-height: 224px;
   margin: 4px 0 4px 4px;
   border: 1px solid var(--dsw-alias-border-l1);

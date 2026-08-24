@@ -1,4 +1,12 @@
 /** Turn-aware trajectory event ledger with a local record inspector. */
+/**
+ * 文件职责：实现运行轨迹的 TrajectoryTable 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示运行轨迹参数、结果和状态。
+ * 逻辑维度：接收类型化数据，选择专用视图并渲染层级与详情。
+ * 关键边界：组件不执行工具；未知或失败结果必须保留可诊断信息。
+ * 新手阅读建议：先读 Props，再看视图选择、派生值和 JSX。
+ */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
@@ -28,13 +36,20 @@ import type { TrajectoryTurnModel } from './layout.ts'
 import { trajectoryPreviewText } from './trajectory-preview.ts'
 import css from './TrajectoryTable.module.css'
 
+/** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
 const BOTTOM_FOLLOW_THRESHOLD_PX = 2
+/** 中文说明：视图局部值 OLDER_LOAD_THRESHOLD_PX，由紧邻初始化决定。 */
 const OLDER_LOAD_THRESHOLD_PX = 48
+/** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
 const HISTORY_LOAD_ROW_HEIGHT_PX = 30
+/** 中文说明：视图局部值 VIRTUALIZATION_THRESHOLD，由紧邻初始化决定。 */
 const VIRTUALIZATION_THRESHOLD = 100
+/** 中文说明：视图局部值 VIRTUAL_OVERSCAN_ROWS，由紧邻初始化决定。 */
 const VIRTUAL_OVERSCAN_ROWS = 12
+/** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
 const VIRTUAL_INITIAL_VIEWPORT_HEIGHT_PX = 600
 
+/** 中文说明：视图局部值 KIND_LABEL，由紧邻初始化决定。 */
 const KIND_LABEL: Record<TrajectoryCellKind, string> = {
   system: 'SYSTEM',
   user: 'USER',
@@ -45,6 +60,7 @@ const KIND_LABEL: Record<TrajectoryCellKind, string> = {
   subtool: 'SUBTOOL',
 }
 
+/** 中文说明：函数 ToolWrenchIcon 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function ToolWrenchIcon(): ReactNode {
   return (
     <svg
@@ -64,6 +80,7 @@ function ToolWrenchIcon(): ReactNode {
   )
 }
 
+/** 中文说明：函数 InformationIcon 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function InformationIcon(): ReactNode {
   return (
     <svg
@@ -84,6 +101,7 @@ function InformationIcon(): ReactNode {
   )
 }
 
+/** 中文说明：函数 CompactedIcon 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function CompactedIcon(): ReactNode {
   return (
     <svg
@@ -106,6 +124,7 @@ function CompactedIcon(): ReactNode {
   )
 }
 
+/** 中文说明：视图局部值 KIND_ICON，由紧邻初始化决定。 */
 const KIND_ICON: Record<TrajectoryCellKind, ReactNode> = {
   system: <IconSettingsOutline16 size={13} />,
   user: <IconUserOutline16 size={13} />,
@@ -116,6 +135,7 @@ const KIND_ICON: Record<TrajectoryCellKind, ReactNode> = {
   subtool: <ToolWrenchIcon />,
 }
 
+/** 中文说明：类型或类 TableRecord 约束工具或轨迹数据职责。 */
 interface TableRecord {
   turn: number | null
   section: number
@@ -128,21 +148,26 @@ interface TableRecord {
   collapsedSummaryKind?: 'turn' | 'assistant'
 }
 
+/** 中文说明：类型或类 VirtualRowStructure 约束工具或轨迹数据职责。 */
 interface VirtualRowStructure {
   height: number
   key: string
 }
 
+/** 中文说明：函数 useStableVirtualRowStructure 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function useStableVirtualRowStructure(
   rows: readonly TrajectoryVirtualRow<TableRecord>[],
 ): readonly VirtualRowStructure[] {
+  /** 中文说明：视图局部值 cache，由紧邻初始化决定。 */
   const cache = useRef<{
     rows: readonly TrajectoryVirtualRow<TableRecord>[]
     structure: readonly VirtualRowStructure[]
   }>({ rows: [], structure: [] })
   if (cache.current.rows === rows) return cache.current.structure
+  /** 中文说明：视图局部值 structure，由紧邻初始化决定。 */
   const structure = cache.current.structure.length === rows.length
     && rows.every((row, index) => {
+      /** 中文说明：视图局部值 previous，由紧邻初始化决定。 */
       const previous = cache.current.structure[index]
       return previous?.key === row.key && previous.height === row.height
     })
@@ -152,6 +177,7 @@ function useStableVirtualRowStructure(
   return structure
 }
 
+/** 中文说明：类型或类 DetailTab 约束工具或轨迹数据职责。 */
 type DetailTab =
   | 'system-prompt'
   | 'tools'
@@ -166,29 +192,35 @@ type DetailTab =
   | 'usage'
   | 'timing'
   | 'diff'
+/** 中文说明：类型或类 RecordState 约束工具或轨迹数据职责。 */
 type RecordState = 'complete' | 'running' | 'error'
 
+/** 中文说明：类型或类 DetailTabItem 约束工具或轨迹数据职责。 */
 interface DetailTabItem {
   id: DetailTab
   label: string
 }
 
+/** 中文说明：类型或类 ParentRecords 约束工具或轨迹数据职责。 */
 interface ParentRecords {
   message?: TableRecord
   tool?: TableRecord
 }
 
+/** 中文说明：类型或类 ToolCallTextParts 约束工具或轨迹数据职责。 */
 interface ToolCallTextParts {
   name: string
   args?: string
 }
 
+/** 中文说明：类型或类 SelectedRequest 约束工具或轨迹数据职责。 */
 interface SelectedRequest {
   turn: number | null
   group: string
   seq?: number
 }
 
+/** 中文说明：类型或类 DetailsResizeDrag 约束工具或轨迹数据职责。 */
 interface DetailsResizeDrag {
   pointerId: number
   startX: number
@@ -197,23 +229,35 @@ interface DetailsResizeDrag {
   startToolRequestOffset: number
 }
 
+/** 中文说明：视图局部值 DETAILS_MIN_WIDTH，由紧邻初始化决定。 */
 const DETAILS_MIN_WIDTH = 320
+/** 中文说明：视图局部值 DETAILS_MAX_WIDTH，由紧邻初始化决定。 */
 const DETAILS_MAX_WIDTH = 720
+/** 中文说明：视图局部值 TABLE_MIN_WIDTH，由紧邻初始化决定。 */
 const TABLE_MIN_WIDTH = 280
+/** 中文说明：视图局部值 DETAILS_RESIZE_STEP，由紧邻初始化决定。 */
 const DETAILS_RESIZE_STEP = 16
+/** 中文说明：视图局部值 TOOL_REQUEST_SHARE，由紧邻初始化决定。 */
 const TOOL_REQUEST_SHARE = 0.58
+/** 中文说明：视图局部值 TOOL_REQUEST_MIN_WIDTH，由紧邻初始化决定。 */
 const TOOL_REQUEST_MIN_WIDTH = 180
+/** 中文说明：视图局部值 TOOL_REQUEST_MAX_WIDTH，由紧邻初始化决定。 */
 const TOOL_REQUEST_MAX_WIDTH = 480
+/** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
 const DEFAULT_TOOL_REQUEST_SHARE = 0.36
+/** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
 const DEFAULT_TOOL_REQUEST_OFFSET = 56
+/** 中文说明：视图局部值 SYSTEM_PROMPT_TABS，由紧邻初始化决定。 */
 const SYSTEM_PROMPT_TABS: readonly DetailTabItem[] = [
   { id: 'system-prompt', label: 'System Prompt' },
   { id: 'tools', label: 'Tools' },
 ]
+/** 中文说明：视图局部值 SYSTEM_UPDATE_TABS，由紧邻初始化决定。 */
 const SYSTEM_UPDATE_TABS: readonly DetailTabItem[] = [
   { id: 'diff', label: 'Diff' },
   ...SYSTEM_PROMPT_TABS,
 ]
+/** 中文说明：视图局部值 REQUEST_TABS，由紧邻初始化决定。 */
 const REQUEST_TABS: readonly DetailTabItem[] = [
   { id: 'overview', label: 'Summary' },
   { id: 'options', label: 'Options' },
@@ -221,25 +265,31 @@ const REQUEST_TABS: readonly DetailTabItem[] = [
   { id: 'timing', label: 'Timing' },
 ]
 
+/** 中文说明：类型或类 TrajectorySplitStyle 约束工具或轨迹数据职责。 */
 type TrajectorySplitStyle = CSSProperties & {
   '--trajectory-tool-request-width': string
 }
 
+/** 中文说明：类型或类 RequestBoundaryStyle 约束工具或轨迹数据职责。 */
 type RequestBoundaryStyle = CSSProperties & {
   '--request-boundary-offset': string
 }
 
+/** 中文说明：类型或类 VirtualSpacerStyle 约束工具或轨迹数据职责。 */
 type VirtualSpacerStyle = CSSProperties & {
   '--trajectory-virtual-spacer-height': string
 }
 
+/** 中文说明：类型或类 OlderLoadAnchor 约束工具或轨迹数据职责。 */
 interface OlderLoadAnchor {
   readonly historyStartSeq: number | undefined
   readonly scrollHeight: number
   readonly scrollTop: number
 }
 
+/** 中文说明：函数 clampDetailsWidth 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function clampDetailsWidth(width: number, splitWidth: number): number {
+  /** 中文说明：视图局部值 maxWidth，由紧邻初始化决定。 */
   const maxWidth = Math.max(
     DETAILS_MIN_WIDTH,
     Math.min(DETAILS_MAX_WIDTH, splitWidth - TABLE_MIN_WIDTH),
@@ -247,6 +297,7 @@ function clampDetailsWidth(width: number, splitWidth: number): number {
   return Math.round(Math.min(Math.max(width, DETAILS_MIN_WIDTH), maxWidth))
 }
 
+/** 中文说明：函数 defaultToolRequestWidth 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function defaultToolRequestWidth(splitWidth: number): number {
   return Math.min(
     Math.max(
@@ -257,23 +308,32 @@ function defaultToolRequestWidth(splitWidth: number): number {
   )
 }
 
+/** 中文说明：函数 formatDurationMs 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function formatDurationMs(milliseconds: number): string {
   if (milliseconds < 1_000) return `${Math.round(milliseconds)} ms`
   return `${(milliseconds / 1_000).toFixed(milliseconds < 10_000 ? 2 : 1)} s`
 }
 
+/** 中文说明：函数 formatStartedAt 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function formatStartedAt(timestamp: number | null): string {
   if (timestamp === null || !Number.isFinite(timestamp)) return 'Not available'
+  /** 中文说明：视图局部值 date，由紧邻初始化决定。 */
   const date = new Date(timestamp)
+  /** 中文说明：视图局部值 two，由紧邻初始化决定。 */
   const two = (value: number) => String(value).padStart(2, '0')
+  /** 中文说明：视图局部值 three，由紧邻初始化决定。 */
   const three = (value: number) => String(value).padStart(3, '0')
+  /** 中文说明：视图局部值 time，由紧邻初始化决定。 */
   const time = `${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}.${three(date.getMilliseconds())}`
+  /** 中文说明：视图局部值 day，由紧邻初始化决定。 */
   const day = `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`
   return `${day} ${time}`
 }
 
 /** Whether a click lands on an active text selection and should keep it. */
+/** 中文说明：函数 clickSelectsText 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function clickSelectsText(target: Node): boolean {
+  /** 中文说明：视图局部值 selection，由紧邻初始化决定。 */
   const selection = window.getSelection()
   return selection !== null
     && !selection.isCollapsed
@@ -281,7 +341,9 @@ function clickSelectsText(target: Node): boolean {
     && selection.getRangeAt(0).intersectsNode(target)
 }
 
+/** 中文说明：函数 StartedAtValue 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function StartedAtValue({ timestamp }: { timestamp: number | null }) {
+  /** 中文说明：视图局部值 [showUnix, setShowUnix]，由紧邻初始化决定。 */
   const [showUnix, setShowUnix] = useState(false)
   if (timestamp === null || !Number.isFinite(timestamp)) return <dd>Not available</dd>
   return (
@@ -301,6 +363,7 @@ function StartedAtValue({ timestamp }: { timestamp: number | null }) {
   )
 }
 
+/** 中文说明：函数 totalTime 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function totalTime(metrics: AssistantMetricDetail): string {
   if (!metrics.timingRecorded) return 'Not recorded'
   if (metrics.stepStartTime === null) return 'Step start unavailable'
@@ -308,6 +371,7 @@ function totalTime(metrics: AssistantMetricDetail): string {
   return formatDurationMs(Math.max(0, metrics.completedTime - metrics.stepStartTime))
 }
 
+/** 中文说明：函数 ttft 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function ttft(metrics: AssistantMetricDetail): string {
   if (!metrics.timingRecorded) return 'Not recorded'
   if (metrics.stepStartTime === null) return 'Step start unavailable'
@@ -315,22 +379,26 @@ function ttft(metrics: AssistantMetricDetail): string {
   return formatDurationMs(Math.max(0, metrics.firstTokenTime - metrics.stepStartTime))
 }
 
+/** 中文说明：函数 generationTime 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function generationTime(metrics: AssistantMetricDetail): string {
   if (!metrics.timingRecorded || metrics.firstTokenTime === null) return 'First token unavailable'
   if (metrics.completedTime === null) return 'Pending'
   return formatDurationMs(Math.max(0, metrics.completedTime - metrics.firstTokenTime))
 }
 
+/** 中文说明：函数 throughput 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function throughput(metrics: AssistantMetricDetail): string {
   if (!metrics.usageProvided) return 'Usage unavailable'
   if (metrics.outputTokens === null) return 'Output tokens unavailable'
   if (!metrics.timingRecorded || metrics.firstTokenTime === null) return 'First token unavailable'
   if (metrics.completedTime === null) return 'Pending'
+  /** 中文说明：视图局部值 generationSeconds，由紧邻初始化决定。 */
   const generationSeconds = (metrics.completedTime - metrics.firstTokenTime) / 1_000
   if (generationSeconds <= 0) return 'Duration too short'
   return `${(metrics.outputTokens / generationSeconds).toFixed(1)} tok/s`
 }
 
+/** 中文说明：函数 AssistantTimingPanel 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function AssistantTimingPanel({ metrics }: { metrics: AssistantMetricDetail }) {
   return (
     <dl className={css.overview}>
@@ -344,6 +412,7 @@ function AssistantTimingPanel({ metrics }: { metrics: AssistantMetricDetail }) {
 }
 
 /** Props for the trajectory ledger. */
+/** 中文说明：类型或类 TrajectoryTableProps 约束工具或轨迹数据职责。 */
 export interface TrajectoryTableProps {
   /** Session-global request numbers for the request groups visible in this context. */
   requestNumbers?: readonly TrajectoryRequestNumber[]
@@ -390,6 +459,7 @@ export interface TrajectoryTableProps {
 }
 
 /** Request-inspector fields shared by ordinary generation and compaction. */
+/** 中文说明：类型或类 TrajectoryRequestNumberBase 约束工具或轨迹数据职责。 */
 interface TrajectoryRequestNumberBase {
   /** Request anchor event sequence; absent for the currently streaming ordinary request. */
   seq?: number
@@ -411,6 +481,7 @@ interface TrajectoryRequestNumberBase {
 }
 
 /** One purpose-discriminated request identity paired with its session-global number. */
+/** 中文说明：类型或类 TrajectoryRequestNumber 约束工具或轨迹数据职责。 */
 export type TrajectoryRequestNumber = TrajectoryRequestNumberBase & (
   | {
     purpose?: 'assistant'
@@ -425,6 +496,7 @@ export type TrajectoryRequestNumber = TrajectoryRequestNumberBase & (
 )
 
 /** Disjoint provider token buckets for one request or a session prefix. */
+/** 中文说明：类型或类 TrajectoryUsage 约束工具或轨迹数据职责。 */
 export interface TrajectoryUsage {
   input?: number
   cacheRead?: number
@@ -433,11 +505,15 @@ export interface TrajectoryUsage {
   reasoning?: number
 }
 
+/** 中文说明：函数 flattenRecords 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function flattenRecords(turns: readonly TrajectoryTurnModel[]): TableRecord[] {
   return turns.flatMap((turn, section) => {
+    /** 中文说明：视图局部值 firstInSection，由紧邻初始化决定。 */
     let firstInSection = true
+    /** 中文说明：视图局部值 records，由紧邻初始化决定。 */
     const records = turn.groups.flatMap((group) => {
       return group.cells.map((cell, index) => {
+        /** 中文说明：视图局部值 turnStart，由紧邻初始化决定。 */
         const turnStart = firstInSection
           && cell.requestOnly !== true
           && cell.kind !== 'system'
@@ -454,24 +530,31 @@ function flattenRecords(turns: readonly TrajectoryTurnModel[]): TableRecord[] {
         }
       })
     })
+    /** 中文说明：视图局部值 last，由紧邻初始化决定。 */
     const last = records.at(-1)
     if (last !== undefined) last.turnEnd = true
     return records
   })
 }
 
+/** 中文说明：函数 filterRecords 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function filterRecords(
   records: readonly TableRecord[],
   matches: ReadonlySet<number>,
 ): TableRecord[] {
+  /** 中文说明：视图局部值 filtered，由紧邻初始化决定。 */
   const filtered = records
     .filter(record =>
       record.cell.requestOnly !== true && matches.has(record.cell.index),
     )
     .map(record => ({ ...record, groupStart: false, turnStart: false, turnEnd: false }))
+  /** 中文说明：视图局部值 startedSections，由紧邻初始化决定。 */
   const startedSections = new Set<number>()
+  /** 中文说明：视图局部值 [index，由紧邻初始化决定。 */
   for (const [index, record] of filtered.entries()) {
+    /** 中文说明：视图局部值 previous，由紧邻初始化决定。 */
     const previous = filtered[index - 1]
+    /** 中文说明：视图局部值 next，由紧邻初始化决定。 */
     const next = filtered[index + 1]
     record.groupStart = previous === undefined
       || previous.section !== record.section
@@ -485,19 +568,26 @@ function filterRecords(
   return filtered
 }
 
+/** 中文说明：函数 requestStep 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function requestStep(group: string): number | undefined {
   if (!group.startsWith('Step ')) return undefined
+  /** 中文说明：视图局部值 value，由紧邻初始化决定。 */
   const value = Number(group.slice('Step '.length))
   return Number.isInteger(value) && value > 0 ? value : undefined
 }
 
+/** 中文说明：函数 requestKey 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function requestKey(turn: number | null, group: string): string {
   return `${turn}\u0000${group}`
 }
 
+/** 中文说明：函数 indexRequestBoundaries 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function indexRequestBoundaries(records: readonly TableRecord[]): ReadonlyMap<string, number> {
+  /** 中文说明：视图局部值 boundaries，由紧邻初始化决定。 */
   const boundaries = new Map<string, number>()
+  /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
   for (const record of records) {
+    /** 中文说明：视图局部值 key，由紧邻初始化决定。 */
     const key = requestKey(record.turn, record.group)
     if (boundaries.has(key)) continue
     if (requestStep(record.group) === undefined) {
@@ -510,34 +600,46 @@ function indexRequestBoundaries(records: readonly TableRecord[]): ReadonlyMap<st
   return boundaries
 }
 
+/** 中文说明：函数 sectionLabel 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function sectionLabel(turn: number | null): string {
   return turn === null ? 'Between turns' : `Turn ${turn}`
 }
 
+/** 中文说明：函数 indexRequestNumbers 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function indexRequestNumbers(
   records: readonly TableRecord[],
   sessionNumbers: readonly TrajectoryRequestNumber[] | undefined,
   boundaries: ReadonlyMap<string, number>,
 ): ReadonlyMap<string, number> {
+  /** 中文说明：视图局部值 numbers，由紧邻初始化决定。 */
   const numbers = new Map<string, number>()
+  /** 中文说明：视图局部值 request，由紧邻初始化决定。 */
   for (const request of sessionNumbers ?? []) {
     numbers.set(requestKey(request.turn, request.group), request.number)
   }
+  /** 中文说明：视图局部值 next，由紧邻初始化决定。 */
   let next = Math.max(0, ...numbers.values()) + 1
+  /** 中文说明：视图局部值 boundaryRecords，由紧邻初始化决定。 */
   const boundaryRecords = records
     .filter(record => boundaries.get(requestKey(record.turn, record.group)) === record.cell.index
       && requestStep(record.group) !== undefined)
     .sort((left, right) => left.cell.index - right.cell.index)
+  /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
   for (const record of boundaryRecords) {
+    /** 中文说明：视图局部值 key，由紧邻初始化决定。 */
     const key = requestKey(record.turn, record.group)
     if (!numbers.has(key)) numbers.set(key, next++)
   }
   return numbers
 }
 
+/** 中文说明：函数 indexRequestBoundaryRuns 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function indexRequestBoundaryRuns(records: readonly TableRecord[]): ReadonlyMap<number, number> {
+  /** 中文说明：视图局部值 indexes，由紧邻初始化决定。 */
   const indexes = new Map<number, number>()
+  /** 中文说明：视图局部值 runLength，由紧邻初始化决定。 */
   let runLength = 0
+  /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
   for (const record of records) {
     if (record.cell.requestOnly === true) {
       indexes.set(record.cell.index, runLength++)
@@ -551,12 +653,15 @@ function indexRequestBoundaryRuns(records: readonly TableRecord[]): ReadonlyMap<
   return indexes
 }
 
+/** 中文说明：函数 summarizeTurn 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function summarizeTurn(records: readonly TableRecord[]): string {
+  /** 中文说明：视图局部值 steps，由紧邻初始化决定。 */
   const steps = new Set(
     records
       .map(record => record.group)
       .filter(group => group.startsWith('Step ')),
   ).size
+  /** 中文说明：视图局部值 toolCalls，由紧邻初始化决定。 */
   const toolCalls = records.filter(record =>
     record.cell.kind === 'tool' || record.cell.kind === 'subtool',
   ).length
@@ -566,21 +671,27 @@ function summarizeTurn(records: readonly TableRecord[]): string {
   ].join(' · ')
 }
 
+/** 中文说明：函数 collapseTurnRecords 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function collapseTurnRecords(
   records: readonly TableRecord[],
   collapsedTurns: ReadonlySet<number>,
 ): TableRecord[] {
+  /** 中文说明：视图局部值 recordsByTurn，由紧邻初始化决定。 */
   const recordsByTurn = new Map<number, TableRecord[]>()
+  /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
   for (const record of records) {
     if (record.turn === null) continue
+    /** 中文说明：视图局部值 turnRecords，由紧邻初始化决定。 */
     const turnRecords = recordsByTurn.get(record.turn) ?? []
     turnRecords.push(record)
     recordsByTurn.set(record.turn, turnRecords)
   }
   return records.flatMap((record) => {
     if (record.turn === null || !collapsedTurns.has(record.turn)) return [record]
+    /** 中文说明：视图局部值 turnRecords，由紧邻初始化决定。 */
     const turnRecords = recordsByTurn.get(record.turn) ?? [record]
     if (record.cell.requestOnly === true || record.cell.kind === 'system') return [record]
+    /** 中文说明：视图局部值 contentRecords，由紧邻初始化决定。 */
     const contentRecords = turnRecords.filter(candidate =>
       candidate.cell.requestOnly !== true && candidate.cell.kind !== 'system')
     if (contentRecords.length <= 1) return [record]
@@ -599,14 +710,19 @@ function collapseTurnRecords(
   })
 }
 
+/** 中文说明：函数 assistantToolCalls 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function assistantToolCalls(
   records: readonly TableRecord[],
   assistantIndex: number,
 ): readonly TableRecord[] {
+  /** 中文说明：视图局部值 at，由紧邻初始化决定。 */
   const at = records.findIndex(record => record.cell.index === assistantIndex)
   if (at === -1 || records[at]?.cell.kind !== 'message') return []
+  /** 中文说明：视图局部值 calls，由紧邻初始化决定。 */
   const calls: TableRecord[] = []
+  /** 中文说明：视图局部值 i，由紧邻初始化决定。 */
   for (let i = at + 1; i < records.length; i++) {
+    /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
     const record = records[i]
     if (record === undefined) break
     if (record.cell.kind !== 'tool' && record.cell.kind !== 'subtool') break
@@ -615,22 +731,31 @@ function assistantToolCalls(
   return calls
 }
 
+/** 中文说明：函数 summarizeAssistantTools 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function summarizeAssistantTools(records: readonly TableRecord[]): string {
+  /** 中文说明：视图局部值 names，由紧邻初始化决定。 */
   const names = [...new Set(records.map((record) => {
+    /** 中文说明：视图局部值 separator，由紧邻初始化决定。 */
     const separator = record.cell.text.indexOf(' · ')
     return separator === -1 ? record.cell.text : record.cell.text.slice(0, separator)
   }).filter(name => name !== ''))]
+  /** 中文说明：视图局部值 count，由紧邻初始化决定。 */
   const count = records.length
+  /** 中文说明：视图局部值 summary，由紧邻初始化决定。 */
   const summary = `${count} tool ${count === 1 ? 'call' : 'calls'}`
   return names.length > 0 ? `${summary} · ${names.join(', ')}` : summary
 }
 
+/** 中文说明：函数 collapseAssistantRecords 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function collapseAssistantRecords(
   records: readonly TableRecord[],
   collapsedAssistants: ReadonlySet<string>,
 ): TableRecord[] {
+  /** 中文说明：视图局部值 out，由紧邻初始化决定。 */
   const out: TableRecord[] = []
+  /** 中文说明：视图局部值 i，由紧邻初始化决定。 */
   for (let i = 0; i < records.length; i++) {
+    /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
     const record = records[i]
     if (record === undefined) continue
     out.push(record)
@@ -638,8 +763,11 @@ function collapseAssistantRecords(
       record.cell.kind !== 'message'
       || !collapsedAssistants.has(trajectoryRecordId(record.cell))
     ) continue
+    /** 中文说明：视图局部值 calls，由紧邻初始化决定。 */
     const calls: TableRecord[] = []
+    /** 中文说明：视图局部值 j，由紧邻初始化决定。 */
     for (let j = i + 1; j < records.length; j++) {
+      /** 中文说明：视图局部值 candidate，由紧邻初始化决定。 */
       const candidate = records[j]
       if (
         candidate === undefined
@@ -649,6 +777,7 @@ function collapseAssistantRecords(
       calls.push(candidate)
     }
     if (calls.length === 0) continue
+    /** 中文说明：视图局部值 last，由紧邻初始化决定。 */
     const last = calls.at(-1)
     out[out.length - 1] = { ...record, turnEnd: false }
     out.push({
@@ -664,6 +793,7 @@ function collapseAssistantRecords(
   return out
 }
 
+/** 中文说明：函数 stateOf 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function stateOf(record: TableRecord): RecordState {
   if (record.cell.isError) return 'error'
   if (record.cell.kind === 'compacted' && record.cell.timeSeconds === null) return 'running'
@@ -674,13 +804,16 @@ function stateOf(record: TableRecord): RecordState {
   return 'complete'
 }
 
+/** 中文说明：函数 statusLabel 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function statusLabel(state: RecordState): string {
   if (state === 'error') return 'Failed'
   if (state === 'running') return 'Pending'
   return 'Completed'
 }
 
+/** 中文说明：函数 TokenRows 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function TokenRows({ cell }: { cell: TrajectoryCellProps }) {
+  /** 中文说明：视图局部值 content，由紧邻初始化决定。 */
   const content = cell.output !== undefined && cell.think !== undefined
     ? Math.max(0, cell.output - cell.think)
     : undefined
@@ -706,6 +839,7 @@ function TokenRows({ cell }: { cell: TrajectoryCellProps }) {
   )
 }
 
+/** 中文说明：函数 inputTotal 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function inputTotal(usage: TrajectoryUsage): number | undefined {
   if (
     usage.input === undefined
@@ -715,9 +849,12 @@ function inputTotal(usage: TrajectoryUsage): number | undefined {
   return (usage.input ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0)
 }
 
+/** 中文说明：函数 UsageRows 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function UsageRows({ usage }: { usage: TrajectoryUsage | undefined }) {
   if (usage === undefined) return <p className={css.noPayload}>Usage not reported</p>
+  /** 中文说明：视图局部值 totalInput，由紧邻初始化决定。 */
   const totalInput = inputTotal(usage)
+  /** 中文说明：视图局部值 otherOutput，由紧邻初始化决定。 */
   const otherOutput = usage.output !== undefined && usage.reasoning !== undefined
     ? usage.output - usage.reasoning
     : undefined
@@ -763,6 +900,7 @@ function UsageRows({ usage }: { usage: TrajectoryUsage | undefined }) {
   )
 }
 
+/** 中文说明：函数 RequestUsagePanel 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function RequestUsagePanel({
   usage,
   cumulative,
@@ -784,6 +922,7 @@ function RequestUsagePanel({
   )
 }
 
+/** 中文说明：函数 RequestOptions 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function RequestOptions({
   options,
   preview = false,
@@ -803,20 +942,25 @@ function RequestOptions({
   )
 }
 
+/** 中文说明：函数 messageSourceLabel 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function messageSourceLabel(source: unknown): string {
   if (typeof source !== 'object' || source === null || Array.isArray(source)) {
     return 'Unknown'
   }
+  /** 中文说明：视图局部值 properties，由紧邻初始化决定。 */
   const properties = source as Record<string, unknown>
+  /** 中文说明：视图局部值 kind，由紧邻初始化决定。 */
   const kind = properties.kind
   if (kind === 'user') return 'User'
   if (kind === 'plugin') {
+    /** 中文说明：视图局部值 plugin，由紧邻初始化决定。 */
     const plugin = properties.plugin
     return typeof plugin === 'string' && plugin !== ''
       ? `Plugin · ${plugin}`
       : 'Plugin'
   }
   if (kind === 'goal') {
+    /** 中文说明：视图局部值 round，由紧邻初始化决定。 */
     const round = properties.round
     return typeof round === 'number' && round > 0
       ? `Goal · Round ${round}`
@@ -826,9 +970,12 @@ function messageSourceLabel(source: unknown): string {
   return `${kind[0]?.toUpperCase() ?? ''}${kind.slice(1)}`
 }
 
+/** 中文说明：函数 MessageSource 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function MessageSource({ record }: { record: TableRecord }) {
+  /** 中文说明：视图局部值 source，由紧邻初始化决定。 */
   const source = record.cell.messageSource
   if (source === undefined) return <p className={css.noPayload}>Source not recorded</p>
+  /** 中文说明：视图局部值 data，由紧邻初始化决定。 */
   const data = typeof source === 'object' && source !== null
     ? source
     : { value: source }
@@ -841,22 +988,28 @@ function MessageSource({ record }: { record: TableRecord }) {
   )
 }
 
+/** 中文说明：函数 isMarkdownRecord 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function isMarkdownRecord(record: TableRecord): boolean {
   return record.cell.kind === 'user'
     || record.cell.kind === 'context'
     || record.cell.kind === 'message'
 }
 
+/** 中文说明：函数 parentRecords 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function parentRecords(
   records: readonly TableRecord[],
   record: TableRecord,
 ): ParentRecords {
   if (record.cell.kind !== 'tool' && record.cell.kind !== 'subtool') return {}
+  /** 中文说明：视图局部值 at，由紧邻初始化决定。 */
   const at = records.findIndex(candidate => candidate.cell.index === record.cell.index)
   if (at === -1) return {}
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   let tool: TableRecord | undefined
   if (record.cell.kind === 'subtool') {
+    /** 中文说明：视图局部值 i，由紧邻初始化决定。 */
     for (let i = at - 1; i >= 0; i--) {
+      /** 中文说明：视图局部值 candidate，由紧邻初始化决定。 */
       const candidate = records[i]
       if (
         candidate === undefined
@@ -869,7 +1022,9 @@ function parentRecords(
       }
     }
   }
+  /** 中文说明：视图局部值 parentCallId，由紧邻初始化决定。 */
   const parentCallId = tool?.cell.callId ?? record.cell.callId
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   let message: TableRecord | undefined
   if (parentCallId !== undefined) {
     message = records.find(candidate =>
@@ -881,6 +1036,7 @@ function parentRecords(
   return { ...(message === undefined ? {} : { message }), ...(tool === undefined ? {} : { tool }) }
 }
 
+/** 中文说明：函数 markdownSource 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function markdownSource(record: TableRecord): string | undefined {
   if (record.cell.kind === 'user' || record.cell.kind === 'context') {
     return record.cell.inputDetail
@@ -891,6 +1047,7 @@ function markdownSource(record: TableRecord): string | undefined {
   return undefined
 }
 
+/** 中文说明：函数 detailTabs 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function detailTabs(record: TableRecord): readonly DetailTabItem[] {
   if (record.cell.kind === 'system') {
     return record.cell.previousPromptDetail === undefined
@@ -922,14 +1079,17 @@ function detailTabs(record: TableRecord): readonly DetailTabItem[] {
   ]
 }
 
+/** 中文说明：函数 recordDisplayText 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function recordDisplayText(cell: TrajectoryCellProps): string {
   if (isToolCallOnly(cell)) return ''
   if (cell.previewMarkdown !== undefined) {
+    /** 中文说明：视图局部值 preview，由紧邻初始化决定。 */
     const preview = trajectoryPreviewText(cell.previewMarkdown)
     if (cell.text === '') return preview
     return preview === '' ? cell.text : `${cell.text} · ${preview}`
   }
   if (cell.text !== '') return cell.text
+  /** 中文说明：视图局部值 markdown，由紧邻初始化决定。 */
   const markdown = cell.kind === 'user' || cell.kind === 'context'
     ? cell.inputDetail
     : cell.kind === 'message'
@@ -938,17 +1098,20 @@ function recordDisplayText(cell: TrajectoryCellProps): string {
   return markdown === undefined ? '' : trajectoryPreviewText(markdown)
 }
 
+/** 中文说明：函数 recordResultText 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function recordResultText(cell: TrajectoryCellProps): string | undefined {
   return cell.resultPreviewMarkdown === undefined
     ? cell.result
     : trajectoryPreviewText(cell.resultPreviewMarkdown)
 }
 
+/** 中文说明：函数 toolCallTextParts 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function toolCallTextParts(
   kind: TrajectoryCellKind,
   text: string,
 ): ToolCallTextParts | undefined {
   if (kind !== 'tool' && kind !== 'subtool') return undefined
+  /** 中文说明：视图局部值 separator，由紧邻初始化决定。 */
   const separator = text.indexOf(' · ')
   if (separator === -1) return { name: text }
   return {
@@ -957,6 +1120,7 @@ function toolCallTextParts(
   }
 }
 
+/** 中文说明：函数 isToolCallOnly 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function isToolCallOnly(cell: TrajectoryCellProps): boolean {
   return cell.kind === 'message'
     && !cell.outputDetail
@@ -964,6 +1128,7 @@ function isToolCallOnly(cell: TrajectoryCellProps): boolean {
     && cell.text === 'Tool call only'
 }
 
+/** 中文说明：类型或类 RecordPresentationValue 约束工具或轨迹数据职责。 */
 interface RecordPresentationValue {
   displayText: string
   listDisplayText: string
@@ -972,6 +1137,7 @@ interface RecordPresentationValue {
   toolCallText: ToolCallTextParts | undefined
 }
 
+/** 中文说明：函数 RecordPresentation 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function RecordPresentation({
   cell,
   children,
@@ -979,6 +1145,7 @@ function RecordPresentation({
   cell: TrajectoryCellProps
   children: (value: RecordPresentationValue) => ReactNode
 }) {
+  /** 中文说明：视图局部值 displayText，由紧邻初始化决定。 */
   const displayText = useMemo(
     () => recordDisplayText(cell),
     [
@@ -986,12 +1153,16 @@ function RecordPresentation({
       cell.inputDetail, cell.outputDetail, cell.thinkingDetail,
     ],
   )
+  /** 中文说明：视图局部值 resultText，由紧邻初始化决定。 */
   const resultText = useMemo(
     () => recordResultText(cell),
     [cell.result, cell.resultPreviewMarkdown],
   )
+  /** 中文说明：视图局部值 toolCallOnly，由紧邻初始化决定。 */
   const toolCallOnly = isToolCallOnly(cell)
+  /** 中文说明：视图局部值 toolCallText，由紧邻初始化决定。 */
   const toolCallText = toolCallTextParts(cell.kind, displayText)
+  /** 中文说明：视图局部值 listDisplayText，由紧邻初始化决定。 */
   const listDisplayText = toolCallOnly
     ? '(tool call only)'
     : toolCallText === undefined
@@ -1006,6 +1177,7 @@ function RecordPresentation({
   })
 }
 
+/** 中文说明：函数 RecordListText 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function RecordListText({
   displayText,
   toolCallOnly,
@@ -1029,6 +1201,7 @@ function RecordListText({
   )
 }
 
+/** 中文说明：函数 MarkdownFragment 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function MarkdownFragment({
   text,
   rendered,
@@ -1052,6 +1225,7 @@ function MarkdownFragment({
   )
 }
 
+/** 中文说明：函数 SourceBlocks 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function SourceBlocks({
   blocks,
   onOpenCall,
@@ -1096,6 +1270,7 @@ function SourceBlocks({
   )
 }
 
+/** 中文说明：函数 PanelImage 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function PanelImage({
   block,
   preview = false,
@@ -1121,6 +1296,7 @@ function PanelImage({
   )
 }
 
+/** 中文说明：函数 MessageImages 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function MessageImages({
   blocks,
   preview,
@@ -1128,6 +1304,7 @@ function MessageImages({
   blocks: readonly TrajectorySourceBlock[] | undefined
   preview: boolean
 }) {
+  /** 中文说明：视图局部值 images，由紧邻初始化决定。 */
   const images = blocks?.filter(block => block.imageSrc !== undefined) ?? []
   if (images.length === 0) return null
   return (
@@ -1137,6 +1314,7 @@ function MessageImages({
   )
 }
 
+/** 中文说明：函数 AssistantToolCalls 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function AssistantToolCalls({
   blocks,
   preview,
@@ -1146,6 +1324,7 @@ function AssistantToolCalls({
   preview: boolean
   onOpenCall: (callId: string) => void
 }) {
+  /** 中文说明：视图局部值 calls，由紧邻初始化决定。 */
   const calls = blocks?.filter(block => block.type === 'tool-call') ?? []
   if (calls.length === 0) return null
   return (
@@ -1194,6 +1373,7 @@ function AssistantToolCalls({
   )
 }
 
+/** 中文说明：函数 ToolGlyph 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function ToolGlyph() {
   return (
     <svg
@@ -1215,6 +1395,7 @@ function ToolGlyph() {
   )
 }
 
+/** 中文说明：函数 ToolCatalog 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function ToolCatalog({ tools }: { tools: ConversationPromptSnapshot['tools'] }) {
   if (tools.length === 0) return <p className={css.noPayload}>No tools in this request</p>
   return (
@@ -1243,12 +1424,15 @@ function ToolCatalog({ tools }: { tools: ConversationPromptSnapshot['tools'] }) 
   )
 }
 
+/** 中文说明：类型或类 PromptDiffLine 约束工具或轨迹数据职责。 */
 interface PromptDiffLine {
   kind: 'meta' | 'context' | 'added' | 'removed'
   text: string
 }
 
+/** 中文说明：函数 promptDiffLines 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function promptDiffLines(before: string, after: string): readonly PromptDiffLine[] {
+  /** 中文说明：视图局部值 patch，由紧邻初始化决定。 */
   const patch = structuredPatch('', '', before, after, undefined, undefined, { context: 3 })
   return patch.hunks.flatMap((hunk, hunkIndex) => [
     ...(hunkIndex === 0 ? [] : [{ kind: 'meta' as const, text: '' }]),
@@ -1265,6 +1449,7 @@ function promptDiffLines(before: string, after: string): readonly PromptDiffLine
   ])
 }
 
+/** 中文说明：函数 PromptDiffSection 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function PromptDiffSection({
   title,
   before,
@@ -1274,6 +1459,7 @@ function PromptDiffSection({
   before: string
   after: string
 }) {
+  /** 中文说明：视图局部值 lines，由紧邻初始化决定。 */
   const lines = promptDiffLines(before, after)
   if (lines.length === 0) return null
   return (
@@ -1291,6 +1477,7 @@ function PromptDiffSection({
   )
 }
 
+/** 中文说明：函数 SystemPromptDiff 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function SystemPromptDiff({
   before,
   after,
@@ -1298,7 +1485,9 @@ function SystemPromptDiff({
   before: ConversationPromptSnapshot
   after: ConversationPromptSnapshot
 }) {
+  /** 中文说明：视图局部值 toolsBefore，由紧邻初始化决定。 */
   const toolsBefore = JSON.stringify(before.tools, null, 2)
+  /** 中文说明：视图局部值 toolsAfter，由紧邻初始化决定。 */
   const toolsAfter = JSON.stringify(after.tools, null, 2)
   return (
     <div className={css.promptDiffSections}>
@@ -1320,6 +1509,7 @@ function SystemPromptDiff({
   )
 }
 
+/** 中文说明：函数 ToolOutputBlocks 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function ToolOutputBlocks({
   blocks,
   error,
@@ -1347,6 +1537,7 @@ function ToolOutputBlocks({
   )
 }
 
+/** 中文说明：函数 MarkdownRecordContent 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function MarkdownRecordContent({
   record,
   rendered,
@@ -1367,6 +1558,7 @@ function MarkdownRecordContent({
   }
   if (record.cell.thinkingDetail) {
     if (!rendered) {
+      /** 中文说明：视图局部值 source，由紧邻初始化决定。 */
       const source = [
         record.cell.thinkingDetail,
         record.cell.outputDetail,
@@ -1419,11 +1611,15 @@ function MarkdownRecordContent({
       </div>
     )
   }
+  /** 中文说明：视图局部值 source，由紧邻初始化决定。 */
   const source = markdownSource(record)
+  /** 中文说明：视图局部值 hasImages，由紧邻初始化决定。 */
   const hasImages = record.cell.sourceBlocks?.some(block => block.imageSrc !== undefined) === true
+  /** 中文说明：视图局部值 hasToolCalls，由紧邻初始化决定。 */
   const hasToolCalls = record.cell.kind === 'message'
     && record.cell.sourceBlocks?.some(block => block.type === 'tool-call') === true
   if (!source && !hasImages && !hasToolCalls) {
+    /** 中文说明：视图局部值 emptyLabel，由紧邻初始化决定。 */
     const emptyLabel = isToolCallOnly(record.cell)
       ? 'Tool call only'
       : record.cell.text || 'No content'
@@ -1447,6 +1643,7 @@ function MarkdownRecordContent({
   )
 }
 
+/** 中文说明：函数 RecordTiming 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function RecordTiming({ record }: { record: TableRecord }) {
   return record.cell.kind === 'message' && record.cell.assistantMetrics !== undefined
     ? <AssistantTimingPanel metrics={record.cell.assistantMetrics} />
@@ -1459,6 +1656,7 @@ function RecordTiming({ record }: { record: TableRecord }) {
     )
 }
 
+/** 中文说明：函数 RequestTiming 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function RequestTiming({
   assistant,
   anchor,
@@ -1470,6 +1668,7 @@ function RequestTiming({
 }) {
   if (assistant !== undefined) return <RecordTiming record={assistant} />
   if (request?.startedAt !== undefined) {
+    /** 中文说明：视图局部值 duration，由紧邻初始化决定。 */
     const duration = request.completedAt === null || request.completedAt === undefined
       ? null
       : Math.max(0, (request.completedAt - request.startedAt) / 1000)
@@ -1495,6 +1694,7 @@ function RequestTiming({
   )
 }
 
+/** 中文说明：函数 RecordPayload 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function RecordPayload({
   record,
   direction,
@@ -1504,16 +1704,23 @@ function RecordPayload({
   direction: 'input' | 'output'
   preview?: boolean
 }) {
+  /** 中文说明：视图局部值 value，由紧邻初始化决定。 */
   const value = direction === 'input' ? record.cell.inputDetail : record.cell.outputDetail
+  /** 中文说明：视图局部值 missing，由紧邻初始化决定。 */
   const missing = direction === 'input'
     ? 'No payload captured'
     : 'No result captured'
   if (!value) return <p className={css.noPayload}>{missing}</p>
+  /** 中文说明：视图局部值 error，由紧邻初始化决定。 */
   const error = direction === 'output' && record.cell.isError === true
+  /** 中文说明：视图局部值 payloadClass，由紧邻初始化决定。 */
   const payloadClass = preview ? css.jsonPreview : css.jsonPayload
+  /** 中文说明：视图局部值 payloadClassName，由紧邻初始化决定。 */
   const payloadClassName = error ? `${payloadClass} ${css.errorPayload}` : payloadClass
 
+  /** 中文说明：视图局部值 json，由紧邻初始化决定。 */
   const json = parseJsonContainer(value)
+  /** 中文说明：视图局部值 singleTextResult，由紧邻初始化决定。 */
   const singleTextResult = direction === 'output'
     && record.cell.outputBlocks?.length === 1
     && record.cell.outputBlocks[0]?.type === 'text'
@@ -1541,6 +1748,7 @@ function RecordPayload({
     )
   }
 
+  /** 中文说明：视图局部值 markdown，由紧邻初始化决定。 */
   const markdown = (
     direction === 'input'
     && (record.cell.kind === 'user' || record.cell.kind === 'context')
@@ -1580,6 +1788,7 @@ function RecordPayload({
   )
 }
 
+/** 中文说明：函数 RecordSchema 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function RecordSchema({
   record,
   preview = false,
@@ -1590,6 +1799,7 @@ function RecordSchema({
   if (!record.cell.schemaDetail) {
     return <p className={css.noPayload}>Schema unavailable</p>
   }
+  /** 中文说明：视图局部值 schema，由紧邻初始化决定。 */
   const schema = parseToolSchema(record.cell.schemaDetail)
   if (schema !== undefined) {
     return (
@@ -1616,16 +1826,20 @@ function RecordSchema({
   )
 }
 
+/** 中文说明：类型或类 ParsedToolSchema 约束工具或轨迹数据职责。 */
 interface ParsedToolSchema {
   name: string
   description: string
   parameters: object
 }
 
+/** 中文说明：函数 parseToolSchema 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function parseToolSchema(value: string): ParsedToolSchema | undefined {
   try {
+    /** 中文说明：视图局部值 parsed，由紧邻初始化决定。 */
     const parsed: unknown = JSON.parse(value)
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
+    /** 中文说明：视图局部值 schema，由紧邻初始化决定。 */
     const schema = parsed as Record<string, unknown>
     if (
       typeof schema.name !== 'string'
@@ -1644,8 +1858,10 @@ function parseToolSchema(value: string): ParsedToolSchema | undefined {
   }
 }
 
+/** 中文说明：函数 parseJsonContainer 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function parseJsonContainer(value: string): object | undefined {
   try {
+    /** 中文说明：视图局部值 parsed，由紧邻初始化决定。 */
     const parsed: unknown = JSON.parse(value)
     return typeof parsed === 'object' && parsed !== null ? parsed : undefined
   } catch {
@@ -1653,6 +1869,7 @@ function parseJsonContainer(value: string): object | undefined {
   }
 }
 
+/** 中文说明：函数 OverviewSection 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function OverviewSection({
   label,
   onOpen,
@@ -1690,6 +1907,7 @@ function OverviewSection({
  * @param props - Grouped trajectory data and whole-ledger fold state.
  * @returns The ledger and an optional local record inspector.
  */
+/** 中文说明：函数 TrajectoryTable 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function TrajectoryTable({
   requestNumbers: sessionRequestNumbers,
   turns,
@@ -1713,52 +1931,82 @@ export function TrajectoryTable({
   inspectCallId = null,
   onInspectApplied,
 }: TrajectoryTableProps) {
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null)
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const [selectedRequest, setSelectedRequest] = useState<SelectedRequest | null>(null)
+  /** 中文说明：视图局部值 [activeTab, setActiveTab]，由紧邻初始化决定。 */
   const [activeTab, setActiveTab] = useState<DetailTab>('overview')
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const [thinkingExpanded, setThinkingExpanded] = useState(false)
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const [detailsWidth, setDetailsWidth] = useState<number | null>(null)
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const [toolRequestOffset, setToolRequestOffset] = useState<number | null>(null)
+  /** 中文说明：视图局部值 detailsResizeDrag，由紧邻初始化决定。 */
   const detailsResizeDrag = useRef<DetailsResizeDrag | null>(null)
+  /** 中文说明：视图局部值 appliedRecordSelection，由紧邻初始化决定。 */
   const appliedRecordSelection = useRef<TrajectoryTableProps['recordSelection']>(null)
+  /** 中文说明：视图局部值 appliedRecordFocus，由紧邻初始化决定。 */
   const appliedRecordFocus = useRef<TrajectoryTableProps['recordFocus']>(null)
+  /** 中文说明：视图局部值 tabHistory，由紧邻初始化决定。 */
   const tabHistory = useRef<Set<DetailTab>>(new Set(['overview']))
+  /** 中文说明：视图局部值 rootRef，由紧邻初始化决定。 */
   const rootRef = useRef<HTMLDivElement>(null)
+  /** 中文说明：视图局部值 tablePaneRef，由紧邻初始化决定。 */
   const tablePaneRef = useRef<HTMLDivElement>(null)
+  /** 中文说明：视图局部值 followsTableTail，由紧邻初始化决定。 */
   const followsTableTail = useRef(false)
+  /** 中文说明：视图局部值 tableScrollInitialized，由紧邻初始化决定。 */
   const tableScrollInitialized = useRef(false)
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const [tableScrollReady, setTableScrollReady] = useState(false)
+  /** 中文说明：视图局部值 pendingScrollRecordId，由紧邻初始化决定。 */
   const pendingScrollRecordId = useRef<string | null>(null)
+  /** 中文说明：视图局部值 loadingOlder，由紧邻初始化决定。 */
   const loadingOlder = useRef(false)
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const [olderLoading, setOlderLoading] = useState(false)
+  /** 中文说明：视图局部值 olderLoadAnchor，由紧邻初始化决定。 */
   const olderLoadAnchor = useRef<OlderLoadAnchor | null>(null)
+  /** 中文说明：视图局部值 allRecords，由紧邻初始化决定。 */
   const allRecords = useMemo(() => flattenRecords(turns), [turns])
+  /** 中文说明：视图局部值 streamingCellsByIndex，由紧邻初始化决定。 */
   const streamingCellsByIndex = useMemo(
     () => new Map(streamingCells.map(cell => [cell.index, cell])),
     [streamingCells],
   )
+  /** 中文说明：视图局部值 currentRecord，由紧邻初始化决定。 */
   const currentRecord = useCallback((record: TableRecord): TableRecord => {
+    /** 中文说明：视图局部值 cell，由紧邻初始化决定。 */
     const cell = streamingCellsByIndex.get(record.cell.index)
     return cell === undefined ? record : { ...record, cell }
   }, [streamingCellsByIndex])
+  /** 中文说明：视图局部值 selectedTemplate，由紧邻初始化决定。 */
   const selectedTemplate = useMemo(() => selectedRecordId === null
     ? undefined
     : allRecords.find(record => trajectoryRecordId(record.cell) === selectedRecordId),
   [allRecords, selectedRecordId])
+  /** 中文说明：视图局部值 selected，由紧邻初始化决定。 */
   const selected = selectedTemplate === undefined
     ? undefined
     : currentRecord(selectedTemplate)
+  /** 中文说明：视图局部值 selectedIndex，由紧邻初始化决定。 */
   const selectedIndex = selected?.cell.index ?? null
   useEffect(() => {
     onSelectedIndexChange?.(selectedIndex)
   }, [onSelectedIndexChange, selectedIndex])
+  /** 中文说明：视图局部值 requestBoundaries，由紧邻初始化决定。 */
   const requestBoundaries = useMemo(() => indexRequestBoundaries(allRecords), [allRecords])
+  /** 中文说明：视图局部值 requestNumbers，由紧邻初始化决定。 */
   const requestNumbers = useMemo(
     () => indexRequestNumbers(allRecords, sessionRequestNumbers, requestBoundaries),
     [allRecords, requestBoundaries, sessionRequestNumbers],
   )
+  /** 中文说明：视图局部值 records，由紧邻初始化决定。 */
   const records = useMemo(() => {
     if (searchMatchIndexes !== null) return filterRecords(allRecords, searchMatchIndexes)
+    /** 中文说明：视图局部值 turnRecords，由紧邻初始化决定。 */
     const turnRecords = collapsedTurns.size === 0
       ? allRecords
       : collapseTurnRecords(allRecords, collapsedTurns)
@@ -1766,23 +2014,31 @@ export function TrajectoryTable({
       ? turnRecords
       : collapseAssistantRecords(turnRecords, collapsedAssistants)
   }, [allRecords, collapsedAssistants, collapsedTurns, searchMatchIndexes])
+  /** 中文说明：视图局部值 projectedVirtualRows，由紧邻初始化决定。 */
   const projectedVirtualRows = useMemo(
     () => groupTrajectoryVirtualRows(records),
     [records],
   )
+  /** 中文说明：视图局部值 virtualRowStructure，由紧邻初始化决定。 */
   const virtualRowStructure = useStableVirtualRowStructure(projectedVirtualRows)
+  /** 中文说明：视图局部值 virtualizationEnabled，由紧邻初始化决定。 */
   const virtualizationEnabled = hasOlderRecords
     || records.length > VIRTUALIZATION_THRESHOLD
+  /** 中文说明：视图局部值 virtualScrollMargin，由紧邻初始化决定。 */
   const virtualScrollMargin = hasOlderRecords ? HISTORY_LOAD_ROW_HEIGHT_PX : 0
+  /** 中文说明：视图局部值 estimateVirtualRowSize，由紧邻初始化决定。 */
   const estimateVirtualRowSize = useCallback(
     (index: number) => virtualRowStructure[index]?.height ?? 30,
     [virtualRowStructure],
   )
+  /** 中文说明：视图局部值 getVirtualRowKey，由紧邻初始化决定。 */
   const getVirtualRowKey = useCallback(
     (index: number) => virtualRowStructure[index]?.key ?? index,
     [virtualRowStructure],
   )
+  /** 中文说明：视图局部值 getTableScrollElement，由紧邻初始化决定。 */
   const getTableScrollElement = useCallback(() => tablePaneRef.current, [])
+  /** 中文说明：视图局部值 rowVirtualizer，由紧邻初始化决定。 */
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     count: virtualizationEnabled ? virtualRowStructure.length : 0,
     enabled: virtualizationEnabled,
@@ -1795,9 +2051,13 @@ export function TrajectoryTable({
     scrollMargin: virtualScrollMargin,
     scrollEndThreshold: BOTTOM_FOLLOW_THRESHOLD_PX,
   })
+  /** 中文说明：视图局部值 virtualIndexByRecordId，由紧邻初始化决定。 */
   const virtualIndexByRecordId = useMemo(() => {
+    /** 中文说明：视图局部值 indexes，由紧邻初始化决定。 */
     const indexes = new Map<string, number>()
+    /** 中文说明：视图局部值 [virtualIndex，由紧邻初始化决定。 */
     for (const [virtualIndex, row] of projectedVirtualRows.entries()) {
+      /** 中文说明：视图局部值 entry，由紧邻初始化决定。 */
       for (const entry of row.entries) {
         if (entry.record.collapsedSummary === undefined) {
           indexes.set(trajectoryRecordId(entry.record.cell), virtualIndex)
@@ -1806,8 +2066,11 @@ export function TrajectoryTable({
     }
     return indexes
   }, [projectedVirtualRows])
+  /** 中文说明：视图局部值 virtualItems，由紧邻初始化决定。 */
   const virtualItems = virtualizationEnabled ? rowVirtualizer.getVirtualItems() : []
+  /** 中文说明：视图局部值 virtualTop，由紧邻初始化决定。 */
   const virtualTop = Math.max(0, (virtualItems[0]?.start ?? 0) - virtualScrollMargin)
+  /** 中文说明：视图局部值 virtualBottom，由紧邻初始化决定。 */
   const virtualBottom = virtualItems.length === 0
     ? 0
     : Math.max(
@@ -1816,8 +2079,10 @@ export function TrajectoryTable({
         + virtualScrollMargin
         - (virtualItems.at(-1)?.end ?? 0),
     )
+  /** 中文说明：视图局部值 renderedRecords，由紧邻初始化决定。 */
   const renderedRecords = virtualizationEnabled
     ? virtualItems.flatMap((item) => {
+      /** 中文说明：视图局部值 row，由紧邻初始化决定。 */
       const row = projectedVirtualRows[item.index]
       if (row === undefined) return []
       return row.entries.map((entry, entryIndex) => ({
@@ -1835,37 +2100,49 @@ export function TrajectoryTable({
       terminalRequestBoundary:
         record.cell.requestOnly === true && position === records.length - 1,
     }))
+  /** 中文说明：视图局部值 requestBoundaryRuns，由紧邻初始化决定。 */
   const requestBoundaryRuns = useMemo(
     () => indexRequestBoundaryRuns(records),
     [records],
   )
+  /** 中文说明：视图局部值 selectedPrompt，由紧邻初始化决定。 */
   const selectedPrompt = selected?.cell.kind === 'system'
     ? selected.cell.promptDetail
     : undefined
+  /** 中文说明：视图局部值 selectedPreviousPrompt，由紧邻初始化决定。 */
   const selectedPreviousPrompt = selected?.cell.kind === 'system'
     ? selected.cell.previousPromptDetail
     : undefined
+  /** 中文说明：视图局部值 promptSelected，由紧邻初始化决定。 */
   const promptSelected = selectedPrompt !== undefined
+  /** 中文说明：视图局部值 selectedState，由紧邻初始化决定。 */
   const selectedState = selected === undefined ? undefined : stateOf(selected)
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const selectedRequestRecordTemplates = useMemo(() => selectedRequest === null
     ? []
     : allRecords.filter(record =>
       record.turn === selectedRequest.turn
         && record.group === selectedRequest.group,
     ), [allRecords, selectedRequest])
+  /** 中文说明：视图局部值 selectedRequestRecords，由紧邻初始化决定。 */
   const selectedRequestRecords = selectedRequestRecordTemplates.map(currentRecord)
+  /** 中文说明：视图局部值 selectedRequestAssistant，由紧邻初始化决定。 */
   const selectedRequestAssistant = selectedRequestRecords.find(
     record => record.cell.kind === 'message',
   )
+  /** 中文说明：视图局部值 selectedRequestAnchor，由紧邻初始化决定。 */
   const selectedRequestAnchor = selectedRequestAssistant ?? selectedRequestRecords[0]
+  /** 中文说明：视图局部值 selectedRequestNumber，由紧邻初始化决定。 */
   const selectedRequestNumber = selectedRequest === null
     ? undefined
     : requestNumbers.get(requestKey(selectedRequest.turn, selectedRequest.group))
+  /** 中文说明：视图局部值 selectedRequestInfo，由紧邻初始化决定。 */
   const selectedRequestInfo = selectedRequest === null
     ? undefined
     : sessionRequestNumbers?.find(request => selectedRequest.seq === undefined
       ? request.turn === selectedRequest.turn && request.group === selectedRequest.group
       : request.seq === selectedRequest.seq)
+  /** 中文说明：视图局部值 selectedRequestState，由紧邻初始化决定。 */
   const selectedRequestState: RecordState | undefined = selectedRequest === null
     ? undefined
     : selectedRequestInfo?.status
@@ -1875,18 +2152,23 @@ export function TrajectoryTable({
           && selectedRequestRecords.some(record => stateOf(record) === 'running')
           ? 'running'
           : 'complete')
+  /** 中文说明：视图局部值 selectedRequestToolCalls，由紧邻初始化决定。 */
   const selectedRequestToolCalls = selectedRequestRecords.filter(
     record => record.cell.kind === 'tool',
   ).length
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const selectedRequestSubtoolCalls = selectedRequestRecords.filter(
     record => record.cell.kind === 'subtool',
   ).length
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const selectedRequestResultTemplate = selectedRequestInfo?.resultSeq === undefined
     ? selectedRequestAssistant
     : allRecords.find(record => record.cell.sourceSeq === selectedRequestInfo.resultSeq)
+  /** 中文说明：视图局部值 selectedRequestResult，由紧邻初始化决定。 */
   const selectedRequestResult = selectedRequestResultTemplate === undefined
     ? undefined
     : currentRecord(selectedRequestResultTemplate)
+  /** 中文说明：视图局部值 selectedRequestUsage，由紧邻初始化决定。 */
   const selectedRequestUsage = selectedRequestInfo?.usage ?? (
     selectedRequestAssistant === undefined
       ? undefined
@@ -1908,27 +2190,38 @@ export function TrajectoryTable({
           : { reasoning: selectedRequestAssistant.cell.think }),
       }
   )
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const selectedRequestCumulativeUsage =
     selectedRequestInfo?.cumulativeUsage ?? selectedRequestUsage
+  /** 中文说明：视图局部值 selectedRequestOptions，由紧邻初始化决定。 */
   const selectedRequestOptions = selectedRequestInfo?.requestConfig
+  /** 中文说明：视图局部值 activeTurn，由紧邻初始化决定。 */
   const activeTurn = selectedRequest === null ? selected?.turn : selectedRequest.turn
+  /** 中文说明：视图局部值 activeSection，由紧邻初始化决定。 */
   const activeSection = selectedRequest === null
     ? selected?.section
     : selectedRequestRecords[0]?.section
+  /** 中文说明：视图局部值 selectedTabs，由紧邻初始化决定。 */
   const selectedTabs = selectedRequest !== null
     ? REQUEST_TABS.filter(tab => tab.id !== 'options' || selectedRequestOptions !== undefined)
     : selected === undefined ? [] : detailTabs(selected)
+  /** 中文说明：视图局部值 selectedParents，由紧邻初始化决定。 */
   const selectedParents: ParentRecords = selected === undefined
     ? {}
     : parentRecords(allRecords, selected)
+  /** 中文说明：视图局部值 selectedParentMessage，由紧邻初始化决定。 */
   const selectedParentMessage = selectedParents.message
+  /** 中文说明：视图局部值 selectedParentTool，由紧邻初始化决定。 */
   const selectedParentTool = selectedParents.tool
+  /** 中文说明：视图局部值 selectedAssistantRequest，由紧邻初始化决定。 */
   const selectedAssistantRequest = selected?.cell.kind === 'message'
     ? requestNumbers.get(requestKey(selected.turn, selected.group))
     : undefined
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const selectedAssistantRequestInfo = selectedAssistantRequest === undefined
     ? undefined
     : sessionRequestNumbers?.find(request => request.number === selectedAssistantRequest)
+  /** 中文说明：视图局部值 解构结果，由紧邻初始化决定。 */
   const selectedAssistantRequestTarget: SelectedRequest | undefined =
     selected !== undefined && selectedAssistantRequest !== undefined
       ? {
@@ -1939,39 +2232,49 @@ export function TrajectoryTable({
           : { seq: selectedAssistantRequestInfo.seq }),
       }
       : undefined
+  /** 中文说明：视图局部值 hasSelectedHierarchy，由紧邻初始化决定。 */
   const hasSelectedHierarchy = selectedAssistantRequestTarget !== undefined
     || selectedParents.message !== undefined
     || selectedParents.tool !== undefined
+  /** 中文说明：视图局部值 splitStyle，由紧邻初始化决定。 */
   const splitStyle: TrajectorySplitStyle | undefined = toolRequestOffset === null
     ? undefined
     : {
       '--trajectory-tool-request-width': `calc(58cqw - ${toolRequestOffset}px)`,
     }
 
+  /** 中文说明：视图局部值 activateTab，由紧邻初始化决定。 */
   const activateTab = (tab: DetailTab) => {
     tabHistory.current.delete(tab)
     tabHistory.current.add(tab)
     setActiveTab(tab)
   }
 
+  /** 中文说明：视图局部值 clearInspectorSelection，由紧邻初始化决定。 */
   const clearInspectorSelection = () => {
     setSelectedRecordId(null)
     setSelectedRequest(null)
   }
 
+  /** 中文说明：视图局部值 clearAllSelections，由紧邻初始化决定。 */
   const clearAllSelections = () => {
     clearInspectorSelection()
     onClearSelection?.()
   }
 
+  /** 中文说明：视图局部值 selectRecord，由紧邻初始化决定。 */
   const selectRecord = useCallback((index: number) => {
+    /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
     const record = allRecords.find(candidate => candidate.cell.index === index)
     onRecordSelect?.(index)
     setSelectedRequest(null)
     setSelectedRecordId(record === undefined ? null : trajectoryRecordId(record.cell))
     if (record === undefined) return
+    /** 中文说明：视图局部值 tabs，由紧邻初始化决定。 */
     const tabs = detailTabs(record)
+    /** 中文说明：视图局部值 available，由紧邻初始化决定。 */
     const available = new Set(tabs.map(tab => tab.id))
+    /** 中文说明：视图局部值 recent，由紧邻初始化决定。 */
     const recent = [...tabHistory.current].reverse().find(tab => available.has(tab))
     setActiveTab(recent ?? tabs[0]?.id ?? 'overview')
   }, [allRecords, onRecordSelect])
@@ -1982,6 +2285,7 @@ export function TrajectoryTable({
     ) return
     appliedRecordSelection.current = recordSelection
     selectRecord(recordSelection.index)
+    /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
     const record = allRecords.find(candidate => candidate.cell.index === recordSelection.index)
     pendingScrollRecordId.current = record === undefined
       ? null
@@ -1990,12 +2294,14 @@ export function TrajectoryTable({
   useEffect(() => {
     if (recordFocus === null || appliedRecordFocus.current === recordFocus) return
     appliedRecordFocus.current = recordFocus
+    /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
     const record = allRecords.find(candidate => candidate.cell.index === recordFocus.index)
     pendingScrollRecordId.current = record === undefined
       ? null
       : trajectoryRecordId(record.cell)
   }, [allRecords, recordFocus])
 
+  /** 中文说明：视图局部值 selectRequest，由紧邻初始化决定。 */
   const selectRequest = (
     request: SelectedRequest,
     tab: 'overview' | 'timing' = 'overview',
@@ -2005,14 +2311,19 @@ export function TrajectoryTable({
     activateTab(tab)
   }
 
+  /** 中文说明：视图局部值 openRecordSummary，由紧邻初始化决定。 */
   const openRecordSummary = (target: TableRecord) => {
+    /** 中文说明：视图局部值 targetAt，由紧邻初始化决定。 */
     const targetAt = allRecords.findIndex(record => record.cell.index === target.cell.index)
     if (target.turn !== null && collapsedTurns.has(target.turn)) onToggleTurn(target.turn)
     if (target.cell.kind === 'tool' || target.cell.kind === 'subtool') {
+      /** 中文说明：视图局部值 i，由紧邻初始化决定。 */
       for (let i = targetAt - 1; i >= 0; i--) {
+        /** 中文说明：视图局部值 candidate，由紧邻初始化决定。 */
         const candidate = allRecords[i]
         if (candidate === undefined || candidate.turn !== target.turn) break
         if (candidate.cell.kind !== 'message') continue
+        /** 中文说明：视图局部值 assistantId，由紧邻初始化决定。 */
         const assistantId = trajectoryRecordId(candidate.cell)
         if (collapsedAssistants.has(assistantId)) onToggleAssistant(assistantId)
         break
@@ -2023,7 +2334,9 @@ export function TrajectoryTable({
     activateTab('overview')
   }
 
+  /** 中文说明：视图局部值 openCallSummary，由紧邻初始化决定。 */
   const openCallSummary = (callId: string) => {
+    /** 中文说明：视图局部值 target，由紧邻初始化决定。 */
     const target = allRecords.find(record => record.cell.callId === callId)
     if (target !== undefined) openRecordSummary(target)
   }
@@ -2032,10 +2345,12 @@ export function TrajectoryTable({
   // open its summary, and remember the row to scroll once the un-collapsed
   // ledger has rendered. Not-found leaves the request pending (`turns` in the
   // deps retries as history pages in); the ack clears the store field.
+  /** 中文说明：视图局部值 openRecordSummaryRef，由紧邻初始化决定。 */
   const openRecordSummaryRef = useRef(openRecordSummary)
   openRecordSummaryRef.current = openRecordSummary
   useEffect(() => {
     if (inspectCallId === null) return
+    /** 中文说明：视图局部值 target，由紧邻初始化决定。 */
     const target = flattenRecords(turns).find(record => record.cell.callId === inspectCallId)
     if (target === undefined) return
     openRecordSummaryRef.current(target)
@@ -2043,12 +2358,15 @@ export function TrajectoryTable({
     onInspectApplied?.()
   }, [inspectCallId, turns, onInspectApplied])
   useEffect(() => {
+    /** 中文说明：视图局部值 id，由紧邻初始化决定。 */
     const id = pendingScrollRecordId.current
     if (id === null) return
+    /** 中文说明：视图局部值 position，由紧邻初始化决定。 */
     const position = records.findIndex(record =>
       trajectoryRecordId(record.cell) === id && record.collapsedSummary === undefined)
     if (position === -1) return
     if (virtualizationEnabled) {
+      /** 中文说明：视图局部值 virtualIndex，由紧邻初始化决定。 */
       const virtualIndex = virtualIndexByRecordId.get(id)
       if (virtualIndex === undefined) return
       pendingScrollRecordId.current = null
@@ -2058,7 +2376,9 @@ export function TrajectoryTable({
     }
     pendingScrollRecordId.current = null
     followsTableTail.current = false
+    /** 中文说明：视图局部值 recordIndex，由紧邻初始化决定。 */
     const recordIndex = records[position]?.cell.index
+    /** 中文说明：视图局部值 row，由紧邻初始化决定。 */
     const row = recordIndex === undefined
       ? null
       : rootRef.current?.querySelector<HTMLElement>(`tr[data-record-index="${recordIndex}"]`)
@@ -2069,26 +2389,35 @@ export function TrajectoryTable({
   }, [records, rowVirtualizer, virtualIndexByRecordId, virtualizationEnabled])
   useEffect(() => {
     if (timelineFocusIndexes === null || timelineFocusIndexes.size === 0) return
+    /** 中文说明：视图局部值 focusedPositions，由紧邻初始化决定。 */
     const focusedPositions = records.flatMap((record, position) =>
       record.collapsedSummary === undefined
       && record.cell.requestOnly !== true
       && timelineFocusIndexes.has(record.cell.index)
         ? [position]
         : [])
+    /** 中文说明：视图局部值 first，由紧邻初始化决定。 */
     const first = focusedPositions.at(0)
+    /** 中文说明：视图局部值 last，由紧邻初始化决定。 */
     const last = focusedPositions.at(-1)
     if (first === undefined || last === undefined) return
     if (!virtualizationEnabled) {
+      /** 中文说明：视图局部值 ledger，由紧邻初始化决定。 */
       const ledger = rootRef.current
       if (ledger === null) return
+      /** 中文说明：视图局部值 focusedRows，由紧邻初始化决定。 */
       const focusedRows = [
         ...ledger.querySelectorAll<HTMLElement>('tr[data-timeline-focus="inside"]'),
       ]
+      /** 中文说明：视图局部值 firstRow，由紧邻初始化决定。 */
       const firstRow = focusedRows.at(0)
+      /** 中文说明：视图局部值 lastRow，由紧邻初始化决定。 */
       const lastRow = focusedRows.at(-1)
       if (firstRow === undefined || lastRow === undefined) return
+      /** 中文说明：视图局部值 focusHeight，由紧邻初始化决定。 */
       const focusHeight =
         lastRow.getBoundingClientRect().bottom - firstRow.getBoundingClientRect().top
+      /** 中文说明：视图局部值 target，由紧邻初始化决定。 */
       const target = focusHeight > ledger.clientHeight
         ? firstRow
         : focusedRows[Math.floor((focusedRows.length - 1) / 2)]
@@ -2102,16 +2431,23 @@ export function TrajectoryTable({
       }
       return
     }
+    /** 中文说明：视图局部值 focusedVirtualIndexes，由紧邻初始化决定。 */
     const focusedVirtualIndexes = [...new Set(focusedPositions.flatMap((position) => {
+      /** 中文说明：视图局部值 record，由紧邻初始化决定。 */
       const record = records[position]
       if (record === undefined) return []
+      /** 中文说明：视图局部值 virtualIndex，由紧邻初始化决定。 */
       const virtualIndex = virtualIndexByRecordId.get(trajectoryRecordId(record.cell))
       return virtualIndex === undefined ? [] : [virtualIndex]
     }))].sort((left, right) => left - right)
+    /** 中文说明：视图局部值 firstVirtual，由紧邻初始化决定。 */
     const firstVirtual = focusedVirtualIndexes.at(0)
+    /** 中文说明：视图局部值 lastVirtual，由紧邻初始化决定。 */
     const lastVirtual = focusedVirtualIndexes.at(-1)
     if (firstVirtual === undefined || lastVirtual === undefined) return
+    /** 中文说明：视图局部值 paneHeight，由紧邻初始化决定。 */
     const paneHeight = tablePaneRef.current?.clientHeight ?? 0
+    /** 中文说明：视图局部值 focusHeight，由紧邻初始化决定。 */
     const focusHeight = projectedVirtualRows
       .slice(firstVirtual, lastVirtual + 1)
       .reduce((height, row) => height + row.height, 0)
@@ -2134,6 +2470,7 @@ export function TrajectoryTable({
     virtualIndexByRecordId,
     virtualizationEnabled,
   ])
+  /** 中文说明：视图局部值 requestOlder，由紧邻初始化决定。 */
   const requestOlder = useCallback((pane: HTMLDivElement, requireTop: boolean) => {
     if (
       !hasOlderRecords
@@ -2157,8 +2494,10 @@ export function TrajectoryTable({
     })
   }, [hasOlderRecords, historyStartSeq, olderHistoryLoading, onLoadOlder])
   useLayoutEffect(() => {
+    /** 中文说明：视图局部值 pane，由紧邻初始化决定。 */
     const pane = tablePaneRef.current
     if (pane === null) return
+    /** 中文说明：视图局部值 anchor，由紧邻初始化决定。 */
     const anchor = olderLoadAnchor.current
     if (anchor !== null && anchor.historyStartSeq !== historyStartSeq) {
       if (!virtualizationEnabled) {
@@ -2188,8 +2527,11 @@ export function TrajectoryTable({
     virtualizationEnabled,
   ])
 
+  /** 中文说明：视图局部值 olderBusy，由紧邻初始化决定。 */
   const olderBusy = olderHistoryLoading || olderLoading
+  /** 中文说明：视图局部值 showInitialLoading，由紧邻初始化决定。 */
   const showInitialLoading = historyLoading || !tableScrollReady
+  /** 中文说明：视图局部值 historyRowOffset，由紧邻初始化决定。 */
   const historyRowOffset = hasOlderRecords ? 1 : 0
 
   return (
@@ -2199,6 +2541,7 @@ export function TrajectoryTable({
         className={css.tablePane}
         data-trajectory-scroll=""
         onScroll={(event) => {
+          /** 中文说明：视图局部值 pane，由紧邻初始化决定。 */
           const pane = event.currentTarget
           followsTableTail.current =
             pane.scrollHeight - pane.clientHeight - pane.scrollTop
@@ -2242,6 +2585,7 @@ export function TrajectoryTable({
                       ? 'Loading earlier history…'
                       : 'Load earlier history'}
                     onClick={() => {
+                      /** 中文说明：视图局部值 pane，由紧邻初始化决定。 */
                       const pane = tablePaneRef.current
                       if (pane !== null) requestOlder(pane, false)
                     }}
@@ -2275,31 +2619,43 @@ export function TrajectoryTable({
                 cell={record.cell}
               >
                 {({ displayText, listDisplayText, resultText, toolCallOnly, toolCallText }) => {
+                  /** 中文说明：视图局部值 isCollapsedSummary，由紧邻初始化决定。 */
                   const isCollapsedSummary = record.collapsedSummary !== undefined
+                  /** 中文说明：视图局部值 isRequestOnly，由紧邻初始化决定。 */
                   const isRequestOnly = record.cell.requestOnly === true
+                  /** 中文说明：视图局部值 isInitialSystem，由紧邻初始化决定。 */
                   const isInitialSystem = record.cell.kind === 'system'
                 && record.cell.index === allRecords[0]?.cell.index
+                  /** 中文说明：视图局部值 key，由紧邻初始化决定。 */
                   const key = requestKey(record.turn, record.group)
+                  /** 中文说明：视图局部值 request，由紧邻初始化决定。 */
                   const request = requestBoundaries.get(key) === record.cell.index
                 && !isCollapsedSummary
                 && (record.turn === null || !collapsedTurns.has(record.turn))
                     ? requestNumbers.get(key)
                     : undefined
+                  /** 中文说明：视图局部值 requestInfo，由紧邻初始化决定。 */
                   const requestInfo = request === undefined
                     ? undefined
                     : sessionRequestNumbers?.find(candidate => candidate.number === request)
+                  /** 中文说明：视图局部值 requestStatus，由紧邻初始化决定。 */
                   const requestStatus = requestInfo?.status
                 ?? (record.cell.isError === true ? 'error' : undefined)
+                  /** 中文说明：视图局部值 requestRunIndex，由紧邻初始化决定。 */
                   const requestRunIndex = requestBoundaryRuns.get(record.cell.index) ?? 0
+                  /** 中文说明：视图局部值 requestBoundaryStyle，由紧邻初始化决定。 */
                   const requestBoundaryStyle: RequestBoundaryStyle = {
                     '--request-boundary-offset': `${requestRunIndex * 8}px`,
                   }
+                  /** 中文说明：视图局部值 requestLabel，由紧邻初始化决定。 */
                   const requestLabel = request === undefined
                     ? undefined
                     : `Request #${request}${requestInfo?.purpose === 'compaction' ? ' · Compaction' : ''}`
+                  /** 中文说明：视图局部值 requestSelected，由紧邻初始化决定。 */
                   const requestSelected = request !== undefined
                 && selectedRequest?.turn === record.turn
                 && selectedRequest.group === record.group
+                  /** 中文说明：视图局部值 sectionActive，由紧邻初始化决定。 */
                   const sectionActive = record.turn === null
                     ? activeSection === record.section
                     : activeTurn === record.turn
@@ -2549,10 +2905,13 @@ export function TrajectoryTable({
             }}
             onPointerDown={(event) => {
               if (event.button !== 0) return
+              /** 中文说明：视图局部值 details，由紧邻初始化决定。 */
               const details = event.currentTarget.parentElement
               if (details === null) return
+              /** 中文说明：视图局部值 split，由紧邻初始化决定。 */
               const split = details.parentElement
               if (split === null) return
+              /** 中文说明：视图局部值 splitWidth，由紧邻初始化决定。 */
               const splitWidth = split.getBoundingClientRect().width
               detailsResizeDrag.current = {
                 pointerId: event.pointerId,
@@ -2567,8 +2926,10 @@ export function TrajectoryTable({
               event.preventDefault()
             }}
             onPointerMove={(event) => {
+              /** 中文说明：视图局部值 drag，由紧邻初始化决定。 */
               const drag = detailsResizeDrag.current
               if (drag === null || drag.pointerId !== event.pointerId) return
+              /** 中文说明：视图局部值 nextDetailsWidth，由紧邻初始化决定。 */
               const nextDetailsWidth = clampDetailsWidth(
                 drag.startWidth + drag.startX - event.clientX,
                 drag.splitWidth,
@@ -2589,17 +2950,24 @@ export function TrajectoryTable({
             }}
             onKeyDown={(event) => {
               if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+              /** 中文说明：视图局部值 details，由紧邻初始化决定。 */
               const details = event.currentTarget.parentElement
               if (details === null) return
+              /** 中文说明：视图局部值 split，由紧邻初始化决定。 */
               const split = details.parentElement
               if (split === null) return
+              /** 中文说明：视图局部值 direction，由紧邻初始化决定。 */
               const direction = event.key === 'ArrowLeft' ? 1 : -1
+              /** 中文说明：视图局部值 currentDetailsWidth，由紧邻初始化决定。 */
               const currentDetailsWidth = details.getBoundingClientRect().width
+              /** 中文说明：视图局部值 splitWidth，由紧邻初始化决定。 */
               const splitWidth = split.getBoundingClientRect().width
+              /** 中文说明：视图局部值 nextDetailsWidth，由紧邻初始化决定。 */
               const nextDetailsWidth = clampDetailsWidth(
                 currentDetailsWidth + direction * DETAILS_RESIZE_STEP,
                 splitWidth,
               )
+              /** 中文说明：视图局部值 currentToolRequestOffset，由紧邻初始化决定。 */
               const currentToolRequestOffset = toolRequestOffset ?? (
                 splitWidth * TOOL_REQUEST_SHARE - defaultToolRequestWidth(splitWidth)
               )

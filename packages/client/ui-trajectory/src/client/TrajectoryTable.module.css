@@ -1,5 +1,15 @@
+/**
+ * 文件职责：定义 TrajectoryTable 的局部样式。
+ * 技术维度：CSS Modules、代码字体、状态颜色和布局规则。
+ * 产品维度：让运行轨迹内容清晰区分状态与层级。
+ * 逻辑维度：按容器、标题、内容和状态组织样式。
+ * 关键边界：长命令与结果必须可滚动或换行，颜色不能单独承载含义。
+ * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+ */
 .split {
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存工具或轨迹视图复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存工具或轨迹视图复用的样式值。 */
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 
   position: relative;
@@ -117,6 +127,7 @@
 }
 
 .table {
+  /* 中文说明：自定义属性 --trajectory-turn-accent 保存工具或轨迹视图复用的样式值。 */
   --trajectory-turn-accent: color-mix(
     in srgb,
     var(--dsw-static-blue-500) 22%,
@@ -230,6 +241,7 @@
 }
 
 .requestBoundaryControl {
+  /* 中文说明：自定义属性 --request-boundary-base-left 保存工具或轨迹视图复用的样式值。 */
   --request-boundary-base-left: 12px;
 
   position: absolute;
@@ -510,6 +522,7 @@
   }
 
   .requestBoundaryControl {
+    /* 中文说明：自定义属性 --request-boundary-base-left 保存工具或轨迹视图复用的样式值。 */
     --request-boundary-base-left: 6px;
   }
 
@@ -853,11 +866,17 @@
 
 .details .jsonPayload.errorPayload,
 .details .jsonPreview.errorPayload {
+  /* 中文说明：自定义属性 --json-tree-property 保存工具或轨迹视图复用的样式值。 */
   --json-tree-property: var(--dsw-alias-state-error-primary);
+  /* 中文说明：自定义属性 --json-tree-string 保存工具或轨迹视图复用的样式值。 */
   --json-tree-string: var(--dsw-alias-state-error-primary);
+  /* 中文说明：自定义属性 --json-tree-number 保存工具或轨迹视图复用的样式值。 */
   --json-tree-number: var(--dsw-alias-state-error-primary);
+  /* 中文说明：自定义属性 --json-tree-keyword 保存工具或轨迹视图复用的样式值。 */
   --json-tree-keyword: var(--dsw-alias-state-error-primary);
+  /* 中文说明：自定义属性 --json-tree-punctuation 保存工具或轨迹视图复用的样式值。 */
   --json-tree-punctuation: var(--dsw-alias-state-error-primary);
+  /* 中文说明：自定义属性 --json-tree-icon 保存工具或轨迹视图复用的样式值。 */
   --json-tree-icon: var(--dsw-alias-state-error-primary);
 }
 
@@ -1046,13 +1065,17 @@
 }
 
 .summaryScrollRegion {
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存工具或轨迹视图复用的样式值。 */
   --dsh-scrollbar-thumb: transparent;
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存工具或轨迹视图复用的样式值。 */
   --dsh-scrollbar-thumb-hover: transparent;
 }
 
 .summaryScrollRegion:hover,
 .summaryScrollRegion:focus-within {
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存工具或轨迹视图复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存工具或轨迹视图复用的样式值。 */
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
