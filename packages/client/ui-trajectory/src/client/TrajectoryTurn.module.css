@@ -1,9 +1,19 @@
 /* One turn block: sticky header + padded body with 10px item gap. */
+/*
+ * 文件职责：定义单个轨迹轮次的全宽根容器和居中内容区布局。
+ * 技术维度：使用 Flex 列布局、border-box、最大宽度与响应式水平留白。
+ * 产品维度：轨迹事件在宽屏上保持易读行宽，在窄屏上充分利用空间。
+ * 逻辑维度：`.root` 占满父级，`.body` 纵向排列并限制为 880 像素。
+ * 关键边界：顶部 sticky header 由其他样式拥有；本文件只处理轮次正文。
+ * 新手阅读建议：先看 root 的宽度，再逐项理解 body 的居中与内边距。
+ */
 
+/* 单轮轨迹根节点；宽度始终占满可用区域。 */
 .root {
   width: 100%;
 }
 
+/* 轨迹正文；最多 880 像素居中，条目间距 10 像素。 */
 .body {
   display: flex;
   flex-direction: column;
