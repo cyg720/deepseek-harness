@@ -1,5 +1,12 @@
 /* Plugins section: compact tabs plus the configurable plugin card list. */
+/* 文件职责：定义插件设置页的标题、说明、分类标签、卡片列表和空状态样式。
+ * 技术维度：使用 CSS Module、弹性布局、data-active 状态、伪元素下划线和 focus-visible。
+ * 产品维度：让用户按类别浏览可配置插件，并通过鼠标或键盘清晰识别当前标签。
+ * 逻辑维度：section 组织页面，tabs/tab 管理切换，panel/cards 展示卡片，empty 显示无内容反馈。
+ * 关键边界：内容最大宽度 760px；活动与键盘焦点共享下划线但焦点额外保留轮廓。
+ * 新手阅读建议：先看 section/heading/intro，再跟踪 tab 三种状态，最后看 panel/cards/empty。 */
 
+/* 插件设置分区根容器；纵向排列且最大宽度 760px。 */
 .section {
   display: flex;
   flex-direction: column;
@@ -8,18 +15,21 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* 分区主标题。 */
 .heading {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
 }
 
+/* 分区介绍文字，使用次要层级颜色。 */
 .intro {
   margin: 0;
   font-size: 13px;
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* 分类标签栏；底部边框提供共同基线。 */
 .tabs {
   display: flex;
   align-items: flex-end;
@@ -28,6 +38,7 @@
   margin-top: 2px;
 }
 
+/* 单个标签按钮；默认使用次要文字色并为活动下划线提供定位。 */
 .tab {
   position: relative;
   border: 0;
@@ -40,11 +51,13 @@
   cursor: pointer;
 }
 
+/* 悬停或活动标签切换为主文字色。 */
 .tab:hover,
 .tab[data-active='true'] {
   color: var(--dsw-alias-label-primary);
 }
 
+/* 活动标签及键盘焦点标签的 2px 底部指示线。 */
 .tab[data-active='true']::after,
 .tab:focus-visible::after {
   position: absolute;
@@ -57,6 +70,7 @@
   content: '';
 }
 
+/* 键盘焦点状态；增加业务色轮廓且保持主文字色。 */
 .tab:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary);
   outline-offset: 2px;
@@ -64,11 +78,13 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* 当前分类内容面板；允许在弹性布局中缩小。 */
 .panel {
   min-width: 0;
   padding-top: 2px;
 }
 
+/* 插件卡片无序列表；清除列表样式并纵向留出 10px 间距。 */
 .cards {
   list-style: none;
   margin: 0;
@@ -78,6 +94,7 @@
   gap: 10px;
 }
 
+/* 当前分类没有卡片时的次要提示文字。 */
 .empty {
   margin: 0;
   font-size: 13px;

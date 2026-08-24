@@ -1,6 +1,13 @@
 /* Appearance row (figma 'Frame 2117131228': title + cube row, column gap 8,
  * pad 16/0, hairline separator; the section column strips it when last). */
+/* 文件职责：定义外观设置行的标题、主题选择卡片和选中状态样式。
+ * 技术维度：使用 CSS Module、弹性换行、主题令牌和交互伪类。
+ * 产品维度：让用户在系统、浅色和深色主题间清晰选择，并适配窄设置面板。
+ * 逻辑维度：group 组织标题与卡片行，cubeRow 负责换行，themeCube 提供交互，selected 标记当前主题。
+ * 关键边界：最后一组分隔线由外层移除；卡片最小弹性基准 180px，窄屏允许换行。
+ * 新手阅读建议：先看 group/cubeRow 布局，再比较 themeCube 默认、hover 和 selected 三种状态。 */
 
+/* 单个外观设置分组；纵向排列并显示底部分隔线。 */
 .group {
   display: flex;
   flex-direction: column;
@@ -9,6 +16,7 @@
   border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
+/* 分组标题的主题文字样式。 */
 .title {
   font-size: 14px;
   font-weight: 400;
@@ -16,6 +24,7 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* 主题卡片行；横向排列并在空间不足时换行。 */
 .cubeRow {
   display: flex;
   align-items: stretch;
@@ -26,6 +35,7 @@
 /* Appearance cube (figma '.Selector Cube' 276x82 r16, pad 20/32, centered
  * icon-over-label column, gap 4); flexed down from the figma width so all
  * three sit on one row in the 800 panel, wrapping when narrower. */
+/* 可点击主题卡片；弹性宽度让三项在 800px 面板同排、窄面板换行。 */
 .themeCube {
   box-sizing: border-box;
   flex: 1 1 180px;
@@ -45,12 +55,14 @@
   cursor: pointer;
 }
 
+/* 未选中卡片的悬停背景。 */
 .themeCube:hover:not(.selected) {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
 /* Selected cube: #F5F6F7 fill + #ADB2B8 border (static token — the bluish-400
  * step has no alias-layer name). */
+/* 当前选中卡片；背景使用模块别名，边框使用无对应别名的静态 bluish-400。 */
 .selected {
   background: var(--dsw-alias-bg-module-platform);
   border-color: var(--dsw-static-neutral-bluish-400);

@@ -1,5 +1,12 @@
 /* Ongoing blue has no alias token (state-business-primary is the 500 step,
  * not this 450) — component-level var pinned to the static scale instead. */
+/* 文件职责：定义完成、警告、错误和进行中状态点的静态圆点与像素追逐动画。
+ * 技术维度：使用 CSS Module、自定义属性、伪元素同色光晕、SVG fill 和离散关键帧。
+ * 产品维度：用紧凑视觉信号表达任务状态，并让进行中状态具有易识别的动态反馈。
+ * 逻辑维度：dot/matrix 共享进行中色；dot 用双层圆形表达静态状态，matrix/cell 用相位延迟动画表达进行中。
+ * 关键边界：进行中蓝色固定到静态 450 色阶；每个 cell 的 delay 由组件内联设置，本文件只定义亮度周期。
+ * 新手阅读建议：先比较 dot 的 before/after 两层，再看三种 data-state 颜色，最后阅读 matrix 动画。 */
+/* 静态圆点和动画矩阵共享的进行中色常量。 */
 .dot,
 .matrix {
   --dsh-state-ongoing: var(--dsw-static-deepseek-450);
@@ -7,12 +14,14 @@
 
 /* Solid states: same-color halo via a 0.10-opacity outer layer (::before)
  * with a 6/10-scale solid core. Layer color rides currentColor set per state. */
+/* 静态状态点容器；currentColor 由具体状态决定。 */
 .dot {
   position: relative;
   display: inline-block;
   flex: none;
 }
 
+/* 低透明度外层圆形光晕。 */
 .dot::before {
   content: '';
   position: absolute;
@@ -22,6 +31,7 @@
   opacity: 0.1;
 }
 
+/* 内缩 20% 的实心核心。 */
 .dot::after {
   content: '';
   position: absolute;
@@ -30,14 +40,17 @@
   background: currentColor;
 }
 
+/* 完成状态使用成功色。 */
 .dot[data-state='done'] {
   color: var(--dsw-alias-state-success-primary);
 }
 
+/* 警告状态使用警告色。 */
 .dot[data-state='warning'] {
   color: var(--dsw-alias-state-warn-primary);
 }
 
+/* 错误状态使用错误色。 */
 .dot[data-state='error'] {
   color: var(--dsw-alias-state-error-primary);
 }
@@ -46,17 +59,20 @@
  * holds, no tweening — the retro feel), peaking when the chase hits it and
  * decaying over the next three cells. Phase offsets come from per-rect
  * animation-delay (index * -125ms) set inline by the component. */
+/* 进行中像素矩阵；每格离散变亮再衰减，相位由组件按索引设置。 */
 .matrix {
   flex: none;
   color: var(--dsh-state-ongoing);
 }
 
+/* 单个 SVG 像素格；默认最低亮度并循环追逐动画。 */
 .cell {
   fill: currentColor;
   opacity: 0.15;
   animation: dsh-state-dot-chase 1s infinite;
 }
 
+/* 四级离散亮度关键帧，刻意不使用平滑补间。 */
 @keyframes dsh-state-dot-chase {
   0%, 12.4% { opacity: 1; }
   12.5%, 24.9% { opacity: 0.6; }
