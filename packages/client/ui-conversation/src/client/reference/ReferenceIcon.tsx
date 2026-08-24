@@ -4,12 +4,17 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Reference domains with distinct composer and transcript glyphs. */
+/** 中文：具有不同输入区和对话图标的三种引用领域。 */
 export type ReferenceIconKind = 'session' | 'file' | 'folder'
 
 /** Props shared by inline reference glyphs. */
+/** 中文：行内引用图标的公共属性。 */
 export interface ReferenceIconProps {
+  /** 引用对象类型，决定选择哪个图标。 */
   kind: ReferenceIconKind
+  /** 图标宽高像素值，默认 16。 */
   size?: number
+  /** 可选外部 CSS 类，用于布局或颜色扩展。 */
   className?: string | undefined
 }
 
@@ -18,6 +23,7 @@ export interface ReferenceIconProps {
  * @param props - Reference kind, optional size, and optional CSS class.
  * @returns The corresponding current-color SVG glyph.
  */
+/** 中文：渲染 kind 对应的 currentColor SVG；size 默认 16，返回 ReactNode。示例：<ReferenceIcon kind="file" />。 */
 export function ReferenceIcon({ kind, size = 16, className }: ReferenceIconProps): ReactNode {
   switch (kind) {
     case 'session':
@@ -33,3 +39,12 @@ export function ReferenceIcon({ kind, size = 16, className }: ReferenceIconProps
     case 'folder': return <IconFolderClose16 size={size} className={className} />
   }
 }
+/**
+ * 中文说明：
+ * - 文件职责：按引用领域渲染会话、文件或文件夹的行内图标。
+ * - 技术维度：使用 React SVG、判别联合和设计系统图标组件。
+ * - 产品维度：帮助用户在输入区和对话记录中快速识别引用对象类型。
+ * - 逻辑维度：接收 kind、size 和 className，再由 switch 选择相应 currentColor 图标。
+ * - 关键边界：kind 是封闭的三值联合；图标仅作装饰并由 aria-hidden 隐藏。
+ * - 新手阅读建议：先看 ReferenceIconKind，再比较 session 自绘 SVG 与复用的 file/folder 图标。
+ */

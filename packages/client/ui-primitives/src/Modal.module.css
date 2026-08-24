@@ -1,4 +1,15 @@
 /* Full-viewport layer (figma Mask + Dialog 451:18655): mask + centered card. */
+/* 中文：全视口层由遮罩和居中对话框组成，对应 Figma 指定节点。 */
+/*
+ * 中文说明：
+ * - 文件职责：定义通用模态框的全屏层、遮罩、卡片、标题、正文、关闭按钮和底部操作区。
+ * - 技术维度：使用 CSS Modules、Flexbox、设计令牌、backdrop-filter 和视口固定定位。
+ * - 产品维度：为确认、结果提示等阻塞式交互提供一致且可聚焦的视觉容器。
+ * - 逻辑维度：根层覆盖视口，遮罩铺底，dialog 居中叠放，内部按 header/content/body/footer 排列。
+ * - 关键边界：z-index 固定为 1000；卡片最大宽度 380px，高度溢出策略由调用内容控制。
+ * - 新手阅读建议：先看 root/mask/dialog 的三层叠放，再沿内部区域理解间距来源。
+ */
+/* 模态框全视口定位与居中容器。 */
 .root {
   position: fixed;
   inset: 0;
@@ -11,6 +22,7 @@
 
 /* User/spec mask: rgba(0,0,0,0.24) + blur(2px) via --dsw-alias-bg-mask-1 /
    --dsw-mask-blur (light); dark theme raises mask opacity. */
+/* 中文：遮罩色和模糊由主题令牌决定，深色主题会提高遮罩不透明度。 */
 .mask {
   position: absolute;
   inset: 0;
@@ -19,6 +31,7 @@
 }
 
 /* Dialog card: r24, shadow-lv3, layer-2 fill, inverted border, pb 24. */
+/* 中文：对话框卡片使用 24px 圆角、三级阴影、二层背景和反色边框。 */
 .dialog {
   position: relative;
   z-index: 1;
@@ -34,6 +47,7 @@
   box-shadow: var(--dsw-shadow-lv3);
 }
 
+/* 标题、说明和自定义正文的纵向内容容器。 */
 .content {
   display: flex;
   flex-direction: column;
@@ -42,6 +56,7 @@
 
 /* Header row (figma Title row): pad l24/t22/r14/b12, SPACE_BETWEEN —
  * title left, close button right. */
+/* 中文：标题行按设计稿间距水平分开标题和关闭按钮。 */
 .header {
   display: flex;
   align-items: center;
@@ -50,14 +65,17 @@
   padding: 22px 14px 12px 24px;
 }
 
+/* 模态框标题文字。 */
 .title {
   margin: 0;
   font-size: 16px;
   line-height: 24px;
   font-weight: 500; /* figma wt510, rendered 500 */
+  /* 中文：设计稿字重约 510，浏览器使用可用的 500 字重。 */
   color: var(--dsw-alias-label-primary);
 }
 
+/* 标题栏右侧的关闭按钮。 */
 .close {
   flex: none;
   display: inline-flex;
@@ -72,11 +90,13 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* 关闭按钮悬停反馈。 */
 .close:hover {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
 /* Description and body share the 332px content column (24px side pads). */
+/* 中文：说明和正文共用左右 24px 内边距形成的内容列。 */
 .description {
   margin: 0;
   padding: 0 24px;
@@ -86,6 +106,7 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* 调用方传入的自定义正文区域。 */
 .body {
   display: flex;
   flex-direction: column;
@@ -94,6 +115,7 @@
   padding: 0 24px;
 }
 
+/* 底部操作按钮行，默认靠右排列。 */
 .footer {
   display: flex;
   align-items: center;

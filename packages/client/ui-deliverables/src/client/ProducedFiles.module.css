@@ -1,6 +1,17 @@
 /* Turn-tail produced-files summary: one measured chip lane plus an optional
    native-folder action below it. */
+/* 中文：轮次尾部产物摘要包含一行经过测量的文件胶囊，以及可选的原生文件夹操作。 */
+/*
+ * 中文说明：
+ * - 文件职责：定义轮次产出文件摘要的标签、单行文件胶囊、溢出计数、打开文件夹和隐藏测量探针。
+ * - 技术维度：使用 CSS Modules、Grid/Flex、文本省略、焦点样式和 contain 隔离测量层。
+ * - 产品维度：让用户快速打开本轮生成文件，并在空间不足时明确知道还有多少文件未显示。
+ * - 逻辑维度：根网格安排标签和文件行，文件行限制单行，第二行可显示文件夹操作，隐藏层负责宽度探测。
+ * - 关键边界：单文件最大宽度 320px；测量探针不可影响布局、滚动宽度或无障碍树。
+ * - 新手阅读建议：先看 root 两列两行网格，再看 row/file/more 的溢出策略，最后理解 measure/probe。
+ */
 
+/* 产出文件摘要根网格，第一列标签、第二列内容。 */
 .root {
   position: relative;
   display: grid;
@@ -13,12 +24,14 @@
   line-height: 22px;
 }
 
+/* 第一行左侧的“生成文件”标签。 */
 .label {
   grid-column: 1;
   grid-row: 1;
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* 第一行右侧的文件胶囊单行容器。 */
 .row {
   grid-column: 2;
   grid-row: 1;
@@ -32,6 +45,7 @@
 
 /* One produced file. A link by behavior (it opens the file), a chip by shape:
    full paths are long, while the measured lane stays on one row. */
+/* 中文：单个文件行为像链接、外形像胶囊；长路径在 320px 内省略，整行保持不换行。 */
 .file {
   flex: 0 0 auto;
   max-width: 320px;
@@ -48,11 +62,13 @@
   cursor: pointer;
 }
 
+/* 文件胶囊悬停时提高强调并显示下划线。 */
 .file:hover {
   color: var(--dsw-alias-label-primary);
   text-decoration: underline;
 }
 
+/* 文件和打开文件夹按钮共享的键盘焦点内描边。 */
 .file:focus-visible,
 .showFolder:focus-visible {
   outline: none;
@@ -60,12 +76,14 @@
 }
 
 /* Overflow count: the row never silently drops files it did not show. */
+/* 中文：未显示文件数量提示，确保单行溢出不会静默丢失信息。 */
 .more {
   flex: 0 0 auto;
   white-space: nowrap;
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* 第二行打开原生文件夹的文字按钮。 */
 .showFolder {
   grid-column: 2;
   grid-row: 2;
@@ -81,6 +99,7 @@
   cursor: pointer;
 }
 
+/* 打开文件夹按钮悬停反馈。 */
 .showFolder:hover {
   color: var(--dsw-alias-label-secondary);
   text-decoration: underline;
@@ -88,6 +107,7 @@
 
 /* Exact browser-native probes for every candidate shown count. They share the
    visible styles but never affect layout, accessibility, or scroll width. */
+/* 中文：为每个候选显示数量建立浏览器原生测量探针；复用可见样式但不进入布局和无障碍树。 */
 .measure {
   position: absolute;
   width: 0;
@@ -98,6 +118,7 @@
   contain: strict;
 }
 
+/* 测量层内的绝对定位探针，宽度按内容自然展开。 */
 .probe {
   position: absolute;
   inset: 0 auto auto 0;
