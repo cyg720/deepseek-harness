@@ -1,22 +1,36 @@
+/**
+ * 文件职责：配置 Web 客户端的 Vite 构建、React 转换、标题注入、资源分块和独立启动防护。
+ * 技术维度：使用 Vite、React 插件、Rollup 手动分块、构建环境常量和 HTML 转换钩子。
+ * 产品维度：生成可由 dsh web 主机加载且缓存友好的客户端，并阻止缺少启动清单的空壳误运行。
+ * 逻辑维度：解析路径，注入文档标题，拒绝 serve，定义稳定 vendor/语法/字体分块并输出构建配置。
+ * 关键边界：vendor 成员不得依赖 React；裸 Vite 必须失败；标题需 HTML 转义；懒加载语法不可进主 vendor。
+ * 新手阅读建议：先读两个自定义插件，再看 VENDOR_PACKAGES 约束，最后阅读 manualChunks 与 defineConfig。
+ */
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { clientBuildEnvironmentDefines } from '../../scripts/client-build-environment.ts'
 
+/** 将相对本配置文件的 rel 转为绝对路径。示例：src('./src')。 */
 const src = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url))
+/** 裸 Vite 启动时展示的完整主机纠正说明。 */
 const STANDALONE_ERROR = 'apps/web is not a standalone application: bare Vite cannot inject window.__DSH_BOOT__. '
   + 'From a repository checkout, run `pnpm dsh web`; an installed package uses `dsh web`. '
   + 'For client-plugin HMR, run `pnpm dsh web` together with `pnpm run dev:web`.'
+/** 未设置 DSH_CLIENT_TITLE 时写入 HTML 的默认客户端标题。 */
 const DEFAULT_CLIENT_TITLE = 'DSH Local Build'
 
 /** Escape build-time text before placing it in the HTML title element. */
+/** 转义 value 中影响 HTML 文本的字符并返回安全标题。示例：escapeHtmlText('A & B')。 */
 function escapeHtmlText(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 /** Project the public build title into the initial HTML document. */
+/** 创建把公开构建标题写入首页的 Vite 插件。示例：clientDocumentTitle()。 */
 function clientDocumentTitle(): Plugin {
+  /** 经过 HTML 转义的最终文档标题。 */
   const title = escapeHtmlText(process.env.DSH_CLIENT_TITLE ?? DEFAULT_CLIENT_TITLE)
   return {
     name: 'dsh-client-document-title',
@@ -27,6 +41,7 @@ function clientDocumentTitle(): Plugin {
 }
 
 /** Fail before a Vite dev or preview server can expose the boot-manifest-free shell. */
+/** 创建拒绝 Vite serve 命令的插件，构建命令不受影响。 */
 function rejectStandaloneServe(): Plugin {
   return {
     name: 'dsh-reject-standalone-web-serve',
@@ -56,6 +71,8 @@ function rejectStandaloneServe(): Plugin {
  * vendor. The React side of markdown/math rendering is workspace code and
  * rides index.
  */
+/** 中文说明：仅列出工作区直接导入、体积大且不含 React 的稳定依赖，以隔离缓存变动。 */
+/** 分配到共享 vendor 块的精确 npm 包名集合。 */
 const VENDOR_PACKAGES: ReadonlySet<string> = new Set([
   // math
   'katex',

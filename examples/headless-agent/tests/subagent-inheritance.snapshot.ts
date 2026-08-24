@@ -2,6 +2,14 @@
  * Assembled-app regression: a parent-only read-only override is seeded into
  * its child log and confines a real write under a wider deployment default.
  */
+/**
+ * 文件职责：验证父会话的只读沙箱覆盖会持久注入子代理日志，并约束其真实写操作。
+ * 技术维度：使用 Vitest、SessionStore、JSONL 持久化、Loader smoke、子代理回放和快照归一化。
+ * 产品维度：确保委派任务不会绕过父会话收紧的权限，即使部署默认允许更宽访问。
+ * 逻辑维度：先写入含 sandbox/mode 只读事件的父会话，恢复后委派写探针，再比较父子日志与磁盘状态。
+ * 关键边界：只读事实只存在于父日志；子代理必须继承而非读取部署默认；实际文件不得落盘。
+ * 新手阅读建议：先读 seedReadOnlyParent 的 sandbox/mode 事件，再跟踪委派回放和子日志断言。
+ */
 
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -14,6 +22,7 @@ import SessionStore, { SESSION_FORMAT_VERSION, SessionId, type SessionEvent, typ
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { describe, expect, it } from 'vitest'
 
+/** 父权限覆盖继承场景的回放和预期输出目录。 */
 const fixtureDir = fileURLToPath(new URL('./subagent-inheritance-snapshots/parent-override', import.meta.url))
 const replayOverride = join(fixtureDir, 'replay.override.json')
 const childReplay = join(fixtureDir, 'child.replay.jsonl')
@@ -27,6 +36,7 @@ const refreshing = process.env.DSH_SNAPSHOT === 'refresh'
 const task = 'Delegate the write probe to a subagent.'
 
 /** Seed a completed parent turn with the only read-only fact in the app. */
+/** 在 root 中写入唯一含只读权限事实的已完成父会话，无返回值。 */
 async function seedReadOnlyParent(root: string, cwd: string): Promise<void> {
   const ctx = new Context()
   await ctx.plugin(SessionStore)

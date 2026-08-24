@@ -2,6 +2,15 @@
 // Reuses the existing recorded workflow parent/child model fixtures; the real
 // workflow tool, worker, subagent provider, Session log, browser plugin graph,
 // and navigation all execute during replay.
+// 中文说明：复用既有父子模型记录，但真实工作流工具、Worker、子代理、会话日志与浏览器导航全部执行。
+/**
+ * 文件职责：验证持久化工作流 Conversation Node 在 Chat 中从启动、子任务执行到历史导航的完整表现。
+ * 技术维度：使用 Playwright、Vitest、父子回放 fixture、真实 Worker/子代理提供方和会话事件。
+ * 产品维度：让用户在普通会话中运行可恢复工作流，并查看运行中与完成后的父子任务状态。
+ * 逻辑维度：读取父子 fixture，启动真实组合，发送父提示，等待父回合和刷新，再比较运行态与完成态快照。
+ * 关键边界：录制模式跳过；父子提示必须与 fixture 一致；父会话结束后还要等待智能体空闲和存储刷新。
+ * 新手阅读建议：先看两个 fixture 路径与 CHILD_PROMPT，再读 waitForParentSettlement，最后看浏览器导航断言。
+ */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,12 +27,19 @@ import {
   connectFreshWorkspace, newEnglishPage, REPO_ROOT, saveFailureShot,
 } from './support.ts'
 
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 工作流运行中与完成后界面的快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/workflow-run', import.meta.url))
+/** 子工作流仍在运行时的预期快照。 */
 const UI_LIVE_EXPECTED = join(SNAPSHOT_DIR, 'ui-live.expected.md')
+/** 工作流全部完成后的预期快照。 */
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
+/** 已录制的父工作流模型会话。 */
 const PARENT_FIXTURE = join(REPO_ROOT, 'examples/acp-agent/tests/snapshots/workflow-run/session.jsonl')
+/** 已录制的子代理模型会话。 */
 const CHILD_FIXTURE = join(REPO_ROOT, 'examples/acp-agent/tests/snapshots/workflow-run/session.1.jsonl')
+/** 子工作流 fixture 中的固定提示。 */
 const CHILD_PROMPT = 'Reply with exactly the word WF_CHILD_OK and nothing else.'
 
 describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () => {

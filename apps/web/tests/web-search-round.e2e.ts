@@ -2,6 +2,15 @@
 // drives `web_search`; the model stream is replayed while the real DeepSeek
 // provider calls a deterministic local Anthropic-compatible endpoint through
 // the real credentials service.
+// 中文说明：模型流可回放，但 web_search 通过真实凭据服务调用本地确定性兼容端点，覆盖正式搜索组合。
+/**
+ * 文件职责：验证默认 web_search 从模型工具调用、提供方请求、轮询截断到浏览器搜索卡片的完整回合。
+ * 技术维度：使用 Playwright、Vitest、本地 HTTP 兼容服务、真实凭据服务、模型回放和会话事件。
+ * 产品维度：保障多查询搜索结果公平合并、限制数量、展示来源并在回复后保留可审阅记录。
+ * 逻辑维度：启动本地搜索双替身，写入测试凭据，发送固定多查询任务，检查请求、事件和界面快照。
+ * 关键边界：本地端点必须验证凭据；结果数故意超过上限；录制模式可调用真实模型但搜索仍确定。
+ * 新手阅读建议：先看 QUERIES 与结果生成函数，再读 startSearchServer，最后跟踪工具回合和来源断言。
+ */
 import { readFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -18,13 +27,21 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 搜索回合 fixture 与预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/web-search-round', import.meta.url))
+/** 录制模型调用 web_search 的会话日志。 */
 const FIXTURE = fileURLToPath(new URL('./snapshots/web-search-round/session.jsonl', import.meta.url))
+/** 搜索卡片与最终回复的预期快照。 */
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/web-search-round/ui.expected.md', import.meta.url))
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 一次工具调用中提交的两个固定查询。 */
 const QUERIES = ['DeepSeek Harness snapshot search', 'DeepSeek Harness multi-query search'] as const
+/** 要求模型只调用一次多查询搜索并固定结束文本的提示。 */
 const PROMPT = `Use web_search once with queries ${JSON.stringify(QUERIES)}. Then reply exactly SEARCH_DONE and stop.`
+/** 测试搜索提供方读取的凭据引用。 */
 const SEARCH_CREDENTIAL_REF = credentialRef('DSH_WEB_SEARCH_E2E_KEY')
+/** 本地搜索服务期望收到的固定凭据。 */
 const SEARCH_CREDENTIAL = 'snapshot-search-key'
 
 /**
@@ -33,6 +50,8 @@ const SEARCH_CREDENTIAL = 'snapshot-search-key'
  * scroll container are both exercised. Each row carries a title, a snippet,
  * and a date, so 8 kept rows exceed the `.sources` 320px max-height.
  */
+/** 中文说明：每个查询返回六项，使合并结果超过正式上限并触发轮询截断和卡片滚动。 */
+/** 本地提供方为每个查询生成的结果数量。 */
 const PROVIDER_RESULT_COUNT = 6
 
 /** One provider result's URL, by 1-based provider order. */

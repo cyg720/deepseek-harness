@@ -1,3 +1,11 @@
+/**
+ * 文件职责：定义 ACP 示例的完整快照场景表、工作区准备器、模式解析和专项协议断言。
+ * 技术维度：使用 dsh-acp-snapshot、Vitest、真实/回放模型、临时 HTTP 服务、会话日志和多套 Cordis 配置。
+ * 产品维度：系统验证 ACP 智能体的工具、图片、技能、子代理、沙箱、重试和跨平台 PowerShell 能力。
+ * 逻辑维度：声明智能体与配置路径，提供 fixture/工作区辅助函数，组装 SCENARIOS，再执行专项快照检查。
+ * 关键边界：录制需真实 API；刷新必须无密钥可重放；每个场景的配置、fixture 和预期输出必须配对。
+ * 新手阅读建议：先读 AGENT 与配置常量，再看工作区准备函数和模式解析，最后按 SCENARIOS 分组阅读。
+ */
 import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
@@ -28,15 +36,19 @@ import { OFFLOADED_IMAGE_TEXT } from '@deepseek-ai/dsh-llm'
  * See the package README (packages/test-support/acp-snapshot) and the snapshot Agent Note,
  * .agents/notes/implemented/testing/2026-06-19-acp-snapshot-tests.md.
  */
+/** 中文说明：套件工厂统一负责期望输出、重持久日志、录制刷新和 fixture 门禁，场景材料位于 snapshots。 */
 
 // The dsh-acp-demo bin (the demo:acp entry), this example's cordis.yml, and
 // the repo-root tsconfig (four levels up from examples/acp-agent/tests) — all
 // ABSOLUTE: the subprocess cwd is a temp dir outside the repo.
+// 中文说明：子进程在仓库外临时目录运行，因此入口、配置和 tsconfig 必须使用绝对路径。
+/** ACP 示例智能体的启动入口、组合配置和 TypeScript 配置。 */
 const AGENT = {
   binScript: fileURLToPath(new URL('../../../packages/examples/acp-demo/src/bin.ts', import.meta.url)),
   configPath: fileURLToPath(new URL('../cordis.yml', import.meta.url)),
   tsconfigPath: fileURLToPath(new URL('../../../tsconfig.json', import.meta.url)),
 }
+/** 代码模式场景复制到临时工作区的 Cordis 编辑技能源文件。 */
 const EDITING_CORDIS_SKILL = fileURLToPath(new URL(
   '../../../apps/cli/config/agent-presets/cordis/skills/editing-cordis-compositions/SKILL.md',
   import.meta.url,
@@ -44,9 +56,14 @@ const EDITING_CORDIS_SKILL = fileURLToPath(new URL(
 
 // The Code Mode overlay configs (include-patched variants of cordis.yml; the
 // replay swap resolves each one's sibling `*cordis.snapshot.yml`).
+// 中文说明：代码模式配置均为 cordis.yml 的 include 补丁，回放时解析各自相邻的快照配置。
+/** 仅代码模式的组合配置。 */
 const CODE_MODE_CONFIG = fileURLToPath(new URL('../code-mode.cordis.yml', import.meta.url))
+/** 支持图片输入的代码模式组合配置。 */
 const CODE_MODE_IMAGE_CONFIG = fileURLToPath(new URL('../code-mode-image.cordis.yml', import.meta.url))
+/** 注入工作区上下文的代码模式配置。 */
 const CODE_MODE_WORKSPACE_CONTEXT_CONFIG = fileURLToPath(new URL('../code-mode-workspace-context.cordis.yml', import.meta.url))
+/** 同时公开传统工具与代码模式的组合配置。 */
 const BOTH_MODE_CONFIG = fileURLToPath(new URL('../both-mode.cordis.yml', import.meta.url))
 const WORKSPACE_CONTEXT_CONFIG = fileURLToPath(new URL('../agent-instructions.cordis.yml', import.meta.url))
 const ADVANCED_CONFIG = fileURLToPath(new URL('../advanced.cordis.yml', import.meta.url))
@@ -85,7 +102,9 @@ const PRODUCT_SUBAGENT_RESULT_DIAGNOSTIC_CONFIG = fileURLToPath(
   new URL('../subagent-result-diagnostic.cordis.yml', import.meta.url),
 )
 const FS_DIFF_BOUND_CONFIG = fileURLToPath(new URL('./fs-diff-bound.cordis.yml', import.meta.url))
+/** 所有 ACP 场景 fixture 与预期输出的根目录。 */
 const SNAPSHOTS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'snapshots')
+/** 用于验证压缩 chunk 保留的场景名称。 */
 const PACKED_CHUNKS_SOURCE = 'hook-cc-pretool-deny'
 
 async function prepareEditingCordisSkillWorkspace(cwd: string): Promise<void> {

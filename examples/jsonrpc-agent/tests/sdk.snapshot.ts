@@ -8,6 +8,14 @@
  * re-records against the live API; `DSH_SNAPSHOT=refresh` replays committed
  * fixtures and rewrites expected outputs.
  */
+/**
+ * 文件职责：验证 TypeScript SDK 通过真实 JSON-RPC 运行时执行单回合，并固定结果、通知与持久日志。
+ * 技术维度：使用 DeepSeekHarness SDK、Vitest、真实/回放子进程、会话归一化和文件快照。
+ * 产品维度：保障 SDK 用户获得稳定 RunResult、完整通知流、工具定义和跨场景文件产物。
+ * 逻辑维度：声明实时/回放配置与场景表，为每项启动运行时、收集通知和日志，再归一化比较预期。
+ * 关键边界：录制需要真实 API；刷新使用已提交 fixture；固定会话标识与子会话数量不得漂移。
+ * 新手阅读建议：先读 SdkScenario 字段，再浏览 SCENARIOS，最后阅读单场景执行、归一化和写回流程。
+ */
 
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
@@ -31,11 +39,17 @@ import {
 import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
 import { DeepSeekHarness, type HarnessNotification, type RunResult } from '@deepseek-ai/dsh-sdk-client'
 
+/** 当前 SDK 测试目录的绝对路径。 */
 const testsDir = dirOf(import.meta.url)
+/** 所有 SDK 场景快照目录。 */
 const snapshotsDir = join(testsDir, 'snapshots')
+/** 真实模型运行使用的完整组合配置。 */
 const liveConfig = join(testsDir, '..', 'cordis.yml')
+/** 无密钥回放使用的完整组合配置。 */
 const replayConfig = join(testsDir, '..', 'cordis.snapshot.yml')
+/** minimal 预设真实模型配置。 */
 const minimalLiveConfig = join(testsDir, '..', 'minimal.cordis.yml')
+/** minimal 预设回放配置。 */
 const minimalReplayConfig = join(testsDir, '..', 'minimal.snapshot.cordis.yml')
 const runtimeBin = fileURLToPath(new URL('../../../packages/examples/jsonrpc-demo/src/bin.ts', import.meta.url))
 const repoTsconfig = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
@@ -50,14 +64,19 @@ const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
 * Please avoid commands that may produce a very large amount of output.
 * Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.`
 
+/** 当前 SDK 快照模式，未设置时默认为 replay。 */
 const mode = process.env.DSH_SNAPSHOT ?? 'replay'
+/** 表示本次运行会调用真实模型并录制 fixture。 */
 const recording = mode === 'record'
+/** 表示本次运行会重放 fixture 并刷新预期输出。 */
 const refreshing = mode === 'refresh'
 
+/** 返回 url 所在目录的绝对路径。示例：dirOf(import.meta.url)。 */
 function dirOf(url: string): string {
   return fileURLToPath(new URL('.', url))
 }
 
+/** 一项 SDK 快照场景的输入、组合、产物和模型可见预期。 */
 interface SdkScenario {
   /** Scenario name; the snapshots/<name> fixture directory. */
   name: string

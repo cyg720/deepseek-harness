@@ -13,12 +13,21 @@
  * which binary confines a process must never be decidable by the ambient
  * environment. Test injection is by function parameter.
  */
+/**
+ * 文件职责：为预构建 landlock-run 提供跨平台路径解析、授权参数生成和功能探测 API。
+ * 技术维度：使用 Node ESM、可选平台 npm 包解析、同步子进程和严格 CLI 报告解析。
+ * 产品维度：让上层沙箱在执行命令前确认 Linux Landlock 可用，并安全表达只读/读写路径授权。
+ * 逻辑维度：解析当前平台二进制，生成 --ro/--rw 参数，运行 --probe，再把结果归类为 full/partial/unusable。
+ * 关键边界：失败必须闭合；不得使用环境变量覆盖二进制；消费者不能自行拼写标志或解析原生输出。
+ * 新手阅读建议：先读三个导出类型/常量，再看 launcherPath 与 grantArgs，最后理解 probe 的双重判定。
+ */
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /** The launcher binary's file name inside each platform package's `bin/`. */
+/** 每个平台包 bin 目录中的启动器固定文件名。 */
 export const LAUNCHER_BIN = 'landlock-run'
 
 /**
@@ -28,6 +37,7 @@ export const LAUNCHER_BIN = 'landlock-run'
  * launcher-owned fatal diagnostic to attribute launcher failure. Part of the
  * CLI contract.
  */
+/** 启动器自身用法、内核、授权根或 exec 失败时统一使用的退出码。 */
 export const LAUNCHER_FAILURE_EXIT = 125
 
 /**
@@ -38,12 +48,14 @@ export const LAUNCHER_FAILURE_EXIT = 125
  * disabled LSM, or a missing binary, all indistinguishable on purpose
  * because the consumer's answer is the same: do not trust this launcher.
  */
+/** 当前主机的 Landlock 执行能力：完整、部分或不可用。 */
 export type LandlockEnforcement = 'full' | 'partial' | 'unusable'
 
 /**
  * Filesystem grants for one confined run. Everything not granted is denied —
  * Landlock rulesets are allow-lists.
  */
+/** 一次受限执行允许访问的只读和读写目录集合。 */
 export interface LauncherGrants {
   /** Roots granted read + execute beneath (the launcher's `--ro`). */
   readonly readOnly?: readonly string[]

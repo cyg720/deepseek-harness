@@ -1,3 +1,11 @@
+/**
+ * 文件职责：集中验证 Headless CLI 的流式 JSON、工具链、PTY、目标、重试、压缩、凭据和启动失败快照。
+ * 技术维度：使用 Vitest、Loader smoke、会话归一化、Zstd 扫描、临时 HTTP 服务和多套快照配置。
+ * 产品维度：保障无界面自动化输出稳定可解析，关键恢复与失败场景在无密钥环境可重放。
+ * 逻辑维度：声明各场景配置与材料，提供日志投影/归一化/服务辅助函数，再按功能分组运行快照。
+ * 关键边界：动态路径、时间和请求头只能按规则归一化；压缩日志需可解码；刷新模式才写回预期文件。
+ * 新手阅读建议：先看路径常量分组，再读 PersistedLog 与归一化函数，最后从 describe 分组选择场景。
+ */
 import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -21,11 +29,17 @@ import {
 } from '@deepseek-ai/dsh-session-persistence-jsonl/src/zstd.ts'
 import { describe, expect, it } from 'vitest'
 
+/** Headless 所有场景 fixture 与预期输出的根目录。 */
 const snapshotsDir = join(dirname(fileURLToPath(import.meta.url)), 'snapshots')
+/** 高级工具链场景目录。 */
 const advancedScenarioDir = join(snapshotsDir, 'advanced-toolchain')
+/** 高级工具链回放会话。 */
 const advancedSessionFixture = join(advancedScenarioDir, 'session.jsonl')
+/** 高级工具链 stream-json 预期输出。 */
 const advancedStreamExpected = join(advancedScenarioDir, 'stream-json.expected.jsonl')
+/** 高级工具链快照组合配置。 */
 const advancedConfigPath = fileURLToPath(new URL('../advanced.cordis.snapshot.yml', import.meta.url))
+/** PTY 工具场景目录。 */
 const ptyScenarioDir = join(snapshotsDir, 'pty-tools')
 const ptySessionFixture = join(ptyScenarioDir, 'session.jsonl')
 const ptyStreamExpected = join(ptyScenarioDir, 'stream-json.expected.jsonl')
@@ -43,6 +57,8 @@ const credentialsConfigPath = fileURLToPath(new URL('../credentials.cordis.snaps
 // Same keyless composition as the missing-credential scenario: the endpoint is
 // never dialed either way, because a supplied-but-unusable key fails credential
 // resolution exactly where an absent one does.
+// 中文说明：无效凭据与缺失凭据使用同一无密钥组合，都会在拨号前的凭据解析阶段失败。
+/** 提供了但不可用凭据的场景目录。 */
 const invalidCredentialScenarioDir = join(snapshotsDir, 'invalid-credential')
 const ralphScenarioDir = join(snapshotsDir, 'ralph-loop')
 const ralphConfigPath = fileURLToPath(new URL('../ralph.cordis.snapshot.yml', import.meta.url))

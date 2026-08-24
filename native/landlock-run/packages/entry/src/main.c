@@ -34,6 +34,14 @@
  * (`@deepseek-ai/node-addon-landlock-run-linux-{x64,arm64}`); the argv grammar,
  * exit codes, and report lines are pinned in `docs/cli-contract.md`.
  */
+/*
+ * 文件职责：在当前进程安装 Linux Landlock 允许列表规则后 exec 目标命令，并提供功能探测模式。
+ * 技术维度：使用纯 C11、原始 Landlock 系统调用、prctl、文件描述符和静态 musl 链接。
+ * 产品维度：在 bwrap 不可用时为 Harness 提供可审计的文件系统限制，保护宿主目录免受未授权访问。
+ * 逻辑维度：解析 --ro/--rw/--probe，协商内核 ABI，创建规则集、加入路径规则、限制自身后执行命令。
+ * 关键边界：任何规则创建或执行能力不确定都必须失败关闭；不得无约束降级；CLI 文本属于版本化协议。
+ * 新手阅读建议：先读 CLI 说明和访问位掩码，再看 ABI 协商与路径规则函数，最后阅读 main 的执行顺序。
+ */
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -55,10 +63,13 @@
  * touches. Layouts and values are verbatim from the kernel header (the
  * path-beneath struct is packed there, so it must be packed here).
  */
+/* 中文说明：本地复刻稳定内核 UAPI，避免依赖工具链头文件版本，并把实际使用的布局和值留作审计记录。 */
+/* Landlock 规则集创建参数，目前只声明要处理的文件系统访问位。 */
 struct landlock_ruleset_attr {
   uint64_t handled_access_fs;
 };
 
+/* 一条 path-beneath 规则允许的访问位和父目录文件描述符。 */
 struct landlock_path_beneath_attr {
   uint64_t allowed_access;
   int32_t parent_fd;

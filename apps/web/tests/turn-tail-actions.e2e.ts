@@ -6,6 +6,15 @@
 // narration and the tool result are durable, so the running state is stable by
 // construction rather than by timing; stopping from that park writes the
 // `turn/end` that hands the footer to the turn's transcript tail.
+// 中文说明：第二次模型调用被稳定挂起，证明消息操作栏只在 turn/end 后归属已完成答案尾部。
+/**
+ * 文件职责：验证助手消息复制、分支等操作只在整个回合结束后出现，而不会挂在中途叙述旁。
+ * 技术维度：使用 Playwright、Vitest、回放挂起 sidecar、会话事件和中途/结束无障碍快照。
+ * 产品维度：避免长工具回合中操作栏提前出现又移动，保证操作始终对应最终答案。
+ * 逻辑维度：录制同消息叙述与 bash 调用，挂起第二次模型请求，比较运行态，停止后再比较完成态。
+ * 关键边界：挂起必须发生在第二次模型调用；叙述与工具调用必须属于同一消息；清理失败视为场景失败。
+ * 新手阅读建议：先读 NARRATION 与 PROMPT，再看 sidecar 如何制造稳定中途状态，最后比较两份快照。
+ */
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -22,11 +31,17 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 回合尾部操作场景的 fixture 与快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/turn-tail-actions', import.meta.url))
+/** 录制叙述、工具和最终回复的会话日志。 */
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 // Two goldens for the same message: parked mid-turn, then settled.
+// 中文说明：两份快照针对同一消息，分别固定挂起中的回合和已完成回合。
+/** 回合挂起时不应出现操作栏的预期快照。 */
 const RUNNING_EXPECTED = join(SNAPSHOT_DIR, 'running.expected.md')
+/** turn/end 后操作栏出现在尾部的预期快照。 */
 const SETTLED_EXPECTED = join(SNAPSHOT_DIR, 'settled.expected.md')
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
 
 // The recording must carry text in the SAME assistant message as the tool

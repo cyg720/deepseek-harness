@@ -1,3 +1,11 @@
+/**
+ * 文件职责：无密钥启动真实 JSON-RPC 示例，调用本地模型替身并验证最大令牌结束映射与压缩持久化。
+ * 技术维度：使用 Vitest、execa、stdio JSON-RPC、本地 SSE HTTP 服务、Zstd 解压和临时会话目录。
+ * 产品维度：确保 SDK/自动化客户端在不同兼容设置下收到稳定结果，并能读取持久化会话。
+ * 逻辑维度：启动本地模型服务与 JSON-RPC 子进程，按行等待协议消息，运行三种环境配置并检查日志。
+ * 关键边界：stdout 必须全为 JSON；每个响应最长等待三十秒；服务和临时目录必须在 finally 中清理。
+ * 新手阅读建议：先读 waitForLine 的协议轮询，再看本地 SSE 响应，最后比较三个 envValue 场景。
+ */
 import { createServer } from 'node:http'
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -8,18 +16,25 @@ import { zstdDecompress } from 'node:zlib'
 import { execa } from 'execa'
 import { describe, expect, it } from 'vitest'
 
+/** JSON-RPC 示例运行时的源码入口。 */
 const binScript = fileURLToPath(new URL('../../../packages/examples/jsonrpc-demo/src/bin.ts', import.meta.url))
+/** 启动正式 JSON-RPC 示例插件树的组合配置。 */
 const configPath = fileURLToPath(new URL('../cordis.yml', import.meta.url))
+/** 子进程解析工作区包时使用的仓库根目录。 */
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
+/** Promise 形式的 Zstd 解压函数。 */
 const decompress = promisify(zstdDecompress)
 
+/** 从 lines 轮询 JSON，返回首个满足 predicate 的对象；stderr 用于超时诊断。 */
 function waitForLine(
   lines: string[],
   predicate: (value: Record<string, unknown>) => boolean,
   stderr: () => string,
 ): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
+    /** 协议响应的绝对超时时刻。 */
     const deadline = Date.now() + 30_000
+    /** 消费当前缓存行并在需要时安排下一次轮询。 */
     const poll = (): void => {
       while (lines.length > 0) {
         const line = lines.shift()!

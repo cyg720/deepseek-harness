@@ -11,6 +11,15 @@
 // are host RPCs with no model involvement, and the one session row the
 // flat/hover/menu/archive scenarios need comes from a seeded fixture (the
 // seeded-history seed reused verbatim — no new recording).
+// 中文说明：真实目录对话框与 Host RPC 覆盖工作区创建、重命名、分组偏好、会话菜单和归档，全程不调用模型。
+/**
+ * 文件职责：验证 Web 侧工作区的添加、新建目录、重命名、平铺视图、悬停操作和会话归档。
+ * 技术维度：使用 Playwright、Vitest、真实目录对话框、Host RPC、持久注册表和冷注入会话。
+ * 产品维度：让用户能管理多个项目目录和历史会话，并在重载后保留命名、视图与归档选择。
+ * 逻辑维度：通过目录浏览器创建/采用路径，执行重命名与重复检查，切换分组，再测试行菜单和归档。
+ * 关键边界：创建目录只能走产品对话框；同名路径需正确区分；指针等待必须超过共享宽限时间。
+ * 新手阅读建议：先读 browseTo 与 addNewFolderWorkspace，再按创建、重命名、视图、悬停、归档场景阅读。
+ */
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join, sep } from 'node:path'
@@ -24,16 +33,25 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 工作区管理界面的预期快照目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/workspace-management', import.meta.url))
 // The seed is another scenario's committed fixture, reused read-only: this
 // spec needs any one cold session row, not new recorded content.
+// 中文说明：只读复用现有历史日志以得到一个会话行，不需要额外录制内容。
+/** 为悬停、菜单和归档场景提供会话行的只读 fixture。 */
 const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 目录浏览器路径编辑状态的预期快照。 */
 const BROWSER_EXPECTED = join(SNAPSHOT_DIR, 'directory-browser.expected.md')
+/** 冷注入会话时使用的稳定标识。 */
 const SEED_ID = 'workspace-management-web-e2e'
 // Both waits exceed ui-primitives' 200ms POINTER_GRACE_MS. Keep them above
 // that value if the shared setting changes.
+// 中文说明：两个等待值都必须高于共享的 200 毫秒指针宽限期，配置变化时需同步调整。
+/** 指针跨越空隙时等待悬停卡继续保留的毫秒数。 */
 const POINTER_TRANSIT_MS = 300
+/** 指针停留后确认悬停状态稳定的毫秒数。 */
 const POINTER_HOLD_MS = 600
 
 describe('web e2e: workspace management (create / rename / flat view / hover affordances)', () => {
@@ -47,11 +65,14 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
    * the path-edit affordance. Adding is the header button's only action, so
    * the click lands in the dialog with no menu in between.
    */
+  /** 中文说明：path 是要浏览到的目录，返回已定位该路径的选择对话框。示例：await browseTo(path)。 */
   async function browseTo(path: string): Promise<Locator> {
     await page.getByRole('button', { name: 'Add workspace' }).click()
+    /** 工作区目录选择对话框。 */
     const dialog = page.getByRole('dialog', { name: 'Select Workspace Directory' })
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'Edit path' }).click()
+    /** 可直接输入绝对目录的路径编辑框。 */
     const pathInput = dialog.locator('input[aria-label="Edit path"]')
     await pathInput.fill(path)
     await pathInput.press('Enter')

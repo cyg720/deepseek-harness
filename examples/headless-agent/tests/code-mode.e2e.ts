@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 Code Mode 只向模型公开 run_code，并在真实 Worker 中组合工具、传递类型值和记录派发事件。
+ * 技术维度：使用 Cordis、Vitest、Worker Thread 代码运行时、真实/替身 LLM、bash、文件系统与任务工具。
+ * 产品维度：让智能体用一段 TypeScript 批量协调多个工具，减少往返并只返回重要结果。
+ * 逻辑维度：组装多种 Code Mode Harness，先无密钥验证类型与错误，再有密钥验证模型写程序和文件。
+ * 关键边界：模型可见目录只能含 run_code；Worker 和子进程必须清理；代码派发必须写入会话日志。
+ * 新手阅读建议：先读 PERSONA 和 codeModeHarness，再看 runCode/completion，最后区分无密钥与有密钥场景。
+ */
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -31,12 +39,17 @@ import * as ToolCordis from '@deepseek-ai/dsh-tool-cordis'
  * sub-calls, writes a file, and returns curated output while the log records
  * each `tool/code-dispatch`. The keyless Loader smoke is in the sibling test.
  */
+/** 中文说明：真实模型只接收 run_code，组合两次子调用并写文件；日志需记录每次 tool/code-dispatch。 */
 
+/** 指导模型用 TypeScript 批量协调 run_code 子工具的系统角色文本。 */
 const PERSONA = 'You are a coding agent. You work by writing TypeScript programs for run_code: '
   + 'batch related tool work into one program and print or return ONLY the findings that matter.'
+/** 用于证明工作区内容能进入代码模式上下文的唯一探针文本。 */
 const WORKSPACE_PROBE = 'dragonfruit-8675309'
 
+/** 当前测试拥有的 Cordis Harness 上下文。 */
 let ctx: Context | undefined
+/** 当前测试使用的临时工作目录。 */
 let workdir: string | undefined
 
 afterEach(async () => {
@@ -49,7 +62,9 @@ afterEach(async () => {
   workdir = undefined
 })
 
+/** 在 cwd 中组装完整 Code Mode 上下文并返回它。示例：await codeModeHarness(workdir)。 */
 async function codeModeHarness(cwd: string): Promise<Context> {
+  /** 逐项安装 Code Mode 插件的独立 Cordis 根上下文。 */
   const harness = new Context()
   await harness.plugin(LlmRuntime)
   await harness.plugin(SessionStore)

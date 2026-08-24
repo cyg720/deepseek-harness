@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证中断的有副作用工具调用被恢复为“结果未知”语义检查点，并安全继续后续任务。
+ * 技术维度：使用 Vitest、SessionStore、JSONL 持久化、Loader smoke、模型回放和会话快照归一化。
+ * 产品维度：进程崩溃后避免盲目重试可能已执行的远程写操作，提示智能体谨慎确认真实状态。
+ * 逻辑维度：程序化写入停在 tool/call 的会话，重启驱动恢复，发送继续任务，再比较归一化日志。
+ * 关键边界：未知结果调用不能伪造成成功或失败；原事件序列必须合法；刷新模式才更新预期快照。
+ * 新手阅读建议：先看 seedInterruptedSession 的事件序列，再理解无 tool/result 的含义，最后读恢复快照断言。
+ */
 import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,18 +17,27 @@ import SessionStore, { SESSION_FORMAT_VERSION, SessionId, type SessionEvent, typ
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { describe, expect, it } from 'vitest'
 
+/** 工具结果未知场景的 fixture 与预期输出目录。 */
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), 'semantic-checkpoint-snapshots/tool-outcome-unknown')
+/** 恢复阶段模型回放使用的基础请求日志。 */
 const replayFixture = join(fixtureDir, 'replay.jsonl')
+/** 恢复回答的回放覆盖文档。 */
 const replayOverride = join(fixtureDir, 'replay.override.json')
+/** 恢复后持久会话的预期快照。 */
 const sessionExpected = join(fixtureDir, 'session.expected.jsonl')
 const configPath = fileURLToPath(new URL('../semantic-checkpoint.cordis.snapshot.yml', import.meta.url))
 const binScript = fileURLToPath(new URL('./fixtures/headless-driver.ts', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
+/** 被中断并随后恢复的稳定会话标识。 */
 const sessionId = SessionId('semantic-checkpoint-unknown-outcome')
+/** 表示当前运行是否允许刷新预期文件。 */
 const refreshing = process.env.DSH_SNAPSHOT === 'refresh'
+/** 恢复后交给智能体的安全继续任务。 */
 const task = 'Continue safely from the interrupted operation.'
 
+/** 在 root 中持久化一个停在工具调用后的会话并返回日志路径。 */
 async function seedInterruptedSession(root: string, cwd: string): Promise<string> {
+  /** 只挂载会话与 JSONL 持久化的最小 Cordis 上下文。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(JsonlSessionPersistence, { root, compression: 'none' })

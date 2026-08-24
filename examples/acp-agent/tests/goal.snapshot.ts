@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 ACP 自动化驱动在同一会话中执行目标轮次、持久化状态并处理取消与收尾。
+ * 技术维度：使用 dsh-acp-snapshot、Vitest、目标事件折叠、JSONL 归一化和回放覆盖。
+ * 产品维度：保障长时间自动目标可跨轮推进、被取消或完成，并在协议输出与会话日志中一致呈现。
+ * 逻辑维度：定义目标专用场景路径与智能体，归一化时间字段，运行轮次脚本并做语义状态断言。
+ * 关键边界：仅目标时间戳可归零；其余协议与事件字段必须精确；刷新模式才允许写回预期文件。
+ * 新手阅读建议：先看路径常量和 agent，再读三个归一化函数，最后阅读两个目标生命周期场景。
+ */
 import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,25 +23,36 @@ import { describe, expect, it } from 'vitest'
 
 // This lifecycle proof has goal-specific timestamp normalization and semantic
 // assertions, so it owns a separate snapshot root from the generic suite.
+// 中文说明：目标生命周期有专用时间归一化和语义断言，因此使用独立于通用套件的快照根。
+/** 自动目标轮次驱动场景目录。 */
 const scenarioDir = join(dirname(fileURLToPath(import.meta.url)), 'goal-snapshots/goal-round-driver')
+/** 目标轮次的基础会话 fixture。 */
 const fixtureFile = join(scenarioDir, 'session.jsonl')
+/** 目标轮次回放覆盖文档。 */
 const overrideFile = join(scenarioDir, 'replay.override.json')
+/** ACP 标准输出的预期快照。 */
 const stdoutExpected = join(scenarioDir, 'stdout.expected.jsonl')
+/** 重持久化会话日志的预期快照。 */
 const sessionExpected = join(scenarioDir, 'session.expected.jsonl')
+/** 目标完成收尾场景的快照目录。 */
 const wrapupDir = join(dirname(fileURLToPath(import.meta.url)), 'goal-snapshots/goal-wrapup')
+/** 表示当前运行是否允许刷新预期文件。 */
 const refreshing = process.env.DSH_SNAPSHOT === 'refresh'
 
+/** ACP 示例智能体的入口、配置和 TypeScript 路径。 */
 const agent: AgentUnderTest = {
   binScript: fileURLToPath(new URL('../../../packages/examples/acp-demo/src/bin.ts', import.meta.url)),
   configPath: fileURLToPath(new URL('../cordis.yml', import.meta.url)),
   tsconfigPath: fileURLToPath(new URL('../../../tsconfig.json', import.meta.url)),
 }
 
+/** 表示一条键值未知但可遍历的 JSON 对象记录。 */
 interface JsonObject {
   [key: string]: unknown
 }
 
 /** Parse non-empty records from one JSONL artifact. */
+/** 解析 content 中非空 JSONL 行并返回对象数组。示例：parseJsonl(log)。 */
 function parseJsonl(content: string): JsonObject[] {
   return content.split('\n').filter(line => line.trim().length > 0)
     .map(line => JSON.parse(line) as JsonObject)

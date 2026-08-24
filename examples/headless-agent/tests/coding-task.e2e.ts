@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证真实模型仅使用 bash 修复临时目录中的 JavaScript 缺陷，并由外部测试确认结果。
+ * 技术维度：使用 Vitest、Headless 编码 Harness、真实 DeepSeek 模型、Node 子进程和临时文件系统。
+ * 产品维度：证明无界面智能体能完成典型“复现失败—修改代码—运行验证”的编码任务。
+ * 逻辑维度：写入有缺陷模块与测试，先确认失败，启动智能体执行修复，再由宿主重跑测试并检查文件。
+ * 关键边界：无 API 密钥时自跳过；不得修改测试文件；成功依据外部 node 进程而非智能体自述。
+ * 新手阅读建议：先对比 TEST_FILE 与 BUGGY_ADD，再看任务提示，最后查看修复前后两次外部执行。
+ */
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { spawnSync } from 'node:child_process'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -13,7 +21,9 @@ import { SessionId } from '@deepseek-ai/dsh-session'
  * directory using only the bash tool, and the fix is verified OUTSIDE the
  * agent by re-running the test script. Key-gated.
  */
+/** 中文说明：真实模型在临时目录修复真实错误，最终由智能体之外重新运行测试脚本验证。 */
 
+/** 用于验证 add 函数正确性的不可修改测试文件内容。 */
 const TEST_FILE = [
   "const assert = require('node:assert');",
   "const { add } = require('./add.js');",
@@ -23,6 +33,7 @@ const TEST_FILE = [
   '',
 ].join('\n')
 
+/** 初始带有减法错误的 add.js 内容。 */
 const BUGGY_ADD = [
   '// A tiny module with an obvious bug.',
   'function add(a, b) {',
@@ -32,7 +43,9 @@ const BUGGY_ADD = [
   '',
 ].join('\n')
 
+/** 当前编码任务的临时工作目录。 */
 let workdir: string | undefined
+/** 当前测试拥有的编码 Harness 上下文。 */
 let ctx: Context | undefined
 
 afterEach(async () => {

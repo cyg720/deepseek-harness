@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证默认 ACP 组合的无密钥启动，以及真实沙箱拒绝后通过客户端审批升级权限的流程。
+ * 技术维度：使用 Vitest、ACP SDK、真实子进程、bwrap/Seatbelt 沙箱、权限请求回调和文件落盘验证。
+ * 产品维度：确保自动化客户端能执行安全默认策略，并在必要时由机器策略批准一次性工作区写入。
+ * 逻辑维度：探测平台沙箱，启动示例并初始化；有密钥时先触发拒绝，再批准升级并验证实际文件。
+ * 关键边界：无可用沙箱或密钥时升级场景自跳过；拒绝与批准都要经过真实 permission RPC。
+ * 新手阅读建议：先读平台 runner 探测，再看 launchExampleAcpAgent 的权限回答，最后跟踪升级场景。
+ */
 import { spawnSync } from 'node:child_process'
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -32,7 +40,9 @@ import { cleanupAcpExampleTest } from './cleanup.ts'
  * over `session/request_permission`. An approved workspace-write retry must
  * then land ON DISK (world-verified).
  */
+/** 中文说明：无密钥只验证真实组合启动；有密钥时从只读拒绝，经客户端审批升级后以落盘文件证明成功。 */
 
+/** 默认 ACP 示例的入口、组合配置和 TypeScript 配置。 */
 const AGENT: AgentUnderTest = {
   binScript: fileURLToPath(new URL('../../../packages/examples/acp-demo/src/bin.ts', import.meta.url)),
   configPath: fileURLToPath(new URL('../cordis.yml', import.meta.url)),
@@ -43,16 +53,21 @@ const AGENT: AgentUnderTest = {
 // bwrap on Linux, Seatbelt's sandbox-exec on macOS. Without one the strict
 // attempt would fail closed (SANDBOX_UNAVAILABLE) instead of producing the
 // denial this flow starts from.
+// 中文说明：Linux 探测 bwrap，macOS 探测 Seatbelt；没有可用执行器时无法形成预期的只读拒绝链路。
+/** 表示 Linux bwrap 能成功运行只读配置。 */
 const hasBwrap = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
   timeout: 5_000,
   stdio: 'ignore',
 }).status === 0
+/** 表示当前 macOS Seatbelt sandbox-exec 可用。 */
 const hasSeatbelt = process.platform === 'darwin' && spawnSync('sandbox-exec', ['-p', '(version 1)(allow default)', 'true'], {
   timeout: 5_000,
   stdio: 'ignore',
 }).status === 0
+/** 表示宿主具备至少一种可用的真实沙箱执行器。 */
 const hasRunner = hasBwrap || hasSeatbelt
 
+/** 扩展已启动 ACP 句柄，保存客户端收到的权限请求。 */
 interface Spawned extends LaunchedAcpTestAgent {
   permissionRequests: RequestPermissionRequest[]
 }

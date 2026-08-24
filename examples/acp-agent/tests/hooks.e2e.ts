@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 Claude 风格 PreToolUse Hook 能在真实 ACP 示例中阻止模型执行 bash 写文件。
+ * 技术维度：使用 Vitest、真实 ACP 子进程、临时 hooks.json、真实模型和磁盘反向验证。
+ * 产品维度：确保部署者能用进程级 Hook 策略拦截危险工具操作，而不会让整个回合异常终止。
+ * 逻辑维度：在临时启动目录写入全匹配 Hook，启动智能体，发送写文件任务，再确认操作被拒且文件不存在。
+ * 关键边界：需要真实 API 密钥；Hook 配置相对启动 cwd；最终结论以磁盘状态而非模型回答为准。
+ * 新手阅读建议：先读 hooks.json 内容，再看 ACP 初始化与 prompt，最后查看 stopReason 和文件不存在断言。
+ */
 import { mkdtemp, writeFile, access } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -17,14 +25,18 @@ import { cleanupAcpExampleTest } from './cleanup.ts'
  * model is asked to write there, and absence of the file proves interception.
  * The test owns and disposes the ACP subprocess.
  */
+/** 中文说明：进程级 hooks.json 拒绝所有 PreToolUse，真实模型尝试写文件后以文件缺失证明拦截。 */
 
+/** ACP 示例的入口、组合配置和 TypeScript 路径。 */
 const AGENT: AgentUnderTest = {
   binScript: fileURLToPath(new URL('../../../packages/examples/acp-demo/src/bin.ts', import.meta.url)),
   configPath: fileURLToPath(new URL('../cordis.yml', import.meta.url)),
   tsconfigPath: fileURLToPath(new URL('../../../tsconfig.json', import.meta.url)),
 }
 
+/** 当前测试拥有的 ACP 子进程句柄。 */
 let spawned: LaunchedAcpTestAgent | undefined
+/** 当前 Hook 配置和会话所在的临时目录。 */
 let workdir: string | undefined
 
 afterEach(async () => {

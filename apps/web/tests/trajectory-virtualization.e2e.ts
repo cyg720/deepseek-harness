@@ -1,6 +1,15 @@
 // Browser contract for the tail-paged, virtualized Trajectory ledger. The
 // scenario proves that semantic row identity survives an older-page prepend,
 // DOM mounting stays bounded, and every scroll range remains reachable.
+// 中文说明：验证轨迹账本追加旧页后保持语义行锚点，DOM 挂载数量有界且所有滚动范围可达。
+/**
+ * 文件职责：验证长轨迹的尾部分页、虚拟滚动、旧页前插和流式追加不会破坏位置与可达性。
+ * 技术维度：使用 Playwright、Vitest、合成长会话、回放流片段和真实滚动几何测量。
+ * 产品维度：让用户在超长智能体轨迹中流畅浏览历史，加载更多时不会突然跳位或卡死。
+ * 逻辑维度：注入 88 回合历史，打开轨迹，测量逻辑与挂载行，跨范围滚动、加载旧页并追加流。
+ * 关键边界：DOM 行数不得超过上限；几何误差允许两像素；语义键而非 DOM 顺序用于保持锚点。
+ * 新手阅读建议：先看 FIXTURE 与两个上限常量，再读滚动辅助函数，最后按虚拟化场景理解断言。
+ */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -22,18 +31,24 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
+/** 当前快照模式。 */
 const MODE = webSnapshotMode()
+/** 加载更早轨迹页后的预期无障碍快照。 */
 const LOAD_MORE_EXPECTED = fileURLToPath(new URL(
   './snapshots/trajectory-virtualization/load-more.expected.md',
   import.meta.url,
 ))
+/** 注入长轨迹会话时使用的稳定标识。 */
 const SESSION_ID = 'trajectory-virtualization-e2e'
+/** 包含 88 回合和唯一标记的合成长会话 JSONL。 */
 const FIXTURE = createChatScrollFixture({
   markerPrefix: 'TRAJECTORY_VIRTUAL',
   title: 'TRAJECTORY_VIRTUAL long ledger',
   turns: 88,
 })
+/** 任意时刻允许挂载的最大轨迹 DOM 行数。 */
 const MAX_MOUNTED_ROWS = 160
+/** 比较滚动几何时允许的像素误差。 */
 const GEOMETRY_TOLERANCE = 2
 const STREAM_MARKER = 'TRAJECTORY_VIRTUAL_STREAM_FINISHED'
 const STREAM_TEXT = Array.from(
