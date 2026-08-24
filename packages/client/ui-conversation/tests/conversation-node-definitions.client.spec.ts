@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证会话界面的 conversation-node-definitions.client.spec.ts 行为和边界。
+ * 技术维度：Vitest、React 测试渲染、事件模拟与可控服务替身。
+ * 产品维度：防止会话界面交互和展示在扩展后回归。
+ * 逻辑维度：构造状态，触发渲染或交互，再断言输出和清理。
+ * 关键边界：全局替身、计时器和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助夹具，再按 describe 场景顺序阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import type {
   ChatConversationViewNode, ChatSnapshot, ConversationEventInput,
@@ -20,6 +28,7 @@ import type {
   AssistantChatData, ManualCompactionChatData, RetryChatData, ToolChatData, TurnTailChatData,
 } from '../src/client/contract/chat-nodes.ts'
 
+/** 中文说明：测试局部值 DEFINITIONS，取值由紧邻初始化决定。 */
 const DEFINITIONS: readonly ConversationNodeDefinition[] = [
   nextTurnInboxDefinition,
   nextStepInboxDefinition,
@@ -34,6 +43,7 @@ const DEFINITIONS: readonly ConversationNodeDefinition[] = [
   turnTailDefinition,
 ]
 
+/** 中文说明：类型或类 TestEventDefinitions 约束本文件的数据或组件职责。 */
 class TestEventDefinitions {
   entries(): readonly ConversationNodeDefinition[] {
     return DEFINITIONS
@@ -44,12 +54,14 @@ class TestEventDefinitions {
   }
 }
 
+/** 中文说明：类型或类 TestViewDefinitions 约束本文件的数据或组件职责。 */
 class TestViewDefinitions {
   entries(): readonly ConversationViewDefinition[] {
     return [chatViewDefinition]
   }
 }
 
+/** 中文说明：函数 at 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function at(
   seq: number,
   type: string,
@@ -68,23 +80,29 @@ function at(
   }
 }
 
+/** 中文说明：函数 assembler 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function assembler(entries: readonly ConversationEventInput[] = [], hasMore = false): ConversationNodeAssembler {
+  /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
   const value = new ConversationNodeAssembler(new TestEventDefinitions(), new TestViewDefinitions())
   value.replaceWindow(entries, hasMore)
   value.flush()
   return value
 }
 
+/** 中文说明：函数 snapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function snapshot(value: ConversationNodeAssembler): ChatSnapshot {
+  /** 中文说明：测试局部值 current，取值由紧邻初始化决定。 */
   const current = value.snapshot('chat') as ChatSnapshot | undefined
   if (current === undefined) throw new Error('chat view was not registered')
   return current
 }
 
+/** 中文说明：函数 node 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function node(value: ChatSnapshot, kind: string): ChatConversationViewNode | undefined {
   return value.nodes.values().find(candidate => candidate.kind === kind)
 }
 
+/** 中文说明：函数 textMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function textMessage(id: string, text: string) {
   return {
     id,
@@ -94,6 +112,7 @@ function textMessage(id: string, text: string) {
   }
 }
 
+/** 中文说明：函数 assistantMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function assistantMessage(id: string, text: string) {
   return {
     id,
@@ -103,6 +122,7 @@ function assistantMessage(id: string, text: string) {
   }
 }
 
+/** 中文说明：函数 toolResult 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function toolResult(callId: string, text: string) {
   return {
     id: `result-${callId}`,
@@ -119,6 +139,7 @@ function toolResult(callId: string, text: string) {
 
 describe('built-in conversation node Definitions', () => {
   it('keeps one keyed Assistant node while streaming settles and materializes interruption from Location', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -128,9 +149,12 @@ describe('built-in conversation node Definitions', () => {
         chunk: { type: 'text-delta', index: 0, text: 'streaming' },
       }),
     ])
+    /** 中文说明：状态快照 runningSnapshot，取值由紧邻初始化决定。 */
     const runningSnapshot = snapshot(value)
+    /** 中文说明：测试局部值 running，取值由紧邻初始化决定。 */
     const running = node(runningSnapshot, 'assistant-step')
     expect(running?.data).toMatchObject({ status: 'running', blocks: [{ kind: 'text', text: 'streaming' }] })
+    /** 中文说明：测试局部值 order，取值由紧邻初始化决定。 */
     const order = runningSnapshot.order
 
     value.append(at(4, 'assistant/message', {
@@ -140,12 +164,15 @@ describe('built-in conversation node Definitions', () => {
     }, { surfaceOp: 'append' }))
     value.flush()
 
+    /** 中文说明：状态快照 settledSnapshot，取值由紧邻初始化决定。 */
     const settledSnapshot = snapshot(value)
+    /** 中文说明：测试局部值 settled，取值由紧邻初始化决定。 */
     const settled = node(settledSnapshot, 'assistant-step')
     expect(settled?.key).toBe(running?.key)
     expect(settledSnapshot.order).toBe(order)
     expect(settled?.data).toMatchObject({ status: 'settled', blocks: [{ kind: 'text', text: 'settled' }] })
 
+    /** 中文说明：测试局部值 interruptedValue，取值由紧邻初始化决定。 */
     const interruptedValue = assembler([
       at(10, 'turn/start', { turn: 2 }),
       at(11, 'step/start', { turn: 2, step: 1 }),
@@ -156,10 +183,12 @@ describe('built-in conversation node Definitions', () => {
       }),
       at(13, 'step/end', { turn: 2, step: 1 }),
     ])
+    /** 中文说明：测试局部值 interrupted，取值由紧邻初始化决定。 */
     const interrupted = node(snapshot(interruptedValue), 'assistant-step')
     expect(interrupted?.data).toMatchObject({ status: 'interrupted' })
     expect((interrupted?.data as AssistantChatData).finalNode?.interrupted).toBe(true)
 
+    /** 中文说明：测试局部值 markedValue，取值由紧邻初始化决定。 */
     const markedValue = assembler([
       at(20, 'turn/start', { turn: 3 }),
       at(21, 'step/start', { turn: 3, step: 1 }),
@@ -170,10 +199,12 @@ describe('built-in conversation node Definitions', () => {
         interrupted: true,
       }, { surfaceOp: 'append' }),
     ])
+    /** 中文说明：测试局部值 marked，取值由紧邻初始化决定。 */
     const marked = node(snapshot(markedValue), 'assistant-step')
     expect(marked?.data).toMatchObject({ status: 'interrupted', blocks: [{ kind: 'text', text: 'cut short' }] })
     expect((marked?.data as AssistantChatData).finalNode?.interrupted).toBe(true)
 
+    /** 中文说明：测试局部值 hiddenValue，取值由紧邻初始化决定。 */
     const hiddenValue = assembler([
       at(20, 'turn/start', { turn: 3 }),
       at(21, 'step/start', { turn: 3, step: 1 }),
@@ -192,6 +223,7 @@ describe('built-in conversation node Definitions', () => {
     ])
     expect(node(snapshot(hiddenValue), 'assistant-step')).toBeUndefined()
 
+    /** 中文说明：测试局部值 toolOnlyValue，取值由紧邻初始化决定。 */
     const toolOnlyValue = assembler([
       at(30, 'turn/start', { turn: 4 }),
       at(31, 'step/start', { turn: 4, step: 1 }),
@@ -209,6 +241,7 @@ describe('built-in conversation node Definitions', () => {
         },
       }, { surfaceOp: 'append' }),
     ])
+    /** 中文说明：状态快照 toolOnlySnapshot，取值由紧邻初始化决定。 */
     const toolOnlySnapshot = snapshot(toolOnlyValue)
     expect(toolOnlySnapshot.order).toEqual([])
     expect(node(toolOnlySnapshot, 'assistant-step')?.visibility).toBe('hidden')
@@ -218,6 +251,7 @@ describe('built-in conversation node Definitions', () => {
       timing: { firstTokenTime: 1_700_000_000_032 },
     }])
 
+    /** 中文说明：测试局部值 interruptedToolOnlyValue，取值由紧邻初始化决定。 */
     const interruptedToolOnlyValue = assembler([
       at(35, 'turn/start', { turn: 5 }),
       at(36, 'step/start', { turn: 5, step: 1 }),
@@ -228,10 +262,12 @@ describe('built-in conversation node Definitions', () => {
       }),
       at(38, 'step/end', { turn: 5, step: 1 }),
     ])
+    /** 中文说明：测试局部值 interruptedToolOnly，取值由紧邻初始化决定。 */
     const interruptedToolOnly = node(snapshot(interruptedToolOnlyValue), 'assistant-step')
     expect(interruptedToolOnly?.visibility).toBe('visible')
     expect(interruptedToolOnly?.data).toMatchObject({ status: 'interrupted' })
 
+    /** 中文说明：测试局部值 retryTimingValue，取值由紧邻初始化决定。 */
     const retryTimingValue = assembler([
       at(50, 'turn/start', { turn: 6 }),
       at(51, 'step/start', { turn: 6, step: 1 }),
@@ -256,9 +292,11 @@ describe('built-in conversation node Definitions', () => {
         message: assistantMessage('assistant-retried', 'done'),
       }, { surfaceOp: 'append' }),
     ])
+    /** 中文说明：测试局部值 retryTiming，取值由紧邻初始化决定。 */
     const retryTiming = (node(snapshot(retryTimingValue), 'assistant-step')?.data as AssistantChatData).finalNode
     expect(retryTiming?.timing?.firstTokenTime).toBe(1_700_000_000_052)
 
+    /** 中文说明：测试局部值 partialWindow，取值由紧邻初始化决定。 */
     const partialWindow = assembler([
       at(40, 'assistant/chunk', {
         turn: 5,
@@ -267,6 +305,7 @@ describe('built-in conversation node Definitions', () => {
       }),
       at(41, 'step/end', { turn: 5, step: 2 }),
     ], true)
+    /** 中文说明：测试局部值 recovered，取值由紧邻初始化决定。 */
     const recovered = node(snapshot(partialWindow), 'assistant-step')
     expect(recovered?.data).toMatchObject({
       status: 'interrupted',
@@ -275,14 +314,18 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('keeps one keyed Tool node from running through settlement and replays nested dispatch after prepend', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
       at(3, 'tool/call', { turn: 1, step: 1, callId: 'root', name: 'code', arguments: '{}' }),
     ])
+    /** 中文说明：状态快照 runningSnapshot，取值由紧邻初始化决定。 */
     const runningSnapshot = snapshot(value)
+    /** 中文说明：测试局部值 running，取值由紧邻初始化决定。 */
     const running = node(runningSnapshot, 'tool-call')
     expect((running?.data as ToolChatData).root).toMatchObject({ callId: 'root', name: 'code' })
+    /** 中文说明：测试局部值 order，取值由紧邻初始化决定。 */
     const order = runningSnapshot.order
 
     value.append(at(4, 'tool/result', {
@@ -292,12 +335,15 @@ describe('built-in conversation node Definitions', () => {
     }, { surfaceOp: 'append' }))
     value.flush()
 
+    /** 中文说明：状态快照 settledSnapshot，取值由紧邻初始化决定。 */
     const settledSnapshot = snapshot(value)
+    /** 中文说明：测试局部值 settled，取值由紧邻初始化决定。 */
     const settled = node(settledSnapshot, 'tool-call')
     expect(settled?.key).toBe(running?.key)
     expect(settledSnapshot.order).toBe(order)
     expect((settled?.data as ToolChatData).root).toMatchObject({ kind: 'tool-result', callId: 'root' })
 
+    /** 中文说明：测试局部值 history，取值由紧邻初始化决定。 */
     const history = assembler([
       at(14, 'tool/code-dispatch-start', {
         rootCallId: 'history-root',
@@ -321,6 +367,7 @@ describe('built-in conversation node Definitions', () => {
         message: toolResult('history-root', 'root done'),
       }, { surfaceOp: 'append' }),
     ], true)
+    /** 中文说明：测试局部值 before，取值由紧邻初始化决定。 */
     const before = node(snapshot(history), 'tool-call')
     expect((before?.data as ToolChatData).root.subCalls).toMatchObject([
       { kind: 'tool-result', callId: 'child', call: { name: 'read' } },
@@ -339,12 +386,14 @@ describe('built-in conversation node Definitions', () => {
     ], false)
     history.flush()
 
+    /** 中文说明：测试局部值 after，取值由紧邻初始化决定。 */
     const after = node(snapshot(history), 'tool-call')
     expect(after?.key).toBe(before?.key)
     expect((after?.data as ToolChatData).root.subCalls).toMatchObject([
       { kind: 'tool-result', callId: 'child', call: { name: 'read' } },
     ])
 
+    /** 中文说明：测试局部值 firstChild，取值由紧邻初始化决定。 */
     const firstChild = (after?.data as ToolChatData).root.subCalls[0]
     history.append(at(17, 'tool/code-dispatch-start', {
       rootCallId: 'history-root',
@@ -354,11 +403,13 @@ describe('built-in conversation node Definitions', () => {
       arguments: { path: 'out.txt' },
     }))
     history.flush()
+    /** 中文说明：测试局部值 withSecondChild，取值由紧邻初始化决定。 */
     const withSecondChild = node(snapshot(history), 'tool-call')
     expect((withSecondChild?.data as ToolChatData).root.subCalls[0]).toBe(firstChild)
   })
 
   it('prepends an older turn without replacing already materialized nodes', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(20, 'turn/start', { turn: 2 }),
       at(21, 'user/message', textMessage('newer-user', 'newer'), { surfaceOp: 'append' }),
@@ -371,8 +422,11 @@ describe('built-in conversation node Definitions', () => {
       at(24, 'step/end', { turn: 2, step: 1 }),
       at(25, 'turn/end', { turn: 2, reason: { kind: 'completed' } }),
     ], true)
+    /** 中文说明：测试局部值 before，取值由紧邻初始化决定。 */
     const before = snapshot(value)
+    /** 中文说明：测试局部值 existing，取值由紧邻初始化决定。 */
     const existing = before.nodes.get(before.order.find(key => before.nodes.get(key)?.kind === 'assistant-step') ?? '')
+    /** 中文说明：状态快照 store，取值由紧邻初始化决定。 */
     const store = before.nodes
 
     value.prepend([
@@ -389,6 +443,7 @@ describe('built-in conversation node Definitions', () => {
     ], false)
     value.flush()
 
+    /** 中文说明：测试局部值 after，取值由紧邻初始化决定。 */
     const after = snapshot(value)
     expect(after.nodes).toBe(store)
     expect(after.nodes.get(existing?.key ?? '')).toBe(existing)
@@ -400,6 +455,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('appends a later turn without replacing nodes from the completed turn', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'user/message', textMessage('first-user', 'first'), { surfaceOp: 'append' }),
@@ -412,14 +468,18 @@ describe('built-in conversation node Definitions', () => {
       at(5, 'step/end', { turn: 1, step: 1 }),
       at(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
     ])
+    /** 中文说明：测试局部值 before，取值由紧邻初始化决定。 */
     const before = snapshot(value)
+    /** 中文说明：测试局部值 oldOrder，取值由紧邻初始化决定。 */
     const oldOrder = before.order
+    /** 中文说明：有序集合 oldNodes，取值由紧邻初始化决定。 */
     const oldNodes = oldOrder.map(key => before.nodes.get(key))
 
     value.append(at(7, 'turn/start', { turn: 2 }))
     value.append(at(8, 'user/message', textMessage('second-user', 'second'), { surfaceOp: 'append' }))
     value.flush()
 
+    /** 中文说明：测试局部值 after，取值由紧邻初始化决定。 */
     const after = snapshot(value)
     expect(after.nodes).toBe(before.nodes)
     expect(after.order.slice(0, oldOrder.length)).toEqual(oldOrder)
@@ -430,6 +490,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('keeps branching unavailable when a tool result follows the closing Assistant', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -448,15 +509,18 @@ describe('built-in conversation node Definitions', () => {
       at(7, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
     ])
 
+    /** 中文说明：测试局部值 tail，取值由紧邻初始化决定。 */
     const tail = node(snapshot(value), 'turn-tail')?.data as TurnTailChatData
     expect(tail.closing?.finalNode.seq).toBe(3)
     expect(tail.branchUnavailable).toBe(true)
   })
 
   it('replays inbox predecessors after prepend and reclassifies the dependent message as steering', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(3, 'user/message', textMessage('steer-1', 'change direction'), { surfaceOp: 'append' }),
     ], true)
+    /** 中文说明：测试局部值 before，取值由紧邻初始化决定。 */
     const before = node(snapshot(value), 'user')
     expect(before).toBeDefined()
 
@@ -475,6 +539,7 @@ describe('built-in conversation node Definitions', () => {
     ], false)
     value.flush()
 
+    /** 中文说明：测试局部值 after，取值由紧邻初始化决定。 */
     const after = node(snapshot(value), 'steering')
     expect(after?.key).toBe(before?.key)
     expect(after?.data).toMatchObject({ kind: 'steering', messageId: 'steer-1' })
@@ -482,7 +547,9 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('orders claimed steering after the finalized Turn tail', () => {
+    /** 中文说明：测试局部值 steering，取值由紧邻初始化决定。 */
     const steering = textMessage('steer-after-answer', 'change direction')
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -507,13 +574,16 @@ describe('built-in conversation node Definitions', () => {
       at(8, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
     ])
 
+    /** 中文说明：测试局部值 current，取值由紧邻初始化决定。 */
     const current = snapshot(value)
+    /** 中文说明：测试局部值 steeringNode，取值由紧邻初始化决定。 */
     const steeringNode = node(current, 'steering')
     expect(steeringNode).toBeDefined()
     expect(current.locations.getTurn(1).at(-1)).toBe(steeringNode?.key)
   })
 
   it('classifies appended producer context from durable source metadata', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'user/message', {
         ...textMessage('skill-context', 'follow these instructions'),
@@ -529,6 +599,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('associates each direct message with its immediately following session recall', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'user/message', textMessage('citing-research', '@Research notes what changed?'), { surfaceOp: 'append' }),
       at(2, 'user/message', {
@@ -553,9 +624,12 @@ describe('built-in conversation node Definitions', () => {
       at(6, 'user/message', textMessage('later-user', 'unrelated'), { surfaceOp: 'append' }),
     ])
 
+    /** 中文说明：测试局部值 current，取值由紧邻初始化决定。 */
     const current = snapshot(value)
+    /** 中文说明：当前数据 messages，取值由紧邻初始化决定。 */
     const messages = [...current.nodes.values()]
       .filter(candidate => candidate.kind === 'user' || candidate.kind === 'context')
+    /** 中文说明：测试局部值 users，取值由紧邻初始化决定。 */
     const users = [...current.nodes.values()].filter(candidate => candidate.kind === 'user')
     expect(messages.map(candidate => candidate.kind)).toEqual(['user', 'context', 'user', 'context', 'user'])
     expect(users[0]?.data).toMatchObject({ referenceLabels: ['Research notes'] })
@@ -564,9 +638,11 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('updates an already published direct node when its following recall arrives', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'user/message', textMessage('citing-user', '@Research notes what changed?'), { surfaceOp: 'append' }),
     ])
+    /** 中文说明：测试局部值 before，取值由紧邻初始化决定。 */
     const before = node(snapshot(value), 'user')
     expect(before?.data).not.toHaveProperty('referenceLabels')
 
@@ -581,7 +657,9 @@ describe('built-in conversation node Definitions', () => {
     }, { surfaceOp: 'append' }))
     value.flush()
 
+    /** 中文说明：测试局部值 current，取值由紧邻初始化决定。 */
     const current = snapshot(value)
+    /** 中文说明：有序集合 nodes，取值由紧邻初始化决定。 */
     const nodes = [...current.nodes.values()]
       .filter(candidate => candidate.kind === 'user' || candidate.kind === 'context')
     expect(nodes.map(candidate => candidate.kind)).toEqual(['user', 'context'])
@@ -591,7 +669,9 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('associates a claimed steering message with its following recall', () => {
+    /** 中文说明：测试局部值 steering，取值由紧邻初始化决定。 */
     const steering = textMessage('steering-reference', '@Research notes continue')
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'agent/inbox/spliced', {
         target: 'next-step',
@@ -623,6 +703,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('keeps replacement copies out of Chat business nodes', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -643,6 +724,7 @@ describe('built-in conversation node Definitions', () => {
       }, { surfaceOp: { op: 'replace', start: 3, end: 3 } }),
     ])
 
+    /** 中文说明：测试局部值 current，取值由紧邻初始化决定。 */
     const current = snapshot(value)
     expect(node(current, 'user')).toBeUndefined()
     expect(node(current, 'context')).toBeUndefined()
@@ -651,6 +733,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('assembles retry chains and keeps manual and automatic compaction ownership separate', () => {
+    /** 中文说明：测试局部值 retry，取值由紧邻初始化决定。 */
     const retry = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -685,7 +768,9 @@ describe('built-in conversation node Definitions', () => {
         reason: { kind: 'error', error: { code: 'TRANSPORT', message: 'failed' } },
       }),
     ])
+    /** 中文说明：测试局部值 retryNode，取值由紧邻初始化决定。 */
     const retryNode = node(snapshot(retry), 'model-retry')
+    /** 中文说明：测试局部值 retryData，取值由紧邻初始化决定。 */
     const retryData = retryNode?.data as RetryChatData
     expect(retryData.attempts.map(attempt => attempt.retryState)).toEqual(['started', 'cancelled'])
     expect(node(snapshot(retry), 'turn-error')?.data).toMatchObject({
@@ -695,6 +780,7 @@ describe('built-in conversation node Definitions', () => {
       code: 'TRANSPORT',
     })
 
+    /** 中文说明：测试局部值 compactions，取值由紧邻初始化决定。 */
     const compactions = assembler([
       at(10, 'command/run', {
         commandId: 'command-1',
@@ -746,23 +832,27 @@ describe('built-in conversation node Definitions', () => {
       at(23, 'compaction/end', { compactionId: 'automatic-1', turn: null }),
     ])
 
+    /** 中文说明：测试局部值 manual，取值由紧邻初始化决定。 */
     const manual = node(snapshot(compactions), 'manual-compaction')
     expect((manual?.data as ManualCompactionChatData).compaction).toMatchObject({
       summary: 'manual summary',
       summaryEventSeq: 12,
     })
+    /** 中文说明：测试局部值 automatic，取值由紧邻初始化决定。 */
     const automatic = node(snapshot(compactions), 'compaction')
     expect(automatic?.data).toMatchObject({ summary: 'automatic summary', summaryEventSeq: 21 })
     expect(snapshot(compactions).nodes.values().filter(candidate => candidate.kind === 'compaction')).toHaveLength(1)
   })
 
   it('fills a landed compaction marker when an older page supplies its summary', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(13, 'user/message', {
         ...textMessage('checkpoint', 'checkpoint'),
         source: { kind: 'plugin', plugin: 'compact', compactionId: 'compact-1' },
       }, { surfaceOp: { op: 'replace', start: 1, end: 8 } }),
     ], true)
+    /** 中文说明：测试局部值 before，取值由紧邻初始化决定。 */
     const before = node(snapshot(value), 'compaction')
     expect(before?.data).toMatchObject({ summary: null, summaryEventSeq: null })
 
@@ -781,6 +871,7 @@ describe('built-in conversation node Definitions', () => {
     ], false)
     value.flush()
 
+    /** 中文说明：测试局部值 after，取值由紧邻初始化决定。 */
     const after = node(snapshot(value), 'compaction')
     expect(after?.key).toBe(before?.key)
     expect(after?.data).toMatchObject({
@@ -792,6 +883,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('renders a historical compaction when its start remains outside the loaded window', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(10, 'compaction/summary', {
         compactionId: 'compact-windowed',
@@ -814,6 +906,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('ignores legacy compaction transactions without correlation ids', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(10, 'compaction/start', { turn: null }),
       at(11, 'compaction/end', { turn: null, error: 'This operation was aborted' }),
@@ -834,6 +927,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('ignores legacy retry and code-dispatch events without correlation ids', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(10, 'llm/retry', {
         turn: 1,
@@ -878,6 +972,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('renders the exhausted-retry turn error in a partial tail window and after prepending the chain', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(5, 'llm/retry', {
         retryId: 'retry-paged',
@@ -928,6 +1023,7 @@ describe('built-in conversation node Definitions', () => {
     ], false)
     value.flush()
 
+    /** 中文说明：测试局部值 retry，取值由紧邻初始化决定。 */
     const retry = node(snapshot(value), 'model-retry')
     expect((retry?.data as RetryChatData).attempts).toHaveLength(2)
     expect(node(snapshot(value), 'turn-error')?.data).toMatchObject({
@@ -940,6 +1036,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('materializes a max-tokens notice and keeps completed and error turns clean', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -949,21 +1046,25 @@ describe('built-in conversation node Definitions', () => {
       at(4, 'step/end', { turn: 1, step: 1 }),
       at(5, 'turn/end', { turn: 1, reason: { kind: 'max-tokens' } }),
     ])
+    /** 中文说明：测试局部值 notice，取值由紧邻初始化决定。 */
     const notice = node(snapshot(value), 'turn-max-tokens')
     expect(notice?.data).toMatchObject({ kind: 'turn-max-tokens', seq: 5, turn: 1, step: 1 })
     expect(node(snapshot(value), 'turn-error')).toBeUndefined()
     // The tail stays the turn's last node so its branch action survives; the
     // notice slots between the truncated closing Assistant and the tail.
+    /** 中文说明：测试局部值 tail，取值由紧邻初始化决定。 */
     const tail = node(snapshot(value), 'turn-tail')
     expect(notice?.anchorSeq).toBeLessThan(tail?.anchorSeq ?? Number.NEGATIVE_INFINITY)
     expect(notice?.anchorSeq).toBeGreaterThan(3)
 
+    /** 中文说明：测试局部值 completed，取值由紧邻初始化决定。 */
     const completed = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
     ])
     expect(node(snapshot(completed), 'turn-max-tokens')).toBeUndefined()
 
+    /** 中文说明：测试局部值 failed，取值由紧邻初始化决定。 */
     const failed = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'turn/end', {
@@ -976,9 +1077,11 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('keeps the max-tokens notice when the window starts after the owning turn/start', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(9, 'turn/end', { turn: 3, reason: { kind: 'max-tokens' } }),
     ], true)
+    /** 中文说明：测试局部值 notice，取值由紧邻初始化决定。 */
     const notice = node(snapshot(value), 'turn-max-tokens')
     expect(notice?.data).toMatchObject({ kind: 'turn-max-tokens', seq: 9, turn: 3 })
   })
@@ -987,19 +1090,23 @@ describe('built-in conversation node Definitions', () => {
     // The engine only hands start the single matched turn/end and never emits
     // update Matches for this kind; these direct calls pin the declared
     // behavior of both required Definition members anyway.
+    /** 中文说明：测试局部值 match，取值由紧邻初始化决定。 */
     const match = (seq: number, type: string, data: unknown) => ({
       event: { seq, time: seq * 1_000, type, data },
       view: undefined,
       role: 'start',
       location: undefined,
     }) as unknown as Parameters<typeof turnMaxTokensDefinition.start>[1]
+    /** 中文说明：测试局部值 context，取值由紧邻初始化决定。 */
     const context = (state: unknown, matches: unknown[] = []) => ({
       key: 'k', kind: 'turn-max-tokens', id: '1', matches, start: undefined, state, current: new Map(),
     }) as unknown as Parameters<NonNullable<typeof turnMaxTokensDefinition.buildViewNode>>[0]
+    /** 中文说明：测试局部值 reader，取值由紧邻初始化决定。 */
     const reader = { previous: () => undefined }
 
     expect(() => turnMaxTokensDefinition.start(context(undefined), match(1, 'turn/start', { turn: 1 }), reader))
       .toThrow('turn-max-tokens start requires a max-tokens turn/end')
+    /** 中文说明：状态快照 state，取值由紧邻初始化决定。 */
     const state = { turn: 1, seq: 5, time: 5_000 }
     expect(turnMaxTokensDefinition.update(
       context(state) as Parameters<typeof turnMaxTokensDefinition.update>[0],
@@ -1009,6 +1116,7 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('preserves nested Tools and manual compaction evidence when their start events are outside the window', () => {
+    /** 中文说明：测试局部值 value，取值由紧邻初始化决定。 */
     const value = assembler([
       at(12, 'tool/code-dispatch-start', {
         rootCallId: 'root', parentCallId: 'root', subCallId: 'child', name: 'read_file', arguments: { path: 'a' },
@@ -1045,10 +1153,13 @@ describe('built-in conversation node Definitions', () => {
       }),
     ], true)
 
+    /** 中文说明：测试局部值 tool，取值由紧邻初始化决定。 */
     const tool = node(snapshot(value), 'tool-call')
+    /** 中文说明：测试局部值 root，取值由紧邻初始化决定。 */
     const root = (tool?.data as ToolChatData).root
     expect(root.subCalls).toHaveLength(1)
     expect(root.subCalls[0]).toMatchObject({ callId: 'child', kind: 'tool-result' })
+    /** 中文说明：测试局部值 manual，取值由紧邻初始化决定。 */
     const manual = node(snapshot(value), 'manual-compaction')
     expect((manual?.data as ManualCompactionChatData)).toMatchObject({
       command: { commandId: 'command-1', name: 'compact', outcome: { kind: 'success' } },

@@ -4,6 +4,14 @@
 // Mounted through the 'conversation.input.dock' slot (QueueDock posture): the
 // dock adapter does the selecting, so the panel takes the plain list and stays
 // framework-free. Visual: figma 772:51905 / 772:52972 / 772:53419.
+/**
+ * 文件职责：实现会话骨架中的 TodoPanel 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
+ * 产品维度：支持用户查看和操作会话骨架。
+ * 逻辑维度：读取属性与服务，派生显示状态，处理事件并渲染界面。
+ * 关键边界：空状态、禁用状态、异步取消和可访问性属性必须一致。
+ * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ */
 
 import { useId, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
@@ -17,6 +25,7 @@ import { IconChecklistOutline14, IconChevronDownOutline14, IconChevronUpOutline1
 import { NS } from '../locales.ts'
 import css from './TodoPanel.module.css'
 
+/** 中文说明：类型或类 TodoPanelProps 约束本文件的数据或组件职责。 */
 export interface TodoPanelProps {
   /** The session's current plan (empty renders nothing) — selected by the dock adapter. */
   todos: readonly TodoItem[]
@@ -25,12 +34,14 @@ export interface TodoPanelProps {
 }
 
 /** Local exhaustiveness helper — client packages do not depend on `dsh-llm`. */
+/** 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 /* v8 ignore next 3 -- closed-union backstop; only reached if status is forged */
 function assertNever(value: never): never {
   throw new Error(`unreachable todo status: ${String(value)}`)
 }
 
 /** Status glyphs share the figma 14×14 artboard; the 16×16 `.glyph` cell centers them. */
+/** 中文说明：函数 CompletedGlyph 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function CompletedGlyph() {
   return (
     <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className={css.glyphCompleted}>
@@ -44,7 +55,9 @@ function CompletedGlyph() {
 }
 
 /** In-progress: business-blue ring fading out; CSS spins the svg. */
+/** 中文说明：函数 ProgressGlyph 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function ProgressGlyph() {
+  /** 中文说明：组件局部值 gradientId，取值由紧邻初始化决定。 */
   const gradientId = useId()
   return (
     <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className={css.glyphProgress}>
@@ -60,6 +73,7 @@ function ProgressGlyph() {
 }
 
 /** Pending: dashed unstarted ring (figma dash 2.4 2.4). */
+/** 中文说明：函数 PendingGlyph 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function PendingGlyph() {
   return (
     <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className={css.glyphPending}>
@@ -68,6 +82,7 @@ function PendingGlyph() {
   )
 }
 
+/** 中文说明：函数 StatusGlyph 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function StatusGlyph({ status }: { status: TodoItem['status'] }) {
   switch (status) {
     case 'completed': return <CompletedGlyph />
@@ -79,9 +94,13 @@ function StatusGlyph({ status }: { status: TodoItem['status'] }) {
 }
 
 /** Header summary: "·"-joined per-status counts; zero-count segments are omitted as noise (a non-empty list keeps at least one). */
+/** 中文说明：函数 progressLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function progressLabel(todos: readonly TodoItem[], t: TodoPanelProps['t']): string {
+  /** 中文说明：组件局部值 done，取值由紧邻初始化决定。 */
   const done = todos.filter(item => item.status === 'completed').length
+  /** 中文说明：组件局部值 active，取值由紧邻初始化决定。 */
   const active = todos.filter(item => item.status === 'in_progress').length
+  /** 中文说明：组件局部值 pending，取值由紧邻初始化决定。 */
   const pending = todos.length - done - active
   // En spaces (U+2002): HTML collapses runs of ASCII spaces, so widening the
   // separator breathing room needs a literal wide space.
@@ -92,7 +111,9 @@ function progressLabel(todos: readonly TodoItem[], t: TodoPanelProps['t']): stri
   ].join('\u2002·\u2002')
 }
 
+/** 中文说明：函数 TodoPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function TodoPanel({ todos, t }: TodoPanelProps) {
+  /** 中文说明：组件局部值 [collapsed, setCollapsed]，取值由紧邻初始化决定。 */
   const [collapsed, setCollapsed] = useState(true)
   if (todos.length === 0) return null
 
@@ -128,10 +149,13 @@ export function TodoPanel({ todos, t }: TodoPanelProps) {
 }
 
 /** Full props of a dock entry: InputZone owner share + session standard kit + global seat + the locale seat. */
+/** 中文说明：类型或类 TodoDockProps 约束本文件的数据或组件职责。 */
 export type TodoDockProps = PropsRuntime<'conversation.input.dock'> & PropsLocale<'conversation'>
 
 /** Dock adapter: reads the host-computed 'todos' projection (whole list; absent or null renders nothing). */
+/** 中文说明：函数 TodoDock 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function TodoDock({ useProjection, t }: TodoDockProps) {
+  /** 中文说明：组件局部值 todos，取值由紧邻初始化决定。 */
   const todos = useProjection('todos')
   return <TodoPanel todos={todos ?? []} t={t} />
 }
@@ -140,6 +164,7 @@ export function TodoDock({ useProjection, t }: TodoDockProps) {
  * The plan strip as a plain registrant plugin (QueueDock posture), following
  * the input-dock declaration across independent activation and reload.
  */
+/** 中文说明：组件局部值 todoDockEntry，取值由紧邻初始化决定。 */
 export const todoDockEntry = {
   name: 'conversation-todo-dock',
   inject: ['slots'],

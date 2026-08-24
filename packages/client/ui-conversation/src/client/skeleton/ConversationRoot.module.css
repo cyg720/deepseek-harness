@@ -2,6 +2,14 @@
    area, composer InputBar at the bottom. Column width/squeeze is layout's;
    this fills its cell. Figma: Header 39:27730 (83px two-row), tabs 13px with
    a 2px active bar. */
+/**
+ * 文件职责：定义 ConversationRoot 的局部样式。
+ * 技术维度：CSS Modules、主题变量、响应式布局和状态选择器。
+ * 产品维度：让会话骨架在不同状态和窗口尺寸下保持清晰。
+ * 逻辑维度：按容器、内容、操作与状态类组织规则。
+ * 关键边界：类名必须与 TSX 同步，尺寸和颜色优先复用设计变量。
+ * 新手阅读建议：对照同名组件，按 DOM 层级阅读类名。
+ */
 
 .root {
   display: flex;
@@ -19,9 +27,13 @@
      the input card clears the bare clearance, so the input card stays exactly
      content + 32px at every width. Declared on the root because the
      transcript and the composer seat are sibling subtrees. */
+  /* 中文说明：自定义属性 --dsh-chat-content-width 保存组件复用的样式值。 */
   --dsh-chat-content-width: 748px;
+  /* 中文说明：自定义属性 --dsh-composer-card-max-width 保存组件复用的样式值。 */
   --dsh-composer-card-max-width: calc(var(--dsh-chat-content-width) + 32px);
+  /* 中文说明：自定义属性 --dsh-composer-side-clearance 保存组件复用的样式值。 */
   --dsh-composer-side-clearance: 16px;
+  /* 中文说明：自定义属性 --dsh-composer-dock-inset 保存组件复用的样式值。 */
   --dsh-composer-dock-inset: 8px;
 }
 
@@ -194,6 +206,7 @@
 .composerStack {
   /* Horizontal geometry (card width, clearance, dock inset) rides the shared
      .root variables above so takeover siblings match the stack. */
+  /* 中文说明：自定义属性 --dsh-composer-stack-gap 保存组件复用的样式值。 */
   --dsh-composer-stack-gap: 6px;
 
   display: flex;
@@ -213,6 +226,7 @@
      the seat because it is the chain's only shared ancestor — fallback and
      elected overlay are siblings — and custom properties inherit down to
      whichever entry is mounted. */
+  /* 中文说明：自定义属性 --dsh-composer-text-max-height 保存组件复用的样式值。 */
   --dsh-composer-text-max-height: 336px;
 }
 

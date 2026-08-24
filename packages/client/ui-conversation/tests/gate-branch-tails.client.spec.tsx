@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证会话界面的 gate-branch-tails.client.spec.tsx 行为和边界。
+ * 技术维度：Vitest、React 测试渲染、事件模拟与可控服务替身。
+ * 产品维度：防止会话界面交互和展示在扩展后回归。
+ * 逻辑维度：构造状态，触发渲染或交互，再断言输出和清理。
+ * 关键边界：全局替身、计时器和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助夹具，再按 describe 场景顺序阅读。
+ */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
@@ -20,10 +28,13 @@ import { zh } from '../src/client/locales.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
 
 // Mirrors the real lookup chain (conversation namespace, then common).
+/** 中文说明：测试局部值 t，取值由紧邻初始化决定。 */
 const t: AssistantMarkdownProps['t'] = makeTranslate(zh, commonZh)
+/** 中文说明：当前数据 renderMessageImages，取值由紧邻初始化决定。 */
 const renderMessageImages: AssistantMarkdownProps['renderMessageImages'] = () => null
 
 /** jsdom has no ResizeObserver; StatsLine watches its row for ellipsis truncation through one. */
+/** 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -36,12 +47,15 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** 中文说明：测试局部值 SID，取值由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
 /** Minimal framework seat for direct DetailsPanel host tests. */
+/** 中文说明：测试局部值 SessionProviderStub，取值由紧邻初始化决定。 */
 const SessionProviderStub: SessionProviderComponent = ({ children }) => children(SID)
 
 /** Observe the owner currency without importing the Tool details renderer. */
+/** 中文说明：函数 renderToolDetailsProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function renderToolDetailsProbe(owners?: DetailsToolOwnerProps[]): DetailsSlotProps['renderSlot'] {
   return (_key, owner) => {
     owners?.push(owner as unknown as DetailsToolOwnerProps)
@@ -49,6 +63,7 @@ function renderToolDetailsProbe(owners?: DetailsToolOwnerProps[]): DetailsSlotPr
   }
 }
 
+/** 中文说明：函数 snapshotBase 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function snapshotBase(): ConversationSnapshot {
   return {
     sessionId: SID, views: EMPTY_CONVERSATION_VIEWS, chat: EMPTY_CHAT_SNAPSHOT,
@@ -60,6 +75,7 @@ function snapshotBase(): ConversationSnapshot {
 
 describe('render branch tails', () => {
   it('AssistantMarkdown reasoning row is ok-state when not the streaming tail', () => {
+    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <AssistantMarkdown
         t={t}
@@ -77,11 +93,13 @@ describe('render branch tails', () => {
     // assembly-without-the-unit fallback). Node `usage` is deliberately
     // ignored: billing rides the durable tokenUsage projection, so an absent
     // projection leaves counts only.
+    /** 中文说明：有序集合 nodes，取值由紧邻初始化决定。 */
     const nodes = [
       { kind: 'assistant', seq: 1, time: 1, turn: 1, step: 1, blocks: [] },
       { kind: 'assistant', seq: 2, time: 2, turn: 1, step: 2, blocks: [], usage: { inputTokens: 4, outputTokens: 6 } },
       { kind: 'assistant', seq: 3, time: 3, turn: 2, step: 1, blocks: [], usage: { inputTokens: 5 } },
     ] as const
+    /** 中文说明：测试局部值 snap，取值由紧邻初始化决定。 */
     const snap = {
       ...snapshotBase(),
       chat: chatSnapshotFixture({ nodes }),
@@ -89,7 +107,9 @@ describe('render branch tails', () => {
         ...nodes,
       ],
     }
+    /** 中文说明：测试局部值 source，取值由紧邻初始化决定。 */
     const source = { getSnapshot: () => snap, subscribe: () => () => {} }
+    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <StatsLine
         t={t}
@@ -101,6 +121,7 @@ describe('render branch tails', () => {
   })
 
   it('AssistantMarkdown reasoning as the streaming tail renders the running ring', () => {
+    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <AssistantMarkdown
         t={t}
@@ -114,15 +135,20 @@ describe('render branch tails', () => {
 
   it('DetailsPanel title falls to 详情 when the selection has no toolName and no material', () => {
     localStorage.clear()
+    /** 中文说明：测试局部值 snap，取值由紧邻初始化决定。 */
     const snap = snapshotBase()
+    /** 中文说明：测试局部值 chat，取值由紧邻初始化决定。 */
     const chat = createChatStore().create()
     chat.actions.select({ turnSeq: 1, callId: 'ghost' } satisfies SelectionTarget)
+    /** 中文说明：有序集合 emptyList，取值由紧邻初始化决定。 */
     const emptyList = createSnapshotStore<SessionListState>(
       { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined })
+    /** 中文说明：测试局部值 emptyWorkspaces，取值由紧邻初始化决定。 */
     const emptyWorkspaces = createSnapshotStore<WorkspaceListState>({
       items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
       baselinesReady: true, recentWorkspaceId: undefined,
     })
+    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <DetailsPanel
         SessionProvider={SessionProviderStub}
@@ -152,7 +178,9 @@ describe('render branch tails', () => {
 
   it('DetailsPanel resolves a nested run_code leaf to its full logged args and output', () => {
     localStorage.clear()
+    /** 中文说明：测试局部值 snap，取值由紧邻初始化决定。 */
     const snap = snapshotBase()
+    /** 中文说明：测试局部值 longText，取值由紧邻初始化决定。 */
     const longText = 'x'.repeat(1_000)
     snap.runningCalls = [{
       callId: 'p1', name: 'run_code', argsRaw: '{}', turn: 1, step: 1,
@@ -171,15 +199,20 @@ describe('render branch tails', () => {
       }],
     }]
     snap.chat = chatSnapshotFixture({ runningCalls: snap.runningCalls })
+    /** 中文说明：测试局部值 chat，取值由紧邻初始化决定。 */
     const chat = createChatStore().create()
     chat.actions.select({ turnSeq: 9, callId: 'p1:code:1:code:1', toolName: 'read' } satisfies SelectionTarget)
+    /** 中文说明：有序集合 emptyList，取值由紧邻初始化决定。 */
     const emptyList = createSnapshotStore<SessionListState>(
       { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined })
+    /** 中文说明：测试局部值 emptyWorkspaces，取值由紧邻初始化决定。 */
     const emptyWorkspaces = createSnapshotStore<WorkspaceListState>({
       items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
       baselinesReady: true, recentWorkspaceId: undefined,
     })
+    /** 中文说明：测试局部值 owners，取值由紧邻初始化决定。 */
     const owners: DetailsToolOwnerProps[] = []
+    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <DetailsPanel
         SessionProvider={SessionProviderStub}

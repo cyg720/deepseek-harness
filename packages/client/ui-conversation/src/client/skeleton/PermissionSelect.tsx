@@ -1,3 +1,11 @@
+/**
+ * 文件职责：实现会话骨架中的 PermissionSelect 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
+ * 产品维度：支持用户查看和操作会话骨架。
+ * 逻辑维度：读取属性与服务，派生显示状态，处理事件并渲染界面。
+ * 关键边界：空状态、禁用状态、异步取消和可访问性属性必须一致。
+ * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
@@ -7,14 +15,17 @@ import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
 import css from './PermissionSelect.module.css'
 
+/** 中文说明：组件局部值 FULL_ACCESS，取值由紧邻初始化决定。 */
 const FULL_ACCESS = 'danger-full-access'
 
 /* Shield glyphs (design set 1556): check = read-only, pencil = workspace
    write, exclamation = full access. currentColor so the trigger and menu
    rows tint them with their own text color. */
 
+/** 中文说明：组件局部值 shieldOutline，取值由紧邻初始化决定。 */
 const shieldOutline = 'M8.20554 0.899994L14.7901 3.36857V7.01026C14.7901 12 11.0466 14.2103 8.20554 15.3C5.36446 14.2103 1.62012 12 1.62012 7.01026V3.36857L8.20554 0.899994Z'
 
+/** 中文说明：组件局部值 permissionGlyphs，取值由紧邻初始化决定。 */
 const permissionGlyphs = {
   'read-only': (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -41,6 +52,7 @@ const permissionGlyphs = {
 } as Record<string, ReactNode>
 
 /** Glyph for a permission option value; host-configured names outside the design set get none. */
+/** 中文说明：函数 permissionGlyph 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function permissionGlyph(value: string): ReactNode | undefined {
   return permissionGlyphs[value]
 }
@@ -52,15 +64,18 @@ function permissionGlyph(value: string): ReactNode | undefined {
  * transform so both permission surfaces use the product label `Full access`;
  * the warning body remains locale-aware.
  */
+/** 中文说明：函数 displayName 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function displayName(name: string): string {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) return name
   return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }
 
+/** 中文说明：函数 optionLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function optionLabel(option: PermissionSelectValue['options'][number]): string {
   return option.value === FULL_ACCESS ? 'Full access' : displayName(option.name)
 }
 
+/** 中文说明：类型或类 PermissionSelectProps 约束本文件的数据或组件职责。 */
 export interface PermissionSelectProps {
   value: PermissionSelectValue | undefined
   locked: boolean
@@ -69,10 +84,15 @@ export interface PermissionSelectProps {
   t: ComposerBarProps['t']
 }
 
+/** 中文说明：函数 PermissionSelect 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function PermissionSelect({ value, locked, command, t }: PermissionSelectProps) {
+  /** 中文说明：组件局部值 [pick, setPick]，取值由紧邻初始化决定。 */
   const [pick, setPick] = useState<string | null>(null)
+  /** 中文说明：组件局部值 [open, setOpen]，取值由紧邻初始化决定。 */
   const [open, setOpen] = useState(false)
+  /** 中文说明：组件局部值 解构结果，取值由紧邻初始化决定。 */
   const [confirmation, setConfirmation] = useState<string | null>(null)
+  /** 中文说明：组件局部值 解构结果，取值由紧邻初始化决定。 */
   const [acknowledged, setAcknowledged] = useState(false)
 
   useEffect(() => {
@@ -84,17 +104,23 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
 
   if (value === undefined) return null
 
+  /** 中文说明：组件局部值 currentValue，取值由紧邻初始化决定。 */
   const currentValue = pick ?? value.currentValue
+  /** 中文说明：组件局部值 current，取值由紧邻初始化决定。 */
   const current = value.options.find(option => option.value === currentValue)
+  /** 中文说明：组件局部值 busy，取值由紧邻初始化决定。 */
   const busy = pick !== null || confirmation !== null
 
+  /** 中文说明：当前数据 items，取值由紧邻初始化决定。 */
   const items: MenuEntry[] = value.options
     .filter(o => o.value !== 'custom')
     .map((option) => {
+      /** 中文说明：组件局部值 icon，取值由紧邻初始化决定。 */
       const icon = permissionGlyph(option.value)
       return { id: option.value, label: optionLabel(option), ...icon === undefined ? {} : { icon } }
     })
 
+  /** 中文说明：组件局部值 submit，取值由紧邻初始化决定。 */
   const submit = (id: string): void => {
     setPick(id)
     void command(`/permission ${id}`)
@@ -102,6 +128,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
       .then(() => { setPick(null) })
   }
 
+  /** 中文说明：组件局部值 choose，取值由紧邻初始化决定。 */
   const choose = (id: string): void => {
     setOpen(false)
     if (id === value.currentValue) return
@@ -113,13 +140,16 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
     submit(id)
   }
 
+  /** 中文说明：清理函数 closeConfirmation，取值由紧邻初始化决定。 */
   const closeConfirmation = (): void => {
     setAcknowledged(false)
     setConfirmation(null)
   }
 
+  /** 中文说明：组件局部值 confirmFullAccess，取值由紧邻初始化决定。 */
   const confirmFullAccess = (): void => {
     if (locked || !acknowledged || confirmation === null) return
+    /** 中文说明：组件局部值 id，取值由紧邻初始化决定。 */
     const id = confirmation
     closeConfirmation()
     submit(id)

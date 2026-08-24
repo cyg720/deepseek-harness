@@ -3,6 +3,14 @@
 // composer is NOT rendered here (it keeps its own stable tree position in
 // ConversationRoot so the textarea survives the hero → composer flip); CSS
 // positions it over this shell's glow area during the hero phase.
+/**
+ * 文件职责：实现会话骨架中的 EmptyHero 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
+ * 产品维度：支持用户查看和操作会话骨架。
+ * 逻辑维度：读取属性与服务，派生显示状态，处理事件并渲染界面。
+ * 关键边界：空状态、禁用状态、异步取消和可访问性属性必须一致。
+ * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ */
 
 import { useId } from 'react'
 import type { ReactNode, RefObject } from 'react'
@@ -14,6 +22,7 @@ import type { ConversationSlotProps } from '../contract/slots.ts'
 import css from './HeroShell.module.css'
 
 /** The owner's locale seat type, passed to hero chrome as a plain prop. */
+/** 中文说明：类型或类 HeroTranslate 约束本文件的数据或组件职责。 */
 type HeroTranslate = ConversationSlotProps['t']
 
 /**
@@ -22,7 +31,9 @@ type HeroTranslate = ConversationSlotProps['t']
  * @param cwd - workspace directory path (non-empty).
  * @returns chip label.
  */
+/** 中文说明：函数 workspaceLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function workspaceLabel(cwd: string): string {
+  /** 中文说明：组件局部值 base，取值由紧邻初始化决定。 */
   const base = workspaceTitleOf(cwd)
   return base !== '' ? base : cwd
 }
@@ -38,6 +49,7 @@ export function workspaceLabel(cwd: string): string {
  * @param props.onClick - menu toggle.
  * @returns the chip button element.
  */
+/** 中文说明：函数 WorkspaceChip 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }: {
   buttonRef?: RefObject<HTMLButtonElement>
   label?: string | undefined
@@ -71,8 +83,10 @@ export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }
  * @param props.className - positioning class from the owner.
  * @returns the blurred-ellipse svg element.
  */
+/** 中文说明：函数 HeroGlow 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function HeroGlow({ className }: { className?: string | undefined }) {
   // Stable filter id so multiple hero mounts do not collide in the DOM.
+  /** 中文说明：组件局部值 glowFilterId，取值由紧邻初始化决定。 */
   const glowFilterId = `empty-glow-${useId().replace(/:/g, '')}`
   return (
     <svg className={className} viewBox="0 0 1051 468" fill="none" aria-hidden="true">
@@ -99,6 +113,7 @@ export function HeroGlow({ className }: { className?: string | undefined }) {
 }
 
 /** Hero chrome props. The workspace row rides the InputBar accessory hole, not here. */
+/** 中文说明：类型或类 HeroShellProps 约束本文件的数据或组件职责。 */
 export interface HeroShellProps {
   /** The owner's locale seat, passed down as a plain prop. */
   t: HeroTranslate
@@ -114,6 +129,7 @@ export interface HeroShellProps {
  * @param props - see {@link HeroShellProps}.
  * @returns the centered hero element tree.
  */
+/** 中文说明：函数 HeroShell 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
   return (
     <div className={css.root}>

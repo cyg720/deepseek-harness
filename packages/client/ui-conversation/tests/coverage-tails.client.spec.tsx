@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 // Branch tails the acceptance specs do not reach: the node-half apply
 // without a settings service and AssistantMarkdown reasoning/unknown block arms.
+/**
+ * 文件职责：验证会话界面的 coverage-tails.client.spec.tsx 行为和边界。
+ * 技术维度：Vitest、React 测试渲染、事件模拟与可控服务替身。
+ * 产品维度：防止会话界面交互和展示在扩展后回归。
+ * 逻辑维度：构造状态，触发渲染或交互，再断言输出和清理。
+ * 关键边界：全局替身、计时器和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助夹具，再按 describe 场景顺序阅读。
+ */
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -12,7 +20,9 @@ import { AssistantMarkdown, type AssistantMarkdownProps } from '../src/client/ch
 import { zh } from '../src/client/locales.ts'
 
 // Mirrors the real lookup chain (conversation namespace, then common).
+/** 中文说明：测试局部值 t，取值由紧邻初始化决定。 */
 const t: AssistantMarkdownProps['t'] = makeTranslate(zh, commonZh)
+/** 中文说明：当前数据 renderMessageImages，取值由紧邻初始化决定。 */
 const renderMessageImages: AssistantMarkdownProps['renderMessageImages'] = () => null
 
 afterEach(cleanup)
@@ -23,6 +33,7 @@ describe('tails', () => {
   })
 
   it('AssistantMarkdown renders reasoning as a Think row and unknown blocks as JSON fallback', () => {
+    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <AssistantMarkdown
         t={t}
@@ -38,6 +49,7 @@ describe('tails', () => {
     expect(view.getByText('Think')).toBeTruthy()
     expect(view.getByText('thinking hard')).toBeTruthy()
     expect(view.getByText(/未知内容块/)).toBeTruthy()
+    /** 中文说明：清理函数 stopped，取值由紧邻初始化决定。 */
     const stopped = render(
       <AssistantMarkdown
         t={t}
@@ -53,6 +65,7 @@ describe('tails', () => {
   it('AssistantMarkdown skips the root shell when only tool-call heads remain', () => {
     // Tool heads are drawn by ChatView's tool groups; an empty root between
     // groups is layout noise (no text, no pulse, no interrupted marker).
+    /** 中文说明：测试局部值 empty，取值由紧邻初始化决定。 */
     const empty = render(
       <AssistantMarkdown
         t={t}
@@ -62,6 +75,7 @@ describe('tails', () => {
       />,
     )
     expect(empty.container.firstChild).toBeNull()
+    /** 中文说明：测试局部值 blank，取值由紧邻初始化决定。 */
     const blank = render(
       <AssistantMarkdown t={t} blocks={[]} streaming={false} renderMessageImages={renderMessageImages} />,
     )
