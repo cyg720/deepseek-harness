@@ -1,4 +1,12 @@
 /** Package-owned compaction log-stream invariants. @module @deepseek-ai/dsh-compaction/invariant */
+/**
+ * 文件职责：实现上下文压缩的 invariant.ts 模块。
+ * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
+ * 产品维度：控制模型请求中的上下文压缩信息。
+ * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
+ * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
+ * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { isReplacementSurfaceEvent } from '@deepseek-ai/dsh-session'
@@ -9,13 +17,17 @@ import { isCompactCheckpointSource } from './checkpoint.ts'
 import type { CompactionCheckpointSource } from './checkpoint.ts'
 import type {} from './types.ts'
 
+/** 中文说明：上下文局部值 PACKAGE_NAME，由紧邻初始化决定。 */
 const PACKAGE_NAME = '@deepseek-ai/dsh-compaction'
 
 /** Cordis companion plugin name. */
+/** 中文说明：上下文局部值 name，由紧邻初始化决定。 */
 export const name = 'compaction-invariant'
 /** Service required before the companion can reserve package ownership. */
+/** 中文说明：上下文局部值 inject，由紧邻初始化决定。 */
 export const inject = ['invariants']
 
+/** 中文说明：类型或类 CompactionTrace 约束上下文或压缩数据职责。 */
 interface CompactionTrace {
   compactionId: CompactionId
   sourceCommandId: string | undefined
@@ -24,11 +36,13 @@ interface CompactionTrace {
   summarized: boolean
 }
 
+/** 中文说明：类型或类 SessionTrace 约束上下文或压缩数据职责。 */
 interface SessionTrace {
   openTurn: number | null
   compaction: CompactionTrace | undefined
 }
 
+/** 中文说明：类型或类 CompactionTransition 约束上下文或压缩数据职责。 */
 type CompactionTransition =
   | { kind: 'start'; compactionId: CompactionId; sourceCommandId: string | undefined; startSeq: number; turn: number | null }
   | { kind: 'summary'; compactionId: CompactionId; sourceCommandId: string | undefined; startSeq: number; turn: number | null }
@@ -36,11 +50,13 @@ type CompactionTransition =
   | { kind: 'end-seed' }
 
 /** Require a durable opaque identity to be a non-empty string. */
+/** 中文说明：函数 validateId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateId(value: unknown, label: string, fail: InvariantFailure): asserts value is string {
   if (typeof value !== 'string' || value.length === 0) fail(`${label} must be a non-empty string`)
 }
 
 /** Keep the optional initiating command identity stable across one transaction. */
+/** 中文说明：函数 validateSourceCommandId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateSourceCommandId(
   eventType: string,
   value: unknown,
@@ -54,16 +70,19 @@ function validateSourceCommandId(
 }
 
 /** Validate one replacement checkpoint against its open compaction transaction. */
+/** 中文说明：函数 validateCheckpoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateCheckpoint(
   trace: SessionTrace,
   event: SessionEvent<'user/message'>,
   fail: InvariantFailure,
 ): void {
+  /** 中文说明：上下文局部值 source，由紧邻初始化决定。 */
   const source = event.data.source as typeof event.data.source & Partial<CompactionCheckpointSource>
   validateId(source.compactionId, 'compaction checkpoint compactionId', fail)
   if (source.sourceCommandId !== undefined) {
     validateId(source.sourceCommandId, 'compaction checkpoint sourceCommandId', fail)
   }
+  /** 中文说明：上下文局部值 open，由紧邻初始化决定。 */
   const open = trace.compaction
   if (open === undefined) fail('compaction checkpoint has no matching compaction/start')
   if (source.compactionId !== open.compactionId) {
@@ -73,11 +92,15 @@ function validateCheckpoint(
 }
 
 /** Compaction starts still unmatched when a later seed boundary made them stale. */
+/** 中文说明：函数 inheritedOrphanStartSeqs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inheritedOrphanStartSeqs(
   events: readonly SessionEvent[],
 ): ReadonlySet<number> {
+  /** 中文说明：上下文局部值 stale，由紧邻初始化决定。 */
   const stale = new Set<number>()
+  /** 中文说明：上下文局部值 解构结果，由紧邻初始化决定。 */
   let openStartSeq: number | undefined
+  /** 中文说明：上下文局部值 event，由紧邻初始化决定。 */
   for (const event of events) {
     if (event.type === 'compaction/start') {
       openStartSeq = event.seq
@@ -92,6 +115,7 @@ function inheritedOrphanStartSeqs(
 }
 
 /** Keep every live compaction bracket on one side of each turn boundary. */
+/** 中文说明：函数 validateTurnBoundary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateTurnBoundary(
   trace: SessionTrace,
   event: SessionEvent,
@@ -101,6 +125,7 @@ function validateTurnBoundary(
     (event.type !== 'turn/start' && event.type !== 'turn/end')
     || trace.compaction === undefined
   ) return
+  /** 中文说明：上下文局部值 owner，由紧邻初始化决定。 */
   const owner = trace.compaction.turn === null
     ? 'standalone compaction'
     : `compaction for turn ${trace.compaction.turn}`
@@ -108,6 +133,7 @@ function validateTurnBoundary(
 }
 
 /** Advance the committed turn cursor after its boundary has been accepted. */
+/** 中文说明：函数 applyTurnBoundary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function applyTurnBoundary(trace: SessionTrace, event: SessionEvent): boolean {
   if (event.type === 'turn/start') {
     trace.openTurn = event.data.turn
@@ -121,6 +147,7 @@ function applyTurnBoundary(trace: SessionTrace, event: SessionEvent): boolean {
 }
 
 /** Require a numbered bracket inside its exact turn, or a standalone bracket between turns. */
+/** 中文说明：函数 validateOwner 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateOwner(
   owner: number | null,
   openTurn: number | null,
@@ -136,6 +163,7 @@ function validateOwner(
 }
 
 /** Validate one compaction event without advancing committed trace state. */
+/** 中文说明：函数 validateCompactionEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateCompactionEvent(
   trace: SessionTrace,
   event: SessionEvent,
@@ -151,6 +179,7 @@ function validateCompactionEvent(
   if (event.type !== 'compaction/start' && event.type !== 'compaction/summary' && event.type !== 'compaction/end') {
     return undefined
   }
+  /** 中文说明：上下文局部值 open，由紧邻初始化决定。 */
   const open = trace.compaction
   if (event.type === 'compaction/start') {
     validateId(event.data.compactionId, 'compaction/start compactionId', fail)
@@ -158,6 +187,7 @@ function validateCompactionEvent(
       validateId(event.data.sourceCommandId, 'compaction/start sourceCommandId', fail)
     }
     if (open !== undefined) {
+      /** 中文说明：上下文局部值 owner，由紧邻初始化决定。 */
       const owner = open.turn === null ? 'standalone compaction' : `turn ${open.turn}`
       fail(`compaction/start while ${owner} is still compacting`)
     }
@@ -182,6 +212,7 @@ function validateCompactionEvent(
     validateSourceCommandId('compaction/summary', event.data.sourceCommandId, open.sourceCommandId, fail)
     validateOwner(open.turn, trace.openTurn, event.type, fail)
     if (open.summarized) fail('compaction/summary repeated within one compaction')
+    /** 中文说明：上下文局部值 seqs，由紧邻初始化决定。 */
     const seqs = event.data.shadowedSeqs
     if (seqs.length === 0) fail('compaction/summary shadowedSeqs must be non-empty')
     if (seqs[0] !== event.data.shadowedRange.start || seqs.at(-1) !== event.data.shadowedRange.end) {
@@ -218,6 +249,7 @@ function validateCompactionEvent(
 }
 
 /** Apply one committed compaction transition. */
+/** 中文说明：函数 applyCompactionTransition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function applyCompactionTransition(
   transition: CompactionTransition,
 ): CompactionTrace | undefined {
@@ -245,13 +277,20 @@ function applyCompactionTransition(
 /** Install compaction start/summary/end checks. */
 // Event owners keep precommit staging local so their vocabularies never move into a central helper.
 /* jscpd:ignore-start */
+/** 中文说明：上下文局部值 install，由紧邻初始化决定。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
+  /** 中文说明：上下文局部值 traces，由紧邻初始化决定。 */
   const traces = new WeakMap<Session, SessionTrace>()
+  /** 中文说明：上下文局部值 staged，由紧邻初始化决定。 */
   const staged = new WeakMap<SessionEvent, { session: Session; transition: CompactionTransition }>()
+  /** 中文说明：上下文局部值 seed，由紧邻初始化决定。 */
   const seed = (session: Session): SessionTrace => {
+    /** 中文说明：上下文局部值 trace，由紧邻初始化决定。 */
     const trace: SessionTrace = { openTurn: null, compaction: undefined }
     traces.set(session, trace)
+    /** 中文说明：上下文局部值 staleOrphanStartSeqs，由紧邻初始化决定。 */
     const staleOrphanStartSeqs = inheritedOrphanStartSeqs(session.events)
+    /** 中文说明：上下文局部值 event，由紧邻初始化决定。 */
     for (const event of session.events) {
       // Constructor-seed repair boundaries can precede the end-seed marker
       // that proves an inherited orphan stale. Replay that inherited prefix
@@ -262,17 +301,21 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
       ) {
         validateTurnBoundary(trace, event, fail)
       }
+      /** 中文说明：上下文局部值 transition，由紧邻初始化决定。 */
       const transition = validateCompactionEvent(trace, event, fail)
       if (transition !== undefined) trace.compaction = applyCompactionTransition(transition)
       applyTurnBoundary(trace, event)
     }
     return trace
   }
+  /** 中文说明：上下文局部值 traceFor，由紧邻初始化决定。 */
   const traceFor = (session: Session): SessionTrace => traces.get(session) ?? seed(session)
 
+  /** 中文说明：上下文局部值 session，由紧邻初始化决定。 */
   for (const session of ctx.sessions.list()) seed(session)
   ctx.on('session/created', (session) => { seed(session) }, { global: true })
   ctx.on('session/event', (session, event) => {
+    /** 中文说明：上下文局部值 trace，由紧邻初始化决定。 */
     const trace = traceFor(session)
     validateTurnBoundary(trace, event, fail)
     if (applyTurnBoundary(trace, event)) return
@@ -280,6 +323,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
       && event.type !== 'compaction/start'
       && event.type !== 'compaction/summary'
       && event.type !== 'compaction/end') return
+    /** 中文说明：上下文局部值 candidate，由紧邻初始化决定。 */
     const candidate = staged.get(event)
     /* v8 ignore next -- internal/dispatch stages every compaction event */
     if (candidate === undefined || candidate.session !== session) return fail('compaction event published without pre-commit validation')
@@ -288,9 +332,12 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   }, { global: true })
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return
+    /** 中文说明：上下文局部值 [session, event]，由紧邻初始化决定。 */
     const [session, event] = args as [Session, SessionEvent]
+    /** 中文说明：上下文局部值 trace，由紧邻初始化决定。 */
     const trace = traceFor(session)
     validateTurnBoundary(trace, event, fail)
+    /** 中文说明：上下文局部值 transition，由紧邻初始化决定。 */
     const transition = validateCompactionEvent(trace, event, fail)
     if (transition !== undefined) staged.set(event, { session, transition })
   }, { global: true })
@@ -302,5 +349,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
+/** 中文说明：上下文局部值 apply，由紧邻初始化决定。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证工作区指令上下文的 agent-instructions.e2e.ts 行为。
+ * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
+ * 产品维度：防止工作区指令上下文改变模型可见内容或生命周期语义。
+ * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
+ * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
+ * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
+ */
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -18,11 +26,16 @@ import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
+/** 中文说明：测试局部值 PROBE，由紧邻初始化决定。 */
 const PROBE = 'banana-271828'
+/** 中文说明：测试局部值 NESTED_PROBE，由紧邻初始化决定。 */
 const NESTED_PROBE = 'papaya-314159'
+/** 中文说明：测试局部值 UPDATED_PROBE，由紧邻初始化决定。 */
 const UPDATED_PROBE = 'guava-161803'
 
+/** 中文说明：测试局部值 ctx: Context | undefined，由紧邻初始化决定。 */
 let ctx: Context | undefined
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let workdir: string | undefined
 
 afterEach(async () => {
@@ -32,6 +45,7 @@ afterEach(async () => {
   workdir = undefined
 })
 
+/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(): Promise<{ ctx: Context; agent: Agent }> {
   workdir = await mkdtemp(join(tmpdir(), 'dsh-workspace-context-e2e-'))
   await mkdir(join(workdir, '.git'), { recursive: true })
@@ -47,6 +61,7 @@ async function harness(): Promise<{ ctx: Context; agent: Agent }> {
   await ctx.plugin(WorkspaceContext, { maxBytes: 65536 })
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(LlmDeepSeek, { models: [{ id: 'deepseek-v4-flash' }] })
+  /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
   const handle = await ctx.agents.create({
     sessionId: SessionId('workspace-context-e2e-session'),
     meta: { cwd: workdir },
@@ -55,8 +70,10 @@ async function harness(): Promise<{ ctx: Context; agent: Agent }> {
   return { ctx, agent: handle.agent }
 }
 
+/** 中文说明：函数 waitForIdle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
   return new Promise((resolve) => {
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -66,7 +83,9 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
   })
 }
 
+/** 中文说明：函数 finalText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function finalText(events: SessionEvent[]): string {
+  /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
   const message = events.findLast(event => event.type === 'assistant/message')
   if (message?.type !== 'assistant/message') return ''
   return message.data.message.content
@@ -77,6 +96,7 @@ function finalText(events: SessionEvent[]): string {
 
 describe.skipIf(!process.env.DEEPSEEK_API_KEY)('workspace context e2e: real model sees AGENTS.md baseline', () => {
   it('obeys a probe instruction loaded from the workspace', async () => {
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = await harness()
 
     live.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Workspace context handshake?' }], source: { kind: 'user' } }))
@@ -86,6 +106,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('workspace context e2e: real mode
   }, 120_000)
 
   it('loads a nested AGENTS.md after the real read tool touches a descendant file', async () => {
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = await harness()
     await mkdir(join(workdir!, 'pkg/deep'), { recursive: true })
     await writeFile(join(workdir!, 'pkg/AGENTS.md'), `If the user asks for the nested instruction handshake, reply with exactly this string and nothing else: ${NESTED_PROBE}.\n`)
@@ -98,6 +119,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('workspace context e2e: real mode
   }, 120_000)
 
   it('appends changed baseline instructions after a real file-tool touch without rewriting the frozen prefix', async () => {
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = await harness()
     await writeFile(join(workdir!, 'trigger.txt'), 'This file triggers workspace instruction reconciliation.\n')
     live.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Workspace context handshake?' }], source: { kind: 'user' } }))
@@ -107,13 +129,16 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('workspace context e2e: real mode
     live.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'You must use the read tool to inspect trigger.txt. After reading it, answer: updated workspace context handshake?' }], source: { kind: 'user' } }))
     await waitForIdle(live.ctx, live.agent)
 
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [...live.agent.session.events]
+    /** 中文说明：测试局部值 update，由紧邻初始化决定。 */
     const update = events.find(event => event.type === 'user/message'
       && event.data.source.kind === 'agent-instructions'
       && event.data.source.baseline !== true)
     expect(update?.type === 'user/message' && update.data.source).toMatchObject({
       changes: [{ action: 'replace', scope: candidateScopeKey('.', 'AGENTS.md'), path: 'AGENTS.md' }],
     })
+    /** 中文说明：测试局部值 updateText，由紧邻初始化决定。 */
     const updateText = update?.type === 'user/message'
       ? update.data.content.filter(block => block.type === 'text').map(block => block.text).join('')
       : ''

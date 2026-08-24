@@ -6,6 +6,14 @@
  * [compaction Agent Note](../../../../.agents/notes/implemented/feature/2026-06-18-compaction-capability-seam.md).
  * @module @deepseek-ai/dsh-compaction
  */
+/**
+ * 文件职责：实现上下文压缩的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
+ * 产品维度：控制模型请求中的上下文压缩信息。
+ * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
+ * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
+ * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { Session } from '@deepseek-ai/dsh-session'
@@ -22,9 +30,11 @@ export { compactCheckpointSource, isCompactCheckpointSource } from './checkpoint
 export type { CompactionCheckpointSource } from './checkpoint.ts'
 
 /** Why automatic policy is asking a backend to consider compaction. */
+/** 中文说明：类型或类 CompactionTrigger 约束上下文或压缩数据职责。 */
 export type CompactionTrigger = 'pressure' | 'context-overflow'
 
 /** Expected failure classes for an explicit idle-session compaction request. */
+/** 中文说明：类型或类 ManualCompactionErrorCode 约束上下文或压缩数据职责。 */
 export type ManualCompactionErrorCode =
   | 'busy'
   | 'cancelled'
@@ -38,6 +48,7 @@ export type ManualCompactionErrorCode =
  * Shared durable-lock entry assertions may also throw the `busy` subtype from
  * automatic compaction paths.
  */
+/** 中文说明：类型或类 ManualCompactionError 约束上下文或压缩数据职责。 */
 export class ManualCompactionError extends Error {
   override readonly name = 'ManualCompactionError'
 
@@ -57,6 +68,7 @@ export class ManualCompactionError extends Error {
 }
 
 /** Minimal agent context compaction needs without depending on the agent package. */
+/** 中文说明：类型或类 CompactionAgentContext 约束上下文或压缩数据职责。 */
 export interface CompactionAgentContext {
   session: Session
   options: { provider?: string; model?: string }
@@ -67,6 +79,7 @@ export interface CompactionAgentContext {
  * against driver turns. The durable `compaction/start` marker separately excludes
  * other compaction transactions.
  */
+/** 中文说明：类型或类 ManualCompactAgentContext 约束上下文或压缩数据职责。 */
 export interface ManualCompactAgentContext extends CompactionAgentContext {
   /**
    * Run a non-turn maintenance operation only while the agent is idle, withholding later
@@ -79,6 +92,7 @@ export interface ManualCompactAgentContext extends CompactionAgentContext {
 }
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：类型或类 Context 约束上下文或压缩数据职责。 */
   interface Context {
     compaction: CompactionEngine
   }

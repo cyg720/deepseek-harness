@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证上下文压缩的 tool-result-pruner.spec.ts 行为。
+ * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
+ * 产品维度：防止上下文压缩改变模型可见内容或生命周期语义。
+ * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
+ * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
+ * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { CallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
@@ -18,14 +26,18 @@ import ToolResultPruner, {
 } from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 import type { ToolResultPruneConfig } from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 
+/** 中文说明：测试局部值 MODEL，由紧邻初始化决定。 */
 const MODEL = 'test-model'
+/** 中文说明：测试局部值 SMALL，由紧邻初始化决定。 */
 const SMALL: ToolResultPruneConfig = {
   thresholdChars: 50,
   headChars: 4,
   tailChars: 3,
 }
 
+/** 中文说明：函数 service 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function service(config: ToolResultPruneConfig = SMALL): ToolResultPruner {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   // Service constructors self-register, so `ctx.tokenMeter` resolves for the
   // shadow-price pricing without a full plugin boot.
@@ -34,8 +46,10 @@ function service(config: ToolResultPruneConfig = SMALL): ToolResultPruner {
 }
 
 /** Pricing oracle mirroring the service's estimator for expectations. */
+/** 中文说明：测试局部值 METER，由紧邻初始化决定。 */
 const METER = new TokenMeter(new Context())
 
+/** 中文说明：函数 appendToolStep 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendToolStep(
   session: Session,
   turn: number,
@@ -43,6 +57,7 @@ function appendToolStep(
   content: ContentBlock[],
   extra: Record<string, unknown> = {},
 ): number {
+  /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
   const callId = CallId(call)
   session.append('turn/start', {
     turn,
@@ -61,6 +76,7 @@ function appendToolStep(
     }),
   }, { surfaceOp: 'append' })
   session.append('tool/call', { turn, step: 1, callId, name: 'bash', arguments: '{}' })
+  /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
   const result = session.append('tool/result', {
     turn,
     step: 1,
@@ -74,7 +90,9 @@ function appendToolStep(
 
 describe('tool-result pruning configuration', () => {
   it('resolves detached immutable defaults and partial overrides', () => {
+    /** 中文说明：测试局部值 raw，由紧邻初始化决定。 */
     const raw = { thresholdChars: 100, headChars: 20, tailChars: 10 }
+    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveConfig(raw)
     raw.headChars = 1
     expect(resolved).toEqual({ thresholdChars: 100, headChars: 20, tailChars: 10 })
@@ -84,6 +102,7 @@ describe('tool-result pruning configuration', () => {
   })
 
   it('rejects stale keys, invalid scalars, and an output budget above threshold', () => {
+    /** 中文说明：测试局部值 bad，由紧邻初始化决定。 */
     const bad = [
       [{ thresholdChars: 0 }, /thresholdChars .* positive integer/],
       [{ headChars: -1 }, /headChars .* non-negative integer/],
@@ -91,6 +110,7 @@ describe('tool-result pruning configuration', () => {
       [{ thresholdChars: 50, headChars: 20, tailChars: 20 }, /headChars \+ marker \+ tailChars/],
       [{ threshold: 10 }, /unknown key "threshold"/],
     ] as Array<[unknown, RegExp]>
+    /** 中文说明：测试局部值 [config，由紧邻初始化决定。 */
     for (const [config, pattern] of bad) {
       expect(() => resolveConfig(config as ToolResultPruneConfig)).toThrow(pattern)
     }
@@ -99,7 +119,9 @@ describe('tool-result pruning configuration', () => {
 
 describe('ToolResultPruner content transform', () => {
   it('measures text code points only and skips content within threshold', () => {
+    /** 中文说明：测试局部值 prune，由紧邻初始化决定。 */
     const prune = service()
+    /** 中文说明：测试局部值 blocks，由紧邻初始化决定。 */
     const blocks = [
       { type: 'text', text: 'a😀b' },
       { type: 'reasoning', text: 'not measured' },
@@ -110,7 +132,9 @@ describe('ToolResultPruner content transform', () => {
   })
 
   it('keeps configured head and tail without splitting surrogate pairs', () => {
+    /** 中文说明：测试局部值 prune，由紧邻初始化决定。 */
     const prune = service()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = prune.pruneContent([{ type: 'text', text: '😀'.repeat(60) }])
     expect(result).toEqual([{
       type: 'text',
@@ -122,14 +146,18 @@ describe('ToolResultPruner content transform', () => {
   })
 
   it('preserves non-text blocks and their relative ordering across removed text', () => {
+    /** 中文说明：测试局部值 prune，由紧邻初始化决定。 */
     const prune = service()
+    /** 中文说明：测试局部值 reasoning，由紧邻初始化决定。 */
     const reasoning: ContentBlock = { type: 'reasoning', text: 'private-rich-block' }
+    /** 中文说明：测试局部值 call，由紧邻初始化决定。 */
     const call: ContentBlock = {
       type: 'tool-call',
       id: CallId('nested'),
       name: 'nested',
       arguments: '{}',
     }
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = prune.pruneContent([
       { type: 'text', text: 'A'.repeat(40) },
       reasoning,
@@ -147,11 +175,13 @@ describe('ToolResultPruner content transform', () => {
   })
 
   it('supports zero-sized head and tail while still shrinking', () => {
+    /** 中文说明：测试局部值 prune，由紧邻初始化决定。 */
     const prune = service({
       thresholdChars: codePointLength(PRUNE_MARKER),
       headChars: 0,
       tailChars: 0,
     })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = prune.pruneContent([{ type: 'text', text: 'x'.repeat(100) }])
     expect(result).toEqual([{ type: 'text', text: PRUNE_MARKER }])
     expect(prune.measureContent(result!)).toBe(prune.config.thresholdChars)
@@ -160,7 +190,9 @@ describe('ToolResultPruner content transform', () => {
 
 describe('ToolResultPruner session transaction', () => {
   it('prunes a stable snapshot, preserves all data, and cites the replaced result', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('preserve'))
+    /** 中文说明：测试局部值 originalSeq，由紧邻初始化决定。 */
     const originalSeq = appendToolStep(session, 1, 'one', [{
       type: 'text',
       text: 'x'.repeat(100),
@@ -174,14 +206,18 @@ describe('ToolResultPruner session transaction', () => {
       turn: 2,
     })
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = service().pruneSession(session)
     expect(result.pruned).toHaveLength(1)
     expect(result.charsRemoved).toBeGreaterThan(0)
+    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     const entry = result.pruned[0]!
     expect(entry).toMatchObject({ originalSeq, callId: CallId('one'), charsBefore: 100 })
     expect(entry.charsAfter).toBeLessThanOrEqual(50)
 
+    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = session.events[originalSeq]!
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = session.events[entry.replacementSeq]! as SurfaceEvent
     expect(original).toMatchObject({
       type: 'tool/result',
@@ -226,6 +262,7 @@ describe('ToolResultPruner session transaction', () => {
   })
 
   it('prunes multiple results, skips short ones, and converges in one pass', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('multiple'))
     appendToolStep(session, 1, 'a', [{ type: 'text', text: 'A'.repeat(100) }])
     appendToolStep(session, 2, 'b', [{ type: 'text', text: 'short' }])
@@ -233,8 +270,11 @@ describe('ToolResultPruner session transaction', () => {
     session.append('turn/start', {
       turn: 4,
     })
+    /** 中文说明：测试局部值 prune，由紧邻初始化决定。 */
     const prune = service()
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = prune.pruneSession(session)
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = prune.pruneSession(session)
     expect(first.pruned.map(entry => entry.callId)).toEqual([CallId('a'), CallId('c')])
     expect(first.charsRemoved).toBe(
@@ -244,24 +284,29 @@ describe('ToolResultPruner session transaction', () => {
   })
 
   it('replays to the identical pruned model messages', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('replay'))
     appendToolStep(session, 1, 'a', [{ type: 'text', text: 'A'.repeat(100) }])
     session.append('turn/start', {
       turn: 2,
     })
     service().pruneSession(session)
+    /** 中文说明：测试局部值 replay，由紧邻初始化决定。 */
     const replay = Session.create(session.id, [...session.events])
     expect(replay.deriveMessages()).toEqual(session.deriveMessages())
     expect(replay.surface.replaceGeneration).toBe(session.surface.replaceGeneration)
   })
 
   it('runs under real invariants between closed steps but not outside a turn', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
     await ctx.plugin(InvariantRegistry)
     await ctx.plugin(SessionInvariant)
     await ctx.plugin(TokenMeter)
+    /** 中文说明：测试局部值 prune，由紧邻初始化决定。 */
     const prune = new ToolResultPruner(ctx, SMALL)
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create(SessionId('invariants'))
     appendToolStep(session, 1, 'a', [{ type: 'text', text: 'A'.repeat(100) }])
     expect(() => prune.pruneSession(session)).toThrow(/outside any open turn/)

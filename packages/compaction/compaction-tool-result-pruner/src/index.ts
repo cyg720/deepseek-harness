@@ -3,6 +3,14 @@
  *
  * @module @deepseek-ai/dsh-compaction-tool-result-pruner
  */
+/**
+ * 文件职责：实现上下文压缩的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
+ * 产品维度：控制模型请求中的上下文压缩信息。
+ * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
+ * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
+ * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -30,17 +38,20 @@ export type {
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：类型或类 Context 约束上下文或压缩数据职责。 */
   interface Context {
     toolResultPruner: ToolResultPruner
   }
 }
 
+/** 中文说明：类型或类 SnapshotCandidate 约束上下文或压缩数据职责。 */
 interface SnapshotCandidate {
   readonly seq: number
   readonly event: SessionEvent<'tool/result'>
 }
 
 /** Deterministic head/middle/tail pruning for current tool-result surface nodes. */
+/** 中文说明：类型或类 ToolResultPruner 约束上下文或压缩数据职责。 */
 export class ToolResultPruner extends Service {
   // The token meter prices each shadowed node for its logged shadow-price
   // event, so pruning genuinely requires the pricing capability.
@@ -66,7 +77,9 @@ export class ToolResultPruner extends Service {
    * @returns total Unicode code points across text blocks.
    */
   measureContent(blocks: readonly ContentBlock[]): number {
+    /** 中文说明：上下文局部值 chars，由紧邻初始化决定。 */
     let chars = 0
+    /** 中文说明：上下文局部值 block，由紧邻初始化决定。 */
     for (const block of blocks) {
       if (block.type === 'text') chars += codePointLength(block.text)
     }
@@ -81,29 +94,44 @@ export class ToolResultPruner extends Service {
    * @returns pruned content, or `null` when the text is within budget.
    */
   pruneContent(blocks: readonly ContentBlock[]): ContentBlock[] | null {
+    /** 中文说明：上下文局部值 totalChars，由紧邻初始化决定。 */
     const totalChars = this.measureContent(blocks)
     if (totalChars <= this.config.thresholdChars) return null
 
+    /** 中文说明：上下文局部值 removedStart，由紧邻初始化决定。 */
     const removedStart = this.config.headChars
+    /** 中文说明：上下文局部值 removedEnd，由紧邻初始化决定。 */
     const removedEnd = totalChars - this.config.tailChars
+    /** 中文说明：上下文局部值 pruned，由紧邻初始化决定。 */
     const pruned: ContentBlock[] = []
+    /** 中文说明：上下文局部值 consumed，由紧邻初始化决定。 */
     let consumed = 0
+    /** 中文说明：上下文局部值 markerInserted，由紧邻初始化决定。 */
     let markerInserted = false
 
+    /** 中文说明：上下文局部值 block，由紧邻初始化决定。 */
     for (const block of blocks) {
       if (block.type !== 'text') {
         pruned.push(block)
         continue
       }
 
+      /** 中文说明：上下文局部值 points，由紧邻初始化决定。 */
       const points = Array.from(block.text)
+      /** 中文说明：上下文局部值 blockStart，由紧邻初始化决定。 */
       const blockStart = consumed
+      /** 中文说明：上下文局部值 blockEnd，由紧邻初始化决定。 */
       const blockEnd = blockStart + points.length
+      /** 中文说明：上下文局部值 headEnd，由紧邻初始化决定。 */
       const headEnd = Math.min(points.length, Math.max(0, removedStart - blockStart))
+      /** 中文说明：上下文局部值 tailStart，由紧邻初始化决定。 */
       const tailStart = Math.min(points.length, Math.max(0, removedEnd - blockStart))
+      /** 中文说明：上下文局部值 intersectsRemoved，由紧邻初始化决定。 */
       const intersectsRemoved = blockStart < removedEnd && blockEnd > removedStart
+      /** 中文说明：上下文局部值 marker，由紧邻初始化决定。 */
       const marker = intersectsRemoved && !markerInserted ? PRUNE_MARKER : ''
       if (marker.length > 0) markerInserted = true
+      /** 中文说明：上下文局部值 text，由紧邻初始化决定。 */
       const text = points.slice(0, headEnd).join('')
         + marker
         + points.slice(tailStart).join('')
@@ -113,6 +141,7 @@ export class ToolResultPruner extends Service {
 
     /* v8 ignore next -- totalChars > threshold and valid budgets guarantee a removed text span. */
     if (!markerInserted) throw new Error('tool-result prune: failed to locate the removed text span')
+    /** 中文说明：上下文局部值 charsAfter，由紧邻初始化决定。 */
     const charsAfter = this.measureContent(pruned)
     /* v8 ignore next -- config validation fixes the emitted head + marker + tail budget. */
     if (charsAfter > this.config.thresholdChars || charsAfter >= totalChars) {
@@ -134,21 +163,32 @@ export class ToolResultPruner extends Service {
    * earlier in the pass remain durable.
    */
   pruneSession(session: Session): PruneResult {
+    /** 中文说明：上下文局部值 candidates，由紧邻初始化决定。 */
     const candidates: SnapshotCandidate[] = []
+    /** 中文说明：上下文局部值 seq，由紧邻初始化决定。 */
     for (const seq of [...session.surface.nodes]) {
+      /** 中文说明：上下文局部值 event，由紧邻初始化决定。 */
       const event = session.events[seq]
       /* v8 ignore next -- surface seqs are validated contiguous log references. */
       if (event?.type === 'tool/result') candidates.push({ seq, event })
     }
 
+    /** 中文说明：上下文局部值 pruned，由紧邻初始化决定。 */
     const pruned: PrunedEntry[] = []
+    /** 中文说明：上下文局部值 charsRemoved，由紧邻初始化决定。 */
     let charsRemoved = 0
+    /** 中文说明：上下文局部值 {，由紧邻初始化决定。 */
     for (const { seq, event } of candidates) {
+      /** 中文说明：上下文局部值 result，由紧邻初始化决定。 */
       const result = event.data.message.content[0]
+      /** 中文说明：上下文局部值 content，由紧邻初始化决定。 */
       const content = this.pruneContent(result.content)
       if (content === null) continue
+      /** 中文说明：上下文局部值 charsBefore，由紧邻初始化决定。 */
       const charsBefore = this.measureContent(result.content)
+      /** 中文说明：上下文局部值 charsAfter，由紧邻初始化决定。 */
       const charsAfter = this.measureContent(content)
+      /** 中文说明：上下文局部值 message，由紧邻初始化决定。 */
       const message = freezeMessage<ToolResultMessage>({
         ...event.data.message,
         content: [{
@@ -164,6 +204,7 @@ export class ToolResultPruner extends Service {
         shadowedSeqs: [seq],
         shadowedTokenCount: this.ctx.tokenMeter.estimateMessage(event.data.message),
       })
+      /** 中文说明：上下文局部值 replacement，由紧邻初始化决定。 */
       const replacement = session.append('tool/result', {
         ...event.data,
         message,

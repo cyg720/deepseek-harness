@@ -6,6 +6,14 @@
  * `.agents/notes/implemented/feature/2026-06-18-compaction-capability-seam.md`.
  * @module @deepseek-ai/dsh-compaction/types
  */
+/**
+ * 文件职责：实现上下文压缩的 types.ts 模块。
+ * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
+ * 产品维度：控制模型请求中的上下文压缩信息。
+ * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
+ * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
+ * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ */
 
 import type { ContentBlock, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
@@ -14,6 +22,7 @@ import type { CompactionId } from './brand.ts'
 export type { CompactionId }
 
 declare module '@deepseek-ai/dsh-session/types' {
+  /** 中文说明：类型或类 SessionEventMap 约束上下文或压缩数据职责。 */
   interface SessionEventMap {
     /**
      * Marks the start of a compaction — log-only, holds the lock until
@@ -90,6 +99,7 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 /** Result of a successful compaction operation. */
+/** 中文说明：类型或类 CompactionResult 约束上下文或压缩数据职责。 */
 export interface CompactionResult {
   /** Stable identity shared by this compaction's complete durable lifecycle. */
   compactionId: CompactionId

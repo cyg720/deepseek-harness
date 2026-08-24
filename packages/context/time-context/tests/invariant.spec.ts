@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证时间上下文的 invariant.spec.ts 行为。
+ * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
+ * 产品维度：防止时间上下文改变模型可见内容或生命周期语义。
+ * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
+ * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
+ * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
+ */
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -6,9 +14,12 @@ import SessionStore, { Session, SessionId, type SessionEvent } from '@deepseek-a
 import * as TimeInvariant from '@deepseek-ai/dsh-time-context/invariant'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 
+/** 中文说明：测试局部值 SECOND，由紧邻初始化决定。 */
 const SECOND = Date.parse('2026-07-14T00:00:00Z')
 
+/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(InvariantRegistry, { enabled: true })
@@ -16,6 +27,7 @@ async function setup(): Promise<Context> {
   return ctx
 }
 
+/** 中文说明：函数 event 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function event(
   text: string,
   time = SECOND + 456,
@@ -40,6 +52,7 @@ function event(
   }
 }
 
+/** 中文说明：函数 reading 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function reading(
   turn = '1',
   step = '1',
@@ -52,8 +65,11 @@ function reading(
     + `Elapsed since the preceding ${baseline}: unavailable.`
 }
 
+/** 中文说明：函数 preparing 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function preparing(turn: number, step: number, clientTimeZone?: string): Session {
+  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(SessionId(`time-invariant-${turn}-${step}`))
+  /** 中文说明：测试局部值 priorTurn，由紧邻初始化决定。 */
   for (let priorTurn = 1; priorTurn < turn; priorTurn += 1) {
     session.append('turn/start', { turn: priorTurn })
     session.append('turn/end', { turn: priorTurn, reason: { kind: 'completed' } })
@@ -65,6 +81,7 @@ function preparing(turn: number, step: number, clientTimeZone?: string): Session
       ? { kind: 'user' }
       : { kind: 'user', rpcId: `turn-${String(turn)}`, clientTimeZone } as never,
   }), { surfaceOp: 'append' })
+  /** 中文说明：测试局部值 priorStep，由紧邻初始化决定。 */
   for (let priorStep = 1; priorStep < step; priorStep += 1) {
     session.append('step/start', { turn, step: priorStep })
     session.append('step/end', { turn, step: priorStep })
@@ -73,6 +90,7 @@ function preparing(turn: number, step: number, clientTimeZone?: string): Session
   return session
 }
 
+/** 中文说明：函数 appendReading 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendReading(session: Session, text: string): void {
   session.append('user/message', createUserMessage({
     content: [{ type: 'text', text }],
@@ -87,7 +105,9 @@ function appendReading(session: Session, text: string): void {
 
 describe('time-context invariants', () => {
   it('accepts a reading whose turn, step, baseline, and timestamp agree', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = 'Time sampled while preparing turn 2, step 3: 2026-07-14T00:00:00+00:00[UTC]\n'
       + 'Browser time zone for this request: unavailable. Ask the user to clarify otherwise-unqualified dates and times.\n'
       + 'Elapsed since the preceding step context: 4m 2s.'
@@ -95,6 +115,7 @@ describe('time-context invariants', () => {
   })
 
   it('accepts a reading durably appended after a long process pause', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
     expect(() => {
       ctx.emit('session/event', preparing(1, 1), event(reading(), SECOND + 60_000))
@@ -102,7 +123,9 @@ describe('time-context invariants', () => {
   })
 
   it('requires browser-zone policy and timestamp to match current-turn request provenance', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 policy，由紧邻初始化决定。 */
     const policy = 'Browser time zone for this request: Asia/Shanghai. '
       + 'Interpret otherwise-unqualified dates and times in this zone.'
     expect(() => {
@@ -129,9 +152,12 @@ describe('time-context invariants', () => {
   })
 
   it('reports browser-zone timestamp formatter failures as invariant violations', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 policy，由紧邻初始化决定。 */
     const policy = 'Browser time zone for this request: Asia/Shanghai. '
       + 'Interpret otherwise-unqualified dates and times in this zone.'
+    /** 中文说明：测试局部值 formatToParts，由紧邻初始化决定。 */
     const formatToParts = vi.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts')
       .mockImplementationOnce(() => { throw new RangeError('formatter unavailable') })
     try {
@@ -150,8 +176,11 @@ describe('time-context invariants', () => {
   })
 
   it('rejects invalid browser provenance loaded across the durable boundary', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 timeZone，由紧邻初始化决定。 */
     const timeZone = 'Not/A_Real_Zone'
+    /** 中文说明：测试局部值 policy，由紧邻初始化决定。 */
     const policy = `Browser time zone for this request: ${timeZone}. `
       + 'Interpret otherwise-unqualified dates and times in this zone.'
     expect(() => {
@@ -166,7 +195,9 @@ describe('time-context invariants', () => {
   })
 
   it('rejects one corrupt zone even when another zone would classify the turn as mixed', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = preparing(1, 1, 'Asia/Shanghai')
     session.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'second browser prompt' }],
@@ -189,8 +220,10 @@ describe('time-context invariants', () => {
   })
 
   it('validates each existing reading against its preceding durable prefix', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create(SessionId('time-invariant-late-valid'))
     session.append('turn/start', { turn: 1 })
     session.append('step/start', { turn: 1, step: 1 })
@@ -205,8 +238,10 @@ describe('time-context invariants', () => {
   })
 
   it('rejects an invalid existing reading on late registration', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create(SessionId('time-invariant-late-invalid'))
     session.append('turn/start', { turn: 1 })
     session.append('step/start', { turn: 1, step: 1 })
@@ -224,12 +259,15 @@ describe('time-context invariants', () => {
     [reading('1', '3', 'step context'), /expected turn 2\/step 3/],
     [reading('2', '2', 'step context'), /expected turn 2\/step 3/],
   ])('rejects a reading that disagrees with its session position', async (text, message) => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
     expect(() => { ctx.emit('session/event', preparing(2, 3), event(text)) }).toThrow(message)
   })
 
   it('rejects a reading after cancellation closes the turn', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = preparing(1, 2)
     session.append('turn/end', { turn: 1, reason: { kind: 'aborted', reason: { kind: 'user' } } })
     expect(() => { ctx.emit('session/event', session, event(reading('1', '2', 'step context'))) })
@@ -237,16 +275,20 @@ describe('time-context invariants', () => {
   })
 
   it('rejects a reading outside prompt assembly', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 ended，由紧邻初始化决定。 */
     const ended = preparing(1, 1)
     ended.append('step/end', { turn: 1, step: 1 })
     expect(() => { ctx.emit('session/event', ended, event(reading())) }).toThrow(/follow step\/start/)
+    /** 中文说明：测试局部值 notEntered，由紧邻初始化决定。 */
     const notEntered = Session.create(SessionId('time-invariant-turn-only'))
     notEntered.append('turn/start', { turn: 1 })
     expect(() => { ctx.emit('session/event', notEntered, event(reading())) }).toThrow(/follow step\/start/)
     expect(() => {
       ctx.emit('session/event', Session.create(SessionId('time-invariant-empty')), event(reading()))
     }).toThrow(/inside an open turn/)
+    /** 中文说明：测试局部值 requested，由紧邻初始化决定。 */
     const requested = preparing(1, 1)
     requested.append('request/header', {
       header: { config: { provider: 'mock', model: 'model' } },
@@ -271,7 +313,9 @@ describe('time-context invariants', () => {
     ['ignored', SECOND, [{ type: 'text', text: 'one' }, { type: 'text', text: 'two' }], /exactly one text block/],
     [reading(), SECOND, [{ type: 'text', text: reading(), extra: true }], /exactly one text block/],
   ] as const)('rejects an incoherent durable reading', async (text, time, content, message) => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 preparationStep，由紧邻初始化决定。 */
     const preparationStep = text.includes('turn 1, step 2:') ? 2 : 1
     expect(() => {
       ctx.emit('session/event', preparing(1, preparationStep), event(
@@ -283,8 +327,11 @@ describe('time-context invariants', () => {
   })
 
   it('requires exact snapshot provenance without copied request authority', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = event(reading())
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     for (const source of [
       { kind: 'plugin', plugin: 'time-context' },
       { ...base.data.source, authority: {} },
@@ -307,6 +354,7 @@ describe('time-context invariants', () => {
         sections: [{ name: 'time-context', text: reading(), extra: true }],
       },
     ]) {
+      /** 中文说明：测试局部值 malformed，由紧邻初始化决定。 */
       const malformed: SessionEvent<'user/message'> = {
         ...base,
         data: { ...base.data, source: source as never },
@@ -317,7 +365,9 @@ describe('time-context invariants', () => {
   })
 
   it('validates a seeded Session created after invariant registration', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = reading('1', '2', 'step context')
     expect(() => {
       ctx.sessions.create(SessionId('time-invariant-created-invalid'), {
@@ -332,9 +382,12 @@ describe('time-context invariants', () => {
   })
 
   it('ignores context messages owned by another package', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = event('unrelated', SECOND + 456, undefined, 'other')
     expect(() => { ctx.emit('session/event', preparing(1, 1), other) }).not.toThrow()
+    /** 中文说明：测试局部值 user，由紧邻初始化决定。 */
     const user: SessionEvent<'user/message'> = {
       ...event('unrelated'),
       data: createUserMessage({

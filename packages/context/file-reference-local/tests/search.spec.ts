@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证文件引用上下文的 search.spec.ts 行为。
+ * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
+ * 产品维度：防止文件引用上下文改变模型可见内容或生命周期语义。
+ * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
+ * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
+ * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
+ */
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -8,10 +16,14 @@ import {
   WorkspaceFileSearch,
 } from '../src/search.ts'
 
+/** 中文说明：测试局部值 searches，由紧邻初始化决定。 */
 const searches: WorkspaceFileSearch[] = []
+/** 中文说明：测试局部值 roots，由紧邻初始化决定。 */
 const roots: string[] = []
 
+/** 中文说明：函数 workspace 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function workspace(): Promise<string> {
+  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = await mkdtemp(join(tmpdir(), 'dsh-file-autocomplete-'))
   roots.push(root)
   await mkdir(join(root, 'src'), { recursive: true })
@@ -33,7 +45,9 @@ async function workspace(): Promise<string> {
   return root
 }
 
+/** 中文说明：函数 search 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function search(root: string, overrides: Partial<ConstructorParameters<typeof WorkspaceFileSearch>[1]> = {}): WorkspaceFileSearch {
+  /** 中文说明：测试局部值 instance，由紧邻初始化决定。 */
   const instance = new WorkspaceFileSearch(root, {
     maxResults: overrides.maxResults ?? 20,
     maxEntries: overrides.maxEntries ?? 10_000,
@@ -44,6 +58,7 @@ function search(root: string, overrides: Partial<ConstructorParameters<typeof Wo
 }
 
 afterEach(async () => {
+  /** 中文说明：测试局部值 instance，由紧邻初始化决定。 */
   for (const instance of searches.splice(0)) instance.dispose()
   await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })))
 })
@@ -76,8 +91,11 @@ describe('file-reference grammar', () => {
 
 describe('WorkspaceFileSearch', () => {
   it('lists live directory levels, descends, quotes spaces, and filters hidden/excluded entries', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await workspace()
+    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = search(root)
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
 
     expect(await files.list('', signal)).toEqual([
@@ -100,6 +118,7 @@ describe('WorkspaceFileSearch', () => {
     expect(await files.list('.hidden/', signal)).toEqual([
       { path: '.hidden/secret.txt', kind: 'file' },
     ])
+    /** 中文说明：测试局部值 absoluteSrc，由紧邻初始化决定。 */
     const absoluteSrc = `${join(root, 'src').replaceAll('\\', '/')}/`
     expect(await files.list(`${absoluteSrc}tui`, signal)).toEqual([
       { path: `${absoluteSrc}tui.spec.ts`, kind: 'file' },
@@ -111,7 +130,9 @@ describe('WorkspaceFileSearch', () => {
   })
 
   it('does not traverse directory symlinks during direct completion', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await workspace()
+    /** 中文说明：测试局部值 outside，由紧邻初始化决定。 */
     const outside = await mkdtemp(join(tmpdir(), 'dsh-file-autocomplete-outside-'))
     roots.push(outside)
     await writeFile(join(outside, 'outside-secret.txt'), 'secret')
@@ -120,7 +141,9 @@ describe('WorkspaceFileSearch', () => {
       join(root, 'escape'),
       process.platform === 'win32' ? 'junction' : 'dir',
     )
+    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = search(root)
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
 
     expect(await files.list('escape/', signal)).toEqual([])
@@ -128,9 +151,12 @@ describe('WorkspaceFileSearch', () => {
   })
 
   it('ranks basename and subsequence fuzzy matches across the bounded workspace index', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await workspace()
     await writeFile(join(root, 'src', 'tspc-helper.ts'), 'helper')
+    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = search(root, { maxResults: 2 })
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
 
     expect(await files.list('tspc', signal)).toEqual([
@@ -151,13 +177,17 @@ describe('WorkspaceFileSearch', () => {
   })
 
   it('invalidates cached traversal, enforces the entry cap, and settles disposal', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await workspace()
+    /** 中文说明：测试局部值 capped，由紧邻初始化决定。 */
     const capped = search(root, { maxEntries: 2 })
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
     expect(await capped.list('README', signal)).toEqual([
       { path: 'README.md', kind: 'file' },
     ])
 
+    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = search(root)
     expect(await files.list('fresh-file', signal)).toEqual([])
     await writeFile(join(root, 'fresh-file.ts'), 'fresh')
@@ -172,26 +202,33 @@ describe('WorkspaceFileSearch', () => {
   })
 
   it('cancels individual callers, skips missing directories, and validates limits', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await workspace()
     expect(() => search(root, { maxResults: 0 })).toThrow('maxResults')
     expect(() => search(root, { maxEntries: 1.5 })).toThrow('maxEntries')
     expect(() => search(root, { excludedDirectories: ['nested/name'] })).toThrow('basenames')
 
+    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = search(root)
     expect(await files.list('missing/', new AbortController().signal)).toEqual([])
 
+    /** 中文说明：测试局部值 preAborted，由紧邻初始化决定。 */
     const preAborted = new AbortController()
     preAborted.abort(new Error('pre-aborted'))
     await expect(files.list('tui', preAborted.signal)).rejects.toThrow('pre-aborted')
 
     files.invalidate()
+    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = new AbortController()
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = files.list('tui', running.signal)
     running.abort(new Error('superseded'))
     await expect(pending).rejects.toThrow('superseded')
 
     files.invalidate()
+    /** 中文说明：测试局部值 nonErrorAbort，由紧邻初始化决定。 */
     const nonErrorAbort = new AbortController()
+    /** 中文说明：测试局部值 nonErrorPending，由紧邻初始化决定。 */
     const nonErrorPending = files.list('tui', nonErrorAbort.signal)
     nonErrorAbort.abort('cancelled')
     await expect(nonErrorPending).rejects.toThrow('file search aborted')
