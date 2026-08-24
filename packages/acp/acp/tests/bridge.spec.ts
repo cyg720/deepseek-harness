@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证自动化专用 ACP 桥接层的能力声明、会话创建、内容准入和基础协议错误处理。
+ * 技术维度：使用 Vitest 与内存双向 ACP 流，驱动真实代理工厂、循环和附件服务。
+ * 产品维度：确保自动化客户端看到的能力与部署一致，并能稳定完成文本、图片和资源链接提示。
+ * 逻辑维度：按初始化、会话、提示、富内容、路由限制和未知会话等场景逐项执行端到端断言。
+ * 关键边界：测试只观察协议可见结果和持久请求；每个用例后释放完整装配，避免会话串扰。
+ * 新手阅读建议：先看初始化与文本往返，再读图片批量准入，最后理解各类拒绝为何发生在轮次启动前。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { AttachmentError } from '@deepseek-ai/dsh-attachment'
@@ -5,6 +13,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import { makeBridgeHarness, textResponse, type BridgeHarness } from './harness.ts'
 
 describe('automation-only ACP bridge', () => {
+  // 当前测试的内存 ACP 桥接装配，afterEach 负责统一释放。
   let harness: BridgeHarness | undefined
 
   afterEach(async () => {

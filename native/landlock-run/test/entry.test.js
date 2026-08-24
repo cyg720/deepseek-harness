@@ -4,6 +4,14 @@
  * resolution contract (platform package → fallback), and probe verdicts over
  * fake launchers. Requires built `lib/` (`pnpm build:ts`).
  */
+/**
+ * 文件职责：无密钥验证 Landlock JavaScript 入口包的纯 API、平台路径解析和探测结果解析。
+ * 技术维度：使用 Node.js assert 与临时文件模拟启动器，通过依赖注入隔离包解析逻辑。
+ * 产品维度：确保所有主机都能验证命令参数稳定性及缺少原生能力时的安全降级。
+ * 逻辑维度：依次校验常量、授权参数、平台包路径、回退路径，并在 POSIX 主机上驱动多个假启动器。
+ * 关键边界：不要求真实内核或二进制；Windows 跳过依赖 POSIX Shell 的假启动器部分；需要预先构建 lib。
+ * 新手阅读建议：按断言分段顺序阅读，重点观察 grantArgs 输入输出以及 launcherPath 的解析注入点。
+ */
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -31,7 +39,9 @@ assert.deepEqual(
 assert.deepEqual(grantArgs({ readWrite: ['/a'], readOnly: ['/b'] }), ['--ro', '/b', '--rw', '/a']);
 
 // --- launcherPath: resolves the platform package next to its package.json ---
+// 当前进程平台应使用的可选平台包名称。
 const platformPackage = `@deepseek-ai/node-addon-landlock-run-${process.platform}-${process.arch}`;
+// 通过可控解析函数得到的启动器路径，用于验证正常解析分支。
 const resolvedViaSeam = launcherPath((specifier) => {
   assert.equal(specifier, `${platformPackage}/package.json`);
   return path.join('/fake-install', specifier);
@@ -39,6 +49,7 @@ const resolvedViaSeam = launcherPath((specifier) => {
 assert.equal(resolvedViaSeam, path.join('/fake-install', platformPackage, 'bin', LAUNCHER_BIN));
 
 // --- launcherPath: unresolvable package falls back to an absolute, package-boundary path ---
+// 当平台包无法解析时返回的绝对回退路径。
 const fallback = launcherPath(() => {
   throw new Error('not installed');
 });
@@ -49,6 +60,7 @@ assert.ok(
 );
 
 // --- launcherPath: default resolution agrees with this workspace's layout ---
+// 使用真实模块解析规则得到的默认启动器路径。
 const defaultPath = launcherPath();
 assert.ok(path.isAbsolute(defaultPath));
 assert.ok(defaultPath.endsWith(path.join('bin', LAUNCHER_BIN)), defaultPath);
@@ -58,8 +70,17 @@ assert.equal(probe(path.join(os.tmpdir(), 'nalr-no-such-launcher')), 'unusable')
 
 // --- probe: verdict parsing over fake launchers (POSIX shells only) ---
 if (process.platform !== 'win32') {
+  // 存放多个可执行假启动器的临时目录。
   const fakeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nalr-fake-launcher-'));
+  /**
+   * 创建一个可执行的 Shell 假启动器。
+   * @param {string} name 临时脚本文件名。
+   * @param {string} script 脚本主体。
+   * @returns {string} 新建假启动器的完整路径。
+   * @example fake('full', 'echo "landlock: fully enforced"; exit 0');
+   */
   const fake = (name, script) => {
+    // 当前假启动器的目标路径。
     const file = path.join(fakeDir, name);
     fs.writeFileSync(file, `#!/bin/sh\n${script}\n`, { mode: 0o755 });
     return file;

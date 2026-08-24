@@ -1,14 +1,32 @@
+/**
+ * 文件职责：验证图片规范化的直通条件、格式选择、颜色分类、透明度保留和字节预算缩放。
+ * 技术维度：使用sharp生成平面图、伪随机噪声图和高位深图片，并完整解码输出进行事实断言。
+ * 产品维度：确保持久图片体积受控且视觉语义稳定，不因压缩错误丢失透明度或方向。
+ * 逻辑维度：提供确定性噪声与平面图片辅助函数，再覆盖直通、16位转换、长边缩小和极小预算。
+ * 关键边界：伪随机序列固定以保持测试可重复；所有输出都通过detectImage重新验证。
+ * 新手阅读建议：先比较noiseImage与flatImage的压缩差异，再按直通、重编码、继续缩小的顺序阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import sharp from 'sharp'
 import { hasLowColourCount, canPassThroughNormalization, normalizeImage } from '../src/normalization.ts'
 import type { NormalizationPolicy } from '../src/normalization.ts'
 import { detectImage } from '../src/image.ts'
 
+// 大多数规范化用例共享的默认长边与字节策略。
 const POLICY: NormalizationPolicy = { maxDimension: 2048, maxBytes: 4 * 1024 * 1024 }
 
 /** Deterministic pseudo-random RGB noise; PNG cannot compress it below raw size. */
+/**
+ * 生成确定性伪随机RGB噪声，PNG无法把它明显压缩到原始尺寸以下。
+ * @param width 像素宽度。
+ * @param height 像素高度。
+ * @returns 长度为宽乘高乘3的RGB字节。
+ * @example noisePixels(16, 16)
+ */
 function noisePixels(width: number, height: number): Uint8Array {
+  // 保存全部RGB像素的连续缓冲区。
   const pixels = new Uint8Array(width * height * 3)
+  // xorshift伪随机生成器的固定初始状态。
   let state = 0x2545f491
   for (let index = 0; index < pixels.length; index += 1) {
     state ^= state << 13
@@ -19,12 +37,16 @@ function noisePixels(width: number, height: number): Uint8Array {
   return pixels
 }
 
+/** 把确定性噪声像素编码为指定图片格式。 */
 async function noiseImage(width: number, height: number, format: 'png' | 'jpeg' | 'webp' | 'gif'): Promise<Uint8Array> {
+  // 从原始RGB噪声构建的sharp管线。
   const image = sharp(noisePixels(width, height), { raw: { width, height, channels: 3 } })
   return new Uint8Array(await image.toFormat(format).toBuffer())
 }
 
+/** 生成固定颜色、可选半透明通道的指定格式图片。 */
 async function flatImage(width: number, height: number, format: 'png' | 'jpeg' | 'webp' | 'gif', alpha = false): Promise<Uint8Array> {
+  // 由固定背景色创建的sharp图片管线。
   const image = sharp({
     create: { width, height, channels: alpha ? 4 : 3, background: { r: 12, g: 200, b: 64, alpha: alpha ? 0.5 : 1 } },
   })

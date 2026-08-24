@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 ACP 自动化输出边界及非典型事件、工具调用和所有权场景。
+ * 技术维度：使用 Vitest、真实内容工具夹具和会话事件流观察协议通知。
+ * 产品维度：防止推理、工具、终端、计划等内部展示数据泄漏到自动化协议，只交付最终助手内容。
+ * 逻辑维度：生成确定性工具调用响应，覆盖可见输出过滤、外部代理隔离和异常事件关联。
+ * 关键边界：只有桥接层精确拥有会话的已提交助手文本或图片可以成为 ACP 更新。
+ * 新手阅读建议：先看 toolCallResponse 的模型流片段，再比较内部工具过程与最终 updates 数组。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { createUserMessage, CallId, type StreamChunk  } from '@deepseek-ai/dsh-llm'
@@ -5,6 +13,11 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import { makeBridgeHarness, textResponse, type BridgeHarness } from './harness.ts'
 
+/**
+ * 构造一个要求调用 echo 工具的完整模型流响应。
+ * @returns 按块开始、参数、块结束和完成排列的流片段。
+ * @example toolCallResponse()
+ */
 function toolCallResponse(): StreamChunk[] {
   return [
     { type: 'block-start', index: 0, blockType: 'tool-call' },
@@ -15,6 +28,7 @@ function toolCallResponse(): StreamChunk[] {
 }
 
 describe('ACP automation output boundary', () => {
+  // 当前用例使用的真实循环内存桥接装配。
   let harness: BridgeHarness | undefined
 
   afterEach(async () => {

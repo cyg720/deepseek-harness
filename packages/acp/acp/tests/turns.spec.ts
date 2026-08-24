@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 ACP 提示从准入、轮次关联、输出交付到取消或错误结算的完整生命周期。
+ * 技术维度：使用 Vitest、可编排模型流片段和真实代理事件驱动多种结束状态。
+ * 产品维度：保证客户端收到正确停止原因，且已提交文本或图片不会因边界时序丢失。
+ * 逻辑维度：提供新会话和文本汇总辅助函数，再覆盖令牌上限、图片、错误、取消、并发和外部事件。
+ * 关键边界：提示结算等待整个代理空闲与输出链排空；每个会话只允许一个在途提示。
+ * 新手阅读建议：先看 newSession 和 messageText，再按正常结束、错误、取消的顺序理解状态转换。
+ */
 import { createUserMessage, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
@@ -10,11 +18,23 @@ import {
   type BridgeHarness,
 } from './harness.ts'
 
+/**
+ * 初始化连接并创建一个使用当前工作目录的新 ACP 会话。
+ * @param harness 已挂载的桥接测试装配。
+ * @returns 新会话标识。
+ * @example await newSession(harness)
+ */
 async function newSession(harness: BridgeHarness): Promise<string> {
   await harness.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
   return (await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })).sessionId
 }
 
+/**
+ * 拼接桥接装配收到的全部助手文本块。
+ * @param harness 含协议更新记录的测试装配。
+ * @returns 按到达顺序连接的文本。
+ * @example messageText(harness)
+ */
 function messageText(harness: BridgeHarness): string {
   return harness.updates.flatMap(update => (
     update.sessionUpdate === 'agent_message_chunk' && update.content.type === 'text'
@@ -24,6 +44,7 @@ function messageText(harness: BridgeHarness): string {
 }
 
 describe('ACP prompt lifecycle', () => {
+  // 当前用例使用且 afterEach 负责释放的桥接装配。
   let harness: BridgeHarness | undefined
 
   afterEach(async () => {

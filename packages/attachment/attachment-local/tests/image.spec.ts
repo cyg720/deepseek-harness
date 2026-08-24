@@ -1,8 +1,23 @@
+/**
+ * 文件职责：验证本地附件图片检测对支持格式、尺寸限制、损坏字节、动画、方向和元数据的判断。
+ * 技术维度：使用sharp动态生成栅格图片，再用Vitest断言完整解码与快速探测结果。
+ * 产品维度：确保只有格式和尺寸真实可信的图片能进入附件准入与持久读取流程。
+ * 逻辑维度：生成四种格式的最小图片，覆盖正常检测、像素限制、截断数据、多帧和EXIF方向。
+ * 关键边界：动态夹具依赖sharp/libvips；截断图片可能有可读头部但完整解码仍必须失败。
+ * 新手阅读建议：先看raster如何生成统一输入，再从基本格式用例读到方向和元数据等特殊情况。
+ */
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 import { detectImage, probeImage } from '../src/image.ts'
 
+/**
+ * 生成固定3×2、完全不透明的受支持格式图片。
+ * @param format sharp目标格式。
+ * @returns 完整编码图片字节。
+ * @example await raster('png')
+ */
 async function raster(format: 'png' | 'jpeg' | 'webp' | 'gif'): Promise<Uint8Array> {
+  // 含固定颜色像素的sharp图片管线。
   const image = sharp({
     create: { width: 3, height: 2, channels: 4, background: { r: 1, g: 2, b: 3, alpha: 1 } },
   })

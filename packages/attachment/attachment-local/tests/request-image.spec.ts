@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证模型请求图片的尺寸投影、缓存复用、编码选择、并发合并和取消隔离。
+ * 技术维度：使用Vitest、临时本地附件库、sharp和可控限流任务执行真实缓存与转换测试。
+ * 产品维度：确保不同路由预算得到正确图片版本，并避免同一变体并发请求重复消耗原生压缩资源。
+ * 逻辑维度：管理临时主目录，生成简单与复杂图片，先测试数学尺寸，再覆盖缓存命中、损坏恢复和共享取消。
+ * 关键边界：每个用例后删除全部临时目录；复杂图片使用固定伪随机序列；取消不得影响仍在等待的调用者。
+ * 新手阅读建议：先看requestImageDimensions的表格用例，再看store辅助函数，最后跟踪并发等待者共享同一转换。
+ */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -7,22 +15,33 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CompressionLimiter } from '../src/compression-limiter.ts'
 import LocalAttachmentStore, { requestImageDimensions } from '../src/index.ts'
 
+// 当前用例创建的全部临时DSH_HOME，afterEach统一删除。
 const homes: string[] = []
 
+/**
+ * 创建以新临时目录为根的本地附件服务。
+ * @returns 已记录清理路径的LocalAttachmentStore。
+ * @example await store()
+ */
 async function store(): Promise<LocalAttachmentStore> {
+  // 当前服务独享的临时DSH_HOME目录。
   const dshHome = await mkdtemp(join(tmpdir(), 'dsh-request-image-'))
   homes.push(dshHome)
   return new LocalAttachmentStore(new Context(), { dshHome })
 }
 
+/** 生成固定颜色、无透明度的PNG测试图片。 */
 async function image(width: number, height: number): Promise<Uint8Array> {
   return new Uint8Array(await sharp({
     create: { width, height, channels: 3, background: { r: 12, g: 34, b: 56 } },
   }).png().toBuffer())
 }
 
+/** 生成颜色复杂但alpha通道全不透明的确定性PNG。 */
 async function complexOpaqueAlphaImage(width: number, height: number): Promise<Uint8Array> {
+  // 保存RGBA像素的连续缓冲区。
   const pixels = new Uint8Array(width * height * 4)
+  // xorshift颜色生成器的固定初始状态。
   let state = 0x2545f491
   for (let offset = 0; offset < pixels.length; offset += 4) {
     for (let channel = 0; channel < 3; channel += 1) {

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 Typert 客户端远程 API 的动态挂载、参数编解码、上下文作用域、事件转发和卸载回滚。
+ * 技术维度：使用 Vitest、Cordis 服务、Zod 严格模式和模拟 RPC 连接执行类型与运行时联合测试。
+ * 产品维度：确保前端调用远程 Harness 能力时获得类型安全、稳定错误、取消传播和无残留热卸载。
+ * 逻辑维度：声明测试类型图和描述符，装配客户端注册表，再覆盖直接方法、作用域方法、冲突与回滚场景。
+ * 关键边界：仅严格编解码描述符可挂载；命名空间不得覆盖现有服务；卸载后的保留函数必须安全失败。
+ * 新手阅读建议：先看三个描述符如何描述调用，再看 bench 的最小装配，最后按挂载、调用、卸载顺序读用例。
+ */
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
@@ -67,12 +75,14 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 
 }
 
+/** 带 fixture 作用域远程方法类型的测试上下文。 */
 type FixtureContext = Omit<Context, 'remote'> & {
   readonly remote: TypertClientRemote & TypertRemoteScopeApi<'fixture'>
 }
 
 // Compile-time contract of `$on`: the key face is the forwarding selection and
 // the listener signature is the owning package's own Cordis declaration.
+// 编译期检查远程事件只开放选中键，并沿用事件声明方定义的监听参数。
 function remoteEventContracts(remote: ClientRemote): void {
   remote.$on('fixture/changed', (namespace) => { void namespace })
   // @ts-expect-error -- declared in Events but outside the forwarding selection.
@@ -84,11 +94,16 @@ function remoteEventContracts(remote: ClientRemote): void {
 }
 void remoteEventContracts
 
+// 作用域代理标识的严格非空字符串模式。
 const idSchema = z.string().min(1)
+// 创建和重命名请求共享的严格目标字段模式。
 const requestSchema = z.object({ objective: z.string().min(1) })
+// 创建调用返回引用的严格结果模式。
 const createResultSchema = z.object({ ref: z.string().min(1) })
+// 重命名调用返回布尔标记的严格结果模式。
 const renameResultSchema = z.object({ renamed: z.boolean() })
 
+/** 构造带代理查找参数和取消信号的直接调用描述符。 */
 function directDescriptor(): InvocationDescriptor {
   return {
     id: '@fixture/probe#probe/create',
@@ -114,6 +129,7 @@ function directDescriptor(): InvocationDescriptor {
   }
 }
 
+/** 构造从调用者 Context 注入代理标识的作用域调用描述符。 */
 function contextDescriptor(): InvocationDescriptor {
   return {
     id: '@fixture/probe#probe/rename',
@@ -137,6 +153,7 @@ function contextDescriptor(): InvocationDescriptor {
 }
 
 function maybeDescriptor(): InvocationDescriptor {
+  // 同时接受字符串、null 和 undefined 的严格联合模式。
   const schema = z.union([z.string(), z.null(), z.undefined()])
   return {
     id: '@fixture/probe#probe/maybe',
@@ -155,17 +172,26 @@ function maybeDescriptor(): InvocationDescriptor {
   }
 }
 
+/**
+ * 装配客户端远程 API 并返回根上下文。
+ * @param call 模拟连接的 RPC 调用函数。
+ * @returns 已挂载 Typert 注册表和客户端插件的上下文。
+ * @example await bench(vi.fn())
+ */
 async function bench(call: ConnectionHandle['rpc']['call']): Promise<Context> {
   const { ctx } = await benchFiber(call)
   return ctx
 }
 
+/** 装配客户端远程 API，并同时返回可单独释放的客户端 fiber。 */
 async function benchFiber(
   call: ConnectionHandle['rpc']['call'],
 ): Promise<{ readonly ctx: Context; readonly client: Fiber }> {
+  // 当前用例隔离使用的 Cordis 根上下文。
   const ctx = new Context()
   await ctx.plugin(TypertRegistry)
   ctx.provide('connection', { rpc: { call } } as unknown as ConnectionHandle)
+  // 客户端远程 API 插件的生命周期 fiber。
   const client = ctx.plugin({ inject, apply })
   await client
   return { ctx, client }

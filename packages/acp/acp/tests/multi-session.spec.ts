@@ -1,8 +1,23 @@
+/**
+ * 文件职责：验证多个 ACP 会话并发运行时的输出分流、取消隔离和会话状态独立性。
+ * 技术维度：使用 Vitest、并发 Promise 和带会话标识的协议更新记录执行集成测试。
+ * 产品维度：确保一个自动化任务的输出或取消不会污染同一连接上的另一个任务。
+ * 逻辑维度：按会话筛选文本更新，再并发提示两个会话并分别验证结果和取消影响。
+ * 关键边界：输出归属以协议 sessionId 为准；测试等待异步通知完成后再断言文本。
+ * 新手阅读建议：先理解 messageTextFor 的筛选条件，再对照两个会话标识跟踪并发用例。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { makeBridgeHarness, textResponse, type BridgeHarness, type CapturedUpdate } from './harness.ts'
 
+/**
+ * 汇总指定会话收到的助手文本更新。
+ * @param updates 所有会话的带标识更新记录。
+ * @param sessionId 要筛选的会话标识。
+ * @returns 按通知顺序拼接的文本。
+ * @example messageTextFor(harness.sessionUpdates, sessionId)
+ */
 function messageTextFor(
   updates: { sessionId: string; update: CapturedUpdate }[],
   sessionId: string,
@@ -15,6 +30,7 @@ function messageTextFor(
 }
 
 describe('ACP multi-session isolation', () => {
+  // 当前用例共享的桥接装配，结束后统一清理。
   let harness: BridgeHarness | undefined
 
   afterEach(async () => {

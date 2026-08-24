@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 ACP 连接释放时取消提示、排空异步输出并按所有权释放代理及子代理。
+ * 技术维度：使用 Vitest 可控 Promise、真实代理循环和内存传输制造运行与清理竞态。
+ * 产品维度：保证客户端断开后没有后台模型任务、附件读取或可继续子代理泄漏。
+ * 逻辑维度：覆盖运行中取消、图片读取排空、创建竞态、外部代理释放及聚合清理失败。
+ * 关键边界：清理必须幂等并等待已开始的准入和输出；共享上下文中的非自有代理不能被释放。
+ * 新手阅读建议：先读第一个取消用例建立清理模型，再看可控 Promise 如何证明等待顺序，最后看失败聚合。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -6,6 +14,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import { makeBridgeHarness, type BridgeHarness } from './harness.ts'
 
 describe('ACP connection ownership', () => {
+  // 当前用例拥有且结束后必须完整释放的桥接装配。
   let harness: BridgeHarness | undefined
 
   afterEach(async () => {

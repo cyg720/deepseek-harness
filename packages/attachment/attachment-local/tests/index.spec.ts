@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证LocalAttachmentStore默认配置、并发限制、批量原子准备、保存读取和取消行为。
+ * 技术维度：使用Vitest、临时DSH_HOME、sharp图片夹具和真实本地文件系统执行服务级测试。
+ * 产品维度：确保部署省略配置时得到明确安全默认值，并保证附件批次不会因后续成员失败而部分发布。
+ * 逻辑维度：先检查配置解析，再创建临时服务执行单张与批量保存、读取、并发请求和清理断言。
+ * 关键边界：每个临时目录必须在finally中删除；测试使用真实文件权限和内容寻址路径。
+ * 新手阅读建议：先看默认值用例理解服务配置，再读单张往返，最后研究批量失败与并发场景。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'

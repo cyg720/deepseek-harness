@@ -1,3 +1,11 @@
+/**
+ * 文件职责：单元验证 ACP 富内容编解码器的图片能力判断、严格准入、取消和输出投影。
+ * 技术维度：使用 Vitest 模拟函数、最小 Cordis 上下文和伪附件引用隔离内容转换逻辑。
+ * 产品维度：防止畸形图片、错误路由或损坏附件进入自动化会话，同时保持文本图片顺序。
+ * 逻辑维度：构造可配置夹具，测试初始化能力、全量预验证、写入失败分类、取消时机和输出转换。
+ * 关键边界：模拟对象只实现被测函数读取的服务成员；附件引用和模型能力均使用确定值。
+ * 新手阅读建议：先看 admissionFixture 的最小依赖，再按准入前置条件、持久化和重建三个阶段阅读用例。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { AttachmentError, AttachmentId } from '@deepseek-ai/dsh-attachment'
@@ -10,6 +18,7 @@ import {
   supportsAcpImagePrompts,
 } from '../src/content.ts'
 
+// 所有用例复用的最小合法图片附件引用。
 const REF: ImageAttachmentRef = {
   attachmentId: AttachmentId(`sha256:${'1'.repeat(64)}`),
   mediaType: 'image/png',
@@ -18,13 +27,24 @@ const REF: ImageAttachmentRef = {
   height: 1,
 }
 
+/** 内容准入测试所需的上下文、代理和可观察模拟函数。 */
 interface AdmissionFixture {
+  /** 只实现附件与 LLM 查询的最小 Cordis 上下文。 */
   ctx: Context
+  /** 提供默认路由和可选请求头覆盖的伪代理。 */
   agent: Agent
+  /** 可断言输入批次和配置失败的图片保存模拟函数。 */
   saveImages: ReturnType<typeof vi.fn<(inputs: readonly SaveImageAttachment[]) => Promise<readonly ImageAttachmentRef[]>>>
+  /** 可断言精确路由并覆盖能力结果的模型查询模拟函数。 */
   resolveModelInfo: ReturnType<typeof vi.fn>
 }
 
+/**
+ * 构造具有可选服务和路由覆盖的最小内容准入夹具。
+ * @param options 控制附件、LLM、默认路由和请求头路由是否存在。
+ * @returns 可直接传给内容函数并观察调用的夹具。
+ * @example admissionFixture({ attachments: false })
+ */
 function admissionFixture(options: {
   attachments?: boolean
   llm?: boolean
@@ -32,20 +52,25 @@ function admissionFixture(options: {
   model?: string | undefined
   header?: { provider?: string; model?: string }
 } = {}): AdmissionFixture {
+  // 按输入顺序生成确定性附件引用的批量保存模拟函数。
   const saveImages = vi.fn(async (inputs: readonly SaveImageAttachment[]) => inputs.map((input, index) => ({
     ...REF,
     attachmentId: AttachmentId(`sha256:${String(index + 1).padStart(64, '0')}`),
     mediaType: input.mediaType,
     bytes: input.data.byteLength,
   })))
+  // 默认声明文本与图片输入能力的模型查询模拟函数。
   const resolveModelInfo = vi.fn(async (provider: string, model: string) => ({
     provider,
     id: model,
     name: model,
     inputModalities: ['text', 'image'] as const,
   }))
+  // options 可显式关闭的最小附件服务。
   const attachments = options.attachments === false ? undefined : { saveImages }
+  // options 可显式关闭的最小 LLM 服务。
   const llm = options.llm === false ? undefined : { resolveModelInfo }
+  // 根据服务名称返回上述伪服务的最小上下文。
   const ctx = {
     get(name: string) {
       if (name === 'attachments') return attachments
@@ -53,8 +78,11 @@ function admissionFixture(options: {
       return undefined
     },
   } as unknown as Context
+  // 允许测试显式传入 undefined 的默认提供方。
   const provider = 'provider' in options ? options.provider : 'mock'
+  // 允许测试显式传入 undefined 的默认模型。
   const model = 'model' in options ? options.model : 'vision'
+  // 暴露默认配置和可选请求头路由的最小代理对象。
   const agent = {
     options: { provider, model },
     session: { requestHeader: () => options.header === undefined ? undefined : { config: options.header } },

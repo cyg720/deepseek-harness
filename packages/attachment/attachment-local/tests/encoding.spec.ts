@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证图片编码候选的惰性选择和 CompressionLimiter 的并发队列行为。
+ * 技术维度：使用Vitest模拟函数与可控Promise精确观察候选调用次数、活动任务数和失败释放。
+ * 产品维度：保证图片转换不会执行不必要的低质量编码，也不会超过部署允许的原生并发数。
+ * 逻辑维度：先测试首个合格候选与全部超限结果，再用多个门控任务验证并发槽位和异常恢复。
+ * 关键边界：候选列表不能为空；全部失败时返回最小结果供缩放估算；同步抛错也必须释放槽位。
+ * 新手阅读建议：先看前三个惰性编码用例，再跟踪gates、active和maximum理解限流器调度。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { CompressionLimiter } from '../src/compression-limiter.ts'
 import { encodeFirstWithinLimit, isExhaustedEncoding } from '../src/encoding.ts'
