@@ -4,6 +4,14 @@
 // head/tail height cap and its expand control, the tail slice restoring its
 // owning file header, and the copy control writing the whole structured
 // result on both the accepted and refused clipboard paths.
+/**
+ * 文件职责：验证UI 基础组件的 search-block.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -17,16 +25,19 @@ beforeEach(() => {
 })
 
 /** The rendered result rows, one string per visible row (CSS-module class prefix). */
+/** 中文说明：函数 lines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lines(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
 }
 
 /** The file-group header rows, one string per header (path + count concatenated). */
+/** 中文说明：函数 fileHeaders 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fileHeaders(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_fileHeader_"]')].map(row => row.textContent ?? '')
 }
 
 /** `count` numbered match lines under one file, without a terminating newline. */
+/** 中文说明：函数 group 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function group(path: string, count: number, from = 1): SearchFileGroup {
   return {
     path,
@@ -36,6 +47,7 @@ function group(path: string, count: number, from = 1): SearchFileGroup {
 
 describe('SearchBlock matches kind', () => {
   it('renders each file as a header group with its matched lines', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="matches" truncated={false} total={3} files={[
       { path: 'a.ts', matches: [{ lineNumber: 12, line: 'const a = 1' }, { lineNumber: 40, line: 'return a' }] },
       { path: 'b.ts', matches: [{ lineNumber: 7, line: 'const b = 2' }] },
@@ -48,10 +60,12 @@ describe('SearchBlock matches kind', () => {
   })
 
   it('collapses and re-expands a single file group without touching the others', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="matches" truncated={false} total={3} files={[
       { path: 'a.ts', matches: [{ lineNumber: 1, line: 'x' }] },
       { path: 'b.ts', matches: [{ lineNumber: 2, line: 'y' }] },
     ]} />)
+    /** 中文说明：测试局部值 [headerA]，由紧邻初始化决定。 */
     const [headerA] = view.container.querySelectorAll('[class^="_fileHeader_"]')
     expect(headerA!.getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(headerA!)
@@ -63,6 +77,7 @@ describe('SearchBlock matches kind', () => {
   })
 
   it('folds the pre-cap total into the summary when truncated', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="matches" truncated total={99} files={[group('a.ts', 2)]} />)
     expect(view.getByText('显示 2 / 共 99 处匹配 · 1 个文件')).toBeTruthy()
   })
@@ -70,6 +85,7 @@ describe('SearchBlock matches kind', () => {
 
 describe('SearchBlock paths kind', () => {
   it('renders a flat path list with a path-count summary', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="paths" truncated={false} total={2} paths={['src/a.ts', 'src/b.ts']} />)
     expect(lines(view.container)).toEqual(['src/a.ts', 'src/b.ts'])
     expect(view.getByText('2 个路径')).toBeTruthy()
@@ -78,6 +94,7 @@ describe('SearchBlock paths kind', () => {
   })
 
   it('folds the pre-cap total into the paths summary when truncated', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="paths" truncated total={50} paths={['a', 'b']} />)
     expect(view.getByText('显示 2 / 共 50 个路径')).toBeTruthy()
   })
@@ -85,6 +102,7 @@ describe('SearchBlock paths kind', () => {
 
 describe('SearchBlock empty arm', () => {
   it('shows the placeholder and no copy control for an empty matches result', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="matches" truncated={false} total={0} files={[]} />)
     expect(view.getByText('无结果')).toBeTruthy()
     expect(view.queryByText('复制')).toBeNull()
@@ -92,6 +110,7 @@ describe('SearchBlock empty arm', () => {
   })
 
   it('shows the placeholder for an empty paths result', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="paths" truncated={false} total={0} paths={[]} />)
     expect(view.getByText('无结果')).toBeTruthy()
     expect(view.queryByText('复制')).toBeNull()
@@ -100,6 +119,7 @@ describe('SearchBlock empty arm', () => {
 
 describe('SearchBlock height cap', () => {
   it('renders every row and no expand control under the cap', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="paths" truncated={false} total={4}
       paths={['a', 'b', 'c', 'd']} maxLines={4} />)
     expect(lines(view.container)).toHaveLength(4)
@@ -107,14 +127,18 @@ describe('SearchBlock height cap', () => {
   })
 
   it('slices head and tail over the cap and expands on click', () => {
+    /** 中文说明：测试局部值 paths，由紧邻初始化决定。 */
     const paths = Array.from({ length: 10 }, (_v, i) => `p${i + 1}`)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="paths" truncated={false} total={10} paths={paths} maxLines={4} />)
     // maxLines 4: head = ceil(4/2) = 2, tail = 2, 6 hidden.
     expect(lines(view.container)).toEqual(['p1', 'p2', 'p9', 'p10'])
+    /** 中文说明：测试局部值 toggle，由紧邻初始化决定。 */
     const toggle = view.getByRole('button', { name: '展开其余 6 行结果' })
     expect(toggle.textContent).toBe('… 其余 6 行')
     fireEvent.click(toggle)
     expect(lines(view.container)).toHaveLength(10)
+    /** 中文说明：测试局部值 collapse，由紧邻初始化决定。 */
     const collapse = view.getByRole('button', { name: '收起结果' })
     expect(collapse.textContent).toBe('收起')
     fireEvent.click(collapse)
@@ -123,6 +147,7 @@ describe('SearchBlock height cap', () => {
 
   it('counts a file header as one capped row alongside its matches', () => {
     // One file with 10 matches → 11 rows (header + 10). Cap 4: head 2, tail 2.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="matches" truncated={false} total={10}
       files={[group('a.ts', 10)]} maxLines={4} />)
     // Head takes the header then the first match; tail takes the last two matches.
@@ -132,6 +157,7 @@ describe('SearchBlock height cap', () => {
   })
 
   it('renders the head slice alone when the cap leaves no tail', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="paths" truncated={false} total={5}
       paths={['a', 'b', 'c', 'd', 'e']} maxLines={1} />)
     expect(lines(view.container)).toEqual(['a'])
@@ -143,6 +169,7 @@ describe('SearchBlock height cap', () => {
     // matches), tail 4. The tail begins mid-b.ts, so its header is restored —
     // and, being a row itself, it consumes one tail slot rather than pushing the
     // card to 9 rows: the tail keeps its last 3 matches, total visible = 8.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="matches" truncated={false} total={20} maxLines={8} files={[
       group('a.ts', 10), group('b.ts', 10, 11),
     ]} />)
@@ -157,7 +184,9 @@ describe('SearchBlock height cap', () => {
   })
 
   it('caps at the documented default when maxLines is absent', () => {
+    /** 中文说明：测试局部值 paths，由紧邻初始化决定。 */
     const paths = Array.from({ length: DEFAULT_SEARCH_MAX_LINES + 1 }, (_v, i) => `p${i}`)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="paths" truncated={false} total={paths.length} paths={paths} />)
     expect(lines(view.container)).toHaveLength(DEFAULT_SEARCH_MAX_LINES)
     expect(view.getByRole('button', { name: '展开其余 1 行结果' })).toBeTruthy()
@@ -167,8 +196,10 @@ describe('SearchBlock height cap', () => {
 describe('SearchBlock copy', () => {
   it('copies the whole structured matches result, not the collapsed or capped view', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="matches" truncated total={9} maxLines={2} files={[
       { path: 'a.ts', matches: [{ lineNumber: 1, line: 'x' }, { lineNumber: 2, line: 'y' }] },
       { path: 'b.ts', matches: [{ lineNumber: 3, line: 'z' }] },
@@ -187,6 +218,7 @@ describe('SearchBlock copy', () => {
   })
 
   it('copies the newline-joined path list for the paths shape', async () => {
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     render(<SearchBlock kind="paths" truncated={false} total={2} paths={['src/a.ts', 'src/b.ts']} />)
@@ -207,6 +239,7 @@ describe('SearchBlock copy', () => {
   })
 
   it('merges className onto the wrapper and tags the wrapper with the kind', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SearchBlock kind="paths" truncated={false} total={0} paths={[]} className="x" />)
     expect(view.container.firstElementChild?.classList.contains('x')).toBe(true)
     expect(view.container.firstElementChild?.getAttribute('data-search')).toBe('paths')

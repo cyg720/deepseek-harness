@@ -6,6 +6,14 @@
 // plain fallback for an unknown/absent language, the head/tail height cap and
 // its expand control, and the copy control writing the raw window text on both
 // the accepted and refused clipboard paths.
+/**
+ * 文件职责：验证UI 基础组件的 read-block.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -19,26 +27,31 @@ beforeEach(() => {
 })
 
 /** `count` lines starting at `first`, each with distinct text. */
+/** 中文说明：函数 lines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lines(count: number, first = 1): ReadBlockLine[] {
   return Array.from({ length: count }, (_value, index) => ({ number: first + index, text: `line ${first + index}` }))
 }
 
 /** The rendered rows as `<gutter><content>` strings (CSS-module class prefix). */
+/** 中文说明：函数 rowTexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowTexts(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
 }
 
 /** The gutter numbers of the rendered rows, in order. */
+/** 中文说明：函数 gutters 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function gutters(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_gutter_"]')].map(cell => cell.textContent ?? '')
 }
 
 describe('highlightLines', () => {
   it('tokenizes a registered grammar into per-line css-variables runs', () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = highlightLines('const x = 1\n// c', 'ts')
     expect(result).not.toBeUndefined()
     expect(result).toHaveLength(2)
     // The keyword run carries a color style through a --shiki-* custom property.
+    /** 中文说明：测试局部值 keyword，由紧邻初始化决定。 */
     const keyword = result![0]!.find(span => span.text === 'const')
     expect(keyword?.style?.color).toContain('var(--shiki-')
     // Whitespace between tokens is a run of its own; the comment is line two.
@@ -50,18 +63,22 @@ describe('highlightLines', () => {
     // The css-variables theme colors even the whitespace run (as the foreground
     // token), so every run is a styled span; the plain fallback is the whole
     // unknown-language path, not a per-run one.
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = highlightLines('const x = 1', 'ts')
+    /** 中文说明：测试局部值 span，由紧邻初始化决定。 */
     for (const span of result!) for (const run of span) expect(run.style.color).toContain('var(--shiki-')
   })
 
   it('drops the trailing terminator line so the run count matches the source lines', () => {
     // `a\n` tokenizes to two lines in shiki (the second empty); the caller's own
     // line array has one entry, so the terminator line is dropped.
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = highlightLines('const a = 1\n', 'ts')
     expect(result).toHaveLength(1)
   })
 
   it('keeps a genuinely blank final line when the source ends in two newlines', () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = highlightLines('a\n\n', 'ts')
     expect(result).toHaveLength(2)
     expect(result![1]).toEqual([])
@@ -76,16 +93,20 @@ describe('highlightLines', () => {
     // A boot grammar (ts) is ready synchronously; a lazy grammar (python) is
     // not, so the first call renders plain and imports the grammar, and a
     // subscriber fires once it registers, after which the same call highlights.
+    /** 中文说明：测试局部值 notified，由紧邻初始化决定。 */
     let notified = 0
+    /** 中文说明：测试局部值 stop，由紧邻初始化决定。 */
     const stop = subscribeGrammarLoaded(() => { notified += 1 })
     // First touch: grammar not loaded yet, so plain fallback while it imports.
     expect(highlightLines('def f(): pass', 'py')).toBeUndefined()
     // The import + loadLanguageSync resolve on a microtask; wait for the notify.
     await vi.waitFor(() => { expect(notified).toBeGreaterThan(0) })
     expect(grammarLoadCount()).toBeGreaterThan(0)
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = highlightLines('def f(): pass', 'py')
     expect(result).not.toBeUndefined()
     // `def` is a python keyword and carries a --shiki-* color once highlighted.
+    /** 中文说明：测试局部值 keyword，由紧邻初始化决定。 */
     const keyword = result!.flat().find(span => span.text === 'def')
     expect(keyword?.style?.color).toContain('var(--shiki-')
     stop()
@@ -94,31 +115,38 @@ describe('highlightLines', () => {
 
 describe('ReadBlock rows', () => {
   it('renders one gutter-numbered row per line, keeping the file line numbers', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock label="a.ts" lines={lines(3, 41)} totalLines={3} />)
     expect(gutters(view.container)).toEqual(['41', '42', '43'])
     expect(rowTexts(view.container)).toEqual(['41line 41', '42line 42', '43line 43'])
   })
 
   it('highlights the content for a known language into token spans', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ReadBlock label="a.ts" lang="ts" lines={[{ number: 1, text: 'const a = 1' }]} totalLines={1} />,
     )
+    /** 中文说明：测试局部值 content，由紧邻初始化决定。 */
     const content = view.container.querySelector('[class^="_content_"]')
     expect(content?.querySelectorAll('span[style]').length).toBeGreaterThan(1)
     expect(content?.textContent).toBe('const a = 1')
   })
 
   it('renders the content as bare text with no span wrappers for an unknown language', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ReadBlock label="a.cob" lang="cobol" lines={[{ number: 1, text: 'IDENT DIVISION.' }]} totalLines={1} />,
     )
+    /** 中文说明：测试局部值 content，由紧邻初始化决定。 */
     const content = view.container.querySelector('[class^="_content_"]')
     expect(content?.querySelectorAll('span').length).toBe(0)
     expect(content?.textContent).toBe('IDENT DIVISION.')
   })
 
   it('renders bare text when no language is given', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock label="x" lines={[{ number: 1, text: 'plain' }]} totalLines={1} />)
+    /** 中文说明：测试局部值 content，由紧邻初始化决定。 */
     const content = view.container.querySelector('[class^="_content_"]')
     expect(content?.querySelectorAll('span').length).toBe(0)
     expect(view.getByText('plain')).toBeTruthy()
@@ -127,6 +155,7 @@ describe('ReadBlock rows', () => {
 
 describe('ReadBlock banner', () => {
   it('shows the label, the language, and the count note when the read is a window', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock label="src/a.ts" lang="ts" lines={lines(3, 41)} totalLines={180} />)
     expect(view.getByText('src/a.ts')).toBeTruthy()
     expect(view.getByText('ts')).toBeTruthy()
@@ -134,11 +163,13 @@ describe('ReadBlock banner', () => {
   })
 
   it('omits the count note when the window is the whole file', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock label="a.ts" lines={lines(3)} totalLines={3} />)
     expect(view.queryByText(/显示/u)).toBeNull()
   })
 
   it('draws an empty label and empty language when neither is given', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock lines={lines(1)} totalLines={1} />)
     expect(view.container.querySelector('[class^="_label_"]')?.textContent).toBe('')
     expect(view.container.querySelector('[class^="_lang_"]')?.textContent).toBe('')
@@ -147,21 +178,25 @@ describe('ReadBlock banner', () => {
 
 describe('ReadBlock height cap', () => {
   it('renders every line and no expand control under the cap', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock label="a" lines={lines(4)} totalLines={4} maxLines={4} />)
     expect(rowTexts(view.container)).toHaveLength(4)
     expect(view.container.querySelector('[aria-expanded]')).toBeNull()
   })
 
   it('slices head and tail over the cap and expands on click', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock label="a" lines={lines(10)} totalLines={10} maxLines={4} />)
     // maxLines 4: head = ceil(4/2) = 2, tail = 4 - 2 = 2, 6 hidden.
     expect(gutters(view.container)).toEqual(['1', '2', '9', '10'])
+    /** 中文说明：测试局部值 toggle，由紧邻初始化决定。 */
     const toggle = view.getByRole('button', { name: '展开其余 6 行' })
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(toggle.textContent).toBe('… 其余 6 行')
 
     fireEvent.click(toggle)
     expect(rowTexts(view.container)).toHaveLength(10)
+    /** 中文说明：测试局部值 collapse，由紧邻初始化决定。 */
     const collapse = view.getByRole('button', { name: '收起内容' })
     expect(collapse.getAttribute('aria-expanded')).toBe('true')
     expect(collapse.textContent).toBe('收起')
@@ -171,12 +206,14 @@ describe('ReadBlock height cap', () => {
   })
 
   it('renders the head slice alone when the cap leaves no tail', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock label="a" lines={lines(5)} totalLines={5} maxLines={1} />)
     expect(gutters(view.container)).toEqual(['1'])
     expect(view.getByRole('button', { name: '展开其余 4 行' })).toBeTruthy()
   })
 
   it('caps at the documented default when maxLines is absent', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ReadBlock label="a" lines={lines(DEFAULT_READ_MAX_LINES + 1)} totalLines={DEFAULT_READ_MAX_LINES + 1} />,
     )
@@ -188,6 +225,7 @@ describe('ReadBlock height cap', () => {
 describe('ReadBlock copy', () => {
   it('copies the raw window text, joined by newlines, never the gutter numbers', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     render(<ReadBlock label="a" lines={lines(3, 41)} totalLines={180} />)
@@ -205,6 +243,7 @@ describe('ReadBlock copy', () => {
   })
 
   it('copies the whole window while the height cap hides its middle', async () => {
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     render(<ReadBlock label="a" lines={lines(10)} totalLines={10} maxLines={4} />)
@@ -228,6 +267,7 @@ describe('ReadBlock copy', () => {
   })
 
   it('merges className onto the wrapper', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock className="x" label="a" lines={lines(1)} totalLines={1} />)
     expect(view.container.firstElementChild?.classList.contains('x')).toBe(true)
   })
@@ -235,6 +275,7 @@ describe('ReadBlock copy', () => {
   it('hides the copy control for an empty window so it cannot wipe the clipboard', () => {
     // A successful read of an empty file settles to lines: [] with card:'read',
     // so this branch is reachable; copying then would clear the clipboard.
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ReadBlock label="empty.ts" lines={[]} totalLines={0} />)
     expect(view.queryByRole('button', { name: '复制' })).toBeNull()
   })

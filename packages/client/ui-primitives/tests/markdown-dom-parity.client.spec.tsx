@@ -15,6 +15,14 @@
 //   pnpm install && cp <this spec> packages/client/ui-primitives/tests/
 //   npx vitest run packages/client/ui-primitives/tests/markdown-dom-parity.spec.tsx
 //   diff -r <recorded fixtures> <this branch's fixtures>   # byte-identical
+/**
+ * 文件职责：验证UI 基础组件的 markdown-dom-parity.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -29,27 +37,37 @@ afterEach(cleanup)
  * blocks that HTML rendering collapses), attributes sorted by name, children
  * indented for reviewable diffs.
  */
+/** 中文说明：函数 serialize 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function serialize(node: Node, indent: string, inPre: boolean): string {
   if (node.nodeType !== Node.ELEMENT_NODE) return ''
+  /** 中文说明：测试局部值 element，由紧邻初始化决定。 */
   const element = node as Element
+  /** 中文说明：测试局部值 attrs，由紧邻初始化决定。 */
   const attrs = [...element.attributes]
     .map(attr => `${attr.name}=${JSON.stringify(attr.value)}`)
     .sort()
     .join(' ')
+  /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
   const open = attrs === '' ? element.tagName.toLowerCase() : `${element.tagName.toLowerCase()} ${attrs}`
+  /** 中文说明：测试局部值 nowInPre，由紧邻初始化决定。 */
   const nowInPre = inPre || element.tagName === 'PRE'
   return `${indent}<${open}>\n${serializeChildren(element, `${indent}  `, nowInPre)}`
 }
 
+/** 中文说明：函数 serializeChildren 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function serializeChildren(element: Element, indent: string, inPre: boolean): string {
+  /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
   let out = ''
+  /** 中文说明：测试局部值 textRun，由紧邻初始化决定。 */
   let textRun = ''
+  /** 中文说明：测试局部值 flush，由紧邻初始化决定。 */
   const flush = (): void => {
     if (textRun !== '' && (inPre || textRun.trim() !== '')) {
       out += `${indent}#text ${JSON.stringify(textRun)}\n`
     }
     textRun = ''
   }
+  /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
   for (const child of element.childNodes) {
     if (child.nodeType === Node.TEXT_NODE) {
       textRun += child.textContent ?? ''
@@ -63,13 +81,17 @@ function serializeChildren(element: Element, indent: string, inPre: boolean): st
 }
 
 /** Render one markdown source through MarkdownText and serialize the DOM. */
+/** 中文说明：函数 renderCase 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderCase(text: string, streaming: boolean): string {
+  /** 中文说明：测试局部值 { container, unmount }，由紧邻初始化决定。 */
   const { container, unmount } = render(<MarkdownText text={text} streaming={streaming} />)
+  /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
   const out = [...container.childNodes].map(child => serialize(child, '', false)).join('')
   unmount()
   return out
 }
 
+/** 中文说明：测试局部值 CORPUS，由紧邻初始化决定。 */
 const CORPUS: Record<string, string> = {
   'headings-and-paragraphs': [
     '# H1 with `code`',
@@ -265,6 +287,7 @@ const CORPUS: Record<string, string> = {
 }
 
 describe('MarkdownText DOM parity fixtures', () => {
+  /** 中文说明：测试局部值 [name，由紧邻初始化决定。 */
   for (const [name, text] of Object.entries(CORPUS)) {
     it(`settled: ${name}`, async () => {
       await expect(renderCase(text, false)).toMatchFileSnapshot(`./fixtures/markdown-dom/${name}.settled.txt`)

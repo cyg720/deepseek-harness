@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证UI 基础组件的 markdown.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { JsonBlock, MarkdownText, MessageText } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -9,6 +17,7 @@ afterEach(cleanup)
 
 describe('MessageText', () => {
   it('renders the text verbatim', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MessageText text={'# line1\n`line2`'} />)
     expect(container.textContent).toBe('# line1\n`line2`')
     expect(container.querySelector('h1')).toBeNull()
@@ -17,6 +26,7 @@ describe('MessageText', () => {
 
 describe('MarkdownText', () => {
   it('renders CommonMark and GFM elements as semantic DOM', () => {
+    /** 中文说明：测试局部值 markdown，由紧邻初始化决定。 */
     const markdown = [
       '# Heading',
       '',
@@ -46,6 +56,7 @@ describe('MarkdownText', () => {
       '',
       '<https://deepseek.com>',
     ].join('\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={markdown} />)
 
     expect(screen.getByRole('heading', { level: 1, name: 'Heading' })).toBeTruthy()
@@ -69,6 +80,7 @@ describe('MarkdownText', () => {
   })
 
   it('closes punctuation-terminated strong emphasis before adjacent CJK text', () => {
+    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases = [
       ['**注意：**内容', '注意：'],
       ['**Notice:**内容', 'Notice:'],
@@ -79,9 +91,12 @@ describe('MarkdownText', () => {
       ['**提醒！**继续', '提醒！'],
       ['**Warning!**继续', 'Warning!'],
     ] as const
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = cases.map(([markdown]) => markdown).join('\n\n')
 
+    /** 中文说明：测试局部值 streaming，由紧邻初始化决定。 */
     for (const streaming of [false, true]) {
+      /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
       const rendered = render(<MarkdownText text={source} streaming={streaming} />)
       expect([...rendered.container.querySelectorAll('strong')].map(node => node.textContent))
         .toEqual(cases.map(([, strong]) => strong))
@@ -90,6 +105,7 @@ describe('MarkdownText', () => {
   })
 
   it('keeps the CJK strong extension out of escaped, code, math, and ASCII contexts', () => {
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = [
       String.raw`\**注意：**内容`,
       '`**注意：**内容`',
@@ -102,6 +118,7 @@ describe('MarkdownText', () => {
       '**普通**内容',
       '*普通*内容',
     ].join('\n\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={source} />)
 
     expect([...container.querySelectorAll('strong')].map(node => node.textContent)).toEqual(['普通'])
@@ -115,8 +132,11 @@ describe('MarkdownText', () => {
   })
 
   it('links complete HTTP(S) inline code without promoting commands, unsafe schemes, or fences', () => {
+    /** 中文说明：测试局部值 localUrl，由紧邻初始化决定。 */
     const localUrl = 'http://127.0.0.1:3199/?demo=1'
+    /** 中文说明：测试局部值 remoteUrl，由紧邻初始化决定。 */
     const remoteUrl = 'https://example.com/preview?q=one%20two#result'
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = [
       `\`${localUrl}\``,
       `\`${remoteUrl}\``,
@@ -128,10 +148,13 @@ describe('MarkdownText', () => {
       localUrl,
       '```',
     ].join('\n\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={source} />)
 
+    /** 中文说明：测试局部值 links，由紧邻初始化决定。 */
     const links = screen.getAllByRole('link')
     expect(links.map(link => link.getAttribute('href'))).toEqual([localUrl, remoteUrl])
+    /** 中文说明：测试局部值 link，由紧邻初始化决定。 */
     for (const link of links) {
       expect(link.closest('code')).not.toBeNull()
       expect(link.getAttribute('target')).toBe('_blank')
@@ -142,6 +165,7 @@ describe('MarkdownText', () => {
     expect(screen.getByText('curl http://127.0.0.1:3199/?demo=1').closest('a')).toBeNull()
     expect(screen.getByText('javascript:alert(1)').closest('a')).toBeNull()
     expect(screen.getByText('mailto:dev@example.com').closest('a')).toBeNull()
+    /** 中文说明：测试局部值 paddedCode，由紧邻初始化决定。 */
     const paddedCode = [...container.querySelectorAll('code')]
       .find(code => code.textContent === ` ${localUrl} `)
     expect(paddedCode?.querySelector('a')).toBeNull()
@@ -149,12 +173,15 @@ describe('MarkdownText', () => {
   })
 
   it('links inline code through the file-mention resolver: URL first, settled only, never inside links', () => {
+    /** 中文说明：测试局部值 opened，由紧邻初始化决定。 */
     const opened: string[] = []
+    /** 中文说明：测试局部值 fileMentions，由紧邻初始化决定。 */
     const fileMentions = {
       resolve: (value: string) => value === 'index.html' || value === 'out/index.html'
         ? { open: () => { opened.push(value) }, label: 'Open out/index.html', title: 'out/index.html' }
         : undefined,
     }
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = [
       '`index.html`',
       '`other.css`',
@@ -167,8 +194,10 @@ describe('MarkdownText', () => {
       'index.html',
       '```',
     ].join('\n\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={source} fileMentions={fileMentions} />)
 
+    /** 中文说明：测试局部值 mention，由紧邻初始化决定。 */
     const mention = screen.getByRole('button', { name: 'Open out/index.html' })
     expect(mention.closest('code')).not.toBeNull()
     // The full path rides title, the same disambiguator the row's chips carry.
@@ -185,6 +214,7 @@ describe('MarkdownText', () => {
 
     // Streaming renders keep mentions off — the one gate lives here: cached
     // frozen elements must not bake in handlers that could go stale.
+    /** 中文说明：测试局部值 streamed，由紧邻初始化决定。 */
     const streamed = render(
       <MarkdownText text={'`index.html`\n\nmore\n\n'} streaming fileMentions={fileMentions} />,
     )
@@ -192,9 +222,12 @@ describe('MarkdownText', () => {
   })
 
   it('exposes the CJK strong syntax as a micromark extension needing CommonMark attention markers', () => {
+    /** 中文说明：测试局部值 extension，由紧邻初始化决定。 */
     const extension = cjkFriendlyStrong()
     expect(cjkFriendlyStrong()).toBe(extension)
+    /** 中文说明：测试局部值 construct，由紧邻初始化决定。 */
     const construct = extension.text?.[42]
+    /** 中文说明：测试局部值 tokenizer，由紧邻初始化决定。 */
     const tokenizer = Array.isArray(construct) ? construct[0]?.tokenize : construct?.tokenize
     expect(tokenizer).toBeTypeOf('function')
     expect(() => tokenizer?.call({
@@ -206,7 +239,9 @@ describe('MarkdownText', () => {
   })
 
   it('a fence labeled with an inherited object key renders plain, never crashing shiki', () => {
+    /** 中文说明：测试局部值 label，由紧邻初始化决定。 */
     for (const label of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+      /** 中文说明：测试局部值 { container, unmount }，由紧邻初始化决定。 */
       const { container, unmount } = render(<MarkdownText text={'```' + label + '\ncode body\n```'} />)
       expect(container.querySelector('pre.shiki')).toBeNull()
       expect(container.querySelector('pre code')?.textContent).toContain('code body')
@@ -215,20 +250,25 @@ describe('MarkdownText', () => {
   })
 
   it('an empty fence keeps the stock pre; a language-less fence renders the plain CodeBlock arm', () => {
+    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = render(<MarkdownText text={'```\n```'} />)
     expect(empty.container.querySelector('pre')?.outerHTML).toBe('<pre><code></code></pre>')
 
+    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain = render(<MarkdownText text={'```\nno language here\n```'} />)
     expect(plain.container.querySelector('pre.shiki')).toBeNull()
     expect(plain.container.querySelector('pre code')?.textContent).toContain('no language here')
   })
 
   it('streaming renders fences plain; the finalize swap highlights them', () => {
+    /** 中文说明：测试局部值 fence，由紧邻初始化决定。 */
     const fence = '```ts\nconst answer = 42\n```'
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = render(<MarkdownText text={fence} streaming />)
     expect(live.container.querySelector('pre.shiki')).toBeNull()
     expect(live.container.querySelector('pre code')?.textContent).toContain('const answer = 42')
     live.unmount()
+    /** 中文说明：测试局部值 done，由紧邻初始化决定。 */
     const done = render(<MarkdownText text={fence} />)
     expect(done.container.querySelector('pre.shiki')).not.toBeNull()
   })
@@ -239,16 +279,20 @@ describe('MarkdownText', () => {
   })
 
   it('renders absolute HTTP(S) images with bounded presentation', () => {
+    /** 中文说明：测试局部值 markdown，由紧邻初始化决定。 */
     const markdown = [
       '![secure diagram](https://example.com/secure.png)',
       '![plain diagram](http://example.com/plain.png)',
     ].join('\n\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={markdown} />)
+    /** 中文说明：测试局部值 images，由紧邻初始化决定。 */
     const images = [...container.querySelectorAll('img')]
     expect(images.map(image => image.getAttribute('src'))).toEqual([
       'https://example.com/secure.png',
       'http://example.com/plain.png',
     ])
+    /** 中文说明：测试局部值 image，由紧邻初始化决定。 */
     for (const image of images) {
       expect(image.getAttribute('loading')).toBe('lazy')
       expect(image.getAttribute('decoding')).toBe('async')
@@ -257,6 +301,7 @@ describe('MarkdownText', () => {
   })
 
   it('neutralizes raw HTML, unsafe or relative links, and unsupported images', () => {
+    /** 中文说明：测试局部值 markdown，由紧邻初始化决定。 */
     const markdown = [
       '<script>globalThis.compromised = true</script>',
       '<img src="x" onerror="globalThis.compromised = true">',
@@ -268,10 +313,12 @@ describe('MarkdownText', () => {
       '![script diagram](javascript:alert(1))',
       '![mail diagram](mailto:dev@example.com)',
     ].join('\n\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={markdown} />)
 
     expect(container.querySelector('script')).toBeNull()
     expect(container.querySelector('img')).toBeNull()
+    /** 中文说明：测试局部值 neutralized，由紧邻初始化决定。 */
     const neutralized = [...container.querySelectorAll('p')]
       .find(paragraph => paragraph.textContent === 'script relative')
     expect(neutralized?.querySelector('a')).toBeNull()
@@ -286,6 +333,7 @@ describe('MarkdownText', () => {
   })
 
   it('keeps incomplete streaming Markdown renderable', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={'## Streaming\n\n- first\n- **unfinished'} />)
     expect(screen.getByRole('heading', { level: 2, name: 'Streaming' })).toBeTruthy()
     expect(container.querySelectorAll('li')).toHaveLength(2)
@@ -293,6 +341,7 @@ describe('MarkdownText', () => {
   })
 
   it('renders inline and display TeX through KaTeX without enabling trusted commands', () => {
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = [
       'Einstein wrote $E = mc^2$.',
       '',
@@ -302,6 +351,7 @@ describe('MarkdownText', () => {
       '',
       '$\\href{javascript:alert(1)}{unsafe}$',
     ].join('\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={source} />)
 
     expect(container.querySelectorAll('.katex')).toHaveLength(3)
@@ -311,6 +361,7 @@ describe('MarkdownText', () => {
   })
 
   it('renders common TeX delimiters and same-line tagged display blocks after the reply settles', () => {
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = [
       'Inline dollar $\\theta$ and backslash \\(\\frac{1}{5}\\).',
       '',
@@ -322,6 +373,7 @@ describe('MarkdownText', () => {
       '| --- | --- |',
       '| $\\theta$ | \\(\\frac{1}{5}\\) |',
     ].join('\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={source} />)
 
     expect(container.querySelectorAll('.katex')).toHaveLength(6)
@@ -334,6 +386,7 @@ describe('MarkdownText', () => {
   })
 
   it('keeps backslash delimiters correct across Markdown boundaries and malformed candidates', () => {
+    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases = [
       {
         source: '\\(\\alpha \\, \\beta\\)',
@@ -370,7 +423,9 @@ describe('MarkdownText', () => {
       },
     ]
 
+    /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
     for (const item of cases) {
+      /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
       const rendered = render(<MarkdownText text={item.source} />)
       expect(rendered.container.querySelectorAll('.katex')).toHaveLength(item.math)
       expect(rendered.container.querySelectorAll('.katex-display')).toHaveLength(item.display)
@@ -381,6 +436,7 @@ describe('MarkdownText', () => {
       rendered.unmount()
     }
 
+    /** 中文说明：测试局部值 literal，由紧邻初始化决定。 */
     const literal = render(<MarkdownText text={'\\\\(x\\)\n\n\\[x'} />)
     expect(literal.container.querySelectorAll('.katex')).toHaveLength(0)
     expect(literal.container.querySelector('.katex-display')).toBeNull()
@@ -388,6 +444,7 @@ describe('MarkdownText', () => {
   })
 
   it('keeps ordinary dollar blocks and incomplete delimiter candidates parseable', () => {
+    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases = [
       { source: '$$\n\\theta\n$$', math: 1, display: 1 },
       { source: '$$$\\theta$$$', math: 1, display: 0 },
@@ -399,7 +456,9 @@ describe('MarkdownText', () => {
       { source: '> \\[\nnot a quoted continuation\n\\]', math: 0, display: 0 },
     ]
 
+    /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
     for (const item of cases) {
+      /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
       const rendered = render(<MarkdownText text={item.source} />)
       expect(rendered.container.querySelectorAll('.katex')).toHaveLength(item.math)
       expect(rendered.container.querySelectorAll('.katex-display')).toHaveLength(item.display)
@@ -409,7 +468,9 @@ describe('MarkdownText', () => {
   })
 
   it('lets display math interrupt an open paragraph', () => {
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     for (const source of ['Prose line\n\\[x\\]', 'Prose line\n$$x$$']) {
+      /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
       const rendered = render(<MarkdownText text={source} />)
       expect(rendered.container.querySelectorAll('p')).toHaveLength(1)
       expect(rendered.container.querySelectorAll('.katex-display')).toHaveLength(1)
@@ -418,6 +479,7 @@ describe('MarkdownText', () => {
   })
 
   it('leaves a dollar block with trailing text to upstream inline math', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text="$$x$$ trailing" />)
 
     expect(container.querySelectorAll('.katex')).toHaveLength(1)
@@ -427,6 +489,7 @@ describe('MarkdownText', () => {
   })
 
   it('renders escaped dollars and even backslash pairs before closing fences', () => {
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = [
       String.raw`$$100\$$$`,
       '',
@@ -434,7 +497,9 @@ describe('MarkdownText', () => {
       '',
       String.raw`\[b\\\]`,
     ].join('\n')
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={source} />)
+    /** 中文说明：测试局部值 values，由紧邻初始化决定。 */
     const values = [...container.querySelectorAll('annotation')].map(node => node.textContent)
 
     expect(values).toEqual([String.raw`100\$`, String.raw`a\\`, String.raw`b\\`])
@@ -442,7 +507,9 @@ describe('MarkdownText', () => {
   })
 
   it('bounds fallback work for repeated unclosed backslash delimiters', () => {
+    /** 中文说明：测试局部值 startedAt，由紧邻初始化决定。 */
     const startedAt = performance.now()
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={'\\(x '.repeat(6_400)} />)
 
     expect(performance.now() - startedAt).toBeLessThan(3_000)
@@ -450,7 +517,9 @@ describe('MarkdownText', () => {
   })
 
   it('leaves TeX-looking fenced code literal', () => {
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = '```tex\n\\[\\frac{1}{5}\\]\n$$x \\tag{1}$$\n```'
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<MarkdownText text={source} />)
 
     expect(container.querySelector('.katex')).toBeNull()
@@ -459,6 +528,7 @@ describe('MarkdownText', () => {
   })
 
   it('exposes the compatibility syntax as a micromark extension', () => {
+    /** 中文说明：测试局部值 extension，由紧邻初始化决定。 */
     const extension = mathCompatibility()
 
     expect(Object.keys(extension)).toEqual(['flow', 'text'])
@@ -466,8 +536,11 @@ describe('MarkdownText', () => {
   })
 
   it('defers TeX rendering while streaming so incomplete formulas never flash KaTeX errors', () => {
+    /** 中文说明：测试局部值 partial，由紧邻初始化决定。 */
     const partial = '$$\n\\frac{\\partial \\mathbf{u}}{\\partial'
+    /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
     const complete = '$$\n\\frac{\\partial \\mathbf{u}}{\\partial t}\n$$'
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = render(<MarkdownText text={partial} streaming />)
 
     expect(live.container.querySelector('.katex')).toBeNull()
@@ -492,25 +565,32 @@ describe('JsonBlock', () => {
   })
 
   it('defaultOpen renders the body immediately', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<JsonBlock label="args" payload={[1, 2]} defaultOpen />)
     expect(container.querySelector('pre')?.textContent).toContain('1')
   })
 
   it('stringifies undefined payloads via String()', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<JsonBlock label="x" payload={undefined} defaultOpen />)
     expect(container.querySelector('pre')?.textContent).toBe('undefined')
   })
 
   it('falls back to String() for circular payloads', () => {
+    /** 中文说明：测试局部值 circular，由紧邻初始化决定。 */
     const circular: { self?: unknown } = {}
     circular.self = circular
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<JsonBlock label="x" payload={circular} defaultOpen />)
     expect(container.querySelector('pre')?.textContent).toBe('[object Object]')
   })
 
   it('truncates beyond the size cap with a suffix note', () => {
+    /** 中文说明：测试局部值 big，由紧邻初始化决定。 */
     const big = 'x'.repeat(30_000)
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<JsonBlock label="x" payload={big} defaultOpen />)
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = container.querySelector('pre')!.textContent
     expect(body.length).toBeLessThan(30_000)
     expect(body).toContain('截断')

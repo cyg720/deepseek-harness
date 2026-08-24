@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证UI 基础组件的 hover-card.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HoverCard } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -9,7 +17,9 @@ beforeEach(() => { vi.useFakeTimers() })
 afterEach(() => { vi.useRealTimers() })
 
 /** Anchor wrapper rect: the card positions from this (jsdom rects are all-zero by default). */
+/** 中文说明：函数 stubAnchorRect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAnchorRect(anchor: HTMLElement, rect: { top: number; right: number }): void {
+  /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
   const wrapper = anchor.parentElement as HTMLElement
   wrapper.getBoundingClientRect = () => ({
     top: rect.top, right: rect.right, left: rect.right - 100, bottom: rect.top + 34,
@@ -17,6 +27,7 @@ function stubAnchorRect(anchor: HTMLElement, rect: { top: number; right: number 
   })
 }
 
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mount(props: {
   openDelayMs?: number
   disabled?: boolean
@@ -24,16 +35,20 @@ function mount(props: {
   copyLabel?: string
   copiedLabel?: string
 } = {}) {
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(
     <HoverCard anchor={<span>row</span>} content={<div>card body</div>} {...props} />,
   )
+  /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
   const anchor = screen.getByText('row')
   stubAnchorRect(anchor, { top: 40, right: 200 })
   return { view, anchor, wrapper: anchor.parentElement as HTMLElement }
 }
 
 /** Install the async browser clipboard and restore its prior host shape. */
+/** 中文说明：函数 installClipboard 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function installClipboard(writeText: (text: string) => Promise<void>): () => void {
+  /** 中文说明：测试局部值 prior，由紧邻初始化决定。 */
   const prior = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
@@ -47,12 +62,14 @@ function installClipboard(writeText: (text: string) => Promise<void>): () => voi
 
 describe('HoverCard', () => {
   it('opens after the dwell delay, positioned right of the anchor', () => {
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     expect(screen.queryByText('card body')).toBeNull()
     act(() => { vi.advanceTimersByTime(499) })
     expect(screen.queryByText('card body')).toBeNull()
     act(() => { vi.advanceTimersByTime(1) })
+    /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
     const card = screen.getByText('card body').parentElement as HTMLElement
     expect(card.parentElement).toBe(document.body)
     expect(card.style.left).toBe('208px')
@@ -60,6 +77,7 @@ describe('HoverCard', () => {
   })
 
   it('honors a custom openDelayMs', () => {
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount({ openDelayMs: 50 })
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(50) })
@@ -67,6 +85,7 @@ describe('HoverCard', () => {
   })
 
   it('pointerleave before the delay cancels the pending open', () => {
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     fireEvent.pointerLeave(wrapper)
@@ -75,6 +94,7 @@ describe('HoverCard', () => {
   })
 
   it('pointerleave closes an open card a grace later; re-enter after that restarts the dwell', () => {
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
@@ -93,6 +113,7 @@ describe('HoverCard', () => {
     // The portaled card is a React child of the wrapper, so the pointer
     // arriving on it re-enters the wrapper — the gesture an anchor gap
     // would make impossible.
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
@@ -104,6 +125,7 @@ describe('HoverCard', () => {
   })
 
   it('re-entering while open does not queue a second dwell', () => {
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
@@ -116,6 +138,7 @@ describe('HoverCard', () => {
   })
 
   it('a press inside the anchor dismisses the card without waiting for disabled', () => {
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
@@ -131,6 +154,7 @@ describe('HoverCard', () => {
     // The card is a React child of the wrapper, so capture-phase presses on
     // it reach the wrapper's dismissal handler too; they must not close it,
     // or the first pointerdown of a text-selection drag would kill the card.
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
@@ -141,16 +165,23 @@ describe('HoverCard', () => {
   })
 
   it('keeps a completed card selection instead of treating its click as copy', async () => {
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(async () => {})
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
+    /** 中文说明：测试局部值 selection，由紧邻初始化决定。 */
     const selection = window.getSelection()
     if (selection === null) throw new Error('jsdom selection API unavailable')
     try {
+      /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
       const { wrapper } = mount({ copyText: 'card body', copyLabel: 'Copy' })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
+      /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
       const card = screen.getByRole('button', { name: 'Copy: card body' })
+      /** 中文说明：测试局部值 selectedText，由紧邻初始化决定。 */
       const selectedText = screen.getByText('card body')
+      /** 中文说明：测试局部值 cardRange，由紧邻初始化决定。 */
       const cardRange = document.createRange()
       cardRange.selectNodeContents(selectedText)
       selection.addRange(cardRange)
@@ -162,6 +193,7 @@ describe('HoverCard', () => {
       // Firefox supports multiple selection ranges: any range intersecting
       // this card wins, not only the first.
       selection.removeAllRanges()
+      /** 中文说明：测试局部值 getSelection，由紧邻初始化决定。 */
       const getSelection = vi.spyOn(window, 'getSelection').mockReturnValue({
         isCollapsed: false,
         rangeCount: 2,
@@ -174,6 +206,7 @@ describe('HoverCard', () => {
       getSelection.mockRestore()
 
       // A non-collapsed selection elsewhere does not block this card.
+      /** 中文说明：测试局部值 anchorRange，由紧邻初始化决定。 */
       const anchorRange = document.createRange()
       anchorRange.selectNodeContents(screen.getByText('row'))
       selection.addRange(anchorRange)
@@ -193,9 +226,12 @@ describe('HoverCard', () => {
   })
 
   it('copies its configured value and shows success only for the feedback window', async () => {
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(async () => {})
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
       const { wrapper } = mount({
         copyText: '/full/path',
         copyLabel: 'Copy path',
@@ -203,7 +239,9 @@ describe('HoverCard', () => {
       })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
+      /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
       const card = screen.getByRole('button', { name: 'Copy path: /full/path' })
+      /** 中文说明：测试局部值 status，由紧邻初始化决定。 */
       const status = screen.getByRole('status')
       expect(status.textContent).toBe('')
       expect(card.contains(status)).toBe(false)
@@ -230,12 +268,16 @@ describe('HoverCard', () => {
   })
 
   it('supports button keys and ignores unrelated keys', async () => {
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(async () => {})
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
       const { wrapper } = mount({ copyText: 'value', copiedLabel: 'Copied' })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
+      /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
       const card = screen.getByRole('button')
       fireEvent.keyDown(card, { key: 'Escape' })
       expect(writeText).not.toHaveBeenCalled()
@@ -250,9 +292,12 @@ describe('HoverCard', () => {
   })
 
   it('keeps its content when the clipboard rejects the write', async () => {
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(async () => { throw new Error('denied') })
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
       const { wrapper } = mount({ copyText: 'value', copiedLabel: 'Copied' })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
@@ -265,9 +310,12 @@ describe('HoverCard', () => {
   })
 
   it('unmount clears copied feedback', async () => {
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(async () => {})
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 { view, wrapper }，由紧邻初始化决定。 */
       const { view, wrapper } = mount({ copyText: 'value' })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
@@ -281,9 +329,12 @@ describe('HoverCard', () => {
   })
 
   it('clears copied feedback when the card closes', async () => {
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(async () => {})
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
       const { wrapper } = mount({ copyText: 'value', copiedLabel: 'Copied' })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
@@ -301,10 +352,14 @@ describe('HoverCard', () => {
   })
 
   it('does not create copied feedback after an in-flight write unmounts', async () => {
+    /** 中文说明：测试局部值 acceptWrite，由紧邻初始化决定。 */
     let acceptWrite: (() => void) | undefined
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(() => new Promise<void>((resolve) => { acceptWrite = resolve }))
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 { view, wrapper }，由紧邻初始化决定。 */
       const { view, wrapper } = mount({ copyText: 'value' })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
@@ -319,10 +374,14 @@ describe('HoverCard', () => {
   })
 
   it('does not restore copied feedback after an in-flight card closes', async () => {
+    /** 中文说明：测试局部值 acceptWrite，由紧邻初始化决定。 */
     let acceptWrite: (() => void) | undefined
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(() => new Promise<void>((resolve) => { acceptWrite = resolve }))
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
       const { wrapper } = mount({ copyText: 'value', copiedLabel: 'Copied' })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
@@ -340,13 +399,18 @@ describe('HoverCard', () => {
   })
 
   it('coalesces activations while the clipboard write is in flight', async () => {
+    /** 中文说明：测试局部值 acceptWrite，由紧邻初始化决定。 */
     let acceptWrite: (() => void) | undefined
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(() => new Promise<void>((resolve) => { acceptWrite = resolve }))
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
       const { wrapper } = mount({ copyText: 'value', copiedLabel: 'Copied' })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
+      /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
       const card = screen.getByRole('button')
       fireEvent.click(card)
       fireEvent.click(card)
@@ -359,6 +423,7 @@ describe('HoverCard', () => {
   })
 
   it('disabled suppresses opening entirely', () => {
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount({ disabled: true })
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(1000) })
@@ -366,6 +431,7 @@ describe('HoverCard', () => {
   })
 
   it('flipping disabled true closes an open card', () => {
+    /** 中文说明：测试局部值 { view, wrapper }，由紧邻初始化决定。 */
     const { view, wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
@@ -378,13 +444,16 @@ describe('HoverCard', () => {
     // First placement reads height 0 (card not yet mounted) and keeps the
     // anchor top; the post-mount correction re-clamps with the real height.
     window.innerHeight = 300
+    /** 中文说明：测试局部值 offsetHeight，由紧邻初始化决定。 */
     const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')!
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 120 })
     try {
+      /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
       const { wrapper } = mount()
       stubAnchorRect(screen.getByText('row'), { top: 280, right: 200 })
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
+      /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
       const card = screen.getByText('card body').parentElement as HTMLElement
       // 300 - 120 - 8 = 172, instead of the anchor top 280.
       expect(card.style.top).toBe('172px')
@@ -395,10 +464,12 @@ describe('HoverCard', () => {
 
   it('clamps inside placement itself when the card is already measured (resize path)', () => {
     window.innerHeight = 300
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     stubAnchorRect(screen.getByText('row'), { top: 280, right: 200 })
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
+    /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
     const card = screen.getByText('card body').parentElement as HTMLElement
     Object.defineProperty(card, 'offsetHeight', { value: 120 })
     act(() => { fireEvent.resize(window) })
@@ -406,11 +477,13 @@ describe('HoverCard', () => {
   })
 
   it('repositions on capture-phase scroll while open and stops listening after close', () => {
+    /** 中文说明：测试局部值 { wrapper }，由紧邻初始化决定。 */
     const { wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
     stubAnchorRect(screen.getByText('row'), { top: 90, right: 300 })
     act(() => { fireEvent.scroll(document) })
+    /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
     const card = screen.getByText('card body').parentElement as HTMLElement
     expect(card.style.left).toBe('308px')
     expect(card.style.top).toBe('90px')
@@ -420,6 +493,7 @@ describe('HoverCard', () => {
   })
 
   it('unmount clears a pending open timer', () => {
+    /** 中文说明：测试局部值 { view, wrapper }，由紧邻初始化决定。 */
     const { view, wrapper } = mount()
     fireEvent.pointerEnter(wrapper)
     view.unmount()

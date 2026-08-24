@@ -1,9 +1,18 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证UI 基础组件的 json-tree.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { JsonTree } from '@deepseek-ai/dsh-client-ui-primitives'
 
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let writeText: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
@@ -31,12 +40,15 @@ describe('JsonTree', () => {
       />,
     )
 
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree = screen.getByRole('tree', { name: 'Payload' })
+    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows = within(tree).getAllByRole('treeitem')
     expect(rows).toHaveLength(2)
     expect(rows[0]?.textContent).toBe('nested:{answer: 42},')
     expect(rows[1]?.textContent).toBe('list:["alpha", "beta"]')
 
+    /** 中文说明：测试局部值 expanders，由紧邻初始化决定。 */
     const expanders = within(tree).getAllByRole('button', { name: 'Expand JSON node' })
     expect(expanders[0]?.tabIndex).toBe(0)
     expect(expanders[1]?.tabIndex).toBe(-1)
@@ -58,8 +70,11 @@ describe('JsonTree', () => {
       />,
     )
 
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree = screen.getByRole('tree', { name: 'JSON' })
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = within(tree).getByRole('button', { name: 'Collapse JSON node' })
+    /** 中文说明：测试局部值 children，由紧邻初始化决定。 */
     const children = within(tree).getAllByRole('button', { name: 'Expand JSON node' })
 
     expect(root.tabIndex).toBe(0)
@@ -83,13 +98,16 @@ describe('JsonTree', () => {
   it('copies an array element path without recovering data from rendered labels', async () => {
     render(<JsonTree data={{ list: [{ value: 'x' }, 'tail'] }} />)
 
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree = screen.getByRole('tree')
     fireEvent.click(within(tree).getByRole('button', { name: 'Expand JSON node' }))
+    /** 中文说明：测试局部值 arrayRow，由紧邻初始化决定。 */
     const arrayRow = within(tree).getAllByRole('treeitem')
       .find(row => row.textContent?.startsWith('0:'))
     expect(arrayRow).toBeDefined()
 
     fireEvent.mouseOver(arrayRow as HTMLElement)
+    /** 中文说明：测试局部值 copyButton，由紧邻初始化决定。 */
     const copyButton = screen.getByRole('button', { name: 'Copy pretty JSON' })
     fireEvent.contextMenu(copyButton)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy property path' }))
@@ -100,8 +118,11 @@ describe('JsonTree', () => {
   })
 
   it('renders empty containers, JSON-adjacent primitives, and bounded deep previews', () => {
+    /** 中文说明：测试局部值 anonymous，由紧邻初始化决定。 */
     const anonymous = Object.defineProperty(() => {}, 'name', { value: '' })
+    /** 中文说明：测试局部值 date，由紧邻初始化决定。 */
     const date = new Date('2026-07-28T00:00:00.000Z')
+    /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
     const data = {
       '': 'empty key',
       nil: null,
@@ -133,6 +154,7 @@ describe('JsonTree', () => {
     }
     render(<JsonTree copyable={false} data={data} />)
 
+    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = screen.getByRole('tree').textContent
     expect(text).toContain('"":\"empty key\"')
     expect(text).toContain('nil:null')
@@ -158,7 +180,9 @@ describe('JsonTree', () => {
     render(<JsonTree data={{ parent: { emptyObject: {}, emptyArray: [], scalar: 1, last: 2 } }} />)
 
     fireEvent.click(screen.getByText('parent:'))
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree = screen.getByRole('tree')
+    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows = within(tree).getAllByRole('treeitem')
     expect(rows.find(row => row.textContent === 'emptyObject:{},')).toBeDefined()
     expect(rows.find(row => row.textContent === 'emptyArray:[],')).toBeDefined()
@@ -170,7 +194,9 @@ describe('JsonTree', () => {
   })
 
   it('assigns the initial array tab stop and supports an empty collapsible root', () => {
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = render(<JsonTree data={['plain', { nested: true }]} />)
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree = screen.getByRole('tree')
     expect(tree.textContent).toContain('0:"plain"')
     expect(within(tree).getByRole('button', { name: 'Expand JSON node' }).tabIndex).toBe(0)
@@ -182,6 +208,7 @@ describe('JsonTree', () => {
   })
 
   it('copies primitive and object values in every menu mode', async () => {
+    /** 中文说明：测试局部值 anonymous，由紧邻初始化决定。 */
     const anonymous = Object.defineProperty(() => {}, 'name', { value: '' })
     render(
       <JsonTree
@@ -199,18 +226,24 @@ describe('JsonTree', () => {
       />,
     )
 
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree = screen.getByRole('tree')
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = (prefix: string) => {
+      /** 中文说明：测试局部值 match，由紧邻初始化决定。 */
       const match = within(tree).getAllByRole('treeitem')
         .find(item => item.textContent?.startsWith(prefix))
       expect(match).toBeDefined()
       return match as HTMLElement
     }
+    /** 中文说明：测试局部值 hover，由紧邻初始化决定。 */
     const hover = (prefix: string) => {
       fireEvent.mouseOver(row(prefix))
       return screen.getByRole('button', { name: /Cop/ })
     }
+    /** 中文说明：测试局部值 select，由紧邻初始化决定。 */
     const select = (name: string) => {
+      /** 中文说明：测试局部值 button，由紧邻初始化决定。 */
       const button = screen.getByRole('button', { name: /Cop/ })
       fireEvent.contextMenu(button)
       fireEvent.click(screen.getByRole('menuitem', { name }))
@@ -232,6 +265,7 @@ describe('JsonTree', () => {
     select('Copy compact JSON')
     await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith('{"a":1}') })
 
+    /** 中文说明：测试局部值 [prefix，由紧邻初始化决定。 */
     for (const [prefix, expected] of [
       ['missing:', 'undefined'],
       ['big:', '7'],
@@ -248,7 +282,9 @@ describe('JsonTree', () => {
   it('reports clipboard failure, resets feedback, and clears a prior timer', async () => {
     vi.useFakeTimers()
     writeText.mockRejectedValue(new Error('denied'))
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<JsonTree data={{ value: 'x' }} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('treeitem')
     fireEvent.mouseOver(row)
     fireEvent.click(screen.getByRole('button', { name: 'Copy value' }))
@@ -263,10 +299,15 @@ describe('JsonTree', () => {
   })
 
   it('keeps copy placement synchronized and clears stale targets', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<JsonTree data={{ first: { a: 1 }, second: 2 }} />)
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = view.container.firstElementChild as HTMLElement
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree = screen.getByRole('tree')
+    /** 中文说明：测试局部值 firstRow，由紧邻初始化决定。 */
     const firstRow = within(tree).getAllByRole('treeitem')[0] as HTMLElement
+    /** 中文说明：测试局部值 secondRow，由紧邻初始化决定。 */
     const secondRow = within(tree).getAllByRole('treeitem')[1] as HTMLElement
 
     Object.defineProperty(root, 'clientHeight', { configurable: true, value: 100 })
@@ -295,6 +336,7 @@ describe('JsonTree', () => {
     })
 
     fireEvent.mouseOver(firstRow)
+    /** 中文说明：测试局部值 copyButton，由紧邻初始化决定。 */
     const copyButton = screen.getByRole('button', { name: 'Copy pretty JSON' })
     expect((copyButton.closest('span')?.parentElement as HTMLElement).style.left).toBe('284px')
     fireEvent.mouseOver(copyButton)
@@ -324,8 +366,11 @@ describe('JsonTree', () => {
   })
 
   it('copies the fixed root and clears it when the pointer leaves', async () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<JsonTree data={{ value: 1 }} />)
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = view.container.firstElementChild as HTMLElement
+    /** 中文说明：测试局部值 openingBracket，由紧邻初始化决定。 */
     const openingBracket = root.querySelector<HTMLElement>('[data-json-root-row]')
     expect(openingBracket).not.toBeNull()
 

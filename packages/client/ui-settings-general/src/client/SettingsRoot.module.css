@@ -3,6 +3,14 @@
    sidebar foot's 42px row / 36px rail circle rhythm; the
    panel is a two-column layout — 188px nav rail + content column with a
    54px header and the 24px-padded options area. */
+/**
+ * 文件职责：定义 SettingsRoot 的局部样式。
+ * 技术维度：CSS Modules、主题变量和响应式布局。
+ * 产品维度：保持通用设置界面清晰一致。
+ * 逻辑维度：按容器、导航、内容与状态组织规则。
+ * 关键边界：类名须与组件同步并支持滚动和窄屏。
+ * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+ */
 
 /* Trigger row: the 42px foot-row box shared with the Cordis footer action. */
 .trigger {
@@ -86,7 +94,9 @@
      elevation choice sits with the surface; the custom properties inherit
      down to whichever descendant scrolls (see ui-theme
      styles/scrollbar.css for the rebinding contract). */
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存组件复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存组件复用的样式值。 */
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 

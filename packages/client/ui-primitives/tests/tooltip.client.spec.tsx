@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证UI 基础组件的 tooltip.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -9,6 +17,7 @@ describe('Tooltip', () => {
   it('resolves lazy labels only after the bubble becomes visible', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 label，由紧邻初始化决定。 */
       const label = vi.fn(() => 'Timing details')
       render(
         <Tooltip label={label} delayMs={500}>
@@ -35,6 +44,7 @@ describe('Tooltip', () => {
           <button type="button">anchor</button>
         </Tooltip>,
       )
+      /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
       const anchor = screen.getByText('anchor')
       fireEvent.mouseEnter(anchor)
       act(() => { vi.advanceTimersByTime(499) })
@@ -59,8 +69,10 @@ describe('Tooltip', () => {
         <button type="button">anchor</button>
       </Tooltip>,
     )
+    /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
     const anchor = screen.getByText('anchor')
     fireEvent.mouseEnter(anchor)
+    /** 中文说明：测试局部值 bubble，由紧邻初始化决定。 */
     const bubble = screen.getByRole('tooltip')
     expect(bubble.textContent).toBe('Open sidebar')
     expect(bubble.getAttribute('data-side')).toBe('right')
@@ -78,8 +90,10 @@ describe('Tooltip', () => {
         <button type="button">anchor</button>
       </Tooltip>,
     )
+    /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
     const anchor = screen.getByText('anchor')
     fireEvent.focus(anchor)
+    /** 中文说明：测试局部值 bubble，由紧邻初始化决定。 */
     const bubble = screen.getByRole('tooltip')
     expect(bubble.getAttribute('data-side')).toBe('bottom')
     // Zero-width jsdom rect at x=0 clamps to the 12px edge margin.
@@ -92,6 +106,7 @@ describe('Tooltip', () => {
   // jsdom's default rects are all-zero, so the clamp tests stub the measured
   // rect (anchor and bubble share the prototype stub) and derive expectations
   // from it: pos.x = anchor center, then shifted by the measured overflow.
+  /** 中文说明：测试局部值 rect，由紧邻初始化决定。 */
   const rect = (left: number, right: number): DOMRect =>
     ({ left, right, top: 0, bottom: 20, width: right - left, height: 20, x: left, y: 0, toJSON: () => ({}) })
 
@@ -108,6 +123,7 @@ describe('Tooltip', () => {
   })
 
   it('clamps a bubble overflowing the right viewport edge back inside', () => {
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(rect(900, 1100))
     try {
       render(
@@ -126,12 +142,15 @@ describe('Tooltip', () => {
   })
 
   it('reclamps after label and viewport width changes', () => {
+    /** 中文说明：测试局部值 originalWidth，由紧邻初始化决定。 */
     const originalWidth = window.innerWidth
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
       if (this.getAttribute('role') !== 'tooltip') return rect(900, 1000)
       return this.textContent === 'Wide' ? rect(900, 1100) : rect(850, 950)
     })
     try {
+      /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
       const view = render(
         <Tooltip label="Wide" side="bottom">
           <button type="button">anchor</button>
@@ -157,6 +176,7 @@ describe('Tooltip', () => {
   })
 
   it('clamps a bubble past the left viewport edge back inside', () => {
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(rect(-20, 80))
     try {
       render(
@@ -174,8 +194,10 @@ describe('Tooltip', () => {
   })
 
   /** Anchor and bubble rects, so a placement test measures real room rather than jsdom's all-zero boxes. */
+  /** 中文说明：测试局部值 placed，由紧邻初始化决定。 */
   const placed = (anchorTop: number, anchorBottom: number, bubbleHeight: number) =>
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      /** 中文说明：测试局部值 [top, bottom]，由紧邻初始化决定。 */
       const [top, bottom] = this.getAttribute('role') === 'tooltip'
         ? [0, bubbleHeight]
         : [anchorTop, anchorBottom]
@@ -185,6 +207,7 @@ describe('Tooltip', () => {
     })
 
   it('supports top placement for anchors at the viewport bottom', () => {
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = placed(700, 720, 20)
     try {
       render(
@@ -193,6 +216,7 @@ describe('Tooltip', () => {
         </Tooltip>,
       )
       fireEvent.mouseEnter(screen.getByText('anchor'))
+      /** 中文说明：测试局部值 bubble，由紧邻初始化决定。 */
       const bubble = screen.getByRole('tooltip')
       // There is room above, so the requested side stands: the bubble's own
       // top sits at the anchor's top less the 8px gutter.
@@ -207,6 +231,7 @@ describe('Tooltip', () => {
   it('flips a bottom bubble above an anchor with no room below', () => {
     // jsdom's viewport is 768 tall: a 300px bubble under an anchor ending at
     // 700 would run off, and there is room for it above.
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = placed(600, 700, 300)
     try {
       render(
@@ -215,6 +240,7 @@ describe('Tooltip', () => {
         </Tooltip>,
       )
       fireEvent.mouseEnter(screen.getByText('anchor'))
+      /** 中文说明：测试局部值 bubble，由紧邻初始化决定。 */
       const bubble = screen.getByRole('tooltip')
       expect(bubble.getAttribute('data-side')).toBe('top')
       expect(bubble.style.top).toBe('592px')
@@ -224,6 +250,7 @@ describe('Tooltip', () => {
   })
 
   it('flips a top bubble below an anchor with no room above', () => {
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = placed(10, 40, 100)
     try {
       render(
@@ -232,6 +259,7 @@ describe('Tooltip', () => {
         </Tooltip>,
       )
       fireEvent.mouseEnter(screen.getByText('anchor'))
+      /** 中文说明：测试局部值 bubble，由紧邻初始化决定。 */
       const bubble = screen.getByRole('tooltip')
       expect(bubble.getAttribute('data-side')).toBe('bottom')
       expect(bubble.style.top).toBe('48px')
@@ -243,6 +271,7 @@ describe('Tooltip', () => {
   it('keeps the requested side when neither side fits', () => {
     // A bubble taller than the viewport has no home; oscillating between the
     // two would be worse than honouring the request.
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = placed(300, 400, 900)
     try {
       render(
@@ -258,15 +287,20 @@ describe('Tooltip', () => {
   })
 
   it('chains the anchor\'s own handlers ahead of the tooltip\'s', () => {
+    /** 中文说明：测试局部值 onMouseEnter，由紧邻初始化决定。 */
     const onMouseEnter = vi.fn()
+    /** 中文说明：测试局部值 onMouseLeave，由紧邻初始化决定。 */
     const onMouseLeave = vi.fn()
+    /** 中文说明：测试局部值 onFocus，由紧邻初始化决定。 */
     const onFocus = vi.fn()
+    /** 中文说明：测试局部值 onBlur，由紧邻初始化决定。 */
     const onBlur = vi.fn()
     render(
       <Tooltip label="Chained">
         <button type="button" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onFocus={onFocus} onBlur={onBlur}>anchor</button>
       </Tooltip>,
     )
+    /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
     const anchor = screen.getByText('anchor')
     fireEvent.mouseEnter(anchor)
     fireEvent.mouseLeave(anchor)
@@ -279,11 +313,13 @@ describe('Tooltip', () => {
   })
 
   it('suppresses the bubble while disabled without remounting the anchor', () => {
+    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(
       <Tooltip label="Rail" disabled>
         <button type="button">anchor</button>
       </Tooltip>,
     )
+    /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
     const anchor = screen.getByText('anchor')
     fireEvent.mouseEnter(anchor)
     expect(screen.queryByRole('tooltip')).toBeNull()
@@ -304,6 +340,7 @@ describe('Tooltip', () => {
         <button type="button">anchor</button>
       </Tooltip>,
     )
+    /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
     const anchor = screen.getByText('anchor')
     // Focused AND hovered: leaving with the mouse drops the bubble at once.
     fireEvent.focus(anchor)
@@ -319,8 +356,11 @@ describe('Tooltip', () => {
   })
 
   it('forwards the anchor element to the child ref (object and callback)', () => {
+    /** 中文说明：测试局部值 objectRef，由紧邻初始化决定。 */
     const objectRef = { current: null as HTMLButtonElement | null }
+    /** 中文说明：测试局部值 callbackRef，由紧邻初始化决定。 */
     const callbackRef = vi.fn()
+    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(
       <Tooltip label="Add">
         <button type="button" ref={objectRef}>anchor</button>
@@ -339,6 +379,7 @@ describe('Tooltip', () => {
   })
 
   it('drops an already-visible bubble when disabled flips mid-hover', () => {
+    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(
       <Tooltip label="Rail">
         <button type="button">anchor</button>

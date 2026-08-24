@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证客户端渲染器的 scoped-slots.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止客户端渲染器的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
+/**
  * createSlotRenderer machinery account over a behavioral fake host: root
  * outlet + per-kind child outlets, standard-kit synthesis (renderSlot
  * binding, session pair, global useSessions, store pair), inject execution
@@ -13,6 +21,7 @@ import { act, fireEvent, render } from '@testing-library/react'
 import { useEffect, useState, type ReactNode } from 'react'
 import {
   SlotOwnershipError, StaleAuthorizationError,
+  /** 中文说明：类型或类 ActionsDecl 约束模块数据或职责。 */
   type ActionsDecl, type SlotEntryDef, type SlotSpec, type StoreHandle, type StoredEntry,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionMaybeProvideInfo } from '@deepseek-ai/dsh-client-ui-slots'
@@ -22,11 +31,16 @@ import type {
 import { createSlotRenderer } from '../src/client/scoped-slots.tsx'
 import { SessionProvider } from '../src/client/session-provider.tsx'
 
+/** 中文说明：类型或类 AnyProps 约束模块数据或职责。 */
 type AnyProps = Record<string, unknown>
+/** 中文说明：类型或类 RenderSlotFn 约束模块数据或职责。 */
 type RenderSlotFn = (key: string, owner: object, opts?: RenderOpts) => ReactNode
+/** 中文说明：类型或类 RenderSlotChainFn 约束模块数据或职责。 */
 type RenderSlotChainFn = (key: string, owner: object, opts?: { fallback?: ReactNode; overlay?: boolean }) => ReactNode
+/** 中文说明：类型或类 DeclaredSpec 约束模块数据或职责。 */
 type DeclaredSpec = SlotSpec<SlotEntryDef>
 /** Entry literal helper: fake entries default the mandatory options bag. */
+/** 中文说明：测试局部值 entryOf，由紧邻初始化决定。 */
 const entryOf = (partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry['options'] }): StoredEntry =>
   ({ options: {}, ...partial })
 
@@ -37,6 +51,7 @@ const entryOf = (partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry
  * but entry.store is typed to the full contract — the real defineStore lives
  * in runtime, which UI-renderer tests must not import (dependency direction).
  */
+/** 中文说明：函数 miniStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function miniStore<T extends object>(
   init: () => T,
   mutators: Record<string, (state: T, ...params: never[]) => T>,
@@ -44,12 +59,17 @@ function miniStore<T extends object>(
   return {
     spec: { init, actions: {} },
     create: () => {
+      /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
       let state = init()
+      /** 中文说明：测试局部值 listeners，由紧邻初始化决定。 */
       const listeners = new Set<() => void>()
+      /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
       const actions: Record<string, (...params: never[]) => void> = {}
+      /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
       for (const key of Object.keys(mutators)) {
         actions[key] = (...params: never[]) => {
           state = mutators[key]!(state, ...params)
+          /** 中文说明：测试局部值 fn，由紧邻初始化决定。 */
           for (const fn of [...listeners]) fn()
         }
       }
@@ -63,8 +83,11 @@ function miniStore<T extends object>(
   }
 }
 
+/** 中文说明：函数 observable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function observable<T>(initial: T) {
+  /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
   let value = initial
+  /** 中文说明：测试局部值 subs，由紧邻初始化决定。 */
   const subs = new Set<() => void>()
   return {
     getSnapshot: () => value,
@@ -80,28 +103,47 @@ function observable<T>(initial: T) {
  * the entry's real handle, cached per (entry x scope key) like the real
  * ledger; session cells are identity-stable per id.
  */
+/** 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeHost() {
+  /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
   const entries = new Map<string, StoredEntry[]>()
+  /** 中文说明：测试局部值 specs，由紧邻初始化决定。 */
   const specs = new Map<string, DeclaredSpec>()
+  /** 中文说明：测试局部值 versions，由紧邻初始化决定。 */
   const versions = new Map<string, number>()
+  /** 中文说明：测试局部值 subs，由紧邻初始化决定。 */
   const subs = new Map<string, Set<() => void>>()
+  /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
   const live = new Set<StoredEntry>()
+  /** 中文说明：测试局部值 abdicated，由紧邻初始化决定。 */
   const abdicated = new Set<StoredEntry>()
+  /** 中文说明：测试局部值 storeCache，由紧邻初始化决定。 */
   const storeCache = new Map<StoredEntry, Map<string, StoreInstanceLike>>()
+  /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
   const list = observable<{ ids: string[] }>({ ids: [] })
+  /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
   const workspaces = observable<{ ids: string[] }>({ ids: [] })
+  /** 中文说明：测试局部值 absentInfo，由紧邻初始化决定。 */
   const absentInfo: SessionMaybeProvideInfo = { sessionId: undefined, hooks: {}, props: {} }
+  /** 中文说明：测试局部值 provide，由紧邻初始化决定。 */
   const provide = observable<SessionMaybeProvideInfo>(absentInfo)
+  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   let currentId: string | undefined
+  /** 中文说明：测试局部值 infos，由紧邻初始化决定。 */
   const infos = new Map<string, SessionProvideInfo>()
+  /** 中文说明：测试局部值 sessionSources，由紧邻初始化决定。 */
   const sessionSources = new Map<string, ReturnType<typeof observable<unknown>>>()
 
+  /** 中文说明：测试局部值 bump，由紧邻初始化决定。 */
   const bump = (key: string) => {
     versions.set(key, (versions.get(key) ?? 0) + 1)
+    /** 中文说明：测试局部值 fn，由紧邻初始化决定。 */
     for (const fn of [...(subs.get(key) ?? [])]) fn()
   }
+  /** 中文说明：测试局部值 host，由紧邻初始化决定。 */
   const host: SlotRendererHost = {
     subscribe: (key, fn) => {
+      /** 中文说明：测试局部值 set，由紧邻初始化决定。 */
       const set = subs.get(key) ?? new Set()
       set.add(fn)
       subs.set(key, set)
@@ -110,15 +152,21 @@ function makeHost() {
     getVersion: key => versions.get(key) ?? 0,
     entriesOf: key => entries.get(key) ?? [],
     entriesOfSlot: (key) => {
+      /** 中文说明：测试局部值 all，由紧邻初始化决定。 */
       const all = entries.get(key) ?? []
+      /** 中文说明：测试局部值 kind，由紧邻初始化决定。 */
       const kind = specs.get(key)?.kind
       if (kind === 'chain') return all
       // Mirror the ledger projection: first live (non-abdicated) entry per
       // cell (single — one cell; keyed — per key; list — per id).
+      /** 中文说明：测试局部值 heads，由紧邻初始化决定。 */
       const heads: StoredEntry[] = []
+      /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
       const seen = new Set<string | undefined>()
+      /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
       for (const entry of all) {
         if (abdicated.has(entry)) continue
+        /** 中文说明：测试局部值 cell，由紧邻初始化决定。 */
         const cell = kind === 'keyed' ? entry.options.key : kind === 'list' ? entry.options.id : undefined
         if (seen.has(cell)) continue
         seen.add(cell)
@@ -135,16 +183,20 @@ function makeHost() {
     isLive: entry => live.has(entry),
     storeOf: (entry, scopeKey) => {
       if (entry.store === undefined) return undefined
+      /** 中文说明：测试局部值 perScope，由紧邻初始化决定。 */
       let perScope = storeCache.get(entry)
       if (!perScope) {
         perScope = new Map()
         storeCache.set(entry, perScope)
       }
+      /** 中文说明：测试局部值 cacheKey，由紧邻初始化决定。 */
       const cacheKey = scopeKey ?? ''
+      /** 中文说明：测试局部值 instance，由紧邻初始化决定。 */
       let instance = perScope.get(cacheKey)
       if (!instance) {
         // Fake entries always carry engine handles (never factories), and the
         // engine create() takes the scope key (persist suffixing).
+        /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
         const handle = entry.store as { create(scopeKey?: string): StoreInstanceLike }
         instance = handle.create(scopeKey)
         perScope.set(cacheKey, instance)
@@ -171,7 +223,9 @@ function makeHost() {
     },
     declare: (key: string, spec: DeclaredSpec) => { specs.set(key, spec); bump(key) },
     add: (key: string, partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry['options'] }) => {
+      /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
       const entry = entryOf(partial)
+      /** 中文说明：测试局部值 next，由紧邻初始化决定。 */
       const next = [...(entries.get(key) ?? []), entry]
       // Mirror the ledger contract: entries arrive priority-sorted (stable,
       // ascending; list refines equal priorities by order) — outlets iterate
@@ -190,7 +244,9 @@ function makeHost() {
     },
     addSession: (id: string, initial: unknown = { sid: id }): SessionProvideInfo => {
       // Bare source per bundle (identity-stable): the machinery binds useSession from it.
+      /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
       const session = observable<unknown>(initial)
+      /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
       const info: SessionProvideInfo = {
         sessionId: id,
         hooks: { session },
@@ -202,6 +258,7 @@ function makeHost() {
       return info
     },
     setSession: (id: string, snapshot: unknown) => {
+      /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
       const source = sessionSources.get(id)
       if (source === undefined) throw new Error(`unknown test session: ${id}`)
       source.set(snapshot)
@@ -209,24 +266,33 @@ function makeHost() {
   }
 }
 
+/** 中文说明：类型或类 Fake 约束模块数据或职责。 */
 type Fake = ReturnType<typeof makeHost>
 
 /** Mount a root entry whose component renders `body` with its kit renderSlot. */
+/** 中文说明：函数 mountRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountRoot(h: Fake, children: Record<string, DeclaredSpec>, body: (renderSlot: RenderSlotFn) => ReactNode) {
+  /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
   const dispose = h.add('root', {
     component: (props: { renderSlot: RenderSlotFn }) => <>{body(props.renderSlot)}</>,
     children,
   })
+  /** 中文说明：测试局部值 renderer，由紧邻初始化决定。 */
   const renderer = createSlotRenderer()
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<>{renderer.renderRoot(h.host, {})}</>)
   return { view, dispose }
 }
 
+/** 中文说明：测试局部值 SINGLE_ROOT，由紧邻初始化决定。 */
 const SINGLE_ROOT: DeclaredSpec = { kind: 'single', scope: 'root' }
+/** 中文说明：测试局部值 SINGLE_SESSION，由紧邻初始化决定。 */
 const SINGLE_SESSION: DeclaredSpec = { kind: 'single', scope: 'session' }
+/** 中文说明：测试局部值 CHAIN_ROOT，由紧邻初始化决定。 */
 const CHAIN_ROOT: DeclaredSpec = { kind: 'chain', scope: 'root' }
 
 /** Chain entry literal: top-level select, priority in the options bag (the StoredEntry chain shape). */
+/** 中文说明：测试局部值 chainEntryOf，由紧邻初始化决定。 */
 const chainEntryOf = (partial: {
   component: unknown
   select: (owner: object) => unknown
@@ -238,25 +304,34 @@ const chainEntryOf = (partial: {
 })
 
 /** Mount a root entry whose component renders `body` with its kit renderSlotChain. */
+/** 中文说明：函数 mountChainRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountChainRoot(h: Fake, children: Record<string, DeclaredSpec>, body: (renderSlotChain: RenderSlotChainFn) => ReactNode) {
+  /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
   const dispose = h.add('root', {
     component: (props: { renderSlotChain: RenderSlotChainFn }) => <>{body(props.renderSlotChain)}</>,
     children,
   })
+  /** 中文说明：测试局部值 renderer，由紧邻初始化决定。 */
   const renderer = createSlotRenderer()
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<>{renderer.renderRoot(h.host, {})}</>)
   return { view, dispose }
 }
 
 describe('root outlet', () => {
   it('renders the root registration and fails loud when root is unregistered (boot order)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.add('root', { component: () => <b>shell</b> })
+    /** 中文说明：测试局部值 renderer，由紧邻初始化决定。 */
     const renderer = createSlotRenderer()
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<>{renderer.renderRoot(h.host, {})}</>)
     expect(view.container.textContent).toBe('shell')
 
+    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = makeHost()
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => render(<>{createSlotRenderer().renderRoot(empty.host, {})}</>))
       .toThrow(/boot order/)
@@ -264,8 +339,10 @@ describe('root outlet', () => {
   })
 
   it('passes renderRoot owner props into the root component', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.add('root', { component: ({ tag }: { tag?: string }) => <b>{tag}</b> })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<>{createSlotRenderer().renderRoot(h.host, { tag: 'OWNER' })}</>)
     expect(view.container.textContent).toBe('OWNER')
   })
@@ -273,11 +350,14 @@ describe('root outlet', () => {
 
 describe('child outlets and the renderSlot binding', () => {
   it('renders declared single slots live: fallback when empty, register, dispose back', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT },
       renderSlot => renderSlot('k.single', {}, { fallback: <i>none</i> }))
     expect(view.container.textContent).toBe('none')
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     let dispose = () => {}
     act(() => { dispose = h.add('k.single', { component: () => <b>SB</b> }) })
     expect(view.container.textContent).toBe('SB')
@@ -286,7 +366,9 @@ describe('child outlets and the renderSlot binding', () => {
   })
 
   it('renders an undeclared key as empty (declaring entry unloaded = natural blank, not a crash)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT },
       renderSlot => <main>{renderSlot('k.single', {}, { fallback: <i>fb</i> })}</main>)
     // Declared by children (authorization) but absent from the ledger (specOf
@@ -295,13 +377,16 @@ describe('child outlets and the renderSlot binding', () => {
   })
 
   it('orders list entries, honors only-filter, dispatches keyed entries by entryKey', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.list', { kind: 'list', scope: 'root' })
     h.declare('k.keyed', { kind: 'keyed', scope: 'root' })
     h.add('k.list', { component: () => <span>b</span>, options: { id: 'b', order: 2 } })
     h.add('k.list', { component: () => <span>a</span>, options: { id: 'a', order: 1 } })
     h.add('k.keyed', { component: () => <span>goal</span>, options: { key: 'goal' } })
+    /** 中文说明：测试局部值 children，由紧邻初始化决定。 */
     const children = { 'k.list': { kind: 'list', scope: 'root' } as DeclaredSpec, 'k.keyed': { kind: 'keyed', scope: 'root' } as DeclaredSpec }
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, children, renderSlot => <>
       <main>{renderSlot('k.list', {})}</main>
       <aside>{renderSlot('k.list', {}, { only: 'b' })}</aside>
@@ -315,8 +400,10 @@ describe('child outlets and the renderSlot binding', () => {
   })
 
   it('keeps the binding identity-stable across re-renders and throws SlotOwnershipError off-declaration', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: RenderSlotFn[] = []
     mountRoot(h, { 'k.single': SINGLE_ROOT }, (renderSlot) => {
       seen.push(renderSlot)
@@ -331,11 +418,14 @@ describe('child outlets and the renderSlot binding', () => {
   })
 
   it('isolates a crashing entry without collapsing siblings', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.list', { kind: 'list', scope: 'root' })
     h.add('k.list', { component: () => { throw new Error('entry boom') }, options: { id: 'bad', order: 1 } })
     h.add('k.list', { component: () => <span>alive</span>, options: { id: 'ok', order: 2 } })
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.list': { kind: 'list', scope: 'root' } },
       renderSlot => renderSlot('k.list', {}))
     spy.mockRestore()
@@ -346,8 +436,10 @@ describe('child outlets and the renderSlot binding', () => {
 
 describe('chain outlets and the renderSlotChain binding', () => {
   it('elects the first non-null selector in order, injects matched, and skips decliners without mounting them', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
+    /** 中文说明：测试局部值 declinerBody，由紧邻初始化决定。 */
     const declinerBody = vi.fn(() => <span>never</span>)
     h.add('k.chain', chainEntryOf({
       component: declinerBody,
@@ -357,6 +449,7 @@ describe('chain outlets and the renderSlotChain binding', () => {
       component: ({ matched }: { matched?: { label: string } }) => <b>{matched?.label}</b>,
       select: owner => ({ label: `hit:${(owner as { tag: string }).tag}` }),
     }))
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
       renderSlotChain => renderSlotChain('k.chain', { tag: 'T' }))
     // The declining entry never mounts: the routing decision is select-layer only.
@@ -365,6 +458,7 @@ describe('chain outlets and the renderSlotChain binding', () => {
   })
 
   it('contains a throwing selector to its entry: reported, treated as declined, chain and fallback intact', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     h.add('k.chain', chainEntryOf({
@@ -375,7 +469,9 @@ describe('chain outlets and the renderSlotChain binding', () => {
       component: ({ matched }: { matched?: string }) => <b>{matched}</b>,
       select: owner => (owner as { pick?: string }).pick ?? null,
     }))
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => <>
       <main>{renderSlotChain('k.chain', { pick: 'OK' })}</main>
       <aside>{renderSlotChain('k.chain', {}, { fallback: <i>fb</i> })}</aside>
@@ -389,6 +485,7 @@ describe('chain outlets and the renderSlotChain binding', () => {
   })
 
   it('remounts the boundary on re-election: a failed entry does not black out its replacement', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     h.add('k.chain', chainEntryOf({
@@ -399,8 +496,11 @@ describe('chain outlets and the renderSlotChain binding', () => {
       component: () => <b>B-ok</b>,
       select: owner => (owner as { pick?: string }).pick === 'B' ? {} : null,
     }))
+    /** 中文说明：测试局部值 pick，由紧邻初始化决定。 */
     let pick = 'A'
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
       renderSlotChain => renderSlotChain('k.chain', { pick }))
     spy.mockRestore()
@@ -414,12 +514,14 @@ describe('chain outlets and the renderSlotChain binding', () => {
   })
 
   it('falls to the owner fallback when every selector declines, and re-routes live', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     h.add('k.chain', chainEntryOf({
       component: ({ matched }: { matched?: string }) => <b>{matched}</b>,
       select: owner => (owner as { pick?: string }).pick ?? null,
     }))
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => <>
       <main>{renderSlotChain('k.chain', {}, { fallback: <i>bar</i> })}</main>
       <aside>{renderSlotChain('k.chain', { pick: 'P' }, { fallback: <i>bar</i> })}</aside>
@@ -430,11 +532,14 @@ describe('chain outlets and the renderSlotChain binding', () => {
   })
 
   it('renders the fallback for an empty chain and elects live once an entry registers', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
       renderSlotChain => renderSlotChain('k.chain', {}, { fallback: <i>none</i> }))
     expect(view.container.textContent).toBe('none')
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     let dispose = () => {}
     act(() => {
       dispose = h.add('k.chain', chainEntryOf({
@@ -448,6 +553,7 @@ describe('chain outlets and the renderSlotChain binding', () => {
   })
 
   it('orders the chain by ascending priority with registration sequence breaking ties', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     // Registered first but priority 2: must yield to the later priority-1 entry.
@@ -467,14 +573,17 @@ describe('chain outlets and the renderSlotChain binding', () => {
       select: () => ({}),
       priority: 1,
     }))
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
       renderSlotChain => renderSlotChain('k.chain', {}))
     expect(view.container.textContent).toBe('early')
   })
 
   it('keeps the renderSlotChain binding identity-stable across re-renders', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: RenderSlotChainFn[] = []
     mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, (renderSlotChain) => {
       seen.push(renderSlotChain)
@@ -486,11 +595,15 @@ describe('chain outlets and the renderSlotChain binding', () => {
   })
 
   it('backstops off-declaration keys, kind mismatches both ways, and disposed registrations', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     h.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let chainFn: RenderSlotChainFn | undefined
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let slotFn: RenderSlotFn | undefined
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = h.add('root', {
       component: (props: { renderSlot: RenderSlotFn; renderSlotChain: RenderSlotChainFn }) => {
         slotFn = props.renderSlot
@@ -499,6 +612,7 @@ describe('chain outlets and the renderSlotChain binding', () => {
       },
       children: { 'k.chain': CHAIN_ROOT, 'k.single': SINGLE_ROOT },
     })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
     expect(() => chainFn!('k.undeclared', {})).toThrow(SlotOwnershipError)
     expect(() => chainFn!('k.single', {})).toThrow(SlotOwnershipError)   // non-chain key via chain face
@@ -509,8 +623,10 @@ describe('chain outlets and the renderSlotChain binding', () => {
   })
 
   it('withholds the renderSlotChain seat from entries declaring no chain child', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AnyProps[] = []
     h.add('root', {
       component: (props: AnyProps) => { seen.push(props); return null },
@@ -524,6 +640,7 @@ describe('chain outlets and the renderSlotChain binding', () => {
 describe('overlay chains (ChainRenderOpts.overlay)', () => {
   /** Fallback probe: counts mounts and holds uncontrolled DOM state (the
    *  composer-draft stand-in an unmount would wipe). */
+  /** 中文说明：函数 fallbackProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function fallbackProbe(onMount: () => void) {
     return function Probe() {
       useEffect(onMount, [])
@@ -532,18 +649,25 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
   }
 
   it('keeps the fallback mounted and state-holding through a takeover, hidden then restored', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     h.add('k.chain', chainEntryOf({
       component: () => <b>TAKEOVER</b>,
       select: owner => (owner as { take?: boolean }).take ? {} : null,
     }))
+    /** 中文说明：测试局部值 mounted，由紧邻初始化决定。 */
     const mounted = vi.fn()
+    /** 中文说明：测试局部值 Probe，由紧邻初始化决定。 */
     const Probe = fallbackProbe(mounted)
+    /** 中文说明：测试局部值 take，由紧邻初始化决定。 */
     let take = false
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
       renderSlotChain => renderSlotChain('k.chain', { take }, { fallback: <Probe />, overlay: true }))
+    /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
     const wrapper = () => view.container.querySelector<HTMLElement>('[data-chain-overlay-fallback="k.chain"]')!
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = () => view.container.querySelector<HTMLInputElement>('input[aria-label="probe"]')!
 
     // Resident phase: fallback visible through the layout-neutral wrapper.
@@ -567,15 +691,20 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
   })
 
   it('leaves non-overlay chains on the unmount path: a takeover discards fallback state', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     h.add('k.chain', chainEntryOf({
       component: () => <b>TAKEOVER</b>,
       select: owner => (owner as { take?: boolean }).take ? {} : null,
     }))
+    /** 中文说明：测试局部值 mounted，由紧邻初始化决定。 */
     const mounted = vi.fn()
+    /** 中文说明：测试局部值 Probe，由紧邻初始化决定。 */
     const Probe = fallbackProbe(mounted)
+    /** 中文说明：测试局部值 take，由紧邻初始化决定。 */
     let take = false
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
       renderSlotChain => renderSlotChain('k.chain', { take }, { fallback: <Probe /> }))
     fireEvent.change(view.container.querySelector('input[aria-label="probe"]')!, { target: { value: 'gone' } })
@@ -587,31 +716,37 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
 
     take = false
     act(() => { h.add('root', { component: () => null }) })
+    /** 中文说明：测试局部值 remounted，由紧邻初始化决定。 */
     const remounted = view.container.querySelector<HTMLInputElement>('input[aria-label="probe"]')!
     expect(remounted.value).toBe('')                    // fresh mount, state discarded
     expect(mounted).toHaveBeenCalledTimes(2)
   })
 
   it('keeps election semantics under overlay: priority order, selector-crash decline, live dispose back to fallback', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     h.add('k.chain', chainEntryOf({
       component: () => <span>never</span>,
       select: () => { throw new Error('selector boom') },
       priority: 1,
     }))
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = h.add('k.chain', chainEntryOf({
       component: () => <b>ELECTED</b>,
       select: () => ({}),
       priority: 2,
     }))
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
       renderSlotChain => renderSlotChain('k.chain', {}, { fallback: <i>resident</i>, overlay: true }))
     expect(view.container.textContent).toContain('ELECTED')
     expect(spy.mock.calls.some(([msg]) => String(msg).includes('chain selector crashed'))).toBe(true)
     spy.mockRestore()
     act(() => { dispose() })
+    /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
     const wrapper = view.container.querySelector<HTMLElement>('[data-chain-overlay-fallback="k.chain"]')!
     expect(wrapper.style.display).toBe('contents')
     expect(view.container.textContent).toBe('resident')
@@ -620,12 +755,14 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
 
 describe('standard-kit synthesis', () => {
   it('delivers a live useSessions hook to every slot component', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
     h.add('k.single', {
       component: ({ useSessions }: { useSessions: <S>(sel: (s: { ids: string[] }) => S) => S }) =>
         <b>{useSessions(s => s.ids.length)}</b>,
     })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     expect(view.container.textContent).toBe('0')
     act(() => { h.list.set({ ids: ['a', 'b'] }) })
@@ -633,12 +770,14 @@ describe('standard-kit synthesis', () => {
   })
 
   it('delivers a live useWorkspaces hook to every slot component', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
     h.add('k.single', {
       component: ({ useWorkspaces }: { useWorkspaces: <S>(sel: (s: { ids: string[] }) => S) => S }) =>
         <b>{useWorkspaces(s => s.ids.length)}</b>,
     })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     expect(view.container.textContent).toBe('0')
     act(() => { h.workspaces.set({ ids: ['w1'] }) })
@@ -646,9 +785,11 @@ describe('standard-kit synthesis', () => {
   })
 
   it('delivers the session pair (bound useSession + sessionId) under SessionProvider', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.session', SINGLE_SESSION)
     h.addSession('s1')
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AnyProps[] = []
     h.add('k.session', {
       component: (props: { useSession?: <S>(sel: (s: { sid: string }) => S) => S; sessionId?: string }) => {
@@ -662,6 +803,7 @@ describe('standard-kit synthesis', () => {
       </SessionProvider>
     ))
     act(() => { h.current.set('s1') })
+    /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
     const props = seen.at(-1)!
     // The hook is BOUND by the machinery from the cell's bare source: it
     // reads the source's snapshot and stays identity-stable across renders
@@ -671,14 +813,19 @@ describe('standard-kit synthesis', () => {
   })
 
   it('binds only function-valued inject hooks to the standard kit and render occurrence context', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
+    /** 中文说明：测试局部值 turnDataFactory，由紧邻初始化决定。 */
     const turnDataFactory = vi.fn((standard: AnyProps, turn: unknown) => (key: string) => {
+      /** 中文说明：测试局部值 useSession，由紧邻初始化决定。 */
       const useSession = standard['useSession'] as (selector: (snapshot: unknown) => unknown) => unknown
       return useSession((snapshot) => {
+        /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
         const value = snapshot as { turns: Record<number, Record<string, unknown>> }
         return value.turns[turn as number]?.[key]
       })
     })
+    /** 中文说明：测试局部值 sessionSpec，由紧邻初始化决定。 */
     const sessionSpec: DeclaredSpec = {
       kind: 'single', scope: 'session', inject: { hooks: { turnData: turnDataFactory } },
     }
@@ -687,17 +834,21 @@ describe('standard-kit synthesis', () => {
       turns: { 1: { tail: 'one' }, 2: { tail: 'two' } },
       unrelated: 0,
     })
+    /** 中文说明：测试局部值 hooks，由紧邻初始化决定。 */
     const hooks = new Map<string, Array<(key: string) => unknown>>()
+    /** 中文说明：测试局部值 renders，由紧邻初始化决定。 */
     let renders = 0
     h.add('k.session', {
       component: ({ label, useTurnData }: { label: string; useTurnData: (key: string) => unknown }) => {
         renders += 1
+        /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
         const seen = hooks.get(label) ?? []
         seen.push(useTurnData)
         hooks.set(label, seen)
         return <b data-turn={label}>{String(useTurnData('tail'))}</b>
       },
     })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.session': sessionSpec }, renderSlot => (
       <SessionProvider>{() => <>
         {renderSlot('k.session', { label: 'one' }, { hookContext: 1 })}
@@ -736,17 +887,21 @@ describe('standard-kit synthesis', () => {
   })
 
   it('hands the SessionProvider seat to entries declaring a session-scope child', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.session', SINGLE_SESSION)
     h.declare('k.single', SINGLE_ROOT)
     h.addSession('s1')
     h.add('k.session', { component: ({ sessionId }: { sessionId?: string }) => <b>{sessionId}</b> })
+    /** 中文说明：测试局部值 rootSeen，由紧邻初始化决定。 */
     const rootSeen: AnyProps[] = []
     // Root entry uses its INJECTED provider seat (no value import of SessionProvider).
     h.add('root', {
       component: (props: AnyProps) => {
         rootSeen.push(props)
+        /** 中文说明：测试局部值 Provider，由紧邻初始化决定。 */
         const Provider = props['SessionProvider'] as typeof SessionProvider
+        /** 中文说明：测试局部值 renderSlot，由紧邻初始化决定。 */
         const renderSlot = props['renderSlot'] as RenderSlotFn
         return (
           <Provider empty={() => <i>empty</i>}>
@@ -756,14 +911,17 @@ describe('standard-kit synthesis', () => {
       },
       children: { 'k.session': SINGLE_SESSION },
     })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
     expect(view.container.textContent).toBe('empty')
     act(() => { h.current.set('s1') })
     expect(view.container.textContent).toBe('s1')
 
     // Entries whose children are all root-scope get no provider seat.
+    /** 中文说明：测试局部值 h2，由紧邻初始化决定。 */
     const h2 = makeHost()
     h2.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 seen2，由紧邻初始化决定。 */
     const seen2: AnyProps[] = []
     h2.add('root', {
       component: (props: AnyProps) => { seen2.push(props); return null },
@@ -776,18 +934,23 @@ describe('standard-kit synthesis', () => {
   it('renders nothing for a strict session slot while no session is current', () => {
     // Strict session entries decline (render null) without a session; the
     // loud path is reserved for a missing root binding provider.
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.session', SINGLE_SESSION)
     h.add('k.session', { component: () => <b>x</b> })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION },
       renderSlot => renderSlot('k.session', {}))
     expect(view.container.querySelector('b')).toBeNull()
   })
 
   it('delivers the store pair for store-declaring entries and writes through baked actions', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = miniStore(() => ({ n: 0 }), { inc: s => ({ n: s.n + 1 }) })
+    /** 中文说明：测试局部值 bump，由紧邻初始化决定。 */
     let bump = () => {}
     h.add('k.single', {
       component: ({ useStore, actions }: {
@@ -799,6 +962,7 @@ describe('standard-kit synthesis', () => {
       },
       store: handle,
     })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     expect(view.container.textContent).toBe('0')
     act(() => { bump() })
@@ -806,11 +970,14 @@ describe('standard-kit synthesis', () => {
   })
 
   it('resolves session-slot stores per scope key: values survive a switch-away and back', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.session', SINGLE_SESSION)
     h.addSession('s1')
     h.addSession('s2')
+    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = miniStore(() => ({ draft: '' }), { setDraft: (_s, text: string) => ({ draft: text }) })
+    /** 中文说明：测试局部值 setDraft，由紧邻初始化决定。 */
     let setDraft: (text: string) => void = () => {}
     h.add('k.session', {
       component: ({ useStore, actions }: {
@@ -822,6 +989,7 @@ describe('standard-kit synthesis', () => {
       },
       store: handle,
     })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION }, renderSlot => (
       <SessionProvider>{() => renderSlot('k.session', {})}</SessionProvider>
     ))
@@ -837,10 +1005,13 @@ describe('standard-kit synthesis', () => {
 
 describe('inject: execution point, parameter derivation, cache granularity', () => {
   it('root inject runs once per entry with no arguments (no store declared)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 inject，由紧邻初始化决定。 */
     const inject = vi.fn(() => ({ tag: 'FROM-INJECT' }))
     h.add('k.single', { component: ({ tag }: { tag?: string }) => <b>{tag}</b>, inject })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     expect(view.container.textContent).toBe('FROM-INJECT')
     act(() => { h.add('k.single', { component: () => null }) })   // sibling bump re-renders the outlet
@@ -849,9 +1020,12 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
   })
 
   it('binds the inject hooks compartment into use<Name> selector hooks (sources never reach the component)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 badge，由紧邻初始化决定。 */
     const badge = observable('cold')
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: Record<string, unknown>[] = []
     h.add('k.single', {
       component: (props: { useBadge?: <S>(sel: (s: string) => S) => S; hooks?: unknown; plain?: string }) => {
@@ -868,15 +1042,18 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
   })
 
   it('session inject receives sessionId and caches per (entry x session): switch-back reuses', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.session', SINGLE_SESSION)
     h.addSession('s1')
     h.addSession('s2')
+    /** 中文说明：测试局部值 inject，由紧邻初始化决定。 */
     const inject = vi.fn((sessionId: string) => ({ sid: sessionId }))
     h.add('k.session', {
       component: ({ sid }: { sid?: string }) => <b>{sid}</b>,
       inject: inject,
     })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION }, renderSlot => (
       <SessionProvider>{() => renderSlot('k.session', {})}</SessionProvider>
     ))
@@ -893,14 +1070,20 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
   })
 
   it('store-declaring entries get baked actions appended to the inject parameters', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
     h.declare('k.session', SINGLE_SESSION)
     h.addSession('s1')
+    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = miniStore(() => ({ n: 0 }), { inc: s => ({ n: s.n + 1 }) })
+    /** 中文说明：测试局部值 rootInject，由紧邻初始化决定。 */
     const rootInject = vi.fn((actions: { inc: () => void }) => ({ viaRoot: actions }))
+    /** 中文说明：测试局部值 sessionInject，由紧邻初始化决定。 */
     const sessionInject = vi.fn((sessionId: string, actions: { inc: () => void }) => ({ sid: sessionId, viaSession: actions }))
+    /** 中文说明：测试局部值 seenRoot，由紧邻初始化决定。 */
     const seenRoot: AnyProps[] = []
+    /** 中文说明：测试局部值 seenSession，由紧邻初始化决定。 */
     const seenSession: AnyProps[] = []
     h.add('k.single', {
       component: (props: object) => { seenRoot.push(props as AnyProps); return null },
@@ -927,6 +1110,7 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
   })
 
   it('contains a throwing inject factory to its own entry (runs inside the component body)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.list', { kind: 'list', scope: 'root' })
     h.add('k.list', {
@@ -935,7 +1119,9 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
       inject: () => { throw new Error('inject boom') },
     })
     h.add('k.list', { component: () => <span>alive</span>, options: { id: 'ok', order: 2 } })
+    /** 中文说明：测试局部值 spy，由紧邻初始化决定。 */
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.list': { kind: 'list', scope: 'root' } },
       renderSlot => <main>{renderSlot('k.list', {})}</main>)
     spy.mockRestore()
@@ -946,8 +1132,10 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
   })
 
   it('merges kit, inject, and owner props with owner winning', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AnyProps[] = []
     h.add('k.single', {
       component: (props: object) => { seen.push(props as AnyProps); return null },
@@ -955,6 +1143,7 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     })
     mountRoot(h, { 'k.single': SINGLE_ROOT },
       renderSlot => renderSlot('k.single', { owner: 'owner', shared: 'owner' }))
+    /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
     const props = seen.at(-1)!
     expect(typeof props['useSessions']).toBe('function')   // kit always present
     expect(typeof props['useWorkspaces']).toBe('function')
@@ -965,28 +1154,36 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
 })
 
 describe('session-maybe adoption identity', () => {
+  /** 中文说明：测试局部值 SINGLE_MAYBE，由紧邻初始化决定。 */
   const SINGLE_MAYBE: DeclaredSpec = { kind: 'single', scope: 'session-maybe' }
 
   /** Mount a maybe entry that records its mount count and local state. */
+  /** 中文说明：函数 mountMaybeCounter 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function mountMaybeCounter(h: Fake) {
+    /** 中文说明：测试局部值 mounts，由紧邻初始化决定。 */
     let mounts = 0
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: { sessionId: string | undefined; mount: number }[] = []
     h.declare('k.maybe', SINGLE_MAYBE)
     h.add('k.maybe', {
       component: ({ sessionId }: { sessionId?: string }) => {
         // Local mount marker: useState initializer runs once per incarnation.
+        /** 中文说明：测试局部值 [mount]，由紧邻初始化决定。 */
         const [mount] = useState(() => ++mounts)
         seen.push({ sessionId, mount })
         return <b>{`${sessionId ?? 'blank'}#${mount}`}</b>
       },
     })
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountRoot(h, { 'k.maybe': SINGLE_MAYBE }, renderSlot => renderSlot('k.maybe', {}))
     return { view, seen }
   }
 
   it('adopts the first session: blank → first id keeps the incarnation (no remount)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.addSession('s1')
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountMaybeCounter(h)
     expect(view.container.textContent).toBe('blank#1')
     act(() => { h.current.set('s1') })
@@ -995,9 +1192,11 @@ describe('session-maybe adoption identity', () => {
   })
 
   it('remounts on a post-adoption session switch (local state must not leak across sessions)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.addSession('s1')
     h.addSession('s2')
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountMaybeCounter(h)
     act(() => { h.current.set('s1') })
     expect(view.container.textContent).toBe('s1#1')
@@ -1007,9 +1206,11 @@ describe('session-maybe adoption identity', () => {
   })
 
   it('remounts into a fresh blank incarnation on session loss, then adopts anew', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.addSession('s1')
     h.addSession('s2')
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountMaybeCounter(h)
     act(() => { h.current.set('s1') })
     expect(view.container.textContent).toBe('s1#1')
@@ -1022,8 +1223,10 @@ describe('session-maybe adoption identity', () => {
   })
 
   it('keeps the incarnation across a no-op republish of the same session', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.addSession('s1')
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mountMaybeCounter(h)
     act(() => { h.current.set('s1') })
     act(() => { h.current.set('s1') })

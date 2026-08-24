@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证客户端渲染器的 use-projection.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
+ * 产品维度：防止客户端渲染器的展示、作用域或交互回归。
+ * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
+ * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
+ * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
+ */
+/**
  * useProjection standard-kit delivery (session-projection subsystem page:
  * docs/subsystems/session-projection.md): the fifth
  * framework hook seat rides the same provide channel as useSession — a
@@ -14,8 +22,11 @@ import type { SessionMaybeProvideInfo, StoredEntry } from '@deepseek-ai/dsh-clie
 import type { SlotRendererHost } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { createSlotRenderer } from '../src/client/scoped-slots.tsx'
 
+/** 中文说明：函数 observable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function observable<T>(initial: T) {
+  /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
   let value = initial
+  /** 中文说明：测试局部值 subs，由紧邻初始化决定。 */
   const subs = new Set<() => void>()
   return {
     getSnapshot: () => value,
@@ -24,28 +35,39 @@ function observable<T>(initial: T) {
   }
 }
 
+/** 中文说明：类型或类 UseProjectionProp 约束模块数据或职责。 */
 type UseProjectionProp = (key: string, selector?: (v: unknown) => unknown) => unknown
 
+/** 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeHost() {
+  /** 中文说明：测试局部值 absentInfo，由紧邻初始化决定。 */
   const absentInfo: SessionMaybeProvideInfo = { sessionId: undefined, hooks: { session: undefined }, props: {} }
+  /** 中文说明：测试局部值 provide，由紧邻初始化决定。 */
   const provide = observable<SessionMaybeProvideInfo>(absentInfo)
+  /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
   const cells = new Map<string, ReturnType<typeof observable<unknown>>>()
   /** Store-parallel face: always defined per key; an unseen key snapshots undefined. */
+  /** 中文说明：测试局部值 absent，由紧邻初始化决定。 */
   const absent = { getSnapshot: () => undefined, subscribe: () => () => {} }
+  /** 中文说明：测试局部值 sessionEntries，由紧邻初始化决定。 */
   const sessionEntries: StoredEntry[] = []
+  /** 中文说明：测试局部值 withFace，由紧邻初始化决定。 */
   let withFace = true
+  /** 中文说明：测试局部值 rootEntry，由紧邻初始化决定。 */
   const rootEntry: StoredEntry = {
     component: (props: { renderSlot: (key: string, owner: object) => React.ReactNode }) =>
       <>{props.renderSlot('k.session', {})}</>,
     options: {},
     children: { 'k.session': { kind: 'single', scope: 'session' } },
   }
+  /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
   const info = (id: string): SessionMaybeProvideInfo => ({
     sessionId: id,
     hooks: { session: { getSnapshot: () => ({ sid: id }), subscribe: () => () => {} } },
     props: {},
     ...(withFace ? { projections: { faceOf: (key: string) => cells.get(key) ?? absent } } : {}),
   })
+  /** 中文说明：测试局部值 host，由紧邻初始化决定。 */
   const host: SlotRendererHost = {
     subscribe: () => () => {},
     getVersion: () => 0,
@@ -76,9 +98,12 @@ function makeHost() {
 
 describe('useProjection standard-kit delivery', () => {
   it('reads the projected value through the kit, undefined for unresolved keys, and follows live changes', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
+    /** 中文说明：测试局部值 cell，由紧邻初始化决定。 */
     const cell = observable<unknown>({ marks: ['a'] })
     h.cells.set('test/marks', cell)
+    /** 中文说明：测试局部值 reads，由紧邻初始化决定。 */
     const reads: Record<string, unknown>[] = []
     h.registerSession({
       component: (props: { useProjection: UseProjectionProp }) => {
@@ -99,8 +124,10 @@ describe('useProjection standard-kit delivery', () => {
   })
 
   it('runs the selector overload over the whole value (and over undefined when absent)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.cells.set('test/marks', observable<unknown>({ marks: ['x', 'y'] }))
+    /** 中文说明：测试局部值 reads，由紧邻初始化决定。 */
     const reads: unknown[] = []
     h.registerSession({
       component: (props: { useProjection: UseProjectionProp }) => {
@@ -116,9 +143,11 @@ describe('useProjection standard-kit delivery', () => {
   })
 
   it('treats a bundle without the projections face as all-absent (capability absence)', () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
     h.cells.set('test/marks', observable<unknown>({ marks: ['a'] }))
     h.dropFace()
+    /** 中文说明：测试局部值 reads，由紧邻初始化决定。 */
     const reads: unknown[] = []
     h.registerSession({
       component: (props: { useProjection: UseProjectionProp }) => {
