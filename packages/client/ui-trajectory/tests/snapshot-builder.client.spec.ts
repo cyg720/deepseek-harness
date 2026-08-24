@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证运行轨迹的 snapshot-builder.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
+ * 产品维度：防止运行轨迹展示与操作流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import type { RequestView } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
@@ -5,6 +13,7 @@ import type {
 } from '../src/client/trajectory-contract.ts'
 import { TrajectorySnapshotBuilder } from '../src/client/trajectory-snapshot-builder.ts'
 
+/** 中文说明：函数 assistantRequest 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assistantRequest(startSeq: number, step: number): Extract<RequestView, { purpose: 'assistant' }> {
   return {
     purpose: 'assistant',
@@ -17,6 +26,7 @@ function assistantRequest(startSeq: number, step: number): Extract<RequestView, 
   }
 }
 
+/** 中文说明：函数 contribution 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function contribution(
   key: string,
   anchorSeq: number,
@@ -29,8 +39,11 @@ function contribution(
   }
 }
 
+/** 中文说明：函数 stepLocation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stepLocation(turn: number, step: number): TrajectoryRequestHeaderState['location'] {
+  /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
   const data = { get: () => undefined }
+  /** 中文说明：测试局部值 stepLocation，由紧邻初始化决定。 */
   const stepLocation = {
     turn,
     step,
@@ -39,6 +52,7 @@ function stepLocation(turn: number, step: number): TrajectoryRequestHeaderState[
     status: 'unknown' as const,
     data,
   }
+  /** 中文说明：测试局部值 turnLocation，由紧邻初始化决定。 */
   const turnLocation = {
     turn,
     start: undefined,
@@ -50,6 +64,7 @@ function stepLocation(turn: number, step: number): TrajectoryRequestHeaderState[
   return { kind: 'step', turn: turnLocation, step: stepLocation }
 }
 
+/** 中文说明：函数 compactionRequest 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function compactionRequest(startSeq: number): Extract<RequestView, { purpose: 'compaction' }> {
   return {
     purpose: 'compaction',
@@ -64,11 +79,13 @@ function compactionRequest(startSeq: number): Extract<RequestView, { purpose: 'c
 
 describe('TrajectorySnapshotBuilder', () => {
   it('inherits one request header across requests without repeating its prompt change', () => {
+    /** 中文说明：测试局部值 prompt，由紧邻初始化决定。 */
     const prompt = {
       config: { provider: 'test', model: 'test' },
       system: 'one initial prompt',
       tools: [],
     }
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes: TrajectoryConversationViewNode[] = [
       {
         key: 'header',
@@ -99,6 +116,7 @@ describe('TrajectorySnapshotBuilder', () => {
       })),
     ]
 
+    /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
     const snapshot = new TrajectorySnapshotBuilder().replace({ nodes })
 
     expect(snapshot.requests.map(request => request.purpose === 'assistant'
@@ -110,16 +128,19 @@ describe('TrajectorySnapshotBuilder', () => {
   })
 
   it('indexes exact step headers and the active tool schema without backward scans', () => {
+    /** 中文说明：测试局部值 basePrompt，由紧邻初始化决定。 */
     const basePrompt = {
       config: { provider: 'test', model: 'base' },
       system: 'base prompt',
       tools: [{ name: 'read', description: 'Read', parameters: { type: 'object' } }],
     }
+    /** 中文说明：测试局部值 exactPrompt，由紧邻初始化决定。 */
     const exactPrompt = {
       config: { provider: 'test', model: 'exact' },
       system: 'exact prompt',
       tools: [{ name: 'edit', description: 'Edit', parameters: { type: 'object' } }],
     }
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes: TrajectoryConversationViewNode[] = [
       contribution('header:base', 2, {
         kind: 'request-header',
@@ -166,6 +187,7 @@ describe('TrajectorySnapshotBuilder', () => {
       }),
     ]
 
+    /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
     const snapshot = new TrajectorySnapshotBuilder().replace({ nodes })
 
     expect(snapshot.requests.map(request => request.purpose === 'assistant'
@@ -175,6 +197,7 @@ describe('TrajectorySnapshotBuilder', () => {
   })
 
   it('applies session boundaries and turn errors with linear request indexes', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes: TrajectoryConversationViewNode[] = [
       ...[assistantRequest(1, 1), assistantRequest(3, 2)].map(request => contribution(
         `assistant:${request.step}`,
@@ -199,6 +222,7 @@ describe('TrajectorySnapshotBuilder', () => {
       contribution('session-end:16', 16, { kind: 'session-end', seq: 16, time: 16 }),
     ]
 
+    /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
     const snapshot = new TrajectorySnapshotBuilder().replace({ nodes })
 
     expect(snapshot.requests).toMatchObject([
@@ -210,16 +234,20 @@ describe('TrajectorySnapshotBuilder', () => {
   })
 
   it('keeps cached contribution order across content updates and structural inserts', () => {
+    /** 中文说明：测试局部值 builder，由紧邻初始化决定。 */
     const builder = new TrajectorySnapshotBuilder()
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = contribution('assistant:1', 1, {
       kind: 'assistant', partial: null, request: assistantRequest(1, 1),
     })
+    /** 中文说明：测试局部值 last，由紧邻初始化决定。 */
     const last = contribution('assistant:3', 5, {
       kind: 'assistant', partial: null, request: assistantRequest(5, 3),
     })
     expect(builder.replace({ nodes: [last, first] }).requests.map(request => request.startSeq))
       .toEqual([1, 5])
 
+    /** 中文说明：测试局部值 updatedLast，由紧邻初始化决定。 */
     const updatedLast = contribution('assistant:3', 5, {
       kind: 'assistant',
       partial: null,
@@ -228,6 +256,7 @@ describe('TrajectorySnapshotBuilder', () => {
     expect(builder.apply({ upserts: [updatedLast] }).requests.map(request => request.startSeq))
       .toEqual([1, 5])
 
+    /** 中文说明：测试局部值 middle，由紧邻初始化决定。 */
     const middle = contribution('assistant:2', 3, {
       kind: 'assistant', partial: null, request: assistantRequest(3, 2),
     })

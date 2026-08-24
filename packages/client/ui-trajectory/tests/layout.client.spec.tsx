@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证运行轨迹的 layout.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
+ * 产品维度：防止运行轨迹展示与操作流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
+ */
+/**
  * Trajectory turn chrome and layout fold: expand blocks, usage on Message,
  * tool own-duration, group wall-span descriptions, in-flight rows.
  */
@@ -36,6 +44,7 @@ describe('TrajectoryGroupHeader', () => {
   })
 
   it('omits the description node when absent', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<TrajectoryGroupHeader title="Message" />)
     expect(screen.getByText('Message')).toBeTruthy()
     expect(container.querySelectorAll('span')).toHaveLength(1)
@@ -57,6 +66,7 @@ describe('TrajectoryTurn', () => {
 
 describe('deriveTrajectoryLayout', () => {
   it('expands assistant blocks, hangs usage on Message, and folds call+result into Tool', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       { kind: 'user', seq: 1, time: 1_000, content: [{ type: 'text', text: 'hello' }], source: null },
       {
@@ -74,15 +84,19 @@ describe('deriveTrajectoryLayout', () => {
         content: [{ type: 'text', text: 'a.txt' }], isError: false, callView: null, resultView: null,
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
     expect(turns).toHaveLength(1)
     expect(turns[0]?.turn).toBe(1)
+    /** 中文说明：测试局部值 kinds，由紧邻初始化决定。 */
     const kinds = turns[0]?.groups.flatMap(g => g.cells.map(c => c.kind))
     expect(kinds).toEqual(['user', 'message', 'tool'])
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = turns[0]?.groups.flatMap(g => g.cells).find(c => c.kind === 'message')
     expect(message).toMatchObject({
       input: 10, output: 20, think: 5, timeSeconds: 5,
     })
+    /** 中文说明：测试局部值 tool，由紧邻初始化决定。 */
     const tool = turns[0]?.groups.flatMap(g => g.cells).find(c => c.kind === 'tool')
     expect(tool).toMatchObject({
       text: 'bash',
@@ -92,6 +106,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('adds runningCalls not already present and leaves their time blank', () => {
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({
       nodes: [],
       partial: null,
@@ -110,19 +125,23 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('appends a streaming partial without rebuilding unaffected finalized turns', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [{
       kind: 'assistant', seq: 2, time: 2_000, turn: 1, step: 1,
       blocks: [{ kind: 'text', text: 'finalized' }],
     }] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 partial，由紧邻初始化决定。 */
     const partial = {
       turn: 2,
       step: 1,
       blocks: [{ kind: 'reasoning' as const, text: 'streaming' }],
     }
+    /** 中文说明：测试局部值 request，由紧邻初始化决定。 */
     const request = {
       purpose: 'assistant', startSeq: 3, turn: 2, step: 1,
       startedAt: 3_000, completedAt: null, status: 'running',
     } as unknown as RequestView
+    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = deriveTrajectoryLayout({
       nodes,
       partial: { ...partial, blocks: [] },
@@ -131,6 +150,7 @@ describe('deriveTrajectoryLayout', () => {
     })
     expect(base).toHaveLength(1)
 
+    /** 中文说明：测试局部值 streamed，由紧邻初始化决定。 */
     const streamed = appendTrajectoryPartialLayout(base, partial, 1)
 
     expect(streamed[0]).toBe(base[0])
@@ -146,6 +166,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('replaces a running-call placeholder with the matching streamed tool call', () => {
+    /** 中文说明：测试局部值 partial，由紧邻初始化决定。 */
     const partial = {
       turn: 1,
       step: 1,
@@ -156,6 +177,7 @@ describe('deriveTrajectoryLayout', () => {
         argsRaw: '{"command":"pwd"}',
       }],
     }
+    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = deriveTrajectoryLayout({
       nodes: [],
       partial: { ...partial, blocks: [] },
@@ -165,7 +187,9 @@ describe('deriveTrajectoryLayout', () => {
       }],
     })
 
+    /** 中文说明：测试局部值 streamed，由紧邻初始化决定。 */
     const streamed = appendTrajectoryPartialLayout(base, partial, 1)
+    /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
     const cells = streamed[0]?.groups[0]?.cells ?? []
 
     expect(cells.map(cell => cell.kind)).toEqual(['message', 'tool'])
@@ -173,6 +197,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('omits duration when node times are missing instead of rendering NaN', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       { kind: 'user', seq: 1, content: [{ type: 'text', text: 'hi' }], source: null },
       {
@@ -184,13 +209,16 @@ describe('deriveTrajectoryLayout', () => {
         usage: { inputTokens: 1, outputTokens: 2, reasoningTokens: 3 },
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
+    /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
     const cells = turns[0]?.groups.flatMap(g => g.cells) ?? []
     expect(cells.find(c => c.kind === 'message')?.timeSeconds).toBeNull()
     expect(turns[0]?.groups.find(g => g.title === 'Step 1')?.description).toBeUndefined()
   })
 
   it('builds a wall-span step description with a tool histogram', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       {
         kind: 'assistant', seq: 1, time: 1_000, turn: 1, step: 1,
@@ -210,11 +238,13 @@ describe('deriveTrajectoryLayout', () => {
         content: [], isError: false, callView: null, resultView: null,
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
     expect(turns[0]?.groups[0]?.description).toBe('3,000 ms bash×2')
   })
 
   it('assigns each user message to its enclosing turn instead of pooling into Turn 1', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       { kind: 'user', seq: 1, time: 1_000, content: [{ type: 'text', text: 'first' }], source: null },
       {
@@ -227,6 +257,7 @@ describe('deriveTrajectoryLayout', () => {
         blocks: [{ kind: 'text', text: 'ok2' }],
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
     expect(turns.map(t => t.turn)).toEqual([1, 2])
     expect(turns[0]?.groups.flatMap(g => g.cells.map(c => c.previewMarkdown))).toEqual([
@@ -240,6 +271,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('places steering in its resolved step instead of the turn-opening Message group', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       { kind: 'user', seq: 1, time: 1_000, content: [{ type: 'text', text: 'start' }], source: null },
       {
@@ -255,16 +287,21 @@ describe('deriveTrajectoryLayout', () => {
         blocks: [{ kind: 'text', text: 'second step' }],
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
     const data = { get: () => undefined }
+    /** 中文说明：测试局部值 step，由紧邻初始化决定。 */
     const step = { turn: 1, step: 2, start: undefined, end: undefined, status: 'open' as const, data }
+    /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
     const turn = {
       turn: 1, start: undefined, end: undefined, status: 'open' as const, steps: [step], data,
     }
+    /** 中文说明：测试局部值 eventLocations，由紧邻初始化决定。 */
     const eventLocations = new Map<number, ConversationLocation>([[
       3,
       { kind: 'step', turn, step },
     ]])
 
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({
       nodes,
       eventLocations,
@@ -283,20 +320,26 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('keeps a running request boundary after steering input', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [{
       kind: 'steering', messageId: 'steer-1', seq: 3, time: 3_000,
       content: [{ type: 'text', text: 'change direction' }], source: null,
     }] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
     const data = { get: () => undefined }
+    /** 中文说明：测试局部值 step，由紧邻初始化决定。 */
     const step = { turn: 1, step: 2, start: undefined, end: undefined, status: 'open' as const, data }
+    /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
     const turn = {
       turn: 1, start: undefined, end: undefined, status: 'open' as const, steps: [step], data,
     }
+    /** 中文说明：测试局部值 eventLocations，由紧邻初始化决定。 */
     const eventLocations = new Map<number, ConversationLocation>([[
       3,
       { kind: 'step', turn, step },
     ]])
 
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({
       nodes,
       eventLocations,
@@ -320,6 +363,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('uses the following assistant step while a historical window lacks steering Location', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       {
         kind: 'steering', messageId: 'steer-1', seq: 3, time: 3_000,
@@ -331,6 +375,7 @@ describe('deriveTrajectoryLayout', () => {
       },
     ] as unknown as ConversationSnapshot['nodes']
 
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
 
     expect(turns[0]).toMatchObject({
@@ -346,6 +391,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('places standalone compaction chronologically in its own between-turn section', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       { kind: 'user', seq: 1, time: 1_000, content: [{ type: 'text', text: 'first' }], source: null },
       {
@@ -358,6 +404,7 @@ describe('deriveTrajectoryLayout', () => {
         blocks: [{ kind: 'text', text: 'after compaction' }],
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 compaction，由紧邻初始化决定。 */
     const compaction: RequestView = {
       purpose: 'compaction',
       startSeq: 3,
@@ -369,6 +416,7 @@ describe('deriveTrajectoryLayout', () => {
       summary: [{ type: 'text', text: 'standalone summary' }],
     }
 
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({
       nodes,
       partial: null,
@@ -389,6 +437,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('keeps usage and a meaningful summary when assistant has no text block', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       {
         kind: 'assistant', seq: 1, time: 5_000, turn: 1, step: 0,
@@ -396,7 +445,9 @@ describe('deriveTrajectoryLayout', () => {
         usage: { inputTokens: 11, outputTokens: 22, reasoningTokens: 3 },
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = turns[0]?.groups.flatMap(g => g.cells).find(c => c.kind === 'message')
     expect(message).toMatchObject({
       text: '', previewMarkdown: '…', input: 11, output: 22, think: 3,
@@ -404,15 +455,19 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('bounds a long Markdown-like thinking preview while retaining its full detail', () => {
+    /** 中文说明：测试局部值 thinking，由紧邻初始化决定。 */
     const thinking = `# Investigation\n\n**NAVIGATION_OK file_path** ${'- repeated detail '.repeat(1_000)}`
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [{
       kind: 'assistant', seq: 1, time: 5_000, turn: 1, step: 0,
       blocks: [{ kind: 'reasoning', text: thinking }],
     }] as unknown as ConversationSnapshot['nodes']
 
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({
       nodes, partial: null, runningCalls: [],
     })
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = turns[0]?.groups.flatMap(group => group.cells)
       .find(cell => cell.kind === 'message')
 
@@ -422,6 +477,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('advances the duration cursor over context and compaction nodes', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       { kind: 'user', seq: 1, time: 1_000, content: [{ type: 'text', text: 'hi' }], source: null },
       {
@@ -448,8 +504,11 @@ describe('deriveTrajectoryLayout', () => {
         blocks: [{ kind: 'text', text: 'done' }],
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
+    /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
     const cells = turns[0]?.groups.flatMap(g => g.cells) ?? []
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = cells.find(c => c.kind === 'message' && c.previewMarkdown === 'done')
     // From the compaction marker at 9.5s, not from context at 9s or the earlier surfaces.
     expect(message?.timeSeconds).toBe(0.5)
@@ -458,6 +517,7 @@ describe('deriveTrajectoryLayout', () => {
   })
 
   it('uses the recorded step start for assistant duration when timing exists', () => {
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = [
       { kind: 'user', seq: 1, time: 1_000, content: [{ type: 'text', text: 'hi' }], source: null },
       {
@@ -466,9 +526,11 @@ describe('deriveTrajectoryLayout', () => {
         timing: { stepStartTime: 3_000, firstTokenTime: 3_500, completedTime: 4_000 },
       },
     ] as unknown as ConversationSnapshot['nodes']
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({
       nodes, partial: null, runningCalls: [],
     })
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = turns[0]?.groups.flatMap(group => group.cells)
       .find(cell => cell.kind === 'message')
     expect(message).toMatchObject({ startedAt: 3_000, timeSeconds: 1 })
@@ -476,6 +538,7 @@ describe('deriveTrajectoryLayout', () => {
 })
 
 describe('run_code sub-dispatch cells', () => {
+  /** 中文说明：测试局部值 runCodeNodes，由紧邻初始化决定。 */
   const runCodeNodes = [
     {
       kind: 'assistant', seq: 2, time: 6_000, turn: 1, step: 1,
@@ -491,6 +554,7 @@ describe('run_code sub-dispatch cells', () => {
     },
   ] as unknown as ConversationSnapshot['nodes']
 
+  /** 中文说明：测试局部值 settledSub，由紧邻初始化决定。 */
   const settledSub = (n: number, name: string, start: number, end: number) => ({
     kind: 'tool-result' as const, seq: 100 + n, time: end,
     callId: `p1:code:${n}`,
@@ -499,15 +563,19 @@ describe('run_code sub-dispatch cells', () => {
     subCalls: [],
   })
 
+  /** 中文说明：测试局部值 withSubCalls，由紧邻初始化决定。 */
   const withSubCalls = (subCalls: readonly ReturnType<typeof settledSub>[] | readonly object[]) =>
     runCodeNodes.map(node => node.kind === 'tool-result' ? { ...node, subCalls } : node) as ConversationSnapshot['nodes']
 
   it('nests settled sub-cells after their parent Tool cell with real durations', () => {
+    /** 中文说明：测试局部值 subCalls，由紧邻初始化决定。 */
     const subCalls = [
       settledSub(1, 'bash', 6_300, 7_300),
       settledSub(2, 'read', 7_300, 7_800),
     ]
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes: withSubCalls(subCalls), partial: null, runningCalls: [] })
+    /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
     const cells = turns[0]!.groups.flatMap(g => g.cells)
     expect(cells.map(c => c.kind)).toEqual(['message', 'tool', 'subtool', 'subtool'])
     expect(cells[0]?.text).toBe('Tool call only')
@@ -520,11 +588,14 @@ describe('run_code sub-dispatch cells', () => {
   })
 
   it('a running (unsettled) sub-call renders a subtool cell with blank time', () => {
+    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = {
       callId: 'p1:code:1', name: 'grep', argsRaw: '{"pattern":"x"}',
       turn: 0, step: 0, time: 6_400, callView: null, subCalls: [],
     }
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes: withSubCalls([running]), partial: null, runningCalls: [] })
+    /** 中文说明：测试局部值 sub，由紧邻初始化决定。 */
     const sub = turns[0]!.groups.flatMap(g => g.cells).find(c => c.kind === 'subtool')
     expect(sub).toMatchObject({
       text: 'grep', previewMarkdown: '{"pattern":"x"}', timeSeconds: null,
@@ -532,15 +603,19 @@ describe('run_code sub-dispatch cells', () => {
   })
 
   it('recursively flattens nested child calls immediately after their parent', () => {
+    /** 中文说明：测试局部值 leaf，由紧邻初始化决定。 */
     const leaf = {
       ...settledSub(2, 'read', 7_300, 7_800),
       callId: 'p1:code:1:code:1',
     }
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = {
       ...settledSub(1, 'run_code', 6_300, 8_000),
       subCalls: [leaf],
     }
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns = deriveTrajectoryLayout({ nodes: withSubCalls([child]), partial: null, runningCalls: [] })
+    /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
     const cells = turns[0]!.groups.flatMap(group => group.cells)
     expect(cells.map(cell => cell.kind)).toEqual(['message', 'tool', 'subtool', 'subtool'])
     expect(cells.slice(2).map(cell => cell.callId)).toEqual([

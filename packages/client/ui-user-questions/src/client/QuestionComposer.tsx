@@ -1,3 +1,11 @@
+/**
+ * 文件职责：实现用户提问与计划复审的 QuestionComposer 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
+ * 产品维度：支持用户查看或操作用户提问与计划复审。
+ * 逻辑维度：读取状态，派生展示数据，处理操作并渲染界面。
+ * 关键边界：异步状态、空状态、虚拟滚动和可访问性必须一致。
+ * 新手阅读建议：先读 Props，再看状态选择、事件和 JSX。
+ */
 import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import clsx from 'clsx'
 import {
@@ -7,11 +15,13 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   PendingQuestion, planReviewOf,
+  /** 中文说明：类型或类 QuestionAnswer 约束模块数据或组件职责。 */
   type QuestionAnswer, type QuestionComposerProps,
 } from './contract/slots.ts'
 import { PlanReviewPanel } from './PlanReviewPanel.tsx'
 import css from './QuestionComposer.module.css'
 
+/** 中文说明：类型或类 DraftAnswer 约束模块数据或组件职责。 */
 interface DraftAnswer {
   selected: string[]
   custom: string
@@ -24,6 +34,7 @@ interface DraftAnswer {
  * runtime failure messages (finished strings from the wire) pass through
  * verbatim.
  */
+/** 中文说明：类型或类 Feedback 约束模块数据或组件职责。 */
 type Feedback = { key: 'error.incomplete' | 'error.unanswered' } | { text: string }
 
 /**
@@ -31,7 +42,9 @@ type Feedback = { key: 'error.incomplete' | 'error.unanswered' } | { text: strin
  * @param label - Original option label returned if selected.
  * @returns Display label plus recommendation state.
  */
+/** 中文说明：函数 parseRecommendedLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function parseRecommendedLabel(label: string): { label: string; recommended: boolean } {
+  /** 中文说明：组件局部值 suffix，由紧邻初始化决定。 */
   const suffix = /\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i
   return suffix.test(label)
     ? { label: label.replace(suffix, ''), recommended: true }
@@ -39,6 +52,7 @@ export function parseRecommendedLabel(label: string): { label: string; recommend
 }
 
 /** Return whether a text-field key event belongs to an active IME composition. */
+/** 中文说明：函数 isComposing 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isComposing(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
   // keyCode 229 is the legacy IME-composition signal engines emit without isComposing.
   // oxlint-disable-next-line typescript/no-deprecated
@@ -46,6 +60,7 @@ function isComposing(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
 }
 
 /** The free-text answer field shared by both question shapes. */
+/** 中文说明：类型或类 AnswerFieldProps 约束模块数据或组件职责。 */
 interface AnswerFieldProps {
   /** Which shape the field takes: the custom row's inline column, or the optionless question's own framed block. */
   variant: 'inline' | 'block'
@@ -81,6 +96,7 @@ interface AnswerFieldProps {
  * @param props - field shape, draft text, and the field's event handlers.
  * @returns The mirrored auto-growing field.
  */
+/** 中文说明：函数 AnswerField 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function AnswerField(props: AnswerFieldProps) {
   return (
     <div className={clsx(css.field, props.variant === 'inline' ? css.customInline : css.customBlock)}>
@@ -113,38 +129,53 @@ function AnswerField(props: AnswerFieldProps) {
  * @param props - the selector-matched pending question carrier plus the framework standard kit.
  * @returns The question flow, or the intent's own surface, for this request.
  */
+/** 中文说明：函数 QuestionComposer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function QuestionComposer(props: QuestionComposerProps) {
   // Domain-face mint rides the carrier's stable identity (never minted in a
   // select/render dispatch — per-dispatch minting would churn memo identity).
+  /** 中文说明：组件局部值 question，由紧邻初始化决定。 */
   const question = useMemo(() => new PendingQuestion(props.matched), [props.matched])
+  /** 中文说明：组件局部值 review，由紧邻初始化决定。 */
   const review = useMemo(() => planReviewOf(question.questions), [question])
   return review === undefined
     ? <QuestionFlow key={question.key} pending={question} t={props.t} />
     : <PlanReviewPanel key={question.key} pending={question} review={review} t={props.t} />
 }
 
+/** 中文说明：函数 QuestionFlow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<QuestionComposerProps, 't'>) {
+  /** 中文说明：组件局部值 questions，由紧邻初始化决定。 */
   const questions = pending.questions
+  /** 中文说明：组件局部值 [index, setIndex]，由紧邻初始化决定。 */
   const [index, setIndex] = useState(0)
+  /** 中文说明：组件局部值 [drafts, setDrafts]，由紧邻初始化决定。 */
   const [drafts, setDrafts] = useState<DraftAnswer[]>(() => questions.map(() => ({
     selected: [], custom: '', skipped: false,
   })))
+  /** 中文说明：组件局部值 [busy, setBusy]，由紧邻初始化决定。 */
   const [busy, setBusy] = useState<'answer' | 'cancel' | null>(null)
+  /** 中文说明：组件局部值 [error, setError]，由紧邻初始化决定。 */
   const [error, setError] = useState<Feedback | null>(null)
   // Collapsed to the header strip so the conversation above stays readable
   // while the user decides; the drafts survive because the state lives here.
+  /** 中文说明：组件局部值 [minimized, setMinimized]，由紧邻初始化决定。 */
   const [minimized, setMinimized] = useState(false)
   // The free-form textarea autofocuses on first presentation; re-expanding a
   // collapsed question must not steal focus from the expand toggle back into
   // the input, so focus is granted once per question index.
+  /** 中文说明：组件局部值 focusedQuestions，由紧邻初始化决定。 */
   const focusedQuestions = useRef(new Set<number>())
   // index stays in bounds (every setIndex site clamps) and drafts mirrors questions 1:1.
+  /** 中文说明：组件局部值 question，由紧邻初始化决定。 */
   // oxlint-disable-next-line typescript/no-non-null-assertion
   const question = questions[index]!
+  /** 中文说明：组件局部值 draft，由紧邻初始化决定。 */
   // oxlint-disable-next-line typescript/no-non-null-assertion
   const draft = drafts[index]!
+  /** 中文说明：组件局部值 hasOptions，由紧邻初始化决定。 */
   const hasOptions = (question.options?.length ?? 0) > 0
 
+  /** 中文说明：组件局部值 cancelFlow，由紧邻初始化决定。 */
   const cancelFlow = (): void => {
     setBusy('cancel')
     setError(null)
@@ -154,14 +185,17 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
     })
   }
 
+  /** 中文说明：组件局部值 updateDraft，由紧邻初始化决定。 */
   const updateDraft = (update: (current: DraftAnswer) => DraftAnswer): void => {
     setDrafts(current => current.map((item, itemIndex) => itemIndex === index ? update(item) : item))
     setError(null)
   }
 
+  /** 中文说明：组件局部值 choose，由紧邻初始化决定。 */
   const choose = (label: string): void => {
     updateDraft((current) => {
       if (question.multiSelect === true) {
+        /** 中文说明：组件局部值 selected，由紧邻初始化决定。 */
         const selected = current.selected.includes(label)
           ? current.selected.filter(item => item !== label)
           : [...current.selected, label]
@@ -174,22 +208,29 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
     }
   }
 
+  /** 中文说明：组件局部值 answered，由紧邻初始化决定。 */
   const answered = (item: DraftAnswer): boolean =>
     item.selected.length > 0 || item.custom.trim() !== ''
 
+  /** 中文说明：组件局部值 completed，由紧邻初始化决定。 */
   const completed = (item: DraftAnswer): boolean => answered(item) || item.skipped
 
+  /** 中文说明：组件局部值 submitDrafts，由紧邻初始化决定。 */
   const submitDrafts = (values: DraftAnswer[]): void => {
+    /** 中文说明：组件局部值 missing，由紧邻初始化决定。 */
     const missing = values.findIndex(item => !completed(item))
     if (missing >= 0) {
       setIndex(missing)
       setError({ key: 'error.incomplete' })
       return
     }
+    /** 中文说明：组件局部值 answer，由紧邻初始化决定。 */
     const answer: QuestionAnswer = {
       answers: questions.map((item, itemIndex) => {
+        /** 中文说明：组件局部值 value，由紧邻初始化决定。 */
         const value = values[itemIndex] as DraftAnswer
         if (value.skipped) return { id: item.id, selected: [] }
+        /** 中文说明：组件局部值 custom，由紧邻初始化决定。 */
         const custom = value.custom.trim()
         return {
           id: item.id,
@@ -206,6 +247,7 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
     })
   }
 
+  /** 中文说明：组件局部值 continueFlow，由紧邻初始化决定。 */
   const continueFlow = (): void => {
     if (!answered(draft)) {
       setError({ key: 'error.unanswered' })
@@ -222,7 +264,9 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
   // Shared by the inline custom field and the optionless one: a multi-select
   // draft retains checked labels, while a single-select custom answer replaces
   // its selection. Enter continues the flow, Shift+Enter breaks a line.
+  /** 中文说明：组件局部值 draftCustom，由紧邻初始化决定。 */
   const draftCustom = (event: ChangeEvent<HTMLTextAreaElement>): void => {
+    /** 中文说明：组件局部值 value，由紧邻初始化决定。 */
     const value = event.target.value
     updateDraft(current => ({
       ...current,
@@ -232,13 +276,16 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
     }))
   }
 
+  /** 中文说明：组件局部值 continueFromCustom，由紧邻初始化决定。 */
   const continueFromCustom = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key !== 'Enter' || event.shiftKey || isComposing(event)) return
     event.preventDefault()
     continueFlow()
   }
 
+  /** 中文说明：组件局部值 skipQuestion，由紧邻初始化决定。 */
   const skipQuestion = (): void => {
+    /** 中文说明：组件局部值 nextDrafts，由紧邻初始化决定。 */
     const nextDrafts = drafts.map((item, itemIndex) => itemIndex === index
       ? { selected: [], custom: '', skipped: true }
       : item)
@@ -293,7 +340,9 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
               )}
               <div className={css.options} role={question.multiSelect === true ? 'group' : 'radiogroup'}>
                 {(question.options ?? []).map((option, optionIndex) => {
+                  /** 中文说明：组件局部值 selected，由紧邻初始化决定。 */
                   const selected = draft.selected.includes(option.label)
+                  /** 中文说明：组件局部值 display，由紧邻初始化决定。 */
                   const display = parseRecommendedLabel(option.label)
                   return (
                     <button

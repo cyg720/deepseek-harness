@@ -3,11 +3,21 @@
  * row fills share the shell's trailing inset, the stable scrollbar counts
  * inside it, and flat, grouped, and search views keep their intended rhythm.
  */
+/**
+ * 文件职责：验证工作区浏览的 browser-styles.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
+ * 产品维度：防止工作区浏览展示与操作流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
+ */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
+/** 中文说明：测试局部值 css，由紧邻初始化决定。 */
 const css = readFileSync(fileURLToPath(new URL('../src/client/WorkspaceBrowser.module.css', import.meta.url)), 'utf8')
+/** 中文说明：测试局部值 rowsCss，由紧邻初始化决定。 */
 const rowsCss = readFileSync(fileURLToPath(new URL('../src/client/rows/Rows.module.css', import.meta.url)), 'utf8')
 
 /**
@@ -16,12 +26,18 @@ const rowsCss = readFileSync(fileURLToPath(new URL('../src/client/rows/Rows.modu
  * @param selector - one exact selector, including a leading dot for local classes.
  * @returns the rule's declarations, or undefined when no such rule exists.
  */
+/** 中文说明：函数 declarationsFrom 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function declarationsFrom(source: string, selector: string): Map<string, string> | undefined {
+  /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
   const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, ' ')
+  /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
   const found = new Map<string, string>()
+  /** 中文说明：测试局部值 [，由紧邻初始化决定。 */
   for (const [, selectorList = '', body = ''] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     if (!selectorList.split(',').map(value => value.trim()).includes(selector)) continue
+    /** 中文说明：测试局部值 part，由紧邻初始化决定。 */
     for (const part of body.split(';')) {
+      /** 中文说明：测试局部值 colon，由紧邻初始化决定。 */
       const colon = part.indexOf(':')
       if (colon === -1) continue
       found.set(part.slice(0, colon).trim(), part.slice(colon + 1).trim().replace(/\s+/g, ' '))
@@ -30,12 +46,17 @@ function declarationsFrom(source: string, selector: string): Map<string, string>
   return found.size === 0 ? undefined : found
 }
 
+/** 中文说明：测试局部值 declarations，由紧邻初始化决定。 */
 const declarations = (selector: string): Map<string, string> | undefined => declarationsFrom(css, selector)
+/** 中文说明：测试局部值 rowDeclarations，由紧邻初始化决定。 */
 const rowDeclarations = (selector: string): Map<string, string> | undefined => declarationsFrom(rowsCss, selector)
 
 describe('WorkspaceBrowser.module.css list', () => {
+  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = declarations('.root')
+  /** 中文说明：测试局部值 listArea，由紧邻初始化决定。 */
   const listArea = declarations('.listArea')
+  /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
   const list = declarations('.list')
 
   it('is the scrolling region', () => {
@@ -77,13 +98,17 @@ describe('WorkspaceBrowser.module.css list', () => {
   })
 
   it('draws drag targets as a leading chevron joined to the insertion line', () => {
+    /** 中文说明：测试局部值 listTopMarker，由紧邻初始化决定。 */
     const listTopMarker = declarations('.listTopDropIndicator')
+    /** 中文说明：测试局部值 workspaceMarker，由紧邻初始化决定。 */
     const workspaceMarker = declarations('.workspaceDropBefore::before')
+    /** 中文说明：测试局部值 sessionMarker，由紧邻初始化决定。 */
     const sessionMarker = rowDeclarations('.sessionRow.dropBefore::before')
     expect(listTopMarker?.get('top')).toBe('-8px')
     expect(listTopMarker?.get('left')).toBe('0')
     expect(workspaceMarker?.get('left')).toBe('0')
     expect(sessionMarker?.get('left')).toBe('0')
+    /** 中文说明：测试局部值 marker，由紧邻初始化决定。 */
     for (const marker of [listTopMarker, workspaceMarker, sessionMarker]) {
       expect(marker?.get('height')).toBe('12px')
       expect(marker?.get('background')).not.toContain('radial-gradient')

@@ -2,10 +2,21 @@
    header, search capsule, and the scrolling session list. Wide/rail
    variants ride the shell's fold state through the `wide` owner prop —
    rail state renders only the two 36x36 icon controls. */
+/**
+ * 文件职责：定义 WorkspaceBrowser 的局部样式。
+ * 技术维度：CSS Modules、网格/滚动布局和状态选择器。
+ * 产品维度：让工作区浏览信息在复杂状态下仍易读。
+ * 逻辑维度：按容器、工具栏、内容和状态组织规则。
+ * 关键边界：长列表需保持滚动性能，颜色不能单独表达状态。
+ * 新手阅读建议：对照组件按 DOM 与状态层级阅读。
+ */
 
 .root {
+  /* 中文说明：自定义属性 --dsh-session-list-edge-inset 保存当前界面复用的样式值。 */
   --dsh-session-list-edge-inset: var(--dsh-sidebar-inline-padding);
+  /* 中文说明：自定义属性 --dsh-session-list-scrollbar-width 保存当前界面复用的样式值。 */
   --dsh-session-list-scrollbar-width: 8px;
+  /* 中文说明：自定义属性 --dsh-session-list-scrollbar-offset 保存当前界面复用的样式值。 */
   --dsh-session-list-scrollbar-offset: 2px;
   flex: 1;
   min-height: 0;

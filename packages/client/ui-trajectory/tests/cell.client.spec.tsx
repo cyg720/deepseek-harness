@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证运行轨迹的 cell.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
+ * 产品维度：防止运行轨迹展示与操作流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
+ */
+/**
  * TrajectoryCell presentation: kind tags, ellipsis-hosting text, Message
  * metric columns, own-duration formatting, and selected ring.
  */
@@ -8,6 +16,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import {
   formatElapsedSeconds,
   TrajectoryCell,
+  /** 中文说明：类型或类 TrajectoryCellKind 约束模块数据或组件职责。 */
   type TrajectoryCellKind,
 } from '../src/client/TrajectoryCell.tsx'
 import { formatDurationMillis } from '../src/client/trajectory-record.ts'
@@ -58,6 +67,7 @@ describe('TrajectoryCell', () => {
   })
 
   it('Message rows expose Input / Output / Think metric columns before time', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(
       <TrajectoryCell
         index={3}
@@ -74,6 +84,7 @@ describe('TrajectoryCell', () => {
     expect(screen.getByText('381')).toBeTruthy()
     expect(screen.getByText('155')).toBeTruthy()
     expect(screen.getByText('235,200 ms')).toBeTruthy()
+    /** 中文说明：测试局部值 texts，由紧邻初始化决定。 */
     const texts = [...container.querySelectorAll('span')].map(el => el.textContent)
     expect(texts.indexOf('136')).toBeLessThan(texts.indexOf('381'))
     expect(texts.indexOf('381')).toBeLessThan(texts.indexOf('155'))
@@ -81,6 +92,7 @@ describe('TrajectoryCell', () => {
   })
 
   it('selected marks the row for the brand-primary inset ring', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(
       <TrajectoryCell index={15} kind="message" text="pictur..." timeSeconds={123.6} selected />,
     )
@@ -91,6 +103,7 @@ describe('TrajectoryCell', () => {
     ['user', 'User'],
     ['tool', 'Tool'],
   ] as const)('kind %s shows the %s tag and no metric columns', (kind: TrajectoryCellKind, label: string) => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(
       <TrajectoryCell index={1} kind={kind} text="summary" timeSeconds={kind === 'user' ? 0 : null} input={1} output={2} think={3} />,
     )

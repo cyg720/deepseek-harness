@@ -3,6 +3,14 @@
 // it: a request carrying the intent must reach the decision card and answer
 // with the asker's own option labels, and a request that does not (or cannot)
 // must keep the generic question flow.
+/**
+ * 文件职责：验证用户提问与计划复审的 plan-review-panel.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
+ * 产品维度：防止用户提问与计划复审展示与操作流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type {
@@ -20,13 +28,16 @@ import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
 /** Seat stub over a dictionary pair mirroring the real lookup chain: package dictionary, then common vocabulary, then the key. */
+/** 中文说明：测试局部值 seatOver，由紧邻初始化决定。 */
 const seatOver = (dict: Record<string, string>, common: Record<string, string>): QuestionComposerProps['t'] =>
   (key => dict[key] ?? common[key] ?? key)
 
 /** Framework standard-kit stubs: the panel consumes only the locale seat. */
+/** 中文说明：测试局部值 kit，由紧邻初始化决定。 */
 const kit = {
   sessionId: SID,
   session: undefined,
@@ -39,9 +50,11 @@ const kit = {
   t: seatOver(zh, commonZh),
 }
 
+/** 中文说明：测试局部值 PLAN，由紧邻初始化决定。 */
 const PLAN = '# Ship the picker\n\n- read the store\n- render the rows\n'
 
 /** The plan-mode request shape: one question, the plan as detail, approve named. */
+/** 中文说明：测试局部值 questions，由紧邻初始化决定。 */
 const questions = (): QuestionWait['payload']['questions'] => [{
   id: 'plan-review',
   header: 'Plan review',
@@ -55,6 +68,7 @@ const questions = (): QuestionWait['payload']['questions'] => [{
 }]
 
 /** Carrier fixture over a scripted respond carrier. */
+/** 中文说明：函数 wait 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function wait(
   payload: QuestionWait['payload'] = { questions: questions() },
   respond = vi.fn(() => Promise.resolve<RpcReceipt>({ accepted: true })),
@@ -63,6 +77,7 @@ function wait(
 }
 
 /** The client-response envelope respond must have received for a decision. */
+/** 中文说明：函数 decidedEnvelope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function decidedEnvelope(label: string) {
   return {
     type: 'client-response', rpcId: RpcId('q-1'),
@@ -82,7 +97,9 @@ describe('planReviewOf', () => {
   })
 
   it('leaves the decline absent when the asker offered approve alone', () => {
+    /** 中文说明：测试局部值 [question]，由紧邻初始化决定。 */
     const [question] = questions()
+    /** 中文说明：测试局部值 review，由紧邻初始化决定。 */
     const review = planReviewOf([{ ...question as object, options: [{ label: 'Approve' }] } as never])
     expect(review?.approve).toEqual({ label: 'Approve' })
     expect(review === undefined ? true : 'decline' in review).toBe(false)
@@ -114,6 +131,7 @@ describe('planReviewOf', () => {
 
 describe('PlanReviewPanel', () => {
   it('renders the plan under a review strip, with none of the quiz affordances', () => {
+    /** 中文说明：测试局部值 { carrier }，由紧邻初始化决定。 */
     const { carrier } = wait()
     render(<QuestionComposer matched={carrier} interactions={[carrier]} {...kit} />)
 
@@ -133,9 +151,11 @@ describe('PlanReviewPanel', () => {
   })
 
   it('answers with the asker\'s approve label and keeps its description as the tooltip', () => {
+    /** 中文说明：测试局部值 { carrier, respond }，由紧邻初始化决定。 */
     const { carrier, respond } = wait()
     render(<QuestionComposer matched={carrier} interactions={[carrier]} {...kit} />)
 
+    /** 中文说明：测试局部值 approve，由紧邻初始化决定。 */
     const approve = screen.getByRole('button', { name: zh['plan.approve'] })
     expect(approve.getAttribute('title')).toBe('Leave plan mode; the plan is carried out from the next step.')
     fireEvent.click(approve)
@@ -148,6 +168,7 @@ describe('PlanReviewPanel', () => {
   })
 
   it('answers with the asker\'s decline label', () => {
+    /** 中文说明：测试局部值 { carrier, respond }，由紧邻初始化决定。 */
     const { carrier, respond } = wait()
     render(<QuestionComposer matched={carrier} interactions={[carrier]} {...kit} />)
 
@@ -156,6 +177,7 @@ describe('PlanReviewPanel', () => {
   })
 
   it('dismisses the request so the composer returns for a plain message', () => {
+    /** 中文说明：测试局部值 { carrier, respond }，由紧邻初始化决定。 */
     const { carrier, respond } = wait()
     render(<QuestionComposer matched={carrier} interactions={[carrier]} {...kit} />)
 
@@ -170,6 +192,7 @@ describe('PlanReviewPanel', () => {
   })
 
   it('omits the tooltip for an option carrying no description', () => {
+    /** 中文说明：测试局部值 { carrier }，由紧邻初始化决定。 */
     const { carrier } = wait({ questions: [{
       ...questions()[0] as object,
       options: [{ label: 'Approve' }, { label: 'Keep planning' }],
@@ -181,6 +204,7 @@ describe('PlanReviewPanel', () => {
   })
 
   it('hides the decline action when the asker offered approve alone', () => {
+    /** 中文说明：测试局部值 { carrier }，由紧邻初始化决定。 */
     const { carrier } = wait({ questions: [{
       ...questions()[0] as object, options: [{ label: 'Approve' }],
     }] as never })
@@ -191,6 +215,7 @@ describe('PlanReviewPanel', () => {
   })
 
   it('re-arms the actions and says why when the decision does not land', async () => {
+    /** 中文说明：测试局部值 { carrier, respond }，由紧邻初始化决定。 */
     const { carrier, respond } = wait(
       { questions: questions() },
       vi.fn(() => Promise.resolve<RpcReceipt>({ accepted: false, reason: 'not-pending' })),
@@ -198,6 +223,7 @@ describe('PlanReviewPanel', () => {
     render(<QuestionComposer matched={carrier} interactions={[carrier]} {...kit} />)
 
     fireEvent.click(screen.getByRole('button', { name: zh['plan.approve'] }))
+    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
     const failure = await screen.findByText('question response rejected: not-pending')
     expect(failure.getAttribute('role')).toBe('status')
     // Re-armed for the retry: a lost click must not leave a dead card.
@@ -209,6 +235,7 @@ describe('PlanReviewPanel', () => {
   it('reports a non-Error transport failure as its stringified value', async () => {
     // A non-Error rejection is the case under test: a carrier can reject with
     // anything, and the panel must still show the user something.
+    /** 中文说明：测试局部值 { carrier }，由紧邻初始化决定。 */
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors
     const { carrier } = wait({ questions: questions() }, vi.fn(() => Promise.reject('socket gone')))
     render(<QuestionComposer matched={carrier} interactions={[carrier]} {...kit} />)
@@ -218,6 +245,7 @@ describe('PlanReviewPanel', () => {
   })
 
   it('carries the same decision surface in English', () => {
+    /** 中文说明：测试局部值 { carrier }，由紧邻初始化决定。 */
     const { carrier } = wait()
     render(<QuestionComposer matched={carrier} interactions={[carrier]} {...kit} t={seatOver(en, commonEn)} />)
 

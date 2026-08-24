@@ -1,6 +1,14 @@
 /* The takeover seats where the input card sits, centered on the InputBar
    axis at the shared content width (input card - 32): sides = clearance +
    16px so the relation also holds on narrow viewports. */
+/**
+ * 文件职责：定义 QuestionComposer 的局部样式。
+ * 技术维度：CSS Modules、网格/滚动布局和状态选择器。
+ * 产品维度：让用户提问与计划复审信息在复杂状态下仍易读。
+ * 逻辑维度：按容器、工具栏、内容和状态组织规则。
+ * 关键边界：长列表需保持滚动性能，颜色不能单独表达状态。
+ * 新手阅读建议：对照组件按 DOM 与状态层级阅读。
+ */
 .frame {
   display: flex;
   justify-content: center;
@@ -30,7 +38,9 @@
      on the card because the elevation belongs to the surface, and the custom
      properties inherit down to `.body` (see ui-theme styles/scrollbar.css
      for the rebinding contract). */
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存当前界面复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存当前界面复用的样式值。 */
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
@@ -328,6 +338,7 @@
 .field {
   display: grid;
   min-width: 0;
+  /* 中文说明：自定义属性 --dsh-answer-field-padding 保存当前界面复用的样式值。 */
   --dsh-answer-field-padding: 0;
 }
 
@@ -391,6 +402,7 @@
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 10px;
   background: var(--dsw-alias-bg-module-platform);
+  /* 中文说明：自定义属性 --dsh-answer-field-padding 保存当前界面复用的样式值。 */
   --dsh-answer-field-padding: 8px 12px;
 }
 

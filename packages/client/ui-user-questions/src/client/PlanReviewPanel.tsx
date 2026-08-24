@@ -12,6 +12,14 @@
 // what they want. Dismissal is the generic flow's own cancel verb, promoted to
 // a labelled button because in a two-outcome decision it is the third real
 // answer, not an escape hatch.
+/**
+ * 文件职责：实现用户提问与计划复审的 PlanReviewPanel 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
+ * 产品维度：支持用户查看或操作用户提问与计划复审。
+ * 逻辑维度：读取状态，派生展示数据，处理操作并渲染界面。
+ * 关键边界：异步状态、空状态、虚拟滚动和可访问性必须一致。
+ * 新手阅读建议：先读 Props，再看状态选择、事件和 JSX。
+ */
 
 import { useState } from 'react'
 import { Button, IconEditOutline16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -19,6 +27,7 @@ import type { PendingQuestion, PlanReview, QuestionComposerProps } from './contr
 import css from './PlanReviewPanel.module.css'
 
 /** The panel's own props: the question domain face, the narrowed review, and the locale seat. */
+/** 中文说明：类型或类 PlanReviewPanelProps 约束模块数据或组件职责。 */
 export type PlanReviewPanelProps =
   { pending: PendingQuestion; review: PlanReview } & Pick<QuestionComposerProps, 't'>
 
@@ -29,6 +38,7 @@ export type PlanReviewPanelProps =
  * @param description - the asker's option description, when it carries one.
  * @returns The `title` prop to spread, or nothing.
  */
+/** 中文说明：函数 tooltip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tooltip(description: string | undefined): { title?: string } {
   return description === undefined ? {} : { title: description }
 }
@@ -39,13 +49,17 @@ function tooltip(description: string | undefined): { title?: string } {
  * @param props - the question domain face, the narrowed plan review, and `t`.
  * @returns The plan-review takeover for this request.
  */
+/** 中文说明：函数 PlanReviewPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function PlanReviewPanel({ pending, review, t }: PlanReviewPanelProps) {
   // One-shot latch shaped like the approval takeover's: the panel leaves only
   // when the host's resolved frame lands, so until then a second click must
   // not re-fire. A failed send (rejected receipt / transport) re-arms it and
   // shows why, since nothing else would tell the user the click was lost.
+  /** 中文说明：组件局部值 [busy, setBusy]，由紧邻初始化决定。 */
   const [busy, setBusy] = useState(false)
+  /** 中文说明：组件局部值 [error, setError]，由紧邻初始化决定。 */
   const [error, setError] = useState<string | null>(null)
+  /** 中文说明：组件局部值 settle，由紧邻初始化决定。 */
   const settle = (send: () => Promise<void>): void => {
     setBusy(true)
     setError(null)
@@ -54,9 +68,11 @@ export function PlanReviewPanel({ pending, review, t }: PlanReviewPanelProps) {
       setError(cause instanceof Error ? cause.message : String(cause))
     })
   }
+  /** 中文说明：组件局部值 decide，由紧邻初始化决定。 */
   const decide = (label: string): void => {
     settle(() => pending.answer({ answers: [{ id: review.id, selected: [label] }] }))
   }
+  /** 中文说明：组件局部值 decline，由紧邻初始化决定。 */
   const decline = review.decline
 
   return (

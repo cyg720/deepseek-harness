@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证运行轨迹的 conversation-definitions.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
+ * 产品维度：防止运行轨迹展示与操作流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
 import type {
@@ -12,7 +20,9 @@ import { registerTrajectoryRequestHeaderDefinition } from '../src/client/traject
 import { trajectoryViewDefinition } from '../src/client/trajectory-snapshot-builder.ts'
 import { registerTrajectoryToolDefinition } from '../src/client/trajectory-tool-definition.ts'
 
+/** 中文说明：测试局部值 DEFINITIONS，由紧邻初始化决定。 */
 const DEFINITIONS: ConversationNodeDefinition[] = []
+/** 中文说明：测试局部值 registrationContext，由紧邻初始化决定。 */
 const registrationContext = {
   conversationEvents: {
     register: (definition: ConversationNodeDefinition) => {
@@ -28,6 +38,7 @@ registerTrajectoryAssistantDefinition(registrationContext)
 registerTrajectoryToolDefinition(registrationContext)
 registerTrajectoryCompactionDefinitions(registrationContext)
 
+/** 中文说明：类型或类 TestEventDefinitions 约束模块数据或组件职责。 */
 class TestEventDefinitions {
   entries(): readonly ConversationNodeDefinition[] {
     return DEFINITIONS
@@ -38,12 +49,14 @@ class TestEventDefinitions {
   }
 }
 
+/** 中文说明：类型或类 TestViewDefinitions 约束模块数据或组件职责。 */
 class TestViewDefinitions {
   entries(): readonly ConversationViewDefinition[] {
     return [trajectoryViewDefinition]
   }
 }
 
+/** 中文说明：函数 at 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function at(
   seq: number,
   type: string,
@@ -62,7 +75,9 @@ function at(
   }
 }
 
+/** 中文说明：函数 assembler 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assembler(events: readonly ConversationEventInput[]): ConversationNodeAssembler {
+  /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
   const value = new ConversationNodeAssembler(
     new TestEventDefinitions(),
     new TestViewDefinitions(),
@@ -72,12 +87,15 @@ function assembler(events: readonly ConversationEventInput[]): ConversationNodeA
   return value
 }
 
+/** 中文说明：函数 snapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function snapshot(value: ConversationNodeAssembler): TrajectorySnapshot {
+  /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
   const current = value.snapshot('trajectory') as TrajectorySnapshot | undefined
   if (current === undefined) throw new Error('trajectory view was not registered')
   return current
 }
 
+/** 中文说明：函数 assistantMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assistantMessage(id: string, text: string) {
   return {
     id,
@@ -89,6 +107,7 @@ function assistantMessage(id: string, text: string) {
 
 describe('Trajectory conversation Definitions', () => {
   it('assembles streaming usage, preserves retry facts, and materializes interruption', () => {
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -131,6 +150,7 @@ describe('Trajectory conversation Definitions', () => {
     value.append(at(7, 'step/end', { turn: 1, step: 1 }))
     value.flush()
 
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = snapshot(value)
     expect(settled.partial).toBeNull()
     expect(settled.eventNodes).toMatchObject([{
@@ -150,6 +170,7 @@ describe('Trajectory conversation Definitions', () => {
   })
 
   it('classifies a cancellation-finalized prefix as an interrupted request result', () => {
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = snapshot(assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -182,6 +203,7 @@ describe('Trajectory conversation Definitions', () => {
   })
 
   it('keeps parallel interrupted roots and nests Code Dispatch results', () => {
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = snapshot(assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'step/start', { turn: 1, step: 1 }),
@@ -209,6 +231,7 @@ describe('Trajectory conversation Definitions', () => {
       at(7, 'step/end', { turn: 1, step: 1 }),
     ]))
 
+    /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
     const tools = current.eventNodes.filter(node => node.kind === 'tool-result')
     expect(tools.map(node => node.callId).sort()).toEqual(['root-a', 'root-b'])
     expect(tools.find(node => node.callId === 'root-a')?.subCalls).toMatchObject([{
@@ -219,6 +242,7 @@ describe('Trajectory conversation Definitions', () => {
   })
 
   it('assembles compaction lifecycle, checkpoint replacement, and orphan interruption', () => {
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = snapshot(assembler([
       at(1, 'compaction/start', { compactionId: 'complete', turn: null }),
       at(2, 'compaction/summary', {
@@ -260,6 +284,7 @@ describe('Trajectory conversation Definitions', () => {
   })
 
   it('classifies claimed inbox input as steering and consumes one inherited prompt change', () => {
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       at(2, 'request/header', {
@@ -293,6 +318,7 @@ describe('Trajectory conversation Definitions', () => {
     }))
     value.flush()
 
+    /** 中文说明：测试局部值 steering，由紧邻初始化决定。 */
     const steering = snapshot(value)
     expect(steering.eventNodes.find(node => node.seq === 9)?.kind).toBe('steering')
     expect(steering.eventLocations.get(9)).toMatchObject({
@@ -307,6 +333,7 @@ describe('Trajectory conversation Definitions', () => {
       message: assistantMessage('assistant-2', 'second'),
     }))
     value.flush()
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = snapshot(value)
 
     expect(current.requests.map(request => request.purpose === 'assistant'

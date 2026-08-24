@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证运行轨迹的 table.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
+ * 产品维度：防止运行轨迹展示与操作流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
+ */
 /** Trajectory ledger selection, details, status, and fold behavior. */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +20,7 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
 })
 
+/** 中文说明：测试局部值 TURNS，由紧邻初始化决定。 */
 const TURNS: readonly TrajectoryTurnModel[] = [{
   turn: 1,
   groups: [{
@@ -57,6 +66,7 @@ const TURNS: readonly TrajectoryTurnModel[] = [{
   }],
 }]
 
+/** 中文说明：测试局部值 FOLD_PROPS，由紧邻初始化决定。 */
 const FOLD_PROPS = {
   collapsedTurns: new Set<number>(),
   onToggleTurn: () => {},
@@ -66,6 +76,7 @@ const FOLD_PROPS = {
 
 describe('TrajectoryTable', () => {
   it('shows a muted placeholder for an assistant response containing only tool calls', () => {
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{
@@ -98,6 +109,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('shows a tool record Duration as exact milliseconds', () => {
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{
@@ -134,6 +146,7 @@ describe('TrajectoryTable', () => {
     render(<TrajectoryTable turns={TURNS} {...FOLD_PROPS} />)
     fireEvent.click(screen.getByRole('row', { name: /ASSISTANT/ }))
 
+    /** 中文说明：测试局部值 panel，由紧邻初始化决定。 */
     const panel = screen.getByRole('tabpanel')
     expect(panel.querySelectorAll('[data-summary-scroll-region]').length).toBeGreaterThan(1)
 
@@ -142,7 +155,9 @@ describe('TrajectoryTable', () => {
   })
 
   it('keeps long thinking collapsed until the user asks to render it', () => {
+    /** 中文说明：测试局部值 thinking，由紧邻初始化决定。 */
     const thinking = 'private chain '.repeat(1_000)
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{
@@ -159,6 +174,7 @@ describe('TrajectoryTable', () => {
     render(<TrajectoryTable turns={turns} {...FOLD_PROPS} />)
 
     fireEvent.click(screen.getByRole('row', { name: /ASSISTANT/ }))
+    /** 中文说明：测试局部值 toggle，由紧邻初始化决定。 */
     const toggle = screen.getByRole('button', { name: 'Thinking' })
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByText(thinking)).toBeNull()
@@ -170,12 +186,14 @@ describe('TrajectoryTable', () => {
   })
 
   it('keeps raw HTML tags in a Markdown-derived context preview', () => {
+    /** 中文说明：测试局部值 html，由紧邻初始化决定。 */
     const html = [
       '<background-job-complete id="trajectory-ui-watch">',
       'Command: pnpm test',
       'Exit code: 0',
       '</background-job-complete>',
     ].join('\n')
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{
@@ -198,6 +216,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('clears the selected row when ledger whitespace is clicked', () => {
+    /** 中文说明：测试局部值 onClearSelection，由紧邻初始化决定。 */
     const onClearSelection = vi.fn()
     render(
       <TrajectoryTable
@@ -206,12 +225,14 @@ describe('TrajectoryTable', () => {
         onClearSelection={onClearSelection}
       />,
     )
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('row', { name: /ASSISTANT/ })
     fireEvent.click(row)
 
     expect(row.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByRole('complementary', { name: 'Event details' })).toBeTruthy()
 
+    /** 中文说明：测试局部值 tablePane，由紧邻初始化决定。 */
     const tablePane = screen.getByRole('table').parentElement
     expect(tablePane).not.toBeNull()
     fireEvent.click(tablePane as HTMLElement)
@@ -222,6 +243,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('keeps the selected record when older rows shift projection indexes', () => {
+    /** 中文说明：测试局部值 tail，由紧邻初始化决定。 */
     const tail = (index: number): TrajectoryTurnModel => ({
       turn: 2,
       groups: [{
@@ -236,6 +258,7 @@ describe('TrajectoryTable', () => {
         }],
       }],
     })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTable turns={[tail(1)]} {...FOLD_PROPS} />,
     )
@@ -266,6 +289,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('keeps a selected request when prepending changes its display number', () => {
+    /** 中文说明：测试局部值 tail，由紧邻初始化决定。 */
     const tail = (index: number): TrajectoryTurnModel => ({
       turn: 2,
       groups: [{
@@ -279,6 +303,7 @@ describe('TrajectoryTable', () => {
         }],
       }],
     })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTable turns={[tail(1)]} {...FOLD_PROPS} />,
     )
@@ -309,6 +334,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('places the request boundary after leading steering input', () => {
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{
@@ -341,13 +367,17 @@ describe('TrajectoryTable', () => {
       {...FOLD_PROPS}
     />)
 
+    /** 中文说明：测试局部值 request，由紧邻初始化决定。 */
     const request = screen.getByRole('button', { name: 'Request #1' })
     expect(request.closest('tr')?.getAttribute('aria-label')).toContain('ASSISTANT')
   })
 
   it('follows appended records only while the ledger is already at the bottom', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<TrajectoryTable turns={TURNS} {...FOLD_PROPS} />)
+    /** 中文说明：测试局部值 tablePane，由紧邻初始化决定。 */
     const tablePane = screen.getByRole('table').parentElement as HTMLElement
+    /** 中文说明：测试局部值 scrollHeight，由紧邻初始化决定。 */
     let scrollHeight = 200
     Object.defineProperties(tablePane, {
       clientHeight: { configurable: true, get: () => 100 },
@@ -393,9 +423,13 @@ describe('TrajectoryTable', () => {
   })
 
   it('preserves the visible anchor when the last older page disables virtualization', async () => {
+    /** 中文说明：测试局部值 resolveOlder，由紧邻初始化决定。 */
     let resolveOlder: ((advanced: boolean) => void) | undefined
+    /** 中文说明：测试局部值 older，由紧邻初始化决定。 */
     const older = new Promise<boolean>((resolve) => { resolveOlder = resolve })
+    /** 中文说明：测试局部值 onLoadOlder，由紧邻初始化决定。 */
     const onLoadOlder = vi.fn(() => older)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTable
         turns={TURNS}
@@ -405,7 +439,9 @@ describe('TrajectoryTable', () => {
         onLoadOlder={onLoadOlder}
       />,
     )
+    /** 中文说明：测试局部值 tablePane，由紧邻初始化决定。 */
     const tablePane = screen.getByRole('table').parentElement as HTMLElement
+    /** 中文说明：测试局部值 scrollHeight，由紧邻初始化决定。 */
     let scrollHeight = 200
     Object.defineProperties(tablePane, {
       clientHeight: { configurable: true, get: () => 100 },
@@ -446,9 +482,13 @@ describe('TrajectoryTable', () => {
       configurable: true,
       value: vi.fn(),
     })
+    /** 中文说明：测试局部值 resolveOlder，由紧邻初始化决定。 */
     let resolveOlder: ((advanced: boolean) => void) | undefined
+    /** 中文说明：测试局部值 older，由紧邻初始化决定。 */
     const older = new Promise<boolean>((resolve) => { resolveOlder = resolve })
+    /** 中文说明：测试局部值 onLoadOlder，由紧邻初始化决定。 */
     const onLoadOlder = vi.fn(() => older)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTable
         turns={TURNS}
@@ -458,8 +498,11 @@ describe('TrajectoryTable', () => {
       />,
     )
 
+    /** 中文说明：测试局部值 table，由紧邻初始化决定。 */
     const table = screen.getByRole('table')
+    /** 中文说明：测试局部值 loadButton，由紧邻初始化决定。 */
     const loadButton = screen.getByRole('button', { name: 'Load earlier history' })
+    /** 中文说明：测试局部值 loadRow，由紧邻初始化决定。 */
     const loadRow = table.querySelector('tbody > tr:first-child')
     expect(loadRow?.contains(loadButton)).toBe(true)
     expect(loadRow?.getAttribute('aria-rowindex')).toBe('1')
@@ -503,6 +546,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('covers the ledger while the initial tail is loading', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTable turns={TURNS} {...FOLD_PROPS} historyLoading />,
     )
@@ -522,6 +566,7 @@ describe('TrajectoryTable', () => {
       configurable: true,
       value: vi.fn(),
     })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTable turns={TURNS} {...FOLD_PROPS} hasOlderRecords />,
     )
@@ -533,21 +578,25 @@ describe('TrajectoryTable', () => {
 
   it('mounts only the visible window for a long ledger', async () => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600)
+    /** 中文说明：测试局部值 scrollTo，由紧邻初始化决定。 */
     const scrollTo = vi.fn()
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: scrollTo,
     })
+    /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
     const cells = Array.from({ length: 500 }, (_, index) => ({
       index: index + 1,
       kind: 'context' as const,
       text: `Context ${index + 1}`,
       timeSeconds: 0,
     }))
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{ title: 'Context', cells }],
     }]
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<TrajectoryTable turns={turns} {...FOLD_PROPS} />)
 
     await waitFor(() => {
@@ -564,6 +613,7 @@ describe('TrajectoryTable', () => {
     expect(screen.getByText('Context 1')).toBeTruthy()
     expect(screen.queryByText('Context 500')).toBeNull()
 
+    /** 中文说明：测试局部值 tablePane，由紧邻初始化决定。 */
     const tablePane = screen.getByRole('table').parentElement as HTMLElement
     tablePane.scrollTop = 9_000
     fireEvent.scroll(tablePane)
@@ -578,11 +628,13 @@ describe('TrajectoryTable', () => {
 
   it('does not re-scroll a virtual ledger when streaming only changes row content', async () => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600)
+    /** 中文说明：测试局部值 scrollTo，由紧邻初始化决定。 */
     const scrollTo = vi.fn()
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: scrollTo,
     })
+    /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
     const cells = Array.from({ length: 500 }, (_, index) => ({
       index: index + 1,
       kind: 'context' as const,
@@ -590,10 +642,12 @@ describe('TrajectoryTable', () => {
       text: `Context ${index + 1}`,
       timeSeconds: 0,
     }))
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{ title: 'Context', cells }],
     }]
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTable
         turns={turns}
@@ -623,6 +677,7 @@ describe('TrajectoryTable', () => {
       configurable: true,
       value: vi.fn(),
     })
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = Array.from(
       { length: 101 },
       (_, index) => ({
@@ -648,8 +703,10 @@ describe('TrajectoryTable', () => {
         }],
       }),
     )
+    /** 中文说明：测试局部值 collapsedTurns，由紧邻初始化决定。 */
     const collapsedTurns = new Set(turns.flatMap(turn =>
       turn.turn === null ? [] : [turn.turn]))
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTable
         turns={turns}
@@ -657,6 +714,7 @@ describe('TrajectoryTable', () => {
         collapsedTurns={collapsedTurns}
       />,
     )
+    /** 中文说明：测试局部值 tablePane，由紧邻初始化决定。 */
     const tablePane = screen.getByRole('table').parentElement as HTMLElement
     tablePane.scrollTop = 5_000
     fireEvent.scroll(tablePane)
@@ -667,6 +725,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('keeps running and failure semantics distinct from record roles', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<TrajectoryTable turns={TURNS} {...FOLD_PROPS} />)
     expect(view.container.querySelector('tr[data-kind="tool"][data-running="true"]')).toBeTruthy()
     expect(view.container.querySelector('tr[data-kind="tool"][data-error="true"]')).toBeTruthy()
@@ -677,11 +736,13 @@ describe('TrajectoryTable', () => {
     expect(screen.getByText('Failed')).toBeTruthy()
     expect(screen.getByText('Failed').className).toContain('error')
     fireEvent.click(screen.getByRole('tab', { name: 'Result' }))
+    /** 中文说明：测试局部值 errorResult，由紧邻初始化决定。 */
     const errorResult = screen.getByText('ToolError: non_zero_exit')
     expect(errorResult.closest('[class*="errorPayload"]')).toBeTruthy()
   })
 
   it('marks failed requests and lays coincident request markers left to right', () => {
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [
       {
         turn: 1,
@@ -726,8 +787,11 @@ describe('TrajectoryTable', () => {
     ]
     render(<TrajectoryTable turns={turns} {...FOLD_PROPS} />)
 
+    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = screen.getByRole('button', { name: 'Request #1' })
+    /** 中文说明：测试局部值 retry，由紧邻初始化决定。 */
     const retry = screen.getByRole('button', { name: 'Request #2' })
+    /** 中文说明：测试局部值 recovered，由紧邻初始化决定。 */
     const recovered = screen.getByRole('button', { name: 'Request #3' })
     expect(failed.getAttribute('data-request-status')).toBe('error')
     expect(failed.getAttribute('data-request-run-index')).toBe('0')
@@ -739,8 +803,11 @@ describe('TrajectoryTable', () => {
   })
 
   it('shows the custom role tooltip only from the responsive icon', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<TrajectoryTable turns={TURNS} {...FOLD_PROPS} />)
+    /** 中文说明：测试局部值 toolTag，由紧邻初始化决定。 */
     const toolTag = view.container.querySelector<HTMLElement>('[data-role-kind="tool"]')
+    /** 中文说明：测试局部值 toolIcon，由紧邻初始化决定。 */
     const toolIcon = toolTag?.querySelector<HTMLElement>('[data-role-icon="wrench"]')
 
     expect(toolTag).not.toBeNull()
@@ -750,6 +817,7 @@ describe('TrajectoryTable', () => {
     fireEvent.mouseEnter(toolTag as HTMLElement)
     expect(screen.queryByRole('tooltip')).toBeNull()
     fireEvent.mouseEnter(toolIcon as HTMLElement)
+    /** 中文说明：测试局部值 tooltip，由紧邻初始化决定。 */
     const tooltip = screen.getByRole('tooltip')
     expect(tooltip.textContent).toBe('TOOL')
     expect(tooltip.getAttribute('data-side')).toBe('right')
@@ -758,6 +826,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('uses information and compression glyphs for injected and compacted context', () => {
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{
@@ -768,6 +837,7 @@ describe('TrajectoryTable', () => {
         ],
       }],
     }]
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<TrajectoryTable turns={turns} {...FOLD_PROPS} />)
 
     expect(view.container.querySelector(
@@ -780,6 +850,7 @@ describe('TrajectoryTable', () => {
 
   it('keeps a compact turn label available for narrow layouts', () => {
     render(<TrajectoryTable turns={TURNS} {...FOLD_PROPS} />)
+    /** 中文说明：测试局部值 turnLabel，由紧邻初始化决定。 */
     const turnLabel = screen.getByLabelText('Turn 1')
 
     expect(turnLabel.textContent).toContain('Turn 1')
@@ -787,6 +858,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('renders a single-text JSON tool result as a JSON tree', () => {
+    /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
     const turns: readonly TrajectoryTurnModel[] = [{
       turn: 1,
       groups: [{
@@ -826,6 +898,7 @@ describe('TrajectoryTable', () => {
     expect(screen.getByRole('row', { name: /Collapsed turn summary/ })).toBeTruthy()
   })
 
+  /** 中文说明：测试局部值 CALL_TURNS，由紧邻初始化决定。 */
   const CALL_TURNS: readonly TrajectoryTurnModel[] = [{
     turn: 1,
     groups: [{
@@ -842,6 +915,7 @@ describe('TrajectoryTable', () => {
   }]
 
   it('an inspect target opens the matching record and acknowledges once', () => {
+    /** 中文说明：测试局部值 onInspectApplied，由紧邻初始化决定。 */
     const onInspectApplied = vi.fn()
     render(
       <TrajectoryTable
@@ -858,6 +932,7 @@ describe('TrajectoryTable', () => {
   })
 
   it('an unmatched inspect target stays pending without acknowledgement', () => {
+    /** 中文说明：测试局部值 onInspectApplied，由紧邻初始化决定。 */
     const onInspectApplied = vi.fn()
     render(
       <TrajectoryTable

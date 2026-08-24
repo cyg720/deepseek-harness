@@ -8,6 +8,14 @@
  * exactly one route — pick a host directory, new or existing — because the
  * occupant's own create-folder affordance already covers creating one.
  */
+/**
+ * 文件职责：实现工作区浏览的 WorkspacePicker 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
+ * 产品维度：支持用户查看或操作工作区浏览。
+ * 逻辑维度：读取状态，派生展示数据，处理操作并渲染界面。
+ * 关键边界：异步状态、空状态、虚拟滚动和可访问性必须一致。
+ * 新手阅读建议：先读 Props，再看状态选择、事件和 JSX。
+ */
 import type { ReactNode, RefObject } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import {
@@ -20,9 +28,11 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/slots.ts'
 import css from './WorkspacePicker.module.css'
 
+/** 中文说明：组件局部值 ADD_WORKSPACE，由紧邻初始化决定。 */
 const ADD_WORKSPACE = '::add-workspace'
 
 /** Core flow props: the owner supplies popover control and pick semantics. */
+/** 中文说明：类型或类 WorkspacePickFlowProps 约束模块数据或组件职责。 */
 export interface WorkspacePickFlowProps {
   /** The standard locale seat, forwarded by whichever slot entry hosts the flow. */
   t: WorkspacePickerProps['t']
@@ -55,6 +65,7 @@ export interface WorkspacePickFlowProps {
  * @param props - owner-controlled flow props.
  * @returns menu + dialog elements.
  */
+/** 中文说明：函数 WorkspacePickFlow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function WorkspacePickFlow({
   t,
   open,
@@ -69,26 +80,35 @@ export function WorkspacePickFlow({
   side = 'bottom',
   selectedId,
 }: WorkspacePickFlowProps) {
+  /** 中文说明：组件局部值 workspaceSnapshot，由紧邻初始化决定。 */
   const workspaceSnapshot = useWorkspaces(state => state)
+  /** 中文说明：组件局部值 workspaces，由紧邻初始化决定。 */
   const workspaces = workspaceSnapshot.items
+  /** 中文说明：组件局部值 getAnchorRect，由紧邻初始化决定。 */
   const getAnchorRect = useCallback(
     () => anchorRef?.current?.getBoundingClientRect() ?? null,
     [anchorRef],
   )
+  /** 中文说明：组件局部值 [errorOpen, setErrorOpen]，由紧邻初始化决定。 */
   const [errorOpen, setErrorOpen] = useState(false)
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [modalError, setModalError] = useState<string | null>(null)
+  /** 中文说明：组件局部值 [flowOpen, setFlowOpen]，由紧邻初始化决定。 */
   const [flowOpen, setFlowOpen] = useState(false)
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [pickingFolder, setPickingFolder] = useState(false)
   // One picking interaction at a time: while the flow is open (native chooser
   // pending, browse dialog up) or its pick is being adopted, every other
   // menu action stays disabled — a late outcome must not race a concurrent
   // selection or adoption.
+  /** 中文说明：组件局部值 flowBusy，由紧邻初始化决定。 */
   const flowBusy = flowOpen || pickingFolder
 
   // The occupied hole gates the picking affordance: with no composed flow the
   // entry simply is not there (the seam's documented no-flow default). The
   // framework-bound hook keeps occupancy live: flow plugins activate (and
   // HMR-reload) independently of this menu's renders.
+  /** 中文说明：组件局部值 flowAvailable，由紧邻初始化决定。 */
   const flowAvailable = useDirectoryFlow(occupied => occupied)
   // An occupant that unloads mid-interaction leaves nobody to cancel: an
   // open flow over an empty hole withdraws so the menu actions come back.
@@ -98,12 +118,15 @@ export function WorkspacePickFlow({
   useEffect(() => {
     if (flowOpen && !flowAvailable) setFlowOpen(false)
   }, [flowOpen, flowAvailable])
+  /** 中文说明：组件局部值 addEntries，由紧邻初始化决定。 */
   const addEntries: MenuEntry[] = flowAvailable
     ? [{ id: ADD_WORKSPACE, label: t('menu.addWorkspace'), icon: <IconPlusOutline16 size={16} />, disabled: flowBusy }]
     : []
   // With workspaces listed, the add action pins below the scroll region
   // (divider + always visible); otherwise it IS the menu.
+  /** 中文说明：组件局部值 pinAdd，由紧邻初始化决定。 */
   const pinAdd = !addOnly && workspaces.length > 0
+  /** 中文说明：组件局部值 items，由紧邻初始化决定。 */
   const items: MenuEntry[] = pinAdd
     ? workspaces.map(workspace => ({
       id: workspace.workspaceId,
@@ -115,14 +138,17 @@ export function WorkspacePickFlow({
   // Nothing listed and nothing to add with (a composition that mounts this
   // package without any directory-picker): an empty popover would claim a
   // choice that does not exist, so the anchor gesture shows nothing at all.
+  /** 中文说明：组件局部值 menuIsEmpty，由紧邻初始化决定。 */
   const menuIsEmpty = items.length === 0
 
+  /** 中文说明：组件局部值 closeModal，由紧邻初始化决定。 */
   const closeModal = (): void => {
     setErrorOpen(false)
     setModalError(null)
   }
 
   /** Adopt a picked directory; failures land in the folder-error dialog (Choose again reopens the flow). */
+  /** 中文说明：组件局部值 adoptDirectory，由紧邻初始化决定。 */
   const adoptDirectory = (path: string): Promise<void> =>
     createWorkspace({ path }).then((workspace) => {
       setFlowOpen(false)
@@ -133,6 +159,7 @@ export function WorkspacePickFlow({
       setErrorOpen(true)
     })
 
+  /** 中文说明：组件局部值 openDirectoryFlow，由紧邻初始化决定。 */
   const openDirectoryFlow = useCallback((): void => {
     onClose()
     setErrorOpen(false)
@@ -148,7 +175,9 @@ export function WorkspacePickFlow({
   // only final once the baseline lands — until then the menu stays up with its
   // loading status instead of jumping into a flow the arriving list would have
   // made unnecessary; the add-only surface lists nothing and never waits.
+  /** 中文说明：组件局部值 listSettled，由紧邻初始化决定。 */
   const listSettled = addOnly || workspaceSnapshot.phase === 'ready'
+  /** 中文说明：组件局部值 addIsTheOnlyEntry，由紧邻初始化决定。 */
   const addIsTheOnlyEntry = !pinAdd && listSettled && addEntries.length === 1
   // `flowBusy` gates this exactly as it disables the equivalent menu entry: a
   // pick still being adopted owns the surface until it settles.
@@ -157,6 +186,7 @@ export function WorkspacePickFlow({
   }, [open, addIsTheOnlyEntry, flowBusy, openDirectoryFlow])
 
   /** Owner side of the flow conversation: adopt keeps the flow open (busy) until the Host answers. */
+  /** 中文说明：组件局部值 flowOwner，由紧邻初始化决定。 */
   const flowOwner: DirectoryFlowOwnerProps = {
     open: flowOpen,
     busy: pickingFolder,
@@ -172,6 +202,7 @@ export function WorkspacePickFlow({
     },
   }
 
+  /** 中文说明：组件局部值 handleSelect，由紧邻初始化决定。 */
   const handleSelect = (id: string): void => {
     if (id === ADD_WORKSPACE) {
       openDirectoryFlow()
@@ -222,6 +253,7 @@ export function WorkspacePickFlow({
  * @param props - empty-state slot props (owner share + injected creation callback).
  * @returns the flow element.
  */
+/** 中文说明：函数 WorkspacePicker 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function WorkspacePicker({
   open,
   anchorRef,
