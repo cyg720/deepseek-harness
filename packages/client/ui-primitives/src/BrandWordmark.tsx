@@ -2,10 +2,19 @@
 // "deepseek-official" letterforms + HARNESS badge plate in one svg. Native 182x24.
 // Ink rides currentColor; the badge text is knocked out in the inverted
 // label color so the plate stays legible in both themes.
+/**
+ * 文件职责：实现品牌和通用界面相关的 BrandWordmark 基础组件。
+ * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
+ * 产品维度：为上层产品界面提供一致的品牌和通用界面展示。
+ * 逻辑维度：接收属性，派生展示结构并处理局部交互。
+ * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
+ * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ */
 
 import type { IconProps } from './icons/props.ts'
 
 /** Display options for the official brand wordmark. */
+/** 中文说明：类型或类 BrandWordmarkProps 约束基础组件的数据或职责。 */
 export interface BrandWordmarkProps extends IconProps {
   /** Whether to include the leading whale mark; defaults to true. */
   includeMark?: boolean | undefined
@@ -18,7 +27,9 @@ export interface BrandWordmarkProps extends IconProps {
  * @param props.includeMark - whether to include the leading whale mark.
  * @returns the wordmark svg (aria-hidden decorative brand art).
  */
+/** 中文说明：函数 BrandWordmark 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function BrandWordmark({ size = 24, className, includeMark = true }: BrandWordmarkProps) {
+  /** 中文说明：组件局部值 width，由紧邻初始化决定。 */
   const width = includeMark ? 182 : 156
   return (
     <svg

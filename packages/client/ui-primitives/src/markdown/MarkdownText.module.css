@@ -1,6 +1,14 @@
 /* Visual baseline: deepsuite `@deepseek/md` markdown.css, adapted to CSS
    Modules. Cite pills, header anchors, and thinking-small variants are
    intentionally absent (no matching DOM). Token names match that sheet. */
+/**
+ * 文件职责：定义 MarkdownText 的局部样式。
+ * 技术维度：CSS Modules、主题变量、滚动与状态选择器。
+ * 产品维度：保证Markdown 与代码内容在不同容器中清晰一致。
+ * 逻辑维度：按容器、内容、操作和状态组织规则。
+ * 关键边界：类名须与组件同步，长内容必须可滚动或换行。
+ * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+ */
 
 .markdown {
   min-width: 0;

@@ -2,6 +2,14 @@
 // the full-canvas rectangle path from the raw dump is a background plate and
 // is intentionally dropped). Native 23.16x17.04, rendered 24x18 by default;
 // hero usage scales to 34x25. Color rides currentColor (wordmark ink).
+/**
+ * 文件职责：实现品牌和通用界面相关的 FishLogo 基础组件。
+ * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
+ * 产品维度：为上层产品界面提供一致的品牌和通用界面展示。
+ * 逻辑维度：接收属性，派生展示结构并处理局部交互。
+ * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
+ * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ */
 
 import type { IconProps } from './icons/props.ts'
 
@@ -11,6 +19,7 @@ import type { IconProps } from './icons/props.ts'
  * @param props.className - extra class for layout placement.
  * @returns the logo svg (aria-hidden; pair with the wordmark for accessibility).
  */
+/** 中文说明：函数 FishLogo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function FishLogo({ size = 24, className }: IconProps) {
   return (
     <svg

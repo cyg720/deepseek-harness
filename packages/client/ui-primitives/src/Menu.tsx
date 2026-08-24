@@ -7,6 +7,14 @@
 // Entries also cover non-interactive `label` headings and `danger` rows.
 // Lists keep 12px clearance to the viewport's top/bottom edges and scroll
 // internally past that; submenu-bearing menus are exempt (see .scrollable).
+/**
+ * 文件职责：实现浮层与反馈相关的 Menu 基础组件。
+ * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
+ * 产品维度：为上层产品界面提供一致的浮层与反馈展示。
+ * 逻辑维度：接收属性，派生展示结构并处理局部交互。
+ * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
+ * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
@@ -17,6 +25,7 @@ import { usePointerGrace } from './pointer-grace.ts'
 import css from './Menu.module.css'
 
 /** Selectable row (optionally with a nested submenu). */
+/** 中文说明：类型或类 MenuItem 约束基础组件的数据或职责。 */
 export interface MenuItem {
   id: string
   label: ReactNode
@@ -30,12 +39,14 @@ export interface MenuItem {
 }
 
 /** Hairline between item groups (not selectable). */
+/** 中文说明：类型或类 MenuSeparator 约束基础组件的数据或职责。 */
 export interface MenuSeparator {
   type: 'separator'
   id: string
 }
 
 /** Non-interactive heading row above a group of items. */
+/** 中文说明：类型或类 MenuLabel 约束基础组件的数据或职责。 */
 export interface MenuLabel {
   type: 'label'
   id: string
@@ -43,17 +54,21 @@ export interface MenuLabel {
 }
 
 /** One primary-menu entry: a row, a separator, or a heading label. */
+/** 中文说明：类型或类 MenuEntry 约束基础组件的数据或职责。 */
 export type MenuEntry = MenuItem | MenuSeparator | MenuLabel
 
+/** 中文说明：函数 isSeparator 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isSeparator(entry: MenuEntry): entry is MenuSeparator {
   return 'type' in entry && entry.type === 'separator'
 }
 
+/** 中文说明：函数 isLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isLabel(entry: MenuEntry): entry is MenuLabel {
   return 'type' in entry && entry.type === 'label'
 }
 
 /** Unplaced portal list: hidden but laid out at a fixed origin so offsetWidth/offsetHeight are real. */
+/** 中文说明：组件局部值 MEASURE_STYLE，由紧邻初始化决定。 */
 const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 
 /**
@@ -87,6 +102,7 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * by a hairline; they stay visible while the items above scroll.
  * @returns anchor wrapper with the conditional list.
  */
+/** 中文说明：函数 Menu 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, getAnchorRect, footer, className }: {
   open: boolean
   anchor: ReactNode
@@ -105,10 +121,15 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
   getAnchorRect?: () => DOMRect | null
   className?: string
 }) {
+  /** 中文说明：组件局部值 rootRef，由紧邻初始化决定。 */
   const rootRef = useRef<HTMLSpanElement>(null)
+  /** 中文说明：组件局部值 listRef，由紧邻初始化决定。 */
   const listRef = useRef<HTMLDivElement>(null)
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null)
+  /** 中文说明：组件局部值 [fixedPos, setFixedPos]，由紧邻初始化决定。 */
   const [fixedPos, setFixedPos] = useState<CSSProperties | null>(null)
+  /** 中文说明：组件局部值 { arm，由紧邻初始化决定。 */
   const { arm: armClose, cancel: cancelClose } = usePointerGrace(onClose)
 
   // Portal mode: fixed-position the list from the anchor rect before paint;
@@ -118,7 +139,9 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
   // effect measures stale here — the host callback owns the truth instead.
   useLayoutEffect(() => {
     if (!open || !portal) { setFixedPos(null); return }
+    /** 中文说明：组件局部值 place，由紧邻初始化决定。 */
     const place = () => {
+      /** 中文说明：组件局部值 r: DOMRect | null，由紧邻初始化决定。 */
       let r: DOMRect | null
       if (getAnchorRect !== undefined) {
         r = getAnchorRect()
@@ -127,14 +150,22 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
         r = rootRef.current?.getBoundingClientRect() ?? null
       }
       if (r === null) return
+      /** 中文说明：组件局部值 MARGIN，由紧邻初始化决定。 */
       const MARGIN = 12
+      /** 中文说明：组件局部值 vw，由紧邻初始化决定。 */
       const vw = window.innerWidth
+      /** 中文说明：组件局部值 vh，由紧邻初始化决定。 */
       const vh = window.innerHeight
+      /** 中文说明：组件局部值 listEl，由紧邻初始化决定。 */
       const listEl = listRef.current
+      /** 中文说明：组件局部值 lw，由紧邻初始化决定。 */
       const lw = listEl?.offsetWidth ?? 0
+      /** 中文说明：组件局部值 lh，由紧邻初始化决定。 */
       const lh = listEl?.offsetHeight ?? 0
 
+      /** 中文说明：组件局部值 x: number，由紧邻初始化决定。 */
       let x: number
+      /** 中文说明：组件局部值 y: number，由紧邻初始化决定。 */
       let y: number
       if (side === 'right') {
         x = r.right + 4
@@ -169,6 +200,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
       setOpenSubmenuId(null)
       return
     }
+    /** 中文说明：组件局部值 onPointerDown，由紧邻初始化决定。 */
     const onPointerDown = (e: PointerEvent) => {
       if (!(e.target instanceof Node)) return
       // The portaled list is outside the anchor subtree; check both.
@@ -176,6 +208,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
       if (listRef.current?.contains(e.target) === true) return
       onClose()
     }
+    /** 中文说明：组件局部值 onKeyDown，由紧邻初始化决定。 */
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -197,8 +230,10 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
 
   // The submenu card is absolutely positioned outside the list box; the
   // scroll clip would crop it, so only submenu-free menus get the height cap.
+  /** 中文说明：组件局部值 scrollable，由紧邻初始化决定。 */
   const scrollable = !items.some(entry => !isSeparator(entry) && !isLabel(entry) && entry.submenu !== undefined && entry.submenu.length > 0)
 
+  /** 中文说明：组件局部值 renderEntry，由紧邻初始化决定。 */
   const renderEntry = (entry: MenuEntry) => {
     if (isSeparator(entry)) {
       return <div key={entry.id} className={css.separator} role="separator" />
@@ -206,8 +241,11 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
     if (isLabel(entry)) {
       return <div key={entry.id} className={css.label} role="presentation">{entry.text}</div>
     }
+    /** 中文说明：组件局部值 hasSub，由紧邻初始化决定。 */
     const hasSub = entry.submenu !== undefined && entry.submenu.length > 0
+    /** 中文说明：组件局部值 subOpen，由紧邻初始化决定。 */
     const subOpen = hasSub && openSubmenuId === entry.id
+    /** 中文说明：组件局部值 selected，由紧邻初始化决定。 */
     const selected = entry.id === selectedId || selectedIds?.includes(entry.id) === true
     return (
       <div
@@ -262,6 +300,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
   // this pre-render in the same commit, so the first painted frame is
   // already at the final position (with getAnchorRect returning null the
   // list simply stays hidden).
+  /** 中文说明：组件局部值 list，由紧邻初始化决定。 */
   const list = open && (
     <div
       ref={listRef}

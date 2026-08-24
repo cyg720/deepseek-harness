@@ -1,10 +1,25 @@
+/**
+ * 文件职责：定义 JsonTree 的局部样式。
+ * 技术维度：CSS Modules、主题变量、滚动与状态选择器。
+ * 产品维度：保证JSON 数据在不同容器中清晰一致。
+ * 逻辑维度：按容器、内容、操作和状态组织规则。
+ * 关键边界：类名须与组件同步，长内容必须可滚动或换行。
+ * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+ */
 .root {
+  /* 中文说明：自定义属性 --json-tree-property 保存组件复用的样式值。 */
   --json-tree-property: #881391;
+  /* 中文说明：自定义属性 --json-tree-string 保存组件复用的样式值。 */
   --json-tree-string: #c41a16;
+  /* 中文说明：自定义属性 --json-tree-number 保存组件复用的样式值。 */
   --json-tree-number: #1c00cf;
+  /* 中文说明：自定义属性 --json-tree-keyword 保存组件复用的样式值。 */
   --json-tree-keyword: #1c00cf;
+  /* 中文说明：自定义属性 --json-tree-punctuation 保存组件复用的样式值。 */
   --json-tree-punctuation: #202124;
+  /* 中文说明：自定义属性 --json-tree-icon 保存组件复用的样式值。 */
   --json-tree-icon: #5f6368;
+  /* 中文说明：自定义属性 --json-tree-hover 保存组件复用的样式值。 */
   --json-tree-hover: rgb(60 64 67 / 4%);
 
   min-width: 0;
@@ -18,12 +33,19 @@
 }
 
 :global(body[data-ds-dark-theme]) .root {
+  /* 中文说明：自定义属性 --json-tree-property 保存组件复用的样式值。 */
   --json-tree-property: #5db0d7;
+  /* 中文说明：自定义属性 --json-tree-string 保存组件复用的样式值。 */
   --json-tree-string: #f28b82;
+  /* 中文说明：自定义属性 --json-tree-number 保存组件复用的样式值。 */
   --json-tree-number: #99c8ff;
+  /* 中文说明：自定义属性 --json-tree-keyword 保存组件复用的样式值。 */
   --json-tree-keyword: #99c8ff;
+  /* 中文说明：自定义属性 --json-tree-punctuation 保存组件复用的样式值。 */
   --json-tree-punctuation: #e8eaed;
+  /* 中文说明：自定义属性 --json-tree-icon 保存组件复用的样式值。 */
   --json-tree-icon: #9aa0a6;
+  /* 中文说明：自定义属性 --json-tree-hover 保存组件复用的样式值。 */
   --json-tree-hover: rgb(232 234 237 / 5%);
 }
 

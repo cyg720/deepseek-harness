@@ -1,3 +1,11 @@
+/**
+ * 文件职责：实现JSON 数据相关的 JsonTree 基础组件。
+ * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
+ * 产品维度：为上层产品界面提供一致的JSON 数据展示。
+ * 逻辑维度：接收属性，派生展示结构并处理局部交互。
+ * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
+ * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ */
 import clsx from 'clsx'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type {
@@ -11,8 +19,11 @@ import { Menu } from './Menu.tsx'
 import type { MenuEntry } from './Menu.tsx'
 import css from './JsonTree.module.css'
 
+/** 中文说明：组件局部值 OBJECT_PREVIEW_LIMIT，由紧邻初始化决定。 */
 const OBJECT_PREVIEW_LIMIT = 4
+/** 中文说明：组件局部值 ARRAY_PREVIEW_LIMIT，由紧邻初始化决定。 */
 const ARRAY_PREVIEW_LIMIT = 5
+/** 中文说明：组件局部值 PREVIEW_DEPTH_LIMIT，由紧邻初始化决定。 */
 const PREVIEW_DEPTH_LIMIT = 2
 
 /**
@@ -21,6 +32,7 @@ const PREVIEW_DEPTH_LIMIT = 2
  * field defaults to the current built-in value, so existing consumers render
  * unchanged.
  */
+/** 中文说明：类型或类 JsonTreeLabels 约束基础组件的数据或职责。 */
 export interface JsonTreeLabels {
   /** Menu item: copy the raw primitive value. */
   copyValue: string
@@ -44,6 +56,7 @@ export interface JsonTreeLabels {
   copyButtonTitle: (action: string) => string
 }
 
+/** 中文说明：组件局部值 DEFAULT_LABELS，由紧邻初始化决定。 */
 const DEFAULT_LABELS: JsonTreeLabels = {
   copyValue: 'Copy value',
   copyJson: 'Copy JSON',
@@ -57,6 +70,7 @@ const DEFAULT_LABELS: JsonTreeLabels = {
   copyButtonTitle: action => `${action}; right-click for copy options`,
 }
 
+/** 中文说明：函数 valueCopyMenuItems 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function valueCopyMenuItems(labels: JsonTreeLabels): readonly MenuEntry[] {
   return [
     { id: 'value', label: labels.copyValue },
@@ -65,6 +79,7 @@ function valueCopyMenuItems(labels: JsonTreeLabels): readonly MenuEntry[] {
   ]
 }
 
+/** 中文说明：函数 objectCopyMenuItems 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function objectCopyMenuItems(labels: JsonTreeLabels): readonly MenuEntry[] {
   return [
     { id: 'prettyJson', label: labels.copyPrettyJson },
@@ -73,23 +88,28 @@ function objectCopyMenuItems(labels: JsonTreeLabels): readonly MenuEntry[] {
   ]
 }
 
+/** 中文说明：类型或类 JsonPath 约束基础组件的数据或职责。 */
 type JsonPath = readonly (number | string)[]
 
+/** 中文说明：类型或类 RowTarget 约束基础组件的数据或职责。 */
 interface RowTarget {
   path: JsonPath
   value: unknown
 }
 
+/** 中文说明：类型或类 CopyTarget 约束基础组件的数据或职责。 */
 interface CopyTarget extends RowTarget {
   left: number
   side: 'bottom' | 'top'
   top: number
 }
 
+/** 中文说明：函数 isExpandableValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isExpandableValue(value: unknown): value is object | unknown[] {
   return typeof value === 'object' && value !== null && !(value instanceof Date)
 }
 
+/** 中文说明：函数 entriesOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function entriesOf(value: object | unknown[]): readonly (readonly [string, unknown])[] {
   if (Array.isArray(value)) {
     return value.map((item, index) => [String(index), item] as const)
@@ -100,10 +120,12 @@ function entriesOf(value: object | unknown[]): readonly (readonly [string, unkno
   ] as const)
 }
 
+/** 中文说明：函数 bracketOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bracketOf(value: object | unknown[]): readonly [string, string] {
   return Array.isArray(value) ? ['[', ']'] : ['{', '}']
 }
 
+/** 中文说明：函数 previewPrimitive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function previewPrimitive(value: unknown): ReactNode {
   if (value === null) return <span className={css.keywordValue}>null</span>
   if (typeof value === 'string') {
@@ -130,13 +152,19 @@ function previewPrimitive(value: unknown): ReactNode {
   return null
 }
 
+/** 中文说明：函数 previewValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function previewValue(value: unknown, depth: number): ReactNode {
   if (!isExpandableValue(value)) return previewPrimitive(value)
 
+  /** 中文说明：组件局部值 array，由紧邻初始化决定。 */
   const array = Array.isArray(value)
+  /** 中文说明：组件局部值 entries，由紧邻初始化决定。 */
   const entries = entriesOf(value)
+  /** 中文说明：组件局部值 limit，由紧邻初始化决定。 */
   const limit = array ? ARRAY_PREVIEW_LIMIT : OBJECT_PREVIEW_LIMIT
+  /** 中文说明：组件局部值 visible，由紧邻初始化决定。 */
   const visible = entries.slice(0, limit)
+  /** 中文说明：组件局部值 [open, close]，由紧邻初始化决定。 */
   const [open, close] = bracketOf(value)
 
   return (
@@ -164,6 +192,7 @@ function previewValue(value: unknown, depth: number): ReactNode {
   )
 }
 
+/** 中文说明：函数 primitiveValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function primitiveValue(value: unknown): ReactNode {
   if (value === null) return <span className={css.keywordValue}>null</span>
   if (typeof value === 'string') {
@@ -190,34 +219,44 @@ function primitiveValue(value: unknown): ReactNode {
   return <span className={css.otherValue}>{(value as symbol).toString()}</span>
 }
 
+/** 中文说明：函数 fieldText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fieldText(field: string): string {
   return field === '' ? '""' : field
 }
 
+/** 中文说明：函数 pathId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function pathId(path: JsonPath): string {
   return path.map(part => (
     typeof part === 'number' ? `n${String(part)}` : `s${String(part.length)}:${part}`
   )).join('/')
 }
 
+/** 中文说明：函数 claimFocus 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function claimFocus(button: HTMLElement): void {
   button.focus()
 }
 
+/** 中文说明：函数 moveFocus 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function moveFocus(button: HTMLElement, direction: -1 | 1): void {
+  /** 中文说明：组件局部值 tree，由紧邻初始化决定。 */
   const tree = button.closest<HTMLElement>('[role="tree"]')
   /* v8 ignore next -- JsonTree attaches expander handlers only beneath its owning role=tree. */
   if (tree === null) return
+  /** 中文说明：组件局部值 expanders，由紧邻初始化决定。 */
   const expanders = Array.from(tree.querySelectorAll<HTMLElement>('[data-json-expander]'))
+  /** 中文说明：组件局部值 current，由紧邻初始化决定。 */
   const current = expanders.indexOf(button)
   /* v8 ignore next -- the current expander is a member of the queried non-empty set. */
   if (current < 0 || expanders.length === 0) return
+  /** 中文说明：组件局部值 next，由紧邻初始化决定。 */
   const next = (current + direction + expanders.length) % expanders.length
+  /** 中文说明：组件局部值 nextExpander，由紧邻初始化决定。 */
   const nextExpander = expanders[next]
   /* v8 ignore next -- modulo over the non-empty expander set always resolves a member. */
   if (nextExpander !== undefined) claimFocus(nextExpander)
 }
 
+/** 中文说明：函数 NodeField 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function NodeField({
   field,
   expandable,
@@ -238,6 +277,7 @@ function NodeField({
   )
 }
 
+/** 中文说明：类型或类 JsonTreeNodeProps 约束基础组件的数据或职责。 */
 interface JsonTreeNodeProps {
   field?: string
   initialExpanded: boolean
@@ -250,6 +290,7 @@ interface JsonTreeNodeProps {
   value: unknown
 }
 
+/** 中文说明：函数 JsonTreeNode 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function JsonTreeNode({
   field,
   initialExpanded,
@@ -261,19 +302,28 @@ function JsonTreeNode({
   tabStopId,
   value,
 }: JsonTreeNodeProps) {
+  /** 中文说明：组件局部值 contentsId，由紧邻初始化决定。 */
   const contentsId = useId()
+  /** 中文说明：组件局部值 expanderRef，由紧邻初始化决定。 */
   const expanderRef = useRef<HTMLSpanElement>(null)
+  /** 中文说明：组件局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(initialExpanded)
+  /** 中文说明：组件局部值 nodeId，由紧邻初始化决定。 */
   const nodeId = pathId(path)
+  /** 中文说明：组件局部值 container，由紧邻初始化决定。 */
   const container = isExpandableValue(value)
+  /** 中文说明：组件局部值 entries，由紧邻初始化决定。 */
   const entries = container ? entriesOf(value) : []
+  /** 中文说明：组件局部值 expandable，由紧邻初始化决定。 */
   const expandable = entries.length > 0
 
+  /** 中文说明：组件局部值 toggle，由紧邻初始化决定。 */
   const toggle = () => {
     setExpanded(current => !current)
     claimFocus(expanderRef.current as HTMLSpanElement)
   }
 
+  /** 中文说明：组件局部值 onExpanderKeyDown，由紧邻初始化决定。 */
   const onExpanderKeyDown = (event: ReactKeyboardEvent<HTMLSpanElement>) => {
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
       event.preventDefault()
@@ -286,6 +336,7 @@ function JsonTreeNode({
     }
   }
 
+  /** 中文说明：组件局部值 row，由紧邻初始化决定。 */
   const row = (children: ReactNode, ariaExpanded?: boolean) => (
     <div
       className={css.row}
@@ -310,6 +361,7 @@ function JsonTreeNode({
     ))
   }
 
+  /** 中文说明：组件局部值 [open, close]，由紧邻初始化决定。 */
   const [open, close] = bracketOf(value)
   if (!expandable) {
     return row((
@@ -362,6 +414,7 @@ function JsonTreeNode({
   ), expanded)
 }
 
+/** 中文说明：函数 formattedPath 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function formattedPath(path: JsonPath): string {
   return path.reduce<string>((result, part) => {
     if (typeof part === 'number') return `${result}[${String(part)}]`
@@ -371,6 +424,7 @@ function formattedPath(path: JsonPath): string {
   }, '$')
 }
 
+/** 中文说明：函数 copyText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function copyText(target: CopyTarget, mode: 'json' | 'path' | 'prettyJson' | 'value'): string {
   if (mode === 'path') return formattedPath(target.path)
   if (mode === 'prettyJson') return JSON.stringify(target.value, null, 2)
@@ -384,6 +438,7 @@ function copyText(target: CopyTarget, mode: 'json' | 'path' | 'prettyJson' | 'va
 }
 
 /** Props for the read-only, token-themed JSON tree. */
+/** 中文说明：类型或类 JsonTreeProps 约束基础组件的数据或职责。 */
 export interface JsonTreeProps {
   /** Parsed JSON object or array. */
   data: object | unknown[]
@@ -404,6 +459,7 @@ export interface JsonTreeProps {
  * @param props - Parsed data, accessible label, and display options.
  * @returns A read-only JSON tree with an optionally fixed-open top level.
  */
+/** 中文说明：函数 JsonTree 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function JsonTree({
   data,
   label = 'JSON',
@@ -412,36 +468,52 @@ export function JsonTree({
   expandTopLevel = true,
   labels,
 }: JsonTreeProps) {
+  /** 中文说明：组件局部值 copyLabels，由紧邻初始化决定。 */
   const copyLabels = useMemo<JsonTreeLabels>(
     () => (labels === undefined ? DEFAULT_LABELS : { ...DEFAULT_LABELS, ...labels }),
     [labels],
   )
+  /** 中文说明：组件局部值 rootEntries，由紧邻初始化决定。 */
   const rootEntries = entriesOf(data)
+  /** 中文说明：组件局部值 firstExpandableIndex，由紧邻初始化决定。 */
   const firstExpandableIndex = rootEntries.findIndex(([, value]) => (
     isExpandableValue(value) && entriesOf(value).length > 0
   ))
+  /** 中文说明：组件局部值 firstExpandableEntry，由紧邻初始化决定。 */
   const firstExpandableEntry = rootEntries[firstExpandableIndex]
+  /** 中文说明：组件局部值 initialTabStopId，由紧邻初始化决定。 */
   const initialTabStopId = expandTopLevel
     ? firstExpandableEntry === undefined
       ? null
       : pathId([Array.isArray(data) ? firstExpandableIndex : firstExpandableEntry[0]])
     : isExpandableValue(data) && rootEntries.length > 0 ? pathId([]) : null
+  /** 中文说明：组件局部值 rootRef，由紧邻初始化决定。 */
   const rootRef = useRef<HTMLDivElement>(null)
+  /** 中文说明：组件局部值 activeRowRef，由紧邻初始化决定。 */
   const activeRowRef = useRef<HTMLElement>()
+  /** 中文说明：组件局部值 copyButtonRef，由紧邻初始化决定。 */
   const copyButtonRef = useRef<HTMLButtonElement>(null)
+  /** 中文说明：组件局部值 copyMenuOpenRef，由紧邻初始化决定。 */
   const copyMenuOpenRef = useRef(false)
+  /** 中文说明：组件局部值 resetTimer，由紧邻初始化决定。 */
   const resetTimer = useRef<ReturnType<typeof setTimeout>>()
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [copyTarget, setCopyTarget] = useState<CopyTarget>()
+  /** 中文说明：组件局部值 [copyState, setCopyState]，由紧邻初始化决定。 */
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [copyMenuOpen, setCopyMenuOpen] = useState(false)
+  /** 中文说明：组件局部值 [tabStopId, setTabStopId]，由紧邻初始化决定。 */
   const [tabStopId, setTabStopId] = useState<string | null>(initialTabStopId)
 
+  /** 中文说明：组件局部值 setActiveRow，由紧邻初始化决定。 */
   const setActiveRow = (row: HTMLElement | undefined) => {
     activeRowRef.current?.removeAttribute('data-json-copy-active')
     activeRowRef.current = row
     row?.setAttribute('data-json-copy-active', '')
   }
 
+  /** 中文说明：组件局部值 clearCopyTarget，由紧邻初始化决定。 */
   const clearCopyTarget = () => {
     setActiveRow(undefined)
     setCopyTarget(undefined)
@@ -450,11 +522,15 @@ export function JsonTree({
     setCopyMenuOpen(false)
   }
 
+  /** 中文说明：组件局部值 copyPosition，由紧邻初始化决定。 */
   const copyPosition = (row: HTMLElement): Pick<CopyTarget, 'left' | 'side' | 'top'> => {
+    /** 中文说明：组件局部值 root，由紧邻初始化决定。 */
     const root = rootRef.current
     /* v8 ignore next -- row events and viewport listeners run only after the root ref mounts. */
     if (root === null) throw new Error('JsonTree root is not mounted')
+    /** 中文说明：组件局部值 rootRect，由紧邻初始化决定。 */
     const rootRect = root.getBoundingClientRect()
+    /** 中文说明：组件局部值 rowRect，由紧邻初始化决定。 */
     const rowRect = row.getBoundingClientRect()
     return {
       left: rootRect.left + root.clientWidth - 26,
@@ -463,12 +539,16 @@ export function JsonTree({
     }
   }
 
+  /** 中文说明：组件局部值 positionCopyButton，由紧邻初始化决定。 */
   const positionCopyButton = (row: HTMLElement, target: RowTarget) => {
+    /** 中文说明：组件局部值 position，由紧邻初始化决定。 */
     const position = copyPosition(row)
     setCopyTarget({ ...target, ...position })
   }
 
+  /** 中文说明：组件局部值 repositionCopyButton，由紧邻初始化决定。 */
   const repositionCopyButton = (row: HTMLElement) => {
+    /** 中文说明：组件局部值 position，由紧邻初始化决定。 */
     const position = copyPosition(row)
     setCopyTarget((current) => {
       /* v8 ignore next -- an active row and its copy target are installed together. */
@@ -493,7 +573,9 @@ export function JsonTree({
   }, [data, expandTopLevel, initialTabStopId])
 
   useEffect(() => {
+    /** 中文说明：组件局部值 reposition，由紧邻初始化决定。 */
     const reposition = () => {
+      /** 中文说明：组件局部值 row，由紧邻初始化决定。 */
       const row = activeRowRef.current
       if (row !== undefined) repositionCopyButton(row)
     }
@@ -505,6 +587,7 @@ export function JsonTree({
     }
   }, [])
 
+  /** 中文说明：组件局部值 handleRowHover，由紧邻初始化决定。 */
   const handleRowHover = (row: HTMLElement, target: RowTarget) => {
     if (!copyable || copyMenuOpenRef.current) return
     if (activeRowRef.current === row) return
@@ -515,6 +598,7 @@ export function JsonTree({
     positionCopyButton(row, target)
   }
 
+  /** 中文说明：组件局部值 handleRootMouseOver，由紧邻初始化决定。 */
   const handleRootMouseOver = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (!copyable || copyMenuOpenRef.current) return
     /* v8 ignore next -- browser mouse events delivered through React target an Element. */
@@ -522,11 +606,14 @@ export function JsonTree({
     if (event.target.closest('[data-json-copy-button]') === null) clearCopyTarget()
   }
 
+  /** 中文说明：组件局部值 handleScroll，由紧邻初始化决定。 */
   const handleScroll = (_event: ReactUIEvent<HTMLDivElement>) => {
+    /** 中文说明：组件局部值 row，由紧邻初始化决定。 */
     const row = activeRowRef.current
     if (row !== undefined) repositionCopyButton(row)
   }
 
+  /** 中文说明：组件局部值 copy，由紧邻初始化决定。 */
   const copy = async (mode: 'json' | 'path' | 'prettyJson' | 'value') => {
     /* v8 ignore next -- copy controls only render while their target exists. */
     if (copyTarget === undefined) return
@@ -540,9 +627,13 @@ export function JsonTree({
     resetTimer.current = setTimeout(() => { setCopyState('idle') }, 1_500)
   }
 
+  /** 中文说明：组件局部值 [rootOpen, rootClose]，由紧邻初始化决定。 */
   const [rootOpen, rootClose] = bracketOf(data)
+  /** 中文说明：组件局部值 copyTargetIsObject，由紧邻初始化决定。 */
   const copyTargetIsObject = typeof copyTarget?.value === 'object' && copyTarget.value !== null
+  /** 中文说明：组件局部值 defaultCopyMode，由紧邻初始化决定。 */
   const defaultCopyMode = copyTargetIsObject ? 'prettyJson' : 'value'
+  /** 中文说明：组件局部值 copyTitle，由紧邻初始化决定。 */
   const copyTitle = copyState === 'copied'
     ? copyLabels.copied
     : copyState === 'failed'

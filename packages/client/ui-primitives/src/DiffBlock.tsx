@@ -7,6 +7,14 @@
 // Output never soft-wraps — an aligned source line keeps its indentation and
 // scrolls horizontally instead of folding. Colors resolve through --dsw-*
 // tokens; geometry mirrors CodeBlock.
+/**
+ * 文件职责：实现工具结果相关的 DiffBlock 基础组件。
+ * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
+ * 产品维度：为上层产品界面提供一致的工具结果展示。
+ * 逻辑维度：接收属性，派生展示结构并处理局部交互。
+ * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
+ * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ */
 
 import { useCallback, useMemo, useState } from 'react'
 import clsx from 'clsx'
@@ -18,6 +26,7 @@ import css from './DiffBlock.module.css'
  * {@link DEFAULT_TERMINAL_MAX_LINES} so a diff card and a terminal card cut a
  * long body at the same place.
  */
+/** 中文说明：组件局部值 DEFAULT_DIFF_MAX_LINES，由紧邻初始化决定。 */
 export const DEFAULT_DIFF_MAX_LINES = 16
 
 /**
@@ -25,6 +34,7 @@ export const DEFAULT_DIFF_MAX_LINES = 16
  * render-intent contract's `FileDiff`, redeclared here so this primitive stays
  * free of the tool contract (the terminal card's decoupling, applied to diffs).
  */
+/** 中文说明：类型或类 DiffHunk 约束基础组件的数据或职责。 */
 export interface DiffHunk {
   /** The changed file's path, drawn verbatim as the hunk's header (the tool's model-facing path). */
   path: string
@@ -34,6 +44,7 @@ export interface DiffHunk {
   newText: string
 }
 
+/** 中文说明：类型或类 DiffBlockProps 约束基础组件的数据或职责。 */
 export interface DiffBlockProps {
   /** One entry per applied hunk, in file order; empty renders nothing. */
   diffs: DiffHunk[]
@@ -44,18 +55,21 @@ export interface DiffBlockProps {
 }
 
 /** A single rendered body line and its role, so the height cap slices a flat list. */
+/** 中文说明：类型或类 DiffRow 约束基础组件的数据或职责。 */
 interface DiffRow {
   kind: 'path' | 'del' | 'add' | 'gap'
   text: string
 }
 
 /** Local exhaustiveness helper — this package does not depend on `dsh-llm`. */
+/** 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 /* v8 ignore next 3 -- closed-union backstop; only reached if a row kind is forged */
 function assertNever(value: never): never {
   throw new Error(`unreachable diff row kind: ${String(value)}`)
 }
 
 /** The dim class per row kind (path/gap chrome vs the diff's own +/- colors). */
+/** 中文说明：组件局部值 ROW_CLASS，由紧邻初始化决定。 */
 const ROW_CLASS: Record<DiffRow['kind'], string | undefined> = {
   path: css.path,
   del: css.del,
@@ -73,23 +87,32 @@ const ROW_CLASS: Record<DiffRow['kind'], string | undefined> = {
  * @param diffs - the hunks to render.
  * @returns the body rows, the +/- totals, and the distinct-file count.
  */
+/** 中文说明：函数 buildRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function buildRows(diffs: DiffHunk[]): { rows: DiffRow[]; added: number; removed: number; files: number } {
+  /** 中文说明：组件局部值 rows，由紧邻初始化决定。 */
   const rows: DiffRow[] = []
+  /** 中文说明：组件局部值 paths，由紧邻初始化决定。 */
   const paths = new Set<string>()
+  /** 中文说明：组件局部值 added，由紧邻初始化决定。 */
   let added = 0
+  /** 中文说明：组件局部值 removed，由紧邻初始化决定。 */
   let removed = 0
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   let prevPath: string | undefined
+  /** 中文说明：组件局部值 diff，由紧邻初始化决定。 */
   for (const diff of diffs) {
     paths.add(diff.path)
     if (diff.path !== prevPath) rows.push({ kind: 'path', text: diff.path })
     else rows.push({ kind: 'gap', text: '⋯' })
     prevPath = diff.path
     if (diff.oldText !== null) {
+      /** 中文说明：组件局部值 line，由紧邻初始化决定。 */
       for (const line of contentLines(diff.oldText)) {
         rows.push({ kind: 'del', text: line })
         removed++
       }
     }
+    /** 中文说明：组件局部值 line，由紧邻初始化决定。 */
     for (const line of contentLines(diff.newText)) {
       rows.push({ kind: 'add', text: line })
       added++
@@ -107,8 +130,10 @@ function buildRows(diffs: DiffHunk[]): { rows: DiffRow[]; added: number; removed
  * @param text - the removed or added side's text.
  * @returns the content lines, without the terminating newline.
  */
+/** 中文说明：函数 contentLines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function contentLines(text: string): string[] {
   if (text === '') return []
+  /** 中文说明：组件局部值 body，由紧邻初始化决定。 */
   const body = text.endsWith('\n') ? text.slice(0, -1) : text
   return body.split('\n')
 }
@@ -120,6 +145,7 @@ function contentLines(text: string): string[] {
  * @param rows - the flattened body rows.
  * @returns the diff as plain text.
  */
+/** 中文说明：函数 copyText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function copyText(rows: DiffRow[]): string {
   return rows.map((row) => {
     switch (row.kind) {
@@ -138,11 +164,16 @@ function copyText(rows: DiffRow[]): string {
  * @param props - see {@link DiffBlockProps}.
  * @returns the diff block element.
  */
+/** 中文说明：函数 DiffBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className }: DiffBlockProps) {
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const { rows, added, removed, files } = useMemo(() => buildRows(diffs), [diffs])
+  /** 中文说明：组件局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(false)
+  /** 中文说明：组件局部值 [copied, setCopied]，由紧邻初始化决定。 */
   const [copied, setCopied] = useState(false)
 
+  /** 中文说明：组件局部值 onCopy，由紧邻初始化决定。 */
   const onCopy = useCallback(() => {
     if (copied) return
     void writeClipboard(copyText(rows)).then((ok) => {
@@ -152,17 +183,24 @@ export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className 
     })
   }, [copied, rows])
 
+  /** 中文说明：组件局部值 onToggle，由紧邻初始化决定。 */
   const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
 
   if (rows.length === 0) return null
 
+  /** 中文说明：组件局部值 hidden，由紧邻初始化决定。 */
   const hidden = rows.length - maxLines
+  /** 中文说明：组件局部值 capped，由紧邻初始化决定。 */
   const capped = hidden > 0 && !expanded
   // Same split arithmetic as TerminalBlock and the TUI transcript's collapsed
   // card, so a body's head and tail slices agree across the front ends.
+  /** 中文说明：组件局部值 headLines，由紧邻初始化决定。 */
   const headLines = Math.ceil(maxLines / 2)
+  /** 中文说明：组件局部值 tailLines，由紧邻初始化决定。 */
   const tailLines = maxLines - headLines
+  /** 中文说明：组件局部值 head，由紧邻初始化决定。 */
   const head = capped ? rows.slice(0, headLines) : rows
+  /** 中文说明：组件局部值 tail，由紧邻初始化决定。 */
   const tail = capped ? rows.slice(rows.length - tailLines) : []
 
   return (

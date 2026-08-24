@@ -2,6 +2,14 @@
 // The overlay portals to this document's body so ancestor stacking contexts
 // cannot leave sticky page controls above the mask. This is still an in-page
 // WebUI dialog; it never creates or targets another browser/native window.
+/**
+ * 文件职责：实现浮层与反馈相关的 Modal 基础组件。
+ * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
+ * 产品维度：为上层产品界面提供一致的浮层与反馈展示。
+ * 逻辑维度：接收属性，派生展示结构并处理局部交互。
+ * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
+ * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ */
 
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
@@ -27,6 +35,7 @@ import css from './Modal.module.css'
  * localized copy (this package is cordis-free, so copy arrives via props).
  * @returns null when closed; otherwise the overlay tree.
  */
+/** 中文说明：函数 Modal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function Modal({
   open, onClose, title, closeLabel = 'Close', description, children, footer, className, contentClassName, headless = false,
 }: {
@@ -43,6 +52,7 @@ export function Modal({
 }) {
   useEffect(() => {
     if (!open) return
+    /** 中文说明：组件局部值 onKeyDown，由紧邻初始化决定。 */
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }

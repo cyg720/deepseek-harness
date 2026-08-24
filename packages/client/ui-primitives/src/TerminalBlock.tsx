@@ -4,6 +4,14 @@
 // column-aligned output (ls, tables, box drawing) keeps its alignment and
 // scrolls horizontally instead of folding. Colors resolve through --dsw-*
 // tokens; ANSI parsing lives in ansi.ts.
+/**
+ * 文件职责：实现工具结果相关的 TerminalBlock 基础组件。
+ * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
+ * 产品维度：为上层产品界面提供一致的工具结果展示。
+ * 逻辑维度：接收属性，派生展示结构并处理局部交互。
+ * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
+ * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ */
 
 import { useCallback, useMemo, useState } from 'react'
 import clsx from 'clsx'
@@ -19,6 +27,7 @@ import css from './TerminalBlock.module.css'
  * TUI transcript's default tool-output budget so both front ends cut a long
  * command's output at the same place.
  */
+/** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
 export const DEFAULT_TERMINAL_MAX_LINES = 16
 
 /**
@@ -27,6 +36,7 @@ export const DEFAULT_TERMINAL_MAX_LINES = 16
  * defaults to the current built-in value, so existing consumers render
  * unchanged.
  */
+/** 中文说明：类型或类 TerminalBlockLabels 约束基础组件的数据或职责。 */
 export interface TerminalBlockLabels {
   /** Status pill text for a signal-terminated command. */
   signal: (signal: string) => string
@@ -54,6 +64,7 @@ export interface TerminalBlockLabels {
   expand: (hidden: number) => string
 }
 
+/** 中文说明：组件局部值 DEFAULT_LABELS，由紧邻初始化决定。 */
 const DEFAULT_LABELS: TerminalBlockLabels = {
   signal: signal => `信号 ${signal}`,
   exitCode: exitCode => `退出码 ${exitCode}`,
@@ -69,6 +80,7 @@ const DEFAULT_LABELS: TerminalBlockLabels = {
   expand: hidden => `… 其余 ${hidden} 行`,
 }
 
+/** 中文说明：类型或类 TerminalBlockProps 约束基础组件的数据或职责。 */
 export interface TerminalBlockProps {
   /** The command line, rendered verbatim after the prompt label. */
   command: string
@@ -101,9 +113,12 @@ export interface TerminalBlockProps {
  * @param home - absolute home directory, when the caller knows it.
  * @returns the prompt label.
  */
+/** 中文说明：函数 promptLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function promptLabel(cwd: string, home: string | undefined): string {
+  /** 中文说明：组件局部值 trimmed，由紧邻初始化决定。 */
   const trimmed = cwd.replace(/[/\\]+$/, '')
   if (home !== undefined && trimmed === home.replace(/[/\\]+$/, '')) return '~'
+  /** 中文说明：组件局部值 segment，由紧邻初始化决定。 */
   const segment = trimmed.split(/[/\\]/).pop()
   return segment === undefined || segment === '' ? cwd : segment
 }
@@ -117,6 +132,7 @@ function promptLabel(cwd: string, home: string | undefined): string {
  * @param labels - display copy for the pill text.
  * @returns the pill text, or undefined for a clean exit.
  */
+/** 中文说明：函数 statusText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function statusText(
   exitCode: number | undefined,
   signal: string | undefined,
@@ -143,6 +159,7 @@ function statusText(
  * @param labels - display copy for the text label.
  * @returns the dot's state and its text label, since the dot is aria-hidden.
  */
+/** 中文说明：函数 runState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function runState(
   running: boolean,
   exitCode: number | undefined,
@@ -160,6 +177,7 @@ function runState(
  * @param line - the line's styled runs.
  * @returns the line's children.
  */
+/** 中文说明：函数 renderLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderLine(line: AnsiLine) {
   return line.map((span, index) => span.style === undefined
     ? span.text
@@ -171,6 +189,7 @@ function renderLine(line: AnsiLine) {
  * @param props - see {@link TerminalBlockProps}.
  * @returns the terminal block element.
  */
+/** 中文说明：函数 TerminalBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function TerminalBlock({
   command,
   cwd,
@@ -183,10 +202,12 @@ export function TerminalBlock({
   className,
   labels,
 }: TerminalBlockProps) {
+  /** 中文说明：组件局部值 copy，由紧邻初始化决定。 */
   const copy = useMemo<TerminalBlockLabels>(
     () => (labels === undefined ? DEFAULT_LABELS : { ...DEFAULT_LABELS, ...labels }),
     [labels],
   )
+  /** 中文说明：组件局部值 text，由紧邻初始化决定。 */
   const text = output ?? ''
   // A command's output ends with a newline; that terminator is not an extra
   // blank line to draw or to count against the height cap. The check runs on the
@@ -195,26 +216,37 @@ export function TerminalBlock({
   // producing a last line with nothing visible in it. A genuinely blank final
   // line — the double newline — survives, since it has a real empty line before
   // the terminator. The copy control still copies `text` untouched.
+  /** 中文说明：组件局部值 lines，由紧邻初始化决定。 */
   const lines = useMemo(() => {
+    /** 中文说明：组件局部值 parsed，由紧邻初始化决定。 */
     const parsed = parseAnsiLines(text)
+    /** 中文说明：组件局部值 last，由紧邻初始化决定。 */
     const last = parsed[parsed.length - 1]
+    /** 中文说明：组件局部值 terminated，由紧邻初始化决定。 */
     const terminated = parsed.length > 1 && last !== undefined
       && last.every(span => span.text === '')
     return terminated ? parsed.slice(0, -1) : parsed
   }, [text])
+  /** 中文说明：组件局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(false)
   // The raw output, never the rendered tree: the prompt line and the status pill
   // are chrome the user did not run.
+  /** 中文说明：组件局部值 { copied, onCopy }，由紧邻初始化决定。 */
   const { copied, onCopy } = useCopyFeedback(text)
 
+  /** 中文说明：组件局部值 onToggle，由紧邻初始化决定。 */
   const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
 
+  /** 中文说明：组件局部值 status，由紧邻初始化决定。 */
   const status = statusText(exitCode, signal, copy)
+  /** 中文说明：组件局部值 state，由紧邻初始化决定。 */
   const state = runState(running, exitCode, signal, copy)
   // A multi-line command gets one prompt row per line, so a two-command shell
   // snippet reads as the two commands it is instead of collapsing into one
   // ellipsized row. A trailing newline is a terminator, not an empty command.
+  /** 中文说明：组件局部值 commandLines，由紧邻初始化决定。 */
   const commandLines = useMemo(() => {
+    /** 中文说明：组件局部值 body，由紧邻初始化决定。 */
     const body = command.endsWith('\n') ? command.slice(0, -1) : command
     return body.split('\n')
   }, [command])
@@ -223,7 +255,9 @@ export function TerminalBlock({
   // erase) survives `text.trim()` yet parses to nothing visible. Judging it on
   // the raw text would draw an output box of blank rows plus a copy control
   // for invisible bytes, and hide the placeholder that belongs there.
+  /** 中文说明：组件局部值 empty，由紧邻初始化决定。 */
   const empty = lines.every(line => line.every(span => span.text.trim() === ''))
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const { hidden, capped, headLines, tailLines } = headTailCap(lines.length, maxLines, expanded)
 
   return (

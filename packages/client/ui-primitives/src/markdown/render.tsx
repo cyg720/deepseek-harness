@@ -15,6 +15,14 @@
  * nothing) rather than ending in assertNever: grammars registered elsewhere
  * may add node types this renderer has no mapping for.
  */
+/**
+ * 文件职责：实现Markdown 与代码内容相关的 render 基础组件。
+ * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
+ * 产品维度：为上层产品界面提供一致的Markdown 与代码内容展示。
+ * 逻辑维度：接收属性，派生展示结构并处理局部交互。
+ * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
+ * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ */
 
 import { Fragment, createElement } from 'react'
 import type { Key, ReactNode } from 'react'
@@ -28,6 +36,7 @@ import type { PositionedBlock } from './incremental.ts'
 import css from './MarkdownText.module.css'
 
 /** Copy-button labels forwarded to fence CodeBlocks (this package is cordis-free, so copy arrives via props). */
+/** 中文说明：类型或类 MarkdownCodeLabels 约束基础组件的数据或职责。 */
 export interface MarkdownCodeLabels {
   /** Copy-button idle label. */
   copyLabel?: string | undefined
@@ -35,6 +44,7 @@ export interface MarkdownCodeLabels {
   copiedLabel?: string | undefined
 }
 
+/** 中文说明：函数 sanitizeUrl 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sanitizeUrl(url: string): string {
   try {
     switch (new URL(url).protocol) {
@@ -52,8 +62,10 @@ function sanitizeUrl(url: string): string {
   }
 }
 
+/** 中文说明：函数 remoteImageUrl 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function remoteImageUrl(url: string): string | undefined {
   try {
+    /** 中文说明：组件局部值 protocol，由紧邻初始化决定。 */
     const protocol = new URL(url).protocol
     return protocol === 'http:' || protocol === 'https:' ? url : undefined
   } catch {
@@ -63,6 +75,7 @@ function remoteImageUrl(url: string): string | undefined {
 }
 
 /** Link/image reference targets collected from a document (first definition per identifier wins, as in CommonMark). */
+/** 中文说明：类型或类 ReferenceTargets 约束基础组件的数据或职责。 */
 export interface ReferenceTargets {
   /** Link/image definitions keyed by upper-cased identifier. */
   definitions: Map<string, Md.Definition>
@@ -74,6 +87,7 @@ export interface ReferenceTargets {
  * Create an empty {@link ReferenceTargets}.
  * @returns Fresh empty maps.
  */
+/** 中文说明：函数 createReferenceTargets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function createReferenceTargets(): ReferenceTargets {
   return { definitions: new Map(), footnotes: new Map() }
 }
@@ -84,15 +98,19 @@ export function createReferenceTargets(): ReferenceTargets {
  * @param nodes - Subtrees to walk (top-level blocks or any nested children).
  * @param targets - Accumulator, typically shared across incremental segments.
  */
+/** 中文说明：函数 collectReferenceTargets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function collectReferenceTargets(
   nodes: readonly Md.RootContent[],
   targets: ReferenceTargets,
 ): void {
+  /** 中文说明：组件局部值 node，由紧邻初始化决定。 */
   for (const node of nodes) {
     if (node.type === 'definition') {
+      /** 中文说明：组件局部值 id，由紧邻初始化决定。 */
       const id = node.identifier.toUpperCase()
       if (!targets.definitions.has(id)) targets.definitions.set(id, node)
     } else if (node.type === 'footnoteDefinition') {
+      /** 中文说明：组件局部值 id，由紧邻初始化决定。 */
       const id = node.identifier.toUpperCase()
       if (!targets.footnotes.has(id)) targets.footnotes.set(id, node)
     }
@@ -105,6 +123,7 @@ export function collectReferenceTargets(
  * token to the file it names, using its own vocabulary of real files — the
  * renderer never guesses at what looks like a path.
  */
+/** 中文说明：类型或类 MarkdownFileMentions 约束基础组件的数据或职责。 */
 export interface MarkdownFileMentions {
   /**
    * Resolve one inline-code token.
@@ -119,6 +138,7 @@ export interface MarkdownFileMentions {
  * One render pass's state: immutable options and targets plus the footnote
  * numbering accumulated in document order while references render.
  */
+/** 中文说明：类型或类 MarkdownRenderContext 约束基础组件的数据或职责。 */
 export interface MarkdownRenderContext {
   /** Streaming arm: fences render plain and TeX stays literal. */
   readonly streaming: boolean
@@ -146,6 +166,7 @@ export interface MarkdownRenderContext {
  * @param context - The pass state; footnote numbering mutates in document order.
  * @returns One React node per rendered block.
  */
+/** 中文说明：函数 renderBlocks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function renderBlocks(
   blocks: readonly PositionedBlock[],
   context: MarkdownRenderContext,
@@ -164,8 +185,11 @@ export function renderBlocks(
  * @param edges - Also emit the leading and trailing newline (hast's loose wrap).
  * @returns The interleaved children.
  */
+/** 中文说明：函数 wrapBlockChildren 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function wrapBlockChildren(elements: readonly ReactNode[], edges: boolean): ReactNode[] {
+  /** 中文说明：组件局部值 wrapped，由紧邻初始化决定。 */
   const wrapped: ReactNode[] = []
+  /** 中文说明：组件局部值 element，由紧邻初始化决定。 */
   for (const element of elements) {
     if (edges || wrapped.length > 0) wrapped.push('\n')
     wrapped.push(element)
@@ -179,18 +203,23 @@ export function wrapBlockChildren(elements: readonly ReactNode[], edges: boolean
  * other blocks (list items unwrap them when tight; footnote bodies receive
  * their back-references inside the trailing paragraph).
  */
+/** 中文说明：类型或类 BlockEntry 约束基础组件的数据或职责。 */
 type BlockEntry = { paragraph: ReactNode[] } | { element: ReactNode }
 
 /** Render container children into {@link BlockEntry} values, dropping empty renders. */
+/** 中文说明：函数 renderBlockEntries 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderBlockEntries(
   blocks: readonly Md.RootContent[],
   context: MarkdownRenderContext,
 ): BlockEntry[] {
+  /** 中文说明：组件局部值 entries，由紧邻初始化决定。 */
   const entries: BlockEntry[] = []
+  /** 中文说明：组件局部值 [index，由紧邻初始化决定。 */
   for (const [index, block] of blocks.entries()) {
     if (block.type === 'paragraph') {
       entries.push({ paragraph: renderChildren(block.children, context) })
     } else {
+      /** 中文说明：组件局部值 element，由紧邻初始化决定。 */
       const element = renderNode(block, index, context)
       if (element !== null) entries.push({ element })
     }
@@ -198,6 +227,7 @@ function renderBlockEntries(
   return entries
 }
 
+/** 中文说明：函数 renderChildren 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderChildren(
   nodes: readonly Md.RootContent[],
   context: MarkdownRenderContext,
@@ -205,6 +235,7 @@ function renderChildren(
   return nodes.map((node, index) => renderNode(node, index, context))
 }
 
+/** 中文说明：函数 renderNode 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderContext): ReactNode {
   switch (node.type) {
     case 'text':
@@ -235,17 +266,20 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
       return <del key={key}>{renderChildren(node.children, context)}</del>
     case 'inlineCode': {
       // Parity with mdast-util-to-hast: inline code renders line endings as spaces.
+      /** 中文说明：组件局部值 value，由紧邻初始化决定。 */
       const value = node.value.replace(/\r?\n|\r/g, ' ')
       // An inline-code token that is entirely an absolute HTTP(S) URL keeps
       // its code chrome and gains the same safe external anchor as a link;
       // commands, partial URLs, and other schemes stay inert. The value is
       // authored text, not a parsed destination, so no normalizeUri: port,
       // path, and query render unchanged.
+      /** 中文说明：组件局部值 href，由紧邻初始化决定。 */
       const href = inlineCodeHttpUrl(value)
       if (href !== undefined) return <code key={key}>{renderSafeLink(href, [value], 'link')}</code>
       // A token the owner's file-mention vocabulary recognizes opens that
       // file; the resolver, not this renderer, decides what names a file.
       // Inside an anchor the token stays inert — a button cannot nest there.
+      /** 中文说明：组件局部值 mention，由紧邻初始化决定。 */
       const mention = context.inLink === true ? undefined : context.fileMentions?.resolve(value)
       if (mention !== undefined) {
         return (
@@ -303,7 +337,9 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
   }
 }
 
+/** 中文说明：函数 renderCode 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderCode(node: Md.Code, key: Key, context: MarkdownRenderContext): ReactNode {
+  /** 中文说明：组件局部值 language，由紧邻初始化决定。 */
   const language = node.lang ?? undefined
   if (node.value === '') {
     // Parity: the replaced pipeline kept the stock <pre> for an empty fence.
@@ -315,6 +351,7 @@ function renderCode(node: Md.Code, key: Key, context: MarkdownRenderContext): Re
   }
   // The replaced pipeline recovered the grammar id from the hast class with
   // /language-([\w-]+)/, which truncates at the first non-word character.
+  /** 中文说明：组件局部值 lang，由紧邻初始化决定。 */
   const lang = language === undefined ? undefined : /^[\w-]+/.exec(language)?.[0]
   if (!context.streaming && lang === 'math') {
     // ```math fences render as display TeX once settled (rehype-katex parity);
@@ -336,16 +373,21 @@ function renderCode(node: Md.Code, key: Key, context: MarkdownRenderContext): Re
 }
 
 /** A list is loose when it or any of its items is spread; every item then keeps its paragraphs. */
+/** 中文说明：函数 listLoose 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function listLoose(list: Md.List): boolean {
   return (list.spread ?? false) || list.children.some(listItemLoose)
 }
 
+/** 中文说明：函数 listItemLoose 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function listItemLoose(item: Md.ListItem): boolean {
   return item.spread ?? item.children.length > 1
 }
 
+/** 中文说明：函数 renderList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderList(node: Md.List, key: Key, context: MarkdownRenderContext): ReactNode {
+  /** 中文说明：组件局部值 loose，由紧邻初始化决定。 */
   const loose = listLoose(node)
+  /** 中文说明：组件局部值 properties，由紧邻初始化决定。 */
   const properties: { start?: number; className?: string } = {}
   if (typeof node.start === 'number' && node.start !== 1) properties.start = node.start
   if (node.children.some(item => typeof item.checked === 'boolean')) {
@@ -358,16 +400,21 @@ function renderList(node: Md.List, key: Key, context: MarkdownRenderContext): Re
   )
 }
 
+/** 中文说明：函数 renderListItem 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderListItem(
   item: Md.ListItem,
   loose: boolean,
   key: Key,
   context: MarkdownRenderContext,
 ): ReactNode {
+  /** 中文说明：组件局部值 entries，由紧邻初始化决定。 */
   const entries = renderBlockEntries(item.children, context)
+  /** 中文说明：组件局部值 task，由紧邻初始化决定。 */
   const task = typeof item.checked === 'boolean'
   if (task) {
+    /** 中文说明：组件局部值 checkbox，由紧邻初始化决定。 */
     const checkbox = <input key="task-checkbox" type="checkbox" checked={item.checked === true} disabled />
+    /** 中文说明：组件局部值 head，由紧邻初始化决定。 */
     const head = entries[0]
     if (head !== undefined && 'paragraph' in head) {
       head.paragraph = head.paragraph.length > 0 ? [checkbox, ' ', ...head.paragraph] : [checkbox]
@@ -379,14 +426,18 @@ function renderListItem(
   // mdast-util-to-hast's list-item handler: a newline before every child
   // except a tight leading paragraph, and after a trailing non-paragraph
   // (or any trailing child when loose).
+  /** 中文说明：组件局部值 parts，由紧邻初始化决定。 */
   const parts: ReactNode[] = []
+  /** 中文说明：组件局部值 [index，由紧邻初始化决定。 */
   for (const [index, entry] of entries.entries()) {
+    /** 中文说明：组件局部值 isParagraph，由紧邻初始化决定。 */
     const isParagraph = 'paragraph' in entry
     if (loose || index !== 0 || !isParagraph) parts.push('\n')
     if (!isParagraph) parts.push(entry.element)
     else if (loose) parts.push(<p key={`p-${index}`}>{entry.paragraph}</p>)
     else parts.push(<Fragment key={`p-${index}`}>{entry.paragraph}</Fragment>)
   }
+  /** 中文说明：组件局部值 tail，由紧邻初始化决定。 */
   const tail = entries[entries.length - 1]
   if (tail !== undefined && (loose || !('paragraph' in tail))) parts.push('\n')
   return (
@@ -396,15 +447,20 @@ function renderListItem(
   )
 }
 
+/** 中文说明：函数 renderTable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): ReactNode {
+  /** 中文说明：组件局部值 align，由紧邻初始化决定。 */
   const align = node.align ?? null
+  /** 中文说明：组件局部值 [headRow, ...bodyRows]，由紧邻初始化决定。 */
   const [headRow, ...bodyRows] = node.children
+  /** 中文说明：组件局部值 columns，由紧邻初始化决定。 */
   const columns = align === null ? headRow?.children.length ?? 0 : align.length
   // Four or more columns read as a comparison matrix: the block keeps the
   // table at natural width and exposes the stable `md-table-wide` hook so a
   // hosting layout (the chat transcript) can widen it past the message
   // column. Narrower tables — and any table inside a blockquote — fill the
   // column and wrap instead (deepsuite chat TableWrapper parity).
+  /** 中文说明：组件局部值 wide，由紧邻初始化决定。 */
   const wide = columns >= 4 && context.inBlockquote !== true
   return (
     // Wide tables rest with overflow-x hidden (the hover-revealed bar in
@@ -428,6 +484,7 @@ function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): 
   )
 }
 
+/** 中文说明：函数 renderTableRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderTableRow(
   row: Md.TableRow,
   cellTag: 'th' | 'td',
@@ -437,10 +494,15 @@ function renderTableRow(
 ): ReactNode {
   // With column alignment present, every row renders exactly one cell per
   // column, padding or truncating the row (mdast-util-to-hast parity).
+  /** 中文说明：组件局部值 length，由紧邻初始化决定。 */
   const length = align === null ? row.children.length : align.length
+  /** 中文说明：组件局部值 cells，由紧邻初始化决定。 */
   const cells: ReactNode[] = []
+  /** 中文说明：组件局部值 index，由紧邻初始化决定。 */
   for (let index = 0; index < length; index++) {
+    /** 中文说明：组件局部值 cell，由紧邻初始化决定。 */
     const cell = row.children[index]
+    /** 中文说明：组件局部值 alignValue，由紧邻初始化决定。 */
     const alignValue = align?.[index]
     cells.push(createElement(
       cellTag,
@@ -454,9 +516,12 @@ function renderTableRow(
 }
 
 /** Anchor over an already-authored href: allowlisted or unwrapped, external links get the safe attributes. */
+/** 中文说明：函数 renderSafeLink 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderSafeLink(href: string, children: ReactNode[], key: Key): ReactNode {
+  /** 中文说明：组件局部值 safeHref，由紧邻初始化决定。 */
   const safeHref = sanitizeUrl(href)
   if (safeHref === '') return <Fragment key={key}>{children}</Fragment>
+  /** 中文说明：组件局部值 external，由紧邻初始化决定。 */
   const external = ['http:', 'https:'].includes(new URL(safeHref).protocol)
   return (
     <a
@@ -470,6 +535,7 @@ function renderSafeLink(href: string, children: ReactNode[], key: Key): ReactNod
 }
 
 /** Anchor over a parsed markdown destination, which hast normalized before the allowlist saw it. */
+/** 中文说明：函数 renderAnchor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderAnchor(url: string, children: ReactNode[], key: Key): ReactNode {
   return renderSafeLink(normalizeUri(url), children, key)
 }
@@ -478,9 +544,11 @@ function renderAnchor(url: string, children: ReactNode[], key: Key): ReactNode {
  * The complete inline-code value when it is exactly an absolute HTTP(S) URL
  * (no surrounding whitespace); anything else stays inert code.
  */
+/** 中文说明：函数 inlineCodeHttpUrl 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inlineCodeHttpUrl(value: string): string | undefined {
   if (value.trim() !== value) return undefined
   try {
+    /** 中文说明：组件局部值 protocol，由紧邻初始化决定。 */
     const protocol = new URL(value).protocol
     return protocol === 'http:' || protocol === 'https:' ? value : undefined
   } catch {
@@ -489,7 +557,9 @@ function inlineCodeHttpUrl(value: string): string | undefined {
   }
 }
 
+/** 中文说明：函数 renderImage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderImage(url: string, alt: string, key: Key): ReactNode {
+  /** 中文说明：组件局部值 imageSrc，由紧邻初始化决定。 */
   const imageSrc = remoteImageUrl(sanitizeUrl(normalizeUri(url)))
   if (imageSrc === undefined) {
     return <span key={key} className={css.imageAlt}>{alt}</span>
@@ -508,17 +578,20 @@ function renderImage(url: string, alt: string, key: Key): ReactNode {
 }
 
 /** The bracketed source text a reference reverts to when its definition is missing. */
+/** 中文说明：函数 referenceSuffix 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function referenceSuffix(node: Md.LinkReference | Md.ImageReference): string {
   if (node.referenceType === 'collapsed') return '][]'
   if (node.referenceType === 'full') return `][${node.label ?? node.identifier}]`
   return ']'
 }
 
+/** 中文说明：函数 renderLinkReference 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderLinkReference(
   node: Md.LinkReference,
   key: Key,
   context: MarkdownRenderContext,
 ): ReactNode {
+  /** 中文说明：组件局部值 definition，由紧邻初始化决定。 */
   const definition = context.targets.definitions.get(node.identifier.toUpperCase())
   if (definition === undefined) {
     // The grammar only emits references whose definitions exist somewhere in
@@ -530,22 +603,27 @@ function renderLinkReference(
   return renderAnchor(definition.url, renderChildren(node.children, { ...context, inLink: true }), key)
 }
 
+/** 中文说明：函数 renderImageReference 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderImageReference(
   node: Md.ImageReference,
   key: Key,
   context: MarkdownRenderContext,
 ): ReactNode {
+  /** 中文说明：组件局部值 definition，由紧邻初始化决定。 */
   const definition = context.targets.definitions.get(node.identifier.toUpperCase())
   if (definition === undefined) return `![${node.alt ?? ''}${referenceSuffix(node)}`
   return renderImage(definition.url, node.alt ?? '', key)
 }
 
+/** 中文说明：函数 renderFootnoteReference 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderFootnoteReference(
   node: Md.FootnoteReference,
   key: Key,
   context: MarkdownRenderContext,
 ): ReactNode {
+  /** 中文说明：组件局部值 id，由紧邻初始化决定。 */
   const id = node.identifier.toUpperCase()
+  /** 中文说明：组件局部值 seen，由紧邻初始化决定。 */
   const seen = context.footnoteCounts.get(id)
   if (seen === undefined) context.footnoteOrder.push(id)
   context.footnoteCounts.set(id, (seen ?? 0) + 1)
@@ -561,20 +639,30 @@ function renderFootnoteReference(
  * @param context - The pass state after all blocks rendered.
  * @returns The section, or null when no referenced footnote has a definition.
  */
+/** 中文说明：函数 renderFootnoteSection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function renderFootnoteSection(context: MarkdownRenderContext): ReactNode | null {
+  /** 中文说明：组件局部值 items，由紧邻初始化决定。 */
   const items: ReactNode[] = []
+  /** 中文说明：组件局部值 id，由紧邻初始化决定。 */
   for (const id of context.footnoteOrder) {
+    /** 中文说明：组件局部值 definition，由紧邻初始化决定。 */
     const definition = context.targets.footnotes.get(id)
     if (definition === undefined) continue
+    /** 中文说明：组件局部值 count，由紧邻初始化决定。 */
     const count = context.footnoteCounts.get(id) ?? 0
+    /** 中文说明：组件局部值 backrefs，由紧邻初始化决定。 */
     const backrefs: ReactNode[] = []
+    /** 中文说明：组件局部值 reference，由紧邻初始化决定。 */
     for (let reference = 1; reference <= count; reference++) {
       if (backrefs.length > 0) backrefs.push(' ')
       backrefs.push('↩')
       if (reference > 1) backrefs.push(<sup key={`re-${reference}`}>{String(reference)}</sup>)
     }
+    /** 中文说明：组件局部值 entries，由紧邻初始化决定。 */
     const entries = renderBlockEntries(definition.children, context)
+    /** 中文说明：组件局部值 tail，由紧邻初始化决定。 */
     const tail = entries[entries.length - 1]
+    /** 中文说明：组件局部值 body，由紧邻初始化决定。 */
     const body: ReactNode[] = entries.map((entry, index) => (
       'paragraph' in entry
         ? (

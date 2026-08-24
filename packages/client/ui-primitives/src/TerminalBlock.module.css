@@ -3,16 +3,28 @@
    one family. The one deliberate divergence: output keeps `white-space: pre`
    and scrolls horizontally, because folding a column-aligned command's output
    destroys its alignment. */
+/**
+ * 文件职责：定义 TerminalBlock 的局部样式。
+ * 技术维度：CSS Modules、主题变量、滚动与状态选择器。
+ * 产品维度：保证工具结果在不同容器中清晰一致。
+ * 逻辑维度：按容器、内容、操作和状态组织规则。
+ * 关键边界：类名须与组件同步，长内容必须可滚动或换行。
+ * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+ */
 
 .block {
+  /* 中文说明：自定义属性 --dsl-terminal-radius 保存组件复用的样式值。 */
   --dsl-terminal-radius: 12px;
+  /* 中文说明：自定义属性 --dsl-terminal-line-height 保存组件复用的样式值。 */
   --dsl-terminal-line-height: 22px;
   /* Rebindable by consumers (CodeBlock's --dsl-code-block-content-font
      pattern): a surface wanting the smaller code size rebinds this together
      with --dsl-terminal-line-height on its own container. */
+  /* 中文说明：自定义属性 --dsl-terminal-font 保存组件复用的样式值。 */
   --dsl-terminal-font: var(--dsw-font-markdown-code-block);
   /* The card's own left inset, holding the run-state dot in a column of its own
      so it never competes with the commands for horizontal space. */
+  /* 中文说明：自定义属性 --dsl-terminal-gutter 保存组件复用的样式值。 */
   --dsl-terminal-gutter: 30px;
 
   position: relative;

@@ -6,6 +6,14 @@
 // on both the accepted and the refused clipboard paths. writeClipboard's own
 // return contract is pinned in terminal-block.spec.tsx (the shared return contract), so
 // only its DOM consequence is asserted here.
+/**
+ * 文件职责：验证 UI 基础组件的 diff-block.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 测试渲染和 DOM 事件模拟。
+ * 产品维度：防止复用组件的显示和交互回归。
+ * 逻辑维度：构造属性，渲染组件并断言 DOM 与事件。
+ * 关键边界：测试必须清理 DOM；快照不能替代关键交互断言。
+ * 新手阅读建议：先读渲染辅助函数，再按组件场景阅读。
+ */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -18,23 +26,28 @@ beforeEach(() => {
 })
 
 /** The rendered body rows, one string per visible line (CSS-module class prefix). */
+/** 中文说明：函数 bodyRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bodyRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class*="_line_"]')].map(row => row.textContent ?? '')
 }
 
 /** Only the changed rows (add/del), excluding the path header and gap chrome. */
+/** 中文说明：函数 changeRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function changeRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class*="_del_"], [class*="_add_"]')].map(row => row.textContent ?? '')
 }
 
 /** `count` numbered added lines as one hunk's newText. */
+/** 中文说明：函数 added 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function added(count: number): string {
   return Array.from({ length: count }, (_v, i) => `line ${i + 1}`).join('\n')
 }
 
 describe('DiffBlock structure', () => {
   it('renders a create as a path header and an added block (no removed side)', () => {
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [{ path: 'notes/new.txt', oldText: null, newText: 'hello\nworld' }]
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={diffs} />)
     expect(screen.getByText('notes/new.txt')).toBeTruthy()
     // No removed rows: both change lines are added.
@@ -44,7 +57,9 @@ describe('DiffBlock structure', () => {
   })
 
   it('renders an edit as a removed block above an added block', () => {
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [{ path: 'a.ts', oldText: 'old', newText: 'new' }]
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={diffs} />)
     expect(container.querySelectorAll('[class*="_del_"]').length).toBe(1)
     expect(container.querySelectorAll('[class*="_add_"]').length).toBe(1)
@@ -52,10 +67,12 @@ describe('DiffBlock structure', () => {
   })
 
   it('opens a same-file second hunk with a gap instead of repeating the path', () => {
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [
       { path: 'a.ts', oldText: 'x', newText: 'y' },
       { path: 'a.ts', oldText: 'p', newText: 'q' },
     ]
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={diffs} />)
     // One path header, one gap row.
     expect(container.querySelectorAll('[class*="_path_"]').length).toBe(1)
@@ -63,16 +80,19 @@ describe('DiffBlock structure', () => {
   })
 
   it('opens a new file with its own path header', () => {
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [
       { path: 'a.ts', oldText: 'x', newText: 'y' },
       { path: 'b.ts', oldText: 'p', newText: 'q' },
     ]
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={diffs} />)
     expect(container.querySelectorAll('[class*="_path_"]').length).toBe(2)
     expect(container.querySelectorAll('[class*="_gap_"]').length).toBe(0)
   })
 
   it('renders nothing for empty diffs', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={[]} />)
     expect(container.firstChild).toBeNull()
   })
@@ -80,6 +100,7 @@ describe('DiffBlock structure', () => {
   it('treats a trailing newline as a terminator, not an extra blank line', () => {
     // A create whose newText ends in a newline is one added line, not two, and
     // the footer counts one — the phantom `+ ` empty line the naive split drew.
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={[{ path: 'n.txt', oldText: null, newText: 'hello\n' }]} />)
     expect(changeRows(container)).toEqual(['hello'])
     expect(screen.getByText('└ +1 -0 · 1 file')).toBeTruthy()
@@ -87,12 +108,14 @@ describe('DiffBlock structure', () => {
 
   it('renders a full deletion as removed-only with no phantom added line', () => {
     // newText '' is zero added lines: an empty string must contribute nothing.
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={[{ path: 'gone.ts', oldText: 'a\nb', newText: '' }]} />)
     expect(container.querySelectorAll('[class*="_add_"]').length).toBe(0)
     expect(screen.getByText('└ +0 -2 · 1 file')).toBeTruthy()
   })
 
   it('keeps a genuine interior blank line', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={[{ path: 'a.ts', oldText: null, newText: 'x\n\ny' }]} />)
     expect(container.querySelectorAll('[class*="_add_"]').length).toBe(3)
   })
@@ -100,12 +123,14 @@ describe('DiffBlock structure', () => {
 
 describe('DiffBlock footer', () => {
   it('counts added and removed lines and one file', () => {
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [{ path: 'a.ts', oldText: 'a\nb', newText: 'c' }]
     render(<DiffBlock diffs={diffs} />)
     expect(screen.getByText('└ +1 -2 · 1 file')).toBeTruthy()
   })
 
   it('pluralizes the distinct-file count', () => {
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [
       { path: 'a.ts', oldText: null, newText: 'x' },
       { path: 'b.ts', oldText: null, newText: 'y' },
@@ -118,13 +143,17 @@ describe('DiffBlock footer', () => {
 describe('DiffBlock height cap', () => {
   it('shows head and tail with an expand control past the cap, then all lines expanded', () => {
     // One added line over the default cap forces the collapse.
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [{ path: 'a.ts', oldText: null, newText: added(DEFAULT_DIFF_MAX_LINES) }]
     // The path header counts as a row, so a body of maxLines added lines plus
     // the header is one over the cap.
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<DiffBlock diffs={diffs} />)
+    /** 中文说明：测试局部值 toggle，由紧邻初始化决定。 */
     const toggle = screen.getByRole('button', { name: /展开其余/ })
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     // Collapsed shows fewer rows than the full body.
+    /** 中文说明：测试局部值 collapsedCount，由紧邻初始化决定。 */
     const collapsedCount = bodyRows(container).length
     expect(collapsedCount).toBeLessThan(DEFAULT_DIFF_MAX_LINES + 1)
     fireEvent.click(toggle)
@@ -133,6 +162,7 @@ describe('DiffBlock height cap', () => {
   })
 
   it('shows no expand control at or under the cap', () => {
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [{ path: 'a.ts', oldText: null, newText: added(4) }]
     render(<DiffBlock diffs={diffs} maxLines={16} />)
     expect(screen.queryByRole('button', { name: /展开其余|收起差异/ })).toBeNull()
@@ -142,13 +172,16 @@ describe('DiffBlock height cap', () => {
 describe('DiffBlock copy', () => {
   it('copies the prefixed diff text and flips the label on success', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    /** 中文说明：测试局部值 diffs，由紧邻初始化决定。 */
     const diffs: DiffHunk[] = [
       { path: 'a.ts', oldText: 'old', newText: 'new' },
       { path: 'a.ts', oldText: 'p', newText: 'q' },
     ]
     render(<DiffBlock diffs={diffs} />)
+    /** 中文说明：测试局部值 copy，由紧邻初始化决定。 */
     const copy = screen.getByRole('button', { name: '复制' })
     await act(async () => { fireEvent.click(copy) })
     // Path header, del/add prefixes, and the same-file gap all reach the clipboard.
@@ -164,6 +197,7 @@ describe('DiffBlock copy', () => {
       value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
     })
     render(<DiffBlock diffs={[{ path: 'a.ts', oldText: null, newText: 'x' }]} />)
+    /** 中文说明：测试局部值 copy，由紧邻初始化决定。 */
     const copy = screen.getByRole('button', { name: '复制' })
     await act(async () => { fireEvent.click(copy) })
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
@@ -171,9 +205,11 @@ describe('DiffBlock copy', () => {
 
   it('ignores a second click while the copied label is showing', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     render(<DiffBlock diffs={[{ path: 'a.ts', oldText: null, newText: 'x' }]} />)
+    /** 中文说明：测试局部值 copy，由紧邻初始化决定。 */
     const copy = screen.getByRole('button', { name: '复制' })
     await act(async () => { fireEvent.click(copy) })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: '复制成功' })) })
