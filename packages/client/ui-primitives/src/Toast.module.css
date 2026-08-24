@@ -3,17 +3,26 @@
    agree with HOLD_MS/FADE_MS in Toast.tsx: the component unmounts at their
    sum, so a mismatched sheet either cuts the fade or leaves an invisible
    banner blocking nothing. */
+/* 文件职责：定义页面顶部居中的临时 Toast 横幅、图标、文字、入场和延迟淡出动画。
+ * 技术维度：使用 CSS Module、fixed 定位、主题令牌、多动画和减少动态媒体查询。
+ * 产品维度：在图片预览等高层界面上仍清晰展示警告，同时不阻挡任何点击。
+ * 逻辑维度：toast 设置布局与两段动画，icon/text 排版内容，关键帧控制滑入和淡出，媒体查询去掉移动。
+ * 关键边界：3000ms 保持与 1000ms 淡出必须和 Toast.tsx 常量一致；pointer-events 必须为 none。
+ * 新手阅读建议：先看 toast 的层级与时间，再看 icon/text，最后比较普通与 reduced-motion 动画。 */
 
+/* 顶部居中的通知横幅；位于图片灯箱之上且永不接收指针事件。 */
 .toast {
   position: fixed;
   top: 120px;
   left: 50%;
   /* Above the 1000 the image lightbox backdrop uses: a failure reported while
      a preview is open must stay readable. */
+  /* 高于图片灯箱的 1000 层级，预览打开时错误仍可见。 */
   z-index: 1100;
   /* Purely an announcement: it must never intercept clicks — in particular
      after the CSS fade finished while a throttled background-tab timer has
      not yet unmounted the still-hit-testable fixed element. */
+  /* 纯通知不得拦截点击，尤其后台标签计时器延迟卸载时仍要保持不可命中。 */
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -32,6 +41,7 @@
     dsh-toast-fade 1000ms ease 3000ms forwards;
 }
 
+/* Toast 图标容器；固定不缩小并使用警告标签色。 */
 .icon {
   display: grid;
   place-items: center;
@@ -39,10 +49,12 @@
   color: var(--dsw-alias-state-warn-label);
 }
 
+/* Toast 文本允许在弹性布局中缩小。 */
 .text {
   min-width: 0;
 }
 
+/* 从上方轻微滑入并变为不透明。 */
 @keyframes dsh-toast-in {
   from {
     opacity: 0;
@@ -55,6 +67,7 @@
   }
 }
 
+/* 最终把横幅淡出为透明。 */
 @keyframes dsh-toast-fade {
   to {
     opacity: 0;
@@ -63,6 +76,7 @@
 
 /* Reduced motion drops the slide-in; the delayed fade (an opacity change,
    not movement) still ends the banner before the timed unmount. */
+/* 减少动态模式移除滑入，但保留不涉及位移的延迟淡出以配合定时卸载。 */
 @media (prefers-reduced-motion: reduce) {
   .toast {
     animation: dsh-toast-fade 1000ms ease 3000ms forwards;
