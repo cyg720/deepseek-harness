@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证主题与设计系统的 theme.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止主题与设计系统显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { stubSettingsScope, type StubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
@@ -9,13 +17,16 @@ import type {
 } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 
+/** 中文说明：测试局部值 make，由紧邻初始化决定。 */
 const make = (host = stubSettingsScope<ThemeSettings>()): {
   ctx: Context
   theme: ThemeRuntime
   events: ThemeSnapshot[]
   host: StubSettingsScope<ThemeSettings>
 } => {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
   const events: ThemeSnapshot[] = []
   ctx.on('theme/change', (snapshot) => { events.push(snapshot) })
   return { ctx, theme: new ThemeRuntime(ctx, host.scope), events, host }
@@ -23,7 +34,9 @@ const make = (host = stubSettingsScope<ThemeSettings>()): {
 
 describe('ThemeRuntime', () => {
   it('defaults to the system preference resolved against prefers-color-scheme', () => {
+    /** 中文说明：测试局部值 { theme }，由紧邻初始化决定。 */
     const { theme } = make()
+    /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
     const snapshot = theme.getTheme()
     expect(snapshot.preference).toBe('system')
     // jsdom matchMedia is absent; system resolves to light.
@@ -33,6 +46,7 @@ describe('ThemeRuntime', () => {
   })
 
   it('setTheme switches, writes through the scope, republishes, and keeps DOM untouched', () => {
+    /** 中文说明：测试局部值 { theme, events, host }，由紧邻初始化决定。 */
     const { theme, events, host } = make()
     theme.setTheme('dark')
     expect(theme.getTheme().preference).toBe('dark')
@@ -49,6 +63,7 @@ describe('ThemeRuntime', () => {
   })
 
   it('adopts a published Host section without writing it back', () => {
+    /** 中文说明：测试局部值 { theme, events, host }，由紧邻初始化决定。 */
     const { theme, events, host } = make()
     host.publish({ status: 'ready', value: { preference: 'dark' }, revision: 1, writable: true })
     expect(theme.getTheme().preference).toBe('dark')
@@ -59,13 +74,16 @@ describe('ThemeRuntime', () => {
   })
 
   it('adopts a section already standing at construction', () => {
+    /** 中文说明：测试局部值 host，由紧邻初始化决定。 */
     const host = stubSettingsScope<ThemeSettings>()
     host.publish({ status: 'ready', value: { preference: 'dark' }, revision: 1, writable: true })
+    /** 中文说明：测试局部值 { theme }，由紧邻初始化决定。 */
     const { theme } = make(host)
     expect(theme.getTheme().preference).toBe('dark')
   })
 
   it('throws on unknown setTheme ids, duplicate registration, and the system id', () => {
+    /** 中文说明：测试局部值 { theme }，由紧邻初始化决定。 */
     const { theme } = make()
     expect(() => { theme.setTheme('sepia') }).toThrow('not registered')
     expect(() => theme.register({ id: 'light', colorScheme: 'light', tokens: {} })).toThrow('already registered')
@@ -73,7 +91,9 @@ describe('ThemeRuntime', () => {
   })
 
   it('registered themes join the snapshot; disposing the active one resets to default', () => {
+    /** 中文说明：测试局部值 { theme, events, host }，由紧邻初始化决定。 */
     const { theme, events, host } = make()
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = theme.register({ id: 'sepia', colorScheme: 'light', tokens: { '--dsw-alias-bg-base': 'red' } })
     expect(theme.getTheme().themes.map(t => t.id)).toEqual(['light', 'dark', 'sepia'])
     theme.setTheme('sepia')
@@ -91,7 +111,9 @@ describe('ThemeRuntime', () => {
   })
 
   it('disposing an inactive theme keeps the active preference', () => {
+    /** 中文说明：测试局部值 { theme }，由紧邻初始化决定。 */
     const { theme } = make()
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = theme.register({ id: 'sepia', colorScheme: 'light', tokens: {} })
     theme.setTheme('dark')
     dispose()
@@ -99,22 +121,28 @@ describe('ThemeRuntime', () => {
   })
 
   it('revision increases monotonically across every publish', () => {
+    /** 中文说明：测试局部值 { theme, events }，由紧邻初始化决定。 */
     const { theme, events } = make()
     theme.setTheme('dark')
     theme.setTheme('light')
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = theme.register({ id: 'sepia', colorScheme: 'dark', tokens: {} })
     dispose()
     expect(events.map(e => e.revision)).toEqual([1, 2, 3, 4])
   })
 
   it('stacks reversible token overrides in call order and selects the active palette value', () => {
+    /** 中文说明：测试局部值 { theme }，由紧邻初始化决定。 */
     const { theme } = make()
+    /** 中文说明：测试局部值 firstTokens，由紧邻初始化决定。 */
     const firstTokens: ThemeTokenOverrides = {
       '--shared': { light: 'first-light', dark: 'first-dark' },
       '--first': { light: 'first-only-light', dark: 'first-only-dark' },
     }
+    /** 中文说明：测试局部值 disposeFirst，由紧邻初始化决定。 */
     const disposeFirst = theme.overrideTokens('first', firstTokens)
     firstTokens['--shared']!.light = 'mutated-after-call'
+    /** 中文说明：测试局部值 disposeSecond，由紧邻初始化决定。 */
     const disposeSecond = theme.overrideTokens('second', {
       '--shared': { light: 'second-light', dark: 'second-dark' },
     })
@@ -136,10 +164,13 @@ describe('ThemeRuntime', () => {
   })
 
   it('replacing one source leaves its stale disposer harmless', () => {
+    /** 中文说明：测试局部值 { theme, events }，由紧邻初始化决定。 */
     const { theme, events } = make()
+    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = theme.overrideTokens('package', {
       '--old': { light: 'old-light', dark: 'old-dark' },
     })
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = theme.overrideTokens('package', {
       '--new': { light: 'new-light', dark: 'new-dark' },
     })
@@ -152,6 +183,7 @@ describe('ThemeRuntime', () => {
   })
 
   it('exports sorted built-in, registered, and override-only token descriptions as copies', () => {
+    /** 中文说明：测试局部值 { theme }，由紧邻初始化决定。 */
     const { theme } = make()
     theme.register({
       id: 'custom',
@@ -166,12 +198,14 @@ describe('ThemeRuntime', () => {
       semanticAccent: { light: 'pink', dark: 'red' },
     })
 
+    /** 中文说明：测试局部值 tokens，由紧邻初始化决定。 */
     const tokens = theme.exportInspectTokens()
     expect(tokens.map(token => token.name)).toEqual([...tokens.map(token => token.name)].sort())
     expect(tokens.find(token => token.name === '--registered')).toMatchObject({
       valueType: 'CSS value',
       cssVariable: '--registered',
     })
+    /** 中文说明：测试局部值 semantic，由紧邻初始化决定。 */
     const semantic = tokens.find(token => token.name === 'semanticAccent')
     expect(semantic).toMatchObject({ valueType: 'CSS value' })
     expect(semantic).not.toHaveProperty('cssVariable')
@@ -182,17 +216,21 @@ describe('ThemeRuntime', () => {
   })
 
   it('rejects every malformed token override value with a teaching error', () => {
+    /** 中文说明：测试局部值 { theme }，由紧邻初始化决定。 */
     const { theme } = make()
+    /** 中文说明：测试局部值 override，由紧邻初始化决定。 */
     const override = (value: unknown): void => {
       theme.overrideTokens('package', { '--bad': value } as unknown as ThemeTokenOverrides)
     }
     expect(() => { override('red') }).toThrow(/bare string.*light.*dark/)
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     for (const value of [1, null, {}, { light: 1, dark: 'dark' }, { light: 'light' }]) {
       expect(() => { override(value) }).toThrow(/must map to a \{ light, dark \} pair/)
     }
   })
 
   it('context dispose releases the scope subscription', async () => {
+    /** 中文说明：测试局部值 { ctx, host }，由紧邻初始化决定。 */
     const { ctx, host } = make()
     expect(host.listenerCount()).toBe(1)
     await ctx.fiber.dispose()
@@ -200,15 +238,20 @@ describe('ThemeRuntime', () => {
   })
 
   describe('prefers-color-scheme resolution (stubbed matchMedia)', () => {
+    /** 中文说明：类型或类 Listener 约束模块数据或组件职责。 */
     type Listener = () => void
+    /** 中文说明：测试局部值 stubMedia，由紧邻初始化决定。 */
     const stubMedia = (initialMatches: boolean) => {
+      /** 中文说明：测试局部值 listeners，由紧邻初始化决定。 */
       const listeners = new Set<Listener>()
+      /** 中文说明：测试局部值 media，由紧邻初始化决定。 */
       const media = {
         matches: initialMatches,
         addEventListener: (_: 'change', fn: Listener) => { listeners.add(fn) },
         removeEventListener: (_: 'change', fn: Listener) => { listeners.delete(fn) },
         flip() {
           this.matches = !this.matches
+          /** 中文说明：测试局部值 fn，由紧邻初始化决定。 */
           for (const fn of listeners) fn()
         },
         listenerCount: () => listeners.size,
@@ -220,7 +263,9 @@ describe('ThemeRuntime', () => {
     afterEach(() => { vi.unstubAllGlobals() })
 
     it('system resolves against the media query and follows OS flips', () => {
+      /** 中文说明：测试局部值 media，由紧邻初始化决定。 */
       const media = stubMedia(true)
+      /** 中文说明：测试局部值 { theme, events }，由紧邻初始化决定。 */
       const { theme, events } = make()
       expect(theme.getTheme().preference).toBe('system')
       expect(theme.getTheme().active.id).toBe('dark')
@@ -230,7 +275,9 @@ describe('ThemeRuntime', () => {
     })
 
     it('OS flips do not republish while a concrete preference is set', () => {
+      /** 中文说明：测试局部值 media，由紧邻初始化决定。 */
       const media = stubMedia(false)
+      /** 中文说明：测试局部值 { theme, events }，由紧邻初始化决定。 */
       const { theme, events } = make()
       theme.setTheme('light')
       expect(events).toHaveLength(1)
@@ -240,7 +287,9 @@ describe('ThemeRuntime', () => {
     })
 
     it('context dispose releases the media listener', async () => {
+      /** 中文说明：测试局部值 media，由紧邻初始化决定。 */
       const media = stubMedia(false)
+      /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
       const { ctx } = make()
       expect(media.listenerCount()).toBe(1)
       await ctx.fiber.dispose()

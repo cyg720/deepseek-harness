@@ -1,4 +1,12 @@
 /** Sidebar shell slot registration and its plain runtime/layout callbacks. */
+/**
+ * 文件职责：验证侧栏的 apply.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止侧栏显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
@@ -6,16 +14,22 @@ import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { SidebarRootInjected } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 
+/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(declare = true) {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
+  /** 中文说明：测试局部值 layout，由紧邻初始化决定。 */
   const layout = { toggleSidebar: vi.fn() }
+  /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
   const workspaces = { startSession: vi.fn() }
+  /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
   const sessions = { open: vi.fn(), clear: vi.fn() }
   ctx.provide('layout', layout)
   ctx.provide('sessions', sessions as never)
   ctx.provide('workspaces', workspaces as never)
   ctx.provide('locale', new LocaleRuntime(ctx))
+  /** 中文说明：测试局部值 slots，由紧邻初始化决定。 */
   const slots = ctx.get('slots') as SlotRegistry
   if (declare) {
     slots.register(
@@ -32,6 +46,7 @@ describe('ui-sidebar apply', () => {
   })
 
   it('registers the shell and declares its child seats', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     expect(b.slots.entries('sidebar')).toHaveLength(1)
@@ -42,6 +57,7 @@ describe('ui-sidebar apply', () => {
     expect(b.slots.spec('sidebar.footer.action')).toEqual({ kind: 'list', scope: 'root' })
     // Copy rides the standard locale seat, not the inject face.
     expect(b.slots.entries('sidebar')[0]!.locale).toBe('sidebar')
+    /** 中文说明：测试局部值 injected，由紧邻初始化决定。 */
     const injected = (b.slots.entries('sidebar')[0]!.inject as () => SidebarRootInjected)()
     expect(Object.keys(injected)).toEqual(['startSession', 'toggleSidebar'])
     // Both arms delegate to the runtime's shared New Session action.
@@ -54,12 +70,15 @@ describe('ui-sidebar apply', () => {
   })
 
   it('fails when no live owner declared the sidebar slot', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(false)
     await expect(b.ctx.plugin({ inject: [...inject], apply })).rejects.toThrow(/not declared/)
   })
 
   it('removes the entry and child declaration on teardown', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     await fiber.dispose()

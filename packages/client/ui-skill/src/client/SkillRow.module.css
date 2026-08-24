@@ -1,4 +1,12 @@
 /* Skill toolview: Bash-matched summary row plus a bounded instructions disclosure. */
+/**
+ * 文件职责：定义 SkillRow 的样式与设计变量。
+ * 技术维度：CSS、CSS Modules、主题变量和浏览器滚动条选择器。
+ * 产品维度：保持技能入口在不同主题和平台下清晰一致。
+ * 逻辑维度：按变量、容器、内容、交互和状态组织规则。
+ * 关键边界：全局样式影响整个应用；局部类名须与组件同步。
+ * 新手阅读建议：先看变量层，再对照组件和状态选择器。
+ */
 
 .card {
   display: flex;

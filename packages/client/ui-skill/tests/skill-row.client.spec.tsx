@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 // Dedicated skill tool row: replay-stable naming, lifecycle states, disclosure,
 // keyboard operation, exact output, and the trajectory Inspect handoff.
+/**
+ * 文件职责：验证技能入口的 skill-row.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止技能入口显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -10,12 +18,15 @@ import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts
 import { SkillRow } from '../src/client/SkillRow.tsx'
 import { zh } from '../src/client/locales.ts'
 
+/** 中文说明：类型或类 SkillRowProps 约束模块数据或组件职责。 */
 type SkillRowProps = Parameters<typeof SkillRow>[0]
 
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: SkillRowProps['t'] = makeTranslate(zh, commonZh)
 
 afterEach(cleanup)
 
+/** 中文说明：函数 settled 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function settled(over: Partial<ToolResultNode> = {}): ToolResultNode {
   return {
     kind: 'tool-result',
@@ -33,12 +44,14 @@ function settled(over: Partial<ToolResultNode> = {}): ToolResultNode {
   }
 }
 
+/** 中文说明：函数 running 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function running(argsRaw = '{"name":"dsh-manage-issues"}'): RunningToolCall {
   return {
     callId: 'call-skill', name: 'skill', argsRaw, turn: 1, step: 1, time: 2_000, callView: null, subCalls: [],
   }
 }
 
+/** 中文说明：函数 props 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function props(block: SkillRowProps['block'], inspect?: () => void): SkillRowProps {
   return {
     callId: block.callId,
@@ -52,8 +65,11 @@ function props(block: SkillRowProps['block'], inspect?: () => void): SkillRowPro
 
 describe('SkillRow', () => {
   it('renders a compact Bash-shaped summary and discloses the exact instructions', () => {
+    /** 中文说明：测试局部值 inspect，由紧邻初始化决定。 */
     const inspect = vi.fn()
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SkillRow {...props(settled(), inspect)} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('button', { name: 'Skilldsh-manage-issues' })
     expect(row.getAttribute('aria-expanded')).toBe('false')
     expect(view.container.querySelector('[data-tool="skill"]')?.getAttribute('data-state')).toBe('ok')
@@ -62,6 +78,7 @@ describe('SkillRow', () => {
 
     fireEvent.click(row)
     expect(row.getAttribute('aria-expanded')).toBe('true')
+    /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
     const card = screen.getByLabelText('说明')
     expect(card.textContent).toBe('说明Follow the issue workflow.\nKeep project fields in sync.')
     expect(view.container.textContent).not.toContain('{"name":"dsh-manage-issues"}')
@@ -74,6 +91,7 @@ describe('SkillRow', () => {
 
   it('supports Enter and Space while ignoring unrelated keys', () => {
     render(<SkillRow {...props(settled())} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('button')
     fireEvent.keyDown(row, { key: 'Escape' })
     expect(row.getAttribute('aria-expanded')).toBe('false')
@@ -84,7 +102,9 @@ describe('SkillRow', () => {
   })
 
   it('keeps a running call compact and announces its state', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SkillRow {...props(running())} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.container.querySelector('[data-tool="skill"] > div')!
     expect(row.getAttribute('role')).toBeNull()
     expect(view.container.textContent).toContain('正在加载 skill')
@@ -93,21 +113,25 @@ describe('SkillRow', () => {
   })
 
   it('uses the first failure line in the summary and exposes the full error', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SkillRow {...props(settled({
       content: [{ type: 'text', text: 'SkillError: missing resource\nCheck SKILL.md.' }],
       isError: true,
       error: { name: 'SkillError', code: 'missing' },
     }))} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('button', { name: 'skill 加载失败SkillSkillError: missing resource' })
     expect(view.container.querySelector('[data-tool="skill"]')?.getAttribute('data-state')).toBe('error')
     expect(row.textContent).not.toContain('Check SKILL.md.')
     fireEvent.click(row)
+    /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
     const output = view.container.querySelector('pre')!
     expect(output.textContent).toBe('SkillError: missing resource\nCheck SKILL.md.')
     expect(output.getAttribute('data-error')).toBe('true')
   })
 
   it('renders stopped, structured, and structured-error durable outcomes', () => {
+    /** 中文说明：测试局部值 stoppedView，由紧邻初始化决定。 */
     const stoppedView = render(<SkillRow {...props(settled({
       error: { name: 'InterruptedError', code: 'interrupted' },
     }))} />)
@@ -115,6 +139,7 @@ describe('SkillRow', () => {
     expect(stoppedView.container.querySelector('[data-state="warning"]')).not.toBeNull()
     cleanup()
 
+    /** 中文说明：测试局部值 structuredView，由紧邻初始化决定。 */
     const structuredView = render(<SkillRow {...props(settled({
       content: [{ type: 'reasoning', text: 'structured instruction note' }],
     }))} />)
@@ -127,24 +152,29 @@ describe('SkillRow', () => {
       isError: true,
       error: { name: 'SkillError', code: 'missing' },
     }))} />)
+    /** 中文说明：测试局部值 errorRow，由紧邻初始化决定。 */
     const errorRow = screen.getByRole('button', { name: 'skill 加载失败SkillSkillError: missing' })
     fireEvent.click(errorRow)
     expect(screen.getAllByText('SkillError: missing')).toHaveLength(2)
   })
 
   it('falls back to durable args or call id when the skill name is unavailable', () => {
+    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     const invalid = render(<SkillRow {...props(running('{"name":\n'))} />)
     expect(invalid.container.textContent).toContain('{"name":')
     cleanup()
 
+    /** 中文说明：测试局部值 scalar，由紧邻初始化决定。 */
     const scalar = render(<SkillRow {...props(running('"raw-name"'))} />)
     expect(scalar.container.textContent).toContain('"raw-name"')
     cleanup()
 
+    /** 中文说明：测试局部值 emptyName，由紧邻初始化决定。 */
     const emptyName = render(<SkillRow {...props(running('{"name":""}'))} />)
     expect(emptyName.container.textContent).toContain('{"name":""}')
     cleanup()
 
+    /** 中文说明：测试局部值 blank，由紧邻初始化决定。 */
     const blank = render(<SkillRow {...props(settled({ call: null, content: [] }))} />)
     expect(blank.container.textContent).toContain('call-skill')
     expect(blank.container.querySelector('[role="button"]')).toBeNull()

@@ -2,6 +2,14 @@
 // composed register constraint — children spec x SlotMap alignment, renderSlot
 // key-set containment, store share matching, inject face completeness — plus
 // the full positive chain. Bodies with @ts-expect-error sites never run.
+/**
+ * 文件职责：验证界面插槽的 type-chain.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止界面插槽显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import type { ReactNode } from 'react'
 import type {
@@ -15,6 +23,7 @@ import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 // program a toy merge would collide with them — samples below stay
 // shape-agnostic about kit member payloads for the same reason.
 declare module '@deepseek-ai/dsh-client-ui-slots' {
+  /** 中文说明：类型或类 SlotMap 约束模块数据或组件职责。 */
   interface SlotMap {
     'chain.frame': { kind: 'single'; scope: 'root' }
     'chain.side': { kind: 'single'; scope: 'root'; owner: { collapsed: boolean; width: number } }
@@ -31,11 +40,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Chain-currency fixture: the owner share carries a union the selectors narrow. */
+/** 中文说明：类型或类 Item 约束模块数据或组件职责。 */
 interface Item { kind: 'q' | 'a'; id: string }
 
 declare const defineStore: DefineStore
 
 /** Factory form (exclusive seat): module-level export, never a handle. */
+/** 中文说明：函数 createPanelStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function createPanelStore() {
   return defineStore({
     init: () => ({ sidebar: 280, details: 0 }),
@@ -47,6 +58,7 @@ function createPanelStore() {
   })
 }
 
+/** 中文说明：测试局部值 _chatStore，由紧邻初始化决定。 */
 const _chatStore = () => defineStore({
   init: () => ({ selection: null as { id: string } | null, draft: '' }),
   actions: {
@@ -55,30 +67,39 @@ const _chatStore = () => defineStore({
     clearDraft: (d) => { d.draft = '' },
   },
 })
+/** 中文说明：类型或类 ChatHandle 约束模块数据或组件职责。 */
 type ChatHandle = ReturnType<typeof _chatStore>
 
+/** 中文说明：类型或类 FrameProps 约束模块数据或组件职责。 */
 type FrameProps =
   & PropsRuntime<'chain.frame'>
   & PropsRenderSlots<'chain.side' | 'chain.conv'>
   & PropsStore<ReturnType<typeof createPanelStore>>
   & { openSettings: () => void }
 
+/** 中文说明：类型或类 ConvProps 约束模块数据或组件职责。 */
 type ConvProps =
   & PropsRuntime<'chain.conv'>
   & PropsStore<ChatHandle>
   & { send: (t: string) => void }
 
+/** 中文说明：类型或类 TurnDataMap 约束模块数据或组件职责。 */
 interface TurnDataMap { tail: string; files: string }
+/** 中文说明：类型或类 UseTurnData 约束模块数据或组件职责。 */
 type UseTurnData = <Key extends keyof TurnDataMap>(key: Key) => TurnDataMap[Key] | undefined
+/** 中文说明：类型或类 ContextInjected 约束模块数据或组件职责。 */
 interface ContextInjected {
   hooks: {
     turnData: SlotHookFactory<'chain.context', UseTurnData>
   }
 }
+/** 中文说明：类型或类 ContextProps 约束模块数据或组件职责。 */
 type ContextProps = PropsRuntime<'chain.context'>
+/** 中文说明：测试局部值 CONTEXT_INJECT，由紧邻初始化决定。 */
 const CONTEXT_INJECT: ContextInjected = {
   hooks: {
     turnData: (_standard, hookContext) => {
+      /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
       const id: string = hookContext
       return key => id === '' ? undefined : ({ tail: 'tail', files: 'files' })[key]
     },
@@ -104,6 +125,7 @@ declare function NarrowTakeover(props: PropsRuntime<'chain.takeover'> & { matche
 describe('terminal-design type chain', () => {
   it('holds the positive chain and the compile-time negatives', () => {
     // Everything below is compile-time only.
+    /** 中文说明：测试局部值 samples，由紧邻初始化决定。 */
     const samples = (core: SlotCore, chat: ChatHandle, fp: FrameProps, cp: ConvProps, acts: BoundActions<ChatHandle>) => {
       // ── positive chain ─────────────────────────────────────────────
       // Frame: children + factory store + inject; actions arrive baked.
@@ -126,6 +148,7 @@ describe('terminal-design type chain', () => {
         store: chat,
         inject: (sessionId, actions) => ({
           send: (text: string) => {
+            /** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
             const sid: string = sessionId
             actions.setDraft(text)
             void sid
@@ -140,6 +163,7 @@ describe('terminal-design type chain', () => {
       // member payloads are the runtime merge's property — not probed here
       // (the runtime package's own tests cover them).
       fp.renderSlot('chain.side', { collapsed: false, width: 280 })
+      /** 中文说明：测试局部值 draft，由紧邻初始化决定。 */
       const draft: string = cp.useStore(s => s.draft)
       cp.actions.select({ id: 'm1' })
       void draft
@@ -165,6 +189,7 @@ describe('terminal-design type chain', () => {
 
       // renderSlotChain share: chain keys dispatch with the fallback bag;
       // non-chain keys stay on renderSlot.
+      /** 中文说明：测试局部值 chainSlots，由紧邻初始化决定。 */
       const chainSlots: PropsRenderSlots<'chain.takeover' | 'chain.conv'> = null as never
       chainSlots.renderSlotChain('chain.takeover', { items: [] }, { fallback: null })
       chainSlots.renderSlot('chain.conv', {})
@@ -179,8 +204,11 @@ describe('terminal-design type chain', () => {
         },
       }, ContextOwner)
       core.register({ name: 'chain.context' }, ContextReader)
+      /** 中文说明：测试局部值 contextProps，由紧邻初始化决定。 */
       const contextProps: ContextProps = null as never
+      /** 中文说明：测试局部值 tail，由紧邻初始化决定。 */
       const tail: string | undefined = contextProps.useTurnData('tail')
+      /** 中文说明：测试局部值 contextSlots，由紧邻初始化决定。 */
       const contextSlots: PropsRenderSlots<'chain.context'> = null as never
       contextSlots.renderSlot('chain.context', {}, {
         hookContext: 'turn:1',
@@ -259,6 +287,7 @@ describe('terminal-design type chain', () => {
       // @ts-expect-error non-chain keys have no renderSlotChain dispatch
       chainSlots.renderSlotChain('chain.conv', {})
       // @ts-expect-error a children set without chain keys provides no renderSlotChain
+      /** 中文说明：类型或类 _NoChainSeat 约束模块数据或组件职责。 */
       type _NoChainSeat = typeof fp.renderSlotChain
 
       // renderSlot owner share typed at the call site.
@@ -273,6 +302,7 @@ describe('terminal-design type chain', () => {
       // @ts-expect-error a contextual slot requires its occurrence context
       contextSlots.renderSlot('chain.context', {})
       // @ts-expect-error hookContext is the slot-declared string
+      /** 中文说明：测试局部值 _wrongContextFactory，由紧邻初始化决定。 */
       const _wrongContextFactory: SlotHookFactory<'chain.context', UseTurnData> =
         (_standard, _hookContext: number) => () => undefined
       void _wrongContextFactory
@@ -284,6 +314,7 @@ describe('terminal-design type chain', () => {
 
       // SessionProvider seat: derives from a session-scope child declaration.
       fp.SessionProvider({ empty: () => null, children: () => null })
+      /** 中文说明：测试局部值 sideOnly，由紧邻初始化决定。 */
       const sideOnly: PropsRenderSlots<'chain.side'> = null as never
       // @ts-expect-error only root-scope children declared → no SessionProvider seat
       void sideOnly.SessionProvider

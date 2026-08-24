@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证侧栏的 sidebar-snapshot.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止侧栏显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
+/**
  * Local DOM snapshots of the sidebar shell through the real assembly path:
  * SlotTestRuntime mounts the package apply on its own fiber, the auto frame
  * supplies the layout's owner share at the render site, and the snapshot
@@ -31,9 +39,12 @@ afterEach(() => {
  * what an untouched client shows; `locale: 'en'` pins the en copy instead.
  * The installed face backs the entry's standard `t` seat either way.
  */
+/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(options: { locale?: 'en' } = {}) {
+  /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()
   runtime.provide('layout', { toggleSidebar: vi.fn() })
+  /** 中文说明：测试局部值 locale，由紧邻初始化决定。 */
   const locale = new LocaleRuntime(runtime.ctx)
   if (options.locale === 'en') locale.setLocale('en')
   runtime.provide('locale', locale)
@@ -45,7 +56,9 @@ async function bench(options: { locale?: 'en' } = {}) {
 
 describe('sidebar shell snapshots', () => {
   it('renders the expanded column in the default locale (zh, no setLocale)', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await bench()
+    /** 中文说明：测试局部值 slot，由紧邻初始化决定。 */
     const slot = runtime.renderSlot('sidebar', { collapsed: false, width: 300 })
     // Wordmark + capsule both start a session in the expanded state.
     expect(slot.view.getAllByRole('button', { name: '新建会话' })).toHaveLength(2)
@@ -54,7 +67,9 @@ describe('sidebar shell snapshots', () => {
   })
 
   it('renders the expanded column (wordmark, capsule, empty holes)', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await bench({ locale: 'en' })
+    /** 中文说明：测试局部值 slot，由紧邻初始化决定。 */
     const slot = runtime.renderSlot('sidebar', { collapsed: false, width: 300 })
     // Wordmark + capsule both start a session in the expanded state.
     expect(slot.view.getAllByRole('button', { name: 'New session' })).toHaveLength(2)
@@ -63,8 +78,11 @@ describe('sidebar shell snapshots', () => {
   })
 
   it('renders the collapsed rail after the crossfade settles, in place', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await bench({ locale: 'en' })
+    /** 中文说明：测试局部值 slot，由紧邻初始化决定。 */
     const slot = runtime.renderSlot('sidebar', { collapsed: false, width: 300 })
+    /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
     const shell = slot.container.firstElementChild
     slot.update({ collapsed: true, width: 56 })
     // The wide content (wordmark shortcut) unmounts at the 150ms settle;
@@ -79,7 +97,9 @@ describe('sidebar shell snapshots', () => {
   })
 
   it('a locale switch refreshes mounted copy without re-registration', async () => {
+    /** 中文说明：测试局部值 { runtime, locale }，由紧邻初始化决定。 */
     const { runtime, locale } = await bench()
+    /** 中文说明：测试局部值 slot，由紧邻初始化决定。 */
     const slot = runtime.renderSlot('sidebar', { collapsed: false, width: 300 })
     expect(slot.view.getAllByRole('button', { name: '新建会话' })).toHaveLength(2)
     // Same fiber, same registration: setLocale alone re-renders the outlet.

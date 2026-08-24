@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证子代理谱系的 conversation-ui.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止子代理谱系显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -17,11 +25,16 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** 中文说明：测试局部值 PARENT，由紧邻初始化决定。 */
 const PARENT = 'parent' as SessionId
+/** 中文说明：测试局部值 CHILD，由紧邻初始化决定。 */
 const CHILD = 'child' as SessionId
+/** 中文说明：测试局部值 GRANDCHILD，由紧邻初始化决定。 */
 const GRANDCHILD = 'grandchild' as SessionId
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: SubagentHeaderLineageProps['t'] = makeTranslate(zh)
 
+/** 中文说明：函数 catalog 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function catalog(over: Partial<SubagentCatalogSnapshot> = {}): SubagentCatalogSnapshot {
   return {
     entries: [
@@ -42,11 +55,13 @@ function catalog(over: Partial<SubagentCatalogSnapshot> = {}): SubagentCatalogSn
   }
 }
 
+/** 中文说明：函数 props 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function props(
   value: SubagentCatalogSnapshot | undefined,
   nested: Readonly<Record<SessionId, SubagentCatalogSnapshot>> = {},
   summaries?: Readonly<Record<SessionId, SessionSummary>>,
 ) {
+  /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
   const state = {
     ids: [CHILD],
     byId: summaries ?? {
@@ -64,6 +79,7 @@ function props(
     jobsBySession: {},
     currentAddress: undefined,
   } satisfies SessionListState
+  /** 中文说明：函数 useSessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function useSessions<T>(select: (snapshot: SessionListState) => T): T {
     return select(state)
   }
@@ -79,6 +95,7 @@ function props(
   } as unknown as SubagentHeaderLineageProps
 }
 
+/** 中文说明：函数 summary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function summary(id: SessionId, updatedAt: number): SessionSummary {
   return {
     id,
@@ -89,7 +106,9 @@ function summary(id: SessionId, updatedAt: number): SessionSummary {
   }
 }
 
+/** 中文说明：函数 hoverCatalog 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hoverCatalog(trigger: HTMLElement): void {
+  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = trigger.parentElement
   if (root === null) throw new Error('catalog trigger has no root')
   vi.useFakeTimers()
@@ -99,6 +118,7 @@ function hoverCatalog(trigger: HTMLElement): void {
 
 describe('SubagentHeaderLineage', () => {
   it('aggregates live descendant activity onto the closed trigger', () => {
+    /** 中文说明：测试局部值 summaries，由紧邻初始化决定。 */
     const summaries: Record<SessionId, SessionSummary> = {
       [CHILD]: {
         ...summary(CHILD, Date.now()),
@@ -117,8 +137,10 @@ describe('SubagentHeaderLineage', () => {
         origin: 'subagent',
       },
     }
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...props(catalog(), {}, summaries)} />)
 
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: '1 个子代理，正在运行' })
     expect(trigger.querySelector('[data-state="ongoing"]')).not.toBeNull()
 
@@ -126,12 +148,15 @@ describe('SubagentHeaderLineage', () => {
       ...summaries,
       [GRANDCHILD]: { ...summaries[GRANDCHILD]!, running: false },
     })} />)
+    /** 中文说明：测试局部值 inactiveTrigger，由紧邻初始化决定。 */
     const inactiveTrigger = screen.getByRole('button', { name: '3 个子代理' })
     expect(inactiveTrigger.querySelector('[data-state="ongoing"]')).toBeNull()
   })
 
   it('does not aggregate subagents reached through an ordinary fork', () => {
+    /** 中文说明：测试局部值 fork，由紧邻初始化决定。 */
     const fork = 'fork' as SessionId
+    /** 中文说明：测试局部值 forkChild，由紧邻初始化决定。 */
     const forkChild = 'fork-child' as SessionId
     render(<SubagentHeaderLineage {...props(catalog(), {}, {
       [CHILD]: { ...summary(CHILD, 1), parentId: PARENT, origin: 'subagent' },
@@ -142,13 +167,16 @@ describe('SubagentHeaderLineage', () => {
       [forkChild]: { ...summary(forkChild, 1), parentId: fork, origin: 'subagent', running: true },
     })} />)
 
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: '2 个子代理' })
     expect(trigger.querySelector('[data-state="ongoing"]')).toBeNull()
   })
 
   it('renders healthy counts, stable rows, diagnostics, and catalog-addressed navigation', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog())
     render(<SubagentHeaderLineage {...input} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: /2 个子代理/ })
     hoverCatalog(trigger)
 
@@ -156,6 +184,7 @@ describe('SubagentHeaderLineage', () => {
     expect(screen.getAllByRole('treeitem')).toHaveLength(3)
     expect(screen.getByText('正在扫描项目文件 · 可继续 · 正在运行')).toBeTruthy()
     expect(screen.getByText('一次性 · 当前未运行')).toBeTruthy()
+    /** 中文说明：测试局部值 diagnostic，由紧邻初始化决定。 */
     const diagnostic = screen.getByRole('treeitem', { name: /会话记录损坏/ })
     expect(diagnostic.getAttribute('aria-disabled')).toBe('true')
     expect(screen.getByRole('button', { name: '展开 worker 的下级子代理' })).toBeTruthy()
@@ -170,6 +199,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('selects singular count keys for one descendant', () => {
+    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = props(catalog({
       entries: [{
         kind: 'child', id: CHILD, mode: 'continuable', label: 'worker',
@@ -180,6 +210,7 @@ describe('SubagentHeaderLineage', () => {
         ...summary(CHILD, Date.now()), parentId: PARENT, origin: 'subagent', running: true,
       },
     })
+    /** 中文说明：测试局部值 translate，由紧邻初始化决定。 */
     const translate = vi.fn(base.t)
     render(<SubagentHeaderLineage {...base} t={translate} />)
 
@@ -188,6 +219,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('removes the disclosure column from branchless catalog levels', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog({
       entries: [{
         kind: 'child', id: CHILD, mode: 'continuable', label: 'worker',
@@ -201,8 +233,10 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('supports trigger/menu keyboard traversal, Escape focus restore, and outside close', async () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog())
     render(<SubagentHeaderLineage {...input} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: /2 个子代理/ })
     fireEvent.keyDown(trigger, { key: 'ArrowDown' })
     await Promise.resolve()
@@ -228,7 +262,9 @@ describe('SubagentHeaderLineage', () => {
 
   it('opens only on hover and preserves the portaled-menu crossing grace', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...props(catalog())} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: /2 个子代理/ })
 
     fireEvent.click(trigger)
@@ -238,6 +274,7 @@ describe('SubagentHeaderLineage', () => {
     await vi.advanceTimersByTimeAsync(149)
     expect(screen.queryByRole('tree')).toBeNull()
     await vi.advanceTimersByTimeAsync(1)
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree = screen.getByRole('tree')
     fireEvent.resize(window)
     fireEvent.mouseLeave(trigger.parentElement!)
@@ -259,7 +296,9 @@ describe('SubagentHeaderLineage', () => {
 
   it('cancels a pending hover when the trigger becomes hidden', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...props(catalog())} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: /2 个子代理/ })
 
     fireEvent.mouseEnter(trigger.parentElement!)
@@ -273,9 +312,13 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('covers diagnostic variants, fallback labels, and keyboard row activation', () => {
+    /** 中文说明：测试局部值 unsupported，由紧邻初始化决定。 */
     const unsupported = 'unsupported' as SessionId
+    /** 中文说明：测试局部值 unavailable，由紧邻初始化决定。 */
     const unavailable = 'unavailable' as SessionId
+    /** 中文说明：测试局部值 unlabeled，由紧邻初始化决定。 */
     const unlabeled = 'unlabeled' as SessionId
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog({
       entries: [
         { kind: 'diagnostic', id: unsupported, reason: 'unsupported' },
@@ -291,6 +334,7 @@ describe('SubagentHeaderLineage', () => {
       ],
     }))
     render(<SubagentHeaderLineage {...input} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: /2 个子代理/ })
     fireEvent.keyDown(trigger, { key: 'Tab' })
     expect(screen.queryByRole('tree')).toBeNull()
@@ -310,12 +354,17 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('shows durable token totals, ticks active duration by seconds, and freezes inactive rows', async () => {
+    /** 中文说明：测试局部值 now，由紧邻初始化决定。 */
     const now = 2_000_000_000_000
+    /** 中文说明：测试局部值 minute，由紧邻初始化决定。 */
     const minute = 60_000
+    /** 中文说明：测试局部值 hour，由紧邻初始化决定。 */
     const hour = 60 * minute
+    /** 中文说明：测试局部值 day，由紧邻初始化决定。 */
     const day = 24 * hour
     vi.useFakeTimers()
     vi.setSystemTime(now)
+    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows = [
       ['running', 'running', 65_000, now - 5_000, now - 1_000, now],
       ['finished', 'inactive', 3_723_000, undefined, undefined, now - 60_000],
@@ -327,6 +376,7 @@ describe('SubagentHeaderLineage', () => {
       ['years', 'inactive', 832 * day, undefined, undefined, now],
       ['whole-year', 'inactive', 365 * day, undefined, undefined, now],
     ] as const
+    /** 中文说明：测试局部值 usageById，由紧邻初始化决定。 */
     const usageById = {
       running: {
         uncachedInputTokens: 1_000,
@@ -347,6 +397,7 @@ describe('SubagentHeaderLineage', () => {
         cacheWriteTokens: 0,
       },
     } as const
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = rows.map(([id, activity]) => ({
       kind: 'child' as const,
       id: id as SessionId,
@@ -355,9 +406,11 @@ describe('SubagentHeaderLineage', () => {
       activity,
       hasChildren: false,
     }))
+    /** 中文说明：测试局部值 summaries，由紧邻初始化决定。 */
     const summaries = Object.fromEntries(rows.map(([
       id, activity, settledMs, activeSince, activeThrough, updatedAt,
     ]) => {
+      /** 中文说明：测试局部值 childId，由紧邻初始化决定。 */
       const childId = id as SessionId
       return [id, {
         ...summary(childId, updatedAt),
@@ -377,15 +430,21 @@ describe('SubagentHeaderLineage', () => {
         },
       }]
     })) as Record<SessionId, SessionSummary>
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog({ entries }), {}, summaries)
     render(<SubagentHeaderLineage {...input} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: '1 个子代理，正在运行' })
     expect(within(trigger).getByText('9 个子代理')).toBeTruthy()
     hoverCatalog(trigger)
 
+    /** 中文说明：测试局部值 runningRow，由紧邻初始化决定。 */
     const runningRow = screen.getByRole('treeitem', { name: /running.*4\.6K tok · 1分10秒/ })
+    /** 中文说明：测试局部值 runningMetrics，由紧邻初始化决定。 */
     const runningMetrics = within(runningRow)
+    /** 中文说明：测试局部值 tokenMetric，由紧邻初始化决定。 */
     const tokenMetric = runningMetrics.getByText('4.6K tok')
+    /** 中文说明：测试局部值 durationMetric，由紧邻初始化决定。 */
     const durationMetric = runningMetrics.getByText('1分10秒')
     expect(tokenMetric.parentElement).toBe(durationMetric.parentElement)
     expect(tokenMetric.nextElementSibling).toBe(durationMetric)
@@ -407,6 +466,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('lazily expands and collapses descendant catalogs with direct-parent navigation', () => {
+    /** 中文说明：测试局部值 childCatalog，由紧邻初始化决定。 */
     const childCatalog = catalog({
       entries: [
         {
@@ -415,7 +475,9 @@ describe('SubagentHeaderLineage', () => {
         },
       ],
     })
+    /** 中文说明：测试局部值 grandchildCatalog，由紧邻初始化决定。 */
     const grandchildCatalog = catalog({ entries: [] })
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog(), {
       [CHILD]: childCatalog,
       [GRANDCHILD]: grandchildCatalog,
@@ -425,6 +487,7 @@ describe('SubagentHeaderLineage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '展开 worker 的下级子代理' }))
     expect(input.setCatalogOpen).toHaveBeenCalledWith(CHILD, true)
+    /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
     const nested = screen.getByRole('treeitem', { name: /indexer/ })
     expect(nested.getAttribute('aria-level')).toBe('2')
 
@@ -437,7 +500,9 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('shows known descendant rows while their catalog loads', () => {
+    /** 中文说明：测试局部值 secondGrandchild，由紧邻初始化决定。 */
     const secondGrandchild = 'grandchild-2' as SessionId
+    /** 中文说明：测试局部值 summaries，由紧邻初始化决定。 */
     const summaries = {
       [GRANDCHILD]: {
         ...summary(GRANDCHILD, 1), parentId: CHILD, origin: 'subagent' as const,
@@ -447,24 +512,29 @@ describe('SubagentHeaderLineage', () => {
         running: true,
       },
     }
+    /** 中文说明：测试局部值 deferred，由紧邻初始化决定。 */
     const deferred = props(catalog(), {}, summaries)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...deferred} />)
     hoverCatalog(screen.getByRole('button', { name: /2 个子代理/ }))
     fireEvent.click(screen.getByRole('button', { name: '展开 worker 的下级子代理' }))
 
     expect(deferred.setCatalogOpen).toHaveBeenCalledWith(CHILD, true)
     expect(screen.getByRole('group').getAttribute('aria-busy')).toBe('true')
+    /** 中文说明：测试局部值 loadingRows，由紧邻初始化决定。 */
     const loadingRows = screen.getAllByRole('treeitem', { name: '正在加载子代理' })
     expect(loadingRows).toHaveLength(2)
     expect(loadingRows.every(row => row.getAttribute('aria-level') === '2')).toBe(true)
     expect(loadingRows[1]?.querySelector('[data-state="ongoing"]')).not.toBeNull()
 
+    /** 中文说明：测试局部值 loading，由紧邻初始化决定。 */
     const loading = props(catalog(), {
       [CHILD]: catalog({ entries: [], state: 'loading' }),
     }, summaries)
     view.rerender(<SubagentHeaderLineage {...loading} />)
     expect(screen.getAllByRole('treeitem', { name: '正在加载子代理' })).toHaveLength(2)
 
+    /** 中文说明：测试局部值 ready，由紧邻初始化决定。 */
     const ready = props(catalog(), {
       [CHILD]: catalog({
         entries: [
@@ -487,6 +557,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('uses ArrowRight and ArrowLeft for branch disclosure', async () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog(), {
       [CHILD]: catalog({
         entries: [{
@@ -496,9 +567,11 @@ describe('SubagentHeaderLineage', () => {
       }),
     })
     render(<SubagentHeaderLineage {...input} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: /2 个子代理/ })
     fireEvent.keyDown(trigger, { key: 'ArrowDown' })
     await Promise.resolve()
+    /** 中文说明：测试局部值 worker，由紧邻初始化决定。 */
     const worker = screen.getByRole('treeitem', { name: /worker/ })
     fireEvent.keyDown(worker, { key: 'ArrowRight' })
     expect(screen.getByRole('treeitem', { name: /indexer/ })).toBeTruthy()
@@ -508,6 +581,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('closes expanded descendants even when their own catalogs have not arrived', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog(), {
       [CHILD]: catalog({
         entries: [
@@ -531,15 +605,19 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('hides an arrived empty catalog and exposes retry for a failed one', () => {
+    /** 中文说明：测试局部值 absent，由紧邻初始化决定。 */
     const absent = render(<SubagentHeaderLineage {...props(undefined)} />)
     expect(screen.queryByRole('button')).toBeNull()
     absent.unmount()
 
+    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = props(catalog({ entries: [] }))
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...empty} />)
     expect(screen.queryByRole('button')).toBeNull()
     view.unmount()
 
+    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = props(catalog({
       entries: [],
       state: 'error',
@@ -553,7 +631,9 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('keeps known descendants reachable while their catalog is absent or stale-empty', () => {
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = 'child-2' as SessionId
+    /** 中文说明：测试局部值 summaries，由紧邻初始化决定。 */
     const summaries = {
       [CHILD]: {
         ...summary(CHILD, 1), parentId: PARENT, origin: 'subagent' as const,
@@ -562,9 +642,12 @@ describe('SubagentHeaderLineage', () => {
         ...summary(second, 1), parentId: PARENT, origin: 'subagent' as const, running: true,
       },
     }
+    /** 中文说明：测试局部值 absent，由紧邻初始化决定。 */
     const absent = props(undefined, {}, summaries)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...absent} />)
 
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: '1 个子代理，正在运行' })
     expect(within(trigger).getByText('2 个子代理')).toBeTruthy()
     hoverCatalog(trigger)
@@ -572,6 +655,7 @@ describe('SubagentHeaderLineage', () => {
     expect(screen.getAllByRole('treeitem', { name: '正在加载子代理' })).toHaveLength(2)
     expect(absent.openChild).not.toHaveBeenCalled()
 
+    /** 中文说明：测试局部值 staleEmpty，由紧邻初始化决定。 */
     const staleEmpty = props(catalog({ entries: [] }), {}, summaries)
     view.rerender(<SubagentHeaderLineage {...staleEmpty} />)
     expect(screen.getByRole('button', { name: '1 个子代理，正在运行' })).toBeTruthy()
@@ -582,13 +666,17 @@ describe('SubagentHeaderLineage', () => {
   it('hides a bare loading catalog and keeps the error fallback without focusable rows', async () => {
     // Selecting any session schedules a catalog refresh; a loading snapshot
     // with no other evidence of children must not flash the action in.
+    /** 中文说明：测试局部值 loading，由紧邻初始化决定。 */
     const loading = props(catalog({ entries: [], state: 'loading' }))
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...loading} />)
     expect(screen.queryByRole('button')).toBeNull()
     view.unmount()
 
+    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = props(catalog({ entries: [], state: 'error', error: null }))
     render(<SubagentHeaderLineage {...failed} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: /0 个子代理/ })
     hoverCatalog(trigger)
     expect(screen.getByText('无法加载子代理')).toBeTruthy()
@@ -599,8 +687,11 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('navigates from outside the tree and tolerates a deferred focus after unmount', async () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = props(catalog())
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...input} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: /2 个子代理/ })
     hoverCatalog(trigger)
     fireEvent.keyDown(screen.getByRole('tree'), { key: 'ArrowUp' })
@@ -611,6 +702,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('closes every observed catalog when the root becomes empty', () => {
+    /** 中文说明：测试局部值 populated，由紧邻初始化决定。 */
     const populated = props(catalog(), {
       [CHILD]: catalog({
         entries: [{
@@ -619,10 +711,12 @@ describe('SubagentHeaderLineage', () => {
         }],
       }),
     })
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...populated} />)
     hoverCatalog(screen.getByRole('button', { name: /2 个子代理/ }))
     fireEvent.click(screen.getByRole('button', { name: '展开 worker 的下级子代理' }))
 
+    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = props(catalog({ entries: [] }))
     view.rerender(<SubagentHeaderLineage {...empty} />)
     expect(screen.queryByRole('button')).toBeNull()
@@ -631,6 +725,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('places a separator before a visible ordinary-session descendant count', () => {
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SubagentHeaderLineage {...props(catalog())} />)
 
     expect(screen.getByText('/')).toBeTruthy()
@@ -641,7 +736,9 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('combines the current subagent title and chevron into the parent-catalog trigger', () => {
+    /** 中文说明：测试局部值 sibling，由紧邻初始化决定。 */
     const sibling = 'child-2' as SessionId
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
       ...props(catalog(), {}, {
         [CHILD]: {
@@ -657,17 +754,20 @@ describe('SubagentHeaderLineage', () => {
     }
     render(<SubagentHeaderLineage {...input} />)
 
+    /** 中文说明：测试局部值 switcher，由紧邻初始化决定。 */
     const switcher = screen.getByRole('button', { name: '切换子代理：worker' })
     expect(switcher.className).toContain('switcherTrigger')
     expect(within(switcher).getByText('worker')).toBeTruthy()
     expect(switcher.querySelector('svg')).not.toBeNull()
 
+    /** 中文说明：测试局部值 switcherIcon，由紧邻初始化决定。 */
     const switcherIcon = switcher.querySelector('svg')
     expect(switcherIcon?.getAttribute('width')).toBe('16')
     expect(switcherIcon?.getAttribute('height')).toBe('16')
 
     hoverCatalog(switcher)
     expect(input.setCatalogOpen).toHaveBeenCalledWith(PARENT, true)
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = screen.getByRole('treeitem', { name: /worker/ })
     expect(current.getAttribute('aria-current')).toBe('true')
     expect(within(current).getByText('worker').className).toContain('currentLabel')
@@ -678,6 +778,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('falls back to the catalog session id when the selected row has no label', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
       ...props(catalog({ entries: [{
         kind: 'child', id: CHILD, mode: 'one-shot',
@@ -697,6 +798,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('keeps an ancestor switcher muted and omits its descendant count', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
       ...props(catalog(), {
         [CHILD]: catalog({ entries: [{
@@ -717,6 +819,7 @@ describe('SubagentHeaderLineage', () => {
     }
     render(<SubagentHeaderLineage {...input} />)
 
+    /** 中文说明：测试局部值 switcher，由紧邻初始化决定。 */
     const switcher = screen.getByRole('button', { name: '切换子代理：worker' })
     expect(switcher.className).toContain('ancestorSwitcherTrigger')
     expect(screen.queryByRole('button', { name: /1 个子代理/ })).toBeNull()
@@ -738,6 +841,7 @@ describe('SubagentHeaderLineage', () => {
     ['ancestor', vi.fn()],
     ['current', undefined],
   ] as const)('refreshes an absent %s switcher catalog without waiting for hover', (_kind, openTitle) => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
       ...props(undefined, {}, {
         [CHILD]: {
@@ -755,6 +859,7 @@ describe('SubagentHeaderLineage', () => {
   })
 
   it('keeps a nested title switcher scoped to its direct-parent catalog', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
       ...props(catalog(), {
         [CHILD]: catalog({ entries: [{
@@ -778,6 +883,7 @@ describe('SubagentHeaderLineage', () => {
     hoverCatalog(screen.getByRole('button', { name: '切换子代理：indexer' }))
 
     expect(input.setCatalogOpen).toHaveBeenCalledWith(CHILD, true)
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = screen.getByRole('treeitem', { name: /indexer/ })
     expect(current.getAttribute('aria-current')).toBe('true')
     expect(within(current).getByText('indexer').className).toContain('currentLabel')

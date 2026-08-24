@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证主题与设计系统的 appearance-row.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止主题与设计系统显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
 /** AppearanceRow behavior: three cubes, selection follows the persisted
  * preference, clicks drive setTheme. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +20,7 @@ import type { ThemePreference } from '../src/client/index.ts'
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 COPY，由紧邻初始化决定。 */
 const COPY: Record<string, string> = {
   'appearance.title': 'Appearance',
   'appearance.light': 'Light',
@@ -20,12 +29,16 @@ const COPY: Record<string, string> = {
 }
 
 /** Empty global standard-kit hooks (the row reads neither). */
+/** 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emptySessions() {
+  /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<SessionListState>(
     { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined })
   return bindSnapshotSelector(store)
 }
+/** 中文说明：函数 emptyWorkspaces 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emptyWorkspaces() {
+  /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<WorkspaceListState>({
     items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
     baselinesReady: true, recentWorkspaceId: undefined,
@@ -33,11 +46,15 @@ function emptyWorkspaces() {
   return bindSnapshotSelector(store)
 }
 
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mount(preference: ThemePreference = 'system') {
   // Real store instance — the sanctioned zero-machinery path for tests.
+  /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createAppearanceRowStore().create()
   store.actions.sync(preference, 0)
+  /** 中文说明：测试局部值 setTheme，由紧邻初始化决定。 */
   const setTheme = vi.fn()
+  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props: AppearanceRowComponentProps = {
     useSessions: emptySessions(),
     useWorkspaces: emptyWorkspaces(),
@@ -50,6 +67,7 @@ function mount(preference: ThemePreference = 'system') {
   return { store, setTheme }
 }
 
+/** 中文说明：测试局部值 pressed，由紧邻初始化决定。 */
 const pressed = (name: RegExp): string | null =>
   screen.getByRole('button', { name }).getAttribute('aria-pressed')
 
@@ -63,6 +81,7 @@ describe('AppearanceRow', () => {
   })
 
   it('click drives setTheme; selection follows the store mirror, not the click echo', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount('dark')
     fireEvent.click(screen.getByRole('button', { name: /Light/ }))
     expect(b.setTheme).toHaveBeenCalledWith('light')

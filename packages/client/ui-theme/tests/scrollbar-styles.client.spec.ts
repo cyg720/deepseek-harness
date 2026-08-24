@@ -8,33 +8,52 @@
  * design-platform.css, so adding, renaming, or dropping a scrollbar token
  * moves these assertions with it.
  */
+/**
+ * 文件职责：验证主题与设计系统的 scrollbar-styles.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止主题与设计系统显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 /** One flattened CSS rule: its comma-separated selector parts and its declarations in source order. */
+/** 中文说明：类型或类 CssRule 约束模块数据或组件职责。 */
 interface CssRule {
   selectors: string[]
   declarations: [property: string, value: string][]
 }
 
+/** 中文说明：测试局部值 STYLES，由紧邻初始化决定。 */
 const STYLES = new URL('../src/styles/', import.meta.url)
+/** 中文说明：测试局部值 PACKAGES_DIR，由紧邻初始化决定。 */
 const PACKAGES_DIR = fileURLToPath(new URL('../../../', import.meta.url))
+/** 中文说明：测试局部值 read，由紧邻初始化决定。 */
 const read = (name: string): string => readFileSync(fileURLToPath(new URL(name, STYLES)), 'utf8')
 
+/** 中文说明：测试局部值 platformCss，由紧邻初始化决定。 */
 const platformCss = read('design-platform.css')
+/** 中文说明：测试局部值 scrollbarCss，由紧邻初始化决定。 */
 const scrollbarCss = read('scrollbar.css')
 
 /** Body attribute selecting the dark palette; ui-layout's ThemePresenter sets it. */
+/** 中文说明：测试局部值 DARK_ATTRIBUTE，由紧邻初始化决定。 */
 const DARK_ATTRIBUTE = '[data-ds-dark-theme]'
 /** Alias tokens under test: the prefix the elevation pairs share. */
+/** 中文说明：测试局部值 TOKEN_PREFIX，由紧邻初始化决定。 */
 const TOKEN_PREFIX = '--dsw-alias-scrollbar-'
 /** Prefix of the rebindable indirection scrollbar.css owns. */
+/** 中文说明：测试局部值 INDIRECTION_PREFIX，由紧邻初始化决定。 */
 const INDIRECTION_PREFIX = '--dsh-scrollbar-'
 /** The one non-token rebind value: a surface that draws no thumb at all. */
+/** 中文说明：测试局部值 HIDDEN_THUMB，由紧邻初始化决定。 */
 const HIDDEN_THUMB = 'transparent'
 /** The elevation rebind, spelled per property: value-wholeness, not token shape. */
+/** 中文说明：测试局部值 ELEVATED_REBIND，由紧邻初始化决定。 */
 const ELEVATED_REBIND = new Map([
   ['--dsh-scrollbar-thumb', '--dsw-alias-scrollbar-bg-l2'],
   ['--dsh-scrollbar-thumb-hover', '--dsw-alias-scrollbar-hover-l2'],
@@ -47,17 +66,23 @@ const ELEVATED_REBIND = new Map([
  * @param css - stylesheet text.
  * @returns one entry per rule, in source order.
  */
+/** 中文说明：函数 parseRules 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function parseRules(css: string): CssRule[] {
+  /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
+  /** 中文说明：测试局部值 rules，由紧邻初始化决定。 */
   const rules: CssRule[] = []
   // Destructuring defaults only satisfy noUncheckedIndexedAccess; both groups
   // are unconditional in the pattern.
+  /** 中文说明：测试局部值 [，由紧邻初始化决定。 */
   for (const [, selector = '', body = ''] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    /** 中文说明：测试局部值 declarations，由紧邻初始化决定。 */
     const declarations = body
       .split(';')
       .map(part => part.trim())
       .filter(part => part.includes(':'))
       .map((part): [string, string] => {
+        /** 中文说明：测试局部值 colon，由紧邻初始化决定。 */
         const colon = part.indexOf(':')
         return [part.slice(0, colon).trim(), part.slice(colon + 1).trim()]
       })
@@ -72,11 +97,16 @@ function parseRules(css: string): CssRule[] {
  * @param prelude - exact at-rule prelude to locate, without the opening brace.
  * @returns the block's brace offsets, or undefined when the prelude is absent.
  */
+/** 中文说明：函数 atRuleBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function atRuleBlock(css: string, prelude: string): { start: number; end: number } | undefined {
+  /** 中文说明：测试局部值 opening，由紧邻初始化决定。 */
   const opening = css.indexOf(`${prelude} {`)
   if (opening === -1) return undefined
+  /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
   const start = css.indexOf('{', opening)
+  /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
   let depth = 0
+  /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
   for (let index = start; index < css.length; index += 1) {
     if (css[index] === '{') depth += 1
     else if (css[index] === '}') {
@@ -92,6 +122,7 @@ function atRuleBlock(css: string, prelude: string): { start: number; end: number
  * @param value - declaration value, possibly with nested var() calls.
  * @returns every referenced custom-property name, in source order.
  */
+/** 中文说明：函数 varReferences 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function varReferences(value: string): string[] {
   return [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map(([, name = '']) => name)
 }
@@ -101,10 +132,15 @@ function varReferences(value: string): string[] {
  * installed dependencies.
  * @returns absolute paths of the stylesheets under packages/.
  */
+/** 中文说明：函数 packageStylesheets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function packageStylesheets(): string[] {
+  /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
   const found: string[] = []
+  /** 中文说明：测试局部值 walk，由紧邻初始化决定。 */
   const walk = (dir: string): void => {
+    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
       const path = join(dir, entry.name)
       if (entry.isDirectory()) {
         if (entry.name !== 'node_modules' && entry.name !== 'lib' && entry.name !== 'dist') walk(path)
@@ -123,22 +159,31 @@ function packageStylesheets(): string[] {
  * @param rules - parsed rules of one stylesheet.
  * @returns every `--dsw-*` token the sheet's rendering declarations depend on.
  */
+/** 中文说明：函数 tokensRendered 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tokensRendered(rules: CssRule[]): Set<string> {
+  /** 中文说明：测试局部值 definitions，由紧邻初始化决定。 */
   const definitions = new Map<string, string>()
+  /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
   const pending: string[] = []
+  /** 中文说明：测试局部值 rule，由紧邻初始化决定。 */
   for (const rule of rules) {
+    /** 中文说明：测试局部值 [property，由紧邻初始化决定。 */
     for (const [property, value] of rule.declarations) {
       if (property.startsWith('--')) definitions.set(property, value)
       else pending.push(value)
     }
   }
+  /** 中文说明：测试局部值 reached，由紧邻初始化决定。 */
   const reached = new Set<string>()
+  /** 中文说明：测试局部值 visited，由紧邻初始化决定。 */
   const visited = new Set<string>()
   while (pending.length > 0) {
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of varReferences(pending.pop()!)) {
       if (name.startsWith('--dsw-')) reached.add(name)
       if (visited.has(name)) continue
       visited.add(name)
+      /** 中文说明：测试局部值 definition，由紧邻初始化决定。 */
       const definition = definitions.get(name)
       if (definition !== undefined) pending.push(definition)
     }
@@ -146,8 +191,11 @@ function tokensRendered(rules: CssRule[]): Set<string> {
   return reached
 }
 
+/** 中文说明：测试局部值 platformRules，由紧邻初始化决定。 */
 const platformRules = parseRules(platformCss)
+/** 中文说明：测试局部值 scrollbarRules，由紧邻初始化决定。 */
 const scrollbarRules = parseRules(scrollbarCss)
+/** 中文说明：测试局部值 sorted，由紧邻初始化决定。 */
 const sorted = (names: Iterable<string>): string[] => [...names].sort()
 
 /**
@@ -156,10 +204,14 @@ const sorted = (names: Iterable<string>): string[] => [...names].sort()
  * @param dark - true to scan the dark blocks, false to scan the light blocks.
  * @returns the scrollbar token names defined there.
  */
+/** 中文说明：函数 definedTokens 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function definedTokens(dark: boolean): Set<string> {
+  /** 中文说明：测试局部值 names，由紧邻初始化决定。 */
   const names = new Set<string>()
+  /** 中文说明：测试局部值 rule，由紧邻初始化决定。 */
   for (const rule of platformRules) {
     if (rule.selectors.every(selector => selector.includes(DARK_ATTRIBUTE)) !== dark) continue
+    /** 中文说明：测试局部值 [property]，由紧邻初始化决定。 */
     for (const [property] of rule.declarations) {
       if (property.startsWith(TOKEN_PREFIX)) names.add(property)
     }
@@ -167,13 +219,18 @@ function definedTokens(dark: boolean): Set<string> {
   return names
 }
 
+/** 中文说明：测试局部值 lightTokens，由紧邻初始化决定。 */
 const lightTokens = definedTokens(false)
+/** 中文说明：测试局部值 darkTokens，由紧邻初始化决定。 */
 const darkTokens = definedTokens(true)
+/** 中文说明：测试局部值 allTokens，由紧邻初始化决定。 */
 const allTokens = new Set([...lightTokens, ...darkTokens])
 
 /** Every scrollbar token any package stylesheet references, mapped to the files referencing it. */
+/** 中文说明：测试局部值 referencedTokens，由紧邻初始化决定。 */
 const referencedTokens = new Map<string, string[]>()
 /** Every indirection property any package stylesheet outside ui-theme declares, mapped to its declaring rules. */
+/** 中文说明：测试局部值 rebindRules，由紧邻初始化决定。 */
 const rebindRules: { file: string; rule: CssRule }[] = []
 /**
  * What one stylesheet contributes to the elevated-surface question: which
@@ -182,6 +239,7 @@ const rebindRules: { file: string; rule: CssRule }[] = []
  * descendant that actually scrolls are separate rules in the same sheet, and
  * CSS text does not express which contains which.
  */
+/** 中文说明：类型或类 SheetSurfaces 约束模块数据或组件职责。 */
 interface SheetSurfaces {
   /** Elevated surface tokens this sheet paints anywhere. */
   elevated: Set<string>
@@ -195,11 +253,14 @@ interface SheetSurfaces {
    */
   rebindsElevation: boolean
 }
+/** 中文说明：测试局部值 sheetSurfaces，由紧邻初始化决定。 */
 const sheetSurfaces = new Map<string, SheetSurfaces>()
 
 /** Properties whose `auto`/`scroll` value makes a rule a scroll container. */
+/** 中文说明：测试局部值 OVERFLOW_PROPERTIES，由紧邻初始化决定。 */
 const OVERFLOW_PROPERTIES = ['overflow', 'overflow-x', 'overflow-y']
 /** Properties that paint a surface, and so identify the elevation a rule sits on. */
+/** 中文说明：测试局部值 SURFACE_PROPERTIES，由紧邻初始化决定。 */
 const SURFACE_PROPERTIES = ['background', 'background-color']
 /**
  * Token families that name a SURFACE — a background an element is drawn on, and
@@ -210,6 +271,7 @@ const SURFACE_PROPERTIES = ['background', 'background-color']
  * CodeBlock's banner). Family, not geometry: a floating button legitimately
  * carries a radius, a shadow, and a fixed size, so shape cannot separate them.
  */
+/** 中文说明：测试局部值 SURFACE_TOKEN_PATTERN，由紧邻初始化决定。 */
 const SURFACE_TOKEN_PATTERN = /^--dsw-(?:alias-bg-|specific-)/
 
 /**
@@ -220,42 +282,63 @@ const SURFACE_TOKEN_PATTERN = /^--dsw-(?:alias-bg-|specific-)/
  * a surface NOBODY has rebound yet.
  * @returns surface tokens whose dark value sits on an elevated rung.
  */
+/** 中文说明：函数 elevatedRungs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function elevatedRungs(): Set<string> {
+  /** 中文说明：测试局部值 definitions，由紧邻初始化决定。 */
   const definitions = new Map<string, string>()
+  /** 中文说明：测试局部值 rule，由紧邻初始化决定。 */
   for (const rule of platformRules) {
     // Dark declarations come later in the sheet and overwrite the light ones,
     // which is the palette this distinction exists in.
+    /** 中文说明：测试局部值 [property，由紧邻初始化决定。 */
     for (const [property, value] of rule.declarations) definitions.set(property, value)
   }
+  /** 中文说明：测试局部值 resolve，由紧邻初始化决定。 */
   const resolve = (name: string): string => {
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = new Set<string>()
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     let current = name
     while (definitions.has(current) && !seen.has(current)) {
       seen.add(current)
+      /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
       const value = definitions.get(current)!
+      /** 中文说明：测试局部值 [reference]，由紧邻初始化决定。 */
       const [reference] = varReferences(value)
       if (reference === undefined) return value
       current = reference
     }
     return current
   }
+  /** 中文说明：测试局部值 rungs，由紧邻初始化决定。 */
   const rungs = new Set([resolve('--dsw-alias-bg-layer-2'), resolve('--dsw-alias-bg-layer-3')])
+  /** 中文说明：测试局部值 tokens，由紧邻初始化决定。 */
   const tokens = new Set<string>()
+  /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
   for (const name of definitions.keys()) {
     if (SURFACE_TOKEN_PATTERN.test(name) && rungs.has(resolve(name))) tokens.add(name)
   }
   return tokens
 }
 
+/** 中文说明：测试局部值 elevatedSurfaces，由紧邻初始化决定。 */
 const elevatedSurfaces = elevatedRungs()
 
+/** 中文说明：测试局部值 file，由紧邻初始化决定。 */
 for (const file of packageStylesheets()) {
+  /** 中文说明：测试局部值 rules，由紧邻初始化决定。 */
   const rules = parseRules(readFileSync(file, 'utf8'))
+  /** 中文说明：测试局部值 surfaces，由紧邻初始化决定。 */
   const surfaces: SheetSurfaces = { elevated: new Set(), scrolls: false, rebindsElevation: false }
+  /** 中文说明：测试局部值 rule，由紧邻初始化决定。 */
   for (const rule of rules) {
+    /** 中文说明：测试局部值 rebinds，由紧邻初始化决定。 */
     let rebinds = false
+    /** 中文说明：测试局部值 rebindsElevation，由紧邻初始化决定。 */
     let rebindsElevation = false
+    /** 中文说明：测试局部值 ruleSurfaces，由紧邻初始化决定。 */
     const ruleSurfaces: string[] = []
+    /** 中文说明：测试局部值 [property，由紧邻初始化决定。 */
     for (const [property, value] of rule.declarations) {
       if (property.startsWith(INDIRECTION_PREFIX) && file !== fileURLToPath(new URL('scrollbar.css', STYLES))) {
         rebinds = true
@@ -263,11 +346,13 @@ for (const file of packageStylesheets()) {
       }
       if (OVERFLOW_PROPERTIES.includes(property) && /\b(?:auto|scroll)\b/.test(value)) surfaces.scrolls = true
       if (SURFACE_PROPERTIES.includes(property)) ruleSurfaces.push(...varReferences(value))
+      /** 中文说明：测试局部值 token，由紧邻初始化决定。 */
       for (const token of varReferences(value)) {
         if (!token.startsWith(TOKEN_PREFIX)) continue
         referencedTokens.set(token, [...referencedTokens.get(token) ?? [], file])
       }
     }
+    /** 中文说明：测试局部值 token，由紧邻初始化决定。 */
     for (const token of ruleSurfaces) {
       if (elevatedSurfaces.has(token)) surfaces.elevated.add(token)
     }
@@ -289,9 +374,12 @@ describe('design-platform.css scrollbar tokens', () => {
   it('resolves every scrollbar token to a static scale value, not to another alias', () => {
     // The alias layer is the only indirection in the token sheet: an alias
     // pointing at a second alias makes the dark override order-dependent.
+    /** 中文说明：测试局部值 rule，由紧邻初始化决定。 */
     for (const rule of platformRules) {
+      /** 中文说明：测试局部值 [property，由紧邻初始化决定。 */
       for (const [property, value] of rule.declarations) {
         if (!property.startsWith(TOKEN_PREFIX)) continue
+        /** 中文说明：测试局部值 reference，由紧邻初始化决定。 */
         for (const reference of varReferences(value)) {
           expect(reference, `${property}: ${value}`).toMatch(/^--dsw-static-/)
         }
@@ -311,6 +399,7 @@ describe('scrollbar token consumers', () => {
   it('every referenced scrollbar token is defined in design-platform.css', () => {
     // A dangling var() renders the UA default instead of failing loudly, so a
     // rename has to move the reference and the definition together.
+    /** 中文说明：测试局部值 [token，由紧邻初始化决定。 */
     for (const [token, files] of referencedTokens) {
       expect(allTokens, files.join(', ')).toContain(token)
     }
@@ -318,6 +407,7 @@ describe('scrollbar token consumers', () => {
 })
 
 describe('scrollbar.css base-surface binding', () => {
+  /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
   const rendered = tokensRendered(scrollbarRules)
 
   it('renders the l1 pair through the rebindable indirection', () => {
@@ -330,12 +420,15 @@ describe('scrollbar.css base-surface binding', () => {
   it('routes the standard property and the WebKit thumb through the same indirection', () => {
     // A rebind on an elevated container has to move the Firefox and the WebKit
     // rendering together, which only holds while both read the same variable.
+    /** 中文说明：测试局部值 declaration，由紧邻初始化决定。 */
     const declaration = (property: string, selectorPart: string): string | undefined => scrollbarRules
       .filter(rule => rule.selectors.includes(selectorPart))
       .flatMap(rule => rule.declarations)
       .findLast(([name]) => name === property)?.[1]
+    /** 中文说明：测试局部值 thumbColor，由紧邻初始化决定。 */
     const thumbColor = declaration('scrollbar-color', 'body')
     expect(thumbColor).toBeDefined()
+    /** 中文说明：测试局部值 indirection，由紧邻初始化决定。 */
     const indirection = varReferences(thumbColor!)[0]
     expect(indirection).toBe(`${INDIRECTION_PREFIX}thumb`)
     expect(varReferences(declaration('background', '::-webkit-scrollbar-thumb')!)).toEqual([indirection])
@@ -343,6 +436,7 @@ describe('scrollbar.css base-surface binding', () => {
 })
 
 describe('scrollbar.css width variable', () => {
+  /** 中文说明：测试局部值 WIDTH_VARIABLE，由紧邻初始化决定。 */
   const WIDTH_VARIABLE = `${INDIRECTION_PREFIX}width`
 
   it('defines the width variable on body as a static length', () => {
@@ -350,6 +444,7 @@ describe('scrollbar.css width variable', () => {
     // indirection: the mirror check below compares the WebKit rule against
     // this value, so a var()-to-var() chain would compare one indirection to
     // another instead of pinning the number.
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = scrollbarRules
       .filter(rule => rule.selectors.includes('body'))
       .flatMap(rule => rule.declarations)
@@ -362,10 +457,12 @@ describe('scrollbar.css width variable', () => {
     // The compensation stays aligned with the WebKit bar only while both read
     // the same number. A change to one side without the other puts the overlay
     // seat a band off from Chat on WebKit engines.
+    /** 中文说明：测试局部值 variableValue，由紧邻初始化决定。 */
     const variableValue = scrollbarRules
       .filter(rule => rule.selectors.includes('body'))
       .flatMap(rule => rule.declarations)
       .findLast(([property]) => property === WIDTH_VARIABLE)?.[1]
+    /** 中文说明：测试局部值 webkitWidth，由紧邻初始化决定。 */
     const webkitWidth = scrollbarRules
       .filter(rule => rule.selectors.includes('::-webkit-scrollbar'))
       .flatMap(rule => rule.declarations)
@@ -381,6 +478,7 @@ describe('scrollbar.css width variable', () => {
     // guaranteed-invalid and the seat loses the band. The equal-rectangle e2e
     // would catch it only on an engine that draws the bar, so the sheet
     // contract states it here.
+    /** 中文说明：测试局部值 defined，由紧邻初始化决定。 */
     const defined = new Set(
       scrollbarRules
         .flatMap(rule => rule.declarations)
@@ -388,11 +486,16 @@ describe('scrollbar.css width variable', () => {
         .map(([property]) => property),
     )
     expect(defined).toContain(WIDTH_VARIABLE)
+    /** 中文说明：测试局部值 readers，由紧邻初始化决定。 */
     const readers: string[] = []
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     for (const file of packageStylesheets()) {
       if (file === fileURLToPath(new URL('scrollbar.css', STYLES))) continue
+      /** 中文说明：测试局部值 rule，由紧邻初始化决定。 */
       for (const rule of parseRules(readFileSync(file, 'utf8'))) {
+        /** 中文说明：测试局部值 [property，由紧邻初始化决定。 */
         for (const [property, value] of rule.declarations) {
+          /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
           for (const name of varReferences(value)) {
             if (name === WIDTH_VARIABLE) readers.push(`${file} ${rule.selectors.join(', ')}: ${property}`)
           }
@@ -404,6 +507,7 @@ describe('scrollbar.css width variable', () => {
 })
 
 describe('scrollbar.css selectors', () => {
+  /** 中文说明：测试局部值 scrollbarColorSelectors，由紧邻初始化决定。 */
   const scrollbarColorSelectors = scrollbarRules
     .filter(rule => rule.declarations.some(([property]) => property === 'scrollbar-color'))
     .flatMap(rule => rule.selectors)
@@ -414,18 +518,22 @@ describe('scrollbar.css selectors', () => {
     // `:root` resolves to the guaranteed-invalid value, which computes
     // scrollbar-color to `auto` and drops the theming entirely.
     expect(scrollbarColorSelectors.length).toBeGreaterThan(0)
+    /** 中文说明：测试局部值 selector，由紧邻初始化决定。 */
     for (const selector of scrollbarColorSelectors) {
       expect(selector, selector).toMatch(/^body\b/)
     }
   })
 
   it('defines the indirection where the alias tokens are visible', () => {
+    /** 中文说明：测试局部值 definesIndirection，由紧邻初始化决定。 */
     const definesIndirection = ([property, value]: [string, string]): boolean =>
       property.startsWith(INDIRECTION_PREFIX) && value.includes(TOKEN_PREFIX)
+    /** 中文说明：测试局部值 hosts，由紧邻初始化决定。 */
     const hosts = scrollbarRules
       .filter(rule => rule.declarations.some(definesIndirection))
       .flatMap(rule => rule.selectors)
     expect(hosts.length).toBeGreaterThan(0)
+    /** 中文说明：测试局部值 selector，由紧邻初始化决定。 */
     for (const selector of hosts) expect(selector, selector).toMatch(/^body\b/)
   })
 
@@ -434,6 +542,7 @@ describe('scrollbar.css selectors', () => {
     // scrollbar-color carries the colour already substituted at `body`, which
     // a descendant rebinding the indirection could no longer change.
     expect(scrollbarColorSelectors).toContain('body *')
+    /** 中文说明：测试局部值 widthSelectors，由紧邻初始化决定。 */
     const widthSelectors = scrollbarRules
       .filter(rule => rule.declarations.some(([property]) => property === 'scrollbar-width'))
       .flatMap(rule => rule.selectors)
@@ -443,10 +552,14 @@ describe('scrollbar.css selectors', () => {
 
 describe('scrollbar.css rendering paths', () => {
   /** The gate prelude, spelled exactly as the sheet must spell it for the split to exist. */
+  /** 中文说明：测试局部值 GATE，由紧邻初始化决定。 */
   const GATE = '@supports not selector(::-webkit-scrollbar)'
+  /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
   const withoutComments = scrollbarCss.replace(/\/\*[\s\S]*?\*\//g, ' ')
+  /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
   const gate = atRuleBlock(withoutComments, GATE)
   /** Standard scrollbar properties, the ones whose non-`auto` values suppress the pseudo-elements. */
+  /** 中文说明：测试局部值 STANDARD_PROPERTIES，由紧邻初始化决定。 */
   const STANDARD_PROPERTIES = ['scrollbar-width', 'scrollbar-color']
 
   it('gates the standard properties behind the absence of the WebKit pseudo-element', () => {
@@ -457,10 +570,13 @@ describe('scrollbar.css rendering paths', () => {
     // implementing the hover pseudo-element are exactly the ones the standard
     // properties silence, and Firefox has no hover pseudo-element at all.
     expect(gate, GATE).toBeDefined()
+    /** 中文说明：测试局部值 property，由紧邻初始化决定。 */
     for (const property of STANDARD_PROPERTIES) {
+      /** 中文说明：测试局部值 offsets，由紧邻初始化决定。 */
       const offsets = [...withoutComments.matchAll(new RegExp(String.raw`(^|[;{\s])${property}\s*:`, 'g'))]
         .map(match => match.index)
       expect(offsets.length, property).toBeGreaterThan(0)
+      /** 中文说明：测试局部值 offset，由紧邻初始化决定。 */
       for (const offset of offsets) {
         expect(offset, `${property} outside ${GATE}`).toBeGreaterThan(gate!.start)
         expect(offset, `${property} outside ${GATE}`).toBeLessThan(gate!.end)
@@ -473,10 +589,12 @@ describe('scrollbar.css rendering paths', () => {
     // without the pseudo-elements drops the rules as unknown selectors. Inside
     // the gate they would be dropped by the engines that do implement them,
     // which is every engine that can render them.
+    /** 中文说明：测试局部值 offsets，由紧邻初始化决定。 */
     const offsets = [...withoutComments.matchAll(/::-webkit-scrollbar/g)]
       .map(match => match.index)
       .filter(offset => withoutComments.slice(offset).search(/^[\w:-]*\s*[,{]/) === 0)
     expect(offsets.length).toBeGreaterThan(0)
+    /** 中文说明：测试局部值 offset，由紧邻初始化决定。 */
     for (const offset of offsets) {
       expect(offset > gate!.start && offset < gate!.end, `::-webkit-scrollbar rule inside ${GATE}`).toBe(false)
     }
@@ -486,9 +604,11 @@ describe('scrollbar.css rendering paths', () => {
     // The standard path has no hover counterpart — scrollbar-color states one
     // thumb colour and the engine derives its own hover treatment — so the
     // hover indirection has to be read outside the gate or it renders nowhere.
+    /** 中文说明：测试局部值 hoverOffsets，由紧邻初始化决定。 */
     const hoverOffsets = [...withoutComments.matchAll(new RegExp(String.raw`var\(\s*${INDIRECTION_PREFIX}thumb-hover`, 'g'))]
       .map(match => match.index)
     expect(hoverOffsets.length).toBeGreaterThan(0)
+    /** 中文说明：测试局部值 offset，由紧邻初始化决定。 */
     for (const offset of hoverOffsets) {
       expect(offset > gate!.start && offset < gate!.end, 'hover indirection read inside the gate').toBe(false)
     }
@@ -503,7 +623,9 @@ describe('elevated surface rebinds', () => {
   it('each rebinding rule sets the thumb and the hover variable together', () => {
     // A surface rebinding only the resting colour keeps the l1 hover colour,
     // so the elevation is wrong only while the pointer is over the thumb.
+    /** 中文说明：测试局部值 {，由紧邻初始化决定。 */
     for (const { file, rule } of rebindRules) {
+      /** 中文说明：测试局部值 properties，由紧邻初始化决定。 */
       const properties = rule.declarations.map(([property]) => property).filter(property => property.startsWith(INDIRECTION_PREFIX))
       expect(sorted(properties), `${file} ${rule.selectors.join(', ')}`).toEqual([
         `${INDIRECTION_PREFIX}thumb-hover`, `${INDIRECTION_PREFIX}thumb`,
@@ -514,6 +636,7 @@ describe('elevated surface rebinds', () => {
   it('each rebinding rule binds the indirection names scrollbar.css renders', () => {
     // A misspelled property name declares an unused variable, and the surface
     // silently keeps the base-surface colour.
+    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = new Set(
       scrollbarRules
         .flatMap(rule => rule.declarations)
@@ -521,7 +644,9 @@ describe('elevated surface rebinds', () => {
         .flatMap(([, value]) => varReferences(value))
         .filter(name => name.startsWith(INDIRECTION_PREFIX)),
     )
+    /** 中文说明：测试局部值 {，由紧邻初始化决定。 */
     for (const { file, rule } of rebindRules) {
+      /** 中文说明：测试局部值 [property]，由紧邻初始化决定。 */
       for (const [property] of rule.declarations) {
         if (property.startsWith(INDIRECTION_PREFIX)) expect(rendered, `${file}: ${property}`).toContain(property)
       }
@@ -540,11 +665,15 @@ describe('elevated surface rebinds', () => {
     // A shape check admits `color-mix(…, var(--dsw-alias-scrollbar-bg-l2) 85%,
     // white)` and a crossed pair (the hover token bound to the resting
     // property); neither is what the contract says.
+    /** 中文说明：测试局部值 {，由紧邻初始化决定。 */
     for (const { file, rule } of rebindRules) {
+      /** 中文说明：测试局部值 rebinds，由紧邻初始化决定。 */
       const rebinds = rule.declarations.filter(([property]) => property.startsWith(INDIRECTION_PREFIX))
+      /** 中文说明：测试局部值 where，由紧邻初始化决定。 */
       const where = `${file} ${rule.selectors.join(', ')}`
       if (rebinds.every(([, value]) => value === HIDDEN_THUMB)) continue
       expect(rebinds.some(([, value]) => value === HIDDEN_THUMB), `${where}: mixes ${HIDDEN_THUMB} with an elevation`).toBe(false)
+      /** 中文说明：测试局部值 [property，由紧邻初始化决定。 */
       for (const [property, value] of rebinds) {
         expect(value, `${where}: ${property}`).toBe(ELEVATED_REBIND.get(property))
       }
@@ -586,6 +715,7 @@ describe('elevated surface rebinds', () => {
     // button or an inline code span reaching the same rung is out of scope
     // (ChatView's `.toBottom`, CodeBlock's banner). Geometry cannot make that
     // call — a floating button carries a radius, a shadow, and a fixed size.
+    /** 中文说明：测试局部值 [file，由紧邻初始化决定。 */
     for (const [file, surfaces] of sheetSurfaces) {
       if (!surfaces.scrolls || surfaces.rebindsElevation) continue
       expect([...surfaces.elevated], `${file} scrolls on an elevated surface without rebinding`).toEqual([])

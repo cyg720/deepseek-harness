@@ -1,338 +1,670 @@
 /* Figma font-weight 510 (an SF Pro variable-font weight) always renders as
    font-weight: 500 in this UI — non-variable webfonts snap intermediate
    weights unpredictably across platforms. */
+/**
+ * 文件职责：定义 design-platform 的样式与设计变量。
+ * 技术维度：CSS、CSS Modules、主题变量和浏览器滚动条选择器。
+ * 产品维度：保持主题与设计系统在不同主题和平台下清晰一致。
+ * 逻辑维度：按变量、容器、内容、交互和状态组织规则。
+ * 关键边界：全局样式影响整个应用；局部类名须与组件同步。
+ * 新手阅读建议：先看变量层，再对照组件和状态选择器。
+ */
 body {
+  /* 中文说明：自定义属性 --dsw-static-amber-100 保存主题或组件复用的样式值。 */
   --dsw-static-amber-100: rgb(254, 245, 231);
+  /* 中文说明：自定义属性 --dsw-static-amber-400 保存主题或组件复用的样式值。 */
   --dsw-static-amber-400: rgb(247, 173, 49);
+  /* 中文说明：自定义属性 --dsw-static-amber-500 保存主题或组件复用的样式值。 */
   --dsw-static-amber-500: rgb(245, 158, 11);
+  /* 中文说明：自定义属性 --dsw-static-amber-600 保存主题或组件复用的样式值。 */
   --dsw-static-amber-600: rgb(221, 134, 41);
+  /* 中文说明：自定义属性 --dsw-static-amber-900 保存主题或组件复用的样式值。 */
   --dsw-static-amber-900: rgb(39, 36, 31);
+  /* 中文说明：自定义属性 --dsw-static-blue-100 保存主题或组件复用的样式值。 */
   --dsw-static-blue-100: rgb(219, 234, 254);
+  /* 中文说明：自定义属性 --dsw-static-blue-300 保存主题或组件复用的样式值。 */
   --dsw-static-blue-300: rgb(147, 197, 253);
+  /* 中文说明：自定义属性 --dsw-static-blue-400 保存主题或组件复用的样式值。 */
   --dsw-static-blue-400: rgb(96, 165, 250);
+  /* 中文说明：自定义属性 --dsw-static-blue-450 保存主题或组件复用的样式值。 */
   --dsw-static-blue-450: rgb(77, 147, 248);
+  /* 中文说明：自定义属性 --dsw-static-blue-500 保存主题或组件复用的样式值。 */
   --dsw-static-blue-500: rgb(59, 130, 246);
+  /* 中文说明：自定义属性 --dsw-static-blue-50 保存主题或组件复用的样式值。 */
   --dsw-static-blue-50: rgb(239, 246, 255);
+  /* 中文说明：自定义属性 --dsw-static-blue-50p 保存主题或组件复用的样式值。 */
   --dsw-static-blue-50p: rgb(234, 243, 255);
+  /* 中文说明：自定义属性 --dsw-static-blue-600 保存主题或组件复用的样式值。 */
   --dsw-static-blue-600: rgb(37, 99, 235);
+  /* 中文说明：自定义属性 --dsw-static-blue-75 保存主题或组件复用的样式值。 */
   --dsw-static-blue-75: rgb(229, 240, 255);
+  /* 中文说明：自定义属性 --dsw-static-blue-800 保存主题或组件复用的样式值。 */
   --dsw-static-blue-800: rgb(30, 64, 175);
+  /* 中文说明：自定义属性 --dsw-static-blue-900 保存主题或组件复用的样式值。 */
   --dsw-static-blue-900: rgb(14, 48, 116);
+  /* 中文说明：自定义属性 --dsw-static-blue-950 保存主题或组件复用的样式值。 */
   --dsw-static-blue-950: rgb(23, 37, 84);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-100 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-100: rgb(228, 237, 253);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-200 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-200: rgb(211, 226, 255);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-300 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-300: rgb(183, 200, 254);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-400 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-400: rgb(103, 158, 254);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-450 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-450: rgb(86, 134, 254);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-500 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-500: rgb(65, 118, 230);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-50 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-50: rgb(237, 243, 254);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-600 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-600: rgb(72, 104, 178);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-700-delete 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-700-delete: rgb(47, 76, 143);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-800 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-800: rgb(52, 65, 91);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-900 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-900: rgb(40, 49, 66);
+  /* 中文说明：自定义属性 --dsw-static-green-100 保存主题或组件复用的样式值。 */
   --dsw-static-green-100: rgb(230, 250, 237);
+  /* 中文说明：自定义属性 --dsw-static-green-400 保存主题或组件复用的样式值。 */
   --dsw-static-green-400: rgb(78, 209, 126);
+  /* 中文说明：自定义属性 --dsw-static-green-500 保存主题或组件复用的样式值。 */
   --dsw-static-green-500: rgb(34, 197, 94);
+  /* 中文说明：自定义属性 --dsw-static-green-900 保存主题或组件复用的样式值。 */
   --dsw-static-green-900: rgb(35, 60, 44);
+  /* 中文说明：自定义属性 --dsw-static-neutral-00 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-00: rgb(255, 255, 255);
+  /* 中文说明：自定义属性 --dsw-static-neutral-1000 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-1000: rgb(0, 0, 0);
+  /* 中文说明：自定义属性 --dsw-static-neutral-100 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-100: rgb(245, 245, 245);
+  /* 中文说明：自定义属性 --dsw-static-neutral-150 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-150: rgb(237, 237, 237);
+  /* 中文说明：自定义属性 --dsw-static-neutral-200 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-200: rgb(229, 229, 229);
+  /* 中文说明：自定义属性 --dsw-static-neutral-250 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-250: rgb(220, 220, 220);
+  /* 中文说明：自定义属性 --dsw-static-neutral-300 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-300: rgb(212, 212, 212);
+  /* 中文说明：自定义属性 --dsw-static-neutral-400 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-400: rgb(162, 164, 166);
+  /* 中文说明：自定义属性 --dsw-static-neutral-500 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-500: rgb(127, 130, 135);
+  /* 中文说明：自定义属性 --dsw-static-neutral-50 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-50: rgb(250, 250, 250);
+  /* 中文说明：自定义属性 --dsw-static-neutral-550 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-550: rgb(101, 103, 107);
+  /* 中文说明：自定义属性 --dsw-static-neutral-600 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-600: rgb(84, 85, 87);
+  /* 中文说明：自定义属性 --dsw-static-neutral-700 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-700: rgb(60, 60, 61);
+  /* 中文说明：自定义属性 --dsw-static-neutral-800 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-800: rgb(41, 41, 41);
+  /* 中文说明：自定义属性 --dsw-static-neutral-850 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-850: rgb(33, 33, 35);
+  /* 中文说明：自定义属性 --dsw-static-neutral-900 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-900: rgb(15, 15, 15);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-00 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-00: rgb(255, 255, 255);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-1000 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-1000: rgb(15, 17, 21);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-100 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-100: rgb(235, 238, 242);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-150 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-150: rgb(233, 236, 242);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-200 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-200: rgb(225, 229, 238);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-300 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-300: rgb(207, 211, 214);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-400 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-400: rgb(173, 178, 184);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-500 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-500: rgb(151, 157, 166);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-50 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-50: rgb(249, 250, 251);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-600 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-600: rgb(129, 133, 140);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-60 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-60: rgb(245, 246, 247);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-700 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-700: rgb(97, 102, 107);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-750 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-750: rgb(67, 69, 74);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-75 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-75: rgb(241, 243, 245);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-800 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-800: rgb(53, 54, 56);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-850 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-850: rgb(44, 44, 46);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-875 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-875: rgb(35, 35, 36);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-900 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-900: rgb(27, 27, 28);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-950 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-950: rgb(21, 21, 23);
+  /* 中文说明：自定义属性 --dsw-static-red-100 保存主题或组件复用的样式值。 */
   --dsw-static-red-100: rgb(254, 226, 226);
+  /* 中文说明：自定义属性 --dsw-static-red-400 保存主题或组件复用的样式值。 */
   --dsw-static-red-400: rgb(242, 90, 90);
+  /* 中文说明：自定义属性 --dsw-static-red-500 保存主题或组件复用的样式值。 */
   --dsw-static-red-500: rgb(239, 68, 68);
+  /* 中文说明：自定义属性 --dsw-static-red-50 保存主题或组件复用的样式值。 */
   --dsw-static-red-50: rgb(254, 242, 242);
+  /* 中文说明：自定义属性 --dsw-static-red-600 保存主题或组件复用的样式值。 */
   --dsw-static-red-600: rgb(236, 19, 19);
+  /* 中文说明：自定义属性 --dsw-static-red-900 保存主题或组件复用的样式值。 */
   --dsw-static-red-900: rgb(87, 12, 12);
 }
 
 body[data-ds-dark-theme] {
+  /* 中文说明：自定义属性 --dsw-static-amber-100 保存主题或组件复用的样式值。 */
   --dsw-static-amber-100: rgb(254, 245, 231);
+  /* 中文说明：自定义属性 --dsw-static-amber-400 保存主题或组件复用的样式值。 */
   --dsw-static-amber-400: rgb(247, 173, 49);
+  /* 中文说明：自定义属性 --dsw-static-amber-500 保存主题或组件复用的样式值。 */
   --dsw-static-amber-500: rgb(245, 158, 11);
+  /* 中文说明：自定义属性 --dsw-static-amber-600 保存主题或组件复用的样式值。 */
   --dsw-static-amber-600: rgb(221, 134, 41);
+  /* 中文说明：自定义属性 --dsw-static-amber-900 保存主题或组件复用的样式值。 */
   --dsw-static-amber-900: rgb(39, 36, 31);
+  /* 中文说明：自定义属性 --dsw-static-blue-100 保存主题或组件复用的样式值。 */
   --dsw-static-blue-100: rgb(219, 234, 254);
+  /* 中文说明：自定义属性 --dsw-static-blue-300 保存主题或组件复用的样式值。 */
   --dsw-static-blue-300: rgb(147, 197, 253);
+  /* 中文说明：自定义属性 --dsw-static-blue-400 保存主题或组件复用的样式值。 */
   --dsw-static-blue-400: rgb(96, 165, 250);
+  /* 中文说明：自定义属性 --dsw-static-blue-450 保存主题或组件复用的样式值。 */
   --dsw-static-blue-450: rgb(77, 147, 248);
+  /* 中文说明：自定义属性 --dsw-static-blue-500 保存主题或组件复用的样式值。 */
   --dsw-static-blue-500: rgb(59, 130, 246);
+  /* 中文说明：自定义属性 --dsw-static-blue-50 保存主题或组件复用的样式值。 */
   --dsw-static-blue-50: rgb(239, 246, 255);
+  /* 中文说明：自定义属性 --dsw-static-blue-50p 保存主题或组件复用的样式值。 */
   --dsw-static-blue-50p: rgb(234, 243, 255);
+  /* 中文说明：自定义属性 --dsw-static-blue-600 保存主题或组件复用的样式值。 */
   --dsw-static-blue-600: rgb(37, 99, 235);
+  /* 中文说明：自定义属性 --dsw-static-blue-75 保存主题或组件复用的样式值。 */
   --dsw-static-blue-75: rgb(229, 240, 255);
+  /* 中文说明：自定义属性 --dsw-static-blue-800 保存主题或组件复用的样式值。 */
   --dsw-static-blue-800: rgb(30, 64, 175);
+  /* 中文说明：自定义属性 --dsw-static-blue-900 保存主题或组件复用的样式值。 */
   --dsw-static-blue-900: rgb(14, 48, 116);
+  /* 中文说明：自定义属性 --dsw-static-blue-950 保存主题或组件复用的样式值。 */
   --dsw-static-blue-950: rgb(23, 37, 84);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-100 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-100: rgb(228, 237, 253);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-200 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-200: rgb(211, 226, 255);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-300 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-300: rgb(183, 200, 254);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-400 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-400: rgb(103, 158, 254);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-450 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-450: rgb(86, 134, 254);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-500 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-500: rgb(65, 118, 230);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-50 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-50: rgb(237, 243, 254);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-600 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-600: rgb(72, 104, 178);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-700-delete 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-700-delete: rgb(47, 76, 143);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-800 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-800: rgb(52, 65, 91);
+  /* 中文说明：自定义属性 --dsw-static-deepseek-900 保存主题或组件复用的样式值。 */
   --dsw-static-deepseek-900: rgb(40, 49, 66);
+  /* 中文说明：自定义属性 --dsw-static-green-100 保存主题或组件复用的样式值。 */
   --dsw-static-green-100: rgb(230, 250, 237);
+  /* 中文说明：自定义属性 --dsw-static-green-400 保存主题或组件复用的样式值。 */
   --dsw-static-green-400: rgb(78, 209, 126);
+  /* 中文说明：自定义属性 --dsw-static-green-500 保存主题或组件复用的样式值。 */
   --dsw-static-green-500: rgb(34, 197, 94);
+  /* 中文说明：自定义属性 --dsw-static-green-900 保存主题或组件复用的样式值。 */
   --dsw-static-green-900: rgb(35, 60, 44);
+  /* 中文说明：自定义属性 --dsw-static-neutral-00 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-00: rgb(255, 255, 255);
+  /* 中文说明：自定义属性 --dsw-static-neutral-1000 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-1000: rgb(0, 0, 0);
+  /* 中文说明：自定义属性 --dsw-static-neutral-100 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-100: rgb(245, 245, 245);
+  /* 中文说明：自定义属性 --dsw-static-neutral-150 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-150: rgb(237, 237, 237);
+  /* 中文说明：自定义属性 --dsw-static-neutral-200 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-200: rgb(229, 229, 229);
+  /* 中文说明：自定义属性 --dsw-static-neutral-250 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-250: rgb(220, 220, 220);
+  /* 中文说明：自定义属性 --dsw-static-neutral-300 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-300: rgb(212, 212, 212);
+  /* 中文说明：自定义属性 --dsw-static-neutral-400 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-400: rgb(162, 164, 166);
+  /* 中文说明：自定义属性 --dsw-static-neutral-500 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-500: rgb(127, 130, 135);
+  /* 中文说明：自定义属性 --dsw-static-neutral-50 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-50: rgb(250, 250, 250);
+  /* 中文说明：自定义属性 --dsw-static-neutral-550 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-550: rgb(101, 103, 107);
+  /* 中文说明：自定义属性 --dsw-static-neutral-600 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-600: rgb(84, 85, 87);
+  /* 中文说明：自定义属性 --dsw-static-neutral-700 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-700: rgb(60, 60, 61);
+  /* 中文说明：自定义属性 --dsw-static-neutral-800 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-800: rgb(41, 41, 41);
+  /* 中文说明：自定义属性 --dsw-static-neutral-850 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-850: rgb(33, 33, 35);
+  /* 中文说明：自定义属性 --dsw-static-neutral-900 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-900: rgb(15, 15, 15);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-00 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-00: rgb(255, 255, 255);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-1000 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-1000: rgb(15, 17, 21);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-100 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-100: rgb(235, 238, 242);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-150 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-150: rgb(233, 236, 242);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-200 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-200: rgb(225, 229, 238);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-300 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-300: rgb(207, 211, 214);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-400 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-400: rgb(173, 178, 184);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-500 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-500: rgb(151, 157, 166);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-50 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-50: rgb(249, 250, 251);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-600 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-600: rgb(129, 133, 140);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-60 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-60: rgb(249, 250, 251);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-700 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-700: rgb(97, 102, 107);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-750 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-750: rgb(67, 69, 74);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-75 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-75: rgb(241, 243, 245);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-800 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-800: rgb(53, 54, 56);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-850 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-850: rgb(44, 44, 46);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-875 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-875: rgb(35, 35, 36);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-900 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-900: rgb(27, 27, 28);
+  /* 中文说明：自定义属性 --dsw-static-neutral-bluish-950 保存主题或组件复用的样式值。 */
   --dsw-static-neutral-bluish-950: rgb(21, 21, 23);
+  /* 中文说明：自定义属性 --dsw-static-red-100 保存主题或组件复用的样式值。 */
   --dsw-static-red-100: rgb(254, 226, 226);
+  /* 中文说明：自定义属性 --dsw-static-red-400 保存主题或组件复用的样式值。 */
   --dsw-static-red-400: rgb(242, 90, 90);
+  /* 中文说明：自定义属性 --dsw-static-red-500 保存主题或组件复用的样式值。 */
   --dsw-static-red-500: rgb(239, 68, 68);
+  /* 中文说明：自定义属性 --dsw-static-red-50 保存主题或组件复用的样式值。 */
   --dsw-static-red-50: rgb(254, 242, 242);
+  /* 中文说明：自定义属性 --dsw-static-red-600 保存主题或组件复用的样式值。 */
   --dsw-static-red-600: rgb(236, 19, 19);
+  /* 中文说明：自定义属性 --dsw-static-red-900 保存主题或组件复用的样式值。 */
   --dsw-static-red-900: rgb(87, 12, 12);
 }
 
 body {
+  /* 中文说明：自定义属性 --dsw-alias-bg-base 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-bg-layer-1 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-bg-layer-2 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-bg-layer-3 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-1 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.24);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-2 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-2: rgba(0, 0, 0, 0.12);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-3 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-3: rgba(0, 0, 0, 0.48);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-photo 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-photo: rgba(0, 0, 0, 0.88);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-drop 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-drop: rgba(255, 255, 255, 0.7);
+  /* 中文说明：自定义属性 --dsw-alias-bg-module-platform 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-module-platform: var(--dsw-static-neutral-bluish-60);
+  /* 中文说明：自定义属性 --dsw-alias-bg-multi-select 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-multi-select: var(--dsw-static-neutral-bluish-60);
+  /* 中文说明：自定义属性 --dsw-alias-bg-overlay 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-150);
+  /* 中文说明：自定义属性 --dsw-alias-bg-skeleton 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-skeleton: rgba(0, 0, 0, 0.04);
+  /* 中文说明：自定义属性 --dsw-alias-border-inverted2 保存主题或组件复用的样式值。 */
   --dsw-alias-border-inverted2: rgba(0, 0, 0, 0);
+  /* 中文说明：自定义属性 --dsw-alias-border-inverted 保存主题或组件复用的样式值。 */
   --dsw-alias-border-inverted: rgba(0, 0, 0, 0);
+  /* 中文说明：自定义属性 --dsw-alias-border-l1 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l1: rgba(0, 0, 0, 0.04);
+  /* 中文说明：自定义属性 --dsw-alias-border-l2-darkmode-thin 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l2-darkmode-thin: rgba(0, 0, 0, 0.1);
+  /* 中文说明：自定义属性 --dsw-alias-border-l2 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l2: rgba(0, 0, 0, 0.1);
+  /* 中文说明：自定义属性 --dsw-alias-border-l3 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l3: rgba(0, 0, 0, 0.12);
+  /* 中文说明：自定义属性 --dsw-alias-border-l4 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l4: rgba(0, 0, 0, 0.16);
+  /* 中文说明：自定义属性 --dsw-alias-brand-primary-invert 保存主题或组件复用的样式值。 */
   --dsw-alias-brand-primary-invert: var(--dsw-static-neutral-bluish-1000);
+  /* 中文说明：自定义属性 --dsw-alias-brand-primary-new-colorprimary-new-color 保存主题或组件复用的样式值。 */
   --dsw-alias-brand-primary-new-colorprimary-new-color: rgb(65, 118, 230);
+  /* 中文说明：自定义属性 --dsw-alias-brand-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-brand-primary: var(--dsw-static-neutral-bluish-1000);
+  /* 中文说明：自定义属性 --dsw-alias-brand-text 保存主题或组件复用的样式值。 */
   --dsw-alias-brand-text: var(--dsw-static-neutral-bluish-1000);
+  /* 中文说明：自定义属性 --dsw-alias-button-contrast-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-contrast-fill: var(--dsw-static-neutral-bluish-700);
+  /* 中文说明：自定义属性 --dsw-alias-button-elevated-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-elevated-fill: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-button-floating-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-floating-fill: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-button-floating-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-floating-hover: var(--dsw-static-neutral-bluish-75);
+  /* 中文说明：自定义属性 --dsw-alias-button-ghost-active-border 保存主题或组件复用的样式值。 */
   --dsw-alias-button-ghost-active-border: var(--dsw-static-neutral-bluish-500);
+  /* 中文说明：自定义属性 --dsw-alias-button-ghost-active-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-ghost-active-fill: var(--dsw-static-neutral-bluish-100);
+  /* 中文说明：自定义属性 --dsw-alias-button-ghost-active-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-ghost-active-hover: var(--dsw-static-neutral-bluish-150);
+  /* 中文说明：自定义属性 --dsw-alias-button-info-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-info-fill: var(--dsw-static-deepseek-500);
+  /* 中文说明：自定义属性 --dsw-alias-button-info-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-info-hover: var(--dsw-static-deepseek-400);
+  /* 中文说明：自定义属性 --dsw-alias-button-primary-dimmed 保存主题或组件复用的样式值。 */
   --dsw-alias-button-primary-dimmed: var(--dsw-static-neutral-bluish-100);
+  /* 中文说明：自定义属性 --dsw-alias-button-primary-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
+  /* 中文说明：自定义属性 --dsw-alias-button-primary-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-primary-hover: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-alias-button-tool-bar-fill-invisible 保存主题或组件复用的样式值。 */
   --dsw-alias-button-tool-bar-fill-invisible: rgba(31, 31, 31, 0.36);
+  /* 中文说明：自定义属性 --dsw-alias-button-tool-bar-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-tool-bar-fill: rgba(84, 85, 87, 0.5);
+  /* 中文说明：自定义属性 --dsw-alias-button-tool-bar-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-tool-bar-hover: rgba(84, 85, 87, 0.6);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-active 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-active: rgba(38, 49, 72, 0.1);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-hover-accent 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-hover-accent: rgba(38, 49, 72, 0.14);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-hover-danger 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-hover-danger: rgba(236, 19, 19, 0.05);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-hover-solid 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-hover-solid: var(--dsw-static-neutral-bluish-75);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-hover: rgba(38, 49, 72, 0.06);
+  /* 中文说明：自定义属性 --dsw-alias-label-caption 保存主题或组件复用的样式值。 */
   --dsw-alias-label-caption: var(--dsw-static-neutral-bluish-400);
+  /* 中文说明：自定义属性 --dsw-alias-label-dimmed 保存主题或组件复用的样式值。 */
   --dsw-alias-label-dimmed: var(--dsw-static-neutral-bluish-200);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary-bluish 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary-bluish: var(--dsw-static-blue-900);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary-dimmed 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary-dimmed: var(--dsw-static-neutral-bluish-950);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary-foreground 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary-foreground: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary-inverted 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary-inverted: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary: var(--dsw-static-neutral-bluish-1000);
+  /* 中文说明：自定义属性 --dsw-alias-label-secondary 保存主题或组件复用的样式值。 */
   --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-700);
+  /* 中文说明：自定义属性 --dsw-alias-label-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-600);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-citation 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-citation: var(--dsw-static-neutral-bluish-100);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-code-block-banner 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-block-banner: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-code-block 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-block: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-code-segment-selected 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-segment-selected: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-code-segment-unselected 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-segment-unselected: var(--dsw-static-neutral-bluish-75);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-inline-code 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-bluish-100);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-placeholder 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-placeholder: var(--dsw-static-neutral-bluish-60);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-tag 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-tag: var(--dsw-static-neutral-bluish-75);
+  /* 中文说明：自定义属性 --dsw-alias-scrollbar-bg-l1 保存主题或组件复用的样式值。 */
   --dsw-alias-scrollbar-bg-l1: var(--dsw-static-neutral-200);
+  /* 中文说明：自定义属性 --dsw-alias-scrollbar-bg-l2 保存主题或组件复用的样式值。 */
   --dsw-alias-scrollbar-bg-l2: var(--dsw-static-neutral-200);
+  /* 中文说明：自定义属性 --dsw-alias-scrollbar-hover-l1 保存主题或组件复用的样式值。 */
   --dsw-alias-scrollbar-hover-l1: var(--dsw-static-neutral-300);
+  /* 中文说明：自定义属性 --dsw-alias-scrollbar-hover-l2 保存主题或组件复用的样式值。 */
   --dsw-alias-scrollbar-hover-l2: var(--dsw-static-neutral-300);
+  /* 中文说明：自定义属性 --dsw-alias-state-business-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-business-primary: var(--dsw-static-deepseek-500);
+  /* 中文说明：自定义属性 --dsw-alias-state-business-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-business-tertiary: var(--dsw-static-deepseek-100);
+  /* 中文说明：自定义属性 --dsw-alias-state-error-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-error-primary: var(--dsw-static-red-600);
+  /* 中文说明：自定义属性 --dsw-alias-state-error-secondary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-error-secondary: var(--dsw-static-red-400);
+  /* 中文说明：自定义属性 --dsw-alias-state-success-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-success-primary: var(--dsw-static-green-500);
+  /* 中文说明：自定义属性 --dsw-alias-state-success-secondary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-success-secondary: var(--dsw-static-green-400);
+  /* 中文说明：自定义属性 --dsw-alias-state-success-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-success-tertiary: var(--dsw-static-green-100);
+  /* 中文说明：自定义属性 --dsw-alias-state-warn-label 保存主题或组件复用的样式值。 */
   --dsw-alias-state-warn-label: var(--dsw-static-amber-600);
+  /* 中文说明：自定义属性 --dsw-alias-state-warn-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-warn-primary: var(--dsw-static-amber-500);
+  /* 中文说明：自定义属性 --dsw-alias-state-warn-secondary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-warn-secondary: var(--dsw-static-amber-400);
+  /* 中文说明：自定义属性 --dsw-alias-state-warn-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-warn-tertiary: var(--dsw-static-amber-100);
+  /* 中文说明：自定义属性 --dsw-alias-toast-bg 保存主题或组件复用的样式值。 */
   --dsw-alias-toast-bg: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-alias-tooltip-bg 保存主题或组件复用的样式值。 */
   --dsw-alias-tooltip-bg: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-specific-bubble-highlight 保存主题或组件复用的样式值。 */
   --dsw-specific-bubble-highlight: var(--dsw-static-deepseek-200);
+  /* 中文说明：自定义属性 --dsw-specific-bubble 保存主题或组件复用的样式值。 */
   --dsw-specific-bubble: var(--dsw-static-deepseek-50);
+  /* 中文说明：自定义属性 --dsw-specific-input-major 保存主题或组件复用的样式值。 */
   --dsw-specific-input-major: var(--dsw-static-neutral-bluish-00);
+  /* 中文说明：自定义属性 --dsw-specific-login-input 保存主题或组件复用的样式值。 */
   --dsw-specific-login-input: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-specific-menu 保存主题或组件复用的样式值。 */
   --dsw-specific-menu: var(--dsw-alias-bg-layer-3);
+  /* 中文说明：自定义属性 --dsw-specific-selector 保存主题或组件复用的样式值。 */
   --dsw-specific-selector: var(--dsw-static-neutral-bluish-60);
+  /* 中文说明：自定义属性 --dsw-specific-sidebar-fill 保存主题或组件复用的样式值。 */
   --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-specific-sidebar-nav-item-active-accent 保存主题或组件复用的样式值。 */
   --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-deepseek-100);
+  /* 中文说明：自定义属性 --dsw-specific-sidebar-nav-item-active 保存主题或组件复用的样式值。 */
   --dsw-specific-sidebar-nav-item-active: var(--dsw-static-neutral-bluish-100);
+  /* 中文说明：自定义属性 --dsw-specific-sidebar-nav-item-hover 保存主题或组件复用的样式值。 */
   --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-75);
+  /* 中文说明：自定义属性 --dsw-specific-tip 保存主题或组件复用的样式值。 */
   --dsw-specific-tip: var(--dsw-static-neutral-bluish-60);
 }
 
 body[data-ds-dark-theme] {
+  /* 中文说明：自定义属性 --dsw-alias-bg-base 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-950);
+  /* 中文说明：自定义属性 --dsw-alias-bg-layer-1 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-875);
+  /* 中文说明：自定义属性 --dsw-alias-bg-layer-2 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-alias-bg-layer-3 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-1 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.5);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-2 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-2: rgba(0, 0, 0, 0.2);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-3 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-3: rgba(0, 0, 0, 0.48);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-photo 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-photo: rgba(0, 0, 0, 0.88);
+  /* 中文说明：自定义属性 --dsw-alias-bg-mask-drop 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-mask-drop: rgba(39, 39, 48, 0.7);
+  /* 中文说明：自定义属性 --dsw-alias-bg-module-platform 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-module-platform: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-alias-bg-multi-select 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-multi-select: var(--dsw-static-neutral-850);
+  /* 中文说明：自定义属性 --dsw-alias-bg-overlay 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-700);
+  /* 中文说明：自定义属性 --dsw-alias-bg-skeleton 保存主题或组件复用的样式值。 */
   --dsw-alias-bg-skeleton: rgba(255, 255, 255, 0.08);
+  /* 中文说明：自定义属性 --dsw-alias-border-inverted2 保存主题或组件复用的样式值。 */
   --dsw-alias-border-inverted2: rgba(255, 255, 255, 0.08);
+  /* 中文说明：自定义属性 --dsw-alias-border-inverted 保存主题或组件复用的样式值。 */
   --dsw-alias-border-inverted: rgba(255, 255, 255, 0.06);
+  /* 中文说明：自定义属性 --dsw-alias-border-l1 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l1: rgba(255, 255, 255, 0.06);
+  /* 中文说明：自定义属性 --dsw-alias-border-l2-darkmode-thin 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l2-darkmode-thin: rgba(255, 255, 255, 0.06);
+  /* 中文说明：自定义属性 --dsw-alias-border-l2 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l2: rgba(255, 255, 255, 0.12);
+  /* 中文说明：自定义属性 --dsw-alias-border-l3 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l3: rgba(255, 255, 255, 0.16);
+  /* 中文说明：自定义属性 --dsw-alias-border-l4 保存主题或组件复用的样式值。 */
   --dsw-alias-border-l4: rgba(255, 255, 255, 0.2);
+  /* 中文说明：自定义属性 --dsw-alias-brand-primary-invert 保存主题或组件复用的样式值。 */
   --dsw-alias-brand-primary-invert: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-alias-brand-primary-new-colorprimary-new-color 保存主题或组件复用的样式值。 */
   --dsw-alias-brand-primary-new-colorprimary-new-color: var(--dsw-static-deepseek-450);
+  /* 中文说明：自定义属性 --dsw-alias-brand-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-brand-primary: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-alias-brand-text 保存主题或组件复用的样式值。 */
   --dsw-alias-brand-text: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-alias-button-contrast-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-contrast-fill: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-alias-button-elevated-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-elevated-fill: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-alias-button-floating-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-floating-fill: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-alias-button-floating-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-floating-hover: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-alias-button-ghost-active-border 保存主题或组件复用的样式值。 */
   --dsw-alias-button-ghost-active-border: var(--dsw-static-neutral-bluish-600);
+  /* 中文说明：自定义属性 --dsw-alias-button-ghost-active-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-ghost-active-fill: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-alias-button-ghost-active-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-ghost-active-hover: var(--dsw-static-neutral-bluish-700);
+  /* 中文说明：自定义属性 --dsw-alias-button-info-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-info-fill: var(--dsw-static-deepseek-400);
+  /* 中文说明：自定义属性 --dsw-alias-button-info-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-info-hover: var(--dsw-static-deepseek-500);
+  /* 中文说明：自定义属性 --dsw-alias-button-primary-dimmed 保存主题或组件复用的样式值。 */
   --dsw-alias-button-primary-dimmed: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-alias-button-primary-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
+  /* 中文说明：自定义属性 --dsw-alias-button-primary-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-primary-hover: var(--dsw-static-neutral-bluish-100);
+  /* 中文说明：自定义属性 --dsw-alias-button-tool-bar-fill-invisible 保存主题或组件复用的样式值。 */
   --dsw-alias-button-tool-bar-fill-invisible: rgba(31, 31, 31, 0.36);
+  /* 中文说明：自定义属性 --dsw-alias-button-tool-bar-fill 保存主题或组件复用的样式值。 */
   --dsw-alias-button-tool-bar-fill: rgba(84, 85, 87, 0.5);
+  /* 中文说明：自定义属性 --dsw-alias-button-tool-bar-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-button-tool-bar-hover: rgba(84, 85, 87, 0.6);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-active 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-active: rgba(255, 255, 255, 0.14);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-hover-accent 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-hover-accent: rgba(255, 255, 255, 0.24);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-hover-danger 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-hover-danger: rgba(242, 90, 90, 0.15);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-hover-solid 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-hover-solid: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-alias-interactive-bg-hover 保存主题或组件复用的样式值。 */
   --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.08);
+  /* 中文说明：自定义属性 --dsw-alias-label-caption 保存主题或组件复用的样式值。 */
   --dsw-alias-label-caption: var(--dsw-static-neutral-bluish-600);
+  /* 中文说明：自定义属性 --dsw-alias-label-dimmed 保存主题或组件复用的样式值。 */
   --dsw-alias-label-dimmed: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary-bluish 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary-bluish: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary-dimmed 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary-dimmed: var(--dsw-static-neutral-bluish-100);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary-foreground 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary-foreground: var(--dsw-static-neutral-bluish-1000);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary-inverted 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary-inverted: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-alias-label-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-label-primary: var(--dsw-static-neutral-bluish-50);
+  /* 中文说明：自定义属性 --dsw-alias-label-secondary 保存主题或组件复用的样式值。 */
   --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-300);
+  /* 中文说明：自定义属性 --dsw-alias-label-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-400);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-citation 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-citation: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-code-block-banner 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-block-banner: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-code-block 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-block: var(--dsw-static-neutral-bluish-900);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-code-segment-selected 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-segment-selected: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-code-segment-unselected 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-segment-unselected: var(--dsw-static-neutral-bluish-900);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-inline-code 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-placeholder 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-placeholder: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-alias-markdown-tag 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-tag: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-alias-scrollbar-bg-l1 保存主题或组件复用的样式值。 */
   --dsw-alias-scrollbar-bg-l1: var(--dsw-static-neutral-700);
+  /* 中文说明：自定义属性 --dsw-alias-scrollbar-bg-l2 保存主题或组件复用的样式值。 */
   --dsw-alias-scrollbar-bg-l2: var(--dsw-static-neutral-600);
+  /* 中文说明：自定义属性 --dsw-alias-scrollbar-hover-l1 保存主题或组件复用的样式值。 */
   --dsw-alias-scrollbar-hover-l1: var(--dsw-static-neutral-600);
+  /* 中文说明：自定义属性 --dsw-alias-scrollbar-hover-l2 保存主题或组件复用的样式值。 */
   --dsw-alias-scrollbar-hover-l2: var(--dsw-static-neutral-550);
+  /* 中文说明：自定义属性 --dsw-alias-state-business-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-business-primary: var(--dsw-static-deepseek-400);
+  /* 中文说明：自定义属性 --dsw-alias-state-business-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-business-tertiary: var(--dsw-static-deepseek-800);
+  /* 中文说明：自定义属性 --dsw-alias-state-error-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-error-primary: var(--dsw-static-red-400);
+  /* 中文说明：自定义属性 --dsw-alias-state-error-secondary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-error-secondary: var(--dsw-static-red-400);
+  /* 中文说明：自定义属性 --dsw-alias-state-success-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-success-primary: var(--dsw-static-green-500);
+  /* 中文说明：自定义属性 --dsw-alias-state-success-secondary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-success-secondary: var(--dsw-static-green-400);
+  /* 中文说明：自定义属性 --dsw-alias-state-success-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-success-tertiary: var(--dsw-static-green-900);
+  /* 中文说明：自定义属性 --dsw-alias-state-warn-label 保存主题或组件复用的样式值。 */
   --dsw-alias-state-warn-label: var(--dsw-static-amber-600);
+  /* 中文说明：自定义属性 --dsw-alias-state-warn-primary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-warn-primary: var(--dsw-static-amber-500);
+  /* 中文说明：自定义属性 --dsw-alias-state-warn-secondary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-warn-secondary: var(--dsw-static-amber-400);
+  /* 中文说明：自定义属性 --dsw-alias-state-warn-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-state-warn-tertiary: var(--dsw-static-amber-900);
+  /* 中文说明：自定义属性 --dsw-alias-toast-bg 保存主题或组件复用的样式值。 */
   --dsw-alias-toast-bg: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-alias-tooltip-bg 保存主题或组件复用的样式值。 */
   --dsw-alias-tooltip-bg: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-specific-bubble-highlight 保存主题或组件复用的样式值。 */
   --dsw-specific-bubble-highlight: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-specific-bubble 保存主题或组件复用的样式值。 */
   --dsw-specific-bubble: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-specific-input-major 保存主题或组件复用的样式值。 */
   --dsw-specific-input-major: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-specific-login-input 保存主题或组件复用的样式值。 */
   --dsw-specific-login-input: var(--dsw-static-neutral-bluish-900);
+  /* 中文说明：自定义属性 --dsw-specific-menu 保存主题或组件复用的样式值。 */
   --dsw-specific-menu: var(--dsw-alias-bg-layer-3);
+  /* 中文说明：自定义属性 --dsw-specific-selector 保存主题或组件复用的样式值。 */
   --dsw-specific-selector: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-specific-sidebar-fill 保存主题或组件复用的样式值。 */
   --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-900);
+  /* 中文说明：自定义属性 --dsw-specific-sidebar-nav-item-active-accent 保存主题或组件复用的样式值。 */
   --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-neutral-bluish-800);
+  /* 中文说明：自定义属性 --dsw-specific-sidebar-nav-item-active 保存主题或组件复用的样式值。 */
   --dsw-specific-sidebar-nav-item-active: var(--dsw-static-neutral-bluish-750);
+  /* 中文说明：自定义属性 --dsw-specific-sidebar-nav-item-hover 保存主题或组件复用的样式值。 */
   --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-850);
+  /* 中文说明：自定义属性 --dsw-specific-tip 保存主题或组件复用的样式值。 */
   --dsw-specific-tip: var(--dsw-static-neutral-bluish-800);
 }

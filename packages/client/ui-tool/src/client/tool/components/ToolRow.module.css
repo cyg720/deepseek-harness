@@ -1,5 +1,13 @@
 /* Tool summary row (figma 122:9479): 24px single line —
    [16 leading] gap6 [title 14/24] gap8 [2x2 dot] gap8 [summary FILL truncate]. */
+/**
+ * 文件职责：定义 ToolRow 的样式与设计变量。
+ * 技术维度：CSS、CSS Modules、主题变量和浏览器滚动条选择器。
+ * 产品维度：保持工具行在不同主题和平台下清晰一致。
+ * 逻辑维度：按变量、容器、内容、交互和状态组织规则。
+ * 关键边界：全局样式影响整个应用；局部类名须与组件同步。
+ * 新手阅读建议：先看变量层，再对照组件和状态选择器。
+ */
 
 .root {
   display: flex;
@@ -282,6 +290,7 @@
 /* In-row code renders at the smaller code size (12/18) via each primitive's
    rebindable content-font seam; standalone markdown code blocks keep 13/22. */
 .codeBody {
+  /* 中文说明：自定义属性 --dsl-code-block-content-font 保存主题或组件复用的样式值。 */
   --dsl-code-block-content-font: var(--dsw-font-markdown-code-block-small);
 }
 
@@ -289,8 +298,11 @@
    hairline as the IN/OUT card): the banner stays pinned and the scrollbar
    never rides over it. 224px = the 260px card cap minus the ~36px banner. */
 .terminalBody {
+  /* 中文说明：自定义属性 --dsl-terminal-font 保存主题或组件复用的样式值。 */
   --dsl-terminal-font: var(--dsw-font-markdown-code-block-small);
+  /* 中文说明：自定义属性 --dsl-terminal-line-height 保存主题或组件复用的样式值。 */
   --dsl-terminal-line-height: 18px;
+  /* 中文说明：自定义属性 --dsl-terminal-output-max-height 保存主题或组件复用的样式值。 */
   --dsl-terminal-output-max-height: 224px;
   border: 1px solid var(--dsw-alias-border-l1);
 }

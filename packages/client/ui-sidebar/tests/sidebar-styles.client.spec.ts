@@ -1,8 +1,17 @@
 /** Sidebar shell style contracts shared with its slot-owned controls. */
+/**
+ * 文件职责：验证侧栏的 sidebar-styles.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
+ * 产品维度：防止侧栏显示、导航或生命周期回归。
+ * 逻辑维度：构造状态，触发交互并断言输出和清理。
+ * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
+ * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
+ */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
+/** 中文说明：测试局部值 css，由紧邻初始化决定。 */
 const css = readFileSync(fileURLToPath(new URL('../src/client/SidebarRoot.module.css', import.meta.url)), 'utf8')
 
 /**
@@ -10,12 +19,18 @@ const css = readFileSync(fileURLToPath(new URL('../src/client/SidebarRoot.module
  * @param selector - exact selector text.
  * @returns the normalized declarations, or undefined when absent.
  */
+/** 中文说明：函数 declarations 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function declarations(selector: string): Map<string, string> | undefined {
+  /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
+  /** 中文说明：测试局部值 [，由紧邻初始化决定。 */
   for (const [, selectorList = '', body = ''] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     if (!selectorList.split(',').map(value => value.trim()).includes(selector)) continue
+    /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
     const found = new Map<string, string>()
+    /** 中文说明：测试局部值 part，由紧邻初始化决定。 */
     for (const part of body.split(';')) {
+      /** 中文说明：测试局部值 colon，由紧邻初始化决定。 */
       const colon = part.indexOf(':')
       if (colon === -1) continue
       found.set(part.slice(0, colon).trim(), part.slice(colon + 1).trim().replace(/\s+/g, ' '))
@@ -27,6 +42,7 @@ function declarations(selector: string): Map<string, string> | undefined {
 
 describe('SidebarRoot.module.css', () => {
   it('shares and cancels the wide shell trailing padding structurally', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = declarations('.root')
     expect(root?.get('--dsh-sidebar-inline-padding')).toBe('12px')
     expect(root?.get('padding')).toBe('6px var(--dsh-sidebar-inline-padding)')
@@ -41,7 +57,9 @@ describe('SidebarRoot.module.css', () => {
   })
 
   it('moves the four upper controls while the settings seat only fades', () => {
+    /** 中文说明：测试局部值 animation，由紧邻初始化决定。 */
     const animation = 'rail-in 150ms var(--ds-ease-in-out) backwards'
+    /** 中文说明：测试局部值 selector，由紧邻初始化决定。 */
     for (const selector of [
       '.railIn .iconButton',
       '.railIn .newSession',

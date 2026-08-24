@@ -1,9 +1,18 @@
+/**
+ * 文件职责：实现子代理谱系的 SubagentHeaderLineage 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：帮助用户查看或调整子代理谱系。
+ * 逻辑维度：读取状态，派生展示信息并处理交互。
+ * 关键边界：父子作用域、空状态、可访问性和主题同步必须正确。
+ * 新手阅读建议：先读 Props，再看派生值、effect 和 JSX。
+ */
 import {
   useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
 import {
   indexSubagentDescendants, type SessionId, type SessionListState, type SessionProjectionMap,
+  /** 中文说明：类型或类 SessionSummary 约束模块数据或组件职责。 */
   type SessionSummary, type SubagentAddress, type SubagentCatalogSnapshot,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import {
@@ -16,10 +25,13 @@ import type {} from '@deepseek-ai/dsh-subagent/client'
 import type {} from '@deepseek-ai/dsh-token-meter/client'
 import css from './SubagentHeaderLineage.module.css'
 
+/** 中文说明：类型或类 CatalogEntry 约束模块数据或组件职责。 */
 type CatalogEntry = SubagentCatalogSnapshot['entries'][number]
+/** 中文说明：类型或类 Catalogs 约束模块数据或组件职责。 */
 type Catalogs = SessionListState['subagentsByParent']
 
 /** Business actions supplied by the slot registration. */
+/** 中文说明：类型或类 SubagentCatalogInjected 约束模块数据或组件职责。 */
 export interface SubagentCatalogInjected {
   openChild: (address: SubagentAddress) => void
   refresh: (parentSessionId: SessionId) => void
@@ -27,9 +39,11 @@ export interface SubagentCatalogInjected {
 }
 
 /** Full props for the session-header lineage renderer. */
+/** 中文说明：类型或类 SubagentHeaderLineageProps 约束模块数据或组件职责。 */
 export type SubagentHeaderLineageProps =
   PropsRuntime<'conversation.session.header.lineage'> & SubagentCatalogInjected & PropsLocale<typeof NS>
 
+/** 中文说明：类型或类 CatalogRowsProps 约束模块数据或组件职责。 */
 interface CatalogRowsProps {
   parentSessionId: SessionId
   currentSessionId: SessionId | undefined
@@ -45,6 +59,7 @@ interface CatalogRowsProps {
   closeCatalog: () => void
 }
 
+/** 中文说明：函数 diagnosticReason 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function diagnosticReason(
   entry: Extract<CatalogEntry, { kind: 'diagnostic' }>,
   t: TranslateNS<typeof NS>,
@@ -56,6 +71,7 @@ function diagnosticReason(
   }
 }
 
+/** 中文说明：函数 treeItems 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function treeItems(root: HTMLDivElement | null): HTMLElement[] {
   return root === null
     ? []
@@ -63,7 +79,9 @@ function treeItems(root: HTMLDivElement | null): HTMLElement[] {
 }
 
 /** Compact token count shared in shape with the conversation stats strip. */
+/** 中文说明：函数 formatTokens 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function formatTokens(value: number): string {
+  /** 中文说明：组件局部值 scaled，由紧邻初始化决定。 */
   const scaled = (next: number): string => next >= 100
     ? String(Math.round(next))
     : String(Math.round(next * 10) / 10)
@@ -73,6 +91,7 @@ function formatTokens(value: number): string {
 }
 
 /** Sum the four disjoint durable provider-usage buckets. */
+/** 中文说明：函数 tokenTotal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tokenTotal(
   usage: SessionProjectionMap['tokenUsage'] | undefined,
 ): number | undefined {
@@ -83,22 +102,26 @@ function tokenTotal(
 }
 
 /** Exact whole-second active-turn duration for one catalog row. */
+/** 中文说明：函数 activityDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function activityDuration(
   summary: SessionSummary | undefined,
   activity: 'running' | 'inactive',
   now: number,
 ): number | undefined {
   if (summary === undefined) return undefined
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const timing: SessionProjectionMap['subagentTiming'] | undefined
     = summary.projectionValues?.subagentTiming
   if (timing === undefined) return undefined
   if (timing.active === undefined) return timing.settledMs
+  /** 中文说明：组件局部值 end，由紧邻初始化决定。 */
   const end = activity === 'running'
     ? now
     : timing.active.through
   return timing.settledMs + Math.max(0, end - timing.active.since)
 }
 
+/** 中文说明：类型或类 DurationParts 约束模块数据或组件职责。 */
 interface DurationParts {
   seconds: number
   minutes: number
@@ -108,9 +131,13 @@ interface DurationParts {
   totalHours: number
 }
 
+/** 中文说明：函数 splitDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function splitDuration(ms: number): DurationParts {
+  /** 中文说明：组件局部值 totalSeconds，由紧邻初始化决定。 */
   const totalSeconds = Math.floor(Math.max(0, ms) / 1_000)
+  /** 中文说明：组件局部值 totalMinutes，由紧邻初始化决定。 */
   const totalMinutes = Math.floor(totalSeconds / 60)
+  /** 中文说明：组件局部值 totalHours，由紧邻初始化决定。 */
   const totalHours = Math.floor(totalMinutes / 60)
   return {
     seconds: totalSeconds % 60,
@@ -123,17 +150,23 @@ function splitDuration(ms: number): DurationParts {
 }
 
 /** Format a duration with decreasing visual precision at larger scales. */
+/** 中文说明：函数 formatDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function formatDuration(ms: number, t: TranslateNS<typeof NS>): string {
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const { seconds, minutes, hours, days, totalMinutes, totalHours } = splitDuration(ms)
   if (days >= 365) {
+    /** 中文说明：组件局部值 years，由紧邻初始化决定。 */
     const years = Math.floor(days / 365)
+    /** 中文说明：组件局部值 months，由紧邻初始化决定。 */
     const months = Math.floor((days % 365) / 30)
     return months === 0
       ? t('duration.years', { years })
       : t('duration.yearsMonths', { years, months })
   }
   if (days >= 30) {
+    /** 中文说明：组件局部值 months，由紧邻初始化决定。 */
     const months = Math.floor(days / 30)
+    /** 中文说明：组件局部值 remainingDays，由紧邻初始化决定。 */
     const remainingDays = days % 30
     return remainingDays === 0
       ? t('duration.months', { months })
@@ -161,7 +194,9 @@ function formatDuration(ms: number, t: TranslateNS<typeof NS>): string {
 }
 
 /** Preserve exact whole seconds for hover and accessible naming. */
+/** 中文说明：函数 formatExactDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function formatExactDuration(ms: number, t: TranslateNS<typeof NS>): string {
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const { seconds, minutes, hours, days } = splitDuration(ms)
   return days === 0
     ? formatDuration(ms, t)
@@ -173,8 +208,10 @@ function formatExactDuration(ms: number, t: TranslateNS<typeof NS>): string {
     })
 }
 
+/** 中文说明：组件局部值 NO_DESCENDANTS，由紧邻初始化决定。 */
 const NO_DESCENDANTS = { count: 0, runningCount: 0 } as const
 
+/** 中文说明：函数 SubagentSwitcherIcon 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SubagentSwitcherIcon() {
   return (
     <svg
@@ -199,6 +236,7 @@ function SubagentSwitcherIcon() {
 }
 
 /** Render the known direct-child shape while its authoritative catalog hydrates. */
+/** 中文说明：函数 CatalogLoadingRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function CatalogLoadingRows({
   parentSessionId,
   summaries,
@@ -210,6 +248,7 @@ function CatalogLoadingRows({
   level: number
   t: TranslateNS<typeof NS>
 }) {
+  /** 中文说明：组件局部值 children，由紧邻初始化决定。 */
   const children = Object.values(summaries).filter(summary => (
     summary.origin === 'subagent' && summary.parentId === parentSessionId
   ))
@@ -234,11 +273,14 @@ function CatalogLoadingRows({
 }
 
 /** Render one catalog level and recurse only through explicitly expanded rows. */
+/** 中文说明：函数 CatalogRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function CatalogRows({
   parentSessionId, currentSessionId, catalog, catalogs, summaries, expanded, level, now,
   openChild, refresh, toggleBranch, closeCatalog, t,
 }: CatalogRowsProps & { t: TranslateNS<typeof NS> }) {
+  /** 中文说明：组件局部值 emptyLoading，由紧邻初始化决定。 */
   const emptyLoading = catalog.state === 'loading' && catalog.entries.length === 0
+  /** 中文说明：组件局部值 reserveDisclosure，由紧邻初始化决定。 */
   const reserveDisclosure = catalog.entries.some(
     entry => entry.kind === 'child' && entry.hasChildren,
   )
@@ -267,6 +309,7 @@ function CatalogRows({
       )}
       {catalog.entries.map((entry) => {
         if (entry.kind === 'diagnostic') {
+          /** 中文说明：组件局部值 reason，由紧邻初始化决定。 */
           const reason = diagnosticReason(entry, t)
           return (
             <div key={entry.id} className={css.node}>
@@ -289,42 +332,59 @@ function CatalogRows({
           )
         }
 
+        /** 中文说明：组件局部值 childCatalog，由紧邻初始化决定。 */
         const childCatalog = catalogs[entry.id]
+        /** 中文说明：组件局部值 isCurrent，由紧邻初始化决定。 */
         const isCurrent = entry.id === currentSessionId
+        /** 中文说明：组件局部值 isExpanded，由紧邻初始化决定。 */
         const isExpanded = expanded.has(entry.id)
+        /** 中文说明：组件局部值 knownLeaf，由紧邻初始化决定。 */
         const knownLeaf = !entry.hasChildren
+        /** 中文说明：组件局部值 childLoading，由紧邻初始化决定。 */
         const childLoading = childCatalog === undefined
           || (childCatalog.state === 'loading' && childCatalog.entries.length === 0)
+        /** 中文说明：组件局部值 summary，由紧邻初始化决定。 */
         const summary = summaries[entry.id]
+        /** 中文说明：组件局部值 label，由紧邻初始化决定。 */
         const label = entry.label ?? entry.id
+        /** 中文说明：组件局部值 mode，由紧邻初始化决定。 */
         const mode = entry.mode === 'one-shot' ? t('mode.oneShot') : t('mode.continuable')
+        /** 中文说明：组件局部值 activity，由紧邻初始化决定。 */
         const activity = entry.activity === 'running' ? t('activity.running') : t('activity.inactive')
+        /** 中文说明：组件局部值 secondary，由紧邻初始化决定。 */
         const secondary = [summary?.title, mode, activity]
           .filter(value => value !== undefined)
           .join(' · ')
+        /** 中文说明：组件局部值 totalTokens，由紧邻初始化决定。 */
         const totalTokens = tokenTotal(summary?.projectionValues?.tokenUsage)
+        /** 中文说明：组件局部值 durationMs，由紧邻初始化决定。 */
         const durationMs = activityDuration(
           summary,
           entry.activity,
           now,
         )
+        /** 中文说明：组件局部值 tokenMetric，由紧邻初始化决定。 */
         const tokenMetric = totalTokens === undefined
           ? undefined
           : `${formatTokens(totalTokens)} tok`
+        /** 中文说明：组件局部值 durationMetric，由紧邻初始化决定。 */
         const durationMetric = durationMs === undefined
           ? undefined
           : {
             compact: formatDuration(durationMs, t),
             exact: formatExactDuration(durationMs, t),
           }
+        /** 中文说明：组件局部值 metrics，由紧邻初始化决定。 */
         const metrics = [tokenMetric, durationMetric?.exact]
           .filter(value => value !== undefined)
           .join(' · ')
 
+        /** 中文说明：组件局部值 open，由紧邻初始化决定。 */
         const open = (): void => {
           openChild({ parentSessionId, childSessionId: entry.id, mode: entry.mode })
           closeCatalog()
         }
+        /** 中文说明：组件局部值 handleKey，由紧邻初始化决定。 */
         const handleKey = (event: KeyboardEvent<HTMLDivElement>): void => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
@@ -339,6 +399,7 @@ function CatalogRows({
             toggleBranch(entry.id)
           }
         }
+        /** 中文说明：组件局部值 toggle，由紧邻初始化决定。 */
         const toggle = (event: MouseEvent<HTMLButtonElement>): void => {
           event.preventDefault()
           event.stopPropagation()
@@ -433,6 +494,7 @@ function CatalogRows({
   )
 }
 
+/** 中文说明：类型或类 CatalogDropdownSharedProps 约束模块数据或组件职责。 */
 interface CatalogDropdownSharedProps extends SubagentCatalogInjected {
   /** Session whose direct catalog roots the tree. */
   rootSessionId: SessionId
@@ -442,6 +504,7 @@ interface CatalogDropdownSharedProps extends SubagentCatalogInjected {
   t: TranslateNS<typeof NS>
 }
 
+/** 中文说明：类型或类 CatalogDropdownProps 约束模块数据或组件职责。 */
 type CatalogDropdownProps = CatalogDropdownSharedProps & (
   | {
     /** Descendant-count control. */
@@ -462,11 +525,15 @@ type CatalogDropdownProps = CatalogDropdownSharedProps & (
   }
 )
 
+/** 中文说明：组件局部值 MENU_VIEWPORT_MARGIN，由紧邻初始化决定。 */
 const MENU_VIEWPORT_MARGIN = 16
 
 /** Place a portaled catalog below its trigger without crossing the viewport edge. */
+/** 中文说明：函数 catalogMenuPosition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function catalogMenuPosition(trigger: HTMLButtonElement): CSSProperties {
+  /** 中文说明：组件局部值 rect，由紧邻初始化决定。 */
   const rect = trigger.getBoundingClientRect()
+  /** 中文说明：组件局部值 width，由紧邻初始化决定。 */
   const width = Math.min(336, window.innerWidth - MENU_VIEWPORT_MARGIN * 2)
   return {
     top: rect.bottom + 5,
@@ -478,47 +545,73 @@ function catalogMenuPosition(trigger: HTMLButtonElement): CSSProperties {
 }
 
 /** One trigger-plus-tree dropdown over the catalog rooted at `rootSessionId`. */
+/** 中文说明：函数 CatalogDropdown 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function CatalogDropdown({
   rootSessionId, currentSessionId, displayTitle, openTitle, variant, separator = false,
   useSessions, openChild, refresh, setCatalogOpen, t,
 }: CatalogDropdownProps) {
+  /** 中文说明：组件局部值 ancestorSwitcher，由紧邻初始化决定。 */
   const ancestorSwitcher = variant === 'switcher' && openTitle !== undefined
+  /** 中文说明：组件局部值 catalogs，由紧邻初始化决定。 */
   const catalogs = useSessions(state => state.subagentsByParent)
+  /** 中文说明：组件局部值 summaries，由紧邻初始化决定。 */
   const summaries = useSessions(state => state.byId)
+  /** 中文说明：组件局部值 catalog，由紧邻初始化决定。 */
   const catalog = catalogs[rootSessionId]
+  /** 中文说明：组件局部值 [open, setOpen]，由紧邻初始化决定。 */
   const [open, setOpen] = useState(false)
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [menuPosition, setMenuPosition] = useState<CSSProperties>()
+  /** 中文说明：组件局部值 [now, setNow]，由紧邻初始化决定。 */
   const [now, setNow] = useState(() => Date.now())
+  /** 中文说明：组件局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState<ReadonlySet<SessionId>>(() => new Set())
+  /** 中文说明：组件局部值 rootRef，由紧邻初始化决定。 */
   const rootRef = useRef<HTMLDivElement>(null)
+  /** 中文说明：组件局部值 triggerRef，由紧邻初始化决定。 */
   const triggerRef = useRef<HTMLButtonElement>(null)
+  /** 中文说明：组件局部值 menuRef，由紧邻初始化决定。 */
   const menuRef = useRef<HTMLDivElement>(null)
+  /** 中文说明：组件局部值 hoverOpenTimer，由紧邻初始化决定。 */
   const hoverOpenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  /** 中文说明：组件局部值 hoverCloseTimer，由紧邻初始化决定。 */
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  /** 中文说明：组件局部值 observedCatalogs，由紧邻初始化决定。 */
   const observedCatalogs = useRef(new Set<SessionId>())
+  /** 中文说明：组件局部值 requestedInitialCatalog，由紧邻初始化决定。 */
   const requestedInitialCatalog = useRef<SessionId>()
+  /** 中文说明：组件局部值 setCatalogOpenRef，由紧邻初始化决定。 */
   const setCatalogOpenRef = useRef(setCatalogOpen)
   setCatalogOpenRef.current = setCatalogOpen
+  /** 中文说明：组件局部值 currentEntry，由紧邻初始化决定。 */
   const currentEntry = currentSessionId === undefined
     ? undefined
     : catalog?.entries.find(entry => entry.kind === 'child' && entry.id === currentSessionId)
+  /** 中文说明：组件局部值 switcherDisplayTitle，由紧邻初始化决定。 */
   const switcherDisplayTitle = currentEntry?.kind === 'child'
     ? currentEntry.label ?? currentEntry.id
     : displayTitle
+  /** 中文说明：组件局部值 healthy，由紧邻初始化决定。 */
   const healthy = catalog?.entries.filter(entry => entry.kind === 'child') ?? []
+  /** 中文说明：组件局部值 descendants，由紧邻初始化决定。 */
   const descendants = useMemo(
     () => indexSubagentDescendants(summaries).get(rootSessionId) ?? NO_DESCENDANTS,
     [rootSessionId, summaries],
   )
   // The catalog can arrive before the session-list baseline; never undercount
   // the already-visible direct rows during that short bootstrap window.
+  /** 中文说明：组件局部值 descendantCount，由紧邻初始化决定。 */
   const descendantCount = Math.max(healthy.length, descendants.count)
+  /** 中文说明：组件局部值 totalCountKey，由紧邻初始化决定。 */
   const totalCountKey = descendantCount === 1 ? 'count.total.one' : 'count.total.other'
+  /** 中文说明：组件局部值 runningCountKey，由紧邻初始化决定。 */
   const runningCountKey = descendants.runningCount === 1 ? 'count.running.one' : 'count.running.other'
   // Session summaries can announce membership before the descriptor-backed catalog catches up.
   // Keep that entry point visible through disabled loading rows; only catalog rows are navigable.
+  /** 中文说明：组件局部值 summaryBackedLoading，由紧邻初始化决定。 */
   const summaryBackedLoading = (descendants.count > 0 || variant === 'switcher')
     && (catalog === undefined || (catalog.state === 'ready' && catalog.entries.length === 0))
+  /** 中文说明：组件局部值 presentedCatalog，由紧邻初始化决定。 */
   const presentedCatalog: SubagentCatalogSnapshot | undefined = summaryBackedLoading
     ? {
       entries: [],
@@ -538,13 +631,16 @@ function CatalogDropdown({
     refresh(rootSessionId)
   }, [catalog, refresh, rootSessionId, variant])
 
+  /** 中文说明：组件局部值 observeCatalog，由紧邻初始化决定。 */
   const observeCatalog = (parentSessionId: SessionId, next: boolean): void => {
     if (next) observedCatalogs.current.add(parentSessionId)
     else observedCatalogs.current.delete(parentSessionId)
     setCatalogOpen(parentSessionId, next)
   }
 
+  /** 中文说明：组件局部值 closeAllCatalogs，由紧邻初始化决定。 */
   const closeAllCatalogs = (): void => {
+    /** 中文说明：组件局部值 parentSessionId，由紧邻初始化决定。 */
     for (const parentSessionId of observedCatalogs.current) {
       setCatalogOpen(parentSessionId, false)
     }
@@ -552,22 +648,26 @@ function CatalogDropdown({
     setExpanded(new Set())
   }
 
+  /** 中文说明：组件局部值 cancelHoverClose，由紧邻初始化决定。 */
   const cancelHoverClose = (): void => {
     if (hoverCloseTimer.current === undefined) return
     clearTimeout(hoverCloseTimer.current)
     hoverCloseTimer.current = undefined
   }
 
+  /** 中文说明：组件局部值 cancelHoverOpen，由紧邻初始化决定。 */
   const cancelHoverOpen = (): void => {
     if (hoverOpenTimer.current === undefined) return
     clearTimeout(hoverOpenTimer.current)
     hoverOpenTimer.current = undefined
   }
 
+  /** 中文说明：组件局部值 changeOpen，由紧邻初始化决定。 */
   const changeOpen = (next: boolean, restoreFocus = false): void => {
     cancelHoverOpen()
     cancelHoverClose()
     if (next) {
+      /** 中文说明：组件局部值 trigger，由紧邻初始化决定。 */
       const trigger = triggerRef.current
       /* v8 ignore next -- a queued callback can outlive the trigger */
       if (trigger === null) return
@@ -584,6 +684,7 @@ function CatalogDropdown({
     if (restoreFocus) queueMicrotask(() => { triggerRef.current?.focus() })
   }
 
+  /** 中文说明：组件局部值 scheduleHoverOpen，由紧邻初始化决定。 */
   const scheduleHoverOpen = (): void => {
     cancelHoverOpen()
     cancelHoverClose()
@@ -594,6 +695,7 @@ function CatalogDropdown({
     }, 150)
   }
 
+  /** 中文说明：组件局部值 scheduleHoverClose，由紧邻初始化决定。 */
   const scheduleHoverClose = (): void => {
     cancelHoverOpen()
     cancelHoverClose()
@@ -603,21 +705,28 @@ function CatalogDropdown({
     }, 120)
   }
 
+  /** 中文说明：组件局部值 closeBranch，由紧邻初始化决定。 */
   const closeBranch = (root: SessionId): void => {
+    /** 中文说明：组件局部值 closing，由紧邻初始化决定。 */
     const closing = new Set<SessionId>()
+    /** 中文说明：组件局部值 visit，由紧邻初始化决定。 */
     const visit = (parentSessionId: SessionId): void => {
       if (closing.has(parentSessionId) || !expanded.has(parentSessionId)) return
       closing.add(parentSessionId)
+      /** 中文说明：组件局部值 branch，由紧邻初始化决定。 */
       const branch = catalogs[parentSessionId]
+      /** 中文说明：组件局部值 entry，由紧邻初始化决定。 */
       for (const entry of branch?.entries ?? []) {
         if (entry.kind === 'child') visit(entry.id)
       }
     }
     visit(root)
+    /** 中文说明：组件局部值 parentSessionId，由紧邻初始化决定。 */
     for (const parentSessionId of closing) observeCatalog(parentSessionId, false)
     setExpanded(current => new Set([...current].filter(id => !closing.has(id))))
   }
 
+  /** 中文说明：组件局部值 toggleBranch，由紧邻初始化决定。 */
   const toggleBranch = (childSessionId: SessionId): void => {
     if (expanded.has(childSessionId)) {
       closeBranch(childSessionId)
@@ -629,6 +738,7 @@ function CatalogDropdown({
 
   useEffect(() => {
     if (!open) return
+    /** 中文说明：组件局部值 closeOutside，由紧邻初始化决定。 */
     const closeOutside = (event: PointerEvent): void => {
       if (
         event.target instanceof Node
@@ -644,7 +754,9 @@ function CatalogDropdown({
 
   useEffect(() => {
     if (!open) return
+    /** 中文说明：组件局部值 placeMenu，由紧邻初始化决定。 */
     const placeMenu = (): void => {
+      /** 中文说明：组件局部值 trigger，由紧邻初始化决定。 */
       const trigger = triggerRef.current
       /* v8 ignore next -- native resize or scroll can outlive the trigger */
       if (trigger === null) return
@@ -660,6 +772,7 @@ function CatalogDropdown({
 
   useEffect(() => {
     if (!open || descendants.runningCount === 0) return
+    /** 中文说明：组件局部值 timer，由紧邻初始化决定。 */
     const timer = setInterval(() => { setNow(Date.now()) }, 1_000)
     return () => { clearInterval(timer) }
   }, [open, descendants.runningCount])
@@ -667,6 +780,7 @@ function CatalogDropdown({
   useEffect(() => () => {
     cancelHoverOpen()
     cancelHoverClose()
+    /** 中文说明：组件局部值 parentSessionId，由紧邻初始化决定。 */
     for (const parentSessionId of observedCatalogs.current) {
       setCatalogOpenRef.current(parentSessionId, false)
     }
@@ -677,6 +791,7 @@ function CatalogDropdown({
   // or a failed load worth retrying). A bare loading catalog is not evidence:
   // selecting any session schedules a refresh whose loading snapshot would
   // otherwise flash the action in and out on childless sessions.
+  /** 中文说明：组件局部值 visible，由紧邻初始化决定。 */
   const visible = presentedCatalog !== undefined
     && (variant === 'switcher'
       || presentedCatalog.state === 'error'
@@ -693,14 +808,19 @@ function CatalogDropdown({
 
   if (!visible) return null
 
+  /** 中文说明：组件局部值 focusAt，由紧邻初始化决定。 */
   const focusAt = (index: number): void => {
+    /** 中文说明：组件局部值 items，由紧邻初始化决定。 */
     const items = treeItems(menuRef.current)
     if (items.length === 0) return
     items[(index + items.length) % items.length]?.focus()
   }
 
+  /** 中文说明：组件局部值 navigate，由紧邻初始化决定。 */
   const navigate = (event: KeyboardEvent<HTMLDivElement>): void => {
+    /** 中文说明：组件局部值 items，由紧邻初始化决定。 */
     const items = treeItems(menuRef.current)
+    /** 中文说明：组件局部值 index，由紧邻初始化决定。 */
     const index = items.indexOf(document.activeElement as HTMLElement)
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -809,14 +929,18 @@ function CatalogDropdown({
  * @param props - Breadcrumb title, session standard props, and catalog actions.
  * @returns An ordinary-title descendant count, or a title-and-chevron sibling switcher.
  */
+/** 中文说明：函数 SubagentHeaderLineage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function SubagentHeaderLineage({
   lineageSessionId, displayTitle, openTitle,
   useSessions, openChild, refresh, setCatalogOpen, t,
 }: SubagentHeaderLineageProps) {
+  /** 中文说明：组件局部值 parentId，由紧邻初始化决定。 */
   const parentId = useSessions((state) => {
+    /** 中文说明：组件局部值 summary，由紧邻初始化决定。 */
     const summary = state.byId[lineageSessionId]
     return summary?.origin === 'subagent' ? summary.parentId : undefined
   })
+  /** 中文说明：组件局部值 shared，由紧邻初始化决定。 */
   const shared = { useSessions, openChild, refresh, setCatalogOpen, t }
   if (parentId === undefined) {
     return (
