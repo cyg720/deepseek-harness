@@ -1,12 +1,22 @@
 /* Feature-contributed rows own their chrome and separators; the section
  * strips the trailing separator wherever the column ends. */
+/*
+ * 文件职责：定义通用设置分区的纵向布局，并移除最后一行的尾部分隔线。
+ * 技术维度：使用 Flex 列布局、CSS Modules 与 `:global` 定位跨插件插槽节点。
+ * 产品维度：不同功能贡献的设置行能形成连续列表，末尾不会多出分隔线。
+ * 逻辑维度：`.section` 撑满宽度并纵向排列，后代规则清除最后子项边框。
+ * 关键边界：功能行仍拥有自身外观；本样式只处理分区排列与结尾修正。
+ * 新手阅读建议：先看设置插槽生成的 DOM 属性，再理解全局选择器为何必要。
+ */
 
+/* 设置分区根容器；宽度占满父级并按列排列功能贡献行。 */
 .section {
   display: flex;
   flex-direction: column;
   width: 100%;
 }
 
+/* 每个设置项最后一个子元素在列尾不显示底部边框。 */
 .section > :global([data-slot='settings.general.item']) > :last-child {
   border-bottom: none;
 }
