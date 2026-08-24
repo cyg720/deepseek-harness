@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证作用域的 invariant.spec.ts 行为与不变量。
+ * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
+ * 产品维度：防止作用域在取消、恢复、错误或并发场景中产生回归。
+ * 逻辑维度：构造服务与事件，驱动执行流程，再断言日志、请求、状态和清理。
+ * 关键边界：测试后台任务必须结束；模型可见输入必须可从日志重建；工具调用顺序不可破坏。
+ * 新手阅读建议：先读 mock/辅助函数，再按成功、错误、恢复和生命周期场景阅读。
+ */
 import { freezeMessage, MessageId } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -7,43 +15,58 @@ import { scopeTarget } from '@deepseek-ai/dsh-scope'
 import * as ScopeInvariant from '@deepseek-ai/dsh-scope/invariant'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 
+/** 中文说明：测试辅助函数 setup 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function setup(): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
   const ctx = new Context()
   await ctx.plugin(InvariantRegistry)
   await ctx.plugin(ScopeInvariant)
   return ctx
 }
 
+/** 中文说明：测试辅助函数 emit 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function emit(ctx: Context, receiver: object | undefined, event: string, args: unknown[]): void {
+  /** 中文说明：测试局部值 dispatch，由紧邻初始化决定，仅在当前场景使用。 */
   const dispatch = ctx.emit.bind(ctx) as (...values: unknown[]) => void
   if (receiver === undefined) dispatch(event, ...args)
   else dispatch(receiver, event, ...args)
 }
 
 describe('scoped-dispatch invariants', () => {
+  /** 中文说明：测试类型或类 AgentEventName 约束夹具数据和行为。 */
   type AgentEventName = Extract<keyof Events, `agent/${string}`>
+  /** 中文说明：测试类型或类 EventArgs 约束夹具数据和行为。 */
   type EventArgs<K extends keyof Events> = Events[K] extends (...args: infer Args) => unknown ? Args : never
 
   it('ignores ordinary events and rejects a scoped dispatch without a carrier', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await setup()
     expect(() => { emit(ctx, undefined, 'ordinary/event', []) }).not.toThrow()
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = { id: 'a1' }
     expect(() => { emit(ctx, undefined, 'agent/error', [{ agent, turn: 1, step: 0, error: new Error('x') }]) })
       .toThrow(/dispatched without a scope carrier/)
   })
 
   it('checks every generated subject resolver against the carrier key', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = { id: 'a1' } as unknown as Agent
+    /** 中文说明：测试局部值 other，由紧邻初始化决定，仅在当前场景使用。 */
     const other = { id: 'a2' } as unknown as Agent
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定，仅在当前场景使用。 */
     const signal = new AbortController().signal
+    /** 中文说明：测试局部值 config，由紧邻初始化决定，仅在当前场景使用。 */
     const config = { provider: 'p', model: 'm' }
+    /** 中文说明：测试局部值 message，由紧邻初始化决定，仅在当前场景使用。 */
     const message = freezeMessage({
       id: MessageId('m'),
       role: 'user',
       content: [],
       source: { kind: 'user' },
     })
+    /** 中文说明：测试局部值 agentRows，由紧邻初始化决定，仅在当前场景使用。 */
     const agentRows = {
       'agent/created': [{ agent }],
       'agent/disposed': [{ agent }],
@@ -69,6 +92,7 @@ describe('scoped-dispatch invariants', () => {
       'agent/turn-stopping': [{ agent, turn: 1, signal }],
       'agent/error': [{ agent, turn: 1, step: 0, error: new Error('x') }],
     } satisfies { [K in AgentEventName]: EventArgs<K> }
+    /** 中文说明：测试局部值 rows，由紧邻初始化决定，仅在当前场景使用。 */
     const rows: Array<[string, unknown[]]> = [
       ...Object.entries(agentRows),
       ['approval/request', [{ agent, toolName: 'echo' }, () => Promise.resolve('unavailable')]],
@@ -81,6 +105,7 @@ describe('scoped-dispatch invariants', () => {
       ['tools/result', [{ callId: 'c', name: 't', arguments: {}, agent }, { content: [], isError: false }]],
     ]
 
+    /** 中文说明：测试局部值 [event，由紧邻初始化决定，仅在当前场景使用。 */
     for (const [event, args] of rows) {
       expect(() => { emit(ctx, scopeTarget(agent, agent), event, args) }, `${event} matching`).not.toThrow()
       expect(() => { emit(ctx, scopeTarget(agent, other), event, args) }, `${event} mismatched`)
@@ -89,8 +114,11 @@ describe('scoped-dispatch invariants', () => {
   })
 
   it('requires carriers for generated presence-only scoped events without comparing a payload subject', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = { id: 'a1' }
+    /** 中文说明：测试局部值 rows，由紧邻初始化决定，仅在当前场景使用。 */
     const rows: Array<[string, unknown[]]> = [
       ['session/created', [{}]],
       ['session/disposed', [{}]],
@@ -99,6 +127,7 @@ describe('scoped-dispatch invariants', () => {
       ['subagent/end', [{}]],
       ['subagent/start', [{}]],
     ]
+    /** 中文说明：测试局部值 [event，由紧邻初始化决定，仅在当前场景使用。 */
     for (const [event, args] of rows) {
       expect(() => { emit(ctx, scopeTarget(agent, agent), event, args) }, `${event} carrier`).not.toThrow()
       expect(() => { emit(ctx, undefined, event, args) }, `${event} no carrier`)

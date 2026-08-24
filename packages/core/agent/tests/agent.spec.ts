@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Agent 服务的 agent.spec.ts 行为与不变量。
+ * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
+ * 产品维度：防止Agent 服务在取消、恢复、错误或并发场景中产生回归。
+ * 逻辑维度：构造服务与事件，驱动执行流程，再断言日志、请求、状态和清理。
+ * 关键边界：测试后台任务必须结束；模型可见输入必须可从日志重建；工具调用顺序不可破坏。
+ * 新手阅读建议：先读 mock/辅助函数，再按成功、错误、恢复和生命周期场景阅读。
+ */
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { Context, Service, symbols } from '@deepseek-ai/cordis'
 import { createUserMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
@@ -17,9 +25,13 @@ import type {
   ResumeAgentOptions,
 } from '@deepseek-ai/dsh-agent'
 
+/** 中文说明：测试辅助函数 stubAgent 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function stubAgent(rawId: string, overrides: Partial<Agent> = {}): Agent {
+  /** 中文说明：测试局部值 id，由紧邻初始化决定，仅在当前场景使用。 */
   const id = SessionId(rawId)
+  /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
   const session = Session.create(id)
+  /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
   const agent: Agent = {
     id,
     options: {},
@@ -40,6 +52,7 @@ function stubAgent(rawId: string, overrides: Partial<Agent> = {}): Agent {
 
 describe('Inbox', () => {
   it('rejects an invalid durable splice during reconstruction', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('invalid-inbox-replay'))
     session.append('agent/inbox/spliced', {
       target: 'next-turn',
@@ -52,26 +65,34 @@ describe('Inbox', () => {
   })
 
   it('replaces a pending message by identity across both lists', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('replace-inbox'))
+    /** 中文说明：测试局部值 inserted，由紧邻初始化决定，仅在当前场景使用。 */
     const inserted: UserMessage[] = []
+    /** 中文说明：测试局部值 discarded，由紧邻初始化决定，仅在当前场景使用。 */
     const discarded: UserMessage[] = []
+    /** 中文说明：测试局部值 inbox，由紧邻初始化决定，仅在当前场景使用。 */
     const inbox = new Inbox(session, {
       claimed: () => {},
       inserted: message => void inserted.push(message),
       discarded: message => void discarded.push(message),
     })
+    /** 中文说明：测试局部值 original，由紧邻初始化决定，仅在当前场景使用。 */
     const original = createUserMessage({
       content: [{ type: 'text', text: 'original' }],
       source: { kind: 'user' },
     })
+    /** 中文说明：测试局部值 nextStep，由紧邻初始化决定，仅在当前场景使用。 */
     const nextStep = createUserMessage({
       content: [{ type: 'text', text: 'step' }],
       source: { kind: 'user' },
     })
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定，仅在当前场景使用。 */
     const replacement = createUserMessage({
       content: [{ type: 'text', text: 'replacement' }],
       source: { kind: 'user' },
     })
+    /** 中文说明：测试局部值 editedStep，由紧邻初始化决定，仅在当前场景使用。 */
     const editedStep = freezeMessage({
       ...nextStep,
       content: [{ type: 'text', text: 'edited step' }],
@@ -94,12 +115,16 @@ describe('Inbox', () => {
   })
 
   it('normalizes splice coordinates, rejects duplicate identities, and reports missing removals', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('splice-inbox'))
+    /** 中文说明：测试局部值 inbox，由紧邻初始化决定，仅在当前场景使用。 */
     const inbox = new Inbox(session, { inserted: () => {}, discarded: () => {}, claimed: () => {} })
+    /** 中文说明：测试局部值 first，由紧邻初始化决定，仅在当前场景使用。 */
     const first = createUserMessage({
       content: [{ type: 'text', text: 'first' }],
       source: { kind: 'user' },
     })
+    /** 中文说明：测试局部值 second，由紧邻初始化决定，仅在当前场景使用。 */
     const second = createUserMessage({
       content: [{ type: 'text', text: 'second' }],
       source: { kind: 'user' },
@@ -113,17 +138,23 @@ describe('Inbox', () => {
   })
 
   it('clears both pending lists as durable cancellations', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('clear-inbox'))
+    /** 中文说明：测试局部值 discarded，由紧邻初始化决定，仅在当前场景使用。 */
     const discarded: UserMessage[] = []
+    /** 中文说明：测试局部值 inbox，由紧邻初始化决定，仅在当前场景使用。 */
     const inbox = new Inbox(session, {
       claimed: () => {},
       inserted: () => {},
       discarded: message => void discarded.push(message),
     })
+    /** 中文说明：测试局部值 nextTurn，由紧邻初始化决定，仅在当前场景使用。 */
     const nextTurn = createUserMessage({ content: [{ type: 'text', text: 'turn' }], source: { kind: 'user' } })
+    /** 中文说明：测试局部值 nextStep，由紧邻初始化决定，仅在当前场景使用。 */
     const nextStep = createUserMessage({ content: [{ type: 'text', text: 'step' }], source: { kind: 'user' } })
     inbox.append('next-turn', nextTurn)
     inbox.append('next-step', nextStep)
+    /** 中文说明：测试局部值 beforeClear，由紧邻初始化决定，仅在当前场景使用。 */
     const beforeClear = session.events.length
 
     inbox.clear()
@@ -144,13 +175,18 @@ describe('Inbox', () => {
 
 describe('AgentRegistry', () => {
   it('contributes Agent lookup and scoped Context providers while Typert is live', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 agentFiber，由紧邻初始化决定，仅在当前场景使用。 */
     const agentFiber = ctx.plugin(AgentRegistry)
     await agentFiber
     await ctx.plugin(TypertRegistry)
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = stubAgent('remote-agent')
+    /** 中文说明：测试局部值 disposeAgent，由紧邻初始化决定，仅在当前场景使用。 */
     const disposeAgent = ctx.agents.register(agent)
 
+    /** 中文说明：测试局部值 lookup，由紧邻初始化决定，仅在当前场景使用。 */
     const lookup = ctx.typert.lookups.get('agent')
     expect(lookup).toMatchObject({
       parameter: 'agent',
@@ -169,13 +205,17 @@ describe('AgentRegistry', () => {
   })
 
   it('registers exact entries, emits lifecycle events, and unregisters on owner disposal', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定，仅在当前场景使用。 */
     const lifecycle: string[] = []
     ctx.on('agent/created', ({ agent }) => void lifecycle.push(`created:${agent.id}`))
     ctx.on('agent/disposed', ({ agent }) => void lifecycle.push(`disposed:${agent.id}`))
 
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = stubAgent('a1')
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
     const dispose = ctx.agents.register(agent)
     expect(ctx.agents.get(agent.id)).toBe(agent)
     expect(ctx.agents.list()).toEqual([agent])
@@ -188,8 +228,10 @@ describe('AgentRegistry', () => {
   })
 
   it('rejects an agent whose registry and session identities differ', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = stubAgent('agent-id', { session: Session.create(SessionId('session-id')) })
 
     expect(() => ctx.agents.enter(agent, undefined))
@@ -198,12 +240,17 @@ describe('AgentRegistry', () => {
   })
 
   it('tracks runtime creator ownership separately from registry order', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 root，由紧邻初始化决定，仅在当前场景使用。 */
     const root = stubAgent('root')
+    /** 中文说明：测试局部值 child，由紧邻初始化决定，仅在当前场景使用。 */
     const child = stubAgent('child')
+    /** 中文说明：测试局部值 detachRoot，由紧邻初始化决定，仅在当前场景使用。 */
     const detachRoot = ctx.agents.enter(root, undefined)
     ctx.agents.announce(root)
+    /** 中文说明：测试局部值 detachChild，由紧邻初始化决定，仅在当前场景使用。 */
     const detachChild = ctx.agents.enter(child, root)
     ctx.agents.announce(child)
 
@@ -219,8 +266,10 @@ describe('AgentRegistry', () => {
   })
 
   it('rolls an entry back and pairs a partially delivered creation when a listener throws', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定，仅在当前场景使用。 */
     const lifecycle: string[] = []
     ctx.on('agent/created', ({ agent }) => void lifecycle.push(`created:${agent.id}`))
     ctx.on('agent/created', () => { throw new Error('creation veto') })
@@ -232,9 +281,12 @@ describe('AgentRegistry', () => {
   })
 
   it('contains asynchronous creation rejection and every disposal-listener failure', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 warnings，由紧邻初始化决定，仅在当前场景使用。 */
     const warnings: string[] = []
+    /** 中文说明：测试局部值 heard，由紧邻初始化决定，仅在当前场景使用。 */
     const heard: string[] = []
     ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
     ctx.on('agent/created', () => Promise.reject(new Error('created async')) as never)
@@ -242,6 +294,7 @@ describe('AgentRegistry', () => {
     ctx.on('agent/disposed', () => Promise.reject(new Error('disposed async')) as never)
     ctx.on('agent/disposed', ({ agent }) => void heard.push(agent.id))
 
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
     const dispose = ctx.agents.register(stubAgent('contained'))
     await Promise.resolve()
     dispose()
@@ -256,13 +309,17 @@ describe('AgentRegistry', () => {
   })
 
   it('separates entry from announcement and stale/idempotent detach cannot remove a replacement', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定，仅在当前场景使用。 */
     const lifecycle: string[] = []
     ctx.on('agent/created', ({ agent }) => void lifecycle.push(`created:${agent.id}`))
     ctx.on('agent/disposed', ({ agent }) => void lifecycle.push(`disposed:${agent.id}`))
 
+    /** 中文说明：测试局部值 first，由紧邻初始化决定，仅在当前场景使用。 */
     const first = stubAgent('split')
+    /** 中文说明：测试局部值 detachFirst，由紧邻初始化决定，仅在当前场景使用。 */
     const detachFirst = ctx.agents.enter(first, undefined)
     expect(lifecycle).toEqual([])
     ctx.agents.announce(first)
@@ -270,7 +327,9 @@ describe('AgentRegistry', () => {
     detachFirst()
     detachFirst()
 
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定，仅在当前场景使用。 */
     const replacement = stubAgent('split')
+    /** 中文说明：测试局部值 detachReplacement，由紧邻初始化决定，仅在当前场景使用。 */
     const detachReplacement = ctx.agents.enter(replacement, undefined)
     detachFirst()
     expect(ctx.agents.get(replacement.id)).toBe(replacement)
@@ -280,9 +339,12 @@ describe('AgentRegistry', () => {
   })
 
   it('defers detach requested by a creation listener until that dispatch unwinds', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 order，由紧邻初始化决定，仅在当前场景使用。 */
     const order: string[] = []
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = stubAgent('reentrant')
     ctx.on('agent/created', () => {
       order.push(`first:${ctx.agents.get(agent.id) === agent}`)
@@ -291,6 +353,7 @@ describe('AgentRegistry', () => {
     })
     ctx.on('agent/created', () => void order.push(`second:${ctx.agents.get(agent.id) === agent}`))
     ctx.on('agent/disposed', () => void order.push('disposed'))
+    /** 中文说明：测试局部值 detach，由紧邻初始化决定，仅在当前场景使用。 */
     const detach = ctx.agents.enter(agent, undefined)
     ctx.agents.announce(agent)
     expect(order).toEqual(['first:true', 'after-detach:true', 'second:true', 'disposed'])
@@ -300,10 +363,14 @@ describe('AgentRegistry', () => {
 
 describe('agentEvents()', () => {
   it('contains each synchronous throw and returned-promise rejection', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 warnings，由紧邻初始化决定，仅在当前场景使用。 */
     const warnings: string[] = []
+    /** 中文说明：测试局部值 heard，由紧邻初始化决定，仅在当前场景使用。 */
     const heard: string[] = []
     ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = stubAgent('event')
     ctx.on('agent/status', () => { throw new Error('sync listener') })
     ctx.on('agent/status', () => Promise.reject(new Error('async listener')) as never)
@@ -319,9 +386,13 @@ describe('agentEvents()', () => {
   })
 
   it('dispatches serial listeners with the fused agent subject', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = stubAgent('serial-event')
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定，仅在当前场景使用。 */
     const signal = new AbortController().signal
+    /** 中文说明：测试局部值 heard，由紧邻初始化决定，仅在当前场景使用。 */
     const heard: Array<{ agent: Agent; turn: number; signal: AbortSignal }> = []
     ctx.on('agent/turn-stopping', async ({ agent: subject, turn, signal: receivedSignal }) => {
       await Promise.resolve()
@@ -334,13 +405,18 @@ describe('agentEvents()', () => {
   })
 
   it('injects the fused subject even when the payload carries a conflicting agent field', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = stubAgent('fused-subject')
+    /** 中文说明：测试局部值 other，由紧邻初始化决定，仅在当前场景使用。 */
     const other = stubAgent('payload-agent')
+    /** 中文说明：测试局部值 heard，由紧邻初始化决定，仅在当前场景使用。 */
     const heard: Agent[] = []
     ctx.on('agent/status', ({ agent: subject }) => void heard.push(subject))
     // A structurally acceptable payload may carry an extra `agent` field; the
     // dispatcher's injected subject must win over it.
+    /** 中文说明：测试局部值 payload，由紧邻初始化决定，仅在当前场景使用。 */
     const payload: { status: AgentStatus; agent: Agent } = { status: 'running', agent: other }
 
     agentEvents(ctx, agent).emit('agent/status', payload)
@@ -356,11 +432,14 @@ describe('explicit cancellation contract', () => {
 })
 
 describe('AgentRegistry factory seam', () => {
+  /** 中文说明：测试辅助函数 stubFactory 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
   function stubFactory() {
+    /** 中文说明：测试局部值 calls: {，由紧邻初始化决定，仅在当前场景使用。 */
     const calls: {
       create: Array<{ ownerCtx: Context; options: CreateAgentOptions }>
       resume: Array<{ ownerCtx: Context; options: ResumeAgentOptions }>
     } = { create: [], resume: [] }
+    /** 中文说明：测试局部值 factory，由紧邻初始化决定，仅在当前场景使用。 */
     const factory: AgentFactory = {
       async createAgent(ownerCtx, options) {
         calls.create.push({ ownerCtx, options })
@@ -375,12 +454,15 @@ describe('AgentRegistry factory seam', () => {
   }
 
   it('requires a factory and delegates through the calling context', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
     await expect(ctx.agents.create({ sessionId: SessionId('s') })).rejects.toThrow(/no agent factory/)
+    /** 中文说明：测试局部值 { factory, calls }，由紧邻初始化决定，仅在当前场景使用。 */
     const { factory, calls } = stubFactory()
     ctx.agents.setFactory(factory)
 
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定，仅在当前场景使用。 */
     let callerFiber: Context['fiber'] | undefined
     await ctx.plugin(Object.assign(async (inner: Context) => {
       callerFiber = inner.fiber
@@ -392,8 +474,10 @@ describe('AgentRegistry factory seam', () => {
   })
 
   it('rejects a second factory and clears the slot with its owner (HMR)', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定，仅在当前场景使用。 */
     const owner = await ctx.plugin(Object.assign((inner: Context) => {
       inner.agents.setFactory(stubFactory().factory)
       expect(() => inner.agents.setFactory(stubFactory().factory)).toThrow(/already registered/)
@@ -404,16 +488,21 @@ describe('AgentRegistry factory seam', () => {
   })
 
   it('canonicalizes an already traced Service before tracing it for the caller', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 states，由紧邻初始化决定，仅在当前场景使用。 */
     const states = new WeakMap<object, string[]>()
+    /** 中文说明：测试类型或类 TracedFactory 约束夹具数据和行为。 */
     class TracedFactory extends Service implements AgentFactory {
       constructor(inner: Context) {
         super(inner, 'tracedFactory')
         states.set(this, [])
       }
       private calls(): string[] {
+        /** 中文说明：测试局部值 original，由紧邻初始化决定，仅在当前场景使用。 */
         const original = (this as unknown as { [symbols.original]?: TracedFactory })[symbols.original] ?? this
+        /** 中文说明：测试局部值 calls，由紧邻初始化决定，仅在当前场景使用。 */
         const calls = states.get(original)
         if (calls === undefined) throw new Error('factory receiver was not canonicalized')
         return calls
@@ -428,10 +517,12 @@ describe('AgentRegistry factory seam', () => {
       }
     }
     await ctx.plugin(TracedFactory)
+    /** 中文说明：测试局部值 traced，由紧邻初始化决定，仅在当前场景使用。 */
     const traced = (ctx as Context & { tracedFactory: TracedFactory }).tracedFactory
     ctx.agents.setFactory(traced)
     await ctx.agents.create({ sessionId: SessionId('create-s') })
     await ctx.agents.resume({ resumeSessionId: SessionId('resume-s') })
+    /** 中文说明：测试局部值 raw，由紧邻初始化决定，仅在当前场景使用。 */
     const raw = (traced as unknown as { [symbols.original]?: TracedFactory })[symbols.original]
     expect(states.get(raw!)).toEqual(['create', 'resume'])
   })

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Agent 服务的 consumed-work.spec.ts 行为与不变量。
+ * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
+ * 产品维度：防止Agent 服务在取消、恢复、错误或并发场景中产生回归。
+ * 逻辑维度：构造服务与事件，驱动执行流程，再断言日志、请求、状态和清理。
+ * 关键边界：测试后台任务必须结束；模型可见输入必须可从日志重建；工具调用顺序不可破坏。
+ * 新手阅读建议：先读 mock/辅助函数，再按成功、错误、恢复和生命周期场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -5,21 +13,25 @@ import type { TurnEndReason } from '@deepseek-ai/dsh-session'
 import { foldConsumedWork } from '@deepseek-ai/dsh-agent'
 
 /** One pending message, as the inbox records it. */
+/** 中文说明：测试辅助函数 message 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function message(text: string) {
   return createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })
 }
 
 /** Log an accepted message the way `Inbox.append()` does. */
+/** 中文说明：测试辅助函数 accept 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function accept(session: Session, text: string): void {
   session.append('agent/inbox/spliced', { target: 'next-turn', start: 0, inserted: [message(text)] })
 }
 
 /** Log the step-boundary read of one pending message, as `Inbox.claim()` does. */
+/** 中文说明：测试辅助函数 claim 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function claim(session: Session): void {
   session.append('agent/inbox/spliced', { target: 'next-turn', start: 0, removedCount: 1, inserted: [] })
 }
 
 /** Log a cancellation of one pending message, as `Inbox.clear()` does. */
+/** 中文说明：测试辅助函数 cancelPending 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function cancelPending(session: Session): void {
   session.append('agent/inbox/spliced', {
     target: 'next-turn', start: 0, removedCount: 1, inserted: [], outcome: 'canceled',
@@ -27,6 +39,7 @@ function cancelPending(session: Session): void {
 }
 
 /** Run one whole turn that reached a model step. */
+/** 中文说明：测试辅助函数 steppedTurn 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function steppedTurn(session: Session, turn: number, reason: TurnEndReason): void {
   session.append('turn/start', { turn })
   claim(session)
@@ -37,6 +50,7 @@ function steppedTurn(session: Session, turn: number, reason: TurnEndReason): voi
 
 describe('foldConsumedWork', () => {
   it('reports nothing for a log that consumed no work', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('empty'))
     accept(session, 'queued')
 
@@ -44,6 +58,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('reports the latest turn that entered a model step', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('stepped'))
     steppedTurn(session, 1, { kind: 'completed' })
     steppedTurn(session, 2, { kind: 'max-tokens' })
@@ -53,6 +68,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('reports a turn that claimed its input and then failed before any step', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('failed-claim'))
     steppedTurn(session, 1, { kind: 'completed' })
     // The step boundary runs the durability checkpoint and prompt assembly, so a
@@ -65,6 +81,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('reports a turn that claimed its input and was then stopped before any step', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('stopped-claim'))
     steppedTurn(session, 1, { kind: 'completed' })
     session.append('turn/start', { turn: 2 })
@@ -75,6 +92,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('ignores a turn stopped, failed, or rejected without taking any input', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('no-claim'))
     steppedTurn(session, 1, { kind: 'completed' })
     session.append('turn/start', { turn: 2 })
@@ -89,6 +107,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('reports a turn whose claimed input a pre-step rejection discarded', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('rejected-claim'))
     steppedTurn(session, 1, { kind: 'completed' })
     session.append('turn/start', { turn: 2 })
@@ -101,6 +120,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('ignores a claim its own turn emptied', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('emptied-claim'))
     steppedTurn(session, 1, { kind: 'completed' })
     session.append('turn/start', { turn: 2 })
@@ -113,6 +133,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('credits a claim with no open turn to no turn at all', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('mid-turn-suffix'))
     steppedTurn(session, 1, { kind: 'completed' })
     // An owned suffix can begin inside a turn whose start it does not contain,
@@ -124,6 +145,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('reports work cancelled out of the inbox after the last accounting turn', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('dropped'))
     steppedTurn(session, 1, { kind: 'completed' })
     accept(session, 'never runs')
@@ -137,6 +159,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('keeps a replacement pending rather than counting it as dropped', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('replaced'))
     steppedTurn(session, 1, { kind: 'completed' })
     session.append('agent/inbox/spliced', {
@@ -147,6 +170,7 @@ describe('foldConsumedWork', () => {
   })
 
   it('lets a later accounting turn absorb an earlier drop', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定，仅在当前场景使用。 */
     const session = Session.create(SessionId('absorbed'))
     steppedTurn(session, 1, { kind: 'completed' })
     cancelPending(session)

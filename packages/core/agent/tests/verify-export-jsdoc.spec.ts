@@ -1,6 +1,14 @@
 /**
  * Negative-path tests for the exported-API JSDoc gate (`scripts/verify-export-jsdoc.ts`).
  */
+/**
+ * 文件职责：验证Agent 服务的 verify-export-jsdoc.spec.ts 行为与不变量。
+ * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
+ * 产品维度：防止Agent 服务在取消、恢复、错误或并发场景中产生回归。
+ * 逻辑维度：构造服务与事件，驱动执行流程，再断言日志、请求、状态和清理。
+ * 关键边界：测试后台任务必须结束；模型可见输入必须可从日志重建；工具调用顺序不可破坏。
+ * 新手阅读建议：先读 mock/辅助函数，再按成功、错误、恢复和生命周期场景阅读。
+ */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -8,6 +16,7 @@ import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { collectExportJsdocViolations } from '../../../../scripts/verify-export-jsdoc.ts'
 
+/** 中文说明：测试局部值 roots，由紧邻初始化决定，仅在当前场景使用。 */
 const roots: string[] = []
 
 afterEach(() => {
@@ -15,10 +24,14 @@ afterEach(() => {
 })
 
 /** Write fixture files under `packages/group/fix/src/` and return the scan root. */
+/** 中文说明：测试辅助函数 fixture 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function fixture(files: Record<string, string>): string {
+  /** 中文说明：测试局部值 root，由紧邻初始化决定，仅在当前场景使用。 */
   const root = mkdtempSync(join(tmpdir(), 'export-jsdoc-'))
   roots.push(root)
+  /** 中文说明：测试局部值 [rel，由紧邻初始化决定，仅在当前场景使用。 */
   for (const [rel, content] of Object.entries(files)) {
+    /** 中文说明：测试局部值 abs，由紧邻初始化决定，仅在当前场景使用。 */
     const abs = join(root, 'packages', 'group', 'fix', 'src', rel)
     mkdirSync(dirname(abs), { recursive: true })
     writeFileSync(abs, content)
@@ -27,10 +40,12 @@ function fixture(files: Record<string, string>): string {
 }
 
 /** Single-file fixture shorthand: the content becomes `src/index.ts`. */
+/** 中文说明：测试局部值 make，由紧邻初始化决定，仅在当前场景使用。 */
 const make = (content: string): string => fixture({ 'index.ts': content })
 
 describe('verify-export-jsdoc functions and consts', () => {
   it('limits packages without src/* exports to declarations reachable from package entrypoints', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定，仅在当前场景使用。 */
     const root = fixture({
       'index.ts': "export { publicFn } from './internal.ts'\n",
       'internal.ts': `
@@ -41,6 +56,7 @@ export function hiddenFn(value: string): string { return value }
     writeFileSync(join(root, 'packages/group/fix/package.json'), JSON.stringify({
       exports: { '.': { types: './lib/types/index.d.ts', default: './lib/index.js' } },
     }))
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(root)
     expect(violations).toHaveLength(1)
     expect(violations.every(violation => violation.includes('publicFn'))).toBe(true)
@@ -80,6 +96,7 @@ export const halve = (n: number): number => n / 2
   })
 
   it('flags a missing @param and a missing @returns', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(make(
       '/** Docs without tags. */\nexport function f(x: number): number { return x }\n',
     ))
@@ -102,6 +119,7 @@ export const halve = (n: number): number => n / 2
   })
 
   it('flags a stale @param and a binding-pattern parameter', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(make(
       '/**\n * Docs.\n * @param ghost - not real.\n */\nexport function f({ a }: { a: number }): void {}\n',
     ))
@@ -142,6 +160,7 @@ export const bad = (x: number) => x
 
 describe('verify-export-jsdoc type-level exports', () => {
   it('requires description prose on interfaces, type aliases, and enums', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(make(
       'export interface I { a: number }\nexport type T = number\nexport enum E { A }\n',
     ))
@@ -179,6 +198,7 @@ describe('verify-export-jsdoc export forms', () => {
     // Two lists each name one declarator of the same undocumented statement:
     // both are exported (deduplicating on first resolution would drop `b`),
     // while the never-exported `c` stays out.
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(make(
       'const a = 1, b = 2, c = 3\nexport { a }\nexport { b }\nvoid c\n',
     ))
@@ -197,6 +217,7 @@ describe('verify-export-jsdoc export forms', () => {
   })
 
   it('reports a re-exported module once, at its defining file', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(fixture({
       'index.ts': "export * from './other.ts'\n",
       'other.ts': 'export function f(): void {}\n',
@@ -225,6 +246,7 @@ export function f(x: number | boolean): string { return String(x) }
 
 describe('verify-export-jsdoc classes', () => {
   it('flags an undocumented class, method, property, and accessor', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(make(`
 export class C {
   state = 1
@@ -277,6 +299,7 @@ export class C {
   })
 
   it('exempts plugin-protocol statics but checks other statics', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(make(`
 /** Plugin. */
 export class C {
@@ -313,6 +336,7 @@ export function apply(): void {}
   })
 
   it('recurses into namespaces with qualified names and honors the merge idiom', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(make(`
 /** The plugin class. */
 export class Fix {}
@@ -375,6 +399,7 @@ describe('verify-export-jsdoc fail-closed forms', () => {
   })
 
   it('refuses an export-import alias to a callable, class, or namespace target', () => {
+    /** 中文说明：测试局部值 refusal，由紧邻初始化决定，仅在当前场景使用。 */
     const refusal = /exported alias 'g' .* aliases a callable, class, or namespace target/
     expect(collectExportJsdocViolations(make(
       'namespace N {\n  export function f(x: number): number { return x }\n}\n/** Alias. */\nexport import g = N.f\n',
@@ -426,6 +451,7 @@ describe('verify-export-jsdoc fail-closed forms', () => {
 
 describe('verify-export-jsdoc heritage refinement', () => {
   it('requires @param for parameters the base member never names', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定，仅在当前场景使用。 */
     const violations = collectExportJsdocViolations(make(`
 /** Seam. */
 export abstract class Base {
@@ -495,6 +521,7 @@ export class Impl extends Base {
   })
 
   it('revives the @returns duty when an override grows a concrete result over a void base', () => {
+    /** 中文说明：测试局部值 voidBase，由紧邻初始化决定，仅在当前场景使用。 */
     const voidBase = `
 /** Seam. */
 export abstract class Base {
@@ -521,6 +548,7 @@ export class Impl extends Base {
   })
 
   it('classifies an unannotated override return over a void base via the checker', () => {
+    /** 中文说明：测试局部值 voidBase，由紧邻初始化决定，仅在当前场景使用。 */
     const voidBase = `
 /** Seam. */
 export abstract class Base {
