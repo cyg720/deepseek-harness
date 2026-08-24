@@ -11,6 +11,14 @@
  * wire, while a provider removal first requires confirmation; the page
  * re-renders from pushed invalidations or the post-apply reload.
  */
+/**
+ * 文件职责：实现模型设置的 ModelsSection 组件。
+ * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
+ * 产品维度：帮助用户查看和调整模型设置。
+ * 逻辑维度：读取状态，编辑草稿，调用保存或发现操作并展示结果。
+ * 关键边界：界面可见信息不代表授权；密钥只显示配置状态，不显示原值。
+ * 新手阅读建议：先读 Props 和状态类型，再看事件处理与 JSX。
+ */
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
@@ -26,6 +34,7 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
+/** 中文说明：类型或类 ModelsSectionInjected 约束设置数据或组件职责。 */
 export interface ModelsSectionInjected {
   /** The page store (loaded on mount, refreshed on pushed invalidations). */
   controller: ModelsSettingsStore
@@ -45,11 +54,14 @@ export interface ModelsSectionInjected {
  * Props delivered by the slot outlet: the inject face spread flat (the
  * renderer erases the share boundary at the render call).
  */
+/** 中文说明：类型或类 ModelsSectionProps 约束设置数据或组件职责。 */
 export type ModelsSectionProps = Partial<InjectFace<ModelsSectionInjected>>
 
+/** 中文说明：类型或类 ModelsSectionFace 约束设置数据或组件职责。 */
 type ModelsSectionFace = InjectFace<ModelsSectionInjected>
 
 /** Provider identity shared by row actions and confirmation copy. */
+/** 中文说明：类型或类 ProviderIdentity 约束设置数据或组件职责。 */
 export interface ProviderIdentity {
   /** Stable provider route id. */
   provider: string
@@ -58,6 +70,7 @@ export interface ProviderIdentity {
 }
 
 /** One existing row or dormant directory entry addressed by an editor action. */
+/** 中文说明：类型或类 EditorTarget 约束设置数据或组件职责。 */
 interface EditorTarget extends ProviderIdentity {
   settingsNs: string
   settingsPath: readonly string[]
@@ -68,6 +81,7 @@ interface EditorTarget extends ProviderIdentity {
 }
 
 /** Values that vary around the shared provider-editor rendering. */
+/** 中文说明：类型或类 ProviderEditorRenderProps 约束设置数据或组件职责。 */
 interface ProviderEditorRenderProps extends Pick<
   ProviderEditorProps,
   'namespace' | 'schema' | 'api' | 't' | 'readOnly' | 'onClose'
@@ -76,6 +90,7 @@ interface ProviderEditorRenderProps extends Pick<
 }
 
 /** Render an editor for either the setup posture or an expanded provider row. */
+/** 中文说明：函数 renderProviderEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function renderProviderEditor({ target, ...props }: ProviderEditorRenderProps): ReactNode {
   return (
     <ProviderEditor
@@ -99,6 +114,7 @@ function renderProviderEditor({ target, ...props }: ProviderEditorRenderProps): 
  * @param target - the provider's settings address and optional managed credential.
  * @returns the failure message, or undefined once the write and reload landed.
  */
+/** 中文说明：函数 removeProviderProfile 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export async function removeProviderProfile(
   api: Pick<IApiClient, 'settings' | 'credentials'>,
   controller: ModelsSettingsStore,
@@ -106,9 +122,11 @@ export async function removeProviderProfile(
 ): Promise<string | undefined> {
   try {
     if (target.credentialRef !== undefined) {
+      /** 中文说明：设置局部值 credential，由紧邻初始化决定。 */
       const credential = await api.credentials.unset({ ref: target.credentialRef })
       if (!credential.result.ok) return credential.result.error.message
     }
+    /** 中文说明：设置局部值 response，由紧邻初始化决定。 */
     const response = await api.settings.mutate({
       ns: target.settingsNs,
       ops: [{ op: 'unset', path: [...target.settingsPath] }],
@@ -132,14 +150,18 @@ export async function removeProviderProfile(
  * @param anyUsable - whether any joined row can already serve requests.
  * @returns whether to render the setup card.
  */
+/** 中文说明：函数 needsSetup 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function needsSetup(row: ProviderRow, anyUsable: boolean): boolean {
   if (anyUsable) return false
   if (row.entry.settingsPath.length > 0) return false
   return row.credential?.configured !== true
 }
 
+/** 中文说明：函数 targetOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function targetOf(row: ProviderRow): EditorTarget {
+  /** 中文说明：设置局部值 managedRef，由紧邻初始化决定。 */
   const managedRef = deriveKeyRef(row.entry.provider)
+  /** 中文说明：设置局部值 credentialRef，由紧邻初始化决定。 */
   const credentialRef = row.apiKeyEnv === managedRef
     && row.credential?.configured === true
     && row.credential.writable
@@ -159,6 +181,7 @@ function targetOf(row: ProviderRow): EditorTarget {
 }
 
 /** Stable visible and accessible identity for one provider target. */
+/** 中文说明：函数 providerTargetLabel 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function providerTargetLabel(target: ProviderIdentity): string {
   return target.provider === target.displayName
     ? target.provider
@@ -166,6 +189,7 @@ export function providerTargetLabel(target: ProviderIdentity): string {
 }
 
 /** Replace the one provider placeholder in localized destructive-action copy. */
+/** 中文说明：函数 providerCopy 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function providerCopy(template: string, target: ProviderIdentity): string {
   return template.replace('{provider}', () => providerTargetLabel(target))
 }
@@ -175,7 +199,9 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @param props - slot-delivered injected dependencies.
  * @returns the section, or null while the shell has not injected yet.
  */
+/** 中文说明：函数 ModelsSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
+  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const { controller, useSnapshot, api, schema, t } = props
   if (
     controller === undefined || useSnapshot === undefined || api === undefined
@@ -184,18 +210,30 @@ export function ModelsSection(props: ModelsSectionProps): ReactNode {
   return <Loaded injected={{ controller, useSnapshot, api, schema, t }} />
 }
 
+/** 中文说明：函数 Loaded 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
+  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const { controller, api, schema, t } = injected
+  /** 中文说明：设置局部值 state，由紧邻初始化决定。 */
   const state = injected.useSnapshot(snapshot => snapshot)
+  /** 中文说明：设置局部值 [editing, setEditing]，由紧邻初始化决定。 */
   const [editing, setEditing] = useState<EditorTarget | undefined>(undefined)
+  /** 中文说明：设置局部值 [adding, setAdding]，由紧邻初始化决定。 */
   const [adding, setAdding] = useState(false)
+  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const [deleteTarget, setDeleteTarget] = useState<EditorTarget | undefined>(undefined)
+  /** 中文说明：设置局部值 [deleting, setDeleting]，由紧邻初始化决定。 */
   const [deleting, setDeleting] = useState(false)
+  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const [deleteFailure, setDeleteFailure] = useState<string | undefined>(undefined)
+  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const [savedTarget, setSavedTarget] = useState<ProviderIdentity | undefined>(undefined)
+  /** 中文说明：设置局部值 [declaring, setDeclaring]，由紧邻初始化决定。 */
   const [declaring, setDeclaring] = useState(false)
+  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const [dismissedSetup, setDismissedSetup] = useState<ReadonlySet<string>>(() => new Set())
 
+  /** 中文说明：设置局部值 announceSaved，由紧邻初始化决定。 */
   const announceSaved = (target: ProviderIdentity): void => {
     // Announced only once the refreshed directory is in the snapshot the
     // notice reads its name from: an apply can rename the route, and the
@@ -203,6 +241,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
     void controller.load().then(() => { setSavedTarget(target) })
   }
 
+  /** 中文说明：设置局部值 closeEditor，由紧邻初始化决定。 */
   const closeEditor = (changed: boolean, target: ProviderIdentity): void => {
     setEditing(undefined)
     setAdding(false)
@@ -217,17 +256,20 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
    * own — the provider falls back to an ordinary row for the rest of the
    * session, and reopens through Edit.
    */
+  /** 中文说明：设置局部值 closeSetup，由紧邻初始化决定。 */
   const closeSetup = (changed: boolean, target: ProviderIdentity): void => {
     setDismissedSetup(previous => new Set([...previous, target.provider]))
     if (changed) announceSaved(target)
   }
 
+  /** 中文说明：设置局部值 closeDelete，由紧邻初始化决定。 */
   const closeDelete = (): void => {
     if (deleting) return
     setDeleteTarget(undefined)
     setDeleteFailure(undefined)
   }
 
+  /** 中文说明：设置局部值 confirmDelete，由紧邻初始化决定。 */
   const confirmDelete = (): void => {
     /* v8 ignore next -- the action only renders with a target and is disabled while a deletion is pending */
     if (deleteTarget === undefined || deleting) return
@@ -246,6 +288,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
 
   if (state.status === 'idle') void controller.load()
   if (state.status === 'error') {
+    /** 中文说明：设置局部值 errorText，由紧邻初始化决定。 */
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const errorText = state.error ?? ''
     return (
@@ -262,23 +305,31 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
   // what the apply cannot change, so it is what the notice is keyed by; a row
   // the same apply removed keeps the captured identity, since nothing newer
   // exists to name it with.
+  /** 中文说明：设置局部值 savedRow，由紧邻初始化决定。 */
   const savedRow = savedTarget === undefined
     ? undefined
     : state.rows.find(row => row.entry.provider === savedTarget.provider)
+  /** 中文说明：设置局部值 savedIdentity，由紧邻初始化决定。 */
   const savedIdentity = savedRow === undefined
     ? savedTarget
     : { provider: savedRow.entry.provider, displayName: savedRow.entry.displayName }
 
   // One fact decides both first-run postures on this page and the onboarding
   // step: whether the user already has a provider to talk to.
+  /** 中文说明：设置局部值 anyUsable，由紧邻初始化决定。 */
   const anyUsable = state.rows.some(providerUsable)
+  /** 中文说明：设置局部值 configured，由紧邻初始化决定。 */
   const configured = state.rows.filter(row => row.configured)
+  /** 中文说明：设置局部值 addable，由紧邻初始化决定。 */
   const addable = state.rows.filter(row => !row.configured && row.entry.settingsNs !== '')
+  /** 中文说明：设置局部值 addTarget，由紧邻初始化决定。 */
   const addTarget = adding ? editing : undefined
+  /** 中文说明：设置局部值 addNamespace，由紧邻初始化决定。 */
   const addNamespace = addTarget === undefined ? undefined : state.namespaces.get(addTarget.settingsNs)
   // Hand-declared routes live in the pi-ai namespace, which is also the only
   // one whose schema names the protocols one may speak; without it mounted
   // there is nothing to declare and the entry point stays disabled.
+  /** 中文说明：设置局部值 protocols，由紧邻初始化决定。 */
   const protocols = protocolChoices(state.namespaces.get('llm-pi-ai'), schema)
 
   return (
@@ -295,7 +346,9 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
         )}
       <ul className={styles['rows']}>
         {configured.map((row) => {
+          /** 中文说明：设置局部值 target，由紧邻初始化决定。 */
           const target = targetOf(row)
+          /** 中文说明：设置局部值 namespace，由紧邻初始化决定。 */
           const namespace = state.namespaces.get(target.settingsNs)
           /* v8 ignore next -- the join marks a row configured only when its namespace resolved */
           if (namespace === undefined) return null
@@ -316,8 +369,11 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
               </li>
             )
           }
+          /** 中文说明：设置局部值 open，由紧邻初始化决定。 */
           const open = !adding && editing?.provider === row.entry.provider
+          /** 中文说明：设置局部值 credentialConfigured，由紧邻初始化决定。 */
           const credentialConfigured = row.credential?.configured === true
+          /** 中文说明：设置局部值 credentialMissing，由紧邻初始化决定。 */
           const credentialMissing = !credentialConfigured
             && row.apiKeyEnv !== undefined
             && row.credential?.configured === false
@@ -414,6 +470,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   value={addTarget.provider}
                   aria-label={t('provider')}
                   onChange={(event) => {
+                    /** 中文说明：设置局部值 row，由紧邻初始化决定。 */
                     const row = addable.find(candidate => candidate.entry.provider === event.target.value)
                     /* v8 ignore next -- the select only lists addable rows */
                     if (row === undefined) return
@@ -469,6 +526,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   className={styles['addButton']}
                   disabled={addable.length === 0 || !state.writable}
                   onClick={() => {
+                    /** 中文说明：设置局部值 first，由紧邻初始化决定。 */
                     const first = addable[0]
                     /* v8 ignore next -- the button is disabled while nothing is addable */
                     if (first === undefined) return

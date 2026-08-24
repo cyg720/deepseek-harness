@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证插件清单的 components.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
+ * 产品维度：防止插件清单保存、发现和错误提示回归。
+ * 逻辑维度：构造配置状态，触发操作并断言请求与界面。
+ * 关键边界：敏感值不得意外回显；异步发现和保存必须清理。
+ * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
+ */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PluginInventorySettingsTab } from '../src/client/PluginInventorySettingsTab.tsx'
@@ -10,9 +18,12 @@ import { en, type PluginInventoryLocaleKey } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
+/** 中文说明：类型或类 Snapshot 约束设置数据或组件职责。 */
 type Snapshot = Awaited<ReturnType<PluginInventorySettingsTabInjected['list']>>
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = ((key: PluginInventoryLocaleKey): string => en[key]) as PluginInventorySettingsTabProps['t']
 
+/** 中文说明：函数 props 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function props(list: PluginInventorySettingsTabInjected['list']): PluginInventorySettingsTabProps {
   return {
     t,
@@ -20,6 +31,7 @@ function props(list: PluginInventorySettingsTabInjected['list']): PluginInventor
   } as PluginInventorySettingsTabProps
 }
 
+/** 中文说明：测试局部值 SNAPSHOT，由紧邻初始化决定。 */
 const SNAPSHOT = {
   entries: [
     { entryId: '8a1b2c3d', moduleName: '@deepseek-ai/cordis-plugin-hmr', enabled: true, fiberPhase: 'active' },
@@ -34,8 +46,11 @@ const SNAPSHOT = {
 
 describe('PluginInventorySettingsTab', () => {
   it('renders runtime status only for enabled plugins', async () => {
+    /** 中文说明：测试局部值 deferred，由紧邻初始化决定。 */
     const deferred = Promise.withResolvers<Snapshot>()
+    /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
     const list = vi.fn(() => deferred.promise)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<PluginInventorySettingsTab {...props(list)} />)
     expect(screen.getByText(en.loading)).toBeTruthy()
 
@@ -47,6 +62,7 @@ describe('PluginInventorySettingsTab', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(7)
     expect(screen.getAllByText(en.enabledTag)).toHaveLength(6)
     expect(screen.getByText(en.disabledTag)).toBeTruthy()
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     for (const value of [
       'Mounted',
       'Waiting for dependencies',
@@ -57,6 +73,7 @@ describe('PluginInventorySettingsTab', () => {
     ]) {
       expect(screen.getByRole('img', { name: value })).toBeTruthy()
     }
+    /** 中文说明：测试局部值 active，由紧邻初始化决定。 */
     const active = screen.getByRole('button', { name: 'hmr, Mounted, Enabled' })
     expect(active.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(active)
@@ -80,6 +97,7 @@ describe('PluginInventorySettingsTab', () => {
 
   it('filters by module name or Loader entry id', async () => {
     render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT)} />)
+    /** 中文说明：测试局部值 search，由紧邻初始化决定。 */
     const search = await screen.findByRole('searchbox', { name: en.search })
 
     fireEvent.change(search, { target: { value: 'disabled-entry' } })
@@ -96,6 +114,7 @@ describe('PluginInventorySettingsTab', () => {
   })
 
   it('shows a generic failure and retries into the empty state', async () => {
+    /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
     const list = vi.fn<PluginInventorySettingsTabInjected['list']>()
       .mockRejectedValueOnce(new Error('private transport detail'))
       .mockResolvedValueOnce({ entries: [] })
@@ -109,17 +128,23 @@ describe('PluginInventorySettingsTab', () => {
   })
 
   it('contains a synchronous Remote failure and ignores a result after unmount', async () => {
+    /** 中文说明：测试局部值 syncFailure，由紧邻初始化决定。 */
     const syncFailure = vi.fn(() => { throw new Error('namespace unavailable') }) as PluginInventorySettingsTabInjected['list']
+    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = render(<PluginInventorySettingsTab {...props(syncFailure)} />)
     expect((await screen.findByRole('alert')).textContent).toBe(en.error)
     failed.unmount()
 
+    /** 中文说明：测试局部值 deferred，由紧邻初始化决定。 */
     const deferred = Promise.withResolvers<Snapshot>()
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = render(<PluginInventorySettingsTab {...props(() => deferred.promise)} />)
     pending.unmount()
     await act(async () => { deferred.resolve(SNAPSHOT) })
 
+    /** 中文说明：测试局部值 deferredFailure，由紧邻初始化决定。 */
     const deferredFailure = Promise.withResolvers<Snapshot>()
+    /** 中文说明：测试局部值 pendingFailure，由紧邻初始化决定。 */
     const pendingFailure = render(<PluginInventorySettingsTab {...props(() => deferredFailure.promise)} />)
     pendingFailure.unmount()
     await act(async () => { deferredFailure.reject(new Error('late failure')) })

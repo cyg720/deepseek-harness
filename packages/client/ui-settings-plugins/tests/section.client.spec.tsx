@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证插件配置的 section.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
+ * 产品维度：防止插件配置保存、发现和错误提示回归。
+ * 逻辑维度：构造配置状态，触发操作并断言请求与界面。
+ * 关键边界：敏感值不得意外回显；异步发现和保存必须清理。
+ * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
+ */
+/**
  * What the section and its cards show: the empty line when no plugin
  * contributed one, a card that renders nothing while its namespace is
  * unavailable, and the save footer that decides when staged edits are written.
@@ -28,9 +36,11 @@ import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = (key: keyof typeof en) => en[key]
 
 /** A settled form: nothing staged, everything served. */
+/** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
 const settled: CardShell = {
   available: true,
   writable: true,
@@ -41,15 +51,19 @@ const settled: CardShell = {
 }
 
 /** One control's state, defaulting to an inherited value. */
+/** 中文说明：函数 field 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function field(text: string, rest: Partial<CardFieldState> = {}): CardFieldState {
   return { text, overridden: false, invalid: false, ...rest }
 }
 
+/** 中文说明：函数 cardActions 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function cardActions() {
   return { edit: vi.fn(), resetField: vi.fn(), save: vi.fn(), discard: vi.fn() }
 }
 
+/** 中文说明：函数 renderSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function renderSection(rows: readonly PluginsSettingsTabEntry[]) {
+  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props = {
     t,
     useTabs: (selector: (value: readonly PluginsSettingsTabEntry[]) => unknown) => selector(rows),
@@ -65,12 +79,16 @@ function renderSection(rows: readonly PluginsSettingsTabEntry[]) {
  * standing in for the slot ledger: a key it names renders that text, and one
  * it does not renders nothing, exactly as an unclaimed key does.
  */
+/** 中文说明：函数 renderConfigurable 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function renderConfigurable(namespaces: string[], cards: Record<string, string> = {}, loaded = true) {
+  /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<ConfigurablePluginsTabState>({ loaded, namespaces })
+  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props = {
     t,
     useConfigurablePlugins: bindSnapshotSelector(store),
     renderSlot: (_name: string, _owner: object, opts?: { entryKey?: string }) => {
+      /** 中文说明：测试局部值 card，由紧邻初始化决定。 */
       const card = opts?.entryKey === undefined ? undefined : cards[opts.entryKey]
       return card === undefined ? null : <li>{card}</li>
     },
@@ -78,14 +96,18 @@ function renderConfigurable(namespaces: string[], cards: Record<string, string> 
   render(<ConfigurablePluginsTab {...props} />)
 }
 
+/** 中文说明：函数 renderBash 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function renderBash(state: Partial<BashCardState> = {}) {
+  /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<BashCardState>({
     ...settled,
     timeoutMs: field('60000'),
     maxOutputBytes: field('64000'),
     ...state,
   })
+  /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
   const actions = cardActions()
+  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props = { ...actions, t, useBashCard: bindSnapshotSelector(store) } as unknown as BashCardProps
   render(<BashCard {...props} />)
   return actions
@@ -105,7 +127,9 @@ describe('PluginsSettingsSection', () => {
       { id: 'all', order: 10, label: 'Plugin list' },
     ])
 
+    /** 中文说明：测试局部值 configurable，由紧邻初始化决定。 */
     const configurable = screen.getByRole('tab', { name: en.configurableTab })
+    /** 中文说明：测试局部值 all，由紧邻初始化决定。 */
     const all = screen.getByRole('tab', { name: 'Plugin list' })
     expect(configurable.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('configurable')).toBeTruthy()
@@ -135,8 +159,11 @@ describe('PluginsSettingsSection', () => {
       { id: 'diagnostics', order: 20, label: 'Diagnostics' },
     ])
 
+    /** 中文说明：测试局部值 configurable，由紧邻初始化决定。 */
     const configurable = screen.getByRole('tab', { name: en.configurableTab })
+    /** 中文说明：测试局部值 all，由紧邻初始化决定。 */
     const all = screen.getByRole('tab', { name: 'Plugin list' })
+    /** 中文说明：测试局部值 diagnostics，由紧邻初始化决定。 */
     const diagnostics = screen.getByRole('tab', { name: 'Diagnostics' })
     expect(configurable.getAttribute('tabindex')).toBe('0')
     expect(all.getAttribute('tabindex')).toBe('-1')
@@ -187,6 +214,7 @@ describe('ConfigurablePluginsTab', () => {
 
 describe('BashCard', () => {
   it('renders nothing while its namespace is unavailable', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<div />)
     renderBash({ available: false })
 
@@ -206,6 +234,7 @@ describe('BashCard', () => {
   })
 
   it('stages an edit instead of writing it', () => {
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = renderBash()
     fireEvent.click(screen.getByText(en.bashTitle))
 
@@ -216,6 +245,7 @@ describe('BashCard', () => {
   })
 
   it('offers the reset for an overridden field only', () => {
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = renderBash({ timeoutMs: field('9000', { overridden: true }) })
     fireEvent.click(screen.getByText(en.bashTitle))
 
@@ -227,6 +257,7 @@ describe('BashCard', () => {
   })
 
   it('addresses each of its two fields separately', () => {
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = renderBash({ maxOutputBytes: field('64000', { overridden: true }) })
     fireEvent.click(screen.getByText(en.bashTitle))
 
@@ -247,6 +278,7 @@ describe('BashCard', () => {
   })
 
   it('writes the staged edits when saved, and drops them when discarded', () => {
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = renderBash({ dirty: true, timeoutMs: field('9000', { overridden: true }) })
     fireEvent.click(screen.getByText(en.bashTitle))
 
@@ -308,12 +340,15 @@ describe('BashCard', () => {
 
 describe('AgentLoopCard', () => {
   it('stages and saves the only field it owns', () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = createSnapshotStore<AgentLoopCardState>({
       ...settled,
       dirty: true,
       maxParallelToolCalls: field('10'),
     })
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = cardActions()
+    /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
     const props = {
       ...actions,
       t,
@@ -330,11 +365,14 @@ describe('AgentLoopCard', () => {
   })
 
   it('stages a reset for the field it owns', () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = createSnapshotStore<AgentLoopCardState>({
       ...settled,
       maxParallelToolCalls: field('2', { overridden: true }),
     })
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = cardActions()
+    /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
     const props = {
       ...actions,
       t,
@@ -350,7 +388,9 @@ describe('AgentLoopCard', () => {
 })
 
 describe('WebSearchCard', () => {
+  /** 中文说明：函数 renderWebSearch 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
   function renderWebSearch(state: Partial<WebSearchCardState> = {}) {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = createSnapshotStore<WebSearchCardState>({
       ...settled,
       baseURL: field(''),
@@ -360,7 +400,9 @@ describe('WebSearchCard', () => {
       apiKeyWritable: true,
       ...state,
     })
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = cardActions()
+    /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
     const props = { ...actions, t, useWebSearchCard: bindSnapshotSelector(store) } as unknown as WebSearchCardProps
     render(<WebSearchCard {...props} />)
     return actions
@@ -375,9 +417,11 @@ describe('WebSearchCard', () => {
   })
 
   it('keeps the key control usable while the settings document is read-only', () => {
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = renderWebSearch({ writable: false })
     fireEvent.click(screen.getByText(en.webSearchTitle))
 
+    /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = screen.getByLabelText(en.webSearchApiKey)
     expect(key).toHaveProperty('disabled', false)
     expect(screen.getByLabelText(en.webSearchBaseUrl)).toHaveProperty('disabled', true)
@@ -398,6 +442,7 @@ describe('WebSearchCard', () => {
   })
 
   it('stages the endpoint, the search budget, and their resets', () => {
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = renderWebSearch({
       baseURL: field('https://search.test/v1', { overridden: true }),
       maxUses: field('3', { overridden: true }),
@@ -406,8 +451,10 @@ describe('WebSearchCard', () => {
 
     fireEvent.change(screen.getByLabelText(en.webSearchBaseUrl), { target: { value: 'https://other.test' } })
     fireEvent.change(screen.getByLabelText(en.webSearchMaxUses), { target: { value: '4' } })
+    /** 中文说明：测试局部值 resets，由紧邻初始化决定。 */
     const resets = screen.getAllByRole('button', { name: en.reset })
     expect(resets).toHaveLength(2)
+    /** 中文说明：测试局部值 reset，由紧邻初始化决定。 */
     for (const reset of resets) fireEvent.click(reset)
 
     expect(actions.edit.mock.calls).toEqual([

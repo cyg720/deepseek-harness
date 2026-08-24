@@ -1,4 +1,12 @@
 /* Plugin card: a header that names the plugin, disclosing its controls in place. */
+/**
+ * 文件职责：定义 PluginCard 的局部样式。
+ * 技术维度：CSS Modules、表单布局、状态颜色和响应式规则。
+ * 产品维度：让插件配置信息和操作清晰可辨。
+ * 逻辑维度：按卡片、字段、操作与状态组织样式。
+ * 关键边界：错误、禁用与敏感字段必须有明确视觉区分。
+ * 新手阅读建议：对照同名 TSX 按表单结构阅读。
+ */
 
 .card {
   list-style: none;

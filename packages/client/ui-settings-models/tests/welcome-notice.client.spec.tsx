@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证模型设置的 welcome-notice.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
+ * 产品维度：防止模型设置保存、发现和错误提示回归。
+ * 逻辑维度：构造配置状态，触发操作并断言请求与界面。
+ * 关键边界：敏感值不得意外回显；异步发现和保存必须清理。
+ * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
+ */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
@@ -8,6 +16,7 @@ import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/
 import { SettingsScopeController } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-scope.ts'
 
 /** Stateless schema service for scope construction in this jsdom fixture. */
+/** 中文说明：测试局部值 schemaService，由紧邻初始化决定。 */
 const schemaService = new SettingsSchemaService(new Context())
 import { WelcomeNotice } from '../src/client/WelcomeNotice.tsx'
 import type { WelcomeNoticeProps } from '../src/client/WelcomeNotice.tsx'
@@ -24,10 +33,12 @@ afterEach(() => {
   document.getElementById('root')?.remove()
 })
 
+/** 中文说明：函数 response 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function response<T>(value: T) {
   return { rpcId: 'welcome-rpc' as never, result: { ok: true as const, value } }
 }
 
+/** 中文说明：函数 welcomeView 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function welcomeView(value: unknown, revision = 0) {
   return {
     ns: WELCOME_NOTICE_SETTINGS_NAMESPACE,
@@ -41,15 +52,19 @@ function welcomeView(value: unknown, revision = 0) {
   }
 }
 
+/** 中文说明：函数 mount 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function mount(
   version?: string,
   mutateImpl: () => Promise<unknown> = () =>
     Promise.resolve(response(welcomeView({ [WELCOME_NOTICE_ACK_FIELD]: WELCOME_NOTICE_VERSION }, 1))),
 ) {
+  /** 中文说明：测试局部值 appRoot，由紧邻初始化决定。 */
   const appRoot = document.createElement('div')
   appRoot.id = 'root'
   document.body.append(appRoot)
+  /** 中文说明：测试局部值 mutate，由紧邻初始化决定。 */
   const mutate = vi.fn(mutateImpl)
+  /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
   const api = {
     settings: {
       describe: () => Promise.resolve(response({
@@ -60,7 +75,9 @@ function mount(
       mutate,
     },
   }
+  /** 中文说明：测试局部值 mirror，由紧邻初始化决定。 */
   const mirror = new SettingsDescribeMirror(api as never)
+  /** 中文说明：测试局部值 scope，由紧邻初始化决定。 */
   const scope = new SettingsScopeController<WelcomeSection>(
     api as never,
     { namespace: WELCOME_NOTICE_SETTINGS_NAMESPACE, decode: decodeWelcomeSection },
@@ -68,10 +85,14 @@ function mount(
     'host',
     schemaService,
   )
+  /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
   const controller = new WelcomeNoticeStore(scope)
   void mirror.load()
+  /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
   const complete = vi.fn()
+  /** 中文说明：测试局部值 unusedHook，由紧邻初始化决定。 */
   const unusedHook = (() => { throw new Error('unused standard hook') }) as never
+  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props: WelcomeNoticeProps = {
     stepId: 'welcome-notice',
     complete,
@@ -97,8 +118,11 @@ describe('WelcomeNotice', () => {
   })
 
   it('renders one blocking modal action and focuses the title', async () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = mount()
+    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = await screen.findByRole('dialog', { name: WELCOME_NOTICE_COPY.zh.title })
+    /** 中文说明：测试局部值 paragraph，由紧邻初始化决定。 */
     for (const paragraph of WELCOME_NOTICE_COPY.zh.body.split('\n\n')) {
       expect(screen.getByText(paragraph, { exact: true })).toBeTruthy()
     }
@@ -115,6 +139,7 @@ describe('WelcomeNotice', () => {
   })
 
   it('completes only after the acknowledgement write commits', async () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = mount()
     await screen.findByRole('dialog')
     fireEvent.click(screen.getByRole('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel }))
@@ -124,6 +149,7 @@ describe('WelcomeNotice', () => {
   })
 
   it('skips itself when this exact version was already acknowledged', async () => {
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = mount(WELCOME_NOTICE_VERSION)
     await act(async () => {
       await h.mirror.load()
@@ -134,10 +160,14 @@ describe('WelcomeNotice', () => {
   })
 
   it('keeps the sole action disabled while saving and reports a refused write', async () => {
+    /** 中文说明：测试局部值 resolveWrite，由紧邻初始化决定。 */
     let resolveWrite!: (value: unknown) => void
+    /** 中文说明：测试局部值 write，由紧邻初始化决定。 */
     const write = new Promise<unknown>((resolve) => { resolveWrite = resolve })
+    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = mount(undefined, () => write)
     await screen.findByRole('dialog')
+    /** 中文说明：测试局部值 action，由紧邻初始化决定。 */
     const action = screen.getByRole<HTMLButtonElement>('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel })
     fireEvent.click(action)
     expect(action.disabled).toBe(true)

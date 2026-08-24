@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证模型设置的 provider-form.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
+ * 产品维度：防止模型设置保存、发现和错误提示回归。
+ * 逻辑维度：构造配置状态，触发操作并断言请求与界面。
+ * 关键边界：敏感值不得意外回显；异步发现和保存必须清理。
+ * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
+ */
 /** Model-list editing, endpoint interrogation, and hand-declared provider creation. */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -16,11 +24,14 @@ import { settingsSchema } from './settings-schema.client.ts'
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: ModelsSectionInjected['t'] = key => en[key]
 
+/** 中文说明：测试局部值 PROTOCOLS，由紧邻初始化决定。 */
 const PROTOCOLS = ['openai-completions', 'openai-responses', 'anthropic-messages']
 
 /** The pi-ai profile shape as the host serializes it, including the layer-1 fields. */
+/** 中文说明：测试局部值 PiAiConfig，由紧邻初始化决定。 */
 const PiAiConfig = Schema.object({
   providers: Schema.dict(Schema.object({
     apiKey: Schema.string().role('secret'),
@@ -38,14 +49,18 @@ const PiAiConfig = Schema.object({
   })),
 })
 
+/** 中文说明：测试局部值 nextRpc，由紧邻初始化决定。 */
 let nextRpc = 0
+/** 中文说明：函数 ok 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function ok<T>(value: T): RpcResponse<T> {
   return { rpcId: `r-${nextRpc++}` as never, result: { ok: true, value } }
 }
+/** 中文说明：函数 fail 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function fail<T>(message: string, code: string): RpcResponse<T> {
   return { rpcId: `r-${nextRpc++}` as never, result: { ok: false, error: { code, message, details: {} } as never } }
 }
 
+/** 中文说明：函数 piAiNamespace 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function piAiNamespace(
   providers: Record<string, unknown>,
   userProviders: Record<string, unknown> = providers,
@@ -65,6 +80,7 @@ function piAiNamespace(
   }
 }
 
+/** 中文说明：函数 scriptedFace 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function scriptedFace(options: {
   providers?: Record<string, unknown>
   /** User layer, when it differs from the effective section. */
@@ -77,13 +93,19 @@ function scriptedFace(options: {
   mutate?: ReturnType<typeof vi.fn>
   set?: ReturnType<typeof vi.fn>
 } = {}) {
+  /** 中文说明：测试局部值 providers，由紧邻初始化决定。 */
   const providers = options.providers ?? {
     openai: { apiKeyEnv: 'OPENAI_API_KEY', baseURL: 'https://proxy.example/v1' },
   }
+  /** 中文说明：测试局部值 namespace，由紧邻初始化决定。 */
   const namespace = piAiNamespace(providers, options.userProviders ?? providers, options.baseProviders ?? {})
+  /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
   const discover = options.discover ?? vi.fn(() => Promise.resolve(ok({ models: [] })))
+  /** 中文说明：测试局部值 mutate，由紧邻初始化决定。 */
   const mutate = options.mutate ?? vi.fn(() => Promise.resolve(ok(namespace)))
+  /** 中文说明：测试局部值 set，由紧邻初始化决定。 */
   const set = options.set ?? vi.fn(() => Promise.resolve(ok({})))
+  /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
   const face = {
     llm: {
       providers: vi.fn(() => Promise.resolve(ok({
@@ -116,9 +138,11 @@ function scriptedFace(options: {
   return { face, discover, mutate, set, namespace }
 }
 
+/** 中文说明：类型或类 WireFace 约束设置数据或组件职责。 */
 type WireFace = ConstructorParameters<typeof ModelsSettingsStore>[0]
 
 /** The settings write one card produced, as the scripted face recorded it. */
+/** 中文说明：类型或类 MutateCall 约束设置数据或组件职责。 */
 interface MutateCall {
   ns: string
   expectedRevision?: number
@@ -126,24 +150,32 @@ interface MutateCall {
 }
 
 /** The first interrogation payload; fails the case when nothing was asked. */
+/** 中文说明：函数 firstProbe 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function firstProbe(discover: ReturnType<typeof vi.fn>): unknown {
+  /** 中文说明：测试局部值 call，由紧邻初始化决定。 */
   const call = (discover.mock.calls as unknown as [unknown][])[0]?.[0]
   if (call === undefined) throw new Error('no interrogation was recorded')
   return call
 }
 
 /** The first recorded settings write; fails the case when nothing was written. */
+/** 中文说明：函数 firstMutate 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function firstMutate(mutate: ReturnType<typeof vi.fn>): MutateCall {
+  /** 中文说明：测试局部值 call，由紧邻初始化决定。 */
   const call = mutate.mock.calls[0]?.[0] as MutateCall | undefined
   if (call === undefined) throw new Error('no settings write was recorded')
   return call
 }
 
+/** 中文说明：函数 mountSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 async function mountSection(options: Parameters<typeof scriptedFace>[0] = {}) {
+  /** 中文说明：测试局部值 scripted，由紧邻初始化决定。 */
   const scripted = scriptedFace(options)
+  /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
   const controller = new ModelsSettingsStore(
     scripted.face as unknown as WireFace, settingsSchema, new SettingsDescribeMirror(scripted.face as never))
   await controller.load()
+  /** 中文说明：测试局部值 injected，由紧邻初始化决定。 */
   const injected: ModelsSectionProps = {
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
@@ -156,29 +188,37 @@ async function mountSection(options: Parameters<typeof scriptedFace>[0] = {}) {
 }
 
 /** Open the editor of one configured row and expand its customized fold. */
+/** 中文说明：函数 openEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function openEditor(provider: string): void {
+  /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
   const row = screen.getByText(provider).closest('li')
   if (row === null) throw new Error(`no row for ${provider}`)
   fireEvent.click(within_(row, en.edit))
+  /** 中文说明：测试局部值 summary，由紧邻初始化决定。 */
   const summary = document.querySelector('summary')
   if (summary === null) throw new Error('no customized fold')
   fireEvent.click(summary)
 }
 
 /** Open one model row's advanced fold, where the capacities live. */
+/** 中文说明：函数 expandModel 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function expandModel(index: number): void {
   fireEvent.click(screen.getByLabelText(`${en.modelAdvanced} ${index}`))
 }
 
 /** The button carrying `label`, typed so its disabled/title state is readable. */
+/** 中文说明：函数 buttonNamed 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function buttonNamed(label: string): HTMLButtonElement {
+  /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
   const found = screen.getByText(label)
   if (!(found instanceof HTMLButtonElement)) throw new Error(`"${label}" is not a button`)
   return found
 }
 
 /** Click the button with `label` inside `scope`. */
+/** 中文说明：函数 within_ 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function within_(scope: HTMLElement, label: string): HTMLElement {
+  /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
   const found = [...scope.querySelectorAll('button')].find(button => button.textContent === label)
   if (found === undefined) throw new Error(`no "${label}" button`)
   return found
@@ -186,9 +226,11 @@ function within_(scope: HTMLElement, label: string): HTMLElement {
 
 describe('protocolChoices', () => {
   it('reads the protocols out of the namespace schema and nothing else', async () => {
+    /** 中文说明：测试局部值 { namespace }，由紧邻初始化决定。 */
     const { namespace } = scriptedFace()
     expect(protocolChoices(namespace, settingsSchema)).toEqual(PROTOCOLS)
     expect(protocolChoices(undefined, settingsSchema)).toEqual([])
+    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain = { ...namespace, schema: JSON.parse(JSON.stringify(Schema.object({}).toJSON())) as unknown }
     expect(protocolChoices(plain, settingsSchema)).toEqual([])
     await Promise.resolve()
@@ -197,6 +239,7 @@ describe('protocolChoices', () => {
 
 describe('model list editing', () => {
   it('adds, edits, and removes rows without storing emptied optional fields', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection()
     openEditor('openai')
 
@@ -218,6 +261,7 @@ describe('model list editing', () => {
   })
 
   it('names a duplicate model id in the edit flow too', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({
       providers: { openai: { baseURL: 'https://proxy.example/v1', models: [{ id: 'dup' }] } },
     })
@@ -234,6 +278,7 @@ describe('model list editing', () => {
   })
 
   it('reads K and M suffixes and keeps the text the user typed', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection()
     openEditor('openai')
 
@@ -257,6 +302,7 @@ describe('model list editing', () => {
   })
 
   it('refuses to apply while a capacity is unreadable', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection()
     openEditor('openai')
 
@@ -293,6 +339,7 @@ describe('model list editing', () => {
   })
 
   it('edits one row of several and lets a cleared capacity leave the profile', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({
       providers: { openai: { baseURL: 'https://proxy.example/v1', models: [{ id: 'first' }, { id: 'second' }] } },
     })
@@ -372,6 +419,7 @@ describe('model list editing', () => {
   })
 
   it('separates emptying the list from restoring the adapter defaults', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({
       providers: { openai: { baseURL: 'https://proxy.example/v1', models: [{ id: 'kept' }] } },
     })
@@ -405,6 +453,7 @@ describe('capacity spellings', () => {
   })
 
   it.each(['abc', '12x', '1 000', '-5', ''])('refuses %j rather than guessing', (text) => {
+    /** 中文说明：测试局部值 parsed，由紧邻初始化决定。 */
     const parsed = parseCapacity(text)
     expect(parsed === undefined || Number.isNaN(parsed)).toBe(true)
   })
@@ -421,6 +470,7 @@ describe('capacity spellings', () => {
   })
 
   it('round-trips every spelling it produces', () => {
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     for (const value of [1_000_000, 256_000, 65_536, 4096, 1000]) {
       expect(parseCapacity(formatCapacity(value))).toBe(value)
     }
@@ -429,6 +479,7 @@ describe('capacity spellings', () => {
 
 describe('endpoint interrogation', () => {
   it('asks the endpoint the form shows, with a key that is not yet stored', async () => {
+    /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
     const discover = vi.fn(() => Promise.resolve(ok({ models: [{ id: 'acme-large', contextWindow: 65_536 }] })))
     await mountSection({ discover })
     openEditor('openai')
@@ -449,6 +500,7 @@ describe('endpoint interrogation', () => {
   })
 
   it('carries the protocol the profile already names', async () => {
+    /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
     const discover = vi.fn(() => Promise.resolve(ok({ models: [] })))
     await mountSection({
       discover,
@@ -468,9 +520,11 @@ describe('endpoint interrogation', () => {
   })
 
   it('adopts only the picked candidates, keeping a row the user already tuned', async () => {
+    /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
     const discover = vi.fn(() => Promise.resolve(ok({
       models: [{ id: 'kept', contextWindow: 999 }, { id: 'fresh', contextWindow: 4096, name: 'Fresh' }],
     })))
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({
       discover,
       providers: { openai: { baseURL: 'https://proxy.example/v1', models: [{ id: 'kept', contextWindow: 111 }] } },
@@ -480,6 +534,7 @@ describe('endpoint interrogation', () => {
     fireEvent.click(screen.getByText(en.fetchModels))
     await screen.findByText(en.fetchTitle)
     // The already-configured row starts unchecked; the new one starts checked.
+    /** 中文说明：测试局部值 boxes，由紧邻初始化决定。 */
     const boxes = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
     expect(boxes.map(box => box.checked)).toEqual([false, true])
     fireEvent.click(screen.getByText(en.fetchAdopt))
@@ -493,6 +548,7 @@ describe('endpoint interrogation', () => {
   })
 
   it('keeps the rows editable when the provider cannot be interrogated', async () => {
+    /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
     const discover = vi.fn(() => Promise.resolve(
       fail('https://proxy.example/v1/models answered 401; check the API key', 'model-discovery-failed'),
     ))
@@ -507,6 +563,7 @@ describe('endpoint interrogation', () => {
   })
 
   it('reports an empty listing and a rejected transport', async () => {
+    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = vi.fn(() => Promise.resolve(ok({ models: [] })))
     await mountSection({ discover: empty })
     openEditor('openai')
@@ -514,6 +571,7 @@ describe('endpoint interrogation', () => {
     await screen.findByText(en.fetchEmpty)
     cleanup()
 
+    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = vi.fn(() => Promise.reject(new Error('carrier down')))
     await mountSection({ discover: rejected })
     openEditor('openai')
@@ -522,6 +580,7 @@ describe('endpoint interrogation', () => {
   })
 
   it('can be asked for a configured route even with no endpoint', async () => {
+    /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
     const discover = vi.fn(() => Promise.resolve(ok({ models: [{ id: 'from-registry' }] })))
     await mountSection({ discover, providers: { openai: {} } })
     openEditor('openai')
@@ -537,6 +596,7 @@ describe('endpoint interrogation', () => {
   it('keeps the create card asking only once it has an endpoint', () => {
     // A provider being declared has no route yet, so the endpoint is the only
     // thing an interrogation could go on.
+    /** 中文说明：测试局部值 scripted，由紧邻初始化决定。 */
     const scripted = scriptedFace()
     render(
       <CustomProviderCard
@@ -574,11 +634,14 @@ describe('endpoint interrogation', () => {
   })
 
   it('closes the picker without adopting anything on cancel', async () => {
+    /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
     const discover = vi.fn(() => Promise.resolve(ok({ models: [{ id: 'fresh' }] })))
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({ discover })
     openEditor('openai')
 
     fireEvent.click(screen.getByText(en.fetchModels))
+    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = await screen.findByRole('dialog')
     // The editor card carries a Cancel of its own; this one is the dialog's.
     fireEvent.click(within_(dialog, en.cancel))
@@ -588,15 +651,19 @@ describe('endpoint interrogation', () => {
   })
 
   it('toggles a candidate off and back on before adopting', async () => {
+    /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
     const discover = vi.fn(() => Promise.resolve(ok({
       models: [{ id: 'a' }, { id: 'b', maxTokens: 2048 }],
     })))
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({ discover })
     openEditor('openai')
 
     fireEvent.click(screen.getByText(en.fetchModels))
     await screen.findByText(en.fetchTitle)
+    /** 中文说明：测试局部值 boxes，由紧邻初始化决定。 */
     const boxes = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = boxes[0] as HTMLInputElement
     fireEvent.click(first)
     fireEvent.click(first)
@@ -609,6 +676,7 @@ describe('endpoint interrogation', () => {
   })
 
   it('selects and clears every discovered candidate in one action', async () => {
+    /** 中文说明：测试局部值 discover，由紧邻初始化决定。 */
     const discover = vi.fn(() => Promise.resolve(ok({
       models: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
     })))
@@ -616,7 +684,9 @@ describe('endpoint interrogation', () => {
     openEditor('openai')
 
     fireEvent.click(screen.getByText(en.fetchModels))
+    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = await screen.findByRole('dialog')
+    /** 中文说明：测试局部值 boxes，由紧邻初始化决定。 */
     const boxes = [...dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
     expect(boxes.map(box => box.checked)).toEqual([true, true, true])
 
@@ -640,7 +710,9 @@ describe('provider rows', () => {
       declaredRoutes: ['acme-gateway'],
     })
 
+    /** 中文说明：测试局部值 rowOf，由紧邻初始化决定。 */
     const rowOf = (provider: string): HTMLElement => {
+      /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
       const row = screen.getByText(provider).closest('li')
       if (row === null) throw new Error(`no row for ${provider}`)
       return row
@@ -652,6 +724,7 @@ describe('provider rows', () => {
   })
 
   it('shows no tag when the adapter draws no catalog distinction', async () => {
+    /** 中文说明：测试局部值 scripted，由紧邻初始化决定。 */
     const scripted = scriptedFace({ providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
     scripted.face.llm.providers = vi.fn(() => Promise.resolve(ok({
       providers: [{
@@ -662,6 +735,7 @@ describe('provider rows', () => {
         active: true,
       }],
     }))) as never
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new ModelsSettingsStore(
       scripted.face as unknown as WireFace, settingsSchema, new SettingsDescribeMirror(scripted.face as never))
     await controller.load()
@@ -680,11 +754,14 @@ describe('provider rows', () => {
 })
 
 describe('hand-declared providers', () => {
+  /** 中文说明：函数 mountCard 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
   function mountCard(
     overrides: Partial<Parameters<typeof CustomProviderCard>[0]> = {},
     wire: Parameters<typeof scriptedFace>[0] = {},
   ) {
+    /** 中文说明：测试局部值 scripted，由紧邻初始化决定。 */
     const scripted = scriptedFace(wire)
+    /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
     const onClose = vi.fn()
     render(
       <CustomProviderCard
@@ -702,6 +779,7 @@ describe('hand-declared providers', () => {
   }
 
   it('writes the whole profile and the key under the derived reference', async () => {
+    /** 中文说明：测试局部值 { mutate, set, onClose }，由紧邻初始化决定。 */
     const { mutate, set, onClose } = mountCard()
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme-gateway' } })
@@ -741,6 +819,7 @@ describe('hand-declared providers', () => {
     // control could only be set to a value some of them reject — which would
     // take the whole provider out of the picker. The composer's model picker
     // owns the choice, and a switch there records provider+model+effort together.
+    /** 中文说明：测试局部值 fields，由紧邻初始化决定。 */
     const fields = () => [...document.querySelectorAll('input,select')]
       .map(el => el.getAttribute('aria-label')).filter(Boolean)
 
@@ -768,6 +847,7 @@ describe('hand-declared providers', () => {
   })
 
   it('renames a declared route and falls back to its id when the name is cleared', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({
       providers: {
         'acme-gateway': { displayName: 'Acme Gateway', api: 'openai-completions', baseURL: 'https://acme.test/v1' },
@@ -776,6 +856,7 @@ describe('hand-declared providers', () => {
     })
     openEditor('acme-gateway')
 
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     const name = screen.getByLabelText<HTMLInputElement>(en.customDisplayName)
     expect(name.value).toBe('Acme Gateway')
     // The route id, not the stored name: it is what the route will be called
@@ -802,6 +883,7 @@ describe('hand-declared providers', () => {
     })
     openEditor('acme-gateway')
 
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     const name = screen.getByLabelText<HTMLInputElement>(en.customDisplayName)
     expect(name.value).toBe('')
     expect(name.placeholder).toBe('Acme (pinned)')
@@ -810,6 +892,7 @@ describe('hand-declared providers', () => {
   it('names the provider as the refreshed directory reports it after a rename', async () => {
     // The status line used to echo the target captured when the card opened,
     // which never lied while the name could not change. It can now.
+    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
     const { face } = await mountSection({
       providers: { 'acme-gateway': { displayName: 'Acme Gateway', api: 'openai-completions' } },
       declaredRoutes: ['acme-gateway'],
@@ -831,6 +914,7 @@ describe('hand-declared providers', () => {
     fireEvent.change(screen.getByLabelText(en.customDisplayName), { target: { value: 'Acme 网关' } })
     fireEvent.click(screen.getByText(en.apply))
 
+    /** 中文说明：测试局部值 notice，由紧邻初始化决定。 */
     const notice = await screen.findByRole('status')
     expect(notice.textContent).toBe(providerCopy(en.savedProvider, {
       provider: 'acme-gateway',
@@ -841,6 +925,7 @@ describe('hand-declared providers', () => {
   it('drops the stored name rather than storing an empty one the adapter refuses', async () => {
     // `llm-pi-ai` rejects an empty displayName outright, so clearing the field
     // must unset it — which is also what the user means: use the route id.
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({
       providers: { 'acme-gateway': { displayName: 'Acme Gateway', api: 'openai-completions' } },
       declaredRoutes: ['acme-gateway'],
@@ -856,6 +941,7 @@ describe('hand-declared providers', () => {
   })
 
   it('edits the protocol a declared route was created with', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection({
       providers: {
         'acme-gateway': {
@@ -869,6 +955,7 @@ describe('hand-declared providers', () => {
     })
     openEditor('acme-gateway')
 
+    /** 中文说明：测试局部值 protocol，由紧邻初始化决定。 */
     const protocol = screen.getByLabelText<HTMLSelectElement>(en.customApi)
     expect(protocol.value).toBe('openai-completions')
     fireEvent.change(protocol, { target: { value: 'anthropic-messages' } })
@@ -898,9 +985,11 @@ describe('hand-declared providers', () => {
   })
 
   it('retries only the key after the profile landed, and reports the provider on cancel', async () => {
+    /** 中文说明：测试局部值 set，由紧邻初始化决定。 */
     const set = vi.fn()
       .mockResolvedValueOnce(fail('credential store is read-only', 'credential-rejected'))
       .mockResolvedValueOnce(ok({}))
+    /** 中文说明：测试局部值 { mutate, onClose }，由紧邻初始化决定。 */
     const { mutate, onClose } = mountCard({}, { set })
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
@@ -934,7 +1023,9 @@ describe('hand-declared providers', () => {
   })
 
   it('reports the created provider when cancelled after its profile landed', async () => {
+    /** 中文说明：测试局部值 set，由紧邻初始化决定。 */
     const set = vi.fn().mockResolvedValue(fail('nope', 'credential-rejected'))
+    /** 中文说明：测试局部值 { onClose }，由紧邻初始化决定。 */
     const { onClose } = mountCard({}, { set })
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
@@ -953,6 +1044,7 @@ describe('hand-declared providers', () => {
 
   it('never contradicts a filled-in field with the next gate\u2019s copy', () => {
     mountCard()
+    /** 中文说明：测试局部值 routeField，由紧邻初始化决定。 */
     const routeField = screen.getByLabelText(en.customRoute)
     fireEvent.change(routeField, { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText(en.baseUrl), { target: { value: 'https://acme.test/v1' } })
@@ -973,6 +1065,7 @@ describe('hand-declared providers', () => {
 
   it('refuses a route id whose derived credential reference would be illegal', () => {
     mountCard()
+    /** 中文说明：测试局部值 routeField，由紧邻初始化决定。 */
     const routeField = screen.getByLabelText(en.customRoute)
     fireEvent.change(routeField, { target: { value: 'https://acme.test/v1' } })
 
@@ -990,6 +1083,7 @@ describe('hand-declared providers', () => {
 
   it('styles a rejected route id as a fault and its guidance as a hint', () => {
     mountCard()
+    /** 中文说明：测试局部值 routeField，由紧邻初始化决定。 */
     const routeField = screen.getByLabelText(en.customRoute)
     // Same split the key field makes: what the user got wrong reads as a
     // fault, what they have yet to do reads as guidance.
@@ -1005,7 +1099,9 @@ describe('hand-declared providers', () => {
   it('derives a reference the credential seam accepts for every id it admits', () => {
     // The two rules have to stay in step; this is the relation, checked
     // directly rather than through the DOM.
+    /** 中文说明：测试局部值 CREDENTIAL_REF，由紧邻初始化决定。 */
     const CREDENTIAL_REF = /^[A-Za-z_][A-Za-z0-9_]*$/
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     for (const id of ['a', 'ds', 'a1', 'acme-gateway', 'x-1-y', 'zz9']) {
       expect(CREDENTIAL_REF.test(deriveKeyRef(id))).toBe(true)
     }
@@ -1045,6 +1141,7 @@ describe('hand-declared providers', () => {
     mountCard()
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
     fireEvent.change(screen.getByLabelText(en.baseUrl), { target: { value: 'https://acme.test/v1' } })
+    /** 中文说明：测试局部值 [at，由紧邻初始化决定。 */
     for (const [at, id] of [[1, 'first'], [2, 'second'], [3, 'third']] as const) {
       fireEvent.click(screen.getByRole('button', { name: en.addModel }))
       fireEvent.change(screen.getByLabelText(`${en.modelId} ${String(at)}`), { target: { value: id } })
@@ -1082,6 +1179,7 @@ describe('hand-declared providers', () => {
   })
 
   it('creates a model with no capacities, which the route\u2019s fallbacks size', async () => {
+    /** 中文说明：测试局部值 { mutate, onClose }，由紧邻初始化决定。 */
     const { mutate, onClose } = mountCard()
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
     fireEvent.change(screen.getByLabelText(en.baseUrl), { target: { value: 'https://acme.test/v1' } })
@@ -1120,7 +1218,9 @@ describe('hand-declared providers', () => {
   })
 
   it('surfaces a refused write and a rejected transport without closing', async () => {
+    /** 中文说明：测试局部值 refused，由紧邻初始化决定。 */
     const refused = vi.fn(() => Promise.resolve(fail('read-only settings', 'settings-rejected')))
+    /** 中文说明：测试局部值 { onClose }，由紧邻初始化决定。 */
     const { onClose } = mountCard({ api: { ...scriptedFace({ mutate: refused }).face } as never })
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
@@ -1134,7 +1234,9 @@ describe('hand-declared providers', () => {
   })
 
   it('surfaces a rejected transport during create', async () => {
+    /** 中文说明：测试局部值 rejecting，由紧邻初始化决定。 */
     const rejecting = vi.fn(() => Promise.reject(new Error('carrier down')))
+    /** 中文说明：测试局部值 { onClose }，由紧邻初始化决定。 */
     const { onClose } = mountCard({ api: { ...scriptedFace({ mutate: rejecting }).face } as never })
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
@@ -1148,7 +1250,9 @@ describe('hand-declared providers', () => {
   })
 
   it('reports a stored profile whose key write was refused', async () => {
+    /** 中文说明：测试局部值 set，由紧邻初始化决定。 */
     const set = vi.fn(() => Promise.resolve(fail('credential is read-only', 'credential-rejected')))
+    /** 中文说明：测试局部值 { onClose }，由紧邻初始化决定。 */
     const { onClose } = mountCard({ api: { ...scriptedFace({ set }).face } as never })
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
@@ -1163,6 +1267,7 @@ describe('hand-declared providers', () => {
   })
 
   it('creates with the chosen protocol and no display name', async () => {
+    /** 中文说明：测试局部值 { mutate, onClose }，由紧邻初始化决定。 */
     const { mutate, onClose } = mountCard()
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
@@ -1190,6 +1295,7 @@ describe('hand-declared providers', () => {
   })
 
   it('closes without writing on cancel, and honors a read-only deployment', () => {
+    /** 中文说明：测试局部值 { onClose, mutate }，由紧邻初始化决定。 */
     const { onClose, mutate } = mountCard()
     fireEvent.click(screen.getByText(en.cancel))
     expect(onClose).toHaveBeenCalledWith(false)
@@ -1225,6 +1331,7 @@ describe('hand-declared providers', () => {
   })
 
   it('refuses an unusable key on the field and blocks creation', () => {
+    /** 中文说明：测试局部值 { mutate, set }，由紧邻初始化决定。 */
     const { mutate, set } = mountCard()
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme-gateway' } })
@@ -1258,6 +1365,7 @@ describe('hand-declared providers', () => {
   })
 
   it('tells a whitespace-only key what a blank field means on a create card', () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = mountCard()
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme-gateway' } })
@@ -1276,6 +1384,7 @@ describe('hand-declared providers', () => {
   })
 
   it('creates without a key when the route authenticates some other way', async () => {
+    /** 中文说明：测试局部值 { set, onClose }，由紧邻初始化决定。 */
     const { set, onClose } = mountCard()
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'ambient-gateway' } })
@@ -1291,6 +1400,7 @@ describe('hand-declared providers', () => {
 
 describe('API key field', () => {
   it('submits with a blank key field without writing a credential', async () => {
+    /** 中文说明：测试局部值 { mutate, set }，由紧邻初始化决定。 */
     const { mutate, set } = await mountSection()
     openEditor('openai')
 
@@ -1305,6 +1415,7 @@ describe('API key field', () => {
   })
 
   it('clears a whitespace-only base URL instead of writing the spaces', async () => {
+    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection()
     openEditor('openai')
 
@@ -1314,12 +1425,14 @@ describe('API key field', () => {
     fireEvent.click(screen.getByText(en.apply))
 
     await waitFor(() => { expect(mutate).toHaveBeenCalled() })
+    /** 中文说明：测试局部值 ops，由紧邻初始化决定。 */
     const ops = firstMutate(mutate).ops
     expect(ops.some(op => op.op === 'set' && op.path.includes('baseURL'))).toBe(false)
     expect(ops.some(op => op.op === 'unset' && op.path.includes('baseURL'))).toBe(true)
   })
 
   it('blocks submit and names the field when the key holds only whitespace', async () => {
+    /** 中文说明：测试局部值 { mutate, set }，由紧邻初始化决定。 */
     const { mutate, set } = await mountSection()
     openEditor('openai')
 
@@ -1332,6 +1445,7 @@ describe('API key field', () => {
   })
 
   it('blocks submit when the key contains characters no header can carry', async () => {
+    /** 中文说明：测试局部值 { set }，由紧邻初始化决定。 */
     const { set } = await mountSection()
     openEditor('openai')
 
@@ -1353,6 +1467,7 @@ describe('API key field', () => {
   })
 
   it('trims a padded key before storing it', async () => {
+    /** 中文说明：测试局部值 { set }，由紧邻初始化决定。 */
     const { set } = await mountSection()
     openEditor('openai')
 
@@ -1365,6 +1480,7 @@ describe('API key field', () => {
   })
 
   it('blocks the interrogation too, rather than spending a round trip on a refused key', async () => {
+    /** 中文说明：测试局部值 { discover }，由紧邻初始化决定。 */
     const { discover } = await mountSection()
     openEditor('openai')
 
@@ -1378,6 +1494,7 @@ describe('API key field', () => {
   })
 
   it('carries the trimmed key into an interrogation, not the padded draft', async () => {
+    /** 中文说明：测试局部值 { discover }，由紧邻初始化决定。 */
     const { discover } = await mountSection()
     openEditor('openai')
 
@@ -1389,7 +1506,9 @@ describe('API key field', () => {
   })
 
   it('reloads the section after creating a hand-declared provider', async () => {
+    /** 中文说明：测试局部值 { controller, mutate }，由紧邻初始化决定。 */
     const { controller, mutate } = await mountSection()
+    /** 中文说明：测试局部值 load，由紧邻初始化决定。 */
     const load = vi.spyOn(controller, 'load')
 
     fireEvent.click(screen.getByRole('button', { name: en.customAdd }))

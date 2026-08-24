@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证插件配置的 fields.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
+ * 产品维度：防止插件配置保存、发现和错误提示回归。
+ * 逻辑维度：构造配置状态，触发操作并断言请求与界面。
+ * 关键边界：敏感值不得意外回显；异步发现和保存必须清理。
+ * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
+ */
+/**
  * Field-control behavior: what a control renders for a staged draft, how an
  * overridden field offers its reset, and that a control never writes on its own.
  */
@@ -10,6 +18,7 @@ import { SecretField, ValueField } from '../src/client/fields.tsx'
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 frame，由紧邻初始化决定。 */
 const frame = {
   id: 'field',
   label: 'Command timeout',
@@ -24,6 +33,7 @@ const frame = {
 
 describe('ValueField', () => {
   it('stages every keystroke without writing', () => {
+    /** 中文说明：测试局部值 onEdit，由紧邻初始化决定。 */
     const onEdit = vi.fn()
     render(<ValueField {...frame} text="60000" onEdit={onEdit} onReset={vi.fn()} />)
 
@@ -33,6 +43,7 @@ describe('ValueField', () => {
   })
 
   it('renders the staged text it is given rather than a draft of its own', () => {
+    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(<ValueField {...frame} text="60000" onEdit={vi.fn()} onReset={vi.fn()} />)
     expect(screen.getByLabelText('Command timeout')).toHaveProperty('value', '60000')
 
@@ -42,7 +53,9 @@ describe('ValueField', () => {
   })
 
   it('offers the reset only while an override would stand', () => {
+    /** 中文说明：测试局部值 onReset，由紧邻初始化决定。 */
     const onReset = vi.fn()
+    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(<ValueField {...frame} text="9000" onEdit={vi.fn()} onReset={onReset} />)
     expect(screen.queryByRole('button', { name: 'Reset to default' })).toBeNull()
 
@@ -72,6 +85,7 @@ describe('ValueField', () => {
         onReset={vi.fn()}
       />,
     )
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('Command timeout')
 
     expect(input.getAttribute('inputmode')).toBe('numeric')
@@ -87,6 +101,7 @@ describe('ValueField', () => {
 })
 
 describe('SecretField', () => {
+  /** 中文说明：测试局部值 secret，由紧邻初始化决定。 */
   const secret = {
     id: 'key',
     label: 'API key',
@@ -95,6 +110,7 @@ describe('SecretField', () => {
   }
 
   it('stages the draft and never renders it', () => {
+    /** 中文说明：测试局部值 onEdit，由紧邻初始化决定。 */
     const onEdit = vi.fn()
     render(
       <SecretField
@@ -105,6 +121,7 @@ describe('SecretField', () => {
         onEdit={onEdit}
       />,
     )
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('API key')
 
     fireEvent.change(input, { target: { value: 'ds-secret' } })
@@ -114,6 +131,7 @@ describe('SecretField', () => {
   })
 
   it('reports the configured state the Host holds', () => {
+    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(
       <SecretField
         {...secret}
