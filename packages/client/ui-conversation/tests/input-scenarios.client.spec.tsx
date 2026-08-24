@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证会话输入的 input-scenarios.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
+ * 产品维度：防止会话输入用户流程回归。
+ * 逻辑维度：构造状态，触发行为并断言结果和清理。
+ * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
+/**
  * Scenario-chain integration (scenarios A/C/D/H/I): the real per-session
  * InputTriggerController pipeline over a real session scope (SessionRuntime over
  * a listed host session) + a command source implementing the decision
@@ -33,6 +41,7 @@ import type { ConversationSnapshot } from '@deepseek-ai/dsh-client-runtime/clien
 afterEach(cleanup)
 
 /** Directory row driving kind derivation (input? = leadingInput, else execute). */
+/** 中文说明：类型或类 FakeCommand 约束本文件数据或组件职责。 */
 interface FakeCommand {
   name: string
   description: string
@@ -40,18 +49,23 @@ interface FakeCommand {
 }
 
 /** Decision-table source over an in-memory directory (menu/space/enter columns for leadingInput + execute). */
+/** 中文说明：函数 commandSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commandSource(
   commands: FakeCommand[],
   execute: (line: string, images?: readonly SubmitImageAttachment[]) => Promise<SubmitOutcome>,
 ) {
+  /** 中文说明：测试局部值 resolve，由紧邻初始化决定。 */
   const resolve = (name: string): FakeCommand | undefined => commands.find(c => c.name === name)
+  /** 中文说明：测试局部值 leadingClaim，由紧邻初始化决定。 */
   const leadingClaim = (desc: FakeCommand): CommandClaim => ({
     token: `/${desc.name} `,
     ...(desc.input !== undefined ? { hint: desc.input.hint } : {}),
     ...(desc.input?.images === true ? { images: true } : {}),
     submit: (args, _actx, images) => execute(`/${desc.name} ${args}`, images),
   })
+  /** 中文说明：测试局部值 executed，由紧邻初始化决定。 */
   const executed: string[] = []
+  /** 中文说明：测试局部值 envelopes，由紧邻初始化决定。 */
   const envelopes: SubmitEnvelope[] = []
   return {
     executed,
@@ -65,6 +79,7 @@ function commandSource(
           .filter(c => req.position === 'leading' || c.input === undefined)
           .map(c => ({ name: c.name, description: c.description, ...(c.input !== undefined ? { hint: c.input.hint } : {}) }))),
       onPick: (pick: { candidate: { name: string } }): PickOutcome => {
+        /** 中文说明：测试局部值 desc，由紧邻初始化决定。 */
         const desc = resolve(pick.candidate.name)
         if (desc === undefined) return undefined
         if (desc.input !== undefined) return { claim: leadingClaim(desc) }
@@ -73,15 +88,20 @@ function commandSource(
         return 'handled'
       },
       matchSpace: (_session: ClientSessionContext, token: string): PickOutcome => {
+        /** 中文说明：测试局部值 desc，由紧邻初始化决定。 */
         const desc = resolve(token.slice(1))
         if (desc?.input === undefined) return undefined
         return { claim: leadingClaim(desc) }
       },
       matchEnter: (_session: ClientSessionContext, line: string, _signal: AbortSignal, envelope: SubmitEnvelope): Promise<PickOutcome> => {
         envelopes.push(envelope)
+        /** 中文说明：测试局部值 trimmed，由紧邻初始化决定。 */
         const trimmed = line.trim()
+        /** 中文说明：测试局部值 ws，由紧邻初始化决定。 */
         const ws = trimmed.search(/\s/)
+        /** 中文说明：测试局部值 token，由紧邻初始化决定。 */
         const token = ws === -1 ? trimmed : trimmed.slice(0, ws)
+        /** 中文说明：测试局部值 desc，由紧邻初始化决定。 */
         const desc = resolve(token.slice(1))
         if (desc === undefined) return Promise.resolve(undefined)
         if (desc.input !== undefined) return Promise.resolve({ claim: leadingClaim(desc) })
@@ -94,40 +114,56 @@ function commandSource(
   }
 }
 
+/** 中文说明：测试局部值 COMMANDS，由紧邻初始化决定。 */
 const COMMANDS: FakeCommand[] = [
   { name: 'goal', description: '设定目标', input: { hint: '目标内容' } },
   { name: 'compact', description: '压缩上下文' },
   { name: 'vision', description: '识别图片', input: { hint: '想问什么', images: true } },
 ]
 
+/** 中文说明：测试局部值 PNG，由紧邻初始化决定。 */
 const PNG: SubmitImageAttachment = { mediaType: 'image/png', data: 'AA==' }
 
 /** Real scope bench: SessionRuntime over one listed session + InputTriggerController + shell listeners (the hub wiring shape). */
+/** 中文说明：函数 scopedBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function scopedBench(register?: (inputTriggers: InputTriggerService) => void) {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
   const api = new FakeApiClient()
   api.onWorkspaceList = () => Promise.resolve(ok({ items: [] }))
+  /** 中文说明：测试局部值 sessionId，由紧邻初始化决定。 */
   const sessionId = 'scenario-s1' as Parameters<SessionRuntime['open']>[0]
   api.onList = () => Promise.resolve(ok({
     items: [{ sessionId, updatedAt: 1, running: false, blank: false, cwd: '/w/a' }],
   }) as never)
+  /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
   const sessions = new SessionRuntime(ctx, api, fakeRemote()) // provides 'sessions' itself
   await sessions.refresh()
   await Promise.resolve() // manager notifier flush
   await ctx.plugin(InputTriggerService).await()
+  /** 中文说明：测试局部值 inputTriggers，由紧邻初始化决定。 */
   const inputTriggers = ctx.get('inputTriggers') as InputTriggerService
   register?.(inputTriggers)
+  /** 中文说明：测试局部值 actx，由紧邻初始化决定。 */
   const actx = sessions.scope(sessionId)!
+  /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
   const controller = inputTriggers.sessionOf(actx)
+  /** 中文说明：测试局部值 sink，由紧邻初始化决定。 */
   const sink = vi.fn(() => Promise.resolve<SubmitOutcome>({ kind: 'success' }))
+  /** 中文说明：测试局部值 serialize，由紧邻初始化决定。 */
   const serialize = vi.fn((ids: readonly DraftAttachmentId[]) => Promise.resolve(ids.map(() => PNG)))
+  /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
   const release = vi.fn()
+  /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
   const shell = new SessionInputShell({ actx, inputTriggers: () => controller, defaultSink: sink, commandImages: { serialize, release, unsupportedNotice: (token: string) => `${token.trim()} images-unsupported` } })
   // The hub's listener wiring, verbatim.
   actx.on('slash/input-begin-command', req => shell.beginCommand(req.claim, req.span) ? true : undefined)
   actx.on('slash/input-insert-reference', req => shell.insertReference(req.reference, req.span) ? true : undefined)
   actx.on('slash/input-consume-token', req => shell.consumeToken(req.guard) ? true : undefined)
+  /** 中文说明：测试局部值 wiring，由紧邻初始化决定。 */
   const wiring = shell
+  /** 中文说明：测试局部值 sessionStore，由紧邻初始化决定。 */
   const sessionStore = createSnapshotStore<ConversationSnapshot>({
     sessionId, views: EMPTY_CONVERSATION_VIEWS, chat: EMPTY_CHAT_SNAPSHOT,
     nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [],
@@ -135,6 +171,7 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
     openState: 'open', openError: null, hasMore: false, loadingOlder: false,
     promptError: null, blank: false, subagent: null, lastAgentError: null,
   })
+  /** 中文说明：测试局部值 barProps，由紧邻初始化决定。 */
   const barProps: InputBarProps = {
     sessionId,
     SessionProvider: ({ children }) => children(sessionId),
@@ -161,6 +198,7 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
     })),
     resolveSubmitMode: () => 'queue',
     toggleCommandMenu: (selection) => {
+      /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
       const snapshot = shell.snapshot
       controller.toggleSource('command', {
         trigger: '/',
@@ -180,28 +218,37 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
     t: makeTranslate(zh, commonZh),
     variant: 'composer',
   }
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<InputBar {...barProps} />)
+  /** 中文说明：测试局部值 textarea，由紧邻初始化决定。 */
   const textarea = view.container.querySelector('textarea')!
+  /** 中文说明：测试局部值 type，由紧邻初始化决定。 */
   const type = (text: string): void => {
     fireEvent.change(textarea, { target: { value: text } })
   }
   return { ctx, inputTriggers, controller, shell, wiring, view, textarea, type, sink, serialize, release }
 }
 
+/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(executeImpl?: (line: string) => Promise<SubmitOutcome>) {
+  /** 中文说明：测试局部值 execute，由紧邻初始化决定。 */
   const execute = vi.fn(executeImpl ?? ((line: string) =>
     Promise.resolve({ kind: 'success' as const, text: `已执行 ${line}` })))
+  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   const { source, executed, envelopes } = commandSource(COMMANDS, execute)
+  /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
   const base = await scopedBench((inputTriggers) => { inputTriggers.registerSource(source) })
   return { ...base, execute, executed, envelopes }
 }
 
 describe('scenario A: menu-pick /goal, type args, enter submits', () => {
   it('runs the whole claim chain through the real pipeline', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.type('/go')
     // Candidates land async; the menu opens with the goal row.
     await vi.waitFor(() => {
+      /** 中文说明：测试局部值 menu，由紧邻初始化决定。 */
       const menu = b.controller.menu.getSnapshot()
       expect(menu.open).toBe(true)
       expect(menu.groups[0]?.items.map(i => i.name)).toContain('goal')
@@ -228,6 +275,7 @@ describe('scenario A: menu-pick /goal, type args, enter submits', () => {
 
 describe('scenario C: pasted /goal xxx + enter (menu never opened)', () => {
   it('adjudicates on enter, claims and submits in one stroke', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     // Paste lands whole; caret at end means detectTrigger sees no token under
     // the caret mid-whitespace — menu stays closed; enter runs adjudication.
@@ -242,6 +290,7 @@ describe('scenario C: pasted /goal xxx + enter (menu never opened)', () => {
 
 describe('scenario D: execute-kind /compact', () => {
   it('menu pick executes immediately without touching the draft machine phase', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.type('/comp')
     await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
@@ -252,6 +301,7 @@ describe('scenario D: execute-kind /compact', () => {
   })
 
   it('bare /compact + enter executes; trailing text falls to the default sink (scenario I twin)', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     act(() => { b.shell.setDraft('/compact') })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
@@ -259,6 +309,7 @@ describe('scenario D: execute-kind /compact', () => {
     // 'handled' flows back as the adjudicated event one microtask later.
     await vi.waitFor(() => { expect(b.shell.snapshot.phase).toBe('plain') })
     cleanup()
+    /** 中文说明：测试局部值 b2，由紧邻初始化决定。 */
     const b2 = await bench()
     act(() => { b2.shell.setDraft('/compact 现在') })
     fireEvent.keyDown(b2.textarea, { key: 'Enter' })
@@ -270,6 +321,7 @@ describe('scenario D: execute-kind /compact', () => {
 
 describe('scenario: images ride an accepting command through the real pipeline', () => {
   it('adjudication reports the image count; the claim chain serializes, submits, and consumes', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     act(() => { b.shell.addImages(['img-1' as DraftAttachmentId]) })
     act(() => { b.shell.setDraft('/vision 这张图是什么') })
@@ -285,6 +337,7 @@ describe('scenario: images ride an accepting command through the real pipeline',
   })
 
   it('an imageless enter adjudicates with a zero-image envelope', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     act(() => { b.shell.setDraft('/goal 发布') })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
@@ -297,6 +350,7 @@ describe('scenario: images ride an accepting command through the real pipeline',
 
 describe('scenario H: backspace breaks the token', () => {
   it('claim releases automatically; the enter after that goes through adjudication again', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.type('/goal')
     await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
@@ -312,8 +366,11 @@ describe('scenario H: backspace breaks the token', () => {
 
 describe('scenario: reference decoration lights up when the lexicon settles', () => {
   it('a typed /name token gains the text-ref mark without further input once the roll goes hot', async () => {
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let roll: readonly string[] | undefined
+    /** 中文说明：测试局部值 notify，由紧邻初始化决定。 */
     let notify: (() => void) | undefined
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await scopedBench((inputTriggers) => {
       inputTriggers.registerSource({
         trigger: '/', name: 'skill',
@@ -334,6 +391,7 @@ describe('scenario: reference decoration lights up when the lexicon settles', ()
       roll = ['deploy']
       notify?.()
     })
+    /** 中文说明：测试局部值 mark，由紧邻初始化决定。 */
     const mark = b.view.container.querySelector('[data-decoration="text-ref"]')
     expect(mark?.textContent).toBe('/deploy')
   })
@@ -341,6 +399,7 @@ describe('scenario: reference decoration lights up when the lexicon settles', ()
 
 describe('scenario I: unknown /xyz + enter', () => {
   it('adjudication misses in one hop and the whole line rides the default sink', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     act(() => { b.shell.setDraft('/xyz 干点啥') })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
@@ -350,6 +409,7 @@ describe('scenario I: unknown /xyz + enter', () => {
   })
 
   it('adjudication failure (source warmup throw) notices and keeps the draft', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await scopedBench((inputTriggers) => {
       inputTriggers.registerSource({
         trigger: '/', name: 'command',

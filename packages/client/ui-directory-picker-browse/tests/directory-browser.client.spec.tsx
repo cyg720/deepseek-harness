@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证目录选择的 directory-browser.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
+ * 产品维度：防止目录选择用户流程回归。
+ * 逻辑维度：构造状态，触发行为并断言结果和清理。
+ * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { DirectoryListing } from '@deepseek-ai/dsh-client-runtime/client'
@@ -7,8 +15,11 @@ import { DirectoryBrowser } from '../src/client/DirectoryBrowser.tsx'
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 HOME，由紧邻初始化决定。 */
 const HOME = '/home/u'
+/** 中文说明：测试局部值 DOCS，由紧邻初始化决定。 */
 const DOCS = `${HOME}/Documents`
+/** 中文说明：测试局部值 HARNESS，由紧邻初始化决定。 */
 const HARNESS = `${DOCS}/harness`
 
 /**
@@ -16,9 +27,13 @@ const HARNESS = `${DOCS}/harness`
  * A trailing separator is dropped the way the Host's own `resolve` drops it,
  * so a directory part typed into the path editor addresses its level.
  */
+/** 中文说明：函数 listingFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function listingFor(path?: string): DirectoryListing {
+  /** 中文说明：测试局部值 asked，由紧邻初始化决定。 */
   const asked = path ?? HOME
+  /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
   const target = asked.length > 1 && asked.endsWith('/') ? asked.slice(0, -1) : asked
+  /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
   const tree: Record<string, DirectoryListing> = {
     [HOME]: {
       path: HOME,
@@ -79,6 +94,7 @@ function listingFor(path?: string): DirectoryListing {
       truncated: false,
     },
   }
+  /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
   const found = tree[target]
   if (found === undefined) {
     throw new DirectoryBrowseError({ code: 'directory-unreadable', message: `cannot list ${target}`, details: { path: target } })
@@ -86,11 +102,17 @@ function listingFor(path?: string): DirectoryListing {
   return found
 }
 
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mount(overrides: Partial<Parameters<typeof DirectoryBrowser>[0]> = {}) {
+  /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
   const listDirectory = vi.fn(async (path?: string) => listingFor(path))
+  /** 中文说明：测试局部值 createDirectory，由紧邻初始化决定。 */
   const createDirectory = vi.fn(async (path: string, name: string) => `${path}/${name}`)
+  /** 中文说明：测试局部值 onOpen，由紧邻初始化决定。 */
   const onOpen = vi.fn()
+  /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
   const onClose = vi.fn()
+  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props = {
     open: true,
     listDirectory,
@@ -101,28 +123,33 @@ function mount(overrides: Partial<Parameters<typeof DirectoryBrowser>[0]> = {}) 
     t: (key: string, params?: Record<string, unknown>) => (params === undefined ? key : `${key}:${String(params.name)}`),
     ...overrides,
   }
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<DirectoryBrowser {...props} />)
   return { view, props, listDirectory, createDirectory, onOpen, onClose }
 }
 
 /** The rendered level columns, left-to-right. */
+/** 中文说明：函数 columns 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function columns(): HTMLElement[] {
   return screen.getAllByRole('list')
 }
 
 /** The actionable button inside a listitem seat (rows keep native button semantics). */
+/** 中文说明：函数 rowButton 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowButton(item: HTMLElement): HTMLButtonElement {
   return within(item).getByRole<HTMLButtonElement>('button')
 }
 
 describe('DirectoryBrowser', () => {
   it('renders nothing and launches no listing while initially closed', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ open: false })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(b.listDirectory).not.toHaveBeenCalled()
   })
 
   it('opens at the Host home as one wide column, hides hidden entries, and roots the crumbs at Home', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     expect(b.listDirectory).toHaveBeenCalledWith(undefined, expect.any(AbortSignal))
@@ -134,11 +161,13 @@ describe('DirectoryBrowser', () => {
   })
 
   it('shows hidden entries when the toggle is on and hides them again on close', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     expect(screen.queryByText('.config')).toBeNull()
     // The fixed-label toggle reports its state through aria-pressed. Its
     // mousedown never steals focus (so it composes with the path editor).
+    /** 中文说明：测试局部值 toggle，由紧邻初始化决定。 */
     const toggle = screen.getByRole('button', { name: 'browser.showHidden' })
     expect(toggle.getAttribute('aria-pressed')).toBe('false')
     fireEvent.mouseDown(toggle)
@@ -156,11 +185,14 @@ describe('DirectoryBrowser', () => {
   })
 
   it('selects a row into the two-pane view: children preview right, crumbs follow the selection', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(rowButton(screen.getByRole('listitem')))
     await waitFor(() => { expect(columns()).toHaveLength(2) })
+    /** 中文说明：测试局部值 [level, preview]，由紧邻初始化决定。 */
     const [level, preview] = columns()
+    /** 中文说明：测试局部值 selectedRow，由紧邻初始化决定。 */
     const selectedRow = within(level!).getByRole('listitem')
     expect(selectedRow.textContent).toBe('Documents')
     expect(rowButton(selectedRow).getAttribute('aria-current')).toBe('true')
@@ -176,15 +208,20 @@ describe('DirectoryBrowser', () => {
     await waitFor(() => { expect(columns()).toHaveLength(2) })
     fireEvent.click(rowButton(within(columns()[1]!).getByRole('listitem')))
     await waitFor(() => { expect(screen.getByRole('button', { name: 'harness' })).toBeTruthy() })
+    /** 中文说明：测试局部值 [level]，由紧邻初始化决定。 */
     const [level] = columns()
+    /** 中文说明：测试局部值 selectedRow，由紧邻初始化决定。 */
     const selectedRow = within(level!).getByRole('listitem')
     expect(selectedRow.textContent).toBe('harness')
     expect(rowButton(selectedRow).getAttribute('aria-current')).toBe('true')
   })
 
   it('aborts a superseded listing on the wire, and the in-flight one on close', async () => {
+    /** 中文说明：测试局部值 signals，由紧邻初始化决定。 */
     const signals: (AbortSignal | undefined)[] = []
+    /** 中文说明：测试局部值 gates，由紧邻初始化决定。 */
     const gates: (() => void)[] = []
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn((path?: string, signal?: AbortSignal) => {
       signals.push(signal)
       if (signals.length === 1) return Promise.resolve(listingFor(path))
@@ -192,6 +229,7 @@ describe('DirectoryBrowser', () => {
       // on the wire, not merely discard their eventual results.
       return new Promise<DirectoryListing>((resolve) => { gates.push(() => { resolve(listingFor(path)) }) })
     })
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ listDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(rowButton(screen.getByRole('listitem')))
@@ -249,11 +287,15 @@ describe('DirectoryBrowser', () => {
   it('lands the target single-pane at the wait bound, aborts a superseded parent leg on the wire, and drops its late resolution', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 signals，由紧邻初始化决定。 */
       const signals: (AbortSignal | undefined)[] = []
+      /** 中文说明：测试局部值 settlers，由紧邻初始化决定。 */
       const settlers: ((value: DirectoryListing) => void)[] = []
       // Only the FIRST explicit HOME request (the parent leg) hangs; the
       // later home crumb jump lists normally.
+      /** 中文说明：测试局部值 homeCalls，由紧邻初始化决定。 */
       let homeCalls = 0
+      /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
       const listDirectory = vi.fn((path?: string, signal?: AbortSignal) => {
         signals.push(signal)
         if (path === HOME && ++homeCalls === 1) {
@@ -297,8 +339,11 @@ describe('DirectoryBrowser', () => {
    * settles them by path; the absent-path form (the initial home listing)
    * resolves normally so mounting is a one-flush setup.
    */
+  /** 中文说明：函数 manualLister 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function manualLister() {
+    /** 中文说明：测试局部值 settlers，由紧邻初始化决定。 */
     const settlers = new Map<string, (value: DirectoryListing) => void>()
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn((path?: string, _signal?: AbortSignal) => {
       if (path === undefined) return Promise.resolve(listingFor(path))
       return new Promise<DirectoryListing>((resolve) => { settlers.set(path, resolve) })
@@ -309,6 +354,7 @@ describe('DirectoryBrowser', () => {
   it('lands a navigation as ONE two-pane frame: the stale view holds until both legs arrive', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
       const { settlers, listDirectory } = manualLister()
       mount({ listDirectory })
       await act(async () => {})
@@ -340,6 +386,7 @@ describe('DirectoryBrowser', () => {
   it('a stalled parent leg lands the target alone at the wait bound, then upgrades in place', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
       const { settlers, listDirectory } = manualLister()
       mount({ listDirectory })
       await act(async () => {})
@@ -375,10 +422,12 @@ describe('DirectoryBrowser', () => {
   it('Escape inside the landing window withdraws the submitted navigation', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
       const { settlers, listDirectory } = manualLister()
       mount({ listDirectory })
       await act(async () => {})
       fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+      /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
       const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
       fireEvent.change(input, { target: { value: DOCS } })
       fireEvent.keyDown(input, { key: 'Enter' })
@@ -401,7 +450,9 @@ describe('DirectoryBrowser', () => {
       // The home level is truncated so its note is on screen when the slow
       // scan starts: dropping the note's old !loading guard means it must
       // keep rendering through the scan, coexisting with the indicator.
+      /** 中文说明：测试局部值 settlers，由紧邻初始化决定。 */
       const settlers = new Map<string, (value: DirectoryListing) => void>()
+      /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
       const listDirectory = vi.fn((path?: string, _signal?: AbortSignal) => {
         if (path === undefined) return Promise.resolve({ ...listingFor(path), truncated: true })
         return new Promise<DirectoryListing>((resolve) => { settlers.set(path, resolve) })
@@ -438,13 +489,16 @@ describe('DirectoryBrowser', () => {
   it('restarts the silence window when a row pick supersedes a pending scan', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
       const pending: ((value: DirectoryListing) => void)[] = []
+      /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
       const listDirectory = vi.fn((path?: string, _signal?: AbortSignal) => {
         if (path === undefined) return Promise.resolve(listingFor(path))
         return new Promise<DirectoryListing>((resolve) => { pending.push(resolve) })
       })
       mount({ listDirectory })
       await act(async () => {})
+      /** 中文说明：测试局部值 documents，由紧邻初始化决定。 */
       const documents = rowButton(screen.getByRole('listitem'))
       fireEvent.click(documents)
       await act(async () => { vi.advanceTimersByTime(300) })
@@ -468,9 +522,12 @@ describe('DirectoryBrowser', () => {
     try {
       // Every home listing hangs: the initial open's scan is the one the
       // close interrupts, and the reopen's scan proves the fresh window.
+      /** 中文说明：测试局部值 settlers，由紧邻初始化决定。 */
       const settlers: ((value: DirectoryListing) => void)[] = []
+      /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
       const listDirectory = vi.fn((_path?: string, _signal?: AbortSignal) =>
         new Promise<DirectoryListing>((resolve) => { settlers.push(resolve) }))
+      /** 中文说明：测试局部值 { view, props }，由紧邻初始化决定。 */
       const { view, props } = mount({ listDirectory })
       await act(async () => { vi.advanceTimersByTime(300) })
       expect(screen.getByText('browser.loading')).toBeTruthy()
@@ -492,6 +549,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps the single-pane landing when the truncated parent level lacks the target', async () => {
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       // The parent leg names HOME explicitly; serve it a truncated window
       // that misses Documents (the initial open uses the absent-path form).
@@ -511,8 +569,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('anchors the upgrade on the parent level actual entry under Windows case folding', async () => {
+    /** 中文说明：测试局部值 ROOT，由紧邻初始化决定。 */
     const ROOT = 'C:\\'
+    /** 中文说明：测试局部值 TYPED，由紧邻初始化决定。 */
     const TYPED = 'c:\\users'
+    /** 中文说明：测试局部值 winRoot，由紧邻初始化决定。 */
     const winRoot: DirectoryListing = {
       path: ROOT,
       home: ROOT,
@@ -520,6 +581,7 @@ describe('DirectoryBrowser', () => {
       entries: [{ name: 'Users', path: 'C:\\Users', hidden: false }],
       truncated: false,
     }
+    /** 中文说明：测试局部值 winUsers，由紧邻初始化决定。 */
     const winUsers: DirectoryListing = {
       path: TYPED,
       home: ROOT,
@@ -541,6 +603,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('re-parks focus on the edit zone when a failed pick unmounts a dot-revealed row', async () => {
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       if (path === `${HOME}/.config`) {
         throw new DirectoryBrowseError({ code: 'directory-unreadable', message: 'denied', details: { path } })
@@ -551,6 +614,7 @@ describe('DirectoryBrowser', () => {
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
     fireEvent.change(screen.getByLabelText<HTMLInputElement>('browser.editPath'), { target: { value: `${HOME}/.co` } })
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = rowButton(screen.getByRole('listitem'))
     fireEvent.mouseDown(row)
     fireEvent.click(row)
@@ -562,6 +626,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('leaves focus on a surviving row when its pick fails', async () => {
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       if (path === DOCS) {
         throw new DirectoryBrowseError({ code: 'directory-unreadable', message: 'denied', details: { path } })
@@ -572,6 +637,7 @@ describe('DirectoryBrowser', () => {
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
     fireEvent.change(screen.getByLabelText<HTMLInputElement>('browser.editPath'), { target: { value: `${HOME}/do` } })
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = rowButton(screen.getByRole('listitem'))
     row.focus()
     fireEvent.mouseDown(row)
@@ -583,6 +649,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('falls back to the single-pane landing when the parent leg of a navigation fails', async () => {
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       // The initial open lists home through the absent-path form; only the
       // parent leg names HOME explicitly.
@@ -604,6 +671,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('opens the selection, else the listed level; Cancel closes; busy freezes Open', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.open' }))
@@ -615,15 +683,18 @@ describe('DirectoryBrowser', () => {
     fireEvent.click(screen.getByRole('button', { name: 'browser.cancel' }))
     expect(b.onClose).toHaveBeenCalled()
 
+    /** 中文说明：测试局部值 busy，由紧邻初始化决定。 */
     const busy = mount({ busy: true })
     await waitFor(() => { expect(busy.listDirectory).toHaveBeenCalled() })
     expect(screen.getAllByRole<HTMLButtonElement>('button', { name: 'browser.open' }).at(-1)!.disabled).toBe(true)
   })
 
   it('edits the path from the crumb bar: Enter navigates, Escape restores, blank is ignored', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     // The editor seeds with a trailing separator so typing continues into
     // child names.
@@ -639,6 +710,7 @@ describe('DirectoryBrowser', () => {
     // the crumb edit zone that replaced it.
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'browser.editPath' }))
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 again，由紧邻初始化决定。 */
     const again = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(again, { target: { value: '   ' } })
     fireEvent.keyDown(again, { key: 'Enter' })
@@ -652,9 +724,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('prefix-filters the listed level from the draft tail, dot revealing hidden matches', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     // The seeded empty segment leaves the level as-is: hidden stays hidden.
     expect(screen.getByRole('listitem').textContent).toBe('Documents')
@@ -674,6 +748,7 @@ describe('DirectoryBrowser', () => {
     expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual(['Documents'])
     // A tail inside the listed level names no level to walk to: the wait
     // fires and finds nothing to scan.
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = b.listDirectory.mock.calls.length
     await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 400) }) })
     expect(b.listDirectory.mock.calls).toHaveLength(settled)
@@ -686,11 +761,13 @@ describe('DirectoryBrowser', () => {
   })
 
   it('filters the child pane in two-pane mode and follows the draft back up a level', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(rowButton(screen.getByRole('listitem')))
     await waitFor(() => { expect(columns()).toHaveLength(2) })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     // The seed comes from the selection, so the draft tail addresses the
     // RIGHT pane (the selection's children).
@@ -699,6 +776,7 @@ describe('DirectoryBrowser', () => {
     expect(within(columns()[1]!).getByText('harness')).toBeTruthy()
     // The child pane already lists that directory: no scan follows, and both
     // panes stay.
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = b.listDirectory.mock.calls.length
     await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 400) }) })
     expect(b.listDirectory.mock.calls).toHaveLength(settled)
@@ -717,10 +795,12 @@ describe('DirectoryBrowser', () => {
   })
 
   it('follows the draft into a directory no pane lists, landing the two-pane Miller view', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     expect(columns()).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     // Typing past a separator addresses a level nobody shows: the panes walk
     // to it once the typing rests, landing the ordinary selection-anchored
@@ -735,6 +815,7 @@ describe('DirectoryBrowser', () => {
     expect(screen.getByLabelText<HTMLInputElement>('browser.editPath').value).toBe(`${DOCS}/h`)
     // Typing on inside a level the panes already list costs no scan at all:
     // the prefix filter alone answers the draft, both panes stay.
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = b.listDirectory.mock.calls.length
     fireEvent.change(input, { target: { value: `${DOCS}/ha` } })
     await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 400) }) })
@@ -743,9 +824,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps the typed level in the last pane, its parent beside it, as the draft walks', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     // Two levels down: the typed level on the right, its parent on the left.
     fireEvent.change(input, { target: { value: `${HARNESS}/` } })
@@ -765,10 +848,15 @@ describe('DirectoryBrowser', () => {
   it('holds a stale pane still until its landing, instead of narrowing it first', async () => {
     // Own three-level tree: the level that goes stale needs two rows for the
     // narrowing this pins against to be visible at all.
+    /** 中文说明：测试局部值 ROOT，由紧邻初始化决定。 */
     const ROOT = '/u'
+    /** 中文说明：测试局部值 MID，由紧邻初始化决定。 */
     const MID = `${ROOT}/mid`
+    /** 中文说明：测试局部值 LEAF，由紧邻初始化决定。 */
     const LEAF = `${MID}/leaf`
+    /** 中文说明：测试局部值 chain，由紧邻初始化决定。 */
     const chain = [{ name: '/', path: '/', hidden: false }, { name: 'u', path: ROOT, hidden: false }]
+    /** 中文说明：测试局部值 tree，由紧邻初始化决定。 */
     const tree: Record<string, DirectoryListing> = {
       [ROOT]: {
         path: ROOT,
@@ -794,7 +882,9 @@ describe('DirectoryBrowser', () => {
     }
     mount({
       listDirectory: vi.fn(async (path?: string) => {
+        /** 中文说明：测试局部值 asked，由紧邻初始化决定。 */
         const asked = path ?? ROOT
+        /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
         const found = tree[asked.length > 1 && asked.endsWith('/') ? asked.slice(0, -1) : asked]
         if (found === undefined) throw new Error(`cannot list ${asked}`)
         return found
@@ -802,6 +892,7 @@ describe('DirectoryBrowser', () => {
     })
     await waitFor(() => { expect(screen.getByText('mid')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${LEAF}/` } })
     await waitFor(() => { expect(columns()).toHaveLength(2) })
@@ -816,9 +907,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps the walked-to panes when the editor is cancelled, Open adopting where the walk ended', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${DOCS}/h` } })
     await waitFor(() => { expect(columns()).toHaveLength(2) })
@@ -831,6 +924,7 @@ describe('DirectoryBrowser', () => {
     expect(within(columns()[0]!).getByText('Documents')).toBeTruthy()
     expect(within(columns()[1]!).getByText('harness')).toBeTruthy()
     expect(screen.getByRole('navigation').textContent).toContain('Documents')
+    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = screen.getByRole<HTMLButtonElement>('button', { name: 'browser.open' })
     expect(open.disabled).toBe(false)
     fireEvent.click(open)
@@ -838,7 +932,9 @@ describe('DirectoryBrowser', () => {
   })
 
   it('waits both legs out for a walk: one keystroke never flashes a single pane', async () => {
+    /** 中文说明：测试局部值 landParent，由紧邻初始化决定。 */
     let landParent = (): void => {}
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       // The parent leg outlives the submitted-navigation wait bound; a walk
       // has nothing waiting on it, so it holds the stale view instead of
@@ -849,6 +945,7 @@ describe('DirectoryBrowser', () => {
     mount({ listDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${DOCS}/h` } })
     await waitFor(() => { expect(listDirectory).toHaveBeenCalledWith(HOME, expect.anything()) })
@@ -862,9 +959,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('walks the panes back up when erased segments leave the listed levels', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${DOCS}/h` } })
     await waitFor(() => { expect(columns()).toHaveLength(2) })
@@ -878,7 +977,9 @@ describe('DirectoryBrowser', () => {
   })
 
   it('re-arms the draft-following scan after a keystroke superseded one in flight', async () => {
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     let started = 0
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       if (path !== `${DOCS}/`) return listingFor(path)
       started += 1
@@ -890,6 +991,7 @@ describe('DirectoryBrowser', () => {
     mount({ listDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${DOCS}/h` } })
     await waitFor(() => { expect(started).toBe(1) })
@@ -900,6 +1002,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('follows the draft again after an edit releases a failed submission hold', async () => {
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       if (path === HARNESS) throw new Error('target unreadable')
       return listingFor(path)
@@ -907,6 +1010,7 @@ describe('DirectoryBrowser', () => {
     mount({ listDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     // Submitting inside the debounce window holds the pending scan back.
     fireEvent.change(input, { target: { value: HARNESS } })
@@ -923,6 +1027,7 @@ describe('DirectoryBrowser', () => {
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     // Two levels down, so the walk replaces the LEFT pane the focused row
     // lives in (a landing that re-lists the same level reuses its rows).
@@ -936,9 +1041,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps the panes and stays silent when a draft-following scan fails', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${HOME}/nope/x` } })
     await waitFor(() => { expect(b.listDirectory).toHaveBeenCalledWith(`${HOME}/nope/`, expect.anything()) })
@@ -949,6 +1056,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('holds the draft-following scan while a submitted path is in flight', async () => {
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       // The submitted leg never settles, so the debounce window elapses with
       // the navigation still owning the view.
@@ -958,6 +1066,7 @@ describe('DirectoryBrowser', () => {
     mount({ listDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: HARNESS } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -968,8 +1077,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('discards draft-following scans that a newer edit superseded', async () => {
+    /** 中文说明：测试局部值 landDocs，由紧邻初始化决定。 */
     let landDocs = (): void => {}
+    /** 中文说明：测试局部值 failRoot，由紧邻初始化决定。 */
     let failRoot = (): void => {}
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       if (path === `${DOCS}/`) return await new Promise<DirectoryListing>((resolve) => { landDocs = () => { resolve(listingFor(DOCS)) } })
       if (path === '/') {
@@ -982,6 +1094,7 @@ describe('DirectoryBrowser', () => {
     mount({ listDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${DOCS}/h` } })
     await waitFor(() => { expect(listDirectory).toHaveBeenCalledWith(`${DOCS}/`, expect.anything()) })
@@ -998,10 +1111,12 @@ describe('DirectoryBrowser', () => {
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${HOME}/do` } })
     // A blur while the document itself lost focus (window switch, dev-tools
     // focus) must not discard the draft: value and filter both survive.
+    /** 中文说明：测试局部值 hasFocus，由紧邻初始化决定。 */
     const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false)
     fireEvent.focusOut(input)
     hasFocus.mockRestore()
@@ -1013,6 +1128,7 @@ describe('DirectoryBrowser', () => {
     expect(screen.getByLabelText<HTMLInputElement>('browser.editPath', { selector: 'input' }).value).toBe(`${HOME}/do`)
     // Toggling show-hidden mid-edit suppresses focus steal: the draft and
     // its filter survive the toggle in both directions.
+    /** 中文说明：测试局部值 toggle，由紧邻初始化决定。 */
     const toggle = screen.getByRole('button', { name: 'browser.showHidden' })
     fireEvent.mouseDown(toggle)
     fireEvent.click(toggle)
@@ -1030,13 +1146,16 @@ describe('DirectoryBrowser', () => {
   })
 
   it('Escape with focus on a filtered row collapses the editor, not the dialog', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${HOME}/do` } })
     // Tab parked focus on the result row; Escape must still mean "leave
     // path editing", not "close the whole dialog".
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = rowButton(screen.getByRole('listitem'))
     row.focus()
     fireEvent.keyDown(row, { key: 'Escape' })
@@ -1053,8 +1172,10 @@ describe('DirectoryBrowser', () => {
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${HOME}/.co` } })
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = rowButton(screen.getByRole('listitem'))
     expect(row.textContent).toBe('.config')
     fireEvent.mouseDown(row)
@@ -1070,11 +1191,13 @@ describe('DirectoryBrowser', () => {
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${HOME}/do` } })
     // The row suppresses focus steal on mousedown (no blur-cancel unmounts
     // the filtered rows mid-gesture), then the click both selects the row
     // and closes the editor.
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = rowButton(screen.getByRole('listitem'))
     fireEvent.mouseDown(row)
     fireEvent.click(row)
@@ -1092,11 +1215,13 @@ describe('DirectoryBrowser', () => {
     fireEvent.click(rowButton(screen.getByRole('listitem')))
     await waitFor(() => { expect(columns()).toHaveLength(2) })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${DOCS}/h` } })
     // The advance replaces BOTH panes (the picked button's own column
     // unmounts), so focus is re-parked on the selection's aria-current row
     // in the freshly rendered left pane rather than the clicked node.
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = rowButton(within(columns()[1]!).getByRole('listitem'))
     fireEvent.mouseDown(row)
     fireEvent.click(row)
@@ -1106,7 +1231,9 @@ describe('DirectoryBrowser', () => {
   })
 
   it('seeds and filters with backslashes on a Windows-rooted listing', async () => {
+    /** 中文说明：测试局部值 ROOT，由紧邻初始化决定。 */
     const ROOT = 'C:\\'
+    /** 中文说明：测试局部值 windowsListing，由紧邻初始化决定。 */
     const windowsListing: DirectoryListing = {
       path: ROOT,
       home: ROOT,
@@ -1117,10 +1244,12 @@ describe('DirectoryBrowser', () => {
       ],
       truncated: false,
     }
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async () => windowsListing)
     mount({ listDirectory })
     await waitFor(() => { expect(screen.getAllByRole('listitem')).toHaveLength(2) })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     // The root already ends in its separator: no doubled backslash.
     expect(input.value).toBe(ROOT)
@@ -1133,6 +1262,7 @@ describe('DirectoryBrowser', () => {
     fireEvent.change(input, { target: { value: 'C:/p' } })
     await waitFor(() => { expect(screen.getByRole('listitem').textContent).toBe('Program Files') })
     // And the same spelling asks for no second scan.
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = listDirectory.mock.calls.length
     fireEvent.change(input, { target: { value: 'C:/pr' } })
     await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 400) }) })
@@ -1144,6 +1274,7 @@ describe('DirectoryBrowser', () => {
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: '/somewhere/else' } })
     // Focus moving anywhere outside the editor abandons the draft like Escape.
@@ -1157,14 +1288,18 @@ describe('DirectoryBrowser', () => {
   it('restarts the home listing when Escape cancels an edit opened before any level listed', async () => {
     // The initial home listing hangs; Edit Path supersedes it while parent
     // is still null, and Escape must not strand a blank picker.
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     let settled = false
+    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
     const gate = new Promise<never>(() => {})
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => {
       if (!settled) { settled = true; return gate }
       return listingFor(path)
     })
     mount({ listDirectory })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     expect(input.value).toBe('')
     fireEvent.keyDown(input, { key: 'Escape' })
@@ -1176,10 +1311,12 @@ describe('DirectoryBrowser', () => {
   })
 
   it('passes the entered path to the Host untrimmed (trim only gates blank drafts)', async () => {
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (path?: string) => listingFor(path))
     mount({ listDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('browser.editPath')
     fireEvent.change(input, { target: { value: `${DOCS} ` } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -1191,6 +1328,7 @@ describe('DirectoryBrowser', () => {
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.editPath')
     fireEvent.change(input, { target: { value: '/nope' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -1200,15 +1338,18 @@ describe('DirectoryBrowser', () => {
   })
 
   it('folds non-typed failures into readable text (Error message, String otherwise)', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ listDirectory: vi.fn(async () => { throw new Error('socket down') }) })
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('socket down') })
     b.view.rerender(<DirectoryBrowser {...b.props} open={false} />)
+    /** 中文说明：测试局部值 raw，由紧邻初始化决定。 */
     const raw = mount({ listDirectory: vi.fn(async () => { throw 'raw failure' }) })
     await waitFor(() => { expect(screen.getAllByRole('alert').at(-1)!.textContent).toBe('raw failure') })
     expect(raw.onOpen).not.toHaveBeenCalled()
   })
 
   it('renders the full ancestry when the level sits outside the home subtree', async () => {
+    /** 中文说明：测试局部值 outside，由紧邻初始化决定。 */
     const outside: DirectoryListing = {
       path: '/srv/data',
       home: HOME,
@@ -1227,6 +1368,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('scopes Escape to the topmost dialog: the nested create closes first, the browser only after', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
@@ -1240,8 +1382,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps both dialogs open when Escape lands during an in-flight creation', async () => {
+    /** 中文说明：测试局部值 resolve，由紧邻初始化决定。 */
     let resolve!: (path: string) => void
+    /** 中文说明：测试局部值 createDirectory，由紧邻初始化决定。 */
     const createDirectory = vi.fn(() => new Promise<string>((settle) => { resolve = settle }))
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ createDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
@@ -1256,13 +1401,16 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps New folder disabled while the post-create relist is still loading', async () => {
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending: (() => void)[] = []
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
     // Every listing after the create hangs until drained: the button must not
     // offer a second create against a target the pending relist/select
     // sequence is about to change.
+    /** 中文说明：测试局部值 fresh，由紧邻初始化决定。 */
     const fresh: DirectoryListing = {
       path: `${HOME}/fresh`, home: HOME,
       crumbs: [...listingFor(HOME).crumbs, { name: 'fresh', path: `${HOME}/fresh`, hidden: false }],
@@ -1285,6 +1433,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps path entry available when the home listing fails', async () => {
+    /** 中文说明：测试局部值 listDirectory，由紧邻初始化决定。 */
     const listDirectory = vi.fn(async (): Promise<DirectoryListing> => {
       throw new DirectoryBrowseError({ code: 'directory-unreadable', message: 'home unreadable', details: { path: HOME } })
     })
@@ -1292,6 +1441,7 @@ describe('DirectoryBrowser', () => {
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('home unreadable') })
     // With no listed level, typing an absolute path is the one way forward.
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.editPath')
     fireEvent.change(input, { target: { value: DOCS } })
     // With no level listed there is no platform separator to read, so the
@@ -1316,12 +1466,15 @@ describe('DirectoryBrowser', () => {
   })
 
   it('ignores Enter while an IME composition is active in either input', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     // Path editor: a composing Enter confirms the candidate, not the path.
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 pathInput，由紧邻初始化决定。 */
     const pathInput = screen.getByLabelText('browser.editPath')
     fireEvent.change(pathInput, { target: { value: DOCS } })
+    /** 中文说明：测试局部值 listCalls，由紧邻初始化决定。 */
     const listCalls = b.listDirectory.mock.calls.length
     fireEvent.compositionStart(pathInput)
     fireEvent.keyDown(pathInput, { key: 'Enter' })
@@ -1331,6 +1484,7 @@ describe('DirectoryBrowser', () => {
     await waitFor(() => { expect(b.listDirectory).toHaveBeenLastCalledWith(DOCS, expect.any(AbortSignal)) })
     // Create dialog: same guard.
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
+    /** 中文说明：测试局部值 nameInput，由紧邻初始化决定。 */
     const nameInput = screen.getByLabelText('browser.folderName')
     fireEvent.change(nameInput, { target: { value: '新建' } })
     fireEvent.compositionStart(nameInput)
@@ -1342,6 +1496,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('surfaces a two-pane navigation failure as an alert below the columns', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(rowButton(screen.getByRole('listitem')))
@@ -1357,7 +1512,9 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps the editor open when a pending listing settles right after Edit Path was clicked', async () => {
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending: ((listing: DirectoryListing) => void)[] = []
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     // A crumb navigation hangs; the user opens the editor before it settles.
@@ -1372,10 +1529,13 @@ describe('DirectoryBrowser', () => {
   })
 
   it('ignores a pending navigation that settles after Escape cancelled the editor', async () => {
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending: ((listing: DirectoryListing) => void)[] = []
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.editPath')
     b.listDirectory.mockImplementation(() =>
       new Promise<DirectoryListing>((settle) => { pending.push(settle) }))
@@ -1390,10 +1550,13 @@ describe('DirectoryBrowser', () => {
   })
 
   it('keeps a newer path edit when an older slow navigation settles', async () => {
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending: ((listing: DirectoryListing) => void)[] = []
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.editPath')
     b.listDirectory.mockImplementation(() =>
       new Promise<DirectoryListing>((settle) => { pending.push(settle) }))
@@ -1419,7 +1582,9 @@ describe('DirectoryBrowser', () => {
   })
 
   it('falls back to the single-pane level when a path edit superseded the preview and was cancelled', async () => {
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending: ((listing: DirectoryListing) => void)[] = []
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     // Selection starts a preview that never lands (superseded below).
@@ -1427,6 +1592,7 @@ describe('DirectoryBrowser', () => {
       new Promise<DirectoryListing>((settle) => { pending.push(settle) }))
     fireEvent.click(rowButton(screen.getByRole('listitem')))
     fireEvent.click(screen.getByRole('button', { name: 'browser.editPath' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.editPath')
     fireEvent.change(input, { target: { value: `${DOCS}/x` } })
     fireEvent.keyDown(input, { key: 'Escape' })
@@ -1436,13 +1602,17 @@ describe('DirectoryBrowser', () => {
   })
 
   it('drops a creation that settles after the browser unmounted', async () => {
+    /** 中文说明：测试局部值 settleCreate，由紧邻初始化决定。 */
     let settleCreate!: (path: string) => void
+    /** 中文说明：测试局部值 createDirectory，由紧邻初始化决定。 */
     const createDirectory = vi.fn(() => new Promise<string>((settle) => { settleCreate = settle }))
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ createDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
     fireEvent.change(screen.getByLabelText('browser.folderName'), { target: { value: 'slow' } })
     fireEvent.click(screen.getByRole('button', { name: 'browser.create' }))
+    /** 中文说明：测试局部值 listCalls，由紧邻初始化决定。 */
     const listCalls = b.listDirectory.mock.calls.length
     b.view.unmount()
     // The dead flow must not issue the post-create relist.
@@ -1451,6 +1621,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('clears the selection when its preview listing fails', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     b.listDirectory.mockImplementation(async () => {
@@ -1465,6 +1636,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('ignores dismissal while adoption is busy', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ busy: true })
     await waitFor(() => { expect(screen.getByRole('dialog')).toBeTruthy() })
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -1478,18 +1650,23 @@ describe('DirectoryBrowser', () => {
     // Modal traps no focus: Shift-Tab/AT reach the parent, so closing,
     // adopting, and retargeting must all disable underneath the child. Both
     // dialogs carry a cancel: the parent's disables, the child's stays live.
+    /** 中文说明：测试局部值 cancels，由紧邻初始化决定。 */
     const cancels = screen.getAllByRole<HTMLButtonElement>('button', { name: 'browser.cancel' })
     expect(cancels.map(button => button.disabled).sort()).toEqual([false, true])
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'browser.open' }).disabled).toBe(true)
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'browser.editPath' }).disabled).toBe(true)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     for (const row of screen.getAllByRole('listitem')) {
       expect(rowButton(row).disabled).toBe(true)
     }
   })
 
   it('drops a creation failure that lands after the flow closed and reopened', async () => {
+    /** 中文说明：测试局部值 rejectCreate，由紧邻初始化决定。 */
     let rejectCreate!: (reason: unknown) => void
+    /** 中文说明：测试局部值 createDirectory，由紧邻初始化决定。 */
     const createDirectory = vi.fn(() => new Promise<string>((_settle, reject) => { rejectCreate = reject }))
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ createDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
@@ -1504,8 +1681,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('drops a creation that settles after the flow closed and reopened', async () => {
+    /** 中文说明：测试局部值 settleCreate，由紧邻初始化决定。 */
     let settleCreate!: (path: string) => void
+    /** 中文说明：测试局部值 createDirectory，由紧邻初始化决定。 */
     const createDirectory = vi.fn(() => new Promise<string>((settle) => { settleCreate = settle }))
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ createDirectory })
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
@@ -1514,6 +1694,7 @@ describe('DirectoryBrowser', () => {
     b.view.rerender(<DirectoryBrowser {...b.props} open={false} />)
     b.view.rerender(<DirectoryBrowser {...b.props} open />)
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    /** 中文说明：测试局部值 listCallsBefore，由紧邻初始化决定。 */
     const listCallsBefore = b.listDirectory.mock.calls.length
     // The stale settlement must not relist the old target or reopen the
     // nested dialog's state inside the fresh flow.
@@ -1524,9 +1705,11 @@ describe('DirectoryBrowser', () => {
   })
 
   it('passes the folder name to the Host untrimmed (trim only gates blank drafts)', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.folderName')
     fireEvent.change(input, { target: { value: 'project ' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -1535,6 +1718,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('creates a folder through the nested dialog and lands with it selected', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(rowButton(screen.getByRole('listitem')))
@@ -1553,11 +1737,13 @@ describe('DirectoryBrowser', () => {
         }
       }
       if (path === DOCS) {
+        /** 中文说明：测试局部值 docs，由紧邻初始化决定。 */
         const docs = listingFor(DOCS)
         return { ...docs, entries: [...docs.entries, { name: 'fresh', path: `${DOCS}/fresh`, hidden: false }] }
       }
       return listingFor(path)
     })
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.folderName')
     fireEvent.change(input, { target: { value: 'fresh' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -1565,19 +1751,23 @@ describe('DirectoryBrowser', () => {
     // The create target became the level and the new folder its selection.
     await waitFor(() => {
       expect(within(screen.getByRole('navigation')).getByRole('button', { name: 'Documents' })).toBeTruthy()
+      /** 中文说明：测试局部值 level，由紧邻初始化决定。 */
       const level = columns()[0]!
+      /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
       const rows = within(level).getAllByRole('listitem')
       expect(rows.some(row => row.textContent === 'fresh' && rowButton(row).getAttribute('aria-current') === 'true')).toBe(true)
     })
   })
 
   it('keeps the nested dialog open on a creation failure and cancels cleanly', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     b.createDirectory.mockRejectedValueOnce(
       new DirectoryBrowseError({ code: 'directory-exists', message: 'taken already', details: { path: `${HOME}/x` } }))
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
     expect(screen.getByText('browser.createIn:browser.home')).toBeTruthy()
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.folderName')
     // A blank name never submits.
     fireEvent.change(input, { target: { value: '   ' } })
@@ -1591,10 +1781,12 @@ describe('DirectoryBrowser', () => {
 
     // The nested Cancel button and the nested mask both close only the child dialog.
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
+    /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
     const nested = screen.getByRole('dialog', { name: 'browser.newFolder' })
     fireEvent.click(within(nested).getByRole('button', { name: 'browser.cancel' }))
     await waitFor(() => { expect(screen.queryByLabelText('browser.folderName')).toBeNull() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
+    /** 中文说明：测试局部值 masks，由紧邻初始化决定。 */
     const masks = document.querySelectorAll('[aria-hidden="true"]')
     fireEvent.click(masks[masks.length - 1]!)
     await waitFor(() => { expect(screen.queryByLabelText('browser.folderName')).toBeNull() })
@@ -1602,11 +1794,13 @@ describe('DirectoryBrowser', () => {
   })
 
   it('surfaces a post-create relist failure on the browser surface', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
     // Creation succeeds, but relisting the target fails afterwards.
     b.listDirectory.mockRejectedValueOnce(new Error('level vanished'))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.folderName')
     fireEvent.change(input, { target: { value: 'fresh' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -1614,9 +1808,12 @@ describe('DirectoryBrowser', () => {
   })
 
   it('drops a stale child listing that resolves after a crumb jump', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    /** 中文说明：测试局部值 resolveSlow，由紧邻初始化决定。 */
     let resolveSlow!: (value: DirectoryListing) => void
+    /** 中文说明：测试局部值 slow，由紧邻初始化决定。 */
     const slow = new Promise<DirectoryListing>((settle) => { resolveSlow = settle })
     b.listDirectory.mockReturnValueOnce(slow)
     fireEvent.click(rowButton(screen.getByRole('listitem')))
@@ -1630,9 +1827,12 @@ describe('DirectoryBrowser', () => {
   })
 
   it('drops a stale failure that rejects after a newer navigation', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    /** 中文说明：测试局部值 rejectSlow，由紧邻初始化决定。 */
     let rejectSlow!: (reason: unknown) => void
+    /** 中文说明：测试局部值 slow，由紧邻初始化决定。 */
     const slow = new Promise<DirectoryListing>((_settle, fail) => { rejectSlow = fail })
     b.listDirectory.mockReturnValueOnce(slow)
     fireEvent.click(rowButton(screen.getByRole('listitem')))
@@ -1645,11 +1845,14 @@ describe('DirectoryBrowser', () => {
   })
 
   it('drops a stale navigation failure that rejects after a newer jump', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(rowButton(screen.getByRole('listitem')))
     await waitFor(() => { expect(columns()).toHaveLength(2) })
+    /** 中文说明：测试局部值 rejectSlow，由紧邻初始化决定。 */
     let rejectSlow!: (reason: unknown) => void
+    /** 中文说明：测试局部值 slow，由紧邻初始化决定。 */
     const slow = new Promise<DirectoryListing>((_settle, fail) => { rejectSlow = fail })
     b.listDirectory.mockReturnValueOnce(slow)
     // A slow crumb jump superseded by a second jump.
@@ -1662,11 +1865,14 @@ describe('DirectoryBrowser', () => {
   })
 
   it('drops a stale navigation listing that resolves after a newer jump', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(rowButton(screen.getByRole('listitem')))
     await waitFor(() => { expect(columns()).toHaveLength(2) })
+    /** 中文说明：测试局部值 resolveSlow，由紧邻初始化决定。 */
     let resolveSlow!: (value: DirectoryListing) => void
+    /** 中文说明：测试局部值 slow，由紧邻初始化决定。 */
     const slow = new Promise<DirectoryListing>((settle) => { resolveSlow = settle })
     b.listDirectory.mockReturnValueOnce(slow)
     fireEvent.click(screen.getByRole('button', { name: 'browser.home' }))
@@ -1681,6 +1887,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('names the create target by its path when the level reports no crumbs', async () => {
+    /** 中文说明：测试局部值 bare，由紧邻初始化决定。 */
     const bare: DirectoryListing = { path: '/srv/data', home: HOME, crumbs: [], entries: [], truncated: false }
     mount({ listDirectory: vi.fn(async () => bare) })
     await waitFor(() => { expect(screen.getByRole('button', { name: 'browser.newFolder' })).toBeTruthy() })
@@ -1692,16 +1899,20 @@ describe('DirectoryBrowser', () => {
   })
 
   it('refuses to close the nested dialog while the creation is in flight', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    /** 中文说明：测试局部值 settleCreate，由紧邻初始化决定。 */
     let settleCreate!: (path: string) => void
     b.createDirectory.mockReturnValueOnce(new Promise<string>((settle) => { settleCreate = settle }))
     fireEvent.click(screen.getByRole('button', { name: 'browser.newFolder' }))
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText('browser.folderName')
     fireEvent.change(input, { target: { value: 'slow' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     // Escape and the mask are both inert while creating.
     fireEvent.keyDown(screen.getByLabelText('browser.folderName'), { key: 'Escape' })
+    /** 中文说明：测试局部值 masks，由紧邻初始化决定。 */
     const masks = document.querySelectorAll('[aria-hidden="true"]')
     fireEvent.click(masks[masks.length - 1]!)
     expect(screen.getByLabelText('browser.folderName')).toBeTruthy()
@@ -1710,6 +1921,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('says a level is incomplete when the backend cut it at its bound', async () => {
+    /** 中文说明：测试局部值 cut，由紧邻初始化决定。 */
     const cut = { ...listingFor(HOME), truncated: true }
     mount({ listDirectory: vi.fn(async () => cut) })
     await screen.findByText('browser.truncated')
@@ -1730,6 +1942,7 @@ describe('DirectoryBrowser', () => {
   it('pins the child pane into view when its preview lands (narrow viewports scroll the miller row)', async () => {
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = document.querySelector('[class*=millerRow]') as HTMLElement
     // jsdom does no layout: stub the overflow width the effect pins against.
     Object.defineProperty(row, 'scrollWidth', { value: 640, configurable: true })
@@ -1739,6 +1952,7 @@ describe('DirectoryBrowser', () => {
   })
 
   it('starts back at home on reopen', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
     fireEvent.click(rowButton(screen.getByRole('listitem')))

@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证会话输入的 input-matrix.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
+ * 产品维度：防止会话输入用户流程回归。
+ * 逻辑维度：构造状态，触发行为并断言结果和清理。
+ * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
+/**
  * Impact-matrix projection tests (row by row): what each
  * phase projects onto the InputBar — enter routing, visuals (token color /
  * hint / pending), edit freedom, and the published currency's claim seat.
@@ -23,11 +31,15 @@ import { zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 SCTX，由紧邻初始化决定。 */
 const SCTX = {} as ClientContext
+/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
 /** Standard-props InputBar mount over a real shell (the composer-bar entry shape). */
+/** 中文说明：函数 mountBar 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountBar(shell: SessionInputShell, over?: { running?: boolean; disabled?: boolean }) {
+  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = createSnapshotStore<ConversationSnapshot>({
     sessionId: SID, views: EMPTY_CONVERSATION_VIEWS, chat: EMPTY_CHAT_SNAPSHOT,
     nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [],
@@ -35,6 +47,7 @@ function mountBar(shell: SessionInputShell, over?: { running?: boolean; disabled
     removed: over?.disabled ?? false, openState: 'open', openError: null, hasMore: false,
     loadingOlder: false, promptError: null, blank: false, subagent: null, lastAgentError: null,
   })
+  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props: InputBarProps = {
     sessionId: SID,
     SessionProvider: ({ children }) => children(SID),
@@ -74,19 +87,28 @@ function mountBar(shell: SessionInputShell, over?: { running?: boolean; disabled
   return render(<InputBar {...props} />)
 }
 
+/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bench(over?: {
   running?: boolean
   disabled?: boolean
   submit?: (args: string) => Promise<SubmitOutcome>
   serialize?: (ids: readonly DraftAttachmentId[]) => Promise<readonly SubmitImageAttachment[]>
 }) {
+  /** 中文说明：测试局部值 sink，由紧邻初始化决定。 */
   const sink = vi.fn(() => Promise.resolve<SubmitOutcome>({ kind: 'success' }))
+  /** 中文说明：测试局部值 serialize，由紧邻初始化决定。 */
   const serialize = vi.fn(over?.serialize ?? (() => Promise.resolve<readonly SubmitImageAttachment[]>([])))
+  /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
   const release = vi.fn()
+  /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
   const shell = new SessionInputShell({ actx: SCTX, defaultSink: sink, commandImages: { serialize, release, unsupportedNotice: (token: string) => `${token.trim()} images-unsupported` } })
+  /** 中文说明：测试局部值 wiring，由紧邻初始化决定。 */
   const wiring = shell
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = mountBar(shell, over)
+  /** 中文说明：测试局部值 textarea，由紧邻初始化决定。 */
   const textarea = view.container.querySelector('textarea')!
+  /** 中文说明：测试局部值 claim，由紧邻初始化决定。 */
   const claim = (token = '/goal ', hint = '目标', images?: true) => {
     act(() => {
       shell.setDraft(token)
@@ -105,6 +127,7 @@ function bench(over?: {
 
 describe('matrix row: plain', () => {
   it('enter falls to the default sink; no claim on the currency; edits free', async () => {
+    /** 中文说明：测试局部值 { textarea, shell, sink }，由紧邻初始化决定。 */
     const { textarea, shell, sink } = bench()
     fireEvent.change(textarea, { target: { value: '普通消息' } })
     expect(shell.snapshot.claim).toBeUndefined()
@@ -118,6 +141,7 @@ describe('matrix row: plain', () => {
 
 describe('matrix row: claimed', () => {
   it('publishes the claim currency, colors the token, hints while args are blank, and edits stay free', () => {
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { view, textarea, shell, claim } = bench()
     claim()
     expect(shell.snapshot.claim).toEqual({ token: '/goal ', hint: '目标' })
@@ -132,7 +156,9 @@ describe('matrix row: claimed', () => {
   })
 
   it('enter routes to claim.submit (command lane, never the queue sink)', async () => {
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => Promise.resolve({ kind: 'success' as const, text: '完成', source: 'command', name: 'goal' }))
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { view, textarea, sink, claim } = bench({ submit })
     claim()
     fireEvent.change(textarea, { target: { value: '/goal 发布' } })
@@ -145,6 +171,7 @@ describe('matrix row: claimed', () => {
   })
 
   it('backspacing the token auto-releases to plain and the visuals vanish (scenario H)', () => {
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { view, textarea, shell, claim } = bench()
     claim()
     fireEvent.change(textarea, { target: { value: '/goa 发布' } }) // token broken
@@ -155,10 +182,13 @@ describe('matrix row: claimed', () => {
 })
 
 describe('matrix row: claimed with images', () => {
+  /** 中文说明：测试局部值 img，由紧邻初始化决定。 */
   const img = 'img-1' as DraftAttachmentId
 
   it('a claim without image acceptance blocks enter: one notice, draft/images/claim retained', async () => {
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { view, textarea, shell, sink, claim } = bench({ submit })
     claim()
     act(() => { shell.addImages([img]) })
@@ -173,8 +203,11 @@ describe('matrix row: claimed with images', () => {
   })
 
   it('an accepting claim serializes and forwards the images; success consumes and clears', async () => {
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+    /** 中文说明：测试局部值 png，由紧邻初始化决定。 */
     const png: SubmitImageAttachment = { mediaType: 'image/png', data: 'AA==' }
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { textarea, shell, claim, serialize, release } = bench({ submit, serialize: () => Promise.resolve([png]) })
     claim('/goal ', '目标', true)
     // The claim currency carries the acceptance flag the pre-gate reads.
@@ -190,7 +223,9 @@ describe('matrix row: claimed with images', () => {
   })
 
   it('a handler error outcome keeps the images unreleased beside the notice and the draft', async () => {
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => Promise.resolve({ kind: 'error' as const, text: '处理失败' }))
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { view, textarea, shell, claim, release } = bench({ submit })
     claim('/goal ', '目标', true)
     act(() => { shell.addImages([img]) })
@@ -203,7 +238,9 @@ describe('matrix row: claimed with images', () => {
   })
 
   it('a serialize rejection blocks the transaction: notice, no submit call, images kept', async () => {
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { view, textarea, shell, claim, release } = bench({ submit, serialize: () => Promise.reject(new Error('附件已失效')) })
     claim('/goal ', '目标', true)
     act(() => { shell.addImages([img]) })
@@ -216,8 +253,11 @@ describe('matrix row: claimed with images', () => {
   })
 
   it('a disposed shell never lets a pending serialization reach claim.submit', async () => {
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+    /** 中文说明：测试局部值 resolveSerialize，由紧邻初始化决定。 */
     let resolveSerialize!: (images: readonly SubmitImageAttachment[]) => void
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { shell, textarea, claim } = bench({
       submit,
       serialize: () => new Promise((resolve) => { resolveSerialize = resolve }),
@@ -234,7 +274,9 @@ describe('matrix row: claimed with images', () => {
   })
 
   it('image removal is refused while a command submit is in flight', async () => {
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => new Promise<SubmitOutcome>(() => {})) // never settles
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { shell, textarea, claim } = bench({ submit, serialize: () => Promise.resolve([]) })
     claim('/goal ', '目标', true)
     act(() => { shell.addImages([img]) })
@@ -247,7 +289,9 @@ describe('matrix row: claimed with images', () => {
 
 describe('matrix row: submitting', () => {
   it('locks enter, renders pending + read-only, keeps the claim snapshot on the currency', async () => {
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => new Promise<SubmitOutcome>(() => {})) // never settles
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { textarea, shell, sink, claim } = bench({ submit })
     claim()
     fireEvent.keyDown(textarea, { key: 'Enter' })
@@ -263,8 +307,11 @@ describe('matrix row: submitting', () => {
   })
 
   it('rollback with unchanged draft returns to claimed with the notice; drifted draft only notices', async () => {
+    /** 中文说明：测试局部值 rejectSubmit，由紧邻初始化决定。 */
     let rejectSubmit!: (e: Error) => void
+    /** 中文说明：测试局部值 submit，由紧邻初始化决定。 */
     const submit = vi.fn(() => new Promise<SubmitOutcome>((_res, rej) => { rejectSubmit = rej }))
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = bench({ submit })
     first.claim()
     fireEvent.keyDown(first.textarea, { key: 'Enter' })
@@ -275,7 +322,9 @@ describe('matrix row: submitting', () => {
     expect(first.view.getByText('执行失败')).toBeTruthy()
     cleanup()
     // Drift: typing during flight wins; no restore, plain, notice only.
+    /** 中文说明：测试局部值 submit2，由紧邻初始化决定。 */
     const submit2 = vi.fn(() => new Promise<SubmitOutcome>((_res, rej) => { rejectSubmit = rej }))
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = bench({ submit: submit2 })
     second.claim()
     fireEvent.keyDown(second.textarea, { key: 'Enter' })
@@ -290,6 +339,7 @@ describe('matrix row: submitting', () => {
 
 describe('matrix row: locked (session disabled)', () => {
   it('disables the textarea and chrome; the machine currency is untouched', () => {
+    /** 中文说明：测试局部值 { view, textarea, shell }，由紧邻初始化决定。 */
     const { view, textarea, shell } = bench({ disabled: true })
     expect((textarea).disabled).toBe(true)
     expect((view.getByLabelText('命令') as HTMLButtonElement).disabled).toBe(true)
@@ -297,6 +347,7 @@ describe('matrix row: locked (session disabled)', () => {
   })
 
   it('running does NOT lock: typing and enter-queue stay live', () => {
+    /** 中文说明：测试局部值 { textarea, sink }，由紧邻初始化决定。 */
     const { textarea, sink } = bench({ running: true })
     expect((textarea).disabled).toBe(false)
     fireEvent.change(textarea, { target: { value: '排队' } })
@@ -307,6 +358,7 @@ describe('matrix row: locked (session disabled)', () => {
 
 describe('matrix row: takeover (orthogonal axis)', () => {
   it('the machine state survives outside the render tree (claim lives on the shell, not the DOM)', () => {
+    /** 中文说明：测试局部值 { view, shell, claim }，由紧邻初始化决定。 */
     const { view, shell, claim } = bench()
     claim()
     // Takeover hides the composer (overlay chain keeps it mounted-but-hidden);

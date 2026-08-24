@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证目标进度的 goal-command-input.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
+ * 产品维度：防止目标进度用户流程回归。
+ * 逻辑维度：构造状态，触发行为并断言结果和清理。
+ * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { cleanup, render, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type {
@@ -19,6 +27,7 @@ import { zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
+/** 中文说明：类型或类 TestEventDefinitions 约束本文件数据或组件职责。 */
 class TestEventDefinitions {
   entries(): readonly ConversationNodeDefinition[] {
     return [commandDefinition, goalCommandInputDefinition]
@@ -29,12 +38,14 @@ class TestEventDefinitions {
   }
 }
 
+/** 中文说明：类型或类 TestViewDefinitions 约束本文件数据或组件职责。 */
 class TestViewDefinitions {
   entries(): readonly ConversationViewDefinition[] {
     return [chatViewDefinition]
   }
 }
 
+/** 中文说明：函数 entry 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function entry(seq: number, type: string, data: unknown): ConversationEventInput {
   return {
     event: { seq, time: 1_700_000_000_000 + seq, type, data } as ConversationEventInput['event'],
@@ -42,27 +53,34 @@ function entry(seq: number, type: string, data: unknown): ConversationEventInput
   }
 }
 
+/** 中文说明：函数 snapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function snapshot(entries: readonly ConversationEventInput[], hasMore = false): ChatSnapshot {
+  /** 中文说明：测试局部值 assembler，由紧邻初始化决定。 */
   const assembler = new ConversationNodeAssembler(new TestEventDefinitions(), new TestViewDefinitions())
   assembler.replaceWindow(entries, hasMore)
   assembler.flush()
+  /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
   const value = assembler.snapshot('chat') as ChatSnapshot | undefined
   if (value === undefined) throw new Error('chat view was not registered')
   return value
 }
 
+/** 中文说明：函数 node 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function node(value: ChatSnapshot, kind: string): ChatConversationViewNode | undefined {
   return value.nodes.values().find(candidate => candidate.kind === kind)
 }
 
 describe('goal command input projection', () => {
   it('builds a separate input Node before the generic command result and restores it on replay', () => {
+    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
     const run = entry(1, 'command/run', {
       commandId: 'command-goal', name: 'goal', args: ' ', source: { kind: 'user' },
     })
+    /** 中文说明：测试局部值 done，由紧邻初始化决定。 */
     const done = entry(2, 'command/done', {
       commandId: 'command-goal', kind: 'success', text: 'No goal is currently set.',
     })
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = snapshot([run, done])
 
     expect(value.order.map(key => value.nodes.get(key)?.kind)).toEqual(['command-input', 'command'])
@@ -74,15 +92,18 @@ describe('goal command input projection', () => {
       name: 'goal', args: ' ', outcome: { kind: 'success', text: 'No goal is currently set.' },
     })
 
+    /** 中文说明：测试局部值 doneOnly，由紧邻初始化决定。 */
     const doneOnly = snapshot([done], true)
     expect(node(doneOnly, 'command-input')).toBeUndefined()
     expect(node(doneOnly, 'command')?.data).toMatchObject({ name: null, args: null })
   })
 
   it('ignores other commands and preserves internal multiline arguments', () => {
+    /** 中文说明：测试局部值 plan，由紧邻初始化决定。 */
     const plan = entry(1, 'command/run', {
       commandId: 'command-plan', name: 'plan', args: '', source: { kind: 'user' },
     })
+    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     const goal = entry(2, 'command/run', {
       commandId: 'command-goal', name: 'goal', args: '\nfirst line\nsecond line \n', source: { kind: 'user' },
     })
@@ -93,14 +114,17 @@ describe('goal command input projection', () => {
   })
 
   it('keeps the Definition total across required interface and window fallback paths', () => {
+    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
     const run = entry(3, 'command/run', {
       commandId: 'command-goal', name: 'goal', source: { kind: 'user' },
     })
+    /** 中文说明：测试局部值 match，由紧邻初始化决定。 */
     const match = {
       ...run,
       role: 'start' as const,
       location: { kind: 'session' as const },
     }
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = goalCommandInputDefinition.start({} as never, match, {} as never)
 
     expect(state.text).toBe('/goal')
@@ -110,6 +134,7 @@ describe('goal command input projection', () => {
       key: 'goal-command-input', id: 'command-goal', state, start: undefined,
     } as never)).toMatchObject({ location: { kind: 'unresolved' } })
 
+    /** 中文说明：测试局部值 done，由紧邻初始化决定。 */
     const done = entry(4, 'command/done', { commandId: 'command-goal', kind: 'success' })
     expect(() => goalCommandInputDefinition.start({} as never, {
       ...done, role: 'start', location: { kind: 'session' },
@@ -117,7 +142,9 @@ describe('goal command input projection', () => {
   })
 
   it('renders the user-style command bubble without ordinary message actions', () => {
+    /** 中文说明：测试局部值 t，由紧邻初始化决定。 */
     const t = makeTranslate(zh, commonZh)
+    /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
     const props = {
       node: {
         key: 'goal-command-input:one',
@@ -125,7 +152,9 @@ describe('goal command input projection', () => {
       },
       t,
     } as unknown as Parameters<typeof GoalCommandInputView>[0]
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GoalCommandInputView {...props} />)
+    /** 中文说明：测试局部值 bubble，由紧邻初始化决定。 */
     const bubble = view.getByRole('group', { name: '命令输入' })
 
     expect(bubble.textContent).toBe('/goal ship it')

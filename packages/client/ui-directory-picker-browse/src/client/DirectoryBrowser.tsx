@@ -34,6 +34,14 @@
  * the crumbs name where the walk ended, and Open's fallback target follows
  * them.
  */
+/**
+ * 文件职责：实现目录选择的 DirectoryBrowser 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：支持用户查看或操作目录选择。
+ * 逻辑维度：读取状态，派生显示数据并响应交互。
+ * 关键边界：空状态、错误状态和可访问性属性必须一致。
+ * 新手阅读建议：先读 Props，再看局部状态和 JSX。
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
@@ -46,6 +54,7 @@ import type { Translate } from '@deepseek-ai/dsh-client-locale/client'
 import css from './DirectoryBrowser.module.css'
 
 /** Owner-supplied browser props: browse calls, pick semantics, and copy. */
+/** 中文说明：类型或类 DirectoryBrowserProps 约束本文件数据或组件职责。 */
 export interface DirectoryBrowserProps {
   /** Dialog visibility (owner-local; closed unmounts nothing but resets on reopen). */
   open: boolean
@@ -64,6 +73,7 @@ export interface DirectoryBrowserProps {
 }
 
 /** Failure text: the Host business message when typed, else the throw's text. */
+/** 中文说明：函数 failureText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function failureText(error: unknown): string {
   if (error instanceof DirectoryBrowseError) return error.rpcError.message
   return error instanceof Error ? error.message : String(error)
@@ -76,6 +86,7 @@ function failureText(error: unknown): string {
  * intermediate frame at all; only a genuinely slow host (a network mount, a
  * cold disk) surfaces the indicator.
  */
+/** 中文说明：组件局部值 SLOW_SCAN_DELAY_MS，由紧邻初始化决定。 */
 const SLOW_SCAN_DELAY_MS = 300
 
 /**
@@ -85,6 +96,7 @@ const SLOW_SCAN_DELAY_MS = 300
  * at once (an Enter-submitted navigation is never held hostage by a stalled
  * parent) and the late parent leg upgrades the landing in place.
  */
+/** 中文说明：组件局部值 PARENT_LEG_WAIT_MS，由紧邻初始化决定。 */
 const PARENT_LEG_WAIT_MS = 200
 
 /**
@@ -94,6 +106,7 @@ const PARENT_LEG_WAIT_MS = 200
  * separator would otherwise be its own scan) while staying short enough that
  * a pause reads as "the list moved with me".
  */
+/** 中文说明：组件局部值 DRAFT_PREVIEW_DEBOUNCE_MS，由紧邻初始化决定。 */
 const DRAFT_PREVIEW_DEBOUNCE_MS = 250
 
 /**
@@ -101,9 +114,12 @@ const DRAFT_PREVIEW_DEBOUNCE_MS = 250
  * localized Home crumb; outside it the full ancestry shows, the root labeled
  * by its own path.
  */
+/** 中文说明：函数 displayCrumbs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function displayCrumbs(listing: DirectoryListing, homeLabel: string): DirectoryEntry[] {
+  /** 中文说明：组件局部值 homeIndex，由紧邻初始化决定。 */
   const homeIndex = listing.crumbs.findIndex(crumb => crumb.path === listing.home)
   if (homeIndex === -1) return listing.crumbs
+  /** 中文说明：组件局部值 tail，由紧邻初始化决定。 */
   const tail = listing.crumbs.slice(homeIndex + 1)
   return [{ name: homeLabel, path: listing.home, hidden: false }, ...tail]
 }
@@ -117,17 +133,21 @@ function displayCrumbs(listing: DirectoryListing, homeLabel: string): DirectoryE
  * DirectoryListing so the platform fact travels verbatim (the trade-off is
  * recorded in the directory-picker capability seam Agent Note).
  */
+/** 中文说明：函数 separatorOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function separatorOf(listing: DirectoryListing): '\\' | '/' {
   return listing.home.includes('\\') ? '\\' : '/'
 }
 
 /** The listed level as a directory part: its own path, separator-terminated (the root already is). */
+/** 中文说明：函数 levelDirectory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function levelDirectory(listing: DirectoryListing): string {
+  /** 中文说明：组件局部值 sep，由紧邻初始化决定。 */
   const sep = separatorOf(listing)
   return listing.path.endsWith(sep) ? listing.path : `${listing.path}${sep}`
 }
 
 /** The directory text a draft-following scan last sent, with the level path the host answered it with. */
+/** 中文说明：类型或类 ScannedDirectory 约束本文件数据或组件职责。 */
 interface ScannedDirectory {
   /** The draft's directory part, verbatim as it went to the host. */
   readonly directory: string
@@ -142,7 +162,9 @@ interface ScannedDirectory {
  * slash separates too (the host's `resolve` accepts either), while on POSIX a
  * backslash is a legal name character and never separates.
  */
+/** 中文说明：函数 draftDirectory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function draftDirectory(listing: DirectoryListing, draft: string): string | null {
+  /** 中文说明：组件局部值 cut，由紧邻初始化决定。 */
   const cut = separatorOf(listing) === '\\'
     ? Math.max(draft.lastIndexOf('\\'), draft.lastIndexOf('/'))
     : draft.lastIndexOf('/')
@@ -163,13 +185,16 @@ function draftDirectory(listing: DirectoryListing, draft: string): string | null
  * @returns the draft's directory part (null with no separator typed) and its
  * filtering tail (null when this level does not answer that directory).
  */
+/** 中文说明：函数 readDraft 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function readDraft(
   listing: DirectoryListing,
   draft: string,
   scanned: ScannedDirectory | null,
 ): { directory: string | null; tail: string | null } {
+  /** 中文说明：组件局部值 directory，由紧邻初始化决定。 */
   const directory = draftDirectory(listing, draft)
   if (directory === null) return { directory: null, tail: null }
+  /** 中文说明：组件局部值 answers，由紧邻初始化决定。 */
   const answers = directory === levelDirectory(listing)
     || (scanned !== null && scanned.directory === directory && scanned.landed === listing.path)
   return { directory, tail: answers ? draft.slice(directory.length) : null }
@@ -187,17 +212,22 @@ function readDraft(
  * `hidden` means dot-prefixed, so it cannot), the level would narrow to
  * nothing.
  */
+/** 中文说明：函数 visibleEntries 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function visibleEntries(
   entries: readonly DirectoryEntry[],
   selectedPath: string | null,
   showHidden: boolean,
   filterPrefix: string | null,
 ): readonly DirectoryEntry[] {
+  /** 中文说明：组件局部值 needle，由紧邻初始化决定。 */
   const needle = filterPrefix === null ? '' : filterPrefix.toLowerCase()
   // A dot-led prefix names hidden entries explicitly, so matching ones
   // surface even while the toggle keeps the rest hidden.
+  /** 中文说明：组件局部值 displayable，由紧邻初始化决定。 */
   const displayable = (entry: DirectoryEntry): boolean => showHidden || !entry.hidden || needle.startsWith('.')
+  /** 中文说明：组件局部值 matches，由紧邻初始化决定。 */
   const matches = (entry: DirectoryEntry): boolean => displayable(entry) && entry.name.toLowerCase().startsWith(needle)
+  /** 中文说明：组件局部值 narrowing，由紧邻初始化决定。 */
   const narrowing = needle !== '' && entries.some(matches)
   return entries.filter((entry) => {
     if (entry.path === selectedPath) return true
@@ -207,6 +237,7 @@ function visibleEntries(
 }
 
 /** One column of folder rows (the Miller view renders one or two of these). */
+/** 中文说明：函数 LevelColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPrefix, pathEditing }: {
   entries: readonly DirectoryEntry[]
   selectedPath: string | null
@@ -216,10 +247,12 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
   filterPrefix: string | null
   pathEditing: boolean
 }) {
+  /** 中文说明：组件局部值 visible，由紧邻初始化决定。 */
   const visible = visibleEntries(entries, selectedPath, showHidden, filterPrefix)
   return (
     <div className={css.column} role="list">
       {visible.map((entry) => {
+        /** 中文说明：组件局部值 selected，由紧邻初始化决定。 */
         const selected = entry.path === selectedPath
         return (
           // The wrapper carries the list semantics; the row keeps its NATIVE
@@ -259,44 +292,62 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
  * @param props - owner-controlled browser props.
  * @returns the dialog element (null while closed, via Modal).
  */
+/** 中文说明：函数 DirectoryBrowser 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen, onClose, busy, t }: DirectoryBrowserProps) {
   // Miller state: the listed level, the selected row in it, and the selected
   // folder's own listing (the right column; null while nothing is selected).
+  /** 中文说明：组件局部值 [parent, setParent]，由紧邻初始化决定。 */
   const [parent, setParent] = useState<DirectoryListing | null>(null)
+  /** 中文说明：组件局部值 [selected, setSelected]，由紧邻初始化决定。 */
   const [selected, setSelected] = useState<DirectoryEntry | null>(null)
+  /** 中文说明：组件局部值 [child, setChild]，由紧邻初始化决定。 */
   const [child, setChild] = useState<DirectoryListing | null>(null)
+  /** 中文说明：组件局部值 [loading, setLoading]，由紧邻初始化决定。 */
   const [loading, setLoading] = useState(false)
   // Derived from `loading` and `scanWindow` by the slow-scan effect below:
   // true only once the current listing call has been in flight for
   // SLOW_SCAN_DELAY_MS, so fast listings never render the indicator at all.
+  /** 中文说明：组件局部值 [slowScan, setSlowScan]，由紧邻初始化决定。 */
   const [slowScan, setSlowScan] = useState(false)
   // Every listing call owns a fresh silence window. `loading` may stay true
   // across a superseding row pick or across a navigation's target and parent
   // legs, so its boolean edge cannot identify the start of each scan.
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [scanWindow, setScanWindow] = useState(0)
+  /** 中文说明：组件局部值 [error, setError]，由紧邻初始化决定。 */
   const [error, setError] = useState<string | null>(null)
   // Path-edit state: null = breadcrumb mode; a string = the draft being typed.
+  /** 中文说明：组件局部值 [pathDraft, setPathDraft]，由紧邻初始化决定。 */
   const [pathDraft, setPathDraft] = useState<string | null>(null)
   // Show-hidden toggle state (pure client-side filter, reset on each open).
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [showHidden, setShowHidden] = useState(false)
   // Create-folder state: null = closed; a string = the nested dialog's draft.
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [folderDraft, setFolderDraft] = useState<string | null>(null)
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [creatingFolder, setCreatingFolder] = useState(false)
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [createError, setCreateError] = useState<string | null>(null)
+  /** 中文说明：组件局部值 requestSeq，由紧邻初始化决定。 */
   const requestSeq = useRef(0)
   // The in-flight listing's controller: superseding intent aborts the wire
   // request too — the Host stops scanning — instead of only discarding the
   // eventual result while the scan keeps consuming host resources.
+  /** 中文说明：组件局部值 scanController，由紧邻初始化决定。 */
   const scanController = useRef<AbortController | null>(null)
   // Bumped on every open/close edge: settlements from a previous open (a
   // pending creation included) must never mutate a reopened dialog.
+  /** 中文说明：组件局部值 openGeneration，由紧邻初始化决定。 */
   const openGeneration = useRef(0)
   // Deep ancestry overflows the trail; keep its tail (the current directory
   // and the edit zone beside it) in view whenever the chain changes.
+  /** 中文说明：组件局部值 crumbTrailRef，由紧邻初始化决定。 */
   const crumbTrailRef = useRef<HTMLSpanElement | null>(null)
   // IME confirmation (Enter selecting a candidate) must not submit either
   // text input; the same guard the workspace-name inputs carry, shared by
   // the path editor and the folder-name input.
+  /** 中文说明：组件局部值 composingRef，由紧邻初始化决定。 */
   const composingRef = useRef(false)
   // HMR/unmount invalidation: a completion from a disposed flow must not
   // update state or issue follow-up requests from a dead component.
@@ -305,12 +356,14 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
     openGeneration.current += 1
     scanController.current?.abort()
   }, [])
+  /** 中文说明：组件局部值 compositionGuard，由紧邻初始化决定。 */
   const compositionGuard = {
     onCompositionStart: () => { composingRef.current = true },
     onCompositionEnd: () => { composingRef.current = false },
   }
 
   /** Newer intent wins: invalidate the pending listing's settlement AND abort its wire request. */
+  /** 中文说明：组件局部值 supersede，由紧邻初始化决定。 */
   const supersede = useCallback((): number => {
     scanController.current?.abort()
     scanController.current = null
@@ -318,14 +371,18 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [])
 
   /** Hide any prior indicator and start a fresh silence window for one listing call. */
+  /** 中文说明：组件局部值 restartSlowScanWindow，由紧邻初始化决定。 */
   const restartSlowScanWindow = useCallback((): void => {
     setSlowScan(false)
     setScanWindow(value => value + 1)
   }, [])
 
   /** Launch one listing under a fresh controller so a later supersession can abort it. */
+  /** 中文说明：组件局部值 launchListing，由紧邻初始化决定。 */
   const launchListing = useCallback((path: string | undefined): { seq: number; scan: Promise<DirectoryListing> } => {
+    /** 中文说明：组件局部值 seq，由紧邻初始化决定。 */
     const seq = supersede()
+    /** 中文说明：组件局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     scanController.current = controller
     restartSlowScanWindow()
@@ -336,7 +393,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * Launch a follow-up listing under the CURRENT supersession seq: a newer
    * intent aborts it like the leg it continues, and it supersedes nothing.
    */
+  /** 中文说明：组件局部值 continueScan，由紧邻初始化决定。 */
   const continueScan = useCallback((path: string): Promise<DirectoryListing> => {
+    /** 中文说明：组件局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     scanController.current = controller
     restartSlowScanWindow()
@@ -350,10 +409,12 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * it set until the operator edits again, so the rejected path is not
    * immediately re-scanned as a preview.
    */
+  /** 中文说明：组件局部值 previewSuspended，由紧邻初始化决定。 */
   const previewSuspended = useRef(false)
 
   // The panes as the draft-following scan must read them when its wait
   // fires: current, but NOT a dependency of the wait (see the effect below).
+  /** 中文说明：组件局部值 viewRef，由紧邻初始化决定。 */
   const viewRef = useRef<{ parent: DirectoryListing | null; child: DirectoryListing | null }>({ parent: null, child: null })
   useEffect(() => { viewRef.current = { parent, child } }, [parent, child])
 
@@ -361,6 +422,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   // level still answers the text that produced it after the host respelled
   // it. Stale entries are harmless: a match needs both the directory text and
   // that level's own path, which together already mean the same directory.
+  /** 中文说明：组件局部值 scanned，由紧邻初始化决定。 */
   const scanned = useRef<ScannedDirectory | null>(null)
 
   /**
@@ -368,6 +430,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * onto, so the focus it drops is re-parked on the still-open editor (the
    * Modal has no focus trap). Consumed by the refocus effect below.
    */
+  /** 中文说明：组件局部值 refocusPathInput，由紧邻初始化决定。 */
   const refocusPathInput = useRef(false)
 
   /**
@@ -399,12 +462,15 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * bounds the wait for the parent leg; `announce` surfaces a failure as the
    * dialog's alert.
    */
+  /** 中文说明：组件局部值 land，由紧邻初始化决定。 */
   const land = useCallback((path: string | undefined, options: { closeEditor: boolean; announce: boolean }) => {
+    /** 中文说明：组件局部值 { seq, scan }，由紧邻初始化决定。 */
     const { seq, scan } = launchListing(path)
     setLoading(true)
     if (options.announce) setError(null)
     // What every landing does once its panes are committed, whichever shape
     // committed them.
+    /** 中文说明：组件局部值 settle，由紧邻初始化决定。 */
     const settle = (): void => {
       setLoading(false)
       if (options.closeEditor) {
@@ -423,7 +489,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       if (!options.closeEditor && path !== undefined) scanned.current = { directory: path, landed: target.path }
       // The single-pane landing; `landed` makes it first-commit-only, while
       // the two-pane commit below may still upgrade an already-landed view.
+      /** 中文说明：组件局部值 landed，由紧邻初始化决定。 */
       let landed = false
+      /** 中文说明：组件局部值 landSingle，由紧邻初始化决定。 */
       const landSingle = (): void => {
         if (landed || seq !== requestSeq.current) return
         landed = true
@@ -434,6 +502,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       }
       // Arity is label-independent: only the collapsed chain's depth decides.
       if (displayCrumbs(target, '').length < 2) { landSingle(); return }
+      /** 中文说明：组件局部值 parentCrumb，由紧邻初始化决定。 */
       const parentCrumb = target.crumbs.at(-2)
       /* v8 ignore next -- narrowing: a two-deep display chain implies a parent crumb (root-to-target inclusive). */
       if (parentCrumb === undefined) { landSingle(); return }
@@ -441,8 +510,11 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         if (seq !== requestSeq.current) return
         // Windows resolves a typed path preserving its case; anchor on the
         // parent level's actual entry so selection comparisons hold.
+        /** 中文说明：组件局部值 sep，由紧邻初始化决定。 */
         const sep = separatorOf(parentLevel)
+        /** 中文说明：组件局部值 fold，由紧邻初始化决定。 */
         const fold = (value: string): string => (sep === '\\' ? value.toLowerCase() : value)
+        /** 中文说明：组件局部值 match，由紧邻初始化决定。 */
         const match = parentLevel.entries.find(entry => fold(entry.path) === fold(target.path))
         if (match === undefined) { landSingle(); return }
         landed = true
@@ -470,6 +542,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [launchListing, continueScan])
 
   /** Commit a submitted path (Enter, a crumb, the initial home listing): the editor closes, failures surface. */
+  /** 中文说明：组件局部值 navigate，由紧邻初始化决定。 */
   const navigate = useCallback((path?: string) => {
     land(path, { closeEditor: true, announce: true })
   }, [land])
@@ -479,9 +552,13 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   // input-focused Escape park on the crumb edit zone that replaces the
   // input. Pointer-out cancels never set (or clear) these — yanking focus
   // back from wherever the user clicked would be worse than the fall.
+  /** 中文说明：组件局部值 refocusPick，由紧邻初始化决定。 */
   const refocusPick = useRef(false)
+  /** 中文说明：组件局部值 refocusEditZone，由紧邻初始化决定。 */
   const refocusEditZone = useRef(false)
+  /** 中文说明：组件局部值 pathInputRef，由紧邻初始化决定。 */
   const pathInputRef = useRef<HTMLInputElement | null>(null)
+  /** 中文说明：组件局部值 editZoneRef，由紧邻初始化决定。 */
   const editZoneRef = useRef<HTMLButtonElement | null>(null)
 
   /**
@@ -493,7 +570,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * rule governs whole-view replacement, where nothing acknowledges the
    * click but the swap itself.
    */
+  /** 中文说明：组件局部值 select，由紧邻初始化决定。 */
   const select = useCallback((entry: DirectoryEntry) => {
+    /** 中文说明：组件局部值 { seq, scan }，由紧邻初始化决定。 */
     const { seq, scan } = launchListing(entry.path)
     // A pick while the path editor is open adopts the (filtered) row and
     // closes the editor — the draft served its purpose. Focus re-parks on
@@ -529,11 +608,13 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * exactly as a crumb jump does, and the draft's final segment
    * prefix-filters the arrival from the next render on.
    */
+  /** 中文说明：组件局部值 previewDraftLevel，由紧邻初始化决定。 */
   const previewDraftLevel = useCallback((directory: string) => {
     land(directory, { closeEditor: false, announce: false })
   }, [land])
 
   /** Abandon path editing (Escape or clicking away) and restore the crumb view. */
+  /** 中文说明：组件局部值 cancelPathEdit，由紧邻初始化决定。 */
   const cancelPathEdit = useCallback(() => {
     // Cancel also withdraws a navigation the editor already launched: its
     // late success must not jump to the cancelled path, so the pending
@@ -553,6 +634,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [supersede, child, parent, navigate])
 
   /** A right-column pick advances the view one level: child becomes the level. */
+  /** 中文说明：组件局部值 advance，由紧邻初始化决定。 */
   const advance = useCallback((entry: DirectoryEntry) => {
     /* v8 ignore next -- narrowing guard: the right column only renders with a child listing. */
     if (child === null) return
@@ -590,20 +672,25 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [open, navigate, supersede])
 
   /** The folder a create or Open acts on: the selection, else the listed level. */
+  /** 中文说明：组件局部值 targetPath，由紧邻初始化决定。 */
   const targetPath = selected?.path ?? parent?.path ?? null
+  /** 中文说明：组件局部值 targetName，由紧邻初始化决定。 */
   const targetName = selected?.name
     ?? (parent === null ? '' : (displayCrumbs(parent, t('browser.home')).at(-1)?.name ?? parent.path))
 
+  /** 中文说明：组件局部值 confirmCreate，由紧邻初始化决定。 */
   const confirmCreate = (): void => {
     /* v8 ignore next -- reentry fence: the nested dialog only renders with a target and disables while creating. */
     if (targetPath === null || folderDraft === null || creatingFolder) return
     // Trim only rejects an all-whitespace draft; the Host gets the original
     // spelling — the backend accepts any non-blank single segment verbatim,
     // and trimming here would create (and select) a different sibling.
+    /** 中文说明：组件局部值 name，由紧邻初始化决定。 */
     const name = folderDraft
     if (name.trim() === '') return
     setCreatingFolder(true)
     setCreateError(null)
+    /** 中文说明：组件局部值 generation，由紧邻初始化决定。 */
     const generation = openGeneration.current
     createDirectory(targetPath, name).then((createdPath) => {
       // A settlement from a closed (possibly reopened) flow must not touch
@@ -613,6 +700,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       setFolderDraft(null)
       // Land like a right-column pick (figma 802:57446 → 813:23278 flow): the
       // create target becomes the listed level and the new folder its selection.
+      /** 中文说明：组件局部值 { seq, scan }，由紧邻初始化决定。 */
       const { seq, scan } = launchListing(targetPath)
       setLoading(true)
       // Symmetric with navigate/select: a launched scan clears the stale
@@ -647,6 +735,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       setSlowScan(false)
       return
     }
+    /** 中文说明：组件局部值 timer，由紧邻初始化决定。 */
     const timer = window.setTimeout(() => { setSlowScan(true) }, SLOW_SCAN_DELAY_MS)
     return () => { window.clearTimeout(timer) }
   }, [loading, scanWindow])
@@ -662,12 +751,15 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   // forever.
   useEffect(() => {
     if (pathDraft === null) return
+    /** 中文说明：组件局部值 timer，由紧邻初始化决定。 */
     const timer = window.setTimeout(() => {
       if (previewSuspended.current) return
       // The level the panes present as current: it alone may answer the
       // draft, so anything else it names is a level to walk to.
+      /** 中文说明：组件局部值 current，由紧邻初始化决定。 */
       const current = viewRef.current.child ?? viewRef.current.parent
       if (current === null) return
+      /** 中文说明：组件局部值 { directory, tail }，由紧邻初始化决定。 */
       const { directory, tail } = readDraft(current, pathDraft, scanned.current)
       if (directory === null || tail !== null) return
       previewDraftLevel(directory)
@@ -676,27 +768,35 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [pathDraft, previewDraftLevel])
 
   // After the hooks: a closed dialog renders nothing and evaluates no copy.
+  /** 中文说明：组件局部值 crumbSource，由紧邻初始化决定。 */
   const crumbSource = child ?? parent
   // The draft's tail filters the level it names, which by the pane invariant
   // is the LAST pane — never a pane the draft has already walked away from.
   // Narrowing that stale pane would move the view twice for one keystroke:
   // once as it narrows, again as its landing replaces it. It holds still
   // instead, and the filter arrives with the level it belongs to.
+  /** 中文说明：组件局部值 typedPrefix，由紧邻初始化决定。 */
   const typedPrefix = crumbSource === null || pathDraft === null
     ? null
     : readDraft(crumbSource, pathDraft, scanned.current).tail
+  /** 中文说明：组件局部值 crumbs，由紧邻初始化决定。 */
   const crumbs = crumbSource === null ? [] : displayCrumbs(crumbSource, t('browser.home'))
+  /** 中文说明：组件局部值 crumbTail，由紧邻初始化决定。 */
   const crumbTail = crumbs.at(-1)?.path
   useEffect(() => {
+    /** 中文说明：组件局部值 trail，由紧邻初始化决定。 */
     const trail = crumbTrailRef.current
     if (trail !== null) trail.scrollLeft = trail.scrollWidth
   }, [crumbTail])
   // On viewports too narrow for both fixed panes the Miller row scrolls;
   // whenever a child preview lands, pin it into view the way the crumb tail
   // pins — otherwise descent is unreachable on a phone-width window.
+  /** 中文说明：组件局部值 millerRowRef，由紧邻初始化决定。 */
   const millerRowRef = useRef<HTMLDivElement | null>(null)
+  /** 中文说明：组件局部值 childPath，由紧邻初始化决定。 */
   const childPath = child?.path
   useEffect(() => {
+    /** 中文说明：组件局部值 row，由紧邻初始化决定。 */
     const row = millerRowRef.current
     if (row !== null && childPath !== undefined) row.scrollLeft = row.scrollWidth
   }, [childPath])
@@ -717,9 +817,11 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
     if (refocusPick.current) {
       refocusPick.current = false
       refocusEditZone.current = false
+      /** 中文说明：组件局部值 rowHost，由紧邻初始化决定。 */
       const rowHost = millerRowRef.current
       /* v8 ignore next -- narrowing guard: the miller row is mounted whenever a pick just committed. */
       if (rowHost === null) return
+      /** 中文说明：组件局部值 row，由紧邻初始化决定。 */
       const row = rowHost.querySelector<HTMLButtonElement>('button[aria-current="true"]')
       /* v8 ignore next -- narrowing guard: the pick that set the flag just rendered its aria-current row. */
       if (row === null) return
@@ -731,6 +833,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       // Re-park only when the close actually dropped focus to body; focus
       // the user parked elsewhere (a surviving row) stays theirs.
       if (document.activeElement !== document.body) return
+      /** 中文说明：组件局部值 zone，由紧邻初始化决定。 */
       const zone = editZoneRef.current
       /* v8 ignore next -- narrowing guard: crumb mode renders the edit zone whenever the editor just closed. */
       if (zone === null) return
@@ -739,14 +842,17 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   })
 
   if (!open) return null
+  /** 中文说明：组件局部值 twoPane，由紧邻初始化决定。 */
   const twoPane = selected !== null
   // The nested create dialog owns the interaction while open: Modal has no
   // focus trap, so every parent control goes inert (Shift-Tab or AT must not
   // close, adopt, or retarget underneath the child).
+  /** 中文说明：组件局部值 parentInert，由紧邻初始化决定。 */
   const parentInert = busy || folderDraft !== null
   // An uncommitted path draft makes targetPath stale relative to the header:
   // committing actions must not act on the previous selection/listing while
   // a different path is displayed.
+  /** 中文说明：组件局部值 draftPending，由紧邻初始化决定。 */
   const draftPending = pathDraft !== null
 
   return (
@@ -794,6 +900,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         onBlur={(event) => {
           if (pathDraft === null) return
           if (!document.hasFocus()) return
+          /** 中文说明：组件局部值 card，由紧邻初始化决定。 */
           const card = event.currentTarget.closest('[role="dialog"]')
           /* v8 ignore next -- narrowing guard: this scope always renders inside the Modal card. */
           if (card === null) return
@@ -857,7 +964,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                         setPathDraft('')
                         return
                       }
+                      /** 中文说明：组件局部值 base，由紧邻初始化决定。 */
                       const base = selected?.path ?? parent.path
+                      /** 中文说明：组件局部值 sep，由紧邻初始化决定。 */
                       const sep = separatorOf(parent)
                       setPathDraft(base.endsWith(sep) ? base : `${base}${sep}`)
                     }}

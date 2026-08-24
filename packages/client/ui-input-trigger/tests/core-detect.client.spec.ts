@@ -3,15 +3,27 @@
 // another '/' (second slash of '//') or a ':' itself preceded by a
 // non-whitespace char (scheme separator) — this is the concrete rule chosen
 // to honor "no trigger inside URLs".
+/**
+ * 文件职责：验证输入触发菜单的 core-detect.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
+ * 产品维度：防止输入触发菜单用户流程回归。
+ * 逻辑维度：构造状态，触发行为并断言结果和清理。
+ * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { detectTrigger } from '../src/core/detect.ts'
 import type { TriggerGuard } from '../src/types.ts'
 
+/** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
 const plain: TriggerGuard = { tier: 'plain' }
+/** 中文说明：测试局部值 claimed，由紧邻初始化决定。 */
 const claimed: TriggerGuard = { tier: 'claimed' }
+/** 中文说明：测试局部值 frozen，由紧邻初始化决定。 */
 const frozen: TriggerGuard = { tier: 'frozen' }
 
 /** Hit at the end of the draft under the plain tier. */
+/** 中文说明：测试局部值 atEnd，由紧邻初始化决定。 */
 const atEnd = (draft: string, guard: TriggerGuard = plain) => detectTrigger(draft, draft.length, guard)
 
 describe('detectTrigger word boundaries', () => {
@@ -92,6 +104,7 @@ describe('detectTrigger guard tiers', () => {
 
 describe('detectTrigger span and query', () => {
   it('keeps an open quoted @file token active across spaces', () => {
+    /** 中文说明：测试局部值 draft，由紧邻初始化决定。 */
     const draft = 'read @"docs/design notes'
     expect(atEnd(draft)).toMatchObject({
       trigger: '@',
@@ -103,12 +116,14 @@ describe('detectTrigger span and query', () => {
   })
 
   it('spans trigger char to caret with a placeholder draftRev', () => {
+    /** 中文说明：测试局部值 hit，由紧邻初始化决定。 */
     const hit = detectTrigger('say /goal', 9, plain)
     expect(hit?.span).toEqual({ start: 4, end: 9, draftRev: 0 })
     expect(hit?.query).toBe('goal')
   })
 
   it('cuts the query at a mid-token caret', () => {
+    /** 中文说明：测试局部值 hit，由紧邻初始化决定。 */
     const hit = detectTrigger('/goal', 3, plain)
     expect(hit).toMatchObject({ query: 'go', span: { start: 0, end: 3 } })
   })
@@ -119,7 +134,9 @@ describe('detectTrigger span and query', () => {
   })
 
   it('handles multi-line drafts with the token on a later line', () => {
+    /** 中文说明：测试局部值 draft，由紧邻初始化决定。 */
     const draft = 'first line\nsecond /com'
+    /** 中文说明：测试局部值 hit，由紧邻初始化决定。 */
     const hit = detectTrigger(draft, draft.length, plain)
     expect(hit).toMatchObject({ trigger: '/', query: 'com', position: 'inline', span: { start: 18, end: 22 } })
   })

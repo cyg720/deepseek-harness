@@ -2,6 +2,14 @@
 // ConversationRoot skeleton behavior: the ONE resident composer across the
 // hero (blank session) and active phases — same textarea DOM node, machine-
 // owned draft, and the hero workspace picker (switching = retargetWorkspace).
+/**
+ * 文件职责：验证会话输入的 skeleton.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
+ * 产品维度：防止会话输入用户流程回归。
+ * 逻辑维度：构造状态，触发行为并断言结果和清理。
+ * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
@@ -32,13 +40,17 @@ import type {
 import type { ViewTab } from '../src/client/contract/views.ts'
 
 /** Machine-backed wiring over a sink spy. */
+/** 中文说明：函数 fakeWiring 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeWiring() {
+  /** 中文说明：测试局部值 sink，由紧邻初始化决定。 */
   const sink = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
+  /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
   const shell = new SessionInputShell({ actx: {} as ClientContext, defaultSink: sink, commandImages: { serialize: () => Promise.resolve([]), release: () => {}, unsupportedNotice: (token: string) => `${token.trim()} images-unsupported` } })
   return { wiring: shell, sink, shell }
 }
 
 /** jsdom has no ResizeObserver; the composer seat publishes its height through one. */
+/** 中文说明：类型或类 ResizeObserverStub 约束本文件数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -55,12 +67,17 @@ beforeEach(() => {
 })
 
 // Mirrors the real lookup chain (conversation namespace, then common).
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: ConversationRootProps['t'] = makeTranslate(zh, commonZh)
 
+/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (id: string) => id as SessionId
+/** 中文说明：测试局部值 wid，由紧邻初始化决定。 */
 const wid = (id: string) => id as WorkspaceId
+/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = sid('s1')
 
+/** 中文说明：函数 workspace 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function workspace(id = 'w1'): WorkspaceView {
   return {
     workspaceId: wid(id), path: `/projects/${id}`, title: id, sessionIds: [],
@@ -68,11 +85,13 @@ function workspace(id = 'w1'): WorkspaceView {
   }
 }
 
+/** 中文说明：测试局部值 workspaceState，由紧邻初始化决定。 */
 const workspaceState = (items: readonly WorkspaceView[]): WorkspaceListState => ({
   items, archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
   baselinesReady: true, recentWorkspaceId: undefined,
 })
 
+/** 中文说明：函数 conversationSnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function conversationSnapshot(overrides: Partial<ConversationSnapshot> = {}): ConversationSnapshot {
   return {
     sessionId: SID, views: EMPTY_CONVERSATION_VIEWS, chat: EMPTY_CHAT_SNAPSHOT,
@@ -84,6 +103,7 @@ function conversationSnapshot(overrides: Partial<ConversationSnapshot> = {}): Co
   }
 }
 
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mount(
   snapshot: ConversationSnapshot,
   workspaceRows: WorkspaceView[] = [{ ...workspace('one'), sessionIds: [SID] }],
@@ -105,19 +125,26 @@ function mount(
     viewTabs?: ViewTab[]
   } = {},
 ) {
+  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = sid('root')
+  /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
   const parent = sid('parent')
+  /** 中文说明：测试局部值 rootRow，由紧邻初始化决定。 */
   const rootRow = { id: root, displayTitle: 'Root', running: false, blank: false, updatedAt: 1 }
+  /** 中文说明：测试局部值 parentRow，由紧邻初始化决定。 */
   const parentRow = {
     id: parent, displayTitle: 'Parent', parentId: root, origin: 'subagent' as const,
     running: false, blank: false, updatedAt: 2,
   }
+  /** 中文说明：测试局部值 childRow，由紧邻初始化决定。 */
   const childRow = {
     id: SID, displayTitle: 'Child', parentId: options.nestedSubagent === true ? parent : root,
     cwd: '/projects/one', running: false, blank: options.summaryBlank ?? false, updatedAt: 3,
     ...(options.summaryOrigin === undefined ? {} : { origin: options.summaryOrigin }),
   }
+  /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
   const listed = options.omitSummaryRow !== true
+  /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
   const sessions = createSnapshotStore<SessionListState>({
     ids: listed
       ? [root, ...options.nestedSubagent === true ? [parent] : [], SID]
@@ -130,30 +157,46 @@ function mount(
     current: SID,
     phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined,
   })
+  /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
   const workspaces = createSnapshotStore<WorkspaceListState>(workspaceState(workspaceRows))
+  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = createSnapshotStore<ConversationSnapshot>(snapshot)
+  /** 中文说明：测试局部值 useSession，由紧邻初始化决定。 */
   const useSession = bindSnapshotSelector(session)
+  /** 中文说明：测试局部值 chat，由紧邻初始化决定。 */
   const chat = createChatStore().create()
   chat.actions.setDraft('ordinary draft')
+  /** 中文说明：测试局部值 { wiring, sink }，由紧邻初始化决定。 */
   const { wiring, sink } = fakeWiring()
+  /** 中文说明：测试局部值 useInput，由紧邻初始化决定。 */
   const useInput = bindSnapshotSelector(wiring.state)
+  /** 中文说明：测试局部值 inputActions，由紧邻初始化决定。 */
   const inputActions = wiring.actions
+  /** 中文说明：测试局部值 stop，由紧邻初始化决定。 */
   const stop = vi.fn()
+  /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
   const open = vi.fn()
+  /** 中文说明：测试局部值 slotCalls，由紧邻初始化决定。 */
   const slotCalls: string[] = []
+  /** 中文说明：测试局部值 lineageOwners，由紧邻初始化决定。 */
   const lineageOwners: ConversationHeaderLineageOwnerProps[] = []
+  /** 中文说明：测试局部值 viewTabs，由紧邻初始化决定。 */
   const viewTabs = options.viewTabs ?? [
     { id: 'chat', label: 'Chat' },
     { id: 'trajectory', label: 'Trajectory' },
   ]
+  /** 中文说明：测试局部值 views，由紧邻初始化决定。 */
   const views = {
     list: () => viewTabs,
     subscribe: () => () => {},
     version: () => 1,
   }
   /** Owner share handed to the two composer tool-row seats, per render. */
+  /** 中文说明：测试局部值 seatOwners，由紧邻初始化决定。 */
   const seatOwners: { key: string; owner: unknown }[] = []
+  /** 中文说明：测试局部值 pickerOwner: unknown，由紧邻初始化决定。 */
   let pickerOwner: unknown
+  /** 中文说明：测试局部值 renderSlot，由紧邻初始化决定。 */
   const renderSlot = ((key: string, owner: object, opts?: { only?: string; fallback?: ReactNode }) => {
     slotCalls.push(key)
     if (key === 'conversation.input.model' || key === 'conversation.input.plan') {
@@ -207,6 +250,7 @@ function mount(
     if (key === 'conversation.composer.bar') {
       // The real entry, mounted the way the outlet composes it: standard kit
       // (shared with the root's props below) + this entry's inject + owner.
+      /** 中文说明：测试局部值 bar，由紧邻初始化决定。 */
       const bar = owner as ComposerBarOwnerProps
       return (
         <InputBar
@@ -242,6 +286,7 @@ function mount(
     }
     return <div data-testid={`view-${opts?.only ?? key}`} />
   }) as ConversationRootProps['renderSlot']
+  /** 中文说明：测试局部值 renderSlotChain，由紧邻初始化决定。 */
   const renderSlotChain = ((_key, _owner, opts) => (
     options.overlayTakeover === true
       ? (
@@ -254,6 +299,7 @@ function mount(
       )
       : (opts?.fallback ?? null)
   )) as ConversationRootProps['renderSlotChain']
+  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props: ConversationRootProps = {
     sessionId: SID,
     SessionProvider: ({ children }) => children(SID),
@@ -269,6 +315,7 @@ function mount(
     selectWorkspace: retargetWorkspace,
     t,
   }
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<ConversationRoot {...props} />)
   return {
     view, chat, sink, retargetWorkspace, session, slotCalls, lineageOwners, seatOwners, open,
@@ -279,12 +326,15 @@ function mount(
 
 describe('Hero chrome', () => {
   it('renders the English preview badge through the hero locale seat', () => {
+    /** 中文说明：测试局部值 renderSlot，由紧邻初始化决定。 */
     const renderSlot = vi.fn<HeroShellProps['renderSlot']>(() => null)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)
     expect(view.getByText('Into the Unknown')).toBeTruthy()
     expect(view.getByText('Preview')).toBeTruthy()
     expect(renderSlot).toHaveBeenCalledOnce()
     expect(renderSlot.mock.calls[0]?.[0]).toBe('conversation.hero.brand.mark')
+    /** 中文说明：测试局部值 brandMarkOwner，由紧邻初始化决定。 */
     const brandMarkOwner = renderSlot.mock.calls[0]?.[1]
     if (brandMarkOwner === undefined || !('size' in brandMarkOwner) || !('className' in brandMarkOwner)) {
       throw new Error('hero brand-mark owner must provide size and className')
@@ -297,9 +347,11 @@ describe('Hero chrome', () => {
 
 describe('ConversationRoot resident composer', () => {
   it('renders the composer inert with the blocker\u2019s own reason', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot(), undefined, undefined, {
       composerBlock: { reason: 'select a model first' },
     })
+    /** 中文说明：测试局部值 box，由紧邻初始化决定。 */
     const box = b.view.getByRole('textbox') as HTMLTextAreaElement
     // One disabled textarea with the blocker's placeholder, never a second
     // tree: the DOM survives the block being raised and cleared.
@@ -311,6 +363,7 @@ describe('ConversationRoot resident composer', () => {
     // The model seat stays live. Locking it too would leave the composer
     // asking for the one thing it prevents — every block this contract has is
     // cleared by choosing a model.
+    /** 中文说明：测试局部值 seat，由紧邻初始化决定。 */
     const seat = (key: string) => b.seatOwners.filter(call => call.key === key).at(-1)?.owner
     expect(seat('conversation.input.model')).toEqual({ locked: false })
     expect(seat('conversation.input.plan')).toEqual({ locked: true })
@@ -319,21 +372,26 @@ describe('ConversationRoot resident composer', () => {
   it('lets the no-workspace posture win over a block', () => {
     // Picking a workspace is the earlier prerequisite; naming a model first
     // would send the user somewhere they cannot act yet.
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot({ composerPhase: 'blank' }), [], undefined, {
       summaryBlank: true,
       composerBlock: { reason: 'select a model first' },
     })
+    /** 中文说明：测试局部值 box，由紧邻初始化决定。 */
     const box = b.view.getByRole('textbox') as HTMLTextAreaElement
     expect(box.disabled).toBe(false)
     expect(box.readOnly).toBe(true)
     expect(box.getAttribute('aria-haspopup')).toBe('menu')
     expect(box.placeholder).not.toBe('select a model first')
+    /** 中文说明：测试局部值 modelSeat，由紧邻初始化决定。 */
     const modelSeat = b.seatOwners.filter(call => call.key === 'conversation.input.model').at(-1)?.owner
     expect(modelSeat).toEqual({ locked: true })
   })
 
   it('keeps composer text in the machine, mirrors to the chat store, and submits through the sink', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot())
+    /** 中文说明：测试局部值 box，由紧邻初始化决定。 */
     const box = b.view.getByRole('textbox')
     expect((box as HTMLTextAreaElement).value).toBe('ordinary draft')
     fireEvent.change(box, { target: { value: 'ordinary revised' } })
@@ -345,7 +403,9 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('shows hierarchy only for subagents and opens their ordinary owner', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot(), undefined, undefined, { summaryOrigin: 'subagent' })
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = b.view.getByRole('button', { name: 'Root' })
     expect((b.view.getByRole('button', { name: 'Child' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(root)
@@ -353,6 +413,7 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('keeps intermediate subagent breadcrumbs at the compact title size', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot(), undefined, undefined, {
       summaryOrigin: 'subagent',
       nestedSubagent: true,
@@ -369,10 +430,15 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('active phase: fixed header outside the scrollport; sticky composer seat inside it', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot())
+    /** 中文说明：测试局部值 host，由紧邻初始化决定。 */
     const host = b.view.container.querySelector('[data-conversation-scroll]')
+    /** 中文说明：测试局部值 seat，由紧邻初始化决定。 */
     const seat = b.view.container.querySelector('[data-composer-seat]')
+    /** 中文说明：测试局部值 header，由紧邻初始化决定。 */
     const header = b.view.container.querySelector('header')
+    /** 中文说明：测试局部值 textarea，由紧邻初始化决定。 */
     const textarea = b.view.container.querySelector('textarea')
     expect(host).not.toBeNull()
     expect(seat).not.toBeNull()
@@ -387,15 +453,20 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('sticky composer seat wraps the whole overlay chain, not only the fallback stack', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot(), undefined, undefined, { overlayTakeover: true })
+    /** 中文说明：测试局部值 seat，由紧邻初始化决定。 */
     const seat = b.view.container.querySelector('[data-composer-seat]')
+    /** 中文说明：测试局部值 takeover，由紧邻初始化决定。 */
     const takeover = b.view.getByTestId('composer-takeover')
+    /** 中文说明：测试局部值 fallback，由紧邻初始化决定。 */
     const fallback = b.view.container.querySelector('[data-chain-overlay-fallback="conversation.composer"]')
     expect(seat?.contains(takeover)).toBe(true)
     expect(seat?.contains(fallback)).toBe(true)
   })
 
   it('hero phase: same textarea, hero chrome, no header, picker switches the workspace', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(
       conversationSnapshot({ composerPhase: 'blank', blank: true }),
       [
@@ -405,7 +476,9 @@ describe('ConversationRoot resident composer', () => {
     )
     // Hero chrome present, view ring absent; scroll host already wraps the
     // resident composer so the blank → active flip does not remount it.
+    /** 中文说明：测试局部值 host，由紧邻初始化决定。 */
     const host = b.view.container.querySelector('[data-conversation-scroll]')
+    /** 中文说明：测试局部值 header，由紧邻初始化决定。 */
     const header = b.view.container.querySelector('header')
     expect(host).not.toBeNull()
     expect(header?.getAttribute('aria-hidden')).toBe('true')
@@ -415,6 +488,7 @@ describe('ConversationRoot resident composer', () => {
     // The same machine-backed textarea is live in the hero, and the
     // persistence mirror stays bound (ConversationSession mounts chrome-hidden
     // for blank sessions): hero typing reaches the chat store.
+    /** 中文说明：测试局部值 box，由紧邻初始化决定。 */
     const box = b.view.getByRole('textbox')
     expect(host?.contains(box)).toBe(true)
     fireEvent.change(box, { target: { value: 'draft in hero' } })
@@ -422,6 +496,7 @@ describe('ConversationRoot resident composer', () => {
     // Picker: open through the chip; a pick switches to the other
     // workspace's blank session (draft carry is apply-layer wiring).
     fireEvent.click(b.view.getByRole('button', { name: '选择工作区' }))
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = b.pickerOwner() as { open: boolean; onPick(id: WorkspaceId): void }
     expect(owner.open).toBe(true)
     act(() => { owner.onPick(wid('second')) })
@@ -430,24 +505,29 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('settling phase: a summary that does not prove the session blank hides the composer while it opens', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot({ composerPhase: 'blank', blank: true, openState: 'loading' }))
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = b.view.container.querySelector('[data-phase]')
     expect(root?.getAttribute('data-phase')).toBe('settling')
     expect(b.view.queryByText('探索未至之境')).toBeNull()
   })
 
   it('settling phase: a session the list has no row for settles conservatively', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(
       conversationSnapshot({ composerPhase: 'blank', blank: true, openState: 'loading' }),
       undefined,
       undefined,
       { omitSummaryRow: true },
     )
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = b.view.container.querySelector('[data-phase]')
     expect(root?.getAttribute('data-phase')).toBe('settling')
   })
 
   it('startup auto-selection: a summary-proven blank session opens straight into the hero', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(
       conversationSnapshot({ composerPhase: 'blank', blank: true, openState: 'loading' }),
       undefined,
@@ -456,6 +536,7 @@ describe('ConversationRoot resident composer', () => {
     )
     // The summary already proves the outcome, so the settling hide would only
     // blank the column for the history round-trip.
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = b.view.container.querySelector('[data-phase]')
     expect(root?.getAttribute('data-phase')).toBe('hero')
     expect(b.view.getByText('探索未至之境')).toBeTruthy()
@@ -463,7 +544,9 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('same textarea DOM node survives the hero → active flip into the sticky scrollport', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot({ composerPhase: 'blank', blank: true }))
+    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = b.view.getByRole('textbox')
     fireEvent.change(before, { target: { value: 'kept across flip' } })
     // First message landed: content exists, phase leaves blank. Composer
@@ -471,6 +554,7 @@ describe('ConversationRoot resident composer', () => {
     // node and InputHub draft both survive.
     b.session.set(conversationSnapshot({ composerPhase: 'active', blank: false }))
     b.rerender()
+    /** 中文说明：测试局部值 after，由紧邻初始化决定。 */
     const after = b.view.getByRole('textbox') as HTMLTextAreaElement
     expect(after).toBe(before)
     expect(after.value).toBe('kept across flip')
@@ -481,6 +565,7 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('keeps pending takeover interaction accessible outside the Chat view', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot({ pending: [{} as never] }))
     act(() => { b.chat.actions.setView('trajectory') })
     expect(b.view.getByTestId('view-trajectory')).toBeTruthy()
@@ -488,10 +573,12 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('keeps the Chat fallback selected by id when a view is inserted before it', () => {
+    /** 中文说明：测试局部值 viewTabs，由紧邻初始化决定。 */
     const viewTabs: ViewTab[] = [
       { id: 'chat', label: 'Chat' },
       { id: 'trajectory', label: 'Trajectory' },
     ]
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot(), undefined, undefined, { viewTabs })
     // A removed dynamic view leaves its persisted id behind. The visible
     // fallback is Chat and must stay Chat when another lower-order view lands.
@@ -508,7 +595,9 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('rolls the pending workspace label back when switching fails', async () => {
+    /** 中文说明：测试局部值 selectWorkspace，由紧邻初始化决定。 */
     const selectWorkspace = vi.fn(async () => { throw new Error('connect failed') })
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(
       conversationSnapshot({ composerPhase: 'blank', blank: true }),
       [
@@ -518,6 +607,7 @@ describe('ConversationRoot resident composer', () => {
       selectWorkspace,
     )
     fireEvent.click(b.view.getByRole('button', { name: '选择工作区' }))
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = b.pickerOwner() as { onPick(id: WorkspaceId): void }
     await act(async () => { owner.onPick(wid('second')); await Promise.resolve() })
     expect(selectWorkspace).toHaveBeenCalledWith(wid('second'))
@@ -526,7 +616,9 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('blank session keeps the interactive picker chip (workspace switchable until the first message)', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot({ composerPhase: 'blank', blank: true }))
+    /** 中文说明：测试局部值 chip，由紧邻初始化决定。 */
     const chip = b.view.getByRole('button', { name: '选择工作区' })
     expect((chip as HTMLButtonElement).disabled).toBe(false)
     expect(b.slotCalls).toContain('conversation.hero.workspace')
@@ -536,6 +628,7 @@ describe('ConversationRoot resident composer', () => {
   })
 
   it('prompt failure renders the promptError strip (ordinary failure, no transaction UI)', () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount(conversationSnapshot({
       promptError: { op: 'send', error: { code: 'offline', message: 'Message send failed' } as never },
     }))

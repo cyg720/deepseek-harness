@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证会话输入的 safari.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
+ * 产品维度：防止会话输入用户流程回归。
+ * 逻辑维度：构造状态，触发行为并断言结果和清理。
+ * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { isSafariBrowser, repairSafariTextareaLayout } from '../src/client/skeleton/safari.ts'
@@ -54,6 +62,7 @@ describe('Safari browser detection', () => {
 
 describe('Safari textarea layout recovery', () => {
   it('does nothing while the textarea owns no scrollable overflow', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = document.createElement('textarea')
     Object.defineProperty(input, 'clientHeight', { value: 28 })
     Object.defineProperty(input, 'scrollHeight', { value: 28 })
@@ -64,7 +73,9 @@ describe('Safari textarea layout recovery', () => {
   })
 
   it('invalidates a stale native layout and restores the owned height', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = document.createElement('textarea')
+    /** 中文说明：测试局部值 scrollport，由紧邻初始化决定。 */
     const scrollport = document.createElement('div')
     scrollport.setAttribute('data-input-scroll', '')
     scrollport.appendChild(input)
@@ -72,9 +83,13 @@ describe('Safari textarea layout recovery', () => {
     input.setSelectionRange(3, 3)
     input.style.height = '100%'
     scrollport.style.height = '100%'
+    /** 中文说明：测试局部值 inputRepaired，由紧邻初始化决定。 */
     let inputRepaired = false
+    /** 中文说明：测试局部值 scrollportRepaired，由紧邻初始化决定。 */
     let scrollportRepaired = false
+    /** 中文说明：测试局部值 inputLayouts，由紧邻初始化决定。 */
     const inputLayouts: string[] = []
+    /** 中文说明：测试局部值 scrollportLayouts，由紧邻初始化决定。 */
     const scrollportLayouts: string[] = []
     Object.defineProperty(input, 'clientHeight', {
       get: () => input.style.height === '29px' ? 29 : 28,
@@ -116,6 +131,7 @@ describe('Safari textarea layout recovery', () => {
   })
 
   it('does nothing outside the composer scrollport', () => {
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = document.createElement('textarea')
     Object.defineProperty(input, 'clientHeight', { value: 28 })
     Object.defineProperty(input, 'scrollHeight', { value: 52 })

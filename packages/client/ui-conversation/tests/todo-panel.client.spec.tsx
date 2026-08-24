@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证会话输入的 todo-panel.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
+ * 产品维度：防止会话输入用户流程回归。
+ * 逻辑维度：构造状态，触发行为并断言结果和清理。
+ * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
+/**
  * Todo display acceptance: the TodoPanel plan strip (empty-hidden, status rows
  * including several `in_progress` at once, collapse), and its TodoDock
  * adapter (selects the plan off the session snapshot and follows changes).
@@ -16,10 +24,12 @@ import { TodoDock, TodoPanel, todoDockEntry } from '../src/client/skeleton/TodoP
 import { NS, zh } from '../src/client/locales.ts'
 
 // Mirrors the real lookup chain (conversation namespace, then common).
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: TodoDockProps['t'] = makeTranslate(zh, commonZh)
 
 afterEach(cleanup)
 
+/** 中文说明：测试局部值 LIST，由紧邻初始化决定。 */
 const LIST: TodoItem[] = [
   { content: '搭骨架', status: 'completed' },
   { content: '写组件', status: 'in_progress' },
@@ -27,6 +37,7 @@ const LIST: TodoItem[] = [
 ]
 
 /** A parallel plan: three tasks running at once (concurrent subagents). */
+/** 中文说明：测试局部值 PARALLEL，由紧邻初始化决定。 */
 const PARALLEL: TodoItem[] = [
   { content: '搭骨架', status: 'completed' },
   { content: '写组件', status: 'in_progress' },
@@ -37,6 +48,7 @@ const PARALLEL: TodoItem[] = [
 
 describe('TodoPanel', () => {
   it('renders nothing while the list is empty', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<TodoPanel todos={[]} t={t} />)
     expect(container.innerHTML).toBe('')
   })
@@ -62,6 +74,7 @@ describe('TodoPanel', () => {
   it('expands to show one row per item with its status glyph', () => {
     render(<TodoPanel todos={LIST} t={t} />)
     fireEvent.click(screen.getByRole('button', { expanded: false }))
+    /** 中文说明：测试局部值 items，由紧邻初始化决定。 */
     const items = screen.getAllByRole('listitem')
     expect(items.map(li => li.getAttribute('data-status'))).toEqual(['completed', 'in_progress', 'pending'])
     expect(screen.getByText('搭骨架')).toBeTruthy()
@@ -73,6 +86,7 @@ describe('TodoPanel', () => {
   it('collapse hides an expanded list; expand restores; header keeps the count summary', () => {
     render(<TodoPanel todos={LIST} t={t} />)
     fireEvent.click(screen.getByRole('button', { expanded: false }))
+    /** 中文说明：测试局部值 header，由紧邻初始化决定。 */
     const header = screen.getByRole('button', { expanded: true })
     fireEvent.click(header)
     expect(screen.queryByRole('list')).toBeNull()
@@ -88,6 +102,7 @@ describe('TodoPanel', () => {
     fireEvent.click(screen.getByRole('button', { expanded: false }))
     // An unconditional in-progress cap would make this list unreachable: three
     // items carry the in-progress glyph at once, and the header counts all three.
+    /** 中文说明：测试局部值 statuses，由紧邻初始化决定。 */
     const statuses = screen.getAllByRole('listitem').map(li => li.getAttribute('data-status'))
     expect(statuses.filter(s => s === 'in_progress')).toHaveLength(3)
     expect(screen.getByText('跑后台构建')).toBeTruthy()
@@ -105,7 +120,9 @@ describe('TodoPanel', () => {
 })
 
 /** Dock props stub: the adapter reads the 'todos' projection only; the rest of the owner share is unused. */
+/** 中文说明：函数 dockProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function dockProps(store: ReturnType<typeof createSnapshotStore<{ value: readonly TodoItem[] | null | undefined }>>): TodoDockProps {
+  /** 中文说明：测试局部值 useProjection，由紧邻初始化决定。 */
   const useProjection = (_key: string, selector?: (v: unknown) => unknown) =>
     bindSnapshotSelector(store)(s => (selector ?? (v => v))(s.value))
   return { useProjection, t } as unknown as TodoDockProps
@@ -113,6 +130,7 @@ function dockProps(store: ReturnType<typeof createSnapshotStore<{ value: readonl
 
 describe('TodoDock', () => {
   it('reads the host-computed todos projection and follows pushed updates', () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = createSnapshotStore<{ value: readonly TodoItem[] | null | undefined }>({ value: undefined })
     render(<TodoDock {...dockProps(store)} />)
     // Capability absent (no baseline/frame yet) renders nothing.
@@ -127,7 +145,9 @@ describe('TodoDock', () => {
   it('registers before the goal and queue entries', () => {
     expect(todoDockEntry.name).toBe('conversation-todo-dock')
     expect(todoDockEntry.inject).toEqual(['slots'])
+    /** 中文说明：测试局部值 register，由紧邻初始化决定。 */
     const register = vi.fn(() => () => undefined)
+    /** 中文说明：测试局部值 inject，由紧邻初始化决定。 */
     const inject = vi.fn((_name: string, callback: () => () => void) => callback())
     todoDockEntry.apply({ slots: { inject, register } } as never)
     expect(inject).toHaveBeenCalledWith('conversation.input.dock', expect.any(Function))
