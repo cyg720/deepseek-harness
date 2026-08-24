@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证代理预设界面的 components 行为与边界。
+ * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
+ * 产品维度：防止用户可见行为在重构或扩展后发生回归。
+ * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
+ * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
+ * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
+ */
+/**
  * The three conversation-adjacent surfaces: the General-settings row naming the
  * default for later sessions, the new-session chip naming the next one's, and
  * the session header's read-only label. The split is the host's rule — a
@@ -23,6 +31,7 @@ import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
+/** 中文说明：测试场景的局部值 ROW_READY，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const ROW_READY: AgentPresetSettingsState = {
   status: 'ready',
   error: null,
@@ -33,6 +42,7 @@ const ROW_READY: AgentPresetSettingsState = {
   options: [{ id: 'standard', trust: 'system', name: '标准模式' }, { id: 'mine', trust: 'user' }],
 }
 
+/** 中文说明：测试场景的局部值 SEAT_READY，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SEAT_READY: AgentPresetSeatState = {
   current: 'standard',
   options: [
@@ -44,8 +54,11 @@ const SEAT_READY: AgentPresetSeatState = {
   introduce: false,
 }
 
+/** 中文说明：函数 renderRow 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function renderRow(state: Partial<AgentPresetSettingsState> = {}) {
+  /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const store = createSnapshotStore<AgentPresetSettingsState>({ ...ROW_READY, ...state })
+  /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const actions = { load: vi.fn(() => Promise.resolve()), select: vi.fn(() => Promise.resolve()) }
   render(<AgentPresetRow {...({
     ...actions,
@@ -55,8 +68,11 @@ function renderRow(state: Partial<AgentPresetSettingsState> = {}) {
   return actions
 }
 
+/** 中文说明：函数 renderSeat 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function renderSeat(state: Partial<AgentPresetSeatState> = {}) {
+  /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const store = createSnapshotStore<AgentPresetSeatState>({ ...SEAT_READY, ...state })
+  /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const actions = {
     load: vi.fn(() => Promise.resolve()),
     select: vi.fn(() => Promise.resolve()),
@@ -70,16 +86,21 @@ function renderSeat(state: Partial<AgentPresetSeatState> = {}) {
   return actions
 }
 
+/** 中文说明：函数 renderLabel 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function renderLabel(
   summary: { blank: boolean; agentPreset?: string } | undefined,
   roster: Partial<AgentPresetSettingsState> = {},
 ) {
   // The chip and the label read the same roster, metadata included.
+  /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const store = createSnapshotStore<AgentPresetSettingsState>({
     ...ROW_READY, options: SEAT_READY.options, ...roster,
   })
+  /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const sessions = createSnapshotStore({ byId: summary === undefined ? {} : { s1: summary } })
+  /** 中文说明：测试场景的局部值 load，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const load = vi.fn(() => Promise.resolve())
+  /** 中文说明：测试场景的局部值 view，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const view = render(<AgentPresetLabel {...({
     load,
     sessionId: 's1',
@@ -92,6 +113,7 @@ function renderLabel(
 
 describe('the General-settings row', () => {
   it('reads the roster once and shows the current default', async () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderRow()
 
     await waitFor(() => { expect(actions.load).toHaveBeenCalledTimes(1) })
@@ -140,6 +162,7 @@ describe('the General-settings row', () => {
   })
 
   it('writes the picked preset and closes the menu', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderRow()
     fireEvent.click(screen.getByRole('button'))
 
@@ -172,6 +195,7 @@ describe('the General-settings row', () => {
   })
 
   it('renders nothing when the deployment composes no presets', () => {
+    /** 中文说明：测试场景的局部值 { container }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { container } = render(<AgentPresetRow {...({
       load: vi.fn(() => Promise.resolve()),
       select: vi.fn(() => Promise.resolve()),
@@ -184,6 +208,7 @@ describe('the General-settings row', () => {
   })
 
   it('closes and locks the menu when the settings turn read-only', () => {
+    /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const store = createSnapshotStore<AgentPresetSettingsState>(ROW_READY)
     render(<AgentPresetRow {...({
       load: vi.fn(() => Promise.resolve()),
@@ -202,6 +227,7 @@ describe('the General-settings row', () => {
 
 describe('the new-session chip', () => {
   it('reads the roster once and shows the staged preset by name', async () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSeat()
 
     await waitFor(() => { expect(actions.load).toHaveBeenCalledTimes(1) })
@@ -236,6 +262,7 @@ describe('the new-session chip', () => {
   })
 
   it('stages the picked preset and closes the menu', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSeat()
     fireEvent.click(screen.getByRole('button'))
 
@@ -258,6 +285,7 @@ describe('the new-session chip', () => {
   })
 
   it('renders nothing before the roster arrives or when there is none', () => {
+    /** 中文说明：测试场景的局部值 empty，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const empty = renderSeat({ options: [] })
     expect(empty).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()
@@ -284,6 +312,7 @@ describe('the chip introduce cue', () => {
   })
 
   /** Character spans carry inline animation delays; nothing else does. */
+  /** 中文说明：函数 delayedChars 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function delayedChars(): HTMLElement[] {
     return Array.from(screen.getByRole('button').querySelectorAll<HTMLElement>('[style]'))
   }
@@ -291,6 +320,7 @@ describe('the chip introduce cue', () => {
   it('reveals a long Latin name inside the shared window, then acknowledges', () => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
     vi.useFakeTimers()
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSeat({
       current: 'creator',
       options: [{ id: 'creator', trust: 'user', name: 'CreatorMode' }],
@@ -299,6 +329,7 @@ describe('the chip introduce cue', () => {
 
     // Eleven characters split the 200ms window into 20ms steps, where the
     // fixed 40ms tick would have doubled the run for a Latin name.
+    /** 中文说明：测试场景的局部值 chars，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const chars = delayedChars()
     expect(chars.map(span => span.textContent).join('')).toBe('CreatorMode')
     expect(chars[0]!.style.animationDelay).toBe('150ms')
@@ -324,6 +355,7 @@ describe('the chip introduce cue', () => {
     })
 
     // Four characters fit under the window, so the 40ms tick applies as-is.
+    /** 中文说明：测试场景的局部值 chars，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const chars = delayedChars()
     expect(chars).toHaveLength(4)
     expect(chars[1]!.style.animationDelay).toBe('190ms')
@@ -333,6 +365,7 @@ describe('the chip introduce cue', () => {
   it('starts a one-character name with no stagger at all', () => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
     vi.useFakeTimers()
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSeat({
       current: 'creator',
       options: [{ id: 'creator', trust: 'user', name: 'C' }],
@@ -346,6 +379,7 @@ describe('the chip introduce cue', () => {
 
   it('skips the run under reduced motion and acknowledges at once', () => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSeat({ introduce: true })
 
     expect(actions.introduced).toHaveBeenCalledTimes(1)
@@ -354,6 +388,7 @@ describe('the chip introduce cue', () => {
 
   it('acknowledges an empty staged name without arming a run', () => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSeat({
       current: 'creator',
       options: [{ id: 'creator', trust: 'user', name: '' }],
@@ -367,6 +402,7 @@ describe('the chip introduce cue', () => {
 
 describe('the session-header label', () => {
   it('names the preset the session runs, and never offers a switch', async () => {
+    /** 中文说明：测试场景的局部值 { load }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { load } = renderLabel({ blank: false, agentPreset: 'standard' })
 
     await waitFor(() => { expect(load).toHaveBeenCalledTimes(1) })
@@ -390,12 +426,14 @@ describe('the session-header label', () => {
   })
 
   it('renders nothing, and reads no roster, when the session records no preset', async () => {
+    /** 中文说明：测试场景的局部值 absent，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const absent = renderLabel({ blank: true })
     expect(absent.view.container.firstChild).toBeNull()
     cleanup()
 
     // A session the list has not caught up to is the same answer: a deployment
     // that composes no presets must not pay for a roster read per header.
+    /** 中文说明：测试场景的局部值 unknown，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const unknown = renderLabel(undefined)
     expect(unknown.view.container.firstChild).toBeNull()
     await act(async () => { await Promise.resolve() })

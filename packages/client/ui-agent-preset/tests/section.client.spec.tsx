@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证代理预设界面的 section 行为与边界。
+ * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
+ * 产品维度：防止用户可见行为在重构或扩展后发生回归。
+ * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
+ * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
+ * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
+ */
+/**
  * The management section's rendering rules: which actions a row offers depends
  * on its trust, a shipped composition opens in a read-only viewer, creation is
  * a copy dialog that collects an id and an optional name, and the location
@@ -17,6 +25,7 @@ import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
+/** 中文说明：测试场景的局部值 READY，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const READY: AgentPresetSectionState = {
   status: 'ready',
   error: null,
@@ -38,11 +47,14 @@ const READY: AgentPresetSectionState = {
  * @param state - the snapshot to render.
  * @returns the spies, so a test can assert what a click reached.
  */
+/** 中文说明：函数 renderSection 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function renderSection(
   state: Partial<AgentPresetSectionState> = {},
   options: { creator?: boolean } = {},
 ) {
+  /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const store = createSnapshotStore<AgentPresetSectionState>({ ...READY, ...state })
+  /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const actions = {
     load: vi.fn(() => Promise.resolve()),
     // The shell-owned section affordance (SettingsSectionOwnerProps.close).
@@ -60,6 +72,7 @@ function renderSection(
     remove: vi.fn(() => Promise.resolve()),
     makeDefault: vi.fn(() => Promise.resolve()),
   }
+  /** 中文说明：测试场景的局部值 props，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const props = {
     ...actions,
     useAgentPresetSection: bindSnapshotSelector(store),
@@ -70,8 +83,11 @@ function renderSection(
 }
 
 /** Locate a card by the id it prints, not by its display name. */
+/** 中文说明：函数 rowFor 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function rowFor(id: string): HTMLElement {
+  /** 中文说明：测试场景的局部值 key，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const key = screen.getAllByText(id).find(node => node.tagName === 'CODE')
+  /** 中文说明：测试场景的局部值 row，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const row = key?.closest('li') ?? null
   /* v8 ignore next -- every rendered card prints its id */
   if (row === null) throw new Error(`no card for ${id}`)
@@ -80,6 +96,7 @@ function rowFor(id: string): HTMLElement {
 
 describe('the preset list', () => {
   it('reads the roster once when it first renders', async () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection()
 
     await waitFor(() => { expect(actions.load).toHaveBeenCalledTimes(1) })
@@ -92,6 +109,7 @@ describe('the preset list', () => {
     // composition and the session header actually carry.
     expect(screen.getByText(en.presetStandardName)).toBeTruthy()
     expect(screen.getByText(en.presetStandardDescription)).toBeTruthy()
+    /** 中文说明：测试场景的局部值 mine，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const mine = rowFor('mine')
     expect(within(mine).getAllByText('mine').length).toBeGreaterThan(0)
     expect(within(mine).getByText(en.noDescription)).toBeTruthy()
@@ -100,6 +118,7 @@ describe('the preset list', () => {
   it('marks trust and the one in use, and offers no "set default" on it', () => {
     renderSection()
 
+    /** 中文说明：测试场景的局部值 standard，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const standard = rowFor('standard')
     expect(within(standard).getByText(en.builtIn)).toBeTruthy()
     expect(within(standard).getByText(en.inUse)).toBeTruthy()
@@ -132,8 +151,10 @@ describe('the preset list', () => {
   })
 
   it('picks a preset by clicking its card, and the one in use is inert', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection()
 
+    /** 中文说明：测试场景的局部值 inUse，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const inUse = within(rowFor('standard')).getByRole('button', { name: `${en.inUse}: ${en.presetStandardName}` })
     expect(inUse).toHaveProperty('disabled', true)
     fireEvent.click(inUse)
@@ -149,9 +170,11 @@ describe('the preset list', () => {
     // A shipped preset is the composition a copy starts from — reading it is
     // the point. A custom preset is edited in its files, so its row leads
     // there instead; there is no editor for either.
+    /** 中文说明：测试场景的局部值 standard，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const standard = rowFor('standard')
     expect(within(standard).getByRole('button', { name: `${en.view}: ${en.presetStandardName}` })).toBeTruthy()
     expect(within(standard).queryByRole('button', { name: `${en.openLocation}: ${en.presetStandardName}` })).toBeNull()
+    /** 中文说明：测试场景的局部值 mine，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const mine = rowFor('mine')
     expect(within(mine).getByRole('button', { name: `${en.openLocation}: mine` })).toBeTruthy()
     expect(within(mine).queryByRole('button', { name: `${en.view}: mine` })).toBeNull()
@@ -167,12 +190,14 @@ describe('the preset list', () => {
   it('disables duplication when nothing is writable, and says why', () => {
     renderSection({ authorable: false })
 
+    /** 中文说明：测试场景的局部值 duplicate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const duplicate = within(rowFor('standard')).getByRole('button', { name: `${en.duplicate}: ${en.presetStandardName}` })
     expect(duplicate).toHaveProperty('disabled', true)
     expect(duplicate.getAttribute('data-tip')).toBe(en.duplicateUnavailable)
   })
 
   it('marks a broken custom preset: unselectable, uncopyable, still deletable', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({
       rows: [
         { id: 'standard', trust: 'system', isDefault: true },
@@ -180,16 +205,19 @@ describe('the preset list', () => {
       ],
     })
 
+    /** 中文说明：测试场景的局部值 ghost，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ghost = rowFor('ghost')
     // The reason is on the card, and the body cannot pick what cannot mount.
     expect(within(ghost).getByText(en.brokenBadge)).toBeTruthy()
     expect(within(ghost).getByRole('alert').textContent).toContain('is missing')
+    /** 中文说明：当前传输或投影数据 body，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const body = within(ghost).getByRole('button', { name: `${en.brokenBadge}: 幽灵预设` })
     expect(body).toHaveProperty('disabled', true)
     fireEvent.click(body)
     expect(actions.makeDefault).not.toHaveBeenCalled()
     // Copying a broken preset would only mint another broken one; deleting
     // and the location remain — the files are where it gets fixed.
+    /** 中文说明：测试场景的局部值 duplicate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const duplicate = within(ghost).getByRole('button', { name: `${en.duplicate}: 幽灵预设` })
     expect(duplicate).toHaveProperty('disabled', true)
     expect(duplicate.getAttribute('data-tip')).toBe(en.brokenNoCopy)
@@ -204,6 +232,7 @@ describe('the preset list', () => {
 
     // There is no readable composition to offer; the reason on the card is
     // the whole story a shipped row can tell.
+    /** 中文说明：测试场景的局部值 standard，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const standard = rowFor('standard')
     expect(within(standard).queryByRole('button', { name: `${en.view}: ${en.presetStandardName}` })).toBeNull()
     expect(within(standard).getByRole('alert').textContent).toContain('not valid YAML')
@@ -218,6 +247,7 @@ describe('the preset list', () => {
   it('shows a revealed directory on its row', () => {
     renderSection({ revealedPaths: { mine: '/home/user/.dsh/.agent-presets/mine' } })
 
+    /** 中文说明：测试场景的局部值 mine，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const mine = rowFor('mine')
     expect(within(mine).getByText('/home/user/.dsh/.agent-presets/mine')).toBeTruthy()
     expect(within(mine).getByText(en.revealedPathLabel)).toBeTruthy()
@@ -226,6 +256,7 @@ describe('the preset list', () => {
   })
 
   it('routes the row actions to the controller', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection()
 
     // The card body is the control that picks a preset.
@@ -241,6 +272,7 @@ describe('the preset list', () => {
   })
 
   it('starts a creator-mode draft session and leaves settings', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({
       rows: [...READY.rows, { id: 'cordis', trust: 'system', isDefault: false, name: '创造模式' }],
     })
@@ -278,10 +310,12 @@ describe('the preset list', () => {
     expect(screen.queryByRole('button', { name: en.creatorDraft })).toBeNull()
     cleanup()
 
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({
       authorable: false,
       rows: [...READY.rows, { id: 'cordis', trust: 'system', isDefault: false, name: '创造模式' }],
     })
+    /** 中文说明：测试场景的局部值 disabled，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const disabled = screen.getByRole('button', { name: en.creatorDraft })
     expect(disabled).toHaveProperty('disabled', true)
     fireEvent.click(disabled)
@@ -296,6 +330,7 @@ describe('the preset list', () => {
   })
 
   it('renders nothing when the deployment composes no presets', () => {
+    /** 中文说明：测试场景的局部值 { container }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { container } = render(<AgentPresetSection {...({
       useAgentPresetSection: bindSnapshotSelector(
         createSnapshotStore<AgentPresetSectionState>({ ...READY, status: 'unavailable', rows: [] })),
@@ -307,6 +342,7 @@ describe('the preset list', () => {
   })
 
   it('offers a retry when the roster could not be read', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ status: 'error', error: 'roster unavailable' })
 
     expect(screen.getByRole('alert').textContent).toContain('roster unavailable')
@@ -317,13 +353,16 @@ describe('the preset list', () => {
 })
 
 describe('the copy dialog', () => {
+  /** 中文说明：测试场景的局部值 draft，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const draft: CopyDraft = {
     from: 'standard', fromTitle: '标准模式', id: '', name: '', saving: false, error: null,
   }
 
   it('names its source and collects only an id and a display name', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ copy: draft })
 
+    /** 中文说明：测试场景的局部值 dialog，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const dialog = screen.getByRole('dialog')
     expect(dialog.getAttribute('aria-label')).toBe(`${en.copyTitle} · ${en.copyOf} ${en.presetStandardName}`)
     expect(within(dialog).getByText(en.copyIntro)).toBeTruthy()
@@ -338,8 +377,10 @@ describe('the copy dialog', () => {
   })
 
   it('creates and cancels through the controller', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ copy: { ...draft, id: 'my-agent' } })
 
+    /** 中文说明：测试场景的局部值 dialog，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const dialog = screen.getByRole('dialog')
     fireEvent.click(within(dialog).getByText(en.create))
     fireEvent.click(within(dialog).getByText(en.cancel))
@@ -349,8 +390,10 @@ describe('the copy dialog', () => {
   })
 
   it('blocks a copy the host would refuse, and says why', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ copy: { ...draft, id: 'Upper Case' } })
 
+    /** 中文说明：测试场景的局部值 dialog，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByRole('alert').textContent).toBe(en.idInvalid)
     fireEvent.click(within(dialog).getByText(en.create))
@@ -367,6 +410,7 @@ describe('the copy dialog', () => {
   })
 
   it('reports a copy in flight and blocks a second click', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ copy: { ...draft, id: 'my-agent', saving: true } })
 
     fireEvent.click(within(screen.getByRole('dialog')).getByText(en.creating))
@@ -375,6 +419,7 @@ describe('the copy dialog', () => {
   })
 
   it('dismisses on Escape', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ copy: draft })
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -387,6 +432,7 @@ describe('the read-only viewer', () => {
   it('shows the composition text under the preset\'s name', () => {
     renderSection({ view: { id: 'standard', title: '标准模式', content: '- id: tool-bash\n' } })
 
+    /** 中文说明：测试场景的局部值 dialog，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const dialog = screen.getByRole('dialog')
     expect(dialog.getAttribute('aria-label')).toBe(`${en.view} · ${en.presetStandardName}`)
     expect(within(dialog).getByText(en.composition)).toBeTruthy()
@@ -400,6 +446,7 @@ describe('the read-only viewer', () => {
   })
 
   it('closes through the controller', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ view: { id: 'standard', title: '标准模式', content: '- id: x\n' } })
 
     fireEvent.click(within(screen.getByRole('dialog')).getByText(en.close))
@@ -408,6 +455,7 @@ describe('the read-only viewer', () => {
   })
 
   it('dismisses on Escape', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ view: { id: 'standard', title: '标准模式', content: '- id: x\n' } })
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -418,6 +466,7 @@ describe('the read-only viewer', () => {
 
 describe('deleting a preset', () => {
   it('asks before deleting', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection()
 
     fireEvent.click(within(rowFor('mine')).getByRole('button', { name: `${en.delete}: mine` }))
@@ -426,8 +475,10 @@ describe('deleting a preset', () => {
   })
 
   it('confirms and dismisses through the controller', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ pendingDelete: 'mine' })
 
+    /** 中文说明：测试场景的局部值 dialog，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const dialog = screen.getByRole('dialog')
     fireEvent.click(within(dialog).getByText(en.deleteConfirm))
     fireEvent.click(within(dialog).getByText(en.cancel))
@@ -437,6 +488,7 @@ describe('deleting a preset', () => {
   })
 
   it('dismisses the confirmation on Escape', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ pendingDelete: 'mine' })
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -445,6 +497,7 @@ describe('deleting a preset', () => {
   })
 
   it('reports a delete in flight', () => {
+    /** 中文说明：测试场景的局部值 actions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const actions = renderSection({ pendingDelete: 'mine', deleting: true })
 
     fireEvent.click(within(screen.getByRole('dialog')).getByText(en.deleting))
@@ -455,15 +508,18 @@ describe('deleting a preset', () => {
 
 describe('a long card description', () => {
   /** jsdom has no ResizeObserver; the description watches its own box through one. */
+  /** 中文说明：类 ResizeObserverStub 封装可控测试行为，实例按所属生命周期使用。 */
   class ResizeObserverStub {
     observe(): void {}
     unobserve(): void {}
     disconnect(): void {}
   }
 
+  /** 中文说明：测试场景的局部值 LONG，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const LONG = '始终用简体中文交流的友好通用助手，提供持久 bash 与文件编辑能力。'.repeat(8)
 
   /** Force the clamp to report an overflow: jsdom lays nothing out, so both heights are 0. */
+  /** 中文说明：函数 clamp 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function clamp(overflowing: boolean): void {
     vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(overflowing ? 400 : 80)
     vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(80)

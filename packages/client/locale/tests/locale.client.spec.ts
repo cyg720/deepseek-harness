@@ -1,15 +1,26 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证本地化的 locale 行为与边界。
+ * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
+ * 产品维度：防止用户可见行为在重构或扩展后发生回归。
+ * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
+ * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
+ * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { stubSettingsScope, type StubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import type { LocaleSettings, LocaleSnapshot } from '@deepseek-ai/dsh-client-locale/client'
 import { FALLBACK_LOCALE, LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
+/** 中文说明：测试场景的局部值 make，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const make = (host?: StubSettingsScope<LocaleSettings>): {
   ctx: Context
   svc: LocaleRuntime
   events: LocaleSnapshot[]
 } => {
+  /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const ctx = new Context()
+  /** 中文说明：当前传输或投影数据 events，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const events: LocaleSnapshot[] = []
   ctx.on('locale/change', (snapshot) => { events.push(snapshot) })
   return { ctx, svc: new LocaleRuntime(ctx, host?.scope), events }
@@ -22,6 +33,7 @@ const make = (host?: StubSettingsScope<LocaleSettings>): {
  * that helper deliberately cannot express — a missing `languages` list, a
  * list decoupled from `language`, and a non-browser run with no `window`.
  */
+/** 中文说明：测试场景的局部值 stubLanguages，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const stubLanguages = (...tags: string[]): void => {
   vi.stubGlobal('navigator', { languages: tags, language: tags[0] ?? '' })
 }
@@ -37,9 +49,11 @@ describe('LocaleRuntime', () => {
   })
 
   it('translates through the active-locale -> en -> key chain', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     svc.register('ns', 'zh', { hello: '你好' })
     svc.register('ns', 'en', { hello: 'Hello', onlyEn: 'English only' })
+    /** 中文说明：测试场景的局部值 t，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const t = svc.bind('ns')
     expect(svc.getLocale().active).toBe('zh')
     expect(t('hello')).toBe('你好')
@@ -51,12 +65,14 @@ describe('LocaleRuntime', () => {
   })
 
   it('falls through to the common vocabulary after the namespace misses (production keys)', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     // The shipped common pair is registered by apply; the bench registers it
     // directly to pin the production chain: ns -> common -> en -> key.
     svc.register('common', 'zh', { retry: '重试' })
     svc.register('common', 'en', { retry: 'Retry' })
     svc.register('ns', 'en', { own: 'Own' })
+    /** 中文说明：测试场景的局部值 t，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const t = svc.bind('ns')
     expect(t('retry')).toBe('重试')
     // zh is active and `ns` has no zh dictionary at all: the en fallback answers.
@@ -71,24 +87,30 @@ describe('LocaleRuntime', () => {
   })
 
   it('interpolates {name} params and leaves unknown placeholders intact', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     svc.register('ns', 'zh', { greet: '你好，{name}！第 {n} 次', partial: '{known} 与 {unknown}' })
+    /** 中文说明：测试场景的局部值 t，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const t = svc.bind('ns')
     expect(t('greet', { name: '世界', n: 2 })).toBe('你好，世界！第 2 次')
     expect(t('partial', { known: 'A' })).toBe('A 与 {unknown}')
   })
 
   it('bind returns a stable per-namespace function identity', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     expect(svc.bind('a')).toBe(svc.bind('a'))
     expect(svc.bind('a')).not.toBe(svc.bind('b'))
   })
 
   it('rejects duplicate (ns, locale) and disposer only removes its own dict', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
+    /** 中文说明：释放资源的清理函数 dispose，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const dispose = svc.register('ns', 'zh', { k: 'v1' })
     expect(() => svc.register('ns', 'zh', { k: 'v2' })).toThrow('already has locale')
     dispose()
+    /** 中文说明：测试场景的局部值 t，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const t = svc.bind('ns')
     expect(t('k')).toBe('k')
     svc.register('ns', 'zh', { k: 'v2' })
@@ -98,10 +120,14 @@ describe('LocaleRuntime', () => {
   })
 
   it('serves the LocaleFace: snapshot revision moves on switch and registration, subscribers fire, unsubscribe stops them', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
+    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const seen: number[] = []
+    /** 中文说明：测试场景的局部值 off，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const off = svc.subscribe(() => { seen.push(svc.getSnapshot().revision) })
     expect(svc.getSnapshot()).toBe(svc.getLocale())
+    /** 中文说明：测试场景的局部值 r0，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const r0 = svc.getSnapshot().revision
     svc.register('ns', 'zh', { k: 'v' })
     expect(svc.getSnapshot().revision).toBe(r0 + 1)
@@ -113,9 +139,12 @@ describe('LocaleRuntime', () => {
   })
 
   it('isolates a throwing subscriber: the rest still see the new revision', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
+    /** 中文说明：失败路径的观测值 spy，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
+      /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const seen: number[] = []
       svc.subscribe(() => { throw new Error('boom') })
       svc.subscribe(() => { seen.push(svc.getSnapshot().revision) })
@@ -128,8 +157,11 @@ describe('LocaleRuntime', () => {
   })
 
   it('register disposer republishes (mounted outlets drop the dead dictionary)', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
+    /** 中文说明：释放资源的清理函数 dispose，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const dispose = svc.register('ns', 'zh', { k: 'v' })
+    /** 中文说明：测试场景的局部值 before，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const before = svc.getSnapshot().revision
     dispose()
     expect(svc.getSnapshot().revision).toBe(before + 1)
@@ -139,7 +171,9 @@ describe('LocaleRuntime', () => {
   })
 
   it('setLocale writes through the scope and republishes only on a real change', () => {
+    /** 中文说明：测试场景的局部值 host，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const host = stubSettingsScope<LocaleSettings>()
+    /** 中文说明：当前传输或投影数据 { svc, events }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc, events } = make(host)
     svc.setLocale('en')
     expect(svc.getLocale().active).toBe('en')
@@ -162,7 +196,9 @@ describe('LocaleRuntime', () => {
     // nothing stored. Choosing that same language in the menu must become
     // durable, or a Chinese browser sharing the home still opens Chinese.
     stubLanguages('fr-FR')
+    /** 中文说明：测试场景的局部值 host，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const host = stubSettingsScope<LocaleSettings>()
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make(host)
     expect(svc.getLocale().active).toBe('en')
     expect(host.set).not.toHaveBeenCalled()
@@ -171,6 +207,7 @@ describe('LocaleRuntime', () => {
   })
 
   it('setLocale without a host scope stays process-local', () => {
+    /** 中文说明：当前传输或投影数据 { svc, events }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc, events } = make()
     svc.setLocale('en')
     expect(svc.getLocale().active).toBe('en')
@@ -178,12 +215,15 @@ describe('LocaleRuntime', () => {
   })
 
   it('throws on unknown locale ids', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     expect(() => { svc.setLocale('fr') }).toThrow('not registered')
   })
 
   it('adopts a Host preference over the browser language without writing it back', () => {
+    /** 中文说明：测试场景的局部值 host，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const host = stubSettingsScope<LocaleSettings>()
+    /** 中文说明：当前传输或投影数据 { svc, events }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc, events } = make(host)
     host.publish({ status: 'ready', value: { preference: 'en' }, revision: 1, writable: true })
     expect(svc.getLocale().active).toBe('en')
@@ -194,7 +234,9 @@ describe('LocaleRuntime', () => {
   })
 
   it('an absent Host preference returns to the browser-derived locale', () => {
+    /** 中文说明：测试场景的局部值 host，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const host = stubSettingsScope<LocaleSettings>()
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make(host)
     host.publish({ status: 'ready', value: { preference: 'en' }, revision: 1, writable: true })
     expect(svc.getLocale().active).toBe('en')
@@ -203,8 +245,10 @@ describe('LocaleRuntime', () => {
   })
 
   it('adopts a section already standing at construction and releases its subscription on dispose', async () => {
+    /** 中文说明：测试场景的局部值 host，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const host = stubSettingsScope<LocaleSettings>()
     host.publish({ status: 'ready', value: { preference: 'en' }, revision: 1, writable: true })
+    /** 中文说明：当前 Cordis 上下文 { ctx, svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, svc } = make(host)
     expect(svc.getLocale().active).toBe('en')
     expect(host.listenerCount()).toBe(1)
@@ -237,6 +281,7 @@ describe('LocaleRuntime', () => {
     // Node exposes its own global navigator; without a window it must not
     // reach the resolution at all.
     stubLanguages('zh-CN')
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     expect(svc.getLocale().active).toBe('en')
     svc.setLocale('zh')
@@ -245,6 +290,7 @@ describe('LocaleRuntime', () => {
 
   it('lets an explicit in-process preference replace the browser-derived value', () => {
     stubLanguages('en-US')
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     svc.setLocale('zh')
     expect(svc.getLocale().active).toBe('zh')
@@ -257,6 +303,7 @@ describe('LocaleRuntime', () => {
     // identical key sets (asserted below on a registered pair).
     expect(FALLBACK_LOCALE).toBe('en')
     vi.stubGlobal('window', undefined)
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     // A key present only in en resolves for a zh reader through the fallback.
     svc.register('ns', 'zh', {})
@@ -273,6 +320,7 @@ describe('LocaleRuntime', () => {
   })
 
   it('exposes the two shipped locales with self-described labels', () => {
+    /** 中文说明：测试场景的局部值 { svc }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { svc } = make()
     expect(svc.getLocale().locales).toEqual([
       { id: 'zh', label: '中文' },

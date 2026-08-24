@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证客户端会话运行时的 workspaces-service 行为与边界。
+ * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
+ * 产品维度：防止用户可见行为在重构或扩展后发生回归。
+ * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
+ * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
+ * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-remotes/client'
@@ -6,9 +14,12 @@ import { WorkspaceManager } from '../src/client/workspaces/manager.ts'
 import { DirectoryBrowseError, WorkspaceCreateError, WorkspaceRuntime } from '../src/client/workspaces/service.ts'
 import { FakeApiClient, deferred, err, fakeRemote, ok } from './fake-api.client.ts'
 
+/** 中文说明：标识或顺序值 sid，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const sid = (id: string): SessionId => id as SessionId
+/** 中文说明：标识或顺序值 wid，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const wid = (id: string): WorkspaceId => id as WorkspaceId
 
+/** 中文说明：函数 workspace 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function workspace(id: string, sessionIds: SessionId[] = [], createdAt = '2026-01-01T00:00:00.000Z'): WorkspaceView {
   return {
     workspaceId: wid(id), path: `/w/${id}`, title: id, sessionIds,
@@ -18,10 +29,14 @@ function workspace(id: string, sessionIds: SessionId[] = [], createdAt = '2026-0
 
 describe('WorkspaceManager', () => {
   it('replays changed frames over hydration and adopts the durable order on refresh', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onWorkspaceList']>>>()
     api.onWorkspaceList = () => gate.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new WorkspaceManager(api)
+    /** 中文说明：测试场景的局部值 hydration，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const hydration = manager.refresh()
     manager.handleHostEnvelope({
       rpcId: 'changed' as never,
@@ -40,11 +55,16 @@ describe('WorkspaceManager', () => {
   })
 
   it('single-flights refreshes and exposes result and transport failures independently of readiness', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onWorkspaceList']>>>()
     api.onWorkspaceList = () => gate.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new WorkspaceManager(api)
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = manager.refresh()
+    /** 中文说明：测试场景的局部值 second，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const second = manager.refresh()
     expect(manager.getSnapshot().state).toBe('loading')
     gate.resolve(ok({ items: [] }))
@@ -60,7 +80,9 @@ describe('WorkspaceManager', () => {
   })
 
   it('creates by path, prepends a new row, and folds failures', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new WorkspaceManager(api)
     api.onWorkspaceCreate = payload => Promise.resolve(ok({
       workspace: workspace('created', [], '2026-02-01T00:00:00.000Z'),
@@ -78,15 +100,19 @@ describe('WorkspaceManager', () => {
   })
 
   it('reorders optimistically while newer Host frames outrank unary echoes and failures roll back', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onWorkspaceList = () => Promise.resolve(ok({
       items: [workspace('one'), workspace('two'), workspace('three')] as never[],
     }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new WorkspaceManager(api)
     await manager.refresh()
 
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onWorkspaceInsertBefore']>>>()
     api.onWorkspaceInsertBefore = () => gate.promise
+    /** 中文说明：异步等待或同步门 pending，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const pending = manager.insertBefore(wid('three'), wid('one'))
     expect(manager.getSnapshot().items.map(item => item.workspaceId)).toEqual(['three', 'one', 'two'])
     manager.handleHostEnvelope({
@@ -103,12 +129,14 @@ describe('WorkspaceManager', () => {
     api.onWorkspaceInsertBefore = () => Promise.resolve(err({
       code: 'workspace-not-found', message: 'gone', details: { workspaceId: 'three' },
     }))
+    /** 中文说明：测试场景的局部值 rejected，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const rejected = manager.insertBefore(wid('three'))
     expect(manager.getSnapshot().items.map(item => item.workspaceId)).toEqual(['one', 'two', 'three'])
     await expect(rejected).resolves.toMatchObject({ ok: false })
     expect(manager.getSnapshot().items.map(item => item.workspaceId)).toEqual(['one', 'three', 'two'])
 
     api.onWorkspaceInsertBefore = () => Promise.reject(new Error('transport down'))
+    /** 中文说明：测试场景的局部值 disconnected，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const disconnected = manager.insertBefore(wid('three'), wid('one'))
     expect(manager.getSnapshot().items.map(item => item.workspaceId)).toEqual(['three', 'one', 'two'])
     await expect(disconnected).rejects.toThrow('transport down')
@@ -116,18 +144,25 @@ describe('WorkspaceManager', () => {
   })
 
   it('rolls overlapping rejected reorders back to the last Host-confirmed order', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onWorkspaceList = () => Promise.resolve(ok({
       items: [workspace('one'), workspace('two'), workspace('three')] as never[],
     }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new WorkspaceManager(api)
     await manager.refresh()
+    /** 中文说明：异步等待或同步门 firstGate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const firstGate = deferred<Awaited<ReturnType<FakeApiClient['onWorkspaceInsertBefore']>>>()
+    /** 中文说明：异步等待或同步门 secondGate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const secondGate = deferred<Awaited<ReturnType<FakeApiClient['onWorkspaceInsertBefore']>>>()
+    /** 中文说明：当前传输或投影数据 request，取值由紧邻初始化决定，仅在当前作用域使用。 */
     let request = 0
     api.onWorkspaceInsertBefore = () => request++ === 0 ? firstGate.promise : secondGate.promise
 
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = manager.insertBefore(wid('three'), wid('one'))
+    /** 中文说明：测试场景的局部值 second，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const second = manager.insertBefore(wid('two'), wid('three'))
     expect(manager.getSnapshot().items.map(item => item.workspaceId)).toEqual(['two', 'three', 'one'])
 
@@ -145,10 +180,14 @@ describe('WorkspaceManager', () => {
   })
 
   it('replays removal over an in-flight baseline and ignores duplicate or late updates', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onWorkspaceList']>>>()
     api.onWorkspaceList = () => gate.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new WorkspaceManager(api)
+    /** 中文说明：测试场景的局部值 hydration，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const hydration = manager.refresh()
     manager.handleHostEnvelope({
       rpcId: 'removed' as never,
@@ -170,12 +209,16 @@ describe('WorkspaceManager', () => {
   })
 
   it('removes from the unary delete echo while a refresh is in flight', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onWorkspaceList = () => Promise.resolve(ok({ items: [workspace('gone')] as never[] }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new WorkspaceManager(api)
     await manager.refresh()
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onWorkspaceList']>>>()
     api.onWorkspaceList = () => gate.promise
+    /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const refresh = manager.refresh()
 
     await expect(manager.delete(wid('gone'))).resolves.toMatchObject({ ok: true })
@@ -189,9 +232,13 @@ describe('WorkspaceManager', () => {
 
 describe('WorkspaceRuntime', () => {
   it('feeds readiness and recent-Workspace targeting without changing Host order', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onWorkspaceList = () => Promise.resolve(ok({
       items: [
@@ -217,9 +264,13 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('connectWorkspace reuses the workspace-member blank session and creates otherwise', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onWorkspaceList = () => Promise.resolve(ok({
       items: [workspace('alpha', [sid('s-blank')]), workspace('beta'), workspace('gamma')] as never[],
@@ -276,9 +327,13 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('a rejected first prompt keeps the blank session eligible for connectWorkspace reuse', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onWorkspaceList = () => Promise.resolve(ok({ items: [workspace('alpha', [sid('s-blank')])] as never[] }))
     api.onList = () => Promise.resolve(ok({
@@ -286,6 +341,7 @@ describe('WorkspaceRuntime', () => {
     }))
     await Promise.all([workspaces.refresh(), sessions.refresh()])
     await Promise.resolve()
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = sessions.binding(sid('s-blank'))!.session
     api.onPrompt = () => Promise.resolve(err({ code: 'internal', message: 'agent busy', details: {} }) as never)
     await session.prompt([{ type: 'text', text: 'hi' }], 'queue')
@@ -296,9 +352,13 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('returns created Workspaces and preserves Host business errors', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onWorkspaceCreate = () => Promise.resolve(ok({
       workspace: { ...workspace('picked'), path: '/w/alpha', title: 'alpha' }, created: true,
@@ -309,15 +369,20 @@ describe('WorkspaceRuntime', () => {
     api.onWorkspaceCreate = () => Promise.resolve(err({
       code: 'workspace-invalid-path', message: 'missing', details: { path: '/missing' },
     }))
+    /** 中文说明：测试场景的局部值 rejected，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const rejected = workspaces.create({ path: '/missing' })
     await expect(rejected).rejects.toThrow(/workspace-invalid-path: missing/)
     await expect(rejected).rejects.toBeInstanceOf(WorkspaceCreateError)
   })
 
   it('passes native directory selection and cancellation through without local state', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onPickDirectory = () => Promise.resolve(ok({ path: '/w/alpha' }))
     await expect(workspaces.pickDirectory()).resolves.toBe('/w/alpha')
@@ -329,9 +394,13 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('passes listings and creation through the browse wire, wrapping business failures', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, new SessionRuntime(ctx, api, fakeRemote()))
+    /** 中文说明：按序保存的数据集合 listing，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const listing = { path: '/home/u', home: '/home/u', crumbs: [{ name: '/', path: '/', hidden: false }], entries: [{ name: 'p', path: '/home/u/p', hidden: false }], truncated: false }
     api.onListDirectory = () => Promise.resolve(ok(listing))
     await expect(workspaces.listDirectory()).resolves.toEqual(listing)
@@ -339,6 +408,7 @@ describe('WorkspaceRuntime', () => {
     // The optional path is omitted from the payload, not sent as undefined.
     expect(api.callsOf('host.listDirectory')).toEqual([{}, { path: '/home/u' }])
     api.onListDirectory = () => Promise.resolve(err({ code: 'directory-unreadable', message: 'denied', details: { path: '/x' } }))
+    /** 中文说明：按序保存的数据集合 listFailure，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const listFailure = workspaces.listDirectory('/x')
     await expect(listFailure).rejects.toBeInstanceOf(DirectoryBrowseError)
     await expect(listFailure).rejects.toMatchObject({ rpcError: { code: 'directory-unreadable' } })
@@ -350,9 +420,13 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('opens a filesystem path through the host without local state', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     await expect(workspaces.openPath('/w/alpha/a.ts')).resolves.toBeUndefined()
     expect(api.callsOf('host.openPath')).toEqual([{ path: '/w/alpha/a.ts' }])
@@ -361,9 +435,13 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('deletes a Workspace or preserves it when the Host rejects deletion', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onWorkspaceList = () => Promise.resolve(ok({ items: [workspace('alpha')] as never[] }))
     await workspaces.refresh()
@@ -377,8 +455,11 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('moves a Workspace through the durable order RPC and surfaces Host rejection', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, new SessionRuntime(ctx, api, fakeRemote()))
     api.onWorkspaceList = () => Promise.resolve(ok({
       items: [workspace('one'), workspace('two')] as never[],
@@ -400,9 +481,13 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('targets New Session at explicit, current-session, then recent Workspaces and clears with none', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onWorkspaceList = () => Promise.resolve(ok({
       items: [
@@ -417,7 +502,9 @@ describe('WorkspaceRuntime', () => {
     await Promise.all([workspaces.refresh(), sessions.refresh()])
     await Promise.resolve()
     sessions.open(sid('current'))
+    /** 中文说明：测试场景的局部值 unresolved，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const unresolved = new Promise<SessionId>(() => {})
+    /** 中文说明：测试场景的局部值 connect，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const connect = vi.spyOn(workspaces, 'connectWorkspace').mockReturnValue(unresolved)
 
     workspaces.startSession(wid('recent-home'))
@@ -433,19 +520,28 @@ describe('WorkspaceRuntime', () => {
     await Promise.resolve()
     expect(connect).toHaveBeenLastCalledWith(wid('recent-home'))
 
+    /** 中文说明：当前 Cordis 上下文 emptyCtx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const emptyCtx = new Context()
+    /** 中文说明：当前服务或测试对象 emptyApi，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const emptyApi = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 emptySessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const emptySessions = new SessionRuntime(emptyCtx, emptyApi, fakeRemote())
+    /** 中文说明：测试场景的局部值 emptyWorkspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const emptyWorkspaces = new WorkspaceRuntime(emptyCtx, emptyApi, emptySessions)
+    /** 中文说明：测试场景的局部值 clear，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const clear = vi.spyOn(emptySessions, 'clear')
     emptyWorkspaces.startSession()
     expect(clear).toHaveBeenCalledOnce()
   })
 
   it('archives a session, projects the set from the response, list, and frame, and clears only the current one', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onList = () => Promise.resolve(ok({
       items: [
@@ -489,9 +585,13 @@ describe('WorkspaceRuntime', () => {
   })
 
   it('clears a current archived by a remote frame and shields the set from a stale in-flight baseline', async () => {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     api.onList = () => Promise.resolve(ok({
       items: [{ sessionId: sid('s-open'), updatedAt: 1, running: false, blank: false }],
@@ -502,8 +602,10 @@ describe('WorkspaceRuntime', () => {
     // A stale baseline is in flight (older, empty set) when another tab's
     // archive frame lands: the frame clears the current selection and its
     // set survives the baseline's later resolution.
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onWorkspaceList']>>>()
     api.onWorkspaceList = () => gate.promise
+    /** 中文说明：测试场景的局部值 hydration，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const hydration = workspaces.refresh()
     workspaces.handleHostEnvelope({
       rpcId: 'frame' as never,
@@ -522,16 +624,23 @@ describe('WorkspaceRuntime', () => {
 })
 
 describe('startInitialSelection', () => {
+  /** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function bench() {
+    /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx = new Context()
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
+    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const workspaces = new WorkspaceRuntime(ctx, api, sessions)
     return { api, sessions, workspaces }
   }
 
   it('connects the recent Workspace blank session once baselines are ready and opens it', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
+    /** 中文说明：释放资源的清理函数 stop，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const stop = b.workspaces.startInitialSelection()
     // Nothing happens before both baselines land.
     expect(b.api.callsOf('session.create')).toHaveLength(0)
@@ -550,6 +659,7 @@ describe('startInitialSelection', () => {
   })
 
   it('stays idle when a session is already current or no recent Workspace exists', async () => {
+    /** 中文说明：测试场景的局部值 withCurrent，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const withCurrent = bench()
     withCurrent.api.onList = () => Promise.resolve(ok({
       items: [{ sessionId: sid('s1'), updatedAt: 1, running: false, blank: false }] as never[],
@@ -557,13 +667,16 @@ describe('startInitialSelection', () => {
     await withCurrent.sessions.refresh()
     withCurrent.sessions.open(sid('s1'))
     withCurrent.api.onWorkspaceList = () => Promise.resolve(ok({ items: [workspace('w1', [sid('s1')])] as never[] }))
+    /** 中文说明：释放资源的清理函数 stopCurrent，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const stopCurrent = withCurrent.workspaces.startInitialSelection()
     await withCurrent.workspaces.refresh()
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(withCurrent.api.callsOf('session.create')).toHaveLength(0)
     stopCurrent()
 
+    /** 中文说明：测试场景的局部值 noRecent，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const noRecent = bench()
+    /** 中文说明：释放资源的清理函数 stopEmpty，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const stopEmpty = noRecent.workspaces.startInitialSelection()
     await noRecent.workspaces.refresh()
     await noRecent.sessions.refresh()
@@ -574,11 +687,13 @@ describe('startInitialSelection', () => {
   })
 
   it('a failed connect returns to waiting and retries on the next list change', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.api.onWorkspaceList = () => Promise.resolve(ok({
       items: [workspace('recent', [], '2026-01-02T00:00:00.000Z')] as never[],
     }))
     b.api.onCreate = () => Promise.resolve(err({ code: 'internal', message: 'attach exploded', details: {} }))
+    /** 中文说明：释放资源的清理函数 stop，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const stop = b.workspaces.startInitialSelection()
     await b.workspaces.refresh()
     await b.sessions.refresh()

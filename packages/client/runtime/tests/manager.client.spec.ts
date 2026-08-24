@@ -2,6 +2,14 @@
  * SessionManager orchestration: lazy resident instances, list lifecycle, host
  * frame routing, and the pending-frame buffer for uninstantiated sessions.
  */
+/**
+ * 文件职责：验证客户端会话运行时的 manager 行为与边界。
+ * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
+ * 产品维度：防止用户可见行为在重构或扩展后发生回归。
+ * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
+ * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
+ * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
+ */
 
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
@@ -9,39 +17,54 @@ import { SessionManager } from '../src/client/sessions/manager.ts'
 import { FakeApiClient, deferred, err, fakeRemote, ok } from './fake-api.client.ts'
 import { entries, ev, plainTurn } from './event-script.client.ts'
 
+/** 中文说明：测试场景的局部值 S1，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const S1 = 'fk-m1' as SessionId
+/** 中文说明：测试场景的局部值 S2，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const S2 = 'fk-m2' as SessionId
 
+/** 中文说明：类型 SummaryOver 约束本文件数据字段及允许取值。 */
 type SummaryOver = Partial<{
+  /** 中文说明：成员 updatedAt 保存可编排测试状态，取值由声明类型限定。 */
   updatedAt: number
+  /** 中文说明：成员 running 保存可编排测试状态，取值由声明类型限定。 */
   running: boolean
+  /** 中文说明：成员 blank 保存可编排测试状态，取值由声明类型限定。 */
   blank: boolean
+  /** 中文说明：成员 parentSessionId 保存可编排测试状态，取值由声明类型限定。 */
   parentSessionId: SessionId
+  /** 中文说明：成员 origin 保存可编排测试状态，取值由声明类型限定。 */
   origin: 'subagent'
 }>
 
+/** 中文说明：函数 summary 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function summary(sessionId: SessionId, over: SummaryOver = {}) {
   return { sessionId, updatedAt: 100, running: false, blank: false, ...over }
 }
 
 describe('instances', () => {
   it('lazily builds one resident instance per id and syncs the running bit from the list', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1, { running: true })] as never[] }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = manager.get(S1)
     expect(manager.get(S1)).toBe(session) // resident: same instance forever
     expect(session.getSnapshot().running).toBe(true) // list preceded instantiation
   })
 
   it('replays buffered approval frames on instantiation and drops ordinary frames for uninstantiated sessions', () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     // Uninstantiated: approval buffers, plain session/event drops.
     manager.handleMuxEnvelope({ rpcId: 'ra' as never, payload: { type: 'approval/requested', sessionId: S1, approvalId: 'ap1' as never, toolName: 'rm' } })
     manager.handleMuxEnvelope({ rpcId: 'ra' as never, payload: { type: 'approval/requested', sessionId: S1, approvalId: 'ap1' as never, toolName: 'rm' } })
     manager.handleMuxEnvelope({ rpcId: 're' as never, payload: { type: 'session/event', sessionId: S1, event: plainTurn(0, 0, 'x', 'y')[0] as never } })
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = manager.get(S1)
     expect(session.getSnapshot().pending).toMatchObject([{ kind: 'approval', payload: { approvalId: 'ap1' } }])
     // Buffer cleared: a second instantiation of another id gets nothing.
@@ -49,13 +72,17 @@ describe('instances', () => {
   })
 
   it('retains every live answerable request and compacts resolutions before instantiation', () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', sessionId: S1, blank: false } })
+    /** 中文说明：测试场景的局部值 i，取值由紧邻初始化决定，仅在当前作用域使用。 */
     for (let i = 0; i < 40; i++) {
       manager.handleMuxEnvelope({ rpcId: `q${i}` as never, payload: { type: 'question/requested', sessionId: S1, questions: [] } })
     }
     expect(manager.getListSnapshot().items[0]?.pendingInteraction).toBe('question')
+    /** 中文说明：测试场景的局部值 i，取值由紧邻初始化决定，仅在当前作用域使用。 */
     for (let i = 0; i < 40; i++) {
       manager.handleMuxEnvelope({
         rpcId: `r${i}` as never,
@@ -67,6 +94,7 @@ describe('instances', () => {
   })
 
   it('drops buffered answerable requests on session removal', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     // Removed session: buffered frames must not replay on a future instantiation.
     manager.handleMuxEnvelope({ rpcId: 'qz' as never, payload: { type: 'question/requested', sessionId: S2, questions: [] } })
@@ -77,26 +105,36 @@ describe('instances', () => {
 
 describe('list lifecycle', () => {
   it('single-flights refreshList and preserves the Host baseline order', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onList']>>>()
     api.onList = () => gate.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = manager.refreshList()
+    /** 中文说明：测试场景的局部值 second，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const second = manager.refreshList()
     expect(manager.getListSnapshot().state).toBe('loading')
     gate.resolve(ok({ items: [summary(S2, { updatedAt: 200 }), summary(S1)] as never[] }))
     await Promise.all([first, second])
     expect(api.callsOf('session.list')).toHaveLength(1)
+    /** 中文说明：当前状态或快照 snapshot，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const snapshot = manager.getListSnapshot()
     expect(snapshot.state).toBe('idle')
     expect(snapshot.items.map(i => i.sessionId)).toEqual([S2, S1])
   })
 
   it('replays incremental frames over hydration and never batch-reorders established ids', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = deferred<Awaited<ReturnType<FakeApiClient['onList']>>>()
     api.onList = () => first.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 hydration，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const hydration = manager.refreshList()
     manager.handleHostEnvelope({
       rpcId: 'during-first' as never,
@@ -114,12 +152,15 @@ describe('list lifecycle', () => {
   })
 
   it('advances list activity only for direct user messages', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1)] as never[] }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
 
     // Both a new prompt and an admitted steer land as a user-sourced message.
+    /** 中文说明：测试场景的局部值 activity，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const activity = { ...ev.user(10, 'new'), time: 500 }
     manager.handleMuxEnvelope({
       rpcId: 'activity' as never,
@@ -136,6 +177,7 @@ describe('list lifecycle', () => {
       payload: { type: 'session/event', sessionId: S1, event: { ...ev.assistant(11, 0, 'reply'), time: 600 } },
     })
 
+    /** 中文说明：测试场景的局部值 injected，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const injected = ev.user(12, 'context')
     if (injected.type !== 'user/message') throw new Error('user builder returned another event type')
     manager.handleMuxEnvelope({
@@ -154,8 +196,10 @@ describe('list lifecycle', () => {
   })
 
   it('keeps the error in the list snapshot on failure', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(err({ code: 'internal', message: 'boom', details: {} }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
     expect(manager.getListSnapshot()).toMatchObject({ state: 'error', error: { code: 'internal' } })
@@ -164,7 +208,9 @@ describe('list lifecycle', () => {
   })
 
   it('phase steps pending → ready on the first successful pull and never returns', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     expect(manager.getListSnapshot().phase).toBe('pending')
     await manager.refreshList()
@@ -182,17 +228,23 @@ describe('list lifecycle', () => {
   })
 
   it('merges create into the list immediately without waiting for a refresh', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onCreate = () => Promise.resolve(ok({ sessionId: S2 }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 result，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const result = await manager.create()
     expect(result).toMatchObject({ ok: true, value: { sessionId: S2 } })
     expect(manager.getListSnapshot().items.map(i => i.sessionId)).toEqual([S2])
   })
 
   it('retains title projections before list arrival, keeps last-wins by seq, and clears them on removal', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：当前传输或投影数据 titleFrame，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const titleFrame = (rpcId: string, title: string, seq: number) => {
       manager.handleMuxEnvelope({
         rpcId: rpcId as never,
@@ -207,6 +259,7 @@ describe('list lifecycle', () => {
     }))
     await manager.refreshList()
 
+    /** 中文说明：测试场景的局部值 titled，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const titled = manager.getListSnapshot()
     expect(titled.items.map(item => item.sessionId)).toEqual([S1, S2])
     expect(titled.items[0]?.title).toBe('Newest')
@@ -218,7 +271,9 @@ describe('list lifecycle', () => {
   })
 
   it('seeds cold titles from the list rows\' projections block under higher-seq-wins', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     // A push frame landed before the list (S2's title is newer than the block's cut).
     manager.handleMuxEnvelope({
@@ -232,6 +287,7 @@ describe('list lifecycle', () => {
       ] as never[],
     }))
     await manager.refreshList()
+    /** 中文说明：按序保存的数据集合 items，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const items = manager.getListSnapshot().items
     // Cold row: title surfaces straight from the list block — no open, no history.
     expect(items.find(item => item.sessionId === S1)?.title).toBe('Cold cached')
@@ -240,10 +296,13 @@ describe('list lifecycle', () => {
   })
 
   it('drops a projection row beyond the subscription baseline before accepting its durable replay', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1)] as never[] }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
+    /** 中文说明：当前传输或投影数据 frame，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const frame = (rpcId: string, payload: object) => {
       manager.handleMuxEnvelope({ rpcId: rpcId as never, payload: payload as never })
     }
@@ -265,12 +324,15 @@ describe('list lifecycle', () => {
 
 describe('search', () => {
   it('returns bounded Host results and forwards the caller signal', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onSearch = () => Promise.resolve(ok({
       items: [{ sessionId: S1, snippet: 'matching excerpt' }],
       hasMore: true,
     }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：异步取消状态 signal，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const signal = new AbortController().signal
 
     await expect(manager.search('exact phrase', signal)).resolves.toEqual({
@@ -285,13 +347,16 @@ describe('search', () => {
   })
 
   it('preserves business errors and folds transport failures', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     api.onSearch = () => Promise.resolve(err({
       code: 'internal',
       message: 'index unavailable',
       details: {},
     }))
+    /** 中文说明：异步取消状态 signal，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const signal = new AbortController().signal
     await expect(manager.search('first', signal)).resolves.toMatchObject({
       ok: false,
@@ -308,12 +373,15 @@ describe('search', () => {
 
 describe('host frame routing', () => {
   it('adds/removes/flips sessions from host frames and keeps removed instances resident', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', blank: true, sessionId: S1 } })
     manager.handleHostEnvelope({ rpcId: 'h2' as never, payload: { type: 'host/session-added', blank: true, sessionId: S1 } }) // dup: ignored
     expect(manager.getListSnapshot().items).toHaveLength(1)
 
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = manager.get(S1)
     manager.handleHostEnvelope({ rpcId: 'h3' as never, payload: { type: 'host/session-status', sessionId: S1, running: true } })
     expect(session.getSnapshot().running).toBe(true)
@@ -331,6 +399,7 @@ describe('host frame routing', () => {
 
 describe('subagent catalogs', () => {
   it('keeps a catalog-discovered child address across ordinary selection and status frames', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [
       summary(S1),
@@ -343,6 +412,7 @@ describe('subagent catalogs', () => {
       }] as never[],
       parentAvailable: true,
     }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
     await manager.refreshSubagents(S1)
@@ -379,6 +449,7 @@ describe('subagent catalogs', () => {
     ])
     expect(api.callsOf('session.history')).toEqual([])
     expect(api.callsOf('session.prompt')).toEqual([])
+    /** 中文说明：按序保存的数据集合 listCalls，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const listCalls = api.callsOf('subagent.list').length
     manager.handleHostEnvelope({
       rpcId: 'child-complete' as never,
@@ -407,11 +478,14 @@ describe('subagent catalogs', () => {
   it('refetches debounced membership only while the parent catalog is open', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const api = new FakeApiClient()
+      /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const manager = new SessionManager(api, fakeRemote())
       await manager.refreshSubagents(S1)
       manager.setSubagentCatalogOpen(S1, true)
       await Promise.resolve()
+      /** 中文说明：测试场景的局部值 baseline，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const baseline = api.callsOf('subagent.list').length
       manager.handleHostEnvelope({
         rpcId: 'child-added' as never,
@@ -443,7 +517,9 @@ describe('subagent catalogs', () => {
   })
 
   it('marks a loaded parent row expandable only for a direct subagent publication', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
     api.onSubagentList = () => Promise.resolve(ok({
       entries: [
@@ -458,6 +534,7 @@ describe('subagent catalogs', () => {
       ] as never[],
       parentAvailable: true,
     }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshSubagents(root)
 
@@ -483,11 +560,16 @@ describe('subagent catalogs', () => {
   })
 
   it('preserves a live expandability hint across only the older in-flight catalog response', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
+    /** 中文说明：当前传输或投影数据 response，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const response = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => response.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const refresh = manager.refreshSubagents(root)
 
     manager.handleHostEnvelope({
@@ -524,11 +606,16 @@ describe('subagent catalogs', () => {
   })
 
   it('replays status frames over an older in-flight catalog response', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
+    /** 中文说明：当前传输或投影数据 response，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const response = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => response.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const refresh = manager.refreshSubagents(root)
 
     manager.handleHostEnvelope({
@@ -561,6 +648,7 @@ describe('subagent catalogs', () => {
   })
 
   it('marks a detached catalog child inactive without requiring a selected address', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onSubagentList = () => Promise.resolve(ok({
       entries: [{
@@ -569,6 +657,7 @@ describe('subagent catalogs', () => {
       }] as never[],
       parentAvailable: true,
     }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshSubagents(S1)
 
@@ -583,12 +672,17 @@ describe('subagent catalogs', () => {
   })
 
   it('coalesces overlapping catalog reads without scheduling a trailing pull', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => first.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
 
+    /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const refresh = manager.refreshSubagents(root)
     expect(manager.refreshSubagents(root)).toBe(refresh)
     api.onSubagentList = () => Promise.resolve(ok({ entries: [], parentAvailable: true }))
@@ -601,12 +695,18 @@ describe('subagent catalogs', () => {
   it('runs one trailing catalog refresh for a membership change coalesced into an in-flight pull', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const api = new FakeApiClient()
+      /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const root = 'fk-root' as SessionId
+      /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const first = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
+      /** 中文说明：测试场景的局部值 second，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const second = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
       api.onSubagentList = () => first.promise
+      /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const manager = new SessionManager(api, fakeRemote(), root)
+      /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const refresh = manager.refreshSubagents(root)
 
       // A membership frame arrives while the pull is in flight; the debounced
@@ -656,15 +756,21 @@ describe('subagent catalogs', () => {
   })
 
   it('keeps removal invalidation across a stale success and failed trailing pull', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
+    /** 中文说明：测试场景的局部值 child，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const child = () => ({
       kind: 'child' as const, id: S2, mode: 'continuable' as const, label: 'worker',
       activity: 'inactive' as const, hasChildren: false,
     })
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => first.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const refresh = manager.refreshSubagents(root)
     first.resolve(ok({ entries: [child()] as never[], parentAvailable: true }))
     await refresh
@@ -672,13 +778,16 @@ describe('subagent catalogs', () => {
 
     // The removal lands while a second pull is in flight: the invalidation
     // must survive the pre-removal ok response, so one trailing pull runs.
+    /** 中文说明：标识或顺序值 mid，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const mid = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => mid.promise
+    /** 中文说明：标识或顺序值 midRefresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const midRefresh = manager.refreshSubagents(root)
     manager.handleHostEnvelope({
       rpcId: 'parent-removed-mid-pull' as never,
       payload: { type: 'host/session-removed', sessionId: root },
     })
+    /** 中文说明：测试场景的局部值 trailing，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const trailing = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => trailing.promise
     mid.resolve(ok({ entries: [child()] as never[], parentAvailable: true }))
@@ -694,6 +803,7 @@ describe('subagent catalogs', () => {
       })
     })
 
+    /** 中文说明：按序保存的数据集合 rootCalls，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const rootCalls = api.callsOf('subagent.list')
       .filter(call => (call as { parentSessionId: SessionId }).parentSessionId === root)
     expect(rootCalls).toHaveLength(3)
@@ -702,7 +812,9 @@ describe('subagent catalogs', () => {
   })
 
   it('invalidates catalog availability when the owning parent is removed', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
     api.onSubagentList = () => Promise.resolve(ok({
       entries: [{
@@ -711,6 +823,7 @@ describe('subagent catalogs', () => {
       }] as never[],
       parentAvailable: true,
     }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshSubagents(root)
     manager.selectSubagent({ parentSessionId: root, childSessionId: S2, mode: 'continuable' })
@@ -728,16 +841,21 @@ describe('subagent catalogs', () => {
 
 describe('remaining branches', () => {
   it('refreshList folds a transport throw into the error state', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.reject(new Error('list wire down'))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
     expect(manager.getListSnapshot()).toMatchObject({ state: 'error', error: { code: 'internal', message: 'list wire down' } })
   })
 
   it('refreshList pushes running bits down to already-instantiated sessions', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = manager.get(S1)
     api.onList = () => Promise.resolve(ok({ items: [summary(S1, { running: true })] as never[] }))
     await manager.refreshList()
@@ -745,8 +863,10 @@ describe('remaining branches', () => {
   })
 
   it('create passes cwd and a preallocated id, folds transport throws, and deduplicates the echo', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onCreate = () => Promise.resolve(ok({ sessionId: S1 }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.create({ cwd: '/tmp/w', sessionId: S1 })
     expect(api.callsOf('session.create')).toEqual([{ cwd: '/tmp/w', sessionId: S1 }])
@@ -761,13 +881,16 @@ describe('remaining branches', () => {
   })
 
   it('publishes a real Ungrouped summary from workspace-attach-failed', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onCreate = () => Promise.resolve(err({
       code: 'workspace-attach-failed',
       message: 'published but unattached',
       details: { sessionId: S1, workspaceId: 'w1' },
     } as never))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 result，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const result = await manager.create({ workspaceId: 'w1' as never, sessionId: S1 })
     expect(result).toMatchObject({ ok: false, error: { code: 'workspace-attach-failed' } })
     expect(manager.getListSnapshot().items).toEqual([expect.objectContaining({ sessionId: S1 })])
@@ -775,13 +898,16 @@ describe('remaining branches', () => {
   })
 
   it('reconciles a fork child published before workspace attachment fails', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onFork = () => Promise.resolve(err({
       code: 'workspace-attach-failed',
       message: 'forked but unattached',
       details: { sessionId: S2, workspaceId: 'w1' },
     } as never))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 result，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const result = await manager.fork({ sessionId: S1 })
     expect(result).toMatchObject({ ok: false, error: { code: 'workspace-attach-failed' } })
     expect(manager.getListSnapshot().items).toEqual([expect.objectContaining({
@@ -792,9 +918,12 @@ describe('remaining branches', () => {
   })
 
   it('reconciles a preallocated id after an ordinary transport failure', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onCreate = () => Promise.reject(new Error('response lost'))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 failed，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const failed = await manager.create({ workspaceId: 'w1' as never, sessionId: S1 })
     expect(failed).toMatchObject({ ok: false, error: { message: 'response lost' } })
     expect(manager.getListSnapshot().items).toEqual([])
@@ -814,13 +943,18 @@ describe('remaining branches', () => {
   })
 
   it('subscribe notifies on list changes and stops after unsubscribe', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 notified，取值由紧邻初始化决定，仅在当前作用域使用。 */
     let notified = 0
+    /** 中文说明：测试场景的局部值 unsubscribe，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const unsubscribe = manager.subscribe(() => { notified++ })
     await manager.refreshList()
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(notified).toBeGreaterThan(0)
+    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const seen = notified
     unsubscribe()
     manager.handleHostEnvelope({ rpcId: 'h' as never, payload: { type: 'host/session-added', blank: true, sessionId: S1 } })
@@ -829,11 +963,14 @@ describe('remaining branches', () => {
   })
 
   it('routes stream/error and unknown frames to the documented drops, and dispatches to instantiated sessions', () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     manager.handleMuxEnvelope({ rpcId: 'e' as never, payload: { type: 'stream/error', error: { code: 'internal', message: 'x', details: {} } } })
     manager.handleHostEnvelope({ rpcId: 'e2' as never, payload: { type: 'stream/error', error: { code: 'internal', message: 'x', details: {} } } })
     manager.handleHostEnvelope({ rpcId: 'e3' as never, payload: { type: 'future/host-frame' } as never })
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = manager.get(S1)
     manager.handleMuxEnvelope({ rpcId: 'q1' as never, payload: { type: 'question/requested', sessionId: S1, questions: [] } })
     expect(session.getSnapshot().pending).toMatchObject([{ kind: 'question' }])
@@ -843,15 +980,21 @@ describe('remaining branches', () => {
   })
 
   it('keeps list-entry identity for unchanged rows across an unrelated list change', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1), summary(S2, { updatedAt: 200 })] as never[] }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
+    /** 中文说明：测试场景的局部值 before，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const before = manager.getListSnapshot()
     manager.handleHostEnvelope({ rpcId: 'h' as never, payload: { type: 'host/session-status', sessionId: S2, running: true } })
+    /** 中文说明：测试场景的局部值 after，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const after = manager.getListSnapshot()
     expect(after.items).not.toBe(before.items)
+    /** 中文说明：测试场景的局部值 beforeS1，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const beforeS1 = before.items.find(e => e.sessionId === S1)
+    /** 中文说明：测试场景的局部值 afterS1，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const afterS1 = after.items.find(e => e.sessionId === S1)
     expect(afterS1).toBe(beforeS1) // untouched entry keeps identity (entryCache)
     // Same-order same-entries snapshot reuses the items array.
@@ -860,7 +1003,9 @@ describe('remaining branches', () => {
   })
 
   it('carries parentSessionId from host/session-added into the lineage row', () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', blank: true, sessionId: S1 } })
     manager.handleHostEnvelope({
@@ -870,6 +1015,7 @@ describe('remaining branches', () => {
         parentSessionId: S1, origin: 'subagent',
       },
     })
+    /** 中文说明：按序保存的数据集合 items，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const items = manager.getListSnapshot().items
     expect(items.find(e => e.sessionId === S2)).toMatchObject({
       parentSessionId: S1, origin: 'subagent', depth: 1,
@@ -879,16 +1025,20 @@ describe('remaining branches', () => {
 
 describe('connected generation', () => {
   it('refreshes the list and resyncs only opened instances', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onHistory = () => Promise.resolve(ok({
       events: entries(plainTurn(0, 0, 'a', 'b')) as never[],
       hasMore: false,
       modelSelection: { provider: 'deepseek-official', model: 'deepseek-chat' },
     }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 openedSession，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const openedSession = manager.get(S1)
     await openedSession.open()
     manager.get(S2) // instantiated but never opened
+    /** 中文说明：按序保存的数据集合 historyCallsBefore，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const historyCallsBefore = api.callsOf('session.history').length
     manager.handleConnected()
     await vi.waitFor(() => {
@@ -899,10 +1049,13 @@ describe('connected generation', () => {
   })
 
   it('reloads the durable parent address for a restored child selection', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：测试场景的局部值 address，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const address = {
       parentSessionId: S1, childSessionId: S2, mode: 'continuable' as const,
     }
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote(), S2, address)
 
     manager.handleConnected()
@@ -916,6 +1069,7 @@ describe('connected generation', () => {
 
 describe('pending-interaction list status', () => {
   it('tracks approval requests through replay and resolution without instantiation', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', sessionId: S1, blank: false } })
     expect(manager.getListSnapshot().items[0]?.pendingInteraction).toBeUndefined()
@@ -929,6 +1083,7 @@ describe('pending-interaction list status', () => {
   })
 
   it('classifies ordinary questions and renderable plan reviews, then clears by question rpcId', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', sessionId: S1, blank: false } })
     manager.handleMuxEnvelope({
@@ -962,6 +1117,7 @@ describe('pending-interaction list status', () => {
     ['more than two options', { detail: '# Plan', options: [{ label: 'Approve' }, { label: 'Refuse' }, { label: 'Revise' }] }],
     ['missing approve option', { detail: '# Plan', options: [{ label: 'Refuse' }] }],
   ])('keeps an unrenderable %s plan intent on the ordinary question flow', (_name, over) => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', sessionId: S1, blank: false } })
     manager.handleMuxEnvelope({
@@ -979,6 +1135,7 @@ describe('pending-interaction list status', () => {
   })
 
   it('the first question outranks sibling approvals and resolving it reveals the remaining wait', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', sessionId: S1, blank: false } })
     manager.handleMuxEnvelope({ rpcId: 'r1' as never, payload: { type: 'approval/requested', sessionId: S1, approvalId: 'a1' as never, toolName: 'rm' } })
@@ -998,6 +1155,7 @@ describe('pending-interaction list status', () => {
   })
 
   it('drops stale status at generation death before replay re-adds live interactions', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', sessionId: S1, blank: false } })
     manager.handleMuxEnvelope({ rpcId: 'ra' as never, payload: { type: 'approval/requested', sessionId: S1, approvalId: 'ap1' as never, toolName: 'rm' } })
@@ -1013,6 +1171,7 @@ describe('pending-interaction list status', () => {
   })
 
   it('generation death drops buffered answerable frames (a dead generation cannot be answered)', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'h1' as never, payload: { type: 'host/session-added', sessionId: S1, blank: false } })
     // Buffered pre-instantiation: an approval pair and a queued row.
@@ -1022,24 +1181,29 @@ describe('pending-interaction list status', () => {
     // Instantiate after the death sweep: no zombie interaction replays (the
     // pendingBuffers held only dead-generation rpcIds), so the session mints
     // no pending waits.
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = manager.get(S1)
     expect(session.getSnapshot().pending).toEqual([])
   })
 })
 
 describe('completed reminder', () => {
+  /** 中文说明：测试场景的局部值 status，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const status = (rpcId: string, sessionId: SessionId, running: boolean) => ({
     rpcId: rpcId as never,
     payload: { type: 'host/session-status' as const, sessionId, running },
   })
+  /** 中文说明：测试场景的局部值 added，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const added = (rpcId: string, sessionId: SessionId) => ({
     rpcId: rpcId as never,
     payload: { type: 'host/session-added' as const, sessionId, blank: false },
   })
+  /** 中文说明：测试场景的局部值 entry，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const entry = (manager: SessionManager, sessionId: SessionId) =>
     manager.getListSnapshot().items.find(item => item.sessionId === sessionId)
 
   it('arms on a running→idle flip of a non-selected session and clears on select', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope(added('h1', S1))
     manager.handleHostEnvelope(added('h2', S2))
@@ -1054,6 +1218,7 @@ describe('completed reminder', () => {
   })
 
   it('never arms for the session being watched and re-arms after a switch-away re-run', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope(added('h1', S1))
     manager.handleHostEnvelope(added('h2', S2))
@@ -1069,6 +1234,7 @@ describe('completed reminder', () => {
   })
 
   it('a re-run disarms the reminder while running and re-arms on its completion', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope(added('h1', S1))
     manager.handleHostEnvelope(added('h2', S2))
@@ -1084,6 +1250,7 @@ describe('completed reminder', () => {
   })
 
   it('session-removed drops the reminder and a re-add starts clean', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope(added('h1', S1))
     manager.handleHostEnvelope(added('h2', S2))
@@ -1098,8 +1265,10 @@ describe('completed reminder', () => {
   })
 
   it('a list refresh carrying the running→idle transition arms the reminder', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1), summary(S2, { updatedAt: 200, running: true })] as never[] }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
     manager.select(S1)
@@ -1110,8 +1279,10 @@ describe('completed reminder', () => {
   })
 
   it('never arms for sessions already idle at first observation', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1), summary(S2, { updatedAt: 200 })] as never[] }))
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
     await manager.refreshList()
     manager.select(S1)
@@ -1122,10 +1293,14 @@ describe('completed reminder', () => {
   })
 
   it('arms a completion that happened during an in-flight first pull (baseline running, replayed idle)', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onList']>>>()
     api.onList = () => gate.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const refresh = manager.refreshList()
     // The session finishes while the first pull is still in flight; the pull
     // response recorded it as running at pull time.
@@ -1136,10 +1311,14 @@ describe('completed reminder', () => {
   })
 
   it('arms when a session ran and completed entirely between in-flight mutations (baseline idle)', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onList']>>>()
     api.onList = () => gate.promise
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(api, fakeRemote())
+    /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const refresh = manager.refreshList()
     // The unknown session starts and finishes while the first pull is in
     // flight; the pull-time baseline recorded it idle, so the running→idle
@@ -1153,16 +1332,20 @@ describe('completed reminder', () => {
 })
 
 describe('background-job mirror', () => {
+  /** 中文说明：测试场景的局部值 view，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const view = (over: Partial<{ id: string; status: string; label: string }> = {}) => ({
     id: 'bash-1', kind: 'bash', label: 'pnpm run build', status: 'running', startedAt: 5, ...over,
   })
+  /** 中文说明：当前传输或投影数据 tasksFrame，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const tasksFrame = (sessionId: SessionId, jobs: unknown[]) =>
     ({ rpcId: 't' as never, payload: { type: 'session/jobs', sessionId, jobs } as never })
 
   it('mirrors the whole set last-wins, keyed per session, with no Session instance needed', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleMuxEnvelope(tasksFrame(S1, [view()]))
     manager.handleMuxEnvelope(tasksFrame(S2, [view({ id: 'pwsh-1', label: 'other' })]))
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = manager.getListSnapshot().jobsBySession
     expect(first[S1]).toEqual([view()])
     expect(first[S2]?.[0]?.label).toBe('other')
@@ -1173,6 +1356,7 @@ describe('background-job mirror', () => {
   })
 
   it('stores an emptied set as an absent key so absence and [] read alike', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleMuxEnvelope(tasksFrame(S1, [view()]))
     expect(S1 in manager.getListSnapshot().jobsBySession).toBe(true)
@@ -1181,6 +1365,7 @@ describe('background-job mirror', () => {
   })
 
   it('clears the mirror on re-subscribe, because a task-free generation sends no baseline', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleMuxEnvelope(tasksFrame(S1, [view()]))
     manager.handleMuxEnvelope({
@@ -1191,6 +1376,7 @@ describe('background-job mirror', () => {
   })
 
   it('drops the rows when the session is removed, whichever stream lands first', () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
     manager.handleHostEnvelope({ rpcId: 'a' as never, payload: { type: 'host/session-added', blank: true, sessionId: S1 } })
     manager.handleMuxEnvelope(tasksFrame(S1, [view()]))
@@ -1199,7 +1385,9 @@ describe('background-job mirror', () => {
   })
 
   it('notifies list subscribers so an open header re-renders without a poll', async () => {
+    /** 中文说明：当前服务或测试对象 manager，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manager = new SessionManager(new FakeApiClient(), fakeRemote())
+    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const seen = vi.fn()
     manager.subscribe(seen)
     manager.handleMuxEnvelope(tasksFrame(S1, [view()]))

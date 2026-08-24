@@ -6,38 +6,64 @@
  * deferral — the stage follows list.current), binding identity, breadcrumb
  * projection, create.
  */
+/**
+ * 文件职责：验证客户端会话运行时的 sessions-service 行为与边界。
+ * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
+ * 产品维度：防止用户可见行为在重构或扩展后发生回归。
+ * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
+ * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
+ * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { SessionCreateError, SessionRuntime, scopeOf } from '../src/client/sessions/service.ts'
 import { FakeApiClient, deferred, err, fakeRemote, ok } from './fake-api.client.ts'
 
+/** 中文说明：标识或顺序值 sid，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const sid = (s: string): SessionId => s as SessionId
 
+/** 中文说明：类型 Bench 约束本文件数据字段及允许取值。 */
 interface Bench {
+  /** 中文说明：成员 ctx 保存可编排测试状态，取值由声明类型限定。 */
   ctx: Context
+  /** 中文说明：成员 api 保存可编排测试状态，取值由声明类型限定。 */
   api: FakeApiClient
+  /** 中文说明：成员 svc 保存可编排测试状态，取值由声明类型限定。 */
   svc: SessionRuntime
 }
 
+/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function bench(): Bench {
+  /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const ctx = new Context()
+  /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const api = new FakeApiClient()
+  /** 中文说明：测试场景的局部值 svc，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const svc = new SessionRuntime(ctx, api, fakeRemote())
   return { ctx, api, svc }
 }
 
 /** Refresh the manager list from programmable rows and flush the microtask batch. */
+/** 中文说明：类型 FeedRow 约束本文件数据字段及允许取值。 */
 type FeedRow = {
+  /** 中文说明：成员 id 保存可编排测试状态，取值由声明类型限定。 */
   id: string
+  /** 中文说明：成员 cwd 保存可编排测试状态，取值由声明类型限定。 */
   cwd?: string
+  /** 中文说明：成员 parentId 保存可编排测试状态，取值由声明类型限定。 */
   parentId?: string
+  /** 中文说明：成员 origin 保存可编排测试状态，取值由声明类型限定。 */
   origin?: 'subagent'
+  /** 中文说明：成员 running 保存可编排测试状态，取值由声明类型限定。 */
   running?: boolean
+  /** 中文说明：成员 blank 保存可编排测试状态，取值由声明类型限定。 */
   blank?: boolean
+  /** 中文说明：成员 agentPreset 保存可编排测试状态，取值由声明类型限定。 */
   agentPreset?: string
 }
 
+/** 中文说明：函数 feedList 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 async function feedList(b: Bench, rows: FeedRow[]): Promise<void> {
   b.api.onList = () => Promise.resolve(ok({
     items: rows.map(r => ({
@@ -54,6 +80,7 @@ async function feedList(b: Bench, rows: FeedRow[]): Promise<void> {
 
 describe('list store projection', () => {
   it('projects durable titles separately from cwd/id display fallbacks and parent links', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.svc.handleMuxEnvelope({
       rpcId: 'title' as never,
@@ -63,6 +90,7 @@ describe('list store projection', () => {
       { id: 's1', cwd: '/home/u/proj-a/' },
       { id: 's2', parentId: 's1', origin: 'subagent', running: true },
     ])
+    /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const state = b.svc.list.getSnapshot()
     expect(state.ids).toEqual(['s1', 's2'])
     expect(state.byId[sid('s1')]).toMatchObject({ title: 'Durable title', displayTitle: 'Durable title', cwd: '/home/u/proj-a/' })
@@ -73,6 +101,7 @@ describe('list store projection', () => {
   })
 
   it('reprojects a blank session whose composition switched and nothing else moved', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1', blank: true, agentPreset: 'standard' }])
     expect(b.svc.list.getSnapshot().byId[sid('s1')]?.agentPreset).toBe('standard')
@@ -88,6 +117,7 @@ describe('list store projection', () => {
   })
 
   it('reflects live increments (host stream via manager) into the store', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     b.svc.handleHostEnvelope({ rpcId: 'r1' as never, payload: { type: 'host/session-added', blank: true, sessionId: sid('s2') } as never })
@@ -98,13 +128,16 @@ describe('list store projection', () => {
 
 describe('search', () => {
   it('delegates transient content search without changing the list snapshot', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
+    /** 中文说明：测试场景的局部值 before，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const before = b.svc.list.getSnapshot()
     b.api.onSearch = () => Promise.resolve(ok({
       items: [{ sessionId: sid('s1'), snippet: 'matching excerpt' }],
       hasMore: false,
     }))
+    /** 中文说明：异步取消状态 signal，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const signal = new AbortController().signal
 
     await expect(b.svc.search('needle', signal)).resolves.toEqual({
@@ -121,13 +154,16 @@ describe('search', () => {
 
 describe('scope tree', () => {
   it('mints lazily on first resolution, tags the ctx, and keeps binding identity stable', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     expect(b.svc.scope(sid('unknown'))).toBeUndefined()
+    /** 中文说明：测试场景的局部值 scoped，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const scoped = b.svc.scope(sid('s1'))
     expect(scoped).toBeDefined()
     expect(scopeOf(scoped as Context)).toBe('s1')
     expect(scopeOf(b.ctx)).toBeUndefined()
+    /** 中文说明：测试场景的局部值 binding，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const binding = b.svc.binding(sid('s1'))
     b.svc.open(sid('s1'))
     expect(binding?.session).toBe(b.svc.currentProvideInfo.getSnapshot().hooks['session'])
@@ -136,8 +172,10 @@ describe('scope tree', () => {
   })
 
   it('tears down an off-stage removed session but defers the staged one until the stage moves', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }, { id: 's2' }])
+    /** 中文说明：当前 Cordis 上下文 ctx1，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ctx1 = b.svc.scope(sid('s1'))
     b.svc.open(sid('s1')) // s1 staged (current)
     b.svc.scope(sid('s2')) // s2 scoped but off stage
@@ -154,16 +192,20 @@ describe('scope tree', () => {
   })
 
   it('keeps the scope when the session merely stops running (frozen ≠ removed)', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1', running: true }])
+    /** 中文说明：测试场景的局部值 scoped，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const scoped = b.svc.scope(sid('s1'))
     await feedList(b, [{ id: 's1', running: false }])
     expect(b.svc.scope(sid('s1'))).toBe(scoped)
   })
 
   it('cancels a deferred teardown when the id reappears in the list', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
+    /** 中文说明：测试场景的局部值 scoped，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const scoped = b.svc.scope(sid('s1'))
     b.svc.open(sid('s1'))
     await feedList(b, []) // removed while staged → deferred
@@ -177,6 +219,7 @@ describe('current selection (migrated from ui-layout, arbitrated into the list s
   afterEach(() => { vi.unstubAllGlobals() })
 
   it('open() writes list.current; unknown ids fail loud', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     expect(b.svc.list.getSnapshot().current).toBeUndefined()
@@ -187,6 +230,7 @@ describe('current selection (migrated from ui-layout, arbitrated into the list s
   })
 
   it('clear() blanks list.current and the persisted selection', async () => {
+    /** 中文说明：测试场景的局部值 storage，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const storage = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (k: string) => storage.get(k) ?? null,
@@ -194,6 +238,7 @@ describe('current selection (migrated from ui-layout, arbitrated into the list s
       removeItem: (k: string) => { storage.delete(k) },
       clear: () => { storage.clear() },
     })
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     b.svc.open(sid('s1'))
@@ -201,12 +246,14 @@ describe('current selection (migrated from ui-layout, arbitrated into the list s
     b.svc.clear()
     expect(b.svc.list.getSnapshot().current).toBeUndefined()
     // Persisted wipe: a fresh service with the same storage stays on empty.
+    /** 中文说明：测试场景的局部值 again，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const again = bench()
     await feedList(again, [{ id: 's1' }])
     expect(again.svc.list.getSnapshot().current).toBeUndefined()
   })
 
   it('masks (not destroys) the selection while its session is off the list', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }, { id: 's2' }])
     b.svc.open(sid('s1'))
@@ -217,16 +264,19 @@ describe('current selection (migrated from ui-layout, arbitrated into the list s
   })
 
   it('persists the selection under dsh.sessions.current and rehydrates it into a fresh service', async () => {
+    /** 中文说明：测试场景的局部值 storage，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const storage = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (k: string) => storage.get(k) ?? null,
       setItem: (k: string, v: string) => { storage.set(k, v) },
     })
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = bench()
     await feedList(first, [{ id: 's1' }])
     first.svc.open(sid('s1'))
     expect(storage.get('dsh.sessions.current')).toContain('s1')
     // A fresh boot (same storage) recovers the selection once the list holds the session.
+    /** 中文说明：测试场景的局部值 second，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const second = bench()
     await feedList(second, [{ id: 's1' }])
     expect(second.svc.list.getSnapshot().current).toBe('s1')
@@ -235,9 +285,11 @@ describe('current selection (migrated from ui-layout, arbitrated into the list s
 
 describe('cell (render-layer session kit)', () => {
   it('resolves an identity-stable {sessionId, session} cell through the current projection', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     b.svc.open(sid('s1'))
+    /** 中文说明：测试场景的局部值 info，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const info = b.svc.currentProvideInfo.getSnapshot()
     expect(info.sessionId).toBe('s1')
     // The bundle carries bare observables; hook binding happens in React.
@@ -248,19 +300,24 @@ describe('cell (render-layer session kit)', () => {
   })
 
   it('currentProvideInfo follows selection: absent projection ↔ definite bundle, notified on each move', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }, { id: 's2' }])
+    /** 中文说明：测试场景的局部值 absent，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const absent = b.svc.currentProvideInfo.getSnapshot()
     expect(absent.sessionId).toBeUndefined()
     expect(Object.hasOwn(absent.hooks, 'session')).toBe(true)
+    /** 中文说明：测试场景的局部值 notified，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const notified = vi.fn()
     b.svc.currentProvideInfo.subscribe(notified)
     b.svc.open(sid('s1'))
+    /** 中文说明：测试场景的局部值 s1Bundle，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const s1Bundle = b.svc.currentProvideInfo.getSnapshot()
     expect(s1Bundle.sessionId).toBe('s1')
     expect(s1Bundle.hooks['session']).toBe(b.svc.binding(sid('s1'))?.session)
     expect(notified).toHaveBeenCalledTimes(1)
     b.svc.open(sid('s2'))
+    /** 中文说明：测试场景的局部值 s2Bundle，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const s2Bundle = b.svc.currentProvideInfo.getSnapshot()
     expect(s2Bundle.sessionId).toBe('s2')
     expect(s2Bundle).not.toBe(s1Bundle)
@@ -271,24 +328,31 @@ describe('cell (render-layer session kit)', () => {
   })
 
   it('a provider roster change under a stable current id republishes the bundle', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     b.svc.open(sid('s1'))
+    /** 中文说明：测试场景的局部值 before，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const before = b.svc.currentProvideInfo.getSnapshot()
+    /** 中文说明：测试场景的局部值 notified，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const notified = vi.fn()
     b.svc.currentProvideInfo.subscribe(notified)
+    /** 中文说明：测试场景的局部值 source，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const source = { getSnapshot: () => 'live', subscribe: () => () => {} }
+    /** 中文说明：释放资源的清理函数 dispose，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const dispose = b.svc.provide({
       hooks: ['extra'],
       props: ['marker'],
       resolve: () => ({ hooks: { extra: source }, props: { marker: 7 } }),
     })
+    /** 中文说明：测试场景的局部值 added，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const added = b.svc.currentProvideInfo.getSnapshot()
     expect(added).not.toBe(before)
     expect(added).toMatchObject({ sessionId: 's1', props: { marker: 7 } })
     expect(added.hooks['extra']).toBe(source)
     expect(notified).toHaveBeenCalledTimes(1)
     dispose()
+    /** 中文说明：释放资源的清理函数 removed，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const removed = b.svc.currentProvideInfo.getSnapshot()
     expect(removed).not.toBe(added)
     expect(Object.hasOwn(removed.hooks, 'extra')).toBe(false)
@@ -296,9 +360,12 @@ describe('cell (render-layer session kit)', () => {
   })
 
   it('an unsubscribed currentProvideInfo listener stops receiving notifications', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
+    /** 中文说明：测试场景的局部值 notified，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const notified = vi.fn()
+    /** 中文说明：测试场景的局部值 off，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const off = b.svc.currentProvideInfo.subscribe(notified)
     off()
     b.svc.open(sid('s1'))
@@ -306,6 +373,7 @@ describe('cell (render-layer session kit)', () => {
   })
 
   it('binding() is pure resolution: no staging, no deferred sweep', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }, { id: 's2' }])
     b.svc.open(sid('s1')) // staged
@@ -315,8 +383,10 @@ describe('cell (render-layer session kit)', () => {
   })
 
   it('staging (current write) opens the session event window; resolution and re-staging do not re-pull', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }, { id: 's2' }])
+    /** 中文说明：按序保存的数据集合 historyCalls，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const historyCalls = () => b.api.calls.filter(c => c.method === 'session.history')
     // Resolution is addressing, not staging: no window pull.
     b.svc.scope(sid('s1'))
@@ -333,6 +403,7 @@ describe('cell (render-layer session kit)', () => {
   })
 
   it('startup restore: a persisted selection validated by the first projection opens its window unprompted', async () => {
+    /** 中文说明：测试场景的局部值 storage，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const storage = new Map<string, string>([
       ['dsh.sessions.current', JSON.stringify({ sessionId: 's1' })],
     ])
@@ -341,9 +412,11 @@ describe('cell (render-layer session kit)', () => {
       setItem: (k: string, v: string) => { storage.set(k, v) },
     })
     try {
+      /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const b = bench()
       expect(b.api.calls.filter(c => c.method === 'session.history')).toHaveLength(0)
       await feedList(b, [{ id: 's1' }]) // projection validates the persisted id → current lands → stage follows
+      /** 中文说明：按序保存的数据集合 historyCalls，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const historyCalls = b.api.calls.filter(c => c.method === 'session.history')
       expect(historyCalls.map(c => (c.payload as { sessionId: string }).sessionId)).toEqual(['s1'])
     } finally {
@@ -354,7 +427,9 @@ describe('cell (render-layer session kit)', () => {
 
 describe('slot-store scope prune hook', () => {
   it('notifies ctx.slots.pruneStoreScope when a scope dies (both teardown paths)', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
+    /** 中文说明：当前状态或快照 pruneStoreScope，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const pruneStoreScope = vi.fn()
     b.ctx.reflect.provide('slots', { pruneStoreScope })
     await feedList(b, [{ id: 's1' }, { id: 's2' }])
@@ -370,6 +445,7 @@ describe('slot-store scope prune hook', () => {
   })
 
   it('tolerates a slots-less boot (object-layer benches carry no slot service)', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     b.svc.scope(sid('s1'))
@@ -380,8 +456,10 @@ describe('slot-store scope prune hook', () => {
 
 describe('catalog-addressed navigation', () => {
   it('uses catalog labels for a listed addressed route', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.api.onSubagentList = (payload) => {
+      /** 中文说明：标识或顺序值 { parentSessionId }，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const { parentSessionId } = payload as { parentSessionId: SessionId }
       if (parentSessionId === sid('root')) {
         return Promise.resolve(ok({
@@ -419,8 +497,10 @@ describe('catalog-addressed navigation', () => {
   })
 
   it('projects a directly opened descendant route without retaining ancestor scopes or addresses', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.api.onSubagentList = (payload) => {
+      /** 中文说明：标识或顺序值 { parentSessionId }，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const { parentSessionId } = payload as { parentSessionId: SessionId }
       if (parentSessionId === sid('root')) {
         return Promise.resolve(ok({
@@ -449,6 +529,7 @@ describe('catalog-addressed navigation', () => {
       parentSessionId: sid('child'), childSessionId: sid('grandchild'), mode: 'continuable',
     })
 
+    /** 中文说明：按序保存的数据集合 list，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const list = b.svc.list.getSnapshot()
     expect(list.ids).toEqual([sid('root')])
     expect(list.byId[sid('child')]).toMatchObject({ parentId: sid('root'), origin: 'subagent' })
@@ -466,6 +547,7 @@ describe('catalog-addressed navigation', () => {
 
 describe('create', () => {
   it('passes a preallocated id and preserves it on ordinary failure', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.api.onCreate = () => Promise.resolve(ok({ sessionId: sid('fresh') }))
     await expect(b.svc.create({ cwd: '/w', sessionId: sid('fresh') })).resolves.toBe('fresh')
@@ -474,6 +556,7 @@ describe('create', () => {
       rpcId: 'e' as never,
       result: { ok: false as const, error: { code: 'internal' as const, message: '爆了', details: {} } },
     } as never)
+    /** 中文说明：失败路径的观测值 failure，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const failure = await b.svc.create({ sessionId: sid('candidate') }).catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(SessionCreateError)
     expect(failure).toMatchObject({
@@ -483,8 +566,10 @@ describe('create', () => {
   })
 
   it('resolves with the session already listed and binding-resolvable (no flush wait)', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.api.onCreate = () => Promise.resolve(ok({ sessionId: sid('born') }))
+    /** 中文说明：测试场景的局部值 born，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const born = await b.svc.create({ workspaceId: 'ws' as never })
     // Synchronously after resolution — the draft hand-off contract: the
     // create echo IS the entity entering the client's view (blank row +
@@ -495,6 +580,7 @@ describe('create', () => {
   })
 
   it('lists the published id after Workspace attachment fails (publication precedes attachment)', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.api.onCreate = () => Promise.resolve({
       rpcId: 'attach' as never,
@@ -506,6 +592,7 @@ describe('create', () => {
         },
       },
     } as never)
+    /** 中文说明：失败路径的观测值 failure，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const failure = await b.svc.create({
       workspaceId: 'ws' as never,
       sessionId: sid('published'),
@@ -527,6 +614,7 @@ describe('fork', () => {
     ['计划（1）', '计划（2）'],
     ['计划 （9）', '计划 （10）'],
   ])('increments the durable title %j after the child is published', async (sourceTitle, childTitle) => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.svc.handleMuxEnvelope({
       rpcId: 'source-title' as never,
@@ -535,6 +623,7 @@ describe('fork', () => {
     await feedList(b, [{ id: 'source', cwd: '/work' }])
     b.api.onFork = () => Promise.resolve(ok({ sessionId: sid('child') }))
     b.api.onRename = (payload) => {
+      /** 中文说明：测试场景的局部值 { title }，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const { title } = payload as { title: string }
       return Promise.resolve(ok({ title, seq: 3 }))
     }
@@ -554,6 +643,7 @@ describe('fork', () => {
   })
 
   it('floors a fractional anchor to the real event seq the wire accepts', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 'source', cwd: '/work' }])
     b.api.onFork = () => Promise.resolve(ok({ sessionId: sid('child') }))
@@ -565,6 +655,7 @@ describe('fork', () => {
   })
 
   it('does not rename without the title policy or a durable source title', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 'source', cwd: '/work' }])
     b.api.onFork = () => Promise.resolve(ok({ sessionId: sid('child') }))
@@ -577,6 +668,7 @@ describe('fork', () => {
   })
 
   it('rejects when child rename fails while keeping the published child addressable', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     b.svc.handleMuxEnvelope({
       rpcId: 'source-title' as never,
@@ -596,6 +688,7 @@ describe('fork', () => {
 
 describe('scope lifecycle rides the list mirror (entity parity: no client-side pre-birth)', () => {
   it('a session-added frame births the row (blank) and makes the scope resolvable; removal prunes it', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [])
     expect(b.svc.scope(sid('s-new'))).toBeUndefined() // not in view: no scope, no exceptions
@@ -604,6 +697,7 @@ describe('scope lifecycle rides the list mirror (entity parity: no client-side p
       payload: { type: 'host/session-added', sessionId: sid('s-new'), blank: true, cwd: '/w/a' } as never,
     })
     await Promise.resolve()
+    /** 中文说明：测试场景的局部值 scoped，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const scoped = b.svc.scope(sid('s-new'))
     expect(scoped).toBeDefined()
     expect(scopeOf(scoped as Context)).toBe('s-new')
@@ -618,6 +712,7 @@ describe('scope lifecycle rides the list mirror (entity parity: no client-side p
 
 describe('blank mirror', () => {
   it('flips blank=false from the running:true status frame (cross-client conversion)', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1', blank: true }])
     expect(b.svc.list.getSnapshot().byId[sid('s1')]).toMatchObject({ blank: true })
@@ -632,12 +727,16 @@ describe('blank mirror', () => {
   })
 
   it('flips blank=false on prompt ACCEPTANCE, not on the attempt', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1', blank: true, cwd: '/w/a' }])
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = b.svc.binding(sid('s1'))!.session
     expect(session.getSnapshot().blank).toBe(true)
+    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onPrompt']>>>()
     b.api.onPrompt = () => gate.promise
+    /** 中文说明：测试场景的局部值 send，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const send = session.prompt([{ type: 'text', text: 'hi' }], 'queue')
     // In flight: still blank (the flip point is the success response, which
     // proves the user message reached the host log).
@@ -650,13 +749,16 @@ describe('blank mirror', () => {
   })
 
   it('keeps a rejected first prompt blank: hidden and still reusable', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1', blank: true, cwd: '/w/a' }])
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = b.svc.binding(sid('s1'))!.session
     b.api.onPrompt = () => Promise.resolve({
       rpcId: 'busy' as never,
       result: { ok: false as const, error: { code: 'internal' as const, message: 'agent busy', details: {} } },
     } as never)
+    /** 中文说明：测试场景的局部值 result，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const result = await session.prompt([{ type: 'text', text: 'hi' }], 'queue')
     expect(result.ok).toBe(false)
     // No flip on failure: local stays aligned with the host authority
@@ -667,6 +769,7 @@ describe('blank mirror', () => {
   })
 
   it('takes session-added blank=true as the hidden birth and list blank as reconnect authority', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [])
     b.svc.handleHostEnvelope({
@@ -681,8 +784,10 @@ describe('blank mirror', () => {
   })
 
   it('never re-blanks: a stale blank=true summary cannot hide an engaged session', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1', blank: true }])
+    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = b.svc.binding(sid('s1'))!.session
     await session.prompt([{ type: 'text', text: 'hi' }], 'queue')
     await Promise.resolve()
@@ -695,8 +800,10 @@ describe('blank mirror', () => {
 
 describe('coverage tails (branch duals)', () => {
   it('displayTitleOf falls back to the id for empty and separator-only cwd', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 'no-base', cwd: '///' }, { id: 'empty-cwd', cwd: '' }])
+    /** 中文说明：标识或顺序值 { byId }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { byId } = b.svc.list.getSnapshot()
     expect(byId[sid('no-base')]?.displayTitle).toBe('no-base')
     expect(byId[sid('empty-cwd')]?.displayTitle).toBe('empty-cwd')
@@ -704,6 +811,7 @@ describe('coverage tails (branch duals)', () => {
   })
 
   it('binding for an unknown session returns undefined and leaves the staged scope intact', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     b.svc.open(sid('s1'))
@@ -714,9 +822,11 @@ describe('coverage tails (branch duals)', () => {
   })
 
   it('a masked current gap holds the stage (no teardown, no re-open) until the stage moves', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 's1' }])
     b.svc.open(sid('s1'))
+    /** 中文说明：按序保存的数据集合 historyCalls，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const historyCalls = () => b.api.calls.filter(c => c.method === 'session.history')
     expect(historyCalls()).toHaveLength(1)
     await feedList(b, []) // removed while staged: current masks to undefined, stage holds → deferred
@@ -728,6 +838,7 @@ describe('coverage tails (branch duals)', () => {
   })
 
   it('sweep hits both deferral edges: staged-id skip and an already-vacated scope record', async () => {
+    /** 中文说明：测试场景的局部值 b，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const b = bench()
     await feedList(b, [{ id: 'a' }, { id: 'b' }])
     b.svc.scope(sid('a'))

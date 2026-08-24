@@ -4,6 +4,14 @@
  * treats an empty roster as "this deployment composes no presets" rather than
  * as a failure.
  */
+/**
+ * 文件职责：验证代理预设界面的 settings-store 行为与边界。
+ * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
+ * 产品维度：防止用户可见行为在重构或扩展后发生回归。
+ * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
+ * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
+ * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
+ */
 
 import { describe, expect, it } from 'vitest'
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
@@ -13,15 +21,18 @@ import {
 } from '../src/client/settings-store.ts'
 
 /** Controller over a real mirror derived from the same fake wire. */
+/** 中文说明：函数 derivedController 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function derivedController(api: IApiClient) {
   return new AgentPresetSettingsController(api, new SettingsDescribeMirror(api))
 }
 import { AgentPresetSeatController } from '../src/client/seat-store.ts'
 import type { SeatSessionSummary } from '../src/client/seat-store.ts'
 
+/** 中文说明：类型 Recorded 约束本文件数据字段及允许取值。 */
 interface Recorded { ns: string; patch: unknown }
 
 /** A client whose roster and write outcome the test controls. */
+/** 中文说明：函数 fakeApi 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fakeApi(
   presets: { id: string; trust: 'system' | 'user'; isDefault: boolean }[],
   options: {
@@ -55,6 +66,7 @@ function fakeApi(
           return Promise.resolve({ rpcId: 'r', result: { ok: false as const, error: { code: 'internal', message: options.failWrite, details: {} } } })
         }
         // A committed write moves the roster's default, exactly as the host does.
+        /** 中文说明：测试场景的局部值 preset，取值由紧邻初始化决定，仅在当前作用域使用。 */
         for (const preset of presets) {
           preset.isDefault = preset.id === (payload.patch as { default?: string }).default
         }
@@ -66,6 +78,7 @@ function fakeApi(
 
 describe('the agent-preset settings controller', () => {
   it('disables the control when this browser may not write settings', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: true },
     ], { readOnly: true }))
@@ -80,6 +93,7 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('derives options and the current default from one roster call', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: true },
       { id: 'mine', trust: 'user', isDefault: false },
@@ -87,6 +101,7 @@ describe('the agent-preset settings controller', () => {
 
     await controller.load()
 
+    /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const state = controller.store.getSnapshot()
     expect(state.status).toBe('ready')
     expect(state.currentValue).toBe('standard')
@@ -97,6 +112,7 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('offers no broken preset: the pickers choose the NEXT session\'s composition', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: true },
       { id: 'damaged', trust: 'user', isDefault: false, broken: 'the composition is not valid YAML' },
@@ -111,6 +127,7 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('carries the display metadata a preset published', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: true, name: '标准模式', description: '完整的编码 agent。' },
     ] as never))
@@ -125,6 +142,7 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('reports an empty roster as unavailable, not as an error', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([]))
 
     await controller.load()
@@ -136,7 +154,9 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('writes only the default field, into the agent-presets namespace', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: true },
       { id: 'minimal', trust: 'system', isDefault: false },
@@ -150,6 +170,7 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('restores the previous value and surfaces the message when the write fails', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: true },
       { id: 'minimal', trust: 'system', isDefault: false },
@@ -158,6 +179,7 @@ describe('the agent-preset settings controller', () => {
 
     await controller.select('minimal')
 
+    /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const state = controller.store.getSnapshot()
     expect(state.currentValue).toBe('standard')
     expect(state.error).toBe('read-only settings')
@@ -165,7 +187,9 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('ignores a pick that is already the default', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: true },
     ], { writes }))
@@ -177,10 +201,12 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('surfaces a roster failure without claiming the deployment has no presets', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([], { failList: 'host down' }))
 
     await controller.load()
 
+    /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const state = controller.store.getSnapshot()
     expect(state.status).toBe('error')
     expect(state.error).toBe('host down')
@@ -189,6 +215,7 @@ describe('the agent-preset settings controller', () => {
   it('shows the first preset when the roster marks none default', async () => {
     // Settings can name a preset that was since deleted; the picker still has
     // to show something rather than an empty control.
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: false },
       { id: 'mine', trust: 'user', isDefault: false },
@@ -200,7 +227,9 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('ignores a load while one is already in flight', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi(
       [{ id: 'standard', trust: 'system', isDefault: true }], { writes }))
 
@@ -217,6 +246,7 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('reports a transport that rejects rather than answering', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController({
       agentPresets: { list: () => Promise.reject(new Error('socket closed')) },
     } as unknown as IApiClient)
@@ -227,6 +257,7 @@ describe('the agent-preset settings controller', () => {
   })
 
   it('reports a transport that rejects mid-write and keeps the old default showing', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(fakeApi([
       { id: 'standard', trust: 'system', isDefault: true },
       { id: 'mine', trust: 'user', isDefault: false },
@@ -243,11 +274,13 @@ describe('the agent-preset settings controller', () => {
 
 describe('the new-session chip controller', () => {
   /** A chip over a current session the test can move. */
+  /** 中文说明：函数 chip 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function chip(
     presets: { id: string; trust: 'system' | 'user'; isDefault: boolean }[],
     current: { id: string; blank: boolean; agentPreset?: string } | undefined,
     options: { writes?: Recorded[]; failSelect?: string; failList?: string; throwOn?: 'list' | 'select' } = {},
   ): AgentPresetSeatController {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = {
       agentPresets: {
         list: () => {
@@ -268,12 +301,14 @@ describe('the new-session chip controller', () => {
     return new AgentPresetSeatController(api, () => current as SeatSessionSummary | undefined)
   }
 
+  /** 中文说明：测试场景的局部值 ROSTER，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const ROSTER: { id: string; trust: 'system' | 'user'; isDefault: boolean }[] = [
     { id: 'standard', trust: 'system', isDefault: true },
     { id: 'minimal', trust: 'system', isDefault: false },
   ]
 
   it('opens on the deployment default', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, undefined)
 
     await controller.load()
@@ -288,6 +323,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('shows the first preset when the roster marks none default', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip([{ id: 'minimal', trust: 'system', isDefault: false }], undefined)
 
     await controller.load()
@@ -298,6 +334,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('carries the display metadata into the menu rows', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip([
       { id: 'standard', trust: 'system', isDefault: true, name: '标准模式', description: '完整的编码 agent。' },
     ] as never, undefined)
@@ -310,6 +347,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('opens on nothing when the deployment composes no presets', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip([], undefined)
 
     await controller.load()
@@ -320,7 +358,9 @@ describe('the new-session chip controller', () => {
   })
 
   it('stages a pick made before any session exists', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, undefined, { writes })
     await controller.load()
 
@@ -332,8 +372,11 @@ describe('the new-session chip controller', () => {
   })
 
   it('applies the stage to the blank session the flow lands on', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：测试场景的局部值 current，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const current = { id: 's1', blank: true, agentPreset: 'standard' }
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, current, { writes })
     await controller.load()
     await controller.select('minimal')
@@ -343,7 +386,9 @@ describe('the new-session chip controller', () => {
   })
 
   it('spends the stage exactly once', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, { id: 's1', blank: true, agentPreset: 'standard' }, { writes })
     await controller.load()
     await controller.select('minimal')
@@ -357,7 +402,9 @@ describe('the new-session chip controller', () => {
   })
 
   it('drops the stage against a session that already started', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, { id: 's1', blank: false, agentPreset: 'standard' }, { writes })
     await controller.load()
 
@@ -368,7 +415,9 @@ describe('the new-session chip controller', () => {
   })
 
   it('drops the stage when the session already runs it', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, { id: 's1', blank: true, agentPreset: 'minimal' }, { writes })
     await controller.load()
 
@@ -378,6 +427,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('falls back to the default when the host refuses the switch', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(
       ROSTER, { id: 's1', blank: true, agentPreset: 'standard' }, { failSelect: 'already started' })
     await controller.load()
@@ -390,6 +440,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('falls back to the default when the switch never reaches the host', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(
       ROSTER, { id: 's1', blank: true, agentPreset: 'standard' }, { throwOn: 'select' })
     await controller.load()
@@ -401,10 +452,13 @@ describe('the new-session chip controller', () => {
   })
 
   it('ignores a pick while a switch is in flight', async () => {
+    /** 中文说明：测试场景的局部值 writes，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const writes: Recorded[] = []
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, { id: 's1', blank: true, agentPreset: 'standard' }, { writes })
     await controller.load()
 
+    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = controller.select('minimal')
     await controller.select('standard')
     await first
@@ -413,6 +467,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('keeps a staged pick across a roster refresh', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, undefined)
     await controller.load()
     await controller.select('minimal')
@@ -425,6 +480,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('reports a refused roster read without emptying the chip', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, undefined, { failList: 'host down' })
 
     await controller.load()
@@ -433,6 +489,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('reports a transport that rejects the roster read', async () => {
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = chip(ROSTER, undefined, { throwOn: 'list' })
 
     await controller.load()
@@ -441,6 +498,7 @@ describe('the new-session chip controller', () => {
   })
 
   it('degrades to a read-only row while the mirror holds no answer', async () => {
+    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = {
       agentPresets: {
         list: () => Promise.resolve({
@@ -452,6 +510,7 @@ describe('the new-session chip controller', () => {
       // shows the current default without offering a write it never confirmed.
       settings: { describe: () => Promise.reject(new Error('socket closed')) },
     } as unknown as IApiClient
+    /** 中文说明：异步取消状态 controller，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const controller = derivedController(api)
 
     await controller.load()

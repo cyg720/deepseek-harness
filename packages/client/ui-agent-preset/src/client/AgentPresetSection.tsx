@@ -9,6 +9,14 @@
  * to. Deleting a preset leaves running sessions alone: a composition is
  * mounted once at session creation and nothing re-reads the file.
  */
+/**
+ * 文件职责：实现预设界面的 AgentPresetSection 组件及交互。
+ * 技术维度：React、TypeScript、Cordis 插槽、响应式快照和 CSS Modules。
+ * 产品维度：帮助用户查看、选择或管理会话使用的代理预设。
+ * 逻辑维度：读取注入状态，派生展示数据，响应操作并渲染组件树。
+ * 关键边界：运行中会话的组成不可切换；异步操作和弹层必须随状态关闭。
+ * 新手阅读建议：先读 Props 与注入接口，再看派生变量、effect 和 JSX。
+ */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -22,62 +30,88 @@ import { presetDisplayText, type AgentPresetSettingsKey } from './locales.ts'
 import css from './AgentPresetSection.module.css'
 
 /** Registration-side business face for the management section. */
+/** 中文说明：类型 AgentPresetSectionInjected 约束本文件数据字段及允许取值。 */
 export interface AgentPresetSectionInjected {
+  /** 中文说明：成员 hooks 保存实例运行状态，取值由声明类型限定。 */
   hooks: {
     /** Page snapshot bound by the renderer as useAgentPresetSection. */
     agentPresetSection: SnapshotStore<AgentPresetSectionState>
   }
   /** Read the roster; called once when the section first renders. */
+  /** 中文说明：成员 load 保存实例运行状态，取值由声明类型限定。 */
   load: () => Promise<void>
   /** Open one shipped preset's composition in the read-only viewer. */
+  /** 中文说明：成员 view 保存实例运行状态，取值由声明类型限定。 */
   view: (id: string) => Promise<void>
   /** Close the read-only viewer. */
+  /** 中文说明：成员 closeView 保存实例运行状态，取值由声明类型限定。 */
   closeView: () => void
   /** Open the copy dialog over one preset. */
+  /** 中文说明：成员 beginCopy 保存实例运行状态，取值由声明类型限定。 */
   beginCopy: (from: string) => void
   /** Close the copy dialog, discarding the draft. */
+  /** 中文说明：成员 cancelCopy 保存实例运行状态，取值由声明类型限定。 */
   cancelCopy: () => void
   /** Name the preset the copy creates. */
+  /** 中文说明：成员 setCopyId 保存实例运行状态，取值由声明类型限定。 */
   setCopyId: (id: string) => void
   /** Name the copy's display name. */
+  /** 中文说明：成员 setCopyName 保存实例运行状态，取值由声明类型限定。 */
   setCopyName: (name: string) => void
   /** Submit the copy. */
+  /** 中文说明：成员 confirmCopy 保存实例运行状态，取值由声明类型限定。 */
   confirmCopy: () => Promise<void>
   /** Open one preset's directory, or reveal its path where there is no desktop. */
+  /** 中文说明：成员 openLocation 保存实例运行状态，取值由声明类型限定。 */
   openLocation: (id: string) => Promise<void>
   /**
    * Stage the self-referential preset and start a new session on it — the
    * guided way to author a preset, beside copying. Absent when the surface
    * is composed without the conversation flow to land the session in.
    */
+  /** 中文说明：成员 startCreatorDraft 保存实例运行状态，取值由声明类型限定。 */
   startCreatorDraft?: () => void
   /** Ask for delete confirmation, or dismiss it with null. */
+  /** 中文说明：成员 confirmDelete 保存实例运行状态，取值由声明类型限定。 */
   confirmDelete: (id: string | null) => void
   /** Delete the preset awaiting confirmation. */
+  /** 中文说明：成员 remove 保存实例运行状态，取值由声明类型限定。 */
   remove: () => Promise<void>
   /** Make one preset the default for sessions created later. */
+  /** 中文说明：成员 makeDefault 保存实例运行状态，取值由声明类型限定。 */
   makeDefault: (id: string) => Promise<void>
 }
 
 /** Full component props. */
+/** 中文说明：类型 AgentPresetSectionProps 约束本文件数据字段及允许取值。 */
 export type AgentPresetSectionProps =
   PropsRuntime<'settings.section'>
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetSectionInjected>
 
 /** Copy-dialog sub-view props: the draft plus the actions that mutate it. */
+/** 中文说明：类型 CopyDialogProps 约束本文件数据字段及允许取值。 */
 interface CopyDialogProps {
+  /** 中文说明：成员 state 保存实例运行状态，取值由声明类型限定。 */
   state: AgentPresetSectionState
+  /** 中文说明：成员 t 保存实例运行状态，取值由声明类型限定。 */
   t: (key: AgentPresetSettingsKey) => string
+  /** 中文说明：成员 actions 保存实例运行状态，取值由声明类型限定。 */
   actions: Pick<AgentPresetSectionInjected,
     'cancelCopy' | 'confirmCopy' | 'setCopyId' | 'setCopyName'>
 }
 
+/** 中文说明：函数 CopyDialog 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function CopyDialog({ state, t, actions }: CopyDialogProps): ReactNode {
+  /** 中文说明：当前处理步骤的局部值 draft，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const draft = state.copy
+  /** 中文说明：当前处理步骤的局部值 blocker，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const blocker = draft === null ? undefined : draftBlocker(draft, state.rows)
+  /** 中文说明：当前传输或投影数据 message，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const message = draft === null ? null : draft.error ?? (blocker === undefined ? null : t(blocker))
+  /** 中文说明：当前处理步骤的局部值 source，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const source = draft === null ? undefined : state.rows.find(row => row.id === draft.from)
+  /** 中文说明：当前处理步骤的局部值 sourceTitle，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const sourceTitle = source === undefined ? draft?.fromTitle : presetDisplayText(source, t).name
   return (
     <Modal
@@ -144,17 +178,23 @@ function CopyDialog({ state, t, actions }: CopyDialogProps): ReactNode {
  * @param props.text - the description as rendered, already localized.
  * @returns the description element, tooltip-anchored while it overflows.
  */
+/** 中文说明：函数 CardDescription 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function CardDescription({ text }: { text: string }): ReactNode {
+  /** 中文说明：当前处理步骤的局部值 ref，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const ref = useRef<HTMLSpanElement | null>(null)
+  /** 中文说明：当前处理步骤的局部值 [truncated, setTruncated]，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const [truncated, setTruncated] = useState(false)
   useLayoutEffect(() => {
+    /** 中文说明：当前处理步骤的局部值 el，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const el = ref.current
     /* v8 ignore next -- the ref is attached before layout effects run. */
     if (el === null) return
+    /** 中文说明：当前处理步骤的局部值 measure，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const measure = () => { setTruncated(el.scrollHeight > el.clientHeight) }
     measure()
     // Card width follows the settings pane, which resizes with the window.
     if (typeof ResizeObserver === 'undefined') return
+    /** 中文说明：当前处理步骤的局部值 observer，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => { observer.disconnect() }
@@ -175,11 +215,17 @@ function CardDescription({ text }: { text: string }): ReactNode {
  * @param props - composed slot props.
  * @returns the section, or null when the deployment composes no presets.
  */
+/** 中文说明：函数 AgentPresetSection 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
+  /** 中文说明：当前处理步骤的局部值 解构结果，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const { useAgentPresetSection, t, load } = props
+  /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const state = useAgentPresetSection(snapshot => snapshot)
+  /** 中文说明：标识或顺序值 viewedId，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const viewedId = state.view?.id
+  /** 中文说明：当前处理步骤的局部值 viewedRow，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const viewedRow = viewedId === undefined ? undefined : state.rows.find(row => row.id === viewedId)
+  /** 中文说明：当前处理步骤的局部值 viewedTitle，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const viewedTitle = state.view === null
     ? ''
     : viewedRow === undefined ? state.view.title : presetDisplayText(viewedRow, t).name
@@ -192,6 +238,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
   // session shares the host composition and the page would be an empty list.
   if (state.status === 'unavailable') return null
   if (state.status === 'error') {
+    /** 中文说明：当前处理步骤的局部值 detail，取值由紧邻初始化决定，仅在当前作用域使用。 */
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const detail = state.error ?? ''
     return (
@@ -209,6 +256,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
      Offered only where that preset is actually on the roster and a
      session can be landed; without a writable root the draft could
      never be discovered, so the reason rides the disabled button. */
+  /** 中文说明：当前处理步骤的局部值 creatorButton，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const creatorButton = props.startCreatorDraft !== undefined && state.rows.some(row => row.id === 'cordis')
     ? (
       <button
@@ -234,11 +282,13 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
       <p className={css.intro}>{t('sectionIntro')}</p>
       {state.error === null ? null : <p className={css.error} role="alert">{state.error}</p>}
       {([['system', t('builtInGroup')], ['user', t('customGroup')]] as const).map(([trust, heading]) => {
+        /** 中文说明：当前处理步骤的局部值 group，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const group = state.rows
           .filter(row => row.trust === trust)
           .map(row => ({ row, text: presetDisplayText(row, t) }))
         // The custom group is where a preset of one's own will appear, so it
         // stays on screen even while empty: heading plus the creator entry.
+        /** 中文说明：当前处理步骤的局部值 tail，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const tail = trust === 'user' ? creatorButton : null
         if (group.length === 0 && tail === null) return null
         return (

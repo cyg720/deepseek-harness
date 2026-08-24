@@ -1,6 +1,14 @@
 /* Thumbnail geometry mirrors DeepSeek Chat's composer rail: 64px cards with a
    16px radius, remove control fully inside the card, arrows overlaid at the
    edges instead of a scrollbar. */
+/**
+ * 文件职责：定义 AttachmentRail 组件的局部样式。
+ * 技术维度：CSS Modules、布局、颜色变量、状态选择器和响应式规则。
+ * 产品维度：提供清晰一致的界面层级、反馈和交互状态。
+ * 逻辑维度：按容器、内容、操作和状态类组织样式。
+ * 关键边界：类名由组件引用；主题值应复用设计变量并注意窄屏布局。
+ * 新手阅读建议：先对照同名 TSX，再按 DOM 层级寻找对应类。
+ */
 
 .root {
   position: relative;
