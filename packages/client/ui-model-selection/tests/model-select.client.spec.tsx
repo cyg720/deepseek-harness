@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证模型选择的 model-select.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染和可控服务替身。
+ * 产品维度：防止模型选择用户流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelSelection } from '@deepseek-ai/dsh-api-remotes/client'
@@ -11,7 +19,9 @@ import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts
 
 // The seat's key domain is model ∪ common; the stub mirrors the real lookup
 // chain: package dictionary, then common vocabulary, then the key.
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: ComponentProps<typeof ModelSelect>['t'] = (key, params) => {
+  /** 中文说明：测试局部值 template，由紧邻初始化决定。 */
   const template = (zh as Record<string, string>)[key]
     ?? (commonZh as Record<string, string>)[key]
     ?? key
@@ -20,6 +30,7 @@ const t: ComponentProps<typeof ModelSelect>['t'] = (key, params) => {
     : template.replace(/\{(\w+)\}/g, (match, name: string) => name in params ? String(params[name]) : match)
 }
 
+/** 中文说明：测试局部值 reasoning，由紧邻初始化决定。 */
 const reasoning = {
   efforts: [
     { id: 'off', name: 'Off' },
@@ -29,6 +40,7 @@ const reasoning = {
   defaultEffort: 'high',
 }
 
+/** 中文说明：函数 state 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryState {
   return {
     current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
@@ -49,7 +61,9 @@ afterEach(cleanup)
 
 describe('ModelSelect reasoning effort', () => {
   it('renders adapter metadata and submits the effort as part of the session selection', async () => {
+    /** 中文说明：测试局部值 directory，由紧邻初始化决定。 */
     const directory = createSnapshotStore<ModelDirectoryState>(state())
+    /** 中文说明：测试局部值 select，由紧邻初始化决定。 */
     const select = vi.fn(async (selection: ModelSelection) => {
       directory.set(state({ current: selection }))
       return true
@@ -63,6 +77,7 @@ describe('ModelSelect reasoning effort', () => {
       t={t}
     />)
 
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', {
       name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 High',
     })
@@ -83,6 +98,7 @@ describe('ModelSelect reasoning effort', () => {
   })
 
   it('offers provider default only when the adapter does not configure a model default', () => {
+    /** 中文说明：测试局部值 directory，由紧邻初始化决定。 */
     const directory = createSnapshotStore(state({
       groups: [{
         id: 'provider',
@@ -113,9 +129,11 @@ describe('ModelSelect reasoning effort', () => {
   })
 
   it('prompts for a selection when the current model is no longer advertised', () => {
+    /** 中文说明：测试局部值 directory，由紧邻初始化决定。 */
     const directory = createSnapshotStore(state({
       current: { provider: 'deepseek-official', model: 'removed-model' },
     }))
+    /** 中文说明：测试局部值 select，由紧邻初始化决定。 */
     const select = vi.fn().mockResolvedValue(true)
     render(<ModelSelect
       locked={false}
@@ -126,6 +144,7 @@ describe('ModelSelect reasoning effort', () => {
       t={t}
     />)
 
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: '选择模型' })
     expect(trigger.textContent).toContain('选择模型')
     fireEvent.click(trigger)
@@ -136,6 +155,7 @@ describe('ModelSelect reasoning effort', () => {
   })
 
   it('announces a rejected selection as a transient toast and keeps the in-menu strip for loads', async () => {
+    /** 中文说明：测试局部值 groups，由紧邻初始化决定。 */
     const groups = [{
       id: 'deepseek-official',
       name: 'DeepSeek',
@@ -144,7 +164,9 @@ describe('ModelSelect reasoning effort', () => {
         { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro' },
       ],
     }]
+    /** 中文说明：测试局部值 directory，由紧邻初始化决定。 */
     const directory = createSnapshotStore<ModelDirectoryState>(state({ groups }))
+    /** 中文说明：测试局部值 select，由紧邻初始化决定。 */
     const select = vi.fn(async () => {
       directory.set(state({ groups, status: 'error', error: 'model-unavailable: session already contains images' }))
       return false
@@ -161,6 +183,7 @@ describe('ModelSelect reasoning effort', () => {
     fireEvent.click(screen.getByRole('button', { name: /选择模型|当前/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
     fireEvent.click(screen.getByRole('menuitemradio', { name: /DeepSeek-V4-Pro/ }))
+    /** 中文说明：测试局部值 toast，由紧邻初始化决定。 */
     const toast = await screen.findByRole('alert')
     expect(toast.textContent).toContain('模型操作失败：model-unavailable: session already contains images')
     // The selection failure does not render the in-menu load strip (no Retry).
@@ -168,6 +191,7 @@ describe('ModelSelect reasoning effort', () => {
   })
 
   it('renders no Agent-bound control for an addressed subagent session', () => {
+    /** 中文说明：测试局部值 load，由紧邻初始化决定。 */
     const load = vi.fn()
     render(<ModelSelect
       locked={false}

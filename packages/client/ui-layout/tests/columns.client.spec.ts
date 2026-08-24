@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证应用布局的 columns.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染和可控服务替身。
+ * 产品维度：防止应用布局用户流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import {
   CENTER_MIN, clampWidth, computeColumns,
@@ -5,7 +13,9 @@ import {
 } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
 
 // Numeric preference form (0 = closed); helpers keep the scenario names readable.
+/** 中文说明：测试局部值 open，由紧邻初始化决定。 */
 const open = (width: number) => width
+/** 中文说明：测试局部值 closed，由紧邻初始化决定。 */
 const closed = (_width: number) => 0
 
 describe('clampWidth', () => {
@@ -18,6 +28,7 @@ describe('clampWidth', () => {
 
 describe('computeColumns', () => {
   it('step 1: everything fits at preferred widths', () => {
+    /** 中文说明：测试局部值 cols，由紧邻初始化决定。 */
     const cols = computeColumns(1920, open(SIDEBAR_DEFAULT), open(DETAILS_DEFAULT))
     expect(cols).toEqual({ sidebar: 280, center: 1920 - 280 - 360, details: 360 })
   })
@@ -28,6 +39,7 @@ describe('computeColumns', () => {
   })
 
   it('preferences beyond the clamp range are clamped before solving', () => {
+    /** 中文说明：测试局部值 cols，由紧邻初始化决定。 */
     const cols = computeColumns(1920, open(9999), open(1))
     expect(cols.sidebar).toBe(420)
     expect(cols.details).toBe(300)
@@ -36,32 +48,39 @@ describe('computeColumns', () => {
 
   it('step 2: details shrinks first, center pinned at min', () => {
     // 280 + 360 + 640 = 1280 > 1250; details concedes to 1250-280-640 = 330.
+    /** 中文说明：测试局部值 cols，由紧邻初始化决定。 */
     const cols = computeColumns(1250, open(SIDEBAR_DEFAULT), open(DETAILS_DEFAULT))
     expect(cols).toEqual({ sidebar: 280, center: CENTER_MIN, details: 330 })
   })
 
   it('boundary: exactly at the step-1/step-2 seam', () => {
+    /** 中文说明：测试局部值 cols，由紧邻初始化决定。 */
     const cols = computeColumns(300 + 360 + CENTER_MIN, open(300), open(360))
     expect(cols).toEqual({ sidebar: 300, center: CENTER_MIN, details: 360 })
+    /** 中文说明：测试局部值 one，由紧邻初始化决定。 */
     const one = computeColumns(300 + 360 + CENTER_MIN - 1, open(300), open(360))
     expect(one).toEqual({ sidebar: 300, center: CENTER_MIN, details: 359 })
   })
 
   it('step 3: details auto-closes when its min still starves center — sidebar holds its preference', () => {
     // 280 + 300 + 640 = 1220 > 1210 → details 0; sidebar untouched: center = 1210-280 = 930.
+    /** 中文说明：测试局部值 cols，由紧邻初始化决定。 */
     const cols = computeColumns(1210, open(SIDEBAR_DEFAULT), open(DETAILS_DEFAULT))
     expect(cols).toEqual({ sidebar: 280, center: 930, details: 0 })
   })
 
   it('the sidebar never concedes: center absorbs the deficit below CENTER_MIN', () => {
     // 700 < 280+640: sidebar keeps 280, center takes 420 < CENTER_MIN.
+    /** 中文说明：测试局部值 cols，由紧邻初始化决定。 */
     const cols = computeColumns(700, open(SIDEBAR_DEFAULT), closed(DETAILS_DEFAULT))
     expect(cols).toEqual({ sidebar: SIDEBAR_DEFAULT, center: 420, details: 0 })
   })
 
   it('sidebar-closed narrow window: details concedes then auto-closes', () => {
+    /** 中文说明：测试局部值 fits，由紧邻初始化决定。 */
     const fits = computeColumns(SIDEBAR_COLLAPSED + DETAILS_MIN + CENTER_MIN, closed(300), open(DETAILS_DEFAULT))
     expect(fits).toEqual({ sidebar: SIDEBAR_COLLAPSED, center: CENTER_MIN, details: DETAILS_MIN })
+    /** 中文说明：测试局部值 starved，由紧邻初始化决定。 */
     const starved = computeColumns(SIDEBAR_COLLAPSED + DETAILS_MIN + CENTER_MIN - 1, closed(300), open(DETAILS_DEFAULT))
     expect(starved).toEqual({
       sidebar: SIDEBAR_COLLAPSED,
@@ -71,6 +90,7 @@ describe('computeColumns', () => {
   })
 
   it('tiny viewport: details closes, sidebar holds, center takes the remainder', () => {
+    /** 中文说明：测试局部值 cols，由紧邻初始化决定。 */
     const cols = computeColumns(400, open(SIDEBAR_DEFAULT), open(DETAILS_DEFAULT))
     expect(cols.details).toBe(0)
     expect(cols.sidebar).toBe(SIDEBAR_DEFAULT)
@@ -78,8 +98,10 @@ describe('computeColumns', () => {
   })
 
   it('recovery is pure: re-widening restores preferred widths untouched', () => {
+    /** 中文说明：测试局部值 squeezed，由紧邻初始化决定。 */
     const squeezed = computeColumns(1100, open(SIDEBAR_DEFAULT), open(DETAILS_DEFAULT))
     expect(squeezed.details).toBe(0)
+    /** 中文说明：测试局部值 restored，由紧邻初始化决定。 */
     const restored = computeColumns(1920, open(SIDEBAR_DEFAULT), open(DETAILS_DEFAULT))
     expect(restored.details).toBe(DETAILS_DEFAULT)
     expect(restored.sidebar).toBe(SIDEBAR_DEFAULT)

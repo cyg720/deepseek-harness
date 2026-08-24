@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证任务列表的 job-list-action.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染和可控服务替身。
+ * 产品维度：防止任务列表用户流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -18,10 +26,14 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** 中文说明：测试局部值 SESSION，由紧邻初始化决定。 */
 const SESSION = 'session' as SessionId
+/** 中文说明：测试局部值 START，由紧邻初始化决定。 */
 const START = 1_700_000_000_000
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: JobListActionProps['t'] = makeTranslate(zh)
 
+/** 中文说明：函数 job 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function job(over: Partial<JobView> = {}): JobView {
   return {
     id: 'bash-1' as JobView['id'],
@@ -33,7 +45,9 @@ function job(over: Partial<JobView> = {}): JobView {
   }
 }
 
+/** 中文说明：函数 props 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function props(jobs: readonly JobView[] | undefined): JobListActionProps {
+  /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
   const state = {
     ids: [SESSION],
     byId: {},
@@ -43,6 +57,7 @@ function props(jobs: readonly JobView[] | undefined): JobListActionProps {
     jobsBySession: jobs === undefined ? {} : { [SESSION]: jobs },
     currentAddress: undefined,
   } satisfies SessionListState
+  /** 中文说明：函数 useSessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function useSessions<T>(select: (snapshot: SessionListState) => T): T {
     return select(state)
   }
@@ -54,6 +69,7 @@ function props(jobs: readonly JobView[] | undefined): JobListActionProps {
  * carry no whitespace between them, so the cells are read one element at a
  * time rather than split out of a flattened string.
  */
+/** 中文说明：函数 rowCells 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowCells(): string[][] {
   return within(screen.getByRole('list', { name: zh['list.aria'] }))
     .getAllByRole('listitem')
@@ -64,11 +80,13 @@ function rowCells(): string[][] {
 
 describe('JobListAction visibility', () => {
   it('renders nothing while the session has no jobs', () => {
+    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<JobListAction {...props(undefined)} />)
     expect(container.innerHTML).toBe('')
   })
 
   it('counts only live jobs, and falls back to the total when none are live', () => {
+    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(<JobListAction {...props([job(), job({ id: 'bash-2' as JobView['id'] })])} />)
     expect(screen.getByRole('button', { name: '2 个后台任务运行中' })).toBeDefined()
 
@@ -77,6 +95,7 @@ describe('JobListAction visibility', () => {
   })
 
   it('closes and unmounts when the last job disappears while the list is open', () => {
+    /** 中文说明：测试局部值 { container, rerender }，由紧邻初始化决定。 */
     const { container, rerender } = render(<JobListAction {...props([job()])} />)
     fireEvent.click(screen.getByRole('button'))
     expect(screen.getByRole('list', { name: zh['list.aria'] })).toBeDefined()
@@ -129,6 +148,7 @@ describe('JobListAction rows', () => {
       job({ id: 'bash-5' as JobView['id'], label: 'e', status: 'failed', finishedAt: START }),
     ])} />)
     fireEvent.click(screen.getByRole('button'))
+    /** 中文说明：测试局部值 words，由紧邻初始化决定。 */
     const words = rowCells().map(cells => cells[2])
     expect(new Set(words)).toEqual(new Set(['运行中', '正在停止', '已完成', '已取消', '已失败']))
   })
@@ -162,6 +182,7 @@ describe('JobListAction duration', () => {
   })
 
   it('runs no clock while the list is closed', () => {
+    /** 中文说明：测试局部值 interval，由紧邻初始化决定。 */
     const interval = vi.spyOn(globalThis, 'setInterval')
     render(<JobListAction {...props([job()])} />)
     expect(interval).not.toHaveBeenCalled()
@@ -170,6 +191,7 @@ describe('JobListAction duration', () => {
   })
 
   it('runs no clock for an open list holding only settled jobs', () => {
+    /** 中文说明：测试局部值 interval，由紧邻初始化决定。 */
     const interval = vi.spyOn(globalThis, 'setInterval')
     render(<JobListAction {...props([job({ status: 'completed', finishedAt: START })])} />)
     fireEvent.click(screen.getByRole('button'))
@@ -180,6 +202,7 @@ describe('JobListAction duration', () => {
 describe('JobListAction dismissal', () => {
   it('closes on Escape and returns focus to the trigger', () => {
     render(<JobListAction {...props([job()])} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button')
     fireEvent.click(trigger)
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
@@ -191,6 +214,7 @@ describe('JobListAction dismissal', () => {
 
   it('ignores other keys and a closed-list Escape', () => {
     render(<JobListAction {...props([job()])} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button')
     fireEvent.keyDown(trigger, { key: 'Escape' })
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
@@ -202,6 +226,7 @@ describe('JobListAction dismissal', () => {
 
   it('closes on an outside pointer press but not on one inside', () => {
     render(<JobListAction {...props([job()])} />)
+    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button')
     fireEvent.click(trigger)
 

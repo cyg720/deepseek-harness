@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证应用布局的 app-frame.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染和可控服务替身。
+ * 产品维度：防止应用布局用户流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
+/**
  * AppFrame interaction spec under the four-share props form: real layout
  * store instance (createLayoutStore().create() — the test-sanctioned engine
  * path), a recording renderSlot stub, and a render-prop SessionProvider stub
@@ -22,8 +30,11 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 
 // Session selection controls for the SessionProvider and useSessions stubs.
+/** 中文说明：测试局部值 selectedSession，由紧邻初始化决定。 */
 const selectedSession = { current: 's-test' as SessionId | undefined }
+/** 中文说明：测试局部值 selectedSessionBlank，由紧邻初始化决定。 */
 const selectedSessionBlank = { current: false }
+/** 中文说明：测试局部值 baselinesReady，由紧邻初始化决定。 */
 const baselinesReady = { current: true }
 
 // Render-prop contract stub fed through the standard seat prop (the renderer
@@ -31,12 +42,15 @@ const baselinesReady = { current: true }
 // mode runs the empty branch — the frame must work against exactly this
 // shape. Typed as the seat's own component type so the branded sessionId
 // parameter stays contract-checked.
+/** 中文说明：测试局部值 SessionProviderStub，由紧邻初始化决定。 */
 const SessionProviderStub: AppFrameProps['SessionProvider'] = ({ children, empty }) =>
   selectedSession.current === undefined ? <>{empty?.() ?? null}</> : <>{children(selectedSession.current)}</>
 
 
 /** Observer stub: captures the callback so tests can fire resizes manually. */
+/** 中文说明：测试局部值 fireResize，由紧邻初始化决定。 */
 let fireResize: (() => void) | null = null
+/** 中文说明：类型或类 ResizeObserverStub 约束本文件数据或组件职责。 */
 class ResizeObserverStub {
   #cb: ResizeObserverCallback
   constructor(cb: ResizeObserverCallback) { this.#cb = cb }
@@ -45,17 +59,23 @@ class ResizeObserverStub {
   disconnect(): void { fireResize = null }
 }
 
+/** 中文说明：测试局部值 frameWidth，由紧邻初始化决定。 */
 let frameWidth = 1920
 
 /** Test-local selector hook over a framework-neutral store instance. */
+/** 中文说明：函数 hookOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hookOf<T>(inst: { subscribe: (fn: () => void) => () => void; getSnapshot: () => T }) {
   return function useSelector<S>(sel: (s: T) => S): S { return sel(useSyncExternalStore(inst.subscribe, inst.getSnapshot)) }
 }
 
+/** 中文说明：函数 mountFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountFrame() {
   window.innerWidth = frameWidth // first-render viewport source before the observer fires
+  /** 中文说明：测试局部值 instance，由紧邻初始化决定。 */
   const instance = createLayoutStore().create()
+  /** 中文说明：测试局部值 slotCalls，由紧邻初始化决定。 */
   const slotCalls: { key: string; props: unknown }[] = []
+  /** 中文说明：测试局部值 renderSlot，由紧邻初始化决定。 */
   const renderSlot = ((key: string, owner: object) => {
     slotCalls.push({ key, props: owner })
     if (key === 'sidebar') return <div data-testid="sidebar-content" />
@@ -64,8 +84,11 @@ function mountFrame() {
     if (key === 'conversation.empty') return <div data-testid="empty-content" />
     return <div data-testid="other-content" />
   }) as AppFrameProps['renderSlot']
+  /** 中文说明：测试局部值 useSessions，由紧邻初始化决定。 */
   const useSessions = ((sel: (s: SessionListState) => unknown) => {
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = selectedSession.current
+    /** 中文说明：测试局部值 sessionState，由紧邻初始化决定。 */
     const sessionState = {
       ids: current === undefined ? [] : [current],
       byId: current === undefined
@@ -76,10 +99,12 @@ function mountFrame() {
     } as SessionListState
     return sel(sessionState)
   }) as never
+  /** 中文说明：测试局部值 workspaceState，由紧邻初始化决定。 */
   const workspaceState: WorkspaceListState = {
     items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
     baselinesReady: baselinesReady.current, recentWorkspaceId: undefined,
   }
+  /** 中文说明：测试局部值 element，由紧邻初始化决定。 */
   const element = () => (
     <AppFrame
       useStore={hookOf(instance)}
@@ -90,20 +115,28 @@ function mountFrame() {
       SessionProvider={SessionProviderStub}
     />
   )
+  /** 中文说明：测试局部值 utils，由紧邻初始化决定。 */
   const utils = render(element())
+  /** 中文说明：测试局部值 frame，由紧邻初始化决定。 */
   const frame = utils.container.firstElementChild as HTMLElement
   return { instance, frame, slotCalls, rerenderFrame: () => { utils.rerender(element()) }, ...utils }
 }
 
+/** 中文说明：函数 tracks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tracks(frame: HTMLElement): number[] {
+  /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
   const m = /^(\d+)px minmax\(0, 1fr\) (\d+)px$/.exec(frame.style.gridTemplateColumns)
   if (m === null) throw new Error(`unexpected template: ${frame.style.gridTemplateColumns}`)
   return [Number(m[1]), Number(m[2])]
 }
 
+/** 中文说明：函数 drag 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function drag(handle: Element, fromX: number, toX: number): void {
+  /** 中文说明：测试局部值 down，由紧邻初始化决定。 */
   const down = new PointerEvent('pointerdown', { pointerId: 1, clientX: fromX, bubbles: true })
+  /** 中文说明：测试局部值 move，由紧邻初始化决定。 */
   const move = new PointerEvent('pointermove', { pointerId: 1, clientX: toX, bubbles: true })
+  /** 中文说明：测试局部值 up，由紧邻初始化决定。 */
   const up = new PointerEvent('pointerup', { pointerId: 1, clientX: toX, bubbles: true })
   act(() => { handle.dispatchEvent(down) })
   act(() => { handle.dispatchEvent(move); vi.advanceTimersByTime(20) })
@@ -124,6 +157,7 @@ beforeEach(() => {
     return { width: frameWidth, height: 1080, top: 0, left: 0, right: frameWidth, bottom: 1080, x: 0, y: 0, toJSON: () => ({}) }
   }
   // jsdom lacks pointer capture: emulate per-element so hasPointerCapture gates pass.
+  /** 中文说明：测试局部值 captured，由紧邻初始化决定。 */
   const captured = new WeakSet<Element>()
   Element.prototype.setPointerCapture = function () { captured.add(this) }
   Element.prototype.releasePointerCapture = function () { captured.delete(this) }
@@ -138,14 +172,17 @@ afterEach(() => {
 
 describe('AppFrame', () => {
   it('renders three tracks from store state', () => {
+    /** 中文说明：测试局部值 { frame }，由紧邻初始化决定。 */
     const { frame } = mountFrame()
     expect(tracks(frame)).toEqual([280, 0])
   })
 
   it('renders the session pair with empty owner shares (sessionId is framework-standard)', () => {
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { slotCalls, getByTestId } = mountFrame()
     expect(getByTestId('center-content')).toBeTruthy()
     expect(getByTestId('details-content')).toBeTruthy()
+    /** 中文说明：测试局部值 keys，由紧邻初始化决定。 */
     const keys = slotCalls.map(c => c.key)
     expect(keys).toContain('conversation')
     expect(keys).toContain('details')
@@ -158,6 +195,7 @@ describe('AppFrame', () => {
     // No current session: the session-maybe conversation shell owns the New
     // Session view itself — the center column renders it unconditionally.
     selectedSession.current = undefined
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { slotCalls, getByTestId } = mountFrame()
     expect(getByTestId('center-content')).toBeTruthy()
     expect(slotCalls.map(c => c.key)).toContain('conversation')
@@ -167,12 +205,14 @@ describe('AppFrame', () => {
     // No loading gate: a bare loading status reads worse than the shell's own
     // pending rendering — both occupants mount from first paint.
     baselinesReady.current = false
+    /** 中文说明：测试局部值 { slotCalls }，由紧邻初始化决定。 */
     const { slotCalls } = mountFrame()
     expect(slotCalls.map(c => c.key)).toContain('conversation')
     expect(slotCalls.map(c => c.key)).toContain('details')
   })
 
   it('ignores unselected states and closes only when the Session id changes', () => {
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { frame, instance, rerenderFrame } = mountFrame()
     expect(tracks(frame)).toEqual([280, 0])
 
@@ -205,6 +245,7 @@ describe('AppFrame', () => {
 
   it('keeps details closed when the first Session materializes', () => {
     selectedSession.current = undefined
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { frame, instance, rerenderFrame } = mountFrame()
     expect(tracks(frame)).toEqual([280, 0])
     expect(instance.getSnapshot().details).toBe(0)
@@ -215,20 +256,25 @@ describe('AppFrame', () => {
   })
 
   it('sidebar slot receives live concession output as owner props', () => {
+    /** 中文说明：测试局部值 { slotCalls }，由紧邻初始化决定。 */
     const { slotCalls } = mountFrame()
     expect(slotCalls.find(c => c.key === 'sidebar')!.props).toEqual({ collapsed: false, width: 280 })
   })
 
   it('sidebar drag widens through rAF-batched pointer moves', () => {
+    /** 中文说明：测试局部值 { frame }，由紧邻初始化决定。 */
     const { frame } = mountFrame()
+    /** 中文说明：测试局部值 handles，由紧邻初始化决定。 */
     const handles = frame.querySelectorAll('[class*="handle"]')
     drag(handles[0]!, 280, 350)
     expect(tracks(frame)[0]).toBe(350)
   })
 
   it('details drag widens leftward (negative dx grows the panel)', () => {
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.openDetails() })
+    /** 中文说明：测试局部值 handles，由紧邻初始化决定。 */
     const handles = frame.querySelectorAll('[class*="handle"]')
     drag(handles[1]!, 1560, 1500)
     expect(tracks(frame)[1]).toBe(420)
@@ -236,15 +282,18 @@ describe('AppFrame', () => {
 
   it('drag base is the rendered (concession-clamped) width, not the preference', () => {
     frameWidth = 1250 // step-2 squeeze: details renders 330 while preference is 360
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.openDetails() })
     expect(tracks(frame)).toEqual([280, 330])
+    /** 中文说明：测试局部值 handles，由紧邻初始化决定。 */
     const handles = frame.querySelectorAll('[class*="handle"]')
     drag(handles[1]!, 920, 930) // shrink by 10 from the rendered width
     expect(instance.getSnapshot().details).toBe(320)
   })
 
   it('details column stays mounted at zero width', () => {
+    /** 中文说明：测试局部值 { frame, getByTestId }，由紧邻初始化决定。 */
     const { frame, getByTestId } = mountFrame()
     expect(tracks(frame)).toEqual([280, 0])
     expect(getByTestId('details-content')).toBeTruthy()
@@ -252,16 +301,19 @@ describe('AppFrame', () => {
   })
 
   it('closed sidebar keeps its compact rail with mounted slot content and collapsed owner props', () => {
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { frame, instance, slotCalls, getByTestId } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0])
     expect(getByTestId('sidebar-content')).toBeTruthy()
     expect(frame.hasAttribute('data-sidebar-collapsed')).toBe(true)
+    /** 中文说明：测试局部值 lastSidebarCall，由紧邻初始化决定。 */
     const lastSidebarCall = slotCalls.filter(c => c.key === 'sidebar').at(-1)!
     expect(lastSidebarCall.props).toEqual({ collapsed: true, width: SIDEBAR_COLLAPSED })
   })
 
   it('viewport shrink triggers the concession chain via ResizeObserver', () => {
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.openDetails() })
     frameWidth = 1250
@@ -273,6 +325,7 @@ describe('AppFrame', () => {
   })
 
   it('drag handles disappear for collapsed columns', () => {
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
     expect(frame.querySelectorAll('[class*="handle"]')).toHaveLength(1)
     act(() => { instance.actions.openDetails() })
@@ -287,6 +340,7 @@ describe('AppFrame', () => {
 describe('AppFrame — narrow-viewport auto-collapse', () => {
   it('mounts collapsed below the breakpoint with no sidebar handle', () => {
     frameWidth = 980
+    /** 中文说明：测试局部值 { frame, slotCalls }，由紧邻初始化决定。 */
     const { frame, slotCalls } = mountFrame()
     expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0])
     expect(frame.hasAttribute('data-sidebar-collapsed')).toBe(true)
@@ -296,6 +350,7 @@ describe('AppFrame — narrow-viewport auto-collapse', () => {
 
   it('narrow toggle re-expands over the squeezed center and back', () => {
     frameWidth = 980
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)).toEqual([280, 0])
@@ -307,6 +362,7 @@ describe('AppFrame — narrow-viewport auto-collapse', () => {
 
   it('a wide-closed preference re-expands at the contract default while narrow', () => {
     frameWidth = 1920
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.toggleSidebar() }) // close while wide: preference 0
     frameWidth = 980
@@ -317,6 +373,7 @@ describe('AppFrame — narrow-viewport auto-collapse', () => {
   })
 
   it('shrinking across the breakpoint auto-collapses; re-widening restores the drag width', () => {
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.setSidebar(400) })
     frameWidth = 980
@@ -330,8 +387,11 @@ describe('AppFrame — narrow-viewport auto-collapse', () => {
 
 describe('AppFrame — guard branches', () => {
   it('pointer moves without capture are ignored (no width write)', () => {
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
+    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = frame.querySelectorAll('[class*="handle"]')[0]!
+    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = instance.getSnapshot().sidebar
     // Move + up without a preceding pointerdown: hasPointerCapture is false.
     act(() => {
@@ -343,7 +403,9 @@ describe('AppFrame — guard branches', () => {
   })
 
   it('two moves inside one frame coalesce through the pending rAF', () => {
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
+    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = frame.querySelectorAll('[class*="handle"]')[0]!
     act(() => { handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: 280, bubbles: true })) })
     act(() => {
@@ -358,7 +420,9 @@ describe('AppFrame — guard branches', () => {
   })
 
   it('pointerup with a pending rAF cancels it and commits the final position', () => {
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
+    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = frame.querySelectorAll('[class*="handle"]')[0]!
     act(() => { handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: 280, bubbles: true })) })
     act(() => {
@@ -370,6 +434,7 @@ describe('AppFrame — guard branches', () => {
   })
 
   it('zero-width resize reports are ignored (display:none window)', () => {
+    /** 中文说明：测试局部值 { frame }，由紧邻初始化决定。 */
     const { frame } = mountFrame()
     frameWidth = 0
     act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
@@ -380,6 +445,7 @@ describe('AppFrame — guard branches', () => {
 
 describe('AppFrame — unmount with an in-flight resize frame', () => {
   it('cancels the pending rAF on unmount (no post-unmount setState)', () => {
+    /** 中文说明：测试局部值 { unmount }，由紧邻初始化决定。 */
     const { unmount } = mountFrame()
     frameWidth = 800
     act(() => { fireResize?.() }) // rAF scheduled, NOT flushed
@@ -389,6 +455,7 @@ describe('AppFrame — unmount with an in-flight resize frame', () => {
   })
 
   it('double resize inside one frame rides the pending rAF (??= guard)', () => {
+    /** 中文说明：测试局部值 { frame, instance }，由紧邻初始化决定。 */
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.openDetails() })
     frameWidth = 1250

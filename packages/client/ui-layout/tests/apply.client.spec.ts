@@ -5,6 +5,14 @@
 // (service unprovided + declarations gone + registration cleared). Node half
 // and the invariant companion ride along — one line exposes the aggregate
 // coverage gate still requires exercised.
+/**
+ * 文件职责：验证应用布局的 apply.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染和可控服务替身。
+ * 产品维度：防止应用布局用户流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 
 import { Context } from '@deepseek-ai/cordis'
 import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
@@ -20,8 +28,11 @@ beforeEach(() => {
   document.head.querySelectorAll('meta[name="theme-color"]').forEach((node) => { node.remove() })
 })
 
+/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench() {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  /** 中文说明：测试局部值 slotsFiber，由紧邻初始化决定。 */
   const slotsFiber = ctx.plugin(SlotRegistry)
   // Theme registers its Appearance settings row and requires the connection
   // seam for persistence; model this bench as a remote, memory-only browser.
@@ -41,7 +52,9 @@ describe('ui-layout client apply', () => {
   })
 
   it('provides ctx.layout and registers AppFrame into root with the three child declarations', async () => {
+    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(ctx.get('layout')).toBeInstanceOf(LayoutController)
@@ -54,28 +67,37 @@ describe('ui-layout client apply', () => {
   })
 
   it('injects no business face and attaches the layout actions', async () => {
+    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
+    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = {
       setSidebar: vi.fn(), setDetails: vi.fn(), toggleSidebar: vi.fn(), openDetails: vi.fn(), closeDetails: vi.fn(),
     }
+    /** 中文说明：测试局部值 injected，由紧邻初始化决定。 */
     const injected = (slots.entries('root')[0]!.inject as (actions: never) => object)(actions as never)
     expect(injected).toEqual({})
+    /** 中文说明：测试局部值 layout，由紧邻初始化决定。 */
     const layout = ctx.get('layout') as LayoutController
     layout.toggleSidebar()
     expect(actions.toggleSidebar).toHaveBeenCalledOnce()
   })
 
   it('theme presenter applies the initial snapshot, follows theme/change, and unwinds on dispose', async () => {
+    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await bench()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     // Initial getter application: jsdom has no matchMedia, system resolves light.
     expect(document.documentElement.style.colorScheme).toBe('light')
     expect(document.body.hasAttribute('data-ds-dark-theme')).toBe(false)
+    /** 中文说明：测试局部值 themeColorMeta，由紧邻初始化决定。 */
     const themeColorMeta = document.head.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
     expect(themeColorMeta).not.toBeNull()
+    /** 中文说明：测试局部值 theme，由紧邻初始化决定。 */
     const theme = ctx.get('theme') as ThemeRuntime
     theme.setTheme('dark')
     expect(document.documentElement.style.colorScheme).toBe('dark')
@@ -93,7 +115,9 @@ describe('ui-layout client apply', () => {
   })
 
   it('teardown unwinds the service, the root registration, and the child declarations', async () => {
+    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     await fiber.dispose()
@@ -112,10 +136,13 @@ describe('node half + invariant companion', () => {
   })
 
   it('invariant companion registers under the package name', async () => {
+    /** 中文说明：测试局部值 register，由紧邻初始化决定。 */
     const register = vi.fn().mockReturnValue(() => {})
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = { invariants: { register } } as never
     // The /invariant subpath types live in lib/types (build product); assert
     // the API so the call stays typed where lint runs without a build.
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = await (invariant as { apply: (ctx: never) => Promise<() => void> }).apply(ctx)
     expect(register).toHaveBeenCalledWith('@deepseek-ai/dsh-client-ui-layout', expect.any(Function))
     // The installer is the declared no-op — calling it must not throw.

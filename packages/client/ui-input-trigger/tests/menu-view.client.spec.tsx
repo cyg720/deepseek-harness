@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 /**
+ * 文件职责：验证输入触发菜单的 menu-view.client.spec.tsx 行为。
+ * 技术维度：Vitest、React 渲染和可控服务替身。
+ * 产品维度：防止输入触发菜单用户流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
+/**
  * MenuView rendering spec, props-direct: closed store
  * renders null, groups render in roster order under localized title rows
  * (unknown sources fall back to the raw name) with pending rows as loading,
@@ -16,6 +24,7 @@ import { zh } from '../src/client/locales.ts'
 import type { MenuState, TriggerHit } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { MenuView } from '../src/client/MenuView.tsx'
 
+/** 中文说明：测试局部值 hit，由紧邻初始化决定。 */
 const hit: TriggerHit = {
   trigger: '/',
   query: 'g',
@@ -24,8 +33,10 @@ const hit: TriggerHit = {
   span: { start: 0, end: 2, draftRev: 1 },
 }
 
+/** 中文说明：测试局部值 CLOSED，由紧邻初始化决定。 */
 const CLOSED: MenuState = { open: false, hit: null, generation: 0, groups: [], highlight: null }
 
+/** 中文说明：函数 openState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function openState(partial?: Partial<MenuState>): MenuState {
   return {
     open: true,
@@ -41,6 +52,7 @@ function openState(partial?: Partial<MenuState>): MenuState {
 }
 
 // jsdom has no scrollIntoView; the view calls it on the highlighted option.
+/** 中文说明：测试局部值 scrollIntoView，由紧邻初始化决定。 */
 const scrollIntoView = vi.fn()
 beforeEach(() => {
   Element.prototype.scrollIntoView = scrollIntoView
@@ -55,17 +67,24 @@ afterEach(() => {
 // The framework-injected t seat, stubbed over the zh dictionaries (the
 // default locale); the stub mirrors the LocaleRuntime key fallback, so an
 // unknown source comes back verbatim (its raw name).
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = makeTranslate(zh, commonZh)
 
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mount(state: MenuState) {
+  /** 中文说明：测试局部值 menu，由紧邻初始化决定。 */
   const menu = createSnapshotStore<MenuState>(state)
+  /** 中文说明：测试局部值 onPick，由紧邻初始化决定。 */
   const onPick = vi.fn()
+  /** 中文说明：测试局部值 onDismiss，由紧邻初始化决定。 */
   const onDismiss = vi.fn()
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<MenuView menu={menu} onPick={onPick} onDismiss={onDismiss} t={t} />)
   return { menu, onPick, onDismiss, view }
 }
 
 /** The non-interactive group title rows (role=presentation), in document order. */
+/** 中文说明：函数 titles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function titles(container: HTMLElement): string[] {
   return [...container.querySelectorAll('div[role="presentation"][data-source]')]
     .map(el => el.textContent ?? '')
@@ -73,6 +92,7 @@ function titles(container: HTMLElement): string[] {
 
 describe('MenuView', () => {
   it('renders null while closed and appears when the store opens', () => {
+    /** 中文说明：测试局部值 { menu, view }，由紧邻初始化决定。 */
     const { menu, view } = mount(CLOSED)
     expect(view.container.childElementCount).toBe(0)
     act(() => { menu.set(openState()) })
@@ -83,6 +103,7 @@ describe('MenuView', () => {
 
   it('renders ready groups as option rows and pending groups as loading rows', () => {
     mount(openState())
+    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = screen.getAllByRole('option')
     expect(options.map(o => o.textContent)).toEqual(['⚑goalSet up a goal', 'plan'])
     expect(screen.queryByText('正在加载…')).not.toBeNull()
@@ -98,6 +119,7 @@ describe('MenuView', () => {
   })
 
   it('titles each group with the localized source name, raw name for unknown sources, none for empty ready groups', () => {
+    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mount(openState({
       groups: [
         { source: 'command', status: 'ready', items: [{ name: 'goal' }] },
@@ -110,6 +132,7 @@ describe('MenuView', () => {
   })
 
   it('renders contiguous candidate sections once without changing option indexes', () => {
+    /** 中文说明：测试局部值 { onPick }，由紧邻初始化决定。 */
     const { onPick } = mount(openState({
       groups: [{
         source: 'reference',
@@ -125,6 +148,7 @@ describe('MenuView', () => {
     expect(screen.queryByText('reference')).toBeNull()
     expect(screen.getAllByText('文件与文件夹')).toHaveLength(1)
     expect(screen.getAllByText('Session 对话')).toHaveLength(1)
+    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = screen.getAllByRole('option')
     expect(options.map(option => option.textContent)).toEqual([
       'Folder · src/',
@@ -137,7 +161,9 @@ describe('MenuView', () => {
 
   it('exposes the highlight via aria-activedescendant and aria-selected', () => {
     mount(openState({ highlight: { source: 'command', index: 1 } }))
+    /** 中文说明：测试局部值 listbox，由紧邻初始化决定。 */
     const listbox = screen.getByRole('listbox')
+    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = screen.getAllByRole('option')
     expect(options[1]!.id).toBeTruthy()
     expect(listbox.getAttribute('aria-activedescendant')).toBe(options[1]!.id)
@@ -151,9 +177,11 @@ describe('MenuView', () => {
   })
 
   it('scrolls the highlighted option into view when the highlight moves', () => {
+    /** 中文说明：测试局部值 { menu }，由紧邻初始化决定。 */
     const { menu } = mount(openState())
     scrollIntoView.mockClear()
     act(() => { menu.set(openState({ highlight: { source: 'command', index: 1 } })) })
+    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = screen.getAllByRole('option')
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
     expect(scrollIntoView.mock.instances.at(-1)).toBe(options[1])
@@ -172,6 +200,7 @@ describe('MenuView', () => {
   })
 
   it('re-fits the height when the window resizes', () => {
+    /** 中文说明：测试局部值 rect，由紧邻初始化决定。 */
     const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect')
     rect.mockReturnValue({ bottom: 800 } as DOMRect)
     mount(openState())
@@ -182,19 +211,23 @@ describe('MenuView', () => {
   })
 
   it('pointerdown outside the menu (no composer card ancestor) dismisses', () => {
+    /** 中文说明：测试局部值 { onDismiss }，由紧邻初始化决定。 */
     const { onDismiss } = mount(openState())
     fireEvent.pointerDown(document.body)
     expect(onDismiss).toHaveBeenCalledTimes(1)
   })
 
   it('pointerdown inside the list does not dismiss', () => {
+    /** 中文说明：测试局部值 { onDismiss }，由紧邻初始化决定。 */
     const { onDismiss } = mount(openState())
     fireEvent.pointerDown(screen.getAllByRole('option')[0]!)
     expect(onDismiss).not.toHaveBeenCalled()
   })
 
   it('pointerdown inside the surrounding composer card does not dismiss; outside it does', () => {
+    /** 中文说明：测试局部值 menu，由紧邻初始化决定。 */
     const menu = createSnapshotStore<MenuState>(openState())
+    /** 中文说明：测试局部值 onDismiss，由紧邻初始化决定。 */
     const onDismiss = vi.fn()
     render(
       <div data-composer-card="">
@@ -209,7 +242,9 @@ describe('MenuView', () => {
   })
 
   it('ignores a pointerdown whose target is not a DOM node', () => {
+    /** 中文说明：测试局部值 { onDismiss }，由紧邻初始化决定。 */
     const { onDismiss } = mount(openState())
+    /** 中文说明：测试局部值 ev，由紧邻初始化决定。 */
     const ev = new Event('pointerdown', { bubbles: true })
     Object.defineProperty(ev, 'target', { value: {} })
     document.dispatchEvent(ev)
@@ -217,6 +252,7 @@ describe('MenuView', () => {
   })
 
   it('closing the menu removes the dismiss listener', () => {
+    /** 中文说明：测试局部值 { menu, onDismiss }，由紧邻初始化决定。 */
     const { menu, onDismiss } = mount(openState())
     act(() => { menu.set(CLOSED) })
     fireEvent.pointerDown(document.body)
@@ -224,8 +260,11 @@ describe('MenuView', () => {
   })
 
   it('mousedown on a row picks (source, index) and prevents the focus steal', () => {
+    /** 中文说明：测试局部值 { onPick }，由紧邻初始化决定。 */
     const { onPick } = mount(openState())
+    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = screen.getAllByRole('option')
+    /** 中文说明：测试局部值 notPrevented，由紧邻初始化决定。 */
     const notPrevented = fireEvent.mouseDown(options[1]!)
     // fireEvent returns false when preventDefault was called.
     expect(notPrevented).toBe(false)

@@ -9,9 +9,18 @@
  * clip, so the panel cannot be cropped or detached from the message it annotates.
  * @module @deepseek-ai/dsh-client-ui-message-feedback/client/MessageFeedbackActions
  */
+/**
+ * 文件职责：实现消息反馈的 MessageFeedbackActions 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：支持用户查看或调整消息反馈。
+ * 逻辑维度：读取服务状态，派生展示值并处理交互。
+ * 关键边界：加载、禁用、错误和可访问性状态必须一致。
+ * 新手阅读建议：先读 Props，再看状态、effect 与 JSX。
+ */
 
 import {
   useCallback, useEffect, useRef, useState,
+  /** 中文说明：类型或类 CSSProperties 约束本文件数据或组件职责。 */
   type CSSProperties,
 } from 'react'
 import { createPortal } from 'react-dom'
@@ -23,9 +32,11 @@ import type { MessageFeedbackActionProps } from './slots.ts'
 import css from './MessageFeedbackActions.module.css'
 
 /** Safe distance kept between the panel and the viewport edges (the Menu portal margin). */
+/** 中文说明：组件局部值 PANEL_MARGIN，由紧邻初始化决定。 */
 const PANEL_MARGIN = 12
 
 /** Distance between the trigger's bottom edge and the panel's top. */
+/** 中文说明：组件局部值 PANEL_GAP，由紧邻初始化决定。 */
 const PANEL_GAP = 4
 
 /**
@@ -34,6 +45,7 @@ const PANEL_GAP = 4
  * element with auto insets otherwise sits at its static position, a different
  * origin than the one the first placement measures from.
  */
+/** 中文说明：组件局部值 MEASURE_STYLE，由紧邻初始化决定。 */
 const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 
 /**
@@ -43,57 +55,78 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * @returns the rating buttons and the note trigger, with the note editor
  * portal-open beneath the trigger while it is open.
  */
+/** 中文说明：函数 MessageFeedbackActions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearNote, useFeedback, t }: MessageFeedbackActionProps) {
+  /** 中文说明：组件局部值 item，由紧邻初始化决定。 */
   const item = useFeedback(view => view.items.get(messageId))
+  /** 中文说明：组件局部值 loadFailed，由紧邻初始化决定。 */
   const loadFailed = useFeedback(view => view.status === 'error')
+  /** 中文说明：组件局部值 rating，由紧邻初始化决定。 */
   const rating = item?.rating
+  /** 中文说明：组件局部值 [noteOpen, setNoteOpen]，由紧邻初始化决定。 */
   const [noteOpen, setNoteOpen] = useState(false)
+  /** 中文说明：组件局部值 [draft, setDraft]，由紧邻初始化决定。 */
   const [draft, setDraft] = useState('')
+  /** 中文说明：组件局部值 [pending, setPending]，由紧邻初始化决定。 */
   const [pending, setPending] = useState(false)
   // A rating or load failure surfaces beside the rating buttons, always legible
   // whether or not the note popover is open.
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [rowFailure, setRowFailure] = useState<string | null>(null)
   // A note save failure surfaces inside the note popover, where the human is
   // looking; it stays open so the draft survives to be corrected.
+  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [noteFailure, setNoteFailure] = useState<string | null>(null)
+  /** 中文说明：组件局部值 triggerRef，由紧邻初始化决定。 */
   const triggerRef = useRef<HTMLButtonElement>(null)
+  /** 中文说明：组件局部值 panelRef，由紧邻初始化决定。 */
   const panelRef = useRef<HTMLDivElement>(null)
+  /** 中文说明：组件局部值 inputRef，由紧邻初始化决定。 */
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // The controls mount for every settled message in the transcript, so the
   // Session's feedback is read once on first hover/focus rather than on mount.
+  /** 中文说明：组件局部值 seeded，由紧邻初始化决定。 */
   const seeded = useRef(false)
+  /** 中文说明：组件局部值 seed，由紧邻初始化决定。 */
   const seed = useCallback(() => {
     if (seeded.current) return
     seeded.current = true
     void ensure()
   }, [ensure])
 
+  /** 中文说明：组件局部值 alive，由紧邻初始化决定。 */
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
 
   /** Bumped whenever an editing session ends, so a late save can tell it is stale. */
+  /** 中文说明：组件局部值 noteGeneration，由紧邻初始化决定。 */
   const noteGeneration = useRef(0)
 
   /** Current panel open-state, readable from a stale closure via a ref. */
+  /** 中文说明：组件局部值 noteOpenRef，由紧邻初始化决定。 */
   const noteOpenRef = useRef(false)
   useEffect(() => { noteOpenRef.current = noteOpen }, [noteOpen])
 
+  /** 中文说明：组件局部值 errorCopy，由紧邻初始化决定。 */
   const errorCopy = useCallback((result: { ok: boolean; error?: { code: string } }) => {
     return result.error?.code === 'version-conflict' ? t('error.conflict') : t('error.generic')
   }, [t])
 
+  /** 中文说明：组件局部值 settleRating，由紧邻初始化决定。 */
   const settleRating = useCallback((result: { ok: boolean; error?: { code: string } }) => {
     if (!alive.current) return
     setPending(false)
     setRowFailure(result.ok ? null : errorCopy(result))
   }, [errorCopy])
 
+  /** 中文说明：组件局部值 closeNote，由紧邻初始化决定。 */
   const closeNote = useCallback(() => {
     // Ends the editing session, so any save still in flight becomes stale.
     noteGeneration.current += 1
     setNoteOpen(false)
   }, [])
 
+  /** 中文说明：组件局部值 onRate，由紧邻初始化决定。 */
   const onRate = useCallback((next: MessageFeedbackRating) => {
     setPending(true)
     setRowFailure(null)
@@ -106,7 +139,9 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
 
   // The rating is a parameter because only the note editor's render site can
   // prove one is recorded; that removes an unreachable undefined guard here.
+  /** 中文说明：组件局部值 onSaveNote，由紧邻初始化决定。 */
   const onSaveNote = useCallback((current: MessageFeedbackRating) => {
+    /** 中文说明：组件局部值 trimmed，由紧邻初始化决定。 */
     const trimmed = draft.trim()
     setPending(true)
     setNoteFailure(null)
@@ -115,11 +150,14 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
     // session must not act on it: a stale success would shut the panel the
     // human just opened, and a stale failure would describe a draft this
     // session never sent.
+    /** 中文说明：组件局部值 generation，由紧邻初始化决定。 */
     const generation = noteGeneration.current
     // What a session reopened before this save commits would be seeded with.
+    /** 中文说明：组件局部值 staleSeed，由紧邻初始化决定。 */
     const staleSeed = item?.note ?? ''
     // An emptied editor removes the note explicitly; `rate` alone preserves a
     // stored note, so it cannot express deletion.
+    /** 中文说明：组件局部值 settled，由紧邻初始化决定。 */
     const settled = trimmed.length === 0
       ? clearNote(messageId)
       : rate(messageId, current, trimmed)
@@ -166,6 +204,7 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
   // with the recorded note), while open it closes it. Toggling closed via the
   // trigger also fires the outside/within logic correctly because the trigger
   // is inside the panel's "inside" region.
+  /** 中文说明：组件局部值 toggleNote，由紧邻初始化决定。 */
   const toggleNote = useCallback(() => {
     if (noteOpen) {
       closeNote()
@@ -185,6 +224,7 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
   // Place the portaled panel from the trigger rect before paint and keep it
   // with the trigger on scroll/resize, the same anchoring `Menu` uses for its
   // portal mode.
+  /** 中文说明：组件局部值 pos，由紧邻初始化决定。 */
   const pos = useAnchoredPosition({
     open: noteOpen,
     anchorRef: triggerRef,
@@ -197,12 +237,14 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
   useEffect(() => {
     if (!noteOpen) return
     inputRef.current?.focus()
+    /** 中文说明：组件局部值 onPointerDown，由紧邻初始化决定。 */
     const onPointerDown = (e: PointerEvent) => {
       if (!(e.target instanceof Node)) return
       if (triggerRef.current?.contains(e.target) === true) return
       if (panelRef.current?.contains(e.target) === true) return
       closeNote()
     }
+    /** 中文说明：组件局部值 onKeyDown，由紧邻初始化决定。 */
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeNote()
     }
@@ -217,6 +259,7 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
   // Return focus to the trigger only when the panel actually closes, not on the
   // initial mount (a freshly rendered message with a recorded rating must not
   // pull focus into its action row).
+  /** 中文说明：组件局部值 wasOpen，由紧邻初始化决定。 */
   const wasOpen = useRef(false)
   useEffect(() => {
     if (noteOpen) { wasOpen.current = true; return }
@@ -224,7 +267,9 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
     wasOpen.current = false
   }, [noteOpen])
 
+  /** 中文说明：组件局部值 likeLabel，由紧邻初始化决定。 */
   const likeLabel = rating === 'positive' ? t('action.likeActive') : t('action.like')
+  /** 中文说明：组件局部值 dislikeLabel，由紧邻初始化决定。 */
   const dislikeLabel = rating === 'negative' ? t('action.dislikeActive') : t('action.dislike')
 
   return (

@@ -17,10 +17,19 @@
  * fixed portal, not an inline flex item); the resulting geometry is measured
  * in a real engine by `apps/web/tests/message-feedback-layout`.
  */
+/**
+ * 文件职责：验证消息反馈的 styles.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染和可控服务替身。
+ * 产品维度：防止消息反馈用户流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
+/** 中文说明：测试局部值 css，由紧邻初始化决定。 */
 const css = readFileSync(
   fileURLToPath(new URL('../src/client/MessageFeedbackActions.module.css', import.meta.url)),
   'utf8',
@@ -29,6 +38,7 @@ const css = readFileSync(
 // stay on the source plane rather than needing a build. Every theme sheet, not
 // just the platform tokens: font and scrollbar variables are declared in
 // siblings, and a gate reading one file would call their names undeclared.
+/** 中文说明：测试局部值 tokens，由紧邻初始化决定。 */
 const tokens = readdirSync(fileURLToPath(new URL('../../ui-theme/src/styles/', import.meta.url)))
   .filter(name => name.endsWith('.css'))
   .map(name => readFileSync(fileURLToPath(new URL(`../../ui-theme/src/styles/${name}`, import.meta.url)), 'utf8'))
@@ -39,7 +49,9 @@ const tokens = readdirSync(fileURLToPath(new URL('../../ui-theme/src/styles/', i
  * @param selector - the class selector to read, including its leading dot.
  * @returns the rule's declaration text.
  */
+/** 中文说明：函数 block 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function block(selector: string): string {
+  /** 中文说明：测试局部值 match，由紧邻初始化决定。 */
   const match = new RegExp(`^\\${selector} \\{([^}]*)\\}`, 'm').exec(css)
   if (match === null) throw new Error(`MessageFeedbackActions.module.css has no \`${selector}\` rule`)
   return match[1] ?? ''
@@ -53,10 +65,12 @@ describe('MessageFeedbackActions theme styles', () => {
     // never been written. Every theme-variable prefix the sheets actually use,
     // not just `--dsw-`: a `--dsh-` name reads as a plausible sibling and would
     // otherwise slip past into an invalid declaration.
+    /** 中文说明：测试局部值 named，由紧邻初始化决定。 */
     const named = [...css.matchAll(/var\((--(?:dsw|dsh|ds)-[a-z0-9-]+)/g)].map(match => match[1])
     // Vacuity guard: the sheet has to actually name tokens, or the filter below
     // is satisfied by an empty list and this test proves nothing.
     expect(named.length).toBeGreaterThan(5)
+    /** 中文说明：测试局部值 undeclared，由紧邻初始化决定。 */
     const undeclared = [...new Set(named)].filter(name => !tokens.includes(`  ${String(name)}:`))
     expect(undeclared).toEqual([])
   })
@@ -87,6 +101,7 @@ describe('MessageFeedbackActions theme styles', () => {
   it('closes every block, so no rule is swallowed by the one above it', () => {
     // A missing `}` is not a parse error: every rule after it silently becomes
     // part of the block above, and the controls would paint unstyled.
+    /** 中文说明：测试局部值 bare，由紧邻初始化决定。 */
     const bare = css.replace(/\/\*[\s\S]*?\*\//g, '')
     expect((bare.match(/\}/g) ?? []).length).toBe((bare.match(/\{/g) ?? []).length)
   })

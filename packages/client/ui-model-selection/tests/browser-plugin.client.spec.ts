@@ -8,6 +8,14 @@
  * (and the reverse), the one-shared-state contract of the dual entry.
  * Scope disposal drops the directory (HMR safety).
  */
+/**
+ * 文件职责：验证模型选择的 browser-plugin.client.spec.ts 行为。
+ * 技术维度：Vitest、React 渲染和可控服务替身。
+ * 产品维度：防止模型选择用户流程回归。
+ * 逻辑维度：构造状态，触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后恢复。
+ * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
 import { createScope } from '@deepseek-ai/dsh-client-runtime/client'
@@ -20,8 +28,10 @@ import type { ModelSelectInjected } from '../src/client/slots.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { zh } from '../src/client/locales.ts'
 
+/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (k: string): SessionId => k as SessionId
 
+/** 中文说明：测试局部值 GROUPS，由紧邻初始化决定。 */
 const GROUPS = [{
   id: 'deepseek-official',
   name: 'DeepSeek',
@@ -54,9 +64,13 @@ const GROUPS = [{
 }]
 
 /** Boot the plugin over fake faces + a stateful fake host (current moves on selectModel). */
+/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench() {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
   let current: ModelSelection = { provider: 'deepseek-official', model: 'deepseek-v4-flash' }
+  /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
   const calls = { models: 0, select: 0 }
   ctx.provide('connection', { api: { sessions: {
     models: () => {
@@ -79,13 +93,16 @@ async function bench() {
   } } })
   // Whether the Host reports an adapter for the current route; the composer
   // block follows this, never catalog membership.
+  /** 中文说明：测试局部值 routable，由紧邻初始化决定。 */
   let routable = true
+  /** 中文说明：测试局部值 blocks，由紧邻初始化决定。 */
   const blocks = new Map<SessionId, { reason: string } | undefined>()
   ctx.provide('conversation', {
     blocks: {
       set: (id: SessionId, block: { reason: string } | undefined) => { blocks.set(id, block) },
     },
   })
+  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   let contribution: CommandContribution | undefined
   ctx.provide('commandUi', {
     register(c: CommandContribution) {
@@ -93,6 +110,7 @@ async function bench() {
       return () => { contribution = undefined }
     },
   })
+  /** 中文说明：测试局部值 seats，由紧邻初始化决定。 */
   const seats = new Map<string, {
     inject: ((sessionId: SessionId) => ModelSelectInjected) | undefined
     locale: string | undefined
@@ -104,13 +122,16 @@ async function bench() {
       return () => { seats.delete(options.name) }
     },
   })
+  /** 中文说明：测试局部值 localeRuntime，由紧邻初始化决定。 */
   const localeRuntime = new LocaleRuntime(ctx)
   // This spec asserts the shipped Chinese copy. There is no jsdom `window` in
   // this lane, so browser-language detection never runs and the locale comes
   // from FALLBACK_LOCALE (en): state the asserted locale explicitly.
   localeRuntime.setLocale('zh')
   ctx.provide('locale', localeRuntime)
+  /** 中文说明：测试局部值 scopes，由紧邻初始化决定。 */
   const scopes = new Map<SessionId, Context>()
+  /** 中文说明：测试局部值 addressed，由紧邻初始化决定。 */
   const addressed = new Set<SessionId>()
   ctx.provide('sessions', {
     scope: (id: SessionId) => scopes.get(id),
@@ -119,10 +140,13 @@ async function bench() {
       : undefined,
   })
   new TestRemote(ctx)
+  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   await ctx.plugin(function probe() {}).await()
+  /** 中文说明：测试局部值 mint，由紧邻初始化决定。 */
   const mint = (key: string) => {
+    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = createScope(ctx, sid(key))
     scopes.set(sid(key), handle.ctx)
     return handle
@@ -139,10 +163,12 @@ async function bench() {
   }
 }
 
+/** 中文说明：测试局部值 projection，由紧邻初始化决定。 */
 const projection = (id: string) => ({ sessionId: sid(id) })
 
 describe('ui-model-selection dual entry', () => {
   it('registers the /model contribution and the composer model seat', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     expect(b.contribution().name).toBe('model')
     expect(b.contribution().ui.kind).toBe('popupSelect')
@@ -152,8 +178,10 @@ describe('ui-model-selection dual entry', () => {
   })
 
   it('popup options mark the host current active with the provider group in the detail', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.mint('s1')
+    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = await b.contribution().ui.options(projection('s1'), new AbortController().signal)
     expect(options.map((o: SelectOption) => o.label)).toEqual(['DeepSeek-V4-Flash', 'DeepSeek-V4-Pro'])
     expect(options[0]).toMatchObject({ active: true, detail: 'DeepSeek' })
@@ -161,8 +189,10 @@ describe('ui-model-selection dual entry', () => {
   })
 
   it('a seat selection is the current the popup marks active next — one shared state', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.mint('s1')
+    /** 中文说明：测试局部值 seatFace，由紧邻初始化决定。 */
     const seatFace = b.seat().inject!(sid('s1'))
     // Switch through the SEAT entry.
     expect(await seatFace.select({
@@ -181,15 +211,20 @@ describe('ui-model-selection dual entry', () => {
       reasoningEffort: 'max',
     })
     // The POPUP's next options pass reflects it without a seat-side reload.
+    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = await b.contribution().ui.options(projection('s1'), new AbortController().signal)
     expect(options.find((o: SelectOption) => o.label === 'DeepSeek-V4-Pro')).toMatchObject({ active: true })
   })
 
   it('a popup selection lands on the seat store — the reverse direction of the same state', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.mint('s1')
+    /** 中文说明：测试局部值 seatFace，由紧邻初始化决定。 */
     const seatFace = b.seat().inject!(sid('s1'))
+    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = await b.contribution().ui.options(projection('s1'), new AbortController().signal)
+    /** 中文说明：测试局部值 pro，由紧邻初始化决定。 */
     const pro = options.find((o: SelectOption) => o.label === 'DeepSeek-V4-Pro')!
     await b.contribution().ui.onSelect(pro, projection('s1'))
     expect(seatFace.directory.getSnapshot().current).toEqual({
@@ -200,11 +235,15 @@ describe('ui-model-selection dual entry', () => {
   })
 
   it('both entries share one directory instance per session, isolated across sessions', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.mint('a')
     b.mint('b')
+    /** 中文说明：测试局部值 faceA，由紧邻初始化决定。 */
     const faceA = b.seat().inject!(sid('a'))
+    /** 中文说明：测试局部值 faceA2，由紧邻初始化决定。 */
     const faceA2 = b.seat().inject!(sid('a'))
+    /** 中文说明：测试局部值 faceB，由紧邻初始化决定。 */
     const faceB = b.seat().inject!(sid('b'))
     expect(faceA.directory).toBe(faceA2.directory)
     expect(faceA.directory).not.toBe(faceB.directory)
@@ -213,8 +252,10 @@ describe('ui-model-selection dual entry', () => {
   })
 
   it('drops an unconsumed local selection and restores the Host target after reconnect', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.mint('s1')
+    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.seat().inject!(sid('s1'))
     await face.select({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
     b.setHostCurrent({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })
@@ -229,18 +270,24 @@ describe('ui-model-selection dual entry', () => {
   })
 
   it('scope disposal drops the directory; a reborn scope gets a fresh one', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = b.mint('s1')
+    /** 中文说明：测试局部值 face1，由紧邻初始化决定。 */
     const face1 = b.seat().inject!(sid('s1'))
     await first.fiber.dispose()
     b.mint('s1')
+    /** 中文说明：测试局部值 face2，由紧邻初始化决定。 */
     const face2 = b.seat().inject!(sid('s1'))
     expect(face2.directory).not.toBe(face1.directory)
   })
 
   it('blocks the composer only once the Host reports the route unservable', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.mint('s1')
+    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.seat().inject!(sid('s1'))
 
     // Before the first load nothing is known. `null` is not `false`: a slow
@@ -266,8 +313,10 @@ describe('ui-model-selection dual entry', () => {
   })
 
   it('never blocks on catalog membership alone', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.mint('s1')
+    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.seat().inject!(sid('s1'))
     // A model the route serves but no longer advertises: the seat prompts for
     // a selection, the composer stays usable. Blocking here would break a
@@ -276,15 +325,19 @@ describe('ui-model-selection dual entry', () => {
     face.load()
     await Promise.resolve()
     await Promise.resolve()
+    /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
     const snapshot = face.directory.getSnapshot()
     expect(snapshot.groups.flatMap(group => group.models.map(model => model.id))).not.toContain('unlisted')
     expect(b.blockOf('s1')).toBeUndefined()
   })
 
   it('clears its block when the session scope goes', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
+    /** 中文说明：测试局部值 scope，由紧邻初始化决定。 */
     const scope = b.mint('s1')
     b.setRoutable(false)
+    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.seat().inject!(sid('s1'))
     face.load()
     await Promise.resolve()
@@ -296,11 +349,13 @@ describe('ui-model-selection dual entry', () => {
   })
 
   it('an unknown session fails loud at the seat inject', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     expect(() => b.seat().inject!(sid('ghost'))).toThrow(/resolved no scope/)
   })
 
   it('withholds both model entries from addressed subagent sessions without Agent-bound RPCs', async () => {
+    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.mint('child')
     b.address(sid('child'))
@@ -311,6 +366,7 @@ describe('ui-model-selection dual entry', () => {
       new AbortController().signal,
     )).rejects.toThrow(/unavailable for addressed subagent/)
 
+    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.seat().inject!(sid('child'))
     expect(face.available).toBe(false)
     face.load()
