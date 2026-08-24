@@ -1,5 +1,12 @@
 /* Permission row: title/description plus the preset selector pill. */
+/* 文件职责：定义权限预设设置行、说明文字和预设选择胶囊的样式。
+ * 技术维度：使用 CSS Modules、Flexbox、设计令牌及可用/禁用伪类。
+ * 产品维度：让用户理解当前权限策略并在允许时切换预设。
+ * 逻辑维度：row 横向布局，rowText 堆叠标题说明，selector 表示选择，chevron 固定图标。
+ * 关键边界：禁用态只显示默认指针；组件必须设置 disabled 并阻止实际交互。
+ * 新手阅读建议：先看文字区的 flex 收缩，再比较 selector 可用悬停和禁用状态。 */
 
+/* row：权限设置整行及底部分隔。 */
 .row {
   display: flex;
   align-items: center;
@@ -8,6 +15,7 @@
   border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
+/* rowText：可收缩的标题说明列。 */
 .rowText {
   flex: 1;
   min-width: 0;
@@ -17,6 +25,7 @@
   padding-right: 48px;
 }
 
+/* title：权限设置主标题。 */
 .title {
   font-size: 14px;
   font-weight: 400;
@@ -24,6 +33,7 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* desc：权限预设辅助说明。 */
 .desc {
   font-size: 12px;
   font-weight: 400;
@@ -31,6 +41,7 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* selector：当前权限预设的胶囊选择按钮。 */
 .selector {
   display: inline-flex;
   align-items: center;
@@ -47,14 +58,17 @@
   cursor: pointer;
 }
 
+/* 仅可用选择器在悬停时显示反馈。 */
 .selector:hover:not(:disabled) {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* 禁用选择器使用默认指针，避免暗示可点击。 */
 .selector:disabled {
   cursor: default;
 }
 
+/* chevron：固定尺寸的展开箭头。 */
 .chevron {
   flex: none;
 }

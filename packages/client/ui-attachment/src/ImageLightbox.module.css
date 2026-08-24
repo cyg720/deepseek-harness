@@ -1,3 +1,10 @@
+/* 文件职责：定义附件图片全屏预览的覆盖层、独立遮罩、图片和关闭按钮样式。
+ * 技术维度：使用 CSS Modules、固定定位、Grid 居中、层叠顺序和背景模糊。
+ * 产品维度：让用户在不离开会话的情况下查看大图，并始终能找到关闭控件。
+ * 逻辑维度：backdrop 建立全屏舞台，mask 单独模糊页面，image 限制预览尺寸，close 固定右上角。
+ * 关键边界：遮罩必须独立于 backdrop，否则预览图片和关闭按钮也会被模糊。
+ * 新手阅读建议：先比较 backdrop 与 mask 的层级，再看 image 的视口高度限制。 */
+/* backdrop：覆盖整个视口并用 Grid 居中预览图片。 */
 .backdrop {
   position: fixed;
   inset: 0;
@@ -10,6 +17,8 @@
 /* Same mask recipe as the Modal primitive and the settings dialog. A separate
    layer, not a background on .backdrop: backdrop-filter there would blur the
    previewed image and the close control along with the page. */
+/* 与 Modal 和设置对话框使用同一遮罩配方；单独成层，避免同时模糊预览图片和关闭按钮。 */
+/* mask：位于预览内容下方的全屏背景遮罩。 */
 .mask {
   position: absolute;
   inset: 0;
@@ -17,6 +26,7 @@
   backdrop-filter: var(--dsw-mask-blur);
 }
 
+/* image：限制在视口和 1600 像素内的居中预览图。 */
 .image {
   position: relative;
   max-width: min(100%, 1600px);
@@ -27,6 +37,7 @@
   box-shadow: var(--dsw-shadow-lv3);
 }
 
+/* close：固定在右上角且高于遮罩的圆形关闭按钮。 */
 .close {
   position: fixed;
   top: 20px;

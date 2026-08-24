@@ -1,5 +1,12 @@
 /* Shared disclosure header: [16px leading] gap 6 [title 14/24]. */
+/* 文件职责：定义通用展开行的标题、前导图标和悬停箭头切换样式。
+ * 技术维度：使用 CSS Modules、Flexbox、绝对定位、属性选择器和透明度过渡。
+ * 产品维度：为可折叠详情提供一致的 24 像素标题行和明确悬停反馈。
+ * 逻辑维度：root 纵向承载，row 排列内容，leading 叠放图标，hover 在原图标与箭头间切换。
+ * 关键边界：只有 data-expandable 行显示指针；展开状态与点击行为由 React 组件管理。
+ * 新手阅读建议：先看 leading 的相对定位，再比较 iconIdle 与 chevronHover 的相反透明度。 */
 
+/* root：展开标题与后续内容的全宽纵向容器。 */
 .root {
   display: flex;
   flex-direction: column;
@@ -7,6 +14,7 @@
   min-width: 0;
 }
 
+/* row：固定 24 像素高的标题行，并裁剪叠放图标。 */
 .row {
   position: relative;
   overflow: hidden;
@@ -16,10 +24,12 @@
   min-width: 0;
 }
 
+/* 可展开行：通过 data-expandable 属性启用手形指针。 */
 .row[data-expandable] {
   cursor: pointer;
 }
 
+/* leading：16 像素前导图标或按钮容器。 */
 .leading {
   position: relative;
   flex: none;
@@ -35,16 +45,19 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* button.leading：前导元素为按钮时明确显示可点击指针。 */
 button.leading {
   cursor: pointer;
 }
 
+/* iconIdle：默认可见的业务图标，悬停时淡出。 */
 .iconIdle {
   display: inline-flex;
   opacity: 1;
   transition: opacity 100ms ease;
 }
 
+/* chevronHover：覆盖在同一区域的展开箭头，默认透明。 */
 .chevronHover {
   position: absolute;
   inset: 0;
@@ -53,14 +66,17 @@ button.leading {
   transition: opacity 100ms ease;
 }
 
+/* 行悬停时隐藏默认图标。 */
 .row:hover .iconIdle {
   opacity: 0;
 }
 
+/* 行悬停时显示展开箭头。 */
 .row:hover .chevronHover {
   opacity: 1;
 }
 
+/* title：不伸缩的次要色 14/24 标题。 */
 .title {
   flex: none;
   font-size: 14px;

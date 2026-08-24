@@ -1,6 +1,13 @@
 /* Shell-owned mount defaults. Theme tokens arrive with the ui-theme client
  * plugin before the loader roster activates. */
+/* 文件职责：定义 Web 壳在主题插件激活前所需的挂载尺寸、基础字体和表单继承规则。
+ * 技术维度：使用全局 CSS、带回退值的设计令牌和浏览器字体平滑属性。
+ * 产品维度：保证应用首屏占满视口并在动态主题加载前保持可读、稳定的默认外观。
+ * 逻辑维度：根节点占满高度，body 设置字体与颜色，表单控件显式继承应用字体。
+ * 关键边界：主题令牌由 ui-theme 动态提供；此文件不能静态导入主题包或定义完整主题。
+ * 新手阅读建议：先看令牌回退值，再理解为什么按钮和输入框需要单独声明 font-family。 */
 
+/* 页面、正文和 React 根节点：统一占满可用高度并清除默认外边距。 */
 html,
 body,
 #root {
@@ -8,6 +15,7 @@ body,
   margin: 0;
 }
 
+/* body：提供主题加载前可用的字体栈、文字色和背景色。 */
 body {
   font-family: var(
     --dsw-font-family,
@@ -24,6 +32,7 @@ body {
   );
   /* Grayscale antialiasing over subpixel rendering: WebKit/Blink and the
      Firefox macOS equivalent; other engines ignore both lines. */
+  /* 使用灰度抗锯齿；分别覆盖 WebKit/Blink 和 macOS Firefox，其他引擎会忽略。 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--dsw-alias-label-primary, #0f1115);
@@ -33,6 +42,8 @@ body {
 /* Form controls don't inherit the body font (UA sheets pin their families —
    Chrome buttons fall back to Arial, textareas to monospace), so the app
    stack is re-applied to them explicitly, as upstream's global reset does. */
+/* 表单控件不会可靠继承 body 字体，因此显式重新应用应用字体栈。 */
+/* 常用表单控件：继承 body 的字体系列，避免浏览器 UA 样式产生 Arial 或等宽字体差异。 */
 button,
 input,
 select,
