@@ -1,13 +1,22 @@
+/* 文件职责：定义工具详情中的说明、卡片正文、恢复信息、代码块、错误和空状态样式。
+ * 技术维度：使用 CSS Modules、属性选择器、设计令牌和保留换行规则呈现不同工具输出。
+ * 产品维度：让用户清楚查看工具参数、结果、恢复提示和错误内容。
+ * 逻辑维度：文本规则组织说明与恢复内容，code 承载预格式化输出，read/web 与 empty 处理专用布局。
+ * 关键边界：长代码会换行而非横向滚动；data-error 仅改变颜色，错误语义仍需组件提供。
+ * 新手阅读建议：先比较 description、recovery、code 的文字层级，再看 data-error 如何覆盖代码颜色。 */
+/* description：工具详情顶部的次要说明文字。 */
 .description {
   margin: 0 0 6px;
   color: var(--dsw-alias-label-secondary);
   font: var(--dsw-font-xs-13);
 }
 
+/* cardBody：清除卡片正文的默认外边距。 */
 .cardBody {
   margin: 0;
 }
 
+/* recovery：保留恢复提示的换行，并允许无空格长文本在任意位置折行。 */
 .recovery {
   margin: 6px 0 0;
   white-space: pre-wrap;
@@ -16,6 +25,7 @@
   font: var(--dsw-font-xs-13);
 }
 
+/* code：工具代码或结构化文本的预格式化展示区域。 */
 .code {
   margin: 0;
   padding: 16px;
@@ -29,15 +39,18 @@
   word-break: break-word;
 }
 
+/* code[data-error]：工具输出标记错误时切换为产品错误色。 */
 .code[data-error] {
   color: var(--dsw-alias-state-error-primary);
 }
 
+/* read 与 web：清除读取类和网页类详情容器的默认外边距。 */
 .read,
 .web {
   margin: 0;
 }
 
+/* empty：工具没有可展示详情时使用的弱化占位文本。 */
 .empty {
   padding: 8px 0;
   font-size: 13px;
