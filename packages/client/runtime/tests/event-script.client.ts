@@ -1,3 +1,11 @@
+/**
+ * 文件职责：提供会话投影测试使用的类型化事件脚本构造器和递增序号。
+ * 技术维度：TypeScript 泛型、SessionEventMap、品牌标识与测试数据工厂。
+ * 产品维度：让大量投影测试用简短、可读的方式构造合法会话日志事件。
+ * 逻辑维度：维护默认会话与序号，为不同事件载荷补齐信封字段并返回类型化事件。
+ * 关键边界：只用于测试；调用顺序会影响自动序号，显式覆盖时要避免制造无意冲突。
+ * 新手阅读建议：先看默认标识和序号规则，再看通用 event 构造器，最后使用各专用辅助函数。
+ */
 import { createUserMessage, createMessage, createToolResultMessage, CallId } from '@deepseek-ai/dsh-llm'
 // Minimal SessionEvent builders for orchestration tests (shape mirrors what the
 // host emits; only the fields the object layer reads).
@@ -5,11 +13,14 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 
 /** One text content block (local helper). */
+/** 中文说明：当前测试场景使用的局部状态或中间值；变量 `text` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
 const text = (t: string): ContentBlock[] => [{ type: 'text', text: t }]
 
+/** 中文说明：当前测试场景使用的局部状态或中间值；变量 `at` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
 const at = (seq: number, e: Record<string, unknown>): SessionEvent =>
   ({ seq, time: 1_700_000_000_000 + seq, ...e }) as unknown as SessionEvent
 
+/** 中文说明：当前测试场景使用的局部状态或中间值；变量 `ev` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
 export const ev = {
   turnStart: (seq: number, turn: number): SessionEvent =>
     at(seq, { type: 'turn/start', data: { turn } }),
@@ -129,6 +140,7 @@ export const ev = {
 }
 
 /** One complete plain turn (turn/start → user → step → assistant → turn/end), 6 events from startSeq. */
+/** 中文说明：测试辅助函数 `plainTurn`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 export function plainTurn(startSeq: number, turn: number, ask: string, answer: string): SessionEvent[] {
   return [
     ev.turnStart(startSeq, turn),
@@ -141,6 +153,7 @@ export function plainTurn(startSeq: number, turn: number, ask: string, answer: s
 }
 
 /** Wrap raw events as view-less history entries (the wire shape history returns). */
+/** 中文说明：测试辅助函数 `entries`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 export function entries(events: readonly SessionEvent[]): { event: SessionEvent }[] {
   return events.map(event => ({ event }))
 }

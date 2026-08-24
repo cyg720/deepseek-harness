@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 Node HTTP 到 Fetch 桥的请求体上限和客户端断开取消传播。
+ * 技术维度：Node Readable/EventEmitter 测试替身、Vitest、Fetch Request 与 AbortSignal。
+ * 产品维度：确保过大请求被及时拒绝，并让长连接在浏览器离开后释放宿主资源。
+ * 逻辑维度：构造最小请求与响应替身，调用 bridge，触发销毁或 close，再检查状态和取消信号。
+ * 关键边界：替身只实现 bridge 实际读取的方法；增加桥接行为时需同步扩充替身。
+ * 新手阅读建议：先看 413 用例理解大小限制，再看 close 用例理解取消传播。
+ */
 import { EventEmitter } from 'node:events'
 import { Readable } from 'node:stream'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -6,7 +14,9 @@ import { bridge } from '../src/http-bridge.ts'
 
 describe('HTTP bridge abort', () => {
   it('destroys a declared-oversize request instead of draining it', async () => {
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `destroyed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const destroyed: true[] = []
+    /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const request = Readable.from([]) as unknown as IncomingMessage
     Object.assign(request, {
       url: '/api/session.prompt',
@@ -14,8 +24,11 @@ describe('HTTP bridge abort', () => {
       headers: { 'content-type': 'application/json', 'content-length': '999999' },
       destroy: () => { destroyed.push(true) },
     })
+    /** 中文说明：用于记录次数、编号或状态码的标量值；变量 `status: number | undefined` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let status: number | undefined
+    /** 中文说明：当前场景输入、传输或校验的数据；变量 `headers: unknown` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let headers: unknown
+    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `response` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const response = Object.assign(new EventEmitter(), {
       writableEnded: false,
       writeHead(code: number, values?: unknown) { status = code; headers = values; return this },
@@ -34,9 +47,11 @@ describe('HTTP bridge abort', () => {
   })
 
   it('aborts a pending native picker request when the browser disconnects', async () => {
+    /** 中文说明：当前场景输入、传输或校验的数据；变量 `body` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const body = JSON.stringify({
       type: 'client-request', rpcId: 'picker-1', method: 'host.pickDirectory', payload: {},
     })
+    /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const request = Readable.from([Buffer.from(body)]) as unknown as IncomingMessage
     Object.assign(request, {
       url: '/api/host.pickDirectory',
@@ -44,6 +59,7 @@ describe('HTTP bridge abort', () => {
       headers: { 'content-type': 'application/json' },
     })
 
+    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `response` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const response = Object.assign(new EventEmitter(), {
       writableEnded: false,
       writeHead() { return this },
@@ -51,11 +67,16 @@ describe('HTTP bridge abort', () => {
       end() { this.writableEnded = true; return this },
     }) as unknown as ServerResponse
 
+    /** 中文说明：固定异步执行顺序或等待生命周期事件的 Promise 或门控值；变量 `resolveStarted` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let resolveStarted!: () => void
+    /** 中文说明：固定异步执行顺序或等待生命周期事件的 Promise 或门控值；变量 `started` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const started = new Promise<void>((resolve) => { resolveStarted = resolve })
+    /** 中文说明：控制或记录异步操作取消状态的对象；变量 `carrierSignal: AbortSignal | undefined` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let carrierSignal: AbortSignal | undefined
+    /** 中文说明：固定异步执行顺序或等待生命周期事件的 Promise 或门控值；变量 `pending` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const pending = bridge(request, response, {
       fetch: async (input) => {
+        /** 中文说明：当前场景构造或发出的请求对象；变量 `fetchRequest` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const fetchRequest = input
         carrierSignal = fetchRequest.signal
         resolveStarted()

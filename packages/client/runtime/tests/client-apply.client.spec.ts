@@ -3,6 +3,14 @@
  * connection handle, stream-loop sink wiring into the object layer, and the
  * fiber-scoped loop teardown.
  */
+/**
+ * 文件职责：验证客户端运行时插件装载后提供会话服务、连接依赖和销毁行为。
+ * 技术维度：Cordis 测试 Context、Vitest、连接 API 替身和响应式服务。
+ * 产品维度：保证浏览器运行时入口能够稳定向界面暴露会话管理能力。
+ * 逻辑维度：装载依赖和运行时插件，读取服务，驱动最小操作，再断言状态与清理。
+ * 关键边界：测试必须使用真实插件组装关系；销毁后不得遗留订阅或网络调用。
+ * 新手阅读建议：先看装载辅助函数，再按服务可用性、依赖变化和卸载场景阅读。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
@@ -16,6 +24,7 @@ import type { SessionRuntime } from '../src/client/sessions/service.ts'
 import type { WorkspaceRuntime } from '../src/client/workspaces/service.ts'
 import { FakeApiClient, fakeRemote, ok } from './fake-api.client.ts'
 
+/** 中文说明：类型 `Bench` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface Bench {
   ctx: Context
   api: FakeApiClient
@@ -23,11 +32,16 @@ interface Bench {
   stopped: number
 }
 
+/** 中文说明：测试辅助函数 `mount`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 async function mount(): Promise<Bench> {
+  /** 中文说明：当前操作所属的 Cordis 上下文；变量 `ctx` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const ctx = new Context()
   await ctx.plugin(TypertRegistry)
+  /** 中文说明：当前流程调用的客户端服务或测试替身；变量 `api` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const api = new FakeApiClient()
+  /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `bench` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const bench: Bench = { ctx, api, sinks: undefined, stopped: 0 }
+  /** 中文说明：当前流程调用的客户端服务或测试替身；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const handle: ConnectionHandle = {
     api,
     isLoopback: true,
@@ -50,18 +64,23 @@ async function mount(): Promise<Bench> {
   return bench
 }
 
+/** 中文说明：测试辅助函数 `flushMicrotasks`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 async function flushMicrotasks(): Promise<void> {
+  /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `i` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   for (let i = 0; i < 12; i++) await Promise.resolve()
 }
 
 describe('runtime client apply', () => {
   it('mounts slots, Sessions, and Workspaces and fans host frames into both managers', async () => {
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `bench` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const bench = await mount()
     expect(bench.ctx.get('slots') !== undefined).toBe(true)
     // The built-in 'root' declaration ships with this package's SlotRegistry
     // (the SlotMap 'root' merge lives here).
     expect(bench.ctx.slots.spec('root')).toEqual({ kind: 'single', scope: 'root' })
+    /** 中文说明：当前会话或对话投影对象；变量 `sessions` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const sessions = bench.ctx.get('sessions')
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `workspaces` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const workspaces = bench.ctx.get('workspaces')
     expect(sessions !== undefined).toBe(true)
     expect(workspaces !== undefined).toBe(true)
@@ -95,6 +114,7 @@ describe('runtime client apply', () => {
   })
 
   it('selects the recent Workspace once when the first baselines have no current session', async () => {
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `bench` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const bench = await mount()
     bench.api.onWorkspaceList = () => Promise.resolve(ok({
       items: [{
@@ -107,7 +127,9 @@ describe('runtime client apply', () => {
     bench.sinks?.onConnected?.({ version: '0', cwd: '/f', attachedSessions: 0, home: '/h', canOpenPath: true })
     await flushMicrotasks()
 
+    /** 中文说明：当前会话或对话投影对象；变量 `sessions` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const sessions = bench.ctx.get('sessions') as SessionRuntime
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `workspaces` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const workspaces = bench.ctx.get('workspaces') as WorkspaceRuntime
     expect(bench.api.callsOf('session.create')).toEqual([{ workspaceId: 'w-recent' }])
     expect(sessions.list.getSnapshot().current).toBe('fk-new')
@@ -120,7 +142,9 @@ describe('runtime client apply', () => {
   })
 
   it('wires registry changes into resident Sessions during the runtime apply pass', async () => {
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `bench` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const bench = await mount()
+    /** 中文说明：当前会话或对话投影对象；变量 `sessions` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const sessions = bench.ctx.get('sessions') as SessionRuntime
     bench.sinks?.onHostEnvelope?.({
       rpcId: 'r-registry' as never,
@@ -128,7 +152,9 @@ describe('runtime client apply', () => {
     })
     await flushMicrotasks()
     expect(sessions.binding('s-registry' as never)).toBeDefined()
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `rebuild` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const rebuild = vi.spyOn(Session.prototype, 'rebuildConversationRegistry')
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<null> = {
       kind: 'registry-probe',
       target: 'chat',
@@ -146,7 +172,9 @@ describe('runtime client apply', () => {
   })
 
   it('stops the stream loop when the plugin fiber unloads', async () => {
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `bench` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const bench = await mount()
+    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `fiber` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const fiber = [...bench.ctx.registry.values()].find(f => f.name?.includes('client'))
     // Dispose the whole tree: the ctx.effect teardown must call loop.stop exactly once.
     await bench.ctx.fiber.dispose()
