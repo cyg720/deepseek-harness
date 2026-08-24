@@ -7,6 +7,14 @@
  * payload, the scoped consume-token dispatch, per-session popupFor
  * lifecycle, and the directory invalidation event subscriptions.
  */
+/**
+ * 文件职责：验证命令弹层的 service.client.spec.ts 行为。
+ * 技术维度：Vitest、React 测试渲染和可控替身。
+ * 产品维度：防止命令弹层用户流程发生回归。
+ * 逻辑维度：构造输入、触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后清理。
+ * 新手阅读建议：先读辅助函数，再按测试场景顺序阅读。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '@deepseek-ai/dsh-commands/types'
@@ -17,23 +25,29 @@ import type { CommandContribution, CommandDecoration, CommandUiSpec, SelectOptio
 import type { CommandDescriptor } from '../src/client/directory.ts'
 import { CommandUiRuntime } from '../src/client/service.ts'
 
+/** 中文说明：测试场景的局部值 sid，由紧邻初始化决定。 */
 const sid = (k: string): SessionId => k as SessionId
 
 /** The agent-backed session projection (single state; identity only). */
+/** 中文说明：测试场景的局部值 proj，由紧邻初始化决定。 */
 const proj = (id: string): ClientSessionContext => ({ sessionId: sid(id) })
 
+/** 中文说明：测试场景的局部值 S1_CMDS，由紧邻初始化决定。 */
 const S1_CMDS: CommandDescriptor[] = [
   { name: 'plan', description: 'bare kind' },
   { name: 'goal', description: 'leadingInput kind', input: { hint: 'goal text' } },
 ]
 
+/** 中文说明：测试场景的局部值 S2_CMDS，由紧邻初始化决定。 */
 const S2_CMDS: CommandDescriptor[] = [
   ...S1_CMDS,
   { name: 'attach', description: 'scoped shadow', input: { hint: 'path' } },
 ]
 
+/** 中文说明：类型或类 ExecuteValue 约束本文件的数据或组件职责。 */
 type ExecuteValue = { matched: boolean; commandId?: string; result?: CommandResult }
 
+/** 中文说明：类型或类 BenchOptions 约束本文件的数据或组件职责。 */
 interface BenchOptions {
   /** Scripted catalog per list payload; default serves the fixed catalogs by session. */
   commands?: (payload: { sessionId: SessionId }) => Promise<{ commands: CommandDescriptor[] }>
@@ -48,6 +62,7 @@ interface BenchOptions {
  * @param produce - the scripted answer for one Remote method.
  * @returns the carried result the service reads.
  */
+/** 中文说明：函数 carried 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 async function carried<T>(produce: () => Promise<T>) {
   try {
     return { ok: true as const, value: await produce() }
@@ -63,17 +78,24 @@ async function carried<T>(produce: () => Promise<T>) {
   }
 }
 
+/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 async function bench(opts: BenchOptions = {}) {
+  /** 中文说明：测试场景的局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  /** 中文说明：测试场景的局部值 registered，由紧邻初始化决定。 */
   const registered = new Map<string, InputTriggerSource>()
+  /** 中文说明：测试场景的局部值 listCalls，由紧邻初始化决定。 */
   const listCalls: Array<{ sessionId: SessionId }> = []
+  /** 中文说明：测试场景的局部值 executeCalls，由紧邻初始化决定。 */
   const executeCalls: Array<{ sessionId: SessionId; line: string; images: readonly SubmitImageAttachment[] }> = []
   // The service reads the generated commands Remote, which delivers the
   // carrier's outcome, so a programmed failure answers the error branch.
+  /** 中文说明：测试场景的局部值 commandsRemote，由紧邻初始化决定。 */
   const commandsRemote = {
     list: async (sessionId: SessionId) => {
       listCalls.push({ sessionId })
       return await carried(async () => {
+        /** 中文说明：测试场景的局部值 value，由紧邻初始化决定。 */
         const value = await (opts.commands ?? (p => Promise.resolve({
           commands: p.sessionId === sid('s2') ? S2_CMDS : S1_CMDS,
         })))({ sessionId })
@@ -83,7 +105,9 @@ async function bench(opts: BenchOptions = {}) {
     execute: async (sessionId: SessionId, line: string, images: readonly SubmitImageAttachment[] = []) => {
       executeCalls.push({ sessionId, line, images })
       return await carried(async () => {
+        /** 中文说明：测试场景的局部值 fallback，由紧邻初始化决定。 */
         const fallback = (): Promise<ExecuteValue> => Promise.resolve({ matched: true })
+        /** 中文说明：测试场景的局部值 value，由紧邻初始化决定。 */
         const value = await (opts.execute ?? fallback)({ sessionId, line })
         return value.matched
           ? { commandId: value.commandId ?? 'fake-command', result: value.result ?? { kind: 'success' as const } }
@@ -93,6 +117,7 @@ async function bench(opts: BenchOptions = {}) {
   }
   ctx.provide('inputTriggers', {
     registerSource(src: InputTriggerSource) {
+      /** 中文说明：测试场景的局部值 key，由紧邻初始化决定。 */
       const key = `${src.trigger} ${src.name}`
       registered.set(key, src)
       return () => { registered.delete(key) }
@@ -104,6 +129,7 @@ async function bench(opts: BenchOptions = {}) {
       `${ns}:${key}${params === undefined ? '' : JSON.stringify(params)}`,
   })
   // Real scope tags behind a fake sessions face.
+  /** 中文说明：测试场景的局部值 scopes，由紧邻初始化决定。 */
   const scopes = new Map<SessionId, { ctx: Context; fiber: { dispose(): Promise<void> } }>()
   ctx.provide('sessions', {
     scope: (id: SessionId) => scopes.get(id)?.ctx,
@@ -112,25 +138,30 @@ async function bench(opts: BenchOptions = {}) {
       ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const }
       : undefined,
   })
+  /** 中文说明：测试场景的局部值 forwarded，由紧邻初始化决定。 */
   const forwarded = new Map<string, Array<(...args: never[]) => void>>()
   ctx.provide('remote', {
     commands: commandsRemote,
     $on: (event: string, listener: (...args: never[]) => void) => {
+      /** 中文说明：测试场景的局部值 listeners，由紧邻初始化决定。 */
       const listeners = forwarded.get(event) ?? []
       listeners.push(listener)
       forwarded.set(event, listeners)
       return () => { forwarded.set(event, listeners.filter(entry => entry !== listener)) }
     },
     $dispatch: (event: string, args: readonly unknown[]) => {
+      /** 中文说明：测试场景的局部值 listener，由紧邻初始化决定。 */
       for (const listener of forwarded.get(event) ?? []) listener(...args as never[])
     },
   })
   ctx.provide('remote.commands', commandsRemote)
+  /** 中文说明：测试场景的局部值 executions，由紧邻初始化决定。 */
   const executions: Array<{ sessionId: SessionId; name: string; result: CommandResult }> = []
   ctx.on('command/executed', (sessionId, name, result) => {
     executions.push({ sessionId, name, result })
   })
   /** Notices the fake conversation face collected (runDetached routing). */
+  /** 中文说明：测试场景的局部值 notices，由紧邻初始化决定。 */
   const notices: Array<{ scope: SessionId | undefined; level: 'info' | 'error'; text: string }> = []
   ctx.provide('conversation', {
     input: {
@@ -141,24 +172,32 @@ async function bench(opts: BenchOptions = {}) {
       }),
     },
   })
+  /** 中文说明：测试场景的局部值 fiber，由紧邻初始化决定。 */
   const fiber = ctx.plugin(CommandUiRuntime)
   await fiber.await()
+  /** 中文说明：测试场景的局部值 command，由紧邻初始化决定。 */
   const command = ctx.get('commandUi') as CommandUiRuntime
+  /** 中文说明：测试场景的局部值 source，由紧邻初始化决定。 */
   const source = registered.get('/ command')
   if (source === undefined) throw new Error('command source not registered')
+  /** 中文说明：测试场景的局部值 mint，由紧邻初始化决定。 */
   const mint = (key: string) => {
+    /** 中文说明：测试场景的局部值 handle，由紧邻初始化决定。 */
     const handle = createScope(ctx, sid(key))
     scopes.set(sid(key), handle)
     return handle
   }
   /** Warm one session's catalog through the source's own candidate pull. */
+  /** 中文说明：测试场景的局部值 warm，由紧邻初始化决定。 */
   const warm = async (session: ClientSessionContext) => {
     await source.candidates(session, { query: '', position: 'leading', signal: new AbortController().signal })
   }
   return { ctx, fiber, command, source, mint, warm, listCalls, executeCalls, executions, registered, notices }
 }
 
+/** 中文说明：函数 menuPick 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function menuPick(source: InputTriggerSource, name: string, session: ClientSessionContext, end?: number) {
+  /** 中文说明：测试场景的局部值 pick，由紧邻初始化决定。 */
   const pick: InputTriggerPick = {
     candidate: { name },
     session,
@@ -169,6 +208,7 @@ function menuPick(source: InputTriggerSource, name: string, session: ClientSessi
   return source.onPick(pick)
 }
 
+/** 中文说明：测试场景的局部值 themeUi，由紧邻初始化决定。 */
 const themeUi = (over: Partial<CommandUiSpec> = {}): CommandUiSpec => ({
   kind: 'popupSelect',
   options: () => Promise.resolve([{ id: 'dark', label: 'Dark' }]),
@@ -176,6 +216,7 @@ const themeUi = (over: Partial<CommandUiSpec> = {}): CommandUiSpec => ({
   ...over,
 })
 
+/** 中文说明：测试场景的局部值 themeContribution，由紧邻初始化决定。 */
 const themeContribution = (over: Partial<CommandContribution> = {}): CommandContribution => ({
   name: 'theme',
   description: 'client popup kind',
@@ -184,11 +225,13 @@ const themeContribution = (over: Partial<CommandContribution> = {}): CommandCont
   ...over,
 })
 
+/** 中文说明：测试场景的局部值 req，由紧邻初始化决定。 */
 const req = (query: string, position: 'leading' | 'inline' = 'leading') =>
   ({ query, position, signal: new AbortController().signal })
 
 describe('registration', () => {
   it('registers the "/" source with matchSpace/matchEnter/warm hooks and removes it on fiber disposal', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { registered, source, fiber } = await bench()
     expect(typeof source.matchSpace).toBe('function')
     expect(typeof source.matchEnter).toBe('function')
@@ -199,6 +242,7 @@ describe('registration', () => {
   })
 
   it('the warm hook prewarms the session key: one pull per session, no duplicate over pending', async () => {
+    /** 中文说明：测试场景的局部值 { source, listCalls }，由紧邻初始化决定。 */
     const { source, listCalls } = await bench()
     source.warm!(proj('s1'))
     expect(listCalls).toEqual([{ sessionId: sid('s1') }])
@@ -211,19 +255,23 @@ describe('registration', () => {
 
 describe('candidates', () => {
   it('does not fetch Agent-bound commands for an addressed child', async () => {
+    /** 中文说明：测试场景的局部值 b，由紧邻初始化决定。 */
     const b = await bench({ addressed: sid('child') })
     await expect(b.warm(proj('child'))).resolves.toBeUndefined()
     expect(b.listCalls).toEqual([])
   })
 
   it('pulls the session catalog; fuzzy filter and hint mapping apply', async () => {
+    /** 中文说明：测试场景的局部值 { source, listCalls }，由紧邻初始化决定。 */
     const { source, listCalls } = await bench()
+    /** 中文说明：测试场景的局部值 list，由紧邻初始化决定。 */
     const list = await source.candidates(proj('s1'), req('g'))
     expect(listCalls).toEqual([{ sessionId: sid('s1') }])
     expect(list).toEqual([{ name: 'goal', description: 'leadingInput kind', hint: 'goal text' }])
   })
 
   it('matches case-insensitive subsequences and ranks prefixes, boundaries, adjacency, gaps, then source order', async () => {
+    /** 中文说明：测试场景的局部值 commands，由紧邻初始化决定。 */
     const commands: CommandDescriptor[] = [
       { name: 'q-xylophone', description: '' },
       { name: 'qx-long', description: '' },
@@ -234,7 +282,9 @@ describe('candidates', () => {
       { name: 'yu1v', description: '' },
       { name: 'zu12v', description: '' },
     ]
+    /** 中文说明：测试场景的局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench({ commands: () => Promise.resolve({ commands }) })
+    /** 中文说明：测试场景的局部值 names，由紧邻初始化决定。 */
     const names = async (query: string) => (await source.candidates(proj('s1'), req(query))).map(c => c.name)
     await expect(names('QX')).resolves.toEqual(['qx-long', 'q-xylophone'])
     await expect(names('fb')).resolves.toEqual(['foo-bar', 'fabulous'])
@@ -244,37 +294,48 @@ describe('candidates', () => {
   })
 
   it('catalogs are per session: another session pulls its own key', async () => {
+    /** 中文说明：测试场景的局部值 { source, listCalls }，由紧邻初始化决定。 */
     const { source, listCalls } = await bench()
+    /** 中文说明：测试场景的局部值 names，由紧邻初始化决定。 */
     const names = (await source.candidates(proj('s2'), req(''))).map(c => c.name)
     expect(listCalls).toEqual([{ sessionId: sid('s2') }])
     expect(names).toEqual(['plan', 'goal', 'attach'])
   })
 
   it('hides leadingInput commands at inline position', async () => {
+    /** 中文说明：测试场景的局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench()
+    /** 中文说明：测试场景的局部值 names，由紧邻初始化决定。 */
     const names = (await source.candidates(proj('s1'), req('', 'inline'))).map(c => c.name)
     expect(names).toEqual(['plan'])
   })
 
   it('merges available contributions and filters unavailable ones with the per-call projection', async () => {
+    /** 中文说明：测试场景的局部值 { command, source }，由紧邻初始化决定。 */
     const { command, source } = await bench()
+    /** 中文说明：测试场景的局部值 available，由紧邻初始化决定。 */
     const available = vi.fn((session: ClientSessionContext) => session.sessionId === sid('s1'))
     command.register(themeContribution({ available }))
+    /** 中文说明：测试场景的局部值 s1Names，由紧邻初始化决定。 */
     const s1Names = (await source.candidates(proj('s1'), req(''))).map(c => c.name)
     expect(s1Names).toEqual(['plan', 'goal', 'theme'])
     expect(available).toHaveBeenLastCalledWith(proj('s1'))
+    /** 中文说明：测试场景的局部值 s2Names，由紧邻初始化决定。 */
     const s2Names = (await source.candidates(proj('s2'), req(''))).map(c => c.name)
     expect(s2Names).not.toContain('theme')
   })
 
   it('contribution rows ride the same fuzzy query filter', async () => {
+    /** 中文说明：测试场景的局部值 { command, source }，由紧邻初始化决定。 */
     const { command, source } = await bench()
     command.register(themeContribution())
+    /** 中文说明：测试场景的局部值 names，由紧邻初始化决定。 */
     const names = (await source.candidates(proj('s1'), req('tm'))).map(c => c.name)
     expect(names).toEqual(['theme'])
   })
 
   it('a contribution/host name collision fails loud', async () => {
+    /** 中文说明：测试场景的局部值 { command, source }，由紧邻初始化决定。 */
     const { command, source } = await bench()
     command.register(themeContribution({ name: 'plan' }))
     await expect(source.candidates(proj('s1'), req(''))).rejects.toThrow('collides with a host command')
@@ -283,6 +344,7 @@ describe('candidates', () => {
 })
 
 describe('decorations (bare-invocation UI on host commands)', () => {
+  /** 中文说明：测试场景的局部值 goalDecoration，由紧邻初始化决定。 */
   const goalDecoration = (over: Partial<CommandDecoration> = {}): CommandDecoration => ({
     name: 'goal',
     available: () => true,
@@ -291,36 +353,45 @@ describe('decorations (bare-invocation UI on host commands)', () => {
   })
 
   it('adds no catalog row: the host row stands alone', async () => {
+    /** 中文说明：测试场景的局部值 { command, source }，由紧邻初始化决定。 */
     const { command, source } = await bench()
     command.decorate(goalDecoration())
+    /** 中文说明：测试场景的局部值 names，由紧邻初始化决定。 */
     const names = (await source.candidates(proj('s1'), req(''))).map(c => c.name)
     expect(names).toEqual(['plan', 'goal'])
   })
 
   it('bare enter opens the popup; an argued line never consults the decoration (host claim)', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { command, source, mint, warm } = await bench()
     command.decorate(goalDecoration())
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
     await warm(proj('s1'))
     expect(await source.matchEnter!(proj('s1'), '/goal', new AbortController().signal, { images: 0 })).toBe('handled')
     expect(command.popupFor(scope.ctx).state.getSnapshot()).toMatchObject({ open: true, command: 'goal' })
+    /** 中文说明：测试场景的局部值 argued，由紧邻初始化决定。 */
     const argued = await source.matchEnter!(proj('s1'), '/goal ship it', new AbortController().signal, { images: 0 })
     if (argued === undefined || argued === 'handled' || !('claim' in argued)) throw new Error('expected the host claim')
     expect(argued.claim.token).toBe('/goal ')
   })
 
   it('space never consults the decoration (host claim)', async () => {
+    /** 中文说明：测试场景的局部值 { command, source, warm }，由紧邻初始化决定。 */
     const { command, source, warm } = await bench()
     command.decorate(goalDecoration())
     await warm(proj('s1'))
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = source.matchSpace!(proj('s1'), '/goal')
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected the host claim')
     expect(outcome.claim.token).toBe('/goal ')
   })
 
   it('a decoration with no host row never fires (bare enter misses; menu pick misses)', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { command, source, mint, warm } = await bench()
     command.decorate(goalDecoration({ name: 'phantom' }))
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
     await warm(proj('s1'))
     expect(await source.matchEnter!(proj('s1'), '/phantom', new AbortController().signal, { images: 0 })).toBeUndefined()
@@ -329,6 +400,7 @@ describe('decorations (bare-invocation UI on host commands)', () => {
   })
 
   it('an unavailable decoration falls through to the host bare path (detached execute)', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { command, source, warm, executeCalls } = await bench()
     command.decorate(goalDecoration({ name: 'plan', available: () => false }))
     await warm(proj('s1'))
@@ -337,6 +409,7 @@ describe('decorations (bare-invocation UI on host commands)', () => {
   })
 
   it('duplicate decoration names fail loud', async () => {
+    /** 中文说明：测试场景的局部值 { command }，由紧邻初始化决定。 */
     const { command } = await bench()
     command.decorate(goalDecoration())
     expect(() => { command.decorate(goalDecoration()) }).toThrow('duplicate decoration for /goal')
@@ -345,12 +418,16 @@ describe('decorations (bare-invocation UI on host commands)', () => {
 
 describe('dispatch (menu column)', () => {
   it('contribution → opens the session popup with the open-time projection, no execute', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { command, source, mint, warm, executeCalls } = await bench()
+    /** 中文说明：测试场景的局部值 options，由紧邻初始化决定。 */
     const options = vi.fn((_s: ClientSessionContext) => Promise.resolve([{ id: 'dark', label: 'Dark' }]))
     command.register(themeContribution({ ui: themeUi({ options }) }))
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
     await warm(proj('s1'))
     expect(menuPick(source, 'theme', proj('s1'))).toBe('handled')
+    /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
     const popup = command.popupFor(scope.ctx)
     expect(popup.state.getSnapshot()).toMatchObject({ open: true, command: 'theme' })
     expect(options).toHaveBeenCalledExactlyOnceWith(proj('s1'), expect.any(AbortSignal))
@@ -358,8 +435,10 @@ describe('dispatch (menu column)', () => {
   })
 
   it('an unavailable contribution falls through to the host catalog', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { command, source, mint, warm } = await bench()
     command.register(themeContribution({ available: () => false }))
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
     await warm(proj('s1'))
     expect(menuPick(source, 'theme', proj('s1'))).toBeUndefined() // no host 'theme' either
@@ -367,8 +446,10 @@ describe('dispatch (menu column)', () => {
   })
 
   it('host leadingInput → {claim} with token "/name " and hint; claiming never executes', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { source, warm, executeCalls } = await bench()
     await warm(proj('s1'))
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = menuPick(source, 'goal', proj('s1'))
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
     expect(outcome.claim.token).toBe('/goal ')
@@ -377,8 +458,11 @@ describe('dispatch (menu column)', () => {
   })
 
   it('host bare → consume-token span guard on the session scope + detached execute', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { source, mint, warm, executeCalls, executions } = await bench()
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
+    /** 中文说明：测试场景的局部值 consumes，由紧邻初始化决定。 */
     const consumes: ConsumeTokenRequest[] = []
     scope.ctx.on('slash/input-consume-token', (r) => {
       consumes.push(r)
@@ -398,6 +482,7 @@ describe('dispatch (menu column)', () => {
   })
 
   it('a name the directory no longer serves → undefined (snapshot swapped between menu and pick)', async () => {
+    /** 中文说明：测试场景的局部值 { source, warm }，由紧邻初始化决定。 */
     const { source, warm } = await bench()
     await warm(proj('s1'))
     expect(menuPick(source, 'gone', proj('s1'))).toBeUndefined()
@@ -406,14 +491,17 @@ describe('dispatch (menu column)', () => {
 
 describe('matchSpace (space column)', () => {
   it('answers undefined from a not-ready key (no waiting, no RPC)', async () => {
+    /** 中文说明：测试场景的局部值 { source, listCalls }，由紧邻初始化决定。 */
     const { source, listCalls } = await bench()
     expect(source.matchSpace!(proj('s1'), '/goal')).toBeUndefined()
     expect(listCalls).toEqual([])
   })
 
   it('hot leadingInput exact token → {claim}; the key axis is the session', async () => {
+    /** 中文说明：测试场景的局部值 { source, warm }，由紧邻初始化决定。 */
     const { source, warm } = await bench()
     await warm(proj('s2'))
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = source.matchSpace!(proj('s2'), '/attach')
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
     expect(outcome.claim.token).toBe('/attach ')
@@ -422,6 +510,7 @@ describe('matchSpace (space column)', () => {
   })
 
   it('bare kind and contribution names stay plain text', async () => {
+    /** 中文说明：测试场景的局部值 { command, source, warm }，由紧邻初始化决定。 */
     const { command, source, warm } = await bench()
     command.register(themeContribution())
     await warm(proj('s1'))
@@ -430,6 +519,7 @@ describe('matchSpace (space column)', () => {
   })
 
   it('unknown token / non-slash token → undefined', async () => {
+    /** 中文说明：测试场景的局部值 { source, warm }，由紧邻初始化决定。 */
     const { source, warm } = await bench()
     await warm(proj('s1'))
     expect(source.matchSpace!(proj('s1'), '/nope')).toBeUndefined()
@@ -438,21 +528,27 @@ describe('matchSpace (space column)', () => {
 })
 
 describe('matchEnter (enter column)', () => {
+  /** 中文说明：测试场景的局部值 signal，由紧邻初始化决定。 */
   const signal = () => new AbortController().signal
 
   it('strong-waits a cold key before adjudicating', async () => {
+    /** 中文说明：测试场景的局部值 release!，由紧邻初始化决定。 */
     let release!: (value: { commands: CommandDescriptor[] }) => void
+    /** 中文说明：测试场景的局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench({
       commands: () => new Promise((resolve) => { release = resolve }),
     })
+    /** 中文说明：测试场景的局部值 wait，由紧邻初始化决定。 */
     const wait = source.matchEnter!(proj('s1'), '/goal args', signal(), { images: 0 })
     release({ commands: S1_CMDS })
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = await wait
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
     expect(outcome.claim.token).toBe('/goal ')
   })
 
   it('rejects when warmup fails (never a silent downgrade)', async () => {
+    /** 中文说明：测试场景的局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench({
       commands: () => Promise.reject(new Error('warmup boom')),
     })
@@ -460,9 +556,12 @@ describe('matchEnter (enter column)', () => {
   })
 
   it('leadingInput claims args-tolerant (bare and with trailing text)', async () => {
+    /** 中文说明：测试场景的局部值 { source, warm }，由紧邻初始化决定。 */
     const { source, warm } = await bench()
     await warm(proj('s1'))
+    /** 中文说明：测试场景的局部值 line，由紧邻初始化决定。 */
     for (const line of ['/goal', '/goal refactor the loop']) {
+      /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
       const outcome = await source.matchEnter!(proj('s1'), line, signal(), { images: 0 })
       if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
       expect(outcome.claim.token).toBe('/goal ')
@@ -470,8 +569,11 @@ describe('matchEnter (enter column)', () => {
   })
 
   it('bare host command executes detached with the bare-token consume guard', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { source, mint, warm, executeCalls } = await bench()
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
+    /** 中文说明：测试场景的局部值 consumes，由紧邻初始化决定。 */
     const consumes: ConsumeTokenRequest[] = []
     scope.ctx.on('slash/input-consume-token', (r) => {
       consumes.push(r)
@@ -485,6 +587,7 @@ describe('matchEnter (enter column)', () => {
   })
 
   it('bare kind with trailing text → undefined and no RPC (default sink owns the line)', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { source, warm, executeCalls } = await bench()
     await warm(proj('s1'))
     await expect(source.matchEnter!(proj('s1'), '/plan now', signal(), { images: 0 })).resolves.toBeUndefined()
@@ -492,8 +595,10 @@ describe('matchEnter (enter column)', () => {
   })
 
   it('contribution: bare token opens the popup without touching the directory; args → undefined', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { command, source, mint, listCalls } = await bench()
     command.register(themeContribution())
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
     await expect(source.matchEnter!(proj('s1'), '/theme', signal(), { images: 0 })).resolves.toBe('handled')
     expect(command.popupFor(scope.ctx).state.getSnapshot().open).toBe(true)
@@ -502,6 +607,7 @@ describe('matchEnter (enter column)', () => {
   })
 
   it('unknown name, bare "/", and non-slash lines → undefined', async () => {
+    /** 中文说明：测试场景的局部值 { source, warm }，由紧邻初始化决定。 */
     const { source, warm } = await bench()
     await warm(proj('s1'))
     await expect(source.matchEnter!(proj('s1'), '/nope', signal(), { images: 0 })).resolves.toBeUndefined()
@@ -511,18 +617,23 @@ describe('matchEnter (enter column)', () => {
 })
 
 describe('matchEnter envelope policy (images)', () => {
+  /** 中文说明：测试场景的局部值 signal，由紧邻初始化决定。 */
   const signal = () => new AbortController().signal
+  /** 中文说明：测试场景的局部值 IMG_CMDS，由紧邻初始化决定。 */
   const IMG_CMDS: CommandDescriptor[] = [
     ...S1_CMDS,
     { name: 'vision', description: 'image-accepting leadingInput', input: { hint: 'describe', images: true } },
   ]
+  /** 中文说明：测试场景的局部值 png，由紧邻初始化决定。 */
   const png: SubmitImageAttachment = { mediaType: 'image/png', data: 'AA==' }
 
   it('a leadingInput command not declaring acceptance refuses; a declaring one claims with images minted', async () => {
+    /** 中文说明：测试场景的局部值 { source, warm }，由紧邻初始化决定。 */
     const { source, warm } = await bench({ commands: () => Promise.resolve({ commands: IMG_CMDS }) })
     await warm(proj('s1'))
     await expect(source.matchEnter!(proj('s1'), '/goal ship', signal(), { images: 1 }))
       .rejects.toThrow('command:notice.imagesUnsupported{"command":"goal"}')
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = await source.matchEnter!(proj('s1'), '/vision what is this', signal(), { images: 1 })
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
     expect(outcome.claim.token).toBe('/vision ')
@@ -530,9 +641,11 @@ describe('matchEnter envelope policy (images)', () => {
   })
 
   it('bare popup routes refuse images: contribution and decorated host both stay closed', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { command, source, mint, warm } = await bench()
     command.register(themeContribution())
     command.decorate({ name: 'plan', available: () => true, ui: themeUi() })
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
     await warm(proj('s1'))
     await expect(source.matchEnter!(proj('s1'), '/theme', signal(), { images: 1 }))
@@ -543,6 +656,7 @@ describe('matchEnter envelope policy (images)', () => {
   })
 
   it('bare host detached execute refuses images before any RPC', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { source, warm, executeCalls } = await bench()
     await warm(proj('s1'))
     await expect(source.matchEnter!(proj('s1'), '/plan', signal(), { images: 1 }))
@@ -551,12 +665,15 @@ describe('matchEnter envelope policy (images)', () => {
   })
 
   it('claim.submit forwards the images to execute; consumption follows the handler outcome', async () => {
+    /** 中文说明：测试场景的局部值 result，由紧邻初始化决定。 */
     let result: CommandResult = { kind: 'error', text: 'handler refused' }
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { source, warm, executeCalls } = await bench({
       commands: () => Promise.resolve({ commands: IMG_CMDS }),
       execute: () => Promise.resolve({ matched: true, result }),
     })
     await warm(proj('s1'))
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = await source.matchEnter!(proj('s1'), '/vision x', signal(), { images: 1 })
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
     // Handler error: the error outcome keeps draft and images in the composer.
@@ -568,10 +685,12 @@ describe('matchEnter envelope policy (images)', () => {
   })
 
   it('an imageless submission keeps the always-success admission mapping over a handler error', async () => {
+    /** 中文说明：测试场景的局部值 { source, warm }，由紧邻初始化决定。 */
     const { source, warm } = await bench({
       execute: () => Promise.resolve({ matched: true, result: { kind: 'error', text: 'late failure' } }),
     })
     await warm(proj('s1'))
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = source.matchSpace!(proj('s1'), '/goal')
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
     await expect(outcome.claim.submit('x', new Context(), [])).resolves.toEqual({ kind: 'success' })
@@ -580,12 +699,15 @@ describe('matchEnter envelope policy (images)', () => {
 
 describe('execute payload', () => {
   it('claim.submit addresses the session; admitted outcomes stay off the composer (flow card owns them)', async () => {
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { source, warm, executeCalls, executions } = await bench({
       execute: () => Promise.resolve({ matched: true }),
     })
     await warm(proj('s1'))
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = source.matchSpace!(proj('s1'), '/goal')
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
+    /** 中文说明：测试场景的局部值 settled，由紧邻初始化决定。 */
     const settled = await outcome.claim.submit('ship it', new Context(), [])
     expect(executeCalls).toEqual([{ sessionId: sid('s1'), line: '/goal ship it', images: [] }])
     // Pure admission: no outcome text ever rides the submit result — the
@@ -599,15 +721,22 @@ describe('execute payload', () => {
   })
 
   it('contains local acknowledgment listeners without changing an admitted result', async () => {
+    /** 中文说明：测试场景的局部值 b，由紧邻初始化决定。 */
     const b = await bench({ execute: () => Promise.resolve({ matched: true }) })
     await b.warm(proj('s1'))
+    /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
     const outcome = b.source.matchSpace!(proj('s1'), '/goal')
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
+    /** 中文说明：测试场景的局部值 syncFailure，由紧邻初始化决定。 */
     const syncFailure = new Error('sync observer failed')
+    /** 中文说明：测试场景的局部值 asyncFailure，由紧邻初始化决定。 */
     const asyncFailure = new Error('async observer failed')
+    /** 中文说明：测试场景的局部值 after，由紧邻初始化决定。 */
     const after = vi.fn()
+    /** 中文说明：测试场景的局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(b.ctx.logger, 'warn').mockImplementation(() => undefined)
     b.ctx.on('command/executed', () => { throw syncFailure })
+    /** 中文说明：测试场景的局部值 rejectingListener，由紧邻初始化决定。 */
     const rejectingListener = (() => Promise.reject(asyncFailure)) as unknown as () => void
     b.ctx.on('command/executed', rejectingListener)
     b.ctx.on('command/executed', after)
@@ -622,26 +751,35 @@ describe('execute payload', () => {
   })
 
   it('maps matched:false to an error outcome and a matched bare result to success', async () => {
+    /** 中文说明：测试场景的局部值 claimOf，由紧邻初始化决定。 */
     const claimOf = async (opts: BenchOptions) => {
+      /** 中文说明：测试场景的局部值 b，由紧邻初始化决定。 */
       const b = await bench(opts)
       await b.warm(proj('s1'))
+      /** 中文说明：测试场景的局部值 outcome，由紧邻初始化决定。 */
       const outcome = b.source.matchSpace!(proj('s1'), '/goal')
       if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
       return outcome.claim
     }
+    /** 中文说明：测试场景的局部值 first，由紧邻初始化决定。 */
     const first = await claimOf({ execute: () => Promise.resolve({ matched: false }) })
+    /** 中文说明：测试场景的局部值 bad，由紧邻初始化决定。 */
     const bad = await first.submit('x', new Context(), [])
     expect(bad.kind).toBe('error')
+    /** 中文说明：测试场景的局部值 second，由紧邻初始化决定。 */
     const second = await claimOf({ execute: () => Promise.resolve({ matched: true }) })
     await expect(second.submit('', new Context(), [])).resolves.toEqual({ kind: 'success' })
   })
 })
 
 describe('detached admission notices', () => {
+  /** 中文说明：测试场景的局部值 flush，由紧邻初始化决定。 */
   const flush = () => new Promise(resolve => setTimeout(resolve, 0))
 
   it('admitted outcomes stay silent; admission miss and transport rejection notice as errors', async () => {
+    /** 中文说明：测试场景的局部值 mode，由紧邻初始化决定。 */
     let mode: 'admitted' | 'miss' | 'reject' = 'admitted'
+    /** 中文说明：测试场景的局部值 解构结果，由紧邻初始化决定。 */
     const { source, mint, warm, notices } = await bench({
       execute: () => {
         if (mode === 'reject') return Promise.reject(new Error('network down'))
@@ -675,6 +813,7 @@ describe('detached admission notices', () => {
   })
 
   it('a torn-down scope drops the failure notice', async () => {
+    /** 中文说明：测试场景的局部值 { source, warm, notices }，由紧邻初始化决定。 */
     const { source, warm, notices } = await bench({
       execute: () => Promise.reject(new Error('orphan failure')),
     })
@@ -687,7 +826,9 @@ describe('detached admission notices', () => {
 
 describe('register (contribution face)', () => {
   it('duplicate registration throws; the disposer frees the name', async () => {
+    /** 中文说明：测试场景的局部值 { command }，由紧邻初始化决定。 */
     const { command } = await bench()
+    /** 中文说明：测试场景的局部值 dispose，由紧邻初始化决定。 */
     const dispose = command.register(themeContribution())
     expect(() => command.register(themeContribution())).toThrow('duplicate contribution')
     dispose()
@@ -697,8 +838,11 @@ describe('register (contribution face)', () => {
 
 describe('popupFor', () => {
   it('resolves lazily per session; a foreign session gets its own controller; unscoped ctx throws', async () => {
+    /** 中文说明：测试场景的局部值 { ctx, command, mint }，由紧邻初始化决定。 */
     const { ctx, command, mint } = await bench()
+    /** 中文说明：测试场景的局部值 a，由紧邻初始化决定。 */
     const a = mint('s1')
+    /** 中文说明：测试场景的局部值 first，由紧邻初始化决定。 */
     const first = command.popupFor(a.ctx)
     expect(command.popupFor(a.ctx)).toBe(first)
     expect(command.popupFor(mint('s2').ctx)).not.toBe(first)
@@ -706,19 +850,25 @@ describe('popupFor', () => {
   })
 
   it('a successful select dispatches the scoped consume-token and fires the bound composer focus', async () => {
+    /** 中文说明：测试场景的局部值 { command, source, mint }，由紧邻初始化决定。 */
     const { command, source, mint } = await bench()
+    /** 中文说明：测试场景的局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
     command.register(themeContribution({ ui: themeUi({ onSelect }) }))
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
+    /** 中文说明：测试场景的局部值 consumes，由紧邻初始化决定。 */
     const consumes: ConsumeTokenRequest[] = []
     scope.ctx.on('slash/input-consume-token', (r) => {
       consumes.push(r)
       return true
     })
+    /** 中文说明：测试场景的局部值 focus，由紧邻初始化决定。 */
     const focus = vi.fn()
     command.bindComposerFocus(sid('s1'), focus)
 
     expect(menuPick(source, 'theme', proj('s1'), 6)).toBe('handled')
+    /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
     const popup = command.popupFor(scope.ctx)
     await Promise.resolve() // options land
     await popup.select(0)
@@ -728,15 +878,19 @@ describe('popupFor', () => {
   })
 
   it('the enter path opens with the bare-token guard', async () => {
+    /** 中文说明：测试场景的局部值 { command, source, mint }，由紧邻初始化决定。 */
     const { command, source, mint } = await bench()
     command.register(themeContribution())
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
+    /** 中文说明：测试场景的局部值 consumes，由紧邻初始化决定。 */
     const consumes: ConsumeTokenRequest[] = []
     scope.ctx.on('slash/input-consume-token', (r) => {
       consumes.push(r)
       return true
     })
     await source.matchEnter!(proj('s1'), '/theme', new AbortController().signal, { images: 0 })
+    /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
     const popup = command.popupFor(scope.ctx)
     await Promise.resolve()
     await popup.select(0)
@@ -744,10 +898,13 @@ describe('popupFor', () => {
   })
 
   it('the scope disposer disposes the controller and a re-mint resolves fresh', async () => {
+    /** 中文说明：测试场景的局部值 { command, source, mint }，由紧邻初始化决定。 */
     const { command, source, mint } = await bench()
     command.register(themeContribution())
+    /** 中文说明：测试场景的局部值 scope，由紧邻初始化决定。 */
     const scope = mint('s1')
     await source.matchEnter!(proj('s1'), '/theme', new AbortController().signal, { images: 0 })
+    /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
     const popup = command.popupFor(scope.ctx)
     expect(popup.state.getSnapshot().open).toBe(true)
 
@@ -759,7 +916,9 @@ describe('popupFor', () => {
 
 describe('directory invalidation events', () => {
   it('commands/change repulls in the background while the old snapshot serves', async () => {
+    /** 中文说明：测试场景的局部值 round，由紧邻初始化决定。 */
     let round = 0
+    /** 中文说明：测试场景的局部值 { ctx, source, warm }，由紧邻初始化决定。 */
     const { ctx, source, warm } = await bench({
       commands: () => {
         round += 1
@@ -778,9 +937,12 @@ describe('directory invalidation events', () => {
   })
 
   it('agent-preset/selected repulls the recomposed session and leaves the others served', async () => {
+    /** 中文说明：测试场景的局部值 rounds，由紧邻初始化决定。 */
     const rounds = new Map<SessionId, number>()
+    /** 中文说明：测试场景的局部值 { ctx, source, warm }，由紧邻初始化决定。 */
     const { ctx, source, warm } = await bench({
       commands: (payload) => {
+        /** 中文说明：测试场景的局部值 round，由紧邻初始化决定。 */
         const round = (rounds.get(payload.sessionId) ?? 0) + 1
         rounds.set(payload.sessionId, round)
         return Promise.resolve({
@@ -802,8 +964,11 @@ describe('directory invalidation events', () => {
   })
 
   it('connection/reset hard-drops every session key until its rewarm lands', async () => {
+    /** 中文说明：测试场景的局部值 block，由紧邻初始化决定。 */
     let block = false
+    /** 中文说明：测试场景的局部值 release!，由紧邻初始化决定。 */
     let release!: (value: { commands: CommandDescriptor[] }) => void
+    /** 中文说明：测试场景的局部值 { ctx, source, warm }，由紧邻初始化决定。 */
     const { ctx, source, warm } = await bench({
       commands: () => (block
         ? new Promise((resolve) => { release = resolve })

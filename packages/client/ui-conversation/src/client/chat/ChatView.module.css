@@ -2,6 +2,14 @@
    padding cap rides the skeleton. Under
    `[data-conversation-scroll]` the column host owns overflow and this view
    is ordinary flow (see ConversationRoot active-phase rules). */
+/**
+ * 文件职责：定义 ChatView 的局部样式。
+ * 技术维度：CSS Modules、主题变量和状态选择器。
+ * 产品维度：保证会话聊天界面层级清楚并适配交互状态。
+ * 逻辑维度：按容器、内容、操作与状态组织规则。
+ * 关键边界：类名须与组件同步，颜色和尺寸优先复用设计变量。
+ * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+ */
 
 .root {
   position: relative;

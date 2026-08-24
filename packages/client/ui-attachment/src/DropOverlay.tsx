@@ -1,7 +1,16 @@
+/**
+ * 文件职责：实现附件界面的 DropOverlay 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示并操作附件相关状态。
+ * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
+ * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
+ * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ */
 import { createPortal } from 'react-dom'
 import css from './DropOverlay.module.css'
 
 /** Drop-overlay strings the owner resolves from its own locale namespace. */
+/** 中文说明：类型或类 DropOverlayLabels 约束本文件的数据或组件职责。 */
 export interface DropOverlayLabels {
   /** Headline inviting the drop, or naming why it is unavailable. */
   title: string
@@ -21,6 +30,7 @@ export interface DropOverlayLabels {
  * @param props.labels - resolved title and limits strings.
  * @returns the overlay layer.
  */
+/** 中文说明：函数 DropOverlay 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function DropOverlay({ disabled, labels }: {
   disabled: boolean
   labels: DropOverlayLabels
@@ -40,6 +50,7 @@ export function DropOverlay({ disabled, labels }: {
 }
 
 /** Tilted photo-and-note cards (DeepSeek Chat upload illustration). */
+/** 中文说明：当前组件的局部值 UploadIllustration，由紧邻初始化决定。 */
 const UploadIllustration = () => (
   <svg width="115" height="84" viewBox="0 0 115 84" fill="none" xmlns="http://www.w3.org/2000/svg">
     <g clipPath="url(#dshDropOverlayClip)">
@@ -62,6 +73,7 @@ const UploadIllustration = () => (
 )
 
 /** Greyed cards with a blocked badge (DeepSeek Chat disabled illustration). */
+/** 中文说明：当前组件的局部值 UploadDisabledIllustration，由紧邻初始化决定。 */
 const UploadDisabledIllustration = () => (
   <svg width="115" height="84" viewBox="0 0 115 84" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M29.6829 4.63701L11.0677 12.4368C4.95519 14.998 2.07624 22.0294 4.6374 28.1419L12.2285 46.259C14.7896 52.3715 21.8211 55.2505 27.9336 52.6893L46.5488 44.8895C52.6613 42.3283 55.5403 35.2969 52.9791 29.1844L45.388 11.0673C42.8269 4.9548 35.7954 2.07585 29.6829 4.63701Z" fill="#979DA6" />

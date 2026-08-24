@@ -8,6 +8,14 @@
 // (`time` is omitted for mid-turn narration and while the turn still runs);
 // their branch action is enabled only when the node is also the completed
 // turn's transcript tail. Think / tool-head-only nodes stay chrome-free.
+/**
+ * 文件职责：实现会话聊天界面的 AssistantMarkdown 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示并操作会话聊天相关状态。
+ * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
+ * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
+ * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ */
 
 import { Fragment, memo, useMemo } from 'react'
 import type { ReactNode } from 'react'
@@ -18,6 +26,7 @@ import type { ChatNodeOwnerProps, ChatViewSlotProps } from '../contract/slots.ts
 import { ReasoningRow } from './ReasoningRow.tsx'
 import css from './AssistantMarkdown.module.css'
 
+/** 中文说明：类型或类 AssistantMarkdownProps 约束本文件的数据或组件职责。 */
 export interface AssistantMarkdownProps {
   blocks: readonly AssistantBlock[]
   streaming: boolean
@@ -32,22 +41,29 @@ export interface AssistantMarkdownProps {
 }
 
 /** Reasoning block as the Think variant summary row (figma 39:28304). */
+/** 中文说明：当前组件的局部值 AssistantMarkdown，由紧邻初始化决定。 */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
   blocks, streaming, interrupted, renderMessageImages, mentions, t,
 }: AssistantMarkdownProps) {
   // Stable per locale revision (t identity changes on switch): a fresh object
   // per render would rebuild MarkdownText's component table every chunk.
+  /** 中文说明：当前组件的局部值 codeLabels，由紧邻初始化决定。 */
   const codeLabels = useMemo(() => ({ copyLabel: t('copy'), copiedLabel: t('copied') }), [t])
+  /** 中文说明：当前组件的局部值 last，由紧邻初始化决定。 */
   const last = blocks.length - 1
   // Tool-call heads render as tool rows in the chat view's grouping pass, so
   // a node that is only those heads (or empty) would paint an empty root
   // between tool groups — skip the shell unless something visible remains.
+  /** 中文说明：当前组件的局部值 hasVisible，由紧邻初始化决定。 */
   const hasVisible = streaming
     || interrupted === true
     || blocks.some(block => block.kind !== 'tool-call')
   if (!hasVisible) return null
+  /** 中文说明：当前组件的局部值 rendered，由紧邻初始化决定。 */
   const rendered: ReactNode[] = []
+  /** 中文说明：当前组件的局部值 i，由紧邻初始化决定。 */
   for (let i = 0; i < blocks.length; i++) {
+    /** 中文说明：当前组件的局部值 block，由紧邻初始化决定。 */
     const block = blocks[i]
     if (block === undefined) continue
     switch (block.kind) {
@@ -71,9 +87,12 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
         // Keyed by the group's FIRST block index: a streaming append that
         // extends the group then only grows `images` instead of remounting
         // the gallery under a shifted key.
+        /** 中文说明：当前组件的局部值 start，由紧邻初始化决定。 */
         const start = i
+        /** 中文说明：当前组件的局部值 group，由紧邻初始化决定。 */
         const group = [block]
         while (i + 1 < blocks.length) {
+          /** 中文说明：当前组件的局部值 next，由紧邻初始化决定。 */
           const next = blocks[i + 1]
           if (next === undefined || next.kind !== 'image') break
           group.push(next)

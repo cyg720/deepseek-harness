@@ -12,6 +12,14 @@
 // Render economics: order changes only when rows enter, leave or move. Each
 // ChatNodeSeat subscribes to one Node key, so Assistant deltas and Tool
 // lifecycle updates replace only their own row without remounting it.
+/**
+ * 文件职责：实现会话聊天界面的 ChatView 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示并操作会话聊天相关状态。
+ * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
+ * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
+ * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
@@ -22,13 +30,16 @@ import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { formatRunDuration } from './message-chrome.ts'
 import css from './ChatView.module.css'
 
+/** 中文说明：当前组件的局部值 FOLLOW_THRESHOLD，由紧邻初始化决定。 */
 const FOLLOW_THRESHOLD = 24
 
 /** Active column host when present; otherwise the view-local scroller. */
+/** 中文说明：函数 scrollerOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function scrollerOf(from: HTMLElement): HTMLElement {
   return (from.closest('[data-conversation-scroll]')) ?? from
 }
 
+/** 中文说明：类型或类 PagingAnchor 约束本文件的数据或组件职责。 */
 interface PagingAnchor {
   /** Stable node/call identity, independent of boundary-spanning group keys. */
   key: string
@@ -37,7 +48,9 @@ interface PagingAnchor {
 }
 
 /** Find an already-rendered settled row without interpolating a selector. */
+/** 中文说明：函数 anchorElement 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function anchorElement(list: HTMLElement, key: string): HTMLElement | null {
+  /** 中文说明：当前组件的局部值 row，由紧邻初始化决定。 */
   for (const row of list.querySelectorAll<HTMLElement>('[data-chat-anchor-key]')) {
     if (row.dataset.chatAnchorKey === key) return row
   }
@@ -45,28 +58,42 @@ function anchorElement(list: HTMLElement, key: string): HTMLElement | null {
 }
 
 /** Row position in scrollport coordinates (viewport-independent). */
+/** 中文说明：函数 flowTop 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function flowTop(row: HTMLElement, scrollport: HTMLElement): number {
   return row.getBoundingClientRect().top - scrollport.getBoundingClientRect().top
 }
 
 /** Select a visible stable node/call identity, falling back only when layout
  * has not exposed a visible box yet. */
+/** 中文说明：函数 pagingAnchor 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function pagingAnchor(list: HTMLElement, scrollport: HTMLElement): HTMLElement | null {
+  /** 中文说明：当前组件的局部值 viewport，由紧邻初始化决定。 */
   const viewport = scrollport.getBoundingClientRect()
+  /** 中文说明：当前组件的局部值 composer，由紧邻初始化决定。 */
   const composer = scrollport.querySelector<HTMLElement>('[data-composer-seat]')
+  /** 中文说明：当前组件的局部值 visibleBottom，由紧邻初始化决定。 */
   const visibleBottom = composer?.getBoundingClientRect().top ?? viewport.bottom
   // Scroll events are hot: hit-test a few points through the stretched flow
   // rows before considering the full mounted set. The fallback keeps jsdom
   // and pre-layout states deterministic; a virtualizer naturally bounds it.
   if (typeof document.elementsFromPoint === 'function' && visibleBottom > viewport.top) {
+    /** 中文说明：当前组件的局部值 content，由紧邻初始化决定。 */
     const content = list.getBoundingClientRect()
+    /** 中文说明：当前组件的局部值 left，由紧邻初始化决定。 */
     const left = Math.max(viewport.left, content.left)
+    /** 中文说明：当前组件的局部值 right，由紧邻初始化决定。 */
     const right = Math.min(viewport.right, content.right)
+    /** 中文说明：当前组件的局部值 x，由紧邻初始化决定。 */
     const x = left + Math.max(0, right - left) / 2
+    /** 中文说明：当前组件的局部值 height，由紧邻初始化决定。 */
     const height = visibleBottom - viewport.top
+    /** 中文说明：当前组件的局部值 points，由紧邻初始化决定。 */
     const points = [1, Math.min(32, height / 3), height / 2, Math.max(1, height - 1)]
+    /** 中文说明：当前组件的局部值 offset，由紧邻初始化决定。 */
     for (const offset of points) {
+      /** 中文说明：当前组件的局部值 element，由紧邻初始化决定。 */
       for (const element of document.elementsFromPoint(x, viewport.top + offset)) {
+        /** 中文说明：当前组件的局部值 row，由紧邻初始化决定。 */
         const row = element instanceof HTMLElement
           ? element.closest<HTMLElement>('[data-chat-anchor-key]')
           : null
@@ -74,19 +101,26 @@ function pagingAnchor(list: HTMLElement, scrollport: HTMLElement): HTMLElement |
       }
     }
   }
+  /** 中文说明：当前组件的局部值 rows，由紧邻初始化决定。 */
   const rows = [...list.querySelectorAll<HTMLElement>('[data-chat-anchor-key]')]
+  /** 中文说明：当前组件的局部值 visibleRows，由紧邻初始化决定。 */
   const visibleRows = rows.filter((row) => {
+    /** 中文说明：当前组件的局部值 rect，由紧邻初始化决定。 */
     const rect = row.getBoundingClientRect()
     return rect.bottom > viewport.top && rect.top < visibleBottom
   })
   return visibleRows[0] ?? rows[0] ?? null
 }
 
+/** 中文说明：类型或类 ChatScrollPosition 约束本文件的数据或组件职责。 */
 type ChatScrollPosition = NonNullable<ReturnType<ChatViewSlotProps['chatScroll']['read']>>
 
 /** Capture a reflow-resistant reader position from the current rendered window. */
+/** 中文说明：函数 scrollPosition 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function scrollPosition(list: HTMLElement, scrollport: HTMLElement): ChatScrollPosition | null {
+  /** 中文说明：当前组件的局部值 row，由紧邻初始化决定。 */
   const row = pagingAnchor(list, scrollport)
+  /** 中文说明：当前组件的局部值 anchorKey，由紧邻初始化决定。 */
   const anchorKey = row?.dataset.chatAnchorKey
   if (row === null || anchorKey === undefined) return null
   return {
@@ -97,18 +131,24 @@ function scrollPosition(list: HTMLElement, scrollport: HTMLElement): ChatScrollP
 }
 
 /** Host/OS refusal text for the file-open dialog; empty throws keep a locale fallback. */
+/** 中文说明：函数 openFailureMessage 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function openFailureMessage(error: unknown, fallback: string): string {
+  /** 中文说明：当前组件的局部值 message，由紧邻初始化决定。 */
   const message = error instanceof Error ? error.message : String(error)
   return message === '' ? fallback : message
 }
 
 /** ProducedFiles opens the session workspace as `.`. */
+/** 中文说明：函数 isFolderOpenPath 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function isFolderOpenPath(path: string): boolean {
   return path === '.'
 }
 
+/** 中文说明：函数 runningTurnStartTime 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function runningTurnStartTime(timeline: ConversationTimelineSnapshot): number | null {
+  /** 中文说明：当前组件的局部值 latest，由紧邻初始化决定。 */
   let latest: number | null = null
+  /** 中文说明：当前组件的局部值 turn，由紧邻初始化决定。 */
   for (const turn of timeline.turns.values()) {
     if (turn.status === 'open' && turn.start !== undefined) latest = turn.start.time
   }
@@ -116,6 +156,7 @@ function runningTurnStartTime(timeline: ConversationTimelineSnapshot): number | 
 }
 
 /** Turn-level model activity label retained across first-token, tool, and streaming phases. */
+/** 中文说明：函数 TurnStatus 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function TurnStatus({ startTime, t }: {
   /** The running turn's logged `turn/start` time; null falls back to mount
    *  time when that boundary is outside the window. */
@@ -123,21 +164,27 @@ function TurnStatus({ startTime, t }: {
   /** The owning view's locale seat. */
   t: ChatViewSlotProps['t']
 }) {
+  /** 中文说明：当前组件的局部值 [mountedAt]，由紧邻初始化决定。 */
   const [mountedAt] = useState(() => Date.now())
   // Anchored to turn/start so a mid-turn reload keeps the real
   // elapsed time and the final footer's Ran-for label matches this clock.
+  /** 中文说明：当前组件的局部值 anchor，由紧邻初始化决定。 */
   const anchor = startTime ?? mountedAt
+  /** 中文说明：当前组件的局部值 [elapsedMs, setElapsedMs]，由紧邻初始化决定。 */
   const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - anchor))
   useEffect(() => {
+    /** 中文说明：当前组件的局部值 tick，由紧邻初始化决定。 */
     const tick = (): void => {
       setElapsedMs(Math.max(0, Date.now() - anchor))
     }
     tick()
+    /** 中文说明：当前组件的局部值 id，由紧邻初始化决定。 */
     const id = setInterval(tick, 1000)
     return () => { clearInterval(id) }
   }, [anchor])
   // Short turns keep the plain label; the clock only appears once the turn
   // has clearly been running for a while.
+  /** 中文说明：当前组件的局部值 showClock，由紧邻初始化决定。 */
   const showClock = elapsedMs >= 15_000
   return (
     <div className={css.turnStatus} role="status" aria-live="polite">
@@ -155,29 +202,46 @@ function TurnStatus({ startTime, t }: {
  * The chat view slot entry: pure component over the composed props; each
  * ordered business Node crosses the keyed renderer seat.
  */
+/** 中文说明：函数 ChatView 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function ChatView({
   useSession, useSessions, useStore, renderSlot, sessionId, openFile, loadOlder, loadImage, inspectCall, chatScroll, forkAt,
   fileMentions, t,
 }: ChatViewSlotProps) {
+  /** 中文说明：当前组件的局部值 order，由紧邻初始化决定。 */
   const order = useSession(s => s.chat.order)
+  /** 中文说明：当前组件的局部值 nodeStore，由紧邻初始化决定。 */
   const nodeStore = useSession(s => s.chat.nodes)
+  /** 中文说明：当前组件的局部值 timeline，由紧邻初始化决定。 */
   const timeline = useSession(s => s.chat.timeline)
+  /** 中文说明：当前组件的局部值 inbox，由紧邻初始化决定。 */
   const inbox = useSession(s => s.queue)
   // Workspace root off the session list row: path summaries display relative to it.
+  /** 中文说明：当前组件的局部值 cwd，由紧邻初始化决定。 */
   const cwd = useSessions(s => s.byId[sessionId]?.cwd)
+  /** 中文说明：当前组件的局部值 running，由紧邻初始化决定。 */
   const running = useSession(s => s.running)
+  /** 中文说明：当前组件的局部值 openState，由紧邻初始化决定。 */
   const openState = useSession(s => s.openState)
+  /** 中文说明：当前组件的局部值 openError，由紧邻初始化决定。 */
   const openError = useSession(s => s.openError)
+  /** 中文说明：当前组件的局部值 hasMore，由紧邻初始化决定。 */
   const hasMore = useSession(s => s.hasMore)
+  /** 中文说明：当前组件的局部值 loadingOlder，由紧邻初始化决定。 */
   const loadingOlder = useSession(s => s.loadingOlder)
+  /** 中文说明：当前组件的局部值 selectedCallId，由紧邻初始化决定。 */
   const selectedCallId = useStore(s => s.selection?.callId)
+  /** 中文说明：当前组件的局部值 解构结果，由紧邻初始化决定。 */
   const [fileOpenError, setFileOpenError] = useState<{ path: string; message: string } | null>(null)
+  /** 中文说明：当前组件的局部值 解构结果，由紧邻初始化决定。 */
   const [fileOpenBusy, setFileOpenBusy] = useState(false)
   // Close/retry must ignore a settlement that started before the latest
   // gesture; otherwise a cancelled in-flight refusal reopens the dialog.
+  /** 中文说明：当前组件的局部值 fileOpenRequest，由紧邻初始化决定。 */
   const fileOpenRequest = useRef(0)
 
+  /** 中文说明：当前组件的局部值 requestOpenFile，由紧邻初始化决定。 */
   const requestOpenFile = useCallback((path: string) => {
+    /** 中文说明：当前组件的局部值 id，由紧邻初始化决定。 */
     const id = ++fileOpenRequest.current
     setFileOpenBusy(true)
     void openFile(path).then(
@@ -200,47 +264,69 @@ export function ChatView({
     )
   }, [openFile, t])
 
+  /** 中文说明：当前组件的局部值 closeFileOpenError，由紧邻初始化决定。 */
   const closeFileOpenError = useCallback(() => {
     fileOpenRequest.current += 1
     setFileOpenError(null)
     setFileOpenBusy(false)
   }, [])
 
+  /** 中文说明：当前组件的局部值 pendingSteering，由紧邻初始化决定。 */
   const pendingSteering = useMemo(
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
   )
+  /** 中文说明：当前组件的局部值 renderMessageImages，由紧邻初始化决定。 */
   const renderMessageImages = useCallback<RenderMessageImages>(
     owner => renderSlot('conversation.message.images', { ...owner, loadImage }),
     [loadImage, renderSlot],
   )
+  /** 中文说明：当前组件的局部值 runningTurnStart，由紧邻初始化决定。 */
   const runningTurnStart = useMemo(() => runningTurnStartTime(timeline), [timeline])
 
+  /** 中文说明：当前组件的局部值 listRef，由紧邻初始化决定。 */
   const listRef = useRef<HTMLDivElement | null>(null)
+  /** 中文说明：当前组件的局部值 columnRef，由紧邻初始化决定。 */
   const columnRef = useRef<HTMLDivElement | null>(null)
+  /** 中文说明：当前组件的局部值 atBottomRef，由紧邻初始化决定。 */
   const atBottomRef = useRef(true)
+  /** 中文说明：当前组件的局部值 [atBottom, setAtBottom]，由紧邻初始化决定。 */
   const [atBottom, setAtBottom] = useState(true)
   /** Last position delivered or written on the main thread. */
+  /** 中文说明：当前组件的局部值 observedTopRef，由紧邻初始化决定。 */
   const observedTopRef = useRef(0)
   /** Paging anchor: semantic row/position at click, updated by reader scrolls
    * while the request is pending and restored after the prepend lands. */
+  /** 中文说明：当前组件的局部值 anchorRef，由紧邻初始化决定。 */
   const anchorRef = useRef<PagingAnchor | null>(null)
+  /** 中文说明：当前组件的局部值 firstSeqRef，由紧邻初始化决定。 */
   const firstSeqRef = useRef<number | null>(null)
+  /** 中文说明：当前组件的局部值 openedRef，由紧邻初始化决定。 */
   const openedRef = useRef(false)
+  /** 中文说明：当前组件的局部值 lastKeyRef，由紧邻初始化决定。 */
   const lastKeyRef = useRef<string | null>(null)
+  /** 中文说明：当前组件的局部值 lastSteeringIdRef，由紧邻初始化决定。 */
   const lastSteeringIdRef = useRef<string | null>(null)
   /** Flow tip signature — follow-scroll only when this moves, never on a
    *  scroll-driven at-bottom chrome re-render (which would snap inertial
    *  scrolls the rest of the way to the floor). */
+  /** 中文说明：当前组件的局部值 followSigRef，由紧邻初始化决定。 */
   const followSigRef = useRef<string | null>(null)
 
+  /** 中文说明：当前组件的局部值 firstKey，由紧邻初始化决定。 */
   const firstKey = order[0]
+  /** 中文说明：当前组件的局部值 firstSeq，由紧邻初始化决定。 */
   const firstSeq = firstKey === undefined ? null : nodeStore.get(firstKey)?.anchorSeq ?? null
+  /** 中文说明：当前组件的局部值 lastKey，由紧邻初始化决定。 */
   const lastKey = order.at(-1) ?? null
+  /** 中文说明：当前组件的局部值 lastNode，由紧邻初始化决定。 */
   const lastNode = lastKey === null ? undefined : nodeStore.get(lastKey)
+  /** 中文说明：当前组件的局部值 lastSteeringId，由紧邻初始化决定。 */
   const lastSteeringId = pendingSteering[pendingSteering.length - 1]?.id ?? null
+  /** 中文说明：当前组件的局部值 followSig，由紧邻初始化决定。 */
   const followSig = `${openState}:${firstSeq}:${lastKey}:${order.length}:${running ? 1 : 0}:${lastSteeringId ?? ''}`
 
+  /** 中文说明：当前组件的局部值 toBottom，由紧邻初始化决定。 */
   const toBottom = (el: HTMLElement): void => {
     anchorRef.current = null
     el.scrollTop = el.scrollHeight
@@ -251,26 +337,32 @@ export function ChatView({
   }
 
   useLayoutEffect(() => {
+    /** 中文说明：当前组件的局部值 local，由紧邻初始化决定。 */
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: React attaches the ref before layout effects run. */
     if (local === null) return
+    /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
     const el = scrollerOf(local)
     // Open completed: jump to the bottom once — unless a scroll position
     // survives from a previous mount (view-tab switch away and back), which
     // is restored instead of snapping the reader back to the floor.
     if (openState === 'open' && !openedRef.current) {
       openedRef.current = true
+      /** 中文说明：当前组件的局部值 saved，由紧邻初始化决定。 */
       const saved = chatScroll.read()
       if (saved === null) {
         toBottom(el)
       } else {
         el.scrollTop = saved.scrollTop
+        /** 中文说明：当前组件的局部值 row，由紧邻初始化决定。 */
         const row = anchorElement(local, saved.anchorKey)
         if (row !== null) el.scrollTop += flowTop(row, el) - saved.anchorTop
         observedTopRef.current = el.scrollTop
+        /** 中文说明：当前组件的局部值 isAtBottom，由紧邻初始化决定。 */
         const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= FOLLOW_THRESHOLD + 1
         atBottomRef.current = isAtBottom
         setAtBottom(isAtBottom)
+        /** 中文说明：当前组件的局部值 normalized，由紧邻初始化决定。 */
         const normalized = isAtBottom ? null : scrollPosition(local, el)
         if (isAtBottom) chatScroll.save(null)
         else if (normalized !== null) chatScroll.save(normalized)
@@ -285,8 +377,10 @@ export function ChatView({
     // position established by the reader's latest scroll. This excludes
     // unrelated tail/composer growth while the request was in flight.
     if (anchorRef.current !== null && firstSeq !== null && firstSeqRef.current !== null && firstSeq < firstSeqRef.current) {
+      /** 中文说明：当前组件的局部值 anchor，由紧邻初始化决定。 */
       const anchor = anchorRef.current
       anchorRef.current = null
+      /** 中文说明：当前组件的局部值 row，由紧邻初始化决定。 */
       const row = anchorElement(local, anchor.key)
       if (row !== null) el.scrollTop += flowTop(row, el) - anchor.top
       observedTopRef.current = el.scrollTop
@@ -300,8 +394,11 @@ export function ChatView({
     firstSeqRef.current = firstSeq
     // Own words must be visible: a new trailing user node force-scrolls
     // (send lives in the composer, so arrival is detected here, not armed there).
+    /** 中文说明：当前组件的局部值 appendedUser，由紧邻初始化决定。 */
     const appendedUser = lastKey !== lastKeyRef.current && lastNode?.kind === 'user'
+    /** 中文说明：当前组件的局部值 appendedSteering，由紧邻初始化决定。 */
     const appendedSteering = lastSteeringId !== null && lastSteeringId !== lastSteeringIdRef.current
+    /** 中文说明：当前组件的局部值 tipMoved，由紧邻初始化决定。 */
     const tipMoved = followSigRef.current !== followSig
     lastKeyRef.current = lastKey
     lastSteeringIdRef.current = lastSteeringId
@@ -311,11 +408,14 @@ export function ChatView({
     if (appendedUser || appendedSteering || (tipMoved && atBottomRef.current)) toBottom(el)
   })
 
+  /** 中文说明：当前组件的局部值 onScrollRef，由紧邻初始化决定。 */
   const onScrollRef = useRef(() => {})
   onScrollRef.current = () => {
+    /** 中文说明：当前组件的局部值 local，由紧邻初始化决定。 */
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: the handler only fires while mounted. */
     if (local === null) return
+    /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
     const el = scrollerOf(local)
     // Only reader input may make raw scroll geometry change follow ownership:
     // a delivered position that deviates from the observed-top ledger (every
@@ -324,8 +424,11 @@ export function ChatView({
     // Browser shrink-clamps land exactly on the floor min and delayed
     // programmatic deliveries land on the ledger itself, so both preserve
     // the current ownership state.
+    /** 中文说明：当前组件的局部值 floor，由紧邻初始化决定。 */
     const floor = Math.max(0, el.scrollHeight - el.clientHeight)
+    /** 中文说明：当前组件的局部值 movedByReader，由紧邻初始化决定。 */
     const movedByReader = Math.abs(el.scrollTop - Math.min(observedTopRef.current, floor)) > 0.5
+    /** 中文说明：当前组件的局部值 isAtBottom，由紧邻初始化决定。 */
     const isAtBottom = movedByReader
       ? floor - el.scrollTop <= FOLLOW_THRESHOLD + 1
       : atBottomRef.current
@@ -335,6 +438,7 @@ export function ChatView({
     }
     atBottomRef.current = isAtBottom
     setAtBottom(isAtBottom)
+    /** 中文说明：当前组件的局部值 position，由紧邻初始化决定。 */
     const position = isAtBottom ? null : scrollPosition(local, el)
     if (isAtBottom) {
       anchorRef.current = null
@@ -352,10 +456,13 @@ export function ChatView({
   // reader-input attribution rides the observed-top ledger, not per-device
   // input listeners.
   useEffect(() => {
+    /** 中文说明：当前组件的局部值 local，由紧邻初始化决定。 */
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: effect runs after the list node commits. */
     if (local === null) return
+    /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
     const el = scrollerOf(local)
+    /** 中文说明：当前组件的局部值 onScroll，由紧邻初始化决定。 */
     const onScroll = (): void => { onScrollRef.current() }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => {
@@ -365,10 +472,13 @@ export function ChatView({
 
   // The ref starts null and is assigned every render, so the placeholder
   // initializer a function initial value would need never exists.
+  /** 中文说明：当前组件的局部值 followRef，由紧邻初始化决定。 */
   const followRef = useRef<(() => void) | null>(null)
   followRef.current = () => {
+    /** 中文说明：当前组件的局部值 local，由紧邻初始化决定。 */
     const local = listRef.current
     if (local !== null && atBottomRef.current) {
+      /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
       const el = scrollerOf(local)
       el.scrollTop = el.scrollHeight
       observedTopRef.current = el.scrollTop
@@ -379,11 +489,16 @@ export function ChatView({
   // the sticky composer resizes outside it. This observer owns ChatView's
   // dynamic-height follow decisions and writes only while the reader is pinned.
   useEffect(() => {
+    /** 中文说明：当前组件的局部值 column，由紧邻初始化决定。 */
     const column = columnRef.current
+    /** 中文说明：当前组件的局部值 local，由紧邻初始化决定。 */
     const local = listRef.current
     if (column === null || local === null || typeof ResizeObserver === 'undefined') return
+    /** 中文说明：当前组件的局部值 scrollport，由紧邻初始化决定。 */
     const scrollport = scrollerOf(local)
+    /** 中文说明：当前组件的局部值 composer，由紧邻初始化决定。 */
     const composer = scrollport.querySelector<HTMLElement>('[data-composer-seat]')
+    /** 中文说明：当前组件的局部值 observer，由紧邻初始化决定。 */
     const observer = new ResizeObserver(() => { followRef.current?.() })
     observer.observe(column)
     if (composer !== null) observer.observe(composer)
@@ -396,11 +511,15 @@ export function ChatView({
     if (!loadingOlder) anchorRef.current = null
   }, [loadingOlder])
 
+  /** 中文说明：当前组件的局部值 loadOlderAnchored，由紧邻初始化决定。 */
   const loadOlderAnchored = (): void => {
+    /** 中文说明：当前组件的局部值 local，由紧邻初始化决定。 */
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: the paging button renders inside the list tree. */
     if (local !== null) {
+      /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
       const el = scrollerOf(local)
+      /** 中文说明：当前组件的局部值 row，由紧邻初始化决定。 */
       const row = pagingAnchor(local, el)
       if (row !== null && row.dataset.chatAnchorKey !== undefined) {
         anchorRef.current = {
@@ -467,6 +586,7 @@ export function ChatView({
               className={css.toBottom}
               aria-label={t('chat.toBottom')}
               onClick={() => {
+                /** 中文说明：当前组件的局部值 local，由紧邻初始化决定。 */
                 const local = listRef.current
                 /* v8 ignore next -- ref-null guard: the button only renders alongside the mounted list. */
                 if (local !== null) toBottom(scrollerOf(local))
@@ -492,6 +612,7 @@ export function ChatView({
 }
 
 /** In-page Host open-path refusal: the wire reason plus a retry of the same path. */
+/** 中文说明：函数 FileOpenErrorDialog 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function FileOpenErrorDialog({
   path, message, busy, onClose, onRetry, t,
 }: {

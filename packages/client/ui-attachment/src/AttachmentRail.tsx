@@ -1,5 +1,13 @@
 /** Draft-attachment thumbnail rail: scrollbar-less horizontal overflow paged
  * by edge arrows, hover-revealed per-item remove, single-click open. */
+/**
+ * 文件职责：实现附件界面的 AttachmentRail 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示并操作附件相关状态。
+ * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
+ * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
+ * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
@@ -9,6 +17,7 @@ import {
 import css from './AttachmentRail.module.css'
 
 /** One rail thumbnail; strings arrive resolved (zero-cordis atom). */
+/** 中文说明：类型或类 AttachmentRailItem 约束本文件的数据或组件职责。 */
 export interface AttachmentRailItem {
   /** Stable identity for the React key. */
   id: string
@@ -21,6 +30,7 @@ export interface AttachmentRailItem {
 }
 
 /** Rail-level strings the owner resolves from its own locale namespace. */
+/** 中文说明：类型或类 AttachmentRailLabels 约束本文件的数据或组件职责。 */
 export interface AttachmentRailLabels {
   /** Accessible name of the rail group. */
   group: string
@@ -34,9 +44,11 @@ export interface AttachmentRailLabels {
 
 /** Approximate pixels per wheel step for `deltaMode` LINE deltas (Firefox
  * notch wheels report lines, not pixels). */
+/** 中文说明：当前组件的局部值 WHEEL_LINE_PX，由紧邻初始化决定。 */
 const WHEEL_LINE_PX = 16
 
 /** Smooth paging unless the user asked for reduced motion. */
+/** 中文说明：函数 pageBehavior 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function pageBehavior(): ScrollBehavior {
   // jsdom (the unit lane) implements no matchMedia despite lib.dom's
   // non-optional typing; the optional call keeps that lane on the default.
@@ -64,30 +76,40 @@ function pageBehavior(): ScrollBehavior {
  * @param props.onRemove - remove one item from the draft.
  * @returns the rail group with its paging arrows.
  */
+/** 中文说明：函数 AttachmentRail 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, onOpen, onRemove }: {
   items: readonly T[]
   labels: AttachmentRailLabels
   onOpen: (item: T) => void
   onRemove: (item: T) => void
 }) {
+  /** 中文说明：当前组件的局部值 railRef，由紧邻初始化决定。 */
   const railRef = useRef<HTMLDivElement | null>(null)
   // null marks the first layout pass: a rail that MOUNTS over an existing
   // draft (session switch back to held images) is initial display, not
   // growth, and must not jump to the end.
+  /** 中文说明：当前组件的局部值 countRef，由紧邻初始化决定。 */
   const countRef = useRef<number | null>(null)
+  /** 中文说明：当前组件的局部值 [edges, setEdges]，由紧邻初始化决定。 */
   const [edges, setEdges] = useState({ left: false, right: false })
+  /** 中文说明：当前组件的局部值 updateEdges，由紧邻初始化决定。 */
   const updateEdges = useCallback(() => {
+    /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
     const el = railRef.current
     /* v8 ignore next -- defensive: every caller runs while the rail element is mounted. */
     if (el === null) return
     // 1px slack: engines report fractional scroll positions at the edges.
+    /** 中文说明：当前组件的局部值 left，由紧邻初始化决定。 */
     const left = el.scrollLeft > 1
+    /** 中文说明：当前组件的局部值 right，由紧邻初始化决定。 */
     const right = el.scrollLeft < el.scrollWidth - el.clientWidth - 1
     setEdges(prev => prev.left === left && prev.right === right ? prev : { left, right })
   }, [])
   useLayoutEffect(() => {
+    /** 中文说明：当前组件的局部值 grew，由紧邻初始化决定。 */
     const grew = countRef.current !== null && items.length > countRef.current
     countRef.current = items.length
+    /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
     const el = railRef.current
     /* v8 ignore next -- defensive: the rail div renders unconditionally, so the layout effect always finds it. */
     if (el === null) return
@@ -96,6 +118,7 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
     updateEdges()
   }, [items.length, updateEdges])
   useEffect(() => {
+    /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
     const el = railRef.current
     /* v8 ignore next -- defensive: the rail div renders unconditionally, so the mount effect always finds it. */
     if (el === null) return
@@ -103,8 +126,10 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
     // panels, not only the window — observe the element itself. jsdom (the
     // unit lane) implements no ResizeObserver; every browser gets the
     // subscription.
+    /** 中文说明：当前组件的局部值 disconnect，由紧邻初始化决定。 */
     let disconnect = (): void => {}
     if (typeof ResizeObserver !== 'undefined') {
+      /** 中文说明：当前组件的局部值 observer，由紧邻初始化决定。 */
       const observer = new ResizeObserver(updateEdges)
       observer.observe(el)
       disconnect = () => { observer.disconnect() }
@@ -118,8 +143,10 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
     // (Firefox notch wheels) normalized to pixels before the per-tick clamp
     // that keeps a fast wheel followable. A purely horizontal pan stays
     // native.
+    /** 中文说明：当前组件的局部值 onWheel，由紧邻初始化决定。 */
     const onWheel = (event: globalThis.WheelEvent): void => {
       if (event.deltaY === 0) return
+      /** 中文说明：当前组件的局部值 scale，由紧邻初始化决定。 */
       const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
         ? WHEEL_LINE_PX
         : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? el.clientWidth : 1
@@ -137,7 +164,9 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
       el.removeEventListener('wheel', onWheel)
     }
   }, [updateEdges])
+  /** 中文说明：当前组件的局部值 page，由紧邻初始化决定。 */
   const page = (direction: -1 | 1): void => {
+    /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
     const el = railRef.current
     /* v8 ignore next -- defensive: the arrows render only while the rail is mounted, so a click cannot find a null ref. */
     if (el === null) return

@@ -6,19 +6,31 @@
  * and binding-identity revocation of late settlements after
  * dismiss/reopen/dispose.
  */
+/**
+ * 文件职责：验证命令弹层的 popup.client.spec.ts 行为。
+ * 技术维度：Vitest、React 测试渲染和可控替身。
+ * 产品维度：防止命令弹层用户流程发生回归。
+ * 逻辑维度：构造输入、触发交互并断言输出与清理。
+ * 关键边界：全局替身和异步任务必须在用例后清理。
+ * 新手阅读建议：先读辅助函数，再按测试场景顺序阅读。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import type { SelectOption } from '../src/client/contract.ts'
 import type { PopupSpec, TokenSegment } from '../src/client/popup.ts'
 import { filterOptions, PopupSelectController } from '../src/client/popup.ts'
 
+/** 中文说明：类型或类 Ctx 约束本文件的数据或组件职责。 */
 interface Ctx { readonly session: string }
+/** 中文说明：测试场景的局部值 CTX_A，由紧邻初始化决定。 */
 const CTX_A: Ctx = { session: 'A' }
 
+/** 中文说明：测试场景的局部值 OPTIONS，由紧邻初始化决定。 */
 const OPTIONS: SelectOption[] = [
   { id: 'dark', label: 'Dark' },
   { id: 'light', label: 'Light', active: true },
   { id: 'sepia', label: 'Sepia', detail: 'warm' },
 ]
+/** 中文说明：测试场景的局部值 GATED，由紧邻初始化决定。 */
 const GATED: SelectOption = {
   id: 'full',
   label: 'Full access',
@@ -31,8 +43,10 @@ const GATED: SelectOption = {
   },
 }
 
+/** 中文说明：测试场景的局部值 SEGMENT，由紧邻初始化决定。 */
 const SEGMENT: TokenSegment = { via: 'enter', token: '/theme' }
 
+/** 中文说明：函数 spec 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function spec(overrides: Partial<PopupSpec<Ctx>> = {}): PopupSpec<Ctx> {
   return {
     options: () => Promise.resolve(OPTIONS),
@@ -42,13 +56,18 @@ function spec(overrides: Partial<PopupSpec<Ctx>> = {}): PopupSpec<Ctx> {
 }
 
 /** Fake session wiring: records consume/focus calls; consume answer is settable per test. */
+/** 中文说明：函数 makeDeps 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function makeDeps(consumeResult = true) {
+  /** 中文说明：测试场景的局部值 consume，由紧邻初始化决定。 */
   const consume = vi.fn((_segment: TokenSegment) => consumeResult)
+  /** 中文说明：测试场景的局部值 focusComposer，由紧邻初始化决定。 */
   const focusComposer = vi.fn()
   return { consume, focusComposer }
 }
 
+/** 中文说明：函数 readyPopup 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 async function readyPopup(overrides: Partial<PopupSpec<Ctx>> = {}, deps = makeDeps()) {
+  /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
   const popup = new PopupSelectController<Ctx>(deps)
   popup.open('theme', spec(overrides), CTX_A, SEGMENT)
   await Promise.resolve()
@@ -67,7 +86,9 @@ describe('filterOptions', () => {
 
 describe('open and options load', () => {
   it('publishes pending immediately, ready when options land', async () => {
+    /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
     const popup = new PopupSelectController<Ctx>(makeDeps())
+    /** 中文说明：测试场景的局部值 release!，由紧邻初始化决定。 */
     let release!: (options: readonly SelectOption[]) => void
     popup.open('theme', spec({ options: () => new Promise((resolve) => { release = resolve }) }), CTX_A, SEGMENT)
     expect(popup.state.getSnapshot()).toMatchObject({ open: true, command: 'theme', status: 'pending', search: '', submitting: false, error: null })
@@ -77,10 +98,13 @@ describe('open and options load', () => {
   })
 
   it('loads options exactly once: search filters locally without re-querying the provider', async () => {
+    /** 中文说明：测试场景的局部值 options，由紧邻初始化决定。 */
     const options = vi.fn(() => Promise.resolve(OPTIONS))
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({ options })
     popup.setSearch('li')
     popup.setSearch('light')
+    /** 中文说明：测试场景的局部值 s，由紧邻初始化决定。 */
     const s = popup.state.getSnapshot()
     expect(options).toHaveBeenCalledTimes(1)
     expect(s.options).toEqual(OPTIONS) // original array retained; filtering is view-side
@@ -89,8 +113,11 @@ describe('open and options load', () => {
   })
 
   it('a reopen aborts the old load and drops its late arrival', async () => {
+    /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
     const popup = new PopupSelectController<Ctx>(makeDeps())
+    /** 中文说明：测试场景的局部值 firstSignal!: AbortSignal，由紧邻初始化决定。 */
     let firstSignal!: AbortSignal
+    /** 中文说明：测试场景的局部值 releaseFirst!，由紧邻初始化决定。 */
     let releaseFirst!: (options: readonly SelectOption[]) => void
     popup.open('alpha', spec({
       options: (_ctx, signal) => {
@@ -102,14 +129,18 @@ describe('open and options load', () => {
     expect(firstSignal.aborted).toBe(true)
     releaseFirst([{ id: 'stale', label: 'stale' }])
     await Promise.resolve()
+    /** 中文说明：测试场景的局部值 s，由紧邻初始化决定。 */
     const s = popup.state.getSnapshot()
     expect(s.command).toBe('beta')
     expect(s.options).toEqual(OPTIONS)
   })
 
   it('dispose aborts the flying load, clears state, and drops the late arrival', async () => {
+    /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
     const popup = new PopupSelectController<Ctx>(makeDeps())
+    /** 中文说明：测试场景的局部值 signal!: AbortSignal，由紧邻初始化决定。 */
     let signal!: AbortSignal
+    /** 中文说明：测试场景的局部值 release!，由紧邻初始化决定。 */
     let release!: (options: readonly SelectOption[]) => void
     popup.open('theme', spec({
       options: (_ctx, s) => {
@@ -126,7 +157,9 @@ describe('open and options load', () => {
   })
 
   it('an options failure keeps the shell open with search retained, surfaces the error, and retry reloads', async () => {
+    /** 中文说明：测试场景的局部值 attempts，由紧邻初始化决定。 */
     let attempts = 0
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({
       options: () => {
         attempts += 1
@@ -145,9 +178,11 @@ describe('open and options load', () => {
   })
 
   it('retry is a no-op unless the options load failed', async () => {
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup()
     popup.retry()
     expect(popup.state.getSnapshot().status).toBe('ready')
+    /** 中文说明：测试场景的局部值 closed，由紧邻初始化决定。 */
     const closed = new PopupSelectController<Ctx>(makeDeps())
     closed.retry()
     expect(closed.state.getSnapshot().open).toBe(false)
@@ -156,22 +191,27 @@ describe('open and options load', () => {
 
 describe('search / move / highlight over the filtered list', () => {
   it('setSearch rebases the highlight to 0 and ignores closed shells and identical text', async () => {
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup()
     popup.move(1)
     expect(popup.state.getSnapshot().active).toBe(1)
     popup.setSearch('s')
     expect(popup.state.getSnapshot()).toMatchObject({ search: 's', active: 0 })
+    /** 中文说明：测试场景的局部值 before，由紧邻初始化决定。 */
     const before = popup.state.getSnapshot()
     popup.setSearch('s')
     expect(popup.state.getSnapshot()).toBe(before)
+    /** 中文说明：测试场景的局部值 closed，由紧邻初始化决定。 */
     const closed = new PopupSelectController<Ctx>(makeDeps())
     closed.setSearch('x')
     expect(closed.state.getSnapshot().search).toBe('')
   })
 
   it('move wraps across the FILTERED rows', async () => {
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup()
     popup.setSearch('a') // Dark, Sepia (detail 'warm' also matches 'a'? label match: Dark, Sepia)
+    /** 中文说明：测试场景的局部值 rows，由紧邻初始化决定。 */
     const rows = filterOptions(popup.state.getSnapshot().options, 'a')
     expect(rows.length).toBe(2)
     popup.move(1)
@@ -183,13 +223,16 @@ describe('search / move / highlight over the filtered list', () => {
   })
 
   it('move is a no-op while pending, closed, or when the filter matches nothing', async () => {
+    /** 中文说明：测试场景的局部值 pending，由紧邻初始化决定。 */
     const pending = new PopupSelectController<Ctx>(makeDeps())
     pending.open('theme', spec({ options: () => new Promise(() => {}) }), CTX_A, SEGMENT)
     pending.move(1)
     expect(pending.state.getSnapshot().active).toBe(0)
+    /** 中文说明：测试场景的局部值 closed，由紧邻初始化决定。 */
     const closed = new PopupSelectController<Ctx>(makeDeps())
     closed.move(1)
     expect(closed.state.getSnapshot().active).toBe(0)
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup()
     popup.setSearch('nope')
     popup.move(1)
@@ -197,6 +240,7 @@ describe('search / move / highlight over the filtered list', () => {
   })
 
   it('highlight sets the active filtered row and ignores out-of-range or same-index calls', async () => {
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup()
     popup.highlight(1)
     expect(popup.state.getSnapshot().active).toBe(1)
@@ -212,8 +256,11 @@ describe('search / move / highlight over the filtered list', () => {
 
 describe('select', () => {
   it('gates a confirmed option until acknowledgement, then settles through the original binding', async () => {
+    /** 中文说明：测试场景的局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({ options: () => Promise.resolve([GATED]), onSelect }, deps)
     await popup.select(0)
     expect(popup.state.getSnapshot()).toMatchObject({
@@ -230,8 +277,11 @@ describe('select', () => {
   })
 
   it('cancels a confirmation back to the picker without selecting or consuming', async () => {
+    /** 中文说明：测试场景的局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({ options: () => Promise.resolve([GATED]), onSelect }, deps)
     await popup.select(0)
     popup.acknowledge(true)
@@ -244,8 +294,11 @@ describe('select', () => {
   })
 
   it('runs onSelect with the filtered option and the open-time context, consumes, closes, refocuses', async () => {
+    /** 中文说明：测试场景的局部值 seen，由紧邻初始化决定。 */
     const seen: Array<{ option: SelectOption; context: Ctx }> = []
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({
       onSelect: (option, context) => { seen.push({ option, context }) },
     }, deps)
@@ -258,10 +311,15 @@ describe('select', () => {
   })
 
   it('is single-flight: the first call enters submitting, later Enter/click calls no-op', async () => {
+    /** 中文说明：测试场景的局部值 release!，由紧邻初始化决定。 */
     let release!: () => void
+    /** 中文说明：测试场景的局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn(() => new Promise<void>((resolve) => { release = resolve }))
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({ onSelect }, deps)
+    /** 中文说明：测试场景的局部值 first，由紧邻初始化决定。 */
     const first = popup.select(0)
     expect(popup.state.getSnapshot().submitting).toBe(true)
     await popup.select(0)
@@ -278,7 +336,9 @@ describe('select', () => {
   })
 
   it('a consume CAS miss is benign: no retry, still closes and refocuses', async () => {
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps(false)
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({}, deps)
     await popup.select(0)
     expect(deps.consume).toHaveBeenCalledTimes(1)
@@ -287,8 +347,11 @@ describe('select', () => {
   })
 
   it('an onSelect failure keeps the shell open with search/highlight/token intact, no consumption, and select re-arms', async () => {
+    /** 中文说明：测试场景的局部值 attempts，由紧邻初始化决定。 */
     let attempts = 0
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({
       onSelect: () => {
         attempts += 1
@@ -309,14 +372,19 @@ describe('select', () => {
   })
 
   it('ignores selects while closed, pending, failed, or out of filtered range', async () => {
+    /** 中文说明：测试场景的局部值 closed，由紧邻初始化决定。 */
     const closed = new PopupSelectController<Ctx>(makeDeps())
     await closed.select(0)
     expect(closed.state.getSnapshot().open).toBe(false)
+    /** 中文说明：测试场景的局部值 failedDeps，由紧邻初始化决定。 */
     const failedDeps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup，由紧邻初始化决定。 */
     const { popup: failed } = await readyPopup({ options: () => Promise.reject(new Error('x')) }, failedDeps)
     await failed.select(0)
     expect(failedDeps.consume).not.toHaveBeenCalled()
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({}, deps)
     popup.setSearch('dark')
     await popup.select(1) // only one filtered row
@@ -325,11 +393,15 @@ describe('select', () => {
   })
 
   it('a dismiss racing a succeeding onSelect revokes it: no consume, no focus, state stays closed', async () => {
+    /** 中文说明：测试场景的局部值 release!，由紧邻初始化决定。 */
     let release!: () => void
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({
       onSelect: () => new Promise<void>((resolve) => { release = resolve }),
     }, deps)
+    /** 中文说明：测试场景的局部值 selecting，由紧邻初始化决定。 */
     const selecting = popup.select(0)
     popup.dismiss()
     release()
@@ -340,11 +412,15 @@ describe('select', () => {
   })
 
   it('a dispose racing a failing onSelect revokes its error write', async () => {
+    /** 中文说明：测试场景的局部值 reject!，由紧邻初始化决定。 */
     let reject!: (error: Error) => void
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({
       onSelect: () => new Promise<void>((_resolve, rej) => { reject = rej }),
     }, deps)
+    /** 中文说明：测试场景的局部值 selecting，由紧邻初始化决定。 */
     const selecting = popup.select(0)
     popup.dispose()
     reject(new Error('late'))
@@ -354,11 +430,15 @@ describe('select', () => {
   })
 
   it('a reopen racing a succeeding onSelect keeps the new shell: no consume of the old segment', async () => {
+    /** 中文说明：测试场景的局部值 release!，由紧邻初始化决定。 */
     let release!: () => void
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({
       onSelect: () => new Promise<void>((resolve) => { release = resolve }),
     }, deps)
+    /** 中文说明：测试场景的局部值 selecting，由紧邻初始化决定。 */
     const selecting = popup.select(0)
     popup.open('other', spec(), CTX_A, { via: 'enter', token: '/other' })
     release()
@@ -371,8 +451,11 @@ describe('select', () => {
 
 describe('dismiss / dispose', () => {
   it('dismiss closes, aborts the flying fetch, and is a no-op when already closed', async () => {
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 popup，由紧邻初始化决定。 */
     const popup = new PopupSelectController<Ctx>(deps)
+    /** 中文说明：测试场景的局部值 signal!: AbortSignal，由紧邻初始化决定。 */
     let signal!: AbortSignal
     popup.open('theme', spec({
       options: (_ctx, s) => {
@@ -390,7 +473,9 @@ describe('dismiss / dispose', () => {
   })
 
   it('the Escape path restores composer focus explicitly', async () => {
+    /** 中文说明：测试场景的局部值 deps，由紧邻初始化决定。 */
     const deps = makeDeps()
+    /** 中文说明：测试场景的局部值 { popup }，由紧邻初始化决定。 */
     const { popup } = await readyPopup({}, deps)
     popup.dismiss({ focusComposer: true })
     expect(deps.focusComposer).toHaveBeenCalledTimes(1)

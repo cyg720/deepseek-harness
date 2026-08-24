@@ -3,6 +3,14 @@
 // it. Every form falls back to OpaqueBody, which is the documented default for
 // an absent, unknown, or malformed form — a resumed or foreign log must render
 // even when this UI version has never seen its producer.
+/**
+ * 文件职责：实现会话聊天界面的 ContextBody 组件。
+ * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
+ * 产品维度：向用户展示并操作会话聊天相关状态。
+ * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
+ * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
+ * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ */
 
 import type { ReactNode } from 'react'
 import type { ContextMessageNode, KnownContextForm } from '@deepseek-ai/dsh-client-runtime/client'
@@ -11,14 +19,18 @@ import type { ChatViewSlotProps } from '../contract/slots.ts'
 import css from './ContextBody.module.css'
 
 /** Model-facing text stays bounded at the disclosure, not at the producer. */
+/** 中文说明：当前组件的局部值 MAX_CHARS，由紧邻初始化决定。 */
 const MAX_CHARS = 20_000
 
 /** Rows a list body materializes before summarizing the remainder. */
+/** 中文说明：当前组件的局部值 MAX_ENTRIES，由紧邻初始化决定。 */
 const MAX_ENTRIES = 200
 
+/** 中文说明：类型或类 Translate 约束本文件的数据或组件职责。 */
 type Translate = ChatViewSlotProps['t']
 
 /** One durable source narrowed to the readable-record shape; null for anything else. */
+/** 中文说明：函数 asRecord 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -26,6 +38,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 /** One run of the model-facing content: adjacent text, or one unknown block. */
+/** 中文说明：类型或类 ContentRun 约束本文件的数据或组件职责。 */
 type ContentRun = { text: string } | { block: unknown }
 
 /**
@@ -38,13 +51,17 @@ type ContentRun = { text: string } | { block: unknown }
  * merge-extensible, so a foreign log may interleave shapes this build does not
  * know.
  */
+/** 中文说明：函数 contentRuns 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function contentRuns(content: ContextMessageNode['content']): ContentRun[] {
+  /** 中文说明：当前组件的局部值 runs，由紧邻初始化决定。 */
   const runs: ContentRun[] = []
+  /** 中文说明：当前组件的局部值 block，由紧邻初始化决定。 */
   for (const block of content) {
     if (block.type !== 'text') {
       runs.push({ block })
       continue
     }
+    /** 中文说明：当前组件的局部值 last，由紧邻初始化决定。 */
     const last = runs[runs.length - 1]
     if (last !== undefined && 'text' in last) last.text += block.text
     else runs.push({ text: block.text })
@@ -53,11 +70,13 @@ function contentRuns(content: ContextMessageNode['content']): ContentRun[] {
 }
 
 /** Only the blocks this UI version does not know, for bodies that replace the text. */
+/** 中文说明：函数 unknownBlocks 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function unknownBlocks(content: ContextMessageNode['content']): unknown[] {
   return contentRuns(content).flatMap(run => 'block' in run ? [run.block] : [])
 }
 
 /** The model-facing text, truncated to the display bound. */
+/** 中文说明：函数 boundedText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function boundedText(text: string, t: Translate): string {
   return text.length > MAX_CHARS
     ? `${text.slice(0, MAX_CHARS)}\n${t('json.truncated', { total: text.length })}`
@@ -69,7 +88,9 @@ function boundedText(text: string, t: Translate): string {
  * Bounded on its own, because source fields are as unbounded as the text: an unknown
  * producer may record an arbitrarily large string or array.
  */
+/** 中文说明：函数 fieldValue 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fieldValue(value: unknown, t: Translate): string {
+  /** 中文说明：当前组件的局部值 text，由紧邻初始化决定。 */
   const text = typeof value === 'string'
     ? value
     : typeof value === 'number' || typeof value === 'boolean' ? String(value) : JSON.stringify(value)
@@ -84,14 +105,18 @@ function fieldValue(value: unknown, t: Translate): string {
  * that is the one place a form this version cannot present would otherwise
  * disappear from the UI entirely.
  */
+/** 中文说明：函数 SourceFields 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function SourceFields({ source, formRendered, t }: {
   source: unknown
   formRendered: boolean
   t: Translate
 }): ReactNode {
+  /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
   if (record === null) return null
+  /** 中文说明：当前组件的局部值 hidden，由紧邻初始化决定。 */
   const hidden = formRendered ? ['kind', 'form'] : ['kind']
+  /** 中文说明：当前组件的局部值 rows，由紧邻初始化决定。 */
   const rows = Object.entries(record).filter(([key]) => !hidden.includes(key))
   if (rows.length === 0) return null
   return (
@@ -113,6 +138,7 @@ function SourceFields({ source, formRendered, t }: {
  * @param props - The unrecognized blocks and the locale seat.
  * @returns One generic JSON block per unknown entry.
  */
+/** 中文说明：函数 UnknownBlocks 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function UnknownBlocks({ blocks, t }: { blocks: readonly unknown[]; t: Translate }): ReactNode {
   return (
     <>
@@ -135,6 +161,7 @@ function UnknownBlocks({ blocks, t }: { blocks: readonly unknown[]; t: Translate
  * @param props - Durable content and the locale seat.
  * @returns The content blocks as the model received them.
  */
+/** 中文说明：函数 ModelFacingContent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function ModelFacingContent({ content, t }: {
   content: ContextMessageNode['content']
   t: Translate
@@ -164,6 +191,7 @@ function ModelFacingContent({ content, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The opaque context body.
  */
+/** 中文说明：函数 OpaqueBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function OpaqueBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -178,6 +206,7 @@ export function OpaqueBody({ content, source, t }: {
 }
 
 /** One reconciled instruction file, as the durable source records it. */
+/** 中文说明：类型或类 InstructionChange 约束本文件的数据或组件职责。 */
 interface InstructionChange {
   action: 'set' | 'replace' | 'remove'
   path: string
@@ -193,21 +222,31 @@ interface InstructionChange {
  * Paths are deduplicated in first-seen order, matching how the header label is
  * derived from the same array.
  */
+/** 中文说明：函数 instructionChanges 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function instructionChanges(source: unknown): InstructionChange[] | null {
+  /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
+  /** 中文说明：当前组件的局部值 list，由紧邻初始化决定。 */
   const list = record === null ? undefined : record['changes']
   if (!Array.isArray(list)) return null
+  /** 中文说明：当前组件的局部值 changes，由紧邻初始化决定。 */
   const changes: InstructionChange[] = []
+  /** 中文说明：当前组件的局部值 seen，由紧邻初始化决定。 */
   const seen = new Set<string>()
+  /** 中文说明：当前组件的局部值 entry，由紧邻初始化决定。 */
   for (const entry of list as readonly unknown[]) {
+    /** 中文说明：当前组件的局部值 change，由紧邻初始化决定。 */
     const change = asRecord(entry)
     if (change === null) return null
+    /** 中文说明：当前组件的局部值 path，由紧邻初始化决定。 */
     const path = change['path']
     if (typeof path !== 'string' || path === '') return null
+    /** 中文说明：当前组件的局部值 action，由紧邻初始化决定。 */
     const action = change['action']
     // The action decides which word the row shows, so an unrecognized one is
     // not a readable change — it would be presented as loaded or updated.
     if (action !== 'set' && action !== 'replace' && action !== 'remove') return null
+    /** 中文说明：当前组件的局部值 digest，由紧邻初始化决定。 */
     const digest = change['digest']
     if (seen.has(path)) continue
     seen.add(path)
@@ -224,6 +263,7 @@ function instructionChanges(source: unknown): InstructionChange[] | null {
  * @param baseline - whether this context is the startup/resume baseline.
  * @returns the key naming what happened to that file.
  */
+/** 中文说明：函数 instructionAction 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function instructionAction(
   action: InstructionChange['action'],
   baseline: boolean,
@@ -243,13 +283,16 @@ function instructionAction(
  * @returns The instructions context body, or the opaque body when the change
  * list is unreadable.
  */
+/** 中文说明：函数 InstructionsBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function InstructionsBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
   t: Translate
 }): ReactNode {
+  /** 中文说明：当前组件的局部值 changes，由紧邻初始化决定。 */
   const changes = instructionChanges(source)
   if (changes === null) return <OpaqueBody content={content} source={source} t={t} />
+  /** 中文说明：当前组件的局部值 baseline，由紧邻初始化决定。 */
   const baseline = asRecord(source)?.['baseline'] === true
   return (
     <>
@@ -269,6 +312,7 @@ export function InstructionsBody({ content, source, t }: {
 }
 
 /** One catalog entry, as the durable source records it. */
+/** 中文说明：类型或类 CatalogEntry 约束本文件的数据或组件职责。 */
 interface CatalogEntry {
   name: string
   description: string
@@ -280,15 +324,23 @@ interface CatalogEntry {
  * replaces the model-facing text, so a partial list would hide the only complete
  * account of what the model read.
  */
+/** 中文说明：函数 catalogEntries 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function catalogEntries(source: unknown): CatalogEntry[] | null {
+  /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
+  /** 中文说明：当前组件的局部值 list，由紧邻初始化决定。 */
   const list = record === null ? undefined : record['entries']
   if (!Array.isArray(list)) return null
+  /** 中文说明：当前组件的局部值 entries，由紧邻初始化决定。 */
   const entries: CatalogEntry[] = []
+  /** 中文说明：当前组件的局部值 item，由紧邻初始化决定。 */
   for (const item of list as readonly unknown[]) {
+    /** 中文说明：当前组件的局部值 entry，由紧邻初始化决定。 */
     const entry = asRecord(item)
     if (entry === null) return null
+    /** 中文说明：当前组件的局部值 name，由紧邻初始化决定。 */
     const name = entry['name']
+    /** 中文说明：当前组件的局部值 description，由紧邻初始化决定。 */
     const description = entry['description']
     if (typeof name !== 'string' || name === '' || typeof description !== 'string') return null
     entries.push({ name, description })
@@ -308,17 +360,22 @@ function catalogEntries(source: unknown): CatalogEntry[] | null {
  * @returns The catalog context body, or the opaque body when the entry list is
  * unreadable.
  */
+/** 中文说明：函数 CatalogBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function CatalogBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
   t: Translate
 }): ReactNode {
+  /** 中文说明：当前组件的局部值 entries，由紧邻初始化决定。 */
   const entries = catalogEntries(source)
   if (entries === null) return <OpaqueBody content={content} source={source} t={t} />
+  /** 中文说明：当前组件的局部值 update，由紧邻初始化决定。 */
   const update = asRecord(source)?.['update'] === true
   // Entry count is unbounded (a provider may publish any number of skills), and
   // the scrollport bounds height, not node count — so the list bounds itself.
+  /** 中文说明：当前组件的局部值 shown，由紧邻初始化决定。 */
   const shown = entries.slice(0, MAX_ENTRIES)
+  /** 中文说明：当前组件的局部值 rest，由紧邻初始化决定。 */
   const rest = unknownBlocks(content)
   return (
     <>
@@ -346,21 +403,30 @@ export function CatalogBody({ content, source, t }: {
 }
 
 /** One named contribution to a runtime snapshot, as the durable source records it. */
+/** 中文说明：类型或类 SnapshotSection 约束本文件的数据或组件职责。 */
 interface SnapshotSection {
   name: string
   text: string
 }
 
 /** Snapshot sections read off the source, or null when the record is unusable. */
+/** 中文说明：函数 snapshotSections 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function snapshotSections(source: unknown): SnapshotSection[] | null {
+  /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
+  /** 中文说明：当前组件的局部值 list，由紧邻初始化决定。 */
   const list = record === null ? undefined : record['sections']
   if (!Array.isArray(list)) return null
+  /** 中文说明：当前组件的局部值 sections，由紧邻初始化决定。 */
   const sections: SnapshotSection[] = []
+  /** 中文说明：当前组件的局部值 item，由紧邻初始化决定。 */
   for (const item of list as readonly unknown[]) {
+    /** 中文说明：当前组件的局部值 section，由紧邻初始化决定。 */
     const section = asRecord(item)
     if (section === null) return null
+    /** 中文说明：当前组件的局部值 name，由紧邻初始化决定。 */
     const name = section['name']
+    /** 中文说明：当前组件的局部值 text，由紧邻初始化决定。 */
     const text = section['text']
     if (typeof name !== 'string' || name === '' || typeof text !== 'string') return null
     sections.push({ name, text })
@@ -384,11 +450,13 @@ function snapshotSections(source: unknown): SnapshotSection[] | null {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The snapshot context body, or the opaque body when unreadable.
  */
+/** 中文说明：函数 SnapshotBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function SnapshotBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
   t: Translate
 }): ReactNode {
+  /** 中文说明：当前组件的局部值 sections，由紧邻初始化决定。 */
   const sections = snapshotSections(source)
   /* v8 ignore next -- contextBody reads the sections before choosing this body. */
   if (sections === null) return <OpaqueBody content={content} source={source} t={t} />
@@ -417,6 +485,7 @@ export function SnapshotBody({ content, source, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The notice context body.
  */
+/** 中文说明：函数 NoticeBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function NoticeBody({ content, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -433,11 +502,13 @@ export function NoticeBody({ content, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The relay context body.
  */
+/** 中文说明：函数 RelayBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function RelayBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
   t: Translate
 }): ReactNode {
+  /** 中文说明：当前组件的局部值 sender，由紧邻初始化决定。 */
   const sender = relaySender(source)
   /* v8 ignore next -- contextBody resolves the sender before choosing this body. */
   if (sender === null) return <OpaqueBody content={content} source={source} t={t} />
@@ -452,12 +523,15 @@ export function RelayBody({ content, source, t }: {
 }
 
 /** The sending agent's session id, or null when the record does not name one. */
+/** 中文说明：函数 relaySender 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function relaySender(source: unknown): string | null {
+  /** 中文说明：当前组件的局部值 sender，由紧邻初始化决定。 */
   const sender = asRecord(source)?.['senderSessionId']
   return typeof sender === 'string' && sender !== '' ? sender : null
 }
 
 /** One recalled session, as the durable source records it. */
+/** 中文说明：类型或类 RecalledSession 约束本文件的数据或组件职责。 */
 interface RecalledSession {
   label: string
   retained: number
@@ -466,17 +540,27 @@ interface RecalledSession {
 }
 
 /** Recalled sessions read off the source, or null when the record is unusable. */
+/** 中文说明：函数 recalledSessions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function recalledSessions(source: unknown): RecalledSession[] | null {
+  /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
+  /** 中文说明：当前组件的局部值 list，由紧邻初始化决定。 */
   const list = record === null ? undefined : record['references']
   if (!Array.isArray(list)) return null
+  /** 中文说明：当前组件的局部值 sessions，由紧邻初始化决定。 */
   const sessions: RecalledSession[] = []
+  /** 中文说明：当前组件的局部值 item，由紧邻初始化决定。 */
   for (const item of list as readonly unknown[]) {
+    /** 中文说明：当前组件的局部值 reference，由紧邻初始化决定。 */
     const reference = asRecord(item)
     if (reference === null) return null
+    /** 中文说明：当前组件的局部值 label，由紧邻初始化决定。 */
     const label = reference['label']
+    /** 中文说明：当前组件的局部值 retained，由紧邻初始化决定。 */
     const retained = reference['retainedMessages']
+    /** 中文说明：当前组件的局部值 omitted，由紧邻初始化决定。 */
     const omitted = reference['omittedMessages']
+    /** 中文说明：当前组件的局部值 truncated，由紧邻初始化决定。 */
     const truncated = reference['truncated']
     // Completeness is the fact this card exists to report, so a reference that
     // cannot state it is not a readable recall — showing the label alone would
@@ -499,11 +583,13 @@ function recalledSessions(source: unknown): RecalledSession[] | null {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The recall context body, or the opaque body when unreadable.
  */
+/** 中文说明：函数 RecallBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function RecallBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
   t: Translate
 }): ReactNode {
+  /** 中文说明：当前组件的局部值 sessions，由紧邻初始化决定。 */
   const sessions = recalledSessions(source)
   if (sessions === null) return <OpaqueBody content={content} source={source} t={t} />
   return (
@@ -530,7 +616,9 @@ export function RecallBody({ content, source, t }: {
 }
 
 /** The one-line account a `notice` puts on its collapsed row, when it records one. */
+/** 中文说明：函数 noticeSummary 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function noticeSummary(source: unknown): string | null {
+  /** 中文说明：当前组件的局部值 summary，由紧邻初始化决定。 */
   const summary = asRecord(source)?.['summary']
   return typeof summary === 'string' && summary !== '' ? summary : null
 }
@@ -547,10 +635,12 @@ function noticeSummary(source: unknown): string | null {
  * @param props - durable content, its source, and the locale seat.
  * @returns the rendered form (null for opaque), its collapsed summary, and its body.
  */
+/** 中文说明：函数 contextBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function contextBody(
   form: ContextMessageNode['form'],
   props: { content: ContextMessageNode['content']; source: unknown; t: Translate },
 ): { rendered: KnownContextForm | null; summary: string | null; body: ReactNode } {
+  /** 中文说明：当前组件的局部值 opaque，由紧邻初始化决定。 */
   const opaque = { rendered: null, summary: null, body: <OpaqueBody {...props} /> }
   switch (form) {
     case 'instructions':
@@ -566,6 +656,7 @@ export function contextBody(
         ? opaque
         : { rendered: 'snapshot', summary: null, body: <SnapshotBody {...props} /> }
     case 'notice': {
+      /** 中文说明：当前组件的局部值 summary，由紧邻初始化决定。 */
       const summary = noticeSummary(props.source)
       return summary === null
         ? opaque
@@ -584,6 +675,7 @@ export function contextBody(
     /* v8 ignore next 4 -- closed-union backstop; the compiler rejects a new
     KnownContextForm here rather than letting it degrade to opaque silently. */
     default: {
+      /** 中文说明：当前组件的局部值 unreachable，由紧邻初始化决定。 */
       const unreachable: never = form
       throw new Error(`unreachable context form: ${String(unreachable)}`)
     }
