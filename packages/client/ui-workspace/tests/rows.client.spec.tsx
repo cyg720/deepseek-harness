@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证工作区界面的 rows.client.spec.tsx 行为。
+ * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
+ * 产品维度：防止工作区界面协议与生命周期回归。
+ * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
+ * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
+ * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionId, WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
@@ -12,12 +20,16 @@ import { zh } from '../src/client/locales.ts'
 afterEach(cleanup)
 
 // Standard locale seat stub mirroring the real ns → common → key chain (zh default).
+/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = makeTranslate(zh, commonZh) as never
 
+/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (id: string) => id as SessionId
+/** 中文说明：测试局部值 wid，由紧邻初始化决定。 */
 const wid = (id: string) => id as WorkspaceId
 
 /** Half detection reads the row rect; jsdom rects are all-zero by default. */
+/** 中文说明：函数 stubRect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubRect(row: HTMLElement): void {
   row.getBoundingClientRect = () => ({
     top: 100, bottom: 134, left: 0, right: 200, width: 200, height: 34,
@@ -25,6 +37,7 @@ function stubRect(row: HTMLElement): void {
   })
 }
 
+/** 中文说明：函数 dragProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function dragProps(overrides: Partial<RowDragProps> = {}): RowDragProps {
   return {
     start: vi.fn(), active: false, marker: null,
@@ -34,7 +47,9 @@ function dragProps(overrides: Partial<RowDragProps> = {}): RowDragProps {
 }
 
 /** Install the async browser clipboard and restore its prior host shape. */
+/** 中文说明：函数 installClipboard 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function installClipboard(writeText: (text: string) => Promise<void>): () => void {
+  /** 中文说明：测试局部值 prior，由紧邻初始化决定。 */
   const prior = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
@@ -46,10 +61,13 @@ function installClipboard(writeText: (text: string) => Promise<void>): () => voi
   }
 }
 
+/** 中文说明：测试局部值 dataTransfer，由紧邻初始化决定。 */
 const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn() }
 
 /** jsdom lacks DragEvent — the fireEvent fallback drops clientY, so pin it on the built event. */
+/** 中文说明：函数 fireDrag 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fireDrag(row: HTMLElement, kind: 'dragOver' | 'drop', clientY: number): void {
+  /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
   const event = kind === 'dragOver' ? createEvent.dragOver(row) : createEvent.drop(row)
   Object.defineProperty(event, 'clientY', { value: clientY })
   Object.defineProperty(event, 'dataTransfer', { value: { ...dataTransfer } })
@@ -58,12 +76,15 @@ function fireDrag(row: HTMLElement, kind: 'dragOver' | 'drop', clientY: number):
 
 describe('workspace browser rows', () => {
   it('omits only an empty leading status slot in the hierarchy-free flat list', () => {
+    /** 中文说明：测试局部值 idle，由紧邻初始化决定。 */
     const idle: SessionNode = {
       id: sid('flat'), title: 'Flat Session', blank: false, running: false,
       runningSubagentCount: 0, completed: false, updatedAt: 0,
     }
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<SessionNodeItem node={idle} currentId={undefined} now={0} onOpen={vi.fn()}
       onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} flat t={t} />)
+    /** 中文说明：测试局部值 title，由紧邻初始化决定。 */
     const title = screen.getByText('Flat Session')
     expect(title.previousElementSibling).toBeNull()
 
@@ -73,7 +94,9 @@ describe('workspace browser rows', () => {
   })
 
   it('renders a selected content-search row and opens only its session', () => {
+    /** 中文说明：测试局部值 onOpen，由紧邻初始化决定。 */
     const onOpen = vi.fn()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result: SearchResultNode = {
       id: sid('result'),
       title: 'Result title',
@@ -84,6 +107,7 @@ describe('workspace browser rows', () => {
       snippet: 'matching message excerpt',
     }
     render(<SearchResultItem result={result} currentId={result.id} onOpen={onOpen} t={t} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('treeitem')
     expect(row.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('Workspace context')).toBeTruthy()
@@ -100,11 +124,13 @@ describe('workspace browser rows', () => {
     ['plan-review', '计划待审'],
     ['question', '等待回答'],
   ] as const)('shows %s ahead of running in search results', (pendingInteraction, label) => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result: SearchResultNode = {
       id: sid(pendingInteraction), title: 'Needs input', workspace: 'Project',
       pendingInteraction, running: true, runningSubagentCount: 0, completed: false,
     }
     render(<SearchResultItem result={result} currentId={undefined} onOpen={vi.fn()} t={t} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('treeitem')
     expect(row.querySelector('[data-state="warning"]')).toBeTruthy()
     expect(row.querySelector('[data-state="ongoing"]')).toBeNull()
@@ -112,8 +138,11 @@ describe('workspace browser rows', () => {
   })
 
   it('renders an active Workspace and keeps its create action separate from toggling', () => {
+    /** 中文说明：测试局部值 onToggle，由紧邻初始化决定。 */
     const onToggle = vi.fn()
+    /** 中文说明：测试局部值 onCreate，由紧邻初始化决定。 */
     const onCreate = vi.fn()
+    /** 中文说明：测试局部值 group，由紧邻初始化决定。 */
     const group: GroupNode = {
       key: 'project', workspaceId: wid('project'), cwd: '/projects/project', createdAt: 0, label: 'Project',
       sessionCount: 1, expanded: true, containsCurrent: true, sessions: [],
@@ -129,16 +158,19 @@ describe('workspace browser rows', () => {
   })
 
   it('renders and opens a selected running Session row', () => {
+    /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
     const node: SessionNode = {
       id: sid('session'), title: 'Session', blank: false, running: true,
       runningSubagentCount: 0, completed: false, updatedAt: 0,
     }
+    /** 中文说明：测试局部值 onOpen，由紧邻初始化决定。 */
     const onOpen = vi.fn()
     render(
       <SessionNodeItem node={node} currentId={node.id} now={0} onOpen={onOpen}
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />,
     )
 
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('treeitem')
     expect(row.getAttribute('aria-selected')).toBe('true')
     expect(row.hasAttribute('aria-expanded')).toBe(false)
@@ -148,6 +180,7 @@ describe('workspace browser rows', () => {
   })
 
   it('shows the green done dot only on a finished, unviewed session (live activity wins the slot)', () => {
+    /** 中文说明：测试局部值 renderRow，由紧邻初始化决定。 */
     const renderRow = (over: Partial<SessionNode>) => render(
       <SessionNodeItem
         node={{
@@ -158,22 +191,27 @@ describe('workspace browser rows', () => {
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t}
       />,
     )
+    /** 中文说明：测试局部值 stateDot，由紧邻初始化决定。 */
     const stateDot = (view: ReturnType<typeof renderRow>) =>
       view.container.querySelector('[data-state]')
     // No completion reminder, not running: no state dot at all.
+    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain = renderRow({})
     expect(stateDot(plain)).toBeNull()
     plain.unmount()
     // Completed while unviewed: the green done dot.
+    /** 中文说明：测试局部值 done，由紧邻初始化决定。 */
     const done = renderRow({ completed: true })
     expect(done.container.querySelector('[data-state="done"]')).not.toBeNull()
     done.unmount()
     // Running wins the slot: the animated ongoing dot, no done dot.
+    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = renderRow({ completed: true, running: true })
     expect(running.container.querySelector('[data-state="ongoing"]')).not.toBeNull()
     expect(running.container.querySelector('[data-state="done"]')).toBeNull()
     running.unmount()
     // Descendant activity also wins until the last running descendant stops.
+    /** 中文说明：测试局部值 delegated，由紧邻初始化决定。 */
     const delegated = renderRow({ completed: true, runningSubagentCount: 1 })
     expect(delegated.container.querySelector('[data-state="ongoing"]')).not.toBeNull()
     expect(delegated.container.querySelector('[data-state="done"]')).toBeNull()
@@ -182,12 +220,14 @@ describe('workspace browser rows', () => {
   it('shows descendant activity without describing an idle parent as running', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
       const node: SessionNode = {
         id: sid('owner'), title: 'Delegating', blank: false, running: false,
         runningSubagentCount: 2, completed: false, updatedAt: 0,
       }
       render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
+      /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
       const row = screen.getByRole('treeitem')
       expect(row.querySelector('[data-state="ongoing"]')).not.toBeNull()
       expect(screen.getByText('2 个子代理运行中')).toBeTruthy()
@@ -204,12 +244,14 @@ describe('workspace browser rows', () => {
   it('keeps descendant activity secondary while the parent is running', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
       const node: SessionNode = {
         id: sid('owner'), title: 'Delegating', blank: false, running: true,
         runningSubagentCount: 1, completed: false, updatedAt: 0,
       }
       render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
+      /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
       const row = screen.getByRole('treeitem')
       expect(row.querySelectorAll('[data-state="ongoing"]')).toHaveLength(1)
       expect(screen.getByText('进行中')).toBeTruthy()
@@ -225,12 +267,14 @@ describe('workspace browser rows', () => {
   })
 
   it('keeps child activity as a secondary status while user attention is primary', () => {
+    /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
     const node: SessionNode = {
       id: sid('owner'), title: 'Needs input', blank: false, pendingInteraction: 'question',
       running: false, runningSubagentCount: 1, completed: false, updatedAt: 0,
     }
     render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
       onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('treeitem')
     expect(row.querySelector('[data-state="warning"]')).not.toBeNull()
     expect(row.querySelector('[data-state="ongoing"]')).toBeNull()
@@ -250,9 +294,13 @@ describe('workspace browser rows', () => {
   })
 
   it('workspace row menu opens on the ellipsis, renames, and shows the danger delete row', () => {
+    /** 中文说明：测试局部值 onRename，由紧邻初始化决定。 */
     const onRename = vi.fn()
+    /** 中文说明：测试局部值 onDelete，由紧邻初始化决定。 */
     const onDelete = vi.fn()
+    /** 中文说明：测试局部值 onToggle，由紧邻初始化决定。 */
     const onToggle = vi.fn()
+    /** 中文说明：测试局部值 group，由紧邻初始化决定。 */
     const group: GroupNode = {
       key: 'project', workspaceId: wid('project'), cwd: '/projects/project', createdAt: 0, label: 'Project',
       sessionCount: 0, expanded: false, containsCurrent: false, sessions: [],
@@ -281,9 +329,12 @@ describe('workspace browser rows', () => {
 
   it('workspace hover card shows its details and copies the full directory path', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(async () => {})
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 group，由紧邻初始化决定。 */
       const group: GroupNode = {
         key: 'project', workspaceId: wid('project'), cwd: '/projects/project', createdAt: 0, label: 'Project',
         sessionCount: 0, expanded: false, containsCurrent: false, sessions: [],
@@ -306,9 +357,12 @@ describe('workspace browser rows', () => {
 
   it('workspace hover card shows a POSIX home descendant as ~ and still copies the full path', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 writeText，由紧邻初始化决定。 */
     const writeText = vi.fn(async () => {})
+    /** 中文说明：测试局部值 restoreClipboard，由紧邻初始化决定。 */
     const restoreClipboard = installClipboard(writeText)
     try {
+      /** 中文说明：测试局部值 group，由紧邻初始化决定。 */
       const group: GroupNode = {
         key: 'project', workspaceId: wid('project'), cwd: '/home/u/Documents/project', createdAt: 0, label: 'Project',
         sessionCount: 0, expanded: false, containsCurrent: false, sessions: [],
@@ -329,6 +383,7 @@ describe('workspace browser rows', () => {
   it('workspace hover card without a directory omits the path and copy action', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 group，由紧邻初始化决定。 */
       const group: GroupNode = {
         key: 'project', workspaceId: wid('project'), cwd: undefined, createdAt: 0, label: 'Project',
         sessionCount: 0, expanded: false, containsCurrent: false, sessions: [],
@@ -347,6 +402,7 @@ describe('workspace browser rows', () => {
   it('workspace hover card leaves a Windows path verbatim', async () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 group，由紧邻初始化决定。 */
       const group: GroupNode = {
         key: 'project', workspaceId: wid('project'), cwd: 'C:\\Users\\u\\project', createdAt: 0, label: 'Project',
         sessionCount: 0, expanded: false, containsCurrent: false, sessions: [],
@@ -361,6 +417,7 @@ describe('workspace browser rows', () => {
   })
 
   it('ungrouped bucket renders no workspace menu', () => {
+    /** 中文说明：测试局部值 group，由紧邻初始化决定。 */
     const group: GroupNode = {
       key: '', workspaceId: undefined, cwd: undefined, createdAt: undefined, label: 'Ungrouped',
       sessionCount: 0, expanded: false, containsCurrent: false, sessions: [],
@@ -372,6 +429,7 @@ describe('workspace browser rows', () => {
   it('blank New Session rows carry no menu, no time label, and no hover-card time', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
       const node: SessionNode = {
         id: sid('s-blank'), title: 'ignored', blank: true, running: false,
         runningSubagentCount: 0, completed: false, updatedAt: 0,
@@ -382,6 +440,7 @@ describe('workspace browser rows', () => {
       expect(screen.queryByRole('button', { name: /会话.*的操作/ })).toBeNull()
       expect(screen.queryByText('刚刚')).toBeNull()
       // The hover card keeps title + status but drops the timestamp line.
+      /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
       const wrapper = screen.getByRole('treeitem').parentElement as HTMLElement
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
@@ -395,10 +454,15 @@ describe('workspace browser rows', () => {
   })
 
   it('session row menu opens without opening the session and dispatches rename, fork, and archive', () => {
+    /** 中文说明：测试局部值 onOpen，由紧邻初始化决定。 */
     const onOpen = vi.fn()
+    /** 中文说明：测试局部值 onRename，由紧邻初始化决定。 */
     const onRename = vi.fn()
+    /** 中文说明：测试局部值 onFork，由紧邻初始化决定。 */
     const onFork = vi.fn()
+    /** 中文说明：测试局部值 onArchive，由紧邻初始化决定。 */
     const onArchive = vi.fn()
+    /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
     const node: SessionNode = {
       id: sid('s1'), title: 'One', blank: false, running: false,
       runningSubagentCount: 0, completed: false, updatedAt: 0,
@@ -433,12 +497,14 @@ describe('workspace browser rows', () => {
   it('shows the hover card after the dwell and suppresses it while the row menu is open', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
       const node: SessionNode = {
         id: sid('s1'), title: 'Hovered', blank: false, running: true,
         runningSubagentCount: 0, completed: false, updatedAt: 0,
       }
       render(<SessionNodeItem node={node} currentId={undefined} now={60_000} onOpen={vi.fn()}
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
+      /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
       const wrapper = screen.getByRole('treeitem').parentElement as HTMLElement
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
@@ -464,12 +530,15 @@ describe('workspace browser rows', () => {
   ] as const)('shows %s as warning ahead of the running state', (pendingInteraction, label) => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
       const node: SessionNode = {
         id: sid(pendingInteraction), title: 'Needs input', blank: false,
         pendingInteraction, running: true, runningSubagentCount: 0, completed: false, updatedAt: 0,
       }
+      /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
       const view = render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
+      /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
       const row = screen.getByRole('treeitem')
       expect(row.querySelector('[data-state="warning"]')).toBeTruthy()
       expect(row.querySelector('[data-state="ongoing"]')).toBeNull()
@@ -491,6 +560,7 @@ describe('workspace browser rows', () => {
   it('idle hover card shows the Idle status line', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
       const node: SessionNode = {
         id: sid('s1'), title: 'Quiet', blank: false, running: false,
         runningSubagentCount: 0, completed: false, updatedAt: 0,
@@ -509,6 +579,7 @@ describe('workspace browser rows', () => {
   it('completed hover card shows the Completed status line', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
       const node: SessionNode = {
         id: sid('s1'), title: 'Done', blank: false, running: false,
         runningSubagentCount: 0, completed: true, updatedAt: 0,
@@ -525,15 +596,19 @@ describe('workspace browser rows', () => {
   })
 
   it('draggable row wires start/end and gates hover/drop on an active same-group drag', () => {
+    /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
     const node: SessionNode = {
       id: sid('s1'), title: 'Drag me', blank: false, running: false,
       runningSubagentCount: 0, completed: false, updatedAt: 0,
     }
+    /** 中文说明：测试局部值 inactive，由紧邻初始化决定。 */
     const inactive = dragProps()
+    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(
       <SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} drag={inactive} t={t} />,
     )
+    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('treeitem')
     stubRect(row)
     expect(row.getAttribute('draggable')).toBe('true')
@@ -547,6 +622,7 @@ describe('workspace browser rows', () => {
     fireEvent.dragEnd(row)
     expect(inactive.end).toHaveBeenCalledOnce()
 
+    /** 中文说明：测试局部值 active，由紧邻初始化决定。 */
     const active = dragProps({ active: true, marker: 'before' })
     rerender(
       <SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
@@ -561,6 +637,7 @@ describe('workspace browser rows', () => {
     fireDrag(screen.getByRole('treeitem'), 'drop', 130)
     expect(active.drop).toHaveBeenCalledWith('after')
 
+    /** 中文说明：测试局部值 after，由紧邻初始化决定。 */
     const after = dragProps({ active: true, marker: 'after' })
     rerender(
       <SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}

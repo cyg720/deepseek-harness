@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证代码运行时的 protocol-mirror.e2e.ts 行为。
+ * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
+ * 产品维度：防止代码运行时协议与生命周期回归。
+ * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
+ * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
+ * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
+ */
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -18,12 +26,16 @@ import { logTruncationMarker, PROTOCOL_FD, WIRE_FRAME_FIELDS } from '../src/prot
  * codec unconditionally.
  */
 
+/** 中文说明：测试局部值 execFileAsync，由紧邻初始化决定。 */
 const execFileAsync = promisify(execFile)
+/** 中文说明：测试局部值 pyDir，由紧邻初始化决定。 */
 const pyDir = fileURLToPath(new URL('../py', import.meta.url))
 // `-B` blocks bytecode writes into the source tree (`py/__pycache__/*.pyc`);
 // `-I` isolates the interpreter but does not imply it.
+/** 中文说明：测试局部值 python3Flags，由紧邻初始化决定。 */
 const python3Flags = ['-I', '-B']
 
+/** 中文说明：函数 hasPython3 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function hasPython3(): Promise<boolean> {
   try {
     await execFileAsync('python3', ['--version'])
@@ -33,11 +45,14 @@ async function hasPython3(): Promise<boolean> {
   }
 }
 
+/** 中文说明：测试局部值 python3Available，由紧邻初始化决定。 */
 const python3Available = await hasPython3()
 
 describe.skipIf(!python3Available)('protocol.py mirrors protocol.ts at runtime', () => {
   it('agrees on PROTOCOL_FD and the log truncation marker across byte budgets', async () => {
+    /** 中文说明：测试局部值 budgets，由紧邻初始化决定。 */
     const budgets = [1, 65536, 1048576]
+    /** 中文说明：测试局部值 probe，由紧邻初始化决定。 */
     const probe = [
       'import json, sys',
       `sys.path.insert(0, ${JSON.stringify(pyDir)})`,
@@ -48,7 +63,9 @@ describe.skipIf(!python3Available)('protocol.py mirrors protocol.ts at runtime',
       '  "markers": [log_truncation_marker(b) for b in budgets],',
       '}))',
     ].join('\n')
+    /** 中文说明：测试局部值 { stdout }，由紧邻初始化决定。 */
     const { stdout } = await execFileAsync('python3', [...python3Flags, '-c', probe])
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = JSON.parse(stdout) as { fd: number; markers: string[] }
     // Assert against the TS-side PROTOCOL_FD export (the value the host wires),
     // not a bare literal, so a drift on either side of the wire is caught here.
@@ -67,6 +84,7 @@ describe.skipIf(!python3Available)('protocol.py mirrors protocol.ts at runtime',
     // fails typecheck at the roles map; a Python frame added, removed, or with a
     // changed field set fails this comparison. `global` is the reserved-keyword
     // wire key the Python side carries via a functional TypedDict.
+    /** 中文说明：测试局部值 probe，由紧邻初始化决定。 */
     const probe = [
       'import json, sys',
       `sys.path.insert(0, ${JSON.stringify(pyDir)})`,
@@ -78,9 +96,12 @@ describe.skipIf(!python3Available)('protocol.py mirrors protocol.ts at runtime',
       + ' if not n.startswith("_") and hasattr(v, "__required_keys__")}',
       'print(json.dumps(frames))',
     ].join('\n')
+    /** 中文说明：测试局部值 { stdout }，由紧邻初始化决定。 */
     const { stdout } = await execFileAsync('python3', [...python3Flags, '-c', probe])
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = JSON.parse(stdout) as Record<string, { required: string[]; optional: string[] }>
     // Normalize the TS source of truth to the same sorted shape Python reports.
+    /** 中文说明：测试局部值 expected，由紧邻初始化决定。 */
     const expected = Object.fromEntries(
       Object.entries(WIRE_FRAME_FIELDS).map(([name, sets]) => [
         name,

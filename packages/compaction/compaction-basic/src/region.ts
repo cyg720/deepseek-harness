@@ -4,6 +4,14 @@
  *
  * @module @deepseek-ai/dsh-compaction-basic/region
  */
+/**
+ * 文件职责：实现上下文压缩的 region 模块。
+ * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
+ * 产品维度：为产品提供上下文压缩能力。
+ * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
+ * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
+ * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
+ */
 
 import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
@@ -24,12 +32,14 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { frameSummary } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 
+/** 中文说明：类型或类 RegionDependencies 约束协议数据或模块职责。 */
 interface RegionDependencies {
   readonly meter: TokenMeter
   summarize(input: SummarizationInput, agent: Agent, signal?: AbortSignal): Promise<SummaryResult>
 }
 
 /** One validated inclusive span of current surface positions. */
+/** 中文说明：类型或类 SurfaceSelection 约束协议数据或模块职责。 */
 interface SurfaceSelection {
   readonly start: number
   readonly end: number
@@ -39,6 +49,7 @@ interface SurfaceSelection {
 }
 
 /** A selection with its priced snapshot and the replay input built from it. */
+/** 中文说明：类型或类 PreparedCompaction 约束协议数据或模块职责。 */
 interface PreparedCompaction extends SurfaceSelection {
   readonly measurement: TokenMeasurement
   readonly selectedNodes: TokenMeasurement['nodes']
@@ -46,10 +57,12 @@ interface PreparedCompaction extends SurfaceSelection {
   readonly input: SummarizationInput
 }
 
+/** 中文说明：类型或类 SummarizedCompaction 约束协议数据或模块职责。 */
 type SummarizedCompaction = PreparedCompaction & SummaryResult & {
   readonly checkpointMessage: UserMessage
 }
 
+/** 中文说明：类型或类 CompactionTransactionOptions 约束协议数据或模块职责。 */
 interface CompactionTransactionOptions {
   /** `current-turn` derives a numbered owner; `null` writes a standalone bracket. */
   readonly owner: 'current-turn' | null
@@ -61,6 +74,7 @@ interface CompactionTransactionOptions {
   readonly sourceCommandId?: CommandId
 }
 
+/** 中文说明：类型或类 CompactionEntryState 约束协议数据或模块职责。 */
 interface CompactionEntryState {
   readonly openTurn: number | null
   readonly unmatchedCompactionStart: SessionEvent<'compaction/start'> | undefined
@@ -72,9 +86,11 @@ interface CompactionEntryState {
  * built from, distinguished from summarizer and shrink failures so a manual
  * caller can report the two causes differently.
  */
+/** 中文说明：类型或类 SurfaceChangedError 约束协议数据或模块职责。 */
 class SurfaceChangedError extends Error {}
 
 /** Whether the summary may still replace the span it was built from. */
+/** 中文说明：类型或类 StabilityCheck 约束协议数据或模块职责。 */
 type StabilityCheck = (
   dependencies: RegionDependencies,
   session: Session,
@@ -82,6 +98,7 @@ type StabilityCheck = (
 ) => void
 
 /** Failure captured after `compaction/start` has committed. */
+/** 中文说明：类型或类 TransactionFailure 约束协议数据或模块职责。 */
 interface TransactionFailure {
   readonly error: unknown
   readonly stage: 'summary' | 'commit'
@@ -95,22 +112,28 @@ interface TransactionFailure {
  * @param retainTokens - minimum recent tail budget retained verbatim.
  * @returns the inclusive positional seq range to compact, or `null`.
  */
+/** 中文说明：函数 selectCompactableRange 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function selectCompactableRange(
   session: Session,
   measurement: TokenMeasurement,
   retainTokens: number,
 ): { start: number; end: number } | null {
+  /** 中文说明：运行时局部值 pricedNodes，由紧邻初始化决定。 */
   const pricedNodes = measurement.nodes
   if (pricedNodes.length === 0) return null
 
+  /** 中文说明：运行时局部值 surfaceNodes，由紧邻初始化决定。 */
   const surfaceNodes = session.surface.nodes
   if (surfaceNodes.length !== pricedNodes.length
     || surfaceNodes.some((seq, index) => seq !== pricedNodes[index]?.seq)) {
     throw new Error('compaction: token-meter surface does not match the current session surface')
   }
 
+  /** 中文说明：运行时局部值 accumulated，由紧邻初始化决定。 */
   let accumulated = 0
+  /** 中文说明：运行时局部值 keepFromIdx，由紧邻初始化决定。 */
   let keepFromIdx = pricedNodes.length
+  /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
   for (let index = pricedNodes.length - 1; index >= 0; index -= 1) {
     // oxlint-disable-next-line typescript/no-non-null-assertion
     accumulated += pricedNodes[index]!.tokens
@@ -126,8 +149,10 @@ export function selectCompactableRange(
   }
   if (keepFromIdx === 0) return null
 
+  /** 中文说明：运行时局部值 first，由紧邻初始化决定。 */
   // oxlint-disable-next-line typescript/no-non-null-assertion
   const first = surfaceNodes[0]!
+  /** 中文说明：运行时局部值 cutoff，由紧邻初始化决定。 */
   // oxlint-disable-next-line typescript/no-non-null-assertion
   const cutoff = surfaceNodes[keepFromIdx - 1]!
   return { start: first, end: cutoff }
@@ -149,6 +174,7 @@ export function selectCompactableRange(
  * @param signal - optional summarization cancellation signal.
  * @returns the successful durable compaction result.
  */
+/** 中文说明：函数 compactSurfaceRegion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function compactSurfaceRegion(
   dependencies: RegionDependencies,
   session: Session,
@@ -159,7 +185,9 @@ export async function compactSurfaceRegion(
   signal?: AbortSignal,
 ): Promise<CompactionResult> {
   if (options.owner === null) signal?.throwIfAborted()
+  /** 中文说明：运行时局部值 selection，由紧邻初始化决定。 */
   const selection = validateSurfaceRegion(session, start, end)
+  /** 中文说明：运行时局部值 entryState，由紧邻初始化决定。 */
   const entryState = inspectCompactionEntryState(session.events)
   assertCompactionInactive(
     entryState.unmatchedCompactionStart,
@@ -167,6 +195,7 @@ export async function compactSurfaceRegion(
     'compaction',
   )
 
+  /** 中文说明：运行时局部值 owner: number | null，由紧邻初始化决定。 */
   let owner: number | null
   if (options.owner === null) {
     if (entryState.openTurn !== null) {
@@ -180,25 +209,37 @@ export async function compactSurfaceRegion(
     owner = entryState.openTurn
   }
 
+  /** 中文说明：运行时局部值 compactionId，由紧邻初始化决定。 */
   const compactionId = CompactionId(randomUUID())
+  /** 中文说明：运行时局部值 lifecycle，由紧邻初始化决定。 */
   const lifecycle = {
     compactionId,
     ...options.sourceCommandId === undefined ? {} : { sourceCommandId: options.sourceCommandId },
     turn: owner,
   }
+  /** 中文说明：运行时局部值 startEvent，由紧邻初始化决定。 */
   const startEvent = session.append('compaction/start', lifecycle)
+  /** 中文说明：运行时局部值 assertStable，由紧邻初始化决定。 */
   const assertStable: StabilityCheck = options.stability === 'whole-surface'
     ? assertWholeSurfaceUnchanged
     : assertSelectedSpanStable
+  /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
   let failure: TransactionFailure | undefined
+  /** 中文说明：运行时局部值 flushFailure: unknown，由紧邻初始化决定。 */
   let flushFailure: unknown
+  /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
   let result: CompactionResult | undefined
+  /** 中文说明：运行时局部值 closed，由紧邻初始化决定。 */
   let closed = false
+  /** 中文说明：运行时局部值 closing，由紧邻初始化决定。 */
   let closing = false
+  /** 中文说明：运行时局部值 stage，由紧邻初始化决定。 */
   let stage: TransactionFailure['stage'] = 'summary'
 
   try {
+    /** 中文说明：运行时局部值 prepared，由紧邻初始化决定。 */
     const prepared = prepareCompaction(dependencies, session, selection)
+    /** 中文说明：运行时局部值 summarized，由紧邻初始化决定。 */
     const summarized = await summarizeCompaction(
       dependencies,
       prepared,
@@ -210,8 +251,10 @@ export async function compactSurfaceRegion(
     if (options.owner === null) signal?.throwIfAborted()
     assertStable(dependencies, session, summarized)
     stage = 'commit'
+    /** 中文说明：运行时局部值 pending，由紧邻初始化决定。 */
     const pending = commitCompactionBody(session, startEvent, summarized)
     closing = true
+    /** 中文说明：运行时局部值 endEvent，由紧邻初始化决定。 */
     const endEvent = session.append('compaction/end', lifecycle)
     closed = true
     result = completeCompaction(pending, endEvent)
@@ -254,6 +297,7 @@ export async function compactSurfaceRegion(
 }
 
 /** Classify one closed manual attempt without weakening cancellation precedence. */
+/** 中文说明：函数 throwManualFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function throwManualFailure(failure: TransactionFailure): never {
   if (failure.stage === 'commit') {
     throw new ManualCompactionError(
@@ -283,6 +327,7 @@ function throwManualFailure(failure: TransactionFailure): never {
  * @param latestEndSeedSeq - newest constructor-seed boundary, if any.
  * @param stage - operation label included in the busy diagnostic.
  */
+/** 中文说明：函数 assertCompactionInactive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertCompactionInactive(
   unmatchedCompactionStart: SessionEvent<'compaction/start'> | undefined,
   latestEndSeedSeq: number | undefined,
@@ -302,7 +347,9 @@ function assertCompactionInactive(
  * @param session - session whose latest marker state is inspected.
  * @param stage - operation label included in the busy diagnostic.
  */
+/** 中文说明：函数 assertNoActiveCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function assertNoActiveCompaction(session: Session, stage: string): void {
+  /** 中文说明：运行时局部值 entryState，由紧邻初始化决定。 */
   const entryState = inspectCompactionEntryState(session.events)
   assertCompactionInactive(
     entryState.unmatchedCompactionStart,
@@ -312,9 +359,13 @@ export function assertNoActiveCompaction(session: Session, stage: string): void 
 }
 
 /** Validate one requested surface-position span before asynchronous work begins. */
+/** 中文说明：函数 validateSurfaceRegion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateSurfaceRegion(session: Session, start: number, end: number): SurfaceSelection {
+  /** 中文说明：运行时局部值 nodes，由紧邻初始化决定。 */
   const nodes = session.surface.nodes
+  /** 中文说明：运行时局部值 startIdx，由紧邻初始化决定。 */
   const startIdx = nodes.indexOf(start)
+  /** 中文说明：运行时局部值 endIdx，由紧邻初始化决定。 */
   const endIdx = nodes.indexOf(end)
   if (startIdx === -1) throw new Error(`compactRegion: start seq ${start} not found in surface`)
   if (endIdx === -1) throw new Error(`compactRegion: end seq ${end} not found in surface`)
@@ -336,12 +387,15 @@ function validateSurfaceRegion(session: Session, start: number, end: number): Su
 }
 
 /** Snapshot pricing and replay input for a validated surface range. */
+/** 中文说明：函数 prepareCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function prepareCompaction(
   dependencies: RegionDependencies,
   session: Session,
   selection: SurfaceSelection,
 ): PreparedCompaction {
+  /** 中文说明：运行时局部值 measurement，由紧邻初始化决定。 */
   const measurement = dependencies.meter.measure(session)
+  /** 中文说明：运行时局部值 selectedNodes，由紧邻初始化决定。 */
   const selectedNodes = measurement.nodes.slice(selection.startIdx, selection.endIdx + 1)
   if (selectedNodes.length !== selection.shadowedSeqs.length
     || selectedNodes.some((node, index) => node.seq !== selection.shadowedSeqs[index])) {
@@ -357,6 +411,7 @@ function prepareCompaction(
 }
 
 /** Run the summarizer and frame its replacement checkpoint. */
+/** 中文说明：函数 summarizeCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function summarizeCompaction(
   dependencies: RegionDependencies,
   prepared: PreparedCompaction,
@@ -365,11 +420,14 @@ async function summarizeCompaction(
   sourceCommandId: CommandId | undefined,
   signal?: AbortSignal,
 ): Promise<SummarizedCompaction> {
+  /** 中文说明：运行时局部值 summaryResult，由紧邻初始化决定。 */
   const summaryResult = await dependencies.summarize(prepared.input, agent, signal)
+  /** 中文说明：运行时局部值 checkpointMessage，由紧邻初始化决定。 */
   const checkpointMessage = createUserMessage({
     content: frameSummary(summaryResult.summary),
     source: compactCheckpointSource(compactionId, sourceCommandId),
   })
+  /** 中文说明：运行时局部值 framedSummaryTokenCount，由紧邻初始化决定。 */
   const framedSummaryTokenCount = dependencies.meter.estimateMessage(checkpointMessage)
   if (framedSummaryTokenCount >= prepared.shadowedTokenCount) {
     throw new Error(
@@ -384,11 +442,13 @@ async function summarizeCompaction(
 }
 
 /** Reject a summary prepared against any earlier surface generation. */
+/** 中文说明：函数 assertWholeSurfaceUnchanged 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertWholeSurfaceUnchanged(
   dependencies: RegionDependencies,
   session: Session,
   prepared: PreparedCompaction,
 ): void {
+  /** 中文说明：运行时局部值 current，由紧邻初始化决定。 */
   const current = dependencies.meter.measure(session)
   if (!isDeepStrictEqual(current.nodes, prepared.measurement.nodes)) {
     throw new SurfaceChangedError('compaction: session surface changed during summarization')
@@ -400,11 +460,13 @@ function assertWholeSurfaceUnchanged(
  * equally priced, balanced replacement target. Nodes added outside it remain
  * visible and do not invalidate the summary.
  */
+/** 中文说明：函数 assertSelectedSpanStable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertSelectedSpanStable(
   dependencies: RegionDependencies,
   session: Session,
   prepared: PreparedCompaction,
 ): void {
+  /** 中文说明：运行时局部值 current: SurfaceSelection，由紧邻初始化决定。 */
   let current: SurfaceSelection
   try {
     current = validateSurfaceRegion(session, prepared.start, prepared.end)
@@ -417,6 +479,7 @@ function assertSelectedSpanStable(
   if (!isDeepStrictEqual([...current.shadowedSeqs], [...prepared.shadowedSeqs])) {
     throw new SurfaceChangedError('compaction: the selected span changed during summarization')
   }
+  /** 中文说明：运行时局部值 measured，由紧邻初始化决定。 */
   const measured = dependencies.meter.measure(session).nodes.slice(current.startIdx, current.endIdx + 1)
   if (!isDeepStrictEqual(measured, prepared.selectedNodes)) {
     throw new SurfaceChangedError('compaction: the selected span was rewritten during summarization')
@@ -424,11 +487,13 @@ function assertSelectedSpanStable(
 }
 
 /** Append one completed summary record and replacement body without yielding. */
+/** 中文说明：函数 commitCompactionBody 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commitCompactionBody(
   session: Session,
   startEvent: SessionEvent<'compaction/start'>,
   summarized: SummarizedCompaction,
 ): Omit<CompactionResult, 'endSeq'> {
+  /** 中文说明：运行时局部值 {，由紧邻初始化决定。 */
   const {
     start,
     end,
@@ -441,9 +506,11 @@ function commitCompactionBody(
     usage,
     checkpointMessage,
   } = summarized
+  /** 中文说明：运行时局部值 callProvenance，由紧邻初始化决定。 */
   const callProvenance = summarized.llmStreamCall === true
     ? { rawOutput: summarized.rawOutput, llmStreamCall: true as const }
     : summarized.rawOutput === undefined ? {} : { rawOutput: summarized.rawOutput }
+  /** 中文说明：运行时局部值 summaryEvent，由紧邻初始化决定。 */
   const summaryEvent = session.append('compaction/summary', {
     compactionId: startEvent.data.compactionId,
     ...startEvent.data.sourceCommandId === undefined
@@ -478,6 +545,7 @@ function commitCompactionBody(
 }
 
 /** Attach the successfully appended close event to a pending result. */
+/** 中文说明：函数 completeCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function completeCompaction(
   pending: Omit<CompactionResult, 'endSeq'>,
   endEvent: SessionEvent<'compaction/end'>,
@@ -495,12 +563,16 @@ function completeCompaction(
  * @param shadowedSeqs - the surface-node seqs, in order, being compacted.
  * @returns the replayed conversation prefix to condense.
  */
+/** 中文说明：函数 buildSummarizationInput 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function buildSummarizationInput(
   session: Session,
   shadowedSeqs: readonly number[],
 ): SummarizationInput {
+  /** 中文说明：运行时局部值 header，由紧邻初始化决定。 */
   const header = session.requestHeader()
+  /** 中文说明：运行时局部值 events，由紧邻初始化决定。 */
   const events = session.events
+  /** 中文说明：运行时局部值 regionMessages，由紧邻初始化决定。 */
   const regionMessages = shadowedSeqs
     // shadowedSeqs are current surface seqs, so each is a valid log index.
     // oxlint-disable-next-line typescript/no-non-null-assertion
@@ -514,13 +586,21 @@ function buildSummarizationInput(
 }
 
 /** Inspect open-turn, unmatched-compaction, and latest seed-boundary state independently. */
+/** 中文说明：函数 inspectCompactionEntryState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inspectCompactionEntryState(events: readonly SessionEvent[]): CompactionEntryState {
+  /** 中文说明：运行时局部值 openTurn，由紧邻初始化决定。 */
   let openTurn: number | null = null
+  /** 中文说明：运行时局部值 openTurnStateKnown，由紧邻初始化决定。 */
   let openTurnStateKnown = false
+  /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
   let unmatchedCompactionStart: SessionEvent<'compaction/start'> | undefined
+  /** 中文说明：运行时局部值 compactionEntryStateKnown，由紧邻初始化决定。 */
   let compactionEntryStateKnown = false
+  /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
   let latestEndSeedSeq: number | undefined
+  /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
   for (let index = events.length - 1; index >= 0; index -= 1) {
+    /** 中文说明：运行时局部值 event，由紧邻初始化决定。 */
     // oxlint-disable-next-line typescript/no-non-null-assertion
     const event = events[index]!
     if (latestEndSeedSeq === undefined && event.type === 'session/end-seed') {

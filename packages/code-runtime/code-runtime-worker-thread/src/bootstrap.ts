@@ -4,18 +4,31 @@
  * V8 isolate the coverage provider cannot observe).
  * @module @deepseek-ai/dsh-code-runtime-worker-thread/src/bootstrap
  */
+/**
+ * 文件职责：实现代码运行时的 bootstrap 模块。
+ * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
+ * 产品维度：为产品提供代码运行时能力。
+ * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
+ * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
+ * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
+ */
 
 import { inspect } from 'node:util'
 import type { DoneMessage, ReplyMessage, WorkerBootData, WorkerToHost } from './protocol.ts'
 import { jsonStringBytesUpTo, jsonValueBytesUpTo, truncateJsonStringBytes } from './output-json.ts'
 import { decodeWorkerJson, encodeWorkerJson, snapshotCodeJsonValue } from './worker-json.ts'
 
+/** 中文说明：运行时局部值 CapturedError，由紧邻初始化决定。 */
 const CapturedError = Error
+/** 中文说明：运行时局部值 capturedObjectCreate，由紧邻初始化决定。 */
 const capturedObjectCreate = Object.create
+/** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
 const capturedObjectDefineProperty = Object.defineProperty
 
 /** Define one public binding-error field without consulting mutable globals or descriptor prototypes. */
+/** 中文说明：函数 defineBindingErrorField 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function defineBindingErrorField(error: Error, key: string, value: string): void {
+  /** 中文说明：运行时局部值 attributes，由紧邻初始化决定。 */
   const attributes = capturedObjectCreate(null) as PropertyDescriptor
   attributes.enumerable = true
   attributes.value = value
@@ -23,6 +36,7 @@ function defineBindingErrorField(error: Error, key: string, value: string): void
 }
 
 /** The port API the bootstrap needs — satisfied by `parentPort` and by the tests' fake. */
+/** 中文说明：类型或类 BootstrapPort 约束协议数据或模块职责。 */
 export interface BootstrapPort {
   postMessage(message: WorkerToHost): void
   on(event: 'message', listener: (message: ReplyMessage) => void): void
@@ -34,6 +48,7 @@ export interface BootstrapPort {
  * `process.stdout`/`process.stderr` (narrower chunk parameters) remain
  * assignable.
  */
+/** 中文说明：类型或类 PatchableStream 约束协议数据或模块职责。 */
 export interface PatchableStream {
   write(chunk: unknown, ...rest: unknown[]): boolean
 }
@@ -46,6 +61,7 @@ export interface PatchableStream {
  * the fitting prefix and reports the limit once; the host turns that condition
  * into an explicit `output-limit` run failure.
  */
+/** 中文说明：类型或类 LogBuffer 约束协议数据或模块职责。 */
 export class LogBuffer {
   private bytes = 2 // JSON serialization of the empty logs array: []
   private entries = 0
@@ -69,13 +85,18 @@ export class LogBuffer {
    */
   push(text: string): void {
     if (this.truncated) return
+    /** 中文说明：运行时局部值 separatorBytes，由紧邻初始化决定。 */
     const separatorBytes = this.entries > 0 ? 1 : 0
+    /** 中文说明：运行时局部值 availableBytes，由紧邻初始化决定。 */
     const availableBytes = this.maxBytes - this.bytes - separatorBytes
+    /** 中文说明：运行时局部值 stringBytes，由紧邻初始化决定。 */
     const stringBytes = jsonStringBytesUpTo(text, availableBytes)
     if (stringBytes === undefined) {
       this.truncated = true
+      /** 中文说明：运行时局部值 prefix，由紧邻初始化决定。 */
       const prefix = truncateJsonStringBytes(text, availableBytes)
       if (prefix.length > 0) {
+        /** 中文说明：运行时局部值 prefixBytes，由紧邻初始化决定。 */
         const prefixBytes = jsonStringBytesUpTo(prefix, availableBytes)
         /* v8 ignore next -- truncateJsonStringBytes guarantees the returned prefix fits. */
         if (prefixBytes === undefined) throw new CapturedError('worker output ledger produced an oversized log prefix')
@@ -98,6 +119,7 @@ export class LogBuffer {
 }
 
 /** The five console methods the shim captures, in the seam's level vocabulary. */
+/** 中文说明：运行时局部值 CONSOLE_LEVELS，由紧邻初始化决定。 */
 const CONSOLE_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const
 
 /**
@@ -109,10 +131,14 @@ const CONSOLE_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const
  * @param logs - the buffer every rendered line is pushed into.
  * @returns the five-method console object handed to the program.
  */
+/** 中文说明：函数 makeConsoleShim 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function makeConsoleShim(logs: LogBuffer): Record<(typeof CONSOLE_LEVELS)[number], (...args: unknown[]) => void> {
+  /** 中文说明：运行时局部值 render，由紧邻初始化决定。 */
   const render = (args: unknown[]): string =>
     args.map(arg => typeof arg === 'string' ? arg : inspect(arg, INSPECT_OPTIONS)).join(' ')
+  /** 中文说明：运行时局部值 shim，由紧邻初始化决定。 */
   const shim = Object.create(null) as Record<(typeof CONSOLE_LEVELS)[number], (...args: unknown[]) => void>
+  /** 中文说明：运行时局部值 level，由紧邻初始化决定。 */
   for (const level of CONSOLE_LEVELS) {
     shim[level] = (...args: unknown[]) => { logs.push(render(args)) }
   }
@@ -131,15 +157,18 @@ export function makeConsoleShim(logs: LogBuffer): Record<(typeof CONSOLE_LEVELS)
  * @returns the restore function (the in-process tests un-patch; the real
  *   worker never needs to).
  */
+/** 中文说明：函数 captureStreamWrites 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function captureStreamWrites(logs: LogBuffer, stream: PatchableStream): () => void {
   // The slot's VALUE is stored for restore and reassigned — never invoked
   // detached, so the unbound-method concern does not apply.
+  /** 中文说明：运行时局部值 original，由紧邻初始化决定。 */
   // oxlint-disable-next-line typescript/unbound-method
   const original = stream.write
   stream.write = (chunk: unknown, ...rest: unknown[]): boolean => {
     logs.push(typeof chunk === 'string' ? chunk : String(chunk))
     // Node's optional-encoding shape: the callback is whichever of the next
     // two positions holds a function (a non-function there is the encoding).
+    /** 中文说明：运行时局部值 callback，由紧邻初始化决定。 */
     const callback = [rest[0], rest[1]].find(
       (arg): arg is (error?: Error | null) => void => typeof arg === 'function',
     )
@@ -150,6 +179,7 @@ export function captureStreamWrites(logs: LogBuffer, stream: PatchableStream): (
 }
 
 /** Bounded inspect options: deep enough to be useful, bounded so a pathological value cannot explode the rendering. */
+/** 中文说明：运行时局部值 INSPECT_OPTIONS，由紧邻初始化决定。 */
 const INSPECT_OPTIONS = { depth: 4, maxArrayLength: 100, maxStringLength: 10_000 } as const
 
 /**
@@ -163,12 +193,14 @@ const INSPECT_OPTIONS = { depth: 4, maxArrayLength: 100, maxStringLength: 10_000
  * @param maxOutputBytes - the configured cap named in an overflow diagnostic.
  * @returns the done-message fragment: `{}` for `undefined`, else a flat wire `{ value }`.
  */
+/** 中文说明：函数 prepareCompletion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function prepareCompletion(
   value: unknown,
   remainingOutputBytes: number,
   maxOutputBytes: number = remainingOutputBytes,
 ): Omit<DoneMessage, 'type'> {
   if (value === undefined) return {}
+  /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
   let snapshot: ReturnType<typeof snapshotCodeJsonValue>
   try {
     snapshot = snapshotCodeJsonValue(value)
@@ -190,11 +222,13 @@ export function prepareCompletion(
 }
 
 /** Build the fixed overflow fragment without carrying rejected variable bytes. */
+/** 中文说明：函数 outputLimit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function outputLimit(maxOutputBytes: number): Omit<DoneMessage, 'type'> {
   return { error: { kind: 'output-limit', message: `outer output exceeded ${maxOutputBytes} bytes` } }
 }
 
 /** Admit one bounded failure message or replace it with the fixed overflow diagnostic. */
+/** 中文说明：函数 prepareFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function prepareFailure(
   kind: 'exception' | 'invalid-output',
   message: string,
@@ -213,13 +247,16 @@ function prepareFailure(
  * @param maxOutputBytes - the configured cap named in an overflow diagnostic.
  * @returns a bounded exception or fixed output-limit fragment.
  */
+/** 中文说明：函数 prepareException 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function prepareException(
   error: unknown,
   remainingOutputBytes: number,
   maxOutputBytes: number = remainingOutputBytes,
 ): Omit<DoneMessage, 'type'> {
+  /** 中文说明：运行时局部值 message: string，由紧邻初始化决定。 */
   let message: string
   try {
+    /** 中文说明：运行时局部值 detail，由紧邻初始化决定。 */
     const detail: unknown = error instanceof CapturedError ? error.stack ?? error.message : error
     message = typeof detail === 'string' ? detail : String(detail)
   } catch {
@@ -229,12 +266,14 @@ export function prepareException(
 }
 
 /** One awaited binding call's settlement handles, keyed by call id in the pending map. */
+/** 中文说明：类型或类 PendingCall 约束协议数据或模块职责。 */
 export interface PendingCall {
   resolve(value: unknown): void
   reject(error: Error): void
 }
 
 /** Constructor type for one program-visible binding rejection class. */
+/** 中文说明：类型或类 BindingErrorConstructor 约束协议数据或模块职责。 */
 export type BindingErrorConstructor = new (memberName: string, message: string) => Error
 
 /**
@@ -242,6 +281,7 @@ export type BindingErrorConstructor = new (memberName: string, message: string) 
  * @param descriptor - program-global class name and member-name property.
  * @returns the constructor injected into the program and used for rejections.
  */
+/** 中文说明：函数 makeBindingErrorClass 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeBindingErrorClass(
   descriptor: { name: string; memberNameProperty: string },
 ): BindingErrorConstructor {
@@ -255,6 +295,7 @@ function makeBindingErrorClass(
 }
 
 /** Create the namespace-specific rejection for one failed binding call. */
+/** 中文说明：函数 bindingFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bindingFailure(errorClass: BindingErrorConstructor | undefined, memberName: string, message: string): Error {
   return errorClass ? new errorClass(memberName, message) : new CapturedError(message)
 }
@@ -264,10 +305,13 @@ function bindingFailure(errorClass: BindingErrorConstructor | undefined, memberN
  * @param data - binding namespace declarations from the boot payload.
  * @returns constructors keyed by their owning namespace global.
  */
+/** 中文说明：函数 makeBindingErrorClasses 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function makeBindingErrorClasses(
   data: Pick<WorkerBootData, 'namespaces'>,
 ): Map<string, BindingErrorConstructor> {
+  /** 中文说明：运行时局部值 classes，由紧邻初始化决定。 */
   const classes = new Map<string, BindingErrorConstructor>()
+  /** 中文说明：运行时局部值 namespace，由紧邻初始化决定。 */
   for (const namespace of data.namespaces) {
     if (namespace.errorClass) classes.set(namespace.global, makeBindingErrorClass(namespace.errorClass))
   }
@@ -283,12 +327,15 @@ export function makeBindingErrorClasses(
  * @param port - the port whose `message` events carry the replies.
  * @param pending - the id-keyed map of unsettled binding calls.
  */
+/** 中文说明：函数 wireReplies 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function wireReplies(port: BootstrapPort, pending: Map<number, PendingCall>): void {
   port.on('message', (message: ReplyMessage) => {
+    /** 中文说明：运行时局部值 entry，由紧邻初始化决定。 */
     const entry = pending.get(message.id)
     if (!entry) return
     pending.delete(message.id)
     if (message.ok) {
+      /** 中文说明：运行时局部值 value，由紧邻初始化决定。 */
       const value = decodeWorkerJson(message.value)
       if (value === undefined) entry.reject(new CapturedError('binding resolution must be lossless JSON'))
       else entry.resolve(value)
@@ -312,6 +359,7 @@ export function wireReplies(port: BootstrapPort, pending: Map<number, PendingCal
  * @param errorClasses - per-namespace constructors shared with program globals.
  * @returns one namespace object per declaration, in declaration order.
  */
+/** 中文说明：函数 makeNamespaces 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function makeNamespaces(
   data: Pick<WorkerBootData, 'namespaces'>,
   port: BootstrapPort,
@@ -320,12 +368,16 @@ export function makeNamespaces(
   errorClasses: Map<string, BindingErrorConstructor> = makeBindingErrorClasses(data),
 ): Record<string, unknown>[] {
   return data.namespaces.map(({ global, names }) => {
+    /** 中文说明：运行时局部值 errorClass，由紧邻初始化决定。 */
     const errorClass = errorClasses.get(global)
+    /** 中文说明：运行时局部值 namespace，由紧邻初始化决定。 */
     const namespace = Object.create(null) as Record<string, unknown>
+    /** 中文说明：运行时局部值 name，由紧邻初始化决定。 */
     for (const name of names) {
       Object.defineProperty(namespace, name, {
         enumerable: true,
         value: (args: unknown): Promise<unknown> => {
+          /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
           let detached: ReturnType<typeof snapshotCodeJsonValue>
           try {
             detached = snapshotCodeJsonValue(args)
@@ -336,6 +388,7 @@ export function makeNamespaces(
             return Promise.reject(bindingFailure(errorClass, name, 'binding arguments must be lossless JSON'))
           }
           return new Promise((resolve, reject) => {
+            /** 中文说明：运行时局部值 id，由紧邻初始化决定。 */
             const id = nextId.value++
             pending.set(id, {
               resolve,
@@ -347,6 +400,7 @@ export function makeNamespaces(
               port.postMessage({ type: 'call', id, global, name, args: encodeWorkerJson(detached) })
             } catch (error: unknown) {
               pending.delete(id)
+              /** 中文说明：运行时局部值 message，由紧邻初始化决定。 */
               const message = `binding arguments must be structured-cloneable: ${error instanceof CapturedError ? error.message : String(error)}`
               reject(bindingFailure(errorClass, name, message))
             }
@@ -366,11 +420,13 @@ export function makeNamespaces(
  * @param streams - stdout/stderr objects captured as program logs.
  * @returns after posting the done message.
  */
+/** 中文说明：函数 runWorkerMain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function runWorkerMain(
   port: BootstrapPort,
   data: WorkerBootData,
   streams: { stdout: PatchableStream; stderr: PatchableStream },
 ): Promise<void> {
+  /** 中文说明：运行时局部值 logs，由紧邻初始化决定。 */
   const logs = new LogBuffer(
     data.maxOutputBytes,
     (text) => { port.postMessage({ type: 'log', text }) },
@@ -379,36 +435,49 @@ export async function runWorkerMain(
   captureStreamWrites(logs, streams.stdout)
   captureStreamWrites(logs, streams.stderr)
 
+  /** 中文说明：运行时局部值 pending，由紧邻初始化决定。 */
   const pending = new Map<number, PendingCall>()
   wireReplies(port, pending)
 
+  /** 中文说明：运行时局部值 nextId，由紧邻初始化决定。 */
   const nextId = { value: 1 }
+  /** 中文说明：运行时局部值 errorClasses，由紧邻初始化决定。 */
   const errorClasses = makeBindingErrorClasses(data)
+  /** 中文说明：运行时局部值 namespaces，由紧邻初始化决定。 */
   const namespaces = makeNamespaces(data, port, pending, nextId, errorClasses)
+  /** 中文说明：运行时局部值 errorClassParameters，由紧邻初始化决定。 */
   const errorClassParameters: string[] = []
+  /** 中文说明：运行时局部值 errorClassValues，由紧邻初始化决定。 */
   const errorClassValues: BindingErrorConstructor[] = []
+  /** 中文说明：运行时局部值 namespace，由紧邻初始化决定。 */
   for (const namespace of data.namespaces) {
     if (!namespace.errorClass) continue
     errorClassParameters.push(namespace.errorClass.name)
+    /** 中文说明：运行时局部值 errorClass，由紧邻初始化决定。 */
     const errorClass = errorClasses.get(namespace.global)
     /* v8 ignore next -- makeBindingErrorClasses covers every declaration in the same data. */
     if (!errorClass) throw new CapturedError(`missing binding error class for ${namespace.global}`)
     errorClassValues.push(errorClass)
   }
+  /** 中文说明：运行时局部值 consoleShim，由紧邻初始化决定。 */
   const consoleShim = makeConsoleShim(logs)
 
+  /** 中文说明：运行时局部值 done: DoneMessage，由紧邻初始化决定。 */
   let done: DoneMessage
   try {
     // The async function constructor, reached through an instance because
     // `AsyncFunction` is not a global. The program body is strict-mode.
+    /** 中文说明：运行时局部值 AsyncFunction，由紧邻初始化决定。 */
     /* v8 ignore next -- the arrow exists only to reach the AsyncFunction constructor; it is never invoked. */
     const AsyncFunction = (async () => {}).constructor as new (...args: string[]) => (...fnArgs: unknown[]) => Promise<unknown>
+    /** 中文说明：运行时局部值 fn，由紧邻初始化决定。 */
     const fn = new AsyncFunction(
       ...data.namespaces.map(namespace => namespace.global),
       ...errorClassParameters,
       'console',
       `'use strict';\n${data.code}`,
     )
+    /** 中文说明：运行时局部值 value，由紧邻初始化决定。 */
     const value = await fn(...namespaces, ...errorClassValues, consoleShim)
     done = {
       type: 'done',

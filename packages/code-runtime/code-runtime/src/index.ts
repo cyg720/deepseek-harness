@@ -3,6 +3,14 @@
  * Runtimes know nothing about tools or sessions; consumers own those concerns.
  * @module @deepseek-ai/dsh-code-runtime
  */
+/**
+ * 文件职责：实现代码运行时的 index 模块。
+ * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
+ * 产品维度：为产品提供代码运行时能力。
+ * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
+ * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
+ * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
+ */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { CodeRunRequest, CodeRunResult } from './types.ts'
@@ -37,6 +45,7 @@ export type {
  * unreachable from the program — accepted by validation, unusable on the
  * Python backend, which is exactly the split the shared set exists to prevent.
  */
+/** 中文说明：运行时局部值 RESERVED_BINDING_GLOBALS，由紧邻初始化决定。 */
 export const RESERVED_BINDING_GLOBALS: ReadonlySet<string> = new Set([
   'console',
   '__dsh_main__', '__builtins__', '__name__', '__debug__',
@@ -52,6 +61,7 @@ export const RESERVED_BINDING_GLOBALS: ReadonlySet<string> = new Set([
  * raises while constructing the rejection, and the exact set is an interpreter
  * version detail. Any other non-empty own property name is accepted everywhere.
  */
+/** 中文说明：运行时局部值 RESERVED_ERROR_MEMBERS，由紧邻初始化决定。 */
 export const RESERVED_ERROR_MEMBERS: ReadonlySet<string> = new Set([
   'name', 'message', 'stack',
   'args', 'with_traceback', 'add_note',
@@ -61,6 +71,7 @@ export const RESERVED_ERROR_MEMBERS: ReadonlySet<string> = new Set([
  * Dunder form (`__x__`, non-empty middle): object-protocol slots in Python,
  * refused as {@link RESERVED_ERROR_MEMBERS | error members} on every backend.
  */
+/** 中文说明：运行时局部值 DUNDER_MEMBER，由紧邻初始化决定。 */
 export const DUNDER_MEMBER = /^__.+__$/
 
 /**
@@ -73,6 +84,7 @@ export const DUNDER_MEMBER = /^__.+__$/
  * the Python one. Extending the seam with a new language means widening this
  * union (a breaking review of existing binding names, by design).
  */
+/** 中文说明：运行时局部值 PORTABLE_RESERVED_WORDS，由紧邻初始化决定。 */
 export const PORTABLE_RESERVED_WORDS: ReadonlySet<string> = new Set([
   // ECMAScript reserved words and reserved-in-strict-mode names.
   'await', 'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete', 'do',
@@ -87,6 +99,7 @@ export const PORTABLE_RESERVED_WORDS: ReadonlySet<string> = new Set([
 ])
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：类型或类 Context 约束协议数据或模块职责。 */
   interface Context {
     codeRuntime: CodeRuntime
   }

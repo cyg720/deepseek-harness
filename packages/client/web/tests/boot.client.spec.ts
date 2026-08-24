@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+/**
+ * 文件职责：验证Web 启动的 boot.client.spec.ts 行为。
+ * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
+ * 产品维度：防止Web 启动协议与生命周期回归。
+ * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
+ * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
+ * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import * as modulesClient from '@deepseek-ai/dsh-client-modules/client'
 import type {
@@ -8,8 +16,11 @@ import type {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AppWebEntry } from '../src/boot.ts'
 
+/** 中文说明：测试局部值 MODULES_ID，由紧邻初始化决定。 */
 const MODULES_ID = '@deepseek-ai/dsh-client-modules'
+/** 中文说明：测试局部值 win，由紧邻初始化决定。 */
 const win = globalThis as DshWindow
+/** 中文说明：测试局部值 moduleFace，由紧邻初始化决定。 */
 const moduleFace = modulesClient as unknown as Record<string, unknown>
 
 afterEach(() => {
@@ -20,10 +31,13 @@ afterEach(() => {
 })
 
 /** Install the stable facade shape that the Host injects before AppWebEntry runs. */
+/** 中文说明：函数 installFacade 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function installFacade(
   create?: (options: ClientModuleCreateOptions) => modulesClient.ClientModuleSystem,
 ): ClientModuleLoaderTarget {
+  /** 中文说明：测试局部值 pendingQueue，由紧邻初始化决定。 */
   const pendingQueue: ClientBundleRegistration[] = []
+  /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
   const target: ClientModuleLoaderTarget = {
     mode: 'queue',
     pendingQueue,
@@ -37,11 +51,15 @@ function installFacade(
   return target
 }
 
+/** 中文说明：函数 expectBootFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function expectBootFailure(setup: () => void, message: string): Promise<void> {
+  /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
   const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+  /** 中文说明：测试局部值 container，由紧邻初始化决定。 */
   const container = document.createElement('div')
   document.body.append(container)
   setup()
+  /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
   const entry = new AppWebEntry(container)
   await entry.run()
   expect(container.textContent).toContain(message)
@@ -73,6 +91,7 @@ describe('bootstrap failure rendering', () => {
   it('renders a module-system construction failure', async () => {
     await expectBootFailure(() => {
       installFacade()
+      /** 中文说明：测试局部值 duplicate，由紧邻初始化决定。 */
       const duplicate = { id: 'duplicate', url: '/duplicate/client.js', rev: '1' }
       win.__DSH_BOOT__ = { rev: 'graph', entries: [duplicate, duplicate] }
     }, 'duplicate graph entry "duplicate"')
@@ -81,16 +100,21 @@ describe('bootstrap failure rendering', () => {
 
 describe('plugin activation', () => {
   it('allows a modules-dependent row to be created before the modules row', async () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: string[] = []
+    /** 中文说明：测试局部值 container，由紧邻初始化决定。 */
     const container = document.createElement('div')
     document.body.append(container)
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = installFacade()
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries: WebBootEntry[] = [
       { id: 'consumer', url: '/consumer.js', rev: '1' },
       { id: MODULES_ID, url: '/modules.js', rev: '1' },
       { id: 'renderer', url: '/renderer.js', rev: '1' },
     ]
     win.__DSH_BOOT__ = { rev: 'graph', entries }
+    /** 中文说明：测试局部值 registrations，由紧邻初始化决定。 */
     const registrations = new Map<string, ClientBundleRegistration>([
       ['/consumer.js', {
         id: 'consumer',
@@ -117,8 +141,10 @@ describe('plugin activation', () => {
         }),
       }],
     ])
+    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     const entry = new AppWebEntry(container, {
       loadBundle: async (url) => {
+        /** 中文说明：测试局部值 registration，由紧邻初始化决定。 */
         const registration = registrations.get(url)
         if (registration === undefined) throw new Error(`missing fixture registration ${url}`)
         target.load(registration)

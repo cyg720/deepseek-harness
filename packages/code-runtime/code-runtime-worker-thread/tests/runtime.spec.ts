@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证代码运行时的 runtime.spec.ts 行为。
+ * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
+ * 产品维度：防止代码运行时协议与生命周期回归。
+ * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
+ * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
+ * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { WorkerThreadCodeRuntime } from '@deepseek-ai/dsh-code-runtime-worker-thread'
@@ -9,17 +17,22 @@ import type { CodeBindingFunction, CodeBindingNamespace, CodeRunResult } from '@
  * and local, per docs/testing.md's real-over-mock policy). Each test builds
  * a fresh context so budgets can be tuned per case.
  */
+/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(config: Config = {}) {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(WorkerThreadCodeRuntime, config)
+  /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = ctx.codeRuntime as WorkerThreadCodeRuntime
   return { ctx, runtime }
 }
 
 /** Convenience: one namespace `tools` with the given functions. */
+/** 中文说明：函数 tools 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tools(functions: Record<string, (args: unknown) => Promise<unknown>>): CodeBindingNamespace[] {
   return [{
     global: 'tools',
+    /** 中文说明：函数 s 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
     functions: functions as Record<string, CodeBindingFunction>,
     errorClass: { name: 'ToolCallError', memberNameProperty: 'toolName' },
   }]
@@ -27,16 +40,21 @@ function tools(functions: Record<string, (args: unknown) => Promise<unknown>>): 
 
 describe('WorkerThreadCodeRuntime — programs and bindings (real workers)', () => {
   it('registers with the seam descriptors', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
     expect(runtime.language).toBe('typescript')
     expect(runtime.isolation).toBe('worker-thread')
   })
 
   it('runs TypeScript (erasable syntax), captures output in order, returns the value', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：类型或类 Point 约束协议数据或模块职责。 */
         interface Point { x: number; y: number }
+        /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
         const p: Point = { x: 1, y: 2 } as Point;
         console.log('point', p);
         process.stdout.write('raw-out\\n');
@@ -51,13 +69,19 @@ describe('WorkerThreadCodeRuntime — programs and bindings (real workers)', () 
   })
 
   it('bridges binding calls both ways and rejects the program-side call on a host rejection', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls: unknown[] = []
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
         const first = await tools.echo({ n: 1 });
+        /** 中文说明：测试局部值 caught，由紧邻初始化决定。 */
         let caught = {};
         try { await tools.fail({}) } catch (error) { caught = { isTyped: error instanceof ToolCallError, name: error.name, toolName: error.toolName, message: error.message } }
+        /** 中文说明：测试局部值 caughtRaw，由紧邻初始化决定。 */
         let caughtRaw = {};
         try { await tools.failRaw({}) } catch (error) { caughtRaw = { name: error.name, toolName: error.toolName, message: error.message } }
         return { first, caught, caughtRaw };
@@ -79,7 +103,9 @@ describe('WorkerThreadCodeRuntime — programs and bindings (real workers)', () 
   })
 
   it('materializes a typed rejection from a generic namespace descriptor', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
         try { await helpers.fail({}) } catch (error) {
@@ -93,6 +119,7 @@ describe('WorkerThreadCodeRuntime — programs and bindings (real workers)', () 
       `,
       bindings: [{
         global: 'helpers',
+        /** 中文说明：函数 s 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
         functions: { fail: async () => { throw new Error('nope') } },
         errorClass: { name: 'HelperCallError', memberNameProperty: 'helperName' },
       }],
@@ -106,10 +133,14 @@ describe('WorkerThreadCodeRuntime — programs and bindings (real workers)', () 
   })
 
   it('bridges a deeply nested lossless JSON argument, resolution, and completion', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
         let value = 'leaf';
+        /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
         for (let depth = 0; depth < 3_000; depth++) value = [value];
         return await tools.echo(value);
       `,
@@ -117,7 +148,9 @@ describe('WorkerThreadCodeRuntime — programs and bindings (real workers)', () 
     })
 
     expect(result.error).toBeUndefined()
+    /** 中文说明：测试局部值 cursor，由紧邻初始化决定。 */
     let cursor = result.value
+    /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
     for (let depth = 0; depth < 3_000; depth++) {
       expect(Array.isArray(cursor)).toBe(true)
       cursor = Array.isArray(cursor) ? cursor[0] : undefined
@@ -126,41 +159,53 @@ describe('WorkerThreadCodeRuntime — programs and bindings (real workers)', () 
   }, 15_000)
 
   it('reports non-erasable syntax as an exception without spawning a worker', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'enum E { A }\nreturn 1', bindings: [] })
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toMatch(/enum|strip/i)
   })
 
   it('reports a runtime throw as an exception with the message', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'throw new Error("kaboom")', bindings: [] })
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('kaboom')
   })
 
   it('gives the program an EMPTY environment', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'return JSON.stringify(process.env)', bindings: [] })
     expect(result.value).toBe('{}')
   })
 
   it('rejects a non-lossless completion instead of replacing it with rendered text', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'return { f: () => 1 }', bindings: [] })
     expect(result.value).toBeUndefined()
     expect(result.error).toEqual({ kind: 'invalid-output', message: 'program completion must be lossless JSON' })
   })
 
   it('completes a program that returns nothing with no value at all', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'const x = 1', bindings: [] })
     expect(result.error).toBeUndefined()
     expect('value' in result).toBe(false)
   })
 
   it('keeps logs streamed before a failure', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'console.log("before"); throw new Error("after-log")',
       bindings: [],
@@ -172,7 +217,9 @@ describe('WorkerThreadCodeRuntime — programs and bindings (real workers)', () 
 
 describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', () => {
   it('ends a hot loop at the compute budget — including behind a pending decoy dispatch', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ computeMs: 300, maxWallMs: 30_000 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       // The decoy: fire a call at a never-resolving binding WITHOUT awaiting,
       // then spin. Host-side pending-call bookkeeping would pause a naive
@@ -187,7 +234,9 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   it('does not charge time spent awaiting a slow binding against the compute budget', async () => {
     // Keep the binding delay above the compute allowance while leaving enough
     // headroom for worker bootstrap on loaded CI hosts.
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ computeMs: 1_000, maxWallMs: 30_000 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'return await tools.slow({})',
       bindings: tools({ slow: () => new Promise(resolve => setTimeout(() => { resolve('slow-done') }, 1_500)) }),
@@ -197,7 +246,9 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   }, 15_000)
 
   it('ends an idle-forever run at the wall-clock ceiling', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ computeMs: 30_000, maxWallMs: 400 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'await tools.never({}); return 1',
       bindings: tools({ never: () => new Promise(() => {}) }),
@@ -207,38 +258,53 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   }, 15_000)
 
   it('reports an abort mid-run and stops the worker', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     setTimeout(() => { controller.abort('user-cancel') }, 150)
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'for (;;) {}', bindings: [], signal: controller.signal })
     expect(result.error).toEqual({ kind: 'abort', message: 'user-cancel' })
   }, 15_000)
 
   it('reports a pre-aborted signal without spawning', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort('too-late')
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'return 1', bindings: [], signal: controller.signal })
     expect(result.error).toEqual({ kind: 'abort', message: 'too-late' })
   })
 
   it('applies the outer-output cap to failures before worker startup', async () => {
+    /** 中文说明：测试局部值 capped，由紧邻初始化决定。 */
     const capped = await setup({ maxOutputBytes: 64 })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort('A'.repeat(1_000))
+    /** 中文说明：测试局部值 aborted，由紧邻初始化决定。 */
     const aborted = await capped.runtime.run({ program: 'return 1', bindings: [], signal: controller.signal })
     expect(aborted).toEqual({ logs: [], error: { kind: 'output-limit', message: 'outer output exceeded 64 bytes' } })
 
+    /** 中文说明：测试局部值 minimal，由紧邻初始化决定。 */
     const minimal = await setup({ maxOutputBytes: 4 })
+    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     const invalid = await minimal.runtime.run({ program: 'enum E { A }\nreturn 1', bindings: [] })
     expect(invalid.error?.kind).toBe('output-limit')
     expect(Buffer.byteLength(JSON.stringify(invalid.logs), 'utf8') + Buffer.byteLength(JSON.stringify(invalid.error?.message), 'utf8')).toBeLessThanOrEqual(4)
   })
 
   it('drops a binding resolution that lands after the run settled', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let replyDelivered!: Promise<void>
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'void tools.late({}); for (;;) {}',
       bindings: tools({
@@ -259,19 +325,24 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   }, 15_000)
 
   it('contains an OOM under resourceLimits as worker-exit, host process healthy', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOldGenerationSizeMb: 32 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'const hog = []; for (;;) hog.push(new Array(1e6).fill(1));',
       bindings: [],
     })
     expect(result.error?.kind).toBe('worker-exit')
     // And the host is fine: run something else.
+    /** 中文说明：测试局部值 after，由紧邻初始化决定。 */
     const after = await runtime.run({ program: 'return "alive"', bindings: [] })
     expect(after.value).toBe('alive')
   }, 30_000)
 
   it('reports a worker that exits before publishing a completion', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'process.exit(7)', bindings: [] })
     expect(result).toEqual({
       logs: [],
@@ -280,7 +351,9 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   })
 
   it('fails runaway log output explicitly while retaining a bounded prefix', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 300 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'for (let i = 0; i < 1000; i++) console.log("spam line", i); return 1',
       bindings: [],
@@ -292,7 +365,9 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   })
 
   it('retains a fitting prefix when one oversized log is the first output', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 96 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'console.log(`start-${`😀"\\\\\\n`.repeat(100)}`); return null',
       bindings: [],
@@ -305,30 +380,39 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   })
 
   it('fails an oversized return value without substituting a string', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 64 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'return "y".repeat(10_000)', bindings: [] })
     expect(result.value).toBeUndefined()
     expect(result.error).toEqual({ kind: 'output-limit', message: 'outer output exceeded 64 bytes' })
   })
 
   it('uses UTF-8 serialized bytes at the exact completion boundary', async () => {
+    /** 中文说明：测试局部值 exact，由紧邻初始化决定。 */
     const exact = await setup({ maxOutputBytes: 7 })
+    /** 中文说明：测试局部值 exactResult，由紧邻初始化决定。 */
     const exactResult = await exact.runtime.run({ program: 'return "€"', bindings: [] })
     // [] costs two bytes and JSON serialization of "€" costs five.
     expect(exactResult).toEqual({ logs: [], value: '€' })
 
+    /** 中文说明：测试局部值 over，由紧邻初始化决定。 */
     const over = await setup({ maxOutputBytes: 6 })
+    /** 中文说明：测试局部值 overResult，由紧邻初始化决定。 */
     const overResult = await over.runtime.run({ program: 'return "€"', bindings: [] })
     expect(overResult.error?.kind).toBe('output-limit')
   })
 
   it('accounts logs and completion in one exact combined ledger', async () => {
     // JSON(["abc"]) is seven bytes and JSON("xy") is four.
+    /** 中文说明：测试局部值 exact，由紧邻初始化决定。 */
     const exact = await setup({ maxOutputBytes: 11 })
     expect(await exact.runtime.run({ program: 'console.log("abc"); return "xy"', bindings: [] }))
       .toEqual({ logs: ['abc'], value: 'xy' })
 
+    /** 中文说明：测试局部值 over，由紧邻初始化决定。 */
     const over = await setup({ maxOutputBytes: 10 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await over.runtime.run({ program: 'console.log("abc"); return "xy"', bindings: [] })
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('output-limit')
@@ -337,11 +421,14 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
 
   it('accounts logs and exception diagnostics before the worker port boundary', async () => {
     // JSON(["abc"]) is seven bytes and JSON("xy") is four.
+    /** 中文说明：测试局部值 exact，由紧邻初始化决定。 */
     const exact = await setup({ maxOutputBytes: 11 })
     expect(await exact.runtime.run({ program: 'console.log("abc"); throw "xy"', bindings: [] }))
       .toEqual({ logs: ['abc'], error: { kind: 'exception', message: 'xy' } })
 
+    /** 中文说明：测试局部值 over，由紧邻初始化决定。 */
     const over = await setup({ maxOutputBytes: 10 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await over.runtime.run({ program: 'console.log("abc"); throw "xy"', bindings: [] })
     expect(result.error?.kind).toBe('output-limit')
     expect(Buffer.byteLength(JSON.stringify(result.logs), 'utf8')
@@ -349,7 +436,9 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   })
 
   it('does not send a giant Error stack across the worker port', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 64 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'throw new Error("x".repeat(1_000_000))',
       bindings: [],
@@ -364,7 +453,9 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
     // Node's write(chunk[, encoding][, callback]) contract: dropping the
     // callback would leave this promise pending until the wall ceiling and
     // misreport a completed program as a timeout.
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxWallMs: 2_000 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'await new Promise(resolve => process.stdout.write("flushed", resolve)); return "done"',
       bindings: [],
@@ -375,16 +466,20 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   })
 
   it('returns a large JSON container exactly when the outer cap permits it', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'return new Array(50_000).fill(7)', bindings: [] })
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual(new Array(50_000).fill(7))
   })
 
   it('returns an exact completion at the default 64 MiB combined boundary', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
     // [] costs two bytes and the JSON string contributes two quotes, leaving
     // exactly this many payload bytes under the 67_108_864-byte default.
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'return "x".repeat(67_108_860)', bindings: [] })
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual([])
@@ -392,18 +487,23 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   }, 60_000)
 
   it('fails one byte over the default 64 MiB combined boundary', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({ program: 'return "x".repeat(67_108_861)', bindings: [] })
     expect(result.value).toBeUndefined()
     expect(result.error).toEqual({ kind: 'output-limit', message: 'outer output exceeded 67108864 bytes' })
   }, 60_000)
 
   it('accounts pipe writes that bypass the patched write slot in the same outer ledger', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 80 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       // The prototype write bypasses the patched instance and reaches the real pipe. Pauses keep
       // writes in separate chunks and let both reach the host before settlement.
       program: `
+        /** 中文说明：测试局部值 write，由紧邻初始化决定。 */
         const write = (text) => Object.getPrototypeOf(process.stdout).write.call(process.stdout, text);
         write('a'.repeat(20));
         await new Promise(resolve => setTimeout(resolve, 150));
@@ -420,11 +520,16 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
   }, 15_000)
 
   it('drains pipe output queued before terminal worker teardown completes', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 200_000 })
+    /** 中文说明：测试局部值 payload，由紧邻初始化决定。 */
     const payload = `late-pipe-${'x'.repeat(100_000)}`
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
+        /** 中文说明：测试局部值 write，由紧邻初始化决定。 */
         const write = (text) => Object.getPrototypeOf(process.stdout).write.call(process.stdout, text);
         write('late-pipe-' + 'x'.repeat(100_000));
         parentPort.postMessage({ type: 'done', value: ['done'] });
@@ -440,9 +545,12 @@ describe('WorkerThreadCodeRuntime — budgets and containment (real workers)', (
 
 describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   it('survives forged port traffic: unknown binding names, duplicate ids, junk shapes', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
         parentPort.postMessage({ type: 'call', id: 7777, global: 'tools', name: 'missing', args: {} });
         parentPort.postMessage({ type: 'call', id: 7777, global: 'tools', name: 'missing', args: {} });
@@ -457,10 +565,14 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('survives arbitrary junk on the port: non-objects, junk types, malformed calls, logs, and dones', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
+        /** 中文说明：测试局部值 junk，由紧邻初始化决定。 */
         for (const junk of [
           null, 42, 'junk', [],
           { type: 'nope' },
@@ -486,13 +598,17 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('fails forged log floods and forged done values through the same outer cap', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 200 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       // Forged messages bypass the worker-side LogBuffer and completion check
       // entirely — only the host-side ledger and re-cap stand between model
       // code and an unbounded result.
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
+        /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
         for (let i = 0; i < 50; i++) parentPort.postMessage({ type: 'log', text: 'F'.repeat(100), forged: true });
         parentPort.postMessage({ type: 'done', value: ['V'.repeat(100000)] });
         for (;;) {}
@@ -505,9 +621,12 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('re-caps an oversized forged done value at the host boundary', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 64 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
         parentPort.postMessage({ type: 'done', value: ['V'.repeat(100_000)] });
         for (;;) {}
@@ -521,9 +640,12 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('bounds one oversized forged log while retaining its fitting escaped prefix', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 96 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
         parentPort.postMessage({ type: 'log', text: '"'.repeat(1_000_000) });
         for (;;) {}
@@ -537,9 +659,12 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('drops a malformed forged done carrying both value and error', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
         parentPort.postMessage({ type: 'done', value: 'lied', error: { kind: 'exception', message: 'fake failure' } });
         return 'honest';
@@ -550,11 +675,16 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('contains a deeply nested forged completion without overflowing the host meter', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
+        /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
         const value = [];
+        /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
         for (let depth = 0; depth < 3_000; depth++) value.push({ kind: 'array', length: 1 });
         value.push(null);
         setTimeout(() => { parentPort.postMessage({ type: 'done', value }) }, 25);
@@ -564,7 +694,9 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
       bindings: [],
     })
     expect(result.error).toBeUndefined()
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     let value = result.value
+    /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
     let depth = 0
     while (Array.isArray(value)) {
       expect(value).toHaveLength(1)
@@ -576,9 +708,12 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   }, 15_000)
 
   it('turns forged over-limit error text into output-limit at the host', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup({ maxOutputBytes: 64 })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
         parentPort.postMessage({ type: 'done', error: { kind: 'exception', message: '€'.repeat(1000) } });
         for (;;) {}
@@ -589,7 +724,9 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('answers a binding whose resolution is not lossless JSON with a typed failure reply', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'try { await tools.bad({}) } catch (error) { return { name: error.name, toolName: error.toolName, message: error.message } }',
       bindings: tools({ bad: async () => (() => 1) }),
@@ -598,13 +735,20 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('rejects lossy binding arguments in the worker before invoking the host binding', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     let calls = 0
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 decorated，由紧邻初始化决定。 */
         const decorated = [1]; Object.defineProperty(decorated, 'extra', { value: true });
+        /** 中文说明：测试局部值 values，由紧邻初始化决定。 */
         const values = [new Date(), decorated, () => 1];
+        /** 中文说明：测试局部值 failures，由紧邻初始化决定。 */
         const failures = [];
+        /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
         for (const value of values) {
           try { await tools.never(value) } catch (error) {
             failures.push({ typed: error instanceof ToolCallError, name: error.name, toolName: error.toolName, message: error.message });
@@ -624,16 +768,23 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('rejects intrinsic-looking exotic objects as arguments and completions', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     let calls = 0
+    /** 中文说明：测试局部值 forgeObject，由紧邻初始化决定。 */
     const forgeObject = `
+      /** 中文说明：测试局部值 prototype，由紧邻初始化决定。 */
       const prototype = Object.create(null);
+      /** 中文说明：测试局部值 SpoofedObject，由紧邻初始化决定。 */
       const SpoofedObject = function Object() {};
       SpoofedObject.prototype = prototype;
       Object.defineProperty(prototype, 'constructor', { value: SpoofedObject });
+      /** 中文说明：测试局部值 forged，由紧邻初始化决定。 */
       const forged = Object.assign(Object.create(prototype), { value: 1 });
       Function.prototype.toString = () => 'function Object() { [native code] }';
     `
+    /** 中文说明：测试局部值 argument，由紧邻初始化决定。 */
     const argument = await runtime.run({
       program: `${forgeObject}
         try { await tools.never(forged) } catch (error) {
@@ -650,6 +801,7 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
       message: 'binding arguments must be lossless JSON',
     })
 
+    /** 中文说明：测试局部值 completion，由紧邻初始化决定。 */
     const completion = await runtime.run({ program: `${forgeObject}\nreturn forged`, bindings: [] })
     expect(completion).toEqual({
       logs: [],
@@ -658,12 +810,18 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('preserves binding and completion JSON after model code mutates boundary globals', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 arrayPrototype，由紧邻初始化决定。 */
         const arrayPrototype = Array.prototype;
+        /** 中文说明：测试局部值 objectPrototype，由紧邻初始化决定。 */
         const objectPrototype = Object.prototype;
+        /** 中文说明：测试局部值 setPrototype，由紧邻初始化决定。 */
         const setPrototype = Set.prototype;
+        /** 中文说明：测试局部值 stringPrototype，由紧邻初始化决定。 */
         const stringPrototype = String.prototype;
         Array.isArray = () => false;
         arrayPrototype.at = arrayPrototype.includes = arrayPrototype.pop = arrayPrototype.push = () => { throw new Error('mutated array method') };
@@ -680,7 +838,9 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
         objectPrototype.get = () => undefined;
         objectPrototype.constructor = arrayPrototype.constructor = null;
         globalThis.Array = globalThis.Buffer = globalThis.Error = globalThis.Function = globalThis.Number = globalThis.Object = globalThis.Reflect = globalThis.Set = globalThis.String = undefined;
+        /** 中文说明：测试局部值 echoed，由紧邻初始化决定。 */
         const echoed = await tools.echo({ request: ['€', 1] });
+        /** 中文说明：测试局部值 failure;，由紧邻初始化决定。 */
         let failure;
         try { await tools.fail({}) } catch (error) {
           failure = { typed: error instanceof ToolCallError, name: error.name, toolName: error.toolName, message: error.message };
@@ -700,12 +860,18 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('rejects forged lossy binding arguments again at the host boundary', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     let calls = 0
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
+        /** 中文说明：测试局部值 forged，由紧邻初始化决定。 */
         const forged = (id, args) => new Promise((resolve) => {
+          /** 中文说明：测试局部值 receive，由紧邻初始化决定。 */
           const receive = (message) => {
             if (message?.type !== 'reply' || message.id !== id) return;
             parentPort.off('message', receive);
@@ -714,7 +880,9 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
           parentPort.on('message', receive);
           parentPort.postMessage({ type: 'call', id, global: 'tools', name: 'never', args });
         });
+        /** 中文说明：测试局部值 sparse，由紧邻初始化决定。 */
         const sparse = []; sparse.length = 1;
+        /** 中文说明：测试局部值 cycle，由紧邻初始化决定。 */
         const cycle = {}; cycle.self = cycle;
         return await Promise.all([
           forged(8001, new Date()),
@@ -735,7 +903,9 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('contains throwing getters while snapshotting binding resolutions', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'try { await tools.bad({}) } catch (error) { return { name: error.name, toolName: error.toolName, message: error.message } }',
       bindings: tools({ bad: async () => Object.defineProperty({}, 'bad', { enumerable: true, get() { throw new Error('getter exploded') } }) }),
@@ -744,9 +914,12 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('revalidates a forged lossy completion at the host boundary', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
         parentPort.postMessage({ type: 'done', value: -0 });
         for (;;) {}
@@ -757,9 +930,12 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('honors a forged worker-side output-limit signal', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: `
+        /** 中文说明：测试局部值 { parentPort }，由紧邻初始化决定。 */
         const { parentPort } = await import('node:worker_threads');
         parentPort.postMessage({ type: 'output-limit' });
         for (;;) {}
@@ -770,7 +946,9 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
   })
 
   it('exposes binding names that collide with Object.prototype as ordinary functions', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runtime.run({
       program: 'return [await tools["__proto__"]({}), await tools["constructor"]({}), typeof tools["hasOwnProperty"]]',
       // Computed keys: a literal `'__proto__': …` entry would SET the record's
@@ -783,7 +961,9 @@ describe('WorkerThreadCodeRuntime — hostile programs (real workers)', () => {
 
 describe('WorkerThreadCodeRuntime — seam misuse and lifecycle', () => {
   it('rejects invalid and duplicate binding globals loudly', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases: [string, RegExp][] = [
       ['not valid!', /not a usable identifier/],
       ['await', /not a usable identifier/],
@@ -799,6 +979,7 @@ describe('WorkerThreadCodeRuntime — seam misuse and lifecycle', () => {
       ['lambda', /not a usable identifier/],
       ['console', /reserved binding global/],
     ]
+    /** 中文说明：测试局部值 [global，由紧邻初始化决定。 */
     for (const [global, message] of cases) {
       await expect(runtime.run({ program: 'return 1', bindings: [{ global, functions: {} }] })).rejects.toThrow(message)
     }
@@ -814,10 +995,14 @@ describe('WorkerThreadCodeRuntime — seam misuse and lifecycle', () => {
   })
 
   it('rejects malformed or colliding binding error-class declarations', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
+    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
     const run = async (bindings: CodeBindingNamespace[]) => await runtime.run({ program: 'return 1', bindings })
+    /** 中文说明：测试局部值 namespace，由紧邻初始化决定。 */
     const namespace = (global: string, name: string, memberNameProperty = 'memberName'): CodeBindingNamespace => ({
       global,
+      /** 中文说明：函数 s 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
       functions: {},
       errorClass: { name, memberNameProperty },
     })
@@ -843,6 +1028,7 @@ describe('WorkerThreadCodeRuntime — seam misuse and lifecycle', () => {
   })
 
   it('rejects config values that are not positive numbers', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(WorkerThreadCodeRuntime, { computeMs: -1 })).rejects.toThrow(/positive number/)
   })
@@ -850,6 +1036,7 @@ describe('WorkerThreadCodeRuntime — seam misuse and lifecycle', () => {
   it('rejects a maxWallMs above Node\'s maximum timer delay', async () => {
     // setTimeout clamps a delay past 2^31-1 ms to 1 ms, so the positivity check
     // alone would accept a 25-day ceiling that expires on the first tick.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(WorkerThreadCodeRuntime, { maxWallMs: 2_147_483_648 }))
       .rejects.toThrow(/maxWallMs must be at most 2147483647/)
@@ -858,33 +1045,43 @@ describe('WorkerThreadCodeRuntime — seam misuse and lifecycle', () => {
   })
 
   it('requires maxOutputBytes to fit the smallest counted outer payloads', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(WorkerThreadCodeRuntime, { maxOutputBytes: 3 })).rejects.toThrow(/safe integer of at least 4/)
     await expect(ctx.plugin(WorkerThreadCodeRuntime, { maxOutputBytes: 4.5 })).rejects.toThrow(/safe integer of at least 4/)
   })
 
   it('keeps runs isolated: no state survives from one run to the next', async () => {
+    /** 中文说明：测试局部值 { runtime }，由紧邻初始化决定。 */
     const { runtime } = await setup()
     await runtime.run({ program: 'globalThis.leak = "value"; return 1', bindings: [] })
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await runtime.run({ program: 'return typeof globalThis.leak', bindings: [] })
     expect(second.value).toBe('undefined')
   })
 
   it('disposal aborts in-flight runs, awaits worker exit, and rejects later runs', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(WorkerThreadCodeRuntime)
+    /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
     const runtime = ctx.codeRuntime as WorkerThreadCodeRuntime
+    /** 中文说明：测试局部值 inflight，由紧邻初始化决定。 */
     const inflight: Promise<CodeRunResult> = runtime.run({ program: 'for (;;) {}', bindings: [] })
     // Give the worker a moment to actually start spinning.
     await new Promise(resolve => setTimeout(resolve, 200))
     await fiber.dispose()
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await inflight
     expect(result.error).toEqual({ kind: 'abort', message: 'runtime disposed' })
     await expect(runtime.run({ program: 'return 1', bindings: [] })).rejects.toThrow(/after disposal/)
   }, 15_000)
 
   it('removes ctx.codeRuntime when the providing fiber disposes (HMR safety)', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(WorkerThreadCodeRuntime)
     expect(ctx.get('codeRuntime')).toBeInstanceOf(WorkerThreadCodeRuntime)
     await fiber.dispose()

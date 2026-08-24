@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证代码运行时的 reserved.spec.ts 行为。
+ * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
+ * 产品维度：防止代码运行时协议与生命周期回归。
+ * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
+ * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
+ * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import {
   DUNDER_MEMBER,
@@ -23,6 +31,7 @@ describe('seam-owned portable identifier exclusions', () => {
   })
 
   it('RESERVED_ERROR_MEMBERS covers the JS Error and Python exception-protocol members', () => {
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of ['name', 'message', 'stack', 'args', 'with_traceback', 'add_note']) {
       expect(RESERVED_ERROR_MEMBERS.has(name)).toBe(true)
     }

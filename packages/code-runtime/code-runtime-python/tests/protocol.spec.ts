@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证代码运行时的 protocol.spec.ts 行为。
+ * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
+ * 产品维度：防止代码运行时协议与生命周期回归。
+ * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
+ * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
+ * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { checkDoneValue, encodeJsonPlain, hasNonLosslessNumber, hasUnsafeIntegerToken, logTruncationMarker, validateChildFrame } from '../src/index.ts'
 
@@ -127,7 +135,9 @@ describe('lossless-number scan', () => {
     expect(hasNonLosslessNumber({ a: [1, { b: -0 }] })).toBe(true)
     expect(hasNonLosslessNumber({ a: [0, 1.5, 'x', null, true] })).toBe(false)
     // Deep nesting must not overflow the stack.
+    /** 中文说明：测试局部值 deep，由紧邻初始化决定。 */
     let deep: unknown = 0
+    /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
     for (let i = 0; i < 100000; i++) deep = [deep]
     expect(hasNonLosslessNumber(deep)).toBe(false)
   })
@@ -141,12 +151,15 @@ describe('lossless-number scan', () => {
     // through the boundary: a wide payload whose per-member cost the old shape
     // would have paid still scans, and a violation ANYWHERE in it is found
     // wherever it sits.
+    /** 中文说明：测试局部值 wideArray，由紧邻初始化决定。 */
     const wideArray = new Array(2_000_000).fill(0) as unknown[]
     expect(hasNonLosslessNumber(wideArray)).toBe(false)
     // Last element, so the cursor must run the whole breadth lazily.
     wideArray[wideArray.length - 1] = -0
     expect(hasNonLosslessNumber(wideArray)).toBe(true)
+    /** 中文说明：测试局部值 wideObject，由紧邻初始化决定。 */
     const wideObject: Record<string, unknown> = {}
+    /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
     for (let i = 0; i < 200_000; i++) wideObject[`k${i}`] = i
     expect(hasNonLosslessNumber(wideObject)).toBe(false)
     wideObject.last = Infinity
@@ -160,6 +173,7 @@ describe('lossless-number scan', () => {
     // The per-level cursor filters own keys (a prototype-carrying frame is
     // impossible off JSON.parse, but the filter is what keeps the walk equal
     // to what the encoder would serialize).
+    /** 中文说明：测试局部值 withProto，由紧邻初始化决定。 */
     const withProto = Object.create({ inherited: -0 }) as Record<string, unknown>
     withProto.own = 1
     expect(hasNonLosslessNumber(withProto)).toBe(false)
@@ -185,8 +199,11 @@ describe('unsafe-integer token scan', () => {
 
 describe('checkDoneValue', () => {
   it('matches the exact encoded size and rejects one byte over', () => {
+    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases: unknown[] = [null, true, false, 0, -1.5, 'a"b\\', [], {}, [1, 'x', null], { a: [1, 2], b: { c: 'd' } }]
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     for (const value of cases) {
+      /** 中文说明：测试局部值 exact，由紧邻初始化决定。 */
       const exact = Buffer.byteLength(JSON.stringify(value), 'utf8')
       expect(checkDoneValue(value, exact), JSON.stringify(value)).toEqual({ ok: true, bytes: exact })
       expect(checkDoneValue(value, exact - 1), JSON.stringify(value)).toEqual({ ok: false, reason: 'over-budget' })
@@ -197,18 +214,22 @@ describe('checkDoneValue', () => {
   it('rejects an over-budget value before its secondary allocations', () => {
     // A huge string is refused on the cheap length lower bound, before its
     // escaped copy is built.
+    /** 中文说明：测试局部值 huge，由紧邻初始化决定。 */
     const huge = { data: 'x'.repeat(1_000_000), tail: 'y' }
     expect(checkDoneValue(huge, 1024)).toEqual({ ok: false, reason: 'over-budget' })
     // A flat array far above the budget fails on the brackets+length bound,
     // before its elements are pushed onto the traversal stack. (The array is
     // already materialized by the upstream parse; this only avoids the extra
     // per-element stack growth.)
+    /** 中文说明：测试局部值 flat，由紧邻初始化决定。 */
     const flat = new Array(10_000_000).fill(0)
     expect(checkDoneValue(flat, 1024)).toEqual({ ok: false, reason: 'over-budget' })
     // A wide object: braces+commas fit the cap, but the per-entry lower bound
     // (quoted key + colon + value = count*4) does not, so it fails before any
     // key is escaped or any value enqueued.
+    /** 中文说明：测试局部值 wide，由紧邻初始化决定。 */
     const wide: Record<string, number> = {}
+    /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
     for (let i = 0; i < 10; i++) wide[`k${i}`] = i
     expect(checkDoneValue(wide, 12)).toEqual({ ok: false, reason: 'over-budget' })
   })
@@ -247,6 +268,7 @@ describe('checkDoneValue', () => {
     // Object.keys/entries (which allocate per member before the bound). A
     // prototype-carrying forgery is impossible off JSON.parse, but the own-key
     // filter is what keeps the count equal to the encoder's.
+    /** 中文说明：测试局部值 withProto，由紧邻初始化决定。 */
     const withProto = Object.create({ inherited: 'x' }) as Record<string, unknown>
     withProto.own = 1
     expect(checkDoneValue(withProto, 1024)).toEqual({ ok: true, bytes: Buffer.byteLength('{"own":1}', 'utf8') })
@@ -259,6 +281,7 @@ describe('checkDoneValue', () => {
     expect(checkDoneValue(-0, 1024)).toEqual({ ok: false, reason: 'non-lossless' })
     expect(checkDoneValue({ a: [1, { b: -0 }] }, 1024)).toEqual({ ok: false, reason: 'non-lossless' })
     // An ordinary finite value within budget passes with its exact byte count.
+    /** 中文说明：测试局部值 clean，由紧邻初始化决定。 */
     const clean = { a: [0, 1.5, 'x', null, true] }
     expect(checkDoneValue(clean, 1024)).toEqual({ ok: true, bytes: Buffer.byteLength(JSON.stringify(clean), 'utf8') })
   })
@@ -268,6 +291,7 @@ describe('checkDoneValue', () => {
     // over-budget whichever member the walk reaches first — the non-lossless
     // number is recorded and metering finishes, so the two orders below (the
     // same value) cannot classify differently. Cap 100 with a 1000-char string.
+    /** 中文说明：测试局部值 big，由紧邻初始化决定。 */
     const big = 'x'.repeat(1000)
     expect(checkDoneValue([big, Infinity], 100)).toEqual({ ok: false, reason: 'over-budget' })
     expect(checkDoneValue([Infinity, big], 100)).toEqual({ ok: false, reason: 'over-budget' })
@@ -284,7 +308,9 @@ describe('checkDoneValue', () => {
   })
 
   it('meters and encodes deep nesting iteratively without overflowing the stack', () => {
+    /** 中文说明：测试局部值 deep，由紧邻初始化决定。 */
     let deep: unknown = 0
+    /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
     for (let i = 0; i < 100_000; i++) deep = [deep]
     // 100000 '[' + '0' + 100000 ']' = 200001 bytes.
     expect(checkDoneValue(deep, 1_000_000)).toEqual({ ok: true, bytes: 200_001 })
@@ -297,6 +323,7 @@ describe('checkDoneValue', () => {
   it('emits exact digits for beyond-safe integral doubles', () => {
     // String(2**60) prints the ROUNDED ...847000; echoing that to the child
     // would change the integer. BigInt digits give the exact ...846976.
+    /** 中文说明：测试局部值 v，由紧邻初始化决定。 */
     const v = JSON.parse('[1152921504606846976]') as unknown
     expect(encodeJsonPlain(v)).toBe('[1152921504606846976]')
     expect(checkDoneValue(v, 100)).toEqual({ ok: true, bytes: Buffer.byteLength('[1152921504606846976]', 'utf8') })

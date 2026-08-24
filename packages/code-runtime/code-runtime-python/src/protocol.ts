@@ -5,6 +5,14 @@
  * anything through the same fd; the Python bootstrap trusts host replies.
  * @module @deepseek-ai/dsh-code-runtime-python/src/protocol
  */
+/**
+ * 文件职责：实现代码运行时的 protocol 模块。
+ * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
+ * 产品维度：为产品提供代码运行时能力。
+ * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
+ * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
+ * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
+ */
 
 /**
  * The framed-JSON channel's file descriptor from the child's perspective. The
@@ -15,6 +23,7 @@
  * Python constant equals it, so a drift on either side breaks the boot channel
  * loudly rather than silently.
  */
+/** 中文说明：运行时局部值 PROTOCOL_FD，由紧邻初始化决定。 */
 export const PROTOCOL_FD = 3
 
 /**
@@ -22,6 +31,7 @@ export const PROTOCOL_FD = 3
  * the program-visible name the namespace is materialized under; `errorClass`,
  * when present, asks the bootstrap to mint a program-visible exception class.
  */
+/** 中文说明：类型或类 Namespace 约束协议数据或模块职责。 */
 interface Namespace {
   global: string
   names: string[]
@@ -32,6 +42,7 @@ interface Namespace {
  * A namespace's program-visible exception class: rejected calls raise its
  * instances carrying the failed member name on `memberNameProperty`.
  */
+/** 中文说明：类型或类 ErrorClass 约束协议数据或模块职责。 */
 interface ErrorClass {
   name: string
   memberNameProperty: string
@@ -43,6 +54,7 @@ interface ErrorClass {
  * subsequent run frame. Separated from the run so the run message stays
  * pure model input.
  */
+/** 中文说明：类型或类 BootMessage 约束协议数据或模块职责。 */
 export interface BootMessage {
   type: 'boot'
   /** RLIMIT_CPU seconds; the Python bootstrap sets this on itself before executing model code. */
@@ -61,17 +73,20 @@ export interface BootMessage {
 }
 
 /** Host → Python: sent after `boot-ack`; carries only the model's program body. */
+/** 中文说明：类型或类 RunMessage 约束协议数据或模块职责。 */
 interface RunMessage {
   type: 'run'
   program: string
 }
 
 /** Python → host: acknowledges boot completed and resource limits are in place. */
+/** 中文说明：类型或类 BootAckMessage 约束协议数据或模块职责。 */
 interface BootAckMessage {
   type: 'boot-ack'
 }
 
 /** Python → host: one bridged binding call (`await tools.name(args)` inside the program). */
+/** 中文说明：类型或类 CallMessage 约束协议数据或模块职责。 */
 interface CallMessage {
   type: 'call'
   /** Python-issued correlation id; the host answers each id at most once and ignores duplicates. */
@@ -88,6 +103,7 @@ interface CallMessage {
  * Python → host: captured text, streamed eagerly so output survives a
  * mid-run termination (RLIMIT_CPU, SIGTERM/SIGKILL, host wall-timeout).
  */
+/** 中文说明：类型或类 LogMessage 约束协议数据或模块职责。 */
 interface LogMessage {
   type: 'log'
   text: string
@@ -105,6 +121,7 @@ interface LogMessage {
 }
 
 /** The failure carried on a {@link DoneMessage}: one of three kinds plus text. */
+/** 中文说明：类型或类 DoneErrorField 约束协议数据或模块职责。 */
 interface DoneErrorField {
   kind: 'exception' | 'invalid-output' | 'output-limit'
   message: string
@@ -121,6 +138,7 @@ interface DoneErrorField {
  * {@link validateChildFrame} preserves both rather than guessing which to drop,
  * so a consumer MUST check `error` first and ignore `value` when it is set.
  */
+/** 中文说明：类型或类 DoneMessage 约束协议数据或模块职责。 */
 interface DoneMessage {
   type: 'done'
   value?: unknown
@@ -132,9 +150,11 @@ interface DoneMessage {
  * private: consumers match on the union's discriminant; the host sends the
  * boot and run frames as inline literals.
  */
+/** 中文说明：类型或类 ChildToHost 约束协议数据或模块职责。 */
 export type ChildToHost = BootAckMessage | CallMessage | LogMessage | DoneMessage
 
 /** Host → Python: successful answer to one {@link CallMessage}. */
+/** 中文说明：类型或类 ReplyOk 约束协议数据或模块职责。 */
 interface ReplyOk {
   type: 'reply'
   id: number
@@ -143,6 +163,7 @@ interface ReplyOk {
 }
 
 /** Host → Python: failed answer to one {@link CallMessage}. */
+/** 中文说明：类型或类 ReplyErr 约束协议数据或模块职责。 */
 interface ReplyErr {
   type: 'reply'
   id: number
@@ -151,11 +172,14 @@ interface ReplyErr {
 }
 
 /** Host → Python: the answer to one {@link CallMessage}. */
+/** 中文说明：类型或类 ReplyMessage 约束协议数据或模块职责。 */
 export type ReplyMessage = ReplyOk | ReplyErr
 
 /** The required (non-optional) keys of `T`, as string literals. */
+/** 中文说明：类型或类 RequiredKeys 约束协议数据或模块职责。 */
 type RequiredKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? never : K }[keyof T] & string
 /** The optional keys of `T`, as string literals. */
+/** 中文说明：类型或类 OptionalKeys 约束协议数据或模块职责。 */
 type OptionalKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? K : never }[keyof T] & string
 
 /**
@@ -168,8 +192,10 @@ type OptionalKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? K : never
  * an optionality flip is caught too. This is the exhaustive counterpart the
  * array form could not express (a subset array satisfied it silently).
  */
+/** 中文说明：类型或类 FrameFieldRoles 约束协议数据或模块职责。 */
 type FrameFieldRoles<T> = Record<RequiredKeys<T>, 'required'> & Record<OptionalKeys<T>, 'optional'>
 
+/** 中文说明：类型或类 WireFrameShapes 约束协议数据或模块职责。 */
 interface WireFrameShapes {
   BootMessage: BootMessage
   Namespace: Namespace
@@ -191,8 +217,10 @@ interface WireFrameShapes {
  * `DoneErrorField` are fields of other frames, not frames themselves, so they
  * are excluded here and covered only by the roles `satisfies` and the mirror e2e.
  */
+/** 中文说明：类型或类 MessageFrames 约束协议数据或模块职责。 */
 type MessageFrames = ChildToHost | ReplyMessage | BootMessage | RunMessage
 /** The roster's value types minus the three nested (non-frame) shapes. */
+/** 中文说明：类型或类 RosterMessageFrames 约束协议数据或模块职责。 */
 type RosterMessageFrames = Exclude<WireFrameShapes[keyof WireFrameShapes], Namespace | ErrorClass | DoneErrorField>
 
 /**
@@ -205,9 +233,13 @@ type RosterMessageFrames = Exclude<WireFrameShapes[keyof WireFrameShapes], Names
  * `false`, failing the assignment below. Type-only; the `const`s emit nothing
  * meaningful at runtime.
  */
+/** 中文说明：类型或类 UnionSubsetOfRoster 约束协议数据或模块职责。 */
 type UnionSubsetOfRoster = [MessageFrames] extends [RosterMessageFrames] ? true : false
+/** 中文说明：类型或类 RosterSubsetOfUnion 约束协议数据或模块职责。 */
 type RosterSubsetOfUnion = [RosterMessageFrames] extends [MessageFrames] ? true : false
+/** 中文说明：运行时局部值 _unionSubsetOfRoster，由紧邻初始化决定。 */
 const _unionSubsetOfRoster: UnionSubsetOfRoster = true
+/** 中文说明：运行时局部值 _rosterSubsetOfUnion，由紧邻初始化决定。 */
 const _rosterSubsetOfUnion: RosterSubsetOfUnion = true
 void _unionSubsetOfRoster
 void _rosterSubsetOfUnion
@@ -221,6 +253,7 @@ void _rosterSubsetOfUnion
  * the JSON key {@link CallMessage} and {@link Namespace} send (a reserved word
  * the Python side carries via a functional `TypedDict`).
  */
+/** 中文说明：运行时局部值 WIRE_FRAME_FIELD_ROLES，由紧邻初始化决定。 */
 const WIRE_FRAME_FIELD_ROLES = {
   BootMessage: { type: 'required', cpuSeconds: 'required', addressSpaceBytes: 'required', maxLogBytes: 'required', maxValueBytes: 'required', namespaces: 'required' },
   Namespace: { global: 'required', names: 'required', errorClass: 'optional' },
@@ -244,10 +277,13 @@ const WIRE_FRAME_FIELD_ROLES = {
  * field add, remove, rename, or optionality flip fails typecheck at the roles
  * map, and a Python-side divergence fails the mirror test at runtime.
  */
+/** 中文说明：运行时局部值 WIRE_FRAME_FIELDS，由紧邻初始化决定。 */
 export const WIRE_FRAME_FIELDS =
   Object.fromEntries(
     Object.entries(WIRE_FRAME_FIELD_ROLES).map(([frame, roles]) => {
+      /** 中文说明：运行时局部值 required，由紧邻初始化决定。 */
       const required = Object.keys(roles).filter(key => (roles as Record<string, string>)[key] === 'required').sort()
+      /** 中文说明：运行时局部值 optional，由紧邻初始化决定。 */
       const optional = Object.keys(roles).filter(key => (roles as Record<string, string>)[key] === 'optional').sort()
       return [frame, { required, optional }]
     }),
@@ -263,6 +299,7 @@ export const WIRE_FRAME_FIELDS =
  * @param maxBytes - the configured `maxLogBytes` the marker names.
  * @returns the marker line.
  */
+/** 中文说明：函数 logTruncationMarker 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function logTruncationMarker(maxBytes: number): string {
   return `[dsh-code-runtime-python] log capture truncated at ${maxBytes} bytes`
 }
@@ -283,31 +320,42 @@ export function logTruncationMarker(maxBytes: number): string {
  * @param value - a JSON-plain value (e.g. straight from `JSON.parse`).
  * @returns the compact JSON encoding.
  */
+/** 中文说明：函数 encodeJsonPlain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function encodeJsonPlain(value: unknown): string {
+  /** 中文说明：类型或类 Task 约束协议数据或模块职责。 */
   type Task = { text: string } | { value: unknown }
+  /** 中文说明：运行时局部值 chunks，由紧邻初始化决定。 */
   const chunks: string[] = []
+  /** 中文说明：运行时局部值 tasks，由紧邻初始化决定。 */
   const tasks: Task[] = [{ value }]
+  /** 中文说明：运行时局部值 task，由紧邻初始化决定。 */
   for (let task = tasks.pop(); task !== undefined; task = tasks.pop()) {
     if ('text' in task) {
       chunks.push(task.text)
       continue
     }
+    /** 中文说明：运行时局部值 current，由紧邻初始化决定。 */
     const current = task.value
     if (typeof current === 'string') {
       chunks.push(JSON.stringify(current))
     } else if (Array.isArray(current)) {
       chunks.push('[')
       tasks.push({ text: ']' })
+      /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
       for (let index = current.length - 1; index >= 0; index--) {
         if (index < current.length - 1) tasks.push({ text: ',' })
         tasks.push({ value: current[index] })
       }
     } else if (typeof current === 'object' && current !== null) {
+      /** 中文说明：运行时局部值 record，由紧邻初始化决定。 */
       const record = current as Record<string, unknown>
       chunks.push('{')
       tasks.push({ text: '}' })
+      /** 中文说明：运行时局部值 keys，由紧邻初始化决定。 */
       const keys = Object.keys(record)
+      /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
       for (let index = keys.length - 1; index >= 0; index--) {
+        /** 中文说明：运行时局部值 key，由紧邻初始化决定。 */
         const key = keys[index] as string
         if (index < keys.length - 1) tasks.push({ text: ',' })
         tasks.push({ value: record[key] })
@@ -329,6 +377,7 @@ export function encodeJsonPlain(value: unknown): string {
  * @param current - a JSON-plain scalar (JSON.parse emits nothing else).
  * @returns its JSON encoding.
  */
+/** 中文说明：函数 scalarJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function scalarJson(current: unknown): string {
   if (typeof current === 'number' && Number.isInteger(current) && !Number.isSafeInteger(current)) {
     return BigInt(current).toString()
@@ -352,10 +401,14 @@ function scalarJson(current: unknown): string {
  * @param maxBytes - largest serialized size the caller can still admit.
  * @returns the exact serialized byte length, or `undefined` once it exceeds `maxBytes`.
  */
+/** 中文说明：函数 jsonStringBytesUpTo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function jsonStringBytesUpTo(text: string, maxBytes: number): number | undefined {
+  /** 中文说明：运行时局部值 bytes，由紧邻初始化决定。 */
   let bytes = 2 // the two quotes
   if (bytes > maxBytes) return undefined
+  /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
   for (let index = 0; index < text.length; index++) {
+    /** 中文说明：运行时局部值 code，由紧邻初始化决定。 */
     const code = text.charCodeAt(index)
     if (code === 0x22 || code === 0x5c || code === 0x08 || code === 0x09 || code === 0x0a || code === 0x0c || code === 0x0d) {
       bytes += 2 // `\"` `\\` `\b` `\t` `\n` `\f` `\r`
@@ -366,6 +419,7 @@ function jsonStringBytesUpTo(text: string, maxBytes: number): number | undefined
     } else if (code < 0x800) {
       bytes += 2
     } else if (code >= 0xd800 && code <= 0xdbff && index + 1 < text.length) {
+      /** 中文说明：运行时局部值 next，由紧邻初始化决定。 */
       const next = text.charCodeAt(index + 1)
       if (next >= 0xdc00 && next <= 0xdfff) {
         bytes += 4 // valid high+low pair: one astral code point, raw 4-byte UTF-8
@@ -414,7 +468,9 @@ function jsonStringBytesUpTo(text: string, maxBytes: number): number | undefined
  * `{ ok: false, reason }` — `over-budget` once the size exceeds `maxBytes`,
  * `non-lossless` on a non-finite or negative-zero number.
  */
+/** 中文说明：函数 checkDoneValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function checkDoneValue(value: unknown, maxBytes: number): { ok: true; bytes: number } | { ok: false; reason: 'over-budget' | 'non-lossless' } {
+  /** 中文说明：运行时局部值 bytes，由紧邻初始化决定。 */
   let bytes = 0
   // A non-lossless number is recorded, not returned on sight: over-budget must
   // win regardless of where in the value each violation sits, so the whole
@@ -422,9 +478,12 @@ export function checkDoneValue(value: unknown, maxBytes: number): { ok: true; by
   // "<huge>"]` — the same over-budget value in two member orders — would
   // classify differently (non-lossless vs over-budget), and the JSDoc promises
   // an over-budget value is rejected as over-budget regardless.
+  /** 中文说明：运行时局部值 nonLossless，由紧邻初始化决定。 */
   let nonLossless = false
+  /** 中文说明：运行时局部值 stack，由紧邻初始化决定。 */
   const stack: unknown[] = [value]
   while (stack.length > 0) {
+    /** 中文说明：运行时局部值 current，由紧邻初始化决定。 */
     const current = stack.pop()
     if (typeof current === 'number') {
       // Flag a non-lossless number but keep counting its encoded bytes: a value
@@ -439,6 +498,7 @@ export function checkDoneValue(value: unknown, maxBytes: number): { ok: true; by
       // and bails the instant the running cost crosses the remaining budget, so
       // a control-heavy forgery (escaped copy up to ~6x) never materializes that
       // copy the way `JSON.stringify` would.
+      /** 中文说明：运行时局部值 stringBytes，由紧邻初始化决定。 */
       const stringBytes = jsonStringBytesUpTo(current, maxBytes - bytes)
       if (stringBytes === undefined) return { ok: false, reason: 'over-budget' }
       bytes += stringBytes
@@ -450,22 +510,28 @@ export function checkDoneValue(value: unknown, maxBytes: number): { ok: true; by
       // materialized by the upstream parse; this only bounds the extra stack.)
       bytes += 2 + (current.length > 1 ? current.length - 1 : 0)
       if (bytes + current.length > maxBytes) return { ok: false, reason: 'over-budget' }
+      /** 中文说明：运行时局部值 item，由紧邻初始化决定。 */
       for (const item of current) stack.push(item)
     } else if (typeof current === 'object' && current !== null) {
+      /** 中文说明：运行时局部值 record，由紧邻初始化决定。 */
       const record = current as Record<string, unknown>
       // Count own keys with for...in + hasOwn. This IS O(keys) — JS has no lazy
       // own-key iterator and the parse already built the key set — so the count
       // cannot be sublinear; what the bound below buys is refusing the per-entry
       // work (key escaping, value enqueue) before it runs. Each entry costs at
       // least a quoted key (>= 2 bytes) + colon + >= 1-byte value.
+      /** 中文说明：运行时局部值 count，由紧邻初始化决定。 */
       let count = 0
+      /** 中文说明：运行时局部值 key，由紧邻初始化决定。 */
       for (const key in record) if (Object.hasOwn(record, key)) count += 1
       bytes += 2 + (count > 1 ? count - 1 : 0)
       if (bytes + count * 4 > maxBytes) return { ok: false, reason: 'over-budget' }
+      /** 中文说明：运行时局部值 key，由紧邻初始化决定。 */
       for (const key in record) {
         if (!Object.hasOwn(record, key)) continue
         // Meter the key's escaped form without allocating it (same reason as the
         // string branch), then add the colon separator. `+ 1` for the `:`.
+        /** 中文说明：运行时局部值 keyBytes，由紧邻初始化决定。 */
         const keyBytes = jsonStringBytesUpTo(key, maxBytes - bytes)
         if (keyBytes === undefined) return { ok: false, reason: 'over-budget' }
         bytes += keyBytes + 1
@@ -494,8 +560,11 @@ export function checkDoneValue(value: unknown, maxBytes: number): { ok: true; by
  * @param line - the raw UTF-8 text of one JSON-lines frame.
  * @returns true when an unsafe integer token is present outside strings.
  */
+/** 中文说明：函数 hasUnsafeIntegerToken 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function hasUnsafeIntegerToken(line: string): boolean {
+  /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
   for (let index = 0; index < line.length; index++) {
+    /** 中文说明：运行时局部值 char，由紧邻初始化决定。 */
     const char = line[index]
     if (char === '"') {
       // Skip the string literal, honoring backslash escapes.
@@ -506,18 +575,22 @@ export function hasUnsafeIntegerToken(line: string): boolean {
       continue
     }
     if (char === '-' || (char !== undefined && char >= '0' && char <= '9')) {
+      /** 中文说明：运行时局部值 end，由紧邻初始化决定。 */
       let end = index + 1
       while (end < line.length) {
+        /** 中文说明：运行时局部值 c，由紧邻初始化决定。 */
         const c = line[end] as string
         if ((c >= '0' && c <= '9') || c === '.' || c === 'e' || c === 'E' || c === '+' || c === '-') end++
         else break
       }
+      /** 中文说明：运行时局部值 token，由紧邻初始化决定。 */
       const token = line.slice(index, end)
       // Beyond the safe range an integer token is still lossless IFF the
       // double parse round-trips exactly (2**53 does; 2**53+1 rounds) — the
       // canonical boundary accepts every JS-double-exact value, so only a
       // genuinely rounding token marks the frame as forged.
       if (/^-?\d+$/.test(token)) {
+        /** 中文说明：运行时局部值 parsed，由紧邻初始化决定。 */
         const parsed = Number(token)
         // A token that parses to Infinity is trivially lossy; a finite
         // beyond-safe-range one is lossy only when the BigInt round-trip
@@ -543,7 +616,9 @@ export function hasUnsafeIntegerToken(line: string): boolean {
  * @param record - a JSON-parse-produced object.
  * @yields each own enumerable property value, in key order.
  */
+/** 中文说明：函数 ownValues 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function* ownValues(record: object): Generator {
+  /** 中文说明：运行时局部值 key，由紧邻初始化决定。 */
   for (const key in record) {
     if (Object.hasOwn(record, key)) yield (record as Record<string, unknown>)[key]
   }
@@ -569,16 +644,21 @@ function* ownValues(record: object): Generator {
  * @param value - a JSON-parse-produced value from an fd-3 frame.
  * @returns true when any contained number is non-finite or negative zero.
  */
+/** 中文说明：函数 hasNonLosslessNumber 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function hasNonLosslessNumber(value: unknown): boolean {
+  /** 中文说明：运行时局部值 cursors，由紧邻初始化决定。 */
   const cursors: Iterator<unknown>[] = [[value].values()]
   while (cursors.length > 0) {
     // The loop condition guarantees a top cursor.
+    /** 中文说明：运行时局部值 cursor，由紧邻初始化决定。 */
     const cursor = cursors.at(-1) as Iterator<unknown>
+    /** 中文说明：运行时局部值 step，由紧邻初始化决定。 */
     const step = cursor.next()
     if (step.done === true) {
       cursors.pop()
       continue
     }
+    /** 中文说明：运行时局部值 current，由紧邻初始化决定。 */
     const current = step.value
     if (typeof current === 'number') {
       if (!Number.isFinite(current) || Object.is(current, -0)) return true
@@ -601,8 +681,10 @@ export function hasNonLosslessNumber(value: unknown): boolean {
  * @param raw - one JSON-parsed frame from fd 3.
  * @returns the rebuilt frame, or `undefined` to drop it silently.
  */
+/** 中文说明：函数 validateChildFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function validateChildFrame(raw: unknown): ChildToHost | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
+  /** 中文说明：运行时局部值 m，由紧邻初始化决定。 */
   const m = raw as Record<string, unknown>
   switch (m.type) {
     case 'boot-ack':
@@ -638,11 +720,13 @@ export function validateChildFrame(raw: unknown): ChildToHost | undefined {
       // byte cap runs. The done handler's bounded `checkDoneValue` folds the
       // losslessness check into the metered traversal, rejecting over-budget
       // before it enqueues children.
+      /** 中文说明：运行时局部值 err，由紧邻初始化决定。 */
       const err = m.error
       if (err === undefined) {
         return m.value === undefined ? { type: 'done' } : { type: 'done', value: m.value }
       }
       if (typeof err !== 'object' || err === null) return undefined
+      /** 中文说明：运行时局部值 { kind, message }，由紧邻初始化决定。 */
       const { kind, message } = err as Record<string, unknown>
       if (typeof message !== 'string') return undefined
       if (kind !== 'exception' && kind !== 'invalid-output' && kind !== 'output-limit') return undefined

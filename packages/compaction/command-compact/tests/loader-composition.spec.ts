@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证上下文压缩的 loader-composition.spec.ts 行为。
+ * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
+ * 产品维度：防止上下文压缩协议与生命周期回归。
+ * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
+ * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
+ * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
+ */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -11,16 +19,22 @@ import CommandRuntime from '@deepseek-ai/dsh-commands'
 import {
   CompactionId,
   CompactionEngine,
+  /** 中文说明：类型或类 CompactionAgentContext 约束协议数据或模块职责。 */
   type CompactionAgentContext,
+  /** 中文说明：类型或类 CompactionResult 约束协议数据或模块职责。 */
   type CompactionResult,
+  /** 中文说明：类型或类 CompactionTrigger 约束协议数据或模块职责。 */
   type CompactionTrigger,
+  /** 中文说明：类型或类 ManualCompactAgentContext 约束协议数据或模块职责。 */
   type ManualCompactAgentContext,
 } from '@deepseek-ai/dsh-compaction'
 import * as commandCompact from '@deepseek-ai/dsh-command-compact'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 
+/** 中文说明：测试局部值 COMPACTION_ID，由紧邻初始化决定。 */
 const COMPACTION_ID = CompactionId('loader-command-compact-test')
 
+/** 中文说明：测试局部值 RESULT，由紧邻初始化决定。 */
 const RESULT: CompactionResult = {
   compactionId: COMPACTION_ID,
   startSeq: 1,
@@ -32,6 +46,7 @@ const RESULT: CompactionResult = {
   shadowedTokenCount: 99,
 }
 
+/** 中文说明：类型或类 LoaderCompactionEngine 约束协议数据或模块职责。 */
 class LoaderCompactionEngine extends CompactionEngine {
   override compactIfNeeded(
     _agent: CompactionAgentContext,
@@ -50,6 +65,7 @@ class LoaderCompactionEngine extends CompactionEngine {
     _signal: AbortSignal,
     sourceCommandId?: Parameters<CompactionEngine['compactNow']>[2],
   ): Promise<CompactionResult | null> {
+    /** 中文说明：测试局部值 provenance，由紧邻初始化决定。 */
     const provenance = {
       compactionId: RESULT.compactionId,
       ...sourceCommandId === undefined ? {} : { sourceCommandId },
@@ -69,7 +85,9 @@ class LoaderCompactionEngine extends CompactionEngine {
   }
 }
 
+/** 中文说明：测试局部值 root: string | undefined，由紧邻初始化决定。 */
 let root: string | undefined
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let context: Context | undefined
 
 afterEach(async () => {
@@ -82,6 +100,7 @@ afterEach(async () => {
 describe('command-compact real Loader composition', () => {
   it('discovers and executes /compact through the assembled command plane', async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-command-compact-loader-'))
+    /** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
     const configPath = join(root, 'cordis.yml')
     await writeFile(configPath, [
       "- name: '@deepseek-ai/dsh-commands'",
@@ -94,6 +113,7 @@ describe('command-compact real Loader composition', () => {
     context.baseUrl = pathToFileURL(root).href + '/'
     await context.plugin(Loader)
     context.loader.builtins.include = Include
+    /** 中文说明：测试局部值 modules，由紧邻初始化决定。 */
     const modules = new Map<string, unknown>([
       ['@deepseek-ai/dsh-commands', CommandRuntime],
       ['@test/compact-backend', LoaderCompactionEngine],
@@ -112,7 +132,9 @@ describe('command-compact real Loader composition', () => {
     })
     await context.loader.await()
 
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('loader-command-compact'))
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = {
       session,
       status: 'idle',
@@ -123,6 +145,7 @@ describe('command-compact real Loader composition', () => {
       name: 'compact',
       description: 'Compact older conversation history',
     })
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = await context.commands.execute(agent, '/compact', [], new AbortController().signal)
     if (execution === undefined) throw new Error('Loader composition did not resolve /compact')
     expect(execution.result).toEqual({
