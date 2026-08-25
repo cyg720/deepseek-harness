@@ -5,6 +5,14 @@
  *
  * @module @deepseek-ai/dsh-spill/types
  */
+/**
+ * 文件职责：实现 types.ts 覆盖的大结果落盘行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的大结果落盘能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { CallId } from '@deepseek-ai/dsh-llm'
@@ -15,6 +23,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
  * filesystem path; a remote or database backend may use a URI or key. Consumers
  * render it with {@link SpillRef.retrievalHint}, but do not parse it.
  */
+/** 中文说明：type SpillLocator 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
 export type SpillLocator = Branded<'SpillLocator'>
 
 /**
@@ -23,6 +32,7 @@ export type SpillLocator = Branded<'SpillLocator'>
  * @param locator The backend-produced locator string to brand.
  * @returns The branded spill locator.
  */
+/** 中文说明：函数 SpillLocator 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function SpillLocator(locator: string): SpillLocator {
   return locator as SpillLocator
 }
@@ -34,6 +44,7 @@ export function SpillLocator(locator: string): SpillLocator {
  * locators already present in the seeded log; those artifacts are not copied or
  * re-owned, and spills produced after the fork use the child session id.
  */
+/** 中文说明：interface SpillOwner 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
 export interface SpillOwner {
   sessionId: SessionId
 }
@@ -43,6 +54,7 @@ export interface SpillOwner {
  * filename and inspection. Not interpreted for access control; purely
  * descriptive.
  */
+/** 中文说明：interface SpillSource 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
 export interface SpillSource {
   /** The tool whose result was spilled (e.g. `web_fetch`). */
   toolName: string
@@ -53,6 +65,7 @@ export interface SpillSource {
 }
 
 /** One request to persist text to a spill artifact. */
+/** 中文说明：interface SaveTextSpill 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
 export interface SaveTextSpill {
   owner: SpillOwner
   source: SpillSource
@@ -66,6 +79,7 @@ export interface SaveTextSpill {
 }
 
 /** A saved spill artifact: its locator, byte length, and backend-specific retrieval guidance. */
+/** 中文说明：interface SpillRef 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
 export interface SpillRef {
   locator: SpillLocator
   bytes: number

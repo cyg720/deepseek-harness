@@ -1,6 +1,15 @@
+/**
+ * 文件职责：验证 messages-fixture.ts 覆盖的子代理进程与协议行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 import { createServer, type IncomingHttpHeaders, type ServerResponse } from 'node:http'
 
 /** One deterministic response emitted by the package-private Messages server. */
+/** 中文说明：type MessagesBehavior 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
 export type MessagesBehavior =
   | { readonly kind: 'complete'; readonly text: string }
   | { readonly kind: 'hold' }
@@ -12,6 +21,7 @@ export type MessagesBehavior =
   }
 
 /** One recorded Anthropic Messages request. */
+/** 中文说明：interface RecordedMessagesRequest 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
 interface RecordedMessagesRequest {
   readonly method: string
   readonly path: string
@@ -20,6 +30,7 @@ interface RecordedMessagesRequest {
 }
 
 /** Running package-private Anthropic Messages fixture. */
+/** 中文说明：interface MessagesFixture 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
 export interface MessagesFixture {
   readonly baseUrl: string
   readonly requests: RecordedMessagesRequest[]
@@ -27,6 +38,7 @@ export interface MessagesFixture {
   close(): Promise<void>
 }
 
+/** 中文说明：函数 event 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function event(
   response: ServerResponse,
   type: string,
@@ -35,11 +47,13 @@ function event(
   response.write(`event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`)
 }
 
+/** 中文说明：函数 complete 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function complete(
   response: ServerResponse,
   body: Record<string, unknown>,
   text: string,
 ): void {
+  /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const model = typeof body.model === 'string' ? body.model : 'fixture-model'
   response.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -87,12 +101,14 @@ function complete(
   response.end()
 }
 
+/** 中文说明：函数 toolUse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function toolUse(
   response: ServerResponse,
   body: Record<string, unknown>,
   toolName: string,
   input: Record<string, unknown>,
 ): void {
+  /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const model = typeof body.model === 'string' ? body.model : 'fixture-model'
   response.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -153,18 +169,25 @@ function toolUse(
  * @param behavior - the single response behavior for this fixture.
  * @returns the bound server and its recorded requests.
  */
+/** 中文说明：函数 startMessagesFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export async function startMessagesFixture(
   behavior: MessagesBehavior,
 ): Promise<MessagesFixture> {
+  /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const requests: RecordedMessagesRequest[] = []
+  /** 中文说明：函数值 requestStartedResolve 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   let requestStartedResolve!: () => void
+  /** 中文说明：函数值 requestStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const requestStarted = new Promise<void>((resolve) => {
     requestStartedResolve = resolve
   })
+  /** 中文说明：函数值 server 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const server = createServer((request, response) => {
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks: Buffer[] = []
     request.on('data', (chunk: Buffer) => { chunks.push(chunk) })
     request.on('end', () => {
+      /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const path = request.url ?? ''
       if (path !== '/v1/messages' && !path.startsWith('/v1/messages?')) {
         response.writeHead(404, { 'content-type': 'application/json' })
@@ -174,7 +197,9 @@ export async function startMessagesFixture(
         }))
         return
       }
+      /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const text = Buffer.concat(chunks).toString('utf8')
+      /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const body = JSON.parse(text) as Record<string, unknown>
       requests.push({
         method: request.method ?? '',
@@ -203,6 +228,7 @@ export async function startMessagesFixture(
       resolve()
     })
   })
+  /** 中文说明：变量 address 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const address = server.address()
   if (address === null || typeof address === 'string') {
     throw new Error('Messages fixture did not bind a TCP port')

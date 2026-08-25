@@ -6,6 +6,14 @@
  * loader metadata (see `docs/postmortem/0001-acp-default-export-drops-inject.md`).
  * @module @deepseek-ai/dsh-subagent-acp
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的子代理进程与协议行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 
 import { accessSync, constants, statSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
@@ -20,10 +28,13 @@ import type {
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { type AcpRunSpec, DEFAULT_DISPOSE_EOF_GRACE_MS, DEFAULT_DISPOSE_GRACE_MS, type PermissionPolicy, startAcpRun } from './run.ts'
 
+/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'subagent-acp'
+/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['subagents', 'subprocess']
 
 /** Config: how to spawn and drive the child ACP agent process. */
+/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `acp`). */
   providerName: string
@@ -63,6 +74,7 @@ export interface Config {
   disposeGraceMs?: number
 }
 
+/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   providerName: z.string().default('acp'),
   command: z.string().required(),
@@ -75,6 +87,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** A dispose grace must fit the single Node timer that owns its teardown tier. */
+/** 中文说明：函数 assertPositiveFinite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertPositiveFinite(name: string, value: number): void {
   if (!Number.isFinite(value) || value <= 0 || value > MAX_TIMER_DELAY_MS) {
     throw new Error(`subagent-acp: ${name} must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`)
@@ -82,6 +95,7 @@ function assertPositiveFinite(name: string, value: number): void {
 }
 
 /** The shape after schemastery applied the defaults (cwd has none). */
+/** 中文说明：type ResolvedConfig 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 type ResolvedConfig = Required<Omit<Config, 'cwd'>> & Pick<Config, 'cwd'>
 
 /**
@@ -89,6 +103,7 @@ type ResolvedConfig = Required<Omit<Config, 'cwd'>> & Pick<Config, 'cwd'>
  * search-permission probe matters: `statSync().isDirectory()` is true for a
  * mode-600 directory, but a subprocess cwd needs `X_OK` or spawn fails EACCES.
  */
+/** 中文说明：函数 isDirectory 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isDirectory(path: string): boolean {
   try {
     if (!statSync(path).isDirectory()) return false
@@ -111,6 +126,7 @@ function isDirectory(path: string): boolean {
  * @param cwd - the candidate working directory.
  * @returns `cwd`, validated.
  */
+/** 中文说明：函数 assertUsableCwd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertUsableCwd(label: string, cwd: string): string {
   if (!isAbsolute(cwd)) {
     throw new Error(`subagent-acp: ${label} must be an absolute path: ${cwd}`)
@@ -129,8 +145,10 @@ function assertUsableCwd(label: string, cwd: string): string {
  * child to the server's launch directory instead of the delegating session's
  * workspace (one server process serves many sessions, each with its own cwd).
  */
+/** 中文说明：函数 resolveCwd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveCwd(configured: string | undefined, request: SubagentStartRequest): string {
   if (configured !== undefined) return configured
+  /** 中文说明：变量 parentCwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parentCwd = request.parent.session.header.cwd
   if (parentCwd === undefined) {
     throw new Error('subagent-acp: no working directory for the child — configure `cwd` or delegate from a parent session that has one')
@@ -143,6 +161,7 @@ function resolveCwd(configured: string | undefined, request: SubagentStartReques
  * child cannot honor `outputSchema`/`maxDepth`/`toolFilter` (the service rejects
  * a request needing any of them before `start` runs).
  */
+/** 中文说明：class AcpProvider 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 class AcpProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = { outputSchema: false, depthLimit: false, toolFilter: false, persona: false }
   // Context contract: an out-of-process ACP child starts fresh — no parent conversation crosses the process boundary.
@@ -151,6 +170,7 @@ class AcpProvider implements SubagentProvider {
   constructor(readonly name: string, private readonly ctx: Context, private readonly config: ResolvedConfig) {}
 
   start(request: ResolvedSubagentStartRequest) {
+    /** 中文说明：变量 spec 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec: AcpRunSpec = {
       command: this.config.command,
       args: this.config.args,
@@ -170,8 +190,10 @@ class AcpProvider implements SubagentProvider {
   }
 }
 
+/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   // schemastery (Config) has already filled every defaulted field.
+  /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved = config as ResolvedConfig
   assertPositiveFinite('disposeEofGraceMs', resolved.disposeEofGraceMs)
   assertPositiveFinite('disposeGraceMs', resolved.disposeGraceMs)
@@ -182,6 +204,7 @@ export function apply(ctx: Context, config: Config): void {
   }
   // Interpret a relative configured cwd against the harness launch directory
   // ONCE, at load, and fail a misconfigured directory here — not per start.
+  /** 中文说明：变量 validated 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const validated: ResolvedConfig = resolved.cwd === undefined
     ? resolved
     : { ...resolved, cwd: assertUsableCwd('config cwd', resolve(resolved.cwd)) }

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 skill.spec.ts 覆盖的技能发现与装载行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的技能发现与装载能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { bindScopeParent, createScope, scopeOf } from '@deepseek-ai/dsh-scope'
@@ -5,14 +13,21 @@ import SkillRegistry, {
   isModelInvocable,
   isUserInvocable,
   renderSkillContent,
+  /** 中文说明：type SkillCandidate 定义本测试所需的数据或行为，用于表达技能发现与装载场景。 */
   type SkillCandidate,
+  /** 中文说明：type SkillDefinition 定义本测试所需的数据或行为，用于表达技能发现与装载场景。 */
   type SkillDefinition,
+  /** 中文说明：type SkillInvocationPolicy 定义本测试所需的数据或行为，用于表达技能发现与装载场景。 */
   type SkillInvocationPolicy,
+  /** 中文说明：type SkillLookupOptions 定义本测试所需的数据或行为，用于表达技能发现与装载场景。 */
   type SkillLookupOptions,
+  /** 中文说明：type SkillProvider 定义本测试所需的数据或行为，用于表达技能发现与装载场景。 */
   type SkillProvider,
+  /** 中文说明：type SkillProviderObservation 定义本测试所需的数据或行为，用于表达技能发现与装载场景。 */
   type SkillProviderObservation,
 } from '@deepseek-ai/dsh-skill'
 
+/** 中文说明：函数 memorySkill 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function memorySkill(name: string, description: string, rank: number, body = `${name} body.`): SkillCandidate {
   return {
     name,
@@ -25,6 +40,7 @@ function memorySkill(name: string, description: string, rank: number, body = `${
   }
 }
 
+/** 中文说明：class MemoryProvider 定义本测试所需的数据或行为，用于表达技能发现与装载场景。 */
 class MemoryProvider implements SkillProvider {
   readonly name = 'memory'
   listCalls = 0
@@ -37,6 +53,7 @@ class MemoryProvider implements SkillProvider {
   }
 
   async get(candidate: SkillCandidate): Promise<SkillDefinition | undefined> {
+    /** 中文说明：变量 locator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const locator = candidate.locator as { content: string }
     return { ...candidate, content: locator.content }
   }
@@ -46,12 +63,15 @@ class MemoryProvider implements SkillProvider {
   }
 }
 
+/** 中文说明：函数 registerProvider 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function registerProvider(ctx: Context, provider: SkillProvider): () => void {
   return ctx.skills.registerProvider(() => provider)
 }
 
 /** The skills service as a scoped caller resolves it (scope contexts declare no inject). */
+/** 中文说明：函数 scopedSkills 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function scopedSkills(ctx: Context): SkillRegistry {
+  /** 中文说明：变量 skills 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const skills = ctx.get('skills')
   if (skills === undefined) throw new Error('skills service missing')
   return skills
@@ -59,13 +79,16 @@ function scopedSkills(ctx: Context): SkillRegistry {
 
 describe('SkillRegistry registry', () => {
   it('registers providers, resolves duplicates first-wins, and disposes providers', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new MemoryProvider([
       memorySkill('z-skill', 'Z skill', 20),
       memorySkill('a-skill', 'A skill', 10),
       memorySkill('shadowed', 'Lower priority', 20),
     ])
+    /** 中文说明：变量 overrideProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideProvider: SkillProvider = {
       name: 'override',
       async list() {
@@ -83,6 +106,7 @@ describe('SkillRegistry registry', () => {
         return { ...candidate, content: (candidate.locator as { content: string }).content }
       },
     }
+    /** 中文说明：变量 disposeMemory 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeMemory = registerProvider(ctx, provider)
     registerProvider(ctx, overrideProvider)
 
@@ -92,6 +116,7 @@ describe('SkillRegistry registry', () => {
       ['z-skill', 'Z skill', 'memory'],
     ])
     expect((await ctx.skills.get('shadowed'))?.content).toBe('Override body.')
+    /** 中文说明：变量 sameRankProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sameRankProvider: SkillProvider = {
       name: 'same-rank',
       async list() {
@@ -118,6 +143,7 @@ describe('SkillRegistry registry', () => {
         registerProvider(pluginCtx, new MemoryProvider([]))
       },
     })).rejects.toThrow('already registered')
+    /** 中文说明：变量 rejectedSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let rejectedSignal: AbortSignal | undefined
     expect(() => ctx.skills.registerProvider((control) => {
       rejectedSignal = control.signal
@@ -133,7 +159,9 @@ describe('SkillRegistry registry', () => {
     })).toThrow('reserved')
     expect(rejectedSignal?.aborted).toBe(true)
 
+    /** 中文说明：变量 factoryFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const factoryFailure = new Error('factory failed')
+    /** 中文说明：变量 failedSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let failedSignal: AbortSignal | undefined
     expect(() => ctx.skills.registerProvider((control) => {
       failedSignal = control.signal
@@ -141,10 +169,14 @@ describe('SkillRegistry registry', () => {
     })).toThrow(factoryFailure)
     expect(failedSignal?.reason).toBe(factoryFailure)
 
+    /** 中文说明：变量 effectContext 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const effectContext = new Context()
+    /** 中文说明：变量 effectService 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const effectService = new SkillRegistry(effectContext)
+    /** 中文说明：变量 effectFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const effectFailure = new Error('effect registration failed')
     vi.spyOn(effectContext, 'effect').mockImplementation(() => { throw effectFailure })
+    /** 中文说明：变量 effectSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let effectSignal: AbortSignal | undefined
     expect(() => effectService.registerProvider((control) => {
       effectSignal = control.signal
@@ -161,14 +193,17 @@ describe('SkillRegistry registry', () => {
   })
 
   it('returns an invocation-neutral catalog and resolves model and user policy independently', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 registrations 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registrations = [
       { name: 'both', invocation: undefined },
       { name: 'model-only', invocation: { modelInvocable: true, userInvocable: false } },
       { name: 'user-only', invocation: { modelInvocable: false, userInvocable: true } },
       { name: 'trusted-only', invocation: { modelInvocable: false, userInvocable: false } },
     ] as const
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const registration of registrations) {
       ctx.skills.register({
         name: registration.name,
@@ -179,6 +214,7 @@ describe('SkillRegistry registry', () => {
       })
     }
 
+    /** 中文说明：变量 listed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listed = await ctx.skills.list()
     expect(listed.map(skill => skill.name)).toEqual(['both', 'model-only', 'trusted-only', 'user-only'])
     expect(listed.find(skill => skill.name === 'both')?.invocation).toEqual({ modelInvocable: true, userInvocable: true })
@@ -189,8 +225,10 @@ describe('SkillRegistry registry', () => {
   })
 
   it('validates parsed candidate fields', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 badDescription 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const badDescription = { value: 'object-description' }
     registerProvider(ctx, {
       name: 'bad-candidate',
@@ -204,6 +242,7 @@ describe('SkillRegistry registry', () => {
     })
     await expect(ctx.skills.list()).rejects.toThrow('non-string description')
 
+    /** 中文说明：变量 badBoolean 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const badBoolean = new Context()
     await badBoolean.plugin(SkillRegistry)
     registerProvider(badBoolean, {
@@ -219,8 +258,11 @@ describe('SkillRegistry registry', () => {
   })
 
   it('rejects malformed provider results and every malformed candidate scalar', async () => {
+    /** 中文说明：变量 malformedOutputs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformedOutputs: unknown[] = [null, 1, {}, { candidates: [], complete: 'yes' }]
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [index, output] of malformedOutputs.entries()) {
+      /** 中文说明：变量 badList 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const badList = new Context()
       await badList.plugin(SkillRegistry)
       registerProvider(badList, {
@@ -231,6 +273,7 @@ describe('SkillRegistry registry', () => {
       await expect(badList.skills.list()).rejects.toThrow('list() must return an array or { candidates, complete } observation')
     }
 
+    /** 中文说明：变量 cases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cases: { patch: Partial<SkillCandidate>; expected: string }[] = [
       { patch: { name: { value: 'candidate' } as unknown as string }, expected: 'non-string skill name' },
       { patch: { whenToUse: 1 as unknown as string }, expected: 'non-string whenToUse' },
@@ -239,10 +282,14 @@ describe('SkillRegistry registry', () => {
       { patch: { provider: { value: 'provider' } as unknown as string }, expected: 'non-string provider' },
       { patch: { path: 1 as unknown as string }, expected: 'non-string path' },
     ]
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [index, { patch, expected }] of cases.entries()) {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SkillRegistry)
+      /** 中文说明：变量 providerName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const providerName = `candidate-provider-${index}`
+      /** 中文说明：变量 candidate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const candidate = {
         name: `candidate-${index}`,
         description: 'Candidate',
@@ -266,11 +313,16 @@ describe('SkillRegistry registry', () => {
   })
 
   it('borrows the exact lookup options through discovery and loading', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const options: SkillLookupOptions = { cwd: '/workspace/a' }
+    /** 中文说明：变量 listedWith 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let listedWith: SkillLookupOptions | undefined
+    /** 中文说明：变量 loadedWith 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let loadedWith: SkillLookupOptions | undefined
+    /** 中文说明：变量 candidate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const candidate: SkillCandidate = {
       name: 'skill-a',
       description: 'Skill A',
@@ -300,8 +352,10 @@ describe('SkillRegistry registry', () => {
   })
 
   it('rechecks cancellation after cached discovery before provider loading', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 getCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let getCalls = 0
     registerProvider(ctx, {
       name: 'cached',
@@ -322,9 +376,12 @@ describe('SkillRegistry registry', () => {
       },
     })
     await ctx.skills.list({ cwd: '/workspace/cache' })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('cancelled after cached discovery')
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.skills.get('cached-skill', {
       cwd: '/workspace/cache',
       signal: controller.signal,
@@ -336,12 +393,18 @@ describe('SkillRegistry registry', () => {
   })
 
   it('stops waiting for cached provider loading when a hostile abort reason fires', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：函数值 markStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let markStarted: (() => void) | undefined
+    /** 中文说明：函数值 release 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let release: (() => void) | undefined
+    /** 中文说明：变量 seenSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seenSignal: AbortSignal | undefined
+    /** 中文说明：函数值 started 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const started = new Promise<void>((resolve) => { markStarted = resolve })
+    /** 中文说明：函数值 held 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const held = new Promise<SkillDefinition>((resolve) => {
       release = () => {
         resolve({
@@ -374,16 +437,20 @@ describe('SkillRegistry registry', () => {
       },
     })
     await ctx.skills.list({ cwd: '/workspace/cache' })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 hostileReason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hostileReason = {
       [Symbol.toPrimitive]() {
         throw new Error('abort reason coercion failed')
       },
     }
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.skills.get('held-skill', {
       cwd: '/workspace/cache',
       signal: controller.signal,
     })
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = pending.then(
       () => 'resolved',
       (error: unknown) => error instanceof Error && error.message === '[unrenderable thrown value]'
@@ -393,6 +460,7 @@ describe('SkillRegistry registry', () => {
     await started
     controller.abort(hostileReason)
 
+    /** 中文说明：变量 settled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const settled = await Promise.race([
       outcome,
       new Promise<'timeout'>(resolve => setTimeout(() => { resolve('timeout') }, 25)),
@@ -405,10 +473,14 @@ describe('SkillRegistry registry', () => {
   })
 
   it('borrows cached candidates and loaded definitions from the provider', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 locator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const locator = { id: 'provider-owned' }
+    /** 中文说明：变量 invocation 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invocation = { modelInvocable: true, userInvocable: true }
+    /** 中文说明：变量 candidate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const candidate: SkillCandidate = {
       name: 'stable-skill',
       description: 'Stable description',
@@ -422,6 +494,7 @@ describe('SkillRegistry registry', () => {
       path: '/skills/stable/SKILL.md',
       metadata: { owner: 'candidate' },
     }
+    /** 中文说明：变量 definition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const definition: SkillDefinition = {
       name: 'stable-skill',
       description: 'Stable description',
@@ -434,7 +507,9 @@ describe('SkillRegistry registry', () => {
       metadata: { owner: 'definition' },
       content: 'Stable body.',
     }
+    /** 中文说明：变量 listCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let listCalls = 0
+    /** 中文说明：变量 received 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let received: SkillCandidate | undefined
     registerProvider(ctx, {
       name: 'detached',
@@ -448,6 +523,7 @@ describe('SkillRegistry registry', () => {
       },
     })
 
+    /** 中文说明：变量 listed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listed = await ctx.skills.list()
     expect(listed).toEqual([expect.objectContaining({
       name: 'stable-skill',
@@ -458,6 +534,7 @@ describe('SkillRegistry registry', () => {
     expect(listed[0]?.invocation).toBe(invocation)
     expect(listCalls).toBe(1)
 
+    /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loaded = await ctx.skills.get('stable-skill')
     expect(received).toBe(candidate)
     expect(received?.locator).toBe(locator)
@@ -465,11 +542,16 @@ describe('SkillRegistry registry', () => {
   })
 
   it('preserves readonly runtime resource identities while adding the default provider', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 resourceBase 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resourceBase = { kind: 'opaque' as const, description: 'runtime resources' }
+    /** 中文说明：变量 metadata 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const metadata = { owner: 'runtime' }
+    /** 中文说明：变量 invocation 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invocation = { modelInvocable: true, userInvocable: true }
+    /** 中文说明：变量 registration 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registration = {
       name: 'runtime-skill',
       description: 'Runtime',
@@ -487,7 +569,9 @@ describe('SkillRegistry registry', () => {
       source: 'runtime',
       content: 'Second runtime body.',
     })
+    /** 中文说明：变量 listed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listed = await ctx.skills.list()
+    /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loaded = await ctx.skills.get('runtime-skill')
     expect(listed[0]?.resourceBase).toBe(resourceBase)
     expect(listed[0]?.invocation).toBe(invocation)
@@ -497,6 +581,7 @@ describe('SkillRegistry registry', () => {
   })
 
   it('rejects every malformed scalar in provider-loaded definitions', async () => {
+    /** 中文说明：变量 cases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cases: { patch: Partial<SkillDefinition>; expected: string }[] = [
       { patch: { name: { value: 'loaded' } as unknown as string }, expected: 'loaded skill name must be a string' },
       { patch: { name: 'Bad_Name' }, expected: 'loaded skill has invalid name' },
@@ -525,10 +610,14 @@ describe('SkillRegistry registry', () => {
       { patch: { content: { value: 'content' } as unknown as string }, expected: 'content must be a string' },
       { patch: { path: 1 as unknown as string }, expected: 'path must be a string' },
     ]
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [index, { patch, expected }] of cases.entries()) {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SkillRegistry)
+      /** 中文说明：变量 providerName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const providerName = `definition-provider-${index}`
+      /** 中文说明：变量 skillName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const skillName = `definition-${index}`
       registerProvider(ctx, {
         name: providerName,
@@ -559,9 +648,11 @@ describe('SkillRegistry registry', () => {
   })
 
   it('validates provider candidates and invalid registry caps', async () => {
+    /** 中文说明：变量 defaultedService 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const defaultedService = new SkillRegistry(new Context())
     expect(await defaultedService.list()).toEqual([])
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     registerProvider(ctx, {
@@ -575,12 +666,15 @@ describe('SkillRegistry registry', () => {
     })
     await expect(ctx.skills.list()).rejects.toThrow('invalid skill name')
 
+    /** 中文说明：变量 invalidCandidates 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidCandidates = [
       { ...memorySkill('empty-description', '', 1), provider: 'empty-description' },
       { ...memorySkill('bad-rank', 'Bad rank', Number.NaN), provider: 'bad-rank' },
       { ...memorySkill('wrong-provider', 'Wrong provider', 1), provider: 'different' },
     ]
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const candidate of invalidCandidates) {
+      /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const invalid = new Context()
       await invalid.plugin(SkillRegistry)
       registerProvider(invalid, {
@@ -599,20 +693,25 @@ describe('SkillRegistry registry', () => {
   })
 
   it('sorts model-visible summaries without locale-sensitive collation', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     registerProvider(ctx, new MemoryProvider([
       memorySkill('z-skill', 'Z skill', 10),
       memorySkill('a-skill', 'A skill', 10),
     ]))
+    /** 中文说明：变量 localeCompare 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const localeCompare = vi.spyOn(String.prototype, 'localeCompare')
+    /** 中文说明：变量 sort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sort = vi.spyOn(Array.prototype, 'sort')
 
     try {
+      /** 中文说明：变量 skills 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const skills = await ctx.skills.list()
       expect(skills.map(skill => skill.name)).toEqual(['a-skill', 'z-skill'])
       expect(localeCompare).not.toHaveBeenCalled()
 
+      /** 中文说明：变量 summaryComparator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const summaryComparator = sort.mock.calls.at(-1)?.[0]
       expect(summaryComparator).toBeTypeOf('function')
       expect(summaryComparator?.(skills[0], skills[0])).toBe(0)
@@ -623,8 +722,10 @@ describe('SkillRegistry registry', () => {
   })
 
   it('caches provider discovery, skips failing providers, and invalidates on runtime skills', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry, { collectCacheMaxEntries: 1 })
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new MemoryProvider([memorySkill('first-skill', 'First', 10)])
     registerProvider(ctx, provider)
 
@@ -632,6 +733,7 @@ describe('SkillRegistry registry', () => {
     provider.replace([memorySkill('second-skill', 'Second', 10)])
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['first-skill'])
 
+    /** 中文说明：变量 disposeRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeRuntime = ctx.skills.register({
       name: 'runtime-skill',
       description: 'Runtime',
@@ -651,7 +753,9 @@ describe('SkillRegistry registry', () => {
     await ctx.skills.list({ cwd: '/tmp/first-cache-key' })
     await ctx.skills.list({ cwd: '/tmp/second-cache-key' })
 
+    /** 中文说明：变量 fail 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let fail = true
+    /** 中文说明：变量 flakyCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let flakyCalls = 0
     registerProvider(ctx, {
       name: 'flaky',
@@ -664,6 +768,7 @@ describe('SkillRegistry registry', () => {
         return undefined
       },
     })
+    /** 中文说明：变量 incomplete 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const incomplete = await ctx.skills.snapshot()
     expect(incomplete.skills.map(skill => skill.name)).toEqual(['second-skill'])
     expect(incomplete.complete).toBe(false)
@@ -678,8 +783,10 @@ describe('SkillRegistry registry', () => {
   })
 
   it('keeps candidates from incomplete provider observations loadable without caching them', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 listCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let listCalls = 0
     registerProvider(ctx, {
       name: 'incomplete-candidates',
@@ -705,11 +812,16 @@ describe('SkillRegistry registry', () => {
   })
 
   it('invalidates only the exact registered provider and ignores its late callbacks', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new MemoryProvider([memorySkill('first-skill', 'First', 10)])
+    /** 中文说明：函数值 invalidate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let invalidate = (): void => {}
+    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let signal: AbortSignal | undefined
+    /** 中文说明：函数值 dispose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const dispose = ctx.skills.registerProvider((control) => {
       invalidate = control.invalidate
       signal = control.signal
@@ -725,6 +837,7 @@ describe('SkillRegistry registry', () => {
     dispose()
     expect(signal?.aborted).toBe(true)
 
+    /** 中文说明：变量 replacement 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replacement = new MemoryProvider([memorySkill('replacement-skill', 'Replacement', 10)])
     registerProvider(ctx, replacement)
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['replacement-skill'])
@@ -734,13 +847,18 @@ describe('SkillRegistry registry', () => {
   })
 
   it('emits catalog invalidations for live provider and runtime mutations', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new MemoryProvider([memorySkill('provider-skill', 'Provider', 10)])
+    /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let changes = 0
     ctx.on('skills/change', () => { changes += 1 })
 
+    /** 中文说明：函数值 invalidate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let invalidate = (): void => {}
+    /** 中文说明：函数值 disposeProvider 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeProvider = ctx.skills.registerProvider((control) => {
       invalidate = control.invalidate
       return provider
@@ -749,6 +867,7 @@ describe('SkillRegistry registry', () => {
     invalidate()
     expect(changes).toBe(2)
 
+    /** 中文说明：变量 disposeRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeRuntime = ctx.skills.register({
       name: 'runtime-skill',
       description: 'Runtime',
@@ -765,16 +884,23 @@ describe('SkillRegistry registry', () => {
   })
 
   it('contains synchronous and asynchronous catalog observer failures', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 warnings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    /** 中文说明：函数值 disposeThrowing 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeThrowing = ctx.on('skills/change', () => { throw new Error('observer threw') })
+    /** 中文说明：函数值 disposeRejecting 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     // oxlint-disable-next-line typescript/no-misused-promises -- deliberate rejection proves notification containment
     const disposeRejecting = ctx.on('skills/change', () => Promise.reject(new Error('observer rejected')))
+    /** 中文说明：变量 observed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let observed = 0
+    /** 中文说明：函数值 disposeObserver 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeObserver = ctx.on('skills/change', () => { observed += 1 })
 
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new MemoryProvider([])
     expect(() => registerProvider(ctx, provider)).not.toThrow()
     await Promise.resolve()
@@ -790,12 +916,18 @@ describe('SkillRegistry registry', () => {
   })
 
   it('retries an in-flight catalog invalidated by its provider', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：函数值 release 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let release: (() => void) | undefined
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：函数值 gate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const gate = new Promise<void>((resolve) => { release = resolve })
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new MemoryProvider([memorySkill('stale-skill', 'Stale', 10)])
+    /** 中文说明：变量 originalList 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const originalList = provider.list.bind(provider)
     provider.list = async (options) => {
       if (provider.listCalls === 0) {
@@ -806,12 +938,14 @@ describe('SkillRegistry registry', () => {
       }
       return await originalList(options)
     }
+    /** 中文说明：函数值 invalidate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let invalidate = (): void => {}
     ctx.skills.registerProvider((control) => {
       invalidate = control.invalidate
       return provider
     })
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.skills.list()
     await started.promise
     provider.replace([memorySkill('fresh-skill', 'Fresh', 10)])
@@ -823,8 +957,10 @@ describe('SkillRegistry registry', () => {
   })
 
   it('bounds repeated in-flight invalidation and leaves the result uncached', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 listCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let listCalls = 0
     ctx.skills.registerProvider(control => ({
       name: 'self-invalidating',
@@ -858,9 +994,12 @@ describe('SkillRegistry registry', () => {
   })
 
   it('invalidates a provider whose loaded definition changed identity', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 listCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let listCalls = 0
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider: SkillProvider = {
       name: 'renamed',
       async list() {
@@ -887,6 +1026,7 @@ describe('SkillRegistry registry', () => {
   })
 
   it('returns undefined when a discovered candidate disappears before loading', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     registerProvider(ctx, {
@@ -903,6 +1043,7 @@ describe('SkillRegistry registry', () => {
   })
 
   it('propagates a load failure raced against an armed abort signal', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     registerProvider(ctx, {
@@ -918,15 +1059,19 @@ describe('SkillRegistry registry', () => {
       }]),
       get: () => Promise.reject(new Error('load failed')),
     })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     await expect(ctx.skills.get('failing-skill', { signal: controller.signal })).rejects.toThrow('load failed')
   })
 
   it('contains a provider rejection whose string coercion throws', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 warnings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    /** 中文说明：变量 hostileFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hostileFailure = {
       toString() {
         throw new Error('provider failure coercion failed')
@@ -951,12 +1096,18 @@ describe('SkillRegistry registry', () => {
   })
 
   it('abandons an in-flight catalog when provider registrations change', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：函数值 markStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let markStarted: (() => void) | undefined
+    /** 中文说明：函数值 release 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let release: (() => void) | undefined
+    /** 中文说明：函数值 started 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const started = new Promise<void>((resolve) => { markStarted = resolve })
+    /** 中文说明：函数值 gate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const gate = new Promise<void>((resolve) => { release = resolve })
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = registerProvider(ctx, {
       name: 'delayed',
       async list() {
@@ -969,6 +1120,7 @@ describe('SkillRegistry registry', () => {
       },
     })
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.skills.list()
     await started
     dispose()
@@ -978,12 +1130,18 @@ describe('SkillRegistry registry', () => {
   })
 
   it('stops waiting for discovery when its lookup signal aborts', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：函数值 markStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let markStarted: (() => void) | undefined
+    /** 中文说明：函数值 release 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let release: (() => void) | undefined
+    /** 中文说明：变量 seenSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seenSignal: AbortSignal | undefined
+    /** 中文说明：函数值 started 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const started = new Promise<void>((resolve) => { markStarted = resolve })
+    /** 中文说明：函数值 held 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const held = new Promise<SkillCandidate[]>((resolve) => {
       release = () => { resolve([]) }
     })
@@ -998,9 +1156,13 @@ describe('SkillRegistry registry', () => {
         return undefined
       },
     })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = 'discovery cancelled'
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.skills.list({ signal: controller.signal })
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = pending.then(
       () => 'resolved',
       (error: unknown) => error instanceof Error && error.message === reason ? 'aborted' : 'other-error',
@@ -1008,6 +1170,7 @@ describe('SkillRegistry registry', () => {
     await started
     controller.abort(reason)
 
+    /** 中文说明：变量 settled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const settled = await Promise.race([
       outcome,
       new Promise<'timeout'>(resolve => setTimeout(() => { resolve('timeout') }, 25)),
@@ -1020,6 +1183,7 @@ describe('SkillRegistry registry', () => {
   })
 
   it('rejects invalid runtime skill registrations and ignores duplicates', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     expect(() => ctx.skills.register({ name: 'Bad_Name', description: 'Bad', source: 'runtime', content: 'bad' })).toThrow('invalid skill name')
@@ -1034,7 +1198,9 @@ describe('SkillRegistry registry', () => {
     expect(await ctx.skills.get('missing-skill')).toBeUndefined()
     expect(await ctx.skills.get('Bad_Name')).toBeUndefined()
 
+    /** 中文说明：变量 disposeFirst 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeFirst = ctx.skills.register({ name: 'same-skill', description: 'First', source: 'runtime', content: 'first' })
+    /** 中文说明：变量 disposeSecond 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeSecond = ctx.skills.register({ name: 'same-skill', description: 'Second', source: 'runtime', content: 'second' })
     disposeSecond()
     expect((await ctx.skills.get('same-skill'))?.description).toBe('First')
@@ -1045,6 +1211,7 @@ describe('SkillRegistry registry', () => {
 
 describe('renderSkillContent', () => {
   it('renders a directory-based skill with the shared wrapper', () => {
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = renderSkillContent({
       name: 'demo-skill',
       provider: 'memory',
@@ -1066,6 +1233,7 @@ describe('renderSkillContent', () => {
   })
 
   it('renders url and opaque resource hints', () => {
+    /** 中文说明：变量 url 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const url = renderSkillContent({
       name: 'url-skill',
       provider: 'memory',
@@ -1075,6 +1243,7 @@ describe('renderSkillContent', () => {
     expect(url).toContain('Base URL for this skill: https://example.test/base/')
     expect(url).toContain('Resolve relative URLs mentioned by this skill against the base URL before using them.')
 
+    /** 中文说明：变量 opaque 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const opaque = renderSkillContent({
       name: 'opaque-skill',
       provider: 'memory',
@@ -1085,6 +1254,7 @@ describe('renderSkillContent', () => {
   })
 
   it('falls back to the provider hint without a resource base', () => {
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = renderSkillContent({
       name: 'provider-skill',
       provider: 'remote <hub>',
@@ -1094,6 +1264,7 @@ describe('renderSkillContent', () => {
   })
 
   it('escapes hostile attribute names and keeps the body verbatim', () => {
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = renderSkillContent({
       name: 'x"&<y',
       provider: 'memory',
@@ -1107,10 +1278,13 @@ describe('renderSkillContent', () => {
 
 describe('SkillRegistry scoped layers', () => {
   it('files a scoped provider into its layer and merges it into that scope view only', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     registerProvider(ctx, new MemoryProvider([memorySkill('global-skill', 'Global', 100)]))
+    /** 中文说明：变量 preset 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = createScope(ctx, { preset: 'a' })
+    /** 中文说明：变量 presetProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const presetProvider: SkillProvider = {
       name: 'preset-local',
       async list() {
@@ -1131,6 +1305,7 @@ describe('SkillRegistry scoped layers', () => {
     scopedSkills(preset.ctx).registerProvider(() => presetProvider)
 
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['global-skill'])
+    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = await ctx.skills.list({ scope: scopeOf(preset.ctx) })
     expect(scoped.map(skill => skill.name)).toEqual(['global-skill', 'preset-skill'])
     expect((await ctx.skills.get('preset-skill', { scope: scopeOf(preset.ctx) }))?.content).toBe('Preset body.')
@@ -1139,9 +1314,11 @@ describe('SkillRegistry scoped layers', () => {
   })
 
   it('lets the nearest layer win a duplicate name regardless of rank', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     registerProvider(ctx, new MemoryProvider([memorySkill('shared-name', 'Global wins ranks', 10)]))
+    /** 中文说明：变量 preset 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = createScope(ctx, { preset: 'shadow' })
     scopedSkills(preset.ctx).registerProvider(() => ({
       name: 'preset-local',
@@ -1161,6 +1338,7 @@ describe('SkillRegistry scoped layers', () => {
       },
     }))
 
+    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = await ctx.skills.list({ scope: scopeOf(preset.ctx) })
     expect(scoped).toHaveLength(1)
     expect(scoped[0]?.description).toBe('Preset shadow')
@@ -1170,10 +1348,14 @@ describe('SkillRegistry scoped layers', () => {
   })
 
   it('resolves the scope chain so an agent key inherits its preset layer and recompose follows the new parent', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 presetA 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const presetA = createScope(ctx, { preset: 'a' })
+    /** 中文说明：变量 presetB 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const presetB = createScope(ctx, { preset: 'b' })
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [scope, label] of [[presetA, 'a'], [presetB, 'b']] as const) {
       scopedSkills(scope.ctx).register({
         name: `skill-${label}`,
@@ -1182,7 +1364,9 @@ describe('SkillRegistry scoped layers', () => {
         content: `Body ${label}.`,
       })
     }
+    /** 中文说明：变量 agentKey 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agentKey = {}
+    /** 中文说明：变量 binding 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const binding = bindScopeParent(agentKey, scopeOf(presetA.ctx) as object)
     expect((await ctx.skills.list({ scope: agentKey })).map(skill => skill.name)).toEqual(['skill-a'])
     // A blank-session recompose re-links the same key through its binding
@@ -1194,10 +1378,13 @@ describe('SkillRegistry scoped layers', () => {
   })
 
   it('scopes provider-name uniqueness per layer and reports scoped duplicates distinctly', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     registerProvider(ctx, new MemoryProvider([]))
+    /** 中文说明：变量 presetA 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const presetA = createScope(ctx, { preset: 'a' })
+    /** 中文说明：变量 presetB 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const presetB = createScope(ctx, { preset: 'b' })
     scopedSkills(presetA.ctx).registerProvider(() => new MemoryProvider([memorySkill('a-only', 'A', 100)]))
     scopedSkills(presetB.ctx).registerProvider(() => new MemoryProvider([memorySkill('b-only', 'B', 100)]))
@@ -1210,12 +1397,16 @@ describe('SkillRegistry scoped layers', () => {
   })
 
   it('keeps runtime duplicate handling per layer and shadows a global runtime name', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 warn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warn = vi.fn()
     ctx.logger.warn = warn as never
     ctx.skills.register({ name: 'told-twice', description: 'Global runtime', source: 'runtime', content: 'Global body.' })
+    /** 中文说明：变量 preset 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = createScope(ctx, { preset: 'runtime' })
+    /** 中文说明：变量 disposeShadow 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeShadow = scopedSkills(preset.ctx).register({
       name: 'told-twice',
       description: 'Preset runtime',
@@ -1233,14 +1424,19 @@ describe('SkillRegistry scoped layers', () => {
   })
 
   it('drops a disposed scoped registration from its scope view and notifies change', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changes = vi.fn()
     ctx.on('skills/change', changes)
+    /** 中文说明：变量 preset 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = createScope(ctx, { preset: 'hmr' })
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new MemoryProvider([memorySkill('scoped-skill', 'Scoped', 100)])
     scopedSkills(preset.ctx).registerProvider(() => provider)
     expect((await ctx.skills.list({ scope: scopeOf(preset.ctx) })).map(skill => skill.name)).toEqual(['scoped-skill'])
+    /** 中文说明：变量 notified 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const notified = changes.mock.calls.length
     await preset.dispose()
     expect(changes.mock.calls.length).toBeGreaterThan(notified)
@@ -1248,15 +1444,21 @@ describe('SkillRegistry scoped layers', () => {
   })
 
   it('invalidates through a scoped provider control only while its exact registration is live', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 preset 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = createScope(ctx, { preset: 'invalidate' })
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new MemoryProvider([memorySkill('watched', 'Watched', 100)])
+    /** 中文说明：函数值 control 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let control: { invalidate: () => void } | undefined
+    /** 中文说明：函数值 dispose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const dispose = scopedSkills(preset.ctx).registerProvider((given) => {
       control = given
       return provider
     })
+    /** 中文说明：变量 scope 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scope = scopeOf(preset.ctx)
     expect((await ctx.skills.list({ scope })).map(skill => skill.name)).toEqual(['watched'])
     provider.replace([memorySkill('replaced', 'Replaced', 100)])

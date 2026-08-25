@@ -13,6 +13,14 @@
  *
  * @module @deepseek-ai/dsh-spill
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的大结果落盘行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的大结果落盘能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SaveTextSpill, SpillRef } from './types.ts'
@@ -21,6 +29,7 @@ export { SpillLocator } from './types.ts'
 export type { SaveTextSpill, SpillOwner, SpillRef, SpillSource } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：interface Context 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
   interface Context {
     spillStore: SpillStore
   }

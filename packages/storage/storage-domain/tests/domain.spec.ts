@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 domain.spec.ts 覆盖的持久化存储行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的持久化存储能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { z } from 'zod'
@@ -7,11 +15,15 @@ import type { Config } from '../src/index.ts'
 import type { DomainChanged } from '../src/events.ts'
 import { MemoryMediaPool, MemoryStorageBackend } from './helpers/memory-backend.ts'
 
+/** 中文说明：变量 itemSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const itemSchema = z.object({ label: z.string(), count: z.number().int() })
+/** 中文说明：type Item 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
 type Item = z.infer<typeof itemSchema>
 
+/** 中文说明：变量 settingsSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const settingsSchema = z.object({ theme: z.string() })
 
+/** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const spec = defineDomain({
   name: 'demo',
   version: 1,
@@ -19,6 +31,7 @@ const spec = defineDomain({
   tables: { items: domainTable<string, Item>(itemSchema) },
 })
 
+/** 中文说明：变量 bareSpec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const bareSpec = defineDomain({
   name: 'bare',
   version: 1,
@@ -26,15 +39,20 @@ const bareSpec = defineDomain({
 })
 
 /** Boot a context with the storage hub, one memory backend, and a facility over it. */
+/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(options?: { pool?: MemoryMediaPool; config?: Partial<Config> }) {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(Storage)
+  /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const backend = new MemoryStorageBackend(options?.pool)
   ctx.storage.backend.register('memory', backend)
+  /** 中文说明：变量 facility 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const facility = new DomainFacility(ctx, { backend: 'memory', routes: {}, ...options?.config })
   // Mounted, not just constructed: the package invariant resolves the form
   // through ctx.storage to cross-check every domain/changed emission.
   ctx.storage.mount('domain', facility)
+  /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const changes: DomainChanged[] = []
   ctx.on('domain/changed', (change) => { changes.push(change) })
   return { ctx, backend, facility, changes }
@@ -62,6 +80,7 @@ describe('defineDomain', () => {
 describe('DomainFacility.open', () => {
   it('opens, reads back stored records, and rejects a second open of the same name', async () => {
     const { facility } = await harness()
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(spec)
     await domain.table('items').put('a', { label: 'first', count: 1 })
     await expect(facility.open(spec)).rejects.toMatchObject({ name: 'DomainError', code: 'already-open' })
@@ -90,6 +109,7 @@ describe('DomainFacility.open', () => {
     // (exactOptionalPropertyTypes forbids an explicit undefined). Opening
     // emits no events, so the mounted facility's invariant never consults it.
     const { ctx } = await harness()
+    /** 中文说明：变量 routeless 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const routeless = new DomainFacility(ctx, { backend: 'memory' })
     await expect(routeless.open(bareSpec)).resolves.toBeDefined()
   })
@@ -110,11 +130,13 @@ describe('DomainFacility.open', () => {
       },
       close: async () => {},
     })
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(bareSpec)
     expect(domain.table('rows').size).toBe(0)
   })
 
   it('rejects stored records that fail their schema, naming table and key', async () => {
+    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pool = new MemoryMediaPool()
     {
       const { facility } = await harness({ pool })
@@ -129,6 +151,7 @@ describe('DomainFacility.open', () => {
   })
 
   it('rejects a stored global that fails its schema with the global marker', async () => {
+    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pool = new MemoryMediaPool()
     pool.versions.set('demo', 1)
     pool.media.set('demo', { tables: new Map(), global: { theme: 42 } })
@@ -140,6 +163,7 @@ describe('DomainFacility.open', () => {
   })
 
   it('passes through a backend version mismatch', async () => {
+    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pool = new MemoryMediaPool()
     pool.versions.set('demo', 7)
     const { facility } = await harness({ pool })
@@ -152,12 +176,16 @@ describe('DomainFacility.open', () => {
 
 describe('plugin apply', () => {
   it('uses only the default backend when routes are omitted', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(Storage)
+    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const backend = new MemoryStorageBackend()
     ctx.storage.backend.register('memory', backend)
+    /** 中文说明：变量 disposeBackend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeBackend = ctx.provide(storageBackendServiceKey('memory'), backend)
 
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin({
       name: 'storage-domain-routeless-test',
       inject: ['storage'],
@@ -171,15 +199,20 @@ describe('plugin apply', () => {
   })
 
   it('waits for routed backends, then mounts one lifecycle-bound service and form', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(Storage)
+    /** 中文说明：变量 DomainPlugin 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const DomainPlugin = await import('../src/index.ts')
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(DomainPlugin, { backend: 'memory' })
     expect(ctx.get('storageDomain')).toBeUndefined()
     expect(() => ctx.storage.form('domain')).toThrow(/not mounted/)
 
+    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const backend = new MemoryStorageBackend()
     ctx.storage.backend.register('memory', backend)
+    /** 中文说明：变量 disposeBackend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeBackend = ctx.provide(storageBackendServiceKey('memory'), backend)
     await vi.waitFor(() => { expect(ctx.storageDomain).toBeInstanceOf(DomainFacility) })
     expect(ctx.storage.domain).toBe(ctx.storageDomain)
@@ -196,7 +229,9 @@ describe('plugin apply', () => {
 describe('table and snapshot reads', () => {
   it('serves entries, keys, and size as stable snapshots; unknown table names throw', async () => {
     const { facility } = await harness()
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(spec)
+    /** 中文说明：变量 table 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = domain.table('items')
     await table.put('a', { label: 'x', count: 1 })
     await table.put('b', { label: 'y', count: 2 })
@@ -210,6 +245,7 @@ describe('table and snapshot reads', () => {
 describe('KvTable writes', () => {
   it('serializes concurrent updates on one key without losing increments', async () => {
     const { facility } = await harness()
+    /** 中文说明：变量 table 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = (await facility.open(spec)).table('items')
     await table.put('counter', { label: 'c', count: 0 })
     await Promise.all(Array.from({ length: 50 }, () =>
@@ -219,6 +255,7 @@ describe('KvTable writes', () => {
 
   it('update rejects a missing key; delete reports prior existence', async () => {
     const { facility } = await harness()
+    /** 中文说明：变量 table 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = (await facility.open(spec)).table('items')
     await expect(table.update('ghost', v => v)).rejects.toMatchObject({ code: 'missing-key' })
     await table.put('a', { label: 'x', count: 1 })
@@ -228,7 +265,9 @@ describe('KvTable writes', () => {
 
   it('emits domain/changed per durable write, in order, with tombstones and global marker', async () => {
     const { facility, changes } = await harness()
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(spec)
+    /** 中文说明：变量 table 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = domain.table('items')
     await table.put('a', { label: 'x', count: 1 })
     await table.update('a', current => ({ ...current, count: 2 }))
@@ -246,11 +285,15 @@ describe('KvTable writes', () => {
 
 describe('durability failure', () => {
   it('leaves memory untouched and emits nothing when the backend rejects a write', async () => {
+    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pool = new MemoryMediaPool()
     const { facility, changes } = await harness({ pool })
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(spec)
+    /** 中文说明：变量 table 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = domain.table('items')
     await table.put('a', { label: 'x', count: 1 })
+    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seen = changes.length
 
     pool.failNextWrites = 3
@@ -269,8 +312,10 @@ describe('durability failure', () => {
   })
 
   it('keeps serving initial when the first global set fails durability', async () => {
+    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pool = new MemoryMediaPool()
     const { facility } = await harness({ pool })
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(spec)
     pool.failNextWrites = 1
     await expect(domain.global.set({ theme: 'dark' })).rejects.toThrow(/injected/)
@@ -281,9 +326,11 @@ describe('durability failure', () => {
 
 describe('global singleton', () => {
   it('serves initial before first set without materializing, then persists the first set', async () => {
+    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pool = new MemoryMediaPool()
     {
       const { facility } = await harness({ pool })
+      /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const domain = await facility.open(spec)
       expect(domain.global.get()).toEqual({ theme: 'plain' })
       expect(pool.media.get('demo')!.global).toBeNull() // initial never touches the medium
@@ -296,6 +343,7 @@ describe('global singleton', () => {
 
   it('throws on access when the spec declares no global', async () => {
     const { facility } = await harness()
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(bareSpec)
     expect(() => (domain as { global: unknown }).global).toThrow(/declares no global/)
   })
@@ -303,10 +351,14 @@ describe('global singleton', () => {
 
 describe('close and lifecycle', () => {
   it('close drains queued writes, then rejects reads and writes, and frees the name', async () => {
+    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pool = new MemoryMediaPool()
     const { facility } = await harness({ pool })
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(spec)
+    /** 中文说明：变量 table 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = domain.table('items')
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = Promise.all([
       table.put('a', { label: 'x', count: 1 }),
       table.put('b', { label: 'y', count: 2 }),
@@ -318,19 +370,26 @@ describe('close and lifecycle', () => {
     await expect(table.put('c', { label: 'z', count: 3 })).rejects.toMatchObject({ code: 'closed' })
     expect(() => table.get('a')).toThrow(/closed/)
     // The name is free again: reopening sees the drained state.
+    /** 中文说明：变量 reopened 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reopened = await facility.open(spec)
     expect([...reopened.table('items').keys()].sort()).toEqual(['a', 'b'])
   })
 
   it('facility unmount closes domains the consumer never closed', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(Storage)
+    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const backend = new MemoryStorageBackend()
     ctx.storage.backend.register('memory', backend)
     ctx.provide(storageBackendServiceKey('memory'), backend)
+    /** 中文说明：变量 DomainPlugin 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const DomainPlugin = await import('../src/index.ts')
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(DomainPlugin, { backend: 'memory' })
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await ctx.storageDomain.open(bareSpec)
+    /** 中文说明：变量 table 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = domain.table('rows')
     await table.put('a', { label: 'x', count: 1 })
     await fiber.dispose()
@@ -339,9 +398,12 @@ describe('close and lifecycle', () => {
   })
 
   it('contains a throwing domain/changed listener without rejecting the committed write', async () => {
+    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pool = new MemoryMediaPool()
     const { ctx, facility, changes } = await harness({ pool })
+    /** 中文说明：变量 domain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await facility.open(spec)
+    /** 中文说明：变量 table 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = domain.table('items')
     ctx.on('domain/changed', () => {
       throw new Error('hostile observer')

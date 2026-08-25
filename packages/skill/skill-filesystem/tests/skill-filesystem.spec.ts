@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 skill-filesystem.spec.ts 覆盖的技能发现与装载行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的技能发现与装载能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 import { describe, expect, it } from 'vitest'
 import { mkdir, readdir, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -7,21 +15,26 @@ import SkillRegistry from '@deepseek-ai/dsh-skill'
 import { FileSystem, FsError, FsVersion, type FsDirEntry, type FsEditOutcome, type FsEditRequest, type FsInfo, type FsPathInfo, type FsTarget, type FsWriteOutcome } from '@deepseek-ai/dsh-fs'
 import * as SkillFileSystem from '../src/index.ts'
 
+/** 中文说明：函数 tempDir 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function tempDir(name: string): Promise<string> {
   return await import('node:fs/promises').then(fs => fs.mkdtemp(join(tmpdir(), `dsh-${name}-`)))
 }
 
+/** 中文说明：函数 writeSkill 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function writeSkill(root: string, name: string, description: string, body = 'Use the skill.'): Promise<void> {
+  /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = join(root, name)
   await mkdir(dir, { recursive: true })
   await writeFile(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}\n`)
 }
 
+/** 中文说明：函数 writeFlatSkill 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function writeFlatSkill(root: string, name: string, description: string, body = 'Flat body.'): Promise<void> {
   await mkdir(root, { recursive: true })
   await writeFile(join(root, `${name}.md`), `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}\n`)
 }
 
+/** 中文说明：class TestFileSystem 定义本测试所需的数据或行为，用于表达技能发现与装载场景。 */
 class TestFileSystem extends FileSystem {
   listDirCalls = 0
   failResolvePaths = new Set<string>()
@@ -56,7 +69,9 @@ class TestFileSystem extends FileSystem {
     if (this.errorStatPaths.has(target.displayPath)) throw new Error('stat temporarily failed')
     if (this.statOverrides.has(target.displayPath)) return this.statOverrides.get(target.displayPath)
     try {
+      /** 中文说明：变量 fs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fs = await import('node:fs/promises')
+      /** 中文说明：变量 info 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const info = await fs.stat(target.displayPath)
       return {
         version: FsVersion(String(info.mtimeMs)),
@@ -70,7 +85,9 @@ class TestFileSystem extends FileSystem {
 
   override async lstat(path: string): Promise<FsPathInfo | undefined> {
     try {
+      /** 中文说明：变量 fs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fs = await import('node:fs/promises')
+      /** 中文说明：变量 info 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const info = await fs.lstat(path)
       return {
         version: FsVersion(String(info.mtimeMs)),
@@ -87,6 +104,7 @@ class TestFileSystem extends FileSystem {
     if (this.readTextOverride !== undefined) return await this.readTextOverride(target, signal)
     if (this.missingReadPaths.has(target.displayPath)) throw new FsError('read failed', 'FS_NOT_FOUND')
     if (this.errorReadPaths.has(target.displayPath)) throw new Error('read temporarily failed')
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = await readFile(target.displayPath, 'utf8')
     if (text.includes('\uFFFD')) throw new FsError('not text', 'FS_NOT_TEXT')
     return text
@@ -103,13 +121,20 @@ class TestFileSystem extends FileSystem {
   override async listDir(target: FsTarget): Promise<FsDirEntry[]> {
     this.listDirCalls += 1
     if (this.failListDirPaths.has(target.displayPath)) throw new Error('list temporarily failed')
+    /** 中文说明：变量 entries 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entries = await readdir(target.displayPath, { withFileTypes: true, encoding: 'utf8' })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result: FsDirEntry[] = []
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      /** 中文说明：变量 childPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const childPath = join(target.displayPath, entry.name)
+      /** 中文说明：变量 type 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let type: FsInfo['type'] = 'other'
+      /** 中文说明：变量 size 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let size: number | undefined
       try {
+        /** 中文说明：变量 info 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const info = await stat(childPath)
         type = info.isFile() ? 'file' : info.isDirectory() ? 'directory' : 'other'
         size = info.isFile() ? info.size : undefined
@@ -138,7 +163,9 @@ class TestFileSystem extends FileSystem {
   }
 }
 
+/** 中文说明：函数 setupLocal 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setupLocal(home: string, config: Partial<SkillFileSystem.Config> = {}): Promise<Context> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SkillRegistry)
   await ctx.plugin(SkillFileSystem, {
@@ -150,9 +177,12 @@ async function setupLocal(home: string, config: Partial<SkillFileSystem.Config> 
   return ctx
 }
 
+/** 中文说明：函数 waitFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitFor<T>(read: () => Promise<T>, accept: (value: T) => boolean): Promise<T> {
+  /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + 5000
   while (true) {
+    /** 中文说明：变量 value 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const value = await read()
     if (accept(value)) return value
     if (Date.now() >= deadline) throw new Error('timed out waiting for watcher state')
@@ -169,8 +199,11 @@ describe('dsh-skill-filesystem plugin exports', () => {
 
 describe('FileSystemSkillProvider', () => {
   it('discovers project, custom, user, and agents skill roots in priority order', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-home')
+    /** 中文说明：变量 project 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const project = await tempDir('skill-project')
+    /** 中文说明：变量 custom 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const custom = await tempDir('skill-custom')
     await mkdir(join(project, '.git'), { recursive: true })
 
@@ -182,11 +215,14 @@ describe('FileSystemSkillProvider', () => {
     await writeSkill(custom, 'custom-only', 'custom only')
     await writeSkill(join(home, '.dsh/skills/.system'), 'hidden-system', 'hidden system')
 
+    /** 中文说明：变量 bundled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bundled = await tempDir('skill-bundled')
     await writeSkill(bundled, 'bundled-only', 'bundled skill')
     await writeSkill(bundled, 'same', 'bundled skill')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home, { customSkillDirs: [custom], bundledSkillDir: bundled })
 
+    /** 中文说明：变量 skills 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const skills = await ctx.skills.list({ cwd: join(project, 'src') })
     expect(skills.map(skill => skill.name)).toEqual([
       'bundled-only',
@@ -200,14 +236,18 @@ describe('FileSystemSkillProvider', () => {
     expect(skills.find(skill => skill.name === 'bundled-only')).toMatchObject({ source: 'bundled' })
     expect((await ctx.skills.get('bundled-only'))?.content).toBe('Use the skill.')
 
+    /** 中文说明：变量 noGit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noGit = await tempDir('skill-no-git')
     await writeSkill(join(noGit, '.dsh/skills'), 'fallback-root', 'Fallback root')
     expect((await ctx.skills.list({ cwd: noGit })).map(skill => skill.name)).toContain('fallback-root')
   })
 
   it('lets project skills override runtime while runtime overrides custom and user skills', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-runtime-priority')
+    /** 中文说明：变量 project 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const project = await tempDir('skill-runtime-project')
+    /** 中文说明：变量 custom 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const custom = await tempDir('skill-runtime-custom')
     await mkdir(join(project, '.git'), { recursive: true })
 
@@ -215,6 +255,7 @@ describe('FileSystemSkillProvider', () => {
     await writeSkill(custom, 'runtime-name', 'Custom loses')
     await writeSkill(join(home, '.dsh/skills'), 'runtime-name', 'User loses')
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home, { customSkillDirs: [custom] })
     ctx.skills.register({
       name: 'project-name',
@@ -234,7 +275,9 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('parses flat skills and filters invalid skills from the invocation-neutral listing', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-flat')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.dsh/skills')
     await writeFlatSkill(root, 'flat-skill', 'flat description', 'Flat instructions.')
     await writeFile(join(root, 'rich-skill.md'), [
@@ -264,8 +307,11 @@ describe('FileSystemSkillProvider', () => {
     await writeSkill(root, 'model-only-skill', 'model-only description', 'Model-only.')
     await writeFile(join(root, 'model-only-skill/SKILL.md'), '---\nname: model-only-skill\ndescription: model-only description\nuser-invocable: false\n---\n\nModel-only.\n')
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home)
+    /** 中文说明：变量 listedBeforeDelete 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listedBeforeDelete = await ctx.skills.list()
+    /** 中文说明：函数值 flatSummary 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const flatSummary = listedBeforeDelete.find(skill => skill.name === 'flat-skill')
     if (flatSummary === undefined) throw new Error('expected flat-skill')
     await rm(join(root, 'flat-skill.md'))
@@ -299,11 +345,16 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('accepts the documented boolean spellings for invocation frontmatter', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-invocation-booleans')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.dsh/skills')
     await mkdir(root, { recursive: true })
+    /** 中文说明：变量 truthy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const truthy = ['true', 'TRUE', '"true"', 'yes', 'ON', '1', '"1"']
+    /** 中文说明：变量 falsy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const falsy = ['false', 'FALSE', '"false"', 'no', 'OFF', '0', '"0"']
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [index, value] of truthy.entries()) {
       await writeFile(join(root, `truthy-${index}.md`), [
         '---',
@@ -315,6 +366,7 @@ describe('FileSystemSkillProvider', () => {
         'Truthy.',
       ].join('\n'))
     }
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [index, value] of falsy.entries()) {
       await writeFile(join(root, `falsy-${index}.md`), [
         '---',
@@ -327,14 +379,17 @@ describe('FileSystemSkillProvider', () => {
       ].join('\n'))
     }
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home)
 
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [index] of truthy.entries()) {
       expect((await ctx.skills.get(`truthy-${index}`))?.invocation).toEqual({
         modelInvocable: false,
         userInvocable: true,
       })
     }
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [index] of falsy.entries()) {
       expect((await ctx.skills.get(`falsy-${index}`))?.invocation).toEqual({
         modelInvocable: true,
@@ -344,9 +399,12 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('rejects legacy and invalid invocation frontmatter without hiding valid siblings', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-invalid-invocation')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.dsh/skills')
     await writeSkill(root, 'good-skill', 'Good skill')
+    /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalid = [
       ['legacy-model', 'disableModelInvocation: true'],
       ['legacy-positive-model', 'modelInvocable: false'],
@@ -354,17 +412,21 @@ describe('FileSystemSkillProvider', () => {
       ['bad-string', 'disable-model-invocation: maybe'],
       ['bad-value', 'user-invocable: null'],
     ] as const
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [name, field] of invalid) {
       await writeFile(join(root, `${name}.md`), `---\nname: ${name}\ndescription: ${name}\n${field}\n---\n\nBad.\n`)
     }
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home)
 
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['good-skill'])
   })
 
   it('supports CRLF frontmatter and ignores delimiter-looking text inside YAML values', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-frontmatter-crlf')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.dsh/skills')
     await mkdir(root, { recursive: true })
     await writeFile(join(root, 'crlf-skill.md'), [
@@ -387,6 +449,7 @@ describe('FileSystemSkillProvider', () => {
       'Block body.',
     ].join('\n'))
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home)
 
     expect((await ctx.skills.get('crlf-skill'))?.content).toBe('CRLF body.')
@@ -396,18 +459,23 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('skips invalid YAML skill files without hiding valid siblings', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-invalid-yaml')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.dsh/skills')
     await writeSkill(root, 'good-skill', 'Good skill')
     await writeFile(join(root, 'bad-yaml.md'), '---\nname: bad-yaml\ndescription: [unclosed\n---\n\nBad body.\n')
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home)
 
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['good-skill'])
   })
 
   it('discovers symlinked skill directories and flat files', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-symlink-home')
+    /** 中文说明：变量 external 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const external = await tempDir('skill-symlink-external')
     await writeSkill(external, 'linked-dir', 'Linked directory')
     await writeFlatSkill(external, 'linked-flat', 'Linked flat')
@@ -417,15 +485,20 @@ describe('FileSystemSkillProvider', () => {
     await symlink(join(external, 'missing'), join(home, '.dsh/skills/broken-link'))
     await symlink('/dev/null', join(home, '.dsh/skills/device-link'))
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home)
 
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['linked-dir', 'linked-flat'])
   })
 
   it('uses the filesystem service for discovery, reads, and project-root lookup', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-read-fs')
+    /** 中文说明：变量 project 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const project = await tempDir('skill-project-root-backend')
+    /** 中文说明：变量 nestedCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nestedCwd = join(project, 'packages/app')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.dsh/skills')
     await mkdir(nestedCwd, { recursive: true })
     await writeFlatSkill(root, 'text-skill', 'Text skill', 'Text body.')
@@ -440,8 +513,10 @@ describe('FileSystemSkillProvider', () => {
     ]))
     await writeSkill(join(project, '.agents/skills'), 'backend-root', 'Backend root skill')
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(TestFileSystem)
+    /** 中文说明：变量 fs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fs = ctx.fs as TestFileSystem
     fs.failResolvePaths.add(join(root, 'resolve-fail.md'))
     fs.failStatPaths.add(join(root, 'stat-fail.md'))
@@ -462,10 +537,13 @@ describe('FileSystemSkillProvider', () => {
     expect(fs.listDirCalls).toBeGreaterThan(0)
     expect(await ctx.skills.get('binary-skill')).toBeUndefined()
 
+    /** 中文说明：变量 bundled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bundled = await tempDir('skill-backend-bundled')
     await writeSkill(bundled, 'bundled-host', 'Bundled host skill')
+    /** 中文说明：变量 bundledCtx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bundledCtx = new Context()
     await bundledCtx.plugin(TestFileSystem)
+    /** 中文说明：变量 bundledFs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bundledFs = bundledCtx.fs as TestFileSystem
     bundledFs.failResolvePaths.add(bundled)
     await bundledCtx.plugin(SkillRegistry)
@@ -478,11 +556,15 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('reports transient root reads as incomplete without caching an empty catalog', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-transient-root')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.agents/skills')
     await writeSkill(root, 'stable-skill', 'Stable skill')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(TestFileSystem)
+    /** 中文说明：变量 fs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fs = ctx.fs as TestFileSystem
     await ctx.plugin(SkillRegistry)
     await ctx.plugin(SkillFileSystem, {
@@ -496,6 +578,7 @@ describe('FileSystemSkillProvider', () => {
       complete: true,
     })
     fs.failListDirPaths.add(root)
+    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = join(root, 'stable-skill/SKILL.md')
     ctx.emit(
       'fs/observed',
@@ -513,12 +596,17 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('distinguishes transient filesystem entry failures from confirmed disappearance', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-transient-entry')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.agents/skills')
+    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = join(root, 'stable-skill/SKILL.md')
     await writeSkill(root, 'stable-skill', 'Stable skill')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(TestFileSystem)
+    /** 中文说明：变量 fs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fs = ctx.fs as TestFileSystem
     await ctx.plugin(SkillRegistry)
     await ctx.plugin(SkillFileSystem, {
@@ -526,6 +614,7 @@ describe('FileSystemSkillProvider', () => {
       agentsHome: join(home, '.agents'),
       watch: false,
     })
+    /** 中文说明：函数值 invalidate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const invalidate = (): void => {
       ctx.emit(
         'fs/observed',
@@ -536,6 +625,7 @@ describe('FileSystemSkillProvider', () => {
     }
 
     expect((await ctx.skills.snapshot()).complete).toBe(true)
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const failures of [fs.errorResolvePaths, fs.errorStatPaths, fs.errorReadPaths]) {
       failures.add(path)
       invalidate()
@@ -555,20 +645,26 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('marks an unexpected native skill-file read failure incomplete', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-native-read-failure')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.agents/skills')
     await mkdir(join(root, 'broken-skill/SKILL.md'), { recursive: true })
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home)
 
     expect(await ctx.skills.snapshot()).toEqual({ skills: [], complete: false })
   })
 
   it('forwards cancellation to filesystem reads while loading a skill', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-read-abort')
     await writeSkill(join(home, '.dsh/skills'), 'abortable-skill', 'Abortable skill')
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(TestFileSystem)
+    /** 中文说明：变量 fs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fs = ctx.fs as TestFileSystem
     await ctx.plugin(SkillRegistry)
     await ctx.plugin(SkillFileSystem, { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents'), watch: false })
@@ -576,19 +672,24 @@ describe('FileSystemSkillProvider', () => {
 
     fs.statSignals = []
     fs.readTextSignals = []
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Promise.withResolvers<undefined>()
     fs.readTextOverride = async (_target, signal) => {
       if (signal === undefined) throw new Error('expected the skill lookup signal')
       started.resolve(undefined)
       return await new Promise<string>((_resolve, reject) => {
         signal.addEventListener('abort', () => {
+          /** 中文说明：变量 abortReason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const abortReason = signal.reason as unknown
           reject(abortReason instanceof Error ? abortReason : new Error(String(abortReason)))
         }, { once: true })
       })
     }
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('turn cancelled')
+    /** 中文说明：变量 loading 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loading = ctx.skills.get('abortable-skill', { signal: controller.signal })
     await started.promise
     controller.abort(reason)
@@ -599,10 +700,14 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('refreshes additions, metadata changes, deletions, and a recreated missing root', { timeout: 20000 }, async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-watch-home')
+    /** 中文说明：变量 agentsRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agentsRoot = join(home, '.agents/skills')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(SkillFileSystem, {
       dshHome: join(home, '.dsh'),
       agentsHome: join(home, '.agents'),
@@ -614,6 +719,7 @@ describe('FileSystemSkillProvider', () => {
       expect(await ctx.skills.list()).toEqual([])
 
       await writeSkill(agentsRoot, 'watched-skill', 'First description', 'First body.')
+      /** 中文说明：变量 added 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const added = await waitFor(
         async () => await ctx.skills.list(),
         skills => skills.some(skill => skill.name === 'watched-skill'),
@@ -621,6 +727,7 @@ describe('FileSystemSkillProvider', () => {
       expect(added.find(skill => skill.name === 'watched-skill')?.description).toBe('First description')
 
       await writeSkill(agentsRoot, 'watched-skill', 'Second description', 'Second body.')
+      /** 中文说明：变量 changed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const changed = await waitFor(
         async () => await ctx.skills.list(),
         skills => skills.find(skill => skill.name === 'watched-skill')?.description === 'Second description',
@@ -665,15 +772,21 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('uses fs/observed as a synchronous first-party invalidation path without a watcher', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-observed-home')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.agents/skills')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupLocal(home)
     expect(await ctx.skills.list()).toEqual([])
+    /** 中文说明：变量 invalidations 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let invalidations = 0
     ctx.on('skills/change', () => { invalidations += 1 })
 
     await writeSkill(root, 'observed-skill', 'Observed skill')
+    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = join(root, 'observed-skill/SKILL.md')
+    /** 中文说明：函数值 emitObserved 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const emitObserved = (displayPath: string, actor?: object): void => {
       ctx.emit(
         'fs/observed',
@@ -702,15 +815,20 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('bounds project watchers and re-observes an evicted project on its next lookup', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-watch-lru-home')
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await tempDir('skill-watch-lru-first')
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await tempDir('skill-watch-lru-second')
     await mkdir(join(first, '.git'), { recursive: true })
     await mkdir(join(second, '.git'), { recursive: true })
     await writeSkill(join(first, '.agents/skills'), 'first-project', 'First project')
     await writeSkill(join(second, '.agents/skills'), 'second-project', 'Second project')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(SkillFileSystem, {
       dshHome: join(home, '.dsh'),
       agentsHome: join(home, '.agents'),
@@ -731,6 +849,7 @@ describe('FileSystemSkillProvider', () => {
       await fiber.dispose()
     }
 
+    /** 中文说明：变量 noWatch 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noWatch = new Context()
     await noWatch.plugin(SkillRegistry)
     await noWatch.plugin(SkillFileSystem, {
@@ -744,13 +863,18 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('contains repeated disposal and late first-party observations', async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-watch-dispose')
+    /** 中文说明：变量 nonDirectoryRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nonDirectoryRoot = join(home, 'not-a-directory')
     await writeFile(nonDirectoryRoot, 'not a skill root')
     await writeSkill(join(home, '.agents/skills'), 'disposed-skill', 'Disposed skill')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let provider!: SkillFileSystem.FileSystemSkillProvider
+    /** 中文说明：函数值 disposeProvider 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeProvider = ctx.skills.registerProvider((control) => {
       provider = new SkillFileSystem.FileSystemSkillProvider(ctx, control, {
         dshHome: join(home, '.dsh'),
@@ -762,6 +886,7 @@ describe('FileSystemSkillProvider', () => {
       })
       return provider
     })
+    /** 中文说明：变量 beforeDisposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeDisposal = await provider.list({})
     expect((Array.isArray(beforeDisposal) ? beforeDisposal : beforeDisposal.candidates).map(skill => skill.name))
       .toEqual(['disposed-skill'])
@@ -770,6 +895,7 @@ describe('FileSystemSkillProvider', () => {
     await provider.dispose()
     provider.observeHostMutation(join(home, '.agents/skills/disposed-skill/SKILL.md'))
 
+    /** 中文说明：变量 afterDisposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const afterDisposal = await provider.list({})
     expect((Array.isArray(afterDisposal) ? afterDisposal : afterDisposal.candidates).map(skill => skill.name))
       .toEqual(['disposed-skill'])
@@ -777,14 +903,19 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('refreshes frontmatter through a followed skill symlink', { timeout: 10000 }, async () => {
+    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('skill-watch-symlink-home')
+    /** 中文说明：变量 external 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const external = await tempDir('skill-watch-symlink-external')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.dsh/skills')
     await writeSkill(external, 'linked-skill', 'First linked description')
     await mkdir(root, { recursive: true })
     await symlink(join(external, 'linked-skill'), join(root, 'linked-skill'))
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(SkillFileSystem, {
       dshHome: join(home, '.dsh'),
       agentsHome: join(home, '.agents'),
@@ -796,6 +927,7 @@ describe('FileSystemSkillProvider', () => {
     try {
       expect((await ctx.skills.list())[0]?.description).toBe('First linked description')
       await writeSkill(external, 'linked-skill', 'Second linked description')
+      /** 中文说明：变量 refreshed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const refreshed = await waitFor(
         async () => await ctx.skills.list(),
         skills => skills[0]?.description === 'Second linked description',
@@ -807,6 +939,7 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('validates watcher tunables at plugin load', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
 
@@ -816,17 +949,23 @@ describe('FileSystemSkillProvider', () => {
   })
 
   it('uses default home root resolution without exposing builtin skills', async () => {
+    /** 中文说明：变量 previousDshHome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const previousDshHome = process.env.DSH_HOME
+    /** 中文说明：变量 previousAgentsHome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const previousAgentsHome = process.env.DSH_AGENTS_HOME
+    /** 中文说明：变量 previousBundledSkillDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const previousBundledSkillDir = process.env.DSH_BUNDLED_SKILL_DIR
+    /** 中文说明：变量 envHome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const envHome = await tempDir('skill-env-home')
     try {
       process.env.DSH_HOME = join(envHome, '.dsh')
       process.env.DSH_AGENTS_HOME = join(envHome, '.agents')
+      /** 中文说明：变量 bundled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const bundled = join(envHome, 'bundled-skills')
       process.env.DSH_BUNDLED_SKILL_DIR = bundled
       await writeSkill(join(envHome, '.dsh/skills'), 'env-skill', 'Env skill')
       await writeSkill(bundled, 'env-bundled-skill', 'Env bundled skill')
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SkillRegistry)
       await ctx.plugin(SkillFileSystem, { watch: false })
@@ -835,8 +974,10 @@ describe('FileSystemSkillProvider', () => {
       // Isolated providers see only their explicit roots: the environment
       // bundled root is a default root, so includeDefaultRoots: false must
       // drop it — isolated providers never re-claim the app's builtins.
+      /** 中文说明：变量 isolated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const isolated = new Context()
       await isolated.plugin(SkillRegistry)
+      /** 中文说明：变量 customOnly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const customOnly = join(envHome, 'custom-only')
       await writeSkill(customOnly, 'custom-isolated-skill', 'Custom isolated skill')
       await isolated.plugin(SkillFileSystem, {
@@ -851,6 +992,7 @@ describe('FileSystemSkillProvider', () => {
       process.env.DSH_HOME = join(envHome, 'empty-dsh')
       delete process.env.DSH_BUNDLED_SKILL_DIR
       process.env.DSH_AGENTS_HOME = join(envHome, 'empty-agents')
+      /** 中文说明：变量 empty 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const empty = new Context()
       await empty.plugin(SkillRegistry)
       SkillFileSystem.apply(empty, { watch: false })

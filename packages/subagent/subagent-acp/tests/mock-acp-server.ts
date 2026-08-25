@@ -50,6 +50,14 @@
  *
  * @module @deepseek-ai/dsh-subagent-acp/tests/mock-acp-server
  */
+/**
+ * 文件职责：验证 mock-acp-server.ts 覆盖的子代理进程与协议行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 
 import { randomUUID } from 'node:crypto'
 import { existsSync, writeFileSync } from 'node:fs'
@@ -58,46 +66,73 @@ import {
   AgentSideConnection,
   ndJsonStream,
   PROTOCOL_VERSION,
+  /** 中文说明：type Agent 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type Agent,
+  /** 中文说明：type CancelNotification 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type CancelNotification,
+  /** 中文说明：type AuthenticateRequest 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type AuthenticateRequest,
+  /** 中文说明：type InitializeRequest 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type InitializeRequest,
+  /** 中文说明：type InitializeResponse 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type InitializeResponse,
+  /** 中文说明：type NewSessionRequest 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type NewSessionRequest,
+  /** 中文说明：type NewSessionResponse 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type NewSessionResponse,
+  /** 中文说明：type PromptRequest 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type PromptRequest,
+  /** 中文说明：type PromptResponse 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type PromptResponse,
+  /** 中文说明：type StopReason 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
   type StopReason,
 } from '@agentclientprotocol/sdk'
 
 // When MOCK_ECHO_ENV names a variable, stream that variable's value in place
 // of MOCK_TEXT — lets a test assert exactly what env reached this process.
+/** 中文说明：变量 echoEnvName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const echoEnvName = process.env.MOCK_ECHO_ENV
+/** 中文说明：常量 TEXT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TEXT = echoEnvName !== undefined
   ? process.env[echoEnvName] ?? `<${echoEnvName} unset>`
   : process.env.MOCK_TEXT ?? 'mock child answer'
+/** 中文说明：常量 ECHO_CWD 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ECHO_CWD = process.env.MOCK_ECHO_CWD === '1'
+/** 中文说明：常量 STOP 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STOP = (process.env.MOCK_STOP ?? 'end_turn') as StopReason
+/** 中文说明：常量 HANG 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const HANG = process.env.MOCK_HANG === '1'
+/** 中文说明：常量 WANT_PERMISSION 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WANT_PERMISSION = process.env.MOCK_PERMISSION === '1'
+/** 中文说明：常量 NO_ALLOW 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const NO_ALLOW = process.env.MOCK_NO_ALLOW === '1'
+/** 中文说明：常量 THOUGHT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const THOUGHT = process.env.MOCK_THOUGHT === '1'
+/** 中文说明：常量 CRASH_ON_CANCEL 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CRASH_ON_CANCEL = process.env.MOCK_CRASH_ON_CANCEL === '1'
+/** 中文说明：常量 CRASH_ON_PROMPT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CRASH_ON_PROMPT = process.env.MOCK_CRASH_ON_PROMPT === '1'
+/** 中文说明：常量 IGNORE_CANCEL 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const IGNORE_CANCEL = process.env.MOCK_IGNORE_CANCEL === '1'
+/** 中文说明：常量 READY_FILE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const READY_FILE = process.env.MOCK_READY_FILE
+/** 中文说明：常量 FLUSH_ON_EOF 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FLUSH_ON_EOF = process.env.MOCK_FLUSH_ON_EOF
 // When MOCK_NEWSESSION_READY/GO are set, newSession touches READY then blocks
 // until GO appears — letting a test cancel mid-newSession deterministically.
+/** 中文说明：常量 NEWSESSION_GATE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const NEWSESSION_GATE = process.env.MOCK_NEWSESSION_READY !== undefined && process.env.MOCK_NEWSESSION_GO !== undefined
   ? { ready: process.env.MOCK_NEWSESSION_READY, go: process.env.MOCK_NEWSESSION_GO }
   : undefined
 
+/** 中文说明：函数 makeAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function makeAgent(conn: AgentSideConnection): Agent {
   // Pending cancel resolver for the HANG path: a `session/cancel` resolves the
   // prompt with `cancelled`.
+  /** 中文说明：函数值 resolveCancel 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   let resolveCancel: ((reason: StopReason) => void) | undefined
   // The cwd the client announced in `session/new`, echoed under MOCK_ECHO_CWD.
+  /** 中文说明：变量 sessionCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let sessionCwd: string | undefined
 
   return {
@@ -130,12 +165,14 @@ function makeAgent(conn: AgentSideConnection): Agent {
         // Ask the client to approve before answering; honor its decision. Under
         // MOCK_NO_ALLOW the only options are reject-shaped, so an `allow`-policy
         // client finds no allow option and must fall back to cancelled.
+        /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const options = NO_ALLOW
           ? [{ optionId: 'no', name: 'Reject', kind: 'reject_once' as const }]
           : [
             { optionId: 'yes', name: 'Allow', kind: 'allow_once' as const },
             { optionId: 'no', name: 'Reject', kind: 'reject_once' as const },
           ]
+        /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const decision = await conn.requestPermission({
           sessionId: params.sessionId,
           toolCall: { toolCallId: 'mock-call', title: 'mock side effect' },
@@ -224,6 +261,7 @@ if (process.env.MOCK_TRAP_SIGTERM === '1') {
 // flush) default-terminates this process and the marker is missing; a dispose
 // that gives the EOF quiesce enough window first lets the flush land.
 if (FLUSH_ON_EOF !== undefined) {
+  /** 中文说明：变量 flushDelayMs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const flushDelayMs = Number(process.env.MOCK_FLUSH_DELAY_MS ?? '150')
   process.stdin.on('end', () => {
     setTimeout(() => {
@@ -242,6 +280,7 @@ if (FLUSH_ON_EOF !== undefined) {
 // rung and jumped EOF→SIGKILL, SIGKILL is uncatchable so the handler never runs
 // and the marker is missing. Touch READY_FILE once armed (a test waits on it).
 if (process.env.MOCK_IGNORE_EOF === '1') {
+  /** 中文说明：变量 sigtermFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sigtermFile = process.env.MOCK_SIGTERM_FILE
   process.on('SIGTERM', () => {
     if (sigtermFile !== undefined) writeFileSync(sigtermFile, 'sigterm')

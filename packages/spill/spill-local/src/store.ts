@@ -7,6 +7,14 @@
  *
  * @module @deepseek-ai/dsh-spill-local/store
  */
+/**
+ * 文件职责：实现 store.ts 覆盖的大结果落盘行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的大结果落盘能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdtempSync } from 'node:fs'
@@ -14,6 +22,7 @@ import { mkdir, open } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
+/** 中文说明：变量 defaultRoot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let defaultRoot: string | undefined
 
 /**
@@ -24,6 +33,7 @@ let defaultRoot: string | undefined
  *
  * @returns The lazily-created private spill root.
  */
+/** 中文说明：函数 privateRoot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function privateRoot(): string {
   defaultRoot ??= mkdtempSync(join(tmpdir(), 'dsh-spill-'))
   return defaultRoot
@@ -45,13 +55,18 @@ export function privateRoot(): string {
  * @param raw The untrusted string to encode as one safe path segment.
  * @returns An injective, filesystem-safe single path segment.
  */
+/** 中文说明：函数 encodeSegment 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function encodeSegment(raw: string): string {
   if (raw.length === 0) return '~'
   if (raw === '.') return '~002E'
   if (raw === '..') return '~002E~002E'
+  /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let out = ''
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (let i = 0; i < raw.length; i++) {
+    /** 中文说明：变量 code 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const code = raw.charCodeAt(i)
+    /** 中文说明：变量 ch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ch = String.fromCharCode(code)
     if (ch !== '~' && /^[A-Za-z0-9._-]$/.test(ch)) {
       out += ch
@@ -70,12 +85,15 @@ export function encodeSegment(raw: string): string {
  * @param sessionId The owning session id to hash into a stable directory name.
  * @returns The absolute session-scoped spill directory path.
  */
+/** 中文说明：函数 sessionDir 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function sessionDir(root: string, sessionId: string): string {
+  /** 中文说明：变量 hash 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hash = createHash('sha256').update(sessionId).digest('hex').slice(0, 12)
   return join(root, `session-${hash}`)
 }
 
 /** Options for {@link saveTextFile} — the resolved root and the request fields the store needs. */
+/** 中文说明：interface SaveTextOptions 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
 export interface SaveTextOptions {
   /** The spill root directory (configured or the lazy private default). */
   root: string
@@ -88,6 +106,7 @@ export interface SaveTextOptions {
 }
 
 /** A written spill file. */
+/** 中文说明：interface SavedText 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
 export interface SavedText {
   path: string
   bytes: number
@@ -104,12 +123,18 @@ export interface SavedText {
  * @param options The resolved root and request fields required to save the file.
  * @returns The written file path and UTF-8 byte length.
  */
+/** 中文说明：函数 saveTextFile 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function saveTextFile(options: SaveTextOptions): Promise<SavedText> {
+  /** 中文说明：变量 dir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = sessionDir(options.root, options.sessionId)
   await mkdir(dir, { recursive: true, mode: 0o700 })
+  /** 中文说明：变量 safeName 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const safeName = encodeSegment(options.suggestedName)
+  /** 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = join(dir, `${randomBytes(6).toString('hex')}-${safeName}`)
+  /** 中文说明：变量 bytes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bytes = Buffer.byteLength(options.content, 'utf8')
+  /** 中文说明：变量 handle 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle = await open(path, 'wx', 0o600)
   try {
     await handle.writeFile(options.content)

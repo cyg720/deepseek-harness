@@ -7,6 +7,14 @@
  * `saveText` failure / missing backend / missing owner all preserve the original
  * result without an `isError`.
  */
+/**
+ * 文件职责：验证 spill-policy.spec.ts 覆盖的大结果落盘行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
+ * 产品维度：保障 Agent 的大结果落盘能力稳定、安全且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
+ */
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -23,9 +31,11 @@ import type { SaveTextSpill, SpillRef } from '@deepseek-ai/dsh-spill'
 import * as SpillPolicy from '@deepseek-ai/dsh-spill-policy'
 import { WorkerThreadCodeRuntime } from '@deepseek-ai/dsh-code-runtime-worker-thread'
 
+/** 中文说明：变量 testToolSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const testToolSignal = new AbortController().signal
 
 /** A stub spill backend recording its saves; `fail` exercises the best-effort fallback. */
+/** 中文说明：class StubStore 定义本测试所需的数据或行为，用于表达大结果落盘场景。 */
 class StubStore extends SpillStore {
   saves: SaveTextSpill[] = []
   fail = false
@@ -45,6 +55,7 @@ class StubStore extends SpillStore {
 }
 
 /** A tool returning `text` verbatim (name configurable so we can register `read`). */
+/** 中文说明：函数 textTool 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function textTool(name: string, text: string) {
   return defineContentToolFixture({
     name,
@@ -55,8 +66,10 @@ function textTool(name: string, text: string) {
 }
 
 /** A minimal exec carrying a session header id (the spill owner). */
+/** 中文说明：函数 exec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function exec(name: string, session = 's1'): ToolExecution {
   // Only agent.session.header.id is read by the policy; a structural stub suffices.
+  /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = { session: { header: { id: SessionId(session) } } }
   return { callId: CallId(`call-${name}`), name, arguments: {}, agent, signal: testToolSignal } as unknown as ToolExecution
 }
@@ -65,25 +78,30 @@ function exec(name: string, session = 's1'): ToolExecution {
  * Build a context with tools + the policy, and optionally a spill backend.
  * Returns the context and the backend handle (undefined when `withSpill` false).
  */
+/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(
   config: SpillPolicy.Config,
   withSpill = true,
   beforePolicy?: (ctx: Context) => void,
 ): Promise<{ ctx: Context; spill?: StubStore; fiber: Awaited<ReturnType<Context['plugin']>> }> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  /** 中文说明：变量 spill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let spill: StubStore | undefined
   if (withSpill) {
     await ctx.plugin(StubStore)
     spill = ctx.spillStore as StubStore
   }
   beforePolicy?.(ctx)
+  /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fiber = await ctx.plugin(SpillPolicy, config)
   return { ctx, fiber, ...spill ? { spill } : {} }
 }
 
 /** Flatten a result's text blocks. */
+/** 中文说明：函数 textOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function textOf(content: ContentBlock[]): string {
   return content.filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('')
 }
@@ -92,6 +110,7 @@ describe('disabled mode', () => {
   it('registers no post-execute listener when maxInlineBytes is omitted', async () => {
     const { ctx, spill } = await setup({})
     ctx.tools.register(textTool('big', 'x'.repeat(1000)))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('big'))
     expect(textOf(result.content)).toBe('x'.repeat(1000))
     expect(result.isError).toBe(false)
@@ -103,7 +122,9 @@ describe('loader export shape', () => {
   it('has no default export and keeps name/inject/Config through unwrapExports', () => {
     expect('default' in SpillPolicy).toBe(false)
 
+    /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loader = Object.create(Loader.prototype) as Loader
+    /** 中文说明：变量 unwrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unwrapped = loader.unwrapExports(SpillPolicy) as Record<string, unknown>
     expect(unwrapped).toBe(SpillPolicy)
     expect(unwrapped.name).toBe('spill-policy')
@@ -127,8 +148,10 @@ describe('config validation', () => {
 describe('oversized plain-text replacement', () => {
   it('spills the full text and replaces the result with a preview + locator within the cap', async () => {
     const { ctx, spill } = await setup({ maxInlineBytes: 200 })
+    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = 'HEAD'.repeat(200) + 'TAIL'.repeat(200) // 1600 bytes > 200
     ctx.tools.register(textTool('big', body))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('big'))
 
     expect(result.isError).toBe(false)
@@ -138,6 +161,7 @@ describe('oversized plain-text replacement', () => {
     expect(spill?.saves[0]?.suggestedName).toBe('big.txt')
     expect(spill?.saves[0]?.owner.sessionId).toBe('s1')
 
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = textOf(result.content)
     expect(text).not.toBe(body)
     expect(text.startsWith('HEAD')).toBe(true)
@@ -154,9 +178,12 @@ describe('oversized plain-text replacement', () => {
     // A body just over a tiny cap: the notice alone is larger than the cap, so
     // there is no within-cap replacement — the policy keeps the inline result.
     const { ctx } = await setup({ maxInlineBytes: 4 })
+    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = 'xxxxx' // 5 bytes > 4, but far shorter than the notice
     ctx.tools.register(textTool('big', body))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('big'))
     expect(textOf(result.content)).toBe(body)
     expect(warn).toHaveBeenCalled()
@@ -165,6 +192,7 @@ describe('oversized plain-text replacement', () => {
   it('leaves a small plain-text result unchanged', async () => {
     const { ctx, spill } = await setup({ maxInlineBytes: 1000 })
     ctx.tools.register(textTool('small', 'tiny'))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('small'))
     expect(textOf(result.content)).toBe('tiny')
     expect(spill?.saves).toHaveLength(0)
@@ -180,6 +208,7 @@ describe('oversized plain-text replacement', () => {
         return [{ type: 'text', text: 'x'.repeat(100) }, { type: 'reasoning', text: 'why' }]
       },
     }))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('mixed'))
     expect(spill?.saves).toHaveLength(0)
     expect(result.content).toHaveLength(2)
@@ -188,13 +217,16 @@ describe('oversized plain-text replacement', () => {
 
 describe('outer Code Mode failure capture', () => {
   it('spills the bounded output-limit diagnostic through the ordinary outer-result policy', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'code' })
     await ctx.plugin(StubStore)
     await ctx.plugin(SpillPolicy, { maxInlineBytes: 200 })
     await ctx.plugin(WorkerThreadCodeRuntime, { maxOutputBytes: 500 })
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: unknown[] = []
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = {
       session: {
         header: { id: SessionId('code-spill'), cwd: '/workspace' },
@@ -202,6 +234,7 @@ describe('outer Code Mode failure capture', () => {
       },
     }
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('code-output-limit'),
@@ -214,6 +247,7 @@ describe('outer Code Mode failure capture', () => {
     })
 
     expect(result.isError).toBe(true)
+    /** 中文说明：变量 saved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const saved = (ctx.spillStore as StubStore).saves
     expect(saved).toHaveLength(1)
     expect(saved[0]?.source.toolName).toBe('run_code')
@@ -228,6 +262,7 @@ describe('read skip', () => {
   it('never spills the read tool result (avoids a read → spill → read loop)', async () => {
     const { ctx, spill } = await setup({ maxInlineBytes: 10 })
     ctx.tools.register(textTool('read', 'x'.repeat(1000)))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('read'))
     expect(textOf(result.content)).toBe('x'.repeat(1000))
     expect(spill?.saves).toHaveLength(0)
@@ -236,14 +271,18 @@ describe('read skip', () => {
 
 describe('the durable dispatch-log arm', () => {
   /** Boot code mode + the policy + the worker runtime; run one program via the real bridge. */
+  /** 中文说明：函数 runCodeWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function runCodeWith(program: string, maxInlineBytes: number, extraTools: ToolDefinition[] = []) {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'code' })
     await ctx.plugin(StubStore)
     await ctx.plugin(SpillPolicy, { maxInlineBytes })
     await ctx.plugin(WorkerThreadCodeRuntime, {})
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: { type: string; data: unknown }[] = []
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = {
       session: {
         header: { id: SessionId('dispatch-spill'), cwd: '/workspace' },
@@ -252,7 +291,9 @@ describe('the durable dispatch-log arm', () => {
     }
     ctx.tools.register(textTool('huge_read', 'H'.repeat(2_000)))
     ctx.tools.register(textTool('small_read', 'tiny'))
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const tool of extraTools) ctx.tools.register(tool)
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('parent-1'),
@@ -271,14 +312,18 @@ describe('the durable dispatch-log arm', () => {
     // The program received the COMPLETE text (length 2000), untouched by spill.
     expect(result.value).toMatchObject({ result: 2_000 })
     // The durable settle event carries the bounded projection + locator.
+    /** 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const settle = events.find(event => event.type === 'tool/code-dispatch')
     expect(settle).toBeDefined()
+    /** 中文说明：变量 logged 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const logged = (settle!.data as { content: { type: string; text: string }[] }).content
     expect(logged).toHaveLength(1)
+    /** 中文说明：变量 loggedText 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loggedText = logged[0]!.text
     expect(Buffer.byteLength(loggedText, 'utf8')).toBeLessThanOrEqual(200)
     expect(loggedText).toContain('Full formatted result stored at: /spill/huge_read.txt')
     // The artifact holds the full text under the dispatch label and sub-call id.
+    /** 中文说明：函数值 save 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const save = spill.saves.find(entry => entry.source.label === 'dispatch')
     expect(save).toMatchObject({
       source: { toolName: 'huge_read', callId: 'parent-1:code:1', label: 'dispatch' },
@@ -296,6 +341,7 @@ describe('the durable dispatch-log arm', () => {
           return [{ type: 'text', text: 'x'.repeat(100) }, { type: 'reasoning', text: 'why' }]
         },
       })])
+    /** 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const settle = events.find(event => event.type === 'tool/code-dispatch')
     expect((settle!.data as { content: unknown[] }).content).toHaveLength(2)
     expect(spill.saves.filter(entry => entry.source.label === 'dispatch')).toHaveLength(0)
@@ -304,6 +350,7 @@ describe('the durable dispatch-log arm', () => {
   it('leaves a within-cap sub-result log untouched and saves nothing for it', async () => {
     const { events, spill } = await runCodeWith(
       'return await tools.small_read({})', 200)
+    /** 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const settle = events.find(event => event.type === 'tool/code-dispatch')
     expect((settle!.data as { content: { type: string; text: string }[] }).content)
       .toEqual([{ type: 'text', text: 'tiny' }])
@@ -311,6 +358,7 @@ describe('the durable dispatch-log arm', () => {
   })
 
   it('a slow spill backend never delays the program value or a later dispatch slot', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'code' })
@@ -318,15 +366,21 @@ describe('the durable dispatch-log arm', () => {
     await ctx.plugin(SpillPolicy, { maxInlineBytes: 100 })
     await ctx.plugin(WorkerThreadCodeRuntime, {})
     // A spill backend that hangs until released.
+    /** 中文说明：函数值 releaseSave 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let releaseSave!: () => void
+    /** 中文说明：函数值 gate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const gate = new Promise<void>((resolve) => { releaseSave = resolve })
+    /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const store = ctx.spillStore as StubStore
+    /** 中文说明：变量 realSave 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const realSave = store.saveText.bind(store)
     store.saveText = async (input) => {
       await gate
       return realSave(input)
     }
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: { type: string; data: unknown }[] = []
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = {
       session: {
         header: { id: SessionId('dispatch-slow-spill'), cwd: '/workspace' },
@@ -335,7 +389,9 @@ describe('the durable dispatch-log arm', () => {
     }
     ctx.tools.register(textTool('huge_read', 'H'.repeat(2_000)))
     ctx.tools.register(textTool('small_read', 'tiny'))
+    /** 中文说明：变量 smallAfterHuge 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let smallAfterHuge = false
+    /** 中文说明：变量 runPromise 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runPromise = ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('parent-3'),
@@ -361,16 +417,19 @@ describe('the durable dispatch-log arm', () => {
       if (!smallAfterHuge) throw new Error('small_read not started yet')
     })
     releaseSave()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runPromise
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected success')
     expect(result.value).toMatchObject({ result: 2_004 })
+    /** 中文说明：函数值 settles 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const settles = events.filter(event => event.type === 'tool/code-dispatch')
     expect(settles).toHaveLength(2)
     expect(smallAfterHuge).toBe(true)
   })
 
   it('a sustained slow backend backpressures the run instead of accumulating unbounded log tasks', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     // Cap 1: once the hung shaped-append backlog exceeds the cap, the ordered
@@ -381,10 +440,14 @@ describe('the durable dispatch-log arm', () => {
     await ctx.plugin(StubStore)
     await ctx.plugin(SpillPolicy, { maxInlineBytes: 100 })
     await ctx.plugin(WorkerThreadCodeRuntime, {})
+    /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const store = ctx.spillStore as StubStore
+    /** 中文说明：函数值 releases 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const releases: (() => void)[] = []
     store.gate = () => new Promise<void>((resolve) => { releases.push(resolve) })
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: { type: string; data: unknown }[] = []
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = {
       session: {
         header: { id: SessionId('dispatch-spill-bound'), cwd: '/workspace' },
@@ -392,8 +455,10 @@ describe('the durable dispatch-log arm', () => {
       },
     }
     ctx.tools.register(textTool('huge_read', 'H'.repeat(2_000)))
+    /** 中文说明：函数值 started 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const started = (n: number): boolean => events.some(event => event.type === 'tool/code-dispatch-start'
       && (event.data as { subCallId: string }).subCallId.endsWith(`:code:${n}`))
+    /** 中文说明：变量 runPromise 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runPromise = ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('parent-bound'),
@@ -417,6 +482,7 @@ describe('the durable dispatch-log arm', () => {
       if (!started(3)) throw new Error('third dispatch not started yet')
     })
     while (releases.length > 0) releases.shift()!()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runPromise
     expect(result.isError).toBe(false)
     await vi.waitFor(() => {
@@ -428,6 +494,7 @@ describe('the durable dispatch-log arm', () => {
   })
 
   it('a saveText failure keeps the complete content in the durable log (best-effort)', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'code' })
@@ -435,8 +502,11 @@ describe('the durable dispatch-log arm', () => {
     await ctx.plugin(SpillPolicy, { maxInlineBytes: 100 })
     await ctx.plugin(WorkerThreadCodeRuntime, {})
     ;(ctx.spillStore as StubStore).fail = true
+    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: { type: string; data: unknown }[] = []
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = {
       session: {
         header: { id: SessionId('dispatch-spill-fail'), cwd: '/workspace' },
@@ -444,6 +514,7 @@ describe('the durable dispatch-log arm', () => {
       },
     }
     ctx.tools.register(textTool('huge_read', 'H'.repeat(2_000)))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('parent-2'),
@@ -452,6 +523,7 @@ describe('the durable dispatch-log arm', () => {
       agent: agent as never,
     })
     expect(result.isError).toBe(false)
+    /** 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const settle = events.find(event => event.type === 'tool/code-dispatch')
     expect((settle!.data as { content: { text: string }[] }).content[0]!.text).toBe('H'.repeat(2_000))
     expect(warn).toHaveBeenCalled()
@@ -461,12 +533,15 @@ describe('the durable dispatch-log arm', () => {
 describe('nested-call skip', () => {
   it('leaves nested composite results complete and spillable only through their outer call', async () => {
     const { ctx, spill } = await setup({ maxInlineBytes: 10 })
+    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = 'x'.repeat(1000)
     ctx.tools.register(textTool('nested', body))
+    /** 中文说明：变量 nested 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nested = {
       ...exec('nested'),
       parent: Symbol('outer') as ToolExecutionToken,
     }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(nested)
     expect(textOf(result.content)).toBe(body)
     expect(spill?.saves).toHaveLength(0)
@@ -477,8 +552,10 @@ describe('best-effort fallback', () => {
   it('keeps the original result when saveText fails', async () => {
     const { ctx, spill } = await setup({ maxInlineBytes: 10 })
     spill!.fail = true
+    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     ctx.tools.register(textTool('big', 'x'.repeat(1000)))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('big'))
     expect(textOf(result.content)).toBe('x'.repeat(1000))
     expect(result.isError).toBe(false)
@@ -487,8 +564,10 @@ describe('best-effort fallback', () => {
 
   it('keeps the original result when no spill backend is loaded', async () => {
     const { ctx } = await setup({ maxInlineBytes: 10 }, false)
+    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     ctx.tools.register(textTool('big', 'x'.repeat(1000)))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('big'))
     expect(textOf(result.content)).toBe('x'.repeat(1000))
     expect(warn).toHaveBeenCalled()
@@ -496,8 +575,10 @@ describe('best-effort fallback', () => {
 
   it('keeps the original result when the call has no session owner', async () => {
     const { ctx, spill } = await setup({ maxInlineBytes: 10 })
+    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     ctx.tools.register(textTool('big', 'x'.repeat(1000)))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c'), name: 'big', arguments: {} })
     expect(textOf(result.content)).toBe('x'.repeat(1000))
     expect(spill?.saves).toHaveLength(0)
@@ -507,6 +588,7 @@ describe('best-effort fallback', () => {
 
 describe('composition', () => {
   it('wraps an earlier tool-owned projection before applying the generic cap', async () => {
+    /** 中文说明：变量 downstreamDecision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let downstreamDecision: PostToolDecision | undefined
     const { ctx, spill } = await setup({ maxInlineBytes: 200 }, true, (target) => {
       target.on('tools/post-execute', async (_exec, _result, next): Promise<PostToolDecision> => {
@@ -519,6 +601,7 @@ describe('composition', () => {
     })
     ctx.tools.register(textTool('search', 'initial capped page'))
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('search'))
 
     expect(downstreamDecision).toEqual({ kind: 'accept' })
@@ -533,6 +616,7 @@ describe('composition', () => {
     ctx.on('tools/post-execute', async (_e, _r, _next) =>
       ({ kind: 'accept', content: [{ type: 'text', text: 'z'.repeat(500) }] }))
     ctx.tools.register(textTool('small', 'tiny'))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('small'))
     expect(spill?.saves[0]?.content).toBe('z'.repeat(500))
     expect(textOf(result.content)).toContain('Full formatted result stored at')
@@ -540,6 +624,7 @@ describe('composition', () => {
 
   it('preserves downstream accept-decision contexts when spilling', async () => {
     const { ctx } = await setup({ maxInlineBytes: 200 })
+    /** 中文说明：变量 context 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const context = createUserMessage({
       content: [{ type: 'text' as const, text: 'note' }],
       source: { kind: 'plugin' as const, plugin: 'test' },
@@ -547,6 +632,7 @@ describe('composition', () => {
     ctx.on('tools/post-execute', async (_e, _r, _next) =>
       ({ kind: 'accept', additionalContexts: [context] }))
     ctx.tools.register(textTool('big', 'x'.repeat(1000)))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('big'))
     expect(textOf(result.content)).toContain('Full formatted result stored at')
     expect(result.additionalContexts).toEqual([context])
@@ -554,10 +640,12 @@ describe('composition', () => {
 
   it('passes a downstream value replacement through for registry rendering', async () => {
     const { ctx, spill } = await setup({ maxInlineBytes: 10 })
+    /** 中文说明：变量 replacement 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replacement = [{ type: 'text' as const, text: 'z'.repeat(500) }]
     ctx.on('tools/post-execute', async () => ({ kind: 'accept' as const, value: replacement }))
     ctx.tools.register(textTool('small', 'tiny'))
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('small'))
 
     expect(result.isError).toBe(false)
@@ -574,9 +662,12 @@ describe('cap invariant', () => {
     // notice itself: there is no within-cap replacement, so the policy must keep
     // the inline result rather than emit content over maxInlineBytes.
     const { ctx } = await setup({ maxInlineBytes: 8 })
+    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = 'x'.repeat(5000)
     ctx.tools.register(textTool('big', body))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute(exec('big'))
     expect(textOf(result.content)).toBe(body)
     expect(warn).toHaveBeenCalled()
@@ -586,10 +677,12 @@ describe('cap invariant', () => {
 describe('disposal (HMR safety)', () => {
   it('stops transforming oversized results after the plugin fiber is disposed', async () => {
     const { ctx, spill, fiber } = await setup({ maxInlineBytes: 200 })
+    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = 'HEAD'.repeat(200) + 'TAIL'.repeat(200)
     ctx.tools.register(textTool('big', body))
 
     // Live: the listener spills and replaces.
+    /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const before = await ctx.tools.execute(exec('big'))
     expect(textOf(before.content)).toContain('Full formatted result stored at')
     expect(spill?.saves).toHaveLength(1)
@@ -597,6 +690,7 @@ describe('disposal (HMR safety)', () => {
     // After disposal the listener is gone — the result passes through untouched
     // and nothing more is spilled (no leaked registration across reload).
     await fiber.dispose()
+    /** 中文说明：变量 after 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const after = await ctx.tools.execute(exec('big'))
     expect(textOf(after.content)).toBe(body)
     expect(spill?.saves).toHaveLength(1)
