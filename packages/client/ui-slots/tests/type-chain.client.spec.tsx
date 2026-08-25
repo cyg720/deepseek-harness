@@ -286,8 +286,7 @@ describe('terminal-design type chain', () => {
       chainSlots.renderSlot('chain.takeover', { items: [] })
       // @ts-expect-error non-chain keys have no renderSlotChain dispatch
       chainSlots.renderSlotChain('chain.conv', {})
-      // @ts-expect-error a children set without chain keys provides no renderSlotChain
-      /** 中文说明：类型或类 _NoChainSeat 约束模块数据或组件职责。 */
+      // @ts-expect-error a children set without chain keys provides no renderSlotChain；中文说明：类型或类 _NoChainSeat 约束模块数据或组件职责。
       type _NoChainSeat = typeof fp.renderSlotChain
 
       // renderSlot owner share typed at the call site.
@@ -301,8 +300,7 @@ describe('terminal-design type chain', () => {
       contextProps.useTurnData('other')
       // @ts-expect-error a contextual slot requires its occurrence context
       contextSlots.renderSlot('chain.context', {})
-      // @ts-expect-error hookContext is the slot-declared string
-      /** 中文说明：测试局部值 _wrongContextFactory，由紧邻初始化决定。 */
+      // @ts-expect-error hookContext is the slot-declared string；中文说明：测试局部值 _wrongContextFactory，由紧邻初始化决定。
       const _wrongContextFactory: SlotHookFactory<'chain.context', UseTurnData> =
         (_standard, _hookContext: number) => () => undefined
       void _wrongContextFactory

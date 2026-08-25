@@ -33,8 +33,7 @@ import { FakeApiClient, fakeRemote } from './fake-api.client.ts'
 /* 中文说明：函数 forwardedEventContracts 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function forwardedEventContracts(ctx: Context): void {
   ctx.remote.$on('settings/document-updated', (namespace, source) => {
-    // @ts-expect-error -- the brand survives the wire: a bare string is not a SettingsNamespace
-    /** 中文说明：测试场景的局部值 bare，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    // @ts-expect-error -- the brand survives the wire: a bare string is not a SettingsNamespace；中文说明：测试场景的局部值 bare，取值由紧邻初始化决定，仅在当前作用域使用。
     const bare: typeof namespace = 'plain-string'
     void bare; void namespace; void source
   })
