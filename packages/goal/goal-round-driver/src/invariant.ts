@@ -1,4 +1,12 @@
 /** Package-owned goal-round prompt invariants. @module @deepseek-ai/dsh-goal-round-driver/invariant */
+/**
+ * 文件职责：实现目标管理的 invariant.ts 模块。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：校验输入，更新领域状态并记录事件或注册能力。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import { isDeepStrictEqual } from 'node:util'
 import type { Context } from '@deepseek-ai/cordis'
@@ -7,18 +15,23 @@ import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-inva
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import { renderGoalRoundPrompt } from './prompt.ts'
 
+/** 中文说明：领域局部值 PACKAGE_NAME，由紧邻初始化决定。 */
 const PACKAGE_NAME = '@deepseek-ai/dsh-goal-round-driver'
 
 /** Cordis companion plugin name. */
+/** 中文说明：领域局部值 name，由紧邻初始化决定。 */
 export const name = 'goal-round-driver-invariant'
 /** Service required before the companion can reserve package ownership. */
+/** 中文说明：领域局部值 inject，由紧邻初始化决定。 */
 export const inject = ['invariants']
 
 /** Attribute strict goal-fold failures to this companion's reconstruction. */
+/** 中文说明：函数 foldChecked 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function foldChecked(events: readonly SessionEvent[], fail: InvariantFailure): FoldedGoal {
   try {
     return foldGoal(events)
   } catch (error: unknown) {
+    /** 中文说明：领域局部值 message，由紧邻初始化决定。 */
     /* v8 ignore next -- the strict goal decoder throws Error instances */
     const message = error instanceof Error ? error.message : String(error)
     return fail(`cannot reconstruct the goal before a continuation message: ${message}`)
@@ -26,7 +39,9 @@ function foldChecked(events: readonly SessionEvent[], fail: InvariantFailure): F
 }
 
 /** Recreate the live-shaped view consumed by the package's pure prompt renderer. */
+/** 中文说明：函数 goalView 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalView(folded: FoldedGoal, source: GoalMessageSource, fail: InvariantFailure): GoalView {
+  /** 中文说明：领域局部值 goal，由紧邻初始化决定。 */
   const goal = folded.goal
   if (goal === undefined || folded.createdAt === undefined || folded.updatedAt === undefined
     || goal.phase !== 'active' || goal.id !== source.goalId || goal.revision !== source.revision
@@ -43,14 +58,17 @@ function goalView(folded: FoldedGoal, source: GoalMessageSource, fail: Invariant
 }
 
 /** Validate one package-owned continuation message against its durable prefix. */
+/** 中文说明：函数 validateEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateEvent(
   prior: readonly SessionEvent[],
   event: SessionEvent,
   fail: InvariantFailure,
 ): void {
   if (event.type !== 'user/message') return
+  /** 中文说明：领域局部值 source，由紧邻初始化决定。 */
   const source = event.data.source
   if (source.kind !== 'goal' || source.round <= 0) return
+  /** 中文说明：领域局部值 expected，由紧邻初始化决定。 */
   const expected = renderGoalRoundPrompt(goalView(foldChecked(prior, fail), source, fail), source.round)
   if (!isDeepStrictEqual(event.data.content, expected)) {
     fail(`goal round ${source.round} content does not match the package-owned continuation prompt`)
@@ -58,9 +76,13 @@ function validateEvent(
 }
 
 /** Check existing sessions and every candidate event before Session publishes it. */
+/** 中文说明：领域局部值 install，由紧邻初始化决定。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
+  /** 中文说明：领域局部值 session，由紧邻初始化决定。 */
   for (const session of ctx.sessions.list()) {
+    /** 中文说明：领域局部值 prior，由紧邻初始化决定。 */
     const prior: SessionEvent[] = []
+    /** 中文说明：领域局部值 event，由紧邻初始化决定。 */
     for (const event of session.events) {
       validateEvent(prior, event, fail)
       prior.push(event)
@@ -69,6 +91,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   /* jscpd:ignore-start -- package companions share dispatch and registration plumbing */
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return
+    /** 中文说明：领域局部值 [session, event]，由紧邻初始化决定。 */
     const [session, event] = args as [Session, SessionEvent]
     validateEvent(session.events, event, fail)
   }, { global: true })
@@ -79,6 +102,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
+/** 中文说明：领域局部值 apply，由紧邻初始化决定。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))
 /* jscpd:ignore-end */

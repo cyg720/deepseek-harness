@@ -2,6 +2,14 @@
  * Human-facing `/goal` command over the persisted same-session goal domain.
  * @module @deepseek-ai/dsh-command-goal
  */
+/**
+ * 文件职责：实现目标管理的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：校验输入，更新领域状态并记录事件或注册能力。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
@@ -9,11 +17,15 @@ import { GoalError } from '@deepseek-ai/dsh-goal'
 import type { GoalPhase, GoalRef, GoalView } from '@deepseek-ai/dsh-goal'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 
+/** 中文说明：领域局部值 name，由紧邻初始化决定。 */
 export const name = 'command-goal'
+/** 中文说明：领域局部值 inject，由紧邻初始化决定。 */
 export const inject = ['commands', 'goals']
 
+/** 中文说明：领域局部值 USAGE，由紧邻初始化决定。 */
 const USAGE = 'Usage: /goal [<objective>|clear|edit <objective>|pause|resume]'
 
+/** 中文说明：类型或类 GoalCommand 约束文件或目标数据职责。 */
 type GoalCommand =
   | { readonly kind: 'show' }
   | { readonly kind: 'create'; readonly objective: string }
@@ -25,15 +37,19 @@ type GoalCommand =
 
 /** Fail loudly if a locally closed union gains an unhandled member. */
 /* v8 ignore start -- closed-union backstop is unreachable without violating the TypeScript contract */
+/** 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertNever(value: never, label: string): never {
   throw new TypeError(`unknown ${label}: ${String(value)}`)
 }
 /* v8 ignore stop */
 
 /** Parse only the grammar owned by `/goal`; arbitrary other input is an objective. */
+/** 中文说明：函数 parseGoalCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function parseGoalCommand(rawInput: string): GoalCommand {
+  /** 中文说明：领域局部值 input，由紧邻初始化决定。 */
   const input = rawInput.trim()
   if (input.length === 0) return { kind: 'show' }
+  /** 中文说明：领域局部值 control，由紧邻初始化决定。 */
   const control = input.toLowerCase()
   if (control === 'clear') return { kind: 'clear' }
   if (control === 'pause') return { kind: 'pause' }
@@ -44,6 +60,7 @@ function parseGoalCommand(rawInput: string): GoalCommand {
 }
 
 /** Human label for one durable goal phase. */
+/** 中文说明：函数 phaseLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function phaseLabel(phase: GoalPhase): string {
   switch (phase) {
     case 'active': return 'active'
@@ -56,6 +73,7 @@ function phaseLabel(phase: GoalPhase): string {
 }
 
 /** Commands that are meaningful from one exact live state. */
+/** 中文说明：函数 commandHint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commandHint(goal: GoalView): string {
   if (goal.phase === 'active') {
     return goal.activation === 'armed'
@@ -74,10 +92,13 @@ function commandHint(goal: GoalView): string {
 }
 
 /** Render direct UI output without exposing compare-and-set internals. */
+/** 中文说明：函数 renderGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderGoal(title: string, goal: GoalView): CommandResult {
+  /** 中文说明：领域局部值 reason，由紧邻初始化决定。 */
   const reason = goal.phase === 'blocked' ? goal.blockedReason : undefined
   /* v8 ignore next -- durable replay guarantees every blocked goal carries its validated reason */
   if (goal.phase === 'blocked' && reason === undefined) throw new TypeError('blocked goal is missing its reason')
+  /** 中文说明：领域局部值 blocker，由紧邻初始化决定。 */
   const blocker = reason === undefined ? [] : [`Blocker: ${reason.code}: ${reason.message}`]
   return {
     kind: 'success',
@@ -95,11 +116,13 @@ function renderGoal(title: string, goal: GoalView): CommandResult {
 }
 
 /** Exact current compare-and-set ref. */
+/** 中文说明：函数 goalRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalRef(goal: GoalView): GoalRef {
   return { id: goal.id, revision: goal.revision }
 }
 
 /** Direct error for an operation that requires a current goal. */
+/** 中文说明：函数 missingGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function missingGoal(action: string): CommandResult {
   return {
     kind: 'error',
@@ -113,6 +136,7 @@ function missingGoal(action: string): CommandResult {
  * block naming their role, so a later goal round reads them from ordinary
  * session history without the goal domain storing attachment state.
  */
+/** 中文说明：函数 submitObjectiveAttachments 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function submitObjectiveAttachments(invocation: CommandInvocation): void {
   if (invocation.attachments.length === 0) return
   invocation.agent.followup(createUserMessage({
@@ -122,7 +146,9 @@ function submitObjectiveAttachments(invocation: CommandInvocation): void {
 }
 
 /** Execute one parsed human command through the domain that owns persistence. */
+/** 中文说明：函数 executeGoalCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function executeGoalCommand(ctx: Context, invocation: CommandInvocation): CommandResult {
+  /** 中文说明：领域局部值 command，由紧邻初始化决定。 */
   const command = parseGoalCommand(invocation.rawInput)
   if (invocation.attachments.length > 0 && command.kind !== 'create' && command.kind !== 'edit') {
     return {
@@ -131,6 +157,7 @@ function executeGoalCommand(ctx: Context, invocation: CommandInvocation): Comman
     }
   }
   try {
+    /** 中文说明：领域局部值 current，由紧邻初始化决定。 */
     const current = ctx.goals.get(invocation.agent)
     switch (command.kind) {
       case 'show':
@@ -146,6 +173,7 @@ function executeGoalCommand(ctx: Context, invocation: CommandInvocation): Comman
             text: `A goal is already ${phaseLabel(current.phase)}. Use /goal edit <objective> to change it or /goal clear before replacing it.`,
           }
         }
+        /** 中文说明：领域局部值 created，由紧邻初始化决定。 */
         const created = ctx.goals.create(invocation.agent, { objective: command.objective })
         submitObjectiveAttachments(invocation)
         return renderGoal('Goal created', created)
@@ -153,10 +181,12 @@ function executeGoalCommand(ctx: Context, invocation: CommandInvocation): Comman
       case 'edit': {
         if (current === undefined) return missingGoal('edit')
         if (current.phase === 'complete') {
+          /** 中文说明：领域局部值 replaced，由紧邻初始化决定。 */
           const replaced = ctx.goals.create(invocation.agent, { objective: command.objective })
           submitObjectiveAttachments(invocation)
           return renderGoal('Goal created', replaced)
         }
+        /** 中文说明：领域局部值 edited，由紧邻初始化决定。 */
         const edited = ctx.goals.edit(invocation.agent, goalRef(current), { objective: command.objective })
         submitObjectiveAttachments(invocation)
         return renderGoal('Goal updated', edited)
@@ -186,6 +216,7 @@ function executeGoalCommand(ctx: Context, invocation: CommandInvocation): Comman
 }
 
 /** Register the Codex-shaped `/goal` command for every composed command adapter. */
+/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function apply(ctx: Context): void {
   ctx.commands.register({
     name: 'goal',

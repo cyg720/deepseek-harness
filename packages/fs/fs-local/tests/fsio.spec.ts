@@ -4,6 +4,14 @@
  * safety, literal edit matching, and line-ending handling. Line WINDOWING is
  * policy and lives in `dsh-fs-observation-policy`, so it is not tested here.
  */
+/**
+ * 文件职责：验证文件系统与工具的 fsio.spec.ts 行为与安全边界。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { chmod, mkdtemp, readFile, rename, rm, stat, symlink, unlink, writeFile, mkdir, readdir, realpath } from 'node:fs/promises'
@@ -27,6 +35,7 @@ import type { LocalTarget } from '../src/fsio.ts'
 import { copyFileDaclWin32, readFileDaclWin32 } from '../src/win32.ts'
 import { FsError, FsTargetKey } from '@deepseek-ai/dsh-fs'
 
+/** 中文说明：测试局部值 dir: string，由紧邻初始化决定。 */
 let dir: string
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'dsh-fsio-'))
@@ -35,40 +44,52 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true })
 })
 
+/** 中文说明：测试局部值 localTarget，由紧邻初始化决定。 */
 const localTarget = (path: string): LocalTarget => ({ displayPath: path, targetKey: FsTargetKey(path) })
 
+/** 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function collect(chunks: AsyncIterable<string>): Promise<string> {
+  /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
   let out = ''
+  /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
   for await (const chunk of chunks) out += chunk
   return out
 }
 
 describe('resolveLocalTarget', () => {
   it('resolves a relative path from cwd and realpaths it', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'hi')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await resolveLocalTarget(dir, 'a.txt')
     expect(target.displayPath).toBe(file)
     expect(target.targetKey).toBe(await realpath(file))
   })
 
   it('uses the realpathed parent + basename when the file does not exist (stable across create)', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await resolveLocalTarget(dir, 'missing.txt')
     expect(target.targetKey).toBe(join(await realpath(dir), 'missing.txt'))
   })
 
   it('two paths to the same file via a symlink share one targetKey', async () => {
+    /** 中文说明：测试局部值 real，由紧邻初始化决定。 */
     const real = join(dir, 'real.txt')
     await writeFile(real, 'hi')
+    /** 中文说明：测试局部值 link，由紧邻初始化决定。 */
     const link = join(dir, 'link.txt')
     await symlink(real, link)
+    /** 中文说明：测试局部值 viaReal，由紧邻初始化决定。 */
     const viaReal = await resolveLocalTarget(dir, 'real.txt')
+    /** 中文说明：测试局部值 viaLink，由紧邻初始化决定。 */
     const viaLink = await resolveLocalTarget(dir, 'link.txt')
     expect(viaLink.targetKey).toBe(viaReal.targetKey)
     expect(viaLink.displayPath).toBe(link)
   })
 
   it('realpaths the nearest existing ancestor when intermediate dirs are missing', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await resolveLocalTarget(dir, 'no-such-dir/child.txt')
     expect(target.targetKey).toBe(join(await realpath(dir), 'no-such-dir', 'child.txt'))
   })
@@ -77,14 +98,18 @@ describe('resolveLocalTarget', () => {
     // A symlinked workspace root with a not-yet-created subdirectory: the
     // pre-create key (via the symlink, missing parent) must equal the
     // post-create key (file exists, realpathed) so observed-state survives.
+    /** 中文说明：测试局部值 realRoot，由紧邻初始化决定。 */
     const realRoot = join(dir, 'real-root')
     await mkdir(realRoot)
+    /** 中文说明：测试局部值 linkRoot，由紧邻初始化决定。 */
     const linkRoot = join(dir, 'link-root')
     await symlink(realRoot, linkRoot)
 
+    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = await resolveLocalTarget(linkRoot, 'sub/file.txt')
     await mkdir(join(realRoot, 'sub'), { recursive: true })
     await writeFile(join(realRoot, 'sub', 'file.txt'), 'hi') // create through the real path
+    /** 中文说明：测试局部值 after，由紧邻初始化决定。 */
     const after = await resolveLocalTarget(linkRoot, 'sub/file.txt')
     expect(before.targetKey).toBe(after.targetKey)
   })
@@ -98,6 +123,7 @@ describe('resolveLocalTarget', () => {
     // the raw Node error must be translated into the FsError taxonomy so the tool
     // result keeps its { name, code } metadata.
     await writeFile(join(dir, 'afile'), 'i am a file')
+    /** 中文说明：测试局部值 err，由紧邻初始化决定。 */
     const err = await resolveLocalTarget(dir, 'afile/child.txt').then(() => undefined, (e: unknown) => e)
     expect(err).toBeInstanceOf(FsError)
     expect(err).toMatchObject({ code: 'FS_NOT_FOUND' })
@@ -107,8 +133,10 @@ describe('resolveLocalTarget', () => {
 describe('probe', () => {
   it('returns null for a missing path and metadata for a file', async () => {
     expect(await probe(join(dir, 'nope'))).toBeNull()
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'hi')
+    /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
     const info = await probe(file)
     expect(info?.type).toBe('file')
     expect(info?.size).toBe(2)
@@ -116,13 +144,16 @@ describe('probe', () => {
   })
 
   it('reports a directory and a non-regular type', async () => {
+    /** 中文说明：测试局部值 sub，由紧邻初始化决定。 */
     const sub = join(dir, 'sub')
     await mkdir(sub)
     expect((await probe(sub))?.type).toBe('directory')
   })
 
   it('reports a socket/special file as type "other"', async () => {
+    /** 中文说明：测试局部值 sockPath，由紧邻初始化决定。 */
     const sockPath = join(dir, 'sock')
+    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = createServer()
     try {
       await new Promise<void>((resolve, reject) => {
@@ -132,6 +163,7 @@ describe('probe', () => {
     } catch (error: unknown) {
       // A restricted sandbox may forbid unix-domain sockets; that is an
       // environment limit, not a filesystem regression — skip rather than fail.
+      /** 中文说明：测试局部值 code，由紧邻初始化决定。 */
       const code = (error as NodeJS.ErrnoException).code
       if (code === 'EPERM' || code === 'EACCES' || code === 'ENOTSUP') return
       throw error
@@ -151,12 +183,15 @@ describe('probe', () => {
 
 describe('probeNoFollow', () => {
   it('reports symlinks without following them', async () => {
+    /** 中文说明：测试局部值 real，由紧邻初始化决定。 */
     const real = join(dir, 'real.txt')
+    /** 中文说明：测试局部值 link，由紧邻初始化决定。 */
     const link = join(dir, 'link.txt')
     await writeFile(real, 'hi')
     await symlink(real, link)
 
     expect((await probeNoFollow(real))?.type).toBe('file')
+    /** 中文说明：测试局部值 linkInfo，由紧邻初始化决定。 */
     const linkInfo = await probeNoFollow(link)
     expect(linkInfo?.type).toBe('symlink')
     expect(typeof linkInfo?.version).toBe('string')
@@ -172,12 +207,14 @@ describe('probeNoFollow', () => {
 
 describe('listDirectory', () => {
   it('lists direct children in stable order without reading content', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(dir, 'skills')
     await mkdir(join(root, 'dir-skill'), { recursive: true })
     await writeFile(join(root, 'zeta.md'), 'zeta')
     await writeFile(join(root, 'alpha.md'), 'alpha')
     await symlink(join(root, 'missing-target'), join(root, 'broken-link'))
 
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = await listDirectory(localTarget(root))
     expect(entries.map(entry => [entry.name, entry.type])).toEqual([
       ['alpha.md', 'file'],
@@ -192,19 +229,24 @@ describe('listDirectory', () => {
   })
 
   it('derives child target keys from the listed parent identity', async () => {
+    /** 中文说明：测试局部值 realOne，由紧邻初始化决定。 */
     const realOne = join(dir, 'real-one')
+    /** 中文说明：测试局部值 realTwo，由紧邻初始化决定。 */
     const realTwo = join(dir, 'real-two')
+    /** 中文说明：测试局部值 link，由紧邻初始化决定。 */
     const link = join(dir, 'link')
     await mkdir(realOne)
     await mkdir(realTwo)
     await writeFile(join(realOne, 'same.txt'), 'one')
     await writeFile(join(realTwo, 'same.txt'), 'different two')
     await symlink(realOne, link)
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await resolveLocalTarget(dir, 'link')
 
     await unlink(link)
     await symlink(realTwo, link)
 
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = await listDirectory(target)
     expect(entries).toHaveLength(1)
     expect(entries[0]).toMatchObject({
@@ -219,6 +261,7 @@ describe('listDirectory', () => {
 
   it('rejects missing, non-directory, and aborted listing requests', async () => {
     await expect(listDirectory(localTarget(join(dir, 'missing')))).rejects.toMatchObject({ code: 'FS_NOT_FOUND' })
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'hi')
     await expect(listDirectory(localTarget(file))).rejects.toMatchObject({ code: 'FS_NOT_DIRECTORY' })
@@ -226,10 +269,12 @@ describe('listDirectory', () => {
   })
 
   it('translates directory permission failures into FS_PERMISSION_DENIED', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(dir, 'restricted')
     await mkdir(root)
     await chmod(root, 0o000)
     try {
+      /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
       const error = await listDirectory(localTarget(root)).then(() => undefined, (caught: unknown) => caught)
       // Root-like environments may still be able to list mode-000 directories.
       if (error === undefined) return
@@ -241,28 +286,35 @@ describe('listDirectory', () => {
   })
 
   it('translates preflight metadata IO failures into FS_IO_ERROR', async () => {
+    /** 中文说明：测试局部值 loop，由紧邻初始化决定。 */
     const loop = join(dir, 'loop')
     await symlink(loop, loop)
     await expect(listDirectory(localTarget(loop))).rejects.toMatchObject({ code: 'FS_IO_ERROR' })
   })
 
   it('translates child resolution failures into structured listing errors', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(dir, 'listed')
     await mkdir(root)
+    /** 中文说明：测试局部值 loop，由紧邻初始化决定。 */
     const loop = join(root, 'loop')
     await symlink(loop, loop)
     await expect(listDirectory(localTarget(root))).rejects.toMatchObject({ code: 'FS_IO_ERROR' })
   })
 
   it('translates child permission failures into FS_PERMISSION_DENIED', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(dir, 'listed')
+    /** 中文说明：测试局部值 protectedRoot，由紧邻初始化决定。 */
     const protectedRoot = join(dir, 'protected')
+    /** 中文说明：测试局部值 secret，由紧邻初始化决定。 */
     const secret = join(protectedRoot, 'secret')
     await mkdir(root)
     await mkdir(secret, { recursive: true })
     await symlink(secret, join(root, 'secret-link'))
     await chmod(protectedRoot, 0o000)
     try {
+      /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
       const error = await listDirectory(localTarget(root)).then(() => undefined, (caught: unknown) => caught)
       // Root-like environments may still resolve through mode-000 directories.
       if (error === undefined) return
@@ -276,6 +328,7 @@ describe('listDirectory', () => {
 
 describe('readWholeText', () => {
   it('reads a small file', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one\ntwo\nthree')
     expect(await readWholeText(localTarget(file))).toBe('one\ntwo\nthree')
@@ -294,23 +347,28 @@ describe('readWholeText', () => {
   })
 
   it('honors a pre-aborted signal', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one')
     await expect(readWholeText(localTarget(file), AbortSignal.abort())).rejects.toMatchObject({ code: 'FS_ABORTED' })
   })
 
   it('passes a live (non-aborted) signal through', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one\ntwo')
     expect(await readWholeText(localTarget(file), new AbortController().signal)).toBe('one\ntwo')
   })
 
   it('translates a mid-read AbortError into FS_ABORTED', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one\ntwo')
+    /** 中文说明：测试局部值 ac，由紧邻初始化决定。 */
     const ac = new AbortController()
     // Abort after the synchronous entry check but before readFile runs (the
     // stat await yields control back here), so readFile rejects AbortError.
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = readWholeText(localTarget(file), ac.signal)
     ac.abort()
     await expect(pending).rejects.toMatchObject({ code: 'FS_ABORTED' })
@@ -319,6 +377,7 @@ describe('readWholeText', () => {
 
 describe('readTextForDiff', () => {
   it('returns normalized text only when the opened file is strictly below the limit', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'basis.txt')
     await writeFile(file, 'a\r\nb')
     expect(await readTextForDiff(file, 5)).toBe('a\nb')
@@ -326,8 +385,10 @@ describe('readTextForDiff', () => {
   })
 
   it('bounds the actual opened file rather than trusting an earlier path size', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'replaced.txt')
     await writeFile(file, 'tiny')
+    /** 中文说明：测试局部值 earlierSize，由紧邻初始化决定。 */
     const earlierSize = (await stat(file)).size
     await writeFile(file, '123456789')
     expect(earlierSize).toBeLessThan(8)
@@ -335,19 +396,23 @@ describe('readTextForDiff', () => {
   })
 
   it('returns null when the opened file shrinks after descriptor stat', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'shrinking.txt')
     await writeFile(file, 'abcdef')
     vi.resetModules()
     vi.doMock('node:fs/promises', async (importOriginal) => {
+      /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
         async open(...args: Parameters<typeof actual.open>) {
+          /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
           const handle = await actual.open(...args)
           return {
             close: handle.close.bind(handle),
             read: handle.read.bind(handle),
             async stat(...statArgs: Parameters<typeof handle.stat>) {
+              /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
               const info = await handle.stat(...statArgs)
               await writeFile(file, 'abc')
               return info
@@ -358,6 +423,7 @@ describe('readTextForDiff', () => {
     })
 
     try {
+      /** 中文说明：测试局部值 { readTextForDiff，由紧邻初始化决定。 */
       const { readTextForDiff: isolatedReadTextForDiff } = await import('../src/fsio.ts')
       expect(await isolatedReadTextForDiff(file, 8)).toBeNull()
     } finally {
@@ -367,19 +433,23 @@ describe('readTextForDiff', () => {
   })
 
   it('returns null when the opened file grows after descriptor stat', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'growing.txt')
     await writeFile(file, 'abcdef')
     vi.resetModules()
     vi.doMock('node:fs/promises', async (importOriginal) => {
+      /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
         async open(...args: Parameters<typeof actual.open>) {
+          /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
           const handle = await actual.open(...args)
           return {
             close: handle.close.bind(handle),
             read: handle.read.bind(handle),
             async stat(...statArgs: Parameters<typeof handle.stat>) {
+              /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
               const info = await handle.stat(...statArgs)
               await writeFile(file, 'abcdef-grown')
               return info
@@ -390,6 +460,7 @@ describe('readTextForDiff', () => {
     })
 
     try {
+      /** 中文说明：测试局部值 { readTextForDiff，由紧邻初始化决定。 */
       const { readTextForDiff: isolatedReadTextForDiff } = await import('../src/fsio.ts')
       expect(await isolatedReadTextForDiff(file, 32)).toBeNull()
     } finally {
@@ -403,19 +474,23 @@ describe('readTextForDiff', () => {
   })
 
   it('returns null when the opened descriptor is no longer a regular file', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'swapped.txt')
     await writeFile(file, 'abcdef')
     vi.resetModules()
     vi.doMock('node:fs/promises', async (importOriginal) => {
+      /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
         async open(...args: Parameters<typeof actual.open>) {
+          /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
           const handle = await actual.open(...args)
           return {
             close: handle.close.bind(handle),
             read: handle.read.bind(handle),
             async stat(...statArgs: Parameters<typeof handle.stat>) {
+              /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
               const info = await handle.stat(...statArgs)
               return Object.assign(info, { isFile: () => false })
             },
@@ -425,6 +500,7 @@ describe('readTextForDiff', () => {
     })
 
     try {
+      /** 中文说明：测试局部值 { readTextForDiff，由紧邻初始化决定。 */
       const { readTextForDiff: isolatedReadTextForDiff } = await import('../src/fsio.ts')
       expect(await isolatedReadTextForDiff(file, 32)).toBeNull()
     } finally {
@@ -434,10 +510,12 @@ describe('readTextForDiff', () => {
   })
 
   it('propagates a non-errno fault instead of masking it as a null basis', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'faulted.txt')
     await writeFile(file, 'abcdef')
     vi.resetModules()
     vi.doMock('node:fs/promises', async (importOriginal) => {
+      /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
@@ -448,6 +526,7 @@ describe('readTextForDiff', () => {
     })
 
     try {
+      /** 中文说明：测试局部值 { readTextForDiff，由紧邻初始化决定。 */
       const { readTextForDiff: isolatedReadTextForDiff } = await import('../src/fsio.ts')
       await expect(isolatedReadTextForDiff(file, 32)).rejects.toThrow('forged programming fault')
     } finally {
@@ -464,34 +543,45 @@ describe('readTextForDiff', () => {
   })
 
   it('honors a pre-aborted signal', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'basis.txt')
     await writeFile(file, 'text')
     await expect(readTextForDiff(file, 8, AbortSignal.abort())).rejects.toMatchObject({ code: 'FS_ABORTED' })
   })
 
   it.each(['open', 'stat'] as const)('observes cancellation immediately after %s', async (stage) => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'basis.txt')
     await writeFile(file, 'text')
+    /** 中文说明：测试局部值 reached，由紧邻初始化决定。 */
     const reached = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 statCalls，由紧邻初始化决定。 */
     let statCalls = 0
+    /** 中文说明：测试局部值 allocUnsafe，由紧邻初始化决定。 */
     const allocUnsafe = Buffer.allocUnsafe.bind(Buffer)
     // Buffer.allocUnsafe is also called by vitest's fork IPC
     // (node:internal/child_process serialization), so a process-wide call count
     // is timing-racy under CI load. Attribute allocations to the fsio read path
     // instead: the abort must prevent the diff-basis buffer allocation.
+    /** 中文说明：测试局部值 fsioAllocations，由紧邻初始化决定。 */
     const fsioAllocations: string[] = []
+    /** 中文说明：测试局部值 allocate，由紧邻初始化决定。 */
     const allocate = vi.spyOn(Buffer, 'allocUnsafe').mockImplementation((size: number) => {
+      /** 中文说明：测试局部值 stack，由紧邻初始化决定。 */
       const stack = new Error().stack ?? ''
       if (stack.includes('readTextForDiff')) fsioAllocations.push(stack)
       return allocUnsafe(size)
     })
     vi.resetModules()
     vi.doMock('node:fs/promises', async (importOriginal) => {
+      /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
         async open(...args: Parameters<typeof actual.open>) {
+          /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
           const handle = await actual.open(...args)
           if (stage === 'open') {
             reached.resolve(undefined)
@@ -502,6 +592,7 @@ describe('readTextForDiff', () => {
             read: handle.read.bind(handle),
             async stat(...statArgs: Parameters<typeof handle.stat>) {
               statCalls += 1
+              /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
               const info = await handle.stat(...statArgs)
               if (stage === 'stat') {
                 reached.resolve(undefined)
@@ -515,8 +606,11 @@ describe('readTextForDiff', () => {
     })
 
     try {
+      /** 中文说明：测试局部值 { readTextForDiff，由紧邻初始化决定。 */
       const { readTextForDiff: isolatedReadTextForDiff } = await import('../src/fsio.ts')
+      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
       const controller = new AbortController()
+      /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
       const pending = isolatedReadTextForDiff(file, 8, controller.signal)
       await reached.promise
       controller.abort()
@@ -533,24 +627,32 @@ describe('readTextForDiff', () => {
   })
 
   it('bounds descriptor reads and observes cancellation before the next chunk', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'large-basis.txt')
+    /** 中文说明：测试局部值 fileBytes，由紧邻初始化决定。 */
     const fileBytes = 200 * 1024
     await writeFile(file, 'x'.repeat(fileBytes))
+    /** 中文说明：测试局部值 firstRead，由紧邻初始化决定。 */
     const firstRead = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 releaseFirstRead，由紧邻初始化决定。 */
     const releaseFirstRead = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 readLengths，由紧邻初始化决定。 */
     const readLengths: number[] = []
     vi.resetModules()
     vi.doMock('node:fs/promises', async (importOriginal) => {
+      /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
         async open(...args: Parameters<typeof actual.open>) {
+          /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
           const handle = await actual.open(...args)
           return {
             stat: handle.stat.bind(handle),
             close: handle.close.bind(handle),
             async read(buffer: Buffer, offset: number, length: number, position: number | null) {
               readLengths.push(length)
+              /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
               const result = await handle.read(buffer, offset, length, position)
               if (readLengths.length === 1) {
                 firstRead.resolve(undefined)
@@ -564,8 +666,11 @@ describe('readTextForDiff', () => {
     })
 
     try {
+      /** 中文说明：测试局部值 { readTextForDiff，由紧邻初始化决定。 */
       const { readTextForDiff: isolatedReadTextForDiff } = await import('../src/fsio.ts')
+      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
       const controller = new AbortController()
+      /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
       const pending = isolatedReadTextForDiff(file, fileBytes + 1, controller.signal)
       await firstRead.promise
       expect(readLengths).toEqual([64 * 1024])
@@ -583,13 +688,16 @@ describe('readTextForDiff', () => {
 
 describe('streamWholeText', () => {
   it('streams the whole file as decoded text', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one\ntwo\nthree')
     expect(await collect(streamWholeText(localTarget(file)))).toBe('one\ntwo\nthree')
   })
 
   it('streams a large multi-chunk file correctly', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'big.txt')
+    /** 中文说明：测试局部值 content，由紧邻初始化决定。 */
     const content = Array.from({ length: 50 }, (_, i) => `line ${i}: ${'x'.repeat(3000)}`).join('\n')
     await writeFile(file, content)
     expect(await collect(streamWholeText(localTarget(file)))).toBe(content)
@@ -605,12 +713,14 @@ describe('streamWholeText', () => {
   })
 
   it('honors a pre-aborted signal', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one')
     await expect(collect(streamWholeText(localTarget(file), AbortSignal.abort()))).rejects.toMatchObject({ code: 'FS_ABORTED' })
   })
 
   it('passes a live (non-aborted) signal through the stream', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one\ntwo')
     expect(await collect(streamWholeText(localTarget(file), new AbortController().signal))).toBe('one\ntwo')
@@ -619,11 +729,16 @@ describe('streamWholeText', () => {
   it('translates a mid-stream abort into FS_ABORTED', async () => {
     // A multi-chunk file so the stream yields more than once; abort after the
     // first chunk and assert the structured code, not a raw AbortError.
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'big.txt')
     await writeFile(file, 'x'.repeat(256 * 1024))
+    /** 中文说明：测试局部值 ac，由紧邻初始化决定。 */
     const ac = new AbortController()
+    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
     const run = async (): Promise<void> => {
+      /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
       let seen = 0
+      /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
       for await (const _chunk of streamWholeText(localTarget(file), ac.signal)) {
         seen += 1
         if (seen === 1) ac.abort()
@@ -635,20 +750,31 @@ describe('streamWholeText', () => {
 
 // Windows drives only the read-only attribute through `chmod` and reports synthetic `stat` mode
 // bits, so mode assertions are POSIX-only; native DACL preservation is asserted separately.
+/** 中文说明：测试局部值 posixModes，由紧邻初始化决定。 */
 const posixModes = process.platform !== 'win32'
 
+/** 中文说明：函数 daclAcePolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function daclAcePolicy(descriptor: Buffer): string[] {
+  /** 中文说明：测试局部值 daclOffset，由紧邻初始化决定。 */
   const daclOffset = descriptor.readUInt32LE(16)
   if (daclOffset === 0) return []
+  /** 中文说明：测试局部值 aceCount，由紧邻初始化决定。 */
   const aceCount = descriptor.readUInt16LE(daclOffset + 4)
+  /** 中文说明：测试局部值 policy，由紧邻初始化决定。 */
   const policy: string[] = []
+  /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
   const seen = new Set<string>()
+  /** 中文说明：测试局部值 offset，由紧邻初始化决定。 */
   let offset = daclOffset + 8
+  /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
   for (let index = 0; index < aceCount; index++) {
+    /** 中文说明：测试局部值 size，由紧邻初始化决定。 */
     const size = descriptor.readUInt16LE(offset + 2)
+    /** 中文说明：测试局部值 ace，由紧邻初始化决定。 */
     const ace = Buffer.from(descriptor.subarray(offset, offset + size))
     // INHERITED_ACE records which parent ACE produced this entry, not the entry's access policy.
     ace.writeUInt8(ace.readUInt8(1) & ~0x10, 1)
+    /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = ace.toString('hex')
     if (!seen.has(key)) {
       seen.add(key)
@@ -661,13 +787,16 @@ function daclAcePolicy(descriptor: Buffer): string[] {
 
 describe('writeFileAtomic — temp-file safety', () => {
   it('writes through a private staging dir and owner-only temp file', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'old')
     if (posixModes) await chmod(file, 0o640)
+    /** 中文说明：测试局部值 inspected，由紧邻初始化决定。 */
     let inspected = false
     await writeFileAtomic(file, 'hello', 0o640, undefined, {
       inspectTemp: async ({ stagingDir, tempPath }) => {
         inspected = true
+        /** 中文说明：测试局部值 [staging, temp]，由紧邻初始化决定。 */
         const [staging, temp] = await Promise.all([stat(stagingDir), stat(tempPath)])
         expect(staging.isDirectory()).toBe(true)
         expect(temp.isFile()).toBe(true)
@@ -684,9 +813,11 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it.skipIf(process.platform !== 'win32')('protects staged content with the existing target DACL and preserves it after replacement', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'protected.txt')
     await writeFile(file, 'old')
     await copyFileDaclWin32(file, file)
+    /** 中文说明：测试局部值 expectedDacl，由紧邻初始化决定。 */
     const expectedDacl = await readFileDaclWin32(file)
 
     await writeFileAtomic(file, 'new', (await stat(file)).mode, undefined, {
@@ -700,8 +831,10 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('copies a Windows target DACL before content and publishes through secure replacement', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'old')
+    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls: string[] = []
 
     await writeFileAtomic(file, 'new', 0o666, undefined, {
@@ -721,7 +854,9 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('creates a new Windows file through directory inheritance without replacement calls', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'new.txt')
+    /** 中文说明：测试局部值 unexpected，由紧邻初始化决定。 */
     const unexpected = async (): Promise<void> => { throw new Error('unexpected native replacement call') }
 
     await writeFileAtomic(file, 'new', undefined, undefined, {
@@ -734,8 +869,10 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('recreates a vanished Windows target with the already-protected temp', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'old')
+    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = Object.assign(new Error('target vanished'), { code: 'ENOENT' })
 
     await writeFileAtomic(file, 'new', 0o666, undefined, {
@@ -748,8 +885,10 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('surfaces a Windows secure-replacement failure and cleans the staging directory', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'old')
+    /** 中文说明：测试局部值 denied，由紧邻初始化决定。 */
     const denied = Object.assign(new Error('replace denied'), { code: 'EACCES' })
 
     await expect(writeFileAtomic(file, 'new', 0o666, undefined, {
@@ -762,7 +901,9 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('maps a non-collision guarded-create publication failure and cleans staging', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
+    /** 中文说明：测试局部值 denied，由紧邻初始化决定。 */
     const denied = Object.assign(new Error('link denied'), { code: 'EACCES' })
 
     await expect(writeFileAtomic(file, 'ours', undefined, undefined, {
@@ -773,8 +914,11 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('maps a guarded-create target-inspection failure and cleans staging', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
+    /** 中文说明：测试局部值 linkFailure，由紧邻初始化决定。 */
     const linkFailure = Object.assign(new Error('link failed'), { code: 'EIO' })
+    /** 中文说明：测试局部值 inspectionFailure，由紧邻初始化决定。 */
     const inspectionFailure = Object.assign(new Error('inspection denied'), { code: 'EACCES' })
 
     await expect(writeFileAtomic(file, 'ours', undefined, undefined, {
@@ -786,7 +930,9 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('rejects a guarded-create collision that vanishes before inspection', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
+    /** 中文说明：测试局部值 collision，由紧邻初始化决定。 */
     const collision = Object.assign(new Error('target existed'), { code: 'EEXIST' })
 
     await expect(writeFileAtomic(file, 'ours', undefined, undefined, {
@@ -801,7 +947,9 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('uses the display path and target type when guarded publication finds a competitor', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
+    /** 中文说明：测试局部值 displayPath，由紧邻初始化决定。 */
     const displayPath = join(dir, 'linked-workspace', 'a.txt')
 
     await expect(writeFileAtomic(file, 'ours', undefined, undefined, {
@@ -823,7 +971,9 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('does not turn post-commit staging cleanup failure into a failed guarded write', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
+    /** 中文说明：测试局部值 cleanupFailure，由紧邻初始化决定。 */
     const cleanupFailure = new Error('staging cleanup failed')
 
     await expect(writeFileAtomic(file, 'ours', undefined, undefined, {
@@ -833,13 +983,16 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it.skipIf(!posixModes)('creates new files owner-only by default', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFileAtomic(file, 'hello', undefined, undefined)
     expect((await stat(file)).mode & 0o777).toBe(0o600)
   })
 
   it('opens staging paths exclusively — a pre-existing path is never clobbered', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
+    /** 中文说明：测试局部值 tempDirName，由紧邻初始化决定。 */
     const tempDirName = '.fixed-temp.tmpdir'
     await mkdir(join(dir, tempDirName))
     await writeFile(join(dir, tempDirName, 'PRECIOUS'), 'keep')
@@ -851,24 +1004,28 @@ describe('writeFileAtomic — temp-file safety', () => {
   })
 
   it('creates parent directories as needed', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'nested', 'deep', 'a.txt')
     await writeFileAtomic(file, 'hi', undefined, undefined)
     expect(await readFile(file, 'utf8')).toBe('hi')
   })
 
   it('passes a live (non-aborted) signal through the write', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFileAtomic(file, 'hi', undefined, new AbortController().signal)
     expect(await readFile(file, 'utf8')).toBe('hi')
   })
 
   it('aborts before writing when the signal is already aborted', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await expect(writeFileAtomic(file, 'hi', undefined, AbortSignal.abort())).rejects.toMatchObject({ code: 'FS_ABORTED' })
     await expect(stat(file)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('cleans up the temp file when the final rename fails', async () => {
+    /** 中文说明：测试局部值 sub，由紧邻初始化决定。 */
     const sub = join(dir, 'occupied')
     await mkdir(sub)
     await expect(writeFileAtomic(sub, 'hi', undefined, undefined)).rejects.toBeInstanceOf(Error)
@@ -904,10 +1061,13 @@ describe('applyLiteralEdit', () => {
 
 describe('readForEdit + restoreLineEndings', () => {
   it('round-trips CRLF: matches on LF, writes back CRLF', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'crlf.txt')
     await writeFile(file, 'one\r\ntwo\r\n')
+    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = await readForEdit(file, file)
     expect(original.lineEndings).toBe('CRLF')
+    /** 中文说明：测试局部值 edited，由紧邻初始化决定。 */
     const edited = applyLiteralEdit(original.content, 'two', 'TWO', false, file)
     expect(restoreLineEndings(edited.content, original.lineEndings)).toBe('one\r\nTWO\r\n')
   })
@@ -920,17 +1080,22 @@ describe('readForEdit + restoreLineEndings', () => {
   })
 
   it('passes a live (non-aborted) signal through the read', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one\ntwo')
+    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = await readForEdit(file, file, new AbortController().signal)
     expect(original.content).toBe('one\ntwo')
   })
 
   it('translates a mid-read AbortError into FS_ABORTED', async () => {
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = join(dir, 'a.txt')
     await writeFile(file, 'one\ntwo')
+    /** 中文说明：测试局部值 ac，由紧邻初始化决定。 */
     const ac = new AbortController()
     // Abort after the synchronous entry check, while readFile is pending.
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = readForEdit(file, file, ac.signal)
     ac.abort()
     await expect(pending).rejects.toMatchObject({ code: 'FS_ABORTED' })

@@ -5,6 +5,14 @@
  * identity, and HMR/disposal. Read WINDOWING is policy and lives in
  * `dsh-fs-observation-policy`, so it is not exercised here.
  */
+/**
+ * 文件职责：验证文件系统与工具的 filesystem.spec.ts 行为与安全边界。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { constants as bufferConstants } from 'node:buffer'
@@ -17,9 +25,13 @@ import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
 import { FsVersion } from '@deepseek-ai/dsh-fs'
 import type { FsTarget } from '@deepseek-ai/dsh-fs'
 
+/** 中文说明：测试局部值 dir: string，由紧邻初始化决定。 */
 let dir: string
+/** 中文说明：测试局部值 ctx: Context，由紧邻初始化决定。 */
 let ctx: Context
+/** 中文说明：测试局部值 fs: LocalFileSystem，由紧邻初始化决定。 */
 let fs: LocalFileSystem
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let fiber: Awaited<ReturnType<Context['plugin']>>
 
 beforeEach(async () => {
@@ -33,17 +45,21 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true })
 })
 
+/** 中文说明：函数 lockCount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lockCount(localFs: LocalFileSystem): number {
   return (localFs as unknown as { locks: Map<string, Promise<unknown>> }).locks.size
 }
 
 /** The version the backend currently reports for a resolved target. */
+/** 中文说明：函数 versionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function versionOf(target: FsTarget): Promise<FsVersion> {
+  /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
   const info = await fs.stat(target)
   if (!info) throw new Error('expected target to exist')
   return info.version
 }
 
+/** 中文说明：函数 remountWithDiffLimit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function remountWithDiffLimit(diffBasisMaxBytes: number): Promise<void> {
   await fiber.dispose()
   fiber = await ctx.plugin(LocalFileSystem, { cwd: dir, diffBasisMaxBytes })
@@ -52,7 +68,9 @@ async function remountWithDiffLimit(diffBasisMaxBytes: number): Promise<void> {
 
 describe('registration', () => {
   it('registers LocalFileSystem as ctx.fs with a default cwd', async () => {
+    /** 中文说明：测试局部值 bare，由紧邻初始化决定。 */
     const bare = new Context()
+    /** 中文说明：测试局部值 bareFiber，由紧邻初始化决定。 */
     const bareFiber = await bare.plugin(LocalFileSystem)
     expect((bare.fs as LocalFileSystem).config.cwd).toBe(process.cwd())
     expect((bare.fs as LocalFileSystem).config.diffBasisMaxBytes).toBe(10 * 1024 * 1024)
@@ -60,16 +78,21 @@ describe('registration', () => {
   })
 
   it('rejects non-positive, fractional, unsafe, or unallocatable diff-basis limits', async () => {
+    /** 中文说明：测试局部值 maxDiffBasisBytes，由紧邻初始化决定。 */
     const maxDiffBasisBytes = Math.min(
       bufferConstants.MAX_LENGTH,
       bufferConstants.MAX_STRING_LENGTH,
     )
+    /** 中文说明：测试局部值 valid，由紧邻初始化决定。 */
     const valid = new Context()
+    /** 中文说明：测试局部值 validFiber，由紧邻初始化决定。 */
     const validFiber = await valid.plugin(LocalFileSystem, { diffBasisMaxBytes: maxDiffBasisBytes })
     expect((valid.fs as LocalFileSystem).config.diffBasisMaxBytes).toBe(maxDiffBasisBytes)
     await validFiber.dispose()
 
+    /** 中文说明：测试局部值 diffBasisMaxBytes，由紧邻初始化决定。 */
     for (const diffBasisMaxBytes of [0, -1, 1.5, maxDiffBasisBytes + 1, Number.MAX_SAFE_INTEGER + 1]) {
+      /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
       const invalid = new Context()
       await expect(invalid.plugin(LocalFileSystem, { diffBasisMaxBytes })).rejects.toThrow(
         `fs-local: diffBasisMaxBytes must be a positive safe integer no greater than ${maxDiffBasisBytes}`,
@@ -83,9 +106,11 @@ describe('resolve', () => {
   it('resolves a relative path against opts.cwd, not config.cwd', async () => {
     // config.cwd is `dir`; a call supplying a DIFFERENT cwd bases the relative
     // path there (the per-session workspace mapping — mirrors tool-bash workdir).
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = await mkdtemp(join(tmpdir(), 'dsh-fs-other-'))
     try {
       await writeFile(join(other, 'x.txt'), 'in other')
+      /** 中文说明：测试局部值 viaOther，由紧邻初始化决定。 */
       const viaOther = await fs.resolve('x.txt', { cwd: other })
       expect(await fs.readText(viaOther)).toBe('in other')
       // Same relative path with no opts falls back to config.cwd (= dir), where
@@ -98,6 +123,7 @@ describe('resolve', () => {
 
   it('ignores opts.cwd for an ABSOLUTE path', async () => {
     await writeFile(join(dir, 'abs.txt'), 'absolute')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve(join(dir, 'abs.txt'), { cwd: '/nonexistent-base' })
     expect(await fs.readText(target)).toBe('absolute')
   })
@@ -107,7 +133,9 @@ describe('resolve', () => {
   })
 
   it('honors a signal aborted while resolution is in flight', async () => {
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = fs.resolve('a.txt', { signal: controller.signal })
     controller.abort()
 
@@ -117,8 +145,11 @@ describe('resolve', () => {
   it('projects process paths, file URLs, and canonical containment', async () => {
     await mkdir(join(dir, 'nested'))
     await writeFile(join(dir, 'nested', 'file.txt'), 'text')
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await fs.resolve('.')
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = await fs.resolve('nested/file.txt')
+    /** 中文说明：测试局部值 outside，由紧邻初始化决定。 */
     const outside = await fs.resolve('..')
 
     expect(fs.processPath(child)).toBe(await realpath(join(dir, 'nested', 'file.txt')))
@@ -132,6 +163,7 @@ describe('resolve', () => {
 describe('stat', () => {
   it('returns file metadata, directory type, and undefined for absent', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello')
+    /** 中文说明：测试局部值 fileInfo，由紧邻初始化决定。 */
     const fileInfo = await fs.stat(await fs.resolve('a.txt'))
     expect(fileInfo?.type).toBe('file')
     expect(fileInfo?.size).toBe(5)
@@ -142,10 +174,14 @@ describe('stat', () => {
   })
 
   it('changes version after a same-size rewrite even when mtime is restored', async () => {
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, 'same-size.txt')
     await writeFile(path, 'first')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve(path)
+    /** 中文说明：测试局部值 beforeInfo，由紧邻初始化决定。 */
     const beforeInfo = await stat(path)
+    /** 中文说明：测试局部值 beforeVersion，由紧邻初始化决定。 */
     const beforeVersion = await versionOf(target)
 
     await fs.writeText(target, 'other')
@@ -171,6 +207,7 @@ describe('lstat', () => {
   })
 
   it('resolves relative paths against opts.cwd and honors a pre-aborted signal', async () => {
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = await mkdtemp(join(tmpdir(), 'dsh-fs-other-'))
     try {
       await writeFile(join(other, 'x.txt'), 'in other')
@@ -186,13 +223,19 @@ describe('lstat', () => {
 describe('metadata cancellation', () => {
   it('rejects stat and lstat when their signals abort while the metadata probes are in flight', async () => {
     await writeFile(join(dir, 'slow.txt'), 'hello')
+    /** 中文说明：测试局部值 statStarted，由紧邻初始化决定。 */
     const statStarted = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 statRelease，由紧邻初始化决定。 */
     const statRelease = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 lstatStarted，由紧邻初始化决定。 */
     const lstatStarted = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 lstatRelease，由紧邻初始化决定。 */
     const lstatRelease = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let isolatedCtx: Context | undefined
     vi.resetModules()
     vi.doMock('node:fs/promises', async (importOriginal) => {
+      /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
@@ -210,20 +253,29 @@ describe('metadata cancellation', () => {
     })
 
     try {
+      /** 中文说明：测试局部值 { LocalFileSystem，由紧邻初始化决定。 */
       const { LocalFileSystem: IsolatedLocalFileSystem } = await import('../src/index.ts')
       isolatedCtx = new Context()
       await isolatedCtx.plugin(IsolatedLocalFileSystem, { cwd: dir })
+      /** 中文说明：测试局部值 isolatedFs，由紧邻初始化决定。 */
       const isolatedFs = isolatedCtx.fs as InstanceType<typeof IsolatedLocalFileSystem>
+      /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
       const target = await isolatedFs.resolve('slow.txt')
+      /** 中文说明：测试局部值 statController，由紧邻初始化决定。 */
       const statController = new AbortController()
+      /** 中文说明：测试局部值 lstatController，由紧邻初始化决定。 */
       const lstatController = new AbortController()
+      /** 中文说明：测试局部值 pendingStat，由紧邻初始化决定。 */
       const pendingStat = isolatedFs.stat(target, statController.signal)
+      /** 中文说明：测试局部值 pendingLstat，由紧邻初始化决定。 */
       const pendingLstat = isolatedFs.lstat('slow.txt', undefined, lstatController.signal)
 
       await Promise.all([statStarted.promise, lstatStarted.promise])
       statController.abort()
       lstatController.abort()
+      /** 中文说明：测试局部值 statRejected，由紧邻初始化决定。 */
       const statRejected = expect(pendingStat).rejects.toMatchObject({ code: 'FS_ABORTED' })
+      /** 中文说明：测试局部值 lstatRejected，由紧邻初始化决定。 */
       const lstatRejected = expect(pendingLstat).rejects.toMatchObject({ code: 'FS_ABORTED' })
       statRelease.resolve(undefined)
       lstatRelease.resolve(undefined)
@@ -247,8 +299,11 @@ describe('readText / streamText', () => {
 
   it('streams the same text', async () => {
     await writeFile(join(dir, 'a.txt'), 'one\ntwo\nthree')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 streamed，由紧邻初始化决定。 */
     let streamed = ''
+    /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
     for await (const chunk of await fs.streamText(target)) streamed += chunk
     expect(streamed).toBe('one\ntwo\nthree')
   })
@@ -267,6 +322,7 @@ describe('readText / streamText', () => {
 
 describe('readBytes', () => {
   it('reads raw bytes without decoding or NUL rejection', async () => {
+    /** 中文说明：测试局部值 raw，由紧邻初始化决定。 */
     const raw = Buffer.from([0x68, 0x00, 0x69, 0xff])
     await writeFile(join(dir, 'a.bin'), raw)
     expect(Buffer.from(await fs.readBytes(await fs.resolve('a.bin'), undefined, raw.length))).toEqual(raw)
@@ -274,6 +330,7 @@ describe('readBytes', () => {
 
   it('accepts a file exactly at maxBytes and rejects one past it', async () => {
     await writeFile(join(dir, 'a.bin'), Buffer.alloc(4, 1))
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.bin')
     expect((await fs.readBytes(target, undefined, 4)).length).toBe(4)
     await expect(fs.readBytes(target, undefined, 3)).rejects.toMatchObject({ code: 'FS_TOO_LARGE' })
@@ -281,6 +338,7 @@ describe('readBytes', () => {
 
   it('bounds content I/O when a file grows after stat preflight', async () => {
     await writeFile(join(dir, 'a.bin'), Buffer.alloc(4, 1))
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.bin')
     fs.internals.inspectReadBytesAfterStat = () => writeFile(join(dir, 'a.bin'), Buffer.alloc(1024 * 1024, 2))
 
@@ -294,8 +352,10 @@ describe('readBytes', () => {
 
   it('reads under a live signal and rejects an already-aborted one with FS_ABORTED', async () => {
     await writeFile(join(dir, 'a.bin'), 'data')
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = new AbortController()
     expect((await fs.readBytes(await fs.resolve('a.bin'), live.signal, 1024)).length).toBe(4)
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort()
     await expect(fs.readBytes(await fs.resolve('a.bin'), controller.signal, 1024)).rejects.toMatchObject({ code: 'FS_ABORTED' })
@@ -309,6 +369,7 @@ describe('listDir', () => {
     await writeFile(join(dir, 'skills', 'alpha.md'), 'alpha')
     await symlink(join(dir, 'skills', 'missing-target'), join(dir, 'skills', 'broken-link'))
 
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = await fs.listDir(await fs.resolve('skills'))
     expect(entries.map(entry => [entry.name, entry.type])).toEqual([
       ['alpha.md', 'file'],
@@ -322,6 +383,7 @@ describe('listDir', () => {
       join(dir, 'skills', 'dir-skill'),
       join(dir, 'skills', 'zeta.md'),
     ])
+    /** 中文说明：测试局部值 materializedEntries，由紧邻初始化决定。 */
     const materializedEntries = entries.filter(entry => entry.version !== undefined)
     expect(materializedEntries.map(entry => entry.target.targetKey))
       .toEqual(await Promise.all(materializedEntries.map(entry => realpath(entry.target.displayPath))))
@@ -348,7 +410,9 @@ describe('listDir', () => {
 
 describe('writeText', () => {
   it('createIfAbsent creates a new file', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('new.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'fresh', { kind: 'createIfAbsent' })
     expect(outcome.operation).toBe('create')
     expect(await readFile(join(dir, 'new.txt'), 'utf8')).toBe('fresh')
@@ -356,6 +420,7 @@ describe('writeText', () => {
 
   it('createIfAbsent rejects an existing file as FS_NOT_OBSERVED', async () => {
     await writeFile(join(dir, 'a.txt'), 'old')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
     await expect(fs.writeText(target, 'new', { kind: 'createIfAbsent' }))
       .rejects.toMatchObject({ code: 'FS_NOT_OBSERVED' })
@@ -363,7 +428,9 @@ describe('writeText', () => {
   })
 
   it('createIfAbsent preserves a competitor created after the initial probe', async () => {
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, 'a.txt')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
     fs.internals.inspectTemp = async () => { await writeFile(path, 'competitor') }
 
@@ -373,10 +440,13 @@ describe('writeText', () => {
   })
 
   it('reports a createIfAbsent race with the unresolved display path', async () => {
+    /** 中文说明：测试局部值 realDirectory，由紧邻初始化决定。 */
     const realDirectory = join(dir, 'real-workspace')
+    /** 中文说明：测试局部值 linkedDirectory，由紧邻初始化决定。 */
     const linkedDirectory = join(dir, 'linked-workspace')
     await mkdir(realDirectory)
     await symlink(realDirectory, linkedDirectory, process.platform === 'win32' ? 'junction' : 'dir')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('linked-workspace/a.txt')
     fs.internals.inspectTemp = async () => { await writeFile(join(realDirectory, 'a.txt'), 'competitor') }
 
@@ -388,7 +458,9 @@ describe('writeText', () => {
   })
 
   it('createIfAbsent rejects a competing directory as not a regular file', async () => {
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, 'a.txt')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
     fs.internals.inspectTemp = async () => { await mkdir(path) }
 
@@ -398,8 +470,10 @@ describe('writeText', () => {
   })
 
   it('createIfAbsent rejects and preserves a dangling symbolic link', async () => {
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, 'dangling')
     await symlink(join(dir, 'missing-target'), path)
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('dangling')
 
     await expect(fs.writeText(target, 'ours', { kind: 'createIfAbsent' }))
@@ -409,7 +483,9 @@ describe('writeText', () => {
 
   it('replaceIfVersion replaces when the version matches', async () => {
     await writeFile(join(dir, 'a.txt'), 'old')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'new', { kind: 'replaceIfVersion', version: await versionOf(target) })
     expect(outcome.operation).toBe('update')
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('new')
@@ -417,7 +493,9 @@ describe('writeText', () => {
 
   it('replaceIfVersion rejects a stale version', async () => {
     await writeFile(join(dir, 'a.txt'), 'v1')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = await versionOf(target)
     await writeFile(join(dir, 'a.txt'), 'changed-externally')
     await expect(fs.writeText(target, 'v2', { kind: 'replaceIfVersion', version: stale }))
@@ -425,9 +503,12 @@ describe('writeText', () => {
   })
 
   it('replaceIfVersion rejects a deleted target as stale, without recreating it', async () => {
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, 'a.txt')
     await writeFile(path, 'v1')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = await versionOf(target)
     await unlink(path)
     await expect(fs.writeText(target, 'v2', { kind: 'replaceIfVersion', version }))
@@ -436,13 +517,16 @@ describe('writeText', () => {
   })
 
   it('rejects writing onto a directory', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('.')
     await expect(fs.writeText(target, 'x', { kind: 'createIfAbsent' }))
       .rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
   })
 
   it('unconditionally creates a new file with no expectation (bare provider)', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('new.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'fresh')
     expect(outcome.operation).toBe('create')
     expect(await readFile(join(dir, 'new.txt'), 'utf8')).toBe('fresh')
@@ -450,19 +534,24 @@ describe('writeText', () => {
 
   it('unconditionally OVERWRITES an existing file with no expectation (bare provider)', async () => {
     await writeFile(join(dir, 'a.txt'), 'old')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'clobbered')
     expect(outcome.operation).toBe('update')
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('clobbered')
   })
 
   it('rejects writing onto a directory even with no expectation', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('.')
     await expect(fs.writeText(target, 'x')).rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
   })
 
   it('a create reports before:null and after = the written content (no prior file)', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('new.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'fresh')
     expect(outcome.before).toBeNull()
     expect(outcome.after).toBe('fresh')
@@ -470,7 +559,9 @@ describe('writeText', () => {
 
   it('an overwrite reports before = the OLD content and after = the new content', async () => {
     await writeFile(join(dir, 'a.txt'), 'old body')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'new body')
     expect(outcome.before).toBe('old body')
     expect(outcome.after).toBe('new body')
@@ -481,7 +572,9 @@ describe('writeText', () => {
     // `before` is LF-normalized, a CRLF rewrite would read as every line changed.
     // Both sides are LF so only the genuinely-changed line diffs.
     await writeFile(join(dir, 'a.txt'), 'a\r\nb\r\nc\r\n')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'a\r\nB\r\nc\r\n')
     expect(outcome.before).toBe('a\nb\nc\n')
     expect(outcome.after).toBe('a\nB\nc\n')
@@ -489,7 +582,9 @@ describe('writeText', () => {
 
   it('an overwrite of a BINARY prior file reports before:null (undiffable), still succeeds', async () => {
     await writeFile(join(dir, 'a.bin'), Buffer.from([0x00, 0x01, 0x02]))
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.bin')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'now text')
     expect(outcome.operation).toBe('update')
     expect(outcome.before).toBeNull()
@@ -501,7 +596,9 @@ describe('writeText', () => {
     // fatal-throw path (not the NUL-scan short-circuit): an undiffable prior file
     // still yields a successful write with no before-content basis.
     await writeFile(join(dir, 'a.bin'), Buffer.from([0x68, 0xff, 0x69]))
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.bin')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'now valid')
     expect(outcome.operation).toBe('update')
     expect(outcome.before).toBeNull()
@@ -513,7 +610,9 @@ describe('writeText', () => {
     // pins the exclusive edge without coupling this provider to a read tool.
     await remountWithDiffLimit(8)
     await writeFile(join(dir, 'big.txt'), '12345678')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('big.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'tiny')
     expect(outcome.operation).toBe('update')
     expect(outcome.before).toBeNull()
@@ -528,7 +627,9 @@ describe('writeText', () => {
     // create of the same size.
     await remountWithDiffLimit(8)
     await writeFile(join(dir, 'grow.txt'), 'tiny')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('grow.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, '12345678')
     expect(outcome.operation).toBe('update')
     expect(outcome.before).toBeNull()
@@ -540,7 +641,9 @@ describe('writeText', () => {
     // characters but at/above it by bytes, so the basis must be declined.
     await remountWithDiffLimit(8)
     await writeFile(join(dir, 'cjk.txt'), 'tiny')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('cjk.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, '你好吗')
     expect(outcome.operation).toBe('update')
     expect(outcome.before).toBeNull()
@@ -550,13 +653,16 @@ describe('writeText', () => {
   it('an overwrite with BOTH sides below the whole-file bound keeps its contextual before basis', async () => {
     await remountWithDiffLimit(8)
     await writeFile(join(dir, 'small.txt'), '1234567')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('small.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'new')
     expect(outcome.before).toBe('1234567')
     expect(outcome.after).toBe('new')
   })
 
   it('releases per-target mutation locks after success and failure', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
     await fs.writeText(target, 'created', { kind: 'createIfAbsent' })
     expect(lockCount(fs)).toBe(0)
@@ -567,14 +673,18 @@ describe('writeText', () => {
 
   it('replaceIfVersion returns the post-write version (matches a fresh stat)', async () => {
     await writeFile(join(dir, 'a.txt'), 'v1')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = await versionOf(target)
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(target, 'a much longer replacement body', { kind: 'replaceIfVersion', version: before })
     expect(outcome.version).not.toBe(before)
     expect(outcome.version).toBe(await versionOf(target))
   })
 
   it('honors a pre-aborted signal without creating the file', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('aborted.txt')
     await expect(fs.writeText(target, 'x', undefined, AbortSignal.abort()))
       .rejects.toMatchObject({ code: 'FS_ABORTED' })
@@ -584,13 +694,17 @@ describe('writeText', () => {
 
   it('two concurrent guarded writes: one updates, the other is rejected as stale', async () => {
     await writeFile(join(dir, 'a.txt'), 'base')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = await versionOf(target)
+    /** 中文说明：测试局部值 results，由紧邻初始化决定。 */
     const results = await Promise.allSettled([
       fs.writeText(target, 'one', { kind: 'replaceIfVersion', version }),
       fs.writeText(target, 'two', { kind: 'replaceIfVersion', version }),
     ])
     expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1)
+    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = results.filter(r => r.status === 'rejected')
     expect(rejected).toHaveLength(1)
     expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: 'FS_STALE_VERSION' })
@@ -601,7 +715,9 @@ describe('writeText', () => {
 describe('editText', () => {
   it('applies a literal edit at the matching version', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.editText(target, { oldString: 'world', newString: 'there', replaceAll: false }, { version: await versionOf(target) })
     expect(outcome.after).toBe('hello there')
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello there')
@@ -609,7 +725,9 @@ describe('editText', () => {
 
   it('reports before/after content (the applied-hunk basis), LF-normalized', async () => {
     await writeFile(join(dir, 'a.txt'), 'a\r\nOLD\r\nb\r\n')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.editText(target, { oldString: 'OLD', newString: 'NEW', replaceAll: false })
     expect(outcome.before).toBe('a\nOLD\nb\n')
     expect(outcome.after).toBe('a\nNEW\nb\n')
@@ -620,7 +738,9 @@ describe('editText', () => {
 
   it('checks the stale version BEFORE literal matching', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = await versionOf(target)
     // Change the file so 'world' is gone — a stale edit must report STALE, not NOT_FOUND.
     await writeFile(join(dir, 'a.txt'), 'goodbye')
@@ -630,14 +750,17 @@ describe('editText', () => {
 
   it('unconditionally edits the current content with no expectation (bare provider)', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
     // No version guard: any current content is edited, regardless of version.
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.editText(target, { oldString: 'world', newString: 'there', replaceAll: false })
     expect(outcome.after).toBe('hello there')
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello there')
   })
 
   it('reports a missing target as FS_STALE_VERSION even with no expectation (bare provider)', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('missing.txt')
     await expect(fs.editText(target, { oldString: 'a', newString: 'b', replaceAll: false }))
       .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
@@ -645,6 +768,7 @@ describe('editText', () => {
 
   it('still reports literal-match codes with no expectation (FS_EDIT_NOT_FOUND, unrelated to freshness)', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
     await expect(fs.editText(target, { oldString: 'absent', newString: 'x', replaceAll: false }))
       .rejects.toMatchObject({ code: 'FS_EDIT_NOT_FOUND' })
@@ -652,7 +776,9 @@ describe('editText', () => {
 
   it('rejects a deleted target as stale (before matching)', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = await versionOf(target)
     await unlink(join(dir, 'a.txt'))
     await expect(fs.editText(target, { oldString: 'hello', newString: 'bye', replaceAll: false }, { version }))
@@ -660,6 +786,7 @@ describe('editText', () => {
   })
 
   it('rejects a non-regular target', async () => {
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('.')
     await expect(fs.editText(target, { oldString: 'a', newString: 'b', replaceAll: false }, { version: FsVersion('v') }))
       .rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
@@ -667,7 +794,9 @@ describe('editText', () => {
 
   it('rejects zero matches and ambiguous matches at the right version', async () => {
     await writeFile(join(dir, 'a.txt'), 'a a a')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = await versionOf(target)
     await expect(fs.editText(target, { oldString: 'z', newString: 'X', replaceAll: false }, { version }))
       .rejects.toMatchObject({ code: 'FS_EDIT_NOT_FOUND' })
@@ -677,17 +806,23 @@ describe('editText', () => {
 
   it('replaces all matches with replaceAll', async () => {
     await writeFile(join(dir, 'a.txt'), 'a a a')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.editText(target, { oldString: 'a', newString: 'b', replaceAll: true }, { version: await versionOf(target) })
     expect(outcome.after).toBe('b b b')
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('b b b')
   })
 
   it('rejects invalid UTF-8 without rewriting the file', async () => {
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, 'bad.txt')
+    /** 中文说明：测试局部值 bytes，由紧邻初始化决定。 */
     const bytes = Buffer.from([0x68, 0xff, 0x69])
     await writeFile(path, bytes)
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('bad.txt')
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = await versionOf(target)
     await expect(fs.editText(target, { oldString: 'h', newString: 'H', replaceAll: false }, { version }))
       .rejects.toMatchObject({ code: 'FS_NOT_TEXT' })
@@ -696,13 +831,17 @@ describe('editText', () => {
 
   it('two concurrent edits: one wins, the other is rejected as stale', async () => {
     await writeFile(join(dir, 'a.txt'), 'base')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = await versionOf(target)
+    /** 中文说明：测试局部值 results，由紧邻初始化决定。 */
     const results = await Promise.allSettled([
       fs.editText(target, { oldString: 'base', newString: 'one', replaceAll: false }, { version }),
       fs.editText(target, { oldString: 'base', newString: 'two', replaceAll: false }, { version }),
     ])
     expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1)
+    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = results.filter(r => r.status === 'rejected')
     expect(rejected).toHaveLength(1)
     expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: 'FS_STALE_VERSION' })
@@ -711,6 +850,7 @@ describe('editText', () => {
 
   it('honors a pre-aborted signal without rewriting the file', async () => {
     await writeFile(join(dir, 'a.txt'), 'keep')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
     await expect(fs.editText(target, { oldString: 'keep', newString: 'x', replaceAll: false }, undefined, AbortSignal.abort()))
       .rejects.toMatchObject({ code: 'FS_ABORTED' })
@@ -720,10 +860,13 @@ describe('editText', () => {
 
   it('a successful edit refreshes the version so an immediate follow-up edit proceeds', async () => {
     await writeFile(join(dir, 'a.txt'), 'one two')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await fs.editText(target, { oldString: 'one', newString: 'ONE', replaceAll: false }, { version: await versionOf(target) })
     // The version the first edit returned is a valid guard for a second edit —
     // no intervening re-stat needed.
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await fs.editText(target, { oldString: 'two', newString: 'TWO', replaceAll: false }, { version: first.version })
     expect(second.after).toBe('ONE TWO')
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('ONE TWO')
@@ -731,13 +874,17 @@ describe('editText', () => {
 
   it('concurrent write vs edit at the same version: one wins, the other is stale', async () => {
     await writeFile(join(dir, 'a.txt'), 'base')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = await versionOf(target)
+    /** 中文说明：测试局部值 results，由紧邻初始化决定。 */
     const results = await Promise.allSettled([
       fs.writeText(target, 'written', { kind: 'replaceIfVersion', version }),
       fs.editText(target, { oldString: 'base', newString: 'edited', replaceAll: false }, { version }),
     ])
     expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1)
+    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = results.filter(r => r.status === 'rejected')
     expect(rejected).toHaveLength(1)
     expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: 'FS_STALE_VERSION' })
@@ -749,10 +896,13 @@ describe('symlink targetKey identity', () => {
   it('two paths to the same file via a symlink share one version and write the real target', async () => {
     await writeFile(join(dir, 'real.txt'), 'hello')
     await symlink(join(dir, 'real.txt'), join(dir, 'link.txt'))
+    /** 中文说明：测试局部值 viaReal，由紧邻初始化决定。 */
     const viaReal = await fs.resolve('real.txt')
+    /** 中文说明：测试局部值 viaLink，由紧邻初始化决定。 */
     const viaLink = await fs.resolve('link.txt')
     expect(viaLink.targetKey).toBe(viaReal.targetKey)
 
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = await versionOf(viaReal)
     await fs.editText(viaLink, { oldString: 'hello', newString: 'bye', replaceAll: false }, { version })
     expect(await readFile(join(dir, 'real.txt'), 'utf8')).toBe('bye') // link preserved
@@ -761,9 +911,12 @@ describe('symlink targetKey identity', () => {
   it('a stale change is detected across both paths', async () => {
     await writeFile(join(dir, 'real.txt'), 'hello')
     await symlink(join(dir, 'real.txt'), join(dir, 'link.txt'))
+    /** 中文说明：测试局部值 viaReal，由紧邻初始化决定。 */
     const viaReal = await fs.resolve('real.txt')
+    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = await versionOf(viaReal)
     await writeFile(join(dir, 'real.txt'), 'changed')
+    /** 中文说明：测试局部值 viaLink，由紧邻初始化决定。 */
     const viaLink = await fs.resolve('link.txt')
     await expect(fs.editText(viaLink, { oldString: 'hello', newString: 'bye', replaceAll: false }, { version: stale }))
       .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
@@ -772,7 +925,9 @@ describe('symlink targetKey identity', () => {
 
 describe('HMR / disposal', () => {
   it('disposing the fiber withdraws ctx.fs', async () => {
+    /** 中文说明：测试局部值 local，由紧邻初始化决定。 */
     const local = new Context()
+    /** 中文说明：测试局部值 localFiber，由紧邻初始化决定。 */
     const localFiber = await local.plugin(LocalFileSystem, { cwd: dir })
     expect(local.fs).toBeDefined()
     await localFiber.dispose()

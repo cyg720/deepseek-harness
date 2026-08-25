@@ -4,26 +4,40 @@
  * capped line buffer for newline-free giant lines — all over an async-iterable
  * of decoded text chunks (so one code path serves whole-file and streamed reads).
  */
+/**
+ * 文件职责：验证文件系统与工具的 read-render.spec.ts 行为与安全边界。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { buildWindow, langFromPath, readMetaFromMeta, READ_MAX_BYTES, READ_MAX_LINE_LENGTH } from '../src/read-render.ts'
 import type { ReadWindow } from '../src/read-render.ts'
 
+/** 中文说明：测试局部值 DEFAULT_CAPS，由紧邻初始化决定。 */
 const DEFAULT_CAPS = { maxLineLength: READ_MAX_LINE_LENGTH, maxBytes: READ_MAX_BYTES }
+/** 中文说明：测试局部值 READ_ALL，由紧邻初始化决定。 */
 const READ_ALL: ReadWindow = { offset: 1, limit: 2000, ...DEFAULT_CAPS }
 
 /** Yield `text` as one chunk (whole-file read shape). */
+/** 中文说明：函数 whole 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function* whole(text: string): AsyncIterable<string> {
   yield text
 }
 
 /** Yield `text` split into fixed-size chunks (streamed read shape). */
+/** 中文说明：函数 chunked 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function* chunked(text: string, size: number): AsyncIterable<string> {
+  /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
   for (let i = 0; i < text.length; i += size) yield text.slice(i, i + size)
 }
 
 describe('buildWindow', () => {
   it('numbers lines and reports total for a whole-file read', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await buildWindow(whole('one\ntwo\nthree'), READ_ALL, 'f')
     expect(result.lines).toEqual([
       { number: 1, text: 'one' },
@@ -35,28 +49,34 @@ describe('buildWindow', () => {
   })
 
   it('applies offset/limit', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await buildWindow(whole('one\ntwo\nthree\nfour'), { offset: 2, limit: 2, ...DEFAULT_CAPS }, 'f')
     expect(result.lines.map(l => l.number)).toEqual([2, 3])
     expect(result.totalLines).toBe(4)
   })
 
   it('strips CRLF', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await buildWindow(whole('one\r\ntwo\r\n'), READ_ALL, 'f')
     expect(result.lines.map(l => l.text)).toEqual(['one', 'two'])
   })
 
   it('truncates an over-long line', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await buildWindow(whole('x'.repeat(3000)), READ_ALL, 'f')
     expect(result.lines[0]?.text).toContain(`... (line truncated to ${READ_MAX_LINE_LENGTH} chars)`)
   })
 
   it('caps output bytes and reports truncatedByBytes', async () => {
+    /** 中文说明：测试局部值 big，由紧邻初始化决定。 */
     const big = Array.from({ length: 2000 }, () => 'y'.repeat(100)).join('\n')
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await buildWindow(whole(big), READ_ALL, 'f')
     expect(result.truncatedByBytes).toBe(true)
   })
 
   it('reads an empty file at offset 1 as zero lines', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await buildWindow(whole(''), READ_ALL, 'f')
     expect(result.lines).toEqual([])
     expect(result.totalLines).toBe(0)
@@ -67,11 +87,13 @@ describe('buildWindow', () => {
   })
 
   it('flushes a final line with no trailing newline', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await buildWindow(whole('one\ntwo'), READ_ALL, 'f')
     expect(result.lines.map(l => l.text)).toEqual(['one', 'two'])
   })
 
   it('handles a trailing newline (no dangling empty line)', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await buildWindow(whole('one\ntwo\n'), READ_ALL, 'f')
     expect(result.lines.map(l => l.text)).toEqual(['one', 'two'])
     expect(result.totalLines).toBe(2)
@@ -79,11 +101,13 @@ describe('buildWindow', () => {
 
   describe('caps are per-request (the plugin config reaches the window)', () => {
     it('truncates lines at a custom maxLineLength and names it in the suffix', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await buildWindow(whole('abcdefghij'), { offset: 1, limit: 10, maxLineLength: 5, maxBytes: READ_MAX_BYTES }, 'f')
       expect(result.lines[0]?.text).toBe('abcde... (line truncated to 5 chars)')
     })
 
     it('caps output at a custom maxBytes', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await buildWindow(whole('aaaa\nbbbb\ncccc'), { offset: 1, limit: 10, maxLineLength: 2000, maxBytes: 9 }, 'f')
       expect(result.lines.map(l => l.text)).toEqual(['aaaa', 'bbbb'])
       expect(result.totalLines).toBe(3)
@@ -93,24 +117,29 @@ describe('buildWindow', () => {
 
   describe('chunked input (streamed read shape)', () => {
     it('windows identically when text arrives in small chunks', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await buildWindow(chunked('one\ntwo\nthree', 2), { offset: 2, limit: 1, ...DEFAULT_CAPS }, 'f')
       expect(result.lines).toEqual([{ number: 2, text: 'two' }])
       expect(result.totalLines).toBe(3)
     })
 
     it('caps a newline-free giant line split across chunks without unbounded buffering', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await buildWindow(chunked('z'.repeat(5000), 256), READ_ALL, 'f')
       expect(result.lines[0]?.text).toContain(`... (line truncated to ${READ_MAX_LINE_LENGTH} chars)`)
     })
 
     it('caps output bytes mid-stream', async () => {
+      /** 中文说明：测试局部值 big，由紧邻初始化决定。 */
       const big = Array.from({ length: 2000 }, () => 'y'.repeat(100)).join('\n')
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await buildWindow(chunked(big, 512), READ_ALL, 'f')
       expect(result.totalLines).toBe(2000)
       expect(result.truncatedByBytes).toBe(true)
     })
 
     it('flushes a final newline-terminated line across a chunk boundary', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await buildWindow(chunked('one\ntwo\n', 3), READ_ALL, 'f')
       expect(result.lines.map(l => l.text)).toEqual(['one', 'two'])
     })
@@ -151,15 +180,18 @@ describe('langFromPath', () => {
 })
 
 describe('readMetaFromMeta', () => {
+  /** 中文说明：测试局部值 good，由紧邻初始化决定。 */
   const good = { path: '/abs/a.ts', offset: 1, lines: [{ number: 1, text: 'x' }], totalLines: 1, lang: 'ts' }
 
   it('narrows a well-formed read meta, with and without a lang hint', () => {
     expect(readMetaFromMeta(good)).toEqual(good)
+    /** 中文说明：测试局部值 noLang，由紧邻初始化决定。 */
     const noLang = { path: '/abs/a', offset: 1, lines: [], totalLines: 0 }
     expect(readMetaFromMeta(noLang)).toEqual(noLang)
   })
 
   it('narrows an empty window at a positive offset (byte cap below the first selected line)', () => {
+    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = { path: '/abs/a', offset: 5, lines: [], totalLines: 9 }
     expect(readMetaFromMeta(empty)).toEqual(empty)
   })
@@ -207,6 +239,7 @@ describe('readMetaFromMeta', () => {
   })
 
   it('rejects lines that do not strictly increase or exceed totalLines', () => {
+    /** 中文说明：测试局部值 twoLines，由紧邻初始化决定。 */
     const twoLines = { path: '/abs/a', offset: 1, lang: 'ts' }
     // Duplicate line numbers.
     expect(readMetaFromMeta({ ...twoLines, lines: [{ number: 1, text: 'a' }, { number: 1, text: 'b' }], totalLines: 2 })).toBeUndefined()

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证文件系统与工具的 fs-tools.e2e.ts 行为与安全边界。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -9,7 +17,9 @@ import { fsHarness, waitForIdle } from './harness.ts'
 
 /** Key-gated smoke for a real model driving the local read/write/edit tools. */
 
+/** 中文说明：测试局部值 ctx: Context | undefined，由紧邻初始化决定。 */
 let ctx: Context | undefined
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let workdir: string | undefined
 
 afterEach(async () => {
@@ -19,6 +29,7 @@ afterEach(async () => {
   workdir = undefined
 })
 
+/** 中文说明：测试局部值 SYSTEM，由紧邻初始化决定。 */
 const SYSTEM = 'You are a coding assistant. Use the write tool to create files, the read tool to inspect '
   + 'them, and the edit tool for literal replacements. Read a file before editing it. Keep replies terse.'
 
@@ -28,6 +39,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => 
     ctx = await fsHarness(workdir, SYSTEM)
     // agentLoop.create prepares a session with no cwd, so the provider default
     // (config.cwd = workdir) is the workspace.
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('fs-e2e'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
 
     agent.followup(createUserMessage({
@@ -38,11 +50,13 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => 
     await waitForIdle(ctx, agent)
 
     // Assert the filesystem effect independently of the model response.
+    /** 中文说明：测试局部值 content，由紧邻初始化决定。 */
     const content = await readFile(join(workdir, 'note.txt'), 'utf8')
     expect(content).toContain('status: final')
     expect(content).not.toContain('draft')
 
     // The log records real read/write/edit tool calls (not bash).
+    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls = [...agent.session.events].filter(e => e.type === 'tool/call').map(e => e.data.name)
     expect(calls).toContain('write')
     expect(calls).toContain('read')
@@ -53,11 +67,14 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => 
     // config.cwd is the harness workdir, but the agent's SESSION cwd is a
     // different dir; the write must land in the SESSION dir, proving the tool
     // passes the per-session cwd (not the backend default).
+    /** 中文说明：测试局部值 configDir，由紧邻初始化决定。 */
     const configDir = await mkdtemp(join(tmpdir(), 'dsh-fs-e2e-cfg-'))
     workdir = configDir
+    /** 中文说明：测试局部值 sessionDir，由紧邻初始化决定。 */
     const sessionDir = await mkdtemp(join(tmpdir(), 'dsh-fs-e2e-session-'))
     try {
       ctx = await fsHarness(configDir, SYSTEM)
+      /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
       const handle = await ctx.agents.create({
         sessionId: SessionId(`fs-e2e-cwd-${Date.now()}`),
         meta: { cwd: sessionDir },

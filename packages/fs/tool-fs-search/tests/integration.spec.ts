@@ -8,6 +8,14 @@
  * suite runs on every platform without a system `rg` install; the
  * fake-service suite (tools.spec.ts) carries the coverage gate.
  */
+/**
+ * 文件职责：验证文件系统与工具的 integration.spec.ts 行为与安全边界。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { existsSync } from 'node:fs'
@@ -21,12 +29,17 @@ import ToolRuntime, { TOOL_ABORTED_BEFORE_DISPATCH } from '@deepseek-ai/dsh-tool
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import * as ToolFsSearch from '@deepseek-ai/dsh-tool-fs-search'
 
+/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
+/** 中文说明：测试局部值 dir: string，由紧邻初始化决定。 */
 let dir: string
+/** 中文说明：测试局部值 ctx: Context，由紧邻初始化决定。 */
 let ctx: Context
 
+/** 中文说明：测试局部值 callCounter，由紧邻初始化决定。 */
 let callCounter = 0
+/** 中文说明：函数 call 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function call(name: string, args: unknown, agentObj?: object) {
   return ctx.tools.execute({
     signal: testToolSignal,
@@ -37,11 +50,13 @@ function call(name: string, args: unknown, agentObj?: object) {
   })
 }
 
+/** 中文说明：函数 text 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function text(result: { content: { type: string; text?: string }[] }): string {
   return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
 }
 
 /** The fixture workspace as a session cwd, so relative paths resolve inside `dir`. */
+/** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
 const agent = () => ({ session: { header: { id: 'session-int', cwd: dir } } })
 
 describe('search tools over the real subprocess service + the packaged rg', () => {
@@ -73,8 +88,10 @@ describe('search tools over the real subprocess service + the packaged rg', () =
 
   describe('glob', () => {
     it('discovers files by pattern, sorted by modification time, hidden included, .git excluded', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('glob', { pattern: '**/*.ts' }, agent())
       expect(result.isError).toBe(false)
+      /** 中文说明：测试局部值 paths，由紧邻初始化决定。 */
       const paths = text(result).split('\n')
       expect(paths.indexOf(join('src', 'alpha.ts'))).toBeLessThan(paths.indexOf(join('src', 'beta.ts')))
       expect(paths).toContain('.hidden.ts')
@@ -84,6 +101,7 @@ describe('search tools over the real subprocess service + the packaged rg', () =
     })
 
     it('scopes to a directory search root (path arg)', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('glob', { pattern: '*.ts', path: 'src' }, agent())
       expect(text(result).split('\n').sort()).toEqual([join('src', 'alpha.ts'), join('src', 'beta.ts')])
     })
@@ -99,6 +117,7 @@ describe('search tools over the real subprocess service + the packaged rg', () =
     })
 
     it('classifies an invalid glob as SEARCH_INVALID_PATTERN', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('glob', { pattern: '[' }, agent())
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { name: 'SearchError', code: 'SEARCH_INVALID_PATTERN' } })
@@ -107,8 +126,10 @@ describe('search tools over the real subprocess service + the packaged rg', () =
 
   describe('grep', () => {
     it('greps a directory tree with grouped, line-numbered output', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('grep', { pattern: 'alpha' }, agent())
       expect(result.isError).toBe(false)
+      /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
       const output = text(result)
       expect(output).toContain('Found 3 matches')
       expect(output).toContain(`${join('src', 'alpha.ts')}\nLine 1: export const alpha = 1\nLine 2: // TODO: refit alpha`)
@@ -116,12 +137,15 @@ describe('search tools over the real subprocess service + the packaged rg', () =
     })
 
     it('greps a single FILE target', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('grep', { pattern: 'alpha', path: 'notes.md' }, agent())
       expect(text(result)).toBe('Found 1 match\n\nnotes.md\nLine 1: alpha appears here too')
     })
 
     it('greps a directory target with an include filter', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('grep', { pattern: 'alpha', path: '.', include: '*.ts' }, agent())
+      /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
       const output = text(result)
       expect(output).toContain('alpha.ts')
       expect(output).not.toContain('notes.md')
@@ -133,7 +157,9 @@ describe('search tools over the real subprocess service + the packaged rg', () =
       // contract, and a future shell-wrapping change must not reintroduce it.
       // The canary name carries no path so the regex stays valid on every
       // platform (a Windows path's backslashes would be regex escapes).
+      /** 中文说明：测试局部值 canary，由紧邻初始化决定。 */
       const canary = join(dir, 'pwned')
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('grep', { pattern: '$(touch pwned)' }, agent())
       expect(result.isError).toBe(false) // exit 1: found nothing, executed nothing
       expect(text(result)).toBe('No matches found')
@@ -142,17 +168,20 @@ describe('search tools over the real subprocess service + the packaged rg', () =
 
     it('a leading-dash pattern is a pattern, not a flag', async () => {
       await writeFile(join(dir, 'dashes.txt'), 'value --flag value\n')
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('grep', { pattern: '--flag', path: 'dashes.txt' }, agent())
       expect(text(result)).toBe('Found 1 match\n\ndashes.txt\nLine 1: value --flag value')
     })
 
     it('classifies a real rg regex error as SEARCH_INVALID_PATTERN', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('grep', { pattern: '(unclosed' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'SEARCH_INVALID_PATTERN' } })
     })
 
     it('classifies a missing target as SEARCH_FAILED', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('grep', { pattern: 'x', path: 'no-such-dir' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'SEARCH_FAILED' } })
@@ -161,12 +190,16 @@ describe('search tools over the real subprocess service + the packaged rg', () =
 
   describe('per-session cwd', () => {
     it('resolves the search in the SESSION workspace, not the process cwd', async () => {
+      /** 中文说明：测试局部值 sessionDir，由紧邻初始化决定。 */
       const sessionDir = await mkdtemp(join(tmpdir(), 'dsh-search-session-'))
       try {
         await writeFile(join(sessionDir, 'only-here.ts'), 'const sessionFile = true\n')
+        /** 中文说明：测试局部值 agentObj，由紧邻初始化决定。 */
         const agentObj = { session: { header: { id: 'session-int', cwd: sessionDir } } }
+        /** 中文说明：测试局部值 globbed，由紧邻初始化决定。 */
         const globbed = await call('glob', { pattern: '*.ts' }, agentObj)
         expect(text(globbed)).toBe('only-here.ts')
+        /** 中文说明：测试局部值 grepped，由紧邻初始化决定。 */
         const grepped = await call('grep', { pattern: 'sessionFile' }, agentObj)
         expect(text(grepped)).toContain('only-here.ts\nLine 1: const sessionFile = true')
       } finally {
@@ -177,8 +210,10 @@ describe('search tools over the real subprocess service + the packaged rg', () =
 
   describe('pre-dispatch cancellation and spawn failures', () => {
     it('a pre-aborted registry call is ABORTED_BEFORE_DISPATCH', async () => {
+      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
       const controller = new AbortController()
       controller.abort()
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
         callId: CallId(`it-${++callCounter}`),
         name: 'grep',
@@ -190,7 +225,9 @@ describe('search tools over the real subprocess service + the packaged rg', () =
     })
 
     it('an unusable session cwd (spawn failure) is SEARCH_FAILED', async () => {
+      /** 中文说明：测试局部值 gone，由紧邻初始化决定。 */
       const gone = join(dir, 'deleted-session-dir')
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('glob', { pattern: '*' }, { session: { header: { id: 'session-int', cwd: gone } } })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { name: 'SearchError', code: 'SEARCH_FAILED' } })

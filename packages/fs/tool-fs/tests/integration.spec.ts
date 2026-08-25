@@ -4,6 +4,14 @@
  * policy-service dependency. Assertions read files back byte-for-byte rather than trusting tool
  * messages.
  */
+/**
+ * 文件职责：验证文件系统与工具的 integration.spec.ts 行为与安全边界。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -17,15 +25,22 @@ import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
 import * as FsPolicy from '@deepseek-ai/dsh-fs-observation-policy'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 
+/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
+/** 中文说明：测试局部值 dir: string，由紧邻初始化决定。 */
 let dir: string
+/** 中文说明：测试局部值 ctx: Context，由紧邻初始化决定。 */
 let ctx: Context
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let fiber: Awaited<ReturnType<Context['plugin']>>
 // No header cwd: sessionCwd returns undefined and the provider's configured test dir applies.
+/** 中文说明：测试局部值 session，由紧邻初始化决定。 */
 const session = { header: {} }
 
+/** 中文说明：测试局部值 callCounter，由紧邻初始化决定。 */
 let callCounter = 0
+/** 中文说明：函数 call 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function call(name: string, args: unknown) {
   return ctx.tools.execute({
     signal: testToolSignal,
@@ -36,6 +51,7 @@ function call(name: string, args: unknown) {
   })
 }
 
+/** 中文说明：函数 text 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function text(result: { content: { type: string; text?: string }[] }): string {
   return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
 }
@@ -61,6 +77,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
 
   describe('write → disk', () => {
     it('creates a file with exactly the requested bytes', async () => {
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('write', { file_path: 'new.txt', content: 'line one\nline two\n' })
       expect(result.isError).toBe(false)
       expect(await readFile(join(dir, 'new.txt'), 'utf8')).toBe('line one\nline two\n')
@@ -68,6 +85,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
 
     it('rejects overwriting an existing file without reading it first', async () => {
       await writeFile(join(dir, 'a.txt'), 'original')
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('write', { file_path: 'a.txt', content: 'clobber' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'FS_NOT_OBSERVED' } })
@@ -80,6 +98,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
     it('allows overwriting after a read', async () => {
       await writeFile(join(dir, 'a.txt'), 'original')
       expect((await call('read', { file_path: 'a.txt' })).isError).toBe(false)
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('write', { file_path: 'a.txt', content: 'replaced' })
       expect(result.isError).toBe(false)
       expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('replaced')
@@ -89,6 +108,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
       await writeFile(join(dir, 'a.txt'), 'original')
       await call('read', { file_path: 'a.txt' })
       await writeFile(join(dir, 'a.txt'), 'changed-externally') // out-of-band change
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('write', { file_path: 'a.txt', content: 'replaced' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
@@ -101,11 +121,13 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
       await writeFile(join(dir, 'a.txt'), 'original')
       await call('read', { file_path: 'a.txt' })
       await writeFile(join(dir, 'a.txt'), 'changed-externally') // out-of-band change
+      /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
       const stale = await call('write', { file_path: 'a.txt', content: 'replaced' })
       expect(stale.isError).toBe(true)
       expect(stale.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
       // Follow the remedy: re-read (refreshes the observed version), then retry.
       expect((await call('read', { file_path: 'a.txt' })).isError).toBe(false)
+      /** 中文说明：测试局部值 retried，由紧邻初始化决定。 */
       const retried = await call('write', { file_path: 'a.txt', content: 'replaced' })
       expect(retried.isError).toBe(false)
       expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('replaced')
@@ -115,6 +137,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
   describe('read', () => {
     it('returns line-numbered content', async () => {
       await writeFile(join(dir, 'a.txt'), 'alpha\nbeta')
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('read', { file_path: 'a.txt' })
       expect(text(result)).toContain('1: alpha')
       expect(text(result)).toContain('2: beta')
@@ -123,6 +146,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
 
     it('reports a binary file as an error', async () => {
       await writeFile(join(dir, 'bin'), Buffer.from([0x00, 0x01, 0x02]))
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('read', { file_path: 'bin' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'FS_NOT_TEXT' } })
@@ -130,6 +154,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
 
     it('paginates a multi-line file with offset/limit', async () => {
       await writeFile(join(dir, 'a.txt'), 'one\ntwo\nthree\nfour')
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('read', { file_path: 'a.txt', offset: 2, limit: 2 })
       expect(text(result)).toContain('2: two')
       expect(text(result)).toContain('3: three')
@@ -141,6 +166,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
     it('applies a unique literal replacement after a read', async () => {
       await writeFile(join(dir, 'a.txt'), 'hello world')
       await call('read', { file_path: 'a.txt' })
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
       expect(result.isError).toBe(false)
       expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello there')
@@ -148,6 +174,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
 
     it('rejects an edit before any read, leaving the file untouched', async () => {
       await writeFile(join(dir, 'a.txt'), 'hello world')
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'FS_NOT_OBSERVED' } })
@@ -159,13 +186,16 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
 
     it('lets a WINDOWED read authorize an edit when the file is unchanged (freshness, not full-view)', async () => {
       // A file with more lines than the read window; read only the first line.
+      /** 中文说明：测试局部值 lines，由紧邻初始化决定。 */
       const lines = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`)
       await writeFile(join(dir, 'a.txt'), lines.join('\n'))
+      /** 中文说明：测试局部值 read，由紧邻初始化决定。 */
       const read = await call('read', { file_path: 'a.txt', offset: 1, limit: 1 })
       expect(read.isError).toBe(false)
       expect(text(read)).toContain('(Showing lines 1-1 of 20')
 
       // Editing a line OUTSIDE the window is authorized because the file is unchanged.
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('edit', { file_path: 'a.txt', old_string: 'line 12', new_string: 'LINE 12' })
       expect(result.isError).toBe(false)
       expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe(lines.map(l => l === 'line 12' ? 'LINE 12' : l).join('\n'))
@@ -175,6 +205,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
       await writeFile(join(dir, 'a.txt'), 'hello world')
       await call('read', { file_path: 'a.txt', offset: 1, limit: 1 })
       await writeFile(join(dir, 'a.txt'), 'goodbye') // out-of-band change removes 'world'
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
@@ -187,11 +218,13 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
       await writeFile(join(dir, 'a.txt'), 'hello world')
       await call('read', { file_path: 'a.txt' })
       await writeFile(join(dir, 'a.txt'), 'hello brave world') // out-of-band change
+      /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
       const stale = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
       expect(stale.isError).toBe(true)
       expect(stale.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
       // Follow the remedy: re-read (refreshes the observed version), then retry.
       expect((await call('read', { file_path: 'a.txt' })).isError).toBe(false)
+      /** 中文说明：测试局部值 retried，由紧邻初始化决定。 */
       const retried = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
       expect(retried.isError).toBe(false)
       expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello brave there')
@@ -200,6 +233,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
     it('rejects an ambiguous match without replace_all', async () => {
       await writeFile(join(dir, 'a.txt'), 'a a a')
       await call('read', { file_path: 'a.txt' })
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('edit', { file_path: 'a.txt', old_string: 'a', new_string: 'b' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'FS_AMBIGUOUS_EDIT' } })
@@ -209,6 +243,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
     it('replaces all matches with replace_all', async () => {
       await writeFile(join(dir, 'a.txt'), 'a a a')
       await call('read', { file_path: 'a.txt' })
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('edit', { file_path: 'a.txt', old_string: 'a', new_string: 'b', replace_all: true })
       expect(result.isError).toBe(false)
       expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('b b b')
@@ -216,6 +251,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
 
     it('supports a full write→edit cycle without an intervening read', async () => {
       await call('write', { file_path: 'a.txt', content: 'one two' })
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('edit', { file_path: 'a.txt', old_string: 'two', new_string: 'three' })
       expect(result.isError).toBe(false)
       expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('one three')
@@ -228,6 +264,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
       // Reach AROUND the tool — an explicit escape hatch for non-tool consumers.
       await ctx.fs.readText(await ctx.fs.resolve('a.txt'))
       // The model-facing edit still rejects: the read did not emit fs/observed.
+      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
       expect(result.isError).toBe(true)
       expect(result.error).toMatchObject({ info: { code: 'FS_NOT_OBSERVED' } })
@@ -241,26 +278,31 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
       await rm(join(dir, 'a.txt')) // out-of-band deletion
 
       // The original positive observation still protects the first mutation.
+      /** 中文说明：测试局部值 edit，由紧邻初始化决定。 */
       const edit = await call('edit', { file_path: 'a.txt', old_string: 'original', new_string: 'x' })
       expect(edit.isError).toBe(true)
       expect(edit.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
+      /** 中文说明：测试局部值 write，由紧邻初始化决定。 */
       const write = await call('write', { file_path: 'a.txt', content: 'premature' })
       expect(write.isError).toBe(true)
       expect(write.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
 
       // A read-not-found is an authoritative negative observation for this
       // owner. It still fails as a read, but changes the next write guard.
+      /** 中文说明：测试局部值 reread，由紧邻初始化决定。 */
       const reread = await call('read', { file_path: 'a.txt' })
       expect(reread.isError).toBe(true)
       expect(reread.error).toMatchObject({ info: { code: 'FS_NOT_FOUND' } })
 
       // Absence never authorizes edit: there is no content/version to edit.
+      /** 中文说明：测试局部值 retriedEdit，由紧邻初始化决定。 */
       const retriedEdit = await call('edit', { file_path: 'a.txt', old_string: 'original', new_string: 'x' })
       expect(retriedEdit.isError).toBe(true)
       expect(retriedEdit.error).toMatchObject({ info: { code: 'FS_NOT_FOUND' } })
 
       // The retried write uses createIfAbsent; the provider remains responsible
       // for rejecting a concurrent creator at publication time.
+      /** 中文说明：测试局部值 recovered，由紧邻初始化决定。 */
       const recovered = await call('write', { file_path: 'a.txt', content: 'fresh' })
       expect(recovered.isError).toBe(false)
       expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('fresh')
@@ -270,6 +312,7 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
   describe('stat budget', () => {
     it('read stats once; write and edit never stat in the tool (the gate stats zero too)', async () => {
       await writeFile(join(dir, 'a.txt'), 'hello world')
+      /** 中文说明：测试局部值 statSpy，由紧邻初始化决定。 */
       const statSpy = vi.spyOn(ctx.fs, 'stat')
 
       // read: exactly one stat (type + size routing + observed version).
@@ -279,12 +322,14 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
       // edit (guarded, after the read): the gate supplies vObserved; the tool
       // does not stat to manufacture a basis. CAS happens in editText's lock.
       statSpy.mockClear()
+      /** 中文说明：测试局部值 edited，由紧邻初始化决定。 */
       const edited = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
       expect(edited.isError).toBe(false)
       expect(statSpy).not.toHaveBeenCalled()
 
       // write (guarded replace, after the edit refreshed observed state): zero stat.
       statSpy.mockClear()
+      /** 中文说明：测试局部值 written，由紧邻初始化决定。 */
       const written = await call('write', { file_path: 'a.txt', content: 'fresh' })
       expect(written.isError).toBe(false)
       expect(statSpy).not.toHaveBeenCalled()
@@ -292,13 +337,16 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
     })
 
     it('a missing read still stats once and its recovery write stats zero times', async () => {
+      /** 中文说明：测试局部值 statSpy，由紧邻初始化决定。 */
       const statSpy = vi.spyOn(ctx.fs, 'stat')
+      /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
       const missing = await call('read', { file_path: 'missing.txt' })
       expect(missing.isError).toBe(true)
       expect(missing.error).toMatchObject({ info: { code: 'FS_NOT_FOUND' } })
       expect(statSpy).toHaveBeenCalledTimes(1)
 
       statSpy.mockClear()
+      /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
       const created = await call('write', { file_path: 'missing.txt', content: 'fresh' })
       expect(created.isError).toBe(false)
       expect(statSpy).not.toHaveBeenCalled()
@@ -322,12 +370,14 @@ describe('bare provider (no dsh-fs-observation-policy)', () => {
 
   it('read works (it never needed policy)', async () => {
     await writeFile(join(dir, 'a.txt'), 'alpha\nbeta')
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await call('read', { file_path: 'a.txt' })
     expect(result.isError).toBe(false)
     expect(text(result)).toContain('1: alpha')
   })
 
   it('write unconditionally creates a new file', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await call('write', { file_path: 'new.txt', content: 'fresh' })
     expect(result.isError).toBe(false)
     expect(await readFile(join(dir, 'new.txt'), 'utf8')).toBe('fresh')
@@ -335,6 +385,7 @@ describe('bare provider (no dsh-fs-observation-policy)', () => {
 
   it('write unconditionally OVERWRITES an existing unread file', async () => {
     await writeFile(join(dir, 'a.txt'), 'original')
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await call('write', { file_path: 'a.txt', content: 'clobbered' })
     expect(result.isError).toBe(false)
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('clobbered')
@@ -342,12 +393,14 @@ describe('bare provider (no dsh-fs-observation-policy)', () => {
 
   it('edit unconditionally edits an UNREAD existing file', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
     expect(result.isError).toBe(false)
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello there')
   })
 
   it('edit of a MISSING target reports FS_STALE_VERSION even on the unguarded path', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await call('edit', { file_path: 'missing.txt', old_string: 'a', new_string: 'b' })
     expect(result.isError).toBe(true)
     expect(result.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
@@ -358,6 +411,7 @@ describe('bare provider (no dsh-fs-observation-policy)', () => {
 
   it('edit still enforces literal-match codes (FS_EDIT_NOT_FOUND), unrelated to freshness', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await call('edit', { file_path: 'a.txt', old_string: 'absent', new_string: 'x' })
     expect(result.isError).toBe(true)
     expect(result.error).toMatchObject({ info: { code: 'FS_EDIT_NOT_FOUND' } })
@@ -365,6 +419,7 @@ describe('bare provider (no dsh-fs-observation-policy)', () => {
 
   it('neither write nor edit stats in the tool on the bare path', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
+    /** 中文说明：测试局部值 statSpy，由紧邻初始化决定。 */
     const statSpy = vi.spyOn(ctx.fs, 'stat')
     expect((await call('write', { file_path: 'a.txt', content: 'x y' })).isError).toBe(false)
     expect((await call('edit', { file_path: 'a.txt', old_string: 'y', new_string: 'z' })).isError).toBe(false)
@@ -377,6 +432,7 @@ describe('bare provider (no dsh-fs-observation-policy)', () => {
 // (`exec.agent.session.header.cwd`), not the backend's config.cwd, so the
 // caller-selected session workspace wins, matching dsh-tool-bash.
 describe('per-session cwd', () => {
+  /** 中文说明：测试局部值 sessionDir: string，由紧邻初始化决定。 */
   let sessionDir: string
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'dsh-tool-fs-cfg-'))
@@ -390,6 +446,7 @@ describe('per-session cwd', () => {
   })
   afterEach(async () => { await rm(sessionDir, { recursive: true, force: true }) })
 
+  /** 中文说明：测试局部值 callIn，由紧邻初始化决定。 */
   const callIn = (sessionObj: object, name: string, args: unknown) =>
     ctx.tools.execute({
       signal: testToolSignal,
@@ -400,6 +457,7 @@ describe('per-session cwd', () => {
     })
 
   it('writes a relative path into the SESSION cwd, not config.cwd', async () => {
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await callIn({ header: { cwd: sessionDir } }, 'write', { file_path: 'note.txt', content: 'hi' })
     expect(result.isError).toBe(false)
     // Verify the WORLD: the file is in the session dir, and NOT in config.cwd.
@@ -410,9 +468,11 @@ describe('per-session cwd', () => {
   it('read + edit both resolve against the session cwd (end-to-end)', async () => {
     // ONE session object across both calls — observed-state keys by owner
     // identity, so read must record under the same owner the edit reads.
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = { header: { cwd: sessionDir } }
     await writeFile(join(sessionDir, 'code.txt'), 'alpha')
     expect((await callIn(session, 'read', { file_path: 'code.txt' })).isError).toBe(false)
+    /** 中文说明：测试局部值 edited，由紧邻初始化决定。 */
     const edited = await callIn(session, 'edit', { file_path: 'code.txt', old_string: 'alpha', new_string: 'beta' })
     expect(edited.isError).toBe(false)
     expect(await readFile(join(sessionDir, 'code.txt'), 'utf8')).toBe('beta')
@@ -434,18 +494,23 @@ describe('signal, concurrency, and the fs/observed contract', () => {
     fiber = await ctx.plugin(ToolFs)
   })
 
+  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = { header: {} }
+  /** 中文说明：测试局部值 callSig，由紧邻初始化决定。 */
   const callSig = (signal: AbortSignal, name: string, args: unknown) =>
     ctx.tools.execute({ callId: CallId(`c-${++callCounter}`), name, arguments: args, agent: { session } as never, signal })
+  /** 中文说明：测试局部值 callOwned，由紧邻初始化决定。 */
   const callOwned = (name: string, args: unknown) =>
     ctx.tools.execute({ signal: testToolSignal, callId: CallId(`c-${++callCounter}`), name, arguments: args, agent: { session } as never })
 
   it('a pre-aborted registry call skips read/write/edit with ABORTED_BEFORE_DISPATCH', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello')
+    /** 中文说明：测试局部值 read，由紧邻初始化决定。 */
     const read = await callSig(AbortSignal.abort(), 'read', { file_path: 'a.txt' })
     expect(read.isError).toBe(true)
     expect(read.error).toMatchObject({ info: { name: 'AbortError', code: TOOL_ABORTED_BEFORE_DISPATCH } })
 
+    /** 中文说明：测试局部值 write，由紧邻初始化决定。 */
     const write = await callSig(AbortSignal.abort(), 'write', { file_path: 'new.txt', content: 'x' })
     expect(write.isError).toBe(true)
     expect(write.error).toMatchObject({ info: { name: 'AbortError', code: TOOL_ABORTED_BEFORE_DISPATCH } })
@@ -454,6 +519,7 @@ describe('signal, concurrency, and the fs/observed contract', () => {
     // Read first (un-aborted, SAME session owner) so the edit clears the
     // observation gate; then the registry skips the aborted edit before its body.
     expect((await callOwned('read', { file_path: 'a.txt' })).isError).toBe(false)
+    /** 中文说明：测试局部值 edit，由紧邻初始化决定。 */
     const edit = await callSig(AbortSignal.abort(), 'edit', { file_path: 'a.txt', old_string: 'hello', new_string: 'bye' })
     expect(edit.isError).toBe(true)
     expect(edit.error).toMatchObject({ info: { name: 'AbortError', code: TOOL_ABORTED_BEFORE_DISPATCH } })
@@ -465,27 +531,33 @@ describe('signal, concurrency, and the fs/observed contract', () => {
     // One read establishes the observed version both edits guard against; then
     // race two edits so both carry the SAME observed version (the barrier).
     expect((await callOwned('read', { file_path: 'a.txt' })).isError).toBe(false)
+    /** 中文说明：测试局部值 [one, two]，由紧邻初始化决定。 */
     const [one, two] = await Promise.all([
       callOwned('edit', { file_path: 'a.txt', old_string: 'base', new_string: 'ONE', replaceAll: false }),
       callOwned('edit', { file_path: 'a.txt', old_string: 'value', new_string: 'TWO', replaceAll: false }),
     ])
+    /** 中文说明：测试局部值 errors，由紧邻初始化决定。 */
     const errors = [one, two].filter(r => r.isError)
     expect(errors).toHaveLength(1)
     expect(errors[0]?.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
     // The world is consistent: exactly one edit landed.
+    /** 中文说明：测试局部值 onDisk，由紧邻初始化决定。 */
     const onDisk = await readFile(join(dir, 'a.txt'), 'utf8')
     expect(onDisk === 'ONE value here' || onDisk === 'base TWO here').toBe(true)
   })
 
   it('a stale observed version from an older read fails closed at edit CAS', async () => {
     await writeFile(join(dir, 'a.txt'), 'older content\n')
+    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await ctx.fs.resolve('a.txt')
+    /** 中文说明：测试局部值 firstInfo，由紧邻初始化决定。 */
     const firstInfo = await ctx.fs.stat(target)
     if (!firstInfo) throw new Error('expected first stat')
 
     expect((await callOwned('read', { file_path: 'a.txt' })).isError).toBe(false)
 
     await writeFile(join(dir, 'a.txt'), 'newer current content\n')
+    /** 中文说明：测试局部值 secondInfo，由紧邻初始化决定。 */
     const secondInfo = await ctx.fs.stat(target)
     if (!secondInfo) throw new Error('expected second stat')
     expect(secondInfo.version).not.toBe(firstInfo.version)
@@ -494,6 +566,7 @@ describe('signal, concurrency, and the fs/observed contract', () => {
     // Reproduce an older concurrent read winning the observation race.
     ctx.emit('fs/observed', target, { kind: 'present', version: firstInfo.version }, { agent: { session } })
 
+    /** 中文说明：测试局部值 edit，由紧邻初始化决定。 */
     const edit = await callOwned('edit', {
       file_path: 'a.txt',
       old_string: 'newer',
@@ -508,6 +581,7 @@ describe('signal, concurrency, and the fs/observed contract', () => {
     // fs/observed is a plain ctx.emit after the write succeeded; a throwing listener cannot
     // roll the write back — it only turns the tool result into isError.
     ctx.on('fs/observed', () => { throw new Error('recording bug') })
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await callOwned('write', { file_path: 'w.txt', content: 'durable' })
     expect(result.isError).toBe(true)
     expect(await readFile(join(dir, 'w.txt'), 'utf8')).toBe('durable')

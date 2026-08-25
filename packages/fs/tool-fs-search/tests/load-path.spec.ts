@@ -13,6 +13,14 @@
  * guard bites: add `export default apply` to `src/index.ts`, watch this go
  * red, revert.
  */
+/**
+ * 文件职责：验证文件系统与工具的 load-path.spec.ts 行为与安全边界。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -26,7 +34,9 @@ describe('dsh-tool-fs-search real-load-path guard', () => {
   it('has no default export and keeps name/inject/Config through unwrapExports', () => {
     expect('default' in toolFsSearch).toBe(false)
 
+    /** 中文说明：测试局部值 loader，由紧邻初始化决定。 */
     const loader = Object.create(Loader.prototype) as Loader
+    /** 中文说明：测试局部值 unwrapped，由紧邻初始化决定。 */
     const unwrapped = loader.unwrapExports(toolFsSearch) as Record<string, unknown>
     expect(unwrapped).toBe(toolFsSearch)
     expect(unwrapped.name).toBe('tool-fs-search')
@@ -36,14 +46,18 @@ describe('dsh-tool-fs-search real-load-path guard', () => {
   })
 
   it('boots over ctx.subprocess through the unwrapped module without an inject error', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
 
+    /** 中文说明：测试局部值 loader，由紧邻初始化决定。 */
     const loader = Object.create(Loader.prototype) as Loader
+    /** 中文说明：测试局部值 unwrapped，由紧邻初始化决定。 */
     const unwrapped = loader.unwrapExports(toolFsSearch) as Parameters<Context['plugin']>[0]
     // A collapsed export shape (dropped inject) would throw "without inject" here.
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(unwrapped, { sampleOverCapGlobResults: true })
     expect(ctx.tools.schemas().map(s => s.name)).toEqual(expect.arrayContaining(['glob', 'grep']))
     await fiber.dispose()

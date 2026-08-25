@@ -9,13 +9,23 @@
  *
  * @module @deepseek-ai/dsh-goal/types
  */
+/**
+ * 文件职责：实现目标管理的 types.ts 模块。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：校验输入，更新领域状态并记录事件或注册能力。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
 
 /** Identifies one goal across its durable revisions. */
+/** 中文说明：类型或类 GoalId 约束文件或目标数据职责。 */
 export type GoalId = Branded<'GoalId'>
 
 /** Compare-and-set identity for one exact goal revision. */
+/** 中文说明：类型或类 GoalRef 约束文件或目标数据职责。 */
 export interface GoalRef {
   /** Stable goal identity. */
   readonly id: GoalId
@@ -24,23 +34,27 @@ export interface GoalRef {
 }
 
 /** Input whose omitted round cap is resolved by the service configuration. */
+/** 中文说明：类型或类 CreateGoalRequest 约束文件或目标数据职责。 */
 export interface CreateGoalRequest {
   readonly objective: string
   readonly maxGoalRounds?: number
 }
 
 /** Wire-safe acknowledgement of one created goal. */
+/** 中文说明：类型或类 CreateGoalResult 约束文件或目标数据职责。 */
 export interface CreateGoalResult {
   readonly ref: GoalRef
 }
 
 /** Fields changed by an edit; at least one must be present. */
+/** 中文说明：类型或类 EditGoalRequest 约束文件或目标数据职责。 */
 export interface EditGoalRequest {
   readonly objective?: string
   readonly maxGoalRounds?: number
 }
 
 /** Durable continuation phase. Activation is process-local and separate. */
+/** 中文说明：类型或类 GoalPhase 约束文件或目标数据职责。 */
 export type GoalPhase =
   | 'active'
   | 'paused'
@@ -48,6 +62,7 @@ export type GoalPhase =
   | 'complete'
 
 /** Machine-routable and human-readable explanation for a blocked goal. */
+/** 中文说明：类型或类 GoalBlockReason 约束文件或目标数据职责。 */
 export interface GoalBlockReason {
   /** Stable lower-kebab-case classification chosen by the blocking policy. */
   readonly code: string
@@ -56,6 +71,7 @@ export interface GoalBlockReason {
 }
 
 /** Full durable state written by every non-clear goal mutation. */
+/** 中文说明：类型或类 GoalSnapshot 约束文件或目标数据职责。 */
 export interface GoalSnapshot extends GoalRef {
   /** Human-requested completion objective. */
   readonly objective: string
@@ -68,9 +84,11 @@ export interface GoalSnapshot extends GoalRef {
 }
 
 /** Whether this live process may automatically continue an active goal. */
+/** 中文说明：类型或类 GoalActivation 约束文件或目标数据职责。 */
 export type GoalActivation = 'armed' | 'disarmed'
 
 /** Current goal projection, including values derived from the session log. */
+/** 中文说明：类型或类 GoalView 约束文件或目标数据职责。 */
 export interface GoalView extends GoalSnapshot {
   /** Highest admitted round number for this goal. */
   readonly roundsStarted: number
@@ -88,6 +106,7 @@ export interface GoalView extends GoalSnapshot {
  * Activation is process-local (never persisted) and deliberately absent —
  * the projection reflects durable phase only.
  */
+/** 中文说明：类型或类 GoalProjection 约束文件或目标数据职责。 */
 export interface GoalProjection {
   /** Current durable goal snapshot (the CAS ref for mutations rides on it). */
   readonly goal: GoalSnapshot
@@ -100,9 +119,11 @@ export interface GoalProjection {
 }
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
+  /** 中文说明：类型或类 SessionProjectionStateMap 约束文件或目标数据职责。 */
   interface SessionProjectionStateMap {
     goal: GoalProjection | null
   }
+  /** 中文说明：类型或类 SessionProjectionMap 约束文件或目标数据职责。 */
   interface SessionProjectionMap {
     /**
      * The session's current goal (the latest `goal/change` whole value), or
