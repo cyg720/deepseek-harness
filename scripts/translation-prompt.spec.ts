@@ -1,4 +1,12 @@
 /** Unit tests for the prompt-v7 content and unchanged three-section protocol. */
+/**
+ * 文件职责：验证 translation-prompt.spec.ts 覆盖的Agent 预设行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
+ * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
+ * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
+ * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
+ */
 
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -11,10 +19,14 @@ import {
   renderTranslationResponse,
 } from './translation-prompt.ts'
 
+/** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
+/** 中文说明：变量 document 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const document = readFileSync(join(root, 'docs/i18n/translation-prompt.md'), 'utf8')
+/** 中文说明：变量 terminology 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const terminology = '| English | 中文 |\n|---|---|\n| agent | agent |'
 
+/** 中文说明：变量 retainedExamples 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const retainedExamples = [
   ['### Colloquial verb → Professional verb', 'The repo pins pnpm@11.7.0 in package.json', '该仓库在 package.json 中固定使用 pnpm@11.7.0'],
   ['### Run-on sentence → Natural phrasing with pause', 'Read docs/architecture.md before changing anything under packages/.', '在修改 packages/ 目录下的任何内容之前，请先阅读 docs/architecture.md。'],
@@ -31,6 +43,7 @@ const retainedExamples = [
 
 describe('translation prompt rendering', () => {
   it('renders both directions with every placeholder resolved', () => {
+    /** 中文说明：变量 en 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const en = renderTranslationPrompt(document, { sourceLanguage: 'English', sourceFilename: 'guide.md', terminology })
     expect(en).toContain('from English to Chinese')
     expect(en).toContain(terminology)
@@ -40,17 +53,21 @@ describe('translation prompt rendering', () => {
     expect(en).toContain('does a Chinese target use an established Chinese rendering')
     expect(en).toContain('does an English target use the established English technical term')
     expect(en).toContain('The parser removes exactly one framing escape')
+    /** 中文说明：变量 zh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const zh = renderTranslationPrompt(document, { sourceLanguage: 'Chinese', sourceFilename: 'guide.zh.md', terminology })
     expect(zh).toContain('from Chinese to English')
   })
 
   it('contains every embedded example', () => {
+    /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
     for (const example of retainedExamples) {
+      /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
       for (const fragment of example) expect(document).toContain(fragment)
     }
   })
 
   it('states the selected v7 safeguards', () => {
+    /** 中文说明：变量 rendered 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rendered = renderTranslationPrompt(document, { sourceLanguage: 'English', sourceFilename: 'guide.md', terminology })
     expect(rendered).toContain('## Priority')
     expect(rendered).toContain('### Faithfulness')
@@ -66,14 +83,18 @@ describe('translation prompt rendering', () => {
   })
 
   it('rejects a template with unknown or missing placeholders', () => {
+    /** 中文说明：变量 alien 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const alien = document.replaceAll('{{terminology}}', '{{terms_prompt}}')
     expect(() => renderTranslationPrompt(alien, { sourceLanguage: 'English', sourceFilename: 'guide.md', terminology })).toThrow(/unsupported placeholder/)
+    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = document.replaceAll('{{terminology}}', '')
     expect(() => renderTranslationPrompt(missing, { sourceLanguage: 'English', sourceFilename: 'guide.md', terminology })).toThrow(/required placeholder/)
   })
 
   it('rejects unmatched placeholder delimiters', () => {
+    /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
     for (const delimiter of ['{{', '}}']) {
+      /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const malformed = document.replace('Your task is to translate', `Your task ${delimiter} is to translate`)
       expect(() => renderTranslationPrompt(malformed, {
         sourceLanguage: 'English',
@@ -84,6 +105,7 @@ describe('translation prompt rendering', () => {
   })
 
   it('assembles bare few-shot turns before the real source document', () => {
+    /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const request = renderTranslationRequest(document, {
       sourceLanguage: 'English',
       sourceFilename: 'guide.md',
@@ -99,6 +121,7 @@ describe('translation prompt rendering', () => {
       '# Guide\n\nNew source.',
     ])
 
+    /** 中文说明：变量 reverse 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reverse = renderTranslationRequest(document, {
       sourceLanguage: 'Chinese',
       sourceFilename: 'guide.zh.md',
@@ -117,32 +140,38 @@ describe('translation prompt rendering', () => {
 
 describe('translation response sections', () => {
   it('round-trips Markdown bodies', () => {
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = { translation: '# 标题\n\n正文 **加粗**。', review: '- [Tone] 修正一处。\n- 无修正', final: '# 标题\n\n定稿。' }
     expect(parseTranslationResponse(renderTranslationResponse(response))).toEqual(response)
   })
 
   it('tolerates a fenced xml wrapper around the whole response', () => {
+    /** 中文说明：变量 fenced 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fenced = '```xml\n<translation>\nA\n</translation>\n\n<review>\n- 无修正\n</review>\n\n<final>\nA\n</final>\n```'
     expect(parseTranslationResponse(fenced).final).toBe('A')
   })
 
   it('keeps an inline close tag inside prose from terminating the section', () => {
+    /** 中文说明：变量 doc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const doc = { translation: 'the wire format uses </translation> as its close tag', review: '- 无修正', final: 'F' }
     expect(parseTranslationResponse(renderTranslationResponse(doc))).toEqual(doc)
   })
 
   it('round-trips wrapper-tag lines inside Markdown bodies', () => {
+    /** 中文说明：变量 doc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const doc = {
       translation: '```xml\n</translation>\n```',
       review: '- [Structure] Preserved `<final>` on its own line.',
       final: 'literal delimiters\n</final>\n\\</final>',
     }
+    /** 中文说明：变量 rendered 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rendered = renderTranslationResponse(doc)
     expect(parseTranslationResponse(rendered)).toEqual(doc)
     expect(() => parseTranslationResponse(rendered.replace('\\</translation>', '</translation>'))).toThrow(/duplicate <translation>/)
   })
 
   it('rejects a duplicate section appearing before final', () => {
+    /** 中文说明：变量 early 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const early = '<translation>\nA\n</translation>\n<translation>\nB\n</translation>\n<review>\nR\n</review>\n<final>\nF\n</final>'
     expect(() => parseTranslationResponse(early)).toThrow(/duplicate <translation>/)
   })
@@ -150,6 +179,7 @@ describe('translation response sections', () => {
   it('rejects missing, unterminated, or duplicated sections', () => {
     expect(() => parseTranslationResponse('<translation>\nA\n</translation>')).toThrow(/missing or unterminated <review>/)
     expect(() => parseTranslationResponse('<translation>\nA')).toThrow(/missing or unterminated <translation>/)
+    /** 中文说明：变量 dup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dup = '<translation>\nA\n</translation>\n<review>\nR\n</review>\n<final>\nF\n</final>\n<final>\nG\n</final>'
     expect(() => parseTranslationResponse(dup)).toThrow(/duplicate <final>/)
     expect(() => parseTranslationResponse(`${renderTranslationResponse({ translation: 'A', review: 'R', final: 'F' })}\nstray`))
@@ -157,6 +187,7 @@ describe('translation response sections', () => {
   })
 
   it('inserts or corrects the target switcher after parsing a new-pair response', () => {
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = renderTranslationResponse({
       translation: '# 指南\n\n初稿。',
       review: '- 无修正',
@@ -173,6 +204,7 @@ describe('translation response sections', () => {
   })
 
   it('preserves YAML frontmatter before inserting the target switcher', () => {
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = renderTranslationResponse({
       translation: '# 指南\n\n初稿。',
       review: '- 无修正',
@@ -201,6 +233,7 @@ describe('translation response sections', () => {
   })
 
   it('rejects unterminated YAML frontmatter before the target H1', () => {
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = renderTranslationResponse({
       translation: '# 指南\n\n初稿。',
       review: '- 无修正',
@@ -221,6 +254,7 @@ describe('translation response sections', () => {
   })
 
   it('inserts the English target switcher for a Chinese source', () => {
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = renderTranslationResponse({
       translation: '# Guide\n\nDraft.',
       review: '- [None] No corrections.',

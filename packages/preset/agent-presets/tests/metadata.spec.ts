@@ -5,6 +5,14 @@
  * — `id` is the directory and `trust` is the root, so neither is readable
  * from the file a user can write.
  */
+/**
+ * 文件职责：验证 metadata.spec.ts 覆盖的Agent 预设行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
+ * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
+ * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
+ * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
+ */
 
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -13,7 +21,9 @@ import { describe, expect, it } from 'vitest'
 import { METADATA_FILE, readPresetMetadata, renderPresetMetadata } from '../src/metadata.ts'
 
 /** A preset directory holding exactly the given metadata text. */
+/** 中文说明：函数 presetDir 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function presetDir(content?: string): Promise<string> {
+  /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-preset-meta-'))
   await mkdir(dir, { recursive: true })
   if (content !== undefined) await writeFile(join(dir, METADATA_FILE), content)
@@ -22,6 +32,7 @@ async function presetDir(content?: string): Promise<string> {
 
 describe('reading display metadata', () => {
   it('reads a name and a description', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await presetDir('name: 标准模式\ndescription: 完整的编码 agent。\n')
 
     expect(await readPresetMetadata(dir)).toEqual({ name: '标准模式', description: '完整的编码 agent。' })
@@ -34,6 +45,7 @@ describe('reading display metadata', () => {
   })
 
   it('treats malformed YAML as no metadata', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await presetDir('name: [unclosed\n')
 
     // Display text is not worth failing discovery over — the composition
@@ -50,24 +62,28 @@ describe('reading display metadata', () => {
   })
 
   it('ignores fields that are not text', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await presetDir('name: 42\ndescription:\n  nested: true\n')
 
     expect(await readPresetMetadata(dir)).toEqual({})
   })
 
   it('ignores blank text rather than showing an empty name', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await presetDir('name: "   "\ndescription: ""\n')
 
     expect(await readPresetMetadata(dir)).toEqual({})
   })
 
   it('trims surrounding whitespace', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await presetDir('name: "  极简模式  "\n')
 
     expect(await readPresetMetadata(dir)).toEqual({ name: '极简模式' })
   })
 
   it('reads a declared order', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await presetDir('name: 标准模式\norder: 1\n')
 
     expect(await readPresetMetadata(dir)).toEqual({ name: '标准模式', order: 1 })
@@ -79,6 +95,7 @@ describe('reading display metadata', () => {
   })
 
   it('cannot carry identity or trust', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await presetDir('name: mine\nid: standard\ntrust: system\n')
 
     // A locally authored preset writing `trust: system` must not become a
@@ -89,7 +106,9 @@ describe('reading display metadata', () => {
 
 describe('rendering display metadata', () => {
   it('round-trips through a read', async () => {
+    /** 中文说明：变量 rendered 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rendered = renderPresetMetadata({ name: '创造模式', description: '可以改自己的组装。' })
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await presetDir(rendered)
 
     expect(await readPresetMetadata(dir)).toEqual({ name: '创造模式', description: '可以改自己的组装。' })

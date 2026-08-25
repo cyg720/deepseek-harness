@@ -1,4 +1,12 @@
 /** Regression coverage for locale-aware bilingual Markdown links. */
+/**
+ * 文件职责：验证 translation-links.spec.ts 覆盖的Agent 预设行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
+ * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
+ * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
+ * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
+ */
 
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -8,17 +16,22 @@ import {
   normalizeTranslationMarkdownLinks,
   rewriteTranslationLinkLocales,
   translationLinkLocaleViolations,
+  /** 中文说明：type TranslationLinkContext 定义本测试所需的数据或行为，用于表达Agent 预设场景。 */
   type TranslationLinkContext,
 } from './translation-links.ts'
 import { removeFixtureSafely } from './test-fixture-cleanup.ts'
 
+/** 中文说明：变量 roots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const roots: string[] = []
 
 afterEach(() => {
+  /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
   for (const root of roots.splice(0)) removeFixtureSafely(root)
 })
 
+/** 中文说明：函数 fixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fixture(): string {
+  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'dsh-translation-links-'))
   roots.push(root)
   mkdirSync(join(root, 'docs/section'), { recursive: true })
@@ -35,6 +48,7 @@ function fixture(): string {
   return root
 }
 
+/** 中文说明：函数 linkContext 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function linkContext(
   root: string,
   sourcePath: string,
@@ -48,7 +62,9 @@ function linkContext(
   }
 }
 
+/** 中文说明：函数 expectUnchangedLinkInput 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectUnchangedLinkInput(root: string, input: string): void {
+  /** 中文说明：变量 context 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const context = linkContext(root, 'docs/guide.md')
   expect(translationLinkLocaleViolations(input, context)).toEqual([])
   expect(rewriteTranslationLinkLocales(input, context)).toEqual({ content: input, rewritten: 0 })
@@ -57,6 +73,7 @@ function expectUnchangedLinkInput(root: string, input: string): void {
 
 describe('translation link locale validation', () => {
   it('rejects a Chinese link to the English sibling with an exact diagnostic', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
     expect(translationLinkLocaleViolations(
       '# 指南\n\n正文。\n\n[概览](reference.md?view=full#overview)\n',
@@ -70,7 +87,9 @@ describe('translation link locale validation', () => {
   })
 
   it('rewrites an encoded exact filename without changing its query or fragment suffix', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const input = '[概览](reference%2Emd?view=full&amp;mode=all#overview)\n'
     expect(translationLinkLocaleViolations(
       input,
@@ -86,8 +105,11 @@ describe('translation link locale validation', () => {
   })
 
   it('encodes each exact path segment with only RFC 3986 unreserved characters', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const input = '[保留](a%29%23%3Fb%2Emd?view=full#section)\n'
+    /** 中文说明：变量 repositoryFiles 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const repositoryFiles = new Set(['docs/a)#?b.md', 'docs/a)#?b.zh.md'])
     expect(rewriteTranslationLinkLocales(
       input,
@@ -99,6 +121,7 @@ describe('translation link locale validation', () => {
   })
 
   it('accepts the target-locale sibling and an out-of-scope target with its own sibling', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
     expect(translationLinkLocaleViolations(
       '[paired](reference.zh.md) [outside](../packages/outside.md)\n',
@@ -107,6 +130,7 @@ describe('translation link locale validation', () => {
   })
 
   it('does not fall back when an active target is missing its locale sibling', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
     expect(translationLinkLocaleViolations(
       '[missing](unpaired.md)\n',
@@ -115,6 +139,7 @@ describe('translation link locale validation', () => {
   })
 
   it('requires English sources to use the English sibling', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
     expect(translationLinkLocaleViolations(
       '[Reference](reference.zh.md)\n',
@@ -126,7 +151,9 @@ describe('translation link locale validation', () => {
   })
 
   it('does not infer an index page from a directory target', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const input = '[Section](section/)\n'
     expect(translationLinkLocaleViolations(input, linkContext(root, 'docs/guide.zh.md'))).toEqual([])
     expect(rewriteTranslationLinkLocales(input, linkContext(root, 'docs/guide.zh.md')))
@@ -134,6 +161,7 @@ describe('translation link locale validation', () => {
   })
 
   it('exempts the language switcher target explicitly', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
     expect(translationLinkLocaleViolations(
       '# 指南\n\n[English](guide.md) | 中文\n',
@@ -143,7 +171,9 @@ describe('translation link locale validation', () => {
   })
 
   it('does not exempt an ordinary body link to the counterpart', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 markdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const markdown = '# 指南\n\n[English](guide.md) | 中文\n\n[正文](guide.md)\n'
     expect(translationLinkLocaleViolations(
       markdown,
@@ -163,7 +193,9 @@ describe('translation link locale validation', () => {
   })
 
   it('uses the selected content plane for target existence without deriving scope from siblings', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 staged 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const staged = new Set(['docs/reference.md', 'docs/reference.zh.md'])
     expect(translationLinkLocaleViolations(
       '[概览](reference.md)\n',
@@ -184,7 +216,9 @@ describe('translation link locale validation', () => {
 
 describe('translation link rewriting and normalization', () => {
   it('rewrites only the destination while preserving the suffix and title', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const input = '[概览](reference.md?view=full&amp;mode=all#overview "reference.md title")\n'
     expect(rewriteTranslationLinkLocales(
       input,
@@ -196,6 +230,7 @@ describe('translation link rewriting and normalization', () => {
   })
 
   it('rewrites link definitions without changing their labels', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
     expect(rewriteTranslationLinkLocales(
       '[概览][ref]\n\n[ref]: <reference.md#overview> "title"\n',
@@ -204,6 +239,7 @@ describe('translation link rewriting and normalization', () => {
   })
 
   it('uses only the first duplicate reference definition', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
     expect(translationLinkLocaleViolations(
       '[概览][ref]\n\n[ref]: reference.zh.md\n[ref]: reference.md\n',
@@ -212,7 +248,9 @@ describe('translation link rewriting and normalization', () => {
   })
 
   it('does not treat an image-only definition as a document link', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const input = '![preview][asset]\n\n[asset]: reference.zh.md#overview\n'
     expectUnchangedLinkInput(root, input)
   })
@@ -221,13 +259,17 @@ describe('translation link rewriting and normalization', () => {
     '<https://example.com/reference.md>\n',
     'https://example.com/reference.md\n',
   ])('leaves GFM autolink source unchanged: %s', (input) => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
     expectUnchangedLinkInput(root, input)
   })
 
   it('normalizes only paired locale paths and retains other bytes', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 english 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const english = '[Reference](reference.md#overview) [Outside](../packages/outside.md)\n'
+    /** 中文说明：变量 chinese 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chinese = '[Reference](reference.zh.md#overview) [Outside](../packages/outside.md)\n'
     expect(normalizeTranslationMarkdownLinks(
       english,
@@ -239,8 +281,11 @@ describe('translation link rewriting and normalization', () => {
   })
 
   it('retains authored query bytes during normalization', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fixture()
+    /** 中文说明：变量 escaped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const escaped = '[Reference](reference.md?x=1&amp;y=2#overview)\n'
+    /** 中文说明：变量 literal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const literal = '[Reference](reference.zh.md?x=1&y=2#overview)\n'
     expect(normalizeTranslationMarkdownLinks(
       escaped,

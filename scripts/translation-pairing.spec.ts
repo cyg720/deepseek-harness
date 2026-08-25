@@ -1,4 +1,12 @@
 /** Regression tests for bilingual snapshots, corpus scope, and structure. */
+/**
+ * 文件职责：验证 translation-pairing.spec.ts 覆盖的Agent 预设行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
+ * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
+ * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
+ * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
+ */
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -32,8 +40,10 @@ import {
   translationStructureSignature,
 } from './translation-pairing.ts'
 
+/** 中文说明：函数值 fixturePairSource 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const fixturePairSource = (): boolean => true
 
+/** 中文说明：函数 signature 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function signature(markdown: string) {
   return translationStructureSignature(
     parseTranslationMarkdown(markdown),
@@ -45,6 +55,7 @@ function signature(markdown: string) {
   )
 }
 
+/** 中文说明：函数 fixtureSignature 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fixtureSignature(
   root: string,
   sourcePath: string,
@@ -58,7 +69,9 @@ function fixtureSignature(
   )
 }
 
+/** 中文说明：函数 gitSupportsObjectFormat 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function gitSupportsObjectFormat(format: 'sha256'): boolean {
+  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'dsh-git-object-format-'))
   try {
     return spawnSync('git', ['init', '--quiet', `--object-format=${format}`, root], {
@@ -69,17 +82,21 @@ function gitSupportsObjectFormat(format: 'sha256'): boolean {
   }
 }
 
+/** 中文说明：变量 supportsSha256ObjectFormat 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const supportsSha256ObjectFormat = gitSupportsObjectFormat('sha256')
 
 describe('translation pairing snapshots', () => {
   it('stores exact uncommitted bytes for later recovery by object ID', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-pairing-'))
     try {
       execFileSync('git', ['init', '--quiet', root], {
         env: { ...process.env, GIT_DEFAULT_HASH: 'sha1' },
       })
+      /** 中文说明：变量 content 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const content = Buffer.from([0x75, 0x6e, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x74, 0x65, 0x64, 0x0a, 0xff])
 
+      /** 中文说明：变量 objectId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const objectId = storeGitBlob(root, content)
 
       expect(objectId).toBe(gitBlobHash(content))
@@ -94,6 +111,7 @@ describe('translation pairing snapshots', () => {
   })
 
   it('fails before a sidecar can reference an unavailable object', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-pairing-'))
     try {
       expect(() => storeGitBlob(root, Buffer.from('snapshot'))).toThrow('git hash-object -w --stdin failed')
@@ -103,6 +121,7 @@ describe('translation pairing snapshots', () => {
   })
 
   it('fails clearly when Git cannot be started', () => {
+    /** 中文说明：变量 previousPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const previousPath = process.env.PATH
     try {
       process.env.PATH = ''
@@ -113,6 +132,7 @@ describe('translation pairing snapshots', () => {
   })
 
   it('reads staged bytes independently of the working tree', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-pairing-index-'))
     try {
       execFileSync('git', ['init', '--quiet', root], {
@@ -124,6 +144,7 @@ describe('translation pairing snapshots', () => {
       execFileSync('git', ['-C', root, 'add', 'owner.md'])
       writeFileSync(join(root, 'owner.md'), 'unstaged')
 
+      /** 中文说明：变量 indexed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const indexed = readGitIndexBlob(root, 'owner.md')
 
       expect(indexed?.content.toString('utf8')).toBe('staged')
@@ -135,6 +156,7 @@ describe('translation pairing snapshots', () => {
   })
 
   it('lists exact index files without treating a directory prefix as one entry', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-pairing-index-'))
     try {
       execFileSync('git', ['init', '--quiet', root], {
@@ -155,6 +177,7 @@ describe('translation pairing snapshots', () => {
   })
 
   it.skipIf(!supportsSha256ObjectFormat)('rejects an object format that pairing records cannot represent', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-pairing-'))
     try {
       execFileSync('git', ['init', '--quiet', '--object-format=sha256', root])
@@ -167,6 +190,7 @@ describe('translation pairing snapshots', () => {
 
 describe('translation pairing manifest', () => {
   it('accepts an exclusions-only manifest', () => {
+    /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = parseTranslationPairingManifest(JSON.stringify({
       excluded: ['docs/generated/'],
     }))
@@ -208,10 +232,15 @@ describe('translation pairing switchers', () => {
   })
 
   it('accepts only the canonical public URL for an absolute switcher', () => {
+    /** 中文说明：变量 targets 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const targets = languageSwitcherTargets('python/sdk/README.zh.md')
+    /** 中文说明：变量 canonicalMarkdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canonicalMarkdown = '# README\n\nEnglish | [中文](https://github.com/deepseek-ai/deepseek-harness/blob/master/python/sdk/README.zh.md)\n'
+    /** 中文说明：变量 canonical 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canonical = parseTranslationMarkdown(canonicalMarkdown)
+    /** 中文说明：变量 wrongMarkdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wrongMarkdown = '# README\n\nEnglish | [中文](https://github.com/deepseek-ai/deepseek-harness/blob/master/other/README.zh.md)\n'
+    /** 中文说明：变量 wrongPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wrongPath = parseTranslationMarkdown(wrongMarkdown)
 
     expect(translationStructureSignature(canonical, targets, {
@@ -231,10 +260,12 @@ describe('translation pairing switchers', () => {
   })
 
   it('excludes only the header switcher from the structural links', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-switcher-'))
     try {
       writeFileSync(join(root, 'guide.md'), '# Guide\n')
       writeFileSync(join(root, 'guide.zh.md'), '# 指南\n')
+      /** 中文说明：变量 markdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const markdown = '# 指南\n\n[English](guide.md) | 中文\n\n[正文](guide.md)\n'
       expect(translationStructureSignature(
         parseTranslationMarkdown(markdown),
@@ -251,7 +282,9 @@ describe('translation pairing switchers', () => {
 })
 
 describe('translation pairing records', () => {
+  /** 中文说明：变量 paths 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const paths = translationPairPaths('docs/foo.md')
+  /** 中文说明：变量 record 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const record = {
     sourceHash: '1'.repeat(40),
     zhHash: '2'.repeat(40),
@@ -316,12 +349,15 @@ describe('translation scope discovery', () => {
 
 describe('translation structural signature', () => {
   it('retains external GFM autolinks without parsing inline-link syntax', () => {
+    /** 中文说明：变量 markdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const markdown = '<https://example.com/reference.md>\n'
     expect(signature(markdown).links).toEqual(['https://example.com/reference.md'])
   })
 
   it('retains exact authored bytes for ordinary external link targets', () => {
+    /** 中文说明：变量 escaped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const escaped = signature('[External](https://example.com/?x=1&amp;y=2)\n')
+    /** 中文说明：变量 literal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const literal = signature('[External](https://example.com/?x=1&y=2)\n')
     expect(escaped.links).toEqual(['https://example.com/?x=1&amp;y=2'])
     expect(translationStructureDiff(escaped, literal)).toEqual([
@@ -330,13 +366,18 @@ describe('translation structural signature', () => {
   })
 
   it('treats target-locale siblings as one semantic link target', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-structure-'))
     try {
       writeFileSync(join(root, 'reference.md'), '# Reference\n')
       writeFileSync(join(root, 'reference.zh.md'), '# 参考\n')
+      /** 中文说明：变量 sourceMarkdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sourceMarkdown = '[Reference](reference.md?view=full#section)\n'
+      /** 中文说明：变量 counterpartMarkdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const counterpartMarkdown = '[参考](reference.zh.md?view=full#section)\n'
+      /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const source = fixtureSignature(root, 'guide.md', sourceMarkdown, 'guide.zh.md')
+      /** 中文说明：变量 counterpart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const counterpart = fixtureSignature(root, 'guide.zh.md', counterpartMarkdown, 'guide.md')
       expect(translationStructureDiff(source, counterpart)).toEqual([])
     } finally {
@@ -345,10 +386,12 @@ describe('translation structural signature', () => {
   })
 
   it('includes reference-style document links but excludes image-only definitions', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-structure-'))
     try {
       writeFileSync(join(root, 'reference.md'), '# Reference\n')
       writeFileSync(join(root, 'reference.zh.md'), '# 参考\n')
+      /** 中文说明：变量 markdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const markdown = [
         '[Reference][doc]',
         '',
@@ -372,15 +415,21 @@ describe('translation structural signature', () => {
   })
 
   it('compares the first duplicate reference definition that CommonMark resolves', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-structure-'))
     try {
+      /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
       for (const name of ['reference', 'different', 'other']) {
         writeFileSync(join(root, `${name}.md`), `# ${name}\n`)
         writeFileSync(join(root, `${name}.zh.md`), `# ${name} zh\n`)
       }
+      /** 中文说明：变量 sourceMarkdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sourceMarkdown = '[Reference][ref]\n\n[ref]: reference.md\n[ref]: other.md\n'
+      /** 中文说明：变量 counterpartMarkdown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const counterpartMarkdown = '[参考][ref]\n\n[ref]: different.zh.md\n[ref]: other.zh.md\n'
+      /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const source = fixtureSignature(root, 'guide.md', sourceMarkdown, 'guide.zh.md')
+      /** 中文说明：变量 counterpart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const counterpart = fixtureSignature(root, 'guide.zh.md', counterpartMarkdown, 'guide.md')
       expect(translationStructureDiff(source, counterpart)).toEqual([
         'link target #1 diverges between the pair: "dsh-translation-target:reference.md" vs "dsh-translation-target:different.md"',
@@ -391,13 +440,17 @@ describe('translation structural signature', () => {
   })
 
   it('accepts matching list kinds, starts, and item counts', () => {
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = signature('3. One\n4. Two\n\n- A\n- B\n')
+    /** 中文说明：变量 counterpart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const counterpart = signature('3. 一\n4. 二\n\n- 甲\n- 乙\n')
     expect(translationStructureDiff(source, counterpart)).toEqual([])
   })
 
   it('rejects an altered ordered-list start', () => {
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = signature('3. One\n4. Two\n\n- A\n- B\n')
+    /** 中文说明：变量 counterpart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const counterpart = signature('1. 一\n2. 二\n\n- 甲\n- 乙\n')
     expect(translationStructureDiff(source, counterpart)).toEqual([
       'list (kind, start, item count) #1 diverges between the pair: "ordered:start=3:items=2" vs "ordered:start=1:items=2"',
@@ -405,7 +458,9 @@ describe('translation structural signature', () => {
   })
 
   it('rejects a missing list item', () => {
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = signature('- A\n- B\n')
+    /** 中文说明：变量 counterpart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const counterpart = signature('- 甲\n')
     expect(translationStructureDiff(source, counterpart)).toEqual([
       'list (kind, start, item count) #1 diverges between the pair: "bullet:items=2" vs "bullet:items=1"',
@@ -413,7 +468,9 @@ describe('translation structural signature', () => {
   })
 
   it('rejects altered table row or column counts', () => {
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = signature('| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n')
+    /** 中文说明：变量 counterpart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const counterpart = signature('| 甲 | 乙 |\n|---|---|\n| 一 | 二 |\n')
     expect(translationStructureDiff(source, counterpart)).toEqual([
       'table (row x column count) #1 diverges between the pair: "3x2" vs "2x2"',
@@ -487,10 +544,13 @@ describe('pair CLI arguments', () => {
 })
 
 describe('generated regions', () => {
+  /** 中文说明：常量 BEGIN 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
   const BEGIN = '<!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->'
+  /** 中文说明：常量 END 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
   const END = '<!-- END GENERATED cordis-surface -->'
 
   it('partitions marker-delimited regions from the hand-owned remainder', () => {
+    /** 中文说明：变量 doc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const doc = `# T\n\nprose\n\n${BEGIN}\ninjected\n${END}\ntail\n`
     const { regions, stripped } = partitionGeneratedRegions(doc)
     expect(regions).toEqual([`${BEGIN}\ninjected\n${END}`])

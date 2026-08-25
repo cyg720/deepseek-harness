@@ -1,23 +1,35 @@
+/**
+ * 文件职责：验证 server.spec.ts 覆盖的Agent 预设行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
+ * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
+ * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
+ * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
+ */
 import { request } from 'node:http'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { MockLlmBehavior, MockLlmServer, MockLlmServerEvent } from '../src/index.ts'
 import { startMockLlmServer } from '../src/index.ts'
 
+/** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const running: MockLlmServer[] = []
 
 afterEach(async () => {
   await Promise.all(running.splice(0).map(server => server.close()))
 })
 
+/** 中文说明：函数 start 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function start(
   sequence: readonly MockLlmBehavior[],
   options: Omit<Parameters<typeof startMockLlmServer>[0], 'sequence'> = {},
 ): Promise<MockLlmServer> {
+  /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const server = await startMockLlmServer({ sequence, ...options })
   running.push(server)
   return server
 }
 
+/** 中文说明：函数 chat 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function chat(
   server: MockLlmServer,
   options: { path?: string; key?: string; body?: string; signal?: AbortSignal } = {},
@@ -33,8 +45,10 @@ function chat(
   })
 }
 
+/** 中文说明：函数 rawChat 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function rawChat(server: MockLlmServer, chunks: readonly Buffer[]): Promise<void> {
   return new Promise((resolve, reject) => {
+    /** 中文说明：变量 outgoing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outgoing = request(`${server.baseURL}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -44,6 +58,7 @@ function rawChat(server: MockLlmServer, chunks: readonly Buffer[]): Promise<void
       response.resume()
     })
     outgoing.once('error', reject)
+    /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
     for (const chunk of chunks) outgoing.write(chunk)
     outgoing.end()
   })
@@ -51,7 +66,9 @@ function rawChat(server: MockLlmServer, chunks: readonly Buffer[]): Promise<void
 
 describe('mock LLM server wire behaviors', () => {
   it('streams a complete text response and captures the request', async () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: MockLlmServerEvent[] = []
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['success'], {
       apiKey: 'mock-key',
       successText: 'recovered',
@@ -59,7 +76,9 @@ describe('mock LLM server wire behaviors', () => {
       onEvent: (event) => { events.push(event) },
     })
 
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = await chat(server, { key: 'mock-key' })
+    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = await response.text()
 
     expect(response.status).toBe(200)
@@ -97,11 +116,13 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('supports root paths and intentionally ignores telemetry observer failures', async () => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['empty'], {
       onEvent() {
         throw new Error('observer failed')
       },
     })
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = await chat(server, { path: '/chat/completions' })
 
     expect(response.status).toBe(200)
@@ -116,8 +137,11 @@ describe('mock LLM server wire behaviors', () => {
     ['malformed_json', 2, 'data: {not-json'] as const,
     ['malformed_event', 2, '"choices":[null]'] as const,
   ])('serves %s without inventing a terminal completion', async (behavior, chunks, marker) => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start([behavior], { chunkSize: 100 })
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = await chat(server)
+    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = await response.text()
 
     expect(response.status).toBe(200)
@@ -133,10 +157,13 @@ describe('mock LLM server wire behaviors', () => {
     ['stream_disconnect', true] as const,
     ['partial_disconnect', true] as const,
   ])('forces the %s transport boundary', async (behavior, receivesHeaders) => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start([behavior], { disconnectDelayMs: 20, partialText: 'half' })
 
+    /** 中文说明：变量 headersReceived 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let headersReceived = false
     await expect((async () => {
+      /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const response = await chat(server)
       headersReceived = true
       await response.text()
@@ -151,8 +178,11 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('holds a stalled stream until the client aborts and server close remains idempotent', async () => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['stall'])
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = await chat(server, { signal: controller.signal })
 
     expect(response.status).toBe(200)
@@ -168,8 +198,11 @@ describe('mock LLM server wire behaviors', () => {
     ['stream_disconnect', 100] as const,
     ['partial_disconnect', 100] as const,
   ])('records a client that closes during %s', async (behavior, delayMs) => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: MockLlmServerEvent[] = []
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = Promise.withResolvers<Extract<MockLlmServerEvent, { type: 'result' }>>()
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start([behavior], {
       chunkDelayMs: delayMs,
       disconnectDelayMs: delayMs,
@@ -179,7 +212,9 @@ describe('mock LLM server wire behaviors', () => {
         if (event.type === 'result') result.resolve(event)
       },
     })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = await chat(server, { signal: controller.signal })
     controller.abort()
     await expect(response.text()).rejects.toThrow()
@@ -192,8 +227,11 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('preserves UTF-8 code points split across request chunks', async () => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['success'])
+    /** 中文说明：变量 encoded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const encoded = Buffer.from(JSON.stringify({ messages: [{ role: 'user', content: '你好' }] }))
+    /** 中文说明：变量 characterOffset 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const characterOffset = encoded.indexOf(Buffer.from('你'))
     expect(characterOffset).toBeGreaterThanOrEqual(0)
 
@@ -206,6 +244,7 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('formats an IPv6 listener as a valid base URL', async () => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['success'], { host: '::1' })
 
     expect(server.baseURL).toMatch(/^http:\/\/\[::1\]:\d+$/)
@@ -213,6 +252,7 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('emits reasoning, tool calls, max-token finishes, slow chunks, and a wrong content type', async () => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start([
       'reasoning_success',
       'tool_call_success',
@@ -228,9 +268,13 @@ describe('mock LLM server wire behaviors', () => {
       chunkSize: 2,
     })
 
+    /** 中文说明：变量 bodies 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bodies: string[] = []
+    /** 中文说明：变量 contentTypes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const contentTypes: Array<string | null> = []
+    /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < 5; index += 1) {
+      /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const response = await chat(server)
       contentTypes.push(response.headers.get('content-type'))
       bodies.push(await response.text())
@@ -256,8 +300,11 @@ describe('mock LLM server wire behaviors', () => {
     ['context_overflow', 400, 'context_length_exceeded'] as const,
     ['quota_exceeded', 429, 'insufficient_quota'] as const,
   ])('serves %s as a structured HTTP error', async (behavior, status, marker) => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start([behavior], { retryAfterMs: 1_001, requestId: 'mock-request-1' })
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = await chat(server)
+    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = await response.text()
 
     expect(response.status).toBe(status)
@@ -269,13 +316,16 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('fails loud on script exhaustion and can explicitly repeat the final behavior', async () => {
+    /** 中文说明：变量 exhausted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exhausted = await start(['success'], { successText: 'once' })
     await (await chat(exhausted)).text()
+    /** 中文说明：变量 exhaustedResponse 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exhaustedResponse = await chat(exhausted)
     expect(exhaustedResponse.status).toBe(500)
     expect(await exhaustedResponse.text()).toContain('mock script exhausted')
     expect(exhausted.requests.map(record => record.behavior)).toEqual(['success', 'script_exhausted'])
 
+    /** 中文说明：变量 repeating 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const repeating = await start(['empty'], { repeatLast: true })
     await (await chat(repeating)).text()
     await (await chat(repeating)).text()
@@ -283,6 +333,7 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('selects weighted random behaviors reproducibly and reports the concrete choice', async () => {
+    /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const options = {
       sequence: ['random'] as const,
       repeatLast: true,
@@ -290,15 +341,19 @@ describe('mock LLM server wire behaviors', () => {
       randomWeights: { success: 1, empty: 1 },
       successText: 'random success',
     }
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await startMockLlmServer(options)
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await startMockLlmServer(options)
     running.push(first, second)
 
+    /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
     for (let attempt = 0; attempt < 12; attempt += 1) {
       await (await chat(first)).text()
       await (await chat(second)).text()
     }
 
+    /** 中文说明：函数值 firstChoices 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const firstChoices = first.requests.map(record => record.behavior)
     expect(first.randomSeed).toBe(42)
     expect(second.randomSeed).toBe(42)
@@ -308,10 +363,15 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('rejects invalid method, route, bearer token, and JSON without consuming the script', async () => {
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['success'], { apiKey: 'expected' })
+    /** 中文说明：变量 method 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const method = await fetch(`${server.baseURL}/v1/chat/completions`)
+    /** 中文说明：变量 route 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const route = await fetch(`${server.baseURL}/v1/other`, { method: 'POST', body: '{}' })
+    /** 中文说明：变量 auth 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const auth = await chat(server, { key: 'wrong' })
+    /** 中文说明：变量 json 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const json = await chat(server, { key: 'expected', body: '{' })
 
     expect(method.status).toBe(405)
@@ -321,6 +381,7 @@ describe('mock LLM server wire behaviors', () => {
     expect(json.status).toBe(400)
     expect(server.requests).toHaveLength(0)
 
+    /** 中文说明：变量 emptyRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const emptyRequest = await fetch(`${server.baseURL}/v1/chat/completions`, {
       method: 'POST',
       headers: { authorization: 'Bearer expected' },

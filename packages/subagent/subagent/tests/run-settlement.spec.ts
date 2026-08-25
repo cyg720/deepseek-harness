@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 run-settlement.spec.ts 覆盖的子代理结算行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
+ * 产品维度：保障 Agent 的子代理结算能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
+ * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
+ * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
+ */
 import { describe, expect, it } from 'vitest'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import {
@@ -5,6 +13,7 @@ import {
   settleRunResult,
 } from '../src/index.ts'
 
+/** 中文说明：常量 MAX_SUBAGENT_DIAGNOSTIC_BYTES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MAX_SUBAGENT_DIAGNOSTIC_BYTES = 4_096
 
 describe('outcome mapping helpers', () => {
@@ -16,6 +25,7 @@ describe('outcome mapping helpers', () => {
     ['refusal', { status: 'failed', detail: 'refusal' }],
     ['paused', { status: 'failed', detail: 'paused' }],
   ] as const)('settleRun maps the %s stop reason onto its Task outcome', async (stopReason, expected) => {
+    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = [{ type: 'text' as const, text: 'partial' }]
     await expect(settleRun({
       id: SessionId('child'),
@@ -26,7 +36,9 @@ describe('outcome mapping helpers', () => {
   })
 
   it('settleRun disposes the run before reporting, on both result paths', async () => {
+    /** 中文说明：变量 order 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const order: string[] = []
+    /** 中文说明：变量 completed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const completed = await settleRun({
       id: SessionId('child-1'),
       localAgent: undefined,
@@ -38,7 +50,9 @@ describe('outcome mapping helpers', () => {
     expect(order).toEqual(['dispose', 'reported'])
 
     // An infrastructure rejection still disposes and reports failed.
+    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let disposed = false
+    /** 中文说明：变量 failed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failed = await settleRun({
       id: SessionId('child-2'),
       localAgent: undefined,
@@ -48,6 +62,7 @@ describe('outcome mapping helpers', () => {
     expect(failed).toEqual({ status: 'failed', detail: 'Error: transport gone' })
     expect(disposed).toBe(true)
 
+    /** 中文说明：变量 disposeFailed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeFailed = await settleRun({
       id: SessionId('child-4'),
       localAgent: undefined,
@@ -56,6 +71,7 @@ describe('outcome mapping helpers', () => {
     })
     expect(disposeFailed).toEqual({ status: 'failed', detail: 'dispose failed: Error: reap failed' })
 
+    /** 中文说明：变量 bothFailed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bothFailed = await settleRun({
       id: SessionId('child-5'),
       localAgent: undefined,
@@ -85,9 +101,13 @@ describe('outcome mapping helpers', () => {
   })
 
   it('bounds multibyte diagnostics and marks truncation', async () => {
+    /** 中文说明：变量 exact 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exact = 'x'.repeat(MAX_SUBAGENT_DIAGNOSTIC_BYTES)
+    /** 中文说明：变量 oversized 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oversized = '权限'.repeat(MAX_SUBAGENT_DIAGNOSTIC_BYTES)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 exactResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exactResult = await settleRunResult({
       attempt: async () => { throw new Error('provider failed') },
       collectOutput: () => [],
@@ -98,6 +118,7 @@ describe('outcome mapping helpers', () => {
     })
     expect(exactResult.diagnostic).toBe(exact)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await settleRunResult({
       attempt: async () => { throw new Error('provider failed') },
       collectOutput: () => [],
@@ -106,6 +127,7 @@ describe('outcome mapping helpers', () => {
       signal: controller.signal,
       onAbort: () => {},
     })
+    /** 中文说明：变量 limited 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const limited = result.diagnostic ?? ''
     expect(Buffer.byteLength(limited, 'utf8'))
       .toBeLessThanOrEqual(MAX_SUBAGENT_DIAGNOSTIC_BYTES)

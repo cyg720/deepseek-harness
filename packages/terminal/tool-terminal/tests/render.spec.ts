@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 render.spec.ts 覆盖的终端会话行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
+ * 产品维度：保障 Agent 的终端会话能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
+ * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
+ * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
+ */
 import { describe, expect, it } from 'vitest'
 import { TerminalSessionId } from '@deepseek-ai/dsh-terminal'
 import { boundTerminalText, renderList, renderRead, renderSend, renderSendRead, renderSpawn } from '@deepseek-ai/dsh-tool-terminal/src/render.ts'
@@ -38,6 +46,7 @@ describe('tool-terminal rendering', () => {
   })
 
   it('bounds complete UTF-8 results while retaining terminal metadata when it fits', () => {
+    /** 中文说明：变量 send 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const send = renderSend({
       viewport: `prefix-${'界'.repeat(40)}`,
       waitReason: 'stdin_read',
@@ -48,6 +57,7 @@ describe('tool-terminal rendering', () => {
     expect(send).toContain('[wait: stdin_read]')
     expect(send).toContain('[output truncated]')
 
+    /** 中文说明：变量 read 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const read = renderRead({
       text: 'x'.repeat(200), totalLines: 20, lineBegin: 0, lineEnd: 10, truncated: false,
     }, 48)
@@ -58,6 +68,7 @@ describe('tool-terminal rendering', () => {
       sessionId: TerminalSessionId('pty-1'), type: 'shell', status: { kind: 'running' }, motd: 'x'.repeat(200),
     }, 32))).toBeLessThanOrEqual(32)
 
+    /** 中文说明：变量 boundedSpawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const boundedSpawn = renderSpawn({
       sessionId: TerminalSessionId('pty-1'), type: 'shell', status: { kind: 'running' }, motd: 'x'.repeat(200),
     }, 96)
