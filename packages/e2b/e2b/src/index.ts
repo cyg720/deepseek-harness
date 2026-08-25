@@ -3,6 +3,14 @@
  * handle, so filesystem and process operations inhabit one remote Linux world.
  * @module @deepseek-ai/dsh-e2b
  */
+/**
+ * 文件职责：实现E2B 远程沙箱的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：注册能力，转换请求并管理远程资源。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 
 import { randomUUID } from 'node:crypto'
 import { posix } from 'node:path'
@@ -24,6 +32,7 @@ export type { CommandHandle, CommandResult, EntryInfo } from 'e2b'
  * @param value - Exact argument value to preserve.
  * @returns A single shell word with no interpolation.
  */
+/** 中文说明：函数 quoteE2BShellArg 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function quoteE2BShellArg(value: string): string {
   return `'${value.replaceAll('\'', "'\"'\"'")}'`
 }
@@ -33,6 +42,7 @@ export function quoteE2BShellArg(value: string): string {
  * @param overrides - Additional environment entries for the internal command.
  * @returns A fresh mutable map that the E2B SDK may extend.
  */
+/** 中文说明：函数 e2bControlEnvs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function e2bControlEnvs(
   overrides: Readonly<Record<string, string>> = {},
 ): Record<string, string> {
@@ -40,6 +50,7 @@ export function e2bControlEnvs(
 }
 
 /** Configuration for the shared E2B sandbox owner. */
+/** 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
 export interface Config {
   /** API key; omission reads `E2B_API_KEY`. It is never forwarded into the sandbox. */
   apiKey?: string
@@ -49,18 +60,21 @@ export interface Config {
   timeoutMs?: number
 }
 
+/** 中文说明：类型或类 ResolvedConfig 约束远程资源或测试数据职责。 */
 interface ResolvedConfig {
   apiKey: string
   cwd: string
   timeoutMs: number
 }
 
+/** 中文说明：类型或类 SchemaResolvedConfig 约束远程资源或测试数据职责。 */
 interface SchemaResolvedConfig extends Config {
   cwd: string
   timeoutMs: number
 }
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：类型或类 Context 约束远程资源或测试数据职责。 */
   interface Context {
     e2b: E2BRuntime
   }
@@ -71,6 +85,7 @@ declare module '@deepseek-ai/cordis' {
  * timeout or disposal. Creation begins at plugin construction; adapters await
  * {@link getSandbox} before their first operation.
  */
+/** 中文说明：类型或类 E2BRuntime 约束远程资源或测试数据职责。 */
 export class E2BRuntime extends Service {
   static Config: z<Config> = z.object({
     apiKey: z.string(),
@@ -90,7 +105,9 @@ export class E2BRuntime extends Service {
   constructor(ctx: Context, config: Config) {
     super(ctx, 'e2b')
     // Schemastery fills these fields before construction; the type does not encode that step.
+    /** 中文说明：运行时局部值 resolved，由紧邻初始化决定。 */
     const resolved = config as SchemaResolvedConfig
+    /** 中文说明：运行时局部值 apiKey，由紧邻初始化决定。 */
     const apiKey = config.apiKey ?? process.env.E2B_API_KEY
     this.config = {
       apiKey: apiKey ?? '',
@@ -107,6 +124,7 @@ export class E2BRuntime extends Service {
 
     ctx.effect(() => async () => {
       this.disposed = true
+      /** 中文说明：运行时局部值 sandbox: Sandbox，由紧邻初始化决定。 */
       let sandbox: Sandbox
       try {
         sandbox = await this.ready
@@ -129,6 +147,7 @@ export class E2BRuntime extends Service {
    */
   async getSandbox(): Promise<Sandbox> {
     if (this.disposed) throw new Error('E2B sandbox service is disposing')
+    /** 中文说明：运行时局部值 sandbox，由紧邻初始化决定。 */
     const sandbox = await this.ready
     // Disposal can race the awaited sandbox readiness despite the synchronous precheck.
     // oxlint-disable-next-line typescript/no-unnecessary-condition -- Awaiting readiness yields to disposal.
@@ -149,6 +168,7 @@ export class E2BRuntime extends Service {
   }
 
   private async open(): Promise<Sandbox> {
+    /** 中文说明：运行时局部值 sandbox，由紧邻初始化决定。 */
     const sandbox = await Sandbox.create({
       apiKey: this.config.apiKey,
       timeoutMs: this.config.timeoutMs,
@@ -158,6 +178,7 @@ export class E2BRuntime extends Service {
     try {
       await sandbox.files.makeDir(this.cwd)
       await sandbox.files.makeDir(this.runtimeRoot)
+      /** 中文说明：运行时局部值 runtimeRoot，由紧邻初始化决定。 */
       const runtimeRoot = await sandbox.files.getInfo(this.runtimeRoot)
       if (runtimeRoot.type !== FileType.DIR || runtimeRoot.symlinkTarget !== undefined) {
         throw new Error(`dsh-e2b: runtime root must be a real directory: ${this.runtimeRoot}`)

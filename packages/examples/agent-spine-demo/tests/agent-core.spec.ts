@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Agent Spine 示例的 agent-core.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证Agent Spine 示例在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, sep } from 'node:path'
@@ -18,9 +26,13 @@ import {
   LlmAdapter,
   LlmError,
   resolveRetryPolicy,
+  /** 中文说明：类型或类 GenerateOptions 约束远程资源或测试数据职责。 */
   type GenerateOptions,
+  /** 中文说明：类型或类 Message 约束远程资源或测试数据职责。 */
   type Message,
+  /** 中文说明：类型或类 ResolvedRetryPolicy 约束远程资源或测试数据职责。 */
   type ResolvedRetryPolicy,
+  /** 中文说明：类型或类 StreamChunk 约束远程资源或测试数据职责。 */
   type StreamChunk,
 } from '@deepseek-ai/dsh-llm'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
@@ -29,22 +41,29 @@ import * as agentInvariant from '@deepseek-ai/dsh-agent/invariant'
 import * as scopeInvariant from '@deepseek-ai/dsh-scope/invariant'
 import * as agentLoopInvariant from '@deepseek-ai/dsh-agent-loop/invariant'
 
+/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
 declare module '@deepseek-ai/dsh-jobs' {
+  /** 中文说明：类型或类 JobKindMap 约束远程资源或测试数据职责。 */
   interface JobKindMap {
     probe: 'probe'
   }
 }
 
+/** 中文说明：函数 composePrefix 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function composePrefix(ctx: Context, cwd: string): Promise<Message[]> {
+  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = ctx.agentLoop.create(SessionId('agent-spine-prefix'), {}, { cwd })
+  /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
   const signal = new AbortController().signal
+  /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
   const decision = await agentEvents(ctx, agent).waterfall(
     'agent/pre-step', { messages: [], turn: 1, step: 1, signal },
     () => Promise.resolve({ kind: 'enter', messages: [] }),
   )
   if (decision.kind === 'enter') {
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     for (const message of decision.messages) {
       agent.session.append('user/message', message, { surfaceOp: 'append' })
     }
@@ -62,11 +81,15 @@ async function composePrefix(ctx: Context, cwd: string): Promise<Message[]> {
  * Loader-path guard (export shape, `unwrapExports`) is the app packages' keyless
  * bin smokes; here we assert the composition + config forwarding.
  */
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(config: agentCore.Config, withBash = false): Promise<Context> {
+  /** 中文说明：测试局部值 oldDshHome，由紧邻初始化决定。 */
   const oldDshHome = process.env.DSH_HOME
+  /** 中文说明：测试局部值 oldAgentsHome，由紧邻初始化决定。 */
   const oldAgentsHome = process.env.DSH_AGENTS_HOME
   process.env.DSH_HOME = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-home-'))
   process.env.DSH_AGENTS_HOME = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-agents-'))
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   if (withBash) {
     ctx.provide('shell', {
@@ -96,8 +119,11 @@ async function mount(config: agentCore.Config, withBash = false): Promise<Contex
   }
 }
 
+/** 中文说明：函数 withIsolatedSkillHomes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function withIsolatedSkillHomes<T>(run: () => Promise<T>): Promise<T> {
+  /** 中文说明：测试局部值 oldDshHome，由紧邻初始化决定。 */
   const oldDshHome = process.env.DSH_HOME
+  /** 中文说明：测试局部值 oldAgentsHome，由紧邻初始化决定。 */
   const oldAgentsHome = process.env.DSH_AGENTS_HOME
   process.env.DSH_HOME = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-home-'))
   process.env.DSH_AGENTS_HOME = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-agents-'))
@@ -117,14 +143,17 @@ async function withIsolatedSkillHomes<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+/** 中文说明：函数 waitForIdle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function waitForIdle(_ctx: Context, target: Agent): Promise<void> {
   return target.whenIdle()
 }
 
+/** 中文说明：函数 messageText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function messageText(message: Message | undefined): string {
   return message?.content.map(block => block.type === 'text' ? block.text : '').join('\n') ?? ''
 }
 
+/** 中文说明：类型或类 TransientOnceAdapter 约束远程资源或测试数据职责。 */
 class TransientOnceAdapter extends LlmAdapter {
   requests = 0
   private readonly retryPolicy = resolveRetryPolicy({
@@ -146,6 +175,7 @@ class TransientOnceAdapter extends LlmAdapter {
 
 describe('dsh-agent-spine-demo bundle', () => {
   it('brings up the full default spine', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({ workspaceContext: false })
     // One service from each layer of the spine proves the children loaded.
     expect(ctx.get('timer')).toBeDefined()
@@ -164,6 +194,7 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('forwards configurable fallback title limits to the bundled service', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       workspaceContext: false,
       sessionTitle: {
@@ -172,6 +203,7 @@ describe('dsh-agent-spine-demo bundle', () => {
         maxTitleBytes: 80,
       },
     })
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create(SessionId('configured-title-limits'))
     session.append('turn/start', {
       turn: 1,
@@ -187,6 +219,7 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('opts into the configured persisted-goal domain, tools, and same-session driver', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       workspaceContext: false,
       agents: [{ id: SessionId('configured-goal'), provider: 'mock', model: 'mock' }],
@@ -195,6 +228,7 @@ describe('dsh-agent-spine-demo bundle', () => {
         tool: { blockedAfterConsecutiveRounds: 5 },
       },
     })
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agents.list()[0]
     if (agent === undefined) throw new Error('configured goal test has no live agent')
     expect(ctx.goals.create(agent, { objective: 'configured' })).toMatchObject({
@@ -208,6 +242,7 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('accepts an explicit false goal composition without mounting it', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({ workspaceContext: false, goals: false })
     expect(ctx.get('goals')).toBeUndefined()
     expect(ctx.tools.get('get_goal')).toBeUndefined()
@@ -215,21 +250,26 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('mounts package companions and forwards invariant selection config', async () => {
+    /** 中文说明：测试局部值 nestedTurn，由紧邻初始化决定。 */
     const nestedTurn = (ctx: Context): void => {
+      /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
       const session = ctx.sessions.create()
       session.append('turn/start', { turn: 1 })
       session.append('turn/start', { turn: 2 })
     }
 
+    /** 中文说明：测试局部值 enabled，由紧邻初始化决定。 */
     const enabled = await mount({ workspaceContext: false })
     expect(() => { nestedTurn(enabled) }).toThrow(/turn 1 is still open/)
     await enabled.fiber.dispose()
 
+    /** 中文说明：测试局部值 invariants，由紧邻初始化决定。 */
     for (const invariants of [
       { enabled: false },
       { package_allowlist: ['^@deepseek-ai/dsh-agent$'] },
       { package_blocklist: ['^@deepseek-ai/dsh-session$'] },
     ]) {
+      /** 中文说明：测试局部值 filtered，由紧邻初始化决定。 */
       const filtered = await mount({ workspaceContext: false, invariants })
       expect(() => { nestedTurn(filtered) }).not.toThrow()
       await filtered.fiber.dispose()
@@ -237,9 +277,12 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('loads and configures bounded request recovery for every bundled entry point', async () => {
+    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new TransientOnceAdapter()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({ workspaceContext: false })
     ctx.llm.registerAdapter(['mock'], adapter)
+    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('bundled-retry-session'),
       meta: { cwd: process.cwd() },
@@ -250,6 +293,7 @@ describe('dsh-agent-spine-demo bundle', () => {
     await waitForIdle(ctx, handle.agent)
 
     expect(adapter.requests).toBe(2)
+    /** 中文说明：测试局部值 retryEvents，由紧邻初始化决定。 */
     const retryEvents = handle.agent.session.events.filter(event => event.type === 'llm/retry')
     expect(retryEvents).toHaveLength(1)
     expect(retryEvents[0]?.data.retry).toBe(1)
@@ -261,6 +305,7 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('includes the skill registry, local provider, and skill tool without builtin skills', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({ workspaceContext: false })
 
     expect(ctx.skills).toBeDefined()
@@ -271,26 +316,31 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('defaults the agents list to empty (no pre-created agents)', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({ workspaceContext: false })
     expect(ctx.get('agents')?.get(SessionId('main'))).toBeUndefined()
     await ctx.fiber.dispose()
   })
 
   it('forwards a pre-created agent to the loop and the persona to system-prompt', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       agents: [{ id: SessionId('main'), provider: 'mock', model: 'mock' }],
       persona: 'You are main.',
       workspaceContext: false,
     })
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.get('agents')?.list()[0]
     expect(agent?.id).toBe(agent?.session.id)
     expect(agent?.id).toMatch(/^main-session-/)
+    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.get('systemPrompt')!.assemble()
     expect(assembly.sections.find(s => s.name === 'deployment:persona')?.text).toBe('You are main.')
     await ctx.fiber.dispose()
   })
 
   it('forwards the global maxParallelToolCalls config to agent-loop', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       agents: [{ id: SessionId('main'), provider: 'mock', model: 'mock' }],
       maxParallelToolCalls: 3,
@@ -301,10 +351,12 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('forwards task admission config to the process-local provider', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       jobs: { maxConcurrentJobsPerOwner: 1 },
       workspaceContext: false,
     })
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: { status: 'killed' }) => void
     ctx.jobs.start({
       kind: 'probe',
@@ -325,17 +377,20 @@ describe('dsh-agent-spine-demo bundle', () => {
   it('tolerates a schema-bypassing direct apply (the ?? fallbacks fire)', async () => {
     // ctx.plugin validates + defaults the bundle config first; a direct apply
     // skips the schema, so the forwarding `?? []` / `?? ''` are what fire.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     agentCore.apply(ctx, { workspaceContext: false })
     await new Promise(resolve => setTimeout(resolve, 50))
     expect(ctx.get('agentLoop')).toBeDefined()
     expect(ctx.get('agents')?.list()).toHaveLength(0)
+    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.get('systemPrompt')!.assemble()
     expect(assembly.sections.find(s => s.name === 'deployment:persona')?.text).toBe('')
     await ctx.fiber.dispose()
   })
 
   it('uses owner defaults for a schema-bypassing empty goal opt-in', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     agentCore.apply(ctx, {
       workspaceContext: false,
@@ -343,6 +398,7 @@ describe('dsh-agent-spine-demo bundle', () => {
       goals: {},
     })
     await new Promise(resolve => setTimeout(resolve, 50))
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agents.list()[0]
     if (agent === undefined) throw new Error('default goal test has no live agent')
     expect(ctx.goals.create(agent, { objective: 'defaulted' })).toMatchObject({
@@ -353,25 +409,31 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('loads workspace instructions into requests through the bundled spine', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-workspace-context-'))
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await writeFile(join(root, 'AGENTS.md'), 'bundled project rule')
+      /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
       const adapter = new MockAdapter([textResponse('first')])
+      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = await mount({ workspaceContext: { maxBytes: 65536 } })
       await ctx.plugin(LocalFileSystem, { cwd: '/' })
       ctx.llm.registerAdapter(['mock'], adapter)
+      /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
       const handle = await ctx.agents.create({
         sessionId: SessionId('main-session'),
         meta: { cwd: root },
         agentOptions: { provider: 'mock', model: 'mock' },
       })
+      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = handle.agent
 
       agent.followup(createUserMessage({ content: [{ type: 'text', text: 'hi' }], source: { kind: 'user' } }))
       await waitForIdle(ctx, agent)
 
       expect(adapter.requests).toHaveLength(1)
+      /** 中文说明：测试局部值 firstRequestText，由紧邻初始化决定。 */
       const firstRequestText = adapter.requests[0]?.messages.map(messageText).join('\n')
       expect(firstRequestText).toContain('hi')
       expect(firstRequestText).toContain('bundled project rule')
@@ -385,13 +447,17 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('forwards agent-instructions config to the bundled loader', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-workspace-context-disabled-'))
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await writeFile(join(root, 'AGENTS.md'), 'must not be injected')
+      /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
       const adapter = new MockAdapter([textResponse('ok')])
+      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = await mount({ workspaceContext: { maxBytes: 0 } })
       ctx.llm.registerAdapter(['mock'], adapter)
+      /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
       const handle = await ctx.agents.create({
         sessionId: SessionId('main-disabled-session'),
         meta: { cwd: root },
@@ -415,11 +481,15 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('forwards skill config to the registry, local provider, and model-facing consumer', async () => {
+    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-skill-home-'))
+    /** 中文说明：测试局部值 agentsHome，由紧邻初始化决定。 */
     const agentsHome = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-skill-agents-'))
+    /** 中文说明：测试局部值 custom，由紧邻初始化决定。 */
     const custom = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-skill-custom-'))
     await mkdir(custom, { recursive: true })
     await writeFile(join(custom, 'custom-skill.md'), '---\nname: custom-skill\ndescription: Custom skill\n---\n\nCustom body.\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       agents: [],
       workspaceContext: false,
@@ -439,12 +509,17 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('snapshots a created project skill through catalog refresh and progressive loading', { timeout: 15_000 }, async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-skill-refresh-'))
+    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-skill-refresh-home-'))
     try {
       await mkdir(join(root, '.git'), { recursive: true })
+      /** 中文说明：测试局部值 skillPath，由紧邻初始化决定。 */
       const skillPath = '.agents/skills/hot-skill/SKILL.md'
+      /** 中文说明：测试局部值 skillSource，由紧邻初始化决定。 */
       const skillSource = '---\nname: hot-skill\ndescription: Hot-added skill\n---\n\nUse the freshly loaded body.\n'
+      /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
       const adapter = new MockAdapter([
         toolCallResponse('mkdir-skill', 'bash', {
           command: 'mkdir -p .agents/skills/hot-skill',
@@ -457,6 +532,7 @@ describe('dsh-agent-spine-demo bundle', () => {
         toolCallResponse('load-skill', 'skill', { name: 'hot-skill' }),
         textResponse('SKILL_REFRESH_OK'),
       ])
+      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = await mount({
         workspaceContext: false,
         skills: {
@@ -472,6 +548,7 @@ describe('dsh-agent-spine-demo bundle', () => {
       await ctx.plugin(LocalFileSystem, { cwd: root })
       await ctx.plugin(ToolFs)
       ctx.on('tools/post-execute', async (exec, _result, next) => {
+        /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
         const decision = await next()
         if (exec.callId === 'write-skill') {
           await vi.waitFor(async () => {
@@ -481,6 +558,7 @@ describe('dsh-agent-spine-demo bundle', () => {
         return decision
       })
       ctx.llm.registerAdapter(['mock'], adapter)
+      /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
       const handle = await ctx.agents.create({
         sessionId: SessionId('skill-refresh-session'),
         meta: { cwd: root },
@@ -499,13 +577,16 @@ describe('dsh-agent-spine-demo bundle', () => {
           expect.not.stringContaining('hot-skill'),
           expect.not.stringContaining('hot-skill'),
         ])
+      /** 中文说明：测试局部值 catalogRequest，由紧邻初始化决定。 */
       const catalogRequest = adapter.requests[2]?.messages.map(messageText).join('\n')
       expect(catalogRequest).toContain('The following skills are available in this session:')
       expect(catalogRequest).toContain('- `hot-skill`: Hot-added skill')
+      /** 中文说明：测试局部值 loadedRequest，由紧邻初始化决定。 */
       const loadedRequest = JSON.stringify(adapter.requests[3]?.messages)
       expect(loadedRequest).toContain('<skill_instructions>')
       expect(loadedRequest).toContain('Use the freshly loaded body.')
 
+      /** 中文说明：测试局部值 transcript，由紧邻初始化决定。 */
       const transcript = handle.agent.session.events.flatMap<Record<string, unknown>>((event) => {
         if (event.type === 'user/message' && event.data.source.kind === 'skill-catalog') {
           return [{
@@ -516,6 +597,7 @@ describe('dsh-agent-spine-demo bundle', () => {
         }
         if (event.type === 'tool/result'
           && ['write-skill', 'load-skill'].includes(event.data.message.source.callId)) {
+          /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
           const result = event.data.message.content[0]
           return [{
             type: event.type,
@@ -590,11 +672,14 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('shares top-level dshHome between local skills and the managed bash environment', async () => {
+    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await mkdtemp(join(tmpdir(), 'dsh-agent-core-shared-home-'))
+    /** 中文说明：测试局部值 agentsHome，由紧邻初始化决定。 */
     const agentsHome = await mkdtemp(join(tmpdir(), 'dsh-agent-core-shared-agents-'))
     await mkdir(join(home, 'skills'), { recursive: true })
     await writeFile(join(home, 'skills', 'shared-skill.md'), '---\nname: shared-skill\ndescription: Shared home skill\n---\n\nShared body.\n')
 
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       dshHome: home,
       workspaceContext: false,
@@ -602,6 +687,7 @@ describe('dsh-agent-spine-demo bundle', () => {
     }, true)
 
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['shared-skill'])
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution: ToolExecution = {
       signal: testToolSignal,
       token: Symbol('agent-core-dsh-home-test') as ToolExecution['token'],
@@ -625,11 +711,14 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('delivers workspace instructions ahead of the first-step skill catalog', async () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-agent-spine-demo-prefix-order-'))
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await writeFile(join(root, 'AGENTS.md'), 'workspace rule before skills')
+      /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
       const adapter = new MockAdapter([textResponse('first')])
+      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = await mount({ workspaceContext: { maxBytes: 65536 } })
       await ctx.plugin(LocalFileSystem, { cwd: '/' })
       ctx.llm.registerAdapter(['mock'], adapter)
@@ -639,6 +728,7 @@ describe('dsh-agent-spine-demo bundle', () => {
         source: 'runtime',
         content: 'body',
       })
+      /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
       const handle = await ctx.agents.create({
         sessionId: SessionId('prefix-order-session'),
         meta: { cwd: root },
@@ -649,9 +739,11 @@ describe('dsh-agent-spine-demo bundle', () => {
       await waitForIdle(ctx, handle.agent)
 
       expect(adapter.requests).toHaveLength(1)
+      /** 中文说明：测试局部值 workspaceIndex，由紧邻初始化决定。 */
       const workspaceIndex = adapter.requests[0]!.messages.findIndex(
         message => messageText(message).includes('workspace rule before skills'),
       )
+      /** 中文说明：测试局部值 catalogIndex，由紧邻初始化决定。 */
       const catalogIndex = adapter.requests[0]!.messages.findIndex(
         message => messageText(message).includes('prefix-order-skill'),
       )
@@ -666,22 +758,26 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('forwards its bundled tool configs to tool-bash and tool-jobs', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       workspaceContext: false,
       toolBash: { enableRunInBackground: false },
       toolJobs: { waitTimeoutMs: 7, maxWaitTimeoutMs: 11 },
     }, true)
 
+    /** 中文说明：测试局部值 bash，由紧邻初始化决定。 */
     const bash = ctx.tools.schemas().find(tool => tool.name === 'bash')
     expect(bash).toBeDefined()
     expect(Object.keys((bash!.parameters as { properties: Record<string, unknown> }).properties))
       .not.toContain('run_in_background')
 
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start({
       kind: 'probe',
       label: 'config forwarding probe',
       run: () => ({ cancel: () => {}, done: Promise.resolve({ status: 'completed' }) }),
     })
+    /** 中文说明：测试局部值 wait，由紧邻初始化决定。 */
     const wait = vi.spyOn(ctx.jobs, 'wait')
     await ctx.tools.execute({
       signal: testToolSignal,
@@ -695,6 +791,7 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('can omit skills and model-facing task controls for a foreground-only deployment', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       workspaceContext: false,
       skills: { enabled: false },
@@ -710,6 +807,7 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('can omit the bundled bash tool and Harness identity for a compatibility deployment', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       includeHarnessIdentity: false,
       includeRuntimeContext: false,
@@ -730,6 +828,7 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('picks shared spine config without leaking entry-point fields', () => {
+    /** 中文说明：测试局部值 appConfig，由紧邻初始化决定。 */
     const appConfig = {
       model: 'entrypoint-only',
       maxParallelToolCalls: 3,
@@ -771,6 +870,7 @@ describe('dsh-agent-spine-demo bundle', () => {
 
   it('uses the default skill config when apply is called directly without skills', async () => {
     await withIsolatedSkillHomes(async () => {
+      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       agentCore.apply(ctx, { agents: [], workspaceContext: false })
       await new Promise(resolve => setTimeout(resolve, 50))
@@ -781,9 +881,11 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('forwards toolOrder to the system-prompt assembly', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({ toolOrder: ['zulu', TOOL_ORDER_REST], workspaceContext: false })
     // The bundle's own bash tools pend on the absent `ctx.shell` executor in
     // this providerless mount, so register two plain tools to order.
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of ['alpha', 'zulu']) {
       ctx.get('tools')!.register({
         name,
@@ -793,12 +895,14 @@ describe('dsh-agent-spine-demo bundle', () => {
         execute: async () => null,
       })
     }
+    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.get('systemPrompt')!.assemble()
     expect(assembly.tools.map(tool => tool.name)).toEqual(['zulu', 'alpha', 'job_kill', 'job_list', 'job_output', 'skill'])
     await ctx.fiber.dispose()
   })
 
   it('supports direct apply with workspace instructions disabled and no forwarded agents', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     agentCore.apply(ctx, { workspaceContext: false })
     await new Promise(resolve => setTimeout(resolve, 50))
@@ -819,7 +923,9 @@ describe('dsh-agent-spine-demo bundle', () => {
     expect('default' in agentCore).toBe(false)
     expect(typeof agentCore.apply).toBe('function')
 
+    /** 中文说明：测试局部值 loader，由紧邻初始化决定。 */
     const loader = Object.create(Loader.prototype) as Loader
+    /** 中文说明：测试局部值 unwrapped，由紧邻初始化决定。 */
     const unwrapped = loader.unwrapExports(agentCore) as Record<string, unknown>
     expect(unwrapped).toBe(agentCore)
     expect(unwrapped.name).toBe('agent-spine-demo')
@@ -828,9 +934,12 @@ describe('dsh-agent-spine-demo bundle', () => {
   })
 
   it('keeps each standard-spine invariant companion loadable through the real Loader unwrap path', () => {
+    /** 中文说明：测试局部值 loader，由紧邻初始化决定。 */
     const loader = Object.create(Loader.prototype) as Loader
+    /** 中文说明：测试局部值 companion，由紧邻初始化决定。 */
     for (const companion of [sessionInvariant, agentInvariant, scopeInvariant, agentLoopInvariant]) {
       expect('default' in companion).toBe(false)
+      /** 中文说明：测试局部值 unwrapped，由紧邻初始化决定。 */
       const unwrapped = loader.unwrapExports(companion) as Record<string, unknown>
       expect(unwrapped).toBe(companion)
       expect(typeof unwrapped.name).toBe('string')

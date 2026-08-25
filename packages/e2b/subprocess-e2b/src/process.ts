@@ -1,4 +1,12 @@
 /** One asynchronously-started E2B command projected onto the subprocess seam. */
+/**
+ * 文件职责：实现E2B 远程沙箱的 process.ts 模块。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：注册能力，转换请求并管理远程资源。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 
 import { Buffer } from 'node:buffer'
 import { PassThrough, Writable } from 'node:stream'
@@ -23,6 +31,7 @@ import { bootstrapEnvironment, readRemoteEnvironment, serializeRemoteEnvironment
 import { E2BBase64Decoder, E2B_OUTPUT_COMPLETE_FRAME, E2BOutputReader } from './output.ts'
 import { asError, commandOpts, signalRemoteGroups, waitTick } from './remote.ts'
 
+/** 中文说明：运行时局部值 OUTPUT_ENCODER_SOURCE，由紧邻初始化决定。 */
 const OUTPUT_ENCODER_SOURCE = [
   '(async () => {',
   '  for await (const chunk of process.stdin) {',
@@ -36,18 +45,22 @@ const OUTPUT_ENCODER_SOURCE = [
   '})().catch(() => { process.exitCode = 1 })',
 ].join('\n')
 
+/** 中文说明：函数 isCollect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isCollect(mode: SubprocessOutputMode): mode is SubprocessCollect {
   return mode !== 'pipe' && mode !== 'inherit'
 }
 
+/** 中文说明：函数 hasSpill 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasSpill(mode: SubprocessOutputMode): mode is SubprocessCollect & { spill: { maxBytes: number } } {
   return isCollect(mode) && mode.spill !== undefined
 }
 
+/** 中文说明：函数 isValidProcessId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isValidProcessId(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0
 }
 
+/** 中文说明：类型或类 DeferredStdin 约束远程资源或测试数据职责。 */
 class DeferredStdin extends Writable {
   constructor(private readonly ready: Promise<CommandHandle>) {
     super({ decodeStrings: false })
@@ -68,6 +81,7 @@ class DeferredStdin extends Writable {
   }
 }
 
+/** 中文说明：类型或类 RemotePaths 约束远程资源或测试数据职责。 */
 interface RemotePaths {
   pid: string
   status: string
@@ -76,12 +90,15 @@ interface RemotePaths {
   stderr: string
 }
 
+/** 中文说明：类型或类 CommandSettlement 约束远程资源或测试数据职责。 */
 type CommandSettlement =
   | { kind: 'result'; result: CommandResult }
   | { kind: 'error'; error: unknown }
 
+/** 中文说明：函数 withinMs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function withinMs(settlement: Promise<CommandSettlement>, timeoutMs: number): Promise<CommandSettlement | undefined> {
   return new Promise<CommandSettlement | undefined>((resolve) => {
+    /** 中文说明：运行时局部值 timer，由紧邻初始化决定。 */
     const timer = setTimeout(() => { resolve(undefined) }, timeoutMs)
     void settlement.then((value) => {
       clearTimeout(timer)
@@ -90,14 +107,19 @@ function withinMs(settlement: Promise<CommandSettlement>, timeoutMs: number): Pr
   })
 }
 
+/** 中文说明：函数 commandText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commandText(spec: SubprocessSpawnSpec, paths: RemotePaths): string {
+  /** 中文说明：运行时局部值 encoder，由紧邻初始化决定。 */
   const encoder = `"$dsh_e2b_env_bin" -i "$dsh_e2b_node" -e ${quoteE2BShellArg(OUTPUT_ENCODER_SOURCE)}`
+  /** 中文说明：运行时局部值 stdoutRedirect，由紧邻初始化决定。 */
   const stdoutRedirect = hasSpill(spec.stdio.stdout)
     ? `> >("$dsh_e2b_tee" --output-error=warn-nopipe >("$dsh_e2b_head" -c ${spec.stdio.stdout.spill.maxBytes} > ${quoteE2BShellArg(paths.stdout)}) | ${encoder} 2>/dev/null)`
     : `> >(${encoder} 2>/dev/null)`
+  /** 中文说明：运行时局部值 stderrRedirect，由紧邻初始化决定。 */
   const stderrRedirect = hasSpill(spec.stdio.stderr)
     ? `2> >("$dsh_e2b_tee" --output-error=warn-nopipe >("$dsh_e2b_head" -c ${spec.stdio.stderr.spill.maxBytes} > ${quoteE2BShellArg(paths.stderr)}) | ${encoder} >&2 2>/dev/null)`
     : `2> >(${encoder} >&2 2>/dev/null)`
+  /** 中文说明：运行时局部值 inner，由紧邻初始化决定。 */
   const inner = [
     'set +e',
     'dsh_e2b_env_bin=$1',
@@ -118,7 +140,9 @@ function commandText(spec: SubprocessSpawnSpec, paths: RemotePaths): string {
     'wait',
     'exit "$dsh_e2b_status"',
   ].join('\n')
+  /** 中文说明：运行时局部值 argv，由紧邻初始化决定。 */
   const argv = spec.argv.map(quoteE2BShellArg).join(' ')
+  /** 中文说明：运行时局部值 bootstrap，由紧邻初始化决定。 */
   const bootstrap = [
     `mapfile -d '' -t dsh_e2b_env < ${quoteE2BShellArg(paths.environment)}`,
     'dsh_e2b_env_bin="$(command -v env)"',
@@ -138,13 +162,17 @@ function commandText(spec: SubprocessSpawnSpec, paths: RemotePaths): string {
   return bootstrap
 }
 
+/** 中文说明：运行时局部值 WAIT_ABORTED，由紧邻初始化决定。 */
 const WAIT_ABORTED = Symbol('wait aborted')
 
+/** 中文说明：函数 waitWithSignal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function waitWithSignal<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T | typeof WAIT_ABORTED> {
   if (signal === undefined) return promise
   if (signal.aborted) return Promise.resolve(WAIT_ABORTED)
   return new Promise<T | typeof WAIT_ABORTED>((resolve) => {
+    /** 中文说明：运行时局部值 onAbort，由紧邻初始化决定。 */
     const onAbort = (): void => { cleanup(); resolve(WAIT_ABORTED) }
+    /** 中文说明：运行时局部值 cleanup，由紧邻初始化决定。 */
     const cleanup = (): void => { signal.removeEventListener('abort', onAbort) }
     signal.addEventListener('abort', onAbort, { once: true })
     if (signal.aborted) {
@@ -156,6 +184,7 @@ function waitWithSignal<T>(promise: Promise<T>, signal: AbortSignal | undefined)
 }
 
 /** E2B-backed subprocess handle with deferred remote PID acquisition. */
+/** 中文说明：类型或类 E2BSubprocessHandle 约束远程资源或测试数据职责。 */
 export class E2BSubprocessHandle implements SubprocessHandle {
   readonly stdin: Writable | undefined
   readonly stdout: PassThrough | undefined
@@ -203,7 +232,9 @@ export class E2BSubprocessHandle implements SubprocessHandle {
       stdout: posix.join(stateDir, 'stdout.log'),
       stderr: posix.join(stateDir, 'stderr.log'),
     }
+    /** 中文说明：运行时局部值 outMode，由紧邻初始化决定。 */
     const outMode = spec.stdio.stdout
+    /** 中文说明：运行时局部值 errMode，由紧邻初始化决定。 */
     const errMode = spec.stdio.stderr
     this.stdout = outMode === 'pipe' ? new PassThrough() : undefined
     this.stderr = errMode === 'pipe' ? new PassThrough() : undefined
@@ -237,6 +268,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
     this.stdout?.destroy()
     this.stderr?.destroy()
     this.terminationFailure = undefined
+    /** 中文说明：运行时局部值 attempt，由紧邻初始化决定。 */
     const attempt = this.terminateRemote()
     this.terminationAttempt = attempt
     void attempt.then(
@@ -251,8 +283,10 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   /** @inheritdoc */
   async waitForExit(signal?: AbortSignal): Promise<boolean> {
     if (this.quiescenceProven) return true
+    /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
     let handle: CommandHandle | undefined
     if (this.terminationController.signal.aborted) {
+      /** 中文说明：运行时局部值 observed，由紧邻初始化决定。 */
       const observed = await waitWithSignal(this.commandState.promise, signal)
       if (observed === WAIT_ABORTED) return false
       handle = observed
@@ -261,6 +295,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
         return true
       }
       if (this.remotePid <= 0) {
+        /** 中文说明：运行时局部值 attempt，由紧邻初始化决定。 */
         const attempt = this.terminationAttempt
         if (attempt !== undefined && await waitWithSignal(attempt.catch(() => undefined), signal) === WAIT_ABORTED) {
           return false
@@ -270,6 +305,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
         return true
       }
     } else {
+      /** 中文说明：运行时局部值 observed，由紧邻初始化决定。 */
       const observed = await waitWithSignal(
         this.readyState.promise.catch(() => this.commandState.promise),
         signal,
@@ -282,6 +318,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
       }
     }
     this.throwTerminationFailure()
+    /** 中文说明：运行时局部值 sandbox: Sandbox，由紧邻初始化决定。 */
     let sandbox: Sandbox
     try {
       sandbox = await this.runtime.getSandbox()
@@ -293,6 +330,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
       }
       throw error
     }
+    /** 中文说明：运行时局部值 processGroupId，由紧邻初始化决定。 */
     const processGroupId = this.remotePid > 0 ? this.remotePid : handle.pid
     while (await this.groupAlive(sandbox, processGroupId, signal)) {
       this.throwTerminationFailure()
@@ -312,12 +350,15 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async run(): Promise<SubprocessOutcome> {
+    /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
     let sandbox: Sandbox | undefined
+    /** 中文说明：运行时局部值 preparing，由紧邻初始化决定。 */
     let preparing = true
     try {
       sandbox = await this.runtime.getSandbox()
       await this.prepareState(sandbox)
       preparing = false
+      /** 中文说明：运行时局部值 handle，由紧邻初始化决定。 */
       const handle = await sandbox.commands.run(
         commandText(this.spec, this.paths),
         {
@@ -330,9 +371,11 @@ export class E2BSubprocessHandle implements SubprocessHandle {
           onStderr: async (data) => { await this.dispatchOutput('stderr', data) },
         },
       )
+      /** 中文说明：运行时局部值 completion，由紧邻初始化决定。 */
       const completion = handle.wait()
       void completion.catch(() => {})
       if (!isValidProcessId(handle.pid)) {
+        /** 中文说明：运行时局部值 invalidPid，由紧邻初始化决定。 */
         const invalidPid = new Error(`subprocess-e2b: E2B returned invalid command pid ${handle.pid}`)
         try {
           await handle.kill()
@@ -363,15 +406,19 @@ export class E2BSubprocessHandle implements SubprocessHandle {
       }
       this.readyState.resolve(handle)
       await this.writeBatchStdin(handle)
+      /** 中文说明：运行时局部值 outcome，由紧邻初始化决定。 */
       const outcome = await this.waitForCommand(sandbox, handle, completion)
       if (this.outputTransportError !== undefined) throw this.outputTransportError
+      /** 中文说明：运行时局部值 requireCompleteOutput，由紧邻初始化决定。 */
       const requireCompleteOutput = this.terminationSignal === null && !this.outputDrainExpired
       this.stdoutDecoder.finish(requireCompleteOutput)
       this.stderrDecoder.finish(requireCompleteOutput)
       await this.finalizeSpills(sandbox)
       return outcome
     } catch (error: unknown) {
+      /** 中文说明：运行时局部值 canceledPreparation，由紧邻初始化决定。 */
       const canceledPreparation = preparing && this.terminationController.signal.aborted
+      /** 中文说明：运行时局部值 failure，由紧邻初始化决定。 */
       let failure = await this.rollbackPublishedFailure(error)
       if (sandbox !== undefined && this.stateDirectoryCreated) {
         try {
@@ -395,7 +442,9 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async prepareState(sandbox: Sandbox): Promise<void> {
+    /** 中文说明：运行时局部值 signal，由紧邻初始化决定。 */
     const signal = this.terminationController.signal
+    /** 中文说明：运行时局部值 ambient，由紧邻初始化决定。 */
     const ambient = await readRemoteEnvironment(sandbox, signal)
     this.controlEnvs = bootstrapEnvironment(ambient)
     // Own the directory before the request: a cancellation racing a committed
@@ -406,6 +455,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
       `chmod 700 -- ${quoteE2BShellArg(this.stateDir)}`,
       commandOpts(this.controlEnvs, signal),
     )
+    /** 中文说明：运行时局部值 files，由紧邻初始化决定。 */
     const files = [
       { path: this.paths.pid, data: '' },
       { path: this.paths.status, data: '' },
@@ -432,11 +482,13 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async dispatchOutput(stream: 'stdout' | 'stderr', data: string): Promise<void> {
+    /** 中文说明：运行时局部值 bytes: Buffer，由紧邻初始化决定。 */
     let bytes: Buffer
     try {
       bytes = stream === 'stdout' ? this.stdoutDecoder.push(data) : this.stderrDecoder.push(data)
     } catch (error: unknown) {
       this.outputTransportError ??= asError(error)
+      /** 中文说明：运行时局部值 target，由紧邻初始化决定。 */
       const target = stream === 'stdout' ? this.stdout : this.stderr
       target?.destroy(this.outputTransportError)
       return
@@ -450,21 +502,28 @@ export class E2BSubprocessHandle implements SubprocessHandle {
       this.stderrReader?.push(bytes)
       await this.writeOutput(this.stderr, this.spec.stdio.stderr === 'inherit' ? process.stderr : undefined, bytes)
     } catch (error: unknown) {
+      /** 中文说明：运行时局部值 target，由紧邻初始化决定。 */
       const target = stream === 'stdout' ? this.stdout : this.stderr
       target?.destroy(asError(error))
     }
   }
 
   private async writeOutput(pipe: PassThrough | undefined, inherited: NodeJS.WriteStream | undefined, data: Uint8Array): Promise<void> {
+    /** 中文说明：运行时局部值 target，由紧邻初始化决定。 */
     const target = pipe ?? inherited
     if (target === undefined || data.length === 0 || this.terminationController.signal.aborted) return
     if (target.destroyed) throw new Error('subprocess output stream is closed')
     if (target.write(data)) return
     await new Promise<void>((resolve, reject) => {
+      /** 中文说明：运行时局部值 onDrain，由紧邻初始化决定。 */
       const onDrain = (): void => { cleanup(); resolve() }
+      /** 中文说明：运行时局部值 onClose，由紧邻初始化决定。 */
       const onClose = (): void => { cleanup(); resolve() }
+      /** 中文说明：运行时局部值 onRelease，由紧邻初始化决定。 */
       const onRelease = (): void => { cleanup(); resolve() }
+      /** 中文说明：运行时局部值 onError，由紧邻初始化决定。 */
       const onError = (error: Error): void => { cleanup(); reject(error) }
+      /** 中文说明：运行时局部值 cleanup，由紧邻初始化决定。 */
       const cleanup = (): void => {
         target.removeListener('drain', onDrain)
         target.removeListener('close', onClose)
@@ -482,6 +541,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async waitForProcessGroupId(sandbox: Sandbox, completion: Promise<CommandResult>): Promise<number> {
+    /** 中文说明：运行时局部值 commandSettled，由紧邻初始化决定。 */
     const commandSettled = completion.then(
       () => true,
       () => true,
@@ -489,9 +549,12 @@ export class E2BSubprocessHandle implements SubprocessHandle {
     while (true) {
       // TODO(e2b-publication-cancel): Join cancellation to the existing
       // termination transaction before aborting an in-flight SDK file read.
+      /** 中文说明：运行时局部值 raw，由紧邻初始化决定。 */
       const raw = await sandbox.files.read(this.paths.pid)
+      /** 中文说明：运行时局部值 value，由紧邻初始化决定。 */
       const value = raw.trim()
       if (value.length > 0) {
+        /** 中文说明：运行时局部值 pid，由紧邻初始化决定。 */
         const pid = Number(value)
         if (!/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(pid)) {
           throw new Error(`subprocess-e2b: remote wrapper published invalid process-group id ${JSON.stringify(value)}`)
@@ -503,6 +566,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
         }
         return pid
       }
+      /** 中文说明：运行时局部值 settled，由紧邻初始化决定。 */
       const settled = await Promise.race([commandSettled, waitTick(this.pollMs).then(() => false)])
       if (settled) throw new Error('subprocess-e2b: remote command exited before publishing its process-group id')
     }
@@ -513,20 +577,26 @@ export class E2BSubprocessHandle implements SubprocessHandle {
     handle: CommandHandle,
     completion: Promise<CommandResult>,
   ): Promise<SubprocessOutcome> {
+    /** 中文说明：运行时局部值 settlement，由紧邻初始化决定。 */
     const settlement = completion.then<CommandSettlement, CommandSettlement>(
       result => ({ kind: 'result', result }),
       (error: unknown) => ({ kind: 'error', error }),
     )
+    /** 中文说明：运行时局部值 hasPipeOutput，由紧邻初始化决定。 */
     const hasPipeOutput = this.spec.stdio.stdout === 'pipe' || this.spec.stdio.stderr === 'pipe'
+    /** 中文说明：运行时局部值 completed，由紧邻初始化决定。 */
     let completed = hasPipeOutput ? await settlement : undefined
     while (true) {
+      /** 中文说明：运行时局部值 rawStatus，由紧邻初始化决定。 */
       const rawStatus = (await sandbox.files.read(this.paths.status)).trim()
       if (rawStatus.length > 0) {
+        /** 中文说明：运行时局部值 exitCode，由紧邻初始化决定。 */
         const exitCode = Number(rawStatus)
         if (!/^(?:0|[1-9][0-9]*)$/.test(rawStatus) || !Number.isSafeInteger(exitCode) || exitCode > 255) {
           throw new Error(`subprocess-e2b: remote wrapper published invalid exit code ${JSON.stringify(rawStatus)}`)
         }
         if (completed !== undefined) return this.commandOutcome(completed, exitCode)
+        /** 中文说明：运行时局部值 drained，由紧邻初始化决定。 */
         const drained = await withinMs(settlement, this.spec.graceMs)
         if (drained !== undefined) return this.commandOutcome(drained, exitCode)
         this.outputDrainExpired = true
@@ -594,6 +664,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async terminateRemoteInSandbox(): Promise<void> {
+    /** 中文说明：运行时局部值 handle，由紧邻初始化决定。 */
     const handle = await this.commandState.promise
     if (handle === undefined) {
       this.markQuiescent()
@@ -604,7 +675,9 @@ export class E2BSubprocessHandle implements SubprocessHandle {
       this.markQuiescent()
       return
     }
+    /** 中文说明：运行时局部值 sandbox，由紧邻初始化决定。 */
     const sandbox = await this.runtime.getSandbox()
+    /** 中文说明：运行时局部值 processGroupId，由紧邻初始化决定。 */
     const processGroupId = this.remotePid > 0 ? this.remotePid : handle.pid
     await this.terminateGroup(sandbox, handle, processGroupId)
   }
@@ -641,6 +714,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async waitForGroupExit(sandbox: Sandbox, processGroupId: number): Promise<boolean> {
+    /** 中文说明：运行时局部值 deadline，由紧邻初始化决定。 */
     const deadline = Date.now() + this.spec.graceMs
     while (await this.groupAlive(sandbox, processGroupId)) {
       if (Date.now() >= deadline) return false
@@ -654,6 +728,7 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async groupAlive(sandbox: Sandbox, pid: number, signal?: AbortSignal): Promise<boolean> {
+    /** 中文说明：运行时局部值 result，由紧邻初始化决定。 */
     const result = await sandbox.commands.run(
       `set -o pipefail; ps -eo pgid=,stat= | awk '$1 == ${pid} && $2 !~ /^[ZXx]/ { live=1 } END { if (live) print "live" }'`,
       commandOpts(this.controlEnvs, signal),
@@ -666,10 +741,13 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async finalizeSpills(sandbox: Sandbox): Promise<void> {
+    /** 中文说明：运行时局部值 removals，由紧邻初始化决定。 */
     const removals: Promise<void>[] = []
+    /** 中文说明：运行时局部值 collect，由紧邻初始化决定。 */
     const collect = (mode: SubprocessOutputMode, reader: E2BOutputReader | undefined, path: string): void => {
       if (!hasSpill(mode)) return
       // A spill mode is a collect mode, so construction always created its reader.
+      /** 中文说明：运行时局部值 size，由紧邻初始化决定。 */
       const size = (reader as E2BOutputReader).size
       if (this.outputDrainExpired || size <= mode.maxBytes || size > mode.spill.maxBytes) {
         removals.push(sandbox.files.remove(path).catch((_adapterPrivateSpillRemovalFailure: unknown) => {
@@ -683,7 +761,9 @@ export class E2BSubprocessHandle implements SubprocessHandle {
   }
 
   private async removeFailedState(sandbox: Sandbox): Promise<void> {
+    /** 中文说明：运行时局部值 failures，由紧邻初始化决定。 */
     const failures: Error[] = []
+    /** 中文说明：运行时局部值 path，由紧邻初始化决定。 */
     for (const path of [this.paths.environment, this.stateDir]) {
       try {
         await sandbox.files.remove(path)

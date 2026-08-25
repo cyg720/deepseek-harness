@@ -2,6 +2,14 @@
 // presence rather than content answers "configured", and every write goes
 // through one serialized read-modify-write so a rotating credential cannot be
 // lost between processes.
+/**
+ * 文件职责：验证凭据存储的 records.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证凭据存储在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -12,28 +20,38 @@ import type { CredentialKey, CredentialRecord } from '@deepseek-ai/dsh-credentia
 import { LocalCredentialProvider } from '../src/index.ts'
 
 /** Credential documents are seeded owner-only, exactly as the provider creates them. */
+/** 中文说明：函数 writeCredentials 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function writeCredentials(file: string, text: string): Promise<void> {
   return writeFile(file, text, { mode: 0o600 })
 }
 
+/** 中文说明：测试局部值 CODEX，由紧邻初始化决定。 */
 const CODEX = credentialKey('llm-pi-ai', 'openai-codex')
+/** 中文说明：测试局部值 BEDROCK，由紧邻初始化决定。 */
 const BEDROCK = credentialKey('llm-pi-ai', 'amazon-bedrock')
+/** 中文说明：测试局部值 OTHER_OWNER，由紧邻初始化决定。 */
 const OTHER_OWNER = credentialKey('llm-kimi', 'openai-codex')
 
+/** 中文说明：测试局部值 cleanups，由紧邻初始化决定。 */
 const cleanups: Array<() => Promise<void>> = []
 
 afterEach(async () => {
   while (cleanups.length > 0) await cleanups.pop()!()
 })
 
+/** 中文说明：函数 tempDir 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function tempDir(): Promise<string> {
+  /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-cred-records-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
   return dir
 }
 
+/** 中文说明：函数 boot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function boot(config: ConstructorParameters<typeof LocalCredentialProvider>[1]): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = ctx.plugin(LocalCredentialProvider, config)
   cleanups.push(async () => { await fiber.dispose() })
   await fiber
@@ -41,11 +59,14 @@ async function boot(config: ConstructorParameters<typeof LocalCredentialProvider
 }
 
 /** Store one record outright; the seam offers only the read-modify-write path. */
+/** 中文说明：函数 put 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function put(ctx: Context, key: CredentialKey, record: CredentialRecord): Promise<CredentialRecord | undefined> {
   return ctx.credentials.modifyRecord(key, () => Promise.resolve(record))
 }
 
+/** 中文说明：函数 recordUpdates 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function recordUpdates(ctx: Context): CredentialKey[] {
+  /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
   const seen: CredentialKey[] = []
   ctx.on('credentials/record-updated', (key) => { seen.push(key) })
   return seen
@@ -77,20 +98,26 @@ describe('credential keys', () => {
 
 describe('record storage', () => {
   it('returns a grant payload exactly as its owner wrote it', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
     // Fields the seam has never heard of ride along: an owner's SDK gains them
     // between releases, and a whitelist here would silently eat the new ones.
+    /** 中文说明：测试局部值 payload，由紧邻初始化决定。 */
     const payload = { type: 'oauth', access: 'at', refresh: 'rt', expires: 1786000000000, accountId: 'acct_1' }
     await put(ctx, CODEX, { kind: 'grant', payload })
 
     expect(await ctx.credentials.readRecord(CODEX)).toEqual({ kind: 'grant', payload })
+    /** 中文说明：测试局部值 reread，由紧邻初始化决定。 */
     const reread = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
     expect(await reread.credentials.readRecord(CODEX)).toEqual({ kind: 'grant', payload })
   })
 
   it('treats a record carrying no key and no environment as configured', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
     // The owner confirmed this route authenticates from its own ambient
     // discovery. That is a stored decision, not a blank — the opposite reading
@@ -101,7 +128,9 @@ describe('record storage', () => {
   })
 
   it('describes an absent record as unconfigured but writable', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
 
     expect(await ctx.credentials.describeRecord(CODEX)).toEqual({ configured: false, writable: true })
@@ -109,7 +138,9 @@ describe('record storage', () => {
   })
 
   it('stores provider environment values beside or instead of a key', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
     await put(ctx, BEDROCK, { kind: 'api-key', env: { AWS_PROFILE: 'prod' } })
 
@@ -117,12 +148,16 @@ describe('record storage', () => {
   })
 
   it('keeps references and records in one document without either disturbing the other', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     await ctx.credentials.set(credentialRef('DSH_RECORDS_KEY'), 'sk-live')
     await put(ctx, CODEX, { kind: 'grant', payload: { token: 't' } })
 
+    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = await readFile(path, 'utf8')
     expect(text).toBe(
       'version: 1\nrefs:\n  DSH_RECORDS_KEY: sk-live\nrecords:\n'
@@ -132,7 +167,9 @@ describe('record storage', () => {
   })
 
   it('reads every record shape back off disk', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     // Written by hand rather than through the API: this is the parse path, and
     // an api-key record is legal with a key, with environment values, with
@@ -143,6 +180,7 @@ describe('record storage', () => {
       + '  llm-pi-ai/azure:\n    kind: api-key\n    key: sk-azure\n'
       + '  llm-pi-ai/both:\n    kind: api-key\n    key: sk-both\n    env:\n      REGION: eu\n'
       + '  llm-pi-ai/ambient:\n    kind: api-key\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
 
     expect(await ctx.credentials.readRecord(CODEX)).toEqual({ kind: 'grant', payload: { access: 'at' } })
@@ -155,15 +193,20 @@ describe('record storage', () => {
   })
 
   it('publishes a record an external edit reshaped, whatever shape it took', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     await put(ctx, CODEX, { kind: 'grant', payload: { scopes: ['a'] } })
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = recordUpdates(ctx)
 
     // A sequence where a mapping stood, then a mapping that gained a field:
     // neither is caught by an identity check, and reporting them as unchanged
     // would leave a stale credential on every configuration surface.
+    /** 中文说明：测试局部值 payload，由紧邻初始化决定。 */
     for (const payload of ['[1]', '{a: 1}', '{a: 1, b: 2}']) {
       await writeCredentials(path, 'version: 1\nrecords:\n  llm-pi-ai/openai-codex:\n'
         + `    kind: grant\n    payload: ${payload}\n`)
@@ -176,7 +219,9 @@ describe('record storage', () => {
   })
 
   it('keeps two owners of the same provider id apart', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
     await put(ctx, CODEX, { kind: 'grant', payload: { owner: 'pi-ai' } })
     await put(ctx, OTHER_OWNER, { kind: 'grant', payload: { owner: 'kimi' } })
@@ -188,11 +233,15 @@ describe('record storage', () => {
 
 describe('record mutation', () => {
   it('shows the mutation the record as it stands and commits its replacement', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
     await put(ctx, CODEX, { kind: 'grant', payload: { expires: 1 } })
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: Array<CredentialRecord | undefined> = []
 
+    /** 中文说明：测试局部值 next，由紧邻初始化决定。 */
     const next = await ctx.credentials.modifyRecord(CODEX, (current) => {
       seen.push(current)
       return Promise.resolve({ kind: 'grant', payload: { expires: 2 } })
@@ -203,16 +252,22 @@ describe('record mutation', () => {
   })
 
   it('leaves the entry untouched when the mutation declines', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     await put(ctx, CODEX, { kind: 'grant', payload: { expires: 1 } })
+    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = await readFile(path, 'utf8')
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = recordUpdates(ctx)
 
     // The refresh path declines whenever a second reader finds the credential
     // already rotated; declining must not rewrite the document or announce a
     // change that did not happen.
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.credentials.modifyRecord(CODEX, () => Promise.resolve(undefined))
 
     expect(result).toEqual({ kind: 'grant', payload: { expires: 1 } })
@@ -221,8 +276,11 @@ describe('record mutation', () => {
   })
 
   it('announces a committed write and a committed delete, and stays silent on an absent delete', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = recordUpdates(ctx)
 
     await put(ctx, CODEX, { kind: 'grant', payload: 1 })
@@ -234,7 +292,9 @@ describe('record mutation', () => {
   })
 
   it('removes a later record without disturbing the annotation above the first', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     // The comment sits above the section's first entry, where the parser
     // attaches it to the section rather than to the pair. Removing a *later*
@@ -242,6 +302,7 @@ describe('record mutation', () => {
     await writeCredentials(path, 'version: 1\nrecords:\n  # the one to keep\n'
       + '  llm-pi-ai/openai-codex:\n    kind: grant\n    payload: 1\n'
       + '  llm-pi-ai/amazon-bedrock:\n    kind: api-key\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
 
     await ctx.credentials.deleteRecord(BEDROCK)
@@ -251,8 +312,11 @@ describe('record mutation', () => {
   })
 
   it('folds an unobserved external record edit into a write instead of overwriting it', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     await put(ctx, CODEX, { kind: 'grant', payload: { v: 1 } })
     // Landed on disk with no watcher to report it — the same blind spot as a
@@ -268,31 +332,41 @@ describe('record mutation', () => {
   })
 
   it('keeps both records when two providers write the same document concurrently', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await boot({ path, watch: false })
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await boot({ path, watch: false })
 
     await Promise.all([
       (async () => {
+        /** 中文说明：测试局部值 v，由紧邻初始化决定。 */
         for (const v of [1, 2, 3]) await put(first, CODEX, { kind: 'grant', payload: { v } })
       })(),
       (async () => {
+        /** 中文说明：测试局部值 v，由紧邻初始化决定。 */
         for (const v of [1, 2, 3]) await put(second, BEDROCK, { kind: 'grant', payload: { v } })
       })(),
     ])
 
+    /** 中文说明：测试局部值 reread，由紧邻初始化决定。 */
     const reread = await boot({ path, watch: false })
     expect(await reread.credentials.readRecord(CODEX)).toEqual({ kind: 'grant', payload: { v: 3 } })
     expect(await reread.credentials.readRecord(BEDROCK)).toEqual({ kind: 'grant', payload: { v: 3 } })
   })
 
   it('enumerates stored records by address and tag, never by value', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
     await put(ctx, CODEX, { kind: 'grant', payload: { secret: 'do-not-list' } })
     await put(ctx, BEDROCK, { kind: 'api-key', key: 'sk-listed' })
 
+    /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
     const listed = await ctx.credentials.listRecords()
 
     expect(listed).toEqual([{ key: CODEX, kind: 'grant' }, { key: BEDROCK, kind: 'api-key' }])
@@ -301,13 +375,17 @@ describe('record mutation', () => {
   })
 
   it('refuses a payload this document could not read back', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
 
     // An owner's SDK value that YAML would either lose or re-read as another
     // type. Rejecting on the way in is what keeps the round-trip promise
     // keepable; a rejected value must also leave nothing behind.
+    /** 中文说明：测试局部值 payload，由紧邻初始化决定。 */
     for (const payload of [{ at: new Date(0) }, { size: 1n }, { run: () => undefined }, { ratio: Number.NaN }]) {
       await expect(put(ctx, CODEX, { kind: 'grant', payload }))
         .rejects.toThrow(/record "llm-pi-ai\/openai-codex" payload/)
@@ -317,8 +395,11 @@ describe('record mutation', () => {
   })
 
   it('refuses an api-key record this document could not read back', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
 
     // The same admission rule as the read path: an api-key record parseRecord
@@ -335,10 +416,14 @@ describe('record mutation', () => {
   })
 
   it('refuses record writes once disposed', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
     await fiber
+    /** 中文说明：测试局部值 credentials，由紧邻初始化决定。 */
     const credentials = ctx.credentials
     await fiber.dispose()
 

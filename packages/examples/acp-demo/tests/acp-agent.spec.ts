@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证ACP 示例的 acp-agent.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证ACP 示例在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { mkdtemp } from 'node:fs/promises'
@@ -21,7 +29,9 @@ import * as acpAgent from '../src/index.ts'
  * ACP operations end-to-end) is the keyless bin smoke in `load-path.e2e.ts`;
  * this spec asserts the composition and the persistenceRoot default branch.
  */
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(config: acpAgent.Config, withBash = false): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   if (withBash) {
     ctx.provide('shell', {
@@ -36,7 +46,9 @@ async function mount(config: acpAgent.Config, withBash = false): Promise<Context
   return ctx
 }
 
+/** 中文说明：函数 isolatedSkillsConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function isolatedSkillsConfig(catalogDescriptionMaxLength?: number): Promise<NonNullable<acpAgent.Config['skills']>> {
+  /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
   const home = await mkdtemp(join(tmpdir(), 'dsh-acp-demo-skills-'))
   return {
     filesystem: { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents') },
@@ -44,14 +56,19 @@ async function isolatedSkillsConfig(catalogDescriptionMaxLength?: number): Promi
   }
 }
 
+/** 中文说明：函数 composePrefix 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function composePrefix(ctx: Context): Promise<Message[]> {
+  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = ctx.agentLoop.create(SessionId(`acp-demo-prefix-${randomUUID()}`), {}, { cwd: '/tmp' })
+  /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
   const signal = new AbortController().signal
+  /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
   const decision = await agentEvents(ctx, agent).waterfall(
     'agent/pre-step', { messages: [], turn: 1, step: 1, signal },
     () => Promise.resolve({ kind: 'enter', messages: [] }),
   )
   if (decision.kind === 'enter') {
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     for (const message of decision.messages) {
       agent.session.append('user/message', message, { surfaceOp: 'append' })
     }
@@ -59,9 +76,13 @@ async function composePrefix(ctx: Context): Promise<Message[]> {
   return agent.session.deriveMessages()
 }
 
+/** 中文说明：函数 withIsolatedSkillHomes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function withIsolatedSkillHomes<T>(run: () => Promise<T>): Promise<T> {
+  /** 中文说明：测试局部值 oldDshHome，由紧邻初始化决定。 */
   const oldDshHome = process.env.DSH_HOME
+  /** 中文说明：测试局部值 oldAgentsHome，由紧邻初始化决定。 */
   const oldAgentsHome = process.env.DSH_AGENTS_HOME
+  /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
   const home = await mkdtemp(join(tmpdir(), 'dsh-acp-demo-default-skills-'))
   process.env.DSH_HOME = join(home, '.dsh')
   process.env.DSH_AGENTS_HOME = join(home, '.agents')
@@ -83,6 +104,7 @@ async function withIsolatedSkillHomes<T>(run: () => Promise<T>): Promise<T> {
 
 describe('dsh-acp-demo composition', () => {
   it('brings up the spine + persistence + the ACP bridge', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       provider: 'mock',
       model: 'mock',
@@ -110,6 +132,7 @@ describe('dsh-acp-demo composition', () => {
   })
 
   it('can explicitly omit the persisted-goal stack', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       provider: 'mock',
       model: 'mock',
@@ -126,6 +149,7 @@ describe('dsh-acp-demo composition', () => {
     // bypasses the schema's `.default(...)`: call `apply` directly (not via
     // `ctx.plugin`, which validates+defaults the config first) with no
     // persistenceRoot, so the runtime fallback is the one that fires.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     // No persona: covers the omitted-persona forwarding branch too.
     await acpAgent.apply(ctx, {
@@ -139,6 +163,7 @@ describe('dsh-acp-demo composition', () => {
   })
 
   it('forwards explicit project-instruction controls to the bundled spine', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       provider: 'mock',
       model: 'mock',
@@ -153,6 +178,7 @@ describe('dsh-acp-demo composition', () => {
 
   it('uses default skill config when apply is called directly without skills', async () => {
     await withIsolatedSkillHomes(async () => {
+      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await acpAgent.apply(ctx, { provider: 'mock', model: 'mock', workspaceContext: false })
       expect(ctx.skills).toBeDefined()
@@ -162,7 +188,9 @@ describe('dsh-acp-demo composition', () => {
   })
 
   it('forwards skill config and dshHome into agent-spine-demo', async () => {
+    /** 中文说明：测试局部值 skills，由紧邻初始化决定。 */
     const skills = await isolatedSkillsConfig(6)
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({ provider: 'mock', model: 'mock', persona: 'hi', dshHome: skills.filesystem!.dshHome!, skills, workspaceContext: false })
     ctx.skills.register({ name: 'acp-skill', description: 'ACP skill', source: 'runtime', content: 'body' })
     expect(JSON.stringify(await composePrefix(ctx))).toContain('- `acp-skill`: ACP...')
@@ -170,6 +198,7 @@ describe('dsh-acp-demo composition', () => {
   })
 
   it('forwards maxParallelToolCalls to the bundled agent loop', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       provider: 'mock',
       model: 'mock',
@@ -183,6 +212,7 @@ describe('dsh-acp-demo composition', () => {
   })
 
   it('forwards task admission config to the bundled task provider', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       provider: 'mock',
       model: 'mock',
@@ -190,6 +220,7 @@ describe('dsh-acp-demo composition', () => {
       skills: await isolatedSkillsConfig(),
       workspaceContext: false,
     })
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: { status: 'killed' }) => void
     ctx.jobs.start({
       kind: 'bash',
@@ -208,6 +239,7 @@ describe('dsh-acp-demo composition', () => {
   })
 
   it('forwards bundled tool config into agent-core', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       provider: 'mock',
       model: 'mock',
@@ -216,6 +248,7 @@ describe('dsh-acp-demo composition', () => {
       toolJobs: { waitTimeoutMs: 7, maxWaitTimeoutMs: 11 },
       skills: await isolatedSkillsConfig(),
     }, true)
+    /** 中文说明：测试局部值 bash，由紧邻初始化决定。 */
     const bash = ctx.tools.schemas().find(tool => tool.name === 'bash')
     expect(Object.keys((bash!.parameters as { properties: Record<string, unknown> }).properties))
       .not.toContain('run_in_background')
@@ -228,6 +261,7 @@ describe('dsh-acp-demo composition', () => {
   })
 
   it('forwards toolOrder through agent-spine-demo to the system-prompt assembly', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount({
       provider: 'mock',
       model: 'mock',
@@ -237,6 +271,7 @@ describe('dsh-acp-demo composition', () => {
     })
     // The bundle's own bash tools pend on the absent `ctx.shell` executor in
     // this providerless mount, so register two plain tools to order.
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of ['alpha', 'zulu']) {
       ctx.get('tools')!.register({
         name,
@@ -246,6 +281,7 @@ describe('dsh-acp-demo composition', () => {
         execute: async () => null,
       })
     }
+    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.get('systemPrompt')!.assemble()
     expect(assembly.tools.map(tool => tool.name)).toEqual([
       'zulu',
@@ -267,7 +303,9 @@ describe('dsh-acp-demo composition', () => {
     expect('default' in acpAgent).toBe(false)
     expect(typeof acpAgent.apply).toBe('function')
 
+    /** 中文说明：测试局部值 loader，由紧邻初始化决定。 */
     const loader = Object.create(Loader.prototype) as Loader
+    /** 中文说明：测试局部值 unwrapped，由紧邻初始化决定。 */
     const unwrapped = loader.unwrapExports(acpAgent) as Record<string, unknown>
     expect(unwrapped).toBe(acpAgent)
     expect(unwrapped.name).toBe('acp-demo')

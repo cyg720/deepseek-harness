@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证E2B 远程沙箱的 terminal.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 import { Buffer } from 'node:buffer'
 import { once } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
@@ -6,8 +14,11 @@ import {
   CommandExitError,
   FileNotFoundError,
   SandboxNotFoundError,
+  /** 中文说明：类型或类 CommandHandle 约束远程资源或测试数据职责。 */
   type CommandHandle,
+  /** 中文说明：类型或类 CommandResult 约束远程资源或测试数据职责。 */
   type CommandResult,
+  /** 中文说明：类型或类 Sandbox 约束远程资源或测试数据职责。 */
   type Sandbox,
 } from '@deepseek-ai/dsh-e2b'
 import type E2BRuntime from '@deepseek-ai/dsh-e2b'
@@ -15,16 +26,19 @@ import type { SubprocessTerminalSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import E2BSubprocessRuntime from '@deepseek-ai/dsh-subprocess-e2b'
 import { spawnE2BTerminal } from '../src/terminal.ts'
 
+/** 中文说明：函数 commandError 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commandError(exitCode: number): CommandExitError {
   return new CommandExitError({ exitCode, stdout: '', stderr: '', error: `exit ${exitCode}` })
 }
 
+/** 中文说明：类型或类 CommandOptions 约束远程资源或测试数据职责。 */
 interface CommandOptions {
   signal?: AbortSignal
   cwd?: string
   envs?: Record<string, string>
 }
 
+/** 中文说明：类型或类 FakeTerminalCommandHandle 约束远程资源或测试数据职责。 */
 class FakeTerminalCommandHandle {
   pid = 123
   disconnects = 0
@@ -49,6 +63,7 @@ class FakeTerminalCommandHandle {
   async kill(): Promise<boolean> {
     this.sdkKills += 1
     if (this.sdkKillError !== undefined) {
+      /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
       const error = this.sdkKillError
       if (this.settleOnSdkKill) this.fail(137)
       throw error
@@ -80,6 +95,7 @@ class FakeTerminalCommandHandle {
   }
 }
 
+/** 中文说明：类型或类 FakeTerminalSandbox 约束远程资源或测试数据职责。 */
 class FakeTerminalSandbox {
   readonly handle = new FakeTerminalCommandHandle()
   readonly commands: string[] = []
@@ -116,6 +132,7 @@ class FakeTerminalSandbox {
   private releaseCreateGate: (() => void) | undefined
 
   deferCreate(): void {
+    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
     const gate = Promise.withResolvers<undefined>()
     this.createGate = gate.promise
     this.releaseCreateGate = () => { gate.resolve(undefined) }
@@ -134,6 +151,7 @@ class FakeTerminalSandbox {
         return true
       },
       write: async (files: Array<{ path: string; data: string }>): Promise<object[]> => {
+        /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
         for (const file of files) this.writes.set(file.path, file.data)
         if (this.writeError !== undefined) throw this.writeError
         return files.map(() => ({}))
@@ -149,6 +167,7 @@ class FakeTerminalSandbox {
         if (options !== undefined) this.commandOptions.push(options)
         options?.signal?.throwIfAborted()
         if (this.commandFailure !== undefined) {
+          /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
           const error = this.commandFailure
           this.commandFailure = undefined
           throw error
@@ -175,6 +194,7 @@ class FakeTerminalSandbox {
         }
         if (command.startsWith('set -o pipefail; ps -eo sid=')) {
           if (this.sessionGroupsFailure !== undefined) throw this.sessionGroupsFailure
+          /** 中文说明：测试局部值 groups，由紧邻初始化决定。 */
           const groups = command.includes('stat=') && command.includes('$3 !~ /^[ZXx]/')
             ? this.groups
             : [...this.groups, ...this.zombieGroups]
@@ -211,10 +231,13 @@ class FakeTerminalSandbox {
         this.inputs.push({ pid, data: Buffer.from(data) })
         if (this.sendError !== undefined) throw this.sendError
         if (this.emitOutputMarker && Buffer.from(data).includes(Buffer.from('runner.bash'))) {
+          /** 中文说明：测试局部值 marker，由紧邻初始化决定。 */
           const marker = [...this.writes].find(([path]) => path.endsWith('/output-marker'))?.[1]
+          /** 中文说明：测试局部值 onData，由紧邻初始化决定。 */
           const onData = this.createOptions?.onData
           if (marker !== undefined && onData !== undefined) {
             await onData(Buffer.from(Buffer.from(data).toString().replace(/\r$/, '\r\n')))
+            /** 中文说明：测试局部值 split，由紧邻初始化决定。 */
             const split = Math.floor(marker.length / 2)
             await onData(Buffer.from(marker.slice(0, split)))
             await onData(Buffer.from(marker.slice(split)))
@@ -226,6 +249,7 @@ class FakeTerminalSandbox {
   } as unknown as Sandbox
 }
 
+/** 中文说明：函数 runtime 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function runtime(fake: FakeTerminalSandbox): E2BRuntime {
   return {
     cwd: '/workspace',
@@ -234,6 +258,7 @@ function runtime(fake: FakeTerminalSandbox): E2BRuntime {
   } as unknown as E2BRuntime
 }
 
+/** 中文说明：函数 spec 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function spec(overrides: Partial<SubprocessTerminalSpawnSpec> = {}): SubprocessTerminalSpawnSpec {
   return {
     argv: ['/bin/bash', '--noprofile', '--norc'],
@@ -246,6 +271,7 @@ function spec(overrides: Partial<SubprocessTerminalSpawnSpec> = {}): SubprocessT
   }
 }
 
+/** 中文说明：函数 holdRequestUntilAbort 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function holdRequestUntilAbort(started: PromiseWithResolvers<AbortSignal>) {
   return async (signal: AbortSignal | undefined): Promise<void> => {
     if (signal === undefined) throw new Error('expected an operation signal')
@@ -260,6 +286,7 @@ function holdRequestUntilAbort(started: PromiseWithResolvers<AbortSignal>) {
 }
 
 /** Spawn the terminal under test with the config default the service would pass. */
+/** 中文说明：函数 testSpawn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function testSpawn(
   runtime: Parameters<typeof spawnE2BTerminal>[0],
   spec: Parameters<typeof spawnE2BTerminal>[1],
@@ -271,8 +298,11 @@ function testSpawn(
 
 describe('E2B terminal allocation', () => {
   it('hides bootstrap-shell bytes and preserves requested-shell bytes across the output boundary', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), '/runtime/terminal-one')
+    /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
     let output = ''
     terminal.output.on('data', (chunk) => { output += String(chunk) })
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -281,6 +311,7 @@ describe('E2B terminal allocation', () => {
     expect(output).not.toContain('buffered banner')
     expect(output).not.toContain('runner.bash')
     expect(fake.createOptions).toMatchObject({ rows: 24, cols: 80, cwd: '/workspace', timeoutMs: 0 })
+    /** 中文说明：测试局部值 controlEnvs，由紧邻初始化决定。 */
     const controlEnvs = fake.createOptions?.envs
     expect(controlEnvs?.HOME).toMatch(/^\/\.dsh-e2b-control-/)
     expect(controlEnvs).toEqual({
@@ -296,9 +327,11 @@ describe('E2B terminal allocation', () => {
     expect(fake.writes.get('/runtime/terminal-one/environment')).not.toContain('secret')
     expect(fake.writes.get('/runtime/terminal-one/environment')).not.toContain('DSH_STALE')
     expect(fake.writes.get('/runtime/terminal-one/argv')).toBe('/bin/bash\0--noprofile\0--norc\0')
+    /** 中文说明：测试局部值 marker，由紧邻初始化决定。 */
     const marker = fake.writes.get('/runtime/terminal-one/output-marker') ?? ''
     expect(marker).toMatch(/^dsh-e2b-bootstrap:/)
     expect(fake.inputs[0]?.data.toString()).not.toContain(marker)
+    /** 中文说明：测试局部值 runner，由紧邻初始化决定。 */
     const runner = fake.writes.get('/runtime/terminal-one/runner.bash') ?? ''
     expect(runner).toContain('if (( ${#dsh_argv[@]} == 0 )); then')
     expect(runner).toContain('printf \'%s\' "$dsh_output_marker"')
@@ -314,6 +347,7 @@ describe('E2B terminal allocation', () => {
     await expect(terminal.signalForeground('SIGINT')).resolves.toBe(456)
     expect(fake.commands).toContain('kill -INT -- -456')
 
+    /** 中文说明：测试局部值 terminated，由紧邻初始化决定。 */
     const terminated = terminal.terminate()
     await expect(terminal.done).resolves.toEqual({ exitCode: null, signal: 'SIGTERM' })
     await terminated
@@ -322,13 +356,17 @@ describe('E2B terminal allocation', () => {
   })
 
   it('inherits only safe ambient values and limits the allocation signal to setup', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(
       runtime(fake),
       spec({ env: undefined, signal: controller.signal }),
       '/runtime/abort-live',
     )
+    /** 中文说明：测试局部值 environment，由紧邻初始化决定。 */
     const environment = fake.writes.get('/runtime/abort-live/environment') ?? ''
     expect(environment).toContain('KEEP=visible\0')
     expect(environment).not.toContain('secret')
@@ -342,9 +380,12 @@ describe('E2B terminal allocation', () => {
   })
 
   it('publishes the PTY handle before honoring allocation cancellation', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.deferCreate()
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 spawning，由紧邻初始化决定。 */
     const spawning = testSpawn(
       runtime(fake),
       spec({ signal: controller.signal }),
@@ -361,21 +402,25 @@ describe('E2B terminal allocation', () => {
   })
 
   it('rejects malformed environment and argv values before PTY allocation', async () => {
+    /** 中文说明：测试局部值 invalidName，由紧邻初始化决定。 */
     const invalidName = new FakeTerminalSandbox()
     await expect(testSpawn(runtime(invalidName), spec({ env: { 'BAD=NAME': 'x' } }), '/runtime/name'))
       .rejects.toThrow('environment entries')
     expect(invalidName.createOptions).toBeUndefined()
 
+    /** 中文说明：测试局部值 invalidValue，由紧邻初始化决定。 */
     const invalidValue = new FakeTerminalSandbox()
     await expect(testSpawn(runtime(invalidValue), spec({ env: { BAD: 'x\0y' } }), '/runtime/value'))
       .rejects.toThrow('environment entries')
 
+    /** 中文说明：测试局部值 invalidArg，由紧邻初始化决定。 */
     const invalidArg = new FakeTerminalSandbox()
     await expect(testSpawn(runtime(invalidArg), spec({ argv: ['/bin/bash', 'x\0y'] }), '/runtime/argv'))
       .rejects.toThrow('argv must not contain NUL')
   })
 
   it('cleans malformed handles, bootstrap failures, and readiness failures', async () => {
+    /** 中文说明：测试局部值 failedState，由紧邻初始化决定。 */
     const failedState = new FakeTerminalSandbox()
     failedState.writeError = new Error('state write failed')
     await expect(testSpawn(runtime(failedState), spec(), '/runtime/state-write'))
@@ -384,12 +429,14 @@ describe('E2B terminal allocation', () => {
     expect(failedState.removed).toContain('/runtime/state-write')
     expect(failedState.createOptions).toBeUndefined()
 
+    /** 中文说明：测试局部值 stateAlreadyGone，由紧邻初始化决定。 */
     const stateAlreadyGone = new FakeTerminalSandbox()
     stateAlreadyGone.writeError = new Error('state write failed after external cleanup')
     stateAlreadyGone.removeError = new FileNotFoundError('state already gone')
     await expect(testSpawn(runtime(stateAlreadyGone), spec(), '/runtime/state-gone'))
       .rejects.toThrow('state write failed after external cleanup')
 
+    /** 中文说明：测试局部值 invalidPid，由紧邻初始化决定。 */
     const invalidPid = new FakeTerminalSandbox()
     invalidPid.handle.pid = 0
     await expect(testSpawn(runtime(invalidPid), spec(), '/runtime/invalid-pid'))
@@ -397,6 +444,7 @@ describe('E2B terminal allocation', () => {
     expect(invalidPid.handle.sdkKills).toBe(1)
     expect(invalidPid.removed).toContain('/runtime/invalid-pid')
 
+    /** 中文说明：测试局部值 failedInput，由紧邻初始化决定。 */
     const failedInput = new FakeTerminalSandbox()
     failedInput.sendError = new Error('bootstrap failed')
     await expect(testSpawn(runtime(failedInput), spec(), '/runtime/input'))
@@ -404,6 +452,7 @@ describe('E2B terminal allocation', () => {
     expect(failedInput.commands).toContain('kill -TERM -- -123')
     expect(failedInput.groups).toEqual([])
 
+    /** 中文说明：测试局部值 invalidSession，由紧邻初始化决定。 */
     const invalidSession = new FakeTerminalSandbox()
     invalidSession.sessionId = 'not-a-session\n'
     invalidSession.clearOnTerm = false
@@ -413,10 +462,12 @@ describe('E2B terminal allocation', () => {
     expect(invalidSession.commands).toContain('kill -KILL -- -123')
     expect(invalidSession.groups).toEqual([])
     expect(invalidSession.handle.sdkKills).toBe(1)
+    /** 中文说明：测试局部值 lateData，由紧邻初始化决定。 */
     const lateData = invalidSession.createOptions?.onData
     if (lateData === undefined) throw new Error('missing captured terminal callback')
     expect(lateData(Buffer.from('late bytes'))).toBeUndefined()
 
+    /** 中文说明：测试局部值 termFailed，由紧邻初始化决定。 */
     const termFailed = new FakeTerminalSandbox()
     termFailed.sendError = new Error('bootstrap failed')
     termFailed.termFailure = new Error('TERM transport failed')
@@ -425,10 +476,12 @@ describe('E2B terminal allocation', () => {
     expect(termFailed.commands).toContain('kill -KILL -- -123')
     expect(termFailed.handle.sdkKills).toBe(1)
 
+    /** 中文说明：测试局部值 uninspectable，由紧邻初始化决定。 */
     const uninspectable = new FakeTerminalSandbox()
     uninspectable.sendError = new Error('bootstrap failed')
     uninspectable.sessionGroupsFailure = 'session enumeration failed'
     uninspectable.handle.sdkKillError = new Error('PTY kill failed')
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let uninspectableFailure: unknown
     try {
       await testSpawn(runtime(uninspectable), spec(), '/runtime/uninspectable')
@@ -438,6 +491,7 @@ describe('E2B terminal allocation', () => {
     expect(uninspectableFailure).toBeInstanceOf(AggregateError)
     expect(uninspectable.handle.sdkKills).toBe(1)
 
+    /** 中文说明：测试局部值 survivingGroups，由紧邻初始化决定。 */
     const survivingGroups = new FakeTerminalSandbox()
     survivingGroups.sendError = new Error('bootstrap failed')
     survivingGroups.clearOnTerm = false
@@ -445,6 +499,7 @@ describe('E2B terminal allocation', () => {
     await expect(testSpawn(runtime(survivingGroups), spec({ graceMs: 1 }), '/runtime/surviving-groups'))
       .rejects.toThrow('bootstrap failed')
 
+    /** 中文说明：测试局部值 survivingPid，由紧邻初始化决定。 */
     const survivingPid = new FakeTerminalSandbox()
     survivingPid.sendError = new Error('bootstrap failed')
     survivingPid.groups = []
@@ -452,6 +507,7 @@ describe('E2B terminal allocation', () => {
     await expect(testSpawn(runtime(survivingPid), spec({ graceMs: 1 }), '/runtime/surviving-pid'))
       .rejects.toThrow('bootstrap failed')
 
+    /** 中文说明：测试局部值 waitFailed，由紧邻初始化决定。 */
     const waitFailed = new FakeTerminalSandbox()
     waitFailed.handle.waitError = new Error('wait failed')
     waitFailed.handle.settleOnSdkKill = false
@@ -460,6 +516,7 @@ describe('E2B terminal allocation', () => {
       .rejects.toThrow('wait failed')
     expect(waitFailed.handle.sdkKills).toBe(1)
 
+    /** 中文说明：测试局部值 cleanupFailed，由紧邻初始化决定。 */
     const cleanupFailed = new FakeTerminalSandbox()
     cleanupFailed.handle.pid = 0
     cleanupFailed.handle.sdkKillError = new Error('kill transport failed')
@@ -467,6 +524,7 @@ describe('E2B terminal allocation', () => {
     await expect(testSpawn(runtime(cleanupFailed), spec(), '/runtime/cleanup-failed'))
       .rejects.toThrow('invalid terminal pid 0')
 
+    /** 中文说明：测试局部值 expiredDuringRollback，由紧邻初始化决定。 */
     const expiredDuringRollback = new FakeTerminalSandbox()
     expiredDuringRollback.sendError = new Error('bootstrap failed before timeout')
     expiredDuringRollback.groups = []
@@ -477,6 +535,7 @@ describe('E2B terminal allocation', () => {
       .rejects.toThrow('bootstrap failed before timeout')
     expect(expiredDuringRollback.handle.sdkKills).toBe(1)
 
+    /** 中文说明：测试局部值 expiredBeforeSdkRollback，由紧邻初始化决定。 */
     const expiredBeforeSdkRollback = new FakeTerminalSandbox()
     expiredBeforeSdkRollback.handle.waitError = new Error('wait failed after timeout')
     expiredBeforeSdkRollback.handle.sdkKillError = new SandboxNotFoundError('sandbox expired')
@@ -484,12 +543,14 @@ describe('E2B terminal allocation', () => {
     await expect(testSpawn(runtime(expiredBeforeSdkRollback), spec(), '/runtime/expired-sdk-rollback'))
       .rejects.toThrow('wait failed after timeout')
 
+    /** 中文说明：测试局部值 missingDuringDisconnect，由紧邻初始化决定。 */
     const missingDuringDisconnect = new FakeTerminalSandbox()
     missingDuringDisconnect.sendError = new Error('bootstrap failed before disconnect')
     missingDuringDisconnect.handle.disconnectError = new SandboxNotFoundError('sandbox expired')
     await expect(testSpawn(runtime(missingDuringDisconnect), spec(), '/runtime/missing-disconnect'))
       .rejects.toThrow('bootstrap failed before disconnect')
 
+    /** 中文说明：测试局部值 failedDisconnect，由紧邻初始化决定。 */
     const failedDisconnect = new FakeTerminalSandbox()
     failedDisconnect.sendError = new Error('bootstrap failed with disconnect failure')
     failedDisconnect.handle.disconnectError = new Error('disconnect transport failed')
@@ -498,10 +559,12 @@ describe('E2B terminal allocation', () => {
   })
 
   it('propagates setup cancellation and provider failures', async () => {
+    /** 中文说明：测试局部值 aborted，由紧邻初始化决定。 */
     const aborted = new FakeTerminalSandbox()
     await expect(testSpawn(runtime(aborted), spec({ signal: AbortSignal.abort(new Error('stop')) }), '/runtime/abort'))
       .rejects.toThrow('stop')
 
+    /** 中文说明：测试局部值 createFailed，由紧邻初始化决定。 */
     const createFailed = new FakeTerminalSandbox()
     createFailed.createError = new Error('create failed')
     await expect(testSpawn(runtime(createFailed), spec(), '/runtime/create'))
@@ -510,16 +573,21 @@ describe('E2B terminal allocation', () => {
   })
 
   it('bounds a missing bootstrap-output boundary by process exit or cancellation', async () => {
+    /** 中文说明：测试局部值 exited，由紧邻初始化决定。 */
     const exited = new FakeTerminalSandbox()
     exited.emitOutputMarker = false
+    /** 中文说明：测试局部值 exiting，由紧邻初始化决定。 */
     const exiting = testSpawn(runtime(exited), spec(), '/runtime/missing-output-boundary')
     await vi.waitFor(() => { expect(exited.inputs).toHaveLength(1) })
     exited.handle.succeed(0)
     await expect(exiting).rejects.toThrow('terminal exited before publishing its output boundary')
 
+    /** 中文说明：测试局部值 cancelled，由紧邻初始化决定。 */
     const cancelled = new FakeTerminalSandbox()
     cancelled.emitOutputMarker = false
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 cancelling，由紧邻初始化决定。 */
     const cancelling = testSpawn(
       runtime(cancelled),
       spec({ signal: controller.signal }),
@@ -534,28 +602,39 @@ describe('E2B terminal allocation', () => {
 
 describe('E2B terminal lifecycle', () => {
   it('aborts and joins in-flight terminal operations before cleanup', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), '/runtime/in-flight-operations')
+    /** 中文说明：测试局部值 writeStarted，由紧邻初始化决定。 */
     const writeStarted = Promise.withResolvers<AbortSignal>()
+    /** 中文说明：测试局部值 inspectStarted，由紧邻初始化决定。 */
     const inspectStarted = Promise.withResolvers<AbortSignal>()
+    /** 中文说明：测试局部值 signalStarted，由紧邻初始化决定。 */
     const signalStarted = Promise.withResolvers<AbortSignal>()
     fake.sendInputRequest = holdRequestUntilAbort(writeStarted)
+    /** 中文说明：测试局部值 foregroundRequests，由紧邻初始化决定。 */
     let foregroundRequests = 0
     fake.foregroundRequest = async (signal) => {
       foregroundRequests += 1
       if (foregroundRequests === 1) await holdRequestUntilAbort(inspectStarted)(signal)
     }
+    /** 中文说明：测试局部值 signalCompleted，由紧邻初始化决定。 */
     let signalCompleted = false
     fake.signalRequest = async (operationSignal) => {
       await holdRequestUntilAbort(signalStarted)(operationSignal)
       signalCompleted = true
     }
+    /** 中文说明：测试局部值 write，由紧邻初始化决定。 */
     const write = terminal.write('late input')
+    /** 中文说明：测试局部值 inspect，由紧邻初始化决定。 */
     const inspect = terminal.inspectForeground()
     await Promise.all([writeStarted.promise, inspectStarted.promise])
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = terminal.signalForeground('SIGINT')
     await signalStarted.promise
 
+    /** 中文说明：测试局部值 terminating，由紧邻初始化决定。 */
     const terminating = terminal.terminate()
     await expect(write).rejects.toThrow('terminal is terminating')
     await expect(inspect).rejects.toThrow('terminal is terminating')
@@ -563,6 +642,7 @@ describe('E2B terminal lifecycle', () => {
     await terminating
     expect(signalCompleted).toBe(false)
     expect(fake.inputs).toHaveLength(1)
+    /** 中文说明：测试局部值 commandCount，由紧邻初始化决定。 */
     const commandCount = fake.commands.length
     await expect(terminal.write('after termination')).rejects.toThrow('terminal is terminating')
     await expect(terminal.inspectForeground()).rejects.toThrow('terminal is terminating')
@@ -571,10 +651,13 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('maps ordinary exits, closes output, and reports an absent foreground after exit', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = []
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), '/runtime/natural')
     terminal.output.resume()
+    /** 中文说明：测试局部值 ended，由紧邻初始化决定。 */
     const ended = once(terminal.output, 'end')
     fake.handle.succeed(7)
     await expect(terminal.done).resolves.toEqual({ exitCode: 7, signal: null })
@@ -591,8 +674,10 @@ describe('E2B terminal lifecycle', () => {
     [143, { exitCode: 143, signal: null }],
     [255, { exitCode: 255, signal: null }],
   ] as const)('classifies an unrequested command exit %i', async (exitCode, expected) => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = []
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), `/runtime/exit-${exitCode}`)
     fake.handle.fail(exitCode)
     await expect(terminal.done).resolves.toEqual(expected)
@@ -600,9 +685,11 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('treats a terminal session containing only zombies as quiescent', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = []
     fake.zombieGroups = [123]
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), '/runtime/zombie-session')
 
     fake.handle.succeed(0)
@@ -614,7 +701,9 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('treats a timeout-killed sandbox as quiescent during terminal cleanup', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), '/runtime/expired-sandbox')
     fake.sessionGroupsFailure = new SandboxNotFoundError('sandbox expired')
     fake.handle.succeed(0)
@@ -624,10 +713,12 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('treats sandbox disappearance during PTY kill as quiescent', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = []
     fake.handle.settleOnSdkKill = false
     fake.handle.sdkKillError = new SandboxNotFoundError('sandbox expired')
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec({ graceMs: 1 }), '/runtime/expired-pty-kill')
 
     await terminal.terminate()
@@ -635,10 +726,12 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('propagates a non-missing PTY kill failure', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = []
     fake.handle.settleOnSdkKill = false
     fake.handle.sdkKillError = new Error('PTY kill transport failed')
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec({ graceMs: 1 }), '/runtime/failed-pty-kill')
 
     await expect(terminal.terminate()).rejects.toThrow('PTY kill transport failed')
@@ -652,7 +745,9 @@ describe('E2B terminal lifecycle', () => {
     ['accepts sandbox loss', new SandboxNotFoundError('sandbox expired'), true],
     ['propagates another failure', new Error('disconnect failed'), false],
   ] as const)('%s while disconnecting a settled terminal', async (_label, failure, accepted) => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), `/runtime/disconnect-${accepted}`)
     fake.handle.disconnectError = failure
     fake.groups = []
@@ -663,8 +758,10 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('rejects killing the terminal shell and propagates live foreground failures', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.foreground = '123\n'
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), '/runtime/signal')
     await expect(terminal.signalForeground('SIGKILL')).rejects.toThrow('refusing to SIGKILL')
     fake.foreground = 'invalid\n'
@@ -678,10 +775,13 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('sends KILL before checking an expired force-cleanup deadline', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = [123, 456]
     fake.clearOnTerm = false
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec({ graceMs: 0 }), '/runtime/escalate')
+    /** 中文说明：测试局部值 terminating，由紧邻初始化决定。 */
     const terminating = terminal.terminate()
     await expect(terminal.done).resolves.toEqual({ exitCode: null, signal: 'SIGKILL' })
     await terminating
@@ -690,8 +790,10 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('surfaces cleanup failures and allows a later retry', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = [1]
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec({ graceMs: 1 }), '/runtime/retry')
     await expect(terminal.terminate()).rejects.toThrow('unsafe process group 1')
 
@@ -702,8 +804,10 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('propagates a process-group signalling transport failure before retry', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.termFailure = new Error('signal transport failed')
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec({ graceMs: 1 }), '/runtime/signal-failure')
     await expect(terminal.terminate()).rejects.toThrow('signal transport failed')
 
@@ -712,20 +816,26 @@ describe('E2B terminal lifecycle', () => {
     await terminal.done
     await terminal.terminate()
 
+    /** 中文说明：测试局部值 alreadyExited，由紧邻初始化决定。 */
     const alreadyExited = new FakeTerminalSandbox()
     alreadyExited.termFailure = commandError(1)
+    /** 中文说明：测试局部值 tolerant，由紧邻初始化决定。 */
     const tolerant = await testSpawn(runtime(alreadyExited), spec({ graceMs: 1 }), '/runtime/group-exited')
+    /** 中文说明：测试局部值 tolerantTermination，由紧邻初始化决定。 */
     const tolerantTermination = tolerant.terminate()
     await expect(tolerant.done).resolves.toEqual({ exitCode: null, signal: 'SIGKILL' })
     await tolerantTermination
   })
 
   it('keeps command rejection authoritative while cleanup is already waiting', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = []
     fake.removeError = new Error('private state already gone')
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec(), '/runtime/reject-during-cleanup')
     terminal.output.on('error', () => {})
+    /** 中文说明：测试局部值 cleanup，由紧邻初始化决定。 */
     const cleanup = terminal.terminate()
     await Promise.resolve()
     fake.handle.crash(new Error('command transport failed'))
@@ -734,11 +844,14 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('keeps a late command rejection authoritative after PTY kill', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.groups = []
     fake.handle.settleOnSdkKill = false
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(fake), spec({ graceMs: 1 }), '/runtime/reject-after-kill')
     terminal.output.on('error', () => {})
+    /** 中文说明：测试局部值 cleanup，由紧邻初始化决定。 */
     const cleanup = terminal.terminate()
     while (fake.handle.sdkKills === 0) await new Promise(resolve => setTimeout(resolve, 0))
     await Promise.resolve()
@@ -748,23 +861,30 @@ describe('E2B terminal lifecycle', () => {
   })
 
   it('reports surviving groups, a surviving top-level pid, and transport failure', async () => {
+    /** 中文说明：测试局部值 survivor，由紧邻初始化决定。 */
     const survivor = new FakeTerminalSandbox()
     survivor.clearOnTerm = false
     survivor.clearOnKill = false
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await testSpawn(runtime(survivor), spec({ graceMs: 1 }), '/runtime/survivor')
     await expect(terminal.terminate()).rejects.toThrow('surviving process groups: 123')
 
+    /** 中文说明：测试局部值 livePid，由紧邻初始化决定。 */
     const livePid = new FakeTerminalSandbox()
     livePid.groups = []
     livePid.handle.settleOnSdkKill = false
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = await testSpawn(runtime(livePid), spec({ graceMs: 1 }), '/runtime/live-pid')
     await expect(live.terminate()).rejects.toThrow('surviving pid: 123')
     livePid.handle.succeed(0)
     await live.done
 
+    /** 中文说明：测试局部值 crashed，由紧邻初始化决定。 */
     const crashed = new FakeTerminalSandbox()
     crashed.groups = []
+    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = await testSpawn(runtime(crashed), spec(), '/runtime/crashed')
+    /** 中文说明：测试局部值 outputError，由紧邻初始化决定。 */
     const outputError = once(failed.output, 'error')
     crashed.handle.crash('transport gone')
     await expect(failed.done).rejects.toEqual('transport gone')
@@ -774,18 +894,22 @@ describe('E2B terminal lifecycle', () => {
 })
 
 describe('E2B subprocess terminal service', () => {
+  /** 中文说明：函数 service 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function service(fake = new FakeTerminalSandbox()): Promise<{
     ctx: Context
     fiber: Awaited<ReturnType<Context['plugin']>>
     fake: FakeTerminalSandbox
   }> {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     ctx.provide('e2b', runtime(fake))
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(E2BSubprocessRuntime)
     return { ctx, fiber, fake }
   }
 
   it('resolves remote executables', async () => {
+    /** 中文说明：测试局部值 { ctx, fake }，由紧邻初始化决定。 */
     const { ctx, fake } = await service()
     await expect(ctx.subprocess.resolveExecutable('/bin/bash')).resolves.toBe('/bin/bash')
     await expect(ctx.subprocess.resolveExecutable('node', { PATH: '/custom/bin' }, new AbortController().signal))
@@ -793,6 +917,7 @@ describe('E2B subprocess terminal service', () => {
     fake.resolvedExecutable = 'tools/bin/node\n'
     await expect(ctx.subprocess.resolveExecutable('node', { PATH: 'tools/bin' }))
       .resolves.toBe('/workspace/tools/bin/node')
+    /** 中文说明：测试局部值 commandOptions，由紧邻初始化决定。 */
     const commandOptions = fake.commandOptions.at(-1)
     expect(commandOptions).toMatchObject({ cwd: '/workspace' })
     expect(commandOptions?.envs?.HOME).toMatch(/^\/\.dsh-e2b-control-/)
@@ -801,6 +926,7 @@ describe('E2B subprocess terminal service', () => {
   })
 
   it('rejects invalid executable lookup inputs and results', async () => {
+    /** 中文说明：测试局部值 { ctx, fake }，由紧邻初始化决定。 */
     const { ctx, fake } = await service()
     await expect(ctx.subprocess.resolveExecutable('')).rejects.toThrow('non-empty')
     await expect(ctx.subprocess.resolveExecutable('./bin/server')).rejects.toThrow('is a relative path')
@@ -814,16 +940,20 @@ describe('E2B subprocess terminal service', () => {
   })
 
   it('rejects a non-positive poll cadence at load', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     ctx.provide('e2b', runtime(new FakeTerminalSandbox()))
     await expect(ctx.plugin(E2BSubprocessRuntime, { pollMs: 0 }))
       .rejects.toThrow('pollMs must be a positive safe integer')
+    /** 中文说明：测试局部值 explicit，由紧邻初始化决定。 */
     const explicit = await ctx.plugin(E2BSubprocessRuntime, { pollMs: 5 })
     await explicit.dispose()
   })
 
   it('owns live terminals through service disposal', async () => {
+    /** 中文说明：测试局部值 { ctx, fiber, fake }，由紧邻初始化决定。 */
     const { ctx, fiber, fake } = await service()
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await ctx.subprocess.spawnTerminal(spec({ signal: new AbortController().signal }))
     await fiber.dispose()
     await expect(terminal.done).resolves.toEqual({ exitCode: null, signal: 'SIGTERM' })
@@ -831,8 +961,11 @@ describe('E2B subprocess terminal service', () => {
   })
 
   it('joins and rejects terminal setup that completes during service disposal', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
+    /** 中文说明：测试局部值 { ctx, fiber }，由紧邻初始化决定。 */
     const { ctx, fiber } = await service(fake)
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let disposing: Promise<void> | undefined
     fake.afterSessionLookup = () => {
       fake.afterSessionLookup = undefined
@@ -840,8 +973,11 @@ describe('E2B subprocess terminal service', () => {
         queueMicrotask(() => { disposing = fiber.dispose() })
       })
     }
+    /** 中文说明：测试局部值 subprocess，由紧邻初始化决定。 */
     const subprocess = ctx.subprocess
+    /** 中文说明：测试局部值 spawning，由紧邻初始化决定。 */
     const spawning = ctx.subprocess.spawnTerminal(spec())
+    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = expect(spawning).rejects.toThrow('service disposed during terminal setup')
     await vi.waitFor(() => { expect(disposing).toBeDefined() })
     await expect(subprocess.spawnTerminal(spec())).rejects.toThrow('service is disposing')
@@ -854,10 +990,14 @@ describe('E2B subprocess terminal service', () => {
   })
 
   it('aborts and rolls back terminal setup that cannot publish its output boundary during disposal', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.emitOutputMarker = false
+    /** 中文说明：测试局部值 { ctx, fiber }，由紧邻初始化决定。 */
     const { ctx, fiber } = await service(fake)
+    /** 中文说明：测试局部值 spawning，由紧邻初始化决定。 */
     const spawning = ctx.subprocess.spawnTerminal(spec())
+    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = expect(spawning).rejects.toThrow('service disposed during terminal setup')
     await vi.waitFor(() => { expect(fake.inputs).toHaveLength(1) })
 
@@ -868,10 +1008,13 @@ describe('E2B subprocess terminal service', () => {
   })
 
   it('owns and cancels terminal state-directory creation during disposal', async () => {
+    /** 中文说明：测试局部值 fake，由紧邻初始化决定。 */
     const fake = new FakeTerminalSandbox()
     fake.makeDirRequest = async (signal) => {
       await new Promise<never>((_resolve, reject) => {
+        /** 中文说明：测试局部值 onAbort，由紧邻初始化决定。 */
         const onAbort = (): void => {
+          /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
           const reason: unknown = signal?.reason
           reject(reason instanceof Error ? reason : new Error(String(reason)))
         }
@@ -879,8 +1022,11 @@ describe('E2B subprocess terminal service', () => {
         if (signal?.aborted === true) onAbort()
       })
     }
+    /** 中文说明：测试局部值 { ctx, fiber }，由紧邻初始化决定。 */
     const { ctx, fiber } = await service(fake)
+    /** 中文说明：测试局部值 spawning，由紧邻初始化决定。 */
     const spawning = ctx.subprocess.spawnTerminal(spec())
+    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = expect(spawning).rejects.toThrow('service disposed during terminal setup')
     await vi.waitFor(() => { expect(fake.directories.some(path => path.includes('/terminals/'))).toBe(true) })
 
@@ -891,7 +1037,9 @@ describe('E2B subprocess terminal service', () => {
   })
 
   it('releases naturally settled terminals and validates terminal requests', async () => {
+    /** 中文说明：测试局部值 { ctx, fiber, fake }，由紧邻初始化决定。 */
     const { ctx, fiber, fake } = await service()
+    /** 中文说明：测试局部值 request，由紧邻初始化决定。 */
     for (const request of [
       spec({ argv: [] }),
       spec({ signal: AbortSignal.abort(new Error('cancelled')) }),
@@ -900,19 +1048,23 @@ describe('E2B subprocess terminal service', () => {
     }
 
     fake.groups = []
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await ctx.subprocess.spawnTerminal(spec())
     fake.handle.succeed(0)
     await terminal.done
     await terminal.terminate()
+    /** 中文说明：测试局部值 signals，由紧邻初始化决定。 */
     const signals = fake.commands.filter(command => command.startsWith('kill -')).length
     await fiber.dispose()
     expect(fake.commands.filter(command => command.startsWith('kill -'))).toHaveLength(signals)
   })
 
   it('contains a failed automatic terminal release until service disposal retries it', async () => {
+    /** 中文说明：测试局部值 { fiber, fake }，由紧邻初始化决定。 */
     const { fiber, fake } = await service()
     fake.clearOnTerm = false
     fake.clearOnKill = false
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await (fiber.ctx).subprocess.spawnTerminal(spec({ graceMs: 1 }))
     fake.handle.succeed(0)
     await terminal.done
@@ -925,9 +1077,12 @@ describe('E2B subprocess terminal service', () => {
   })
 
   it('contains an immediate automatic terminal release rejection before disposal retries it', async () => {
+    /** 中文说明：测试局部值 { fiber, fake }，由紧邻初始化决定。 */
     const { fiber, fake } = await service()
     fake.groups = []
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = await (fiber.ctx).subprocess.spawnTerminal(spec())
+    /** 中文说明：测试局部值 terminate，由紧邻初始化决定。 */
     const terminate = vi.spyOn(terminal, 'terminate')
       .mockRejectedValueOnce(new Error('automatic release failed'))
     fake.handle.succeed(0)

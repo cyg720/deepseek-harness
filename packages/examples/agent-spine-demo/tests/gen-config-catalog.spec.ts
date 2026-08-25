@@ -1,6 +1,14 @@
 /**
  * Negative-path tests for the config catalog generator (`scripts/gen-config-catalog.ts`).
  */
+/**
+ * 文件职责：验证Agent Spine 示例的 gen-config-catalog.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证Agent Spine 示例在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -9,21 +17,29 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { collectConfigCatalog, render } from '../../../../scripts/gen-config-catalog.ts'
 
 /** Write one fixture package (package.json + src files) under a scan root. */
+/** 中文说明：函数 writePkg 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function writePkg(root: string, dir: string, name: string, files: Record<string, string>): void {
+  /** 中文说明：测试局部值 pkgDir，由紧邻初始化决定。 */
   const pkgDir = join(root, 'packages', dir)
   mkdirSync(join(pkgDir, 'src'), { recursive: true })
   writeFileSync(join(pkgDir, 'package.json'), JSON.stringify({ name }))
+  /** 中文说明：测试局部值 [rel，由紧邻初始化决定。 */
   for (const [rel, text] of Object.entries(files)) writeFileSync(join(pkgDir, rel), text)
 }
 
+/** 中文说明：测试局部值 roots，由紧邻初始化决定。 */
 const roots: string[] = []
+/** 中文说明：测试局部值 makeRoot，由紧邻初始化决定。 */
 const makeRoot = (): string => {
+  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = mkdtempSync(join(tmpdir(), 'config-catalog-'))
   roots.push(root)
   return root
 }
 /** One-package fixture: the common case. */
+/** 中文说明：测试局部值 make，由紧邻初始化决定。 */
 const make = (files: Record<string, string>, name = '@fix/one'): string => {
+  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = makeRoot()
   writePkg(root, 'group/one', name, files)
   return root
@@ -33,6 +49,7 @@ afterEach(() => {
   while (roots.length) rmSync(roots.pop()!, { recursive: true, force: true })
 })
 
+/** 中文说明：测试局部值 DOCUMENTED_CONFIG，由紧邻初始化决定。 */
 const DOCUMENTED_CONFIG = `/** Fixture config. */
 export interface Config {
   /** A knob. */
@@ -42,6 +59,7 @@ export interface Config {
 
 describe('gen-config-catalog classification', () => {
   it('classifies an apply plugin with a config parameter and extracts the paste', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(make({
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
 export const inject = ['tools']
@@ -56,6 +74,7 @@ export function apply(ctx: Context, config: Config): void {}
   })
 
   it('classifies a default service class, reading its constructor and static inject', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(make({
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -72,6 +91,7 @@ export default class Fix {
   })
 
   it('classifies an abstract default class as a seam', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(make({
       'src/index.ts': 'export default abstract class FixSeam { abstract run(): void }\n',
     }))
@@ -79,6 +99,7 @@ export default class Fix {
   })
 
   it('classifies a plugin whose apply takes no config as no-config', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(make({
       'src/index.ts': 'import type { Context } from \'cordis\'\n/** Load. */\nexport function apply(ctx: Context): void {}\n',
     }))
@@ -86,6 +107,7 @@ export default class Fix {
   })
 
   it('classifies a module with neither default export nor apply as a library', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(make({
       'src/index.ts': 'export const helper = 1\n',
     }))
@@ -93,6 +115,7 @@ export default class Fix {
   })
 
   it('hard-errors on a package with no entry file', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = makeRoot()
     mkdirSync(join(root, 'packages', 'group', 'one'), { recursive: true })
     writeFileSync(join(root, 'packages', 'group', 'one', 'package.json'), JSON.stringify({ name: '@fix/one' }))
@@ -100,6 +123,7 @@ export default class Fix {
   })
 
   it('hard-errors on a package.json without a name', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = makeRoot()
     mkdirSync(join(root, 'packages', 'group', 'one', 'src'), { recursive: true })
     writeFileSync(join(root, 'packages', 'group', 'one', 'package.json'), '{}')
@@ -137,6 +161,7 @@ export function apply(ctx: Context, config: Config): void {}
   })
 
   it('pastes a package-local type transitively and records external refs', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(make({
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
 import type { Mode } from './types.ts'
@@ -161,6 +186,7 @@ export function apply(ctx: Context, config: Config): void {}
   })
 
   it('pastes an enum referenced by the config type', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(make({
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
 /** Fixture mode. */
@@ -230,6 +256,7 @@ export function apply(ctx: Context, config: Config): void {}
 
 describe('gen-config-catalog schema cross-check', () => {
   it('accepts a chained schema whose keys all appear on the config type', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(make({
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -274,6 +301,7 @@ export function apply(ctx: Context, config: Config): void {}
   })
 
   it('resolves nested keys through a workspace-imported intersection part (re-export chains included)', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = makeRoot()
     writePkg(root, 'group/dep', '@fix/dep', {
       'src/index.ts': 'export * from \'./types.ts\'\n',
@@ -338,6 +366,7 @@ export function apply(ctx: Context, config: Config): void {}
   })
 
   it('folds an intersected workspace schema into the subset check', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = makeRoot()
     writePkg(root, 'group/leaf', '@fix/leaf', {
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
@@ -368,11 +397,13 @@ export const Config = z.intersect([Leaf.Config]) as unknown as z<Config>
 export function apply(ctx: Context, config: Config): void {}
 `,
     })
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectConfigCatalog(root)
     expect(entries.find(e => e.pkg === '@fix/bundle')?.schemaComposes).toEqual(['@fix/leaf'])
   })
 
   it('resolves composed nested keys through an indexed-access forwarder', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = makeRoot()
     writePkg(root, 'group/leaf', '@fix/leaf', {
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
@@ -410,6 +441,7 @@ export function apply(ctx: Context, config: Config): void {}
   })
 
   it('hard-errors when an intersected schema key is missing from the bundle config type', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = makeRoot()
     writePkg(root, 'group/leaf', '@fix/leaf', {
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
@@ -446,6 +478,7 @@ export function apply(ctx: Context, config: Config): void {}
 
 describe('gen-config-catalog render', () => {
   it('renders sections, fences, and the terse classification lists', () => {
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = makeRoot()
     writePkg(root, 'group/one', '@fix/one', {
       'src/index.ts': `import type { Context } from '@deepseek-ai/cordis'
@@ -458,6 +491,7 @@ export function apply(ctx: Context, config: Config): void {}
     writePkg(root, 'group/seam', '@fix/seam', {
       'src/index.ts': 'export default abstract class Seam { abstract run(): void }\n',
     })
+    /** 中文说明：测试局部值 page，由紧邻初始化决定。 */
     const page = render(collectConfigCatalog(root))
     expect(page).toContain('## `@fix/one`')
     expect(page).toContain('```ts config-catalog')

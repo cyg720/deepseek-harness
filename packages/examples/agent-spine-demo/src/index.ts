@@ -7,6 +7,14 @@
  * unwrapping would discard its `Config` schema (see docs/postmortem/0001).
  * @module @deepseek-ai/dsh-agent-spine-demo
  */
+/**
+ * 文件职责：实现Agent Spine 示例的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证Agent Spine 示例在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：注册能力，转换请求并管理远程资源。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
@@ -37,9 +45,11 @@ import AgentLoop, { type Config as AgentLoopConfig } from '@deepseek-ai/dsh-agen
 import * as llmRetry from '@deepseek-ai/dsh-llm-retry'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 
+/** 中文说明：运行时局部值 name，由紧邻初始化决定。 */
 export const name = 'agent-spine-demo'
 
 /** Overridable example policy used when a bundle consumer omits `sessionTitle`. */
+/** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
 const EXAMPLE_SESSION_TITLE_CONFIG: SessionTitleConfig = {
   fallbackMaxWords: 5,
   fallbackMaxBytes: 40,
@@ -47,6 +57,7 @@ const EXAMPLE_SESSION_TITLE_CONFIG: SessionTitleConfig = {
 }
 
 /** Skill bundle config forwarded to the registry, local provider, and model-facing consumer. */
+/** 中文说明：类型或类 SkillConfig 约束远程资源或测试数据职责。 */
 export interface SkillConfig {
   /** Mount the bundled local skill provider and model-facing skill tool (default true). */
   enabled?: boolean
@@ -59,6 +70,7 @@ export interface SkillConfig {
 }
 
 /** Persisted goal domain, model-tool policy, and same-session driver config. */
+/** 中文说明：类型或类 GoalConfig 约束远程资源或测试数据职责。 */
 export interface GoalConfig {
   /** Goal-domain creation defaults. */
   domain?: GoalDomainConfig
@@ -89,6 +101,7 @@ export interface GoalConfig {
  * own config. Set `toolBash: false` when another plugin owns the model-facing
  * `bash` name.
  */
+/** 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
 export interface Config {
   /** The agent-loop `agents` list (see dsh-agent-loop's `Config`). */
   agents?: AgentLoopConfig['agents']
@@ -129,6 +142,7 @@ export interface Config {
 }
 
 /** The skill config schema exported for app packages that forward `skills`. */
+/** 中文说明：运行时局部值 SkillConfigSchema，由紧邻初始化决定。 */
 export const SkillConfigSchema: z<SkillConfig> = z.object({
   enabled: z.boolean().default(true),
   registry: SkillRegistry.Config,
@@ -137,26 +151,32 @@ export const SkillConfigSchema: z<SkillConfig> = z.object({
 })
 
 /** The session-title config schema with the shared bundle's overridable example limits. */
+/** 中文说明：运行时局部值 SessionTitleConfigSchema，由紧邻初始化决定。 */
 export const SessionTitleConfigSchema: z<SessionTitleConfig> = SessionTitleService.Config
   .default(EXAMPLE_SESSION_TITLE_CONFIG)
 
 /** The bash-tool config schema exported for app packages that forward `toolBash`. */
+/** 中文说明：运行时局部值 ToolBashConfigSchema，由紧邻初始化决定。 */
 export const ToolBashConfigSchema: z<toolBash.Config | false> =
   z.union([z.const(false), toolBash.Config])
 
 /** The process-local job registry schema exported for app packages that forward `jobs`. */
+/** 中文说明：运行时局部值 JobsConfigSchema，由紧邻初始化决定。 */
 export const JobsConfigSchema: z<JobsConfig> = LocalJobRegistry.Config
 
 /** The job-control-tool config schema exported for app packages that forward `toolJobs`. */
+/** 中文说明：运行时局部值 ToolJobsConfigSchema，由紧邻初始化决定。 */
 export const ToolJobsConfigSchema: z<toolJobs.Config> = toolJobs.Config
 
 /** The persisted-goal config schema exported for app packages that opt in. */
+/** 中文说明：运行时局部值 GoalConfigSchema，由紧邻初始化决定。 */
 export const GoalConfigSchema: z<GoalConfig> = z.object({
   domain: GoalService.Config,
   tool: toolGoal.Config,
 })
 
 /** Intersect the owners' schemas so validation + defaulting stay identical. */
+/** 中文说明：运行时局部值 Config，由紧邻初始化决定。 */
 export const Config = z.intersect([
   AgentLoop.Config,
   SystemPrompt.Config,
@@ -179,6 +199,7 @@ export const Config = z.intersect([
  * @param config - App config containing the shared spine fields.
  * @returns The fields accepted by this bundle, preserving optional absence.
  */
+/** 中文说明：函数 pickSpineConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function pickSpineConfig(config: Omit<Config, 'agents'>): Omit<Config, 'agents'> {
   return {
     ...config.maxParallelToolCalls !== undefined ? { maxParallelToolCalls: config.maxParallelToolCalls } : {},
@@ -209,12 +230,15 @@ export function pickSpineConfig(config: Omit<Config, 'agents'>): Omit<Config, 'a
  * and core registries first, then extension plugins that wrap request/tool
  * seams, then the loop that drives them.
  */
+/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function apply(ctx: Context, config: Config): void {
+  /** 中文说明：运行时局部值 nestedDshHome，由紧邻初始化决定。 */
   const nestedDshHome = config.skills?.filesystem?.dshHome
   if (config.dshHome !== undefined && nestedDshHome !== undefined
     && resolveDshHome(config.dshHome) !== resolveDshHome(nestedDshHome)) {
     throw new Error('agent-spine-demo: dshHome and skills.filesystem.dshHome must resolve to the same directory')
   }
+  /** 中文说明：运行时局部值 dshHome，由紧邻初始化决定。 */
   const dshHome = resolveDshHome(config.dshHome ?? nestedDshHome)
 
   ctx.plugin(Timer)
@@ -229,6 +253,7 @@ export function apply(ctx: Context, config: Config): void {
     ...config.toolOrder !== undefined ? { toolOrder: config.toolOrder } : {},
   })
   ctx.plugin(ToolRuntime, config.tools ?? {})
+  /** 中文说明：运行时局部值 skillsEnabled，由紧邻初始化决定。 */
   const skillsEnabled = config.skills?.enabled ?? true
   if (skillsEnabled) {
     ctx.plugin(SkillRegistry, config.skills?.registry ?? {})

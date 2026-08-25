@@ -10,6 +10,14 @@
  * docs/postmortem/0001).
  * @module @deepseek-ai/dsh-acp-demo
  */
+/**
+ * 文件职责：实现ACP 示例的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证ACP 示例在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：注册能力，转换请求并管理远程资源。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { join } from 'node:path'
@@ -20,12 +28,15 @@ import * as workspaceContext from '@deepseek-ai/dsh-agent-instructions'
 import ToolRuntime, { type Config as ToolsConfig } from '@deepseek-ai/dsh-tools'
 import JsonlSessionPersistence, {
   JsonlCompressionSchema,
+  /** 中文说明：类型或类 JsonlCompression 约束远程资源或测试数据职责。 */
   type JsonlCompression,
 } from '@deepseek-ai/dsh-session-persistence-jsonl'
 import * as sessionCheckpointPolicy from '@deepseek-ai/dsh-session-checkpoint-policy'
 import SqliteSessionQueryEngine from '@deepseek-ai/dsh-session-query-sqlite'
 
+/** 中文说明：运行时局部值 name，由紧邻初始化决定。 */
 export const name = 'acp-demo'
+/** 中文说明：运行时局部值 DEFAULT_PERSISTENCE_ROOT，由紧邻初始化决定。 */
 const DEFAULT_PERSISTENCE_ROOT = './.sessions'
 
 /**
@@ -36,6 +47,7 @@ const DEFAULT_PERSISTENCE_ROOT = './.sessions'
  * `tools` is the tool registry's config (its presentation `mode`, forwarded
  * through agent-spine-demo); `persistenceRoot` is the JSONL backend's directory.
  */
+/** 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
 export interface Config {
   /** Provider route for ACP-created agents. */
   provider: string
@@ -76,6 +88,7 @@ export interface Config {
 // Each entry point owns a complete, directly readable config schema; extracting
 // the common fields would make two small app contracts depend on a new facade.
 /* jscpd:ignore-start */
+/** 中文说明：运行时局部值 Config，由紧邻初始化决定。 */
 export const Config: z<Config> = z.object({
   provider: z.string().required(),
   model: z.string().required(),
@@ -110,16 +123,21 @@ export const Config: z<Config> = z.object({
  * attached until ACP agents have flushed their closing events. No logger, no
  * `hmr` — stdout stays pure.
  */
+/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function apply(ctx: Context, config: Config): Promise<void> {
+  /** 中文说明：运行时局部值 goals，由紧邻初始化决定。 */
   const goals = config.goals ?? {}
+  /** 中文说明：运行时局部值 persistenceRoot，由紧邻初始化决定。 */
   const persistenceRoot = config.persistenceRoot ?? DEFAULT_PERSISTENCE_ROOT
   await ctx.effect(async function* () {
+    /** 中文说明：运行时局部值 spine，由紧邻初始化决定。 */
     const spine = ctx.plugin(agentCore, { ...agentCore.pickSpineConfig(config), goals })
     await spine
     yield spine.dispose
     // Same rationale as the Config schema above: each entry point forwards its own
     // persistence passthroughs rather than sharing a facade with stdio-demo.
     /* jscpd:ignore-start */
+    /** 中文说明：运行时局部值 persistence，由紧邻初始化决定。 */
     const persistence = ctx.plugin(JsonlSessionPersistence, {
       root: persistenceRoot,
       ...config.packChunks !== undefined ? { packChunks: config.packChunks } : {},
@@ -128,12 +146,15 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     await persistence
     yield persistence.dispose
     /* jscpd:ignore-end */
+    /** 中文说明：运行时局部值 checkpoint，由紧邻初始化决定。 */
     const checkpoint = ctx.plugin(sessionCheckpointPolicy)
     await checkpoint
     yield checkpoint.dispose
+    /** 中文说明：运行时局部值 query，由紧邻初始化决定。 */
     const query = ctx.plugin(SqliteSessionQueryEngine, { path: join(persistenceRoot, 'session-query.db') })
     await query
     yield query.dispose
+    /** 中文说明：运行时局部值 transport，由紧邻初始化决定。 */
     const transport = ctx.plugin(acp, { provider: config.provider, model: config.model })
     await transport
     yield transport.dispose

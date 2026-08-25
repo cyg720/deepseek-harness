@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证实验 Agent Team的 fold.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
+ * 产品维度：保证实验 Agent Team在真实组装、失败和清理场景中可靠。
+ * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
+ * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
+ * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionEventMap, SessionEventType } from '@deepseek-ai/dsh-session'
@@ -11,25 +19,32 @@ import type { TeamFoldState } from '../src/fold.ts'
 import { TeamId, TeamMessageId, TeamTaskId } from '../src/types.ts'
 import type { TeamMemberSnapshot, TeamMessageSnapshot, TeamTaskSnapshot } from '../src/types.ts'
 
+/** 中文说明：测试局部值 ROOT，由紧邻初始化决定。 */
 const ROOT = SessionId('team-root')
+/** 中文说明：测试局部值 TEAM，由紧邻初始化决定。 */
 const TEAM = TeamId(ROOT)
+/** 中文说明：测试局部值 CHILD，由紧邻初始化决定。 */
 const CHILD = SessionId('child-a')
 
+/** 中文说明：函数 event 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function event<T extends SessionEventType>(type: T, data: SessionEventMap[T], seq: number): SessionEvent<T> {
   return { type, data, seq, time: seq } as SessionEvent<T>
 }
 
 /** Queued-minus-delivered mail, the recovery mailbox the fold is responsible for. */
+/** 中文说明：函数 pending 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function pending(state: TeamFoldState): TeamMessageSnapshot[] {
   return [...state.messages.values()].filter(message => !state.delivered.has(message.id))
 }
 
 /** Whether one fold reached the end of its log without applying any Team record. */
+/** 中文说明：函数 isEmptyFold 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isEmptyFold(state: TeamFoldState): boolean {
   return state.members.size === 0 && state.tasks.size === 0
     && state.messages.size === 0 && state.delivered.size === 0
 }
 
+/** 中文说明：函数 member 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function member(overrides: Partial<TeamMemberSnapshot> = {}): TeamMemberSnapshot {
   return {
     id: CHILD,
@@ -42,6 +57,7 @@ function member(overrides: Partial<TeamMemberSnapshot> = {}): TeamMemberSnapshot
   }
 }
 
+/** 中文说明：函数 task 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function task(overrides: Partial<TeamTaskSnapshot> = {}): TeamTaskSnapshot {
   return {
     id: TeamTaskId('task-1'),
@@ -55,6 +71,7 @@ function task(overrides: Partial<TeamTaskSnapshot> = {}): TeamTaskSnapshot {
   }
 }
 
+/** 中文说明：函数 message 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function message(overrides: Partial<TeamMessageSnapshot> = {}): TeamMessageSnapshot {
   return {
     id: TeamMessageId('message-1'),
@@ -69,6 +86,7 @@ function message(overrides: Partial<TeamMessageSnapshot> = {}): TeamMessageSnaps
 
 describe('Agent Teams fold', () => {
   it('folds current-team records and ignores inherited records', () => {
+    /** 中文说明：测试局部值 records，由紧邻初始化决定。 */
     const records: SessionEvent[] = [
       event('team/member', { version: 1, teamId: TeamId('ancestor'), member: member() }, 0),
       event('team/member', { version: 1, teamId: TEAM, member: member() }, 1),
@@ -80,6 +98,7 @@ describe('Agent Teams fold', () => {
       event('team/task', { version: 1, teamId: TEAM, task: task({ id: TeamTaskId('task-7') }) }, 3),
       event('team/message/queued', { version: 1, teamId: TEAM, message: message() }, 4),
     ]
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = foldTeam(ROOT, records)
 
     expect(state).toMatchObject({ id: TEAM })
@@ -93,6 +112,7 @@ describe('Agent Teams fold', () => {
   })
 
   it('enforces teammate identity and lifecycle', () => {
+    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = event('team/member', { version: 1, teamId: TEAM, member: member() }, 0)
     expect(() => foldTeam(ROOT, [event('team/member', {
       version: 1,
@@ -114,6 +134,7 @@ describe('Agent Teams fold', () => {
       member: member({ phase: 'failed' }),
     }, 2)])).toThrow(/invalid active -> failed/)
 
+    /** 中文说明：测试局部值 duplicateName，由紧邻初始化决定。 */
     const duplicateName = member({ id: SessionId('child-b') })
     expect(() => foldTeam(ROOT, [base, event('team/member', {
       version: 1,
@@ -123,6 +144,7 @@ describe('Agent Teams fold', () => {
   })
 
   it('enforces task revision continuity', () => {
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = event('team/task', { version: 1, teamId: TEAM, task: task() }, 0)
     expect(() => foldTeam(ROOT, [event('team/task', {
       version: 1,
@@ -137,7 +159,9 @@ describe('Agent Teams fold', () => {
   })
 
   it('rejects every invalid persisted task dependency relation', () => {
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = event('team/task', { version: 1, teamId: TEAM, task: task() }, 0)
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = event('team/task', {
       version: 1,
       teamId: TEAM,
@@ -146,6 +170,7 @@ describe('Agent Teams fold', () => {
         blockedBy: [TeamTaskId('task-1')],
       }),
     }, 1)
+    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     const invalid: Array<{ records: SessionEvent[]; message: RegExp }> = [
       {
         records: [event('team/task', {
@@ -188,12 +213,14 @@ describe('Agent Teams fold', () => {
       },
     ]
 
+    /** 中文说明：测试局部值 {，由紧邻初始化决定。 */
     for (const { records, message: expected } of invalid) {
       expect(() => foldTeam(ROOT, records)).toThrow(expected)
     }
   })
 
   it('leaves numeric allocation unchanged for a branded nonstandard task id', () => {
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = foldTeam(ROOT, [event('team/task', {
       version: 1,
       teamId: TEAM,
@@ -211,7 +238,9 @@ describe('Agent Teams fold', () => {
   })
 
   it('enforces mailbox queue and acknowledgement relations', () => {
+    /** 中文说明：测试局部值 queued，由紧邻初始化决定。 */
     const queued = event('team/message/queued', { version: 1, teamId: TEAM, message: message() }, 0)
+    /** 中文说明：测试局部值 delivered，由紧邻初始化决定。 */
     const delivered = event('team/message/delivered', {
       version: 1,
       teamId: TEAM,
@@ -229,6 +258,7 @@ describe('Agent Teams fold', () => {
   })
 
   it('validates every current-version persisted payload before folding it', () => {
+    /** 中文说明：测试局部值 malformed，由紧邻初始化决定。 */
     const malformed = [
       {
         ...event('team/member', { version: 1, teamId: TEAM, member: member() }, 0),
@@ -270,6 +300,7 @@ describe('Agent Teams fold', () => {
       },
     ] as unknown as SessionEvent[]
 
+    /** 中文说明：测试局部值 candidate，由紧邻初始化决定。 */
     for (const candidate of malformed) {
       expect(() => foldTeam(ROOT, [candidate]))
         .toThrow(/persisted Agent Teams .* payload is invalid/)
@@ -277,7 +308,9 @@ describe('Agent Teams fold', () => {
   })
 
   it('retains merge-extensible content blocks while rejecting malformed core variants', () => {
+    /** 中文说明：测试局部值 extension，由紧邻初始化决定。 */
     const extension = { type: 'plugin/custom', payload: { value: 1 } } as never
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = foldTeam(ROOT, [event('team/message/queued', {
       version: 1,
       teamId: TEAM,
@@ -287,7 +320,9 @@ describe('Agent Teams fold', () => {
   })
 
   it('rejects unsupported event versions without mutating an empty state', () => {
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = emptyTeamFoldState(ROOT)
+    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     const invalid = event('team/task', {
       version: 2 as 1,
       teamId: TEAM,
@@ -298,6 +333,7 @@ describe('Agent Teams fold', () => {
   })
 
   it('ignores unsupported inherited Team records before decoding their version', () => {
+    /** 中文说明：测试局部值 inherited，由紧邻初始化决定。 */
     const inherited = event('team/task', {
       version: 2 as 1,
       teamId: TeamId('ancestor'),
@@ -307,6 +343,7 @@ describe('Agent Teams fold', () => {
   })
 
   it('still validates complete current-version records inherited from another Team', () => {
+    /** 中文说明：测试局部值 inherited，由紧邻初始化决定。 */
     const inherited = {
       ...event('team/task', {
         version: 1,
