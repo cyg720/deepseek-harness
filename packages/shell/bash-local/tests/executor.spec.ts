@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 executor.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
+ * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
+ * 逻辑维度：准备配置和测试资源，执行被测流程，再核对结果、错误与资源清理。
+ * 关键边界：并发写入和进程退出可能竞态；敏感配置不得泄露；资源必须等待完全停止。
+ * 新手阅读建议：先看夹具与平台条件，再读正常场景，最后关注并发、安全与失败路径。
+ */
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -8,14 +16,18 @@ import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import type { ShellProcess } from '@deepseek-ai/dsh-shell'
 
+/** 中文说明：变量 spillDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-bash-exec-spec-'))
 
+/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(config: ConstructorParameters<typeof LocalBashExecutor>[1] = {}) {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(LocalSubprocessRuntime)
   ;(ctx.subprocess as LocalSubprocessRuntime).internals = { spillDir }
   // A short kill grace via the REAL config path, so escalation tests stay fast.
   await ctx.plugin(LocalBashExecutor, { graceMs: 200, ...config })
+  /** 中文说明：变量 bash 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bash = ctx.shell as LocalBashExecutor
   return { ctx, bash }
 }
@@ -25,8 +37,11 @@ async function setup(config: ConstructorParameters<typeof LocalBashExecutor>[1] 
  * `expected`; returns the accumulation (reads never re-deliver, so the caller
  * gets everything produced up to the match).
  */
+/** 中文说明：函数 readUntil 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function readUntil(proc: ShellProcess, expected: string, timeoutMs = 5_000): Promise<string> {
+  /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs
+  /** 中文说明：变量 all 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let all = ''
   while (Date.now() < deadline) {
     all += proc.readOutput().delta
@@ -39,6 +54,7 @@ async function readUntil(proc: ShellProcess, expected: string, timeoutMs = 5_000
 describe('LocalBashExecutor.run', () => {
   it('resolves with output and the effective timeout', async () => {
     const { bash } = await setup({ timeoutMs: 5_000 })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'echo hi' }))
     expect(result.exitCode).toBe(0)
     expect(result.stdout.text).toBe('hi\n')
@@ -47,20 +63,24 @@ describe('LocalBashExecutor.run', () => {
 
   it('uses config cwd, overridable per call', async () => {
     const { bash } = await setup({ cwd: '/tmp' })
+    /** 中文说明：变量 fromConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fromConfig = await bash.run(bash.resolve({ command: 'pwd' }))
     expect(fromConfig.stdout.text.trim()).toMatch(/\/tmp$/)
+    /** 中文说明：变量 fromCall 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fromCall = await bash.run(bash.resolve({ command: 'pwd', workdir: '/' }))
     expect(fromCall.stdout.text.trim()).toBe('/')
   })
 
   it('defaults cwd to process.cwd()', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'pwd' }))
     expect(result.stdout.text.trim()).toBe(process.cwd())
   })
 
   it('caps per-call timeouts at maxTimeoutMs', async () => {
     const { bash } = await setup({ timeoutMs: 1_000, maxTimeoutMs: 2_000 })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'true', timeoutMs: 99_999 }))
     expect(result.timeoutMs).toBe(2_000)
   })
@@ -85,6 +105,7 @@ describe('LocalBashExecutor.run', () => {
     const { bash } = await setup({ maxOutputBytes: 100 })
     expect(bash.resolve({ command: 'true' }).stdoutMaxBytes).toBe(100)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({
       command: 'printf "%.0sx" $(seq 1 500); printf "%.0se" $(seq 1 500) >&2',
       stdoutMaxBytes: 500,
@@ -98,6 +119,7 @@ describe('LocalBashExecutor.run', () => {
 
   it('per-call timeout takes precedence under the cap and kills on expiry', async () => {
     const { bash } = await setup({ timeoutMs: 60_000 })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'sleep 60', timeoutMs: 100 }))
     expect(result.timedOut).toBe(true)
     // Mutually exclusive: a timeout classifies as timedOut, never also aborted.
@@ -107,9 +129,12 @@ describe('LocalBashExecutor.run', () => {
 
   it('propagates abort signals', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = bash.run(bash.resolve({ command: 'sleep 60', signal: controller.signal }))
     setTimeout(() => { controller.abort() }, 50)
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await pending
     expect(result.aborted).toBe(true)
     // Mutually exclusive: an upstream cancel classifies as aborted, never also timedOut.
@@ -122,6 +147,7 @@ describe('LocalBashExecutor.run', () => {
     // fused-signal classification reports the cause that cut the command short,
     // and here nothing the executor owns did.
     const { bash } = await setup({ timeoutMs: 60_000 })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'kill -TERM $$' }))
     expect(result.signal).toBe('SIGTERM')
     expect(result.timedOut).toBe(false)
@@ -135,6 +161,7 @@ describe('LocalBashExecutor.run', () => {
 
   it('resolve() carries stdin/env/dshEnv onto the spec, and run() threads them to the command', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec = bash.resolve({
       command: 'cat; echo "[$SEAM_VAR][$DSH_SEAM_VAR]"',
       stdin: 'piped\n',
@@ -145,12 +172,14 @@ describe('LocalBashExecutor.run', () => {
     expect(spec.stdin).toBe('piped\n')
     expect(spec.env).toEqual({ SEAM_VAR: 'env-ok' })
     expect(spec.dshEnv).toEqual({ DSH_SEAM_VAR: 'dsh-ok' })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(spec)
     expect(result.stdout.text).toBe('piped\n[env-ok][dsh-ok]\n')
   })
 
   it('resolve() omits stdin/env/dshEnv when the request supplies none', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec = bash.resolve({ command: 'true' })
     expect('stdin' in spec).toBe(false)
     expect('env' in spec).toBe(false)
@@ -161,7 +190,9 @@ describe('LocalBashExecutor.run', () => {
 describe('LocalBashExecutor.start (background process handles)', () => {
   it('start returns immediately with a running handle that settles as completed', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const before = Date.now()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'sleep 0.2; echo done' }))
     expect(Date.now() - before).toBeLessThan(150)
     expect(proc.status).toBe('running')
@@ -172,12 +203,14 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('threads stdin and extra env into a background process', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({
       command: 'cat; echo "[$BG_VAR][$DSH_BG_VAR]"',
       stdin: 'bg-stdin\n',
       env: { BG_VAR: 'bg-env' },
       dshEnv: { DSH_BG_VAR: 'bg-dsh-env' },
     }))
+    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = await readUntil(proc, '[bg-env][bg-dsh-env]')
     expect(output).toContain('bg-stdin')
     await proc.done
@@ -186,11 +219,14 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('readOutput is consuming: increments are never re-delivered, and reads stay valid after exit', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'echo first; sleep 1; echo second' }))
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await readUntil(proc, 'first\n')
     expect(first).toBe('first\n')
     await proc.done
     // Read-after-exit returns the remaining buffered output — once.
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = proc.readOutput()
     expect(second.delta).toBe('second\n')
     expect(second.lossy).toBe(false)
@@ -199,6 +235,7 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('readOutput marks stderr sections', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'echo out; echo err >&2' }))
     await proc.done
     expect(proc.readOutput().delta).toBe('out\n[stderr]\nerr\n')
@@ -206,6 +243,7 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('readOutput reports stderr-only deltas without a leading newline', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'echo err >&2' }))
     await proc.done
     expect(proc.readOutput().delta).toBe('[stderr]\nerr\n')
@@ -213,6 +251,7 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('readOutput adds a separator only when stdout lacks a trailing newline', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'printf out; echo err >&2' }))
     await proc.done
     expect(proc.readOutput().delta).toBe('out\n[stderr]\nerr\n')
@@ -220,8 +259,10 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('readOutput flags lossy reads and reports stdout spill paths', async () => {
     const { bash } = await setup({ maxOutputBytes: 100 })
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'for i in $(seq 1 100); do printf "line-%04d\\n" $i; done' }))
     await proc.done
+    /** 中文说明：变量 read 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const read = proc.readOutput()
     // Window slid past offset 0 → lossy, spill path points at the full stream.
     expect(read.lossy).toBe(true)
@@ -230,8 +271,10 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('readOutput reports stderr spill paths', async () => {
     const { bash } = await setup({ maxOutputBytes: 100 })
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'for i in $(seq 1 100); do printf "line-%04d\\n" $i >&2; done' }))
     await proc.done
+    /** 中文说明：变量 read 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const read = proc.readOutput()
     expect(read.lossy).toBe(true)
     expect(read.stderrSpillPath).toBeDefined()
@@ -240,6 +283,7 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('kill() terminates the process group: true once, false after settlement', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'sleep 60' }))
     expect(proc.kill()).toBe(true)
     await proc.done
@@ -250,6 +294,7 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('kill() returns false for a naturally completed process', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'true' }))
     await proc.done
     expect(proc.status).toBe('completed')
@@ -261,6 +306,7 @@ describe('LocalBashExecutor.start (background process handles)', () => {
     // The child echoes AFTER arming the trap, so waiting for the marker
     // guarantees SIGTERM is already ignored when the kill lands (a fixed sleep
     // is load-flaky: a slow spawn would take the SIGTERM before the trap).
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'trap \'\' TERM; echo armed; sleep 60' }))
     await readUntil(proc, 'armed')
     proc.kill()
@@ -271,7 +317,9 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('a spec.signal abort settles the handle as killed, not completed', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'sleep 60', signal: controller.signal }))
     controller.abort()
     await proc.done
@@ -281,6 +329,7 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('a self-signal exit settles the handle as killed, not completed', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'kill -TERM $$' }))
     await proc.done
     expect(proc.status).toBe('killed')
@@ -290,6 +339,7 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
   it('a background spawn failure settles as killed with the error readable on stderr', async () => {
     const { bash } = await setup()
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'true', workdir: '/nonexistent-dsh' }))
     // done resolves (never rejects) even though the process never ran.
     await expect(proc.done).resolves.toBeUndefined()
@@ -300,15 +350,21 @@ describe('LocalBashExecutor.start (background process handles)', () => {
 
 describe('process lifecycle ownership (the subprocess service, not the executor)', () => {
   it('a background process survives executor-fiber disposal and dies with the subprocess service', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 managerFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const managerFiber = await ctx.plugin(LocalSubprocessRuntime)
     ;(ctx.subprocess as LocalSubprocessRuntime).internals = { spillDir }
+    /** 中文说明：变量 executorFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const executorFiber = await ctx.plugin(LocalBashExecutor, { graceMs: 200 })
+    /** 中文说明：变量 bash 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bash = ctx.shell as LocalBashExecutor
 
     // The child prints its own pid ($$ = the detached bash group leader) so
     // the test can probe liveness through the public read API alone.
+    /** 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proc = bash.start(bash.resolve({ command: 'echo $$; sleep 60' }))
+    /** 中文说明：变量 pid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pid = Number((await readUntil(proc, '\n')).trim())
     expect(Number.isInteger(pid) && pid > 0).toBe(true)
 
@@ -327,15 +383,20 @@ describe('process lifecycle ownership (the subprocess service, not the executor)
   })
 
   it('service disposal escalates to SIGKILL for TERM-trapping children and settles handles', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 managerFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const managerFiber = await ctx.plugin(LocalSubprocessRuntime)
     ;(ctx.subprocess as LocalSubprocessRuntime).internals = { spillDir }
     await ctx.plugin(LocalBashExecutor, { graceMs: 200 })
+    /** 中文说明：变量 bash 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bash = ctx.shell as LocalBashExecutor
 
+    /** 中文说明：变量 finished 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const finished = bash.start(bash.resolve({ command: 'echo done' }))
     await finished.done
     expect(finished.status).toBe('completed')
+    /** 中文说明：变量 trapping 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const trapping = bash.start(bash.resolve({ command: 'trap \'\' TERM; echo armed; sleep 60' }))
     await readUntil(trapping, 'armed')
 

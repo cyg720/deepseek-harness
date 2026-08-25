@@ -3,6 +3,14 @@
  * ownership and validation, collection ordering, effect-scoped disposal, and
  * the explicit disposer contract.
  */
+/**
+ * 文件职责：验证 shell-env.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
+ * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
+ * 逻辑维度：准备配置和测试资源，执行被测流程，再核对结果、错误与资源清理。
+ * 关键边界：并发写入和进程退出可能竞态；敏感配置不得泄露；资源必须等待完全停止。
+ * 新手阅读建议：先看夹具与平台条件，再读正常场景，最后关注并发、安全与失败路径。
+ */
 
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -14,10 +22,12 @@ import type { ToolExecution } from '@deepseek-ai/dsh-tools'
 import { ShellEnvRegistry } from '@deepseek-ai/dsh-shell-env'
 import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
 
+/** 中文说明：变量 testToolSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const testToolSignal = new AbortController().signal
 
 afterEach(() => vi.unstubAllEnvs())
 
+/** 中文说明：函数 execution 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function execution(sessionId?: string): ToolExecution {
   return {
     signal: testToolSignal,
@@ -34,7 +44,9 @@ function execution(sessionId?: string): ToolExecution {
 
 describe('ShellEnvRegistry', () => {
   it('collects unconditional shell facts and the current agent session id', () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 registry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
 
     expect(registry.collect(execution())).toEqual({
@@ -50,16 +62,20 @@ describe('ShellEnvRegistry', () => {
 
   it('resolves DSH_HOME from the ambient override or the user-home default', () => {
     vi.stubEnv('DSH_HOME', './ambient-dsh-home')
+    /** 中文说明：变量 fromEnvironment 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fromEnvironment = new ShellEnvRegistry(new Context())
     expect(fromEnvironment.collect(execution()).DSH_HOME).toBe(resolve('./ambient-dsh-home'))
 
     vi.stubEnv('DSH_HOME', undefined)
+    /** 中文说明：变量 fromDefault 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fromDefault = new ShellEnvRegistry(new Context())
     expect(fromDefault.collect(execution()).DSH_HOME).toBe(join(homedir(), '.dsh'))
   })
 
   it('collects declared contributor variables and omits unavailable values', () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 registry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
     registry.register({
       name: 'optional-session-fact',
@@ -94,7 +110,9 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('rejects duplicate variable ownership at registration time', () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 registry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
     registry.register({
       name: 'first',
@@ -110,6 +128,7 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('rejects duplicate contributor names and malformed declarations', () => {
+    /** 中文说明：变量 registry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registry = new ShellEnvRegistry(new Context(), { dshHome: './test-dsh-home' })
     registry.register({
       name: 'declared',
@@ -145,7 +164,9 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('rejects undeclared variables returned by a contributor', () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 registry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
     registry.register({
       name: 'drifted-provider',
@@ -157,6 +178,7 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('rejects non-string values returned by a contributor', () => {
+    /** 中文说明：变量 registry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registry = new ShellEnvRegistry(new Context(), { dshHome: './test-dsh-home' })
     registry.register({
       name: 'wrong-value-type',
@@ -168,8 +190,11 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('removes an effect-scoped contributor when its plugin is disposed', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 registry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin({
       inject: ['shellEnv'],
       apply(inner: Context) {
@@ -187,7 +212,9 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('returns an explicit contributor disposer', () => {
+    /** 中文说明：变量 registry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registry = new ShellEnvRegistry(new Context(), { dshHome: './test-dsh-home' })
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = registry.register({
       name: 'explicit-disposal',
       variables: { DSH_EXPLICIT_DISPOSAL: { description: 'Explicitly disposed fact.' } },
@@ -200,6 +227,7 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('the plugin registers the service and the persistence contributor on load', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(BashEnvPlugin)
     expect(ctx.shellEnv).toBeInstanceOf(ShellEnvRegistry)
@@ -213,6 +241,7 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('the persistence contributor resolves DSH_SESSION_JSONL only for a jsonl backend', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(BashEnvPlugin)
     ctx.provide('sessionPersistence', {
@@ -222,6 +251,7 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('the persistence contributor omits the variable for a non-jsonl backend', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(BashEnvPlugin)
     ctx.provide('sessionPersistence', {
@@ -231,6 +261,7 @@ describe('ShellEnvRegistry', () => {
   })
 
   it('the persistence contributor omits the variable without a persistence backend', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(BashEnvPlugin)
     expect(ctx.shellEnv.collect(execution('sess-p'))).not.toHaveProperty('DSH_SESSION_JSONL')
