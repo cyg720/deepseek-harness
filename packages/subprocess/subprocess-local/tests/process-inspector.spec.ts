@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 process-inspector.spec.ts 覆盖的子进程管理行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
+ * 产品维度：保障 Agent 的子进程管理能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
+ * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
+ * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ */
 import { describe, expect, it } from 'vitest'
 import {
   createProcessInspector,
@@ -7,48 +15,67 @@ import {
 import type { ProcessInspectorInternals } from '@deepseek-ai/dsh-subprocess-local/src/process-inspector.ts'
 import { WindowsProcessInspector } from '@deepseek-ai/dsh-subprocess-local/src/windows-inspector.ts'
 
+/** 中文说明：函数 stat 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function stat(pid: number, pgrp: number, session: number, tpgid: number, started: string, parentPid = 1, state = 'S'): string {
+  /** 中文说明：变量 rest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rest = [state, String(parentPid), String(pgrp), String(session), '99', String(tpgid)]
   while (rest.length < 19) rest.push('0')
   rest.push(started)
   return `${pid} (command with space) ${rest.join(' ')}`
 }
 
+/** 中文说明：函数 syscall 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function syscall(number: number, ...args: number[]): string {
+  /** 中文说明：变量 six 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const six = [...args]
   while (six.length < 6) six.push(0)
   return `${number} ${six.slice(0, 6).map(value => `0x${value.toString(16)}`).join(' ')}`
 }
 
+/** 中文说明：函数 fakeInternals 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeInternals() {
+  /** 中文说明：变量 files 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const files = new Map<string, string>()
+  /** 中文说明：变量 dirs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dirs = new Map<string, string[]>()
+  /** 中文说明：变量 memories 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const memories = new Map<string, Buffer>()
+  /** 中文说明：变量 fds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fds = new Map<number, string>()
+  /** 中文说明：变量 kills 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const kills: Array<[number, NodeJS.Signals]> = []
+  /** 中文说明：变量 nextFd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let nextFd = 10
+  /** 中文说明：变量 ps 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let ps = ''
+  /** 中文说明：变量 tpgid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let tpgid = '0'
+  /** 中文说明：变量 internals 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const internals: ProcessInspectorInternals = {
     readFile(path) {
+      /** 中文说明：变量 value 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const value = files.get(path)
       if (value === undefined) throw new Error(`missing ${path}`)
       return value
     },
     readDir(path) {
+      /** 中文说明：变量 value 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const value = dirs.get(path)
       if (value === undefined) throw new Error(`missing ${path}`)
       return value
     },
     open(path) {
       if (!memories.has(path)) throw new Error(`missing ${path}`)
+      /** 中文说明：变量 fd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fd = nextFd++
       fds.set(fd, path)
       return fd
     },
     read(fd, buffer, length, position) {
+      /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const path = fds.get(fd)
       if (path === undefined) throw new Error('bad fd')
+      /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const source = memories.get(path)
       if (source === undefined) throw new Error('missing memory')
       return source.copy(buffer, 0, position, Math.min(source.length, position + length))
@@ -69,6 +96,7 @@ function fakeInternals() {
 
 describe('Linux process inspector', () => {
   it('treats zombie-only process groups as quiescent and fails closed when unobservable', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     expect(linuxProcessGroupHasLiveMembers(77, fake.internals)).toBeUndefined()
 
@@ -90,12 +118,14 @@ describe('Linux process inspector', () => {
     expect(parseProcStat(stat(10, 20, 30, 40, '500', 1, 'SS'))).toBeUndefined()
     expect(parseProcStat(stat(10, 20, 30, 40, '500'))).toEqual({ pid: 10, parentPid: 1, pgrp: 20, session: 30, state: 'S', tpgid: 40, started: '500' })
 
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     fake.dirs.set('/proc', ['x', '10', '11', '12', '13', '14'])
     fake.files.set('/proc/10/stat', stat(10, 20, 30, 40, '500'))
     fake.files.set('/proc/11/stat', stat(11, 21, 30, -1, '501'))
     fake.files.set('/proc/12/stat', stat(12, 22, 30, -1, '502', 10))
     fake.files.set('/proc/13/stat', stat(13, 23, 30, -1, '503', 12))
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = createProcessInspector('linux', 'x64', fake.internals)
     expect(inspector.foregroundPgid(10)).toBe(40)
     expect(inspector.foregroundPgid(11)).toBeUndefined()
@@ -126,12 +156,14 @@ describe('Linux process inspector', () => {
   })
 
   it('detects read, select, poll, and epoll waits across non-leader threads', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     fake.dirs.set('/proc', ['100', '101'])
     fake.files.set('/proc/100/stat', stat(100, 77, 100, 77, '1'))
     fake.files.set('/proc/101/stat', stat(101, 77, 100, 77, '2'))
     fake.dirs.set('/proc/100/task', ['100'])
     fake.dirs.set('/proc/101/task', ['101', '102'])
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = createProcessInspector('linux', 'x64', fake.internals)
 
     fake.files.set('/proc/100/task/100/syscall', 'running')
@@ -140,11 +172,13 @@ describe('Linux process inspector', () => {
     expect(inspector.isStdinWaiting(77)).toBe(true)
 
     fake.files.set('/proc/101/task/102/syscall', syscall(270, 1, 0x10))
+    /** 中文说明：变量 fdSet 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fdSet = Buffer.alloc(0x11)
     fdSet[0x10] = 1
     fake.memories.set('/proc/101/mem', fdSet)
     expect(inspector.isStdinWaiting(77)).toBe(true)
 
+    /** 中文说明：变量 poll 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const poll = Buffer.alloc(8)
     poll.writeInt32LE(0, 0)
     poll.writeInt16LE(1, 4)
@@ -158,6 +192,7 @@ describe('Linux process inspector', () => {
   })
 
   it('fails closed on unsupported, malformed, unreadable, or non-stdin waits', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     fake.dirs.set('/proc', ['100'])
     fake.files.set('/proc/100/stat', stat(100, 77, 100, 77, '1'))
@@ -189,10 +224,12 @@ describe('Linux process inspector', () => {
   })
 
   it('contains unreadable syscall, memory, and fdinfo boundaries', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     fake.dirs.set('/proc', ['100'])
     fake.files.set('/proc/100/stat', stat(100, 77, 100, 77, '1'))
     fake.dirs.set('/proc/100/task', ['100'])
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = createProcessInspector('linux', 'x64', fake.internals)
     expect(inspector.isStdinWaiting(77)).toBe(false)
 
@@ -201,6 +238,7 @@ describe('Linux process inspector', () => {
     fake.files.set('/proc/100/task/100/syscall', syscall(232, 5, 0, 1))
     expect(inspector.isStdinWaiting(77)).toBe(false)
 
+    /** 中文说明：变量 noStdinPoll 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noStdinPoll = Buffer.alloc(0x28)
     noStdinPoll.writeInt32LE(2, 0x20)
     noStdinPoll.writeInt16LE(1, 0x24)
@@ -212,9 +250,11 @@ describe('Linux process inspector', () => {
 
 describe('macOS process inspector', () => {
   it('reads tpgid and process trees, contains cycles, and identity-fences signals', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     fake.setTpgid('55\n')
     fake.setPs(' 10 1 Mon Jul 21 10:00:00 2026\n 11 10 Mon Jul 21 10:00:01 2026\n 12 11 Mon Jul 21 10:00:02 2026\n 13 99 Mon Jul 21 10:00:03 2026\nmalformed\n')
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = createProcessInspector('darwin', 'arm64', fake.internals)
     expect(inspector.foregroundPgid(10)).toBe(55)
     expect(inspector.isStdinWaiting(55)).toBe(false)
@@ -239,6 +279,7 @@ describe('macOS process inspector', () => {
   })
 
   it('returns undefined for missing or invalid foreground groups and dispatches platform inspectors', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     fake.setTpgid('-1')
     expect(createProcessInspector('darwin', 'arm64', fake.internals).foregroundPgid(1)).toBeUndefined()

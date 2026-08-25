@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 spawn.spec.ts 覆盖的子进程管理行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
+ * 产品维度：保障 Agent 的子进程管理能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
+ * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
+ * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ */
 import { mkdtempSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -19,8 +27,10 @@ import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
  * @param command - the bash `-c` command string used by the test.
  * @returns the argv to spawn.
  */
+/** 中文说明：函数 shellArgv 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function shellArgv(command: string): string[] {
   if (process.platform !== 'win32') return ['bash', '-c', command]
+  /** 中文说明：函数值 node 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const node = (script: string): string[] => [process.execPath, '-e', script]
   switch (command) {
     case 'true': return node('')
@@ -60,6 +70,7 @@ const { failNextClose, failNextUnlink } = vi.hoisted(() => ({
   failNextUnlink: { value: false },
 }))
 vi.mock('node:fs', async (importOriginal) => {
+  /** 中文说明：变量 actual 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const actual = await importOriginal<typeof import('node:fs')>()
   return {
     ...actual,
@@ -80,8 +91,10 @@ vi.mock('node:fs', async (importOriginal) => {
   }
 })
 
+/** 中文说明：变量 spillDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-subprocess-spec-'))
 
+/** 中文说明：type SpecOverrides 定义本测试所需的数据或行为，用于表达子进程管理场景。 */
 type SpecOverrides = Partial<Parameters<typeof spawnSubprocess>[0]> & {
   stdoutMaxBytes?: number
   stderrMaxBytes?: number
@@ -89,6 +102,7 @@ type SpecOverrides = Partial<Parameters<typeof spawnSubprocess>[0]> & {
   stdin?: string
 }
 
+/** 中文说明：函数 spec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function spec(command: string, overrides: SpecOverrides = {}) {
   const { stdoutMaxBytes = 64_000, stderrMaxBytes = 64_000, maxSpillBytes = 64 * 1024 * 1024, stdin, ...rest } = overrides
   return {
@@ -105,7 +119,9 @@ function spec(command: string, overrides: SpecOverrides = {}) {
 }
 
 /** Poll until a pid no longer exists, or is only a zombie on Linux. */
+/** 中文说明：函数 waitGone 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitGone(pid: number, timeoutMs = 5_000): Promise<void> {
+  /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
@@ -115,7 +131,9 @@ async function waitGone(pid: number, timeoutMs = 5_000): Promise<void> {
     }
     if (process.platform === 'linux') {
       try {
+        /** 中文说明：变量 stat 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+        /** 中文说明：变量 state 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const state = stat.slice(stat.lastIndexOf(')') + 2, stat.lastIndexOf(')') + 3)
         if (state === 'Z' || state === 'X') return
       } catch (error: unknown) {
@@ -128,7 +146,9 @@ async function waitGone(pid: number, timeoutMs = 5_000): Promise<void> {
   throw new Error(`pid ${pid} still alive after ${timeoutMs}ms`)
 }
 
+/** 中文说明：函数 waitForStdout 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForStdout(running: SubprocessHandle, expected: string, timeoutMs = 5_000): Promise<void> {
+  /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (running.collected.stdout!.readFrom(0).text.includes(expected)) return
@@ -138,19 +158,26 @@ async function waitForStdout(running: SubprocessHandle, expected: string, timeou
 }
 
 /** Await settlement and project both collected streams like a batch outcome. */
+/** 中文说明：函数 finish 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function finish(running: SubprocessHandle) {
+  /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const outcome = await running.done
+  /** 中文说明：函数值 final 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const final = (reader: SubprocessOutputReader | undefined) => {
+    /** 中文说明：变量 read 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const read = reader!.readFrom(0)
     return { text: read.text, truncated: read.lossy, ...read.spillPath !== undefined ? { spillPath: read.spillPath } : {} }
   }
   return { ...outcome, stdout: final(running.collected.stdout), stderr: final(running.collected.stderr) }
 }
 
+/** 中文说明：函数 waitForPidFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForPidFile(path: string, timeoutMs = 5_000): Promise<number> {
+  /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
+      /** 中文说明：变量 pid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pid = Number(readFileSync(path, 'utf8').trim())
       if (Number.isSafeInteger(pid) && pid > 0) return pid
     } catch {
@@ -171,6 +198,7 @@ describe('spawnSubprocess', () => {
   )
 
   it('captures stdout on success', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('echo hello')))
     expect(result.exitCode).toBe(0)
     expect(result.signal).toBeNull()
@@ -180,6 +208,7 @@ describe('spawnSubprocess', () => {
   })
 
   it('captures stderr separately', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('echo oops >&2')))
     expect(result.exitCode).toBe(0)
     expect(result.stdout.text).toBe('')
@@ -187,18 +216,21 @@ describe('spawnSubprocess', () => {
   })
 
   it('captures both streams', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('echo out; echo err >&2')))
     expect(result.stdout.text).toBe('out\n')
     expect(result.stderr.text).toBe('err\n')
   })
 
   it('reports non-zero exit codes', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('exit 42')))
     expect(result.exitCode).toBe(42)
     expect(result.signal).toBeNull()
   })
 
   it('passes the ambient TERM through untouched (terminal policy is the caller\'s)', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('echo "${TERM:-unset}"', {
       env: { TERM: 'callers-choice' },
     })))
@@ -206,6 +238,7 @@ describe('spawnSubprocess', () => {
   })
 
   it.skipIf(process.platform === 'win32')('runs in the requested cwd', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('pwd', { cwd: '/tmp' })))
     expect(result.stdout.text.trim()).toMatch(/\/tmp$/)
   })
@@ -214,10 +247,14 @@ describe('spawnSubprocess', () => {
     // spawnSubprocess owns no timer: it kills on abort. The bash executor drives the timeout
     // by firing this signal via a deadline (see executor.spec.ts); here we
     // assert the kill itself lands as SIGTERM.
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 start 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const start = Date.now()
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60', { signal: controller.signal }))
     setTimeout(() => { controller.abort('deadline') }, 100)
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await running.done
     expect(Date.now() - start).toBeLessThan(5_000)
     // Windows teardown terminates through taskkill, which reports no signal.
@@ -226,16 +263,21 @@ describe('spawnSubprocess', () => {
   })
 
   it.skipIf(process.platform === 'win32')('terminate() escalates to SIGKILL when SIGTERM is trapped', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('trap \'\' TERM; echo ready; while :; do sleep 60 & wait $!; done', { graceMs: 200 }))
     await waitForStdout(running, 'ready\n')
     running.terminate()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await running.done
     expect(result.signal).toBe('SIGKILL')
   })
 
   it('cancels escalation when the terminated group vanishes before collected pipes drain', async () => {
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `escaped-pipe-holder-${Date.now()}.pid`)
+    /** 中文说明：变量 graceMs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const graceMs = 160
+    /** 中文说明：变量 childScript 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childScript = `
       const { spawn } = require('node:child_process')
       const { writeFileSync } = require('node:fs')
@@ -247,14 +289,20 @@ describe('spawnSubprocess', () => {
       helper.unref()
       setInterval(() => {}, 1000)
     `
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess({
       ...spec('unused', { graceMs }),
       argv: [process.execPath, '-e', childScript],
     })
+    /** 中文说明：变量 helper 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const helper = await waitForPidFile(pidFile)
+    /** 中文说明：变量 realKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const realKill: typeof process.kill = process.kill.bind(process)
+    /** 中文说明：变量 termAt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let termAt = 0
+    /** 中文说明：变量 forceSignals 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let forceSignals = 0
+    /** 中文说明：函数值 killSpy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const killSpy = vi.spyOn(process, 'kill').mockImplementation((target, signal) => {
       if (target !== -running.pid) return realKill(target, signal)
       if (signal === 'SIGTERM') {
@@ -288,26 +336,34 @@ describe('spawnSubprocess', () => {
   it.skipIf(process.platform === 'win32')('terminates the whole process group (grandchildren die too)', async () => {
     // The subshell writes the sleep's pid then waits on it; terminating the
     // group must take the sleep down with bash.
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `grandchild-${Date.now()}.pid`)
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec(`sleep 60 & echo $! > ${pidFile}; wait`))
+    /** 中文说明：变量 grandchild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const grandchild = await waitForPidFile(pidFile)
     expect(grandchild).toBeGreaterThan(0)
 
     running.terminate()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await running.done
     expect(result.signal).toBe('SIGTERM')
     await waitGone(grandchild)
   })
 
   it('aborts via AbortSignal mid-run', async () => {
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60', { signal: controller.signal }))
     setTimeout(() => { controller.abort('user cancelled') }, 50)
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await running.done
     expect(result.signal).toBe(process.platform === 'win32' ? null : 'SIGTERM')
   })
 
   it('throws when the signal is already aborted before spawn', () => {
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort('too late')
     expect(() => spawnSubprocess(spec('echo hi', { signal: controller.signal })))
@@ -320,19 +376,24 @@ describe('spawnSubprocess', () => {
   })
 
   it('terminate() is idempotent (second call does not restart escalation)', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60'))
     running.terminate()
     running.terminate()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await running.done
     expect(result.signal).toBe(process.platform === 'win32' ? null : 'SIGTERM')
   })
 
   it.skipIf(process.platform === 'win32')('does not wait for a Linux group that has only zombie members', async () => {
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `zombie-group-${Date.now()}.pid`)
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec(`sleep 60 & echo $! > ${pidFile}; echo leader-done`, { graceMs: 100 }), {
       platform: 'linux',
       linuxProcessGroupHasLiveMembers: () => false,
     })
+    /** 中文说明：变量 descendant 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const descendant = await waitForPidFile(pidFile)
     try {
       await running.done
@@ -346,11 +407,16 @@ describe('spawnSubprocess', () => {
   })
 
   it.skipIf(process.platform === 'win32')('bounds inherited-pipe draining after the shell exits', async () => {
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `pipe-holder-${Date.now()}.pid`)
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Date.now()
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec(`sleep 60 & echo $! > ${pidFile}; echo shell-done`, { graceMs: 100 }))
+    /** 中文说明：变量 descendant 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const descendant = await waitForPidFile(pidFile)
     try {
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await finish(running)
       expect(Date.now() - started).toBeLessThan(1_000)
       expect(result.exitCode).toBe(0)
@@ -364,6 +430,7 @@ describe('spawnSubprocess', () => {
 
 describe('stdin and extra env (set by in-process plugins)', () => {
   it('writes stdin to the command and closes it', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('cat', { stdin: 'hello from stdin\n' })))
     expect(result.exitCode).toBe(0)
     expect(result.stdout.text).toBe('hello from stdin\n')
@@ -372,6 +439,7 @@ describe('stdin and extra env (set by in-process plugins)', () => {
   it('a command that reads stdin sees EOF when none is supplied', async () => {
     // No stdin → fd 0 is /dev/null, so `cat` reads EOF and exits 0 with no
     // output (it does NOT block).
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('cat')))
     expect(result.exitCode).toBe(0)
     expect(result.stdout.text).toBe('')
@@ -380,13 +448,16 @@ describe('stdin and extra env (set by in-process plugins)', () => {
   it.skipIf(process.platform === 'win32')('gives fd 0 the exact pre-seam type: /dev/null when no stdin, a pipe when supplied', async () => {
     // With no bytes, fd 0 remains the pre-spawn `ignore` default (/dev/null, a character device).
     // Supplied bytes use Node's spawn pipe, which is an AF_UNIX socket rather than a FIFO.
+    /** 中文说明：变量 none 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const none = await finish(spawnSubprocess(spec('test -c /dev/stdin && echo char || echo other')))
     expect(none.stdout.text).toBe('char\n')
+    /** 中文说明：变量 piped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const piped = await finish(spawnSubprocess(spec('test -S /dev/stdin && echo socket || echo other', { stdin: 'x' })))
     expect(piped.stdout.text).toBe('socket\n')
   })
 
   it('merges ordinary extra env entries onto the scrubbed environment', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('echo "$EXTRA_ONE/$EXTRA_TWO"', {
       env: { EXTRA_ONE: 'alpha', EXTRA_TWO: 'beta' },
     })))
@@ -396,6 +467,7 @@ describe('stdin and extra env (set by in-process plugins)', () => {
   it('lets an explicit tombstone remove an ordinary ambient env entry', async () => {
     process.env.SUBPROCESS_TOMBSTONE_PROBE = 'ambient-value'
     try {
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await finish(spawnSubprocess(spec(
         'echo "${SUBPROCESS_TOMBSTONE_PROBE:-absent}"',
         { env: { SUBPROCESS_TOMBSTONE_PROBE: undefined } },
@@ -409,6 +481,7 @@ describe('stdin and extra env (set by in-process plugins)', () => {
   it('an explicit extra env entry overrides the credential scrub', async () => {
     // EXPLICIT_OVERRIDE_PASSWORD matches the credential scrub pattern, yet an explicit
     // entry is still honored — the scrub only drops AMBIENT process.env creds.
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('echo "$EXPLICIT_OVERRIDE_PASSWORD"', {
       env: { EXPLICIT_OVERRIDE_PASSWORD: 'explicit-wins' },
     })))
@@ -418,7 +491,9 @@ describe('stdin and extra env (set by in-process plugins)', () => {
   it('does not crash or reject when the child ignores a large stdin (EPIPE)', async () => {
     // The child exits without reading, so closing a stdin pipe holding ~1 MiB triggers EPIPE.
     // The handler swallows that write error and `done` reports the child's real exit.
+    /** 中文说明：变量 big 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const big = 'x'.repeat(1024 * 1024)
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('exit 7', { stdin: big })))
     expect(result.exitCode).toBe(7)
   })
@@ -426,6 +501,7 @@ describe('stdin and extra env (set by in-process plugins)', () => {
 
 describe('output truncation and spill', () => {
   it('applies stdout and stderr caps independently', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(
       spec('printf "%.0sx" $(seq 1 500); printf "%.0se" $(seq 1 500) >&2', {
         stdoutMaxBytes: 500,
@@ -441,6 +517,7 @@ describe('output truncation and spill', () => {
 
   it('keeps the tail and spills the full stream to disk', async () => {
     // 200 numbered lines of ~10 bytes; cap at 500 bytes keeps a late tail.
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(
       spec('for i in $(seq 1 200); do printf "line-%04d\\n" $i; done', { stdoutMaxBytes: 500, stderrMaxBytes: 500 }),
       { spillDir },
@@ -450,12 +527,14 @@ describe('output truncation and spill', () => {
     expect(result.stdout.text).toContain('line-0200')
     expect(result.stdout.text).not.toContain('line-0001')
     expect(result.stdout.spillPath).toBeDefined()
+    /** 中文说明：变量 full 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const full = readFileSync(result.stdout.spillPath!, 'utf8')
     expect(full).toContain('line-0001')
     expect(full).toContain('line-0200')
   })
 
   it('does not truncate output exactly at the cap', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(
       spec('printf "%.0sx" $(seq 1 500)', { stdoutMaxBytes: 500, stderrMaxBytes: 500 }),
       { spillDir },
@@ -467,6 +546,7 @@ describe('output truncation and spill', () => {
 
   it('settles with the tail and no spill path when final spill close fails', async () => {
     failNextClose.value = true
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(
       spec('for i in $(seq 1 200); do printf "line-%04d\\n" $i; done', { stdoutMaxBytes: 500, stderrMaxBytes: 500 }),
       { spillDir },
@@ -481,8 +561,10 @@ describe('output truncation and spill', () => {
 
 describe('OutputCollector', () => {
   it('keeps the tail of a single oversized chunk', () => {
+    /** 中文说明：变量 collector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collector = new OutputCollector(10, 100, 'test', spillDir)
     collector.push(Buffer.from('0123456789abcdef'))
+    /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const out = collector.finalize()
     expect(out.text).toBe('6789abcdef')
     expect(out.truncated).toBe(true)
@@ -492,10 +574,12 @@ describe('OutputCollector', () => {
   it('retains a byte-exact tail across uneven chunk boundaries', () => {
     // A diagnostic tail must be exactly the LAST maxBytes regardless of
     // chunking; dropping only whole chunks would under-retain.
+    /** 中文说明：变量 collector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collector = new OutputCollector(10, undefined, 'exact-tail', spillDir)
     collector.push(Buffer.from('aaaa'))
     collector.push(Buffer.from('bbbbbb'))
     collector.push(Buffer.from('cc'))
+    /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const out = collector.finalize()
     expect(out.text).toBe('aabbbbbbcc')
     expect(Buffer.byteLength(out.text)).toBe(10)
@@ -503,20 +587,24 @@ describe('OutputCollector', () => {
   })
 
   it('readFrom returns increments and flags lossy reads', () => {
+    /** 中文说明：变量 collector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collector = new OutputCollector(10, 100, 'test', spillDir)
     collector.push(Buffer.from('aaaaa'))
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = collector.readFrom(0)
     expect(first.text).toBe('aaaaa')
     expect(first.lossy).toBe(false)
     expect(first.nextOffset).toBe(5)
 
     collector.push(Buffer.from('bbbbb'))
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = collector.readFrom(first.nextOffset)
     expect(second.text).toBe('bbbbb')
     expect(second.lossy).toBe(false)
 
     // Push enough to slide the window past the last offset.
     collector.push(Buffer.from('c'.repeat(20)))
+    /** 中文说明：变量 third 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const third = collector.readFrom(second.nextOffset)
     expect(third.lossy).toBe(true)
     expect(third.text).toBe('c'.repeat(10))
@@ -524,12 +612,14 @@ describe('OutputCollector', () => {
   })
 
   it('contains close failures and drops the spill path', () => {
+    /** 中文说明：变量 collector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collector = new OutputCollector(4, 100, 'closefail', spillDir)
     collector.push(Buffer.from('aaaa'))
     collector.push(Buffer.from('bbbb'))
     expect(collector.readFrom(0).spillPath).toBeDefined()
 
     failNextClose.value = true
+    /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let out: ReturnType<typeof collector.finalize>
     expect(() => { out = collector.finalize() }).not.toThrow()
 
@@ -540,14 +630,17 @@ describe('OutputCollector', () => {
   })
 
   it('discards a spill that exceeds its configured cap', () => {
+    /** 中文说明：变量 collector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collector = new OutputCollector(4, 8, 'bounded', spillDir)
     collector.push(Buffer.from('aaaa'))
     collector.push(Buffer.from('bbbb'))
+    /** 中文说明：变量 spillPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spillPath = collector.readFrom(0).spillPath!
     expect(readFileSync(spillPath, 'utf8')).toBe('aaaabbbb')
 
     collector.push(Buffer.from('c'))
     collector.push(Buffer.from('dddd'))
+    /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const out = collector.finalize()
     expect(out.text).toBe('dddd')
     expect(out.truncated).toBe(true)
@@ -556,8 +649,10 @@ describe('OutputCollector', () => {
   })
 
   it('does not create a spill when the first overflowing chunk exceeds the cap', () => {
+    /** 中文说明：变量 collector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collector = new OutputCollector(4, 4, 'no-spill', spillDir)
     collector.push(Buffer.from('abcdefgh'))
+    /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const out = collector.finalize()
     expect(out.text).toBe('efgh')
     expect(out.truncated).toBe(true)
@@ -565,9 +660,11 @@ describe('OutputCollector', () => {
   })
 
   it('contains cleanup failures while disabling an oversize spill', () => {
+    /** 中文说明：变量 collector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collector = new OutputCollector(4, 8, 'cleanup-fail', spillDir)
     collector.push(Buffer.from('aaaa'))
     collector.push(Buffer.from('bbbb'))
+    /** 中文说明：变量 spillPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spillPath = collector.readFrom(0).spillPath!
 
     failNextClose.value = true
@@ -587,6 +684,7 @@ describe('killGroup', () => {
   })
 
   it('swallows ESRCH for vanished groups', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('true'))
     await running.done
     expect(() => { killGroup(running.pid, 'SIGTERM') }).not.toThrow()
@@ -596,6 +694,7 @@ describe('killGroup', () => {
 
 describe('stdio dispositions', () => {
   it("'pipe' exposes raw streams for caller-owned protocol decoding", async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess({
       ...spec('cat'),
       stdio: { stdin: 'pipe', stdout: 'pipe', stderr: { maxBytes: 1000 } },
@@ -606,23 +705,28 @@ describe('stdio dispositions', () => {
     expect(running.collected.stdout).toBeUndefined()
     expect(running.collected.stderr).toBeDefined()
 
+    /** 中文说明：函数值 echoed 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const echoed = new Promise<string>((resolve) => {
+      /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let text = ''
       running.stdout!.on('data', (chunk: Buffer) => { text += chunk.toString('utf8') })
       running.stdout!.on('end', () => { resolve(text) })
     })
     running.stdin!.end('through the pipe\n')
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await running.done
     expect(outcome.exitCode).toBe(0)
     expect(await echoed).toBe('through the pipe\n')
   })
 
   it('a collect mode without spill keeps only the in-memory tail (no file)', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess({
       ...spec('for i in $(seq 1 200); do printf "line-%04d\\n" $i; done'),
       stdio: { stdin: 'ignore', stdout: { maxBytes: 100 }, stderr: { maxBytes: 100 } },
     }, { spillDir })
     await running.done
+    /** 中文说明：变量 read 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const read = running.collected.stdout!.readFrom(0)
     expect(read.lossy).toBe(true)
     expect(read.text).toContain('line-0200')
@@ -632,7 +736,9 @@ describe('stdio dispositions', () => {
 
 describe('windows tree semantics (injected platform)', () => {
   it('host-exit termination routes through taskkill immediately', async () => {
+    /** 中文说明：变量 killed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const killed: number[] = []
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('exec sleep 60', { graceMs: 60_000 }), {
       spillDir,
       platform: 'win32',
@@ -651,7 +757,9 @@ describe('windows tree semantics (injected platform)', () => {
   })
 
   it('terminate routes through taskkill by root pid', async () => {
+    /** 中文说明：变量 killed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const killed: number[] = []
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('exec sleep 60', { graceMs: 100 }), {
       spillDir,
       platform: 'win32',
@@ -666,12 +774,14 @@ describe('windows tree semantics (injected platform)', () => {
       },
     })
     running.terminate()
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await running.done
     expect(killed).toContain(running.pid)
     expect(outcome.signal).toBe(process.platform === 'win32' ? null : 'SIGKILL')
   })
 
   it('waitForExit falls back to direct-child liveness where groups do not exist', async () => {
+    /** 中文说明：函数值 running 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const running = spawnSubprocess(spec('true'), { spillDir, platform: 'win32', taskkill: () => {} })
     await running.done
     await expect(running.waitForExit()).resolves.toBe(true)
@@ -680,8 +790,11 @@ describe('windows tree semantics (injected platform)', () => {
 
 describe('waitForExit', () => {
   it.skipIf(process.platform === 'win32')('waits for the whole detached tree, not just the shell', async () => {
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `tree-wait-${Date.now()}.pid`)
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec(`sleep 60 & echo $! > ${pidFile}; wait`))
+    /** 中文说明：变量 grandchild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const grandchild = await waitForPidFile(pidFile)
     running.terminate()
     await running.done
@@ -690,7 +803,9 @@ describe('waitForExit', () => {
   })
 
   it('an aborted wait reports false while the tree lives', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60'))
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
     await expect(running.waitForExit(controller.signal)).resolves.toBe(false)
@@ -701,11 +816,13 @@ describe('waitForExit', () => {
 
 describe.skipIf(process.platform === 'win32')('synchronous host-exit termination', () => {
   it('force-kills the current process tree without waiting for the normal grace', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('trap "" TERM; sleep 60', { graceMs: 60_000 }))
     running.terminateForHostExit()
     await expect(running.done).resolves.toMatchObject({ exitCode: null, signal: 'SIGKILL' })
     await expect(running.waitForExit()).resolves.toBe(true)
 
+    /** 中文说明：变量 kill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const kill = vi.spyOn(process, 'kill')
     try {
       running.terminateForHostExit()
@@ -721,11 +838,14 @@ describe.skipIf(process.platform === 'win32')('tree-survivor escalation (termina
     // The leader spawns a TERM-trapping helper with all stdio detached from
     // the collected pipes, then exits: the helper holds the GROUP alive while
     // the direct child settles. The escalation must still reach it.
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `survivor-${Date.now()}.pid`)
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec(
       `bash -c 'trap "" TERM; echo $$ > ${pidFile}; sleep 60' >/dev/null 2>&1 & disown; wait_placeholder=; exit 0`,
       { graceMs: 300 },
     ))
+    /** 中文说明：变量 helper 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const helper = await waitForPidFile(pidFile)
     await running.done // direct child settled; helper survives in the group
     expect(() => process.kill(helper, 0)).not.toThrow()
@@ -736,15 +856,20 @@ describe.skipIf(process.platform === 'win32')('tree-survivor escalation (termina
   })
 
   it('a bounded waitForExit reports false while a survivor lives, true after escalation', async () => {
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `survivor-wait-${Date.now()}.pid`)
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec(
       `bash -c 'trap "" TERM; echo $$ > ${pidFile}; sleep 60' >/dev/null 2>&1 & disown; exit 0`,
       { graceMs: 200 },
     ))
+    /** 中文说明：变量 helper 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const helper = await waitForPidFile(pidFile)
     await running.done
     // A consumer-owned teardown tier bounds its wait and reads the verdict.
+    /** 中文说明：变量 bound 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bound = new AbortController()
+    /** 中文说明：函数值 timer 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const timer = setTimeout(() => { bound.abort() }, 100)
     await expect(running.waitForExit(bound.signal)).resolves.toBe(false)
     clearTimeout(timer)
@@ -756,14 +881,19 @@ describe.skipIf(process.platform === 'win32')('tree-survivor escalation (termina
   it('service teardown awaits tree survivors, not just handle settlement', async () => {
     const { Context } = await import('@deepseek-ai/cordis')
     const { default: LocalSubprocessRuntime } = await import('@deepseek-ai/dsh-subprocess-local')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(LocalSubprocessRuntime)
     ;(ctx.subprocess as InstanceType<typeof LocalSubprocessRuntime>).internals = { spillDir }
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `survivor-svc-${Date.now()}.pid`)
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = ctx.subprocess.spawn(spec(
       `bash -c 'trap "" TERM; echo $$ > ${pidFile}; sleep 60' >/dev/null 2>&1 & disown; exit 0`,
       { graceMs: 200 },
     ))
+    /** 中文说明：变量 helper 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const helper = await waitForPidFile(pidFile)
     await running.done
     await fiber.dispose()
@@ -787,11 +917,14 @@ describe('coverage seams', () => {
     // signalling, and the SIGKILL escalation timer only run here through the
     // injected platform; the mock keeps the group alive through TERM and
     // terminates the direct child when the escalation tier delivers SIGKILL.
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60', { graceMs: 100 }), {
       platform: 'linux',
       linuxProcessGroupHasLiveMembers: () => false,
     })
+    /** 中文说明：变量 realKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const realKill = process.kill.bind(process)
+    /** 中文说明：函数值 killSpy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const killSpy = vi.spyOn(process, 'kill').mockImplementation((target, signal) => {
       if (typeof target === 'number' && target < 0) {
         if (signal === 0) return true
@@ -810,8 +943,11 @@ describe('coverage seams', () => {
   })
 
   it('treats a vanished group probe as quiescent without signalling', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60'), { platform: 'linux' })
+    /** 中文说明：变量 realKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const realKill = process.kill.bind(process)
+    /** 中文说明：函数值 killSpy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const killSpy = vi.spyOn(process, 'kill').mockImplementation((target, signal) => {
       if (typeof target === 'number' && target < 0) {
         throw Object.assign(new Error('simulated absent group'), { code: 'ESRCH' })
@@ -830,6 +966,7 @@ describe('coverage seams', () => {
   })
 
   it('childEnv keeps the POSIX spread on non-Windows hosts', () => {
+    /** 中文说明：变量 platform 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
     try {
       expect(childEnv({ DSH_X: '1' }).DSH_X).toBe('1')
@@ -842,7 +979,9 @@ describe('coverage seams', () => {
     // The leader spawns a detached grandchild inheriting the collected stdout
     // pipe, then exits: `close` cannot settle while the grandchild holds the
     // pipe, so the bounded pipe-drain timer must settle the outcome.
+    /** 中文说明：变量 pidFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pidFile = join(spillDir, `pipe-drain-${Date.now()}.pid`)
+    /** 中文说明：变量 childScript 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childScript = `
       const { spawn } = require('node:child_process')
       const { writeFileSync } = require('node:fs')
@@ -853,6 +992,7 @@ describe('coverage seams', () => {
       writeFileSync(${JSON.stringify(pidFile)}, String(helper.pid))
       helper.unref()
     `
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess({
       ...spec('unused', { graceMs: 100 }),
       argv: [process.execPath, '-e', childScript],
@@ -860,8 +1000,11 @@ describe('coverage seams', () => {
     // The drain timer starts when the child's stdio closes, which can precede
     // the pid file becoming visible; measure from before that wait so the
     // lower bound cannot be eroded by the pid-file handoff.
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Date.now()
+    /** 中文说明：变量 helper 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const helper = await waitForPidFile(pidFile)
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await running.done
     expect(outcome.exitCode).toBe(0)
     expect(Date.now() - started).toBeGreaterThanOrEqual(90)
@@ -874,16 +1017,19 @@ describe('coverage seams', () => {
   })
 
   it('a spawn-failed handle rejects done while waitForExit reports gone', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('true', { cwd: '/nonexistent-dir-dsh-dispose-test' }))
     await expect(running.done).rejects.toThrow()
     await expect(running.waitForExit()).resolves.toBe(true)
   })
 
   it("an 'inherit' stdout with collected stderr wires only the requested collector", async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess({
       ...spec('echo to-parent; echo err >&2'),
       stdio: { stdin: 'ignore', stdout: 'inherit', stderr: { maxBytes: 1000 } },
     })
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await running.done
     expect(outcome.exitCode).toBe(0)
     expect(running.stdout).toBeUndefined()
@@ -892,10 +1038,12 @@ describe('coverage seams', () => {
   })
 
   it("an 'inherit' stderr with collected stdout wires only the requested collector", async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess({
       ...spec('echo out; echo to-parent >&2'),
       stdio: { stdin: 'ignore', stdout: { maxBytes: 1000 }, stderr: 'inherit' },
     })
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await running.done
     expect(outcome.exitCode).toBe(0)
     expect(running.stderr).toBeUndefined()
@@ -904,11 +1052,14 @@ describe('coverage seams', () => {
   })
 
   it('terminate() after the tree died delivers no termination signal', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('true'))
     await running.done
+    /** 中文说明：变量 spy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spy = vi.spyOn(process, 'kill')
     try {
       running.terminate()
+      /** 中文说明：函数值 delivered 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const delivered = spy.mock.calls.filter(([, sig]) => sig !== 0)
       expect(delivered).toEqual([])
     } finally {
@@ -918,10 +1069,12 @@ describe('coverage seams', () => {
   })
 
   it('repeated terminate after exit never probes or signals a reused process group', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60'))
     running.terminate()
     await running.done
     await running.waitForExit()
+    /** 中文说明：函数值 spy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spy = vi.spyOn(process, 'kill').mockImplementation(() => true)
     try {
       running.terminate()
@@ -932,12 +1085,14 @@ describe('coverage seams', () => {
   })
 
   it('waitForExit on a failed spawn reports exited immediately', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('true', { cwd: '/nonexistent-dir-dsh-spawn-test' }))
     await expect(running.done).rejects.toThrow()
     await expect(running.waitForExit()).resolves.toBe(true)
   })
 
   it('a batch-stdin handle exposes no stdin surface', async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('cat', { stdin: 'batch\n' }))
     expect(running.stdin).toBeUndefined()
     await running.done
@@ -947,7 +1102,9 @@ describe('coverage seams', () => {
 
 describe('coverage seams 2', () => {
   it('win32 treeAlive reports alive for a live child and gone after taskkill', async () => {
+    /** 中文说明：变量 killedPid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let killedPid = 0
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60'), {
       spillDir,
       platform: 'win32',
@@ -960,6 +1117,7 @@ describe('coverage seams 2', () => {
         }
       },
     })
+    /** 中文说明：变量 aborted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const aborted = new AbortController()
     aborted.abort()
     await expect(running.waitForExit(aborted.signal)).resolves.toBe(false) // alive branch
@@ -972,9 +1130,12 @@ describe('coverage seams 2', () => {
   it('an inert win32 taskkill leaves the tree alive for a bounded wait to report', async () => {
     // An inert taskkill simulates a tree that never reports exit: terminate()
     // delivers nothing, so a bounded consumer wait must come back false.
+    /** 中文说明：函数值 running 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const running = spawnSubprocess(spec('sleep 60'), { spillDir, platform: 'win32', taskkill: () => {} })
     running.terminate()
+    /** 中文说明：变量 bound 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bound = new AbortController()
+    /** 中文说明：函数值 timer 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const timer = setTimeout(() => { bound.abort() }, 60)
     await expect(running.waitForExit(bound.signal)).resolves.toBe(false)
     clearTimeout(timer)
@@ -985,12 +1146,15 @@ describe('coverage seams 2', () => {
   })
 
   it("stderr: 'pipe' exposes the raw stream", async () => {
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess({
       ...spec('echo err >&2'),
       stdio: { stdin: 'ignore', stdout: { maxBytes: 1000 }, stderr: 'pipe' },
     })
     expect(running.stderr).toBeDefined()
+    /** 中文说明：函数值 text 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const text = new Promise<string>((resolve) => {
+      /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let out = ''
       running.stderr!.on('data', (chunk: Buffer) => { out += chunk.toString('utf8') })
       running.stderr!.on('end', () => { resolve(out) })
@@ -1010,6 +1174,7 @@ describe('argv validation', () => {
   })
 
   it.skipIf(process.platform === 'win32')('spawns argv verbatim without shell interpretation', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess({ ...spec('unused'), argv: ['printf', '%s', '$HOME'] }))
     expect(result.stdout.text).toBe('$HOME')
   })
@@ -1019,6 +1184,7 @@ describe('abort edge cases', () => {
   it('reports a fallback reason for reason-less pre-aborted signals', () => {
     // Real AbortControllers always set a DOMException reason; signal-like
     // objects from other libraries may not — the fallback covers them.
+    /** 中文说明：变量 bare 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bare = {
       aborted: true,
       reason: undefined,
@@ -1032,6 +1198,7 @@ describe('abort edge cases', () => {
   it.skipIf(process.platform === 'win32')('reports the terminating signal of an externally self-killed command', async () => {
     // spawnSubprocess reports the raw signal; whether it counts as timeout/cancel is the
     // executor's classification (a self-kill is neither) — see executor.spec.ts.
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(spec('kill -TERM $$')))
     expect(result.signal).toBe('SIGTERM')
   })
@@ -1044,6 +1211,7 @@ describe('environment and spill-file hardening', () => {
     process.env.SUBPROCESS_TEST_PASSWORD = 'password-secret'
     process.env.DSH_TEST_PLAIN = 'visible'
     try {
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await finish(spawnSubprocess(spec(
         'echo "[${DSH_TEST_API_KEY:-absent}|${DSH_TEST_TOKEN:-absent}|${SUBPROCESS_TEST_PASSWORD:-absent}|${DSH_TEST_PLAIN:-absent}]"',
       )))
@@ -1061,6 +1229,7 @@ describe('environment and spill-file hardening', () => {
     // the scrub, and the deliberately supplied current values merge after it.
     process.env.DSH_STALE = 'old-value'
     try {
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await finish(spawnSubprocess(spec('echo "[${DSH_STALE:-absent}|$DSH_SHELL|$DSH_SESSION_ID]"', {
         env: { DSH_SHELL: '1', DSH_SESSION_ID: 'current-session' },
       })))
@@ -1071,27 +1240,34 @@ describe('environment and spill-file hardening', () => {
   })
 
   it.skipIf(process.platform === 'win32')('creates spill files with owner-only permissions and random names', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(
       spec('for i in $(seq 1 200); do printf "line-%04d\\n" $i; done', { stdoutMaxBytes: 500, stderrMaxBytes: 500 }),
       { spillDir },
     ))
+    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = result.stdout.spillPath!
     expect(path).toMatch(/dsh-subprocess-\d+-\d+-[0-9a-f]{12}-stdout\.log$/)
+    /** 中文说明：变量 mode 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mode = statSync(path).mode & 0o777
     expect(mode).toBe(0o600)
   })
 
   it.skipIf(process.platform === 'win32')('defaults spills into a private per-process directory', async () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await finish(spawnSubprocess(
       spec('for i in $(seq 1 200); do printf "line-%04d\\n" $i; done', { stdoutMaxBytes: 500, stderrMaxBytes: 500 }),
     ))
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = dirname(result.stdout.spillPath!)
     expect(dir).toMatch(/dsh-subprocess-/)
+    /** 中文说明：变量 mode 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mode = statSync(dir).mode & 0o777
     expect(mode).toBe(0o700)
   })
 
   it('killGroup never throws, even for EPERM-style failures', () => {
+    /** 中文说明：函数值 spy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spy = vi.spyOn(process, 'kill').mockImplementation(() => {
       throw Object.assign(new Error('EPERM'), { code: 'EPERM' })
     })
@@ -1103,9 +1279,12 @@ describe('environment and spill-file hardening', () => {
   })
 
   it('honors AbortSignal on background-style runs (no timeout)', async () => {
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const running = spawnSubprocess(spec('sleep 60', { signal: controller.signal }))
     setTimeout(() => { controller.abort() }, 50)
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await running.done
     expect(result.signal).toBe(process.platform === 'win32' ? null : 'SIGTERM')
   })

@@ -7,6 +7,14 @@
  * `ctx.subagents.startContinuable()`.
  * @module @deepseek-ai/dsh-tool-subagent
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的子代理工具行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
+ * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
+ * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
+ * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -19,13 +27,17 @@ import type { SubagentProvider, SubagentResult, SubagentRun } from '@deepseek-ai
 import type { JobOutcome } from '@deepseek-ai/dsh-jobs'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 
+/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'tool-subagent'
+/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['tools', 'subagents', 'systemPrompt']
 
 /** Prompt order after bounded delegation policy and before child reporting. */
+/** 中文说明：常量 SUBAGENT_SECTION_ORDER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SUBAGENT_SECTION_ORDER = 116.5
 
 /** Config: which registered provider this tool delegates to, plus child defaults. */
+/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 export interface Config {
   /** The `ctx.subagents` provider name to start runs on (e.g. `spawn`, `acp`). */
   provider: string
@@ -78,6 +90,7 @@ export interface Config {
   maxDepth?: number | 'provider-managed'
 }
 
+/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   provider: z.string().required(),
   toolName: z.string().default('subagent'),
@@ -99,6 +112,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** Render text blocks from the canonical JSON block array without trusting arbitrary values. */
+/** 中文说明：函数 outputValueText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function outputValueText(values: JsonValue[]): string {
   return values
     .filter((value): value is { type: 'text'; text: string } =>
@@ -109,6 +123,7 @@ function outputValueText(values: JsonValue[]): string {
 }
 
 /** Settle pending startup without rejecting the task producer contract. */
+/** 中文说明：函数 settleStart 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function settleStart(start: Promise<SubagentRun>, signal: AbortSignal): Promise<JobOutcome> {
   try {
     return await settleRun(await start)
@@ -122,6 +137,7 @@ async function settleStart(start: Promise<SubagentRun>, signal: AbortSignal): Pr
 }
 
 /** A non-`completed` stop reason means the child did not finish cleanly. */
+/** 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stopReasonError(result: SubagentResult): string | undefined {
   switch (result.stopReason) {
     case 'completed':
@@ -149,20 +165,25 @@ function stopReasonError(result: SubagentResult): string | undefined {
  * @param result - the child's terminal result.
  * @returns the headline, diagnostic, and partial text that are present.
  */
+/** 中文说明：函数 withDiagnosticAndPartialText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function withDiagnosticAndPartialText(error: string, result: SubagentResult): string {
+  /** 中文说明：变量 diagnostic 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const diagnostic = result.diagnostic === undefined
     ? ''
     : `\nDiagnostic: ${result.diagnostic}`
+  /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const text = result.output
     .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
     .map(block => block.text)
     .join('')
+  /** 中文说明：变量 partial 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const partial = text.length === 0
     ? ''
     : `\nPartial output before the run ended:\n${text}`
   return `${error}${diagnostic}${partial}`
 }
 
+/** 中文说明：type ForegroundToolResult 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 type ForegroundToolResult = {
   readonly kind: 'foreground'
   readonly runId: SubagentRun['id']
@@ -173,9 +194,11 @@ type ForegroundToolResult = {
  * Collect and release one foreground run without letting disposal replace an
  * independent result failure.
  */
+/** 中文说明：函数 settleForegroundRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function settleForegroundRun(run: SubagentRun): Promise<ForegroundToolResult> {
   const [execution] = await Promise.allSettled([
     run.result.then((result): ForegroundToolResult => {
+      /** 中文说明：变量 error 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const error = stopReasonError(result)
       if (error !== undefined) {
         // The registry converts this throw to isError; partial output is not
@@ -217,6 +240,7 @@ async function settleForegroundRun(run: SubagentRun): Promise<ForegroundToolResu
  *   scope, or authority inheritance.
  * @returns the tool `description` and the `prompt` parameter description.
  */
+/** 中文说明：函数 providerWording 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function providerWording(inheritsConversation: boolean): { description: string; promptDescription: string } {
   if (inheritsConversation) {
     return {
@@ -244,15 +268,18 @@ function providerWording(inheritsConversation: boolean): { description: string; 
   }
 }
 
+/** 中文说明：interface DelegationRunRequest 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 interface DelegationRunRequest {
   readonly run_in_background?: boolean
 }
 
+/** 中文说明：interface DelegationRunSpec 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 interface DelegationRunSpec {
   readonly runInBackground: boolean
 }
 
 /** Resolve the model's optional scheduling request into one execution route. */
+/** 中文说明：函数 resolveDelegationRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveDelegationRun(
   request: DelegationRunRequest,
   options: { readonly backgroundEnabled: boolean; readonly continuable: boolean },
@@ -273,6 +300,7 @@ function resolveDelegationRun(
   }
 }
 
+/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   // Direct apply() bypasses Schemastery's numeric constraints. A direct-apply
   // omission stays capless (the schema default only runs through the loader).
@@ -281,12 +309,17 @@ export function apply(ctx: Context, config: Config): void {
   if (config.toolFilter !== undefined && config.toolFilter.allow === undefined && config.toolFilter.deny === undefined) {
     throw new Error('tool-subagent: `toolFilter` is configured but names neither `allow` nor `deny` — remove the key or fill the filter')
   }
+  /** 中文说明：变量 backgroundEnabled 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const backgroundEnabled = config.enableRunInBackground !== false
+  /** 中文说明：变量 continuable 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const continuable = (config.backgroundMode ?? 'one-shot') === 'continuable'
+  /** 中文说明：变量 toolName 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const toolName = config.toolName ?? 'subagent'
   // Mirror provider lifecycle because sibling load order and HMR replacement
   // can change provider availability while this fiber remains active.
+  /** 中文说明：函数值 disposeTool 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   let disposeTool: (() => void) | undefined
+  /** 中文说明：函数值 mount 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const mount = (provider: SubagentProvider): void => {
     // A numeric cap the provider cannot enforce is a misconfiguration — fail at
     // mount (the earliest point the provider's capabilities are known), not on
@@ -297,6 +330,7 @@ export function apply(ctx: Context, config: Config): void {
         + 'set maxDepth: \'provider-managed\' to leave the recursion budget to the provider',
       )
     }
+    /** 中文说明：变量 wording 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wording = providerWording(provider.inheritsParentContext)
     if (continuable && provider.prepareContinuable === undefined) {
       throw new Error(
@@ -376,13 +410,16 @@ export function apply(ctx: Context, config: Config): void {
       // (tasks.start) is a synchronous commutative insertion.
       isConcurrencySafe: () => true,
       async execute(args, exec) {
+        /** 中文说明：变量 parent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const parent = exec.agent
         if (!parent) {
           // Non-agent callers provide no parent for delegation ownership.
           throw new Error('subagent tool requires a calling agent (exec.agent was undefined)')
         }
 
+        /** 中文说明：变量 maxDepth 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const maxDepth = typeof config.maxDepth === 'number' ? config.maxDepth : undefined
+        /** 中文说明：变量 request 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const request = {
           label: args.description,
           prompt: [{ type: 'text', text: args.prompt }] as ContentBlock[],
@@ -393,11 +430,13 @@ export function apply(ctx: Context, config: Config): void {
           ...maxDepth !== undefined ? { maxDepth } : {},
         }
 
+        /** 中文说明：变量 runSpec 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const runSpec = resolveDelegationRun(args, { backgroundEnabled, continuable })
         if (runSpec.runInBackground) {
           if (continuable) {
             // Resolves at inbox acceptance: the child owns its own turns from
             // there, so this call neither waits for nor collects a result.
+            /** 中文说明：变量 started 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
             const started = await ctx.subagents.startContinuable({
               provider: config.provider,
               label: args.description,
@@ -406,18 +445,22 @@ export function apply(ctx: Context, config: Config): void {
             })
             return { kind: 'continuable' as const, subagentId: started.childId }
           }
+          /** 中文说明：变量 jobs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const jobs = ctx.get('jobs')
           if (jobs === undefined) {
             throw new Error('background jobs unavailable: load @deepseek-ai/dsh-jobs and @deepseek-ai/dsh-tool-jobs')
           }
           // One-shot background child: job preflight finishes before the
           // starter can spawn, and the task-owned signal covers startup.
+          /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const id = jobs.start({
             kind: 'subagent',
             label: args.description,
             owner: parent,
             run: () => {
+              /** 中文说明：变量 controller 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
               const controller = new AbortController()
+              /** 中文说明：变量 start 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
               const start = ctx.subagents.start(config.provider, { ...request, signal: controller.signal })
               return {
                 cancel: (reason?: string) => {
@@ -431,6 +474,7 @@ export function apply(ctx: Context, config: Config): void {
           return { kind: 'background' as const, jobId: id }
         }
 
+        /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const run: SubagentRun = await ctx.subagents.start(config.provider, {
           ...request,
           signal: exec.signal,
@@ -454,6 +498,7 @@ export function apply(ctx: Context, config: Config): void {
     disposeTool()
     disposeTool = undefined
   })
+  /** 中文说明：变量 present 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const present = ctx.subagents.getProvider(config.provider)
   if (present !== undefined) {
     mount(present)

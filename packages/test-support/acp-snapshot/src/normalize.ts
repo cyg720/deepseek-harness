@@ -5,19 +5,36 @@
  * tool-schema sidecars.
  * @module @deepseek-ai/dsh-acp-snapshot/normalize
  */
+/**
+ * 文件职责：实现 normalize.ts 覆盖的ACP 快照测试支持行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
+ * 产品维度：保障 Agent 的ACP 快照测试支持能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
+ * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
+ * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ */
 
+/** 中文说明：常量 SESSION_ID 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SESSION_ID = '{{sessionId}}'
+/** 中文说明：常量 CWD 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CWD = '{{cwd}}'
+/** 中文说明：常量 SYSTEM 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SYSTEM = '{{system}}'
+/** 中文说明：常量 TOOLS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TOOLS = '{{tools}}'
+/** 中文说明：常量 EVENT_TIME 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const EVENT_TIME = '{{eventTime}}'
+/** 中文说明：常量 EVENT_OMITTED_BYTES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const EVENT_OMITTED_BYTES = '{{eventOmittedBytes}}'
+/** 中文说明：常量 PACKED_CHUNK_ROW_TYPES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool-call-chunks'])
 
+/** 中文说明：函数 isPackedFixtureRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isPackedFixtureRow(record: Record<string, unknown>): boolean {
   return typeof record.type === 'string' && PACKED_CHUNK_ROW_TYPES.has(record.type)
 }
 
+/** 中文说明：函数 omitFixtureEnvelope 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function omitFixtureEnvelope(record: Record<string, unknown>): void {
   delete record.seq
   delete record.time
@@ -26,6 +43,7 @@ function omitFixtureEnvelope(record: Record<string, unknown>): void {
 }
 
 /** A cwd-rooted path after volatile cwd replacement, through its last separator-delimited segment. */
+/** 中文说明：常量 CWD_ROOTED_PATH_RE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CWD_ROOTED_PATH_RE = /\{\{cwd\}\}(?:[\\/][^\s<>"'`]+)+/g
 const PATH_TAG_RE = /(<path>)([^<]*)(<\/path>)/g
 const ADDITIONAL_INSTRUCTIONS_PATH_RE = /(Additional instructions from: )([^\r\n]+)/g
@@ -34,15 +52,19 @@ const EVENT_READ_OMITTED_BYTES_RE = /(\r?\n\r?\n\(Omitted )\d+( bytes\.)/g
 const EVENT_READ_TARGET_REGION_RE
   = /^Session [^\r\n]+ — [^\r\n]+\r?\nTarget event seq \d+:\r?\n```json\r?\n\{\r?\n[\s\S]*?(?=\r?\n```(?:\r?\n|$)|\r?\n\r?\n\(Omitted )/
 const PATH_TEXT_BOUNDARY_RE = /[\s<>'"`()\[\]{},;:!?=]/
+/** 中文说明：常量 FILE_URI_PATH_PREFIX_RE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FILE_URI_PATH_PREFIX_RE = /(?:^|[^a-z0-9+.-])file:\/\/\/?$/i
 
 /** A UUID v4 string, the shape `randomUUID()` produces for session ids. */
+/** 中文说明：常量 UUID_RE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+/** 中文说明：常量 LOCAL_SPILL_PATH_RE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LOCAL_SPILL_PATH_RE = new RegExp(
   String.raw`\{\{cwd\}\}[\\/]\.spill[\\/]session-[0-9a-f]{12}[\\/][0-9a-f]{12}-([A-Za-z0-9._~-]+?)`
   + String.raw`(?=\. Use read with offset/limit|[\s)]|$)`,
   'g',
 )
+/** 中文说明：常量 SNAPSHOT_SPILL_PATH_RE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SNAPSHOT_SPILL_PATH_RE = new RegExp(
   String.raw`(?:[A-Za-z]:)?[\\/](?:tmp|t)[\\/](?:dsh-acp-snap-[0-9a-f]{9}|dsh-acp-snapshot-spill)[\\/]session-[0-9a-f]{12}[\\/][0-9a-f]{12}-([A-Za-z0-9._~-]+?)`
   + String.raw`(?=\. Use read with offset/limit|[\s)]|$)`,
@@ -55,9 +77,13 @@ const SNAPSHOT_SPILL_PATH_RE = new RegExp(
  * @param content - the raw session log text to scan.
  * @returns spill filename → the full matched spill path, last match wins per name.
  */
+/** 中文说明：函数 extractSnapshotSpillPaths 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function extractSnapshotSpillPaths(content: string): Map<string, string> {
+  /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = new Map<string, string>()
+  /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
   for (const match of content.matchAll(SNAPSHOT_SPILL_PATH_RE)) {
+    /** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const name = match[1]
     /* v8 ignore next -- the filename capture is required and non-empty whenever the spill regex matches */
     if (name === undefined) continue
@@ -67,6 +93,7 @@ export function extractSnapshotSpillPaths(content: string): Map<string, string> 
 }
 
 /** Convert separators only inside generated path-bearing text markers. */
+/** 中文说明：函数 canonicalizeEmbeddedPaths 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function canonicalizeEmbeddedPaths(value: string): string {
   return value
     .replace(PATH_TAG_RE, (_match, open: string, path: string, close: string) =>
@@ -76,6 +103,7 @@ function canonicalizeEmbeddedPaths(value: string): string {
 }
 
 /** Inputs the normalizers need to recognize a run's volatile values. */
+/** 中文说明：interface NormalizeContext 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface NormalizeContext {
   /** The session id(s) the run issued — replaced with `{{sessionId}}`. */
   sessionIds: string[]
@@ -86,18 +114,23 @@ export interface NormalizeContext {
 }
 
 /** How cwd-rooted path separators are represented after the cwd is tokenized. */
+/** 中文说明：type CwdPathMode 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export type CwdPathMode = 'canonical' | 'native'
 
 /** Optional controls shared by stdout and session-log normalization. */
+/** 中文说明：interface NormalizeOptions 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface NormalizeOptions {
   /** Use `/` for shared goldens, or preserve captured separators for a platform-specific golden. */
   cwdPathMode?: CwdPathMode
 }
 
 /** Return every known spelling of the generated cwd, most specific first. */
+/** 中文说明：函数 cwdSpellings 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function cwdSpellings(ctx: NormalizeContext): string[] {
+  /** 中文说明：变量 spellings 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const spellings = [...new Set([ctx.cwd, ...ctx.cwdAliases ?? []])]
     .filter(spelling => spelling.length > 0)
+  /** 中文说明：变量 macAliases 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const macAliases = spellings
     .filter(spelling => spelling.startsWith('/') && !spelling.startsWith('/private/'))
     .map(spelling => `/private${spelling}`)
@@ -106,13 +139,19 @@ function cwdSpellings(ctx: NormalizeContext): string[] {
 }
 
 /** Whether an embedded cwd match starts and ends at a path/text boundary. */
+/** 中文说明：函数 isCwdMatch 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isCwdMatch(value: string, start: number, length: number): boolean {
+  /** 中文说明：变量 before 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const before = value[start - 1]
+  /** 中文说明：变量 after 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const after = value[start + length]
+  /** 中文说明：变量 afterPunctuation 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const afterPunctuation = value[start + length + 1]
+  /** 中文说明：变量 startsAtBoundary 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const startsAtBoundary = before === undefined
     || PATH_TEXT_BOUNDARY_RE.test(before)
     || FILE_URI_PATH_PREFIX_RE.test(value.slice(0, start))
+  /** 中文说明：变量 endsAtBoundary 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const endsAtBoundary = after === undefined
     || after === '/'
     || after === '\\'
@@ -122,12 +161,17 @@ function isCwdMatch(value: string, start: number, length: number): boolean {
 }
 
 /** Replace one cwd spelling without matching a longer path segment that merely shares its prefix. */
+/** 中文说明：函数 replaceCwdSpelling 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function replaceCwdSpelling(value: string, spelling: string, replacement: string): string {
+  /** 中文说明：变量 cursor 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let cursor = 0
+  /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let out = ''
   while (cursor < value.length) {
+    /** 中文说明：变量 match 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const match = value.indexOf(spelling, cursor)
     if (match < 0) return out + value.slice(cursor)
+    /** 中文说明：变量 end 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const end = match + spelling.length
     if (isCwdMatch(value, match, spelling.length)) {
       out += value.slice(cursor, match) + replacement
@@ -141,14 +185,19 @@ function replaceCwdSpelling(value: string, spelling: string, replacement: string
 }
 
 /** Replace every known cwd spelling with one stable token. */
+/** 中文说明：函数 replaceCwd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function replaceCwd(value: string, ctx: NormalizeContext, replacement: string): string {
+  /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let out = value
+  /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
   for (const spelling of cwdSpellings(ctx)) out = replaceCwdSpelling(out, spelling, replacement)
   return out
 }
 
 /** Replace cwd, session ids, and any stray UUID with stable tokens in a string. */
+/** 中文说明：函数 scrubString 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function scrubString(value: string, ctx: NormalizeContext, cwdPathMode: CwdPathMode): string {
+  /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let out = replaceCwd(value, ctx, CWD)
   // Filesystem APIs can report one directory with several spellings. Replace
   // every known spelling longest-first so a shorter alias cannot corrupt a
@@ -176,20 +225,25 @@ function scrubString(value: string, ctx: NormalizeContext, cwdPathMode: CwdPathM
     )
     out = out.replace(EVENT_READ_OMITTED_BYTES_RE, `$1${EVENT_OMITTED_BYTES}$2`)
   }
+  /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
   for (const id of ctx.sessionIds) out = out.split(id).join(SESSION_ID)
   out = out.replace(UUID_RE, SESSION_ID)
   return out
 }
 
 /** Recursively scrub a parsed JSON value (strings replaced; structure kept). */
+/** 中文说明：函数 scrubValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function scrubValue(value: unknown, ctx: NormalizeContext, cwdPathMode: CwdPathMode, key?: string): unknown {
   if (typeof value === 'string') {
+    /** 中文说明：变量 scrubbed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scrubbed = scrubString(value, ctx, cwdPathMode)
     return cwdPathMode === 'canonical' && key === 'path' ? scrubbed.replaceAll('\\', '/') : scrubbed
   }
   if (Array.isArray(value)) return value.map(v => scrubValue(v, ctx, cwdPathMode))
   if (value !== null && typeof value === 'object') {
+    /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const out: Record<string, unknown> = {}
+    /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
     for (const [k, v] of Object.entries(value)) out[k] = scrubValue(v, ctx, cwdPathMode, k)
     return out
   }
@@ -197,13 +251,17 @@ function scrubValue(value: unknown, ctx: NormalizeContext, cwdPathMode: CwdPathM
 }
 
 /** Escape one literal path segment for use in a regular expression. */
+/** 中文说明：函数 escapeRegExp 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /** Replace any absolute spelling whose final segment is the generated cwd basename. */
+/** 中文说明：函数 tokenizeFixtureString 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function tokenizeFixtureString(value: string, ctx: NormalizeContext, basename: string): string {
+  /** 中文说明：变量 exact 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const exact = replaceCwd(value, ctx, CWD)
+  /** 中文说明：变量 absoluteCwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const absoluteCwd = new RegExp(
     String.raw`(?:[A-Za-z]:)?[\\/](?:[^\\/\s<>"]+[\\/])*${escapeRegExp(basename)}`
     + String.raw`(?=$|[\\/\s<>'"()\[\]{},;:!?=])`,
@@ -213,6 +271,7 @@ function tokenizeFixtureString(value: string, ctx: NormalizeContext, basename: s
 }
 
 /** Recursively replace generated-cwd spellings while preserving every other JSON value. */
+/** 中文说明：函数 tokenizeFixtureValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function tokenizeFixtureValue(
   value: unknown,
   ctx: NormalizeContext,
@@ -239,15 +298,22 @@ function tokenizeFixtureValue(
  * @returns Compact JSONL whose known cwd spellings become `{{cwd}}`.
  * @throws If a non-empty line is invalid JSON or the session cwd has no basename.
  */
+/** 中文说明：函数 tokenizeSessionFixtureCwd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function tokenizeSessionFixtureCwd(rawLog: string): string {
+  /** 中文说明：变量 lines 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = rawLog.split('\n')
+  /** 中文说明：函数值 firstLine 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const firstLine = lines.find(line => line.trim().length > 0)
+  /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const header = firstLine === undefined ? undefined : JSON.parse(firstLine) as { cwd?: unknown }
+  /** 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cwd = typeof header?.cwd === 'string' ? header.cwd : ''
+  /** 中文说明：变量 basename 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const basename = cwd.split(/[\\/]/).at(-1)
   if (basename === undefined || basename.length === 0) {
     throw new Error('acp-snapshot: cannot tokenize a cwd without a basename')
   }
+  /** 中文说明：变量 ctx 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx: NormalizeContext = { sessionIds: [], cwd }
   return lines.map((line) => {
     if (line.trim().length === 0) return line
@@ -266,23 +332,32 @@ export function tokenizeSessionFixtureCwd(rawLog: string): string {
  * @param options Separator output controls; shared canonical paths are the default.
  * @returns The normalized NDJSON transcript, one frame per line.
  */
+/** 中文说明：函数 normalizeStdout 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function normalizeStdout(
   rawStdout: string,
   ctx: NormalizeContext,
   options: NormalizeOptions = {},
 ): string {
+  /** 中文说明：变量 cwdPathMode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cwdPathMode = options.cwdPathMode ?? 'canonical'
+  /** 中文说明：函数值 lines 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const lines = rawStdout.split('\n').filter(line => line.trim().length > 0)
   // Map each distinct JSON-RPC id (request/response correlate by id) to a stable
   // sequence number, in first-seen order, so id churn doesn't perturb the expected output.
+  /** 中文说明：变量 idSeq 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const idSeq = new Map<string, number>()
+  /** 中文说明：函数值 stableId 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const stableId = (id: unknown): number => {
+    /** 中文说明：变量 key 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key = JSON.stringify(id)
+    /** 中文说明：变量 n 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let n = idSeq.get(key)
     if (n === undefined) { n = idSeq.size + 1; idSeq.set(key, n) }
     return n
   }
+  /** 中文说明：函数值 frames 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const frames = lines.map((line) => {
+    /** 中文说明：变量 frame 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const frame = JSON.parse(line) as Record<string, unknown>
     if ('id' in frame && frame.id !== undefined && frame.id !== null) {
       frame.id = stableId(frame.id)
@@ -306,19 +381,25 @@ export function normalizeStdout(
  * @param options Separator output controls; shared canonical paths are the default.
  * @returns The normalized JSONL log, one record per line.
  */
+/** 中文说明：函数 normalizeSessionLog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function normalizeSessionLog(
   rawLog: string,
   ctx: NormalizeContext,
   options: NormalizeOptions = {},
 ): string {
+  /** 中文说明：变量 cwdPathMode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cwdPathMode = options.cwdPathMode ?? 'canonical'
+  /** 中文说明：函数值 lines 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const lines = rawLog.split('\n').filter(line => line.trim().length > 0)
+  /** 中文说明：函数值 records 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const records = lines.map((line) => {
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = JSON.parse(line) as Record<string, unknown>
     if (record.type === 'session') {
       if ('createdAt' in record) record.createdAt = 0
     } else if (isPackedFixtureRow(record)) {
       if ('time0' in record) record.time0 = 0
+      /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const data = record.data
       if (data !== null && typeof data === 'object' && Array.isArray((data as { dt?: unknown }).dt)) {
         (data as { dt: unknown[] }).dt = (data as { dt: unknown[] }).dt.map(() => 0)
@@ -327,6 +408,7 @@ export function normalizeSessionLog(
       record.time = 0
     }
     if (record.type === 'hook/result' && record.data !== null && typeof record.data === 'object') {
+      /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const data = record.data as Record<string, unknown>
       if ('durationMs' in data) data.durationMs = 0
     }
@@ -345,6 +427,7 @@ export function normalizeSessionLog(
  * @param options - separator output controls.
  * @returns normalized committed session snapshot JSONL.
  */
+/** 中文说明：函数 normalizeSessionSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function normalizeSessionSnapshot(
   rawLog: string,
   ctx: NormalizeContext,
@@ -364,6 +447,7 @@ export function normalizeSessionSnapshot(
  * @param rawLog The raw session `.jsonl` content.
  * @returns The JSONL with system-prompt content tokenized.
  */
+/** 中文说明：函数 scrubSystemPrompts 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function scrubSystemPrompts(rawLog: string): string {
   return scrubHeaderContent(rawLog, { system: true })
 }
@@ -378,6 +462,7 @@ export function scrubSystemPrompts(rawLog: string): string {
  * @param rawLog The raw session `.jsonl` content.
  * @returns The JSONL with tool-schema content tokenized.
  */
+/** 中文说明：函数 scrubToolSchemas 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function scrubToolSchemas(rawLog: string): string {
   return scrubHeaderContent(rawLog, { tools: true })
 }
@@ -393,6 +478,7 @@ export function scrubToolSchemas(rawLog: string): string {
  * @param rawLog The raw session `.jsonl` content.
  * @returns The JSONL with all header bulk tokenized, other lines byte-identical.
  */
+/** 中文说明：函数 scrubRequestHeaders 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function scrubRequestHeaders(rawLog: string): string {
   return scrubHeaderContent(rawLog, { system: true, tools: true })
 }
@@ -406,11 +492,15 @@ export function scrubRequestHeaders(rawLog: string): string {
  * @param rawLog - persisted or already-projected session JSONL.
  * @returns committed snapshot JSONL with request headers tokenized.
  */
+/** 中文说明：函数 scrubSessionSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function scrubSessionSnapshot(rawLog: string): string {
+  /** 中文说明：变量 scrubbed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const scrubbed = scrubRequestHeaders(rawLog)
+  /** 中文说明：变量 recordIndex 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let recordIndex = 0
   return scrubbed.split('\n').map((line) => {
     if (line.trim().length === 0) return line
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = JSON.parse(line) as Record<string, unknown>
     if (recordIndex++ === 0) {
       if (record.type !== 'session') throw new Error('session snapshot must start with a session header')
@@ -422,22 +512,30 @@ export function scrubSessionSnapshot(rawLog: string): string {
 }
 
 /** Which independent request-header payloads a scrubber replaces. */
+/** 中文说明：interface HeaderScrubOptions 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 interface HeaderScrubOptions {
   system?: boolean
   tools?: boolean
 }
 
 /** Transform the selected request-header payloads. */
+/** 中文说明：函数 scrubHeaderContent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function scrubHeaderContent(rawLog: string, options: HeaderScrubOptions): string {
+  /** 中文说明：变量 lines 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = rawLog.split('\n')
+  /** 中文说明：函数值 out 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const out = lines.map((line) => {
     if (line.trim().length === 0) return line
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = JSON.parse(line) as Record<string, unknown>
+    /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const data = record.data as Record<string, unknown> | null | undefined
     if (data === null || typeof data !== 'object') return line
     if (record.type === 'request/header') {
+      /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const header = data.header as Record<string, unknown> | null | undefined
       if (header === null || typeof header !== 'object') return line
+      /** 中文说明：变量 touched 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let touched = false
       if (options.system === true && 'system' in header) { header.system = SYSTEM; touched = true }
       if (options.tools === true && 'tools' in header) { header.tools = TOOLS; touched = true }

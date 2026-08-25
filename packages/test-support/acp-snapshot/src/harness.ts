@@ -15,6 +15,14 @@
  *
  * @module @deepseek-ai/dsh-acp-snapshot/harness
  */
+/**
+ * 文件职责：实现 harness.ts 覆盖的ACP 快照测试支持行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
+ * 产品维度：保障 Agent 的ACP 快照测试支持能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
+ * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
+ * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ */
 
 import { cp, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { existsSync, realpathSync } from 'node:fs'
@@ -25,16 +33,22 @@ import { vi } from 'vitest'
 import {
   ClientSideConnection,
   PROTOCOL_VERSION,
+  /** 中文说明：type ContentBlock 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
   type ContentBlock as AcpContentBlock,
+  /** 中文说明：type RequestPermissionRequest 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
   type RequestPermissionRequest,
+  /** 中文说明：type RequestPermissionResponse 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
   type RequestPermissionResponse,
+  /** 中文说明：type SessionNotification 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
   type SessionNotification,
 } from '@agentclientprotocol/sdk'
 import { launchAcpTestAgent, type AgentUnderTest, type LaunchedAcpTestAgent } from './launcher.ts'
 
 export type { AgentUnderTest } from './launcher.ts'
 
+/** 中文说明：常量 DEFAULT_WAIT_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_WAIT_TIMEOUT_MS = 10_000
+/** 中文说明：常量 WAIT_POLL_INTERVAL_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WAIT_POLL_INTERVAL_MS = 10
 
 /**
@@ -65,6 +79,7 @@ const WAIT_POLL_INTERVAL_MS = 10
  * A standalone `cancel` may also wait for a cwd-relative readiness marker.
  * All wait timeouts default to 10s.
  */
+/** 中文说明：type InputStep 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export type InputStep =
   | { op: 'initialize' }
   | { op: 'newSession' }
@@ -89,6 +104,7 @@ export type InputStep =
   | { op: 'cancel'; waitForFile?: { path: string; timeoutMs?: number } }
 
 /** A scenario's `input.json`: an ordered list of input steps. */
+/** 中文说明：interface InputScript 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface InputScript {
   steps: InputStep[]
   /**
@@ -107,12 +123,14 @@ export interface InputScript {
 }
 
 /** One scripted answer to a permission request: which offered option kind to select. */
+/** 中文说明：interface PermissionAnswer 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface PermissionAnswer {
   /** The `PermissionOption.kind` to select (`allow_once`, `reject_always`, …). */
   kind: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always'
 }
 
 /** One harvested session log plus the identifying facts off its header line. */
+/** 中文说明：interface HarvestedLog 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface HarvestedLog {
   /** The recorded session id (header `id`). */
   id: string
@@ -125,6 +143,7 @@ export interface HarvestedLog {
 }
 
 /** The result of running a scenario: raw stdout + the harvested session log(s). */
+/** 中文说明：interface RunResult 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface RunResult {
   /** Raw stdout bytes (decoded utf8), every newline-delimited JSON-RPC frame. */
   rawStdout: string
@@ -146,6 +165,7 @@ export interface RunResult {
 }
 
 /** How to run one scenario: the agent to boot, the mode, and the fixture wiring. */
+/** 中文说明：interface RunOptions 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface RunOptions {
   /** The agent composition to boot. */
   agent: AgentUnderTest
@@ -205,12 +225,16 @@ export interface RunOptions {
  * @param platform - the host platform, injectable for unit coverage.
  * @returns the root-relative snapshot spill directory.
  */
+/** 中文说明：函数 snapshotSpillRoot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function snapshotSpillRoot(
   fixtureFile: string,
   platform: NodeJS.Platform = process.platform,
 ): string {
+  /** 中文说明：变量 scenario 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const scenario = basename(dirname(fixtureFile))
+  /** 中文说明：变量 key 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const key = createHash('sha256').update(scenario).digest('hex').slice(0, 9)
+  /** 中文说明：变量 root 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = platform === 'win32' ? '/t' : '/tmp'
   return `${root}/dsh-acp-snap-${key}`
 }
@@ -224,20 +248,29 @@ export function snapshotSpillRoot(
  * @param opts The agent to boot, the mode, and the fixture wiring.
  * @returns The captured stdout/stderr, session id, generated cwd, and harvested logs.
  */
+/** 中文说明：函数 runScenario 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function runScenario(input: InputScript, opts: RunOptions): Promise<RunResult> {
+  /** 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cwd = await mkdtemp(join(opts.workspaceParent ?? tmpdir(), 'acp-snap-cwd-'))
+  /** 中文说明：变量 cwdAliases 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cwdAliases = [...new Set([realpathSync(cwd), realpathSync.native(cwd)])]
+  /** 中文说明：变量 sessionsRoot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sessionsRoot = await mkdtemp(join(tmpdir(), 'acp-snap-sessions-'))
   // Fixed path length: spill-policy budgets the preview against the REAL path
   // before stdout normalization, so tmpdir() length differences churn expected outputs.
   // Scenario ownership also matters: replay runs concurrently, and one teardown
   // must never delete another scenario's in-flight full-output recovery file.
+  /** 中文说明：变量 spillRoot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const spillRoot = snapshotSpillRoot(opts.fixtureFile)
   // Everything past the temp-dir creation is followed by failure-safe cleanup,
   // so a failure in workspace seeding, spawn, or any step never leaks resources.
+  /** 中文说明：变量 launched 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let launched: LaunchedAcpTestAgent | undefined
+  /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let sessionId: string | undefined
+  /** 中文说明：变量 sessionLogs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let sessionLogs: HarvestedLog[] = []
+  /** 中文说明：函数值 outcome 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const outcome = await (async (): Promise<RunResult> => {
     // Seed the workspace if the scenario ships one (a file the agent reads/edits).
     // Copied into the generated cwd so the agent's bash tools see it; the expected outputs
@@ -246,6 +279,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
       await cp(opts.workspaceDir, cwd, { recursive: true })
     }
     await opts.prepareWorkspace?.(cwd)
+    /** 中文说明：变量 env 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const env: NodeJS.ProcessEnv = {
       ...opts.env,
       DSH_SNAPSHOT: opts.mode,
@@ -262,6 +296,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
 
     // Permission answers are consumed FIFO across the whole run; exhaustion
     // falls back to `cancelled` so approval-free scenarios keep the plain stub.
+    /** 中文说明：变量 permissionQueue 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const permissionQueue = [...input.permissionAnswers ?? []]
     // A scenario bug detected inside a client callback (a scripted permission
     // kind the agent never offered). It cannot fail the run from in there: a
@@ -270,6 +305,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
     // worse, a record) would absorb the impossible selection silently. So the
     // callback answers `cancelled` (a well-defined path for the agent),
     // captures the error here, and the step loop fails the run on it.
+    /** 中文说明：变量 scriptError 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let scriptError: Error | undefined
     launched = launchAcpTestAgent({
       agent: opts.agent,
@@ -277,8 +313,10 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
       ...opts.configPath !== undefined ? { configPath: opts.configPath } : {},
       env,
       requestPermission(params: RequestPermissionRequest): Promise<RequestPermissionResponse> {
+        /** 中文说明：变量 answer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const answer = permissionQueue.shift()
         if (answer === undefined) return Promise.resolve({ outcome: { outcome: 'cancelled' } })
+        /** 中文说明：函数值 option 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const option = params.options.find(o => o.kind === answer.kind)
         if (option === undefined) {
           // The scenario scripted a selection the agent never offered — a scenario
@@ -293,10 +331,12 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
         return Promise.resolve({ outcome: { outcome: 'selected', optionId: option.optionId } })
       },
     })
+    /** 中文说明：变量 active 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const active = launched
     await active.spawned
     const { client } = active
 
+    /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
     for (const step of input.steps) {
       await runStep(
         client,
@@ -336,6 +376,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
   })().then(
     value => ({ status: 'fulfilled', value } as const),
     (error: unknown) => {
+      /** 中文说明：变量 stderr 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const stderr = launched?.stderr() ?? ''
       return {
         status: 'rejected',
@@ -350,7 +391,9 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
   // owned-path removal even when an earlier cleanup rejects. Report every
   // teardown failure alongside a scenario failure so neither orthogonal
   // outcome hides the other.
+  /** 中文说明：变量 cleanupResults 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cleanupResults: PromiseSettledResult<unknown>[] = []
+  /** 中文说明：函数值 cleanup 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const cleanup = async (action: () => Promise<unknown>): Promise<void> => {
     cleanupResults.push(...await Promise.allSettled([action()]))
   }
@@ -360,6 +403,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
   await cleanup(() => rm(sessionsRoot, { recursive: true, force: true }))
   await cleanup(() => rm(spillRoot, { recursive: true, force: true }))
 
+  /** 中文说明：变量 cleanupFailures 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cleanupFailures = cleanupResults
     .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
     .map(result => result.reason as unknown)
@@ -376,6 +420,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
 }
 
 /** Drive one input step over the client connection. */
+/** 中文说明：函数 runStep 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function runStep(
   client: ClientSideConnection,
   step: InputStep,
@@ -419,20 +464,24 @@ async function runStep(
       return
     }
     case 'prompt': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: prompt before newSession')
       await client.prompt({ sessionId, prompt: [{ type: 'text', text: step.text }] })
       return
     }
     case 'promptContent': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: promptContent before newSession')
       await client.prompt({ sessionId, prompt: step.content })
       return
     }
     case 'promptAndWaitForAgentMessage': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: promptAndWaitForAgentMessage before newSession')
+      /** 中文说明：函数值 updateDone 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const updateDone = waitForUpdate(update => update.sessionUpdate === 'agent_message_chunk'
         && update.content.type === 'text' && update.content.text === step.waitForText)
       await client.prompt({ sessionId, prompt: [{ type: 'text', text: step.text }] })
@@ -440,6 +489,7 @@ async function runStep(
       return
     }
     case 'promptExpectError': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: promptExpectError before newSession')
       // The model fails this turn (a recorded provider error), so the bridge
@@ -452,11 +502,13 @@ async function runStep(
       return
     }
     case 'promptAndCancel': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: promptAndCancel before newSession')
       // Dispatch without awaiting because the fixture does not settle on its
       // own. Wait for an external readiness marker or the durable turn start
       // before sending cancellation.
+      /** 中文说明：变量 promptDone 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const promptDone = client.prompt({ sessionId, prompt: [{ type: 'text', text: step.text }] })
       if (step.waitForFile !== undefined) {
         await waitForWorkspaceFile(cwd, step.waitForFile.path, step.waitForFile.timeoutMs)
@@ -471,6 +523,7 @@ async function runStep(
       await waitForWorkspaceFile(cwd, step.path, step.timeoutMs)
       return
     case 'waitForTurnEnd': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: waitForTurnEnd before newSession')
       await waitForTurnEnd(sessionId, step.timeoutMs)
@@ -480,36 +533,42 @@ async function runStep(
       await waitForChildTurnEnd(step.child ?? 1, step.timeoutMs, step.minimumTurn)
       return
     case 'waitForGoalPhase': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: waitForGoalPhase before newSession')
       await waitForGoalPhase(sessionId, step.phase, step.timeoutMs)
       return
     }
     case 'waitForInboxMessage': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: waitForInboxMessage before newSession')
       await waitForInboxMessage(sessionId, step.text, step.timeoutMs)
       return
     }
     case 'waitForTitleAfterTurnEnd': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: waitForTitleAfterTurnEnd before newSession')
       await waitForTitleAfterTurnEnd(sessionId, step.timeoutMs)
       return
     }
     case 'waitForEventAfterTurnEnd': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: waitForEventAfterTurnEnd before newSession')
       await waitForEventAfterTurnEnd(sessionId, step.type, step.timeoutMs)
       return
     }
     case 'waitForTurnStart': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: waitForTurnStart before newSession')
       await waitForTurnStart(sessionId, step.timeoutMs, step.minimumTurn)
       return
     }
     case 'cancel': {
+      /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: cancel before newSession')
       if (step.waitForFile !== undefined) {
@@ -524,15 +583,19 @@ async function runStep(
 }
 
 /** Wait until persistence exposes an open turn for the selected session. */
+/** 中文说明：函数 waitForPersistedTurnStart 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function waitForPersistedTurnStart(
   root: string,
   sessionId: string,
   timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
   minimumTurn?: number,
 ): Promise<void> {
+  /** 中文说明：变量 invalidRecord 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let invalidRecord: { error: unknown } | undefined
   await vi.waitFor(async () => {
+    /** 中文说明：函数值 log 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
+    /** 中文说明：变量 openTurn 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let openTurn: number | undefined
     try {
       openTurn = log === undefined ? undefined : latestOpenTurn(log.content)
@@ -544,6 +607,7 @@ async function waitForPersistedTurnStart(
       return
     }
     if (openTurn === undefined || (minimumTurn !== undefined && openTurn < minimumTurn)) {
+      /** 中文说明：变量 detail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const detail = minimumTurn === undefined ? 'turn/start' : `turn/start at or beyond turn ${minimumTurn}`
       throw new Error(`snapshot-harness: session "${sessionId}" did not persist ${detail} within ${timeoutMs}ms`)
     }
@@ -557,12 +621,14 @@ async function waitForPersistedTurnStart(
  * reaches quiescence, so cancellation snapshots use this external boundary to
  * keep subprocess disposal from changing an `aborted` turn into `disposed`.
  */
+/** 中文说明：函数 waitForPersistedTurnEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function waitForPersistedTurnEnd(
   root: string,
   sessionId: string,
   timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
 ): Promise<void> {
   await vi.waitFor(async () => {
+    /** 中文说明：函数值 log 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
     if (log === undefined || !latestTurnIsClosed(log.content)) {
       throw new Error(`snapshot-harness: session "${sessionId}" did not persist turn/end within ${timeoutMs}ms`)
@@ -578,6 +644,7 @@ async function waitForPersistedTurnEnd(
  * before accepting its first prompt, so only a later request header proves its
  * own model work reached a closed turn.
  */
+/** 中文说明：函数 waitForPersistedChildTurnEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function waitForPersistedChildTurnEnd(
   root: string,
   child: number,
@@ -585,6 +652,7 @@ async function waitForPersistedChildTurnEnd(
   minimumTurn = 1,
 ): Promise<void> {
   await vi.waitFor(async () => {
+    /** 中文说明：变量 log 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const log = (await harvestSessionLogs(root))[child]
     if (log === undefined || !latestTurnIsClosed(log.content)
       || !hasRequestHeaderAfterDescriptor(log.content)
@@ -597,14 +665,17 @@ async function waitForPersistedChildTurnEnd(
 }
 
 /** Whether a raw session log contains the requested closed turn. */
+/** 中文说明：函数 hasClosedTurn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasClosedTurn(content: string, turn: number): boolean {
   return content.split('\n').filter(Boolean).some((line) => {
+    /** 中文说明：变量 event 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event = JSON.parse(line) as { type?: unknown; data?: { turn?: unknown } }
     return event.type === 'turn/end' && event.data?.turn === turn
   })
 }
 
 /** Wait until the latest durable goal snapshot reaches one phase. */
+/** 中文说明：函数 waitForPersistedGoalPhase 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function waitForPersistedGoalPhase(
   root: string,
   sessionId: string,
@@ -612,8 +683,11 @@ async function waitForPersistedGoalPhase(
   timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
 ): Promise<void> {
   await vi.waitFor(async () => {
+    /** 中文说明：函数值 content 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const content = (await harvestSessionLogs(root)).find(log => log.id === sessionId)?.content
+    /** 中文说明：函数值 matched 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const matched = content?.split('\n').filter(Boolean).some((line) => {
+      /** 中文说明：变量 event 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const event = JSON.parse(line) as { type?: unknown; data?: { goal?: { phase?: unknown } } }
       return event.type === 'goal/change' && event.data?.goal?.phase === phase
     }) ?? false
@@ -624,6 +698,7 @@ async function waitForPersistedGoalPhase(
 }
 
 /** Wait until an inserted inbox message contains scenario-owned text. */
+/** 中文说明：函数 waitForPersistedInboxMessage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function waitForPersistedInboxMessage(
   root: string,
   sessionId: string,
@@ -631,9 +706,12 @@ async function waitForPersistedInboxMessage(
   timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
 ): Promise<void> {
   await vi.waitFor(async () => {
+    /** 中文说明：函数值 log 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
+    /** 中文说明：函数值 matched 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const matched = log?.content.split('\n').some((line) => {
       if (line.length === 0) return false
+      /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const record = JSON.parse(line) as {
         type?: unknown
         data?: { inserted?: Array<{ content?: Array<{ type?: unknown; text?: unknown }> }> }
@@ -649,23 +727,28 @@ async function waitForPersistedInboxMessage(
 }
 
 /** Whether a child log contains model work after its own descriptor event. */
+/** 中文说明：函数 hasRequestHeaderAfterDescriptor 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasRequestHeaderAfterDescriptor(content: string): boolean {
+  /** 中文说明：变量 events 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events = content.slice(0, content.lastIndexOf('\n') + 1)
     .split('\n')
     .filter(line => line.length > 0)
     .map(line => JSON.parse(line) as { type?: unknown })
+  /** 中文说明：函数值 descriptor 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const descriptor = events.findLastIndex(event => event.type === 'subagent/descriptor')
   return descriptor >= 0
     && events.slice(descriptor + 1).some(event => event.type === 'request/header')
 }
 
 /** Wait until a complete provider or fallback title record follows the latest closed turn. */
+/** 中文说明：函数 waitForPersistedTitleAfterTurnEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function waitForPersistedTitleAfterTurnEnd(
   root: string,
   sessionId: string,
   timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
 ): Promise<void> {
   await vi.waitFor(async () => {
+    /** 中文说明：函数值 log 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
     if (log === undefined || !latestTitleFollowsTurnEnd(log.content)) {
       throw new Error(`snapshot-harness: session "${sessionId}" did not persist session/title after turn/end within ${timeoutMs}ms`)
@@ -674,6 +757,7 @@ async function waitForPersistedTitleAfterTurnEnd(
 }
 
 /** Wait until a complete record of `type` follows the latest closed turn. */
+/** 中文说明：函数 waitForPersistedEventAfterTurnEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function waitForPersistedEventAfterTurnEnd(
   root: string,
   sessionId: string,
@@ -681,6 +765,7 @@ async function waitForPersistedEventAfterTurnEnd(
   timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
 ): Promise<void> {
   await vi.waitFor(async () => {
+    /** 中文说明：函数值 log 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
     if (log === undefined || !latestEventFollowsTurnEnd(log.content, type)) {
       throw new Error(`snapshot-harness: session "${sessionId}" did not persist ${type} after turn/end within ${timeoutMs}ms`)
@@ -689,11 +774,13 @@ async function waitForPersistedEventAfterTurnEnd(
 }
 
 /** Wait for a cwd-relative marker proving an external action reached readiness. */
+/** 中文说明：函数 waitForWorkspaceFile 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function waitForWorkspaceFile(
   cwd: string,
   path: string,
   timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
 ): Promise<void> {
+  /** 中文说明：变量 target 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const target = join(cwd, path)
   await vi.waitFor(() => {
     if (!existsSync(target)) {
@@ -703,33 +790,47 @@ async function waitForWorkspaceFile(
 }
 
 /** Return whether the last complete raw-JSONL turn boundary closes its turn. */
+/** 中文说明：函数 latestTurnIsClosed 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function latestTurnIsClosed(content: string): boolean {
+  /** 中文说明：变量 complete 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const complete = content.slice(0, content.lastIndexOf('\n') + 1)
   return complete.lastIndexOf('\n{"type":"turn/end",')
     > complete.lastIndexOf('\n{"type":"turn/start",')
 }
 
 /** Return whether the last complete title record occurs after the last complete turn end. */
+/** 中文说明：函数 latestTitleFollowsTurnEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function latestTitleFollowsTurnEnd(content: string): boolean {
+  /** 中文说明：变量 complete 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const complete = content.slice(0, content.lastIndexOf('\n') + 1)
+  /** 中文说明：变量 turnEnd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const turnEnd = complete.lastIndexOf('\n{"type":"turn/end",')
   return turnEnd >= 0 && complete.lastIndexOf('\n{"type":"session/title",') > turnEnd
 }
 
 /** Return whether a complete record of `type` occurs after the last complete turn end. */
+/** 中文说明：函数 latestEventFollowsTurnEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function latestEventFollowsTurnEnd(content: string, type: string): boolean {
+  /** 中文说明：变量 complete 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const complete = content.slice(0, content.lastIndexOf('\n') + 1)
+  /** 中文说明：变量 turnEnd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const turnEnd = complete.lastIndexOf('\n{"type":"turn/end",')
   return turnEnd >= 0 && complete.lastIndexOf(`\n{"type":"${type}",`) > turnEnd
 }
 
 /** Return the latest open turn number, validating the persisted boundary record. */
+/** 中文说明：函数 latestOpenTurn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function latestOpenTurn(content: string): number | undefined {
+  /** 中文说明：变量 complete 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const complete = content.slice(0, content.lastIndexOf('\n') + 1)
+  /** 中文说明：变量 start 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const start = complete.lastIndexOf('\n{"type":"turn/start",')
   if (start <= complete.lastIndexOf('\n{"type":"turn/end",')) return undefined
+  /** 中文说明：变量 end 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const end = complete.indexOf('\n', start + 1)
+  /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const record = JSON.parse(complete.slice(start + 1, end)) as { data?: { turn?: unknown } | null }
+  /** 中文说明：变量 turn 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const turn = record.data?.turn
   if (!Number.isSafeInteger(turn) || (turn as number) < 1) {
     throw new Error('snapshot-harness: invalid persisted turn/start record')
@@ -747,18 +848,25 @@ function latestOpenTurn(content: string): number | undefined {
  * catches the primary and every child session. Returns `[]` if no log was
  * produced (a no-session scenario).
  */
+/** 中文说明：函数 harvestSessionLogs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function harvestSessionLogs(root: string): Promise<HarvestedLog[]> {
+  /** 中文说明：变量 files 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let files: string[]
   try {
     files = await readdir(root, { recursive: true })
   } catch {
     return []
   }
+  /** 中文说明：变量 logs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const logs: HarvestedLog[] = []
+  /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
   for (const file of files) {
     if (basename(file) !== 'session.jsonl') continue
+    /** 中文说明：变量 content 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const content = await readFile(join(root, file), 'utf8')
+    /** 中文说明：函数值 firstLine 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const firstLine = content.split('\n').find(line => line.trim().length > 0) ?? '{}'
+    /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = JSON.parse(firstLine) as { id?: unknown; createdAt?: unknown; parentSession?: unknown }
     logs.push({
       id: typeof header.id === 'string' ? header.id : '',
@@ -776,7 +884,9 @@ async function harvestSessionLogs(root: string): Promise<HarvestedLog[]> {
   // so session.<n>.jsonl maps to the same child on record and replay — replay
   // re-sorts childFiles by the same key, so the two stay consistent.
   logs.sort((a, b) => {
+    /** 中文说明：变量 ap 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ap = Number(a.parentSession !== undefined)
+    /** 中文说明：变量 bp 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bp = Number(b.parentSession !== undefined)
     return ap - bp || a.createdAt - b.createdAt || a.id.localeCompare(b.id)
   })

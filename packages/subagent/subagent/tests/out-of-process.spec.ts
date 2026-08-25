@@ -3,6 +3,14 @@
  * resolution against the real filesystem, and the settlement/handle helpers
  * under their never-reject and idempotence contracts.
  */
+/**
+ * 文件职责：验证 out-of-process.spec.ts 覆盖的子代理工具行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
+ * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
+ * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
+ * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ */
 
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -44,7 +52,9 @@ describe('child cwd resolution', () => {
   })
 
   it('rejects an existing path that is a file, not a directory', () => {
+    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'oop-file-'))
+    /** 中文说明：变量 file 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const file = join(tmp, 'plain.txt')
     try {
       writeFileSync(file, 'not a dir\n')
@@ -58,6 +68,7 @@ describe('child cwd resolution', () => {
   it.skipIf(process.platform === 'win32')('rejects a directory without search permission', () => {
     // statSync().isDirectory() is true for a mode-600 directory, but a
     // subprocess cwd needs SEARCH permission — spawn would fail EACCES.
+    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'oop-noexec-'))
     chmodSync(tmp, 0o600)
     try {
@@ -71,8 +82,10 @@ describe('child cwd resolution', () => {
   it('validateConfiguredCwd: undefined passes through, empty fails, relative resolves at load', () => {
     expect(validateConfiguredCwd('p', undefined)).toBeUndefined()
     expect(() => validateConfiguredCwd('p', '')).toThrow('config cwd must not be empty')
+    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'oop-rel-'))
     try {
+      /** 中文说明：变量 relativeCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const relativeCwd = relative(process.cwd(), tmp)
       // Resolution is lexical against the launch directory; the probe then
       // requires the resolved path to exist and be enterable.
@@ -91,8 +104,11 @@ describe('child cwd resolution', () => {
 })
 
 describe('settleRunResult', () => {
+  /** 中文说明：函数值 wiring 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const wiring = () => {
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 onAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const onAbort = vi.fn()
     controller.signal.addEventListener('abort', onAbort)
     return { controller, onAbort }
@@ -100,6 +116,7 @@ describe('settleRunResult', () => {
 
   it('passes a successful attempt through and removes the abort listener', async () => {
     const { controller, onAbort } = wiring()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await settleRunResult({
       attempt: async () => ({ output: [{ type: 'text', text: 'done' }], stopReason: 'completed' }),
       collectOutput: () => [],
@@ -115,6 +132,7 @@ describe('settleRunResult', () => {
 
   it('reads an in-flight rejection as aborted when cancellation already settled', async () => {
     const { controller, onAbort } = wiring()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await settleRunResult({
       attempt: async () => { throw new Error('pipe torn mid-cancel') },
       collectOutput: () => [{ type: 'text', text: 'partial' }],
@@ -127,7 +145,9 @@ describe('settleRunResult', () => {
 
   it('flattens a failure through a contained onError sink', async () => {
     const { controller, onAbort } = wiring()
+    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seen: string[] = []
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await settleRunResult({
       attempt: async () => { throw new Error('transport died') },
       collectOutput: () => [],
@@ -145,6 +165,7 @@ describe('settleRunResult', () => {
 
   it('flattens a failure without a sink', async () => {
     const { controller, onAbort } = wiring()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await settleRunResult({
       attempt: async () => { throw new Error('no sink configured') },
       collectOutput: () => [],
@@ -158,11 +179,16 @@ describe('settleRunResult', () => {
 
 describe('subprocessRunHandle', () => {
   it('publishes an idempotent dispose that cancels locally and awaits teardown', async () => {
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 onAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const onAbort = vi.fn()
     controller.signal.addEventListener('abort', onAbort)
+    /** 中文说明：变量 requestCancel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const requestCancel = vi.fn()
+    /** 中文说明：函数值 teardown 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const teardown = vi.fn(() => Promise.resolve())
+    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = subprocessRunHandle({
       id: SessionId('run-1'),
       result: Promise.resolve({ output: [], stopReason: 'completed' }),
@@ -173,6 +199,7 @@ describe('subprocessRunHandle', () => {
     })
     expect(run.localAgent).toBeUndefined()
     expect(String(run.id)).toBe('run-1')
+    /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposal = run.dispose()
     expect(run.dispose()).toBe(disposal)
     await disposal

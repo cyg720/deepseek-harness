@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 windows-inspector.spec.ts 覆盖的子进程管理行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
+ * 产品维度：保障 Agent 的子进程管理能力稳定、可复现且可诊断。
+ * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
+ * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
+ * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ */
 import { describe, expect, it } from 'vitest'
 import {
   createWindowsProcessInspector,
@@ -12,9 +20,13 @@ import type {
   WindowsProcessState,
 } from '@deepseek-ai/dsh-subprocess-local/src/windows-inspector.ts'
 
+/** 中文说明：函数 fakeInternals 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeInternals() {
+  /** 中文说明：变量 entries 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entries: ProcessEntry[] = []
+  /** 中文说明：变量 states 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const states = new Map<number, WindowsProcessState>()
+  /** 中文说明：变量 kills 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const kills: Array<[number, boolean]> = []
   return {
     internals: {
@@ -32,6 +44,7 @@ function fakeInternals() {
 
 describe('windowsProcessTree', () => {
   it('walks a table children-first with readable identities only', () => {
+    /** 中文说明：函数值 started 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const started = (pid: number): string | undefined => pid === 12 ? undefined : `t${pid}`
     expect(windowsProcessTree([
       { pid: 10, parentPid: 0 },
@@ -52,6 +65,7 @@ describe('windowsProcessTree', () => {
   })
 
   it('terminates on a parent cycle instead of recursing forever', () => {
+    /** 中文说明：变量 entries 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entries = [
       { pid: 10, parentPid: 11 },
       { pid: 11, parentPid: 10 },
@@ -62,7 +76,9 @@ describe('windowsProcessTree', () => {
 
 describe('WindowsProcessInspector (injected internals)', () => {
   it('exposes the shell pid as the pseudo foreground group and never proves stdin waits', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = new WindowsProcessInspector(fake.internals)
     expect(inspector.foregroundPgid(77)).toBe(77)
     expect(inspector.isStdinWaiting(77)).toBe(false)
@@ -70,9 +86,11 @@ describe('WindowsProcessInspector (injected internals)', () => {
   })
 
   it('delegates tree walks and identity checks to the internals', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     fake.add({ pid: 10, parentPid: 0 }, 't10')
     fake.add({ pid: 11, parentPid: 10 }, 't11')
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = new WindowsProcessInspector(fake.internals)
     expect(inspector.processTree(10)).toEqual([
       { pid: 11, started: 't11' },
@@ -87,7 +105,9 @@ describe('WindowsProcessInspector (injected internals)', () => {
   })
 
   it('maps SIGKILL to a forced taskkill and other signals to the grace form', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = new WindowsProcessInspector(fake.internals)
     inspector.signalGroup(77, 'SIGKILL')
     inspector.signalGroup(77, 'SIGTERM')
@@ -96,9 +116,11 @@ describe('WindowsProcessInspector (injected internals)', () => {
   })
 
   it('signals a process only while its start identity matches', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     fake.add({ pid: 10, parentPid: 0 }, 't10')
     fake.add({ pid: 11, parentPid: 10 }, 't11', false)
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = new WindowsProcessInspector(fake.internals)
     inspector.signalProcess({ pid: 10, started: 't10' }, 'SIGKILL')
     inspector.signalProcess({ pid: 11, started: 't11' }, 'SIGKILL')
@@ -107,6 +129,7 @@ describe('WindowsProcessInspector (injected internals)', () => {
   })
 
   it('accepts an injected internals factory through the creator', () => {
+    /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()
     expect(createWindowsProcessInspector(fake.internals)).toBeInstanceOf(WindowsProcessInspector)
     expect(createWindowsProcessInspector()).toBeInstanceOf(WindowsProcessInspector)
@@ -115,6 +138,7 @@ describe('WindowsProcessInspector (injected internals)', () => {
 
 describe('isInvalidHandle', () => {
   it('rejects null, zero, and the all-ones INVALID_HANDLE_VALUE forms', () => {
+    /** 中文说明：函数值 ptr 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const ptr = (value: bigint): NativePtr => value as NativePtr
     expect(isInvalidHandle(null)).toBe(true)
     expect(isInvalidHandle(undefined)).toBe(true)
@@ -125,12 +149,16 @@ describe('isInvalidHandle', () => {
   })
 })
 
+/** 中文说明：变量 win32 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const win32 = process.platform === 'win32' ? describe : describe.skip
 
 win32('WindowsProcessInspector over the real koffi bindings', () => {
   it('walks the live process table from the test runner itself', () => {
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = createWindowsProcessInspector()
+    /** 中文说明：变量 tree 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tree = inspector.processTree(process.pid)
+    /** 中文说明：函数值 self 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const self = tree.find(member => member.pid === process.pid)
     expect(self).toBeDefined()
     expect(inspector.isAlive(self!)).toBe(true)
@@ -138,6 +166,7 @@ win32('WindowsProcessInspector over the real koffi bindings', () => {
   })
 
   it('reports unreadable identities for absent processes and no-ops tree signalling', () => {
+    /** 中文说明：变量 inspector 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspector = createWindowsProcessInspector()
     expect(inspector.isAlive({ pid: 0x7FFFFFFF, started: 'absent' })).toBe(false)
     expect(() => { inspector.signalGroup(0x7FFFFFFF, 'SIGKILL') }).not.toThrow()
