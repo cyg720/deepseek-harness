@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 perplexity.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import WebRuntime from '@deepseek-ai/dsh-web'
@@ -8,8 +16,10 @@ import {
 import * as perplexityPlugin from '@deepseek-ai/dsh-web-search-perplexity'
 import { mapPerplexityResponse } from '../src/provider.ts'
 
+/** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const options = { apiKey: 'pplx-key', baseURL: 'https://api.perplexity.test', model: 'sonar', maxTokens: 1024 }
 
+/** 中文说明：函数 jsonResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
 }
@@ -20,6 +30,7 @@ afterEach(() => {
 
 describe('Perplexity response mapping', () => {
   it('maps the answer and prefers structured search_results', () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapPerplexityResponse({
       choices: [{ message: { content: 'the answer' } }],
       search_results: [
@@ -39,6 +50,7 @@ describe('Perplexity response mapping', () => {
   })
 
   it('falls back to URL-only citations when search_results is absent', () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapPerplexityResponse({
       choices: [{ message: { content: 'answer' } }],
       citations: ['https://a.test', 'https://b.test'],
@@ -53,6 +65,7 @@ describe('Perplexity response mapping', () => {
   })
 
   it('omits null/empty optional source fields', () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapPerplexityResponse({
       search_results: [{ url: 'https://a.test', title: null, snippet: '', date: null }],
     })
@@ -85,6 +98,7 @@ describe('PerplexitySearchProvider availability', () => {
 
 describe('PerplexitySearchProvider request mapping', () => {
   it('sends a chat-completions request with the query, model and max_tokens', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ choices: [{ message: { content: 'a' } }], citations: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await new PerplexitySearchProvider(options).search({ query: 'hello' })
@@ -96,6 +110,7 @@ describe('PerplexitySearchProvider request mapping', () => {
   })
 
   it('sends search_recency_filter when configured, and omits it otherwise', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ choices: [{ message: { content: 'a' } }], citations: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await new PerplexitySearchProvider({ ...options, searchRecency: 'week' }).search({ query: 'q' })
@@ -106,8 +121,10 @@ describe('PerplexitySearchProvider request mapping', () => {
   })
 
   it('forwards the abort signal', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ citations: [] }))
     vi.stubGlobal('fetch', fetchMock)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     await new PerplexitySearchProvider(options).search({ query: 'q' }, controller.signal)
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -159,6 +176,7 @@ describe('PerplexitySearchProvider error handling', () => {
   })
 
   it('surfaces an abort during success-body parse as WEB_ABORTED, not provider error', async () => {
+    /** 中文说明：函数值 body 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: true, status: 200 }
     vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
     await expect(new PerplexitySearchProvider(options).search({ query: 'q' }))
@@ -166,6 +184,7 @@ describe('PerplexitySearchProvider error handling', () => {
   })
 
   it('surfaces an abort during error-body parse as WEB_ABORTED', async () => {
+    /** 中文说明：函数值 body 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: false, status: 500 }
     vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
     await expect(new PerplexitySearchProvider(options).search({ query: 'q' }))
@@ -182,8 +201,10 @@ describe('PerplexitySearchProvider error handling', () => {
 describe('web-search-perplexity plugin registration', () => {
   it('registers the provider into ctx.web (HMR-safe)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ choices: [{ message: { content: 'a' } }], citations: [] })))
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: PERPLEXITY_PROVIDER_ID })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(perplexityPlugin, { apiKey: 'pplx-key' })
     await expect(ctx.web.search({ query: 'q' })).resolves.toMatchObject({ content: 'a', sources: [] })
     await fiber.dispose()
@@ -196,10 +217,13 @@ describe('web-search-perplexity plugin registration', () => {
   })
 
   it('threads maxTokens and searchRecency config into the request', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ choices: [{ message: { content: 'a' } }], citations: [] }))
     vi.stubGlobal('fetch', fetchMock)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: PERPLEXITY_PROVIDER_ID })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(perplexityPlugin, { apiKey: 'pplx-key', maxTokens: 256, searchRecency: 'month' })
     await ctx.web.search({ query: 'q' })
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -208,13 +232,17 @@ describe('web-search-perplexity plugin registration', () => {
   })
 
   it('falls back to env key and defaults for base URL and model when config omits them', async () => {
+    /** 中文说明：变量 prev 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prev = process.env.PERPLEXITY_API_KEY
     process.env.PERPLEXITY_API_KEY = 'env-key'
     try {
+      /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const fetchMock = vi.fn(async () => jsonResponse({ choices: [{ message: { content: 'a' } }], citations: [] }))
       vi.stubGlobal('fetch', fetchMock)
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: PERPLEXITY_PROVIDER_ID })
+      /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fiber = await ctx.plugin(perplexityPlugin, {})
       await ctx.web.search({ query: 'q' })
       const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -228,9 +256,11 @@ describe('web-search-perplexity plugin registration', () => {
   })
 
   it('is unavailable when neither config nor env supplies a key', async () => {
+    /** 中文说明：变量 prev 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prev = process.env.PERPLEXITY_API_KEY
     delete process.env.PERPLEXITY_API_KEY
     try {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: PERPLEXITY_PROVIDER_ID })
       await ctx.plugin(perplexityPlugin, {})

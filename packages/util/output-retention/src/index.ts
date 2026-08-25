@@ -29,6 +29,14 @@
  *
  * @module @deepseek-ai/dsh-output-retention
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的通用运行时工具行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的通用运行时工具能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 
 /**
  * How much content the retainer omitted.
@@ -37,6 +45,7 @@
  * omitted count is precise. `unknown` is reserved for a caller that omits
  * without a count; the retainers themselves never return it.
  */
+/** 中文说明：type Omitted 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export type Omitted =
   | { kind: 'none' }
   | { kind: 'exact'; count: number }
@@ -45,6 +54,7 @@ export type Omitted =
 /**
  * The caller receives this after each `push()`.
  */
+/** 中文说明：interface PushDecision 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface PushDecision {
   /** Was this whole unit / all of this chunk's bytes retained (nothing dropped)? */
   kept: boolean
@@ -59,6 +69,7 @@ export interface PushDecision {
  * upstream source. `kept` is `items.length`, surfaced explicitly so a notice
  * formatter need not re-count.
  */
+/** 中文说明：interface RetainedItems 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface RetainedItems<T> {
   items: T[]
   truncated: boolean
@@ -77,6 +88,7 @@ export interface RetainedItems<T> {
  * preserved, so `text` never carries a replacement char introduced by the cut
  * itself.
  */
+/** 中文说明：interface RetainedText 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface RetainedText {
   text: string
   truncated: boolean
@@ -84,6 +96,7 @@ export interface RetainedText {
 }
 
 /** Item retention strategy. Only `head` in v1; windows/grouped budgets wait for a second consumer. */
+/** 中文说明：type ItemRetentionStrategy 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export type ItemRetentionStrategy = {
   /** Keep the first `maxItems` units. Use for `glob`, `grep`, and web sources. */
   kind: 'head'
@@ -91,6 +104,7 @@ export type ItemRetentionStrategy = {
 }
 
 /** Text retention strategy: keep a prefix, a suffix, or both, counted in bytes. */
+/** 中文说明：type TextRetentionStrategy 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export type TextRetentionStrategy =
   | {
     /** Keep the first `maxBytes` bytes. */
@@ -116,6 +130,7 @@ export type TextRetentionStrategy =
  * words, because only the tool knows the recovery action ("narrow the pattern",
  * "fetch a more specific URL", "read the spill file").
  */
+/** 中文说明：interface RetentionNotice 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface RetentionNotice {
   /** Tool/scope label, e.g. `grep`, `web_fetch`, `bash stdout`. */
   scope: string
@@ -127,6 +142,7 @@ export interface RetentionNotice {
 }
 
 /** Assert a budget field is a non-negative integer (the retainer request contract). */
+/** 中文说明：函数 assertBudget 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertBudget(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(`${name} must be a non-negative integer`)
@@ -143,6 +159,7 @@ function assertBudget(value: number, name: string): void {
  * more. The caller pushes prepared logical units and, after {@link finish},
  * groups/sorts the retained subset itself.
  */
+/** 中文说明：class ItemRetainer 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export class ItemRetainer<T> {
   private readonly maxItems: number
   private readonly items: T[] = []
@@ -184,6 +201,7 @@ export class ItemRetainer<T> {
    * @returns The {@link RetainedItems} snapshot (safe to group/sort downstream).
    */
   finish(): RetainedItems<T> {
+    /** 中文说明：变量 truncated 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const truncated = this.omittedCount > 0
     return {
       items: this.items,
@@ -197,7 +215,9 @@ export class ItemRetainer<T> {
   }
 }
 
+/** 中文说明：变量 encoder 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const encoder = new TextEncoder()
+/** 中文说明：变量 decoder 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const decoder = new TextDecoder() // utf-8, non-fatal: internal malformed bytes → U+FFFD
 
 /**
@@ -208,13 +228,17 @@ const decoder = new TextDecoder() // utf-8, non-fatal: internal malformed bytes 
  * or a run too long/short to be a valid lead, is returned untouched (any
  * genuinely malformed interior is left for the decoder to replace).
  */
+/** 中文说明：函数 trimTrailingPartialUtf8 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function trimTrailingPartialUtf8(bytes: Uint8Array): Uint8Array {
+  /** 中文说明：变量 i 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let i = bytes.length - 1
   // Continuation bytes are 0b10xxxxxx; scan back at most 3 (max sequence is 4).
   // Indices are bounds-checked by the loop guard, so the reads are in range.
   while (i >= 0 && ((bytes[i] as number) & 0xc0) === 0x80 && bytes.length - i <= 3) i--
   if (i < 0) return bytes
+  /** 中文说明：变量 lead 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lead = bytes[i] as number
+  /** 中文说明：变量 expected 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const expected = lead < 0x80 ? 1 : lead < 0xe0 ? 2 : lead < 0xf0 ? 3 : lead < 0xf8 ? 4 : 0
   // expected 0 → not a lead byte (stray continuation / invalid): leave it.
   if (expected === 0) return bytes
@@ -225,7 +249,9 @@ function trimTrailingPartialUtf8(bytes: Uint8Array): Uint8Array {
  * Drop leading continuation bytes (`10xxxxxx`) so a suffix cut starts on a
  * lead/ASCII byte instead of mid-codepoint.
  */
+/** 中文说明：函数 trimLeadingContinuationUtf8 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function trimLeadingContinuationUtf8(bytes: Uint8Array): Uint8Array {
+  /** 中文说明：变量 i 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let i = 0
   // i < length guards the read.
   while (i < bytes.length && ((bytes[i] as number) & 0xc0) === 0x80) i++
@@ -244,6 +270,7 @@ function trimLeadingContinuationUtf8(bytes: Uint8Array): Uint8Array {
  * `prefixCap + tailBytes + one chunk` in memory (old suffix chunks are dropped
  * as they slide out), so a large stream does not accumulate unbounded.
  */
+/** 中文说明：class TextRetainer 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export class TextRetainer {
   private readonly prefixCap: number
   private readonly suffixCap: number
@@ -285,12 +312,16 @@ export class TextRetainer {
    * @returns The per-push {@link PushDecision}.
    */
   push(chunk: Uint8Array | string): PushDecision {
+    /** 中文说明：变量 bytes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bytes = typeof chunk === 'string' ? encoder.encode(chunk) : chunk
+    /** 中文说明：变量 before 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const before = this.total
     this.total += bytes.length
 
     // Prefix: take only up to the cap; the rest of this chunk is "not prefixed".
+    /** 中文说明：变量 room 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const room = this.prefixCap - this.prefixHeld
+    /** 中文说明：变量 take 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const take = Math.max(0, Math.min(room, bytes.length))
     if (take > 0) {
       this.prefixChunks.push(bytes.subarray(0, take))
@@ -302,6 +333,7 @@ export class TextRetainer {
     if (this.suffixCap > 0) {
       this.suffixChunks.push(bytes)
       this.suffixHeld += bytes.length
+      /** 中文说明：变量 head 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let head = this.suffixChunks[0]
       while (head !== undefined && this.suffixHeld - head.length >= this.suffixCap) {
         this.suffixChunks.shift()
@@ -317,6 +349,7 @@ export class TextRetainer {
       // drops nothing it would return. (head.length > excess by the loop
       // invariant `suffixHeld - head.length < suffixCap`, so the slice is non-empty.)
       if (head !== undefined && this.suffixHeld > this.suffixCap) {
+        /** 中文说明：变量 excess 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const excess = this.suffixHeld - this.suffixCap
         this.suffixChunks[0] = head.subarray(excess)
         this.suffixHeld -= excess
@@ -327,6 +360,7 @@ export class TextRetainer {
     // SAME way finish() does (via omittedAt), so push and finish never disagree;
     // per-push we only need whether THIS chunk pushed the total past what the
     // two caps hold.
+    /** 中文说明：变量 droppedThisChunk 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const droppedThisChunk = this.omittedAt(this.total) > this.omittedAt(before)
     return {
       kept: !droppedThisChunk,
@@ -336,7 +370,9 @@ export class TextRetainer {
 
   /** Bytes omitted once `total` bytes have been seen: `total − keptPrefix − keptSuffix`. */
   private omittedAt(total: number): number {
+    /** 中文说明：变量 prefixLen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prefixLen = Math.min(total, this.prefixCap)
+    /** 中文说明：变量 suffixLen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const suffixLen = Math.min(total - prefixLen, this.suffixCap)
     return total - prefixLen - suffixLen
   }
@@ -348,10 +384,14 @@ export class TextRetainer {
    * @returns The {@link RetainedText} snapshot (safe to hand to a formatter).
    */
   finish(): RetainedText {
+    /** 中文说明：变量 prefixLen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prefixLen = Math.min(this.total, this.prefixCap)
+    /** 中文说明：变量 suffixLen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const suffixLen = Math.min(this.total - prefixLen, this.suffixCap)
 
+    /** 中文说明：变量 prefix 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prefix = concat(this.prefixChunks) // exactly prefixLen bytes (prefixHeld === prefixLen)
+    /** 中文说明：变量 suffix 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const suffix = concat(this.suffixChunks).subarray(this.suffixHeld - suffixLen)
 
     // With nothing omitted by budget, prefix and suffix are ADJACENT slices of
@@ -361,10 +401,12 @@ export class TextRetainer {
     // boundary-spanning codepoint though no content was dropped. Only a real
     // omitted gap makes each side a true cut: trim each to a UTF-8 boundary and
     // decode separately so a codepoint is never reconstructed across the gap.
+    /** 中文说明：变量 budgetOmitted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const budgetOmitted = this.omittedAt(this.total)
     const [keptPrefix, keptSuffix] = budgetOmitted > 0
       ? [trimTrailingPartialUtf8(prefix), trimLeadingContinuationUtf8(suffix)]
       : [prefix, suffix]
+    /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = budgetOmitted > 0
       ? decoder.decode(keptPrefix) + decoder.decode(keptSuffix)
       : decoder.decode(concat([prefix, suffix]))
@@ -373,7 +415,9 @@ export class TextRetainer {
     // budget: a boundary trim drops partial-codepoint bytes too, so an exact
     // count derived from the budget alone would overstate the retained text (and
     // any "Omitted N bytes" notice built from it would be a lie).
+    /** 中文说明：变量 omitted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const omitted = this.total - keptPrefix.length - keptSuffix.length
+    /** 中文说明：变量 truncated 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const truncated = omitted > 0
 
     return {
@@ -387,11 +431,17 @@ export class TextRetainer {
 }
 
 /** Concatenate chunks into one contiguous buffer (their exact total length). */
+/** 中文说明：函数 concat 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function concat(chunks: readonly Uint8Array[]): Uint8Array {
+  /** 中文说明：变量 length 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let length = 0
+  /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
   for (const chunk of chunks) length += chunk.length
+  /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out = new Uint8Array(length)
+  /** 中文说明：变量 offset 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let offset = 0
+  /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
   for (const chunk of chunks) {
     out.set(chunk, offset)
     offset += chunk.length
@@ -409,6 +459,7 @@ function concat(chunks: readonly Uint8Array[]): Uint8Array {
  * @param unit The noun for the omitted quantity (`items`, `bytes`, `chars`, `lines`).
  * @returns A neutral clause (no trailing space), or `''` when nothing was omitted.
  */
+/** 中文说明：函数 describeOmitted 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function describeOmitted(omitted: Omitted, unit: RetentionNotice['unit']): string {
   switch (omitted.kind) {
     case 'none':
@@ -433,6 +484,7 @@ export function describeOmitted(omitted: Omitted, unit: RetentionNotice['unit'])
  * @param recovery Tool-supplied guidance builder; receives the notice, returns a sentence (or `''`).
  * @returns The combined footer line.
  */
+/** 中文说明：函数 formatRetentionNotice 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function formatRetentionNotice(
   notice: RetentionNotice,
   recovery: (notice: RetentionNotice) => string,

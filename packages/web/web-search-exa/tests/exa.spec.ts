@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 exa.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import WebRuntime from '@deepseek-ai/dsh-web'
@@ -5,8 +13,10 @@ import { ExaSearchProvider, EXA_PROVIDER_ID } from '@deepseek-ai/dsh-web-search-
 import * as exaPlugin from '@deepseek-ai/dsh-web-search-exa'
 import { mapExaResponse, mapExaResult } from '../src/provider.ts'
 
+/** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const options = { apiKey: 'exa-key', baseURL: 'https://api.exa.test', searchType: 'auto' as const, highlightsPerResult: 1 }
 
+/** 中文说明：函数 jsonResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
 }
@@ -39,6 +49,7 @@ describe('Exa result mapping', () => {
   })
 
   it('maps a response to a result with no content and filtered sources', () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapExaResponse({
       results: [
         { url: 'https://a.test', highlights: ['one'] },
@@ -87,9 +98,11 @@ describe('ExaSearchProvider availability', () => {
 
 describe('ExaSearchProvider request mapping', () => {
   it('sends query, type, highlights, numResults and bearer auth', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ results: [{ url: 'https://a.test', highlights: ['hi'] }] }))
     vi.stubGlobal('fetch', fetchMock)
 
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new ExaSearchProvider({ ...options, searchType: 'neural', highlightsPerResult: 3 })
     await provider.search({ query: 'hello', maxResults: 5 })
 
@@ -107,6 +120,7 @@ describe('ExaSearchProvider request mapping', () => {
   })
 
   it('falls back to the configured numResults when a request omits maxResults', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await new ExaSearchProvider({ ...options, numResults: 7 }).search({ query: 'q' })
@@ -115,6 +129,7 @@ describe('ExaSearchProvider request mapping', () => {
   })
 
   it('lets a request maxResults win over the configured numResults', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await new ExaSearchProvider({ ...options, numResults: 7 }).search({ query: 'q', maxResults: 2 })
@@ -123,6 +138,7 @@ describe('ExaSearchProvider request mapping', () => {
   })
 
   it('omits numResults when neither maxResults nor a configured default is set', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await new ExaSearchProvider(options).search({ query: 'q' })
@@ -131,8 +147,10 @@ describe('ExaSearchProvider request mapping', () => {
   })
 
   it('forwards the abort signal', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     await new ExaSearchProvider(options).search({ query: 'q' }, controller.signal)
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -184,6 +202,7 @@ describe('ExaSearchProvider error handling', () => {
   })
 
   it('surfaces an abort during success-body parse as WEB_ABORTED, not provider error', async () => {
+    /** 中文说明：函数值 body 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: true, status: 200 }
     vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
     await expect(new ExaSearchProvider(options).search({ query: 'q' }))
@@ -191,6 +210,7 @@ describe('ExaSearchProvider error handling', () => {
   })
 
   it('surfaces an abort during error-body parse as WEB_ABORTED', async () => {
+    /** 中文说明：函数值 body 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: false, status: 500 }
     vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
     await expect(new ExaSearchProvider(options).search({ query: 'q' }))
@@ -201,8 +221,10 @@ describe('ExaSearchProvider error handling', () => {
 describe('web-search-exa plugin registration', () => {
   it('registers the provider into ctx.web (HMR-safe)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ results: [] })))
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: EXA_PROVIDER_ID })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(exaPlugin, { apiKey: 'exa-key' })
     await expect(ctx.web.search({ query: 'q' })).resolves.toMatchObject({ sources: [], truncated: false })
     await fiber.dispose()
@@ -215,10 +237,13 @@ describe('web-search-exa plugin registration', () => {
   })
 
   it('threads searchType, highlightsPerResult and numResults config into the request', async () => {
+    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: EXA_PROVIDER_ID })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(exaPlugin, { apiKey: 'exa-key', searchType: 'keyword', highlightsPerResult: 2, numResults: 9 })
     await ctx.web.search({ query: 'q' })
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -227,13 +252,17 @@ describe('web-search-exa plugin registration', () => {
   })
 
   it('falls back to $EXA_API_KEY and the default base URL when config omits them', async () => {
+    /** 中文说明：变量 prev 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prev = process.env.EXA_API_KEY
     process.env.EXA_API_KEY = 'env-key'
     try {
+      /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
       vi.stubGlobal('fetch', fetchMock)
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: EXA_PROVIDER_ID })
+      /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fiber = await ctx.plugin(exaPlugin, {})
       await ctx.web.search({ query: 'q' })
       const [url] = fetchMock.mock.calls[0] as unknown as [string]
@@ -246,9 +275,11 @@ describe('web-search-exa plugin registration', () => {
   })
 
   it('is unavailable when neither config nor env supplies a key', async () => {
+    /** 中文说明：变量 prev 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prev = process.env.EXA_API_KEY
     delete process.env.EXA_API_KEY
     try {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: EXA_PROVIDER_ID })
       await ctx.plugin(exaPlugin, {})

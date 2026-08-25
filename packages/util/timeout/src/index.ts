@@ -4,11 +4,20 @@
  * that stops its work and translates timeout reasons into public outcomes.
  * @module @deepseek-ai/dsh-timeout
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的通用运行时工具行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的通用运行时工具能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 
 /**
  * Internal abort reason carrying a capability-owned code and elapsed deadline.
  * Providers translate it through {@link timeoutOf} before returning to callers.
  */
+/** 中文说明：class TimeoutReason 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export class TimeoutReason extends Error {
   override name = 'TimeoutReason'
 
@@ -22,8 +31,10 @@ export class TimeoutReason extends Error {
 }
 
 /** Largest delay Node schedules without clamping it to one millisecond. */
+/** 中文说明：常量 MAX_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_TIMER_DELAY_MS = 2_147_483_647
 
+/** 中文说明：函数 assertTimerDelay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertTimerDelay(timeoutMs: number, name: string): void {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > MAX_TIMER_DELAY_MS) {
     throw new Error(`${name} must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`)
@@ -42,6 +53,7 @@ function assertTimerDelay(timeoutMs: number, name: string): void {
  *   bad).
  * @returns The effective timeout in milliseconds: `min(requested ?? def, max)`.
  */
+/** 中文说明：函数 clampTimeout 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function clampTimeout(
   requested: number | undefined,
   def: number,
@@ -55,6 +67,7 @@ export function clampTimeout(
 }
 
 /** A deadline signal plus the cleanup that clears its timer (dispose-once). */
+/** 中文说明：interface Deadline 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface Deadline {
   /** Aborts on upstream cancellation OR on timeout (the timeout carries a {@link TimeoutReason}). */
   readonly signal: AbortSignal
@@ -63,6 +76,7 @@ export interface Deadline {
 }
 
 /** Rearmable timeout around one outstanding async-iterator demand. */
+/** 中文说明：interface IdleWatchdog 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface IdleWatchdog {
   /** Stable signal aborted by upstream cancellation or this watchdog's timeout. */
   readonly signal: AbortSignal
@@ -88,6 +102,7 @@ export interface IdleWatchdog {
  * @param code Capability-owned code stamped onto the timeout's {@link TimeoutReason}.
  * @returns The fused {@link Deadline} (signal + timer cleanup).
  */
+/** 中文说明：函数 deadline 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function deadline(
   upstream: AbortSignal | undefined,
   timeoutMs: number,
@@ -101,7 +116,9 @@ export function deadline(
 
   assertTimerDelay(timeoutMs, 'deadline timeoutMs')
 
+  /** 中文说明：变量 timer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const timer = new AbortController()
+  /** 中文说明：函数值 id 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const id = setTimeout(() => { timer.abort(new TimeoutReason(code, timeoutMs)) }, timeoutMs)
   return {
     // AbortSignal.any adopts the reason of whichever source aborts FIRST, so a
@@ -123,20 +140,27 @@ export function deadline(
  * @param code - capability-owned code carried by the timeout reason.
  * @returns a stable signal, guarded next operation, and timer disposer.
  */
+/** 中文说明：函数 idleWatchdog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function idleWatchdog(
   upstream: AbortSignal | undefined,
   timeoutMs: number,
   code: string,
 ): IdleWatchdog {
   assertTimerDelay(timeoutMs, 'idleWatchdog timeoutMs')
+  /** 中文说明：变量 timeout 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const timeout = new AbortController()
+  /** 中文说明：变量 signal 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const signal = upstream === undefined
     ? timeout.signal
     : AbortSignal.any([upstream, timeout.signal])
+  /** 中文说明：变量 timer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let timer: ReturnType<typeof setTimeout> | undefined
+  /** 中文说明：变量 outstanding 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let outstanding = false
+  /** 中文说明：变量 disposed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let disposed = false
 
+  /** 中文说明：函数值 arm 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const arm = (): void => {
     if (timer !== undefined) clearTimeout(timer)
     timer = setTimeout(() => {
@@ -181,9 +205,11 @@ export function idleWatchdog(
  * @param code When provided, only a {@link TimeoutReason} with this exact `code` matches.
  * @returns The matching {@link TimeoutReason}, else `undefined`.
  */
+/** 中文说明：函数 timeoutOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function timeoutOf(x: AbortSignal | { reason?: unknown }, code?: string): TimeoutReason | undefined {
   // AbortSignal.reason is typed `any`; pin it to `unknown` so no `any` leaks and
   // the instanceof narrows cleanly for both a signal and a bare reason carrier.
+  /** 中文说明：变量 reason 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const reason: unknown = x.reason
   if (!(reason instanceof TimeoutReason)) return undefined
   return code === undefined || reason.code === code ? reason : undefined

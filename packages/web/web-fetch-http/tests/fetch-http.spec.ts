@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 fetch-http.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { AddressInfo } from 'node:net'
@@ -8,6 +16,7 @@ import type { HttpFetchLimits } from '@deepseek-ai/dsh-web-fetch-http'
 import * as fetchPlugin from '@deepseek-ai/dsh-web-fetch-http'
 import { classifyContentType, decoderForCharset, isSameOrigin, parseCharset, validateFetchUrl } from '../src/policy.ts'
 
+/** 中文说明：变量 limits 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const limits: HttpFetchLimits = {
   maxUrlLength: 2048,
   maxResponseBytes: 5_000_000,
@@ -17,10 +26,14 @@ const limits: HttpFetchLimits = {
   userAgent: 'test-agent/1.0',
 }
 
+/** 中文说明：type Handler 定义本测试所需的数据或行为，用于表达Web 搜索与抓取场景。 */
 type Handler = (req: IncomingMessage, res: ServerResponse) => void
 
+/** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let server: Server
+/** 中文说明：变量 base 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let base: string
+/** 中文说明：变量 handler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let handler: Handler
 
 beforeEach(async () => {
@@ -36,6 +49,7 @@ afterEach(async () => {
   await new Promise<void>(resolve => server.close(() => { resolve() }))
 })
 
+/** 中文说明：函数 provider 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function provider(overrides: Partial<HttpFetchLimits> = {}): HttpFetchProvider {
   return new HttpFetchProvider({ ...limits, ...overrides })
 }
@@ -81,6 +95,7 @@ describe('policy helpers', () => {
 describe('HttpFetchProvider success', () => {
   it('fetches a text body', async () => {
     handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('hello world') }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider().fetch({ url: base })
     expect(provider().available()).toBe(true)
     expect(result.statusCode).toBe(200)
@@ -90,11 +105,13 @@ describe('HttpFetchProvider success', () => {
 
   it('fetches an html body and classifies it as html', async () => {
     handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<h1>hi</h1>') }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider().fetch({ url: base })
     expect(result.body).toEqual({ kind: 'html', content: '<h1>hi</h1>' })
   })
 
   it('sends the configured user agent', async () => {
+    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seen: string | undefined
     handler = (req, res) => { seen = req.headers['user-agent']; res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ok') }
     await provider().fetch({ url: base })
@@ -103,6 +120,7 @@ describe('HttpFetchProvider success', () => {
 
   it('returns a non-2xx response as a result, not an error', async () => {
     handler = (_req, res) => { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('nope') }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider().fetch({ url: base })
     expect(result.statusCode).toBe(404)
     expect(result.body).toEqual({ kind: 'text', content: 'nope' })
@@ -118,6 +136,7 @@ describe('HttpFetchProvider caps', () => {
 
   it('truncates a stream that grows past the byte cap', async () => {
     handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('abcdefghij') }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider({ maxResponseBytes: 4 }).fetch({ url: base })
     expect(result.body.content).toBe('abcd')
     expect(result.truncated).toBe(true)
@@ -125,6 +144,7 @@ describe('HttpFetchProvider caps', () => {
 
   it('does not flag a body that exactly fills the byte cap as truncated', async () => {
     handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('abcd') }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider({ maxResponseBytes: 4 }).fetch({ url: base })
     expect(result.body.content).toBe('abcd')
     expect(result.truncated).toBe(false)
@@ -132,6 +152,7 @@ describe('HttpFetchProvider caps', () => {
 
   it('truncates a decoded body past the character cap', async () => {
     handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('abcdefghij') }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider({ maxBodyChars: 3 }).fetch({ url: base })
     expect(result.body.content).toBe('abc')
     expect(result.truncated).toBe(true)
@@ -151,6 +172,7 @@ describe('HttpFetchProvider caps', () => {
 
   it('accepts a declared content-length within the cap', async () => {
     handler = (_req, res) => { const body = 'sized'; res.writeHead(200, { 'content-type': 'text/plain', 'content-length': String(body.length) }); res.end(body) }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider().fetch({ url: base })
     expect(result.body.content).toBe('sized')
   })
@@ -158,6 +180,7 @@ describe('HttpFetchProvider caps', () => {
   it('decodes a non-UTF-8 declared charset', async () => {
     // 0xE9 is "é" in ISO-8859-1; decoded as UTF-8 it would be a replacement char.
     handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/plain; charset=iso-8859-1' }); res.end(Buffer.from([0x63, 0x61, 0x66, 0xE9])) }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider().fetch({ url: base })
     expect(result.body.content).toBe('café')
   })
@@ -175,6 +198,7 @@ describe('HttpFetchProvider redirects', () => {
       if (req.url === '/start') { res.writeHead(302, { location: '/end' }); res.end() }
       else { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('arrived') }
     }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider().fetch({ url: `${base}/start` })
     expect(result.body.content).toBe('arrived')
     expect(result.url).toBe(`${base}/end`)
@@ -195,6 +219,7 @@ describe('HttpFetchProvider redirects', () => {
 
   it('rejects exceeding the redirect hop cap', async () => {
     handler = (req, res) => {
+      /** 中文说明：变量 n 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const n = Number(new URL(req.url ?? '/', base).searchParams.get('n') ?? '0')
       res.writeHead(302, { location: `/?n=${n + 1}` })
       res.end()
@@ -206,13 +231,16 @@ describe('HttpFetchProvider redirects', () => {
   it('follows exactly maxRedirects hops: a chain landing on the Nth redirect succeeds', async () => {
     // maxRedirects: 2 → /?n=0 → /?n=1 → /?n=2(200). Exactly 2 redirects + 1
     // final = 3 requests; the cap is inclusive of the landing request.
+    /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let requests = 0
     handler = (req, res) => {
       requests++
+      /** 中文说明：变量 n 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const n = Number(new URL(req.url ?? '/', base).searchParams.get('n') ?? '0')
       if (n >= 2) { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('landed') }
       else { res.writeHead(302, { location: `/?n=${n + 1}` }); res.end() }
     }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider({ maxRedirects: 2 }).fetch({ url: `${base}/?n=0` })
     expect(result.body.content).toBe('landed')
     expect(requests).toBe(3)
@@ -221,9 +249,11 @@ describe('HttpFetchProvider redirects', () => {
   it('makes exactly maxRedirects+1 requests before blocking an over-long chain', async () => {
     // maxRedirects: 2 on an infinite chain: requests at n=0,1,2 (the 3rd is the
     // over-limit redirect, refused before its Location is followed) = 3 total.
+    /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let requests = 0
     handler = (req, res) => {
       requests++
+      /** 中文说明：变量 n 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const n = Number(new URL(req.url ?? '/', base).searchParams.get('n') ?? '0')
       res.writeHead(302, { location: `/?n=${n + 1}` })
       res.end()
@@ -237,7 +267,9 @@ describe('HttpFetchProvider redirects', () => {
     // The redirect budget is checked BEFORE the over-limit hop's target is
     // origin-validated, so the diagnosis is "exceeded", not "cross-origin".
     handler = (req, res) => {
+      /** 中文说明：变量 n 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const n = Number(new URL(req.url ?? '/', base).searchParams.get('n') ?? '0')
+      /** 中文说明：变量 location 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const location = n === 0 ? '/?n=1' : 'https://example.com/'
       res.writeHead(302, { location })
       res.end()
@@ -253,6 +285,7 @@ describe('HttpFetchProvider redirects', () => {
     }
     await expect(provider({ maxRedirects: 0 }).fetch({ url: `${base}/r` }))
       .rejects.toThrow(expect.objectContaining({ code: 'WEB_REDIRECT_BLOCKED' }))
+    /** 中文说明：变量 direct 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const direct = await provider({ maxRedirects: 0 }).fetch({ url: `${base}/done` })
     expect(direct.body.content).toBe('direct')
   })
@@ -268,6 +301,7 @@ describe('HttpFetchProvider redirects', () => {
       if (req.url === '/a') { res.writeHead(301, { location: 'b' }); res.end() }
       else { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('landed') }
     }
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await provider().fetch({ url: `${base}/a` })
     expect(result.body.content).toBe('landed')
   })
@@ -285,6 +319,7 @@ describe('HttpFetchProvider invalid URLs and abort', () => {
   })
 
   it('honors a pre-aborted signal', async () => {
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
     await expect(provider().fetch({ url: base }, controller.signal))
@@ -293,7 +328,9 @@ describe('HttpFetchProvider invalid URLs and abort', () => {
 
   it('aborts an in-flight fetch via the signal', async () => {
     handler = (_req, _res) => { /* never responds */ }
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 promise 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const promise = provider().fetch({ url: base }, controller.signal)
     controller.abort()
     await expect(promise).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
@@ -329,11 +366,16 @@ describe('HttpFetchProvider invalid URLs and abort', () => {
 
 describe('HttpFetchProvider body cancellation on error paths', () => {
   /** A fake Response whose body.cancel is observable. */
+  /** 中文说明：type FakeInit 定义本测试所需的数据或行为，用于表达Web 搜索与抓取场景。 */
   type FakeInit = { status: number; headers: Record<string, string>; location?: string }
+  /** 中文说明：函数 fakeResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function fakeResponse(init: FakeInit): { response: Response; cancelled: () => boolean } {
+    /** 中文说明：变量 cancelled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let cancelled = false
+    /** 中文说明：变量 headers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const headers = new Headers(init.headers)
     if (init.location !== undefined) headers.set('location', init.location)
+    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = {
       status: init.status,
       headers,
@@ -369,8 +411,10 @@ describe('HttpFetchProvider body cancellation on error paths', () => {
 
 describe('web-fetch-http plugin registration', () => {
   it('registers the provider into ctx.web (HMR-safe)', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(fetchPlugin, {})
     await expect(ctx.web.fetch({ url: `${base}/` }))
       .resolves.toMatchObject({ statusCode: 200 })
@@ -384,6 +428,7 @@ describe('web-fetch-http plugin registration', () => {
   })
 
   it('rejects a non-positive resource limit at construction', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
     await expect(ctx.plugin(fetchPlugin, { maxResponseBytes: -1 }))
@@ -391,6 +436,7 @@ describe('web-fetch-http plugin registration', () => {
   })
 
   it('rejects a zero timeout at construction', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
     await expect(ctx.plugin(fetchPlugin, { timeoutMs: 0 }))
@@ -398,6 +444,7 @@ describe('web-fetch-http plugin registration', () => {
   })
 
   it('rejects a timeout beyond Node timer range at construction', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
     await expect(ctx.plugin(fetchPlugin, { timeoutMs: 2_147_483_648 }))
@@ -405,6 +452,7 @@ describe('web-fetch-http plugin registration', () => {
   })
 
   it('rejects a fractional redirect cap at construction', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
     await expect(ctx.plugin(fetchPlugin, { maxRedirects: 1.5 }))
@@ -412,6 +460,7 @@ describe('web-fetch-http plugin registration', () => {
   })
 
   it('rejects a negative redirect cap at construction', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
     await expect(ctx.plugin(fetchPlugin, { maxRedirects: -1 }))
@@ -419,8 +468,10 @@ describe('web-fetch-http plugin registration', () => {
   })
 
   it('accepts maxRedirects: 0 (follow no redirects) as valid config', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(fetchPlugin, { maxRedirects: 0 })
     await expect(ctx.web.fetch({ url: `${base}/` }))
       .resolves.toMatchObject({ statusCode: 200 })

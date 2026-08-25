@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 remote-model.spec.ts 覆盖的Typert 类型系统行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的Typert 类型系统能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -7,17 +15,22 @@ import { WorkspaceAnalyzer } from '../src/analyzer.ts'
 import type { InvocationModel } from '../src/model.ts'
 import { WorkspaceTypertGenerator } from '../src/workspace.ts'
 
+/** 中文说明：变量 fixtureRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fixtureRoot = resolve(import.meta.dirname, 'fixtures/remote-model')
+/** 中文说明：变量 temporaryRoots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const temporaryRoots: string[] = []
 
+/** 中文说明：函数 normalizedPath 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function normalizedPath(path: string): string {
   return path.replaceAll('\\', '/')
 }
 
+/** 中文说明：interface RuntimeSchema 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
 interface RuntimeSchema {
   safeParse(value: unknown): { readonly success: boolean }
 }
 
+/** 中文说明：interface RuntimeDescriptor 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
 interface RuntimeDescriptor {
   readonly id: string
   readonly cancellation?: { readonly parameter: 'signal' }
@@ -29,6 +42,7 @@ interface RuntimeDescriptor {
   readonly result: { readonly schema: RuntimeSchema }
 }
 
+/** 中文说明：interface RuntimeRemoteModule 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
 interface RuntimeRemoteModule {
   readonly TYPERT_REMOTE: {
     readonly package: string
@@ -36,6 +50,7 @@ interface RuntimeRemoteModule {
   }
 }
 
+/** 中文说明：interface RemoteDeclarationMap 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
 interface RemoteDeclarationMap {
   readonly file: string
   readonly names: readonly string[]
@@ -43,11 +58,13 @@ interface RemoteDeclarationMap {
 }
 
 afterEach(() => {
+  /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
 describe('Remote model generation', { timeout: 60_000 }, () => {
   it('discovers a Remote-only package and emits strict direct and Context descriptors', async () => {
+    /** 中文说明：变量 generator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generator = new WorkspaceTypertGenerator(fixtureRoot)
 
     expect(generator.discover()).toEqual([{
@@ -64,6 +81,7 @@ describe('Remote model generation', { timeout: 60_000 }, () => {
       packageRoot: 'packages/remote',
     })
 
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = remotePackage(fixtureRoot)
     expect(model.services).toEqual([])
     expect(model.invocations).toHaveLength(2)
@@ -125,11 +143,15 @@ describe('Remote model generation', { timeout: 60_000 }, () => {
       "'agent:goals/rename': (request: RenameGoalRequest) => Promise<RemoteResult<RenameGoalResult>>",
     )
 
+    /** 中文说明：变量 remoteJs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const remoteJs = artifact?.remote?.js
     if (remoteJs === undefined) throw new Error('Remote fixture emitted no Host-for-Client JavaScript')
+    /** 中文说明：变量 executable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const executable = remoteJs.replace("from 'zod'", `from ${JSON.stringify(import.meta.resolve('zod'))}`)
+    /** 中文说明：变量 generated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generated = await import(`data:text/javascript,${encodeURIComponent(executable)}`) as RuntimeRemoteModule
     expect(generated.TYPERT_REMOTE.package).toBe('@fixture/remote')
+    /** 中文说明：变量 create 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const create = generated.TYPERT_REMOTE.descriptors[0]
     expect(create?.cancellation).toEqual({ parameter: 'signal' })
     expect(create?.parameters[1]?.codec.schema.safeParse({ title: 'ship' }).success).toBe(true)
@@ -137,6 +159,7 @@ describe('Remote model generation', { timeout: 60_000 }, () => {
     expect(create?.result.schema.safeParse({ ref: 'goal-1' }).success).toBe(true)
     expect(create?.result.schema.safeParse({ ref: 1 }).success).toBe(false)
 
+    /** 中文说明：变量 declarationMap 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const declarationMap = JSON.parse(artifact?.remote?.dtsMap ?? '') as RemoteDeclarationMap
     expect(declarationMap).toMatchObject({
       file: 'typert.remote-client.d.ts',
@@ -148,6 +171,7 @@ describe('Remote model generation', { timeout: 60_000 }, () => {
   })
 
   it('projects authored optionality and absence onto consumers and codecs', async () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', source => source.replace(
       '\n}\n\nexport type {',
@@ -180,17 +204,23 @@ export type {`,
     expect(artifact?.remote?.dts).not.toContain('value?: string')
     expect(artifact?.remote?.dts).toContain("'goals/labelled': (id: string, label?: string) => Promise<RemoteResult<string>>")
 
+    /** 中文说明：变量 remoteJs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const remoteJs = artifact?.remote?.js
     if (remoteJs === undefined) throw new Error('undefined Remote fixture emitted no Host-for-Client JavaScript')
+    /** 中文说明：变量 executable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const executable = remoteJs.replace("from 'zod'", `from ${JSON.stringify(import.meta.resolve('zod'))}`)
+    /** 中文说明：变量 generated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generated = await import(`data:text/javascript,${encodeURIComponent(executable)}`) as RuntimeRemoteModule
+    /** 中文说明：函数值 maybe 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const maybe = generated.TYPERT_REMOTE.descriptors.find(descriptor => descriptor.id.endsWith('/maybe'))
+    /** 中文说明：函数值 clear 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const clear = generated.TYPERT_REMOTE.descriptors.find(descriptor => descriptor.id.endsWith('/clear'))
     expect(maybe?.parameters[0]?.acceptsUndefined).toBe(true)
     expect(maybe?.parameters[0]?.codec.schema.safeParse(undefined).success).toBe(true)
     expect(maybe?.result.schema.safeParse(undefined).success).toBe(true)
     expect(clear?.result.schema.safeParse(undefined).success).toBe(true)
     expect(clear?.result.schema.safeParse(null).success).toBe(false)
+    /** 中文说明：函数值 labelled 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const labelled = generated.TYPERT_REMOTE.descriptors.find(descriptor => descriptor.id.endsWith('/labelled'))
     expect(labelled?.parameters[0]?.acceptsUndefined).toBeUndefined()
     expect(labelled?.parameters[1]?.acceptsUndefined).toBe(true)
@@ -199,6 +229,7 @@ export type {`,
   })
 
   it('evaluates declaration-merged mapped and conditional boundaries for codecs without widening consumer types', async () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/types.ts', source => `${source}
 
@@ -258,11 +289,16 @@ export type GenericResult = {
     expect(artifact?.remote?.dts).toContain(
       "'goals/dispatch': (request: GenericRequest) => Promise<RemoteResult<GenericResult>>",
     )
+    /** 中文说明：变量 remoteJs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const remoteJs = artifact?.remote?.js
     if (remoteJs === undefined) throw new Error('generic Remote fixture emitted no Host-for-Client JavaScript')
+    /** 中文说明：变量 executable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const executable = remoteJs.replace("from 'zod'", `from ${JSON.stringify(import.meta.resolve('zod'))}`)
+    /** 中文说明：变量 generated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generated = await import(`data:text/javascript,${encodeURIComponent(executable)}`) as RuntimeRemoteModule
+    /** 中文说明：函数值 dispatch 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const dispatch = generated.TYPERT_REMOTE.descriptors.find(descriptor => descriptor.id.endsWith('/dispatch'))
+    /** 中文说明：变量 schema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schema = dispatch?.parameters[0]?.codec.schema
     expect(schema?.safeParse({ kind: 'ship', payload: { count: 2, meta: { nested: [true, null] } } }).success).toBe(true)
     expect(schema?.safeParse({ kind: 'ship', payload: { count: '2', meta: {} } }).success).toBe(false)
@@ -273,6 +309,7 @@ export type GenericResult = {
   })
 
   it('imports public type arguments nested under a named generic boundary', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/types.ts', source => `${source}
 
@@ -311,6 +348,7 @@ export interface BoxPayload {
   })
 
   it('quotes aliased methods in generated namespace interfaces', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', source => source.replace(
       '  rename(request: RenameGoalRequest): RenameGoalResult {\n    return { renamed: request.title.length > 0 }\n  }\n}',
@@ -331,6 +369,7 @@ export interface BoxPayload {
   })
 
   it.each(['create#v2', 'create goal', '.', '..'])('rejects untransportable Remote alias %s', (alias) => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', source => source.replace(
       '  @Remote\n  async create(',
@@ -341,6 +380,7 @@ export interface BoxPayload {
   })
 
   it('rejects a Remote export after its last Remote method is removed', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', source => source
       .replace('  @Remote\n', '')
@@ -358,8 +398,11 @@ export interface RemainingSchema {
   })
 
   it('validates Remote artifacts only on the host face of a dual-face package', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
+    /** 中文说明：变量 manifestPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifestPath = join(root, 'packages/remote/package.json')
+    /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
       dsh?: { client?: object }
       exports: Record<string, unknown>
@@ -384,6 +427,7 @@ export interface ClientMarker {
 }
 `)
 
+    /** 中文说明：变量 artifacts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const artifacts = new WorkspaceTypertGenerator(root).generate()
     expect(artifacts.map(artifact => artifact.face)).toEqual(['host', 'client'])
     expect(artifacts.find(artifact => artifact.face === 'host')?.dts).not.toContain('ClientMarker')
@@ -511,6 +555,7 @@ export interface ClientMarker {
       message: 'cancellation signal must be the final parameter',
     },
   ])('rejects $name', ({ edit, message }) => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', edit)
 
@@ -518,6 +563,7 @@ export interface ClientMarker {
   })
 
   it('rejects a workspace class parameter without a lookup declaration', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/domain/src/index.ts', source => source.replace(
       '  interface TypertLookupMap {\n    agent: TypertLookup<Agent, AgentId>\n  }\n\n',
@@ -534,6 +580,7 @@ export interface ClientMarker {
     ['any', 'unconstrained any'],
     ['unknown', 'unconstrained unknown'],
   ])('rejects non-JSON Remote boundary type %s', (type, message) => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/types.ts', source => source.replace(
       '  readonly title: string\n}',
@@ -544,6 +591,7 @@ export interface ClientMarker {
   })
 
   it('keeps optional JSON object fields valid', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/types.ts', source => source.replace(
       '  readonly title: string\n}',
@@ -554,6 +602,7 @@ export interface ClientMarker {
   })
 
   it('rejects a Remote Scope without a static Context declaration', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', source => source.replace("@RemoteScope('agent')", "@RemoteScope('missing')"))
 
@@ -561,6 +610,7 @@ export interface ClientMarker {
   })
 
   it('rejects a direct scoped projection whose Context and lookup wire symbols differ', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/domain/src/types.ts', source => `${source}\n/** Deliberately distinct Context identity for the failure fixture. */\nexport type OtherAgentId = string\n`)
     editFile(root, 'packages/domain/src/index.ts', source => source
@@ -571,6 +621,7 @@ export interface ClientMarker {
   })
 
   it('rejects duplicate endpoints across Remote services', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', source => `${source}
 export class DuplicateGoalService extends TypertRemoteService {
@@ -589,35 +640,46 @@ export class DuplicateGoalService extends TypertRemoteService {
   })
 })
 
+/** 中文说明：函数 analyzeRemote 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function analyzeRemote(root: string, checkDiagnostics = true): ReturnType<WorkspaceAnalyzer['analyze']> {
   return new WorkspaceAnalyzer({ root, checkDiagnostics }).analyze()
 }
 
+/** 中文说明：函数 remotePackage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function remotePackage(root: string): {
   readonly services: readonly unknown[]
   readonly invocations: readonly InvocationModel[]
 } {
+  /** 中文说明：函数值 host 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const host = analyzeRemote(root).faces.find(face => face.face === 'host')
+  /** 中文说明：函数值 packageModel 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const packageModel = host?.packages.find(candidate => candidate.name === '@fixture/remote')
   if (packageModel === undefined) throw new Error('Remote fixture package was not modeled on the host face')
   return packageModel
 }
 
+/** 中文说明：函数 copyFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function copyFixture(sourceRoot = fixtureRoot): string {
+  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'dsh-typert-remote-model-'))
   cpSync(sourceRoot, root, { recursive: true })
   temporaryRoots.push(root)
   return root
 }
 
+/** 中文说明：函数 editFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function editFile(root: string, relativePath: string, edit: (source: string) => string): void {
+  /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = join(root, relativePath)
+  /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const source = readFileSync(path, 'utf8')
+  /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = edit(source)
   if (result === source) throw new Error(`fixture edit made no change to ${relativePath}`)
   writeFileSync(path, result)
 }
 
+/** 中文说明：函数 assertRemoteConsumerTypechecks 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function assertRemoteConsumerTypechecks(
   dts: string | undefined,
   dtsMap: string | undefined,
@@ -625,14 +687,19 @@ function assertRemoteConsumerTypechecks(
 ): void {
   if (dts === undefined) throw new Error('Remote fixture emitted no Host-for-Client declaration')
   if (dtsMap === undefined) throw new Error('Remote fixture emitted no Host-for-Client declaration map')
+  /** 中文说明：变量 consumerRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const consumerRoot = copyFixture(sourceRoot)
+  /** 中文说明：变量 declarationPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const declarationPath = join(consumerRoot, 'packages/remote/lib/typert.remote-client.d.ts')
+  /** 中文说明：变量 declarationMapPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const declarationMapPath = `${declarationPath}.map`
+  /** 中文说明：变量 consumerPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const consumerPath = join(consumerRoot, 'consumer.ts')
   mkdirSync(join(consumerRoot, 'packages/remote/lib'), { recursive: true })
   writeFileSync(declarationPath, dts, { flush: true })
   writeFileSync(declarationMapPath, dtsMap, { flush: true })
   assertRemoteConsumerWithoutImportHasNoNamespace(consumerRoot)
+  /** 中文说明：变量 consumerSource 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const consumerSource = `
 import remote from '@fixture/remote/remote'
 import type {
@@ -662,6 +729,7 @@ void renamed
 void navigated
 `
   writeFileSync(consumerPath, consumerSource)
+  /** 中文说明：变量 configPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const configPath = join(consumerRoot, 'tsconfig.consumer.json')
   writeFileSync(configPath, JSON.stringify({
     extends: './tsconfig.base.json',
@@ -677,19 +745,25 @@ void navigated
     },
     files: ['./consumer.ts'],
   }, null, 2))
+  /** 中文说明：函数值 config 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const config = ts.readConfigFile(configPath, file => ts.sys.readFile(file))
   if (config.error !== undefined) throw new Error(formatDiagnostics([config.error]))
+  /** 中文说明：变量 parsed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, consumerRoot, undefined, configPath)
+  /** 中文说明：变量 program 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const program = ts.createProgram(parsed.fileNames, parsed.options)
+  /** 中文说明：变量 diagnostics 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const diagnostics = ts.getPreEmitDiagnostics(program)
   expect(diagnostics, formatDiagnostics(diagnostics)).toEqual([])
 
+  /** 中文说明：变量 languageService 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const languageService = ts.createLanguageService({
     getCompilationSettings: () => parsed.options,
     getCurrentDirectory: () => consumerRoot,
     getDefaultLibFileName: options => ts.getDefaultLibFilePath(options),
     getScriptFileNames: () => parsed.fileNames,
     getScriptSnapshot: (fileName) => {
+      /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const source = ts.sys.readFile(fileName)
       return source === undefined ? undefined : ts.ScriptSnapshot.fromString(source)
     },
@@ -702,20 +776,26 @@ void navigated
     readFile: path => ts.sys.readFile(path),
     realpath: path => ts.sys.realpath?.(path) ?? path,
   })
+  /** 中文说明：变量 navigation 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const navigation = 'ctx.remote.goals.create'
+  /** 中文说明：变量 position 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const position = consumerSource.indexOf(navigation) + navigation.lastIndexOf('create') + 1
+  /** 中文说明：变量 definitions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const definitions = languageService.getDefinitionAtPosition(consumerPath, position)
+  /** 中文说明：函数值 generatedDefinition 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const generatedDefinition = definitions?.find(candidate =>
     normalizedPath(candidate.fileName) === normalizedPath(declarationPath))
   if (generatedDefinition === undefined) {
     throw new Error(`generated Remote definition not found: ${JSON.stringify(definitions, null, 2)}`)
   }
+  /** 中文说明：变量 sourceMapper 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceMapper = (languageService as unknown as {
     getSourceMapper(): {
       tryGetSourcePosition(location: { readonly fileName: string; readonly pos: number }):
       { readonly fileName: string; readonly pos: number } | undefined
     }
   }).getSourceMapper()
+  /** 中文说明：变量 definition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const definition = sourceMapper.tryGetSourcePosition({
     fileName: generatedDefinition.fileName,
     pos: generatedDefinition.textSpan.start,
@@ -724,17 +804,21 @@ void navigated
   if (definition === undefined || !normalizedPath(definition.fileName).endsWith('/packages/remote/src/index.ts')) {
     throw new Error(`generated Remote definition did not map to its Host source: ${JSON.stringify(definition)}`)
   }
+  /** 中文说明：变量 hostSource 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hostSource = readFileSync(join(consumerRoot, 'packages/remote/src/index.ts'), 'utf8')
   expect(hostSource.slice(definition.pos, definition.pos + generatedDefinition.textSpan.length)).toBe('create')
 }
 
+/** 中文说明：函数 assertRemoteConsumerWithoutImportHasNoNamespace 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function assertRemoteConsumerWithoutImportHasNoNamespace(consumerRoot: string): void {
+  /** 中文说明：变量 consumerPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const consumerPath = join(consumerRoot, 'consumer-without-remote.ts')
   writeFileSync(consumerPath, `
 import type { TypertRemoteNamespaceMap } from '@deepseek-ai/dsh-typert-protocol'
 declare const ctx: { remote: TypertRemoteNamespaceMap }
 ctx.remote.goals.create('agent-1', { title: 'must not compile' })
 `)
+  /** 中文说明：变量 configPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const configPath = join(consumerRoot, 'tsconfig.consumer-without-remote.json')
   writeFileSync(configPath, JSON.stringify({
     extends: './tsconfig.base.json',
@@ -747,15 +831,19 @@ ctx.remote.goals.create('agent-1', { title: 'must not compile' })
     },
     files: ['./consumer-without-remote.ts'],
   }, null, 2))
+  /** 中文说明：函数值 config 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const config = ts.readConfigFile(configPath, file => ts.sys.readFile(file))
   if (config.error !== undefined) throw new Error(formatDiagnostics([config.error]))
+  /** 中文说明：变量 parsed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, consumerRoot, undefined, configPath)
+  /** 中文说明：变量 diagnostics 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const diagnostics = ts.getPreEmitDiagnostics(ts.createProgram(parsed.fileNames, parsed.options))
   expect(diagnostics, formatDiagnostics(diagnostics)).toHaveLength(1)
   expect(diagnostics[0]?.code).toBe(2339)
   expect(ts.flattenDiagnosticMessageText(diagnostics[0]?.messageText ?? '', '\n')).toContain("Property 'goals' does not exist")
 }
 
+/** 中文说明：函数 formatDiagnostics 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function formatDiagnostics(diagnostics: readonly ts.Diagnostic[]): string {
   return ts.formatDiagnosticsWithColorAndContext(diagnostics, {
     getCanonicalFileName: file => file,

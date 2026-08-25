@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 type-model.spec.ts 覆盖的Typert 类型系统行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的Typert 类型系统能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -16,13 +24,17 @@ import type {
 import { TypeGraphRenderer } from '../src/renderer.ts'
 import { WorkspaceTypertGenerator } from '../src/workspace.ts'
 
+/** 中文说明：变量 fixtureRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fixtureRoot = resolve(import.meta.dirname, 'fixtures/type-model')
+/** 中文说明：变量 temporaryRoots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const temporaryRoots: string[] = []
 
+/** 中文说明：函数 normalizedPath 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function normalizedPath(path: string): string {
   return path.replaceAll('\\', '/')
 }
 
+/** 中文说明：变量 parseConfigHost 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const parseConfigHost: ts.ParseConfigFileHost = {
   ...ts.sys,
   onUnRecoverableConfigFileDiagnostic(diagnostic) {
@@ -30,6 +42,7 @@ const parseConfigHost: ts.ParseConfigFileHost = {
   },
 }
 
+/** 中文说明：常量 TYPE_NODE_KINDS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TYPE_NODE_KINDS = {
   keyword: true,
   literal: true,
@@ -54,6 +67,7 @@ const TYPE_NODE_KINDS = {
   this: true,
 } as const satisfies Record<TypeNodeModel['kind'], true>
 
+/** 中文说明：常量 TYPE_TARGET_KINDS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TYPE_TARGET_KINDS = {
   declaration: true,
   'type-parameter': true,
@@ -62,6 +76,7 @@ const TYPE_TARGET_KINDS = {
   standard: true,
 } as const satisfies Record<TypeTargetModel['kind'], true>
 
+/** 中文说明：常量 KEYWORD_TYPE_NAMES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const KEYWORD_TYPE_NAMES = {
   any: true,
   bigint: true,
@@ -76,12 +91,14 @@ const KEYWORD_TYPE_NAMES = {
   void: true,
 } as const satisfies Record<KeywordTypeName, true>
 
+/** 中文说明：常量 TYPE_OPERATOR_NAMES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TYPE_OPERATOR_NAMES = {
   keyof: true,
   readonly: true,
   unique: true,
 } as const satisfies Record<TypeOperatorName, true>
 
+/** 中文说明：常量 DECLARATION_KINDS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DECLARATION_KINDS = {
   interface: true,
   class: true,
@@ -89,6 +106,7 @@ const DECLARATION_KINDS = {
   enum: true,
 } as const satisfies Record<TypeDeclarationModel['kind'], true>
 
+/** 中文说明：常量 MEMBER_KINDS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MEMBER_KINDS = {
   property: true,
   method: true,
@@ -100,11 +118,13 @@ const MEMBER_KINDS = {
 } as const satisfies Record<MemberModel['kind'], true>
 
 afterEach(() => {
+  /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
 describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   it('builds independent face models with an explicit cross-face type graph', () => {
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root: fixtureRoot }).analyze()
 
     expect(model.faces.map(face => face.face)).toEqual(['host', 'client'])
@@ -132,12 +152,14 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       subpath: '.',
       name: 'Box',
     })
+    /** 中文说明：函数值 clientPackage 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const clientPackage = model.faces.find(face => face.face === 'client')?.packages[0]
     expect(clientPackage).toMatchObject({ objects: [], schemas: [] })
     expect(clientPackage?.exports).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'ReexportedBox', aliases: ['ReexportedBox', 'Box'] }),
       expect.objectContaining({ name: 'ReexportedZodType', aliases: ['ReexportedZodType', 'ZodType'] }),
     ]))
+    /** 中文说明：函数值 host 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const host = model.faces.find(face => face.face === 'host')
     expect(host?.graph.nodes).toContainEqual(expect.objectContaining({
       kind: 'conditional',
@@ -153,6 +175,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       && node.target.kind === 'external'
       && node.target.module === '@types/node'
       && node.target.name === 'Process')).toBe(true)
+    /** 中文说明：函数值 agent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const agent = host?.graph.declarations.find(declaration => declaration.name === 'Agent')
     expect(agent?.implements).toHaveLength(1)
     expect(agent).toMatchObject({
@@ -161,7 +184,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     })
     expect(agent?.text).toContain('export class Agent<State extends object = {')
     expect(agent?.members.map(member => member.name)).toEqual(['id', 'state', 'label', 'label', 'run'])
+    /** 中文说明：函数值 service 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const service = host?.packages[0]?.services.find(candidate => candidate.key === 'demo')
+    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = new Map(host?.graph.declarations
       .flatMap(declaration => declaration.members)
       .map(member => [member.id, member.name]))
@@ -174,6 +199,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       'destructure',
     ])
     expect(service?.location).toMatchObject({ file: 'packages/host/src/index.ts' })
+    /** 中文说明：变量 inspect 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspect = host?.graph.declarations
       .flatMap(declaration => declaration.members)
       .find(member => member.name === 'inspect')
@@ -196,19 +222,24 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('merges bounded package programs into the same face model', () => {
+    /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const options = {
       root: fixtureRoot,
       packages: ['@fixture/host', '@fixture/client'],
     } as const
+    /** 中文说明：变量 direct 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const direct = new WorkspaceAnalyzer(options).analyze()
+    /** 中文说明：变量 batched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const batched = new WorkspaceAnalyzer(options).analyzeInBatches(1)
 
     expect(batched).toEqual(direct)
   })
 
   it('discovers an explicitly keyed service implementation without a Context merge', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('explicit-service-')
     addExplicitServicePackage(root, 'service detached')
+    /** 中文说明：变量 analyzer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const analyzer = new WorkspaceAnalyzer({ root })
 
     expect(analyzer.discoverPackages()).toContainEqual({
@@ -216,18 +247,23 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       root: 'packages/explicit-service',
       faces: ['host'],
     })
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root, packages: ['@fixture/explicit-service'] }).analyze()
+    /** 中文说明：变量 service 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const service = model.faces[0]?.packages[0]?.services[0]
     expect(service).toMatchObject({ key: 'detached', export: { name: 'DetachedService' } })
   })
 
   it('prefers an explicitly keyed implementation over its protocol Context merge', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('explicit-service-protocol-')
     addExplicitServicePackage(root, 'service detached', true)
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({
       root,
       packages: ['@fixture/explicit-service'],
     }).analyze()
+    /** 中文说明：变量 service 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const service = model.faces[0]?.packages[0]?.services[0]
 
     expect(service).toMatchObject({
@@ -238,6 +274,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects an explicit service implementation without one valid key', () => {
+    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = copyFixture('explicit-service-missing-')
     addExplicitServicePackage(missing, 'service')
     expect(() => new WorkspaceAnalyzer({
@@ -245,6 +282,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       packages: ['@fixture/explicit-service'],
     }).analyze()).toThrow('@typert service requires exactly one nonempty Cordis service key')
 
+    /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalid = copyFixture('explicit-service-invalid-')
     addExplicitServicePackage(invalid, 'service bad/key')
     expect(() => new WorkspaceAnalyzer({
@@ -254,7 +292,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('indexes authored top-level exports without promoting them to graph roots', () => {
+    /** 中文说明：变量 declarations 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const declarations = new WorkspaceAnalyzer({ root: fixtureRoot }).indexSourceDeclarations()
+    /** 中文说明：函数值 agent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const agent = declarations.find(declaration => declaration.name === 'Agent')
 
     expect(agent).toMatchObject({
@@ -269,12 +309,19 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('covers every modeled discriminant with source-authored fixture syntax', () => {
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root: fixtureRoot }).analyze()
+    /** 中文说明：函数值 nodes 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const nodes = model.faces.flatMap(face => face.graph.nodes)
+    /** 中文说明：函数值 declarations 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const declarations = model.faces.flatMap(face => face.graph.declarations)
+    /** 中文说明：函数值 members 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const members = declarations.flatMap(declaration => declaration.members)
+    /** 中文说明：函数值 objectMembers 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const objectMembers = nodes.flatMap(node => node.kind === 'object' ? node.members : [])
+    /** 中文说明：变量 allMembers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const allMembers = [...members, ...objectMembers]
+    /** 中文说明：函数值 targets 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const targets = nodes.flatMap(node => node.kind === 'reference' ? [node.target] : [])
 
     expect(distinct(nodes.map(node => node.kind))).toEqual(Object.keys(TYPE_NODE_KINDS).sort())
@@ -291,10 +338,12 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     expect(distinct(allMembers.map(member => String(member.abstract)))).toEqual(['false', 'true'])
     expect(allMembers.every(member => !member.static && member.visibility === 'public')).toBe(true)
 
+    /** 中文说明：变量 signatures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signatures = [
       ...members.flatMap(member => 'signature' in member ? [member.signature] : []),
       ...nodes.flatMap(node => node.kind === 'function' || node.kind === 'constructor' ? [node.signature] : []),
     ]
+    /** 中文说明：函数值 typeParameters 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const typeParameters = declarations.flatMap(declaration => [
       ...declaration.typeParameters,
       ...declaration.members.flatMap(member => 'signature' in member ? member.signature.typeParameters : []),
@@ -304,19 +353,23 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     expect(distinct(typeParameters.flatMap(parameter => parameter.variance === undefined ? [] : [parameter.variance])))
       .toEqual(['in', 'in-out', 'out'])
 
+    /** 中文说明：函数值 parameters 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const parameters = signatures.flatMap(signature => signature.parameters)
     expect(parameters.some(parameter => parameter.optional)).toBe(true)
     expect(parameters.some(parameter => parameter.rest)).toBe(true)
     expect(parameters.some(parameter => parameter.receiver)).toBe(true)
 
+    /** 中文说明：函数值 tuples 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const tuples = nodes.filter(node => node.kind === 'tuple')
     expect(tuples.some(tuple => tuple.elements.some(element => element.optional))).toBe(true)
     expect(tuples.some(tuple => tuple.elements.some(element => element.rest))).toBe(true)
 
+    /** 中文说明：函数值 mapped 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const mapped = nodes.filter(node => node.kind === 'mapped')
     expect(distinct(mapped.map(node => node.readonly))).toEqual(['add', 'preserve', 'remove'])
     expect(distinct(mapped.map(node => node.optional))).toEqual(['add', 'preserve', 'remove'])
     expect(mapped.some(node => node.nameType !== undefined)).toBe(true)
+    /** 中文说明：变量 genericHeritage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const genericHeritage = declarations
       .flatMap(declaration => [...declaration.extends, ...declaration.implements])
       .map(id => nodes.find(node => node.id === id))
@@ -333,6 +386,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     ]))
     expect(parameters.some(parameter => parameter.binding === 'identifier')).toBe(true)
 
+    /** 中文说明：函数值 imports 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const imports = nodes.filter(node => node.kind === 'import-type')
     expect(distinct(imports.map(node => String(node.typeof)))).toEqual(['false', 'true'])
     expect(imports.some(node => node.qualifier !== undefined && node.arguments.length > 0)).toBe(true)
@@ -343,6 +397,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       && node.target?.kind === 'cross-face'
       && node.target.name === 'Agent')).toBe(true)
 
+    /** 中文说明：函数值 literals 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const literals = nodes.filter(node => node.kind === 'literal')
     expect(distinct(literals.map(node => node.value === null ? 'null' : typeof node.value)))
       .toEqual(['bigint', 'boolean', 'null', 'number', 'string'])
@@ -352,6 +407,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       expect.objectContaining({ value: 'fixed', text: '`fixed`' }),
     ]))
 
+    /** 中文说明：函数值 queries 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const queries = nodes.filter(node => node.kind === 'type-query')
     expect(distinct(queries.map(node => String(node.arguments.length)))).toEqual(['0', '1'])
     expect(queries).toContainEqual(expect.objectContaining({
@@ -359,26 +415,32 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       arguments: [expect.any(String)],
     }))
 
+    /** 中文说明：函数值 templates 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const templates = nodes.filter(node => node.kind === 'template-literal')
     expect(templates.some(node => node.spans.length === 2
       && node.spans.map(span => span.text).join('|') === '/to/|/end')).toBe(true)
 
+    /** 中文说明：函数值 constructors 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const constructors = nodes.filter(node => node.kind === 'constructor')
     expect(distinct(constructors.map(node => String(node.abstract)))).toEqual(['false', 'true'])
 
+    /** 中文说明：函数值 predicates 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const predicates = nodes.filter(node => node.kind === 'predicate')
     expect(distinct(predicates.map(node => String(node.asserts)))).toEqual(['false', 'true'])
     expect(predicates.some(node => node.type === undefined)).toBe(true)
     expect(predicates.some(node => node.type !== undefined)).toBe(true)
     expect(predicates.some(node => node.parameter === 'this')).toBe(true)
 
+    /** 中文说明：函数值 enumMembers 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const enumMembers = declarations.flatMap(declaration => declaration.enumMembers ?? [])
     expect(enumMembers.some(member => member.initializer === undefined)).toBe(true)
     expect(enumMembers.some(member => member.initializer !== undefined)).toBe(true)
   })
 
   it('retains an omitted mapped value when the owning project permits implicit any', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-implicit-mapped-value-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/index.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -386,20 +448,26 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       'export type ImplicitMap<Value> = { [Key in keyof Value] }',
       '',
     ].join('\n'))
+    /** 中文说明：变量 configPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configPath = join(root, 'packages/host/tsconfig.json')
+    /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const config = JSON.parse(readFileSync(configPath, 'utf8')) as { compilerOptions: Record<string, unknown> }
     config.compilerOptions.noImplicitAny = false
     writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`)
 
+    /** 中文说明：变量 nodes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nodes = new WorkspaceAnalyzer({ root }).analyze().faces
       .flatMap(face => face.graph.nodes)
+    /** 中文说明：函数值 mapped 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const mapped = nodes.find(node => node.kind === 'mapped' && node.value === undefined)
     expect(mapped).toEqual(expect.objectContaining({ kind: 'mapped' }))
     expect(mapped).not.toHaveProperty('value')
   })
 
   it('fails in check mode and writes inferred public annotations in write mode', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-type-model-')
+    /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const options = {
       root,
       hostConfig: 'tsconfig.write.json',
@@ -410,11 +478,14 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     expect(() => new WorkspaceAnalyzer({ ...options, mode: 'check' }).analyze())
       .toThrow(TypertAnalysisError)
 
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ ...options, mode: 'write' }).analyze()
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = readFileSync(join(root, 'packages/write/src/index.ts'), 'utf8')
     expect(source).toContain('value: number = 1')
     expect(source).toContain("echo(input: string = 'value'): string")
     expect(model.faces[0]?.packages[0]?.services[0]?.key).toBe('writable')
+    /** 中文说明：变量 echo 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const echo = model.faces[0]?.graph.declarations
       .flatMap(declaration => declaration.members)
       .find(member => member.name === 'echo')
@@ -423,8 +494,11 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects relative imports across face boundaries', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-relative-face-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/client', 'src/index.ts')
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = readFileSync(sourcePath, 'utf8')
       .replace("from '@fixture/host'", "from '../../host/src/index.ts'")
     writeFileSync(sourcePath, source)
@@ -435,12 +509,15 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects package subpaths absent from package.json exports', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-private-export-')
     writeFileSync(
       join(root, 'packages/host/src/private.ts'),
       'export interface PrivateHost { readonly value: string }\n',
     )
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/client', 'src/index.ts')
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = readFileSync(sourcePath, 'utf8')
       .replace(
         "import type { HostAgent, Payload } from '@fixture/host'",
@@ -458,11 +535,13 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects cross-face re-exports outside package.json exports', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-private-reexport-')
     writeFileSync(
       join(root, 'packages/host/src/private.ts'),
       'export interface PrivateHost { readonly value: string }\n',
     )
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/client', 'src/index.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -476,7 +555,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects cross-face namespace re-exports until the model has a namespace target', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-namespace-reexport-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/client', 'src/index.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -490,11 +571,13 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('ignores cross-face namespace exports that are not package exports', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-private-namespace-reexport-')
     writeFileSync(
       join(root, 'packages/client', 'src/internal.ts'),
       "export type * as HiddenHostNamespace from '@fixture/host'\n",
     )
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/client', 'src/index.ts')
     writeFileSync(sourcePath, [
       "import './internal.ts'",
@@ -507,7 +590,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('records public symbols from explicit cross-face star re-exports', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-star-reexport-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/client', 'src/index.ts')
     writeFileSync(
       sourcePath,
@@ -515,6 +600,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
         .replace("export type { Box as ReexportedBox } from '@fixture/host'", "export type * from '@fixture/host'"),
     )
 
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root }).analyze()
     expect(model.crossFaceLinks).toContainEqual({
       fromFace: 'client',
@@ -527,11 +613,15 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('expands explicit same-face package exports through declaration targets', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-same-face-')
     addSameFacePackage(root, '@fixture/host/models', 'Payload')
 
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root }).analyze()
+    /** 中文说明：函数值 host 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const host = model.faces.find(face => face.face === 'host')
+    /** 中文说明：函数值 payload 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const payload = host?.graph.declarations.find(declaration => declaration.name === 'Payload')
     expect(host?.packages.map(packageModel => packageModel.name)).toContain('@fixture/consumer')
     expect(host?.graph.nodes.some(node => node.id.includes('packages/consumer/src/index.ts')
@@ -542,7 +632,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('resolves explicit same-face package re-exports to their declaration owner', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-same-face-reexport-')
+    /** 中文说明：变量 packageRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packageRoot = join(root, 'packages/barrel')
     mkdirSync(join(packageRoot, 'src'), { recursive: true })
     writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({
@@ -566,26 +658,35 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       join(packageRoot, 'src/index.ts'),
       "export type { Payload } from '@fixture/host/models'\n",
     )
+    /** 中文说明：变量 basePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const basePath = join(root, 'tsconfig.base.json')
+    /** 中文说明：变量 base 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const base = JSON.parse(readFileSync(basePath, 'utf8')) as {
       compilerOptions: { paths: Record<string, string[]> }
     }
     base.compilerOptions.paths['@fixture/barrel'] = ['./packages/barrel/src/index.ts']
     writeFileSync(basePath, `${JSON.stringify(base, null, 2)}\n`)
+    /** 中文说明：变量 aggregatePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const aggregatePath = join(root, 'tsconfig.host.json')
+    /** 中文说明：变量 aggregate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const aggregate = JSON.parse(readFileSync(aggregatePath, 'utf8')) as { references: { path: string }[] }
     aggregate.references.push({ path: './packages/barrel' })
     writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`)
     addSameFacePackage(root, '@fixture/barrel', 'Payload')
+    /** 中文说明：变量 consumerConfigPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const consumerConfigPath = join(root, 'packages/consumer/tsconfig.json')
+    /** 中文说明：变量 consumerConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const consumerConfig = JSON.parse(readFileSync(consumerConfigPath, 'utf8')) as {
       references: { path: string }[]
     }
     consumerConfig.references.push({ path: '../barrel' })
     writeFileSync(consumerConfigPath, `${JSON.stringify(consumerConfig, null, 2)}\n`)
 
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root }).analyze()
+    /** 中文说明：函数值 host 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const host = model.faces.find(face => face.face === 'host')
+    /** 中文说明：函数值 payload 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const payload = host?.graph.declarations.find(declaration => declaration.name === 'Payload')
     expect(host?.graph.nodes.some(node => node.id.includes('packages/consumer/src/index.ts')
       && node.kind === 'reference'
@@ -595,6 +696,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects same-face package imports outside package.json exports', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-private-package-')
     writeFileSync(
       join(root, 'packages/host/src/private.ts'),
@@ -608,8 +710,10 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects relative imports across same-face package boundaries', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-relative-package-')
     addSameFacePackage(root, '@fixture/host/models', 'Payload')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/consumer/src/index.ts')
     writeFileSync(
       sourcePath,
@@ -623,7 +727,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects TypeScript projects with source diagnostics before modeling them', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-invalid-project-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/index.ts')
     writeFileSync(sourcePath, `${readFileSync(sourcePath, 'utf8')}\nconst invalidFixture: string = 1\n`)
 
@@ -633,7 +739,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('retains every authored part of a merged interface', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-merged-declaration-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/models.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -646,7 +754,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       '',
     ].join('\n'))
 
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root }).analyze()
+    /** 中文说明：变量 merged 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const merged = model.faces
       .flatMap(face => face.graph.declarations)
       .find(declaration => declaration.name === 'Merged')
@@ -655,6 +765,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     expect(merged?.parts?.map(part => part.typeParameters.length)).toEqual([1, 1])
     expect(merged?.parts?.map(part => part.extends.length)).toEqual([1, 0])
     expect(merged?.parts?.map(part => part.package)).toEqual(['@fixture/host', '@fixture/host'])
+    /** 中文说明：变量 mergedInput 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mergedInput = model.faces
       .flatMap(face => face.graph.declarations)
       .find(declaration => declaration.name === 'MergedInput')
@@ -662,6 +773,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects merged declarations that include a part outside the registered face', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-external-merge-')
     writeFileSync(join(root, 'external-augmentation.ts'), [
       'export {}',
@@ -670,6 +782,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       '}',
       '',
     ].join('\n'))
+    /** 中文说明：变量 modelsPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const modelsPath = join(root, 'packages/host/src/models.ts')
     writeFileSync(modelsPath, [
       readFileSync(modelsPath, 'utf8'),
@@ -679,6 +792,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       'export interface SyntaxZoo { readonly externalMerged: ExternalMerged }',
       '',
     ].join('\n'))
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/index.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -691,7 +805,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('keeps unscoped global npm declarations as true external targets', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-unscoped-external-')
+    /** 中文说明：变量 externalRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalRoot = join(root, 'node_modules/unscoped-global')
     mkdirSync(externalRoot, { recursive: true })
     writeFileSync(join(externalRoot, 'package.json'), JSON.stringify({
@@ -704,8 +820,11 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       'declare global { interface UnscopedGlobal { readonly value: string } }',
       '',
     ].join('\n'))
+    /** 中文说明：变量 packageConfigPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packageConfigPath = join(root, 'packages/host/tsconfig.json')
+    /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
     for (const configPath of [packageConfigPath, join(root, 'tsconfig.host.json')]) {
+      /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
         compilerOptions?: Record<string, unknown>
       }
@@ -717,6 +836,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       config.compilerOptions.types = ['unscoped-global', 'node']
       writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`)
     }
+    /** 中文说明：变量 modelsPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const modelsPath = join(root, 'packages/host/src/models.ts')
     writeFileSync(modelsPath, [
       readFileSync(modelsPath, 'utf8'),
@@ -724,16 +844,19 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       '',
     ].join('\n'))
 
+    /** 中文说明：变量 packageConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packageConfig = ts.getParsedCommandLineOfConfigFile(
       join(root, 'packages/host/tsconfig.json'),
       {},
       parseConfigHost,
     ) as ts.ParsedCommandLine
+    /** 中文说明：变量 aggregateConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const aggregateConfig = ts.getParsedCommandLineOfConfigFile(
       join(root, 'tsconfig.host.json'),
       {},
       parseConfigHost,
     ) as ts.ParsedCommandLine
+    /** 中文说明：变量 diagnosticProgram 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const diagnosticProgram = ts.createProgram({
       rootNames: packageConfig.fileNames,
       options: aggregateConfig.options,
@@ -741,6 +864,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     expect(diagnosticProgram.getSourceFiles().map(source => normalizedPath(source.fileName)))
       .toContain(normalizedPath(join(externalRoot, 'index.d.ts')))
 
+    /** 中文说明：变量 targets 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const targets = new WorkspaceAnalyzer({ root }).analyze().faces
       .flatMap(face => face.graph.nodes)
       .flatMap(node => node.kind === 'reference' ? [node.target] : [])
@@ -753,13 +877,16 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('skips ambient imports without physical module files while walking exported sources', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-ambient-import-')
+    /** 中文说明：变量 declarationsPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const declarationsPath = join(root, 'cordis.d.ts')
     writeFileSync(declarationsPath, [
       readFileSync(declarationsPath, 'utf8'),
       "declare module 'fixture-ambient' {}",
       '',
     ].join('\n'))
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/index.ts')
     writeFileSync(sourcePath, [
       "import 'fixture-ambient'",
@@ -772,7 +899,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects declaration merges without a lossless model', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-merged-enum-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/models.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -788,7 +917,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects merged interfaces with conflicting authored variance', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-merged-variance-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/models.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -804,6 +935,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('handles empty selections and rejects malformed aggregate configs', () => {
+    /** 中文说明：变量 empty 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const empty = mkdtempSync(join(import.meta.dirname, '.typert-empty-workspace-'))
     temporaryRoots.push(empty)
     expect(new WorkspaceAnalyzer({ root: empty }).analyze()).toEqual({ faces: [], crossFaceLinks: [] })
@@ -823,9 +955,13 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('ignores empty Cordis augmentations during package discovery', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-empty-augmentation-')
+    /** 中文说明：变量 hostRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hostRoot = join(root, 'packages/host')
+    /** 中文说明：变量 manifestPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifestPath = join(hostRoot, 'package.json')
+    /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
     manifest.exports = {
       '.': { types: './lib/types/index.d.ts', default: './lib/index.js' },
@@ -847,6 +983,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('ignores aggregate references that are not named workspace packages', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-registration-filter-')
     mkdirSync(join(root, 'outside'), { recursive: true })
     writeFileSync(join(root, 'outside/tsconfig.json'), '{}\n')
@@ -855,7 +992,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     mkdirSync(join(root, 'packages/no-name'), { recursive: true })
     writeFileSync(join(root, 'packages/no-name/tsconfig.json'), '{}\n')
     writeFileSync(join(root, 'packages/no-name/package.json'), '{}\n')
+    /** 中文说明：变量 aggregatePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const aggregatePath = join(root, 'tsconfig.host.json')
+    /** 中文说明：变量 aggregate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const aggregate = JSON.parse(readFileSync(aggregatePath, 'utf8')) as { references: { path: string }[] }
     aggregate.references.push(
       { path: './outside' },
@@ -864,12 +1003,14 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     )
     writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`)
 
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root }).analyze()
     expect(model.faces.find(face => face.face === 'host')?.packages.map(item => item.name))
       .toEqual(['@fixture/host'])
   })
 
   it('keeps both runtime faces for an ordinary dsh.client project', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-dual-runtime-')
     configureDualRuntimeClient(root, false)
 
@@ -881,9 +1022,11 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('confines explicit face projects to their selected Typert face', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-split-project-')
     configureDualRuntimeClient(root, true)
 
+    /** 中文说明：变量 markers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const markers = new WorkspaceAnalyzer({ root }).indexSourceDeclarations()
       .filter(declaration => declaration.package === '@fixture/client'
         && declaration.name.endsWith('OnlyMarker'))
@@ -895,12 +1038,16 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('accepts package export forms while skipping artifact-only rows and unexported packages', { timeout: 180_000 }, () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-export-forms-')
+    /** 中文说明：变量 hostRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hostRoot = join(root, 'packages/host')
     writeFileSync(join(hostRoot, 'src/runtime.ts'), 'export interface RuntimeOnly { value: string }\n')
     writeFileSync(join(hostRoot, 'src/direct.ts'), 'export interface Direct { value: string }\n')
     writeFileSync(join(hostRoot, 'src/empty.ts'), '\n')
+    /** 中文说明：变量 manifestPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifestPath = join(hostRoot, 'package.json')
+    /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
     manifest.exports = {
       '.': { types: './lib/types/index.d.ts', default: './lib/index.js' },
@@ -920,7 +1067,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     }
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
 
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root }).analyze()
+    /** 中文说明：函数值 exports 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const exports = model.faces.find(face => face.face === 'host')?.packages[0]?.exports ?? []
     expect(exports.some(item => item.subpath === './array' && item.name === 'RuntimeOnly')).toBe(true)
     expect(exports.some(item => item.subpath === './fallback' && item.name === 'RuntimeOnly')).toBe(true)
@@ -956,8 +1105,11 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects package exports whose source entry is missing', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-missing-export-source-')
+    /** 中文说明：变量 manifestPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifestPath = join(root, 'packages/host/package.json')
+    /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
     manifest.exports = { '.': './lib/missing.js' }
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
@@ -967,7 +1119,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('recognizes all supported typert annotation spellings', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-annotation-modes-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/models.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -980,6 +1134,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       '',
     ].join('\n'))
 
+    /** 中文说明：函数值 host 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const host = new WorkspaceAnalyzer({ root }).analyze().faces.find(face => face.face === 'host')
     expect(host?.packages[0]?.schemas.map(schema => schema.export.name))
       .toEqual(expect.arrayContaining(['DefaultSchema', 'Payload', 'TypeSchema']))
@@ -987,8 +1142,11 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects an exported Context service that is not a class or interface', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-invalid-service-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/index.ts')
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = readFileSync(sourcePath, 'utf8')
       .replace(
         "export { AgentPhase } from './models.ts'",
@@ -1002,7 +1160,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('rejects tagged anonymous declarations that cannot be named losslessly', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-anonymous-declaration-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/models.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -1017,7 +1177,9 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
   })
 
   it('retains merged generic interfaces without constraints or defaults', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-plain-merged-interface-')
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(root, 'packages/host/src/models.ts')
     writeFileSync(sourcePath, [
       readFileSync(sourcePath, 'utf8'),
@@ -1027,6 +1189,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
       '',
     ].join('\n'))
 
+    /** 中文说明：变量 declaration 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const declaration = new WorkspaceAnalyzer({ root }).analyze().faces
       .flatMap(face => face.graph.declarations)
       .find(item => item.name === 'PlainMerged')
@@ -1040,13 +1203,17 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
 
 describe('TypeGraphRenderer', { timeout: 60_000 }, () => {
   it('retains every source-authored SyntaxZoo property type through rendering', () => {
+    /** 中文说明：变量 host 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const host = new WorkspaceAnalyzer({ root: fixtureRoot }).analyze().faces
       .find(face => face.face === 'host')
     if (host === undefined) throw new Error('fixture has no host face')
+    /** 中文说明：函数值 declaration 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const declaration = host.graph.declarations.find(candidate => candidate.name === 'SyntaxZoo')
     if (declaration === undefined) throw new Error('fixture has no SyntaxZoo declaration')
 
+    /** 中文说明：变量 sourcePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePath = join(fixtureRoot, 'packages/host/src/models.ts')
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = ts.createSourceFile(
       sourcePath,
       readFileSync(sourcePath, 'utf8'),
@@ -1054,31 +1221,39 @@ describe('TypeGraphRenderer', { timeout: 60_000 }, () => {
       true,
       ts.ScriptKind.TS,
     )
+    /** 中文说明：变量 sourceDeclaration 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourceDeclaration = source.statements
       .find(statement => ts.isInterfaceDeclaration(statement) && statement.name.text === 'SyntaxZoo')
     if (sourceDeclaration === undefined || !ts.isInterfaceDeclaration(sourceDeclaration)) {
       throw new Error('fixture source has no SyntaxZoo declaration')
     }
+    /** 中文说明：函数值 sourceTypes 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const sourceTypes = new Map(sourceDeclaration.members.flatMap((member) => {
       if (!ts.isPropertySignature(member) || member.type === undefined || !ts.isIdentifier(member.name)) return []
       return [[member.name.text, printType(member.type, source)] as const]
     }))
+    /** 中文说明：变量 renderer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const renderer = new TypeGraphRenderer(host.graph)
+    /** 中文说明：函数值 renderedTypes 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const renderedTypes = new Map(declaration.members.flatMap((member) => {
       if (member.kind !== 'property') return []
       return [[member.name, canonicalType(renderer.renderType(member.type))] as const]
     }))
 
     expect([...renderedTypes.keys()]).toEqual([...sourceTypes.keys()])
+    /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
     for (const [name, sourceType] of sourceTypes) {
       expect(renderedTypes.get(name), name).toBe(canonicalType(sourceType))
     }
   })
 
   it('renders every analyzed declaration as compilable TypeScript', () => {
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root: fixtureRoot }).analyze()
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(import.meta.dirname, '.rendered-model-'))
     temporaryRoots.push(root)
+    /** 中文说明：变量 externalTypes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalTypes = join(root, 'external.d.ts')
     writeFileSync(externalTypes, [
       'declare module \'@fixture/host\' {',
@@ -1086,11 +1261,16 @@ describe('TypeGraphRenderer', { timeout: 60_000 }, () => {
       '}',
       '',
     ].join('\n'))
+    /** 中文说明：变量 rootNames 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rootNames: string[] = [externalTypes]
 
+    /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
     for (const face of model.faces) {
+      /** 中文说明：变量 renderer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const renderer = new TypeGraphRenderer(face.graph)
+      /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const path = join(root, `${face.face}.d.ts`)
+      /** 中文说明：变量 prelude 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const prelude = face.face === 'host'
         ? [
           'declare class Service {}',
@@ -1116,6 +1296,7 @@ describe('TypeGraphRenderer', { timeout: 60_000 }, () => {
       rootNames.push(path)
     }
 
+    /** 中文说明：变量 program 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const program = ts.createProgram({
       rootNames,
       options: {
@@ -1133,6 +1314,7 @@ describe('TypeGraphRenderer', { timeout: 60_000 }, () => {
 
 describe('WorkspaceTypertGenerator', { timeout: 60_000 }, () => {
   it('emits host and client faces through their exact root-level public artifacts', () => {
+    /** 中文说明：变量 artifacts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const artifacts = new WorkspaceTypertGenerator(fixtureRoot).generate()
     expect(artifacts.map(artifact => ({ package: artifact.package, face: artifact.face }))).toEqual([
       { package: '@fixture/host', face: 'host' },
@@ -1142,11 +1324,15 @@ describe('WorkspaceTypertGenerator', { timeout: 60_000 }, () => {
   })
 
   it('rejects a public Typert subpath that points outside the root-level face artifact', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture('typert-artifact-path-')
+    /** 中文说明：变量 manifestPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifestPath = join(root, 'packages/client', 'package.json')
+    /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
       exports: Record<string, { types: string; default: string }>
     }
+    /** 中文说明：变量 clientExport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const clientExport = manifest.exports['./client/typert']
     if (clientExport === undefined) throw new Error('fixture has no client Typert export')
     clientExport.types = './lib/types/typert.client.d.ts'
@@ -1158,8 +1344,11 @@ describe('WorkspaceTypertGenerator', { timeout: 60_000 }, () => {
   })
 
   it('rejects absent Typert exports and package file entries', () => {
+    /** 中文说明：变量 noSubpathRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noSubpathRoot = copyFixture('typert-missing-artifact-export-')
+    /** 中文说明：变量 noSubpathManifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noSubpathManifest = join(noSubpathRoot, 'packages/client', 'package.json')
+    /** 中文说明：变量 noSubpath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noSubpath = JSON.parse(readFileSync(noSubpathManifest, 'utf8')) as Record<string, unknown>
     noSubpath.exports = './lib/index.js'
     writeFileSync(noSubpathManifest, `${JSON.stringify(noSubpath, null, 2)}\n`)
@@ -1167,8 +1356,11 @@ describe('WorkspaceTypertGenerator', { timeout: 60_000 }, () => {
       '@fixture/client must export ./client/typert as',
     )
 
+    /** 中文说明：变量 invalidSubpathRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidSubpathRoot = copyFixture('typert-invalid-artifact-export-')
+    /** 中文说明：变量 invalidSubpathManifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidSubpathManifest = join(invalidSubpathRoot, 'packages/client', 'package.json')
+    /** 中文说明：变量 invalidSubpath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidSubpath = JSON.parse(readFileSync(invalidSubpathManifest, 'utf8')) as {
       exports: Record<string, unknown>
     }
@@ -1178,8 +1370,11 @@ describe('WorkspaceTypertGenerator', { timeout: 60_000 }, () => {
       '@fixture/client must export ./client/typert as',
     )
 
+    /** 中文说明：变量 noFilesRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noFilesRoot = copyFixture('typert-missing-artifact-files-')
+    /** 中文说明：变量 noFilesManifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noFilesManifest = join(noFilesRoot, 'packages/client', 'package.json')
+    /** 中文说明：变量 noFiles 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noFiles = JSON.parse(readFileSync(noFilesManifest, 'utf8')) as Record<string, unknown>
     delete noFiles.files
     writeFileSync(noFilesManifest, `${JSON.stringify(noFiles, null, 2)}\n`)
@@ -1189,19 +1384,24 @@ describe('WorkspaceTypertGenerator', { timeout: 60_000 }, () => {
   })
 })
 
+/** 中文说明：函数 distinct 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function distinct(values: readonly string[]): string[] {
   return [...new Set(values)].sort()
 }
 
+/** 中文说明：函数 formatDiagnostic 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function formatDiagnostic(diagnostic: ts.Diagnostic): string {
   return ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
 }
 
+/** 中文说明：函数 printType 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function printType(node: ts.TypeNode, source: ts.SourceFile): string {
   return ts.createPrinter().printNode(ts.EmitHint.Unspecified, node, source)
 }
 
+/** 中文说明：函数 canonicalType 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function canonicalType(text: string): string {
+  /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const source = ts.createSourceFile(
     'canonical-type.ts',
     `type Canonical = ${text}\n`,
@@ -1209,6 +1409,7 @@ function canonicalType(text: string): string {
     true,
     ts.ScriptKind.TS,
   )
+  /** 中文说明：变量 declaration 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const declaration = source.statements[0]
   if (declaration === undefined || !ts.isTypeAliasDeclaration(declaration)) {
     throw new Error(`cannot parse rendered type ${text}`)
@@ -1216,16 +1417,22 @@ function canonicalType(text: string): string {
   return printType(declaration.type, source)
 }
 
+/** 中文说明：函数 copyFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function copyFixture(prefix: string): string {
+  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(import.meta.dirname, `.${prefix}`))
   temporaryRoots.push(root)
   cpSync(fixtureRoot, root, { recursive: true })
   return root
 }
 
+/** 中文说明：函数 configureDualRuntimeClient 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function configureDualRuntimeClient(root: string, splitProjects: boolean): void {
+  /** 中文说明：变量 packageRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const packageRoot = join(root, 'packages/client')
+  /** 中文说明：变量 manifestPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifestPath = join(packageRoot, 'package.json')
+  /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
     dsh?: { client?: object }
     exports: Record<string, unknown>
@@ -1243,10 +1450,12 @@ function configureDualRuntimeClient(root: string, splitProjects: boolean): void 
     "declare module '@deepseek-ai/cordis' { interface Context { browserBridge: BrowserBridge } }",
     '',
   ].join('\n'))
+  /** 中文说明：变量 indexPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const indexPath = join(packageRoot, 'src/index.ts')
   writeFileSync(indexPath, `${readFileSync(indexPath, 'utf8')}\nexport interface HostOnlyMarker { readonly host: true }\n`)
   if (!splitProjects) return
 
+  /** 中文说明：变量 project 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const project = JSON.parse(readFileSync(join(packageRoot, 'tsconfig.json'), 'utf8')) as Record<string, unknown>
   delete project.include
   writeFileSync(join(packageRoot, 'tsconfig.host.json'), `${JSON.stringify({
@@ -1265,14 +1474,18 @@ function configureDualRuntimeClient(root: string, splitProjects: boolean): void 
     ],
   }, null, 2)}\n`)
 
+  /** 中文说明：变量 hostAggregatePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hostAggregatePath = join(root, 'tsconfig.host.json')
+  /** 中文说明：变量 hostAggregate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hostAggregate = JSON.parse(readFileSync(hostAggregatePath, 'utf8')) as {
     references: { path: string }[]
   }
   hostAggregate.references.push({ path: ['.', 'packages', 'client', 'tsconfig.host.json'].join('/') })
   writeFileSync(hostAggregatePath, `${JSON.stringify(hostAggregate, null, 2)}\n`)
 
+  /** 中文说明：变量 clientAggregatePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const clientAggregatePath = join(root, 'tsconfig.client.json')
+  /** 中文说明：变量 clientAggregate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const clientAggregate = JSON.parse(readFileSync(clientAggregatePath, 'utf8')) as {
     references: { path: string }[]
   }
@@ -1280,7 +1493,9 @@ function configureDualRuntimeClient(root: string, splitProjects: boolean): void 
   writeFileSync(clientAggregatePath, `${JSON.stringify(clientAggregate, null, 2)}\n`)
 }
 
+/** 中文说明：函数 addSameFacePackage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function addSameFacePackage(root: string, specifier: string, importedName: string): void {
+  /** 中文说明：变量 packageRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const packageRoot = join(root, 'packages/consumer')
   mkdirSync(join(packageRoot, 'src'), { recursive: true })
   writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({
@@ -1306,13 +1521,17 @@ function addSameFacePackage(root: string, specifier: string, importedName: strin
     `export interface ConsumerSchema { readonly value: ${importedName} }`,
     '',
   ].join('\n'))
+  /** 中文说明：变量 aggregatePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const aggregatePath = join(root, 'tsconfig.host.json')
+  /** 中文说明：变量 aggregate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const aggregate = JSON.parse(readFileSync(aggregatePath, 'utf8')) as { references: { path: string }[] }
   aggregate.references.push({ path: './packages/consumer' })
   writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`)
 }
 
+/** 中文说明：函数 addExplicitServicePackage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function addExplicitServicePackage(root: string, annotation: string, withProtocol = false): void {
+  /** 中文说明：变量 packageRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const packageRoot = join(root, 'packages/explicit-service')
   mkdirSync(join(packageRoot, 'src'), { recursive: true })
   writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({
@@ -1357,7 +1576,9 @@ function addExplicitServicePackage(root: string, annotation: string, withProtoco
     '}',
     '',
   ].join('\n'))
+  /** 中文说明：变量 aggregatePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const aggregatePath = join(root, 'tsconfig.host.json')
+  /** 中文说明：变量 aggregate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const aggregate = JSON.parse(readFileSync(aggregatePath, 'utf8')) as { references: { path: string }[] }
   aggregate.references.push({ path: './packages/explicit-service' })
   writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`)
@@ -1365,18 +1586,24 @@ function addExplicitServicePackage(root: string, annotation: string, withProtoco
 
 describe('FaceModelEmitter', { timeout: 60_000 }, () => {
   it('emits runnable Zod JavaScript, precise declarations, and runtime package metadata', async () => {
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = new WorkspaceAnalyzer({ root: fixtureRoot }).analyze()
+    /** 中文说明：函数值 host 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const host = model.faces.find(face => face.face === 'host')
     if (host === undefined) throw new Error('fixture has no host face')
+    /** 中文说明：变量 artifact 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const artifact = new FaceModelEmitter(host).emit('@fixture/host')
 
     expect(artifact.js).toMatchSnapshot()
     expect(artifact.dts).toMatchSnapshot()
 
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(import.meta.dirname, '.generated-model-'))
     temporaryRoots.push(root)
+    /** 中文说明：变量 modulePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const modulePath = join(root, 'host.mjs')
     writeFileSync(modulePath, artifact.js)
+    /** 中文说明：变量 generated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generated = await import(`${pathToFileURL(modulePath).href}?test=${Date.now()}`) as {
       Payload: { safeParse(value: unknown): { success: boolean } }
       TYPERT: {
@@ -1390,14 +1617,18 @@ describe('FaceModelEmitter', { timeout: 60_000 }, () => {
     expect(generated.Payload.safeParse({ name: 'ready', count: 'two' }).success).toBe(false)
     expect(generated.TYPERT).toMatchObject({ package: '@fixture/host', face: 'host' })
     expect(generated.TYPERT.schemas[0]?.schema).toBe(generated.Payload)
+    /** 中文说明：函数值 demo 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const demo = generated.TYPERT.model.services.find(service => service.key === 'demo')
     expect(demo).toMatchObject({ key: 'demo' })
     expect(demo?.members.map(member => member.signature)).toContain(
       'inspect(agent: Agent<{ ready: true }>, flags: Flags<Payload>): Present<Payload>',
     )
 
+    /** 中文说明：变量 declarationPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const declarationPath = join(root, 'host.d.ts')
+    /** 中文说明：变量 consumerPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const consumerPath = join(root, 'consumer.ts')
+    /** 中文说明：变量 sourceStubPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourceStubPath = join(root, 'source.d.ts')
     writeFileSync(declarationPath, artifact.dts)
     writeFileSync(consumerPath, [
@@ -1414,6 +1645,7 @@ describe('FaceModelEmitter', { timeout: 60_000 }, () => {
       '}',
       '',
     ].join('\n'))
+    /** 中文说明：变量 program 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const program = ts.createProgram({
       rootNames: [consumerPath, declarationPath, sourceStubPath],
       options: {
@@ -1425,6 +1657,7 @@ describe('FaceModelEmitter', { timeout: 60_000 }, () => {
         moduleResolution: ts.ModuleResolutionKind.Bundler,
       },
     })
+    /** 中文说明：变量 diagnostics 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const diagnostics = ts.getPreEmitDiagnostics(program)
     expect(diagnostics.map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))).toEqual([])
   })

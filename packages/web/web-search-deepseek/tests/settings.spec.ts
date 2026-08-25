@@ -1,4 +1,12 @@
 /** The `web-search-deepseek` settings section layered over the composition entry. */
+/**
+ * 文件职责：验证 settings.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -10,6 +18,7 @@ import * as deepseekPlugin from '@deepseek-ai/dsh-web-search-deepseek'
 import { WEB_SEARCH_DEEPSEEK_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-web-search-deepseek'
 
 /** The smallest real provider: one in-memory document, always writable. */
+/** 中文说明：class MemorySettings 定义本测试所需的数据或行为，用于表达Web 搜索与抓取场景。 */
 class MemorySettings extends SettingsProvider {
   doc: Record<string, unknown> = {}
 
@@ -27,6 +36,7 @@ class MemorySettings extends SettingsProvider {
   }
 }
 
+/** 中文说明：函数 jsonResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -35,6 +45,7 @@ function jsonResponse(body: unknown): Response {
 }
 
 /** The smallest Anthropic-shaped answer the provider accepts — enough to observe the request. */
+/** 中文说明：常量 ONE_RESULT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ONE_RESULT = {
   content: [
     { type: 'text', text: 'ok' },
@@ -45,11 +56,15 @@ const ONE_RESULT = {
   ],
 }
 
+/** 中文说明：函数 boot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function boot(): Promise<{ ctx: Context; settingsFiber: Fiber; pluginFiber: Fiber }> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(WebRuntime, {})
+  /** 中文说明：变量 settingsFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const settingsFiber = ctx.plugin(MemorySettings)
   await settingsFiber.await()
+  /** 中文说明：变量 pluginFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pluginFiber = ctx.plugin(deepseekPlugin, { apiKey: 'ds-key', baseURL: 'https://search.entry.test/v1' })
   await pluginFiber.await()
   return { ctx, settingsFiber, pluginFiber }
@@ -66,7 +81,9 @@ afterEach(() => {
  * @param ctx - context whose `ctx.web` serves the search.
  * @returns the URL the provider fetched.
  */
+/** 中文说明：函数 searchOnce 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function searchOnce(ctx: Context): Promise<string> {
+  /** 中文说明：变量 fetchSpy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fetchSpy = vi.spyOn(globalThis, 'fetch')
     .mockImplementation(() => Promise.resolve(jsonResponse(ONE_RESULT)))
   fetchSpy.mockClear()
@@ -76,6 +93,7 @@ async function searchOnce(ctx: Context): Promise<string> {
 
 describe('web-search-deepseek settings section', () => {
   it('serves a stored endpoint to the next search without re-registering the provider', async () => {
+    /** 中文说明：变量 bench 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bench = await boot()
     expect(await searchOnce(bench.ctx)).toContain('https://search.entry.test/v1')
 
@@ -88,6 +106,7 @@ describe('web-search-deepseek settings section', () => {
   })
 
   it('keeps the literal key out of every described layer', async () => {
+    /** 中文说明：变量 bench 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bench = await boot()
     await bench.ctx.settings.update(WEB_SEARCH_DEEPSEEK_SETTINGS_NAMESPACE, { apiKey: 'ds-stored-secret' })
 
@@ -100,6 +119,7 @@ describe('web-search-deepseek settings section', () => {
   })
 
   it('falls back to the composition entry when the settings provider detaches', async () => {
+    /** 中文说明：变量 bench 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bench = await boot()
     await bench.ctx.settings.update(WEB_SEARCH_DEEPSEEK_SETTINGS_NAMESPACE, {
       baseURL: 'https://search.stored.test/v1',
@@ -113,6 +133,7 @@ describe('web-search-deepseek settings section', () => {
   })
 
   it('releases the namespace when the plugin unloads', async () => {
+    /** 中文说明：变量 bench 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bench = await boot()
     expect(bench.ctx.settings.describe().map(row => String(row.ns))).toContain('web-search-deepseek')
 

@@ -9,6 +9,14 @@
  * replaced; readers stay lock-free because the rename commit is atomic.
  * @module @deepseek-ai/dsh-atomic-write
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的通用运行时工具行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的通用运行时工具能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 
 import { randomBytes } from 'node:crypto'
 import { lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises'
@@ -18,6 +26,7 @@ import { dirname } from 'node:path'
  * Filesystem options for {@link writeFileAtomic}; `mode` is required so the
  * permission decision stays visible at every call site.
  */
+/** 中文说明：interface WriteFileAtomicOptions 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface WriteFileAtomicOptions {
   /**
    * Permission bits stamped on the fresh temp inode and carried through the
@@ -46,6 +55,7 @@ export interface WriteFileAtomicOptions {
  * @param content - complete next file content.
  * @param options - permission bits for the replacement inode.
  */
+/** 中文说明：函数 writeFileAtomic 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function writeFileAtomic(filename: string, content: string, options: WriteFileAtomicOptions): Promise<void> {
   await mkdir(dirname(filename), {
     recursive: true,
@@ -53,6 +63,7 @@ export async function writeFileAtomic(filename: string, content: string, options
   })
   // TODO(settings-atomic-durability): Use a replacement that fsyncs the file
   // and parent directory and preserves owner-only permissions on Windows.
+  /** 中文说明：变量 temp 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const temp = `${filename}.${randomBytes(6).toString('hex')}.tmp`
   try {
     await writeFile(temp, content, { mode: options.mode, flag: 'wx' })
@@ -64,7 +75,9 @@ export async function writeFileAtomic(filename: string, content: string, options
 }
 
 /** Whether an exclusive create found an existing lock. */
+/** 中文说明：函数 isLockContention 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function isLockContention(error: unknown, lockPath: string): Promise<boolean> {
+  /** 中文说明：变量 code 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const code = (error as NodeJS.ErrnoException | null)?.code
   if (code === 'EEXIST') return true
   if (code !== 'EPERM') return false
@@ -82,7 +95,9 @@ async function isLockContention(error: unknown, lockPath: string): Promise<boole
  * cross-process write protocol rather than deployment tunables: they govern how
  * often a contender asks, which no caller has a reason to vary.
  */
+/** 中文说明：常量 LOCK_RETRY_INITIAL_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LOCK_RETRY_INITIAL_MS = 20
+/** 中文说明：常量 LOCK_RETRY_MAX_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LOCK_RETRY_MAX_MS = 200
 
 /**
@@ -94,9 +109,11 @@ const LOCK_RETRY_MAX_MS = 200
  * exists; the value here is the floor for an operation that does file work
  * alone.
  */
+/** 中文说明：常量 DEFAULT_LOCK_WAIT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_LOCK_WAIT_MS = 2_000
 
 /** Options for one {@link withFileLock} acquisition. */
+/** 中文说明：interface FileLockOptions 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface FileLockOptions {
   /**
    * Maximum time to wait for the lock, in milliseconds. State one when the
@@ -125,14 +142,19 @@ export interface FileLockOptions {
  * @param options - acquisition options; omitted waits {@link DEFAULT_LOCK_WAIT_MS}.
  * @returns the operation's result; the lock releases on both outcomes.
  */
+/** 中文说明：函数 withFileLock 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function withFileLock<T>(
   filename: string,
   operation: () => Promise<T>,
   options?: FileLockOptions,
 ): Promise<T> {
+  /** 中文说明：变量 lockPath 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lockPath = `${filename}.lock`
+  /** 中文说明：变量 deadline 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + (options?.waitMs ?? DEFAULT_LOCK_WAIT_MS)
+  /** 中文说明：变量 delay 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let delay = LOCK_RETRY_INITIAL_MS
+  /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
   for (;;) {
     try {
       await writeFile(lockPath, `${process.pid}\n`, { mode: 0o600, flag: 'wx' })

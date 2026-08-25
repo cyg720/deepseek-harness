@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 schema-emitter.spec.ts 覆盖的Typert 类型系统行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的Typert 类型系统能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -13,10 +21,14 @@ import type {
   TypeNodeModel,
 } from '../src/model.ts'
 
+/** 中文说明：变量 temporaryRoots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const temporaryRoots: string[] = []
+/** 中文说明：变量 location 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const location = { file: 'fixture.ts', line: 1, column: 1 } as const
+/** 中文说明：变量 documentation 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const documentation = { tags: [] } as const
 
+/** 中文说明：常量 ZOD_NODE_SUPPORT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ZOD_NODE_SUPPORT = {
   keyword: 'supported',
   literal: 'supported',
@@ -41,6 +53,7 @@ const ZOD_NODE_SUPPORT = {
   this: 'unsupported',
 } as const satisfies Record<TypeNodeModel['kind'], 'supported' | 'unsupported'>
 
+/** 中文说明：interface SchemaCase 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
 interface SchemaCase {
   readonly name: string
   readonly nodes: readonly TypeNodeModel[]
@@ -48,6 +61,7 @@ interface SchemaCase {
   readonly rejected: readonly unknown[]
 }
 
+/** 中文说明：变量 supportedCases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const supportedCases: readonly SchemaCase[] = [
   keywordCase('any', [undefined], []),
   keywordCase('unknown', [{ arbitrary: true }], []),
@@ -281,6 +295,7 @@ const supportedCases: readonly SchemaCase[] = [
   },
 ]
 
+/** 中文说明：变量 unsupportedNodeCases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const unsupportedNodeCases: readonly { readonly kind: TypeNodeModel['kind']; readonly nodes: readonly TypeNodeModel[] }[] = [
   { kind: 'function', nodes: [{ id: 'root', kind: 'function', signature: signature('child') }, keyword('child', 'string')] },
   { kind: 'constructor', nodes: [{ id: 'root', kind: 'constructor', abstract: false, signature: signature('child') }, keyword('child', 'string')] },
@@ -313,23 +328,29 @@ const unsupportedNodeCases: readonly { readonly kind: TypeNodeModel['kind']; rea
 ]
 
 afterEach(() => {
+  /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
 describe('SchemaEmitter supported projection matrix', () => {
   it.each(supportedCases)('$name', async ({ nodes, accepted, rejected }) => {
+    /** 中文说明：变量 schema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schema = await loadSchema(emit(nodes))
+    /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
     for (const value of accepted) expect(schema.safeParse(value).success).toBe(true)
+    /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
     for (const value of rejected) expect(schema.safeParse(value).success).toBe(false)
   })
 
   it('supports recursive declarations and inherited object shapes', async () => {
+    /** 中文说明：变量 recursive 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recursive = declaration('Root', 'interface', {
       members: [
         property('value', 'string'),
         property('next', 'self', { optional: true }),
       ],
     })
+    /** 中文说明：变量 recursiveSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recursiveSchema = await loadSchema(emit([
       keyword('string', 'string'),
       {
@@ -343,11 +364,14 @@ describe('SchemaEmitter supported projection matrix', () => {
     expect(recursiveSchema.safeParse({ value: 'one', next: { value: 'two' } }).success).toBe(true)
     expect(recursiveSchema.safeParse({ value: 'one', next: { value: 2 } }).success).toBe(false)
 
+    /** 中文说明：变量 inherited 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inherited = declaration('Root', 'interface', {
       extends: ['base-reference'],
       members: [property('current', 'number')],
     })
+    /** 中文说明：变量 base 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const base = declaration('Base', 'interface', { members: [property('base', 'string')] })
+    /** 中文说明：变量 inheritedSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inheritedSchema = await loadSchema(emit([
       { id: 'base-reference', kind: 'reference', name: 'Base', target: { kind: 'declaration', symbol: 'Base' }, arguments: [] },
       keyword('string', 'string'),
@@ -358,10 +382,12 @@ describe('SchemaEmitter supported projection matrix', () => {
   })
 
   it('instantiates generic aliases, nested references, defaults, and recursive declarations', async () => {
+    /** 中文说明：变量 box 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const box = declaration('Box', 'interface', {
       typeParameters: [{ id: 'box:value', name: 'Value', const: false }],
       members: [property('value', 'box:value-reference')],
     })
+    /** 中文说明：变量 wrapper 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wrapper = declaration('Wrapper', 'alias', {
       typeParameters: [
         { id: 'wrapper:value', name: 'Value', const: false },
@@ -369,6 +395,7 @@ describe('SchemaEmitter supported projection matrix', () => {
       ],
       type: 'wrapper:box-reference',
     })
+    /** 中文说明：变量 recursive 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recursive = declaration('Recursive', 'interface', {
       typeParameters: [{ id: 'recursive:value', name: 'Value', const: false }],
       members: [
@@ -376,6 +403,7 @@ describe('SchemaEmitter supported projection matrix', () => {
         property('next', 'recursive:self-reference', { optional: true }),
       ],
     })
+    /** 中文说明：变量 schema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schema = await loadSchema(emit([
       {
         id: 'root',
@@ -467,14 +495,17 @@ describe('SchemaEmitter supported projection matrix', () => {
   })
 
   it('erases unique-symbol nominal members without naming a branding utility', async () => {
+    /** 中文说明：变量 nominal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nominal = declaration('Nominal', 'alias', {
       typeParameters: [{ id: 'nominal:brand', name: 'Brand', const: false }],
       type: 'nominal:intersection',
     })
+    /** 中文说明：变量 symbolMember 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const symbolMember = {
       ...property('[TOKEN]', 'nominal:brand-reference', { readonly: true }),
       computed: 'symbol',
     } as const
+    /** 中文说明：变量 schema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schema = await loadSchema(emit([
       {
         id: 'root',
@@ -501,6 +532,7 @@ describe('SchemaEmitter supported projection matrix', () => {
   })
 
   it('classifies every TypeNode kind and executes every supported kind', () => {
+    /** 中文说明：变量 expected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expected = Object.entries(ZOD_NODE_SUPPORT)
       .filter(([, support]) => support === 'supported')
       .map(([kind]) => kind)
@@ -538,6 +570,7 @@ describe('SchemaEmitter unsupported projection matrix', () => {
       arguments: [],
     }])).toThrow('type parameter has no schema substitution')
 
+    /** 中文说明：变量 generic 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generic = declaration('Generic', 'interface', {
       typeParameters: [{ id: 'parameter', name: 'Value', const: false }],
     })
@@ -549,6 +582,7 @@ describe('SchemaEmitter unsupported projection matrix', () => {
       arguments: [],
     }], undefined, [generic])).toThrow('missing type argument Value')
 
+    /** 中文说明：变量 genericRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const genericRoot = declaration('Root', 'interface', {
       typeParameters: [{ id: 'root:parameter', name: 'Value', const: false }],
     })
@@ -556,6 +590,7 @@ describe('SchemaEmitter unsupported projection matrix', () => {
   })
 
   it('rejects unsupported standard references and enums', () => {
+    /** 中文说明：变量 intrinsic 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const intrinsic = { id: 'root', kind: 'keyword', name: 'intrinsic' } as unknown as TypeNodeModel
     expect(() => emit([intrinsic]))
       .toThrow('keyword intrinsic has no Zod projection')
@@ -568,6 +603,7 @@ describe('SchemaEmitter unsupported projection matrix', () => {
       arguments: [],
     }])).toThrow('standard type Promise has no Zod projection')
 
+    /** 中文说明：变量 enumeration 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const enumeration = declaration('Enumeration', 'enum', {
       enumMembers: [{ ...documentation, name: 'Value', initializer: "'value'", location }],
     })
@@ -615,13 +651,16 @@ describe('SchemaEmitter unsupported projection matrix', () => {
   })
 
   it('rejects incomplete schema roots and non-function event signatures', () => {
+    /** 中文说明：变量 incompleteAlias 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const incompleteAlias = declaration('Root', 'alias')
     expect(() => emit([], incompleteAlias)).toThrow('alias has no modeled type')
 
+    /** 中文说明：变量 missingSymbolFace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missingSymbolFace = schemaFace([keyword('root', 'string')], 'missing')
     expect(() => new FaceModelEmitter(missingSymbolFace).emit('@fixture/schema'))
       .toThrow('referenced declaration is outside the selected schema closure')
 
+    /** 中文说明：变量 eventFace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const eventFace: FaceModel = {
       ...schemaFace([], 'Root', []),
       graph: { declarations: [], nodes: [keyword('event', 'string')] },
@@ -649,12 +688,15 @@ describe('SchemaEmitter unsupported projection matrix', () => {
   })
 
   it('emits undocumented events without an optional mode', () => {
+    /** 中文说明：变量 returns 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const returns = keyword('returns', 'void')
+    /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event: TypeNodeModel = {
       id: 'event',
       kind: 'function',
       signature: { typeParameters: [], parameters: [], returns: 'returns' },
     }
+    /** 中文说明：变量 face 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const face: FaceModel = {
       face: 'host',
       graph: { declarations: [], nodes: [returns, event] },
@@ -676,29 +718,37 @@ describe('SchemaEmitter unsupported projection matrix', () => {
       }],
     }
 
+    /** 中文说明：变量 artifact 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const artifact = new FaceModelEmitter(face).emit('@fixture/events')
     expect(artifact.js).toContain('"name": "fixture/event"')
     expect(artifact.js).not.toContain('"mode"')
   })
 
   it('skips non-instance data members and emits collision-safe schema identifiers', async () => {
+    /** 中文说明：变量 hiddenMembers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hiddenMembers = declaration('Root', 'interface', {
       members: [
         { ...property('static', 'string'), static: true },
         { ...property('private', 'string'), visibility: 'private' },
       ],
     })
+    /** 中文说明：变量 hiddenSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hiddenSchema = await loadSchema(emit([keyword('string', 'string')], hiddenMembers))
     expect(hiddenSchema.safeParse({ arbitrary: true }).success).toBe(true)
 
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = { ...declaration('first', 'interface'), name: 'Same' }
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = { ...declaration('second', 'interface'), name: 'Same' }
+    /** 中文说明：变量 face 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const face = schemaFace([
       { id: 'first-reference', kind: 'reference', name: 'Same', target: { kind: 'declaration', symbol: 'first' }, arguments: [] },
       { id: 'second-reference', kind: 'reference', name: 'Same', target: { kind: 'declaration', symbol: 'second' }, arguments: [] },
     ], 'first', [first, second])
+    /** 中文说明：变量 packageModel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packageModel = face.packages[0]
     if (packageModel === undefined) throw new Error('schema face has no package')
+    /** 中文说明：变量 collisionFace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collisionFace: FaceModel = {
       ...face,
       packages: [{
@@ -709,6 +759,7 @@ describe('SchemaEmitter unsupported projection matrix', () => {
         ],
       }],
     }
+    /** 中文说明：变量 artifact 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const artifact = new FaceModelEmitter(collisionFace).emit('@fixture/schema')
     expect(artifact.js).toContain('const Same$schema2 =')
     expect(artifact.js).toContain('export const _1_bad = Same$schema')
@@ -716,9 +767,11 @@ describe('SchemaEmitter unsupported projection matrix', () => {
   })
 
   it('emits JSON index signatures as record schemas', async () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = declaration('Root', 'interface', {
       members: [indexMember('key', 'value')],
     })
+    /** 中文说明：变量 schema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schema = await loadSchema(emit([
       keyword('key', 'string'),
       keyword('value', 'number'),
@@ -729,6 +782,7 @@ describe('SchemaEmitter unsupported projection matrix', () => {
   })
 
   it('rejects more than one JSON index signature', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = declaration('Root', 'interface', {
       members: [indexMember('key', 'value'), indexMember('other-key', 'other-value')],
     })
@@ -752,6 +806,7 @@ describe('SchemaEmitter unsupported projection matrix', () => {
   )
 
   it('classifies and rejects every unsupported TypeNode kind', () => {
+    /** 中文说明：变量 expected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expected = Object.entries(ZOD_NODE_SUPPORT)
       .filter(([, support]) => support === 'unsupported')
       .map(([kind]) => kind)
@@ -760,18 +815,22 @@ describe('SchemaEmitter unsupported projection matrix', () => {
   })
 })
 
+/** 中文说明：函数 keywordCase 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function keywordCase(name: KeywordTypeName, accepted: readonly unknown[], rejected: readonly unknown[]): SchemaCase {
   return { name: `keyword ${name}`, nodes: [keyword('root', name)], accepted, rejected }
 }
 
+/** 中文说明：函数 keyword 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function keyword(id: string, name: KeywordTypeName): TypeNodeModel {
   return { id, kind: 'keyword', name }
 }
 
+/** 中文说明：函数 signature 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function signature(returns: string): SignatureModel {
   return { typeParameters: [], parameters: [], returns }
 }
 
+/** 中文说明：函数 property 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function property(
   name: string,
   type: string,
@@ -794,10 +853,13 @@ function property(
   }
 }
 
+/** 中文说明：函数 signatureMember 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function signatureMember(kind: 'index'): SignatureMemberModel
+/** 中文说明：函数 signatureMember 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function signatureMember(
   kind: Exclude<MemberModel['kind'], 'property' | 'index'>,
 ): MemberModel
+/** 中文说明：函数 signatureMember 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function signatureMember(kind: Exclude<MemberModel['kind'], 'property'>): MemberModel {
   return {
     ...documentation,
@@ -816,6 +878,7 @@ function signatureMember(kind: Exclude<MemberModel['kind'], 'property'>): Member
   }
 }
 
+/** 中文说明：函数 indexMember 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function indexMember(key: string, value: string): SignatureMemberModel {
   return {
     ...signatureMember('index'),
@@ -834,6 +897,7 @@ function indexMember(key: string, value: string): SignatureMemberModel {
   }
 }
 
+/** 中文说明：函数 declaration 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function declaration(
   name: string,
   kind: TypeDeclarationModel['kind'],
@@ -861,11 +925,13 @@ function declaration(
   }
 }
 
+/** 中文说明：函数 emit 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function emit(
   nodes: readonly TypeNodeModel[],
   rootDeclaration = declaration('Root', 'alias', { type: 'root' }),
   dependencies: readonly TypeDeclarationModel[] = [],
 ): string {
+  /** 中文说明：变量 schemaReference 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const schemaReference: TypeNodeModel = {
     id: 'schema-reference',
     kind: 'reference',
@@ -873,6 +939,7 @@ function emit(
     target: { kind: 'declaration', symbol: 'Root' },
     arguments: [],
   }
+  /** 中文说明：变量 face 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const face: FaceModel = {
     face: 'host',
     graph: {
@@ -898,6 +965,7 @@ function emit(
   return new FaceModelEmitter(face).emit('@fixture/schema').js
 }
 
+/** 中文说明：函数 schemaFace 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function schemaFace(
   nodes: readonly TypeNodeModel[],
   symbol: string,
@@ -924,17 +992,22 @@ function schemaFace(
   }
 }
 
+/** 中文说明：函数 loadSchema 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function loadSchema(source: string): Promise<{ safeParse(value: unknown): { success: boolean } }> {
+  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(import.meta.dirname, '.generated-schema-'))
   temporaryRoots.push(root)
+  /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = join(root, 'schema.mjs')
   writeFileSync(path, source)
+  /** 中文说明：变量 generated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const generated = await import(`${pathToFileURL(path).href}?test=${Date.now()}-${String(temporaryRoots.length)}`) as {
     Root: { safeParse(value: unknown): { success: boolean } }
   }
   return generated.Root
 }
 
+/** 中文说明：函数 distinct 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function distinct(values: readonly string[]): string[] {
   return [...new Set(values)].sort()
 }

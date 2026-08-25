@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 timeout.spec.ts 覆盖的通用运行时工具行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的通用运行时工具能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   clampTimeout,
@@ -10,6 +18,7 @@ import {
 
 describe('TimeoutReason', () => {
   it('is an Error carrying the code and elapsed ms', () => {
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new TimeoutReason('BASH_TIMEOUT', 100)
     expect(reason).toBeInstanceOf(Error)
     expect(reason.name).toBe('TimeoutReason')
@@ -60,6 +69,7 @@ describe('deadline — timeout arm', () => {
     expect(d.signal.aborted).toBe(false)
     vi.advanceTimersByTime(100)
     expect(d.signal.aborted).toBe(true)
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = timeoutOf(d.signal)
     expect(reason).toBeInstanceOf(TimeoutReason)
     expect(reason?.code).toBe('BASH_TIMEOUT')
@@ -68,6 +78,7 @@ describe('deadline — timeout arm', () => {
 
   it('[Symbol.dispose] clears the timer so no abort fires afterward', () => {
     vi.useFakeTimers()
+    /** 中文说明：变量 d 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const d = deadline(undefined, 100, 'BASH_TIMEOUT')
     d[Symbol.dispose]()
     vi.advanceTimersByTime(1_000)
@@ -85,6 +96,7 @@ describe('deadline — timeout arm', () => {
 
 describe('deadline — fuse with upstream', () => {
   it('aborts on upstream cancellation, classified as NOT a timeout', () => {
+    /** 中文说明：变量 upstream 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const upstream = new AbortController()
     using d = deadline(upstream.signal, 60_000, 'BASH_TIMEOUT')
     upstream.abort('user cancelled')
@@ -95,6 +107,7 @@ describe('deadline — fuse with upstream', () => {
   it('cancel wins when it fires before the timeout', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：变量 upstream 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const upstream = new AbortController()
       using d = deadline(upstream.signal, 100, 'BASH_TIMEOUT')
       upstream.abort('user cancelled') // fires first, before the 100ms timer
@@ -111,6 +124,7 @@ describe('deadline — fuse with upstream', () => {
   it('timeout wins when it fires before upstream cancellation', () => {
     vi.useFakeTimers()
     try {
+      /** 中文说明：变量 upstream 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const upstream = new AbortController()
       using d = deadline(upstream.signal, 100, 'WEB_FETCH_TIMEOUT')
       vi.advanceTimersByTime(150) // past the 100ms deadline: the timer fires first
@@ -126,6 +140,7 @@ describe('deadline — fuse with upstream', () => {
   })
 
   it('forwards a pre-aborted upstream signal immediately', () => {
+    /** 中文说明：变量 upstream 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const upstream = new AbortController()
     upstream.abort('already gone')
     using d = deadline(upstream.signal, 60_000, 'BASH_TIMEOUT')
@@ -139,6 +154,7 @@ describe('deadline — timeoutMs <= 0 (no-timeout sentinel)', () => {
 
   it('arms no timer and forwards only the upstream signal', () => {
     vi.useFakeTimers()
+    /** 中文说明：变量 upstream 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const upstream = new AbortController()
     using d = deadline(upstream.signal, 0, 'BASH_TIMEOUT')
     vi.advanceTimersByTime(1_000_000)
@@ -150,6 +166,7 @@ describe('deadline — timeoutMs <= 0 (no-timeout sentinel)', () => {
 
   it('returns a never-aborting signal with a no-op disposer when there is no upstream', () => {
     vi.useFakeTimers()
+    /** 中文说明：变量 d 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const d = deadline(undefined, 0, 'BASH_TIMEOUT')
     expect(() => { d[Symbol.dispose]() }).not.toThrow()
     vi.advanceTimersByTime(1_000_000)
@@ -158,6 +175,7 @@ describe('deadline — timeoutMs <= 0 (no-timeout sentinel)', () => {
   })
 
   it('treats a negative timeout the same as zero', () => {
+    /** 中文说明：变量 d 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const d = deadline(undefined, -5, 'BASH_TIMEOUT')
     expect(d.signal.aborted).toBe(false)
     d[Symbol.dispose]()
@@ -166,6 +184,7 @@ describe('deadline — timeoutMs <= 0 (no-timeout sentinel)', () => {
 
 describe('timeoutOf', () => {
   it('classifies a bare reason carrier that holds a TimeoutReason', () => {
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new TimeoutReason('WEB_FETCH_TIMEOUT', 50)
     expect(timeoutOf({ reason })).toBe(reason)
   })
@@ -177,6 +196,7 @@ describe('timeoutOf', () => {
   })
 
   it('matches only the requested code when one is given', () => {
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new TimeoutReason('BASH_TIMEOUT', 100)
     expect(timeoutOf({ reason }, 'BASH_TIMEOUT')).toBe(reason)
     expect(timeoutOf({ reason }, 'WEB_FETCH_TIMEOUT')).toBeUndefined()
@@ -188,6 +208,7 @@ describe('deadline — nested deadlines', () => {
     // The upstream handed to the inner deadline is ITSELF a deadline that has already timed out
     // (outer). `AbortSignal.any` preserves that reason, but scoping `timeoutOf` to the inner code
     // must classify it as upstream cancellation rather than the inner capability's timeout.
+    /** 中文说明：变量 outer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outer = new AbortController()
     outer.abort(new TimeoutReason('OUTER_TIMEOUT', 30))
     using inner = deadline(outer.signal, 60_000, 'BASH_TIMEOUT')
@@ -202,16 +223,21 @@ describe('idleWatchdog', () => {
 
   it('arms only while next is outstanding and rearms the same signal for later demand', async () => {
     vi.useFakeTimers()
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = Promise.withResolvers<IteratorResult<number>>()
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = Promise.withResolvers<IteratorResult<number>>()
+    /** 中文说明：变量 iterator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const iterator: AsyncIterator<number> = {
       next: vi.fn()
         .mockImplementationOnce(() => first.promise)
         .mockImplementationOnce(() => second.promise),
     }
     using watchdog = idleWatchdog(undefined, 100, 'LLM_STREAM_IDLE_TIMEOUT')
+    /** 中文说明：变量 stableSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stableSignal = watchdog.signal
 
+    /** 中文说明：变量 firstNext 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstNext = watchdog.next(iterator)
     await vi.advanceTimersByTimeAsync(99)
     expect(stableSignal.aborted).toBe(false)
@@ -222,6 +248,7 @@ describe('idleWatchdog', () => {
     expect(stableSignal.aborted).toBe(false)
     expect(watchdog.signal).toBe(stableSignal)
 
+    /** 中文说明：变量 secondNext 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const secondNext = watchdog.next(iterator)
     await vi.advanceTimersByTimeAsync(100)
     expect(timeoutOf(stableSignal, 'LLM_STREAM_IDLE_TIMEOUT')).toMatchObject({ timeoutMs: 100 })
@@ -231,12 +258,15 @@ describe('idleWatchdog', () => {
 
   it('rearms outstanding demand on an out-of-band activity pulse', async () => {
     vi.useFakeTimers()
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = Promise.withResolvers<IteratorResult<number>>()
+    /** 中文说明：变量 watchdog 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const watchdog = idleWatchdog(undefined, 100, 'LLM_STREAM_IDLE_TIMEOUT')
     watchdog.pulse()
     await vi.advanceTimersByTimeAsync(1_000)
     expect(watchdog.signal.aborted).toBe(false)
 
+    /** 中文说明：函数值 next 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const next = watchdog.next({ next: () => pending.promise })
     await vi.advanceTimersByTimeAsync(99)
     watchdog.pulse()
@@ -253,6 +283,7 @@ describe('idleWatchdog', () => {
 
   it('keeps an earlier upstream abort distinct from its own timeout', async () => {
     vi.useFakeTimers()
+    /** 中文说明：变量 upstream 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const upstream = new AbortController()
     using watchdog = idleWatchdog(upstream.signal, 100, 'LLM_STREAM_IDLE_TIMEOUT')
     upstream.abort('caller cancelled')
@@ -264,7 +295,9 @@ describe('idleWatchdog', () => {
 
   it('clears an outstanding arm on disposal', async () => {
     vi.useFakeTimers()
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = Promise.withResolvers<IteratorResult<number>>()
+    /** 中文说明：变量 watchdog 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const watchdog = idleWatchdog(undefined, 100, 'LLM_STREAM_IDLE_TIMEOUT')
     void watchdog.next({ next: () => pending.promise })
     watchdog[Symbol.dispose]()
@@ -281,8 +314,10 @@ describe('idleWatchdog', () => {
     expect(() => idleWatchdog(undefined, Number.NaN, 'IDLE')).toThrow(/positive finite/)
     expect(() => idleWatchdog(undefined, MAX_TIMER_DELAY_MS + 1, 'IDLE'))
       .toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = Promise.withResolvers<IteratorResult<number>>()
     using watchdog = idleWatchdog(undefined, 100, 'IDLE')
+    /** 中文说明：函数值 iterator 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const iterator = { next: () => pending.promise }
     void watchdog.next(iterator)
     await expect(watchdog.next(iterator)).rejects.toThrow(/already outstanding/)

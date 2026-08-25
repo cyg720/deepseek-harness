@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 typert.spec.ts 覆盖的Typert 类型系统行为与边界场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
+ * 产品维度：保障 Agent 的Typert 类型系统能力稳定、可复现且可诊断。
+ * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
+ * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
+ * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
+ */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { z } from 'zod'
@@ -5,6 +13,7 @@ import TypertRegistry, {
   typertEndpoint,
   typertKey,
   typertPackageKey,
+  /** 中文说明：type TypertContribution 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
   type TypertContribution,
 } from '@deepseek-ai/dsh-typert-registry'
 import type {
@@ -16,21 +25,26 @@ import type {
 import { apply as applyClientRegistry, inject as clientRegistryInject } from '../src/client/index.ts'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
+  /** 中文说明：interface TypertLookupMap 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
   interface TypertLookupMap {
     fixture: TypertLookup<{ readonly id: string }, string>
   }
 
+  /** 中文说明：interface TypertContextMap 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
   interface TypertContextMap {
     registryFixture: TypertContext<string>
   }
 }
 
+/** 中文说明：函数 makeCtx 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function makeCtx(): Promise<Context> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(TypertRegistry)
   return ctx
 }
 
+/** 中文说明：函数 toolsContribution 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function toolsContribution(schema: z.ZodType = z.object({ name: z.string() })): TypertContribution {
   return {
     package: '@deepseek-ai/dsh-tools',
@@ -61,6 +75,7 @@ function toolsContribution(schema: z.ZodType = z.object({ name: z.string() })): 
   }
 }
 
+/** 中文说明：函数 invocation 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function invocation(id = '@fixture/remote#goals/create'): InvocationDescriptor {
   return {
     id,
@@ -78,6 +93,7 @@ function invocation(id = '@fixture/remote#goals/create'): InvocationDescriptor {
   }
 }
 
+/** 中文说明：函数 scopedInvocation 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function scopedInvocation(): InvocationDescriptor {
   return {
     ...invocation('@fixture/remote#goals/create-scoped'),
@@ -99,7 +115,9 @@ function scopedInvocation(): InvocationDescriptor {
 
 describe('TypertRegistry', () => {
   it('registers and queries generated schemas separately from package reflection', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 contribution 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const contribution = toolsContribution()
     ctx.typert.register(contribution)
 
@@ -120,7 +138,9 @@ describe('TypertRegistry', () => {
   })
 
   it('withdraws schemas and package metadata through the exact contribution disposer', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = ctx.typert.register(toolsContribution())
     expect(ctx.typert.getPackage('@deepseek-ai/dsh-tools')).toBeDefined()
 
@@ -132,7 +152,9 @@ describe('TypertRegistry', () => {
   })
 
   it('follows the registering plugin fiber lifecycle', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin(Object.assign(
       (child: Context) => { child.typert.register(toolsContribution()) },
       { inject: ['typert'] },
@@ -147,13 +169,16 @@ describe('TypertRegistry', () => {
   })
 
   it('rejects duplicate package faces and schema keys before committing', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 original 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const original = toolsContribution()
     ctx.typert.register(original)
 
     expect(() => ctx.typert.register(toolsContribution(z.never()))).toThrow('package face')
     expect(ctx.typert.get('@deepseek-ai/dsh-tools#ToolInput')?.schema).toBe(original.schemas[0]?.schema)
 
+    /** 中文说明：变量 duplicateBatch 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const duplicateBatch: TypertContribution = {
       ...toolsContribution(),
       package: '@fixture/duplicate',
@@ -167,6 +192,7 @@ describe('TypertRegistry', () => {
   })
 
   it('rejects malformed contribution identities and filters both registry views', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
     ctx.typert.register(toolsContribution())
 
@@ -189,6 +215,7 @@ describe('TypertRegistry', () => {
   })
 
   it('resolves required schemas and projects fresh JSON Schema documents', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
     ctx.typert.register(toolsContribution())
 
@@ -196,19 +223,25 @@ describe('TypertRegistry', () => {
     expect(() => ctx.typert.resolve('@deepseek-ai/dsh-tools#Missing')).toThrow('contributes no schema named "Missing"')
     expect(() => ctx.typert.resolve('@fixture/absent#Value')).toThrow('has no registered contribution')
     expect(() => ctx.typert.resolve('invalid')).toThrow('expected "<package>#<name>"')
+    /** 中文说明：变量 projected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const projected = ctx.typert.toJSONSchema('@deepseek-ai/dsh-tools#ToolInput')
     expect(projected).toMatchObject({ type: 'object', properties: { name: { type: 'string' } } })
     expect(ctx.typert.toJSONSchema('@deepseek-ai/dsh-tools#ToolInput')).not.toBe(projected)
   })
 
   it('registers local invocations atomically with generated reflection', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 descriptor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const descriptor = invocation()
+    /** 中文说明：变量 contribution 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const contribution = { ...toolsContribution(), invocations: [descriptor] }
+    /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changes: string[] = []
     ctx.typert.local.subscribe((change) => { changes.push(`${change.kind}:${change.key}`) })
 
     expect(ctx.typert.local.hasSeen('goals/create')).toBe(false)
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = ctx.typert.register(contribution)
 
     expect(typertEndpoint(descriptor)).toBe('goals/create')
@@ -225,7 +258,9 @@ describe('TypertRegistry', () => {
   })
 
   it('rejects duplicate invocation endpoints and ids atomically', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = invocation()
     ctx.typert.register({ ...toolsContribution(), invocations: [first] })
 
@@ -248,6 +283,7 @@ describe('TypertRegistry', () => {
   })
 
   it.each(['create#v2', 'create goal', '.', '..'])('rejects untransportable invocation method %s', async (method) => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
     expect(() => ctx.typert.remotes.register({
       package: '@fixture/invalid-endpoint',
@@ -256,14 +292,19 @@ describe('TypertRegistry', () => {
   })
 
   it('mounts Remote contributions in the calling fiber and withdraws them exactly', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 descriptor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const descriptor = invocation()
+    /** 中文说明：变量 contribution 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const contribution: TypertRemoteContribution = {
       package: '@fixture/remote',
       descriptors: [descriptor],
     }
+    /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changes: string[] = []
     ctx.typert.remotes.subscribe((change) => { changes.push(`${change.kind}:${change.key}`) })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin(Object.assign(
       (child: Context) => { child.typert.remotes.register(contribution) },
       { inject: ['typert'] },
@@ -279,12 +320,16 @@ describe('TypertRegistry', () => {
   })
 
   it('accepts only a direct scope selecting its unique lookup parameter', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 descriptor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const descriptor = scopedInvocation()
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = ctx.typert.remotes.register({ package: '@fixture/scoped', descriptors: [descriptor] })
     expect(ctx.typert.remotes.get('goals/create')).toBe(descriptor)
     await dispose()
 
+    /** 中文说明：变量 cases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cases: readonly [InvocationDescriptor, string][] = [
       [{
         ...descriptor,
@@ -308,6 +353,7 @@ describe('TypertRegistry', () => {
       }, 'must select its only lookup parameter'],
       [{ ...descriptor, scope: { context: 'other', wire: 'agentId' } }, 'must select its only lookup parameter'],
     ]
+    /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
     for (const [index, [candidate, message]] of cases.entries()) {
       expect(() => ctx.typert.remotes.register({
         package: `@fixture/rejected-${String(index)}`,
@@ -318,9 +364,13 @@ describe('TypertRegistry', () => {
   })
 
   it('registers lookup and Context providers without domain branches', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 object 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const object = { id: 'agent-1' }
+    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = ctx.extend()
+    /** 中文说明：变量 disposeLookup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeLookup = ctx.typert.lookups.register('fixture', {
       parameter: 'agent',
       wire: 'agentId',
@@ -328,11 +378,13 @@ describe('TypertRegistry', () => {
       wireTypeSymbol: '@fixture/session#SessionId',
       resolve: id => id === object.id ? object : undefined,
     })
+    /** 中文说明：变量 disposeHost 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeHost = ctx.typert.contexts.registerHost('registryFixture', {
       wire: 'agentId',
       wireTypeSymbol: '@fixture/session#SessionId',
       resolve: id => id === object.id ? scoped : undefined,
     })
+    /** 中文说明：变量 disposeClient 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeClient = ctx.typert.contexts.registerClient('registryFixture', {
       identity: candidate => candidate === scoped ? object.id : undefined,
     })
@@ -356,13 +408,18 @@ describe('TypertRegistry', () => {
   })
 
   it('configures an asynchronous lookup resolver independently of provider load order', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 fallback 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fallback = { id: 'fallback' }
+    /** 中文说明：变量 configured 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configured = { id: 'configured' }
+    /** 中文说明：函数值 disposeResolver 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeResolver = ctx.typert.lookups.configure('fixture', async id =>
       id === configured.id ? configured : undefined)
 
     expect(ctx.typert.lookups.get('fixture')).toBeUndefined()
+    /** 中文说明：变量 disposeProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeProvider = ctx.typert.lookups.register('fixture', {
       parameter: 'agent',
       wire: 'agentId',
@@ -375,6 +432,7 @@ describe('TypertRegistry', () => {
 
     await disposeProvider()
     expect(ctx.typert.lookups.get('fixture')).toBeUndefined()
+    /** 中文说明：变量 disposeReloadedProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeReloadedProvider = ctx.typert.lookups.register('fixture', {
       parameter: 'agent',
       wire: 'agentId',
@@ -390,13 +448,18 @@ describe('TypertRegistry', () => {
   })
 
   it('configures an asynchronous Host Context resolver independently of provider load order', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 fallback 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fallback = ctx.extend()
+    /** 中文说明：变量 configured 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configured = ctx.extend()
+    /** 中文说明：函数值 disposeResolver 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeResolver = ctx.typert.contexts.configureHost('registryFixture', async id =>
       id === 'configured' ? configured : undefined)
 
     expect(ctx.typert.contexts.getHost('registryFixture')).toBeUndefined()
+    /** 中文说明：变量 disposeProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeProvider = ctx.typert.contexts.registerHost('registryFixture', {
       wire: 'agentId',
       wireTypeSymbol: '@fixture/session#SessionId',
@@ -407,6 +470,7 @@ describe('TypertRegistry', () => {
 
     await disposeProvider()
     expect(ctx.typert.contexts.getHost('registryFixture')).toBeUndefined()
+    /** 中文说明：变量 disposeReloadedProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeReloadedProvider = ctx.typert.contexts.registerHost('registryFixture', {
       wire: 'agentId',
       wireTypeSymbol: '@fixture/session#SessionId',
@@ -420,14 +484,19 @@ describe('TypertRegistry', () => {
   })
 
   it('publishes provider changes, rejects duplicate providers, and disposes subscriptions', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changes: string[] = []
+    /** 中文说明：函数值 disposeLookupSubscription 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeLookupSubscription = ctx.typert.lookups.subscribe((change) => {
       changes.push(`${change.kind}:${change.key}`)
     })
+    /** 中文说明：函数值 disposeContextSubscription 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeContextSubscription = ctx.typert.contexts.subscribe((change) => {
       changes.push(`${change.kind}:${change.key}`)
     })
+    /** 中文说明：变量 lookup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lookup = {
       parameter: 'agent',
       wire: 'agentId',
@@ -435,14 +504,19 @@ describe('TypertRegistry', () => {
       wireTypeSymbol: '@fixture#AgentId',
       resolve: () => undefined,
     }
+    /** 中文说明：变量 host 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const host = {
       wire: 'agentId',
       wireTypeSymbol: '@fixture#AgentId',
       resolve: () => undefined,
     }
+    /** 中文说明：函数值 client 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const client = { identity: () => undefined }
+    /** 中文说明：变量 disposeLookup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeLookup = ctx.typert.lookups.register('fixture', lookup)
+    /** 中文说明：变量 disposeHost 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeHost = ctx.typert.contexts.registerHost('registryFixture', host)
+    /** 中文说明：变量 disposeClient 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeClient = ctx.typert.contexts.registerClient('registryFixture', client)
 
     expect(() => ctx.typert.lookups.register('fixture', lookup)).toThrow('already registered')
@@ -459,6 +533,7 @@ describe('TypertRegistry', () => {
     ])
 
     await Promise.all([disposeLookupSubscription(), disposeContextSubscription()])
+    /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
     for (const changed of [
       { ...lookup, parameter: 'session' },
       { ...lookup, wire: 'sessionId' },
@@ -473,12 +548,15 @@ describe('TypertRegistry', () => {
   })
 
   it('validates every invocation and provider boundary', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 strict 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const strict = {
       mode: 'strict' as const,
       typeSymbol: '@fixture#Value',
       schema: z.string(),
     }
+    /** 中文说明：变量 strictInvocation 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const strictInvocation: InvocationDescriptor = {
       ...invocation('@fixture/remote#strict'),
       implementation: 'remoteExportCreate',
@@ -486,9 +564,11 @@ describe('TypertRegistry', () => {
       cancellation: { parameter: 'signal' },
       result: strict,
     }
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = ctx.typert.remotes.register({ package: '@fixture/strict', descriptors: [strictInvocation] })
     await dispose()
 
+    /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformed: readonly [InvocationDescriptor, string][] = [
       [{ ...invocation(), id: '' }, 'invocation id'],
       [{ ...invocation(), namespace: 'bad/name' }, 'namespace'],
@@ -540,6 +620,7 @@ describe('TypertRegistry', () => {
         result: { mode: 'strict', typeSymbol: '@fixture#Broken', schema: {} as z.ZodType },
       }, 'has no parse'],
     ]
+    /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
     for (const [index, [descriptor, message]] of malformed.entries()) {
       expect(() => ctx.typert.remotes.register({
         package: `@fixture/malformed-${String(index)}`,
@@ -564,15 +645,19 @@ describe('TypertRegistry', () => {
   })
 
   it('installs the registry through the Client entry without importing the Host entry', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin({ inject: clientRegistryInject, apply: applyClientRegistry })
     expect(ctx.typert.list()).toEqual([])
   })
 
   it('contains change-listener failures and still notifies later listeners', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeCtx()
+    /** 中文说明：变量 warnings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warnings: unknown[] = []
     ctx.logger.warn = ((message: unknown) => { warnings.push(message) }) as typeof ctx.logger.warn
+    /** 中文说明：变量 observed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let observed = 0
     ctx.typert.remotes.subscribe(() => { throw new Error('observer failed') })
     ctx.typert.remotes.subscribe(() => { observed += 1 })
