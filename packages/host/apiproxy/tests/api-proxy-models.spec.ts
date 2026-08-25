@@ -4,6 +4,14 @@
  * catalog injection, advisory pass-through models, and the prompt-assembly
  * boundary for a running selection change.
  */
+/**
+ * 文件职责：验证Host API Proxy的 api-proxy-models.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
+ * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
+ * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
+ * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
+ * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ */
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -24,11 +32,14 @@ import type { RpcRequest } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
 import { RpcId } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
 import { createApiProxy } from '../src/api-proxy.ts'
 
+/** 中文说明：测试局部值 nextRpc，由紧邻初始化决定。 */
 let nextRpc = 1
+/** 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function request<P>(payload: P): RpcRequest<P> {
   return { rpcId: RpcId(`models-${String(nextRpc++)}`), payload }
 }
 
+/** 中文说明：类型或类 CatalogAdapter 约束 API、Hook 或目录数据职责。 */
 class CatalogAdapter extends LlmAdapter {
   constructor(
     private readonly name: string,
@@ -64,6 +75,7 @@ class CatalogAdapter extends LlmAdapter {
   }
 }
 
+/** 中文说明：测试局部值 REASONING，由紧邻初始化决定。 */
 const REASONING: LlmModelReasoningInfo = {
   efforts: [
     { id: ReasoningEffortId('off'), name: 'Off' },
@@ -73,6 +85,7 @@ const REASONING: LlmModelReasoningInfo = {
   defaultEffort: ReasoningEffortId('high'),
 }
 
+/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(logged?: {
   provider: string
   model: string
@@ -82,6 +95,7 @@ async function harness(logged?: {
   agent: Agent
   sessionId: SessionId
 }> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SystemPrompt, { persona: '' })
@@ -101,10 +115,12 @@ async function harness(logged?: {
     { provider: 'duplicate', id: 'same', name: 'Same' },
     { provider: 'duplicate', id: 'same', name: 'Same Again' },
   ]))
+  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = ctx.sessions.create()
   if (logged !== undefined) {
     session.append('request/header', { header: { config: logged }, reason: 'initial' })
   }
+  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = {
     id: session.id,
     session,
@@ -116,11 +132,13 @@ async function harness(logged?: {
   return { ctx, agent, sessionId: session.id }
 }
 
+/** 中文说明：函数 expectValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function expectValue<T>(response: { result: { ok: true; value: T } | { ok: false } }): T {
   if (!response.result.ok) throw new Error('expected successful response')
   return response.result.value
 }
 
+/** 中文说明：函数 registerTextOnly 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function registerTextOnly(ctx: Context): void {
   ctx.llm.registerAdapter(['text-only'], new class extends CatalogAdapter {
     override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
@@ -131,8 +149,11 @@ function registerTextOnly(ctx: Context): void {
 
 describe('Web session model selection', () => {
   it('validates an ordered image batch before persisting any member', async () => {
+    /** 中文说明：测试局部值 { ctx, agent, sessionId }，由紧邻初始化决定。 */
     const { ctx, agent, sessionId } = await harness()
+    /** 中文说明：测试局部值 validateImage，由紧邻初始化决定。 */
     const validateImage = vi.fn((_input: { data: Uint8Array }) => Promise.resolve())
+    /** 中文说明：测试局部值 saveImage，由紧邻初始化决定。 */
     const saveImage = vi.fn((input: { data: Uint8Array; mediaType: 'image/png'; name?: string }) => Promise.resolve({
       attachmentId: `att-${String(input.data[0])}`,
       mediaType: input.mediaType,
@@ -141,6 +162,7 @@ describe('Web session model selection', () => {
       height: 1,
       ...input.name === undefined ? {} : { name: input.name },
     }))
+    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = {
       imageLimits: {
         maxImageBytes: 4,
@@ -154,13 +176,16 @@ describe('Web session model selection', () => {
       saveImage,
     }
     ctx.provide('attachments', Object.setPrototypeOf(attachments, AttachmentStore.prototype) as never)
+    /** 中文说明：测试局部值 followup，由紧邻初始化决定。 */
     const followup = vi.fn()
     Object.assign(agent, { followup })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
       cwd: '/tmp',
     })
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await api.sessions.prompt(request({
       sessionId,
       mode: 'queue' as const,
@@ -184,6 +209,7 @@ describe('Web session model selection', () => {
       { type: 'image', attachment: { attachmentId: 'att-2', mediaType: 'image/png', bytes: 1, width: 1, height: 1 } },
     ])
 
+    /** 中文说明：测试局部值 denied，由紧邻初始化决定。 */
     const denied = await api.sessions.prompt(request({
       sessionId,
       mode: 'queue' as const,
@@ -200,12 +226,15 @@ describe('Web session model selection', () => {
   })
 
   it('allows a text-only selection while durable or pending images remain available for later models', async () => {
+    /** 中文说明：测试局部值 { ctx, agent, sessionId }，由紧邻初始化决定。 */
     const { ctx, agent, sessionId } = await harness()
     registerTextOnly(ctx)
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
       cwd: '/tmp',
     })
+    /** 中文说明：测试局部值 image，由紧邻初始化决定。 */
     const image = {
       type: 'image' as const,
       attachment: { attachmentId: 'att-history', mediaType: 'image/png' as const, bytes: 1, width: 1, height: 1 },
@@ -234,12 +263,16 @@ describe('Web session model selection', () => {
   })
 
   it('authorizes attachment bytes only when the session event stream references the id', async () => {
+    /** 中文说明：测试局部值 { ctx, agent, sessionId }，由紧邻初始化决定。 */
     const { ctx, agent, sessionId } = await harness()
+    /** 中文说明：测试局部值 ref，由紧邻初始化决定。 */
     const ref = {
       attachmentId: 'att-authorized', mediaType: 'image/png' as const, bytes: 2, width: 1, height: 1,
     }
+    /** 中文说明：测试局部值 readImage，由紧邻初始化决定。 */
     const readImage = vi.fn(() => Promise.resolve({ ref, data: Uint8Array.of(1, 2) }))
     ctx.provide('attachments', { readImage } as never)
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
       cwd: '/tmp',
@@ -253,10 +286,12 @@ describe('Web session model selection', () => {
       }],
     } as never)
 
+    /** 中文说明：测试局部值 allowed，由紧邻初始化决定。 */
     const allowed = await api.sessions.attachment(request({
       sessionId, attachmentId: 'att-authorized' as never,
     }))
     expect(allowed.result).toMatchObject({ ok: true, value: { attachment: ref, data: 'AQI=' } })
+    /** 中文说明：测试局部值 denied，由紧邻初始化决定。 */
     const denied = await api.sessions.attachment(request({
       sessionId, attachmentId: 'att-other' as never,
     }))
@@ -268,13 +303,16 @@ describe('Web session model selection', () => {
     await ctx.fiber.dispose()
   })
   it('groups successful providers and leaves an unlisted current selection out of the catalog', async () => {
+    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness({
       provider: 'deepseek-official',
       model: 'private-preview',
       reasoningEffort: ReasoningEffortId('max'),
     })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, { defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }), cwd: '/tmp' })
 
+    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = expectValue(await api.sessions.models(request({ sessionId })))
     expect(catalog.current).toEqual({
       provider: 'deepseek-official',
@@ -307,9 +345,13 @@ describe('Web session model selection', () => {
   })
 
   it('accepts an advisory-unlisted model, rejects an unavailable provider, and switches only after the next assembly', async () => {
+    /** 中文说明：测试局部值 { ctx, agent, sessionId }，由紧邻初始化决定。 */
     const { ctx, agent, sessionId } = await harness()
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, { defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }), cwd: '/tmp' })
+    /** 中文说明：测试局部值 seed，由紧邻初始化决定。 */
     const seed: LlmCallConfig = { provider: 'seed', model: 'seed', temperature: 0.2 }
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
 
     expect(expectValue(await api.sessions.models(request({ sessionId }))).current)
@@ -317,6 +359,7 @@ describe('Web session model selection', () => {
     expect((await ctx.systemPrompt.assemble()).variables)
       .toMatchObject({ provider: 'deepseek-official', model: 'deepseek-chat' })
 
+    /** 中文说明：测试局部值 selected，由紧邻初始化决定。 */
     const selected = expectValue(await api.sessions.selectModel(request({
       sessionId,
       provider: 'deepseek-official',
@@ -342,6 +385,7 @@ describe('Web session model selection', () => {
       reasoningEffort: 'max',
     })
 
+    /** 中文说明：测试局部值 unsupported，由紧邻初始化决定。 */
     const unsupported = await api.sessions.selectModel(request({
       sessionId,
       provider: 'deepseek-official',
@@ -356,6 +400,7 @@ describe('Web session model selection', () => {
       },
     })
 
+    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = await api.sessions.selectModel(request({
       sessionId,
       provider: 'missing',
@@ -375,8 +420,11 @@ describe('Web session model selection', () => {
   })
 
   it('reads the Agent default live for a session whose log names no selection', async () => {
+    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness()
+    /** 中文说明：测试局部值 stored，由紧邻初始化决定。 */
     let stored = { provider: 'deepseek-official', model: 'deepseek-chat' }
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       defaultModelSelection: () => stored,
       cwd: '/tmp',
@@ -396,11 +444,14 @@ describe('Web session model selection', () => {
   })
 
   it('keeps a session on its logged selection when the Agent default differs', async () => {
+    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness({
       provider: 'deepseek-official',
       model: 'deepseek-chat',
     })
+    /** 中文说明：测试局部值 stored，由紧邻初始化决定。 */
     let stored = { provider: 'deepseek-official', model: 'deepseek-chat' }
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       defaultModelSelection: () => stored,
       cwd: '/tmp',
@@ -413,9 +464,13 @@ describe('Web session model selection', () => {
   })
 
   it('saves an accepted selection as the default and survives a storage failure', async () => {
+    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness()
+    /** 中文说明：测试局部值 saved，由紧邻初始化决定。 */
     const saved: unknown[] = []
+    /** 中文说明：测试局部值 reject，由紧邻初始化决定。 */
     let reject = false
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
       saveDefaultModelSelection: (selection) => {
@@ -439,6 +494,7 @@ describe('Web session model selection', () => {
     // Storage failing is not the selection failing: the switch already applies
     // to this session, so the call still succeeds.
     reject = true
+    /** 中文说明：测试局部值 stillAccepted，由紧邻初始化决定。 */
     const stillAccepted = expectValue(await api.sessions.selectModel(request({
       sessionId, provider: 'deepseek-official', model: 'deepseek-chat',
     })))
@@ -449,7 +505,9 @@ describe('Web session model selection', () => {
   })
 
   it('refuses a prompt no adapter can route, and reports it on the directory', async () => {
+    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness()
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       defaultModelSelection: () => ({ provider: 'deleted-gateway', model: 'deleted-model' }),
       cwd: '/tmp',
@@ -457,6 +515,7 @@ describe('Web session model selection', () => {
 
     // The client disabling its input is an affordance; this method stays
     // callable, so the refusal has to live here.
+    /** 中文说明：测试局部值 refused，由紧邻初始化决定。 */
     const refused = await api.sessions.prompt(request({
       sessionId, mode: 'queue' as const, content: [{ type: 'text' as const, text: 'hi' }],
     }))
@@ -471,6 +530,7 @@ describe('Web session model selection', () => {
     expectValue(await api.sessions.selectModel(request({
       sessionId, provider: 'deepseek-official', model: 'unlisted-but-served',
     })))
+    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = expectValue(await api.sessions.models(request({ sessionId })))
     expect(catalog.routable).toBe(true)
     expect(catalog.groups.flatMap(group => group.models.map(model => model.id)))
@@ -479,7 +539,9 @@ describe('Web session model selection', () => {
   })
 
   it('serves a session and its catalog when the stored default names a route that is gone', async () => {
+    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness()
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       // What a Models-page removal leaves behind: the settings document still
       // names the route the user last picked, and nothing serves it.
@@ -487,6 +549,7 @@ describe('Web session model selection', () => {
       cwd: '/tmp',
     })
 
+    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = expectValue(await api.sessions.models(request({ sessionId })))
     // Passed through rather than repaired: matching no group is precisely what
     // makes the composer seat prompt for a selection instead of naming a model

@@ -6,6 +6,14 @@
  * prompt's turn/start clears it. The host/session-added frame shares the
  * same predicate function (covered by the workspace spec's frame assertion).
  */
+/**
+ * 文件职责：验证Host API Proxy的 api-proxy-blank.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
+ * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
+ * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
+ * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
+ * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -23,12 +31,16 @@ import type { ApiProxy, RpcRequest } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { RpcId } from '@deepseek-ai/dsh-host-apiproxy/api/rpc'
 import { createApiProxy } from '@deepseek-ai/dsh-host-apiproxy'
 
+/** 中文说明：测试局部值 nextRpc，由紧邻初始化决定。 */
 let nextRpc = 1
+/** 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function request<P>(payload: P): RpcRequest<P> {
   return { rpcId: RpcId(`blank-${String(nextRpc++)}`), payload }
 }
 
+/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(): Promise<{ ctx: Context; api: ApiProxy; attach: (session: Session) => void }> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(UserQuestionService)
@@ -43,6 +55,7 @@ async function harness(): Promise<{ ctx: Context; api: ApiProxy; attach: (sessio
 }
 
 /** Append the standalone (non-conversation) event family a fresh session can accumulate. */
+/** 中文说明：函数 appendStandalone 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendStandalone(session: Session): void {
   session.append('command/run', {
     commandId: CommandId('blank-cmd-1'), name: 'plan', args: '', source: { kind: 'user' },
@@ -58,7 +71,9 @@ function appendStandalone(session: Session): void {
   session.append('approval/policy', { policy: 'never' })
 }
 
+/** 中文说明：函数 listBlank 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function listBlank(api: ApiProxy, id: string): Promise<boolean | undefined> {
+  /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
   const response = await api.sessions.list(request({}))
   if (!response.result.ok) throw new Error('list failed')
   return response.result.value.items.find(item => item.sessionId === id)?.blank
@@ -66,7 +81,9 @@ async function listBlank(api: ApiProxy, id: string): Promise<boolean | undefined
 
 describe('summary blank = conversation not started', () => {
   it('standalone events (command lifecycle, plan/mode, title) keep the session blank', async () => {
+    /** 中文说明：测试局部值 { ctx, api, attach }，由紧邻初始化决定。 */
     const { ctx, api, attach } = await harness()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create()
     attach(session)
     expect(await listBlank(api, session.id)).toBe(true)
@@ -75,7 +92,9 @@ describe('summary blank = conversation not started', () => {
   })
 
   it('the first turn clears blank', async () => {
+    /** 中文说明：测试局部值 { ctx, api, attach }，由紧邻初始化决定。 */
     const { ctx, api, attach } = await harness()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create()
     attach(session)
     appendStandalone(session)

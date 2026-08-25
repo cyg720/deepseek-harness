@@ -4,6 +4,14 @@
  * value-free credential views, the directory/live-route merge, and the three
  * invalidation frames (settings/credentials/models changed).
  */
+/**
+ * 文件职责：验证Host API Proxy的 api-proxy-config.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
+ * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
+ * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
+ * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
+ * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ */
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -33,19 +41,24 @@ import { RpcId } from '../src/api/rpc.ts'
 import { AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-agent-default-model'
 import { createApiProxy } from '../src/api-proxy.ts'
 
+/** 中文说明：测试局部值 DEFAULTS，由紧邻初始化决定。 */
 const DEFAULTS = { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' }
 
+/** 中文说明：测试局部值 nextRpc，由紧邻初始化决定。 */
 let nextRpc = 1
+/** 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function request<P>(payload: P): RpcRequest<P> {
   return { rpcId: RpcId(`req-${String(nextRpc++)}`), payload }
 }
 
+/** 中文说明：函数 expectOk 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function expectOk<T>(response: RpcResponse<T>): T {
   expect(response.result.ok).toBe(true)
   if (!response.result.ok) throw new Error('unreachable')
   return response.result.value
 }
 
+/** 中文说明：函数 expectErr 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function expectErr<T>(response: RpcResponse<T>): { code: string; message: string; details: unknown } {
   expect(response.result.ok).toBe(false)
   if (response.result.ok) throw new Error('unreachable')
@@ -53,6 +66,7 @@ function expectErr<T>(response: RpcResponse<T>): { code: string; message: string
 }
 
 /** In-memory settings provider: the Service Definition base class owns all tested behavior. */
+/** 中文说明：类型或类 MemorySettings 约束 API、Hook 或目录数据职责。 */
 class MemorySettings extends SettingsProvider {
   doc: Record<string, unknown>
 
@@ -96,6 +110,7 @@ class MemorySettings extends SettingsProvider {
 }
 
 /** In-memory credential provider with an env-shadow double for the rejection path. */
+/** 中文说明：类型或类 MemoryCredentials 约束 API、Hook 或目录数据职责。 */
 class MemoryCredentials extends CredentialProvider {
   private readonly values = new Map<string, string>()
 
@@ -108,12 +123,14 @@ class MemoryCredentials extends CredentialProvider {
 
   resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined> {
     if (this.shadowed.has(ref)) return Promise.resolve({ value: 'from-env', source: 'env' })
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = this.values.get(ref)
     return Promise.resolve(value === undefined ? undefined : { value, source: 'file' })
   }
 
   describe(ref: CredentialRef): Promise<CredentialInfo> {
     if (this.shadowed.has(ref)) return Promise.resolve({ configured: true, source: 'env', writable: false })
+    /** 中文说明：测试局部值 configured，由紧邻初始化决定。 */
     const configured = this.values.has(ref)
     return Promise.resolve({ configured, ...configured ? { source: 'file' } : {}, writable: true })
   }
@@ -163,6 +180,7 @@ class MemoryCredentials extends CredentialProvider {
 }
 
 /** Catalog-serving adapter stub for the llm.models path. */
+/** 中文说明：类型或类 CatalogAdapter 约束 API、Hook 或目录数据职责。 */
 class CatalogAdapter extends LlmAdapter {
   constructor(private readonly name: string, private readonly models: readonly string[]) {
     super()
@@ -182,20 +200,24 @@ class CatalogAdapter extends LlmAdapter {
   }
 }
 
+/** 中文说明：类型或类 BrokenCatalogAdapter 约束 API、Hook 或目录数据职责。 */
 class BrokenCatalogAdapter extends CatalogAdapter {
   override listModels(): Promise<readonly LlmModelInfo[]> {
     return Promise.reject(new Error('catalog backend down'))
   }
 }
 
+/** 中文说明：测试局部值 NS，由紧邻初始化决定。 */
 const NS = settingsNamespace('llm-deepseek')
 
+/** 中文说明：测试局部值 AdapterConfig，由紧邻初始化决定。 */
 const AdapterConfig = z.object({
   apiKey: z.string().role('secret'),
   apiKeyEnv: z.string().default('DEEPSEEK_API_KEY'),
   baseURL: z.string(),
 })
 
+/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(options?: {
   settings?: false | {
     doc?: Record<string, unknown>
@@ -207,6 +229,7 @@ async function harness(options?: {
   /** Skip the directory registration to exercise a namespace the proxy does not expose. */
   configurableProviders?: false
 }): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SystemPrompt, { persona: '' })
@@ -230,16 +253,22 @@ async function harness(options?: {
 }
 
 /** Drain `count` host frames matching `types`, then abort the stream. */
+/** 中文说明：函数 collectHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function collectHost(
   api: ReturnType<typeof createApiProxy>,
   types: string[],
   count: number,
   run: () => Promise<void>,
 ): Promise<HostFrame[]> {
+  /** 中文说明：测试局部值 abort，由紧邻初始化决定。 */
   const abort = new AbortController()
+  /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
   const frames: HostFrame[] = []
+  /** 中文说明：测试局部值 stream，由紧邻初始化决定。 */
   const stream = api.events.host(request({}), abort.signal)
+  /** 中文说明：测试局部值 consume，由紧邻初始化决定。 */
   const consume = (async () => {
+    /** 中文说明：测试局部值 frame，由紧邻初始化决定。 */
     for await (const frame of stream) {
       if (!types.includes(frame.payload.type)) continue
       frames.push(frame.payload)
@@ -258,6 +287,7 @@ async function collectHost(
  * @param ns - the namespace whose stored section changed.
  * @returns the expected wrapper frame.
  */
+/** 中文说明：函数 forwardedSettings 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function forwardedSettings(ns: string): HostFrame {
   return {
     type: 'host/remote-event',
@@ -269,24 +299,31 @@ function forwardedSettings(ns: string): HostFrame {
 
 describe('settings domain', () => {
   it('reports an actionable error when no settings provider is mounted', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ settings: false })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = expectErr(await api.settings.describe(request({})))
     expect(error.code).toBe('internal')
     expect(error.message).toContain('dsh-settings-file')
   })
 
   it('describes layered redacted namespaces with their secret slots', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ settings: {
       doc: { 'llm-deepseek': { apiKey: 'user-secret', baseURL: 'https://user' } },
       documentPath: '/tmp/custom-settings.yaml',
     } })
     ctx.settings.register(NS, AdapterConfig, { base: { baseURL: 'https://base' } })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = expectOk(await api.settings.describe(request({})))
     expect(value.writable).toBe(true)
     expect(value.hasDocument).toBe(true)
     expect(value.namespaces).toHaveLength(1)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = value.namespaces[0]!
     expect(view.ns).toBe('llm-deepseek')
     expect(view.applies).toBe('live')
@@ -299,11 +336,14 @@ describe('settings domain', () => {
   })
 
   it('opens the provider-resolved document without accepting a browser path', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ settings: {
       documentPath: '/tmp/described-settings.yaml',
       preparedPath: '/tmp/custom-settings.yaml',
     } })
+    /** 中文说明：测试局部值 opened，由紧邻初始化决定。 */
     const opened: string[] = []
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       ...DEFAULTS,
       openTextFile: (path) => {
@@ -318,17 +358,23 @@ describe('settings domain', () => {
   })
 
   it('refuses to open settings when the provider has no local document', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
     expect(expectOk(await api.settings.describe(request({}))).hasDocument).toBe(false)
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = expectErr(await api.settings.openDocument(request({}), new AbortController().signal))
     expect(error.code).toBe('internal')
     expect(error.message).toContain('no local document')
   })
 
   it('does not prepare or open a settings document after cancellation', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ settings: { documentPath: '/tmp/settings.yaml' } })
+    /** 中文说明：测试局部值 opened，由紧邻初始化决定。 */
     const opened: string[] = []
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, {
       ...DEFAULTS,
       openTextFile: (path) => {
@@ -336,16 +382,21 @@ describe('settings domain', () => {
         return Promise.resolve()
       },
     })
+    /** 中文说明：测试局部值 prepare，由紧邻初始化决定。 */
     const prepare = vi.spyOn(ctx.settings, 'prepareDocument')
+    /** 中文说明：测试局部值 cancelled，由紧邻初始化决定。 */
     const cancelled = new AbortController()
     cancelled.abort()
     expect(expectErr(await api.settings.openDocument(request({}), cancelled.signal)).code)
       .toBe('cancelled')
     expect(prepare).not.toHaveBeenCalled()
 
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = Promise.withResolvers<string | undefined>()
     prepare.mockReturnValueOnce(pending.promise)
+    /** 中文说明：测试局部值 duringPrepare，由紧邻初始化决定。 */
     const duringPrepare = new AbortController()
+    /** 中文说明：测试局部值 opening，由紧邻初始化决定。 */
     const opening = api.settings.openDocument(request({}), duringPrepare.signal)
     await vi.waitFor(() => { expect(prepare).toHaveBeenCalledOnce() })
     duringPrepare.abort()
@@ -359,6 +410,7 @@ describe('settings domain', () => {
     // repository configures itself from the browser without a change here.
     // The plane stays loopback-only and secret-redacted, and which surface
     // renders a namespace is the browser's decision, not this proxy's.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.settings.register(NS, AdapterConfig)
     ctx.settings.register(settingsNamespace('some-other-plugin'), z.object({ secretPath: z.string() }))
@@ -385,49 +437,59 @@ describe('settings domain', () => {
     ctx.settings.register(settingsNamespace('web-search-deepseek'), z.object({
       baseURL: z.string(),
     }))
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
 
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = expectOk(await api.settings.describe(request({})))
     expect(value.namespaces.map(view => view.ns)).toEqual([
       'llm-deepseek', 'some-other-plugin', 'permission', 'ui-theme', 'locale',
       'ui-conversation', 'shell', 'agent-loop', 'web-search-deepseek',
     ])
+    /** 中文说明：测试局部值 permission，由紧邻初始化决定。 */
     const permission = expectOk(await api.settings.mutate(request({
       ns: 'permission',
       ops: [{ op: 'set', path: ['defaultPreset'], value: 'workspace-write' }],
     })))
     expect(permission.value).toEqual({ defaultPreset: 'workspace-write' })
+    /** 中文说明：测试局部值 theme，由紧邻初始化决定。 */
     const theme = expectOk(await api.settings.mutate(request({
       ns: 'ui-theme',
       ops: [{ op: 'set', path: ['preference'], value: 'dark' }],
     })))
     expect(theme.value).toEqual({ preference: 'dark' })
+    /** 中文说明：测试局部值 locale，由紧邻初始化决定。 */
     const locale = expectOk(await api.settings.mutate(request({
       ns: 'locale',
       ops: [{ op: 'set', path: ['preference'], value: 'en' }],
     })))
     expect(locale.value).toEqual({ preference: 'en' })
+    /** 中文说明：测试局部值 conversation，由紧邻初始化决定。 */
     const conversation = expectOk(await api.settings.mutate(request({
       ns: 'ui-conversation',
       ops: [{ op: 'set', path: ['busyEnter'], value: 'steer' }],
     })))
     expect(conversation.value).toEqual({ busyEnter: 'steer' })
+    /** 中文说明：测试局部值 bash，由紧邻初始化决定。 */
     const bash = expectOk(await api.settings.mutate(request({
       ns: 'shell',
       ops: [{ op: 'set', path: ['timeoutMs'], value: 5_000 }],
     })))
     expect(bash.value).toEqual({ timeoutMs: 5_000 })
+    /** 中文说明：测试局部值 agentLoop，由紧邻初始化决定。 */
     const agentLoop = expectOk(await api.settings.mutate(request({
       ns: 'agent-loop',
       ops: [{ op: 'set', path: ['maxParallelToolCalls'], value: 2 }],
     })))
     expect(agentLoop.value).toEqual({ maxParallelToolCalls: 2 })
+    /** 中文说明：测试局部值 webSearch，由紧邻初始化决定。 */
     const webSearch = expectOk(await api.settings.mutate(request({
       ns: 'web-search-deepseek',
       ops: [{ op: 'set', path: ['baseURL'], value: 'https://search.test/v1' }],
     })))
     expect(webSearch.value).toEqual({ baseURL: 'https://search.test/v1' })
 
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = expectOk(await api.settings.update(request({
       ns: 'some-other-plugin',
       patch: { secretPath: '/etc/shadow' },
@@ -438,14 +500,17 @@ describe('settings domain', () => {
   })
 
   it('serves product preference namespaces without invalidating the model catalog', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.settings.register(settingsNamespace('ui-onboarding'), z.object({ welcomeNoticeVersion: z.string() }))
     ctx.settings.register(settingsNamespace('ui-theme'), z.object({
       preference: z.union(['light', 'dark', 'system']).default('system'),
     }))
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
     expect(expectOk(await api.settings.describe(request({}))).namespaces.map(view => view.ns))
       .toEqual(['ui-onboarding', 'ui-theme'])
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collectHost(api, ['host/remote-event'], 2, async () => {
       expectOk(await api.settings.mutate(request({
         ns: 'ui-onboarding',
@@ -460,8 +525,10 @@ describe('settings domain', () => {
   })
 
   it('serves the agent-preset namespace, so a browser preset picker can persist its choice', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.settings.register(settingsNamespace('agent-presets'), z.object({ default: z.string() }))
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
 
     expectOk(await api.settings.update(request({ ns: 'agent-presets', patch: { default: 'minimal' } })))
@@ -478,8 +545,10 @@ describe('settings domain', () => {
     // The configurable-provider directory says what the Models page can offer,
     // not what a user may configure: a dormant route's stored section is still
     // theirs to edit, and losing the entry must not strand it.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ configurableProviders: false })
     ctx.settings.register(NS, AdapterConfig)
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
     expect(expectOk(await api.settings.describe(request({}))).namespaces.map(view => view.ns))
       .toEqual(['llm-deepseek'])
@@ -493,9 +562,12 @@ describe('settings domain', () => {
     // an override equal to the resolved value emits nothing on
     // settings/updated, so another tab would never learn the field became
     // overridden.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.settings.register(NS, AdapterConfig, { base: { baseURL: 'https://base' } })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collectHost(api, ['host/remote-event'], 1, async () => {
       await api.settings.update(request({ ns: 'llm-deepseek', patch: { baseURL: 'https://base' } }))
     })
@@ -506,13 +578,17 @@ describe('settings domain', () => {
   })
 
   it('broadcasts a permission change without invalidating the model catalog', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 permission，由紧邻初始化决定。 */
     const permission = ctx.settings.register(settingsNamespace('permission'), z.object({
       defaultPreset: z.union(['read-only', 'workspace-write']).required(),
     }), {
       base: { defaultPreset: 'read-only' },
     })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collectHost(api, ['host/remote-event'], 1, async () => {
       await permission.update({ defaultPreset: 'workspace-write' })
     })
@@ -520,15 +596,19 @@ describe('settings domain', () => {
   })
 
   it('forwards an Agent-default settings change for model-catalog consumers', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 defaultModel，由紧邻初始化决定。 */
     const defaultModel = ctx.settings.register(AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE, z.object({
       provider: z.string().required(),
       model: z.string().required(),
     }), { base: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
     // The shared section names the selection every blank session resolves to,
     // so an externally edited default — another tab, a
     // hand-edited settings.yaml — has to reach an open selector as well.
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collectHost(api, ['host/remote-event'], 1, async () => {
       await defaultModel.replace({ provider: 'deepseek-official', model: 'deepseek-reasoner' })
     })
@@ -536,12 +616,16 @@ describe('settings domain', () => {
   })
 
   it('maps a stale expectedRevision to settings-conflict carrying both revisions', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.settings.register(NS, AdapterConfig)
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 opened，由紧邻初始化决定。 */
     const opened = expectOk(await api.settings.describe(request({}))).namespaces[0]!.revision
     expect(expectOk(await api.settings.update(request({ ns: 'llm-deepseek', patch: { baseURL: 'https://first' }, expectedRevision: opened })))
       .revision).toBe(opened + 1)
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = expectErr(await api.settings.update(request({ ns: 'llm-deepseek', patch: { baseURL: 'https://second' }, expectedRevision: opened })))
     expect(error.code).toBe('settings-conflict')
     expect(error.details).toEqual({ ns: 'llm-deepseek', expected: opened, actual: opened + 1 })
@@ -550,10 +634,14 @@ describe('settings domain', () => {
   })
 
   it('updates the user layer, answers with the new redacted view, and broadcasts the frame', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.settings.register(NS, AdapterConfig, { base: { baseURL: 'https://base' } })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collectHost(api, ['host/remote-event'], 1, async () => {
+      /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
       const view = expectOk(await api.settings.update(request({ ns: 'llm-deepseek', patch: { apiKey: 'sk-new', baseURL: 'https://next' } })))
       expect(view.value).toEqual({ apiKeyEnv: 'DEEPSEEK_API_KEY', baseURL: 'https://next' })
       expect(view.user).toEqual({ baseURL: 'https://next' })
@@ -564,9 +652,12 @@ describe('settings domain', () => {
   })
 
   it('replace resets the user layer wholesale', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ settings: { doc: { 'llm-deepseek': { baseURL: 'https://user' } } } })
     ctx.settings.register(NS, AdapterConfig)
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = expectOk(await api.settings.replace(request({ ns: 'llm-deepseek', section: {} })))
     expect(view.value).toEqual({ apiKeyEnv: 'DEEPSEEK_API_KEY' })
     expect(view.user).toEqual({})
@@ -576,9 +667,12 @@ describe('settings domain', () => {
     ['an invalid namespace name', 'Not A Namespace', {}],
     ['a schema-invalid patch', 'llm-deepseek', { baseURL: 42 }],
   ])('rejects %s as settings-rejected', async (_case, ns, patch) => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.settings.register(NS, AdapterConfig)
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = expectErr(await api.settings.update(request({ ns, patch })))
     expect(error.code).toBe('settings-rejected')
     expect(error.details).toEqual({ ns })
@@ -588,10 +682,14 @@ describe('settings domain', () => {
     // A name no registration answers and a name no registration could answer
     // fold into the same rejection: the proxy adds no boundary of its own, so
     // the seam's own refusal is the whole answer.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.settings.register(NS, AdapterConfig)
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 unknown，由紧邻初始化决定。 */
     const unknown = expectErr(await api.settings.update(request({ ns: 'unknown-ns', patch: {} })))
+    /** 中文说明：测试局部值 malformed，由紧邻初始化决定。 */
     const malformed = expectErr(await api.settings.update(request({ ns: 'Not A Namespace', patch: {} })))
     expect(unknown.code).toBe('settings-rejected')
     expect(unknown.message).toContain('is not registered')
@@ -599,11 +697,15 @@ describe('settings domain', () => {
   })
 
   it('maps a read-only provider refusal onto the same rejection', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ settings: { readOnly: true } })
     ctx.settings.register(NS, AdapterConfig)
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = expectOk(await api.settings.describe(request({})))
     expect(value.writable).toBe(false)
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = expectErr(await api.settings.update(request({ ns: 'llm-deepseek', patch: {} })))
     expect(error.code).toBe('settings-rejected')
     expect(error.message).toContain('read-only')
@@ -612,20 +714,28 @@ describe('settings domain', () => {
 
 describe('credentials domain', () => {
   it('reports an actionable error when no credential provider is mounted', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ credentials: false })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = expectErr(await api.credentials.describe(request({ refs: ['A'] })))
     expect(error.code).toBe('internal')
     expect(error.message).toContain('dsh-credentials-local')
   })
 
   it('describes value-free views and flips state through set/unset with frames', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = expectOk(await api.credentials.describe(request({ refs: ['OPENAI_API_KEY'] })))
     expect(before.credentials).toEqual({ OPENAI_API_KEY: { configured: false, writable: true } })
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collectHost(api, ['host/remote-event'], 2, async () => {
       expectOk(await api.credentials.set(request({ ref: 'OPENAI_API_KEY', value: 'sk-secret' })))
+      /** 中文说明：测试局部值 after，由紧邻初始化决定。 */
       const after = expectOk(await api.credentials.describe(request({ refs: ['OPENAI_API_KEY'] })))
       expect(after.credentials).toEqual({ OPENAI_API_KEY: { configured: true, source: 'file', writable: true } })
       expect(JSON.stringify(after)).not.toContain('sk-secret')
@@ -638,13 +748,18 @@ describe('credentials domain', () => {
   })
 
   it('maps a shadowed write onto credential-rejected for set and unset alike', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ credentials: { shadowed: ['DEEPSEEK_API_KEY'] } })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 described，由紧邻初始化决定。 */
     const described = expectOk(await api.credentials.describe(request({ refs: ['DEEPSEEK_API_KEY'] })))
     expect(described.credentials['DEEPSEEK_API_KEY']).toEqual({ configured: true, source: 'env', writable: false })
+    /** 中文说明：测试局部值 setError，由紧邻初始化决定。 */
     const setError = expectErr(await api.credentials.set(request({ ref: 'DEEPSEEK_API_KEY', value: 'x' })))
     expect(setError.code).toBe('credential-rejected')
     expect(setError.details).toEqual({ ref: 'DEEPSEEK_API_KEY' })
+    /** 中文说明：测试局部值 unsetError，由紧邻初始化决定。 */
     const unsetError = expectErr(await api.credentials.unset(request({ ref: 'DEEPSEEK_API_KEY' })))
     expect(unsetError.code).toBe('credential-rejected')
   })
@@ -652,6 +767,7 @@ describe('credentials domain', () => {
 
 describe('llm domain', () => {
   it('merges the configurable directory with live routes and appends undeclared ones', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ configurableProviders: false })
     ctx.llm.registerConfigurableProviders([
       { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [] },
@@ -662,7 +778,9 @@ describe('llm domain', () => {
     // Only one namespace can answer an interrogation, so the flag follows the
     // entry's namespace rather than being assumed for every row.
     ctx.llm.registerModelDiscovery('llm-pi-ai', () => Promise.resolve([]))
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = expectOk(await api.llm.providers(request({})))
     expect(value.providers).toEqual([
       { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
@@ -674,10 +792,13 @@ describe('llm domain', () => {
   })
 
   it('serves the host-scoped catalog with per-provider failures contained', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.llm.registerAdapter(['deepseek-official'], new CatalogAdapter('DeepSeek', ['deepseek-v4-flash', 'deepseek-v4-pro']))
     ctx.llm.registerAdapter(['broken'], new BrokenCatalogAdapter('Broken', []))
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = expectOk(await api.llm.models(request({})))
     expect(value.groups).toEqual([{
       id: 'deepseek-official',
@@ -691,9 +812,13 @@ describe('llm domain', () => {
   })
 
   it('forwards llm/adapters-updated at every topology commit point', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collectHost(api, ['host/remote-event'], 2, async () => {
+      /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
       const dispose = ctx.llm.registerAdapter(['deepseek-official'], new CatalogAdapter('DeepSeek', []))
       dispose()
       return Promise.resolve()
@@ -707,7 +832,9 @@ describe('llm domain', () => {
 
 describe('llm.discoverModels', () => {
   it('carries a draft to its namespace and returns candidates without storing anything', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: unknown[] = []
     ctx.llm.registerModelDiscovery('llm-pi-ai', (probe) => {
       seen.push({ baseURL: probe.baseURL, api: probe.api, apiKey: probe.apiKey })
@@ -716,8 +843,10 @@ describe('llm.discoverModels', () => {
         { id: 'acme-small' },
       ])
     })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
 
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = expectOk(await api.llm.discoverModels(request({
       settingsNs: 'llm-pi-ai',
       baseURL: 'https://gateway.acme.example/v1',
@@ -741,14 +870,18 @@ describe('llm.discoverModels', () => {
   })
 
   it('carries the route being edited so an adapter can answer from its own registry', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 probe: unknown，由紧邻初始化决定。 */
     let probe: unknown
     ctx.llm.registerModelDiscovery('llm-pi-ai', (request_) => {
       probe = request_
       return Promise.resolve([{ id: 'from-registry', contextWindow: 65_536, maxTokens: 4096 }])
     })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
 
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = expectOk(await api.llm.discoverModels(request({
       settingsNs: 'llm-pi-ai',
       provider: 'deepseek',
@@ -760,12 +893,15 @@ describe('llm.discoverModels', () => {
   })
 
   it('omits a credential and protocol the draft does not name', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 probe: unknown，由紧邻初始化决定。 */
     let probe: unknown
     ctx.llm.registerModelDiscovery('llm-pi-ai', (request_) => {
       probe = request_
       return Promise.resolve([])
     })
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
 
     expectOk(await api.llm.discoverModels(request({
@@ -779,11 +915,14 @@ describe('llm.discoverModels', () => {
   })
 
   it('reports a failed interrogation as the form\'s next move, naming no credential', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.llm.registerModelDiscovery('llm-pi-ai', () =>
       Promise.reject(new Error('https://gateway.acme.example/v1/models answered 401; check the API key')))
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
 
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = expectErr(await api.llm.discoverModels(request({
       settingsNs: 'llm-pi-ai',
       baseURL: 'https://gateway.acme.example/v1',
@@ -797,9 +936,12 @@ describe('llm.discoverModels', () => {
   })
 
   it('reports a namespace no adapter family serves', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = createApiProxy(ctx, DEFAULTS)
 
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = expectErr(await api.llm.discoverModels(request({
       settingsNs: 'llm-deepseek',
       baseURL: 'https://api.deepseek.com',

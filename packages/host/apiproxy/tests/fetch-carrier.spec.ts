@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Host API Proxy的 fetch-carrier.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
+ * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
+ * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
+ * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
+ * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import type { ApiProxy, HostFrame, MuxFrame } from '../src/api/index.ts'
 import type { ClientResponse, RpcMessage, RpcReceipt, RpcRequest } from '../src/api/rpc.ts'
@@ -6,10 +14,15 @@ import { toFetchHandler } from '../src/fetch/handler.ts'
 import { AbstractApiClient, InProcessApiClient } from '../src/fetch/client.ts'
 
 /** Minimal in-memory ApiProxy: echoes rpcIds, scripts one frame per stream. */
+/** 中文说明：函数 fakeApi 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFrame[]; crashOn: string }> = {}): ApiProxy {
+  /** 中文说明：测试局部值 muxFrames，由紧邻初始化决定。 */
   const muxFrames = overrides.muxFrames ?? [{ type: 'session/subscribed', sessionId: 's1' as never, lastSeq: -1 }]
+  /** 中文说明：测试局部值 hostFrames，由紧邻初始化决定。 */
   const hostFrames = overrides.hostFrames ?? [{ type: 'host/session-removed', sessionId: 's1' as never }]
+  /** 中文说明：函数 stream 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function * stream<F>(frames: F[], signal: AbortSignal): AsyncGenerator<RpcRequest<F>> {
+    /** 中文说明：测试局部值 payload，由紧邻初始化决定。 */
     for (const payload of frames) {
       if (signal.aborted) return
       yield { rpcId: RpcId(`frame-${String(frames.indexOf(payload))}`), payload }
@@ -200,14 +213,17 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
         })
       },
       select(request: RpcRequest<{ agentPreset: string }>) {
+        /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
         const value = { agentPreset: request.payload.agentPreset }
         return Promise.resolve({ rpcId: request.rpcId, result: { ok: true as const, value } })
       },
       read(request: RpcRequest<{ agentPreset: string }>) {
+        /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
         const value = { agentPreset: request.payload.agentPreset, trust: 'user' as const, content: '' }
         return Promise.resolve({ rpcId: request.rpcId, result: { ok: true as const, value } })
       },
       copy(request: RpcRequest<{ from: string; agentPreset: string }>) {
+        /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
         const value = { agentPreset: request.payload.agentPreset }
         return Promise.resolve({ rpcId: request.rpcId, result: { ok: true as const, value } })
       },
@@ -297,24 +313,30 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
   }
 }
 
+/** 中文说明：函数 client 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function client(api: ApiProxy = fakeApi(), timeoutMs?: number): InProcessApiClient {
   return new InProcessApiClient(toFetchHandler(api), timeoutMs)
 }
 
+/** 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function collect<F>(stream: AsyncIterable<RpcRequest<F>>): Promise<RpcRequest<F>[]> {
+  /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
   const out: RpcRequest<F>[] = []
+  /** 中文说明：测试局部值 envelope，由紧邻初始化决定。 */
   for await (const envelope of stream) out.push(envelope)
   return out
 }
 
 describe('unary round trip (handler ⇄ client, no network)', () => {
   it('carries a success result and echoes the minted rpcId', async () => {
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await client().sessions.list({})
     expect(response.result).toEqual({ ok: true, value: { items: [] } })
     expect(response.rpcId).toMatch(/[0-9a-f-]{36}/)
   })
 
   it('carries the tail-page projections block through the wire schema (Zod must not strip it)', async () => {
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await client().sessions.history({ sessionId: 'with-projections' as never })
     expect(response.result.ok).toBe(true)
     if (response.result.ok) {
@@ -325,12 +347,14 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
   })
 
   it('carries a business error as 200 + error result', async () => {
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await client().sessions.history({ sessionId: 'missing' as never })
     expect(response.result.ok).toBe(false)
     if (!response.result.ok) expect(response.result.error.code).toBe('session-not-found')
   })
 
   it('covers create/prompt/updateQueue/cancel/describe passthrough', async () => {
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = client()
     expect((await c.sessions.search({ query: 'fixture' })).result).toEqual({
       ok: true,
@@ -338,6 +362,7 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
     })
     expect((await c.sessions.create({})).result.ok).toBe(true)
     expect((await c.sessions.models({ sessionId: 's' as never })).result.ok).toBe(true)
+    /** 中文说明：测试局部值 selected，由紧邻初始化决定。 */
     const selected = await c.sessions.selectModel({
       sessionId: 's' as never,
       provider: 'deepseek-official',
@@ -354,6 +379,7 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
         },
       },
     })
+    /** 中文说明：测试局部值 renamed，由紧邻初始化决定。 */
     const renamed = await c.sessions.rename({ sessionId: 's' as never, title: 'named' })
     expect(renamed.result).toMatchObject({ ok: true, value: { title: 'named', seq: 0 } })
     expect((await c.sessions.prompt({ sessionId: 's' as never, mode: 'queue', content: [{ type: 'text', text: 'x' }] })).result.ok).toBe(true)
@@ -368,6 +394,7 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
   })
 
   it('round-trips every agent-preset method, authoring included', async () => {
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = client()
 
     // The whole domain crosses the carrier: the roster a picker reads, the
@@ -390,49 +417,62 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
   })
 
   it('round-trips the native picker without the default unary timeout', async () => {
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = fakeApi()
     api.host.pickDirectory = async (request) => {
       await new Promise(resolve => setTimeout(resolve, 15))
       return { rpcId: request.rpcId, result: { ok: true, value: { path: '/tmp/project' } } }
     }
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await client(api, 1).host.pickDirectory({})
     expect(response.result).toEqual({ ok: true, value: { path: '/tmp/project' } })
   })
 
   it('round-trips the browse listing and creation calls through the wire form', async () => {
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = client()
+    /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
     const listed = await c.host.listDirectory({ path: '/w' })
     expect(listed.result).toEqual({
       ok: true,
       value: { path: '/w', home: '/w', crumbs: [{ name: '/', path: '/', hidden: false }], entries: [], truncated: false },
     })
+    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await c.host.listDirectory({})
     expect(home.result).toMatchObject({ ok: true, value: { home: '/w' } })
+    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = await c.host.createDirectory({ path: '/w', name: 'fresh' })
     expect(created.result).toEqual({ ok: true, value: { path: '/w/new' } })
   })
 
   it('round-trips host.openPath through the wire form', async () => {
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = fakeApi()
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let opened: string | undefined
     api.host.openPath = async (request) => {
       opened = request.payload.path
       return { rpcId: request.rpcId, result: { ok: true, value: { opened: true as const } } }
     }
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await client(api).host.openPath({ path: '/tmp/a.txt' })
     expect(opened).toBe('/tmp/a.txt')
     expect(response.result).toEqual({ ok: true, value: { opened: true } })
   })
 
   it('round-trips skill.list through the wire form', async () => {
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = client()
+    /** 中文说明：测试局部值 skills，由紧邻初始化决定。 */
     const skills = await c.skills.list({ sessionId: 's' as never })
     expect(skills.result).toEqual({ ok: true, value: { skills: [{ name: 'commit-helper', description: 'Git commits', modelInvocable: true }] } })
   })
 
   it('lets host.pickDirectory finish after the 30-second default unary deadline', async () => {
     vi.useFakeTimers()
+    /** 中文说明：测试局部值 timeoutSpy，由紧邻初始化决定。 */
     const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockImplementation((milliseconds) => {
+      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
       const controller = new AbortController()
       setTimeout(() => {
         controller.abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError'))
@@ -440,12 +480,15 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
       return controller.signal
     })
     try {
+      /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
       const api = fakeApi()
       api.host.pickDirectory = async (request) => {
         await new Promise(resolve => setTimeout(resolve, 30_001))
         return { rpcId: request.rpcId, result: { ok: true, value: { path: '/tmp/slow' } } }
       }
+      /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
       const execution = client(api).host.pickDirectory({})
+      /** 中文说明：测试局部值 assertion，由紧邻初始化决定。 */
       const assertion = expect(execution).resolves.toMatchObject({
         result: { ok: true, value: { path: '/tmp/slow' } },
       })
@@ -462,6 +505,7 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
   })
 
   it('round-trips the subagent domain through the wire form', async () => {
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = client()
     expect((await c.subagents.list({ parentSessionId: 'parent' as never })).result)
       .toEqual({ ok: true, value: { entries: [], parentAvailable: false } })
@@ -484,7 +528,9 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
   })
 
   it('keeps caller and connection aborts on a deadline-exempt unary', async () => {
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = fakeApi()
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = Promise.withResolvers<AbortSignal>()
     api.host.pickDirectory = async (request, signal) => {
       started.resolve(signal)
@@ -498,8 +544,11 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
         result: { ok: false, error: { code: 'cancelled', message: 'aborted', details: {} } },
       }
     }
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = client(api).host.pickDirectory({}, controller.signal)
+    /** 中文说明：测试局部值 handlerSignal，由紧邻初始化决定。 */
     const handlerSignal = await started.promise
 
     controller.abort(new Error('connection closed'))
@@ -509,20 +558,26 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
   })
 
   it('propagates the carrier Request signal into session.search', async () => {
+    /** 中文说明：测试局部值 handler，由紧邻初始化决定。 */
     const handler = toFetchHandler(fakeApi())
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = JSON.stringify({
       type: 'client-request',
       rpcId: 'r-search-sig',
       method: 'session.search',
       payload: { query: 'hang' },
     })
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = handler.fetch(new Request(
       'http://x/api/session.search',
       { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: controller.signal },
     ))
     controller.abort()
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await pending
+    /** 中文说明：测试局部值 parsed，由紧邻初始化决定。 */
     const parsed = await response.json() as {
       rpcId: string
       result: { error?: { code: string } }
@@ -532,8 +587,11 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
   })
 
   it('propagates the carrier Request signal into subagent.prompt', async () => {
+    /** 中文说明：测试局部值 handler，由紧邻初始化决定。 */
     const handler = toFetchHandler(fakeApi())
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = JSON.stringify({
       type: 'client-request',
       rpcId: 'r-subagent-sig',
@@ -545,12 +603,15 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
         content: [{ type: 'text', text: 'hang' }],
       },
     })
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = handler.fetch(new Request(
       'http://x/api/subagent.prompt',
       { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: controller.signal },
     ))
     controller.abort()
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await pending
+    /** 中文说明：测试局部值 parsed，由紧邻初始化决定。 */
     const parsed = await response.json() as {
       rpcId: string
       result: { error?: { code: string } }
@@ -560,6 +621,7 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
   })
 
   it('propagates the carrier Request signal into host.pickDirectory', async () => {
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = fakeApi()
     api.host.pickDirectory = async (request, signal) => {
       if (!signal.aborted) {
@@ -572,19 +634,25 @@ describe('unary round trip (handler ⇄ client, no network)', () => {
         result: { ok: false, error: { code: 'cancelled', message: 'aborted', details: {} } },
       }
     }
+    /** 中文说明：测试局部值 handler，由紧邻初始化决定。 */
     const handler = toFetchHandler(api)
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = JSON.stringify({ type: 'client-request', rpcId: 'r-picker', method: 'host.pickDirectory', payload: {} })
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = handler.fetch(new Request('http://x/api/host.pickDirectory', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: controller.signal,
     }))
     controller.abort()
+    /** 中文说明：测试局部值 parsed，由紧邻初始化决定。 */
     const parsed = await (await pending).json() as { result: { error?: { code: string } } }
     expect(parsed.result.error?.code).toBe('cancelled')
   })
 })
 
 describe('handler carrier-layer statuses', () => {
+  /** 中文说明：测试局部值 handler，由紧邻初始化决定。 */
   const handler = toFetchHandler(fakeApi())
 
   it('404s unknown paths and non-POST non-stream methods', async () => {
@@ -594,53 +662,71 @@ describe('handler carrier-layer statuses', () => {
   })
 
   it('400s a non-JSON body', async () => {
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await handler.fetch(new Request('http://x/api/session.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body: 'not json' }))
     expect(response.status).toBe(400)
   })
 
   it('rejects a malformed envelope with bad-request and the invalid-request sentinel rpcId', async () => {
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await handler.fetch(new Request('http://x/api/session.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nope: true }) }))
     expect(response.status).toBe(200)
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = await response.json() as { rpcId: string; result: { ok: boolean; error?: { code: string } } }
     expect(body.rpcId).toBe('invalid-request')
     expect(body.result.error?.code).toBe('bad-request')
   })
 
   it('rejects a method/path mismatch echoing the envelope rpcId', async () => {
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = JSON.stringify({ type: 'client-request', rpcId: 'r-9', method: 'session.cancel', payload: {} })
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await handler.fetch(new Request('http://x/api/session.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body }))
+    /** 中文说明：测试局部值 parsed，由紧邻初始化决定。 */
     const parsed = await response.json() as { rpcId: string; result: { error?: { message: string } } }
     expect(parsed.rpcId).toBe('r-9')
     expect(parsed.result.error?.message).toContain('does not match path')
   })
 
   it('rejects an invalid payload with the zod issues attached', async () => {
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = JSON.stringify({ type: 'client-request', rpcId: 'r-10', method: 'session.cancel', payload: {} })
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await handler.fetch(new Request('http://x/api/session.cancel', { method: 'POST', headers: { 'content-type': 'application/json' }, body }))
+    /** 中文说明：测试局部值 parsed，由紧邻初始化决定。 */
     const parsed = await response.json() as { result: { error?: { code: string; details: { issues: unknown[] } } } }
     expect(parsed.result.error?.code).toBe('bad-request')
     expect(parsed.result.error?.details.issues.length).toBeGreaterThan(0)
   })
 
   it('500s when the impl itself throws', async () => {
+    /** 中文说明：测试局部值 crashing，由紧邻初始化决定。 */
     const crashing = toFetchHandler(fakeApi({ crashOn: 'session.list' }))
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = JSON.stringify({ type: 'client-request', rpcId: 'r-11', method: 'session.list', payload: {} })
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await crashing.fetch(new Request('http://x/api/session.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body }))
     expect(response.status).toBe(500)
     expect(await response.text()).toContain('impl crashed')
   })
 
   it('routes /api/respond, rejecting malformed client-responses as a receipt', async () => {
+    /** 中文说明：测试局部值 good，由紧邻初始化决定。 */
     const good = JSON.stringify({ type: 'client-response', rpcId: 'known', result: { ok: true, value: null } })
+    /** 中文说明：测试局部值 goodReceipt，由紧邻初始化决定。 */
     const goodReceipt: unknown = await (await handler.fetch(new Request('http://x/api/respond', { method: 'POST', headers: { 'content-type': 'application/json' }, body: good }))).json()
     expect(goodReceipt).toEqual({ accepted: true })
+    /** 中文说明：测试局部值 bad，由紧邻初始化决定。 */
     const bad = JSON.stringify({ type: 'client-request', rpcId: 'r', method: 'x', payload: {} })
+    /** 中文说明：测试局部值 badReceipt，由紧邻初始化决定。 */
     const badReceipt: unknown = await (await handler.fetch(new Request('http://x/api/respond', { method: 'POST', headers: { 'content-type': 'application/json' }, body: bad }))).json()
     expect(badReceipt).toEqual({ accepted: false, reason: 'bad-response' })
   })
 
   it('accepts (url, init) form fetch invocation', async () => {
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = JSON.stringify({ type: 'client-request', rpcId: 'r-12', method: 'session.list', payload: {} })
+    /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
     const response = await handler.fetch('http://x/api/session.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
     expect(response.status).toBe(200)
   })
@@ -648,7 +734,9 @@ describe('handler carrier-layer statuses', () => {
 
 describe('SSE streams through the carrier', () => {
   it('yields mux frames as ServerRequest narrow forms and completes', async () => {
+    /** 中文说明：测试局部值 ac，由紧邻初始化决定。 */
     const ac = new AbortController()
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collect(client().events.mux({}, ac.signal))
     expect(frames).toHaveLength(1)
     expect(frames[0]?.payload).toMatchObject({ type: 'session/subscribed' })
@@ -656,15 +744,21 @@ describe('SSE streams through the carrier', () => {
   })
 
   it('yields host frames', async () => {
+    /** 中文说明：测试局部值 ac，由紧邻初始化决定。 */
     const ac = new AbortController()
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collect(client().events.host({}, ac.signal))
     expect(frames[0]?.payload).toMatchObject({ type: 'host/session-removed' })
   })
 
   it('drops frames after the consumer aborts mid-stream', async () => {
+    /** 中文说明：测试局部值 many，由紧邻初始化决定。 */
     const many = Array.from({ length: 50 }, (_, i): MuxFrame => ({ type: 'session/subscribed', sessionId: `s${String(i)}` as never, lastSeq: i }))
+    /** 中文说明：测试局部值 ac，由紧邻初始化决定。 */
     const ac = new AbortController()
+    /** 中文说明：测试局部值 received，由紧邻初始化决定。 */
     const received: RpcRequest<MuxFrame>[] = []
+    /** 中文说明：测试局部值 envelope，由紧邻初始化决定。 */
     for await (const envelope of client(fakeApi({ muxFrames: many })).events.mux({}, ac.signal)) {
       received.push(envelope)
       if (received.length === 2) break // generator return → reader.cancel path
@@ -673,9 +767,12 @@ describe('SSE streams through the carrier', () => {
   })
 
   it('swallows a reader.cancel rejection on early exit', async () => {
+    /** 中文说明：测试局部值 encoder，由紧邻初始化决定。 */
     const encoder = new TextEncoder()
+    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
+        /** 中文说明：测试局部值 frame，由紧邻初始化决定。 */
         const frame = { type: 'server-request', rpcId: 'f0', method: 'session/subscribed', payload: { type: 'session/subscribed', sessionId: 's', lastSeq: -1 } }
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(frame)}\n\n`))
         // stream intentionally left open: the consumer breaks first
@@ -684,8 +781,11 @@ describe('SSE streams through the carrier', () => {
         throw new Error('cancel refused')
       },
     })
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = new InProcessApiClient({ fetch: async () => new Response(body, { headers: { 'content-type': 'text/event-stream' } }) })
+    /** 中文说明：测试局部值 received，由紧邻初始化决定。 */
     const received: RpcRequest<MuxFrame>[] = []
+    /** 中文说明：测试局部值 envelope，由紧邻初始化决定。 */
     for await (const envelope of c.events.mux({}, new AbortController().signal)) {
       received.push(envelope)
       break
@@ -694,11 +794,13 @@ describe('SSE streams through the carrier', () => {
   })
 
   it('surfaces a mid-stream impl failure as one stream/error frame, then the stream ends', async () => {
+    /** 中文说明：测试局部值 api，由紧邻初始化决定。 */
     const api = fakeApi()
     api.events.mux = (_request, _signal) => (async function * (): AsyncGenerator<RpcRequest<MuxFrame>> {
       yield { rpcId: RpcId('f0'), payload: { type: 'session/subscribed', sessionId: 's' as never, lastSeq: -1 } }
       throw new Error('stream source died')
     })()
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = await collect(client(api).events.mux({}, new AbortController().signal))
     expect(frames).toHaveLength(2)
     expect(frames[1]?.payload).toMatchObject({ type: 'stream/error', error: { code: 'internal' } })
@@ -707,13 +809,16 @@ describe('SSE streams through the carrier', () => {
 
 describe('client respond and transport failures', () => {
   it('passes a client-response through and parses the receipt', async () => {
+    /** 中文说明：测试局部值 receipt，由紧邻初始化决定。 */
     const receipt = await client().respond({ type: 'client-response', rpcId: RpcId('known'), result: { ok: true, value: null } })
     expect(receipt).toEqual({ accepted: true })
+    /** 中文说明：测试局部值 late，由紧邻初始化决定。 */
     const late = await client().respond({ type: 'client-response', rpcId: RpcId('late'), result: { ok: true, value: null } })
     expect(late).toEqual({ accepted: false, reason: 'not-pending' })
   })
 
   it('throws on non-OK unary and respond and stream transport', async () => {
+    /** 中文说明：测试局部值 broken，由紧邻初始化决定。 */
     const broken = new InProcessApiClient({ fetch: async () => new Response('down', { status: 503 }) })
     await expect(broken.sessions.list({})).rejects.toThrow('transport failure for /api/session.list: HTTP 503')
     await expect(broken.respond({ type: 'client-response', rpcId: RpcId('r'), result: { ok: true, value: null } }))
@@ -722,6 +827,7 @@ describe('client respond and transport failures', () => {
   })
 
   it('throws on an rpcId echo mismatch', async () => {
+    /** 中文说明：测试局部值 lying，由紧邻初始化决定。 */
     const lying = new InProcessApiClient({
       fetch: async () => Response.json({ type: 'server-response', rpcId: 'someone-else', result: { ok: true, value: { items: [] } } }),
     })
@@ -731,10 +837,15 @@ describe('client respond and transport failures', () => {
 
 describe('envelope observation', () => {
   it('batches envelopes per microtask and isolates a throwing listener', async () => {
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = client()
+    /** 中文说明：测试局部值 batches，由紧邻初始化决定。 */
     const batches: (readonly RpcMessage[])[] = []
+    /** 中文说明：测试局部值 errorSpy，由紧邻初始化决定。 */
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    /** 中文说明：测试局部值 unsubscribeThrowing，由紧邻初始化决定。 */
     const unsubscribeThrowing = c.subscribeEnvelopes(() => { throw new Error('observer bug') })
+    /** 中文说明：测试局部值 unsubscribe，由紧邻初始化决定。 */
     const unsubscribe = c.subscribeEnvelopes((batch) => { batches.push(batch) })
     await c.sessions.list({})
     await new Promise((resolve) => { setTimeout(resolve, 0) })
@@ -748,8 +859,11 @@ describe('envelope observation', () => {
   })
 
   it('skips buffering entirely with no listeners and after unsubscribe', async () => {
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = client()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: RpcMessage[] = []
+    /** 中文说明：测试局部值 unsubscribe，由紧邻初始化决定。 */
     const unsubscribe = c.subscribeEnvelopes((batch) => { seen.push(...batch) })
     unsubscribe()
     await c.sessions.list({})
@@ -758,11 +872,14 @@ describe('envelope observation', () => {
   })
 
   it('coalesces multiple calls in one microtask window into one flush', async () => {
+    /** 中文说明：测试局部值 c，由紧邻初始化决定。 */
     const c = client()
+    /** 中文说明：测试局部值 batches，由紧邻初始化决定。 */
     const batches: (readonly RpcMessage[])[] = []
     c.subscribeEnvelopes((batch) => { batches.push(batch) })
     await Promise.all([c.sessions.list({}), c.host.describe({})])
     await new Promise((resolve) => { setTimeout(resolve, 0) })
+    /** 中文说明：测试局部值 total，由紧邻初始化决定。 */
     const total = batches.reduce((n, batch) => n + batch.length, 0)
     expect(total).toBe(4)
   })
@@ -770,6 +887,7 @@ describe('envelope observation', () => {
 
 describe('resolveBase', () => {
   it('prefers a real location.origin and falls back to the internal authority', async () => {
+    /** 中文说明：类型或类 Probe 约束 API、Hook 或目录数据职责。 */
     class Probe extends AbstractApiClient {
       urls: string[] = []
       protected async doFetch(input: URL): Promise<Response> {
@@ -779,22 +897,27 @@ describe('resolveBase', () => {
 
       lastMinted = ''
       protected override mintRpcId(): ReturnType<AbstractApiClient['mintRpcId']> {
+        /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
         const id = super.mintRpcId()
         this.lastMinted = id
         return id
       }
     }
+    /** 中文说明：测试局部值 probe，由紧邻初始化决定。 */
     const probe = new Probe()
     await probe.sessions.list({})
     expect(probe.urls[0]).toMatch(/^http:\/\/dsh\.internal\//)
 
+    /** 中文说明：测试局部值 globalWithLocation，由紧邻初始化决定。 */
     const globalWithLocation = globalThis as { location?: { origin?: string } }
     globalWithLocation.location = { origin: 'http://host.example' }
     try {
+      /** 中文说明：测试局部值 probe2，由紧邻初始化决定。 */
       const probe2 = new Probe()
       await probe2.sessions.list({})
       expect(probe2.urls[0]).toMatch(/^http:\/\/host\.example\//)
       globalWithLocation.location = { origin: 'null' } // sandboxed iframe shape
+      /** 中文说明：测试局部值 probe3，由紧邻初始化决定。 */
       const probe3 = new Probe()
       await probe3.sessions.list({})
       expect(probe3.urls[0]).toMatch(/^http:\/\/dsh\.internal\//)

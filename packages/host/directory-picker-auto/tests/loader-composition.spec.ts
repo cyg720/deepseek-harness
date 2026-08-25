@@ -6,6 +6,14 @@
  * serves, and that disposing the chooser removes both mounted entries again
  * (HMR safety), joining the backend's own teardown before the disposer settles.
  */
+/**
+ * 文件职责：验证宿主目录选择的 loader-composition.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
+ * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
+ * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
+ * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
+ * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ */
 
 import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -22,6 +30,7 @@ import BrowseDirectoryPicker from '@deepseek-ai/dsh-host-directory-picker-browse
 import NativeDirectoryPicker from '@deepseek-ai/dsh-host-directory-picker-native'
 import * as DirectoryPickerAuto from '../src/index.ts'
 
+/** 中文说明：测试局部值 renameControl，由紧邻初始化决定。 */
 const renameControl = vi.hoisted(() => ({
   attempts: 0,
   failureCode: 'EPERM',
@@ -30,6 +39,7 @@ const renameControl = vi.hoisted(() => ({
 }))
 
 vi.mock('node:fs/promises', async (importOriginal) => {
+  /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
@@ -45,10 +55,15 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   }
 })
 
+/** 中文说明：测试局部值 AUTO，由紧邻初始化决定。 */
 const AUTO = '@deepseek-ai/dsh-host-directory-picker-auto'
+/** 中文说明：测试局部值 NATIVE，由紧邻初始化决定。 */
 const NATIVE = '@deepseek-ai/dsh-host-directory-picker-native'
+/** 中文说明：测试局部值 BROWSE，由紧邻初始化决定。 */
 const BROWSE = '@deepseek-ai/dsh-host-directory-picker-browse'
+/** 中文说明：测试局部值 NATIVE_SURFACE，由紧邻初始化决定。 */
 const NATIVE_SURFACE = '@deepseek-ai/dsh-client-ui-directory-picker-native'
+/** 中文说明：测试局部值 BROWSE_SURFACE，由紧邻初始化决定。 */
 const BROWSE_SURFACE = '@deepseek-ai/dsh-client-ui-directory-picker-browse'
 
 /**
@@ -62,18 +77,23 @@ const BROWSE_SURFACE = '@deepseek-ai/dsh-client-ui-directory-picker-browse'
  * @param name Surface package specifier the chooser mounts.
  * @returns A function-plugin module the Loader can mount under that specifier.
  */
+/** 中文说明：函数 surfaceModule 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function surfaceModule(name: string): unknown {
   return { name, apply: () => undefined }
 }
 
+/** 中文说明：测试局部值 root: string | undefined，由紧邻初始化决定。 */
 let root: string | undefined
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let fakeBin: string | undefined
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let context: Context | undefined
 
 afterEach(async () => {
   vi.unstubAllEnvs()
   await context?.fiber.dispose()
   context = undefined
+  /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   for (const dir of [root, fakeBin]) {
     // maxRetries absorbs teardown stragglers (e.g. an unawaited fiber's late
     // file handle) that can otherwise race the recursive scan into ENOTEMPTY.
@@ -88,11 +108,13 @@ afterEach(async () => {
 })
 
 /** Write a two-row cordis.yml (webserver + chooser), then boot it through the real Loader. */
+/** 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function loadComposition(
   bindHost: '127.0.0.1' | '0.0.0.0',
   options: { failSurface?: boolean } = {},
 ): Promise<{ ctx: Context; configPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-directory-picker-auto-'))
+  /** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
   const configPath = join(root, 'cordis.yml')
   await writeFile(configPath, [
     "- name: '@deepseek-ai/dsh-host-webserver'",
@@ -107,6 +129,7 @@ async function loadComposition(
   context.baseUrl = pathToFileURL(root).href + '/'
   await context.plugin(Loader)
   context.loader.builtins.include = Include
+  /** 中文说明：测试局部值 modules，由紧邻初始化决定。 */
   const modules = new Map<string, unknown>([
     ['@deepseek-ai/dsh-host-webserver', HttpServer],
     [AUTO, DirectoryPickerAuto],
@@ -134,6 +157,7 @@ async function loadComposition(
 }
 
 /** Entry names currently present in the loader store (root tree plus subtrees). */
+/** 中文说明：函数 entryNames 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function entryNames(ctx: Context): string[] {
   return [...ctx.loader.entries()].map(entry => entry.options.name)
 }
@@ -143,8 +167,10 @@ function entryNames(ctx: Context): string[] {
  * display, and a PATH holding one executable chooser binary so the real
  * probe resolves identically on hosts with and without zenity/kdialog.
  */
+/** 中文说明：函数 stubAttendedHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAttendedHost(): void {
   fakeBin = mkdtempSync(join(tmpdir(), 'dsh-picker-bin-'))
+  /** 中文说明：测试局部值 zenity，由紧邻初始化决定。 */
   const zenity = join(fakeBin, 'zenity')
   writeFileSync(zenity, '#!/bin/sh\n')
   chmodSync(zenity, 0o755)
@@ -160,8 +186,10 @@ describe('real Loader composition', () => {
   // Loader itself resolves nothing here — `loader.internal` is a module map.
   it('mounts the native backend for an attended loopback host and unmounts it on disposal', { timeout: 60_000 }, async () => {
     stubAttendedHost()
+    /** 中文说明：测试局部值 { ctx, configPath }，由紧邻初始化决定。 */
     const { ctx, configPath } = await loadComposition('127.0.0.1')
 
+    /** 中文说明：测试局部值 unloaded，由紧邻初始化决定。 */
     const unloaded = [...ctx.loader.entries()]
       .filter(entry => entry.fiber === undefined && !entry.disabled)
       .map(entry => entry.options.name)
@@ -170,6 +198,7 @@ describe('real Loader composition', () => {
     expect(entryNames(ctx)).toContain(NATIVE_SURFACE)
     expect(entryNames(ctx)).not.toContain(BROWSE)
     expect(entryNames(ctx)).not.toContain(BROWSE_SURFACE)
+    /** 中文说明：测试局部值 picker，由紧邻初始化决定。 */
     const picker = ctx.get('directoryPicker') as DirectoryPicker
     expect(picker.capability().kind).toBe('native')
     // The mounted row lives in the Loader's in-memory root tree only — the
@@ -179,6 +208,7 @@ describe('real Loader composition', () => {
     // HMR safety: disposing the chooser's fiber removes the entry it created,
     // and the disposer joins the backend's teardown — the service is gone the
     // moment dispose() settles, with no further loader await.
+    /** 中文说明：测试局部值 autoEntry，由紧邻初始化决定。 */
     const autoEntry = [...ctx.loader.entries()].find(entry => entry.options.name === AUTO)!
     await autoEntry.fiber!.dispose()
     expect(entryNames(ctx)).not.toContain(NATIVE)
@@ -198,18 +228,21 @@ describe('real Loader composition', () => {
   it('mounts the browse backend under an SSH launch', { timeout: 60_000 }, async () => {
     stubAttendedHost()
     vi.stubEnv('SSH_CONNECTION', '10.0.0.2 55 10.0.0.9 22')
+    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await loadComposition('127.0.0.1')
 
     expect(entryNames(ctx)).toContain(BROWSE)
     expect(entryNames(ctx)).toContain(BROWSE_SURFACE)
     expect(entryNames(ctx)).not.toContain(NATIVE)
     expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
+    /** 中文说明：测试局部值 picker，由紧邻初始化决定。 */
     const picker = ctx.get('directoryPicker') as DirectoryPicker
     expect(picker.capability().kind).toBe('browse')
   })
 
   it('mounts the browse backend for an all-interfaces bind even on an attended host', { timeout: 60_000 }, async () => {
     stubAttendedHost()
+    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await loadComposition('0.0.0.0')
 
     expect(entryNames(ctx)).toContain(BROWSE)
@@ -231,10 +264,13 @@ describe('real Loader composition', () => {
 
   it('tolerates the mounted entry being removed by the tree before the chooser unloads', { timeout: 60_000 }, async () => {
     stubAttendedHost()
+    /** 中文说明：测试局部值 { ctx, configPath }，由紧邻初始化决定。 */
     const { ctx, configPath } = await loadComposition('127.0.0.1')
 
+    /** 中文说明：测试局部值 backendEntry，由紧邻初始化决定。 */
     const backendEntry = [...ctx.loader.entries()].find(entry => entry.options.name === NATIVE)!
     await ctx.loader.remove(backendEntry.id)
+    /** 中文说明：测试局部值 autoEntry，由紧邻初始化决定。 */
     const autoEntry = [...ctx.loader.entries()].find(entry => entry.options.name === AUTO)!
     renameControl.remainingFailures = 1
     await expect(autoEntry.fiber!.dispose()).resolves.not.toThrow()
@@ -249,8 +285,11 @@ describe('real Loader composition', () => {
 
   it('reports a terminal debounced-write failure again to the teardown owner', { timeout: 60_000 }, async () => {
     stubAttendedHost()
+    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await loadComposition('127.0.0.1')
+    /** 中文说明：测试局部值 autoEntry，由紧邻初始化决定。 */
     const autoEntry = [...ctx.loader.entries()].find(entry => entry.options.name === AUTO)!
+    /** 中文说明：测试局部值 include，由紧邻初始化决定。 */
     const include = [...ctx.loader.entries()]
       .find(entry => entry.options.name === 'cordis:include')?.subtree as Include | undefined
     if (include === undefined) throw new Error('expected the root Include tree')

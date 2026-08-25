@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Host API Proxy的 rpc-schemas.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
+ * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
+ * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
+ * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
+ * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { RpcId, transportError } from '../src/api/rpc.ts'
 import {
@@ -92,8 +100,10 @@ describe('rpcErrorSchema', () => {
 
 describe('rpcResultSchema', () => {
   it('accepts both result branches and rejects hybrids', () => {
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     const schema = rpcResultSchema(z.object({ n: z.number() }))
     expect(schema.parse({ ok: true, value: { n: 1 } })).toEqual({ ok: true, value: { n: 1 } })
+    /** 中文说明：测试局部值 err，由紧邻初始化决定。 */
     const err = schema.parse({ ok: false, error: { code: 'internal', message: 'x', details: {} } })
     expect(err).toMatchObject({ ok: false })
     expect(() => schema.parse({ ok: true, error: {} })).toThrow()
@@ -102,14 +112,19 @@ describe('rpcResultSchema', () => {
 
 describe('wire full-form schemas', () => {
   it('parses the four quadrants and the union discriminates on type', () => {
+    /** 中文说明：测试局部值 cq，由紧邻初始化决定。 */
     const cq = { type: 'client-request', rpcId: 'r1', method: 'session.list', payload: {} }
+    /** 中文说明：测试局部值 sr，由紧邻初始化决定。 */
     const sr = { type: 'server-response', rpcId: 'r1', result: { ok: true, value: 1 } }
+    /** 中文说明：测试局部值 rq，由紧邻初始化决定。 */
     const rq = { type: 'server-request', rpcId: 'r2', method: 'session/event', payload: { a: 1 } }
+    /** 中文说明：测试局部值 cr，由紧邻初始化决定。 */
     const cr = { type: 'client-response', rpcId: 'r2', result: { ok: true, value: null } }
     expect(clientRequestSchema.parse(cq).method).toBe('session.list')
     expect(serverResponseSchema.parse(sr).rpcId).toBe('r1')
     expect(serverRequestSchema.parse(rq).method).toBe('session/event')
     expect(clientResponseSchema.parse(cr).rpcId).toBe('r2')
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     for (const message of [cq, sr, rq, cr]) expect(rpcMessageSchema.parse(message)).toBeTruthy()
     expect(() => rpcMessageSchema.parse({ type: 'other', rpcId: 'x' })).toThrow()
   })
@@ -142,6 +157,7 @@ describe('sessions domain schemas', () => {
     expect(sessionSummarySchema.parse({ sessionId: 's1', updatedAt: 1, running: true, blank: false, parentSessionId: 'p', cwd: '/x' }).cwd).toBe('/x')
     // blank is mandatory: a summary without it fails the parse.
     expect(() => sessionSummarySchema.parse({ sessionId: 's1', updatedAt: 1, running: false })).toThrow()
+    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
     const event = sessionEventSchema.parse({
       type: 'user/message',
       seq: 0,
@@ -254,6 +270,7 @@ describe('sessions domain schemas', () => {
       }],
       failures: [],
     })).toThrow()
+    /** 中文说明：测试局部值 prompt，由紧邻初始化决定。 */
     const prompt = sessionPromptRequestSchema.parse({
       sessionId: 's1',
       mode: 'queue',
@@ -268,6 +285,7 @@ describe('sessions domain schemas', () => {
     expect(() => sessionPromptRequestSchema.parse({ sessionId: 's1', mode: 'inject', content: [] })).toThrow()
     expect(sessionPromptValueSchema.parse({ accepted: true }).accepted).toBe(true)
     // The command slot appears only when the prompt dispatched a slash command.
+    /** 中文说明：测试局部值 dispatched，由紧邻初始化决定。 */
     const dispatched = sessionPromptValueSchema.parse({ accepted: true, command: { kind: 'success', text: 'Goal set' } })
     expect(dispatched.command?.text).toBe('Goal set')
     expect(sessionPromptValueSchema.parse({ accepted: true, command: { kind: 'success' } }).command).toEqual({ kind: 'success' })
@@ -311,6 +329,7 @@ describe('subagent domain schemas', () => {
 describe('host domain schemas', () => {
   it('validates describe request/value', () => {
     expect(hostDescribeRequestSchema.parse({})).toEqual({})
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = hostDescribeValueSchema.parse({
       version: '1', cwd: '/x', provider: 'p', model: 'm', attachedSessions: 2, home: '/h', canOpenPath: true,
     })
@@ -329,6 +348,7 @@ describe('host domain schemas', () => {
   it('validates the browse listing/creation payloads', () => {
     expect(hostListDirectoryRequestSchema.parse({})).toEqual({})
     expect(hostListDirectoryRequestSchema.parse({ path: '/x' })).toEqual({ path: '/x' })
+    /** 中文说明：测试局部值 listing，由紧邻初始化决定。 */
     const listing = hostListDirectoryValueSchema.parse({
       path: '/home/u/p',
       home: '/home/u',
@@ -340,6 +360,7 @@ describe('host domain schemas', () => {
     // The flag is part of the wire value, not an optional decoration.
     expect(() => hostListDirectoryValueSchema.parse({ path: '/x', home: '/x', crumbs: [], entries: [] })).toThrow()
     expect(hostCreateDirectoryRequestSchema.parse({ path: '/x', name: 'new' })).toEqual({ path: '/x', name: 'new' })
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of ['', ' ', '.', '..', 'a/b', 'a\\b']) {
       expect(() => hostCreateDirectoryRequestSchema.parse({ path: '/x', name })).toThrow()
     }
@@ -348,6 +369,7 @@ describe('host domain schemas', () => {
 })
 
 describe('workspace domain schemas', () => {
+  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = {
     workspaceId: 'w1', path: '/p', title: 'p', sessionIds: ['s1'],
     createdAt: '2026-07-25T00:00:00.000Z', updatedAt: '2026-07-25T00:00:00.000Z',
@@ -417,6 +439,7 @@ describe('skills domain schemas', () => {
     // The wire is session-addressed only: a sessionId-less payload fails.
     expect(() => skillListRequestSchema.parse({})).toThrow()
     expect(skillListValueSchema.parse({ skills: [] }).skills).toEqual([])
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = skillListValueSchema.parse({ skills: [
       { name: 'commit-helper', description: 'Git commits', whenToUse: 'when committing', modelInvocable: true },
       { name: 'bare', description: 'No guidance', modelInvocable: false },
@@ -432,6 +455,7 @@ describe('skills domain schemas', () => {
 
 describe('goals domain schemas', () => {
   it('requires at least one replacement field for goal.edit', () => {
+    /** 中文说明：测试局部值 ref，由紧邻初始化决定。 */
     const ref = { id: 'g1', revision: 1 }
     expect(goalEditRequestSchema.parse({ sessionId: 's1', ref, objective: 'updated' }).objective).toBe('updated')
     expect(goalEditRequestSchema.parse({ sessionId: 's1', ref, maxGoalRounds: 3 }).maxGoalRounds).toBe(3)
@@ -441,6 +465,7 @@ describe('goals domain schemas', () => {
 
 describe('events frame schemas', () => {
   it('accepts every mux frame branch', () => {
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = [
       { type: 'session/event', sessionId: 's', event: { type: 't', seq: 0, time: 1, data: null } },
       { type: 'session/subscribed', sessionId: 's', lastSeq: -1 },
@@ -463,8 +488,10 @@ describe('events frame schemas', () => {
       ] },
       { type: 'stream/error', error: { code: 'internal', message: 'm', details: {} } },
     ]
+    /** 中文说明：测试局部值 frame，由紧邻初始化决定。 */
     for (const frame of frames) expect(muxFrameSchema.parse(frame)).toMatchObject({ type: frame.type })
     expect(() => muxFrameSchema.parse({ type: 'unknown/frame' })).toThrow()
+    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     for (const invalid of [
       { type: 'session/projection', sessionId: 's', key: '', value: null, seq: 0 },
       { type: 'session/projection', sessionId: 's', key: 'todos', value: null, seq: -1 },
@@ -486,21 +513,25 @@ describe('events frame schemas', () => {
   })
 
   it('carries a question presentation intent through, and rejects an unknown one', () => {
+    /** 中文说明：测试局部值 intent，由紧邻初始化决定。 */
     const intent = { kind: 'plan-review', approve: 'Approve' }
     expect(askUserQuestionItemSchema.parse({
       id: 'plan-review', question: 'Approve?', detail: '# Plan', options: [{ label: 'Approve' }], intent,
     }).intent).toEqual(intent)
     // An unrecognised tag is a rejected frame, not a silently generic render.
+    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     for (const invalid of [{ kind: 'plan-review' }, { kind: 'poll', approve: 'Approve' }, { approve: 'Approve' }]) {
       expect(() => askUserQuestionItemSchema.parse({ id: 'q', question: 'Q?', intent: invalid })).toThrow()
     }
   })
 
   it('accepts every queue placement and rejects unknown placements', () => {
+    /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
     const item = (placement: string) => ({ type: 'session/queue', sessionId: 's', items: [{
       id: 'm', placement,
       message: { id: 'm', role: 'user', content: [], source: { kind: 'user' } },
     }] })
+    /** 中文说明：测试局部值 placement，由紧邻初始化决定。 */
     for (const placement of ['queued', 'steering', 'context']) {
       expect(() => muxFrameSchema.parse(item(placement))).not.toThrow()
     }
@@ -514,6 +545,7 @@ describe('events frame schemas', () => {
   })
 
   it('accepts every host frame branch', () => {
+    /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames = [
       { type: 'host/session-added', sessionId: 's', blank: true, parentSessionId: 'p' },
       { type: 'host/session-added', sessionId: 's', blank: true },
@@ -531,6 +563,7 @@ describe('events frame schemas', () => {
       { type: 'host/remote-event', event: 'llm/adapters-updated', args: [] },
       { type: 'stream/error', error: { code: 'internal', message: 'm', details: {} } },
     ]
+    /** 中文说明：测试局部值 frame，由紧邻初始化决定。 */
     for (const frame of frames) expect(hostFrameSchema.parse(frame)).toMatchObject({ type: frame.type })
   })
 })
@@ -538,11 +571,14 @@ describe('events frame schemas', () => {
 describe('respond payload schemas', () => {
   it('validates approval and question answer payloads', () => {
     expect(approvalRequestIdSchema.parse('a1')).toBe('a1')
+    /** 中文说明：测试局部值 approval，由紧邻初始化决定。 */
     const approval = approvalResponsePayloadSchema.parse({ sessionId: 's', approvalId: 'a', outcome: 'rejected' })
     expect(approval.outcome).toBe('rejected')
     expect(() => approvalResponsePayloadSchema.parse({ sessionId: 's', approvalId: 'a', outcome: 'cancelled' })).toThrow()
+    /** 中文说明：测试局部值 answer，由紧邻初始化决定。 */
     const answer = askUserQuestionAnswerSchema.parse({ answers: [{ id: 'q', selected: ['x'], custom: 'c' }] })
     expect(answer.answers[0]?.selected).toEqual(['x'])
+    /** 中文说明：测试局部值 payload，由紧邻初始化决定。 */
     const payload = questionResponsePayloadSchema.parse({ sessionId: 's', answer: { answers: [] } })
     expect(payload.sessionId).toBe('s')
   })

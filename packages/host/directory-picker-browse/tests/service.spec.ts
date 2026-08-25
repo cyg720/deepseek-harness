@@ -1,4 +1,12 @@
 /** Behavior of the browse backend over a real temporary directory tree. */
+/**
+ * 文件职责：验证宿主目录选择的 service.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
+ * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
+ * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
+ * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
+ * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ */
 
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
@@ -10,8 +18,11 @@ import type { DirectoryPickerBrowseCapability } from '@deepseek-ai/dsh-host-dire
 import BrowseDirectoryPicker, { boundedInsert, fullyQualified, raceAbort } from '../src/index.ts'
 import type { ListingCandidate } from '../src/index.ts'
 
+/** 中文说明：测试局部值 root: string，由紧邻初始化决定。 */
 let root: string
+/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let capability: DirectoryPickerBrowseCapability
+/** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
 let dispose: () => Promise<void>
 
 beforeAll(async () => {
@@ -30,9 +41,12 @@ beforeAll(async () => {
     // assertion below expects it to be filtered out anyway.
   }
 
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = ctx.plugin(BrowseDirectoryPicker)
   await fiber.await()
+  /** 中文说明：测试局部值 picked，由紧邻初始化决定。 */
   const picked = ctx.get('directoryPicker')!.capability()
   if (picked.kind !== 'browse') throw new Error('browse backend must advertise the browse capability')
   capability = picked
@@ -46,6 +60,7 @@ afterAll(async () => {
 
 describe('BrowseDirectoryPicker', () => {
   it('lists directories only, flags hidden rows, follows symlinks, skips broken links, sorts by name', async () => {
+    /** 中文说明：测试局部值 listing，由紧邻初始化决定。 */
     const listing = await capability.list(root)
     expect(listing.path).toBe(root)
     expect(listing.home).toBe(homedir())
@@ -58,16 +73,21 @@ describe('BrowseDirectoryPicker', () => {
   })
 
   it('cuts a level at maxEntries keeping the name-sorted head, and flags the cut', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin(BrowseDirectoryPicker, { maxEntries: 1 })
     await fiber.await()
+    /** 中文说明：测试局部值 bounded，由紧邻初始化决定。 */
     const bounded = ctx.get('directoryPicker')!.capability()
     if (bounded.kind !== 'browse') throw new Error('browse backend must advertise the browse capability')
     try {
+      /** 中文说明：测试局部值 cut，由紧邻初始化决定。 */
       const cut = await bounded.list(root)
       expect(cut.entries.map(entry => entry.name)).toEqual(['.hidden-dir'])
       expect(cut.truncated).toBe(true)
       // Exactly at the bound is complete, not truncated.
+      /** 中文说明：测试局部值 exact，由紧邻初始化决定。 */
       const exact = await bounded.list(join(root, 'projects'))
       expect(exact.entries.map(entry => entry.name)).toEqual(['harness'])
       expect(exact.truncated).toBe(false)
@@ -75,6 +95,7 @@ describe('BrowseDirectoryPicker', () => {
       // one): the in-window extra row proves the cut without any eviction.
       await mkdir(join(root, 'projects', 'harness', 'a'))
       await mkdir(join(root, 'projects', 'harness', 'b'))
+      /** 中文说明：测试局部值 inWindow，由紧邻初始化决定。 */
       const inWindow = await bounded.list(join(root, 'projects', 'harness'))
       expect(inWindow.entries.map(entry => entry.name)).toEqual(['a'])
       expect(inWindow.truncated).toBe(true)
@@ -84,6 +105,7 @@ describe('BrowseDirectoryPicker', () => {
   })
 
   it('stops the scan with the caller: an aborted signal rejects with its own reason', async () => {
+    /** 中文说明：测试局部值 gone，由紧邻初始化决定。 */
     const gone = new AbortController()
     gone.abort(new Error('caller left'))
     // The abort surfaces as-is, not dressed as an unreadable directory —
@@ -97,12 +119,16 @@ describe('BrowseDirectoryPicker', () => {
     await new Promise(resolve => setTimeout(resolve, 10))
     // A live signal leaves a normal listing untouched — the reads and the
     // symlink probes race it without ever losing.
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = new AbortController()
+    /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
     const complete = await capability.list(root, live.signal)
     expect(complete.truncated).toBe(false)
     expect(complete.entries.map(entry => entry.name)).toContain('linked')
     // A live signal changes nothing about ordinary failures.
+    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = join(root, 'no-such-dir')
+    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
     const failure = await capability.list(missing, live.signal).catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(DirectoryPickerError)
     expect((failure as DirectoryPickerError).code).toBe('directory-unreadable')
@@ -111,19 +137,26 @@ describe('BrowseDirectoryPicker', () => {
   it('raceAbort follows the operation until the signal wins, and swallows the abandoned settlement', async () => {
     // No signal / settled operations: plain passthrough, listener removed.
     await expect(raceAbort(Promise.resolve('ok'), undefined)).resolves.toBe('ok')
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = new AbortController()
     await expect(raceAbort(Promise.resolve('ok'), live.signal)).resolves.toBe('ok')
     // Failure passthrough keeps the operation's own error.
     await expect(raceAbort(Promise.reject(new Error('raw failure')), live.signal)).rejects.toThrow('raw failure')
     // The abort wins over a pending operation and carries its own reason;
     // the operation's late rejection is swallowed, never unhandled.
+    /** 中文说明：测试局部值 rejections，由紧邻初始化决定。 */
     const rejections: unknown[] = []
+    /** 中文说明：测试局部值 onUnhandled，由紧邻初始化决定。 */
     const onUnhandled = (reason: unknown): void => { rejections.push(reason) }
     process.on('unhandledRejection', onUnhandled)
     try {
+      /** 中文说明：测试局部值 rejectLate，由紧邻初始化决定。 */
       let rejectLate!: (reason: unknown) => void
+      /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
       const pending = new Promise<never>((_resolve, reject) => { rejectLate = reject })
+      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
       const controller = new AbortController()
+      /** 中文说明：测试局部值 raced，由紧邻初始化决定。 */
       const raced = raceAbort(pending, controller.signal)
       // A bare-string abort reason exercises the Error wrap.
       controller.abort('caller left')
@@ -137,7 +170,9 @@ describe('BrowseDirectoryPicker', () => {
   })
 
   it('boundedInsert keeps the window name-sorted and bounded, reporting evictions', () => {
+    /** 中文说明：测试局部值 candidate，由紧邻初始化决定。 */
     const candidate = (name: string): ListingCandidate => ({ name, isDirectory: true, isSymbolicLink: false })
+    /** 中文说明：测试局部值 window，由紧邻初始化决定。 */
     const window: ListingCandidate[] = []
     expect(boundedInsert(window, candidate('m'), 2)).toBe(false)
     expect(boundedInsert(window, candidate('z'), 2)).toBe(false)
@@ -152,7 +187,9 @@ describe('BrowseDirectoryPicker', () => {
   })
 
   it('reports the ancestry as jump-target crumbs ending at the listed directory', async () => {
+    /** 中文说明：测试局部值 listing，由紧邻初始化决定。 */
     const listing = await capability.list(join(root, 'projects'))
+    /** 中文说明：测试局部值 tail，由紧邻初始化决定。 */
     const tail = listing.crumbs.at(-1)!
     expect(tail).toMatchObject({ name: 'projects', path: join(root, 'projects'), hidden: false })
     expect(listing.crumbs.at(-2)!.path).toBe(root)
@@ -162,12 +199,15 @@ describe('BrowseDirectoryPicker', () => {
   })
 
   it('lists the home directory when no path is given', async () => {
+    /** 中文说明：测试局部值 listing，由紧邻初始化决定。 */
     const listing = await capability.list()
     expect(listing.path).toBe(homedir())
   })
 
   it('throws directory-unreadable for a missing target', async () => {
+    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = join(root, 'no-such-dir')
+    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
     const failure = await capability.list(missing).catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(DirectoryPickerError)
     expect((failure as DirectoryPickerError).code).toBe('directory-unreadable')
@@ -193,11 +233,14 @@ describe('BrowseDirectoryPicker', () => {
   })
 
   it('rejects non-absolute paths instead of rebasing them under the process cwd', async () => {
+    /** 中文说明：测试局部值 relative，由紧邻初始化决定。 */
     for (const relative of ['', 'projects', './projects', '..']) {
+      /** 中文说明：测试局部值 listFailure，由紧邻初始化决定。 */
       const listFailure = await capability.list(relative).catch((error: unknown) => error)
       expect(listFailure).toBeInstanceOf(DirectoryPickerError)
       expect((listFailure as DirectoryPickerError).code).toBe('directory-unreadable')
       expect((listFailure as DirectoryPickerError).path).toBe(relative)
+      /** 中文说明：测试局部值 createFailure，由紧邻初始化决定。 */
       const createFailure = await capability.createDirectory(relative, 'child').catch((error: unknown) => error)
       expect(createFailure).toBeInstanceOf(DirectoryPickerError)
       expect((createFailure as DirectoryPickerError).code).toBe('directory-create-failed')
@@ -206,25 +249,31 @@ describe('BrowseDirectoryPicker', () => {
   })
 
   it('creates one child directory and surfaces it in the next listing', async () => {
+    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = await capability.createDirectory(root, 'fresh')
     expect(created).toBe(join(root, 'fresh'))
+    /** 中文说明：测试局部值 listing，由紧邻初始化决定。 */
     const listing = await capability.list(root)
     expect(listing.entries.map(entry => entry.name)).toContain('fresh')
   })
 
   it('refuses an existing child with directory-exists', async () => {
+    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
     const failure = await capability.createDirectory(root, 'projects').catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(DirectoryPickerError)
     expect((failure as DirectoryPickerError).code).toBe('directory-exists')
   })
 
   it('refuses non-segment names and other filesystem failures with directory-create-failed', async () => {
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of ['', '  ', '.', '..', 'a/b', 'a\\b']) {
+      /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
       const failure = await capability.createDirectory(root, name).catch((error: unknown) => error)
       expect(failure).toBeInstanceOf(DirectoryPickerError)
       expect((failure as DirectoryPickerError).code).toBe('directory-create-failed')
     }
     // Missing parent is a real failure, not a level to invent.
+    /** 中文说明：测试局部值 missingParent，由紧邻初始化决定。 */
     const missingParent = await capability.createDirectory(join(root, 'no-such-dir'), 'child').catch((error: unknown) => error)
     expect((missingParent as DirectoryPickerError).code).toBe('directory-create-failed')
   })

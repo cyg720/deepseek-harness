@@ -7,19 +7,31 @@
  * boundary (env title + `process.send`). Real-COM behavior is pinned by the
  * win32-only smoke in win32-dialog.spec.ts.
  */
+/**
+ * 文件职责：验证宿主目录选择的 win32-dialog-bindings.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
+ * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
+ * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
+ * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
+ * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HRESULT_CANCELLED, runFolderDialog } from '../src/win32-dialog-logic.ts'
 
+/** 中文说明：测试局部值 E_FAIL，由紧邻初始化决定。 */
 const E_FAIL = 0x80004005 | 0
+/** 中文说明：测试局部值 WM_CLOSE，由紧邻初始化决定。 */
 const WM_CLOSE = 0x10
 /**
  * Deliberately NOT 8: the bindings must derive vtable offsets and out-buffer
  * sizes from koffi.sizeof('void *'), and a hardcoded 8 anywhere fails against
  * this width (the win32-ia32 bug class).
  */
+/** 中文说明：测试局部值 FAKE_POINTER_SIZE，由紧邻初始化决定。 */
 const FAKE_POINTER_SIZE = 4
 
+/** 中文说明：类型或类 ComWorld 约束 API、Hook 或目录数据职责。 */
 interface ComWorld {
   coInitHr: number
   coCreateHr: number
@@ -42,6 +54,7 @@ interface ComWorld {
   uninitialized: number
 }
 
+/** 中文说明：函数 comWorld 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function comWorld(overrides: Partial<ComWorld> = {}): ComWorld {
   return {
     coInitHr: 0, coCreateHr: 0, showHr: 0, getResultHr: 0, getDisplayNameHr: 0,
@@ -54,14 +67,21 @@ function comWorld(overrides: Partial<ComWorld> = {}): ComWorld {
 }
 
 /** Sentinel pointer objects standing in for native addresses. */
+/** 中文说明：类型或类 FakePtr 约束 API、Hook 或目录数据职责。 */
 interface FakePtr { kind: string; [key: string]: unknown }
 
+/** 中文说明：函数 installFakeKoffi 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function installFakeKoffi(world: ComWorld): void {
+  /** 中文说明：测试局部值 dialogPtr，由紧邻初始化决定。 */
   const dialogPtr: FakePtr = { kind: 'dialog' }
+  /** 中文说明：测试局部值 itemPtr，由紧邻初始化决定。 */
   const itemPtr: FakePtr = { kind: 'item' }
+  /** 中文说明：测试局部值 namePtr，由紧邻初始化决定。 */
   const namePtr: FakePtr = { kind: 'name', text: world.path }
+  /** 中文说明：测试局部值 outBuffers，由紧邻初始化决定。 */
   const outBuffers = new Map<unknown, FakePtr>()
 
+  /** 中文说明：测试局部值 dispatch，由紧邻初始化决定。 */
   const dispatch = (self: FakePtr, slot: number, args: unknown[]): number => {
     if (self.kind === 'dialog') {
       switch (slot) {
@@ -128,6 +148,7 @@ function installFakeKoffi(world: ComWorld): void {
       pointer: (type: unknown) => type,
       sizeof: (type: string) => { void type; return FAKE_POINTER_SIZE },
       view: (value: unknown, len: number): ArrayBuffer => {
+        /** 中文说明：测试局部值 bytes，由紧邻初始化决定。 */
         const bytes = Buffer.alloc(len)
         bytes.write((value as FakePtr).text as string, 'utf16le')
         return bytes.buffer
@@ -139,6 +160,7 @@ function installFakeKoffi(world: ComWorld): void {
         if (typeof offsetOrType === 'number') {
           // Vtable slot read: offsets must be multiples of the fake width.
           if (offsetOrType % FAKE_POINTER_SIZE !== 0) throw new Error(`vtable offset ${offsetOrType} is not pointer-aligned`)
+          /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
           const owner = (value as { owner: FakePtr }).owner
           return { call: (args: unknown[]) => dispatch(owner, offsetOrType / FAKE_POINTER_SIZE, args) }
         }
@@ -151,6 +173,7 @@ function installFakeKoffi(world: ComWorld): void {
   }))
 }
 
+/** 中文说明：函数 loadBindingsModule 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function loadBindingsModule(): Promise<typeof import('../src/win32-dialog-bindings.ts')> {
   return await import('../src/win32-dialog-bindings.ts')
 }
@@ -164,10 +187,14 @@ afterEach(() => {
 
 describe('loadWin32DialogBindings over the fake COM world', () => {
   it('drives the full selection conversation with memory hygiene', async () => {
+    /** 中文说明：测试局部值 world，由紧邻初始化决定。 */
     const world = comWorld()
     installFakeKoffi(world)
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { loadWin32DialogBindings } = await loadBindingsModule()
+    /** 中文说明：测试局部值 bindings，由紧邻初始化决定。 */
     const bindings = await loadWin32DialogBindings()
+    /** 中文说明：测试局部值 showing，由紧邻初始化决定。 */
     const showing = vi.fn()
 
     expect(runFolderDialog(bindings, '选择工作区目录', showing)).toBe('C:\\选中\\directory')
@@ -181,9 +208,12 @@ describe('loadWin32DialogBindings over the fake COM world', () => {
   })
 
   it('maps dismissal and the S_FALSE CoInitializeEx', async () => {
+    /** 中文说明：测试局部值 world，由紧邻初始化决定。 */
     const world = comWorld({ showHr: HRESULT_CANCELLED, coInitHr: 1 })
     installFakeKoffi(world)
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { loadWin32DialogBindings } = await loadBindingsModule()
+    /** 中文说明：测试局部值 bindings，由紧邻初始化决定。 */
     const bindings = await loadWin32DialogBindings()
     expect(runFolderDialog(bindings, 'Pick', vi.fn())).toBeNull()
     expect(world.released).toEqual(['dialog'])
@@ -191,8 +221,10 @@ describe('loadWin32DialogBindings over the fake COM world', () => {
   })
 
   it('cascades DPI contexts to the first the host accepts', async () => {
+    /** 中文说明：测试局部值 world，由紧邻初始化决定。 */
     const world = comWorld({ supportedDpiContexts: [-3] })
     installFakeKoffi(world)
+    /** 中文说明：测试局部值 bindings，由紧邻初始化决定。 */
     const bindings = await (await loadBindingsModule()).loadWin32DialogBindings()
     expect(runFolderDialog(bindings, 'Pick', vi.fn())).toBe('C:\\选中\\directory')
     expect(world.dpiContexts).toEqual([-4, -3])
@@ -200,14 +232,17 @@ describe('loadWin32DialogBindings over the fake COM world', () => {
 
   it('keeps the tier when no DPI context is accepted or the symbol is absent', async () => {
     // DPI is a cosmetic best-effort: the modern dialog still opens.
+    /** 中文说明：测试局部值 rejecting，由紧邻初始化决定。 */
     const rejecting = comWorld({ supportedDpiContexts: [] })
     installFakeKoffi(rejecting)
+    /** 中文说明：测试局部值 bindings，由紧邻初始化决定。 */
     let bindings = await (await loadBindingsModule()).loadWin32DialogBindings()
     expect(runFolderDialog(bindings, 'Pick', vi.fn())).toBe('C:\\选中\\directory')
     expect(rejecting.dpiContexts).toEqual([-4, -3, -2])
 
     vi.doUnmock('koffi')
     vi.resetModules()
+    /** 中文说明：测试局部值 preThreadDpi，由紧邻初始化决定。 */
     const preThreadDpi = comWorld({ hasThreadDpi: false })
     installFakeKoffi(preThreadDpi)
     bindings = await (await loadBindingsModule()).loadWin32DialogBindings()
@@ -216,13 +251,16 @@ describe('loadWin32DialogBindings over the fake COM world', () => {
   })
 
   it('surfaces creation and extraction failures as HRESULT errors', async () => {
+    /** 中文说明：测试局部值 creationWorld，由紧邻初始化决定。 */
     const creationWorld = comWorld({ coCreateHr: E_FAIL })
     installFakeKoffi(creationWorld)
+    /** 中文说明：测试局部值 bindings，由紧邻初始化决定。 */
     let bindings = await (await loadBindingsModule()).loadWin32DialogBindings()
     expect(() => bindings.createFolderDialog()).toThrow('CoCreateInstance(FileOpenDialog) failed: HRESULT 0x80004005')
 
     vi.doUnmock('koffi')
     vi.resetModules()
+    /** 中文说明：测试局部值 resultWorld，由紧邻初始化决定。 */
     const resultWorld = comWorld({ getResultHr: E_FAIL })
     installFakeKoffi(resultWorld)
     bindings = await (await loadBindingsModule()).loadWin32DialogBindings()
@@ -231,6 +269,7 @@ describe('loadWin32DialogBindings over the fake COM world', () => {
 
     vi.doUnmock('koffi')
     vi.resetModules()
+    /** 中文说明：测试局部值 nameWorld，由紧邻初始化决定。 */
     const nameWorld = comWorld({ getDisplayNameHr: E_FAIL })
     installFakeKoffi(nameWorld)
     bindings = await (await loadBindingsModule()).loadWin32DialogBindings()
@@ -243,8 +282,10 @@ describe('loadWin32DialogBindings over the fake COM world', () => {
 
 describe('closeThreadWindows over the fake COM world', () => {
   it('posts WM_CLOSE to every window of the thread and unregisters the callback', async () => {
+    /** 中文说明：测试局部值 world，由紧邻初始化决定。 */
     const world = comWorld()
     installFakeKoffi(world)
+    /** 中文说明：测试局部值 { closeThreadWindows }，由紧邻初始化决定。 */
     const { closeThreadWindows } = await loadBindingsModule()
     await closeThreadWindows(777)
     expect(world.posted).toEqual([
@@ -256,8 +297,10 @@ describe('closeThreadWindows over the fake COM world', () => {
   })
 
   it('unregisters the callback even when the enumeration itself throws', async () => {
+    /** 中文说明：测试局部值 world，由紧邻初始化决定。 */
     const world = comWorld({ enumThrows: true })
     installFakeKoffi(world)
+    /** 中文说明：测试局部值 { closeThreadWindows }，由紧邻初始化决定。 */
     const { closeThreadWindows } = await loadBindingsModule()
     await expect(closeThreadWindows(777)).rejects.toThrow('EnumThreadWindows refused')
     expect(world.unregistered).toBe(1)
@@ -265,10 +308,14 @@ describe('closeThreadWindows over the fake COM world', () => {
 })
 
 describe('the worker entry over a mocked process boundary', () => {
+  /** 中文说明：测试局部值 originalSend，由紧邻初始化决定。 */
   const originalSend = process.send?.bind(process)
+  /** 中文说明：测试局部值 originalTitle，由紧邻初始化决定。 */
   const originalTitle = process.env.DSH_DIALOG_TITLE
 
+  /** 中文说明：测试局部值 installBoundary，由紧邻初始化决定。 */
   const installBoundary = (): { posted: { kind: string; message?: string }[] } => {
+    /** 中文说明：测试局部值 posted，由紧邻初始化决定。 */
     const posted: { kind: string; message?: string }[] = []
     process.env.DSH_DIALOG_TITLE = 'Pick'
     // Never invoke the post callback: it runs the worker's disconnect(), and
@@ -292,6 +339,7 @@ describe('the worker entry over a mocked process boundary', () => {
   })
 
   it('posts showing then done for a completed conversation', async () => {
+    /** 中文说明：测试局部值 { posted }，由紧邻初始化决定。 */
     const { posted } = installBoundary()
     vi.doMock('../src/win32-dialog-bindings.ts', () => ({
       loadWin32DialogBindings: async () => ({
@@ -316,6 +364,7 @@ describe('the worker entry over a mocked process boundary', () => {
   })
 
   it('posts the failure message when the native surface cannot load', async () => {
+    /** 中文说明：测试局部值 { posted }，由紧邻初始化决定。 */
     const { posted } = installBoundary()
     vi.doMock('../src/win32-dialog-bindings.ts', () => ({
       loadWin32DialogBindings: async () => { throw new Error('no ole32 here') },
@@ -327,10 +376,13 @@ describe('the worker entry over a mocked process boundary', () => {
   })
 
   it('stringifies stackless and non-Error failures', async () => {
+    /** 中文说明：测试局部值 stackless，由紧邻初始化决定。 */
     const stackless = new Error('bare message')
     delete stackless.stack
+    /** 中文说明：测试局部值 [thrown，由紧邻初始化决定。 */
     for (const [thrown, expected] of [[stackless, 'bare message'], ['plain refusal', 'plain refusal']] as const) {
       vi.resetModules()
+      /** 中文说明：测试局部值 { posted }，由紧邻初始化决定。 */
       const { posted } = installBoundary()
       vi.doMock('../src/win32-dialog-bindings.ts', () => ({
         loadWin32DialogBindings: async () => { throw thrown },
