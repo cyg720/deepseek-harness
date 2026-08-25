@@ -3,6 +3,14 @@
  * runtime edges. The deterministic output groups packages by directory and
  * renders both Mermaid and a dependency table; `--check` verifies freshness.
  */
+/**
+ * 文件职责：实现 gen-module-graph.ts 覆盖的仓库生成、校验或维护职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
+ * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
+ * 逻辑维度：读取仓库输入，构建中间模型，执行生成或校验，再报告差异和失败。
+ * 关键边界：生成结果必须确定；路径与源码文本不可信；校验失败必须以非零状态显式报告。
+ * 新手阅读建议：先看命令入口和输入目录，再读模型转换，最后关注输出文件与失败条件。
+ */
 
 import { resolve } from 'node:path'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -10,13 +18,18 @@ import {
   collectPackageGraph,
   escapeMermaidLabel as escLabel,
   graphNodeId as nodeId,
+  /** 中文说明：type PackageGraphNode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
   type PackageGraphNode,
 } from './package-graph.ts'
 
+/** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
+/** 中文说明：常量 OUT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUT = 'docs/module-graph.md'
+/** 中文说明：type Pkg 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type Pkg = PackageGraphNode
 
+/** 中文说明：常量 GROUP_ORDER 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const GROUP_ORDER = [
   'util',
   'llm',
@@ -42,34 +55,51 @@ const GROUP_ORDER = [
   'ui',
 ]
 
+/** 中文说明：函数 packageLink 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packageLink(pkg: Pkg): string {
   return `[\`${pkg.short}\`](../${pkg.rel})`
 }
 
 /** Render the full docs/module-graph.md content (pure, deterministic). */
+/** 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function render(pkgs: Pkg[]): string {
+  /** 中文说明：变量 edges 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const edges: string[] = []
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const p of pkgs) {
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const d of p.deps) edges.push(`  ${nodeId('pkg', p.short)} --> ${nodeId('pkg', d)}`)
   }
+  /** 中文说明：函数值 byShort 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const byShort = new Map(pkgs.map(pkg => [pkg.short, pkg]))
+  /** 中文说明：函数值 groups 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const groups = [...new Set(pkgs.map(pkg => pkg.group))].sort((a, b) => {
+    /** 中文说明：变量 ia 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ia = GROUP_ORDER.indexOf(a)
+    /** 中文说明：变量 ib 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ib = GROUP_ORDER.indexOf(b)
+    /** 中文说明：变量 na 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const na = ia === -1 ? Number.MAX_SAFE_INTEGER : ia
+    /** 中文说明：变量 nb 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nb = ib === -1 ? Number.MAX_SAFE_INTEGER : ib
     return na - nb || a.localeCompare(b)
   })
+  /** 中文说明：变量 groupBlocks 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const groupBlocks: string[] = []
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const group of groups) {
     groupBlocks.push(`  subgraph ${nodeId('group', group)}["packages/${escLabel(group)}"]`)
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const pkg of pkgs.filter(p => p.group === group).sort((a, b) => a.short.localeCompare(b.short))) {
       groupBlocks.push(`    ${nodeId('pkg', pkg.short)}["${escLabel(pkg.short)}"]`)
     }
     groupBlocks.push('  end')
   }
+  /** 中文说明：函数值 rows 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const rows = pkgs.map((p) => {
+    /** 中文说明：函数值 deps 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
     const deps = p.deps.length ? p.deps.map((d) => {
+      /** 中文说明：变量 dep 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const dep = byShort.get(d)
       return dep ? packageLink(dep) : `\`${d}\``
     }).join(', ') : '—'
@@ -96,9 +126,11 @@ function render(pkgs: Pkg[]): string {
   ].join('\n')
 }
 
+/** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const content = render(collectPackageGraph(root, GROUP_ORDER, 'gen-module-graph'))
 
 if (process.argv.includes('--check')) {
+  /** 中文说明：变量 committed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let committed: string | null = null
   try {
     committed = readFileSync(resolve(root, OUT), 'utf8')

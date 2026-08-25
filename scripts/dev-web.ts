@@ -28,6 +28,14 @@
  * `watch` through API-level inline config (tsdown workspace mode fills inline
  * keys under each package's file config, and no package config defines it).
  */
+/**
+ * 文件职责：实现 dev-web.ts 覆盖的仓库生成、校验或维护职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
+ * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
+ * 逻辑维度：读取仓库输入，构建中间模型，执行生成或校验，再报告差异和失败。
+ * 关键边界：生成结果必须确定；路径与源码文本不可信；校验失败必须以非零状态显式报告。
+ * 新手阅读建议：先看命令入口和输入目录，再读模型转换，最后关注输出文件与失败条件。
+ */
 import { globSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -35,18 +43,22 @@ import { execa } from 'execa'
 import { build } from 'tsdown'
 import type { TsdownBundle } from 'tsdown'
 
+/** 中文说明：变量 repoRoot 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 /** Client-face type emit feeding every tsdown lib entry in the watch set. */
+/** 中文说明：常量 CLIENT_TYPE_PROGRAM 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLIENT_TYPE_PROGRAM = 'tsconfig.client.json'
 
 /** Compile-shell workspace whose dist `dsh web` serves. */
+/** 中文说明：常量 SHELL_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SHELL_PACKAGE = '@deepseek-ai/dsh-web-frontend'
 
 /**
  * Test infrastructure builds through the client preset but never enters the
  * shell's module graph, so it is not a dev-loop artifact.
  */
+/** 中文说明：常量 TEST_INFRASTRUCTURE_PREFIX 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TEST_INFRASTRUCTURE_PREFIX = 'packages/test-support/'
 
 /**
@@ -57,9 +69,13 @@ const TEST_INFRASTRUCTURE_PREFIX = 'packages/test-support/'
  * @param root - repository root containing the grouped package directories.
  * @returns workspace-relative plugin package directories.
  */
+/** 中文说明：函数 discoverPluginDirs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function discoverPluginDirs(root = repoRoot): string[] {
+  /** 中文说明：变量 dirs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dirs: string[] = []
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const manifestPath of globSync('packages/*/*/package.json', { cwd: root }).sort()) {
+    /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(join(root, manifestPath), 'utf8')) as {
       dsh?: { client?: { platform?: unknown } }
     }
@@ -80,12 +96,17 @@ export function discoverPluginDirs(root = repoRoot): string[] {
  * @param root - repository root containing the grouped package directories.
  * @returns workspace-relative library package directories.
  */
+/** 中文说明：函数 discoverLibraryDirs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function discoverLibraryDirs(root = repoRoot): string[] {
+  /** 中文说明：变量 dirs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dirs: string[] = []
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const configPath of globSync('packages/*/*/tsdown.config.ts', { cwd: root }).sort()) {
+    /** 中文说明：变量 dir 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = dirname(configPath).split(sep).join('/')
     if (dir.startsWith(TEST_INFRASTRUCTURE_PREFIX)) continue
     if (!readFileSync(join(root, configPath), 'utf8').includes('tsdown.client.ts')) continue
+    /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')) as {
       dsh?: { client?: unknown }
     }
@@ -101,15 +122,21 @@ export function discoverLibraryDirs(root = repoRoot): string[] {
  * @param pollInterval - optional source-watcher polling interval in milliseconds.
  * @returns live bundles after every watcher has completed its initial build.
  */
+/** 中文说明：函数 watchClientPlugins 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function watchClientPlugins(
   root: string,
   pluginDirs: readonly string[],
   pollInterval?: number,
 ): Promise<TsdownBundle[]> {
+  /** 中文说明：函数值 resolveInitialBuilds 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   let resolveInitialBuilds: (() => void) | undefined
+  /** 中文说明：函数值 initialBuilds 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const initialBuilds = new Promise<void>((resolve) => { resolveInitialBuilds = resolve })
+  /** 中文说明：变量 initialized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const initialized = new WeakSet<object>()
+  /** 中文说明：变量 readiness 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const readiness: { expectedBuilds?: number; initializedBuilds: number } = { initializedBuilds: 0 }
+  /** 中文说明：变量 bundles 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bundles = await build({
     cwd: root,
     workspace: [...pluginDirs],
@@ -141,6 +168,7 @@ export async function watchClientPlugins(
  * spawn: an interrupt during a later stage's startup still tears down the
  * earlier ones instead of orphaning them.
  */
+/** 中文说明：变量 stages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const stages: StageHandle[] = []
 
 /**
@@ -153,7 +181,9 @@ const stages: StageHandle[] = []
  * @param args - command arguments.
  * @param local - whether to resolve `command` from the workspace's installed bins.
  */
+/** 中文说明：函数 spawnStage 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function spawnStage(stage: string, command: string, args: readonly string[], local: boolean): void {
+  /** 中文说明：变量 child 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const child = execa(command, [...args], {
     cwd: repoRoot,
     stdio: 'inherit',
@@ -168,14 +198,19 @@ function spawnStage(stage: string, command: string, args: readonly string[], loc
 }
 
 /** The only capability this script needs from a live watcher process. */
+/** 中文说明：interface StageHandle 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface StageHandle {
   readonly kill: () => void
 }
 
+/** 中文说明：变量 invokedPath 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const invokedPath = process.argv[1]
+/** 中文说明：变量 isMain 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const isMain = invokedPath !== undefined && import.meta.url === pathToFileURL(resolve(invokedPath)).href
 if (isMain) {
+  /** 中文说明：变量 pluginDirs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pluginDirs = discoverPluginDirs()
+  /** 中文说明：变量 libraryDirs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const libraryDirs = discoverLibraryDirs()
   if (pluginDirs.length === 0) {
     console.error('dev-web: no dsh.client (platform "web") packages found under packages/')
@@ -186,12 +221,15 @@ if (isMain) {
     process.exit(1)
   }
 
+  /** 中文说明：变量 args 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const args = process.argv.slice(2)
+  /** 中文说明：函数值 pollArg 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const pollArg = args.find(a => a === '--poll' || a.startsWith('--poll='))
   if (args.some(a => a !== pollArg)) {
     console.error('dev-web: usage: tsx scripts/dev-web.ts [--poll[=ms]]')
     process.exit(1)
   }
+  /** 中文说明：变量 pollInterval 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pollInterval = pollArg === undefined ? undefined : Number(pollArg.split('=')[1] ?? '500')
   if (pollInterval !== undefined && (!Number.isInteger(pollInterval) || pollInterval <= 0)) {
     console.error(`dev-web: invalid --poll interval "${pollArg ?? ''}"`)
@@ -200,6 +238,7 @@ if (isMain) {
 
   // Registered before any stage starts: `stages` is read at signal time, so an
   // interrupt during tsdown's initial builds still kills whatever is running.
+  /** 中文说明：函数值 stop 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const stop = (): void => { for (const stage of stages) stage.kill() }
   process.once('SIGINT', stop)
   process.once('SIGTERM', stop)

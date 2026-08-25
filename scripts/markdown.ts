@@ -1,4 +1,12 @@
 /** Shared Markdown parsing and depth-first traversal for documentation gates. */
+/**
+ * 文件职责：实现 markdown.ts 覆盖的仓库生成、校验或维护职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
+ * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
+ * 逻辑维度：读取仓库输入，构建中间模型，执行生成或校验，再报告差异和失败。
+ * 关键边界：生成结果必须确定；路径与源码文本不可信；校验失败必须以非零状态显式报告。
+ * 新手阅读建议：先看命令入口和输入目录，再读模型转换，最后关注输出文件与失败条件。
+ */
 
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
@@ -6,6 +14,7 @@ import { gfm } from 'micromark-extension-gfm'
 import type { Nodes } from 'mdast'
 
 /** One authored Markdown line outside fenced code and rendered-away HTML comments. */
+/** 中文说明：interface MarkdownProseLine 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownProseLine {
   /** 1-based source line number. */
   index: number
@@ -14,6 +23,7 @@ export interface MarkdownProseLine {
 }
 
 /** One parsed Markdown heading, retaining its authored first line and rendered text. */
+/** 中文说明：interface MarkdownHeadingLine 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownHeadingLine extends MarkdownProseLine {
   /** Parsed ATX or Setext heading depth. */
   depth: 1 | 2 | 3 | 4 | 5 | 6
@@ -22,6 +32,7 @@ export interface MarkdownHeadingLine extends MarkdownProseLine {
 }
 
 /** One code block from a parsed Markdown source. */
+/** 中文说明：interface MarkdownFence 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownFence {
   /** 1-based source line of the opening fence. */
   line: number
@@ -40,6 +51,7 @@ export interface MarkdownFence {
 }
 
 /** Parse GitHub-flavored Markdown with the repository's standard extensions. */
+/** 中文说明：函数 parseMarkdown 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseMarkdown(source: string): Nodes {
   return fromMarkdown(source, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] })
 }
@@ -49,17 +61,21 @@ export function parseMarkdown(source: string): Nodes {
  * @param node - current tree node.
  * @param visitor - callback invoked before each node's children.
  */
+/** 中文说明：函数 visitMarkdown 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function visitMarkdown(node: Nodes, visitor: (node: Nodes) => boolean | void): void {
   if (visitor(node) === false) return
   if ('children' in node) {
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const child of node.children) visitMarkdown(child, visitor)
   }
 }
 
 /** Markdown nodes whose authored destination occupies a replaceable source range. */
+/** 中文说明：type MarkdownDestinationNode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type MarkdownDestinationNode = Extract<Nodes, { type: 'link' | 'image' | 'definition' }>
 
 /** One authored Markdown destination and its absolute source offsets. */
+/** 中文说明：interface MarkdownDestination 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownDestination {
   start: number
   end: number
@@ -67,6 +83,7 @@ export interface MarkdownDestination {
 }
 
 /** Whether a Markdown URL is external, repository-root absolute, or purely in-page. */
+/** 中文说明：函数 isExternalOrAbsoluteMarkdownUrl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isExternalOrAbsoluteMarkdownUrl(url: string): boolean {
   return url.startsWith('#')
     || url.startsWith('//')
@@ -75,23 +92,32 @@ export function isExternalOrAbsoluteMarkdownUrl(url: string): boolean {
 }
 
 /** Split one Markdown URL without normalizing its query or fragment suffix. */
+/** 中文说明：函数 splitMarkdownUrlTarget 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function splitMarkdownUrlTarget(url: string): { path: string; suffix: string } {
+  /** 中文说明：变量 boundary 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const boundary = url.search(/[?#]/)
   if (boundary === -1) return { path: url, suffix: '' }
   return { path: url.slice(0, boundary), suffix: url.slice(boundary) }
 }
 
+/** 中文说明：函数 skipWhitespace 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function skipWhitespace(source: string, start: number): number {
+  /** 中文说明：变量 index 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let index = start
   while (/\s/.test(source[index] ?? '')) index += 1
   return index
 }
 
+/** 中文说明：函数 labelEnd 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function labelEnd(source: string): number {
+  /** 中文说明：变量 first 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const first = source.indexOf('[')
   if (first === -1) return -1
+  /** 中文说明：变量 depth 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let depth = 0
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (let index = first; index < source.length; index += 1) {
+    /** 中文说明：变量 char 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const char = source[index]
     if (char === '\\') index += 1
     else if (char === '[') depth += 1
@@ -103,11 +129,15 @@ function labelEnd(source: string): number {
   return -1
 }
 
+/** 中文说明：函数 destinationRange 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function destinationRange(rawNode: string, type: MarkdownDestinationNode['type']): { start: number; end: number } {
+  /** 中文说明：变量 endOfLabel 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const endOfLabel = labelEnd(rawNode)
   if (endOfLabel === -1) throw new Error(`markdown: cannot locate label end in ${JSON.stringify(rawNode)}`)
+  /** 中文说明：变量 start 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let start: number
   if (type === 'definition') {
+    /** 中文说明：变量 colon 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const colon = rawNode.indexOf(':', endOfLabel + 1)
     if (colon === -1) throw new Error(`markdown: cannot locate definition separator in ${JSON.stringify(rawNode)}`)
     start = skipWhitespace(rawNode, colon + 1)
@@ -118,14 +148,18 @@ function destinationRange(rawNode: string, type: MarkdownDestinationNode['type']
     start = skipWhitespace(rawNode, endOfLabel + 2)
   }
   if (rawNode[start] === '<') {
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (let index = start + 1; index < rawNode.length; index += 1) {
       if (rawNode[index] === '\\') index += 1
       else if (rawNode[index] === '>') return { start: start + 1, end: index }
     }
     throw new Error(`markdown: cannot locate angle-bracket destination end in ${JSON.stringify(rawNode)}`)
   }
+  /** 中文说明：变量 depth 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let depth = 0
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (let index = start; index < rawNode.length; index += 1) {
+    /** 中文说明：变量 char 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const char = rawNode[index]
     if (char === '\\') index += 1
     else if (char === '(') depth += 1
@@ -140,13 +174,18 @@ function destinationRange(rawNode: string, type: MarkdownDestinationNode['type']
 }
 
 /** Locate one parsed destination in the original Markdown without reserializing it. */
+/** 中文说明：函数 markdownDestination 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function markdownDestination(source: string, node: MarkdownDestinationNode): MarkdownDestination {
+  /** 中文说明：变量 start 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const start = node.position?.start.offset
+  /** 中文说明：变量 end 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const end = node.position?.end.offset
   if (start === undefined || end === undefined) {
     throw new Error(`markdown: destination ${JSON.stringify(node.url)} has no source offsets`)
   }
+  /** 中文说明：变量 range 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const range = destinationRange(source.slice(start, end), node.type)
+  /** 中文说明：变量 absolute 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const absolute = { start: start + range.start, end: start + range.end }
   return { ...absolute, url: source.slice(absolute.start, absolute.end) }
 }
@@ -156,15 +195,23 @@ export function markdownDestination(source: string, node: MarkdownDestinationNod
  * @param source - Markdown source to scan.
  * @returns each block's opening line, language, info string, and body.
  */
+/** 中文说明：函数 markdownFences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function markdownFences(source: string): MarkdownFence[] {
+  /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = source.split('\n')
+  /** 中文说明：变量 fences 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fences: MarkdownFence[] = []
   visitMarkdown(parseMarkdown(source), (node) => {
     if (node.type !== 'code' || node.position === undefined) return
+    /** 中文说明：变量 lang 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lang = node.lang ?? null
+    /** 中文说明：变量 meta 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const meta = node.meta ?? ''
+    /** 中文说明：变量 info 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const info = lang === null ? '' : meta === '' ? lang : `${lang} ${meta}`
+    /** 中文说明：变量 endLine 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const endLine = lines[node.position.end.line - 1] ?? ''
+    /** 中文说明：变量 closed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const closed = /^ {0,3}(`{3,}|~{3,})\s*$/.test(endLine)
     fences.push({ line: node.position.start.line, lang, info, code: node.value, closed })
   })

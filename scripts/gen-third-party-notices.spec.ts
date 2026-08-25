@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 gen-third-party-notices.spec.ts 覆盖的仓库生成、校验或维护职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
+ * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
+ * 逻辑维度：读取仓库输入，构建中间模型，执行生成或校验，再报告差异和失败。
+ * 关键边界：生成结果必须确定；路径与源码文本不可信；校验失败必须以非零状态显式报告。
+ * 新手阅读建议：先看命令入口和输入目录，再读模型转换，最后关注输出文件与失败条件。
+ */
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -8,6 +16,7 @@ import {
   collectPythonDependencies,
   isOwnerAuthorizedRuntime,
   isPermissive,
+  /** 中文说明：type Manifest 定义本测试所需的数据或行为，用于表达仓库脚本场景。 */
   type Manifest,
   manifestPatterns,
   parsePyprojectRequirements,
@@ -17,6 +26,7 @@ import {
   virtualManifest,
 } from './gen-third-party-notices.ts'
 
+/** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
 
 describe('THIRD_PARTY_NOTICES.md', () => {
@@ -25,6 +35,7 @@ describe('THIRD_PARTY_NOTICES.md', () => {
   // Pre-commit regenerates the file whenever a manifest is staged, so reaching
   // this assertion means the notices were committed without that hook.
   it('matches what the generator produces from the current manifests', () => {
+    /** 中文说明：变量 generated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generated = render()
     expect(generated).toContain('It depends on the third-party software listed below.')
     expect(readFileSync(resolve(root, 'THIRD_PARTY_NOTICES.md'), 'utf8'), 'stale notices — run `pnpm run gen-third-party-notices`').toBe(generated)
@@ -32,9 +43,13 @@ describe('THIRD_PARTY_NOTICES.md', () => {
 })
 
 /** Build the (manifests, names) pair `tierExternalDeps` consumes. */
+/** 中文说明：函数 workspace 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function workspace(entries: Record<string, Manifest>): { manifests: Map<string, Manifest>; names: Set<string> } {
+  /** 中文说明：变量 manifests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests = new Map(Object.entries(entries))
+  /** 中文说明：变量 names 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const names = new Set<string>()
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const manifest of manifests.values()) {
     if (manifest.name !== undefined) names.add(manifest.name)
   }
@@ -81,11 +96,16 @@ describe('tierExternalDeps', () => {
 
 describe('virtualManifest', () => {
   it('resolves a manifest from an ordinary prefix-matching store directory', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-notices-prefix-'))
     try {
+      /** 中文说明：变量 name 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const name = '@scope/pkg'
+      /** 中文说明：变量 version 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const version = '1.0.0'
+      /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const store = join(root, 'store')
+      /** 中文说明：变量 manifestDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const manifestDir = join(store, `${name.replace('/', '+')}@${version}`, 'node_modules', name)
       mkdirSync(manifestDir, { recursive: true })
       writeFileSync(join(manifestDir, 'package.json'), JSON.stringify({ name, version, license: 'MIT' }))
@@ -97,13 +117,18 @@ describe('virtualManifest', () => {
   })
 
   it('falls back to a content scan when pnpm 11 truncates the store directory name', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-notices-truncated-'))
     try {
+      /** 中文说明：变量 name 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const name = '@scope/pkg'
+      /** 中文说明：变量 version 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const version = '2.0.0'
+      /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const store = join(root, 'store')
       // The truncated name no longer starts with `@scope+pkg@`, so only the
       // whole-store content scan can find the package.
+      /** 中文说明：变量 manifestDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const manifestDir = join(store, '@scope+pkg_9f1c2d3e4a5b6c7d8e9f0a1b2c3d4e5f', 'node_modules', name)
       mkdirSync(manifestDir, { recursive: true })
       writeFileSync(join(manifestDir, 'package.json'), JSON.stringify({ name, version, license: 'Apache-2.0' }))
@@ -115,9 +140,12 @@ describe('virtualManifest', () => {
   })
 
   it('returns undefined when neither the prefix nor the content scan finds the package', () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-notices-miss-'))
     try {
+      /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const store = join(root, 'store')
+      /** 中文说明：变量 other 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const other = join(store, 'other-pkg@1.0.0', 'node_modules', 'other-pkg')
       mkdirSync(other, { recursive: true })
       writeFileSync(join(other, 'package.json'), JSON.stringify({ name: 'other-pkg', version: '1.0.0' }))
@@ -131,6 +159,7 @@ describe('virtualManifest', () => {
 
 describe('parseVendoredRows', () => {
   it('reads the committed vendor manifest table', () => {
+    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rows = parseVendoredRows(readFileSync(resolve(root, 'vendor/README.md'), 'utf8'))
 
     expect(rows.length).toBeGreaterThan(0)
@@ -148,7 +177,9 @@ describe('parseVendoredRows', () => {
   })
 
   it('covers every vendored directory, so no package can drop out of the notices', () => {
+    /** 中文说明：函数值 parsed 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const parsed = new Set(parseVendoredRows(readFileSync(resolve(root, 'vendor/README.md'), 'utf8')).map(row => row.npmName))
+    /** 中文说明：变量 onDisk 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const onDisk = readdirSync(resolve(root, 'vendor'), { withFileTypes: true })
       .filter(entry => entry.isDirectory())
       .map(entry => (JSON.parse(readFileSync(resolve(root, 'vendor', entry.name, 'package.json'), 'utf8')) as Manifest).name)
@@ -229,6 +260,7 @@ describe('parsePyprojectRequirements', () => {
 
 describe('collectPythonDependencies', () => {
   it('excludes normalized local project names without exempting a third-party prefix', () => {
+    /** 中文说明：变量 pyprojects 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pyprojects = [
       '[project]\nname = "deepseek-harness-runtime-bin"\ndependencies = ["pydantic"]\n',
       '[project]\nname = "deepseek-harness-sdk"\ndependencies = ["DeepSeek.Harness_Runtime-Bin", "deepseek-unrelated"]\n',

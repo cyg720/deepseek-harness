@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 install-lefthook.spec.ts 覆盖的仓库生成、校验或维护职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
+ * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
+ * 逻辑维度：读取仓库输入，构建中间模型，执行生成或校验，再报告差异和失败。
+ * 关键边界：生成结果必须确定；路径与源码文本不可信；校验失败必须以非零状态显式报告。
+ * 新手阅读建议：先看命令入口和输入目录，再读模型转换，最后关注输出文件与失败条件。
+ */
 import { spawn, spawnSync } from 'node:child_process'
 import {
   chmodSync,
@@ -18,15 +26,22 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { removeFixtureSafely, unlinkFixtureLinks } from './test-fixture-cleanup.ts'
 
+/** 中文说明：变量 installer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const installer = fileURLToPath(new URL('./install-lefthook.mjs', import.meta.url))
+/** 中文说明：变量 pairingMergeDriver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const pairingMergeDriver = 'scripts/merge-translation-pairing-driver.sh %O %A %B %P'
+/** 中文说明：变量 scriptsDirectory 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const scriptsDirectory = fileURLToPath(new URL('.', import.meta.url))
+/** 中文说明：变量 tsxPackageDirectory 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const tsxPackageDirectory = dirname(fileURLToPath(import.meta.resolve('tsx/package.json')))
+/** 中文说明：变量 fixtures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fixtures: string[] = []
 // Multi-worktree cases spawn several Git and Node subprocesses; native Windows
 // coverage concurrency can delay them without changing installer behavior.
+/** 中文说明：常量 MULTI_PROCESS_TEST_TIMEOUT_MS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MULTI_PROCESS_TEST_TIMEOUT_MS = 30_000
 
+/** 中文说明：interface Fixture 定义本测试所需的数据或行为，用于表达仓库脚本场景。 */
 interface Fixture {
   container: string
   env: NodeJS.ProcessEnv
@@ -34,6 +49,7 @@ interface Fixture {
   main: string
 }
 
+/** 中文说明：interface CommandResult 定义本测试所需的数据或行为，用于表达仓库脚本场景。 */
 interface CommandResult {
   status: number | null
   stderr: string
@@ -41,19 +57,25 @@ interface CommandResult {
 }
 
 afterEach(() => {
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const fixture of fixtures.splice(0)) removeFixtureSafely(fixture)
 })
 
+/** 中文说明：函数 commandResult 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function commandResult(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): CommandResult {
+  /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = spawnSync(command, args, { cwd, encoding: 'utf8', env })
   return { status: result.status, stderr: result.stderr, stdout: result.stdout }
 }
 
+/** 中文说明：函数 gitResult 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function gitResult(fixture: Fixture, cwd: string, args: string[]): CommandResult {
   return commandResult('git', args, cwd, fixture.env)
 }
 
+/** 中文说明：函数 git 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function git(fixture: Fixture, cwd: string, args: string[]): string {
+  /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = gitResult(fixture, cwd, args)
   if (result.status !== 0) {
     throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`)
@@ -61,11 +83,13 @@ function git(fixture: Fixture, cwd: string, args: string[]): string {
   return result.stdout.trim()
 }
 
+/** 中文说明：函数 write 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function write(path: string, content: string, mode?: number): void {
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, content, mode === undefined ? undefined : { mode })
 }
 
+/** 中文说明：函数 fakeLefthookSource 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeLefthookSource(): string {
   return `#!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
@@ -110,7 +134,9 @@ if (shouldFail) process.exit(77)
 `
 }
 
+/** 中文说明：函数 installFakeLefthook 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function installFakeLefthook(root: string): void {
+  /** 中文说明：变量 binDirectory 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const binDirectory = join(root, 'node_modules/.bin')
   mkdirSync(binDirectory, { recursive: true })
   writeFileSync(join(binDirectory, 'fake-lefthook.mjs'), fakeLefthookSource())
@@ -121,22 +147,30 @@ function installFakeLefthook(root: string): void {
     )
     return
   }
+  /** 中文说明：变量 shim 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const shim = join(binDirectory, 'lefthook')
   writeFileSync(shim, `#!/bin/sh\nexec "${process.execPath}" "$(dirname "$0")/fake-lefthook.mjs" "$@"\n`)
   chmodSync(shim, 0o755)
 }
 
+/** 中文说明：函数 installPairingProbeFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function installPairingProbeFixture(root: string): void {
+  /** 中文说明：变量 linkType 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const linkType = process.platform === 'win32' ? 'junction' : 'dir'
   symlinkSync(scriptsDirectory, join(root, 'scripts'), linkType)
   symlinkSync(tsxPackageDirectory, join(root, 'node_modules/tsx'), linkType)
 }
 
+/** 中文说明：函数 createFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function createFixture(names: { main?: string; linked?: string } = {}): Fixture {
+  /** 中文说明：变量 container 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const container = mkdtempSync(join(tmpdir(), 'dsh-lefthook-'))
   fixtures.push(container)
+  /** 中文说明：变量 main 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const main = join(container, names.main ?? 'main')
+  /** 中文说明：变量 linked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const linked = join(container, names.linked ?? 'linked')
+  /** 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     CI: 'false',
@@ -150,6 +184,7 @@ function createFixture(names: { main?: string; linked?: string } = {}): Fixture 
     HOME: container,
     XDG_CONFIG_HOME: join(container, '.config'),
   }
+  /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fixture = { container, env, linked, main }
   mkdirSync(main)
   git(fixture, container, ['init', main])
@@ -166,24 +201,31 @@ function createFixture(names: { main?: string; linked?: string } = {}): Fixture 
   return fixture
 }
 
+/** 中文说明：函数 gitDirectory 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function gitDirectory(fixture: Fixture, root: string): string {
   return git(fixture, root, ['rev-parse', '--absolute-git-dir'])
 }
 
+/** 中文说明：函数 commonDirectory 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function commonDirectory(fixture: Fixture): string {
+  /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const output = git(fixture, fixture.main, ['rev-parse', '--git-common-dir'])
   return isAbsolute(output) ? output : resolve(fixture.main, output)
 }
 
+/** 中文说明：函数 hooksPath 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function hooksPath(fixture: Fixture, root: string): string {
   return join(gitDirectory(fixture, root), 'dsh-hooks')
 }
 
+/** 中文说明：函数 installLockPath 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function installLockPath(fixture: Fixture): string {
   return join(commonDirectory(fixture), 'dsh-lefthook-install.lock')
 }
 
+/** 中文说明：函数 waitForPath 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForPath(path: string): Promise<void> {
+  /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + 10_000
   while (!existsSync(path)) {
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${path}`)
@@ -191,18 +233,22 @@ async function waitForPath(path: string): Promise<void> {
   }
 }
 
+/** 中文说明：函数 runInstaller 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runInstaller(
   fixture: Fixture,
   root: string,
   extraEnv: NodeJS.ProcessEnv = {},
 ): Promise<CommandResult> {
   return new Promise((resolveResult, reject) => {
+    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = spawn(process.execPath, [installer], {
       cwd: root,
       env: { ...fixture.env, ...extraEnv },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
+    /** 中文说明：变量 stdout 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let stdout = ''
+    /** 中文说明：变量 stderr 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let stderr = ''
     child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
     child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
@@ -212,13 +258,17 @@ function runInstaller(
 }
 
 describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [label, extraEnv] of [
     ['CI', { CI: 'true' }],
     ['GitHub Actions', { GITHUB_ACTIONS: 'true' }],
   ] satisfies [string, NodeJS.ProcessEnv][]) {
     it(`skips hook installation when ${label} marks an automated job`, async () => {
+      /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fixture = createFixture()
+      /** 中文说明：变量 common 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const common = commonDirectory(fixture)
+      /** 中文说明：变量 missingInclude 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const missingInclude = join(fixture.container, 'missing-ci-credentials.gitconfig')
       git(fixture, fixture.main, [
         'config',
@@ -227,6 +277,7 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
         missingInclude,
       ])
 
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await runInstaller(fixture, fixture.main, extraEnv)
 
       expect(result.status, result.stderr).toBe(0)
@@ -241,17 +292,24 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   }
 
   it('isolates main and linked worktrees without changing legacy common hooks', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 common 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const common = commonDirectory(fixture)
+    /** 中文说明：变量 legacyHook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const legacyHook = join(common, 'hooks/pre-commit')
     write(legacyHook, '#!/bin/sh\n# legacy hook\n', 0o755)
 
+    /** 中文说明：变量 mainInstall 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainInstall = await runInstaller(fixture, fixture.main)
+    /** 中文说明：变量 linkedInstall 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const linkedInstall = await runInstaller(fixture, fixture.linked)
     expect(mainInstall.status, mainInstall.stderr).toBe(0)
     expect(linkedInstall.status, linkedInstall.stderr).toBe(0)
 
+    /** 中文说明：变量 mainHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainHooks = hooksPath(fixture, fixture.main)
+    /** 中文说明：变量 linkedHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const linkedHooks = hooksPath(fixture, fixture.linked)
     expect(mainHooks).not.toBe(linkedHooks)
     expect(git(fixture, fixture.main, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(mainHooks)
@@ -263,9 +321,13 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
       'config', '--worktree', '--get', 'merge.dsh-translation-pairing.driver',
     ])).toBe(pairingMergeDriver)
 
+    /** 中文说明：变量 mainHook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainHook = readFileSync(join(mainHooks, 'pre-commit'), 'utf8')
+    /** 中文说明：变量 linkedHook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const linkedHook = readFileSync(join(linkedHooks, 'pre-commit'), 'utf8')
+    /** 中文说明：变量 canonicalMain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canonicalMain = git(fixture, fixture.main, ['rev-parse', '--show-toplevel'])
+    /** 中文说明：变量 canonicalLinked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canonicalLinked = git(fixture, fixture.linked, ['rev-parse', '--show-toplevel'])
     expect(mainHook).toContain(`# root=${canonicalMain}`)
     expect(mainHook).toContain('# config=main-worktree-config')
@@ -277,11 +339,13 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
     expect(existsSync(join(linkedHooks, 'pre-merge-commit'))).toBe(true)
     expect(readFileSync(legacyHook, 'utf8')).toBe('#!/bin/sh\n# legacy hook\n')
 
+    /** 中文说明：变量 commonConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commonConfig = join(common, 'config')
     expect(git(fixture, fixture.main, ['config', '--file', commonConfig, '--get', 'core.repositoryFormatVersion'])).toBe('1')
     expect(git(fixture, fixture.main, ['config', '--file', commonConfig, '--get', 'extensions.worktreeConfig'])).toBe('true')
     expect(gitResult(fixture, fixture.main, ['config', '--file', commonConfig, '--get', 'core.bare']).status).toBe(1)
 
+    /** 中文说明：变量 mainHookBeforeRemoval 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainHookBeforeRemoval = readFileSync(join(mainHooks, 'pre-commit'), 'utf8')
     // Windows Git follows the fixture's MOUNT_POINT junctions into their real
     // targets while removing a worktree; unlink them first so the removal
@@ -293,11 +357,16 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   }, MULTI_PROCESS_TEST_TIMEOUT_MS)
 
   it('replaces the owned hook path Git copies into a newly added worktree', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 mainInstall 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainInstall = await runInstaller(fixture, fixture.main)
     expect(mainInstall.status, mainInstall.stderr).toBe(0)
+    /** 中文说明：变量 mainHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainHooks = hooksPath(fixture, fixture.main)
+    /** 中文说明：变量 mainHookBefore 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainHookBefore = readFileSync(join(mainHooks, 'pre-commit'), 'utf8')
+    /** 中文说明：变量 lateLinked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lateLinked = join(fixture.container, 'late-linked')
     git(fixture, fixture.main, ['worktree', 'add', '-b', 'late-linked', lateLinked])
     write(join(lateLinked, 'lefthook.yml'), 'late-linked-worktree-config\n')
@@ -305,9 +374,11 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
     installPairingProbeFixture(lateLinked)
     expect(git(fixture, lateLinked, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(mainHooks)
 
+    /** 中文说明：变量 linkedInstall 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const linkedInstall = await runInstaller(fixture, lateLinked)
 
     expect(linkedInstall.status, linkedInstall.stderr).toBe(0)
+    /** 中文说明：变量 linkedHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const linkedHooks = hooksPath(fixture, lateLinked)
     expect(linkedHooks).not.toBe(mainHooks)
     expect(git(fixture, lateLinked, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(linkedHooks)
@@ -318,20 +389,28 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   }, MULTI_PROCESS_TEST_TIMEOUT_MS)
 
   it('serializes concurrent installs and keeps repeated output stable', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 delayed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const delayed = { DSH_TEST_LEFTHOOK_DELAY_MS: '150' }
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await Promise.all([
       runInstaller(fixture, fixture.main, delayed),
       runInstaller(fixture, fixture.linked, delayed),
     ])
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const result of first) expect(result.status, result.stderr).toBe(0)
 
+    /** 中文说明：变量 mainHookPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainHookPath = join(hooksPath(fixture, fixture.main), 'pre-push')
+    /** 中文说明：变量 initialHook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialHook = readFileSync(mainHookPath, 'utf8')
+    /** 中文说明：变量 repeated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const repeated = await Promise.all([
       runInstaller(fixture, fixture.main, delayed),
       runInstaller(fixture, fixture.main, delayed),
     ])
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const result of repeated) expect(result.status, result.stderr).toBe(0)
     expect(readFileSync(mainHookPath, 'utf8')).toBe(initialHook)
     expect(existsSync(join(commonDirectory(fixture), 'dsh-lefthook-install.lock'))).toBe(false)
@@ -339,36 +418,50 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   }, MULTI_PROCESS_TEST_TIMEOUT_MS)
 
   it('waits for a concurrent installer to finish publishing its lock record', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 lockPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lockPath = installLockPath(fixture)
+    /** 中文说明：变量 publishing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const publishing = runInstaller(fixture, fixture.main, {
       DSH_TEST_LEFTHOOK_LOCK_WRITE_DELAY_MS: '200',
     })
     await waitForPath(lockPath)
     expect(readFileSync(lockPath, 'utf8')).toBe('')
 
+    /** 中文说明：变量 waiting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const waiting = runInstaller(fixture, fixture.linked)
+    /** 中文说明：变量 results 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const results = await Promise.all([publishing, waiting])
 
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const result of results) expect(result.status, result.stderr).toBe(0)
     expect(existsSync(lockPath)).toBe(false)
   })
 
   it('repairs its owned absolute hook path after the checkout moves', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 oldRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldRoot = fixture.main
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await runInstaller(fixture, oldRoot)
     expect(first.status, first.stderr).toBe(0)
+    /** 中文说明：变量 oldHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldHooks = hooksPath(fixture, oldRoot)
+    /** 中文说明：变量 movedRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const movedRoot = join(fixture.container, 'moved-main')
     renameSync(oldRoot, movedRoot)
 
+    /** 中文说明：变量 moved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const moved = await runInstaller(fixture, movedRoot)
 
     expect(moved.status, moved.stderr).toBe(0)
+    /** 中文说明：变量 movedHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const movedHooks = hooksPath(fixture, movedRoot)
     expect(movedHooks).not.toBe(oldHooks)
     expect(git(fixture, movedRoot, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(movedHooks)
+    /** 中文说明：变量 canonicalMoved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canonicalMoved = git(fixture, movedRoot, ['rev-parse', '--show-toplevel'])
     expect(readFileSync(join(movedHooks, 'pre-commit'), 'utf8')).toContain(`# root=${canonicalMoved}`)
     expect(readFileSync(join(movedHooks, '.dsh-lefthook-owned'), 'utf8')).toContain(
@@ -377,18 +470,27 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   }, MULTI_PROCESS_TEST_TIMEOUT_MS)
 
   it.skipIf(process.platform === 'win32')('refuses a multiply linked ownership marker before relocation rewrites it', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 oldRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldRoot = fixture.main
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await runInstaller(fixture, oldRoot)
     expect(first.status, first.stderr).toBe(0)
+    /** 中文说明：变量 oldHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldHooks = hooksPath(fixture, oldRoot)
+    /** 中文说明：变量 markerName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const markerName = '.dsh-lefthook-owned'
+    /** 中文说明：变量 externalMarker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalMarker = join(fixture.container, 'external-marker')
     linkSync(join(oldHooks, markerName), externalMarker)
+    /** 中文说明：变量 externalContent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalContent = readFileSync(externalMarker, 'utf8')
+    /** 中文说明：变量 movedRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const movedRoot = join(fixture.container, 'moved-main')
     renameSync(oldRoot, movedRoot)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, movedRoot)
 
     expect(result.status).toBe(1)
@@ -397,18 +499,25 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it.skipIf(process.platform === 'win32')('refuses aliased generated hooks before Lefthook can overwrite their targets', async () => {
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const kind of ['symlink', 'hardlink'] as const) {
+      /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fixture = createFixture()
+      /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const first = await runInstaller(fixture, fixture.main)
       expect(first.status, first.stderr).toBe(0)
+      /** 中文说明：变量 hook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const hook = join(hooksPath(fixture, fixture.main), 'pre-commit')
+      /** 中文说明：变量 externalHook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const externalHook = join(fixture.container, `${kind}-external-hook`)
       rmSync(hook)
       write(externalHook, `external ${kind} target\n`)
       if (kind === 'symlink') symlinkSync(externalHook, hook)
       else linkSync(externalHook, hook)
+      /** 中文说明：变量 externalContent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const externalContent = readFileSync(externalHook, 'utf8')
 
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await runInstaller(fixture, fixture.main)
 
       expect(result.status).toBe(1)
@@ -418,31 +527,43 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   }, MULTI_PROCESS_TEST_TIMEOUT_MS)
 
   it('restores the marker-backed stale hook path when relocation reinstall fails', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 oldRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldRoot = fixture.main
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await runInstaller(fixture, oldRoot)
     expect(first.status, first.stderr).toBe(0)
+    /** 中文说明：变量 oldHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldHooks = hooksPath(fixture, oldRoot)
+    /** 中文说明：变量 markerName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const markerName = '.dsh-lefthook-owned'
+    /** 中文说明：变量 previousMarker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const previousMarker = readFileSync(join(oldHooks, markerName), 'utf8')
+    /** 中文说明：变量 movedRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const movedRoot = join(fixture.container, 'moved-main')
     renameSync(oldRoot, movedRoot)
 
+    /** 中文说明：变量 failed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failed = await runInstaller(fixture, movedRoot, { DSH_TEST_LEFTHOOK_FAIL: '1' })
 
     expect(failed.status).toBe(1)
     expect(failed.stderr).toContain('exit status 77')
+    /** 中文说明：变量 movedHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const movedHooks = hooksPath(fixture, movedRoot)
     expect(git(fixture, movedRoot, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(oldHooks)
     expect(readFileSync(join(movedHooks, markerName), 'utf8')).toBe(previousMarker)
   })
 
   it('refuses dormant repository extensions before upgrading the repository format', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 commonConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commonConfig = join(commonDirectory(fixture), 'config')
     git(fixture, fixture.main, ['config', 'extensions.dshUnknown', 'true'])
     expect(gitResult(fixture, fixture.main, ['status', '--porcelain']).status).toBe(0)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
 
     expect(result.status).toBe(1)
@@ -456,10 +577,13 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('refuses direct core.worktree before enabling worktree config', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 commonConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commonConfig = join(commonDirectory(fixture), 'config')
     git(fixture, fixture.main, ['config', '--file', commonConfig, 'core.worktree', fixture.main])
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.linked)
 
     expect(result.status).toBe(1)
@@ -469,13 +593,18 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it.skipIf(process.platform === 'win32')('refuses a symlinked common repository config before writing through it', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 commonConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commonConfig = join(commonDirectory(fixture), 'config')
+    /** 中文说明：变量 externalConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalConfig = join(fixture.container, 'external-common.gitconfig')
     renameSync(commonConfig, externalConfig)
     symlinkSync(externalConfig, commonConfig)
+    /** 中文说明：变量 externalContent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalContent = readFileSync(externalConfig, 'utf8')
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
 
     expect(result.status).toBe(1)
@@ -487,18 +616,24 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('leaves stale installer locks for explicit recovery', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 lockPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lockPath = installLockPath(fixture)
+    /** 中文说明：变量 completed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const completed = spawnSync(process.execPath, ['-e', ''])
     expect(completed.status).toBe(0)
+    /** 中文说明：变量 staleRecord 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const staleRecord = `${String(completed.pid)} 00000000-0000-4000-8000-000000000000\n`
     writeFileSync(lockPath, staleRecord)
 
+    /** 中文说明：变量 results 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const results = await Promise.all(Array.from(
       { length: 4 },
       () => runInstaller(fixture, fixture.main),
     ))
 
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const result of results) {
       expect(result.status).toBe(1)
       expect(result.stderr).toContain('stale Lefthook installer lock')
@@ -510,11 +645,15 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('leaves invalid installer locks for explicit recovery', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 lockPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lockPath = installLockPath(fixture)
+    /** 中文说明：变量 invalidRecord 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidRecord = 'not an installer lock\n'
     writeFileSync(lockPath, invalidRecord)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
 
     expect(result.status).toBe(1)
@@ -525,9 +664,13 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('does not release an installer lock whose ownership changed', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 lockPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lockPath = installLockPath(fixture)
+    /** 中文说明：变量 runningPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runningPath = join(hooksPath(fixture, fixture.main), '.fake-lefthook-running')
+    /** 中文说明：变量 install 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const install = runInstaller(fixture, fixture.main, { DSH_TEST_LEFTHOOK_DELAY_MS: '250' })
     try {
       await waitForPath(runningPath)
@@ -535,9 +678,11 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
       await install
       throw error
     }
+    /** 中文说明：变量 replacementRecord 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replacementRecord = 'replacement owner\n'
     writeFileSync(lockPath, replacementRecord)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await install
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('installer lock ownership changed')
@@ -545,9 +690,12 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it.skipIf(process.platform === 'win32')('preserves trailing spaces in worktree paths', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture({ main: 'main ', linked: 'linked ' })
 
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const root of [fixture.main, fixture.linked]) {
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await runInstaller(fixture, root)
       expect(result.status, result.stderr).toBe(0)
       expect(git(fixture, root, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(hooksPath(fixture, root))
@@ -555,11 +703,14 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('preserves user-owned hook paths unless an inherited value is explicitly overridden', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 customHook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const customHook = join(fixture.main, 'custom-hooks/pre-commit')
     write(customHook, '#!/bin/sh\n# custom hook\n', 0o755)
     git(fixture, fixture.main, ['config', 'core.hooksPath', 'custom-hooks'])
 
+    /** 中文说明：变量 refused 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const refused = await runInstaller(fixture, fixture.main)
     expect(refused.status).toBe(1)
     expect(refused.stderr).toContain('refusing to replace user-owned core.hooksPath')
@@ -568,6 +719,7 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
     expect(readFileSync(customHook, 'utf8')).toBe('#!/bin/sh\n# custom hook\n')
     expect(gitResult(fixture, fixture.main, ['config', '--get', 'extensions.worktreeConfig']).status).toBe(1)
 
+    /** 中文说明：变量 optedIn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const optedIn = await runInstaller(fixture, fixture.main, {
       DSH_LEFTHOOK_ALLOW_HOOKS_PATH_OVERRIDE: '1',
     })
@@ -578,6 +730,7 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
     expect(readFileSync(customHook, 'utf8')).toBe('#!/bin/sh\n# custom hook\n')
 
     git(fixture, fixture.linked, ['config', '--worktree', 'core.hooksPath', 'linked-custom-hooks'])
+    /** 中文说明：变量 explicitWorktreePath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const explicitWorktreePath = await runInstaller(fixture, fixture.linked, {
       DSH_LEFTHOOK_ALLOW_HOOKS_PATH_OVERRIDE: '1',
     })
@@ -586,9 +739,12 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('does not trust an ownership marker outside a registered worktree hook path', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 mainInstall 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainInstall = await runInstaller(fixture, fixture.main)
     expect(mainInstall.status, mainInstall.stderr).toBe(0)
+    /** 中文说明：变量 externalHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalHooks = join(fixture.container, 'external-owned-hooks')
     write(
       join(externalHooks, '.dsh-lefthook-owned'),
@@ -601,6 +757,7 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
     )
     git(fixture, fixture.linked, ['config', '--worktree', 'core.hooksPath', externalHooks])
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.linked)
 
     expect(result.status).toBe(1)
@@ -610,12 +767,16 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('refuses to activate a sibling worktree dormant hook path', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 linkedConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const linkedConfig = join(gitDirectory(fixture, fixture.linked), 'config.worktree')
+    /** 中文说明：变量 linkedHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const linkedHooks = join(fixture.linked, 'custom-hooks')
     git(fixture, fixture.main, ['config', '--file', linkedConfig, 'core.hooksPath', linkedHooks])
     expect(gitResult(fixture, fixture.linked, ['config', '--get', 'core.hooksPath']).status).toBe(1)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
 
     expect(result.status).toBe(1)
@@ -628,16 +789,22 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it.skipIf(process.platform === 'win32')('refuses an active symlinked worktree config before writing through it', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 commonConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commonConfig = join(commonDirectory(fixture), 'config')
+    /** 中文说明：变量 worktreeConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const worktreeConfig = join(gitDirectory(fixture, fixture.main), 'config.worktree')
+    /** 中文说明：变量 externalConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalConfig = join(fixture.container, 'external.gitconfig')
+    /** 中文说明：变量 externalContent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const externalContent = '[user]\n\tname = External owner\n'
     write(externalConfig, externalContent)
     git(fixture, fixture.main, ['config', '--file', commonConfig, 'core.repositoryFormatVersion', '1'])
     git(fixture, fixture.main, ['config', '--file', commonConfig, 'extensions.worktreeConfig', 'true'])
     symlinkSync(externalConfig, worktreeConfig)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
 
     expect(result.status).toBe(1)
@@ -651,16 +818,23 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
     expect(existsSync(hooksPath(fixture, fixture.main))).toBe(false)
   })
 
+  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const includeKey of ['include.path', 'includeIf.onbranch:conditional.path']) {
+    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const key of ['core.worktree', 'core.bare', 'extensions.dshunknown']) {
       it(`ignores ${key} loaded through ${includeKey}`, async () => {
+        /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const fixture = createFixture()
+        /** 中文说明：变量 commonConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const commonConfig = join(commonDirectory(fixture), 'config')
+        /** 中文说明：变量 includedConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const includedConfig = join(fixture.container, `${includeKey.split('.')[0]}-${key.replace('.', '-')}.gitconfig`)
+        /** 中文说明：变量 value 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const value = key === 'core.worktree' ? fixture.main : 'true'
         git(fixture, fixture.main, ['config', '--file', includedConfig, key, value])
         git(fixture, fixture.main, ['config', '--file', commonConfig, includeKey, includedConfig])
 
+        /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const result = await runInstaller(fixture, fixture.linked)
 
         expect(result.status, result.stderr).toBe(0)
@@ -673,10 +847,14 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   }
 
   it('ignores an inactive global includeIf that provides a hook path for another repository', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 globalConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const globalConfig = fixture.env.GIT_CONFIG_GLOBAL
     if (globalConfig === undefined) throw new Error('fixture global config path is missing')
+    /** 中文说明：变量 includedConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const includedConfig = join(fixture.container, 'other-repository.gitconfig')
+    /** 中文说明：变量 includedHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const includedHooks = join(fixture.container, 'other-repository-hooks')
     git(fixture, fixture.main, ['config', '--file', includedConfig, 'core.hooksPath', includedHooks])
     git(fixture, fixture.main, [
@@ -687,6 +865,7 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
       includedConfig,
     ])
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.linked)
 
     expect(result.status, result.stderr).toBe(0)
@@ -694,11 +873,15 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('never overrides a command-scoped hook path', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 commandHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commandHooks = join(fixture.container, 'command-hooks')
+    /** 中文说明：变量 sentinel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sentinel = join(commandHooks, 'pre-commit')
     write(sentinel, '#!/bin/sh\n# command-scope sentinel\n', 0o755)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main, {
       DSH_LEFTHOOK_ALLOW_HOOKS_PATH_OVERRIDE: '1',
       GIT_CONFIG_COUNT: '1',
@@ -717,7 +900,9 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('never replaces a custom worktree pairing merge driver', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 commonConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commonConfig = join(commonDirectory(fixture), 'config')
     git(fixture, fixture.main, ['config', '--file', commonConfig, 'core.repositoryFormatVersion', '1'])
     git(fixture, fixture.main, ['config', '--file', commonConfig, 'extensions.worktreeConfig', 'true'])
@@ -725,6 +910,7 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
       'config', '--worktree', 'merge.dsh-translation-pairing.driver', 'custom-driver %A',
     ])
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
 
     expect(result.status).toBe(1)
@@ -736,11 +922,13 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('never masks an inherited custom pairing merge driver', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
     git(fixture, fixture.main, [
       'config', '--local', 'merge.dsh-translation-pairing.driver', 'inherited-driver %A',
     ])
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
 
     expect(result.status).toBe(1)
@@ -755,8 +943,10 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('does not pass unrelated command-scoped Git config to Lefthook', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main, {
       DSH_TEST_FORBIDDEN_GIT_CONFIG_KEY: 'dsh.testSentinel',
       GIT_CONFIG_COUNT: '1',
@@ -769,11 +959,17 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('never overrides a hook path included by worktree config', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 commonConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commonConfig = join(commonDirectory(fixture), 'config')
+    /** 中文说明：变量 worktreeConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const worktreeConfig = join(gitDirectory(fixture, fixture.main), 'config.worktree')
+    /** 中文说明：变量 includedConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const includedConfig = join(fixture.container, 'included-worktree.gitconfig')
+    /** 中文说明：变量 includedHooks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const includedHooks = join(fixture.container, 'included-hooks')
+    /** 中文说明：变量 sentinel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sentinel = join(includedHooks, 'pre-commit')
     write(sentinel, '#!/bin/sh\n# included-worktree sentinel\n', 0o755)
     git(fixture, fixture.main, ['config', '--file', includedConfig, 'core.hooksPath', includedHooks])
@@ -781,6 +977,7 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
     git(fixture, fixture.main, ['config', '--file', commonConfig, 'extensions.worktreeConfig', 'true'])
     git(fixture, fixture.main, ['config', '--file', worktreeConfig, 'include.path', includedConfig])
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main, {
       DSH_LEFTHOOK_ALLOW_HOOKS_PATH_OVERRIDE: '1',
     })
@@ -793,11 +990,15 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('restores the previous hook lookup when Lefthook installation fails', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 common 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const common = commonDirectory(fixture)
+    /** 中文说明：变量 legacyHook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const legacyHook = join(common, 'hooks/pre-push')
     write(legacyHook, '#!/bin/sh\n# legacy pre-push\n', 0o755)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main, { DSH_TEST_LEFTHOOK_FAIL: '1' })
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('exit status 77')
@@ -813,9 +1014,11 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('does not publish worktree integration when the pairing driver probe fails', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
     rmSync(join(fixture.main, 'node_modules/tsx'), { recursive: true, force: true })
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
 
     expect(result.status).toBe(1)
@@ -827,8 +1030,10 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('reports installation and hook-path rollback failures together', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main, {
       DSH_TEST_LEFTHOOK_BREAK_WORKTREE_CONFIG: '1',
       DSH_TEST_LEFTHOOK_FAIL: '1',
@@ -843,10 +1048,13 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it('refuses an unowned directory at the reserved worktree hook path', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 reservedHook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reservedHook = join(hooksPath(fixture, fixture.main), 'pre-commit')
     write(reservedHook, '#!/bin/sh\n# user content\n', 0o755)
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main)
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('refusing to overwrite unowned hooks directory')
@@ -855,9 +1063,13 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
   })
 
   it.skipIf(process.platform === 'win32')('rejects Git without config-scope support before mutation', async () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = createFixture()
+    /** 中文说明：变量 realGit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const realGit = commandResult('which', ['git'], fixture.main, fixture.env).stdout.trim()
+    /** 中文说明：变量 fakeBin 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fakeBin = join(fixture.container, 'fake-bin')
+    /** 中文说明：变量 fakeGit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fakeGit = join(fakeBin, 'git')
     write(
       fakeGit,
@@ -865,6 +1077,7 @@ describe('worktree-local Lefthook installer', { timeout: 30_000 }, () => {
       0o755,
     )
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runInstaller(fixture, fixture.main, {
       PATH: `${fakeBin}:${fixture.env.PATH ?? ''}`,
     })
