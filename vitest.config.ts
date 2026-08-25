@@ -1,3 +1,11 @@
+/**
+ * 文件职责：实现 vitest.config.ts 覆盖的Vitest 测试分区与运行配置职责。
+ * 技术维度：使用 TypeScript、Vitest、Vite 路径解析与测试项目配置。
+ * 产品维度：保障不同测试层级以一致环境运行。
+ * 逻辑维度：组合共享配置，选择测试文件并设置超时与执行环境。
+ * 关键边界：测试分区不得重复或遗漏；环境相关用例应明确隔离。
+ * 新手阅读建议：先看 include/exclude，再看项目环境和超时，最后对照顶层测试命令。
+ */
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import tsconfigPaths from 'vite-tsconfig-paths'
@@ -11,14 +19,17 @@ import { COVERAGE_PARTITION_MODE_ENV } from './scripts/coverage-partitions.ts'
 // path, and function when a file misses the per-file 100% gate — the built-in
 // threshold ERRORs name only the file. Absolute path because istanbul-reports
 // require()s custom reporters (which is also why the reporter is CJS).
+/** 中文说明：变量 uncoveredLocationsReporter 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const uncoveredLocationsReporter = fileURLToPath(new URL('./scripts/coverage-uncovered-locations.cjs', import.meta.url))
 
 // Resolution facade shared by every plugin instance below: tsconfig.base.json
 // has no include, which vite-tsconfig-paths treats as match-all, so its paths
 // map applies to every test file. paths must win over package exports so built
 // lib/ never loads a second module-singleton copy.
+/** 中文说明：函数值 pathsPlugin 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const pathsPlugin = (): ReturnType<typeof tsconfigPaths> => tsconfigPaths({ projects: ['./tsconfig.base.json'] })
 
+/** 中文说明：变量 windowsUnsupportedPackages 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const windowsUnsupportedPackages = process.platform === 'win32'
   ? [
       // Bash-requiring suites (a real POSIX shell is unavailable on Windows).
@@ -35,6 +46,7 @@ const windowsUnsupportedPackages = process.platform === 'win32'
     ]
   : []
 
+/** 中文说明：变量 windowsUnsupportedTests 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const windowsUnsupportedTests = process.platform === 'win32'
   ? [
       ...windowsUnsupportedPackages.map(path => `${path}/tests/**/*.spec.ts`),
@@ -46,6 +58,7 @@ const windowsUnsupportedTests = process.platform === 'win32'
     ]
   : []
 
+/** 中文说明：变量 windowsUnsupportedCoveragePackages 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const windowsUnsupportedCoveragePackages = process.platform === 'win32'
   ? [...windowsUnsupportedPackages, 'packages/subprocess/*']
   : []
@@ -54,6 +67,7 @@ const windowsUnsupportedCoveragePackages = process.platform === 'win32'
 // loads Win32 libraries), so the Linux coverage lane can never cover them.
 // The Windows dev/CI lane exercises them through the probe/runner suites; the
 // per-file 100% gate must not fail on their Linux-uncovered paths.
+/** 中文说明：变量 windowsOnlyCoverageExclusions 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const windowsOnlyCoverageExclusions = process.platform !== 'win32'
   ? [
       'packages/sandbox/sandbox-windows-acl/src/**/*.ts',
@@ -69,6 +83,7 @@ const windowsOnlyCoverageExclusions = process.platform !== 'win32'
 // would run the confinement in-process if imported, and vitest's v8 coverage
 // never measures child processes. Its behavior is pinned end-to-end by
 // tests/runner.spec.ts, which spawns the real entry through tsx.
+/** 中文说明：变量 windowsRunnerCoverageExclusions 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const windowsRunnerCoverageExclusions = process.platform === 'win32'
   ? ['packages/sandbox/sandbox-windows-acl/src/runner.ts']
   : []
@@ -80,6 +95,7 @@ const windowsRunnerCoverageExclusions = process.platform === 'win32'
 // runs the suites' own resolution (the dependency-free resolve.ts module),
 // so the exemption is active exactly when the suites skip — a mismatched
 // narrower probe could exempt the file on hosts whose suites actually run.
+/** 中文说明：变量 pwshCoverageExclusions 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const pwshCoverageExclusions = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
   ? []
   : [
@@ -87,6 +103,7 @@ const pwshCoverageExclusions = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProf
       'packages/shell/pwsh-sandbox/src/**/*.ts',
     ]
 
+/** 中文说明：变量 testIncludes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const testIncludes = [
   'packages/*/*/tests/**/*.spec.{ts,tsx}',
   'apps/*/tests/**/*.spec.ts',
@@ -97,23 +114,28 @@ const testIncludes = [
 // The instrumented coverage gate sets this env; the exempt heavy suites then
 // run beside it uninstrumented (membership contract in scripts/coverage-exempt.ts).
 // A set-but-not-'1' value is a misconfiguration, not a silent no-op.
+/** 中文说明：变量 coverageExemptRaw 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const coverageExemptRaw = process.env[COVERAGE_EXEMPT_ENV]
 if (coverageExemptRaw !== undefined && coverageExemptRaw !== '' && coverageExemptRaw !== '1') {
   throw new Error(`vitest config: ${COVERAGE_EXEMPT_ENV} must be '1' or unset, got ${JSON.stringify(coverageExemptRaw)}.`)
 }
+/** 中文说明：变量 coverageExemptExcludes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const coverageExemptExcludes = coverageExemptRaw === '1'
   ? coverageExemptHeavySuites.map(suite => suite.exclude)
   : []
 
+/** 中文说明：变量 coveragePartitionRaw 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const coveragePartitionRaw = process.env[COVERAGE_PARTITION_MODE_ENV]
 if (coveragePartitionRaw !== undefined && coveragePartitionRaw !== '' && coveragePartitionRaw !== '1') {
   throw new Error(`vitest config: ${COVERAGE_PARTITION_MODE_ENV} must be '1' or unset, got ${JSON.stringify(coveragePartitionRaw)}.`)
 }
+/** 中文说明：变量 coveragePartitionMode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const coveragePartitionMode = coveragePartitionRaw === '1'
 
 // These suites exercise process-global state, process APIs, or timing-sensitive process I/O
 // that worker threads cannot isolate reliably under aggregate gate contention.
 // Keep the narrow exception in forks while the rest of the inventory avoids per-file processes.
+/** 中文说明：变量 processBoundTests 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const processBoundTests = [
   'packages/session/session-persistence-jsonl/tests/jsonl.spec.ts',
   'packages/subagent/subagent-acp/tests/subagent-acp.spec.ts',
