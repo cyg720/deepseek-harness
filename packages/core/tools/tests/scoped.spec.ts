@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证工具注册与执行的 scoped.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { Events } from '@deepseek-ai/cordis'
@@ -11,10 +19,13 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { CallId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 
+/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
 /** Mount the registry (with its systemPrompt dependency) on a fresh context. */
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt, {})
   await ctx.plugin(ToolRuntime)
@@ -22,8 +33,11 @@ async function mount(): Promise<Context> {
 }
 
 /** Mint a scope whose key doubles as a minimal Agent-like object. */
+/** 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mintAgentScope(ctx: Context, name: string): Promise<{ scope: Scope; key: Agent }> {
+  /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
   const key = { id: name as SessionId } as Agent
+  /** 中文说明：测试局部值 scope!: Scope，由紧邻初始化决定。 */
   let scope!: Scope
   // The scoped context resolves services through the MINTING plugin's
   // dependency chain — the minter must inject what scope holders will reach
@@ -33,6 +47,7 @@ async function mintAgentScope(ctx: Context, name: string): Promise<{ scope: Scop
   return { scope, key }
 }
 
+/** 中文说明：函数 tool 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tool(name: string, reply = `ran:${name}`): ToolDefinition {
   return {
     name,
@@ -46,7 +61,9 @@ function tool(name: string, reply = `ran:${name}`): ToolDefinition {
   }
 }
 
+/** 中文说明：函数 run 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function run(ctx: Context, name: string, agent?: Agent): Promise<string> {
+  /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
   const result = await ctx.tools.execute({
     signal: testToolSignal,
     callId: CallId('c1'),
@@ -54,13 +71,16 @@ async function run(ctx: Context, name: string, agent?: Agent): Promise<string> {
     arguments: {},
     ...agent ? { agent } : {},
   })
+  /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
   const first = result.content[0]
   return first?.type === 'text' ? first.text : JSON.stringify(result.content)
 }
 
 describe('scoped tool registration', () => {
   it('keeps final-result observers synchronous', () => {
+    /** 中文说明：类型或类 ToolResultListener 约束服务或测试数据职责。 */
     type ToolResultListener = Events['tools/result']
+    /** 中文说明：类型或类 AsyncToolResultListener 约束服务或测试数据职责。 */
     type AsyncToolResultListener = () => Promise<void>
 
     expectTypeOf<AsyncToolResultListener>().not.toExtend<ToolResultListener>()
@@ -68,8 +88,11 @@ describe('scoped tool registration', () => {
   })
 
   it('files a scoped tool in its layer: visible/executable for that scope only', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = { id: 'other' as SessionId } as Agent
     ctx.tools.register(tool('shared'))
     scope.ctx.tools.register(tool('mine'))
@@ -85,7 +108,9 @@ describe('scoped tool registration', () => {
   })
 
   it('scoped shadows global on a name conflict, in either registration order', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
     // scoped-then-global
     scope.ctx.tools.register(tool('bash', 'restricted-bash'))
@@ -98,7 +123,9 @@ describe('scoped tool registration', () => {
   })
 
   it('rejects a duplicate name within one layer, naming agent.ctx for the global case', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope }，由紧邻初始化决定。 */
     const { scope } = await mintAgentScope(ctx, 'a')
     ctx.tools.register(tool('x'))
     expect(() => ctx.tools.register(tool('x'))).toThrow(/agent\.ctx/)
@@ -107,7 +134,9 @@ describe('scoped tool registration', () => {
   })
 
   it('disposing the scope unwinds its registrations and leaves no residue', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
     scope.ctx.tools.register(tool('mine'))
     expect(ctx.tools.get('mine', key)).toBeDefined()
@@ -119,7 +148,9 @@ describe('scoped tool registration', () => {
 
 describe('restrict()', () => {
   it('masks global tools, merges scope-local tools afterward, and keeps assembly with execution', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
     ctx.tools.register(tool('read'))
     ctx.tools.register(tool('bash'))
@@ -136,8 +167,11 @@ describe('restrict()', () => {
   })
 
   it('applies snapshotted filters to the live global registry before merging later scope-local tools', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 denied，由紧邻初始化决定。 */
     const denied = await mintAgentScope(ctx, 'denied')
+    /** 中文说明：测试局部值 allowed，由紧邻初始化决定。 */
     const allowed = await mintAgentScope(ctx, 'allowed')
     ctx.tools.register(tool('read'))
     ctx.tools.register(tool('bash'))
@@ -159,9 +193,13 @@ describe('restrict()', () => {
   })
 
   it('composes multiple restrictions by intersection and lifts each independently', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of ['a', 'b', 'c']) ctx.tools.register(tool(name))
+    /** 中文说明：测试局部值 liftAllow，由紧邻初始化决定。 */
     const liftAllow = scope.ctx.tools.restrict({ allow: ['a', 'b'] })
     scope.ctx.tools.restrict({ deny: ['b'] })
     expect(ctx.tools.schemas(key).map(t => t.name)).toEqual(['a'])
@@ -171,10 +209,13 @@ describe('restrict()', () => {
   })
 
   it('compiles the readonly filter values at registration', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
     ctx.tools.register(tool('a'))
     ctx.tools.register(tool('b'))
+    /** 中文说明：测试局部值 filter，由紧邻初始化决定。 */
     const filter = { deny: ['a'] }
     scope.ctx.tools.restrict(filter)
     filter.deny.push('b')
@@ -182,7 +223,9 @@ describe('restrict()', () => {
   })
 
   it('fails loud on an unscoped call, an empty filter, and names it does not inherit', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope }，由紧邻初始化决定。 */
     const { scope } = await mintAgentScope(ctx, 'a')
     ctx.tools.register(tool('real'))
     scope.ctx.tools.register(tool('local'))
@@ -194,7 +237,9 @@ describe('restrict()', () => {
     expect(() => scope.ctx.tools.restrict({ allow: ['reall'] })).toThrow(/unknown global tool "reall".*known global tools: real/s)
     expect(() => scope.ctx.tools.restrict({ deny: ['ghost', 'wraith'] })).toThrow(/unknown global tools "ghost", "wraith"/)
 
+    /** 中文说明：测试局部值 emptyCtx，由紧邻初始化决定。 */
     const emptyCtx = await mount()
+    /** 中文说明：测试局部值 { scope，由紧邻初始化决定。 */
     const { scope: emptyScope } = await mintAgentScope(emptyCtx, 'empty')
     expect(() => emptyScope.ctx.tools.restrict({ deny: ['ghost'] }))
       .toThrow(/known global tools: \(none\)/)
@@ -203,9 +248,12 @@ describe('restrict()', () => {
 
 describe('restrict() over an inherited scope layer', () => {
   /** Mint a child scope parented to `parent`, as a subagent's creation window does. */
+  /** 中文说明：函数 mintChild 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function mintChild(ctx: Context, parentKey: Agent, name: string): Promise<{ scope: Scope; key: Agent }> {
+    /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = { id: name as SessionId } as Agent
     bindScopeParent(key, parentKey)
+    /** 中文说明：测试局部值 scope!: Scope，由紧邻初始化决定。 */
     let scope!: Scope
     await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, key) },
       { inject: ['tools', 'systemPrompt'] }))
@@ -215,10 +263,13 @@ describe('restrict() over an inherited scope layer', () => {
   it('filters tools the child inherits from an ancestor scope, not only global ones', async () => {
     // The shape every preset deployment has: no model-facing row in the global
     // layer, all of them contributed by an ancestor scope the child joined.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = await mintAgentScope(ctx, 'parent')
     parent.scope.ctx.tools.register(tool('bash'))
     parent.scope.ctx.tools.register(tool('read'))
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = await mintChild(ctx, parent.key, 'child')
 
     expect(ctx.tools.schemas(child.key).map(t => t.name).sort()).toEqual(['bash', 'read'])
@@ -236,10 +287,13 @@ describe('restrict() over an inherited scope layer', () => {
     // The delegation runtime registers a child's reporting and structured
     // output tools into the child's own layer; an `allow` naming only the
     // capabilities the child may use must not strip them.
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = await mintAgentScope(ctx, 'parent')
     parent.scope.ctx.tools.register(tool('bash'))
     parent.scope.ctx.tools.register(tool('read'))
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = await mintChild(ctx, parent.key, 'child')
     child.scope.ctx.tools.register(tool('report'))
 
@@ -250,10 +304,13 @@ describe('restrict() over an inherited scope layer', () => {
   })
 
   it('lets an ancestor\'s restriction reach every scope nested inside it', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
     ctx.tools.register(tool('web'))
+    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = await mintAgentScope(ctx, 'parent')
     parent.scope.ctx.tools.register(tool('bash'))
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = await mintChild(ctx, parent.key, 'child')
     parent.scope.ctx.tools.restrict({ deny: ['web'] })
 
@@ -264,11 +321,15 @@ describe('restrict() over an inherited scope layer', () => {
 
 describe('scoped execution dispatch', () => {
   it('an agent.ctx pre-execute listener gates only its own agent (and never subject-less calls)', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = { id: 'other' as SessionId } as Agent
     ctx.tools.register(tool('t'))
 
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: (string | undefined)[] = []
     scope.ctx.on('tools/pre-execute', (exec: ToolExecution, _next: () => Promise<PreToolDecision>) => {
       seen.push(exec.agent?.id)
@@ -282,9 +343,13 @@ describe('scoped execution dispatch', () => {
   })
 
   it('applies scoped guards after pre-execute and unwinds duplicate registrations independently', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = { id: 'other' as SessionId } as Agent
+    /** 中文说明：测试局部值 bodyCalls，由紧邻初始化决定。 */
     let bodyCalls = 0
     ctx.tools.register({
       ...tool('t'),
@@ -293,10 +358,12 @@ describe('scoped execution dispatch', () => {
         return Promise.resolve('ran:t')
       },
     })
+    /** 中文说明：测试局部值 guard，由紧邻初始化决定。 */
     const guard = (execution: Readonly<ToolExecution>): string => {
       expect(Object.isFrozen(execution.arguments)).toBe(true)
       return 'terminal policy'
     }
+    /** 中文说明：测试局部值 liftFirst，由紧邻初始化决定。 */
     const liftFirst = scope.ctx.tools.guard(guard)
     scope.ctx.tools.guard(guard)
     // Registered later and prepended outside every existing waterfall listener:
@@ -316,7 +383,9 @@ describe('scoped execution dispatch', () => {
   })
 
   it('composes global guards monotonically when one abstains and a later one denies', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 bodyCalls，由紧邻初始化决定。 */
     let bodyCalls = 0
     ctx.tools.register({
       ...tool('t'),
@@ -333,8 +402,11 @@ describe('scoped execution dispatch', () => {
   })
 
   it('live-iterates a guard registered by an earlier guard', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls: string[] = []
+    /** 中文说明：测试局部值 added，由紧邻初始化决定。 */
     let added = false
     ctx.tools.register(tool('t'))
     ctx.tools.guard(() => {
@@ -354,11 +426,15 @@ describe('scoped execution dispatch', () => {
   })
 
   it('defers a scoped guard that replaces the last guard in its generation', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls: string[] = []
     ctx.tools.register(tool('t'))
     scope.ctx.tools.register(tool('scope_sibling'))
+    /** 中文说明：测试局部值 lift，由紧邻初始化决定。 */
     const lift = scope.ctx.tools.guard(() => {
       calls.push('first')
       lift()
@@ -376,12 +452,19 @@ describe('scoped execution dispatch', () => {
   })
 
   it('shares one token and materialized argument value across the pipeline', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 safeCalls，由紧邻初始化决定。 */
     let safeCalls = 0
+    /** 中文说明：测试局部值 dangerCalls，由紧邻初始化决定。 */
     let dangerCalls = 0
+    /** 中文说明：测试局部值 scopedResults，由紧邻初始化决定。 */
     let scopedResults = 0
+    /** 中文说明：测试局部值 safeArguments: unknown，由紧邻初始化决定。 */
     let safeArguments: unknown
+    /** 中文说明：测试局部值 tokens，由紧邻初始化决定。 */
     const tokens = new Set<ToolExecutionToken>()
     ctx.tools.register({
       ...tool('safe'),
@@ -415,7 +498,9 @@ describe('scoped execution dispatch', () => {
     scope.ctx.on('tools/result', () => { scopedResults += 1 })
 
     expect(await run(ctx, 'danger', key)).toBe('Error: danger denied')
+    /** 中文说明：测试局部值 callerArguments，由紧邻初始化决定。 */
     const callerArguments = { source: true }
+    /** 中文说明：测试局部值 safeResult，由紧邻初始化决定。 */
     const safeResult = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('safe-call'),
@@ -438,11 +523,17 @@ describe('scoped execution dispatch', () => {
   })
 
   it('normalizes non-cloneable arguments and still publishes one scoped final outcome', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 policyCalls，由紧邻初始化决定。 */
     let policyCalls = 0
+    /** 中文说明：测试局部值 bodyCalls，由紧邻初始化决定。 */
     let bodyCalls = 0
+    /** 中文说明：测试局部值 scopedObserved，由紧邻初始化决定。 */
     let scopedObserved = 0
+    /** 中文说明：测试局部值 globalObserved，由紧邻初始化决定。 */
     let globalObserved = 0
     ctx.tools.register({
       ...tool('t'),
@@ -455,8 +546,10 @@ describe('scoped execution dispatch', () => {
       policyCalls += 1
       return next()
     })
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let parent!: ToolExecutionToken
     ctx.tools.register(tool('parent'))
+    /** 中文说明：测试局部值 stopCapture，由紧邻初始化决定。 */
     const stopCapture = ctx.on('tools/pre-execute', (exec, next) => {
       if (exec.name === 'parent') parent = exec.token
       return next()
@@ -464,6 +557,7 @@ describe('scoped execution dispatch', () => {
     await ctx.tools.execute({ signal: testToolSignal, callId: CallId('parent'), name: 'parent', arguments: {} })
     stopCapture()
     policyCalls = 0
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
     scope.ctx.on('tools/result', (exec, result) => {
       scopedObserved += 1
@@ -474,8 +568,10 @@ describe('scoped execution dispatch', () => {
       expect(result.isError).toBe(true)
     })
     ctx.on('tools/result', () => { globalObserved += 1 })
+    /** 中文说明：测试局部值 callerArguments，由紧邻初始化决定。 */
     const callerArguments = { invalid: () => undefined }
 
+    /** 中文说明：测试局部值 scopedResult，由紧邻初始化决定。 */
     const scopedResult = await ctx.tools.execute({
       callId: CallId('non-cloneable'),
       name: 't',
@@ -484,6 +580,7 @@ describe('scoped execution dispatch', () => {
       parent,
       signal,
     })
+    /** 中文说明：测试局部值 subjectlessResult，由紧邻初始化决定。 */
     const subjectlessResult = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('non-cloneable-subjectless'),
@@ -504,7 +601,9 @@ describe('scoped execution dispatch', () => {
   })
 
   it('reads a stateful parent accessor once before policy, dispatch, and result observation', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 observed，由紧邻初始化决定。 */
     const observed: (ToolExecutionToken | undefined)[] = []
     ctx.tools.register({
       ...tool('t'),
@@ -522,8 +621,11 @@ describe('scoped execution dispatch', () => {
       return next()
     })
     ctx.on('tools/result', (exec) => { observed.push(exec.parent) })
+    /** 中文说明：测试局部值 forged，由紧邻初始化决定。 */
     const forged = { fake: true } as unknown as ToolExecutionToken
+    /** 中文说明：测试局部值 parentReads，由紧邻初始化决定。 */
     let parentReads = 0
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
       callId: CallId('stateful-parent'),
       name: 't',
@@ -535,6 +637,7 @@ describe('scoped execution dispatch', () => {
       },
     } as ToolExecutionInput
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute(input)
 
     expect(result.isError).toBe(false)
@@ -543,22 +646,32 @@ describe('scoped execution dispatch', () => {
   })
 
   it('uses one input snapshot for the normalized error shell', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'accepted')
+    /** 中文说明：测试局部值 driftAgent，由紧邻初始化决定。 */
     const driftAgent = { id: 'drift' as SessionId } as Agent
     ctx.tools.register(tool('parent'))
     ctx.tools.register(tool('t'))
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let parent!: ToolExecutionToken
+    /** 中文说明：测试局部值 stopCapture，由紧邻初始化决定。 */
     const stopCapture = ctx.on('tools/pre-execute', (exec, next) => {
       if (exec.name === 'parent') parent = exec.token
       return next()
     })
     await ctx.tools.execute({ signal: testToolSignal, callId: CallId('parent'), name: 'parent', arguments: {} })
     stopCapture()
+    /** 中文说明：测试局部值 acceptedSignal，由紧邻初始化决定。 */
     const acceptedSignal = new AbortController().signal
+    /** 中文说明：测试局部值 driftSignal，由紧邻初始化决定。 */
     const driftSignal = new AbortController().signal
+    /** 中文说明：测试局部值 forged，由紧邻初始化决定。 */
     const forged = { fake: true } as unknown as ToolExecutionToken
+    /** 中文说明：测试局部值 reads，由紧邻初始化决定。 */
     const reads = { callId: 0, name: 0, arguments: 0, agent: 0, parent: 0, signal: 0 }
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
       get callId() { reads.callId += 1; return CallId('unstable-error') },
       get name() { reads.name += 1; return 't' },
@@ -567,11 +680,14 @@ describe('scoped execution dispatch', () => {
       get parent() { reads.parent += 1; return reads.parent <= 2 ? parent : forged },
       get signal() { reads.signal += 1; return reads.signal === 1 ? acceptedSignal : driftSignal },
     } as ToolExecutionInput
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let observed: Readonly<ToolExecution> | undefined
+    /** 中文说明：测试局部值 scopedObserved，由紧邻初始化决定。 */
     let scopedObserved = 0
     ctx.on('tools/result', (exec) => { observed = exec })
     scope.ctx.on('tools/result', () => { scopedObserved += 1 })
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute(input)
 
     expect(result.isError).toBe(true)
@@ -588,15 +704,19 @@ describe('scoped execution dispatch', () => {
   })
 
   it('normalizes a throwing arguments accessor without rereading it or losing the final notification', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
     ctx.tools.register(tool('t'))
+    /** 中文说明：测试局部值 argumentReads，由紧邻初始化决定。 */
     let argumentReads = 0
+    /** 中文说明：测试局部值 observed，由紧邻初始化决定。 */
     let observed = 0
     ctx.on('tools/result', (exec, result) => {
       observed += 1
       expect(exec.arguments).toBeUndefined()
       expect(result.isError).toBe(true)
     })
+    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
       callId: CallId('throwing-arguments'),
       name: 't',
@@ -607,6 +727,7 @@ describe('scoped execution dispatch', () => {
       },
     } as ToolExecutionInput
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute(input)
 
     expect(result.isError).toBe(true)
@@ -619,9 +740,13 @@ describe('scoped execution dispatch', () => {
     ['Map', new Map([['mutable', true]])],
     ['class instance', new (class Arguments { value = 1 })()],
   ])('rejects cloneable non-JSON arguments (%s) before policy or dispatch', async (_kind, argumentsValue) => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 policyCalls，由紧邻初始化决定。 */
     let policyCalls = 0
+    /** 中文说明：测试局部值 bodyCalls，由紧邻初始化决定。 */
     let bodyCalls = 0
+    /** 中文说明：测试局部值 observed，由紧邻初始化决定。 */
     let observed = 0
     ctx.tools.register({
       ...tool('t'),
@@ -640,6 +765,7 @@ describe('scoped execution dispatch', () => {
       expect(result.isError).toBe(true)
     })
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('bad-arguments'), name: 't', arguments: argumentsValue,
@@ -653,14 +779,18 @@ describe('scoped execution dispatch', () => {
   })
 
   it('reads nested arguments once into the executed snapshot', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
     ctx.tools.register(tool('t'))
+    /** 中文说明：测试局部值 reads，由紧邻初始化决定。 */
     let reads = 0
+    /** 中文说明：测试局部值 argumentsValue，由紧邻初始化决定。 */
     const argumentsValue = Object.defineProperty({}, 'value', {
       enumerable: true,
       get: () => ++reads === 1 ? 'safe' : new Map([['mutable', true]]),
     })
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('unstable-arguments'), name: 't', arguments: argumentsValue,
@@ -675,11 +805,16 @@ describe('scoped execution dispatch', () => {
   })
 
   it('notifies every tools/result observer with the frozen final outcome and contains failures', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, key }，由紧邻初始化决定。 */
     const { scope, key } = await mintAgentScope(ctx, 'a')
     ctx.tools.register(tool('t'))
+    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => ctx.logger)
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: boolean[] = []
+    /** 中文说明：测试局部值 dispatchModes，由紧邻初始化决定。 */
     const dispatchModes: string[] = []
     ctx.on('internal/dispatch', (mode, name) => {
       if (name === 'tools/result') dispatchModes.push(mode)
@@ -705,6 +840,7 @@ describe('scoped execution dispatch', () => {
     ctx.on('tools/result', () => Promise.reject(new Error('async observer failure')) as never)
     ctx.on('tools/result', (_exec, result) => { seen.push(result.isError) })
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('final'), name: 't', arguments: {}, agent: key })
     await Promise.resolve()
     expect(result).toMatchObject({ isError: true, content: [{ type: 'text', text: 'outer failure' }] })

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证工具注册与执行的 json-schema.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import {
@@ -5,20 +13,25 @@ import {
   assertSupportedJsonSchema,
   JsonSchemaError,
   validateJsonSchemaValue,
+  /** 中文说明：类型或类 JsonSchemaNode 约束服务或测试数据职责。 */
   type JsonSchemaNode,
+  /** 中文说明：类型或类 ObjectJsonSchema 约束服务或测试数据职责。 */
   type ObjectJsonSchema,
 } from '../src/index.ts'
 
+/** 中文说明：函数 asserted 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function asserted(schema: unknown): JsonSchemaNode {
   assertSupportedJsonSchema(schema)
   return schema
 }
 
+/** 中文说明：函数 assertedObject 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertedObject(schema: unknown): ObjectJsonSchema {
   assertObjectJsonSchema(schema)
   return schema
 }
 
+/** 中文说明：函数 violationsOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function violationsOf(schema: unknown, objectRoot = false): string[] {
   try {
     if (objectRoot) assertObjectJsonSchema(schema)
@@ -30,15 +43,19 @@ function violationsOf(schema: unknown, objectRoot = false): string[] {
   throw new Error('expected schema rejection')
 }
 
+/** 中文说明：函数 recordWithForgedIntrinsicPrototype 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function recordWithForgedIntrinsicPrototype(
   own: Record<string, unknown>,
   inherited: Record<string, unknown> = {},
   revoked = false,
 ): Record<string, unknown> {
+  /** 中文说明：测试局部值 prototype，由紧邻初始化决定。 */
   const prototype = Object.assign(Object.create(null) as Record<string, unknown>, inherited)
+  /** 中文说明：测试局部值 ForgedObject，由紧邻初始化决定。 */
   const ForgedObject = function ForgedObject(): void {}
   Object.defineProperty(ForgedObject, 'name', { value: 'Object' })
   ForgedObject.prototype = prototype
+  /** 中文说明：测试局部值 constructor，由紧邻初始化决定。 */
   const constructor = revoked ? Proxy.revocable(ForgedObject, {}) : undefined
   if (constructor !== undefined) constructor.revoke()
   Object.defineProperty(prototype, 'constructor', { value: constructor?.proxy ?? ForgedObject })
@@ -47,6 +64,7 @@ function recordWithForgedIntrinsicPrototype(
 
 describe('the enforced raw JSON Schema subset', () => {
   it('accepts every JSON root and every supported node', () => {
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     for (const schema of [
       { type: 'string' },
       { type: 'number' },
@@ -72,6 +90,7 @@ describe('the enforced raw JSON Schema subset', () => {
 
   it('retains an object-root guard only at consumers that need it', () => {
     expect(assertedObject({ type: 'object' }).type).toBe('object')
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     for (const schema of [{}, { type: 'string' }, { type: 'array' }, { oneOf: [{ type: 'string' }, { type: 'null' }] }]) {
       expect(violationsOf(schema, true)).toEqual(['schema.type must be "object" (structured output is object-rooted)'])
     }
@@ -96,18 +115,22 @@ describe('the enforced raw JSON Schema subset', () => {
       .toEqual(['schema.items is not supported beside oneOf'])
     expect(violationsOf({ oneOf: [{ type: 'string' }, { type: 'weird' }] })[0])
       .toContain('schema.oneOf[1].type')
+    /** 中文说明：测试局部值 sparse，由紧邻初始化决定。 */
     const sparse = new Array<unknown>(2)
     sparse[0] = { type: 'string' }
     expect(violationsOf({ oneOf: sparse }))
       .toEqual(['schema.oneOf must be an array of at least two schemas'])
+    /** 中文说明：测试局部值 compensatedSparse，由紧邻初始化决定。 */
     const compensatedSparse = new Array<unknown>(2)
     compensatedSparse[0] = { type: 'string' }
     Object.defineProperty(compensatedSparse, 'extra', { value: true })
     expect(violationsOf({ oneOf: compensatedSparse }))
       .toEqual(['schema.oneOf must be an array of at least two schemas'])
+    /** 中文说明：类型或类 ExoticBranches 约束服务或测试数据职责。 */
     class ExoticBranches extends Array<unknown> {}
     expect(violationsOf({ oneOf: new ExoticBranches({ type: 'string' }, { type: 'null' }) }))
       .toEqual(['schema.oneOf must be an array of at least two schemas'])
+    /** 中文说明：测试局部值 explosiveArray，由紧邻初始化决定。 */
     const explosiveArray = new Proxy([{ type: 'string' }, { type: 'null' }], {
       getPrototypeOf() { throw new Error('prototype trap') },
     })
@@ -116,6 +139,7 @@ describe('the enforced raw JSON Schema subset', () => {
   })
 
   it('rejects unknown and misplaced keywords without accepted-then-ignored behavior', () => {
+    /** 中文说明：测试局部值 keyword，由紧邻初始化决定。 */
     for (const keyword of ['anyOf', 'allOf', 'not', 'pattern', 'minimum', 'maxLength', '$ref']) {
       expect(violationsOf({ type: 'object', [keyword]: [] })[0]).toContain(`schema.${keyword} is not a supported keyword`)
     }
@@ -166,12 +190,14 @@ describe('the enforced raw JSON Schema subset', () => {
         'schema.properties must be an object of schemas',
         'schema.required names "missing" which is not in properties',
       ])
+    /** 中文说明：测试局部值 sparseRequired，由紧邻初始化决定。 */
     const sparseRequired = new Array<string>(1)
     expect(violationsOf({ type: 'object', required: sparseRequired }))
       .toEqual(['schema.required must be an array of strings'])
   })
 
   it('requires type-correct scalar enum and const values', () => {
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     for (const schema of [
       { type: 'string', enum: ['a'], const: 'a' },
       { type: 'number', enum: [1.5], const: 1.5 },
@@ -198,6 +224,7 @@ describe('the enforced raw JSON Schema subset', () => {
       .toEqual(['schema.enum must be a non-empty array of string values'])
     expect(violationsOf({ type: 'string', enum: ['a'], const: 'b' }))
       .toEqual(['schema.const must be one of schema.enum when both are declared'])
+    /** 中文说明：测试局部值 sparseEnum，由紧邻初始化决定。 */
     const sparseEnum = new Array<string>(1)
     expect(violationsOf({ type: 'string', enum: sparseEnum }))
       .toEqual(['schema.enum must be a non-empty array of string values'])
@@ -206,6 +233,7 @@ describe('the enforced raw JSON Schema subset', () => {
   it('validates annotation types and lossless JSON payloads', () => {
     expect(violationsOf({ description: 1 })).toEqual(['schema.description must be a string'])
     expect(violationsOf({ title: 1 })).toEqual(['schema.title must be a string'])
+    /** 中文说明：测试局部值 [key，由紧邻初始化决定。 */
     for (const [key, value] of [
       ['default', undefined],
       ['examples', [undefined]],
@@ -214,11 +242,13 @@ describe('the enforced raw JSON Schema subset', () => {
     ] as const) {
       expect(violationsOf({ [key]: value })).toEqual([`schema.${key} annotation must be lossless JSON data`])
     }
+    /** 中文说明：测试局部值 cyclic，由紧邻初始化决定。 */
     const cyclic: Record<string, unknown> = {}
     cyclic.self = cyclic
     expect(violationsOf({ default: cyclic }))
       .toEqual(['schema.default annotation must be lossless JSON data'])
 
+    /** 中文说明：测试局部值 explosive，由紧邻初始化决定。 */
     const explosive = new Proxy({}, {
       ownKeys() { throw new Error('annotation trap') },
     })
@@ -231,6 +261,7 @@ describe('the enforced raw JSON Schema subset', () => {
   })
 
   it('accepts lossless annotation containers from another JavaScript realm', () => {
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     const schema = runInNewContext(`({
       type: 'object',
       properties: { value: { type: 'string', enum: ['x'] } },
@@ -243,9 +274,11 @@ describe('the enforced raw JSON Schema subset', () => {
   })
 
   it('rejects cyclic/exotic schema structure but permits sibling reuse', () => {
+    /** 中文说明：测试局部值 cyclic，由紧邻初始化决定。 */
     const cyclic: Record<string, unknown> = { type: 'object' }
     cyclic.properties = { self: cyclic }
     expect(violationsOf(cyclic)).toEqual(['schema.properties.self is circular'])
+    /** 中文说明：测试局部值 leaf，由紧邻初始化决定。 */
     const leaf = { type: 'string' }
     expect(() => { assertSupportedJsonSchema({ type: 'object', properties: { a: leaf, b: leaf } }) }).not.toThrow()
     expect(violationsOf({ type: 'object', properties: new Map() }))
@@ -253,6 +286,7 @@ describe('the enforced raw JSON Schema subset', () => {
     expect(violationsOf({ type: 'object', properties: { at: new Date(0) } }))
       .toEqual(['schema.properties.at must be a schema object'])
 
+    /** 中文说明：测试局部值 forgedSchema，由紧邻初始化决定。 */
     const forgedSchema = recordWithForgedIntrinsicPrototype(
       { type: 'object' },
       { oneOf: [{ type: 'string' }, { type: 'null' }] },
@@ -261,6 +295,7 @@ describe('the enforced raw JSON Schema subset', () => {
     expect(violationsOf(forgedSchema, true)).toEqual(['schema must be a schema object'])
     expect(violationsOf(recordWithForgedIntrinsicPrototype({ type: 'string' }, {}, true)))
       .toEqual(['schema must be a schema object'])
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const prototypeWithoutConstructor = Object.create(null) as object
     expect(violationsOf(Object.create(prototypeWithoutConstructor) as unknown))
       .toEqual(['schema must be a schema object'])
@@ -277,8 +312,11 @@ describe('the enforced raw JSON Schema subset', () => {
   })
 
   it('asserts deeply nested raw unions without using the JavaScript call stack', () => {
+    /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
     const depth = 5_000
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     let schema: JsonSchemaNode = { type: 'string' }
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     for (let index = 0; index < depth; index++) schema = { oneOf: [schema, { type: 'null' }] }
 
     expect(() => { assertSupportedJsonSchema(schema) }).not.toThrow()
@@ -312,6 +350,7 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('enforces scalar enum and const together', () => {
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     const schema = asserted({ type: 'string', enum: ['a', 'b'], const: 'a' })
     expect(validateJsonSchemaValue(schema, 'a')).toEqual([])
     expect(validateJsonSchemaValue(schema, 'c')).toEqual(['"value" must be one of ["a","b"]'])
@@ -319,6 +358,7 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('validates object requiredness, nested values, and raw open defaults', () => {
+    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = asserted({
       type: 'object',
       properties: {
@@ -345,6 +385,7 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('treats present undefined as missing when required, then rejects other lossy objects', () => {
+    /** 中文说明：测试局部值 required，由紧邻初始化决定。 */
     const required = asserted({ type: 'object', properties: { x: {} }, required: ['x'] })
     expect(validateJsonSchemaValue(required, { x: undefined }))
       .toEqual(['missing required property "value.x"'])
@@ -355,10 +396,12 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('returns a violation instead of throwing for a container with a hostile getter', () => {
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = Object.defineProperty({}, 'answer', {
       enumerable: true,
       get() { throw new Error('getter exploded') },
     })
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     const schema = asserted({
       type: 'object',
       properties: { answer: { type: 'integer' } },
@@ -370,11 +413,13 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('validates dense arrays per index and rejects lossy arrays', () => {
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     const schema = asserted({ type: 'array', items: { type: 'integer' } })
     expect(validateJsonSchemaValue(schema, [1, 2])).toEqual([])
     expect(validateJsonSchemaValue(schema, runInNewContext('[1, 2]'))).toEqual([])
     expect(validateJsonSchemaValue(schema, [1, 1.5])).toEqual(['"value[1]" must be an integer'])
     expect(validateJsonSchemaValue(schema, 'x')).toEqual(['"value" must be an array'])
+    /** 中文说明：测试局部值 sparse，由紧邻初始化决定。 */
     const sparse: number[] = []
     sparse.length = 2
     sparse[0] = 1
@@ -382,10 +427,12 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('validates exact-one oneOf semantics, including overlap', () => {
+    /** 中文说明：测试局部值 disjoint，由紧邻初始化决定。 */
     const disjoint = asserted({ oneOf: [{ type: 'string' }, { type: 'number' }] })
     expect(validateJsonSchemaValue(disjoint, 'x')).toEqual([])
     expect(validateJsonSchemaValue(disjoint, null))
       .toEqual(['"value" must match exactly one oneOf branch (matched 0)'])
+    /** 中文说明：测试局部值 overlap，由紧邻初始化决定。 */
     const overlap = asserted({ oneOf: [{ type: 'number' }, { type: 'integer' }] })
     expect(validateJsonSchemaValue(overlap, 1))
       .toEqual(['"value" must match exactly one oneOf branch (matched 2)'])
@@ -393,8 +440,11 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('validates deeply nested exact-one unions without using the JavaScript call stack', () => {
+    /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
     const depth = 5_000
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     let schema: JsonSchemaNode = { type: 'string' }
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     for (let index = 0; index < depth; index++) schema = { oneOf: [schema, { type: 'null' }] }
     assertSupportedJsonSchema(schema)
 
@@ -404,16 +454,21 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('an unconstrained schema accepts only lossless JSON values', () => {
+    /** 中文说明：测试局部值 anyJson，由紧邻初始化决定。 */
     const anyJson = asserted({})
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     for (const value of [null, true, 1, 'x', [1], { x: null }]) {
       expect(validateJsonSchemaValue(anyJson, value), JSON.stringify(value)).toEqual([])
     }
+    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     for (const value of [undefined, () => 1, Number.POSITIVE_INFINITY, -0, new Map()]) {
       expect(validateJsonSchemaValue(anyJson, value)).toEqual(['"value" must be a lossless JSON value'])
     }
+    /** 中文说明：测试局部值 cyclic，由紧邻初始化决定。 */
     const cyclic: Record<string, unknown> = {}
     cyclic.self = cyclic
     expect(validateJsonSchemaValue(anyJson, cyclic)).toEqual(['"value" must be a lossless JSON value'])
+    /** 中文说明：测试局部值 explosive，由紧邻初始化决定。 */
     const explosive = new Proxy({}, {
       ownKeys() { throw new Error('value trap') },
     })
@@ -432,6 +487,7 @@ describe('validateJsonSchemaValue', () => {
       {},
     )).toEqual([])
 
+    /** 中文说明：测试局部值 inheritedUnion，由紧邻初始化决定。 */
     const inheritedUnion = Object.assign(
       Object.create({ oneOf: [{ type: 'string' }, { type: 'null' }] }) as JsonSchemaNode,
       { type: 'object' as const },
@@ -449,6 +505,7 @@ describe('validateJsonSchemaValue', () => {
   })
 
   it('keeps assertNever as a forged-schema backstop', () => {
+    /** 中文说明：测试局部值 forged，由紧邻初始化决定。 */
     const forged = { type: 'tuple' } as unknown as JsonSchemaNode
     expect(() => validateJsonSchemaValue(forged, 1)).toThrow(/tuple/)
   })

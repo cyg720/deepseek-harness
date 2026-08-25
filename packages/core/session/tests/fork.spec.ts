@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Session 持久状态的 fork.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证Session 持久状态在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage, CallId , createMessage } from '@deepseek-ai/dsh-llm'
@@ -5,6 +13,7 @@ import SessionStore, { Session, SessionForkError, SessionId } from '@deepseek-ai
 import type { SessionEvent, TurnEndReason } from '@deepseek-ai/dsh-session'
 
 declare module '@deepseek-ai/dsh-session/types' {
+  /** 中文说明：类型或类 SessionEventMap 约束服务或测试数据职责。 */
   interface SessionEventMap {
     'test/log-only': { value: string }
     /** Stands in for a plugin's open/close bracket (`compaction/start`). */
@@ -12,12 +21,15 @@ declare module '@deepseek-ai/dsh-session/types' {
   }
 }
 
+/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(): Promise<{ ctx: Context; sessions: SessionStore }> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   return { ctx, sessions: ctx.sessions }
 }
 
+/** 中文说明：函数 appendClosedTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendClosedTurn(
   session: Session,
   turn: number,
@@ -32,6 +44,7 @@ function appendClosedTurn(
   session.append('turn/end', { turn, reason })
 }
 
+/** 中文说明：函数 appendOpenTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendOpenTurn(session: Session, turn: number): void {
   session.append('turn/start', { turn })
   session.append('user/message', createUserMessage({
@@ -40,21 +53,28 @@ function appendOpenTurn(session: Session, turn: number): void {
   }), { surfaceOp: 'append' })
 }
 
+/** 中文说明：函数 firstUserMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function firstUserMessage(events: readonly SessionEvent[]): SessionEvent<'user/message'> {
+  /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
   const event = events.find((e): e is SessionEvent<'user/message'> => e.type === 'user/message')
   if (event === undefined) throw new Error('missing user/message')
   return event
 }
 
+/** 中文说明：函数 lastSeq 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lastSeq(session: Session): number {
+  /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
   const event = session.events.at(-1)
   if (event === undefined) throw new Error('missing last event')
   return event.seq
 }
 
 /** A seeded child's constructor seed: its log minus the end-seed marker. */
+/** 中文说明：函数 inherited 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inherited(session: Session): readonly SessionEvent[] {
+  /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
   const events = session.events
+  /** 中文说明：测试局部值 last，由紧邻初始化决定。 */
   const last = events.at(-1)
   if (last?.type !== 'session/end-seed') throw new Error('seeded child is missing its end-seed marker')
   return events.slice(0, -1)
@@ -62,9 +82,12 @@ function inherited(session: Session): readonly SessionEvent[] {
 
 describe('SessionStore.fork', () => {
   it('forks an empty live session as an empty child with lineage metadata', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = ctx.sessions.create(SessionId('empty-parent'), { meta: { cwd: '/workspace' } })
 
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = sessions.fork(source, undefined, SessionId('empty-child'))
 
     expect(inherited(child)).toEqual([])
@@ -77,10 +100,13 @@ describe('SessionStore.fork', () => {
   })
 
   it('forks the latest completed boundary by default into detached frozen seed events', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = ctx.sessions.create(SessionId('parent'), { meta: { cwd: '/workspace' } })
     appendClosedTurn(source, 1, 'hello')
 
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = sessions.fork(SessionId('parent'), undefined, SessionId('child'))
 
     expect(inherited(child)).toEqual(source.events)
@@ -100,11 +126,14 @@ describe('SessionStore.fork', () => {
   })
 
   it('includes stable log-only events appended after a closed turn', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = ctx.sessions.create(SessionId('log-only-parent'))
     appendClosedTurn(source, 1, 'hello')
     source.append('test/log-only', { value: 'after execution' })
 
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = sessions.fork(source, undefined, SessionId('log-only-child'))
 
     expect(inherited(child)).toEqual(source.events)
@@ -115,13 +144,17 @@ describe('SessionStore.fork', () => {
   })
 
   it('forks from an earlier turn boundary even when the source currently has an open tail', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = ctx.sessions.create(SessionId('parent'), { meta: { cwd: '/workspace' } })
     appendClosedTurn(source, 1, 'first')
+    /** 中文说明：测试局部值 firstBoundary，由紧邻初始化决定。 */
     const firstBoundary = lastSeq(source)
     appendClosedTurn(source, 2, 'second')
     appendOpenTurn(source, 3)
 
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = sessions.fork(source, firstBoundary, SessionId('child-from-first'))
 
     expect(inherited(child)).toEqual(source.events.slice(0, firstBoundary + 1))
@@ -135,7 +168,9 @@ describe('SessionStore.fork', () => {
   })
 
   it('accepts every turn/end reason as an explicit fork boundary', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 reasons，由紧邻初始化决定。 */
     const reasons: TurnEndReason[] = [
       { kind: 'completed' },
       { kind: 'aborted', reason: { kind: 'user' } },
@@ -145,10 +180,13 @@ describe('SessionStore.fork', () => {
       { kind: 'interrupted' },
     ]
 
+    /** 中文说明：测试局部值 [index，由紧邻初始化决定。 */
     for (const [index, reason] of reasons.entries()) {
+      /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
       const source = ctx.sessions.create(SessionId(`parent-${index}`))
       appendClosedTurn(source, 1, reason.kind, reason)
 
+      /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
       const child = sessions.fork(source, lastSeq(source), SessionId(`child-${index}`))
 
       expect(inherited(child).at(-1)?.type).toBe('turn/end')
@@ -159,17 +197,22 @@ describe('SessionStore.fork', () => {
   it('marks a bracket the child inherited from a still-running parent', async () => {
     // The constructor placement's central claim, unreachable from the
     // persistence load path.
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = ctx.sessions.create(SessionId('bracket-parent'), { meta: { cwd: '/workspace' } })
     appendClosedTurn(parent, 1, 'work')
+    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = parent.append('test/bracket-open', { id: 'op-1' })
 
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = sessions.fork(parent, undefined, SessionId('bracket-child'))
 
     // Parent: no end-seed event follows the bracket, so its owner treats it as live.
     expect(parent.events.at(-1)).toBe(open)
     expect(parent.events.some(event => event.type === 'session/end-seed')).toBe(false)
     // Child: the same bracket is before end-seed, so it belongs to the seed.
+    /** 中文说明：测试局部值 boundary，由紧邻初始化决定。 */
     const boundary = child.events.at(-1)
     expect(boundary).toMatchObject({ type: 'session/end-seed' })
     expect(boundary!.seq).toBeGreaterThan(open.seq)
@@ -178,12 +221,15 @@ describe('SessionStore.fork', () => {
   })
 
   it('rejects invalid boundaries before creating a child', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = ctx.sessions.create(SessionId('empty'))
     expect(() => sessions.fork(empty, 0, SessionId('empty-child')))
       .toThrow(new SessionForkError('fork boundary 0 does not exist in session "empty" (last seq: none)', 'INVALID_BOUNDARY'))
     expect(ctx.sessions.get(SessionId('empty-child'))).toBeUndefined()
 
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = ctx.sessions.create(SessionId('parent'))
     appendClosedTurn(source, 1)
     expect(() => sessions.fork(source, -1, SessionId('negative')))
@@ -197,9 +243,12 @@ describe('SessionStore.fork', () => {
   })
 
   it('rejects a corrupted live source whose array index no longer matches event seq', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = ctx.sessions.create(SessionId('corrupt-parent'))
     appendClosedTurn(source, 1)
+    /** 中文说明：测试局部值 mutableLog，由紧邻初始化决定。 */
     const mutableLog = (source as unknown as { log: SessionEvent[] }).log
     mutableLog[2] = { ...mutableLog[2]!, seq: 99 }
 
@@ -209,6 +258,7 @@ describe('SessionStore.fork', () => {
   })
 
   it('rejects an unknown live session id', async () => {
+    /** 中文说明：测试局部值 { sessions }，由紧邻初始化决定。 */
     const { sessions } = await setup()
 
     expect(() => sessions.fork(SessionId('missing')))
@@ -216,7 +266,9 @@ describe('SessionStore.fork', () => {
   })
 
   it('rejects a detached Session object that is not live in ctx.sessions', async () => {
+    /** 中文说明：测试局部值 { sessions }，由紧邻初始化决定。 */
     const { sessions } = await setup()
+    /** 中文说明：测试局部值 detached，由紧邻初始化决定。 */
     const detached = Session.create(SessionId('detached'))
 
     expect(() => sessions.fork(detached))
@@ -224,8 +276,10 @@ describe('SessionStore.fork', () => {
   })
 
   it('rejects a stale Session object whose id is live on a different instance', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
     ctx.sessions.create(SessionId('same-id'))
+    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = Session.create(SessionId('same-id'))
 
     expect(() => sessions.fork(stale))
@@ -233,7 +287,9 @@ describe('SessionStore.fork', () => {
   })
 
   it('rejects selected slices whose boundary is inside an open turn', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases: [string, (session: Session) => number][] = [
       ['turn/start', (session) => {
         session.append('turn/start', { turn: 1 })
@@ -268,6 +324,7 @@ describe('SessionStore.fork', () => {
         return lastSeq(session)
       }],
       ['tool/call', (session) => {
+        /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
         const callId = CallId('call-open')
         session.append('turn/start', { turn: 1 })
         session.append('step/start', { turn: 1, step: 1 })
@@ -288,8 +345,11 @@ describe('SessionStore.fork', () => {
       }],
     ]
 
+    /** 中文说明：测试局部值 [lastType，由紧邻初始化决定。 */
     for (const [lastType, build] of cases) {
+      /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
       const source = ctx.sessions.create(SessionId(`open-${lastType}`))
+      /** 中文说明：测试局部值 boundary，由紧邻初始化决定。 */
       const boundary = build(source)
 
       expect(() => sessions.fork(source, boundary))
@@ -298,7 +358,9 @@ describe('SessionStore.fork', () => {
   })
 
   it('rejects a child session id that is already live with a typed fork error', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = ctx.sessions.create(SessionId('parent'))
     appendClosedTurn(source, 1)
     ctx.sessions.create(SessionId('child'))
@@ -308,7 +370,9 @@ describe('SessionStore.fork', () => {
   })
 
   it('rejects a duplicate child session id before validating the boundary', async () => {
+    /** 中文说明：测试局部值 { ctx, sessions }，由紧邻初始化决定。 */
     const { ctx, sessions } = await setup()
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = ctx.sessions.create(SessionId('open-parent'))
     source.append('turn/start', { turn: 1 })
     ctx.sessions.create(SessionId('child'))

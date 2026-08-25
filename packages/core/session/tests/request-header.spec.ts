@@ -1,4 +1,12 @@
 /** Request-header canonicalization, equality, snapshot folding, and format rejection. */
+/**
+ * 文件职责：验证Session 持久状态的 request-header.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证Session 持久状态在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { Session, SessionId, canonicalHeader, foldRequestHeader, headerEquals } from '@deepseek-ai/dsh-session'
@@ -6,8 +14,10 @@ import type { EpochHeader, SessionEvent } from '@deepseek-ai/dsh-session'
 import { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 
+/** 中文说明：测试局部值 CONFIG，由紧邻初始化决定。 */
 const CONFIG = { provider: 'mock', model: 'm' }
 
+/** 中文说明：函数 tool 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tool(name: string, description = 'd'): ToolSchema {
   return { name, description, parameters: { type: 'object' } }
 }
@@ -20,6 +30,7 @@ describe('canonicalHeader', () => {
       system: '',
       tools: [],
     })).toEqual({ config: CONFIG })
+    /** 中文说明：测试局部值 full，由紧邻初始化决定。 */
     const full = canonicalHeader({
       config: { ...CONFIG, maxTokens: 256_000 },
       adapterDefaults: { maxTokens: true },
@@ -36,6 +47,7 @@ describe('canonicalHeader', () => {
 })
 
 describe('headerEquals', () => {
+  /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
   const base = canonicalHeader({ config: CONFIG, system: 's', tools: [tool('a')] })
 
   it('compares every canonical field and preserves tool order', () => {
@@ -66,7 +78,9 @@ describe('headerEquals', () => {
 
 describe('foldRequestHeader', () => {
   it('returns the supplied baseline when no snapshot follows', () => {
+    /** 中文说明：测试局部值 from，由紧邻初始化决定。 */
     const from: EpochHeader = { config: CONFIG, system: 'baseline' }
+    /** 中文说明：测试局部值 unrelated，由紧邻初始化决定。 */
     const unrelated: SessionEvent[] = [
       { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
     ]
@@ -75,6 +89,7 @@ describe('foldRequestHeader', () => {
   })
 
   it('takes the latest full snapshot and skips unrelated events', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('fold'))
     session.append('turn/start', { turn: 1 })
     session.append('request/header', { header: { config: CONFIG, system: 'first' }, reason: 'initial' })
@@ -88,12 +103,15 @@ describe('foldRequestHeader', () => {
 
 describe('legacy request-header format', () => {
   it('rejects request/header-delta in seeds and untyped appends', () => {
+    /** 中文说明：测试局部值 legacy，由紧邻初始化决定。 */
     const legacy = [{
       type: 'request/header-delta', seq: 0, time: 1, data: { config: CONFIG },
     }] as unknown as SessionEvent[]
     expect(() => Session.create(SessionId('legacy'), legacy)).toThrow(/unsupported legacy request\/header-delta/)
 
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('legacy-append-delta'))
+    /** 中文说明：测试局部值 appendLegacy，由紧邻初始化决定。 */
     const appendLegacy = session.append.bind(session) as (type: string, data: unknown) => SessionEvent
     expect(() => appendLegacy('request/header-delta', { config: CONFIG }))
       .toThrow(/unsupported legacy request\/header-delta/)
@@ -101,13 +119,16 @@ describe('legacy request-header format', () => {
   })
 
   it('rejects the removed fallback reason in seeds and untyped appends', () => {
+    /** 中文说明：测试局部值 legacy，由紧邻初始化决定。 */
     const legacy = [{
       type: 'request/header', seq: 0, time: 1, data: { header: { config: CONFIG }, reason: 'fallback' },
     }] as unknown as SessionEvent[]
     expect(() => Session.create(SessionId('legacy-seed-reason'), legacy))
       .toThrow('unsupported legacy request/header reason "fallback"')
 
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('legacy-append-reason'))
+    /** 中文说明：测试局部值 appendLegacy，由紧邻初始化决定。 */
     const appendLegacy = session.append.bind(session) as (type: string, data: unknown) => SessionEvent
     expect(() => appendLegacy('request/header', { header: { config: CONFIG }, reason: 'fallback' }))
       .toThrow('unsupported legacy request/header reason "fallback"')
@@ -116,13 +137,17 @@ describe('legacy request-header format', () => {
 })
 
 describe('Session.requestContext', () => {
+  /** 中文说明：测试局部值 CAPACITY，由紧邻初始化决定。 */
   const CAPACITY = { provider: 'mock', model: 'm', contextWindow: 128_000 }
 
   /** A turn-enclosed capacity record; the invariant rejects one outside a turn. */
+  /** 中文说明：函数 seedWith 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function seedWith(...records: { provider: string; model: string; contextWindow?: number }[]): SessionEvent[] {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [{
       type: 'turn/start', seq: 0, time: 1, data: { turn: 1 },
     }]
+    /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
     for (const data of records) {
       events.push({ type: 'request/context', seq: events.length, time: 1, data })
     }
@@ -136,6 +161,7 @@ describe('Session.requestContext', () => {
   it('folds a seeded log on first read, taking the last record', () => {
     // The fold watermark starts at 0 with the seed already in the log, so the
     // first read must consume the whole seed rather than skip it.
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('seeded-capacity'), seedWith(
       CAPACITY,
       { ...CAPACITY, model: 'later', contextWindow: 256_000 },
@@ -144,6 +170,7 @@ describe('Session.requestContext', () => {
   })
 
   it('advances incrementally across appends and skips unrelated events', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('incremental-capacity'), seedWith(CAPACITY))
     expect(session.requestContext()).toEqual(CAPACITY)
     session.append('todo/write', { todos: [] })
@@ -155,6 +182,7 @@ describe('Session.requestContext', () => {
   })
 
   it('folds a batch appended between two reads', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('batched-capacity'), seedWith(CAPACITY))
     expect(session.requestContext()).toEqual(CAPACITY)
     session.append('request/context', { ...CAPACITY, contextWindow: 200_000 })
@@ -164,7 +192,9 @@ describe('Session.requestContext', () => {
   })
 
   it('exposes a frozen record so a reader cannot desync later comparisons', () => {
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('frozen-capacity'), seedWith(CAPACITY))
+    /** 中文说明：测试局部值 held，由紧邻初始化决定。 */
     const held = session.requestContext()
     if (held === undefined) throw new Error('expected a folded capacity record')
     expect(Object.isFrozen(held)).toBe(true)

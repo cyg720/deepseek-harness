@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证工具注册与执行的 invariant.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
@@ -7,9 +15,12 @@ import type { ToolExecution, ToolExecutionResult, ToolExecutionToken } from '@de
 import * as ToolsInvariant from '@deepseek-ai/dsh-tools/invariant'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 
+/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
+/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(InvariantRegistry)
@@ -17,6 +28,7 @@ async function setup(): Promise<Context> {
   return ctx
 }
 
+/** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
 const execution = (overrides: Partial<ToolExecution> = {}): ToolExecution => ({
   token: Symbol('tool') as ToolExecutionToken,
   callId: CallId('call-1'),
@@ -27,16 +39,19 @@ const execution = (overrides: Partial<ToolExecution> = {}): ToolExecution => ({
   rootCallId: overrides.rootCallId ?? overrides.callId ?? CallId('call-1'),
 })
 
+/** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
 const outcome = (): ToolExecutionResult => Object.freeze({
   content: Object.freeze([{ type: 'text' as const, text: 'ok' }]) as never,
   isError: false,
   value: null,
 })
 
+/** 中文说明：函数 emitResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emitResult(ctx: Context, exec: ToolExecution, result: ToolExecutionResult): void {
   ctx.emit(scopeTarget(ctx as never, undefined), 'tools/result', exec, result)
 }
 
+/** 中文说明：函数 stage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function stage(ctx: Context, name: 'tools/pre-execute' | 'tools/execute', exec: ToolExecution): Promise<void> {
   if (name === 'tools/pre-execute') {
     await ctx.waterfall(ctx as never, name, exec, () => Promise.resolve({ kind: 'allow' as const }))
@@ -47,7 +62,9 @@ async function stage(ctx: Context, name: 'tools/pre-execute' | 'tools/execute', 
 
 describe('tool-pipeline invariants', () => {
   it('accepts dispatch and denial stage orders with frozen results', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 dispatched，由紧邻初始化决定。 */
     const dispatched = execution()
     await stage(ctx, 'tools/pre-execute', dispatched)
     await stage(ctx, 'tools/execute', dispatched)
@@ -55,6 +72,7 @@ describe('tool-pipeline invariants', () => {
     Object.freeze(dispatched)
     emitResult(ctx, dispatched, outcome())
 
+    /** 中文说明：测试局部值 denied，由紧邻初始化决定。 */
     const denied = execution({ callId: CallId('call-2') })
     await stage(ctx, 'tools/pre-execute', denied)
     await ctx.waterfall(ctx as never, 'tools/post-execute', denied, outcome(), () => Promise.resolve({ kind: 'accept' as const }))
@@ -64,11 +82,14 @@ describe('tool-pipeline invariants', () => {
   })
 
   it('rejects repeated and out-of-order pipeline stages', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 exec，由紧邻初始化决定。 */
     const exec = execution()
     await stage(ctx, 'tools/pre-execute', exec)
     await expect(stage(ctx, 'tools/pre-execute', exec)).rejects.toThrow(/repeated/)
 
+    /** 中文说明：测试局部值 noPre，由紧邻初始化决定。 */
     const noPre = execution({ callId: CallId('call-2') })
     await expect(stage(ctx, 'tools/execute', noPre)).rejects.toThrow(/must follow tools\/pre-execute/)
     expect(() => ctx.waterfall(
@@ -78,20 +99,26 @@ describe('tool-pipeline invariants', () => {
   })
 
   it('rejects mutable or anonymous final snapshots', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
     expect(() => { emitResult(ctx, execution(), outcome()) }).toThrow(/execution must be frozen/)
 
+    /** 中文说明：测试局部值 exec，由紧邻初始化决定。 */
     const exec = Object.freeze(execution())
     expect(() => { emitResult(ctx, exec, { content: [], isError: false, value: null }) })
       .toThrow(/outcome and content must be frozen/)
 
+    /** 中文说明：测试局部值 anonymous，由紧邻初始化决定。 */
     const anonymous = Object.freeze(execution({ name: '' }))
     expect(() => { emitResult(ctx, anonymous, outcome()) }).toThrow(/non-empty name and callId/)
   })
 
   it('requires code-dispatch records to be turn-enclosed', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create()
+    /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
     const data = {
       rootCallId: CallId('parent'),
       parentCallId: CallId('parent'),
@@ -106,7 +133,9 @@ describe('tool-pipeline invariants', () => {
   })
 
   it('does not commit a rejected dispatch edge into the root index', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create()
     expect(() => session.append('tool/code-dispatch-start', {
       rootCallId: CallId('rejected-root'),
@@ -127,7 +156,9 @@ describe('tool-pipeline invariants', () => {
   })
 
   it('rejects a nested code dispatch that changes its parent chain root before append', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create()
     session.append('turn/start', { turn: 1 })
     session.append('tool/code-dispatch-start', {
@@ -157,7 +188,9 @@ describe('tool-pipeline invariants', () => {
   })
 
   it('requires non-empty dispatch identities and keeps one subcall on one root', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create()
     session.append('turn/start', { turn: 1 })
     expect(() => session.append('tool/code-dispatch-start', {
@@ -185,7 +218,9 @@ describe('tool-pipeline invariants', () => {
   })
 
   it('indexes dispatch records emitted for a bare session', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('bare-dispatch-session'))
     session.append('turn/start', { turn: 1 })
     expect(() => {
@@ -205,8 +240,10 @@ describe('tool-pipeline invariants', () => {
   })
 
   it('replays enclosed code-dispatch records on late registration', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create()
     session.append('turn/start', { turn: 1 })
     session.append('tool/code-dispatch', {
@@ -224,6 +261,7 @@ describe('tool-pipeline invariants', () => {
   })
 
   it('rejects an unenclosed code-dispatch record on late registration', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
     ctx.sessions.create().append('tool/code-dispatch-start', {

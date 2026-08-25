@@ -1,6 +1,14 @@
 /**
  * Guarantee tests for the tool-schema catalog generator (`scripts/gen-tool-catalog.ts`).
  */
+/**
+ * 文件职责：验证工具注册与执行的 gen-tool-catalog.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -8,11 +16,14 @@ import {
   assertToolsHarvested,
   collectToolCatalog,
   render,
+  /** 中文说明：类型或类 ToolCatalog 约束服务或测试数据职责。 */
   type ToolCatalog,
+  /** 中文说明：类型或类 ToolPackage 约束服务或测试数据职责。 */
   type ToolPackage,
 } from '../../../../scripts/gen-tool-catalog.ts'
 
 /** JSON Schema shape enough to reach the values AST extraction can't. */
+/** 中文说明：类型或类 JsonSchema 约束服务或测试数据职责。 */
 interface JsonSchema {
   type: string
   properties?: Record<string, JsonSchema>
@@ -23,7 +34,9 @@ interface JsonSchema {
 
 describe('gen-tool-catalog collectToolCatalog', () => {
   it('boots every shipped tool package and harvests its model-facing schemas', async () => {
+    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = await collectToolCatalog()
+    /** 中文说明：测试局部值 names，由紧邻初始化决定。 */
     const names = catalog.flatMap(entry => entry.schemas.map(s => s.name)).sort()
     expect(names).toEqual([
       'ask_user_question', 'bash', 'bash', 'cordis_define', 'cordis_inspect_list',
@@ -40,7 +53,9 @@ describe('gen-tool-catalog collectToolCatalog', () => {
       'update_goal', 'wait_agent', 'web_fetch', 'web_search', 'workflow', 'write',
     ])
     // Every tool carries a JSON-Schema `parameters` object (what the model sees).
+    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     for (const entry of catalog) {
+      /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
       for (const schema of entry.schemas) {
         expect((schema.parameters as unknown as JsonSchema).type).toBe('object')
       }
@@ -48,20 +63,26 @@ describe('gen-tool-catalog collectToolCatalog', () => {
   })
 
   it('resolves a runtime-spread enum to its literal members (the payoff over AST)', async () => {
+    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = await collectToolCatalog()
+    /** 中文说明：测试局部值 todo，由紧邻初始化决定。 */
     const todo = catalog
       .flatMap(entry => entry.schemas)
       .find(s => s.name === 'todo_write')
     // `todo-todo` writes `enum: [...STATUSES]` — a source AST would see the
     // spread, not the values. Booting yields the shipped enum literals.
+    /** 中文说明：测试局部值 status，由紧邻初始化决定。 */
     const status = (((todo?.parameters as unknown as JsonSchema).properties?.todos)?.items)?.properties?.status
     expect(status?.enum).toEqual(['pending', 'in_progress', 'completed'])
   })
 
   it('attributes each harvested tool with its registering plugin source', async () => {
+    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = await collectToolCatalog()
+    /** 中文说明：测试局部值 bash，由紧邻初始化决定。 */
     const bash = catalog.find(entry => entry.pkg === '@deepseek-ai/dsh-tool-bash')
     expect(bash?.sources.bash).toBe('packages/shell/tool-bash/src/index.ts')
+    /** 中文说明：测试局部值 control，由紧邻初始化决定。 */
     const control = catalog.find(entry => entry.pkg === '@deepseek-ai/dsh-tool-subagent-control')
     expect(control?.sources).toEqual({
       interrupt_agent: 'packages/subagent/tool-subagent-control/src/index.ts',
@@ -71,10 +92,13 @@ describe('gen-tool-catalog collectToolCatalog', () => {
   })
 
   it('harvests search tools without depending on the generator process PATH', async () => {
+    /** 中文说明：测试局部值 oldPath，由紧邻初始化决定。 */
     const oldPath = process.env.PATH
     try {
       process.env.PATH = ''
+      /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
       const catalog = await collectToolCatalog()
+      /** 中文说明：测试局部值 search，由紧邻初始化决定。 */
       const search = catalog.find(entry => entry.pkg === '@deepseek-ai/dsh-tool-fs-search')
       expect(search?.schemas.map(s => s.name).sort()).toEqual(['glob', 'grep'])
     } finally {
@@ -86,7 +110,9 @@ describe('gen-tool-catalog collectToolCatalog', () => {
   it('records the shipped `subagent_fork` alias in a note (config-driven tool name)', async () => {
     // `tool-subagent`'s registered name is the load-time `toolName` config, so the shipped
     // agents surface this one package as both `subagent` and `subagent_fork`.
+    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = await collectToolCatalog()
+    /** 中文说明：测试局部值 subagent，由紧邻初始化决定。 */
     const subagent = catalog.find(entry => entry.pkg === '@deepseek-ai/dsh-tool-subagent')
     expect(subagent?.schemas.map(s => s.name)).toEqual(['subagent'])
     expect(subagent?.note).toMatch(/subagent_fork/)
@@ -107,6 +133,7 @@ describe('gen-tool-catalog assertManifestComplete', () => {
 })
 
 describe('gen-tool-catalog assertToolsHarvested', () => {
+  /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
   const entry: ToolPackage = {
     pkg: '@deepseek-ai/dsh-tool-demo',
     dir: 'tool-demo',
@@ -131,6 +158,7 @@ describe('gen-tool-catalog assertToolsHarvested', () => {
 
 describe('gen-tool-catalog render', () => {
   it('emits a package heading, a tool heading, and a json schema fence', () => {
+    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog: ToolCatalog = [
       {
         pkg: '@deepseek-ai/dsh-tool-demo',
@@ -140,6 +168,7 @@ describe('gen-tool-catalog render', () => {
         schemas: [{ name: 'demo', description: 'A demo tool.', parameters: { type: 'object', properties: {} } }],
       },
     ]
+    /** 中文说明：测试局部值 md，由紧邻初始化决定。 */
     const md = render(catalog)
     expect(md).toContain('| `@deepseek-ai/dsh-tool-demo` | `demo` | `ctx.tools` | `tool/result` |')
     expect(md).toContain('## `@deepseek-ai/dsh-tool-demo`')

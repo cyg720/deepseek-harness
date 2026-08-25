@@ -1,19 +1,34 @@
+/**
+ * 文件职责：验证凭据授权的 authorization.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证凭据授权在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import AuthorizationService, {
   AuthorizationDeclinedError,
+  /** 中文说明：类型或类 AuthorizationFlow 约束服务或测试数据职责。 */
   type AuthorizationFlow,
+  /** 中文说明：类型或类 AuthorizationInteraction 约束服务或测试数据职责。 */
   type AuthorizationInteraction,
+  /** 中文说明：类型或类 AuthorizationSession 约束服务或测试数据职责。 */
   type AuthorizationSession,
 } from '@deepseek-ai/dsh-authorization'
 import { MemoryCredentials } from './memory.ts'
 
+/** 中文说明：测试局部值 KEY，由紧邻初始化决定。 */
 const KEY = credentialKey('llm-pi-ai', 'openai-codex')
+/** 中文说明：测试局部值 OTHER，由紧邻初始化决定。 */
 const OTHER = credentialKey('llm-pi-ai', 'anthropic')
 
 /** A context with the record store the seam confirms commits against. */
+/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(MemoryCredentials)
   await ctx.plugin(AuthorizationService)
@@ -21,11 +36,14 @@ async function harness(): Promise<Context> {
 }
 
 /** An interaction that answers every prompt with the same string. */
+/** 中文说明：函数 surface 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function surface(answer = 'typed'): AuthorizationInteraction & {
   notices: unknown[]
   prompts: unknown[]
 } {
+  /** 中文说明：测试局部值 notices，由紧邻初始化决定。 */
   const notices: unknown[] = []
+  /** 中文说明：测试局部值 prompts，由紧邻初始化决定。 */
   const prompts: unknown[] = []
   return {
     notices,
@@ -39,6 +57,7 @@ function surface(answer = 'typed'): AuthorizationInteraction & {
 }
 
 /** A flow that commits `key` through the record store and then resolves. */
+/** 中文说明：函数 committingFlow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function committingFlow(
   ctx: Context,
   key = KEY,
@@ -58,8 +77,10 @@ function committingFlow(
 
 describe('AuthorizationService registry', () => {
   it('lists a registered flow and drops it when the registration is disposed', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
 
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.authorization.registerFlow(committingFlow(ctx))
 
     expect(ctx.authorization.list()).toEqual([{
@@ -78,6 +99,7 @@ describe('AuthorizationService registry', () => {
   })
 
   it('refuses a second flow for the same key', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx))
 
@@ -86,17 +108,22 @@ describe('AuthorizationService registry', () => {
   })
 
   it('withdraws an attempt still running when its flow leaves', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     let started: (() => void) | undefined
+    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = new Promise<void>((resolve) => {
       started = resolve
     })
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.authorization.registerFlow(committingFlow(ctx, KEY, session =>
       new Promise((_resolve, reject) => {
         started?.()
         session.signal.addEventListener('abort', () => { reject(new Error('withdrawn')) }, { once: true })
       })))
 
+    /** 中文说明：测试局部值 attempt，由紧邻初始化决定。 */
     const attempt = ctx.authorization.begin({ key: KEY, interaction: surface() })
     await running
     dispose()
@@ -107,8 +134,10 @@ describe('AuthorizationService registry', () => {
 
 describe('AuthorizationService.begin', () => {
   it('runs the flow, confirms the committed record, and reports the settlement', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx))
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = vi.fn()
     ctx.on('authorization/settled', settled)
 
@@ -120,7 +149,9 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('runs the flow first method when the caller names none, and the named one when it does', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: string[] = []
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, (session) => {
       seen.push(session.method)
@@ -134,12 +165,15 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('carries notices and prompts between the flow and the calling surface', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 answers，由紧邻初始化决定。 */
     const answers: string[] = []
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, async (session) => {
       session.notify({ message: 'Continue in your browser', url: 'https://auth.example/start' })
       answers.push(await session.prompt({ kind: 'text', message: 'Paste the code' }))
     }))
+    /** 中文说明：测试局部值 ui，由紧邻初始化决定。 */
     const ui = surface('code-123')
 
     await ctx.authorization.begin({ key: KEY, interaction: ui })
@@ -150,6 +184,7 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('refuses a key no flow claims', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
 
     await expect(ctx.authorization.begin({ key: KEY, interaction: surface() }))
@@ -157,6 +192,7 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('refuses a method the flow does not offer', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx))
 
@@ -165,11 +201,15 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('refuses a second attempt while one is running, and admits one after it settles', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     // Only the first attempt blocks; the later ones must be free to complete,
     // which is what shows the key was released rather than merely idle-looking.
+    /** 中文说明：测试局部值 held，由紧邻初始化决定。 */
     const held = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     let first = true
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, () => {
       if (!first) return Promise.resolve()
@@ -178,6 +218,7 @@ describe('AuthorizationService.begin', () => {
       return held.promise
     }))
 
+    /** 中文说明：测试局部值 attempt，由紧邻初始化决定。 */
     const attempt = ctx.authorization.begin({ key: KEY, interaction: surface() })
     await started.promise
     expect(ctx.authorization.describe(KEY)?.inFlight).toBe(true)
@@ -192,8 +233,11 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('never starts a flow whose caller withdrew before begin', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 ran，由紧邻初始化决定。 */
     const ran = vi.fn()
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = vi.fn()
     ctx.on('authorization/settled', settled)
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, () => {
@@ -214,6 +258,7 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('still reports an unknown method to a caller that already withdrew', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx))
 
@@ -226,7 +271,9 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('reports a caller that withdraws mid-flight as cancelled', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, session =>
       new Promise((_resolve, reject) => {
@@ -239,7 +286,9 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('withdraws a running attempt through cancel(), and ignores cancel() for an idle key', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = Promise.withResolvers<undefined>()
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, session =>
       new Promise((_resolve, reject) => {
@@ -248,6 +297,7 @@ describe('AuthorizationService.begin', () => {
       })))
     ctx.authorization.cancel(OTHER)
 
+    /** 中文说明：测试局部值 attempt，由紧邻初始化决定。 */
     const attempt = ctx.authorization.begin({ key: KEY, interaction: surface() })
     await started.promise
     ctx.authorization.cancel(KEY)
@@ -256,14 +306,18 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('settles a withdrawn attempt even when its flow never reacts to the signal', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 orphan，由紧邻初始化决定。 */
     const orphan = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = Promise.withResolvers<undefined>()
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, () => {
       started.resolve(undefined)
       return orphan.promise
     }))
 
+    /** 中文说明：测试局部值 attempt，由紧邻初始化决定。 */
     const attempt = ctx.authorization.begin({ key: KEY, interaction: surface() })
     await started.promise
     ctx.authorization.cancel(KEY)
@@ -279,9 +333,11 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('propagates a flow failure to its caller and settles the key as failed', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, () =>
       Promise.reject(new Error('the token endpoint said no'))))
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = vi.fn()
     ctx.on('authorization/settled', settled)
 
@@ -293,6 +349,7 @@ describe('AuthorizationService.begin', () => {
   })
 
   it('refuses a flow that resolves without committing its record', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow({
       key: KEY,
@@ -308,6 +365,7 @@ describe('AuthorizationService.begin', () => {
 
 describe('commit confirmation', () => {
   it('refuses a re-auth that left only the record of an earlier attempt', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     await ctx.credentials.modifyRecord(KEY, () =>
       Promise.resolve({ kind: 'grant', payload: { token: 'stale' } }))
@@ -329,6 +387,7 @@ describe('commit confirmation', () => {
   })
 
   it('refuses a flow that deleted its record instead of committing one', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     await ctx.credentials.modifyRecord(KEY, () =>
       Promise.resolve({ kind: 'grant', payload: { token: 'stale' } }))
@@ -346,12 +405,15 @@ describe('commit confirmation', () => {
 
 describe('declined prompts', () => {
   it('reports an attempt whose prompt the human declined as cancelled, not failed', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, async (session) => {
       await session.prompt({ kind: 'text', message: 'Paste the code' })
     }))
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = vi.fn()
     ctx.on('authorization/settled', settled)
+    /** 中文说明：测试局部值 declining，由紧邻初始化决定。 */
     const declining: AuthorizationInteraction = {
       notify: () => undefined,
       prompt: () => Promise.reject(new AuthorizationDeclinedError()),
@@ -364,6 +426,7 @@ describe('declined prompts', () => {
   })
 
   it('reads a decline through a flow that rewraps the rejection on its way out', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, session =>
       session.prompt({ kind: 'text', message: 'Paste the code' }).then(
@@ -371,6 +434,7 @@ describe('declined prompts', () => {
         () => {
           throw new Error('sign-in aborted')
         })))
+    /** 中文说明：测试局部值 declining，由紧邻初始化决定。 */
     const declining: AuthorizationInteraction = {
       notify: () => undefined,
       prompt: () => Promise.reject(new AuthorizationDeclinedError()),
@@ -381,12 +445,15 @@ describe('declined prompts', () => {
   })
 
   it('keeps a prompt failure that is not a decline a flow failure', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, async (session) => {
       await session.prompt({ kind: 'text', message: 'Paste the code' })
     }))
+    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     const settled = vi.fn()
     ctx.on('authorization/settled', settled)
+    /** 中文说明：测试局部值 broken，由紧邻初始化决定。 */
     const broken: AuthorizationInteraction = {
       notify: () => undefined,
       prompt: () => Promise.reject(new Error('the transport dropped')),
@@ -401,11 +468,13 @@ describe('declined prompts', () => {
 
 describe('notice containment', () => {
   it('loses the notice, never the attempt, when the surface cannot render it', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx, KEY, (session) => {
       session.notify({ message: 'Continue in your browser' })
       return Promise.resolve()
     }))
+    /** 中文说明：测试局部值 broken，由紧邻初始化决定。 */
     const broken: AuthorizationInteraction = {
       notify: () => {
         throw new Error('page connection closed')
@@ -420,11 +489,13 @@ describe('notice containment', () => {
 
 describe('the settled fan-out', () => {
   it('keeps a throwing listener from changing a finished attempt, and later listeners still run', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx))
     ctx.on('authorization/settled', () => {
       throw new Error('watcher boom')
     })
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = vi.fn()
     ctx.on('authorization/settled', second)
 
@@ -435,10 +506,12 @@ describe('the settled fan-out', () => {
   })
 
   it('contains an async listener rejection', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx))
     // An unknown-returning function keeps the typed surface legal while the
     // runtime value is still the rejected promise the containment must handle.
+    /** 中文说明：测试局部值 boom，由紧邻初始化决定。 */
     const boom = (): unknown => Promise.reject(new Error('async watcher boom'))
     ctx.on('authorization/settled', boom)
 
@@ -448,11 +521,13 @@ describe('the settled fan-out', () => {
   })
 
   it('rethrows an invariant-coded listener failure after the remaining listeners', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.authorization.registerFlow(committingFlow(ctx))
     ctx.on('authorization/settled', () => {
       throw Object.assign(new Error('forged relation'), { code: 'INVARIANT' })
     })
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = vi.fn()
     ctx.on('authorization/settled', second)
 

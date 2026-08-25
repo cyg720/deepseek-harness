@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证工具注册与执行的 execution-signal-types.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { describe, expectTypeOf, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { CallId } from '@deepseek-ai/dsh-llm'
@@ -9,12 +17,14 @@ import type {
   ToolRunContext,
 } from '@deepseek-ai/dsh-tools'
 
+/** 中文说明：函数 inputAndExecutionContracts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inputAndExecutionContracts(
   input: ToolExecutionInput,
   execution: ToolExecution,
   run: ToolRunContext,
 ): void {
   // @ts-expect-error -- every typed invocation must supply a caller-owned signal.
+  /** 中文说明：测试局部值 missingSignal，由紧邻初始化决定。 */
   const missingSignal: ToolExecutionInput = { callId: CallId('missing'), name: 'probe', arguments: {} }
   void missingSignal
 
@@ -38,6 +48,7 @@ function inputAndExecutionContracts(
 }
 void inputAndExecutionContracts
 
+/** 中文说明：函数 observerContracts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function observerContracts(ctx: Context): void {
   ctx.on('tools/pre-execute', (exec, next) => {
     // @ts-expect-error -- pre-policy sees a readonly signal.
@@ -76,6 +87,7 @@ function observerContracts(ctx: Context): void {
 }
 void observerContracts
 
+/** 中文说明：测试局部值 inferredTool，由紧邻初始化决定。 */
 const inferredTool = defineTool({
   name: 'signal-inference',
   description: 'Pins contextual signal inference.',

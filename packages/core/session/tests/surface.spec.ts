@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Session 持久状态的 surface.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证Session 持久状态在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import type { SessionEvent, SurfaceEvent, SurfaceEventType } from '@deepseek-ai/dsh-session'
 import {
@@ -20,7 +28,9 @@ import {
 } from '@deepseek-ai/dsh-llm'
 
 /** Build a minimal session with turn boundaries and a single user message. */
+/** 中文说明：函数 surfaceSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function surfaceSession(): Session {
+  /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
   const s = Session.create(SessionId('ss'))
   s.append('turn/start', { turn: 1 })
   s.append('user/message', createUserMessage({
@@ -41,6 +51,7 @@ function surfaceSession(): Session {
   return s
 }
 
+/** 中文说明：函数 provenanceEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function provenanceEvent(seq: number, sourceEventSeqs: unknown): SessionEvent {
   return {
     type: 'user/message',
@@ -54,6 +65,7 @@ function provenanceEvent(seq: number, sourceEventSeqs: unknown): SessionEvent {
   } as unknown as SessionEvent
 }
 
+/** 中文说明：函数 toolResultEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function toolResultEvent(
   seq: number,
   callId: string,
@@ -80,6 +92,7 @@ function toolResultEvent(
 
 describe('foldSurface source-event references', () => {
   it('accepts absent or valid source-event references and complete replacement coverage', () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       provenanceEvent(0, undefined),
       provenanceEvent(1, undefined),
@@ -92,6 +105,7 @@ describe('foldSurface source-event references', () => {
   })
 
   it('rejects source-event references on a non-surface event', () => {
+    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
     const event = {
       type: 'turn/start',
       seq: 0,
@@ -103,6 +117,7 @@ describe('foldSurface source-event references', () => {
   })
 
   it('accepts an explicit empty source-event list on an assistant message', () => {
+    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
     const event = {
       type: 'assistant/message',
       seq: 0,
@@ -150,6 +165,7 @@ describe('foldSurface source-event references', () => {
 
 describe('foldSurface tool-result rewrites', () => {
   it('rejects a replacement spanning multiple current nodes', () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       provenanceEvent(0, undefined),
       provenanceEvent(1, undefined),
@@ -159,6 +175,7 @@ describe('foldSurface tool-result rewrites', () => {
   })
 
   it('rejects a replacement targeting a non-result node', () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       provenanceEvent(0, undefined),
       toolResultEvent(1, 'rewrite', { op: 'replace', start: 0, end: 0 }, [0]),
@@ -167,6 +184,7 @@ describe('foldSurface tool-result rewrites', () => {
   })
 
   it('rejects changes outside tool-result content', () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       toolResultEvent(0, 'original'),
       toolResultEvent(1, 'changed', { op: 'replace', start: 0, end: 0 }, [0]),
@@ -178,9 +196,13 @@ describe('foldSurface tool-result rewrites', () => {
     ['toolCallId', { toolCallId: CallId('changed') }],
     ['isError', { isError: true }],
   ] as const)('rejects a replacement that changes the result block %s', (_field, patch) => {
+    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = toolResultEvent(0, 'original')
+    /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
     const data = original.data as Extract<SessionEvent, { type: 'tool/result' }>['data']
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = data.message.content[0]
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = {
       ...original,
       seq: 1,
@@ -199,8 +221,11 @@ describe('foldSurface tool-result rewrites', () => {
   })
 
   it('compares array-valued rest fields structurally (meta arrays: equal accepted, drifted rejected)', () => {
+    /** 中文说明：测试局部值 withMeta，由紧邻初始化决定。 */
     const withMeta = (seq: number, meta: unknown, surfaceOp: SurfaceEvent['surfaceOp'] = 'append', sourceEventSeqs?: number[]): SessionEvent => {
+      /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
       const event = toolResultEvent(seq, 'c-meta', surfaceOp, sourceEventSeqs)
+      /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
       const data = event.data as Extract<SessionEvent, { type: 'tool/result' }>['data']
       return {
         ...event,
@@ -241,7 +266,9 @@ describe('foldSurface tool-result rewrites', () => {
 
 describe('SurfaceManager', () => {
   it('folds a contiguous window without materializing earlier event sequences', () => {
+    /** 中文说明：测试局部值 baseSeq，由紧邻初始化决定。 */
     const baseSeq = 400_000
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       provenanceEvent(baseSeq, undefined),
       provenanceEvent(baseSeq + 1, undefined),
@@ -251,14 +278,18 @@ describe('SurfaceManager', () => {
       },
     ] as SessionEvent[]
 
+    /** 中文说明：测试局部值 surface，由紧邻初始化决定。 */
     const surface = new SurfaceManager(events, baseSeq)
     expect(surface.nodes).toEqual([baseSeq + 2, baseSeq + 1])
     expect(surface.replaceGeneration).toBe(1)
   })
 
   it('validates tool-result rewrites against a nonzero window offset', () => {
+    /** 中文说明：测试局部值 baseSeq，由紧邻初始化决定。 */
     const baseSeq = 400_000
+    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = toolResultEvent(baseSeq, 'call')
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       original,
       {
@@ -274,7 +305,9 @@ describe('SurfaceManager', () => {
   })
 
   it('rejects a replacement that crosses a loaded window head', () => {
+    /** 中文说明：测试局部值 baseSeq，由紧邻初始化决定。 */
     const baseSeq = 400_000
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       provenanceEvent(baseSeq, undefined),
       {
@@ -288,6 +321,7 @@ describe('SurfaceManager', () => {
   })
 
   it('shares ordered entries and nested replacement ranges with foldSurface', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('shared-fold'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
@@ -318,6 +352,7 @@ describe('SurfaceManager', () => {
       }),
     }, { surfaceOp: { op: 'replace', start: 2, end: 1 }, sourceEventSeqs: [2, 1] })
 
+    /** 中文说明：测试局部值 folded，由紧邻初始化决定。 */
     const folded = foldSurface(s.events)
     expect(folded.nodes).toEqual(s.surface.nodes)
     expect(folded.replacements).toEqual([
@@ -332,6 +367,7 @@ describe('SurfaceManager', () => {
   })
 
   it('does not retain fold-only replacement history in incremental state', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('incremental-state'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
@@ -349,6 +385,7 @@ describe('SurfaceManager', () => {
     }, { surfaceOp: { op: 'replace', start: 0, end: 0 }, sourceEventSeqs: [0] })
 
     expect(s.surface.nodes).toEqual([1])
+    /** 中文说明：测试局部值 manager，由紧邻初始化决定。 */
     const manager = s.surface as unknown as { _state: object }
     expect(Object.hasOwn(manager._state, 'replacements')).toBe(false)
     expect(foldSurface(s.events).replacements).toEqual([
@@ -357,6 +394,7 @@ describe('SurfaceManager', () => {
   })
 
   it('foldSurface reports the same invalid replacement failures as the incremental manager', () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       provenanceEvent(0, undefined),
       { ...provenanceEvent(1, [0]), surfaceOp: { op: 'replace', start: 42, end: 0 } },
@@ -368,11 +406,14 @@ describe('SurfaceManager', () => {
   })
 
   it('leaves incremental state unchanged when candidate validation fails', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('atomic-validation'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
     }), { surfaceOp: 'append' })
+    /** 中文说明：测试局部值 surface，由紧邻初始化决定。 */
     const surface = s.surface
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = surface.nodes
 
     expect(nodes).toEqual(foldSurface(s.events).nodes)
@@ -410,6 +451,7 @@ describe('SurfaceManager', () => {
   })
 
   it('foldSurface rejects a surface-eligible event without its mandatory marker', () => {
+    /** 中文说明：测试局部值 malformed，由紧邻初始化决定。 */
     const malformed: SessionEvent = {
       type: 'user/message',
       seq: 0,
@@ -424,6 +466,7 @@ describe('SurfaceManager', () => {
   })
 
   it('foldSurface rejects surfaceOp on a non-surface event', () => {
+    /** 中文说明：测试局部值 malformed，由紧邻初始化决定。 */
     const malformed = {
       type: 'turn/start',
       seq: 0,
@@ -437,7 +480,9 @@ describe('SurfaceManager', () => {
   })
 
   it('folds an ordered sequence list from surfaceOp: append markers', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = surfaceSession()
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = s.surface.nodes
     // Only the user/message and assistant/message carry surfaceOp: 'append'.
     // The turn boundaries do not have surface markers.
@@ -445,6 +490,7 @@ describe('SurfaceManager', () => {
   })
 
   it('empty surface yields empty nodes', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('empty'))
     s.append('turn/start', { turn: 1 })
     s.append('step/start', { turn: 1, step: 1 })
@@ -455,6 +501,7 @@ describe('SurfaceManager', () => {
   })
 
   it('picks up new events incrementally (delta processing)', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = surfaceSession()
     expect(s.surface.nodes.length).toBe(2)
     s.append('tool/result', {
@@ -470,6 +517,7 @@ describe('SurfaceManager', () => {
   })
 
   it('replays identically from a seeded log with surface markers', () => {
+    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = surfaceSession()
     original.append('tool/result', {
       turn: 1, step: 1,
@@ -479,12 +527,14 @@ describe('SurfaceManager', () => {
         isError: false,
       }),
     }, { surfaceOp: 'append' })
+    /** 中文说明：测试局部值 replayed，由紧邻初始化决定。 */
     const replayed = Session.create(SessionId('replay'), [...original.events])
     expect(replayed.surface.nodes).toEqual([1, 2, 4])
     expect(replayed.deriveMessages()).toEqual(original.deriveMessages())
   })
 
   it('rebuild with replace operation splices out shadowed nodes', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = surfaceSession()
     s.append('assistant/message',
       {
@@ -504,6 +554,7 @@ describe('SurfaceManager', () => {
   })
 
   it('replace with both ends at real nodes splices only the range', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('range'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
@@ -533,6 +584,7 @@ describe('SurfaceManager', () => {
   })
 
   it('single-node replacement (start === end)', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('single'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
@@ -559,6 +611,7 @@ describe('SurfaceManager', () => {
   })
 
   it('throws when replace start is not found', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('bad-start'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
@@ -580,6 +633,7 @@ describe('SurfaceManager', () => {
   })
 
   it('throws when replace end is not found', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('bad-end'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
@@ -601,6 +655,7 @@ describe('SurfaceManager', () => {
   })
 
   it('throws when start is after end', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('reversed'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
@@ -626,10 +681,12 @@ describe('SurfaceManager', () => {
   })
 
   it('sourceEventSeqs is snapshot so caller mutation does not affect logged event', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('immutable'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'source' }], source: { kind: 'user' },
     }), { surfaceOp: 'append' })
+    /** 中文说明：测试局部值 sources，由紧邻初始化决定。 */
     const sources = [0]
     s.append('assistant/message', {
       turn: 1, step: 1,
@@ -645,11 +702,13 @@ describe('SurfaceManager', () => {
     // Mutate caller's array after append.
     sources.push(1)
     sources[0] = 99
+    /** 中文说明：测试局部值 logged，由紧邻初始化决定。 */
     const logged = s.events[1]! as SurfaceEvent
     expect(logged.sourceEventSeqs).toEqual([0])
   })
 
   it('replace starting at non-head position preserves surrounding order', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('mid-replace'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
@@ -679,10 +738,12 @@ describe('SurfaceManager', () => {
   })
 
   it('surfaceOp replace object is snapshot so caller mutation is isolated', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('immutable-op'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'a' }], source: { kind: 'user' },
     }), { surfaceOp: 'append' })
+    /** 中文说明：测试局部值 op，由紧邻初始化决定。 */
     const op = { op: 'replace' as const, start: 0, end: 0 }
     s.append('assistant/message', {
       turn: 1, step: 1,
@@ -697,6 +758,7 @@ describe('SurfaceManager', () => {
     }, { surfaceOp: op, sourceEventSeqs: [0] })
     // Mutate caller's object after append.
     op.start = 99
+    /** 中文说明：测试局部值 logged，由紧邻初始化决定。 */
     const logged = s.events[1]! as SurfaceEvent
     expect(logged.surfaceOp).toEqual({ op: 'replace', start: 0, end: 0 })
   })
@@ -704,7 +766,9 @@ describe('SurfaceManager', () => {
 
 describe('deriveMessages with surface', () => {
   it('uses the surface path when surface markers are present', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = surfaceSession()
+    /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
     const messages = s.deriveMessages()
     expect(messages).toHaveLength(2)
     expect(messages[0]!.role).toBe('user')
@@ -714,6 +778,7 @@ describe('deriveMessages with surface', () => {
   })
 
   it('surface path skips non-surface events (chunks, boundaries)', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('filter'))
     s.append('turn/start', { turn: 1 })
     s.append('assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'h' } })
@@ -738,6 +803,7 @@ describe('deriveMessages with surface', () => {
   })
 
   it('deriveMessages via surface respects replace (shadowed nodes are excluded)', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('compacted'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'original' }], source: { kind: 'user' },
@@ -754,12 +820,14 @@ describe('deriveMessages with surface', () => {
       }),
     }, { surfaceOp: { op: 'replace', start: 0, end: 0 }, sourceEventSeqs: [0] })
     // Only the compaction node is visible.
+    /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
     const messages = s.deriveMessages()
     expect(messages).toHaveLength(1)
     expect(messages[0]!.content[0]).toMatchObject({ type: 'text', text: 'compacted' })
   })
 
   it('injected-context and user messages appear on surface', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('ctx'))
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'file changed' }], source: { kind: 'plugin', plugin: 'watcher' },
@@ -768,6 +836,7 @@ describe('deriveMessages with surface', () => {
       content: [{ type: 'text', text: 'focus' }],
       source: { kind: 'user' },
     }), { surfaceOp: 'append' })
+    /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
     const messages = s.deriveMessages()
     expect(messages).toHaveLength(2)
     expect(messages[0]!.content).toEqual([{ type: 'text', text: 'file changed' }])
@@ -777,9 +846,11 @@ describe('deriveMessages with surface', () => {
 
 describe('Session.append surface opts', () => {
   it('records sourceEventSeqs and surfaceOp on the event', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('opts'))
     s.append('turn/start', { turn: 1 })
     s.append('step/start', { turn: 1, step: 1 })
+    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
     const event = s.append('assistant/message',
       {
         turn: 1, step: 1,
@@ -805,6 +876,7 @@ describe('Session.append surface opts', () => {
     // An empty-content assistant/message is surface-eligible (it can host usage)
     // but _deriveOneMessage returns null for it, so the surface derivation path's
     // null-check is exercised — the node is on the surface yet produces no message.
+    /** 中文说明：测试局部值 seed，由紧邻初始化决定。 */
     const seed: SessionEvent[] = [
       { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
       { type: 'step/start', seq: 1, time: 2, data: { turn: 1, step: 1 } },
@@ -822,12 +894,14 @@ describe('Session.append surface opts', () => {
       { type: 'step/end', seq: 3, time: 4, data: { turn: 1, step: 1 } },
       { type: 'turn/end', seq: 4, time: 5, data: { turn: 1, reason: { kind: 'completed' } } },
     ]
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('nomessage'), seed)
     // The empty assistant/message is on the surface but _deriveOneMessage returns null for it.
     expect(s.deriveMessages()).toHaveLength(0)
   })
 
   it('a non-surface event carries no surface fields', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('noopts'))
     s.append('turn/start', { turn: 1 })
     expect((s.events[0] as SessionEvent<SurfaceEventType>).sourceEventSeqs).toBeUndefined()
@@ -835,7 +909,9 @@ describe('Session.append surface opts', () => {
   })
 
   it('surfaceOp primitives are not cloned (they are immutable)', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('prim'))
+    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
     const event = s.append('assistant/message', {
       turn: 1, step: 1,
       message: createMessage({
@@ -855,6 +931,7 @@ describe('Session.append surface opts', () => {
     // A raw event (not built via append, which mandates the marker) of a
     // surface-eligible type but with no surfaceOp must NOT narrow to a
     // SurfaceEvent — it would otherwise be silently dropped from the surface.
+    /** 中文说明：测试局部值 noMarker，由紧邻初始化决定。 */
     const noMarker: SessionEvent = {
       type: 'user/message', seq: 0, time: 1,
       data: createUserMessage({
@@ -863,9 +940,11 @@ describe('Session.append surface opts', () => {
     }
     expect(isSurfaceEvent(noMarker)).toBe(false)
     // A non-surface type is rejected too (the type gate).
+    /** 中文说明：测试局部值 boundary，由紧邻初始化决定。 */
     const boundary: SessionEvent = { type: 'turn/start', seq: 1, time: 1, data: { turn: 1 } }
     expect(isSurfaceEvent(boundary)).toBe(false)
     // A properly-marked surface event narrows.
+    /** 中文说明：测试局部值 marked，由紧邻初始化决定。 */
     const marked = { ...noMarker, surfaceOp: 'append' } as SurfaceEvent
     expect(isSurfaceEvent(marked)).toBe(true)
   })
@@ -881,13 +960,17 @@ describe('surface type guards', () => {
   })
 
   it('isSurfaceEvent narrows a fully-formed surface event', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = surfaceSession()
+    /** 中文说明：测试局部值 userMessage，由紧邻初始化决定。 */
     const userMessage = s.events.find(e => e.type === 'user/message')!
     expect(isSurfaceEvent(userMessage)).toBe(true)
   })
 
   it('isSurfaceEvent rejects a non-surface-eligible type', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = surfaceSession()
+    /** 中文说明：测试局部值 turnStart，由紧邻初始化决定。 */
     const turnStart = s.events.find(e => e.type === 'turn/start')!
     expect(isSurfaceEvent(turnStart)).toBe(false)
   })
@@ -896,6 +979,7 @@ describe('surface type guards', () => {
     // A surface-eligible type whose mandatory surfaceOp is absent — the state a
     // seed/load log can carry before the marker is validated. surfaceOp is
     // optional on SessionEvent, so this is a representable runtime value.
+    /** 中文说明：测试局部值 markerless，由紧邻初始化决定。 */
     const markerless: SessionEvent = {
       type: 'user/message',
       seq: 0,
@@ -909,11 +993,14 @@ describe('surface type guards', () => {
   })
 
   it('splits surface events into append-origin and replacement by their marker', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = surfaceSession()
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'checkpoint' }], source: { kind: 'plugin', plugin: 'compact' },
     }), { surfaceOp: { op: 'replace', start: 1, end: 2 }, sourceEventSeqs: [1, 2] })
+    /** 中文说明：测试局部值 appended，由紧邻初始化决定。 */
     const appended = s.events.find(e => e.type === 'user/message')!
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = s.events.at(-1)!
 
     expect(isAppendSurfaceEvent(appended)).toBe(true)
@@ -923,10 +1010,13 @@ describe('surface type guards', () => {
   })
 
   it('rejects log-only and markerless events from both marker guards', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = surfaceSession()
+    /** 中文说明：测试局部值 turnStart，由紧邻初始化决定。 */
     const turnStart = s.events.find(e => e.type === 'turn/start')!
     // A surface-eligible type whose mandatory marker is absent has no origin at
     // all: it never entered the surface.
+    /** 中文说明：测试局部值 markerless，由紧邻初始化决定。 */
     const markerless: SessionEvent = {
       type: 'user/message',
       seq: 0,
@@ -945,6 +1035,7 @@ describe('surface type guards', () => {
 
 describe('SurfaceManager.replaceGeneration', () => {
   it('folds the pending log delta on access and counts replaces', () => {
+    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     const s = Session.create(SessionId('gen'))
     s.append('turn/start', { turn: 1 })
     s.append('user/message', createUserMessage({
@@ -957,6 +1048,7 @@ describe('SurfaceManager.replaceGeneration', () => {
     // the pending delta rather than piggybacking on a nodes read.
     expect(s.surface.replaceGeneration).toBe(0)
 
+    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = s.surface.nodes
     s.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'summary' }], source: { kind: 'plugin', plugin: 'compact' },

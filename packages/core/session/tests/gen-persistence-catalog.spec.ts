@@ -2,6 +2,14 @@
  * Negative-path tests for the persistence log catalog generator
  * (`scripts/gen-persistence-catalog.ts`).
  */
+/**
+ * 文件职责：验证Session 持久状态的 gen-persistence-catalog.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证Session 持久状态在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,9 +24,13 @@ import {
 } from '../../../../scripts/gen-persistence-catalog.ts'
 
 /** Create a fixture scan root; `files` maps `packages/…`-relative paths to source. */
+/** 中文说明：函数 fixtureRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fixtureRoot(files: Record<string, string>): string {
+  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = mkdtempSync(join(tmpdir(), 'persistence-catalog-'))
+  /** 中文说明：测试局部值 [rel，由紧邻初始化决定。 */
   for (const [rel, source] of Object.entries(files)) {
+    /** 中文说明：测试局部值 abs，由紧邻初始化决定。 */
     const abs = join(root, rel)
     mkdirSync(join(abs, '..'), { recursive: true })
     writeFileSync(abs, source)
@@ -26,14 +38,18 @@ function fixtureRoot(files: Record<string, string>): string {
   return root
 }
 
+/** 中文说明：测试局部值 roots，由紧邻初始化决定。 */
 const roots: string[] = []
+/** 中文说明：测试局部值 make，由紧邻初始化决定。 */
 const make = (files: Record<string, string>): string => {
+  /** 中文说明：测试局部值 r，由紧邻初始化决定。 */
   const r = fixtureRoot(files)
   roots.push(r)
   return r
 }
 
 /** A merge-form declaration file wrapping `members` in the session module. */
+/** 中文说明：测试局部值 merge，由紧邻初始化决定。 */
 const merge = (members: string): string =>
   `declare module '@deepseek-ai/dsh-session/types' {\n  interface SessionEventMap {\n${members}\n  }\n}\n`
 
@@ -42,10 +58,12 @@ afterEach(() => {
 })
 
 /** The manifest that marks a fixture package as the owning session package. */
+/** 中文说明：测试局部值 OWNER_MANIFEST，由紧邻初始化决定。 */
 const OWNER_MANIFEST = '{ "name": "@deepseek-ai/dsh-session" }\n'
 
 describe('gen-persistence-catalog collectLogEvents', () => {
   it('extracts a documented member of the owning top-level interface', () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = collectLogEvents(make({
       'packages/core/fix/package.json': OWNER_MANIFEST,
       'packages/core/fix/src/types.ts':
@@ -94,6 +112,7 @@ describe('gen-persistence-catalog collectLogEvents', () => {
   })
 
   it('extracts a member declaration-merged via the session module', () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = collectLogEvents(make({
       'packages/group/fix/src/types.ts': merge('    /** Merged event source record. */\n    \'fix/merged\': { id: string }'),
     }))
@@ -102,6 +121,7 @@ describe('gen-persistence-catalog collectLogEvents', () => {
   })
 
   it('collapses a newline-separated multi-line payload to a valid one-line fragment', () => {
+    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = collectLogEvents(make({
       'packages/group/fix/src/types.ts': merge(
         '    /** Wide payload. */\n    \'fix/wide\': {\n      /** Alpha values. */\n      alpha: string[]\n      range: { start: number; end: number }\n      count: number\n    }',
@@ -164,6 +184,7 @@ describe('gen-persistence-catalog collectLogEvents', () => {
 })
 
 describe('gen-persistence-catalog collectEventEnvelopeTypes', () => {
+  /** 中文说明：测试局部值 declarations，由紧邻初始化决定。 */
   const declarations = `/** Event keys. */
 export type SessionEventType = keyof SessionEventMap
 /** Surface-producing event keys. */
@@ -175,6 +196,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = { type
 `
 
   it('extracts the envelope declarations with their complete JSDoc in canonical order', () => {
+    /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
     const entries = collectEventEnvelopeTypes(make({
       'packages/core/fix/package.json': OWNER_MANIFEST,
       'packages/core/fix/src/types.ts': declarations,
@@ -199,6 +221,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = { type
   })
 
   it('hard-errors on duplicate, unexported, undocumented, or mistagged envelope declarations', () => {
+    /** 中文说明：测试局部值 violations，由紧邻初始化决定。 */
     const violations = new RegExp([
       '4 JSDoc completeness violation\\(s\\)',
       '[\\s\\S]*not exported',
@@ -218,6 +241,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = { type
 
 describe('gen-persistence-catalog collectSurfaceEventTypes', () => {
   it('parses the literal union', () => {
+    /** 中文说明：测试局部值 types，由紧邻初始化决定。 */
     const types = collectSurfaceEventTypes(make({
       'packages/core/fix/src/types.ts': 'export type SurfaceEventType = \'fix/a\' | \'fix/b\'\n',
     }))
@@ -245,6 +269,7 @@ describe('gen-persistence-catalog collectSurfaceEventTypes', () => {
 })
 
 describe('gen-persistence-catalog annotateSurface + render', () => {
+  /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
   const entry = (name: string) => ({
     name,
     scope: name.split('/')[0] ?? name,
@@ -254,6 +279,7 @@ describe('gen-persistence-catalog annotateSurface + render', () => {
     source: 'packages/core/fix/src/types.ts:3',
   })
 
+  /** 中文说明：测试局部值 envelopeTypes，由紧邻初始化决定。 */
   const envelopeTypes = [
     'SessionEventType',
     'SurfaceEventType',
@@ -266,6 +292,7 @@ describe('gen-persistence-catalog annotateSurface + render', () => {
   }))
 
   it('badges union members surface and everything else log-only', () => {
+    /** 中文说明：测试局部值 annotated，由紧邻初始化决定。 */
     const annotated = annotateSurface([entry('fix/message'), entry('fix/marker')], ['fix/message'])
     expect(annotated.map(e => [e.name, e.surface])).toEqual([['fix/message', true], ['fix/marker', false]])
   })
@@ -276,6 +303,7 @@ describe('gen-persistence-catalog annotateSurface + render', () => {
   })
 
   it('renders badges, declaration fences, and the generated-file header', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = render(annotateSurface([entry('fix/message'), entry('fix/marker')], ['fix/message']), envelopeTypes)
     expect(out).toContain('Generated by scripts/gen-persistence-catalog.ts')
     expect(out).toContain('# Session Persistence Event Catalog')

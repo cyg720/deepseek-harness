@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证本地凭据存储的 local.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证本地凭据存储在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
@@ -9,13 +17,17 @@ import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { LocalCredentialProvider, resolveSpec } from '../src/index.ts'
 
 /** Credential documents are seeded owner-only, exactly as the provider creates them. */
+/** 中文说明：函数 writeCredentials 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function writeCredentials(file: string, text: string): Promise<void> {
   return writeFile(file, text, { mode: 0o600 })
 }
 
+/** 中文说明：测试局部值 KEY，由紧邻初始化决定。 */
 const KEY = credentialRef('DSH_CRED_TEST')
+/** 中文说明：测试局部值 OTHER，由紧邻初始化决定。 */
 const OTHER = credentialRef('DSH_CRED_OTHER')
 
+/** 中文说明：测试局部值 cleanups，由紧邻初始化决定。 */
 const cleanups: Array<() => Promise<void>> = []
 
 afterEach(async () => {
@@ -23,14 +35,19 @@ afterEach(async () => {
   while (cleanups.length > 0) await cleanups.pop()!()
 })
 
+/** 中文说明：函数 tempDir 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function tempDir(): Promise<string> {
+  /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-credentials-local-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
   return dir
 }
 
+/** 中文说明：函数 boot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function boot(config: ConstructorParameters<typeof LocalCredentialProvider>[1]): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = ctx.plugin(LocalCredentialProvider, config)
   cleanups.push(async () => {
     await fiber.dispose()
@@ -39,7 +56,9 @@ async function boot(config: ConstructorParameters<typeof LocalCredentialProvider
   return ctx
 }
 
+/** 中文说明：函数 updates 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function updates(ctx: Context): CredentialRef[] {
+  /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
   const seen: CredentialRef[] = []
   ctx.on('credentials/reference-updated', (ref) => {
     seen.push(ref)
@@ -49,11 +68,13 @@ function updates(ctx: Context): CredentialRef[] {
 
 describe('resolveSpec', () => {
   it('defaults to .credentials.yaml under the harness home with watching on', () => {
+    /** 中文说明：测试局部值 spec，由紧邻初始化决定。 */
     const spec = resolveSpec({ dshHome: '/custom/home' })
     expect(spec).toEqual({ filename: resolve('/custom/home/.credentials.yaml'), watch: true, debounceMs: 100 })
   })
 
   it('lets an explicit path win over the home', () => {
+    /** 中文说明：测试局部值 spec，由紧邻初始化决定。 */
     const spec = resolveSpec({ path: '/etc/dsh/creds.yaml', dshHome: '/ignored', watch: false, debounceMs: 5 })
     expect(spec).toEqual({ filename: resolve('/etc/dsh/creds.yaml'), watch: false, debounceMs: 5 })
   })
@@ -61,16 +82,21 @@ describe('resolveSpec', () => {
 
 describe('layering and reads', () => {
   it('treats an absent file as an empty writable store', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path: join(dir, '.credentials.yaml'), watch: false })
     expect(await ctx.credentials.resolve(KEY)).toBeUndefined()
     expect(await ctx.credentials.describe(KEY)).toEqual({ configured: false, writable: true })
   })
 
   it('serves file entries alongside comments and quoted values', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, 'version: 1\nrefs:\n  # notes\n  DSH_CRED_TEST: plain\n  DSH_CRED_OTHER: "with space"\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     expect(await ctx.credentials.resolve(KEY)).toEqual({ value: 'plain', source: 'file' })
     expect(await ctx.credentials.resolve(OTHER)).toEqual({ value: 'with space', source: 'file' })
@@ -78,9 +104,12 @@ describe('layering and reads', () => {
   })
 
   it('lets a non-empty process environment win read-only over the file', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: from-file\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     vi.stubEnv('DSH_CRED_TEST', 'from-env')
     expect(await ctx.credentials.resolve(KEY)).toEqual({ value: 'from-env', source: 'env' })
@@ -88,9 +117,12 @@ describe('layering and reads', () => {
   })
 
   it('treats an empty environment value as absent, falling through to the file', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: stored\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     vi.stubEnv('DSH_CRED_TEST', '')
     expect(await ctx.credentials.resolve(KEY)).toEqual({ value: 'stored', source: 'file' })
@@ -98,9 +130,12 @@ describe('layering and reads', () => {
   })
 
   it('fails boot loud when the document exists but cannot be read', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, 'occupied')
     await mkdir(path)
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(LocalCredentialProvider, { path, watch: false })).rejects.toThrow()
   })
@@ -109,12 +144,15 @@ describe('layering and reads', () => {
 describe('layer ladder', () => {
   // inherited process env > .credentials.yaml > $DSH_HOME/.env, and the
   // invoking directory's .env supplies no credential at all.
+  /** 中文说明：函数 bootLayered 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function bootLayered(
     path: string,
     layers: Parameters<typeof createLaunchEnvironmentSnapshot>[0],
   ): Promise<Context> {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     ctx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, createLaunchEnvironmentSnapshot(layers))
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin(LocalCredentialProvider, { path, watch: false })
     cleanups.push(async () => { await fiber.dispose() })
     await fiber
@@ -122,9 +160,12 @@ describe('layer ladder', () => {
   }
 
   it('lets the stored value beat the user .env, so a UI write takes effect immediately', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: stored\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootLayered(path, [
       { source: 'process', values: {} },
       { source: 'user-env', path: '/home/.dsh/.env', values: { DSH_CRED_TEST: 'older-user-env' } },
@@ -138,7 +179,9 @@ describe('layer ladder', () => {
   })
 
   it('serves the user .env only when nothing is stored', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootLayered(join(dir, '.credentials.yaml'), [
       { source: 'process', values: {} },
       { source: 'user-env', path: '/home/.dsh/.env', values: { DSH_CRED_TEST: 'from-user-env' } },
@@ -149,29 +192,37 @@ describe('layer ladder', () => {
   })
 
   it('serves the invoking project .env over the user one, but never over the store', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     // The product trusts the project it is launched in, so a checkout may
     // carry its own key — ranked above the user's home file (more specific
     // wins) and below the managed store, which a stored key must never lose to.
+    /** 中文说明：测试局部值 layers，由紧邻初始化决定。 */
     const layers = [
       { source: 'process' as const, values: {} },
       { source: 'project-env' as const, path: '/work/.env', values: { DSH_CRED_TEST: 'from-project' } },
       { source: 'user-env' as const, path: '/home/.dsh/.env', values: { DSH_CRED_TEST: 'from-user' } },
     ]
+    /** 中文说明：测试局部值 bare，由紧邻初始化决定。 */
     const bare = await bootLayered(path, layers)
     expect(await bare.credentials.resolve(KEY)).toEqual({ value: 'from-project', source: 'project-env' })
     expect(await bare.credentials.describe(KEY)).toEqual({ configured: true, source: 'project-env', writable: true })
 
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: stored\n')
+    /** 中文说明：测试局部值 stored，由紧邻初始化决定。 */
     const stored = await bootLayered(path, layers)
     expect(await stored.credentials.resolve(KEY)).toEqual({ value: 'stored', source: 'file' })
   })
 
   it.skipIf(process.platform === 'win32')('refuses a document other OS users can read', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeFile(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: leaked\n', { mode: 0o644 })
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     // Before the contents are read at all: serving secrets out of a
     // world-readable file would make the 0600 the provider writes meaningless.
@@ -180,39 +231,50 @@ describe('layer ladder', () => {
   })
 
   it('propagates a permission check that fails for a reason other than absence', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 notADirectory，由紧邻初始化决定。 */
     const notADirectory = join(dir, 'occupied')
     await writeFile(notADirectory, 'a regular file\n')
     // An absent document is an empty store, but a path that cannot be
     // reached at all is a misconfiguration: the parent is a file, so the
     // check fails with ENOTDIR rather than concluding "no credentials yet".
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(LocalCredentialProvider, { path: join(notADirectory, '.credentials.yaml'), watch: false }))
       .rejects.toThrow(/ENOTDIR/)
   })
 
   it('propagates a permission check rejected before the OS lookup', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials\0.yaml'), watch: false }))
       .rejects.toMatchObject({ code: 'ERR_INVALID_ARG_VALUE' })
   })
 
   it('propagates a read that fails for a reason other than absence', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     // Owner-only, so the permission check passes, and unreadable as a file:
     // the store is present but cannot be parsed, which must fail the launch
     // rather than silently serve nothing.
     await mkdir(path, { mode: 0o700 })
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(LocalCredentialProvider, { path, watch: false })).rejects.toThrow(/EISDIR/)
   })
 
   it('lets only the inherited environment shadow the store, read-only', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: stored\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootLayered(path, [
       { source: 'process', values: { DSH_CRED_TEST: 'from-shell' } },
       { source: 'user-env', path: '/home/.dsh/.env', values: { DSH_CRED_TEST: 'from-user-env' } },
@@ -274,21 +336,28 @@ describe('document validation', () => {
     ['duplicate keys', 'version: 1\nrefs:\n  DSH_CRED_TEST: one\n  DSH_CRED_TEST: two\n', /invalid document/],
     ['malformed yaml', 'DSH_CRED_TEST: "unterminated\n', /invalid document/],
   ])('fails boot on %s', async (_case, text, message) => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, text)
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(LocalCredentialProvider, { path, watch: false })).rejects.toThrow(message)
   })
 
   it('never puts a credential value in a diagnostic', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 secret，由紧邻初始化决定。 */
     const secret = 'sk-live-DO-NOT-LOG-abcdef123456'
     // The yaml parser's own message quotes the offending source line, which in
     // this document is the secret itself. Boot stderr and the watcher's logger
     // both receive whatever this throws.
     await writeCredentials(path, `DSH_CRED_TEST: "${secret}\n`)
+    /** 中文说明：测试局部值 failure: unknown，由紧邻初始化决定。 */
     let failure: unknown
     try {
       await new Context().plugin(LocalCredentialProvider, { path, watch: false })
@@ -303,9 +372,12 @@ describe('document validation', () => {
   })
 
   it('reads an empty document as an empty store', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, '# nothing stored yet\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     expect(await ctx.credentials.resolve(KEY)).toBeUndefined()
   })
@@ -313,9 +385,13 @@ describe('document validation', () => {
 
 describe('document writes', () => {
   it('adds a missing key to a fresh 0600 document and emits the commit', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = updates(ctx)
     await ctx.credentials.set(KEY, 'sk-fresh')
     expect(await readFile(path, 'utf8')).toBe('version: 1\nrefs:\n  DSH_CRED_TEST: sk-fresh\n')
@@ -325,9 +401,12 @@ describe('document writes', () => {
   })
 
   it('patches one entry, preserving comments and every untouched entry', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, 'version: 1\nrefs:\n  # deployment notes\n  DSH_CRED_OTHER: keep\n\n  # the one under edit\n  DSH_CRED_TEST: old\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     await ctx.credentials.set(KEY, 'new value!')
     expect(await readFile(path, 'utf8')).toBe(
@@ -337,13 +416,19 @@ describe('document writes', () => {
   })
 
   it('round-trips values no dotenv line could represent', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
+    /** 中文说明：测试局部值 multiLine，由紧邻初始化决定。 */
     const multiLine = 'line one\nline two'
+    /** 中文说明：测试局部值 mixedQuotes，由紧邻初始化决定。 */
     const mixedQuotes = 'both \' and "'
     await ctx.credentials.set(KEY, multiLine)
     await ctx.credentials.set(OTHER, mixedQuotes)
+    /** 中文说明：测试局部值 reread，由紧邻初始化决定。 */
     const reread = await boot({ path, watch: false })
     expect(await reread.credentials.resolve(KEY)).toEqual({ value: multiLine, source: 'file' })
     expect(await reread.credentials.resolve(OTHER)).toEqual({ value: mixedQuotes, source: 'file' })
@@ -351,13 +436,17 @@ describe('document writes', () => {
   })
 
   it('unsets only the owning entry, with its own annotation, and keeps an absent unset silent', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     // Comments above an entry are that entry's annotation and go with it when
     // it is removed — including anything above the document's first entry.
     // Every other entry keeps its own comments.
     await writeCredentials(path, 'version: 1\nrefs:\n  # about the doomed one\n  DSH_CRED_TEST: gone\n  # about the survivor\n  DSH_CRED_OTHER: stays\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = updates(ctx)
     await ctx.credentials.unset(KEY)
     expect(await readFile(path, 'utf8')).toBe('version: 1\nrefs:\n  # about the survivor\n  DSH_CRED_OTHER: stays\n')
@@ -366,9 +455,12 @@ describe('document writes', () => {
   })
 
   it('rejects empty values and writes the environment would shadow', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: stored\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
 
     await expect(ctx.credentials.set(KEY, '')).rejects.toThrow(/empty value/)
@@ -379,20 +471,27 @@ describe('document writes', () => {
   })
 
   it('leaves an empty mapping after unsetting the only entry', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: only\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     await ctx.credentials.unset(KEY)
     expect(await readFile(path, 'utf8')).toBe('version: 1\nrefs: {}\n')
     // The emptied document still reloads as an empty store, not a parse error.
+    /** 中文说明：测试局部值 reread，由紧邻初始化决定。 */
     const reread = await boot({ path, watch: false })
     expect(await reread.credentials.resolve(KEY)).toBeUndefined()
   })
 
   it('fails a write loud when the on-disk document became invalid', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     // An external editor left the document unparsable: the read-modify-write
     // must refuse rather than overwrite content it cannot understand.
@@ -401,10 +500,15 @@ describe('document writes', () => {
   })
 
   it('chains past a rejected write so one bad value cannot poison the queue', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
+    /** 中文说明：测试局部值 bad，由紧邻初始化决定。 */
     const bad = expect(ctx.credentials.set(KEY, '')).rejects.toThrow(/empty value/)
+    /** 中文说明：测试局部值 good，由紧邻初始化决定。 */
     const good = ctx.credentials.set(OTHER, 'lands')
     await bad
     await good
@@ -412,8 +516,11 @@ describe('document writes', () => {
   })
 
   it('serializes concurrent writes so both land in the one document', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, watch: false })
     await Promise.all([
       ctx.credentials.set(KEY, 'one'),
@@ -423,11 +530,15 @@ describe('document writes', () => {
   })
 
   it('refuses writes after disposal', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
     await fiber
     // Capture the handle first: disposal also removes the ctx.credentials service.
+    /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
     const service = ctx.credentials
     await fiber.dispose()
     await expect(service.set(KEY, 'late')).rejects.toThrow(/disposed/)
@@ -436,12 +547,16 @@ describe('document writes', () => {
 
 describe('real hot reload', () => {
   it('publishes external edits, replaces the snapshot wholesale, and suppresses self-writes', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await tempDir()
+    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(dir, '.credentials.yaml')
     // Watching starts on an existing document: creation racing watcher setup
     // is a chokidar readiness gap, not the reload contract under test.
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: boot\n')
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await boot({ path, debounceMs: 10 })
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = updates(ctx)
 
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_TEST: live\n  DSH_CRED_OTHER: extra\n')
@@ -455,6 +570,7 @@ describe('real hot reload', () => {
       expect(await ctx.credentials.resolve(OTHER)).toBeUndefined()
     })
 
+    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = seen.length
     await ctx.credentials.set(KEY, 'self-written')
     await new Promise(resolvePause => setTimeout(resolvePause, 200))

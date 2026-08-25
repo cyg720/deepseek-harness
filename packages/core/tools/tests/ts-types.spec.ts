@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证工具注册与执行的 ts-types.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
+ * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。
+ * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
+ * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
+ * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { jsonSchemaToTs, renderToolsSdk } from '@deepseek-ai/dsh-tools/src/ts-types.ts'
 import type { ToolSdkSchema } from '@deepseek-ai/dsh-tools/src/ts-types.ts'
@@ -5,6 +13,7 @@ import { parameterSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
 
 describe('jsonSchemaToTs', () => {
   it('maps every unified schema construct', () => {
+    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases: [unknown, string][] = [
       [{ type: 'string' }, 'string'],
       [{ type: 'number' }, 'number'],
@@ -33,12 +42,14 @@ describe('jsonSchemaToTs', () => {
       }, ['{', '  id: number;', '  label?: string;', '}'].join('\n')],
       [{}, 'JsonValue'],
     ]
+    /** 中文说明：测试局部值 [schema，由紧邻初始化决定。 */
     for (const [schema, expected] of cases) {
       expect(jsonSchemaToTs(schema), JSON.stringify(schema)).toBe(expected)
     }
   })
 
   it('renders objects with required/optional keys, nested shapes, and per-property docs', () => {
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     const schema = parameterSchemaSpecToJsonSchema({
       path: { type: 'string', required: true, description: 'Absolute file path' },
       limit: { type: 'number' },
@@ -61,6 +72,7 @@ describe('jsonSchemaToTs', () => {
   })
 
   it('is total: unsupported or hostile constructs degrade to unknown, never throw', () => {
+    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases: unknown[] = [
       undefined,
       null,
@@ -73,6 +85,7 @@ describe('jsonSchemaToTs', () => {
       { type: 'string', enum: [1, 2] },
       { type: 'string', enum: [] },
     ]
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     for (const schema of cases) {
       expect(() => jsonSchemaToTs(schema), JSON.stringify(schema)).not.toThrow()
     }
@@ -86,6 +99,7 @@ describe('jsonSchemaToTs', () => {
   })
 
   it('escapes a comment-closer inside a description so the generated JSDoc cannot end early', () => {
+    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = jsonSchemaToTs({
       type: 'object',
       properties: { glob: { type: 'string', description: 'a pattern like packages/*/tool-*/ over here' } },
@@ -95,10 +109,14 @@ describe('jsonSchemaToTs', () => {
   })
 
   it('renders deeply nested unions without using the JavaScript call stack', () => {
+    /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
     const depth = 5_000
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     let schema: unknown = { type: 'string' }
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     for (let index = 0; index < depth; index++) schema = { oneOf: [schema, { type: 'null' }] }
 
+    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = jsonSchemaToTs(schema)
 
     expect(rendered.startsWith('string | null')).toBe(true)
@@ -107,6 +125,7 @@ describe('jsonSchemaToTs', () => {
 })
 
 describe('renderToolsSdk', () => {
+  /** 中文说明：测试局部值 bash，由紧邻初始化决定。 */
   const bash: ToolSdkSchema = {
     name: 'bash',
     description: 'Run a shell command.',
@@ -118,6 +137,7 @@ describe('renderToolsSdk', () => {
       required: ['exitCode'],
     },
   }
+  /** 中文说明：测试局部值 exotic，由紧邻初始化决定。 */
   const exotic: ToolSdkSchema = {
     name: 'my-mcp.tool',
     description: 'Exotic name.',
@@ -126,6 +146,7 @@ describe('renderToolsSdk', () => {
   }
 
   it('declares every tool in lexicographic order with quoted keys for exotic names', () => {
+    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = renderToolsSdk([exotic, bash])
     expect(text).toContain('interface ToolArgsMap {')
     expect(text).toContain('interface ToolOutputMap {')
@@ -151,6 +172,7 @@ describe('renderToolsSdk', () => {
   it('names both required call arguments, not just the program', () => {
     // The schema requires `code` AND `description`; instructions that mention
     // only the program let a model emit `{code}` alone and fail INVALID_ARGS.
+    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = renderToolsSdk([bash])
     expect(text).toContain('`code`')
     expect(text).toContain('`description`')
@@ -164,6 +186,7 @@ describe('renderToolsSdk', () => {
   })
 
   it('renders an empty declaration for an empty tool set', () => {
+    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = renderToolsSdk([])
     expect(text).toContain('interface ToolArgsMap {}')
     expect(text).toContain('interface ToolOutputMap {}')
