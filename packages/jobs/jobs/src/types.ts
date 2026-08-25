@@ -3,6 +3,14 @@
  * service implementation lives in `./index.ts`.
  * @module @deepseek-ai/dsh-jobs/types
  */
+/**
+ * 文件职责：实现后台任务的 types.ts 模块。
+ * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
+ * 产品维度：保证后台任务在授权、等待、失败和清理场景中可靠。
+ * 逻辑维度：注册能力，校验请求，更新状态并记录事件。
+ * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
+ * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
+ */
 
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { SessionId } from '@deepseek-ai/dsh-session'
@@ -14,21 +22,25 @@ export { JobId } from './brand.ts'
  * Task lifecycle: `running`, optionally `stopping`, then exactly one terminal
  * status. Producer-specific facts belong in {@link JobSnapshot.detail}.
  */
+/** 中文说明：类型或类 JobStatus 约束宿主、交互或任务数据职责。 */
 export type JobStatus = 'running' | 'stopping' | 'completed' | 'killed' | 'failed'
 
 /**
  * Producer-defined job kinds. Plugins extend this map by declaration merging;
  * the registry treats every value as an opaque id namespace.
  */
+/** 中文说明：类型或类 JobKindMap 约束宿主、交互或任务数据职责。 */
 export interface JobKindMap {
   bash: 'bash'
   subagent: 'subagent'
 }
 
 /** The merge-extensible union of registered producer kind names. */
+/** 中文说明：类型或类 JobKind 约束宿主、交互或任务数据职责。 */
 export type JobKind = JobKindMap[keyof JobKindMap]
 
 /** Terminal result supplied by a producer through {@link JobHooks.done}. */
+/** 中文说明：类型或类 JobOutcome 约束宿主、交互或任务数据职责。 */
 export interface JobOutcome {
   /** How the job ended: finished (`completed`), cancelled (`killed`), or broke (`failed`). */
   status: 'completed' | 'killed' | 'failed'
@@ -43,6 +55,7 @@ export interface JobOutcome {
  * preflights access and cleanup before invoking {@link run}; the producer owns
  * execution resources while the runtime owns identity and lifecycle state.
  */
+/** 中文说明：类型或类 JobStart 约束宿主、交互或任务数据职责。 */
 export interface JobStart {
   /** Producer kind — also the id prefix (`bash`, `subagent`, …). */
   kind: JobKind
@@ -69,6 +82,7 @@ export interface JobStart {
 }
 
 /** Hooks through which the runtime controls and observes producer work. */
+/** 中文说明：类型或类 JobHooks 约束宿主、交互或任务数据职责。 */
 export interface JobHooks {
   /**
    * Request termination. Must be synchronous, idempotent, and eventually settle
@@ -94,6 +108,7 @@ export interface JobHooks {
  * A read-only projection of one job, safe to hand to listeners and tools —
  * a fresh object per call, never live registry state.
  */
+/** 中文说明：类型或类 JobSnapshot 约束宿主、交互或任务数据职责。 */
 export interface JobSnapshot {
   /** The registry-issued id (`<kind>-N`). */
   id: JobId
@@ -128,6 +143,7 @@ export interface JobSnapshot {
 }
 
 /** Output and post-read state returned by {@link JobRegistry.read}. */
+/** 中文说明：类型或类 JobRead 约束宿主、交互或任务数据职责。 */
 export interface JobRead {
   /**
    * Stream kinds: the consuming delta since the previous read. Final-output
@@ -143,6 +159,7 @@ export interface JobRead {
  * Completion callback with the exact owner supplied at start, or `undefined`
  * for an unowned job. Returned promises are observed but not awaited.
  */
+/** 中文说明：类型或类 JobDoneListener 约束宿主、交互或任务数据职责。 */
 export type JobDoneListener = (
   snapshot: JobSnapshot,
   owner: Agent | undefined,
@@ -157,4 +174,5 @@ export type JobDoneListener = (
  * An `undefined` owner means an unowned job changed, so every caller's visible
  * set changed with it.
  */
+/** 中文说明：类型或类 JobsChangedListener 约束宿主、交互或任务数据职责。 */
 export type JobsChangedListener = (owner: Agent | undefined) => void

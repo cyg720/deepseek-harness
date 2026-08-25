@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证交互与审批的 commands.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
+ * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
+ * 逻辑维度：构造服务和状态，驱动操作并断言事件与结果。
+ * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
+ * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createScope } from '@deepseek-ai/dsh-scope'
@@ -7,6 +15,7 @@ import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import CommandRuntime, { parseCommand, type CommandDefinition } from '@deepseek-ai/dsh-commands'
 import { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 
+/** 中文说明：函数 command 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function command(name: string, text = `ran:${name}`): CommandDefinition {
   return {
     name,
@@ -15,7 +24,9 @@ function command(name: string, text = `ran:${name}`): CommandDefinition {
   }
 }
 
+/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(CommandRuntime)
@@ -23,15 +34,20 @@ async function mount(): Promise<Context> {
 }
 
 /** Mint a scope whose key is a live agent (real session: the executor logs lifecycle events on it). */
+/** 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mintAgentScope(ctx: Context, name: string): Promise<{ scope: Scope; agent: Agent }> {
+  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = ctx.sessions.create(SessionId(name))
+  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = { id: session.id, session } as Agent
+  /** 中文说明：测试局部值 scope!: Scope，由紧邻初始化决定。 */
   let scope!: Scope
   await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, agent) }, { inject: ['commands'] }))
   return { scope, agent }
 }
 
 /** The lifecycle slice of one agent's log (boundary markers stripped). */
+/** 中文说明：函数 lifecycleOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lifecycleOf(agent: Agent): Array<{ type: string; data: unknown }> {
   return agent.session.events
     .filter(event => event.type === 'command/run' || event.type === 'command/done')
@@ -55,8 +71,11 @@ describe('parseCommand()', () => {
 
 describe('CommandRuntime', () => {
   it('lists immutable global descriptors with input metadata', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 definition，由紧邻初始化决定。 */
     const definition: CommandDefinition = {
       name: 'inspect',
       description: 'Inspect state',
@@ -65,6 +84,7 @@ describe('CommandRuntime', () => {
     }
     ctx.commands.register(definition)
 
+    /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
     const listed = ctx.commands.list(agent)
     expect(listed).toEqual([{
       name: 'inspect',
@@ -79,7 +99,9 @@ describe('CommandRuntime', () => {
   })
 
   it('sorts distinct effective command names', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(command('zeta'))
     ctx.commands.register(command('alpha'))
@@ -88,8 +110,11 @@ describe('CommandRuntime', () => {
   })
 
   it('uses agent-scoped shadows and removes them with their scope', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = { id: 'other' as SessionId } as Agent
     ctx.commands.register(command('shared', 'global'))
     scope.ctx.commands.register(command('shared', 'scoped'))
@@ -105,8 +130,11 @@ describe('CommandRuntime', () => {
   })
 
   it('removes a registration when its contributing plugin fiber is disposed', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       inner.commands.register(command('temporary'))
     }, { inject: ['commands'] }))
@@ -118,7 +146,9 @@ describe('CommandRuntime', () => {
   })
 
   it('rejects duplicates within one layer while allowing a scoped shadow', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { scope }，由紧邻初始化决定。 */
     const { scope } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(command('same'))
     expect(() => ctx.commands.register(command('same'))).toThrow(/agent\.ctx/)
@@ -127,21 +157,28 @@ describe('CommandRuntime', () => {
   })
 
   it('notifies on registration and disposal while containing broken observers', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 changed，由紧邻初始化决定。 */
     const changed = vi.fn()
     ctx.on('commands/change', changed)
+    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.commands.register(command('live'))
     dispose()
     dispose()
     expect(changed).toHaveBeenCalledTimes(2)
 
+    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
     ctx.on('commands/change', () => { throw new Error('observer threw') })
     // oxlint-disable-next-line typescript/no-misused-promises -- exercises rejected-listener containment
     ctx.on('commands/change', () => Promise.reject(new Error('observer rejected')))
+    /** 中文说明：测试局部值 afterFailures，由紧邻初始化决定。 */
     const afterFailures = vi.fn()
     ctx.on('commands/change', afterFailures)
+    /** 中文说明：测试局部值 removeContained，由紧邻初始化决定。 */
     const removeContained = ctx.commands.register(command('contained'))
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     expect(ctx.commands.find(agent, 'contained')).toBeDefined()
     expect(afterFailures).toHaveBeenCalledTimes(1)
@@ -155,6 +192,7 @@ describe('CommandRuntime', () => {
   })
 
   it('rejects non-string descriptions and input hints with boundary diagnostics', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
     expect(() => ctx.commands.register({
       ...command('description-type'),
@@ -171,12 +209,17 @@ describe('CommandRuntime', () => {
   })
 
   it('passes exact invocation context and detaches valid handler results', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = vi.fn(() => ({ kind: 'success' as const, text: 'ok' }))
     ctx.commands.register({ name: 'run', description: 'Run it', handler: seen })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
 
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = await ctx.commands.execute(agent, '/run  untouched ', [], controller.signal)
 
     expect(execution?.result).toEqual({ kind: 'success', text: 'ok' })
@@ -193,31 +236,40 @@ describe('CommandRuntime', () => {
   })
 
   it('stops awaiting an aborted handler and handles an already-aborted signal', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     let release!: (result: { kind: 'success'; text: string }) => void
     ctx.commands.register({
       name: 'wait',
       description: 'Wait',
       handler: () => new Promise((resolve) => { release = resolve }),
     })
+    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = new AbortController()
+    /** 中文说明：测试局部值 promise，由紧邻初始化决定。 */
     const promise = ctx.commands.execute(agent, '/wait', [], running.signal)
     running.abort('operator cancelled command')
     await expect(promise).rejects.toThrow('operator cancelled command')
     release({ kind: 'success', text: 'late' })
 
+    /** 中文说明：测试局部值 already，由紧邻初始化决定。 */
     const already = new AbortController()
     already.abort(new Error('already gone'))
     await expect(ctx.commands.execute(agent, '/wait', [], already.signal)).rejects.toThrow('already gone')
 
+    /** 中文说明：测试局部值 defaultReason，由紧邻初始化决定。 */
     const defaultReason = new AbortController()
     defaultReason.abort({ source: 'test' })
     await expect(ctx.commands.execute(agent, '/wait', [], defaultReason.signal)).rejects.toThrow('command aborted')
   })
 
   it('propagates an asynchronously rejected handler', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register({
       name: 'reject',
@@ -236,6 +288,7 @@ describe('CommandRuntime', () => {
     await expect(ctx.commands.execute(agent, '/reject-value', [], new AbortController().signal))
       .rejects.toThrow('command handler rejected with a non-Error value: not an Error')
 
+    /** 中文说明：测试局部值 hostile，由紧邻初始化决定。 */
     const hostile = { toString(): string { throw new Error('cannot render') } }
     ctx.commands.register({
       name: 'reject-hostile',
@@ -251,8 +304,11 @@ describe('CommandRuntime', () => {
   })
 
   it('observes an abort triggered synchronously inside the handler', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     ctx.commands.register({
       name: 'self-abort',
@@ -267,13 +323,16 @@ describe('CommandRuntime', () => {
   })
 
   it('returns a detached expected-error result', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register({
       name: 'denied',
       description: 'Denied',
       handler: () => ({ kind: 'error', text: 'not now' }),
     })
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = await ctx.commands.execute(agent, '/denied', [], new AbortController().signal)
     expect(execution?.result).toEqual({ kind: 'error', text: 'not now' })
     expect(Object.isFrozen(execution?.result)).toBe(true)
@@ -283,6 +342,7 @@ describe('CommandRuntime', () => {
       description: 'No output',
       handler: () => ({ kind: 'success' }),
     })
+    /** 中文说明：测试局部值 silent，由紧邻初始化决定。 */
     const silent = await ctx.commands.execute(agent, '/silent', [], new AbortController().signal)
     expect(silent?.result).toEqual({ kind: 'success' })
     expect(Object.isFrozen(silent?.result)).toBe(true)
@@ -294,22 +354,28 @@ describe('CommandRuntime', () => {
     [{ ...command('empty-hint'), input: { hint: '' } }, /input hint/],
     [{ ...command('bad-handler'), handler: undefined }, /handler/],
   ] as const)('rejects invalid definition %#', async (definition, expected) => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
     expect(() => ctx.commands.register(definition as unknown as CommandDefinition)).toThrow(expected)
   })
 
   it('logs a paired command/run + command/done around a successful handler', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(command('deploy', 'deployed'))
 
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = await ctx.commands.execute(agent, '/deploy now', [], new AbortController().signal)
 
+    /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定。 */
     const lifecycle = lifecycleOf(agent)
     expect(lifecycle).toMatchObject([
       { type: 'command/run', data: { name: 'deploy', args: ' now', source: { kind: 'user' } } },
       { type: 'command/done', data: { kind: 'success', text: 'deployed' } },
     ])
+    /** 中文说明：测试局部值 ids，由紧邻初始化决定。 */
     const ids = lifecycle.map(event => (event.data as { commandId: string }).commandId)
     expect(ids[0]).toBeTruthy()
     expect(ids[0]).toBe(ids[1])
@@ -322,8 +388,11 @@ describe('CommandRuntime', () => {
   })
 
   it('preserves an earlier authoritative domain-event reference on successful settlement', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = agent.session.append('turn/start', { turn: 1 })
     ctx.commands.register({
       name: 'linked',
@@ -331,6 +400,7 @@ describe('CommandRuntime', () => {
       handler: () => ({ kind: 'success', text: 'linked', sourceEventSeq: source.seq }),
     })
 
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = await ctx.commands.execute(agent, '/linked', [], new AbortController().signal)
 
     expect(execution?.result).toEqual({ kind: 'success', text: 'linked', sourceEventSeq: source.seq })
@@ -341,8 +411,11 @@ describe('CommandRuntime', () => {
   })
 
   it('omits raw input from command/run when an authoritative domain event owns it', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = vi.fn(() => ({ kind: 'success' as const }))
     ctx.commands.register({
       name: 'private',
@@ -354,18 +427,22 @@ describe('CommandRuntime', () => {
     await ctx.commands.execute(agent, '/private keep this once', [], new AbortController().signal)
 
     expect(seen).toHaveBeenCalledWith(expect.objectContaining({ rawInput: ' keep this once' }))
+    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
     const run = agent.session.events.find(event => event.type === 'command/run')
     expect(run?.type).toBe('command/run')
     expect(run?.type === 'command/run' && Object.hasOwn(run.data, 'args')).toBe(false)
   })
 
   it('mints distinct monotonic commandIds across executions', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(command('first'))
     ctx.commands.register(command('second'))
     await ctx.commands.execute(agent, '/first', [], new AbortController().signal)
     await ctx.commands.execute(agent, '/second', [], new AbortController().signal)
+    /** 中文说明：测试局部值 ids，由紧邻初始化决定。 */
     const ids = lifecycleOf(agent)
       .filter(event => event.type === 'command/run')
       .map(event => (event.data as { commandId: string }).commandId)
@@ -373,7 +450,9 @@ describe('CommandRuntime', () => {
   })
 
   it('logs command/done kind error for an expected error result', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register({ name: 'denied', description: 'Denied', handler: () => ({ kind: 'error', text: 'not now' }) })
     await ctx.commands.execute(agent, '/denied', [], new AbortController().signal)
@@ -384,7 +463,9 @@ describe('CommandRuntime', () => {
   })
 
   it('logs command/done kind error when the handler throws, and preserves the throw', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register({
       name: 'boom',
@@ -400,14 +481,18 @@ describe('CommandRuntime', () => {
   })
 
   it('logs command/done kind error when the signal aborts a hanging handler', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register({
       name: 'hang',
       description: 'Hang',
       handler: () => new Promise(() => undefined),
     })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = ctx.commands.execute(agent, '/hang', [], controller.signal)
     // The run append must land before the abort so the pair stays complete.
     await vi.waitFor(() => { expect(lifecycleOf(agent)).toHaveLength(1) })
@@ -422,9 +507,12 @@ describe('CommandRuntime', () => {
   })
 
   it('logs nothing for admission misses (syntax or unknown name)', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(command('real'))
+    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
     await ctx.commands.execute(agent, 'not a command', [], signal)
     await ctx.commands.execute(agent, '/missing', [], signal)
@@ -432,7 +520,9 @@ describe('CommandRuntime', () => {
   })
 
   it('joins an open turn without wrapping the lifecycle pair in synthetic turns', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(command('mid'))
     agent.session.append('turn/start', { turn: 1 })
@@ -454,7 +544,9 @@ describe('CommandRuntime', () => {
     [{ kind: 'error', text: 1 }, /error text/],
     [{ kind: 'future', text: 'x' }, /unknown result kind/],
   ] as const)('rejects malformed handler result %j', async (output, expected) => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register({
       name: 'broken',
@@ -466,10 +558,14 @@ describe('CommandRuntime', () => {
 })
 
 describe('image attachments', () => {
+  /** 中文说明：测试局部值 PNG，由紧邻初始化决定。 */
   const PNG = 'AAAA'
 
+  /** 中文说明：函数 storeOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function storeOf() {
+    /** 中文说明：测试局部值 saved，由紧邻初始化决定。 */
     let saved = 0
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = {
       imageLimits: {
         maxImageBytes: 1024, maxImagesPerMessage: 2, maxMessageImageBytes: 1024,
@@ -484,6 +580,7 @@ describe('image attachments', () => {
         })
       }),
       validateImageBatch(inputs: readonly unknown[]) {
+        /** 中文说明：测试局部值 validate，由紧邻初始化决定。 */
         const validate = AttachmentStore.prototype as unknown as {
           validateImageBatch(this: unknown, batch: readonly unknown[]): void
         }
@@ -497,6 +594,7 @@ describe('image attachments', () => {
     return store
   }
 
+  /** 中文说明：函数 accepting 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function accepting(handler: CommandDefinition['handler']): CommandDefinition {
     return {
       name: 'vision',
@@ -507,6 +605,7 @@ describe('image attachments', () => {
   }
 
   it('rejects a boolean-typed images flag violation at registration', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
     expect(() => ctx.commands.register({
       ...command('flag-type'),
@@ -515,20 +614,27 @@ describe('image attachments', () => {
   })
 
   it('lists images acceptance on the descriptor and omits a false flag', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(accepting(() => ({ kind: 'success' })))
     ctx.commands.register({ ...command('plain-input'), input: { hint: 'x', images: false } })
+    /** 中文说明：测试局部值 byName，由紧邻初始化决定。 */
     const byName = new Map(ctx.commands.list(agent).map(descriptor => [descriptor.name, descriptor]))
     expect(byName.get('vision')?.input).toEqual({ hint: '<objective>', images: true })
     expect(byName.get('plain-input')?.input).toEqual({ hint: 'x' })
   })
 
   it('settles images sent to a non-declaring command as a logged error before the handler', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 handler，由紧邻初始化决定。 */
     const handler = vi.fn(() => ({ kind: 'success' as const }))
     ctx.commands.register({ ...command('deploy'), handler })
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = await ctx.commands.execute(
       agent, '/deploy now', [{ mediaType: 'image/png', data: PNG }], new AbortController().signal)
     expect(execution?.result).toEqual({ kind: 'error', text: '/deploy does not accept image attachments' })
@@ -540,9 +646,12 @@ describe('image attachments', () => {
   })
 
   it('settles a declaring command as a logged error when no attachment store is composed', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(accepting(() => ({ kind: 'success' })))
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = await ctx.commands.execute(
       agent, '/vision x', [{ mediaType: 'image/png', data: PNG }], new AbortController().signal)
     expect(execution?.result).toEqual({
@@ -552,9 +661,12 @@ describe('image attachments', () => {
   })
 
   it('admits and hands the handler frozen ordered image blocks; plain invocations stay empty', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
     ctx.provide('attachments', storeOf())
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen = vi.fn((invocation: { attachments: readonly unknown[] }) => {
       expect(Object.isFrozen(invocation.attachments)).toBe(true)
       return { kind: 'success' as const }
@@ -564,6 +676,7 @@ describe('image attachments', () => {
       { mediaType: 'image/png', data: PNG, name: 'a.png' },
       { mediaType: 'image/png', data: PNG, name: 'b.png' },
     ], new AbortController().signal)
+    /** 中文说明：测试局部值 invocation，由紧邻初始化决定。 */
     const invocation = seen.mock.calls[0]?.[0] as { attachments: ReadonlyArray<{ type: string; attachment: { name?: string } }> }
     expect(invocation.attachments.map(block => [block.type, block.attachment.name])).toEqual([
       ['image', 'a.png'], ['image', 'b.png'],
@@ -573,12 +686,17 @@ describe('image attachments', () => {
   })
 
   it('settles an admission limit failure as a logged error result', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
     ctx.provide('attachments', storeOf())
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 handler，由紧邻初始化决定。 */
     const handler = vi.fn(() => ({ kind: 'success' as const }))
     ctx.commands.register(accepting(handler))
+    /** 中文说明：测试局部值 three，由紧邻初始化决定。 */
     const three = [1, 2, 3].map(() => ({ mediaType: 'image/png' as const, data: PNG }))
+    /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
     const execution = await ctx.commands.execute(agent, '/vision x', three, new AbortController().signal)
     expect(execution?.result).toEqual({ kind: 'error', text: 'Image batch exceeds the configured image-count limit.' })
     expect(handler).not.toHaveBeenCalled()
@@ -586,8 +704,11 @@ describe('image attachments', () => {
   })
 
   it('honors a cancellation that lands during admission before entering the handler', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = storeOf()
     store.saveImage.mockImplementationOnce((input: { mediaType: string }) => {
       controller.abort('operator cancelled during admission')
@@ -596,7 +717,9 @@ describe('image attachments', () => {
       })
     })
     ctx.provide('attachments', store)
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
+    /** 中文说明：测试局部值 handler，由紧邻初始化决定。 */
     const handler = vi.fn(() => ({ kind: 'success' as const }))
     ctx.commands.register(accepting(handler))
     await expect(ctx.commands.execute(
@@ -610,10 +733,13 @@ describe('image attachments', () => {
   })
 
   it('logs and rethrows a non-attachment admission failure', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await mount()
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = storeOf()
     store.saveImage.mockRejectedValueOnce(new Error('disk gone'))
     ctx.provide('attachments', store)
+    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(accepting(() => ({ kind: 'success' })))
     await expect(ctx.commands.execute(

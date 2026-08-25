@@ -6,12 +6,21 @@
  *
  * @module @deepseek-ai/dsh-user-questions
  */
+/**
+ * 文件职责：实现交互与审批的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
+ * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
+ * 逻辑维度：注册能力，校验请求，更新状态并记录事件。
+ * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
+ * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
+ */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：类型或类 Context 约束宿主、交互或任务数据职责。 */
   interface Context {
     userQuestions: UserQuestionService
   }
@@ -25,6 +34,7 @@ export type {
 } from './types.ts'
 
 /** Request for a human answer. */
+/** 中文说明：类型或类 AskUserQuestionRequest 约束宿主、交互或任务数据职责。 */
 export interface AskUserQuestionRequest {
   /** Questions to display. */
   questions: AskUserQuestionItem[]
@@ -35,11 +45,13 @@ export interface AskUserQuestionRequest {
 }
 
 /** UI-side provider for user questions. */
+/** 中文说明：类型或类 UserQuestionProvider 约束宿主、交互或任务数据职责。 */
 export interface UserQuestionProvider {
   ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer>
 }
 
 /** Stable error taxonomy for user-questions failures. */
+/** 中文说明：类型或类 UserQuestionError 约束宿主、交互或任务数据职责。 */
 export class UserQuestionError extends HarnessError {
   constructor(message: string, code: string, options?: ErrorOptions) {
     super(message, code, options)
@@ -48,6 +60,7 @@ export class UserQuestionError extends HarnessError {
 }
 
 /** `ctx.userQuestions`: one active UI provider plus an `ask()` API. */
+/** 中文说明：类型或类 UserQuestionService 约束宿主、交互或任务数据职责。 */
 export class UserQuestionService extends Service {
   private provider: UserQuestionProvider | undefined
 
@@ -62,6 +75,7 @@ export class UserQuestionService extends Service {
    * @returns Disposer that unregisters this provider.
    */
   registerProvider(provider: UserQuestionProvider): () => void {
+    /** 中文说明：服务局部值 dispose，由紧邻初始化决定。 */
     const dispose = this.ctx.effect(function* (this: UserQuestionService) {
       if (this.provider !== undefined) {
         throw new UserQuestionError('a user-questions provider is already registered', 'DUPLICATE_PROVIDER')
@@ -96,8 +110,10 @@ export class UserQuestionService extends Service {
     if (request.questions.length === 0) {
       throw new UserQuestionError('ask_user_question requires at least one question', 'EMPTY_QUESTIONS')
     }
+    /** 中文说明：服务局部值 agent，由紧邻初始化决定。 */
     const agent = request.agent
     if (agent !== undefined) {
+      /** 中文说明：服务局部值 agents，由紧邻初始化决定。 */
       const agents = this.ctx.get('agents')
       if (agents === undefined || agents.get(agent.id) !== agent) {
         throw new UserQuestionError(
@@ -118,7 +134,9 @@ export class UserQuestionService extends Service {
     // either gap would put a choice the asker never offered — or an approval of
     // something invisible — in front of the user. Caught at the asker, where
     // the mistake is, rather than in each UI.
+    /** 中文说明：服务局部值 question，由紧邻初始化决定。 */
     for (const question of request.questions) {
+      /** 中文说明：服务局部值 intent，由紧邻初始化决定。 */
       const intent = question.intent
       if (intent === undefined) continue
       if (!(question.options ?? []).some(option => option.label === intent.approve)) {

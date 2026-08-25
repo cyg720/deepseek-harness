@@ -8,6 +8,14 @@
  * teardown cancel force-fails only the record and reports a possible orphan.
  * @module @deepseek-ai/dsh-jobs-local
  */
+/**
+ * 文件职责：实现后台任务的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
+ * 产品维度：保证后台任务在授权、等待、失败和清理场景中可靠。
+ * 逻辑维度：注册能力，校验请求，更新状态并记录事件。
+ * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
+ * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
+ */
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -22,12 +30,15 @@ import type {
 } from '@deepseek-ai/dsh-jobs'
 
 /** Timeout code that distinguishes a bounded wait from caller cancellation. */
+/** 中文说明：服务局部值 TASK_WAIT_TIMEOUT，由紧邻初始化决定。 */
 export const TASK_WAIT_TIMEOUT = 'TASK_WAIT_TIMEOUT'
 
 /** Default maximum number of active jobs in one exact-owner bucket. */
+/** 中文说明：服务局部值 解构结果，由紧邻初始化决定。 */
 const DEFAULT_MAX_CONCURRENT_TASKS_PER_OWNER = 10
 
 /** Configuration for the process-local job registry. */
+/** 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
 export interface Config {
   /**
    * Maximum `running` plus `stopping` jobs per exact owner or in the shared unowned bucket;
@@ -37,6 +48,7 @@ export interface Config {
 }
 
 /** The registry's mutable per-job record (never handed out — see {@link LocalJobRegistry.snapshot}). */
+/** 中文说明：类型或类 TrackedTask 约束宿主、交互或任务数据职责。 */
 interface TrackedTask {
   id: JobId
   kind: JobKind
@@ -63,6 +75,7 @@ interface TrackedTask {
 }
 
 /** True for the three terminal {@link JobStatus} values. */
+/** 中文说明：函数 isTerminal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isTerminal(status: JobStatus): boolean {
   return status === 'completed' || status === 'killed' || status === 'failed'
 }
@@ -73,6 +86,7 @@ function isTerminal(status: JobStatus): boolean {
  * contribution is identified by its own disposer, never by a name a second
  * registrant could shadow.
  */
+/** 中文说明：类型或类 JobLayer 约束宿主、交互或任务数据职责。 */
 class JobLayer implements ScopeLayer {
   readonly controllers = new AnonymousEntries<symbol>()
   readonly listeners = new AnonymousEntries<JobDoneListener>()
@@ -88,6 +102,7 @@ class JobLayer implements ScopeLayer {
  * `@deepseek-ai/dsh-jobs` for the ownership, isolation, and lifecycle
  * semantics this implementation honors.
  */
+/** 中文说明：类型或类 LocalJobRegistry 约束宿主、交互或任务数据职责。 */
 export class LocalJobRegistry extends JobRegistry {
   static Config: z<Config> = z.object({
     maxConcurrentJobsPerOwner: z.number()
@@ -140,6 +155,7 @@ export class LocalJobRegistry extends JobRegistry {
     }
     if (spec.owner !== undefined) this.ensureOwnerCleanup(spec.owner)
 
+    /** 中文说明：服务局部值 active，由紧邻初始化决定。 */
     const active = this.activeTaskCount(spec.owner)
     if (active >= this.maxConcurrentJobsPerOwner) {
       throw new Error(
@@ -147,13 +163,19 @@ export class LocalJobRegistry extends JobRegistry {
       )
     }
 
+    /** 中文说明：服务局部值 hooks，由紧邻初始化决定。 */
     const hooks = spec.run()
+    /** 中文说明：服务局部值 count，由紧邻初始化决定。 */
     const count = (this.counters.get(spec.kind) ?? 0) + 1
     this.counters.set(spec.kind, count)
+    /** 中文说明：服务局部值 id，由紧邻初始化决定。 */
     const id = JobId(`${spec.kind}-${count}`)
 
+    /** 中文说明：服务局部值 markSettled，由紧邻初始化决定。 */
     let markSettled!: () => void
+    /** 中文说明：服务局部值 settled，由紧邻初始化决定。 */
     const settled = new Promise<void>((resolve) => { markSettled = resolve })
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     const job: TrackedTask = {
       id,
       kind: spec.kind,
@@ -190,6 +212,7 @@ export class LocalJobRegistry extends JobRegistry {
   }
 
   list(caller?: Agent): JobSnapshot[] {
+    /** 中文说明：服务局部值 session，由紧邻初始化决定。 */
     const session = caller?.id
     return [...this.store.values()]
       .filter(job => job.owner === undefined || job.owner.id === session)
@@ -197,14 +220,17 @@ export class LocalJobRegistry extends JobRegistry {
   }
 
   get(id: JobId, caller?: Agent): JobSnapshot {
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     const job = this.expect(id)
     this.assertAccess(job, caller)
     return this.snapshot(job)
   }
 
   read(id: JobId, caller?: Agent): JobRead {
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     const job = this.expect(id)
     this.assertAccess(job, caller)
+    /** 中文说明：服务局部值 text，由紧邻初始化决定。 */
     const text = job.readOutput !== undefined
       ? job.readOutput()
       : isTerminal(job.status) ? job.output ?? '' : ''
@@ -213,6 +239,7 @@ export class LocalJobRegistry extends JobRegistry {
   }
 
   kill(id: JobId, caller?: Agent, reason?: string): 'requested' | 'already-finished' {
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     const job = this.expect(id)
     this.assertAccess(job, caller)
     if (isTerminal(job.status)) {
@@ -228,6 +255,7 @@ export class LocalJobRegistry extends JobRegistry {
   }
 
   async wait(id: JobId, timeoutMs: number, caller?: Agent, signal?: AbortSignal): Promise<JobSnapshot> {
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     const job = this.expect(id)
     this.assertAccess(job, caller)
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
@@ -238,7 +266,9 @@ export class LocalJobRegistry extends JobRegistry {
       // Abort removes the waiter synchronously so same-tick settlement cannot
       // suppress a notice for a wait that will reject.
       job.waiters += 1
+      /** 中文说明：服务局部值 counted，由紧邻初始化决定。 */
       let counted = true
+      /** 中文说明：服务局部值 uncount，由紧邻初始化决定。 */
       const uncount = (): void => {
         if (!counted) return
         counted = false
@@ -249,11 +279,13 @@ export class LocalJobRegistry extends JobRegistry {
         // caller cancellation and clears its timer on every exit.
         using d = deadline(signal, timeoutMs, TASK_WAIT_TIMEOUT)
         await new Promise<void>((resolve, reject) => {
+          /** 中文说明：服务局部值 onSettled，由紧邻初始化决定。 */
           const onSettled = (): void => {
             job.waitResolvers.delete(onSettled)
             d.signal.removeEventListener('abort', onAbort)
             resolve()
           }
+          /** 中文说明：服务局部值 onAbort，由紧邻初始化决定。 */
           const onAbort = (): void => {
             job.waitResolvers.delete(onSettled)
             // A settled job cannot reach here: settlement releases every waiter
@@ -296,6 +328,7 @@ export class LocalJobRegistry extends JobRegistry {
 
   attachController(name: string): () => void {
     // One token per call keeps duplicate labels independently disposable.
+    /** 中文说明：服务局部值 token，由紧邻初始化决定。 */
     const token = Symbol(name)
     return this.layers.effect(
       this.ctx,
@@ -320,7 +353,9 @@ export class LocalJobRegistry extends JobRegistry {
 
   /** Count authoritative active records for one exact owner or the shared unowned bucket. */
   private activeTaskCount(owner: Agent | undefined): number {
+    /** 中文说明：服务局部值 count，由紧邻初始化决定。 */
     let count = 0
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     for (const job of this.store.values()) {
       if (job.owner === owner && (job.status === 'running' || job.status === 'stopping')) count += 1
     }
@@ -337,12 +372,15 @@ export class LocalJobRegistry extends JobRegistry {
    */
   private *listenersFor(owner?: Agent): IterableIterator<JobDoneListener> {
     yield* this.layers.global.listeners.values()
+    /** 中文说明：服务局部值 scope，由紧邻初始化决定。 */
     const scope = owner === undefined ? undefined : scopeOf(owner.ctx)
+    /** 中文说明：服务局部值 layer，由紧邻初始化决定。 */
     for (const layer of this.layers.chainLayers(scope)) yield* layer.listeners.values()
   }
 
   /** Look up a job or fail loud. */
   private expect(id: JobId): TrackedTask {
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     const job = this.store.get(id)
     if (job === undefined) throw new Error(`unknown job ${id}`)
     return job
@@ -361,6 +399,7 @@ export class LocalJobRegistry extends JobRegistry {
 
   /** Project a fresh read-only snapshot from the mutable record. */
   private snapshot(job: TrackedTask): JobSnapshot {
+    /** 中文说明：服务局部值 ownerSession，由紧邻初始化决定。 */
     const ownerSession = job.owner?.id
     return {
       id: job.id,
@@ -387,7 +426,9 @@ export class LocalJobRegistry extends JobRegistry {
    */
   private *changedFor(owner?: Agent): IterableIterator<JobsChangedListener> {
     yield* this.layers.global.changed.values()
+    /** 中文说明：服务局部值 scope，由紧邻初始化决定。 */
     const scope = owner === undefined ? undefined : scopeOf(owner.ctx)
+    /** 中文说明：服务局部值 layer，由紧邻初始化决定。 */
     for (const layer of this.layers.chainLayers(scope)) yield* layer.changed.values()
   }
 
@@ -396,6 +437,7 @@ export class LocalJobRegistry extends JobRegistry {
    * so an observer cannot break a lifecycle commit that already happened.
    */
   private notifyChanged(owner: Agent | undefined): void {
+    /** 中文说明：服务局部值 listener，由紧邻初始化决定。 */
     for (const listener of this.changedFor(owner)) {
       try {
         listener(owner)
@@ -420,15 +462,20 @@ export class LocalJobRegistry extends JobRegistry {
     job.output = outcome.output
     job.finishedAt = Date.now()
     if (job.waiters > 0) job.reported = true
+    /** 中文说明：服务局部值 snapshot，由紧邻初始化决定。 */
     const snapshot = this.snapshot(job)
+    /** 中文说明：服务局部值 waitResolvers，由紧邻初始化决定。 */
     const waitResolvers = [...job.waitResolvers]
     job.waitResolvers.clear()
+    /** 中文说明：服务局部值 resolveWait，由紧邻初始化决定。 */
     for (const resolveWait of waitResolvers) resolveWait()
     job.markSettled()
     this.notifyChanged(job.owner)
     if (this.listenersClosed) return
+    /** 中文说明：服务局部值 listener，由紧邻初始化决定。 */
     for (const listener of this.listenersFor(job.owner)) {
       try {
+        /** 中文说明：服务局部值 returned，由紧邻初始化决定。 */
         const returned = listener(snapshot, job.owner)
         void Promise.resolve(returned).catch((error: unknown) => {
           this.selfCtx.logger.warn(`jobs: onJobDone listener rejected for ${job.id}: ${String(error)}`)
@@ -446,7 +493,9 @@ export class LocalJobRegistry extends JobRegistry {
    * absent or the owner is not its currently registered instance.
    */
   private ensureOwnerCleanup(owner: Agent): void {
+    /** 中文说明：服务局部值 ownerId，由紧邻初始化决定。 */
     const ownerId = owner.id
+    /** 中文说明：服务局部值 agents，由紧邻初始化决定。 */
     const agents = this.selfCtx.get('agents')
     if (agents === undefined) {
       throw new Error('background job ownership requires the agent registry (load @deepseek-ai/dsh-agent)')
@@ -456,6 +505,7 @@ export class LocalJobRegistry extends JobRegistry {
     }
     if (this.ownerCleanups.has(owner)) return
     // Record only after attach succeeds; a disposing scope rejects new effects.
+    /** 中文说明：服务局部值 detach，由紧邻初始化决定。 */
     const detach = owner.ctx.effect(() => async () => {
       this.ownerCleanups.delete(owner)
       await this.disposeOwned(owner)
@@ -465,9 +515,11 @@ export class LocalJobRegistry extends JobRegistry {
 
   /** Cancel, await terminal records, and drop every job owned by one exact agent lifecycle. */
   private async disposeOwned(owner: Agent): Promise<void> {
+    /** 中文说明：服务局部值 owned，由紧邻初始化决定。 */
     const owned = [...this.store.values()].filter(job => job.owner === owner)
     this.cancelForTeardown(owned, 'owner disposed')
     await Promise.all(owned.map(job => job.settled))
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     for (const job of owned) this.store.delete(job.id)
     // Removal is the one visible-set change no per-job record carries, so it
     // must be announced here or an observer keeps the dropped rows forever.
@@ -482,6 +534,7 @@ export class LocalJobRegistry extends JobRegistry {
     // The flag is the whole guard: each layer entry's undo belongs to the fiber
     // that registered it, so this service may not drop them on its own way out.
     this.listenersClosed = true
+    /** 中文说明：服务局部值 all，由紧邻初始化决定。 */
     const all = [...this.store.values()]
     this.cancelForTeardown(all, 'jobs service disposed')
     await Promise.all(all.map(job => job.settled))
@@ -490,10 +543,13 @@ export class LocalJobRegistry extends JobRegistry {
     // outside this service — the api-proxy carrier registers from the mux
     // stream — is still reachable here. Without this it keeps the rows it last
     // received after a registry reload.
+    /** 中文说明：服务局部值 emptied，由紧邻初始化决定。 */
     const emptied = new Set(all.map(job => job.owner))
     this.store.clear()
+    /** 中文说明：服务局部值 owner，由紧邻初始化决定。 */
     for (const owner of emptied) this.notifyChanged(owner)
     // Detach cross-fiber owner effects after the shared store is quiescent.
+    /** 中文说明：服务局部值 ownerCleanups，由紧邻初始化决定。 */
     const ownerCleanups = [...this.ownerCleanups.values()]
     this.ownerCleanups.clear()
     await Promise.all(ownerCleanups.map(cleanup => Promise.resolve(cleanup())))
@@ -505,6 +561,7 @@ export class LocalJobRegistry extends JobRegistry {
    * without settling remains indistinguishable from a slow stop and may stall.
    */
   private cancelForTeardown(jobs: TrackedTask[], reason: string): void {
+    /** 中文说明：服务局部值 job，由紧邻初始化决定。 */
     for (const job of jobs) {
       if (isTerminal(job.status)) continue
       // Teardown cancellation is a kill without a caller, so it claims the
@@ -523,6 +580,7 @@ export class LocalJobRegistry extends JobRegistry {
         // observer from showing `running` for that whole window.
         this.notifyChanged(job.owner)
       } catch (error: unknown) {
+        /** 中文说明：服务局部值 detail，由紧邻初始化决定。 */
         const detail = `cancel threw during teardown; work may be orphaned: ${String(error)}`
         this.selfCtx.logger.warn(`jobs: cancel of ${job.id} threw during teardown; job record forced failed and work may be orphaned: ${String(error)}`)
         this.settle(job, { status: 'failed', detail })

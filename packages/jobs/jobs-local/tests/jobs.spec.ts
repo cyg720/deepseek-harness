@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证后台任务的 jobs.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
+ * 产品维度：保证后台任务在授权、等待、失败和清理场景中可靠。
+ * 逻辑维度：构造服务和状态，驱动操作并断言事件与结果。
+ * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
+ * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
+ */
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -10,26 +18,35 @@ import type { JobHooks, JobKind, JobOutcome, JobSnapshot, JobStart } from '@deep
 import LocalJobRegistry, { type Config as JobsConfig } from '@deepseek-ai/dsh-jobs-local'
 
 declare module '@deepseek-ai/dsh-jobs' {
+  /** 中文说明：类型或类 JobKindMap 约束宿主、交互或任务数据职责。 */
   interface JobKindMap {
     workflow: 'workflow'
   }
 }
 
+/** 中文说明：测试局部值 agentScopeDisposers，由紧邻初始化决定。 */
 const agentScopeDisposers = new WeakMap<Agent, () => Promise<void>>()
 
+/** 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(ctx: Context, rawId: string, presetScope?: ScopeKey): Agent {
+  /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
   const id = SessionId(rawId)
+  /** 中文说明：测试局部值 scopeFiber，由紧邻初始化决定。 */
   const scopeFiber = ctx.plugin(() => {})
   // `presetScope` reproduces what `agentPresets.compose` does: the agent gets
   // its own key parented to the standing mount's, so the registry's chain walk
   // reaches that preset's layer.
+  /** 中文说明：测试局部值 agentCtx，由紧邻初始化决定。 */
   let agentCtx = scopeFiber.ctx
   if (presetScope !== undefined) {
+    /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = {}
     bindScopeParent(key, presetScope)
     agentCtx = createScope(scopeFiber.ctx, key).ctx
   }
+  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(id)
+  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = {
     id,
     options: {},
@@ -49,23 +66,32 @@ function stubAgent(ctx: Context, rawId: string, presetScope?: ScopeKey): Agent {
   return agent
 }
 
+/** 中文说明：函数 disposeAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function disposeAgentScope(agent: Agent): Promise<void> {
+  /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
   const dispose = agentScopeDisposers.get(agent)
   if (dispose === undefined) throw new Error(`missing test scope for agent "${agent.id}"`)
   await dispose()
 }
 
 /** A controllable producer start-spec: settle its `done` on demand, record cancels. */
+/** 中文说明：函数 producer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function producer(overrides: Partial<Omit<JobStart, 'run'> & JobHooks> = {}) {
+  /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
   let settle!: (outcome: JobOutcome) => void
+  /** 中文说明：测试局部值 reject，由紧邻初始化决定。 */
   let reject!: (error: unknown) => void
+  /** 中文说明：测试局部值 cancels，由紧邻初始化决定。 */
   const cancels: (string | undefined)[] = []
+  /** 中文说明：测试局部值 { kind，由紧邻初始化决定。 */
   const { kind = 'bash', label = 'sleep 60', owner, outputLimitBytes, ...hookOverrides } = overrides
+  /** 中文说明：测试局部值 hooks，由紧邻初始化决定。 */
   const hooks: JobHooks = {
     cancel(reason) { cancels.push(reason) },
     done: new Promise<JobOutcome>((res, rej) => { settle = res; reject = rej }),
     ...hookOverrides,
   }
+  /** 中文说明：测试局部值 spec，由紧邻初始化决定。 */
   const spec: JobStart = {
     kind,
     label,
@@ -76,7 +102,9 @@ function producer(overrides: Partial<Omit<JobStart, 'run'> & JobHooks> = {}) {
   return { spec, settle, reject, cancels }
 }
 
+/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(config: JobsConfig = {}) {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalJobRegistry, config)
@@ -92,6 +120,7 @@ async function harness(config: JobsConfig = {}) {
  * without inject`, which is the same rule the shipped plugin obeys.
  * @param ctx - the context whose scope should own the controller.
  */
+/** 中文说明：函数 attachControllerIn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function attachControllerIn(ctx: Context): Promise<void> {
   await ctx.plugin({
     inject: ['jobs'],
@@ -100,11 +129,15 @@ async function attachControllerIn(ctx: Context): Promise<void> {
 }
 
 /** Let the settlement continuation (a `done.then`) run. */
+/** 中文说明：测试局部值 tick，由紧邻初始化决定。 */
 const tick = () => new Promise<void>(r => setTimeout(r, 0))
 
 /** Inspect the internal resolver registry to pin bounded retention while a job stays live. */
+/** 中文说明：函数 waitResolverCount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function waitResolverCount(ctx: Context, id: JobId): number {
+  /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
   const service = ctx.jobs as unknown as { store: Map<JobId, { waitResolvers: Set<() => void> }> }
+  /** 中文说明：测试局部值 job，由紧邻初始化决定。 */
   const job = service.store.get(id)
   if (job === undefined) throw new Error(`missing test job ${id}`)
   return job.waitResolvers.size
@@ -116,6 +149,7 @@ describe('LocalJobRegistry.start', () => {
   })
 
   it('refuses to register while no job controller serves the owner', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LocalJobRegistry)
     expect(() => ctx.jobs.start(producer().spec))
@@ -123,16 +157,21 @@ describe('LocalJobRegistry.start', () => {
   })
 
   it('refuses an owner whose own composition attaches no controller', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry)
     // Two standing preset mounts over one registry; only the first loads the
     // job controls. The second must not inherit the first's open gate.
+    /** 中文说明：测试局部值 withControls，由紧邻初始化决定。 */
     const withControls = createScope(ctx, {})
+    /** 中文说明：测试局部值 withoutControls，由紧邻初始化决定。 */
     const withoutControls = createScope(ctx, {})
     await attachControllerIn(withControls.ctx)
 
+    /** 中文说明：测试局部值 served，由紧邻初始化决定。 */
     const served = stubAgent(ctx, 'served', scopeOf(withControls.ctx))
+    /** 中文说明：测试局部值 unserved，由紧邻初始化决定。 */
     const unserved = stubAgent(ctx, 'unserved', scopeOf(withoutControls.ctx))
     ctx.agents.register(served)
     ctx.agents.register(unserved)
@@ -146,12 +185,14 @@ describe('LocalJobRegistry.start', () => {
   })
 
   it('lets a controller attached without a scope serve every owner', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry)
     // The host-plane composition's own controls: no scope, so the global layer
     // holds them and every owner's read includes it.
     await attachControllerIn(ctx)
+    /** 中文说明：测试局部值 scoped，由紧邻初始化决定。 */
     const scoped = stubAgent(ctx, 'scoped', scopeOf(createScope(ctx, {}).ctx))
     ctx.agents.register(scoped)
 
@@ -160,6 +201,7 @@ describe('LocalJobRegistry.start', () => {
   })
 
   it('rejects an empty kind, empty label, and invalid output limit', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     expect(() => ctx.jobs.start(producer({ kind: '' as JobKind }).spec)).toThrow('invalid job kind')
     expect(() => ctx.jobs.start(producer({ label: '' }).spec)).toThrow('invalid job label')
@@ -169,6 +211,7 @@ describe('LocalJobRegistry.start', () => {
   it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1])(
     'rejects invalid maxConcurrentJobsPerOwner config: %s',
     async (maxConcurrentJobsPerOwner) => {
+      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await expect(ctx.plugin(LocalJobRegistry, { maxConcurrentJobsPerOwner }))
         .rejects.toThrow()
@@ -176,29 +219,40 @@ describe('LocalJobRegistry.start', () => {
   )
 
   it('accepts the largest safe integer limit', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ maxConcurrentJobsPerOwner: Number.MAX_SAFE_INTEGER })
     expect(ctx.jobs).toBeInstanceOf(LocalJobRegistry)
   })
 
   it('defaults each owner bucket to ten active jobs', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = Array.from({ length: 10 }, () => producer())
+    /** 中文说明：测试局部值 job，由紧邻初始化决定。 */
     for (const job of live) ctx.jobs.start(job.spec)
 
+    /** 中文说明：测试局部值 blocked，由紧邻初始化决定。 */
     const blocked = producer()
+    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
     const run = vi.fn(() => blocked.spec.run())
     expect(() => ctx.jobs.start({ ...blocked.spec, run }))
       .toThrow('background job limit reached for this owner (limit: 10)')
     expect(run).not.toHaveBeenCalled()
+    /** 中文说明：测试局部值 job，由紧邻初始化决定。 */
     for (const job of live) job.settle({ status: 'completed' })
   })
 
   it('rejects before producer start and id allocation, then admits immediately after settlement', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ maxConcurrentJobsPerOwner: 1 })
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = producer()
     expect(ctx.jobs.start(first.spec)).toBe('bash-1')
 
+    /** 中文说明：测试局部值 blocked，由紧邻初始化决定。 */
     const blocked = producer()
+    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
     const run = vi.fn(() => blocked.spec.run())
     expect(() => ctx.jobs.start({ ...blocked.spec, run }))
       .toThrow('use job_kill to stop an unneeded job, wait for it to finish, then retry')
@@ -210,11 +264,15 @@ describe('LocalJobRegistry.start', () => {
   })
 
   it('keeps a stopping job in the bucket until producer settlement', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ maxConcurrentJobsPerOwner: 1 })
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(first.spec)
     expect(ctx.jobs.kill(id)).toBe('requested')
 
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = producer()
     expect(() => ctx.jobs.start(replacement.spec)).toThrow('(limit: 1)')
 
@@ -226,7 +284,9 @@ describe('LocalJobRegistry.start', () => {
   it.each(['completed', 'killed', 'failed'] as const)(
     'releases the bucket after a %s terminal outcome',
     async (status) => {
+      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = await harness({ maxConcurrentJobsPerOwner: 1 })
+      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = producer()
       ctx.jobs.start(first.spec)
       first.settle({ status })
@@ -236,17 +296,23 @@ describe('LocalJobRegistry.start', () => {
   )
 
   it('isolates exact owners, replacement objects with the same session id, and the unowned bucket', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ maxConcurrentJobsPerOwner: 1 })
+    /** 中文说明：测试局部值 oldOwner，由紧邻初始化决定。 */
     const oldOwner = stubAgent(ctx, 'shared-session')
+    /** 中文说明：测试局部值 detachOld，由紧邻初始化决定。 */
     const detachOld = ctx.agents.register(oldOwner)
+    /** 中文说明：测试局部值 oldTask，由紧邻初始化决定。 */
     const oldTask = producer({ owner: oldOwner })
     ctx.jobs.start(oldTask.spec)
 
+    /** 中文说明：测试局部值 otherOwner，由紧邻初始化决定。 */
     const otherOwner = stubAgent(ctx, 'other-session')
     ctx.agents.register(otherOwner)
     expect(() => ctx.jobs.start(producer({ owner: otherOwner }).spec)).not.toThrow()
 
     detachOld()
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = stubAgent(ctx, 'shared-session')
     ctx.agents.register(replacement)
     expect(() => ctx.jobs.start(producer({ owner: replacement }).spec)).not.toThrow()
@@ -262,6 +328,7 @@ describe('LocalJobRegistry.start', () => {
   })
 
   it('issues kind-prefixed ids from per-kind counters', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     expect(ctx.jobs.start(producer().spec)).toBe('bash-1')
     expect(ctx.jobs.start(producer().spec)).toBe('bash-2')
@@ -272,9 +339,13 @@ describe('LocalJobRegistry.start', () => {
 
 describe('LocalJobRegistry reads and settlement', () => {
   it('stream kinds read a consuming delta; terminal reads mark reported', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = ['first', '', 'rest']
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer({ readOutput: () => chunks.shift() ?? '' })
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
 
     expect(ctx.jobs.read(id)).toMatchObject({ text: 'first', snapshot: { status: 'running', reported: false } })
@@ -282,6 +353,7 @@ describe('LocalJobRegistry reads and settlement', () => {
 
     p.settle({ status: 'completed', detail: 'exit code: 0' })
     await tick()
+    /** 中文说明：测试局部值 read，由紧邻初始化决定。 */
     const read = ctx.jobs.read(id)
     expect(read.text).toBe('rest')
     expect(read.snapshot).toMatchObject({ status: 'completed', detail: 'exit code: 0', reported: true })
@@ -289,8 +361,11 @@ describe('LocalJobRegistry reads and settlement', () => {
   })
 
   it('projects a producer-owned model output limit into reads and snapshots', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer({ outputLimitBytes: 64, readOutput: () => 'delta' })
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
     expect(ctx.jobs.read(id)).toMatchObject({
       text: 'delta', snapshot: { outputLimitBytes: 64 },
@@ -299,8 +374,11 @@ describe('LocalJobRegistry reads and settlement', () => {
   })
 
   it('final-output kinds read empty while live, the outcome output idempotently once settled', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer({ kind: 'subagent', label: 'research job' })
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
 
     expect(ctx.jobs.read(id)).toMatchObject({ text: '', snapshot: { status: 'running' } })
@@ -312,8 +390,11 @@ describe('LocalJobRegistry reads and settlement', () => {
   })
 
   it('a settled job without output reads as empty text', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer({ kind: 'subagent' })
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
     p.settle({ status: 'failed', detail: 'max-tokens' })
     await tick()
@@ -321,18 +402,24 @@ describe('LocalJobRegistry reads and settlement', () => {
   })
 
   it('throws for unknown job ids', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     expect(() => ctx.jobs.read(JobId('bash-99'))).toThrow('unknown job bash-99')
   })
 
   it('notifies onJobDone once per job with containment across listeners', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     ctx.jobs.onJobDone(() => { throw new Error('listener boom') })
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot))
 
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
     p.settle({ status: 'completed', detail: 'exit code: 0' })
     await tick()
@@ -343,13 +430,18 @@ describe('LocalJobRegistry reads and settlement', () => {
   })
 
   it('contains a rejecting onJobDone listener without starving later listeners', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobId[] = []
     ctx.jobs.onJobDone(async () => { throw new Error('async listener boom') })
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot.id))
 
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
     p.settle({ status: 'completed' })
     await tick()
@@ -360,9 +452,13 @@ describe('LocalJobRegistry reads and settlement', () => {
   })
 
   it("contains rejection from the producer's done promise as a failed outcome (producer contract violation)", async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
     p.reject(new Error('transport exploded'))
     await tick()
@@ -372,16 +468,21 @@ describe('LocalJobRegistry reads and settlement', () => {
   })
 
   it('unregisters onJobDone listeners with the contributing fiber (HMR safety)', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: string[] = []
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       inner.jobs.onJobDone(snapshot => void seen.push(snapshot.id))
     }, { inject: ['jobs'] }))
     await fiber.dispose()
     // The returned disposer detaches too (the non-fiber path).
+    /** 中文说明：测试局部值 detach，由紧邻初始化决定。 */
     const detach = ctx.jobs.onJobDone(snapshot => void seen.push(snapshot.id))
     detach()
 
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
     ctx.jobs.start(p.spec)
     p.settle({ status: 'completed' })
@@ -392,10 +493,14 @@ describe('LocalJobRegistry reads and settlement', () => {
 
 describe('LocalJobRegistry.kill', () => {
   it('cancels a live job with the forwarded reason and suppresses the notice', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot))
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
 
     expect(ctx.jobs.kill(id, undefined, 'no longer needed')).toBe('requested')
@@ -410,8 +515,11 @@ describe('LocalJobRegistry.kill', () => {
   })
 
   it('reports an already-finished job instead of failing', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
     p.settle({ status: 'completed' })
     await tick()
@@ -419,11 +527,16 @@ describe('LocalJobRegistry.kill', () => {
   })
 
   it('propagates a throwing producer cancel and leaves the job untouched', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot))
+    /** 中文说明：测试局部值 broken，由紧邻初始化决定。 */
     let broken = true
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start({
       kind: 'bash',
       label: 'flaky cancel',
@@ -447,12 +560,17 @@ describe('LocalJobRegistry.kill', () => {
 
 describe('LocalJobRegistry.wait', () => {
   it('resolves with the terminal snapshot when the job settles, marked reported', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot))
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
 
+    /** 中文说明：测试局部值 wait，由紧邻初始化决定。 */
     const wait = ctx.jobs.wait(id, 5_000)
     p.settle({ status: 'completed', detail: 'exit code: 0' })
     expect(await wait).toMatchObject({ status: 'completed', reported: true })
@@ -461,23 +579,31 @@ describe('LocalJobRegistry.wait', () => {
   })
 
   it('returns the live snapshot on timeout without marking reported', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(producer().spec)
     expect(await ctx.jobs.wait(id, 5)).toMatchObject({ status: 'running', reported: false })
   })
 
   it('unregisters timed-out and aborted wait resolvers while the job remains live', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(producer().spec)
 
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     for (let index = 0; index < 3; index += 1) {
+      /** 中文说明：测试局部值 wait，由紧邻初始化决定。 */
       const wait = ctx.jobs.wait(id, 5)
       expect(waitResolverCount(ctx, id)).toBe(1)
       await expect(wait).resolves.toMatchObject({ status: 'running' })
       expect(waitResolverCount(ctx, id)).toBe(0)
     }
 
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 wait，由紧邻初始化决定。 */
     const wait = ctx.jobs.wait(id, 5_000, undefined, controller.signal)
     expect(waitResolverCount(ctx, id)).toBe(1)
     controller.abort()
@@ -487,8 +613,11 @@ describe('LocalJobRegistry.wait', () => {
   })
 
   it('returns immediately for an already-finished job', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
     p.settle({ status: 'completed' })
     await tick()
@@ -496,35 +625,48 @@ describe('LocalJobRegistry.wait', () => {
   })
 
   it('rejects a non-positive or non-finite timeout', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(producer().spec)
     await expect(ctx.jobs.wait(id, 0)).rejects.toThrow('invalid wait timeout')
     await expect(ctx.jobs.wait(id, Number.NaN)).rejects.toThrow('invalid wait timeout')
   })
 
   it('an aborted signal rejects the wait only — the job stays alive', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(producer().spec)
 
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 wait，由紧邻初始化决定。 */
     const wait = ctx.jobs.wait(id, 5_000, undefined, controller.signal)
     controller.abort()
     await expect(wait).rejects.toThrow('wait aborted')
     expect(ctx.jobs.list()[0]).toMatchObject({ status: 'running' })
 
+    /** 中文说明：测试局部值 preAborted，由紧邻初始化决定。 */
     const preAborted = new AbortController()
     preAborted.abort()
     await expect(ctx.jobs.wait(id, 5_000, undefined, preAborted.signal)).rejects.toThrow('wait aborted')
   })
 
   it('an abort racing settlement in the same tick does not swallow the notice', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot))
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
 
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 wait，由紧邻初始化决定。 */
     const wait = ctx.jobs.wait(id, 5_000, undefined, controller.signal)
     // Settlement is queued first, so abort must remove the waiter synchronously;
     // otherwise settlement suppresses the notice for a reader that receives nothing.
@@ -536,8 +678,11 @@ describe('LocalJobRegistry.wait', () => {
   })
 
   it('an abort landing after settlement still delivers the terminal snapshot it owes', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     // The listener aborts after settlement released this waiter but before its
     // resolve microtask runs. Releasing waiters ahead of the announcement is
@@ -546,9 +691,12 @@ describe('LocalJobRegistry.wait', () => {
       seen.push(snapshot)
       controller.abort()
     })
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
 
+    /** 中文说明：测试局部值 wait，由紧邻初始化决定。 */
     const wait = ctx.jobs.wait(id, 5_000, undefined, controller.signal)
     p.settle({ status: 'completed', detail: 'exit code: 0' })
     await expect(wait).resolves.toMatchObject({ status: 'completed', reported: true })
@@ -558,12 +706,17 @@ describe('LocalJobRegistry.wait', () => {
 
 describe('LocalJobRegistry owner isolation', () => {
   it('fences read/kill/wait to the owning session and keeps unowned jobs open', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'owner')
     ctx.agents.register(owner)
+    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = stubAgent(ctx, 'other')
 
+    /** 中文说明：测试局部值 owned，由紧邻初始化决定。 */
     const owned = ctx.jobs.start(producer({ owner }).spec)
+    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = ctx.jobs.start(producer().spec)
 
     // The owner and the unowned job are reachable.
@@ -578,14 +731,20 @@ describe('LocalJobRegistry owner isolation', () => {
   })
 
   it('list() shows only caller-owned plus unowned jobs', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 alice，由紧邻初始化决定。 */
     const alice = stubAgent(ctx, 'alice')
+    /** 中文说明：测试局部值 bob，由紧邻初始化决定。 */
     const bob = stubAgent(ctx, 'bob')
     ctx.agents.register(alice)
     ctx.agents.register(bob)
 
+    /** 中文说明：测试局部值 aliceTask，由紧邻初始化决定。 */
     const aliceTask = ctx.jobs.start(producer({ owner: alice }).spec)
+    /** 中文说明：测试局部值 bobTask，由紧邻初始化决定。 */
     const bobTask = ctx.jobs.start(producer({ owner: bob }).spec)
+    /** 中文说明：测试局部值 openTask，由紧邻初始化决定。 */
     const openTask = ctx.jobs.start(producer({ kind: 'subagent' }).spec)
 
     expect(ctx.jobs.list(alice).map(t => t.id)).toEqual([aliceTask, openTask])
@@ -594,6 +753,7 @@ describe('LocalJobRegistry owner isolation', () => {
   })
 
   it('rejects an owned registration when no agent registry is mounted', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LocalJobRegistry)
     ctx.jobs.attachController('test-controller')
@@ -605,7 +765,9 @@ describe('LocalJobRegistry owner isolation', () => {
   })
 
   it('a failed owner-cleanup attach leaves the registry unchanged and does not poison the owner', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 ghost，由紧邻初始化决定。 */
     const ghost = stubAgent(ctx, 'ghost') // never registered in ctx.agents
 
     // Exact-instance validation precedes registry mutation and cleanup attachment.
@@ -615,8 +777,11 @@ describe('LocalJobRegistry owner isolation', () => {
 
     // A later valid registration must still attach cleanup for the same object.
     ctx.agents.register(ghost)
+    /** 中文说明：测试局部值 cancels，由紧邻初始化决定。 */
     const cancels: (string | undefined)[] = []
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start({
       kind: 'bash',
       label: 'after retry',
@@ -633,17 +798,24 @@ describe('LocalJobRegistry owner isolation', () => {
   })
 
   it('rejects a stale owner instance after another agent reuses its id', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 staleOwner，由紧邻初始化决定。 */
     const staleOwner = stubAgent(ctx, 'owner')
+    /** 中文说明：测试局部值 unregisterStale，由紧邻初始化决定。 */
     const unregisterStale = ctx.agents.register(staleOwner)
     unregisterStale()
 
+    /** 中文说明：测试局部值 currentOwner，由紧邻初始化决定。 */
     const currentOwner = stubAgent(ctx, 'owner')
     ctx.agents.register(currentOwner)
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = producer({ owner: currentOwner })
     ctx.jobs.start(current.spec) // Attach the current owner's cleanup first.
 
+    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = producer({ owner: staleOwner })
+    /** 中文说明：测试局部值 staleRun，由紧邻初始化决定。 */
     const staleRun = vi.fn(() => stale.spec.run())
     expect(() => ctx.jobs.start({ ...stale.spec, run: staleRun }))
       .toThrow('is not the registered agent instance')
@@ -662,12 +834,16 @@ describe('LocalJobRegistry owner isolation', () => {
 
 describe('LocalJobRegistry owner cleanup', () => {
   it('drains the owner: cancels live jobs, awaits settlement, drops snapshots', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'owner')
     ctx.agents.register(owner)
 
     // The producer settles only when cancelled — models a child that stops on request.
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
+    /** 中文说明：测试局部值 cancels，由紧邻初始化决定。 */
     const cancels: (string | undefined)[] = []
     ctx.jobs.start({
       kind: 'subagent',
@@ -678,6 +854,7 @@ describe('LocalJobRegistry owner cleanup', () => {
         done: new Promise<JobOutcome>((res) => { settle = res }),
       }),
     })
+    /** 中文说明：测试局部值 terminal，由紧邻初始化决定。 */
     const terminal = producer({ owner })
     ctx.jobs.start(terminal.spec)
     terminal.settle({ status: 'completed' })
@@ -690,12 +867,16 @@ describe('LocalJobRegistry owner cleanup', () => {
   })
 
   it('publishes the settled visible set before announcing completion', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'owner')
     ctx.agents.register(owner)
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer({ owner })
     ctx.jobs.start(p.spec)
     // Registered after start so only the settlement's notifications are ordered.
+    /** 中文说明：测试局部值 order，由紧邻初始化决定。 */
     const order: string[] = []
     ctx.jobs.onJobsChanged(() => void order.push('changed'))
     ctx.jobs.onJobDone(() => void order.push('done'))
@@ -710,12 +891,16 @@ describe('LocalJobRegistry owner cleanup', () => {
   })
 
   it('reports a teardown-cancelled record so completion reporters stay quiet', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'owner')
     ctx.agents.register(owner)
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot))
 
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
     ctx.jobs.start({
       kind: 'subagent',
@@ -735,11 +920,15 @@ describe('LocalJobRegistry owner cleanup', () => {
   })
 
   it('attaches one cleanup per owner and drains all owned jobs with the scope', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'owner')
     ctx.agents.register(owner)
 
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = producer({ owner })
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = producer({ owner })
     ctx.jobs.start(first.spec)
     ctx.jobs.start(second.spec)
@@ -752,12 +941,18 @@ describe('LocalJobRegistry owner cleanup', () => {
   })
 
   it('does not let an old scope cleanup cancel a same-id/session replacement job', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 oldOwner，由紧邻初始化决定。 */
     const oldOwner = stubAgent(ctx, 'owner')
+    /** 中文说明：测试局部值 detachOld，由紧邻初始化决定。 */
     const detachOld = ctx.agents.register(oldOwner)
+    /** 中文说明：测试局部值 cancels，由紧邻初始化决定。 */
     const cancels: string[] = []
 
+    /** 中文说明：函数 start 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
     function start(owner: Agent, label: string): JobId {
+      /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
       let settle!: (outcome: JobOutcome) => void
       return ctx.jobs.start({
         kind: 'bash',
@@ -772,8 +967,10 @@ describe('LocalJobRegistry owner cleanup', () => {
 
     start(oldOwner, 'old job')
     detachOld()
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = stubAgent(ctx, 'owner')
     ctx.agents.register(replacement)
+    /** 中文说明：测试局部值 replacementId，由紧邻初始化决定。 */
     const replacementId = start(replacement, 'replacement job')
 
     await disposeAgentScope(oldOwner)
@@ -785,15 +982,20 @@ describe('LocalJobRegistry owner cleanup', () => {
   })
 
   it('registers owner cleanup on the agent scope rather than the jobs fiber', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 tasksFiber，由紧邻初始化决定。 */
     const tasksFiber = await ctx.plugin(LocalJobRegistry)
     ctx.jobs.attachController('test-controller')
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'owner')
     ctx.agents.register(owner)
+    /** 中文说明：测试局部值 ownerCleanupEffects，由紧邻初始化决定。 */
     const ownerCleanupEffects = () => owner.ctx.fiber.getEffects()
       .filter(effect => effect.label === 'jobs.ownerCleanup()')
 
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = producer({ owner })
     ctx.jobs.start(first.spec)
     expect(ownerCleanupEffects()).toHaveLength(1)
@@ -811,13 +1013,18 @@ describe('LocalJobRegistry owner cleanup', () => {
   })
 
   it('force-fails a throwing teardown cancel without awaiting producer done, first outcome wins', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'owner')
     ctx.agents.register(owner)
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot))
 
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
     ctx.jobs.start({
       kind: 'bash',
@@ -829,10 +1036,13 @@ describe('LocalJobRegistry owner cleanup', () => {
       }),
     })
 
+    /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
     const drain = disposeAgentScope(owner)
+    /** 中文说明：测试局部值 drained，由紧邻初始化决定。 */
     let drained = false
     void drain.then(() => { drained = true })
     await tick()
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const drainedWithoutProducerDone = drained
     if (!drainedWithoutProducerDone) {
       // Release the producer if the assertion fails so the test can finish.
@@ -855,17 +1065,23 @@ describe('LocalJobRegistry owner cleanup', () => {
 
 describe('LocalJobRegistry disposal', () => {
   it('cancels live jobs, awaits settlement, and silences listeners', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(LocalJobRegistry)
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = await ctx.plugin(Object.assign((inner: Context) => {
       inner.jobs.attachController('test-controller')
     }, { inject: ['jobs'] }))
     void controller
 
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: string[] = []
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot.id))
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
+    /** 中文说明：测试局部值 cancels，由紧邻初始化决定。 */
     const cancels: (string | undefined)[] = []
     ctx.jobs.start({
       kind: 'bash',
@@ -883,14 +1099,19 @@ describe('LocalJobRegistry disposal', () => {
   })
 
   it('force-fails a throwing cancel so service disposal does not await producer done', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(LocalJobRegistry)
     ctx.jobs.attachController('test-controller')
+    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: JobSnapshot[] = []
     ctx.jobs.onJobDone(snapshot => void seen.push(snapshot))
 
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
     ctx.jobs.start({
       kind: 'bash',
@@ -901,10 +1122,13 @@ describe('LocalJobRegistry disposal', () => {
       }),
     })
 
+    /** 中文说明：测试局部值 disposal，由紧邻初始化决定。 */
     const disposal = fiber.dispose()
+    /** 中文说明：测试局部值 disposed，由紧邻初始化决定。 */
     let disposed = false
     void disposal.then(() => { disposed = true })
     await tick()
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const disposedWithoutProducerDone = disposed
     if (!disposedWithoutProducerDone) {
       // Release the producer if the assertion fails so the test can finish.
@@ -921,12 +1145,16 @@ describe('LocalJobRegistry disposal', () => {
   })
 
   it('detaches owner effects from still-live agent scopes when the service unloads', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 tasksFiber，由紧邻初始化决定。 */
     const tasksFiber = await ctx.plugin(LocalJobRegistry)
     ctx.jobs.attachController('test-controller')
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'owner')
     ctx.agents.register(owner)
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
     ctx.jobs.start({
       kind: 'bash',
@@ -937,6 +1165,7 @@ describe('LocalJobRegistry disposal', () => {
         done: new Promise<JobOutcome>((resolve) => { settle = resolve }),
       }),
     })
+    /** 中文说明：测试局部值 ownerEffects，由紧邻初始化决定。 */
     const ownerEffects = () => owner.ctx.fiber.getEffects()
       .filter(effect => effect.label === 'jobs.ownerCleanup()')
     expect(ownerEffects()).toHaveLength(1)
@@ -947,12 +1176,15 @@ describe('LocalJobRegistry disposal', () => {
   })
 
   it('drops a scoped layer when its registrations dispose', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry)
+    /** 中文说明：测试局部值 standing，由紧邻初始化决定。 */
     const standing = createScope(ctx, {})
     // One mount contributes both kinds into the same layer, as `tool-jobs`
     // does; unloading it must leave nothing serving the agents that joined it.
+    /** 中文说明：测试局部值 mount，由紧邻初始化决定。 */
     const mount = await standing.ctx.plugin({
       inject: ['jobs'],
       apply(pluginCtx: Context) {
@@ -960,6 +1192,7 @@ describe('LocalJobRegistry disposal', () => {
         pluginCtx.jobs.onJobDone(() => {})
       },
     })
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'joined', scopeOf(standing.ctx))
     ctx.agents.register(owner)
     expect(() => ctx.jobs.start(producer({ owner }).spec)).not.toThrow()
@@ -971,10 +1204,14 @@ describe('LocalJobRegistry disposal', () => {
   })
 
   it('detaching the last controller re-arms the register fence', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LocalJobRegistry)
+    /** 中文说明：测试局部值 detachA1，由紧邻初始化决定。 */
     const detachA1 = ctx.jobs.attachController('a')
+    /** 中文说明：测试局部值 detachA2，由紧邻初始化决定。 */
     const detachA2 = ctx.jobs.attachController('a') // duplicate name counts independently
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       inner.jobs.attachController('b')
     }, { inject: ['jobs'] }))
@@ -991,13 +1228,18 @@ describe('LocalJobRegistry disposal', () => {
 
 describe('LocalJobRegistry.onJobsChanged', () => {
   it('fires after registration, the stopping transition, and settlement', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'alice')
     ctx.agents.register(owner)
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: (string | undefined)[] = []
     ctx.jobs.onJobsChanged(changed => void seen.push(changed?.id))
 
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer({ owner })
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
     // Registration is announced only once the record is readable.
     expect(seen).toEqual(['alice'])
@@ -1015,7 +1257,9 @@ describe('LocalJobRegistry.onJobsChanged', () => {
   })
 
   it('reports an unowned change as undefined, since every caller can see it', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: (string | undefined)[] = []
     ctx.jobs.onJobsChanged(changed => void seen.push(changed?.id))
 
@@ -1024,14 +1268,19 @@ describe('LocalJobRegistry.onJobsChanged', () => {
   })
 
   it('announces the owner-disposal removal, and stays silent when that owner had none', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'alice')
+    /** 中文说明：测试局部值 bystander，由紧邻初始化决定。 */
     const bystander = stubAgent(ctx, 'bob')
     ctx.agents.register(owner)
     ctx.agents.register(bystander)
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer({ owner })
     ctx.jobs.start(p.spec)
 
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: (string | undefined)[] = []
     ctx.jobs.onJobsChanged(changed => void seen.push(changed?.id))
     p.settle({ status: 'completed' })
@@ -1048,12 +1297,16 @@ describe('LocalJobRegistry.onJobsChanged', () => {
   })
 
   it('contains a throwing listener so the lifecycle commit still stands', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: (string | undefined)[] = []
     ctx.jobs.onJobsChanged(() => { throw new Error('observer boom') })
     ctx.jobs.onJobsChanged(changed => void seen.push(changed?.id))
 
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(producer().spec)
     expect(id).toBe('bash-1')
     expect(seen).toEqual([undefined])
@@ -1061,9 +1314,13 @@ describe('LocalJobRegistry.onJobsChanged', () => {
   })
 
   it('unregisters through its disposer and with its fiber (HMR safety)', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: number[] = []
+    /** 中文说明：测试局部值 detach，由紧邻初始化决定。 */
     const detach = ctx.jobs.onJobsChanged(() => void seen.push(1))
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       inner.jobs.onJobsChanged(() => void seen.push(2))
     }, { inject: ['jobs'] }))
@@ -1084,12 +1341,17 @@ describe('LocalJobRegistry.onJobsChanged', () => {
 
 describe('LocalJobRegistry teardown change notifications', () => {
   it('announces the stopping transition during owner teardown, before settlement', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
+    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = stubAgent(ctx, 'alice')
     ctx.agents.register(owner)
+    /** 中文说明：测试局部值 p，由紧邻初始化决定。 */
     const p = producer({ owner })
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = ctx.jobs.start(p.spec)
 
+    /** 中文说明：测试局部值 statuses，由紧邻初始化决定。 */
     const statuses: (string | undefined)[] = []
     ctx.jobs.onJobsChanged((changed) => {
       statuses.push(changed === undefined ? undefined : ctx.jobs.list(changed)[0]?.status)
@@ -1097,6 +1359,7 @@ describe('LocalJobRegistry teardown change notifications', () => {
 
     // A slow producer keeps teardown parked between cancel and settlement;
     // an observer must not be left showing `running` for that whole window.
+    /** 中文说明：测试局部值 disposal，由紧邻初始化决定。 */
     const disposal = disposeAgentScope(owner)
     await tick()
     expect(statuses).toEqual(['stopping'])
@@ -1110,15 +1373,19 @@ describe('LocalJobRegistry teardown change notifications', () => {
   })
 
   it('announces the emptied set to a listener registered outside this service (reload safety)', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(LocalJobRegistry)
     ctx.jobs.attachController('test-controller')
 
     // The api-proxy carrier registers from its own stream context, not the
     // registry's fiber, so it is still listening when the registry unloads.
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: (string | undefined)[] = []
     ctx.jobs.onJobsChanged(changed => void seen.push(changed?.id))
+    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     let settle!: (outcome: JobOutcome) => void
     ctx.jobs.start({
       kind: 'bash',

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证交互与审批的 tool-ask-user.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
+ * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
+ * 逻辑维度：构造服务和状态，驱动操作并断言事件与结果。
+ * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
+ * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { CallId } from '@deepseek-ai/dsh-llm'
@@ -7,8 +15,10 @@ import ToolRuntime from '@deepseek-ai/dsh-tools'
 import UserQuestionService, { type AskUserQuestionRequest } from '@deepseek-ai/dsh-user-questions'
 import * as toolAskUser from '@deepseek-ai/dsh-tool-ask-user'
 
+/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
+/** 中文说明：类型或类 OptionSchemaShape 约束宿主、交互或任务数据职责。 */
 interface OptionSchemaShape {
   properties: {
     questions: {
@@ -25,7 +35,9 @@ interface OptionSchemaShape {
   }
 }
 
+/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup() {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SystemPrompt)
@@ -35,7 +47,9 @@ async function setup() {
   return ctx
 }
 
+/** 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(id: string, delegationDepth = 0): Agent {
+  /** 中文说明：测试局部值 agentId，由紧邻初始化决定。 */
   const agentId = id as Agent['id']
   return {
     id: agentId,
@@ -45,7 +59,9 @@ function stubAgent(id: string, delegationDepth = 0): Agent {
 
 describe('ask_user_question tool', () => {
   it('registers a model-facing tool schema', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     const schema = ctx.tools.schemas().find(tool => tool.name === 'ask_user_question')
 
     expect(schema).toMatchObject({
@@ -58,6 +74,7 @@ describe('ask_user_question tool', () => {
         required: ['questions'],
       },
     })
+    /** 中文说明：测试局部值 parameters，由紧邻初始化决定。 */
     const parameters = schema?.parameters as unknown as OptionSchemaShape
     expect(parameters.properties.questions.items.properties).toMatchObject({
       id: { type: 'string' },
@@ -76,7 +93,9 @@ describe('ask_user_question tool', () => {
   })
 
   it('asks the registered user-questions provider and projects structured answers to text', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
     ctx.userQuestions.registerProvider({
       async ask(request) {
@@ -85,6 +104,7 @@ describe('ask_user_question tool', () => {
       },
     })
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('ask-1'),
@@ -112,7 +132,9 @@ describe('ask_user_question tool', () => {
   })
 
   it('passes recommended option labels through without adding schema fields', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
     ctx.userQuestions.registerProvider({
       async ask(request) {
@@ -144,6 +166,7 @@ describe('ask_user_question tool', () => {
   })
 
   it('projects custom answers and multi-select choices', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
     ctx.userQuestions.registerProvider({
       async ask() {
@@ -157,6 +180,7 @@ describe('ask_user_question tool', () => {
       },
     })
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('ask-multi'),
@@ -196,7 +220,9 @@ describe('ask_user_question tool', () => {
   })
 
   it('passes the tool abort signal to the user-questions request', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
     ctx.userQuestions.registerProvider({
       async ask(request) {
@@ -204,6 +230,7 @@ describe('ask_user_question tool', () => {
         return { answers: [{ id: 'continue', selected: ['ok'] }] }
       },
     })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
 
     await ctx.tools.execute({
@@ -217,7 +244,9 @@ describe('ask_user_question tool', () => {
   })
 
   it('passes optional header and a resumed runtime root through to the user-questions request', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
     ctx.userQuestions.registerProvider({
       async ask(request) {
@@ -225,9 +254,11 @@ describe('ask_user_question tool', () => {
         return { answers: [{ id: 'continue', selected: ['ok'] }] }
       },
     })
+    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = stubAgent('resumed-root', 1)
     ctx.agents.enter(agent, undefined)
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('ask-3'),
@@ -241,8 +272,10 @@ describe('ask_user_question tool', () => {
   })
 
   it('returns structured user-questions errors through tool execution', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('ask-no-provider'),
@@ -257,7 +290,9 @@ describe('ask_user_question tool', () => {
   })
 
   it('rejects a live runtime-owned agent with a structured DELEGATED_CALLER error', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
     ctx.userQuestions.registerProvider({
       async ask(request) {
@@ -265,11 +300,14 @@ describe('ask_user_question tool', () => {
         return { answers: [{ id: 'continue', selected: ['ok'] }] }
       },
     })
+    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = stubAgent('root', 0)
+    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = stubAgent('child', 0)
     ctx.agents.enter(root, undefined)
     ctx.agents.enter(child, root)
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('ask-delegated'),
@@ -290,8 +328,10 @@ describe('ask_user_question tool', () => {
   })
 
   it('returns a structured error for empty question batches', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
 
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('ask-empty'),
@@ -306,10 +346,12 @@ describe('ask_user_question tool', () => {
   })
 
   it('unregisters the tool when its plugin fiber is disposed', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(UserQuestionService)
+    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(toolAskUser)
     expect(ctx.tools.get('ask_user_question')).toBeDefined()
 
