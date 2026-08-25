@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Pi AI LLM的 auth.spec.ts 行为与网络边界。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -7,14 +15,19 @@ import LocalCredentialProvider from '@deepseek-ai/dsh-credentials-local'
 import { credentialKey, credentialRef } from '@deepseek-ai/dsh-credentials'
 import { authContextFrom, credentialStoreFrom, recordKeyFor } from '../src/auth.ts'
 
+/** 中文说明：测试局部值 CODEX，由紧邻初始化决定。 */
 const CODEX = recordKeyFor('openai-codex')
 
+/** 中文说明：测试局部值 dirs，由紧邻初始化决定。 */
 const dirs: string[] = []
 
 /** A context whose credential records live in a throwaway `$DSH_HOME`. */
+/** 中文说明：函数 stored 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function stored(): Promise<Context> {
+  /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-pi-auth-'))
   dirs.push(dir)
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
   return ctx
@@ -27,13 +40,16 @@ afterEach(async () => {
 
 describe('pi-ai credential store over harness records', () => {
   it('reads nothing for a provider with no record', async () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(await stored())
 
     await expect(store.read('openai-codex')).resolves.toBeUndefined()
   })
 
   it('round-trips an api-key credential field by field', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await stored()
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(ctx)
 
     await store.modify('cloudflare', () =>
@@ -46,6 +62,7 @@ describe('pi-ai credential store over harness records', () => {
   })
 
   it('stores an api-key credential carrying neither a key nor env', async () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(await stored())
 
     await store.modify('bedrock', () => Promise.resolve({ type: 'api_key' }))
@@ -54,8 +71,11 @@ describe('pi-ai credential store over harness records', () => {
   })
 
   it('keeps an OAuth credential verbatim, refresh fields and all', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await stored()
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(ctx)
+    /** 中文说明：测试局部值 granted，由紧邻初始化决定。 */
     const granted = { type: 'oauth' as const, access: 'at', refresh: 'rt', expires: 42, accountId: 'acc' }
 
     await store.modify('openai-codex', () => Promise.resolve(granted))
@@ -65,11 +85,14 @@ describe('pi-ai credential store over harness records', () => {
   })
 
   it('shows the mutation the current credential and leaves it alone when declined', async () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(await stored())
     await store.modify('openai-codex', () =>
       Promise.resolve({ type: 'oauth', access: 'first', refresh: 'r', expires: 1 }))
+    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: unknown[] = []
 
+    /** 中文说明：测试局部值 unchanged，由紧邻初始化决定。 */
     const unchanged = await store.modify('openai-codex', (current) => {
       seen.push(current)
       return Promise.resolve(undefined)
@@ -80,7 +103,9 @@ describe('pi-ai credential store over harness records', () => {
   })
 
   it('lists only the records this adapter family owns', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await stored()
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(ctx)
     await store.modify('openai-codex', () =>
       Promise.resolve({ type: 'oauth', access: 'at', refresh: 'rt', expires: 1 }))
@@ -97,6 +122,7 @@ describe('pi-ai credential store over harness records', () => {
   })
 
   it('forgets a credential on delete, and stays quiet when there was none', async () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(await stored())
     await store.modify('openai-codex', () =>
       Promise.resolve({ type: 'oauth', access: 'at', refresh: 'rt', expires: 1 }))
@@ -108,6 +134,7 @@ describe('pi-ai credential store over harness records', () => {
   })
 
   it('reads empty but refuses to write without a credentials service', async () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(new Context())
 
     await expect(store.read('openai-codex')).resolves.toBeUndefined()
@@ -118,6 +145,7 @@ describe('pi-ai credential store over harness records', () => {
   })
 
   it('treats a provider id outside the record grammar as holding nothing', async () => {
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = credentialStoreFrom(await stored())
 
     // A hand-declared route key is an arbitrary settings dict key, and pi-ai
@@ -138,6 +166,7 @@ describe('pi-ai ambient auth context', () => {
   })
 
   it('answers an environment name from the credential seam first', async () => {
+    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await stored()
     await ctx.credentials.set(credentialRef('PI_AUTH_SEAM'), 'from-seam')
 
@@ -155,6 +184,7 @@ describe('pi-ai ambient auth context', () => {
   })
 
   it('answers about the host filesystem, expanding a leading ~', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-pi-home-'))
     dirs.push(dir)
     await writeFile(join(dir, 'creds'), 'x')
@@ -162,6 +192,7 @@ describe('pi-ai ambient auth context', () => {
     // USERPROFILE on Windows, and the expansion under test goes through it.
     vi.stubEnv('HOME', dir)
     vi.stubEnv('USERPROFILE', dir)
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = authContextFrom(await stored())
 
     await expect(context.fileExists('~/creds')).resolves.toBe(true)

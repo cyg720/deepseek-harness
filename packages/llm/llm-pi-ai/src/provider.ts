@@ -18,6 +18,14 @@
  *
  * @module dsh-llm-pi-ai/provider
  */
+/**
+ * 文件职责：实现Pi AI LLM的 provider.ts 模块。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 
 import { createProvider } from '@earendil-works/pi-ai'
 import type { Api, ApiKeyAuth, Model, Provider, ProviderStreams } from '@earendil-works/pi-ai'
@@ -44,6 +52,7 @@ import { catalogProvider } from './catalog.ts'
  * still reach every protocol through their own provider; only an explicit
  * override is refused.
  */
+/** 中文说明：适配器局部值 PROTOCOLS，由紧邻初始化决定。 */
 const PROTOCOLS: Readonly<Record<string, () => ProviderStreams>> = {
   'openai-completions': openAICompletionsApi,
   'openai-responses': openAIResponsesApi,
@@ -58,6 +67,7 @@ const PROTOCOLS: Readonly<Record<string, () => ProviderStreams>> = {
  * can read — leads.
  * @returns the supported protocol identifiers.
  */
+/** 中文说明：函数 supportedProtocols 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function supportedProtocols(): readonly string[] {
   return Object.keys(PROTOCOLS)
 }
@@ -74,6 +84,7 @@ export function supportedProtocols(): readonly string[] {
  * @param name - display name used as the resolution's status label.
  * @returns the api-key auth for a harness-authenticated route.
  */
+/** 中文说明：函数 harnessApiKeyAuth 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function harnessApiKeyAuth(name: string): ApiKeyAuth {
   return {
     name,
@@ -85,6 +96,7 @@ function harnessApiKeyAuth(name: string): ApiKeyAuth {
 }
 
 /** The resolved route facts provider construction reads. */
+/** 中文说明：类型或类 ProviderSpec 约束模型请求、认证或流事件职责。 */
 export interface ProviderSpec {
   /** Provider route key; also the `Models` collection key and each model's `provider`. */
   provider: string
@@ -128,6 +140,7 @@ export interface ProviderSpec {
  * @param catalog - the installed catalog provider, when pi-ai ships one.
  * @returns the auth to construct this route's provider with.
  */
+/** 中文说明：函数 routeAuth 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function routeAuth(spec: ProviderSpec, catalog: Provider | undefined): Provider['auth'] {
   if (catalog === undefined) return { apiKey: harnessApiKeyAuth(spec.displayName) }
   if (catalog.auth.apiKey !== undefined || !spec.namesCredential) return catalog.auth
@@ -141,9 +154,11 @@ function routeAuth(spec: ProviderSpec, catalog: Provider | undefined): Provider[
  * Catalog-owned dynamic refresh is dropped: this route's catalog is the
  * settings document, and a background refresh would contradict it.
  */
+/** 中文说明：函数 reuseCatalogProvider 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function reuseCatalogProvider(base: Provider, spec: ProviderSpec): Provider {
   // Provider-level `baseUrl` is display metadata: pi-ai routes every request
   // through `Model.baseUrl`, which model resolution has already overridden.
+  /** 中文说明：适配器局部值 baseUrl，由紧邻初始化决定。 */
   const baseUrl = spec.baseURL ?? base.baseUrl
   return {
     id: spec.provider,
@@ -164,7 +179,9 @@ function reuseCatalogProvider(base: Provider, spec: ProviderSpec): Provider {
  * @returns the provider to register in the adapter's `Models` collection.
  * @throws Error when the route names a wire protocol this build cannot serve.
  */
+/** 中文说明：函数 buildProvider 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function buildProvider(spec: ProviderSpec): Provider {
+  /** 中文说明：适配器局部值 catalog，由紧邻初始化决定。 */
   const catalog = catalogProvider(spec.provider)
   // A catalog route keeping its catalog protocol reuses the catalog provider;
   // an explicit protocol means the deployment is repointing the route at a
@@ -174,6 +191,7 @@ export function buildProvider(spec: ProviderSpec): Provider {
   // Every model on this path carries the route's protocol: model resolution
   // requires one for a route the catalog cannot default, and an explicit one
   // replaces each catalog model's own. So the route has a single API.
+  /** 中文说明：适配器局部值 factory，由紧邻初始化决定。 */
   const factory = spec.api === undefined ? undefined : PROTOCOLS[spec.api]
   if (factory === undefined) {
     throw new Error(

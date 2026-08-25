@@ -11,6 +11,14 @@
  *
  * @module dsh-llm-pi-ai/catalog
  */
+/**
+ * 文件职责：实现Pi AI LLM的 catalog.ts 模块。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 
 import { builtinProviders, getBuiltinModels, getBuiltinProviders } from '@earendil-works/pi-ai/providers/all'
 import type { BuiltinProvider } from '@earendil-works/pi-ai/providers/all'
@@ -34,9 +42,11 @@ import type {
  * never reads pi-ai's cost metadata — `replay.ts` zeroes it and no consumer
  * reports spend — so this is the absence of a fact, not a configurable rate.
  */
+/** 中文说明：适配器局部值 NO_COST，由紧邻初始化决定。 */
 const NO_COST: ModelCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 
 /** One request modality a pi-ai model may accept. */
+/** 中文说明：类型或类 PiAiModality 约束模型请求、认证或流事件职责。 */
 export type PiAiModality = Model<Api>['input'][number]
 
 /**
@@ -44,12 +54,14 @@ export type PiAiModality = Model<Api>['input'][number]
  * upgrade that adds or removes a modality fails compilation here naming the
  * drifted key, instead of silently narrowing what a profile may declare.
  */
+/** 中文说明：适配器局部值 MODALITY_GATE，由紧邻初始化决定。 */
 const MODALITY_GATE: Record<PiAiModality, true> = {
   text: true,
   image: true,
 }
 
 /** Every request modality a profile may declare. */
+/** 中文说明：适配器局部值 MODALITIES，由紧邻初始化决定。 */
 export const MODALITIES = Object.keys(MODALITY_GATE) as readonly PiAiModality[]
 
 /**
@@ -61,6 +73,7 @@ export const MODALITIES = Object.keys(MODALITY_GATE) as readonly PiAiModality[]
  * @param configured - the list a `models` or `modelOverrides` entry supplied.
  * @returns the declared modalities, or `undefined` to ask the next level.
  */
+/** 中文说明：函数 declaredInput 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function declaredInput(configured: readonly PiAiModality[] | undefined): Model<Api>['input'] | undefined {
   return configured === undefined || configured.length === 0 ? undefined : [...configured]
 }
@@ -71,6 +84,7 @@ function declaredInput(configured: readonly PiAiModality[] | undefined): Model<A
  * level fails compilation here naming the drifted key, instead of silently
  * narrowing what a profile may declare.
  */
+/** 中文说明：适配器局部值 THINKING_LEVEL_GATE，由紧邻初始化决定。 */
 const THINKING_LEVEL_GATE: Record<ModelThinkingLevel, true> = {
   off: true,
   minimal: true,
@@ -82,9 +96,11 @@ const THINKING_LEVEL_GATE: Record<ModelThinkingLevel, true> = {
 }
 
 /** Every pi-ai thinking level a profile may declare, in escalation order. */
+/** 中文说明：适配器局部值 THINKING_LEVELS，由紧邻初始化决定。 */
 export const THINKING_LEVELS = Object.keys(THINKING_LEVEL_GATE) as readonly ModelThinkingLevel[]
 
 /** One reasoning-dispatch wire format a profile may name. */
+/** 中文说明：类型或类 PiAiThinkingFormat 约束模型请求、认证或流事件职责。 */
 export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFormat']>
 
 /**
@@ -95,6 +111,7 @@ export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFo
  * are nameable because {@link PiAiCompatProfile.chatTemplateKwargs} carries
  * the kwargs they dispatch through.
  */
+/** 中文说明：适配器局部值 THINKING_FORMAT_GATE，由紧邻初始化决定。 */
 const THINKING_FORMAT_GATE: Record<PiAiThinkingFormat, true> = {
   'openai': true,
   'deepseek': true,
@@ -109,43 +126,54 @@ const THINKING_FORMAT_GATE: Record<PiAiThinkingFormat, true> = {
 }
 
 /** Reasoning-dispatch wire formats a profile may name, most-reached first. */
+/** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
 export const SUPPORTED_THINKING_FORMATS = Object.keys(THINKING_FORMAT_GATE) as readonly PiAiThinkingFormat[]
 
 /** The output-cap field spellings pi-ai accepts. */
+/** 中文说明：类型或类 PiAiMaxTokensField 约束模型请求、认证或流事件职责。 */
 export type PiAiMaxTokensField = NonNullable<OpenAICompletionsCompat['maxTokensField']>
 
 /** Drift gate over {@link PiAiMaxTokensField}; an upstream spelling added here fails compilation until named. */
+/** 中文说明：适配器局部值 MAX_TOKENS_FIELD_GATE，由紧邻初始化决定。 */
 const MAX_TOKENS_FIELD_GATE: Record<PiAiMaxTokensField, true> = {
   max_completion_tokens: true,
   max_tokens: true,
 }
 
 /** The output-cap field spellings a profile may name. */
+/** 中文说明：适配器局部值 MAX_TOKENS_FIELDS，由紧邻初始化决定。 */
 export const MAX_TOKENS_FIELDS = Object.keys(MAX_TOKENS_FIELD_GATE) as readonly PiAiMaxTokensField[]
 
 /** The prompt-cache marker conventions pi-ai accepts. */
+/** 中文说明：类型或类 PiAiCacheControlFormat 约束模型请求、认证或流事件职责。 */
 export type PiAiCacheControlFormat = NonNullable<OpenAICompletionsCompat['cacheControlFormat']>
 
 /** Drift gate over {@link PiAiCacheControlFormat}; a new upstream convention fails compilation until named. */
+/** 中文说明：适配器局部值 CACHE_CONTROL_FORMAT_GATE，由紧邻初始化决定。 */
 const CACHE_CONTROL_FORMAT_GATE: Record<PiAiCacheControlFormat, true> = {
   anthropic: true,
 }
 
 /** The prompt-cache marker conventions a profile may name. */
+/** 中文说明：适配器局部值 CACHE_CONTROL_FORMATS，由紧邻初始化决定。 */
 export const CACHE_CONTROL_FORMATS = Object.keys(CACHE_CONTROL_FORMAT_GATE) as readonly PiAiCacheControlFormat[]
 
 /** The request-state placeholders a `chat_template_kwargs` value may name. */
+/** 中文说明：类型或类 PiAiChatTemplateVar 约束模型请求、认证或流事件职责。 */
 export type PiAiChatTemplateVar = Extract<ChatTemplateKwargValue, { $var: string }>['$var']
 
 /** Drift gate over {@link PiAiChatTemplateVar}; a new upstream placeholder fails compilation until named. */
+/** 中文说明：适配器局部值 CHAT_TEMPLATE_VAR_GATE，由紧邻初始化决定。 */
 const CHAT_TEMPLATE_VAR_GATE: Record<PiAiChatTemplateVar, true> = {
   'thinking.enabled': true,
   'thinking.effort': true,
 }
 
 /** The request-state placeholders a profile may name. */
+/** 中文说明：适配器局部值 CHAT_TEMPLATE_VARS，由紧邻初始化决定。 */
 export const CHAT_TEMPLATE_VARS = Object.keys(CHAT_TEMPLATE_VAR_GATE) as readonly PiAiChatTemplateVar[]
 
+/** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
 let providerIndex: Map<string, Provider> | undefined
 
 /**
@@ -154,6 +182,7 @@ let providerIndex: Map<string, Provider> | undefined
  * provider instead of being rebuilt from parts.
  * @returns the catalog provider index.
  */
+/** 中文说明：函数 catalogProviders 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function catalogProviders(): Map<string, Provider> {
   providerIndex ??= new Map(builtinProviders().map(provider => [provider.id, provider]))
   return providerIndex
@@ -164,6 +193,7 @@ function catalogProviders(): Map<string, Provider> {
  * @param provider - provider route key.
  * @returns the catalog provider, or `undefined` for a route pi-ai does not ship.
  */
+/** 中文说明：函数 catalogProvider 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function catalogProvider(provider: string): Provider | undefined {
   return catalogProviders().get(provider)
 }
@@ -172,6 +202,7 @@ export function catalogProvider(provider: string): Provider | undefined {
  * Every provider route the installed pi-ai catalog ships.
  * @returns the catalog provider ids.
  */
+/** 中文说明：函数 catalogProviderIds 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function catalogProviderIds(): readonly string[] {
   return getBuiltinProviders()
 }
@@ -181,8 +212,10 @@ export function catalogProviderIds(): readonly string[] {
  * @param provider - provider route key.
  * @returns catalog models by id; empty for a route pi-ai does not ship.
  */
+/** 中文说明：函数 catalogModels 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function catalogModels(provider: string): Map<string, Model<Api>> {
   if (!catalogProviders().has(provider)) return new Map()
+  /** 中文说明：适配器局部值 models，由紧邻初始化决定。 */
   const models = getBuiltinModels(provider as BuiltinProvider) as Model<Api>[]
   return new Map(models.map(model => [model.id, model]))
 }
@@ -195,6 +228,7 @@ export function catalogModels(provider: string): Map<string, Model<Api>> {
  * absence; every other declared level must name a wire value. A level absent
  * from the dict is not offered.
  */
+/** 中文说明：类型或类 PiAiReasoningEfforts 约束模型请求、认证或流事件职责。 */
 export type PiAiReasoningEfforts = Partial<Record<ModelThinkingLevel, string | null>>
 
 /**
@@ -205,6 +239,7 @@ export type PiAiReasoningEfforts = Partial<Record<ModelThinkingLevel, string | n
  * means configuring a provider that should have been named as a catalog route
  * instead, where the installed entry carries the right value already.
  */
+/** 中文说明：类型或类 CompatDisposition 约束模型请求、认证或流事件职责。 */
 type CompatDisposition = 'offer' | 'withhold'
 
 /**
@@ -212,6 +247,7 @@ type CompatDisposition = 'offer' | 'withhold'
  * is a drift gate: a pi-ai upgrade that adds a field fails compilation here
  * until it is classified, so the offer never silently lags the upstream set.
  */
+/** 中文说明：适配器局部值 COMPLETIONS_COMPAT_GATE，由紧邻初始化决定。 */
 const COMPLETIONS_COMPAT_GATE = {
   supportsStore: 'offer',
   supportsDeveloperRole: 'offer',
@@ -237,6 +273,7 @@ const COMPLETIONS_COMPAT_GATE = {
 } as const satisfies Record<keyof OpenAICompletionsCompat, CompatDisposition>
 
 /** Disposition of every `OpenAIResponsesCompat` field; a drift gate like the one above. */
+/** 中文说明：适配器局部值 RESPONSES_COMPAT_GATE，由紧邻初始化决定。 */
 const RESPONSES_COMPAT_GATE = {
   supportsDeveloperRole: 'offer',
   supportsStrictMode: 'offer',
@@ -248,6 +285,7 @@ const RESPONSES_COMPAT_GATE = {
 } as const satisfies Record<keyof OpenAIResponsesCompat, CompatDisposition>
 
 /** Disposition of every `AnthropicMessagesCompat` field; a drift gate like the one above. */
+/** 中文说明：适配器局部值 ANTHROPIC_COMPAT_GATE，由紧邻初始化决定。 */
 const ANTHROPIC_COMPAT_GATE = {
   supportsEagerToolInputStreaming: 'offer',
   supportsLongCacheRetention: 'offer',
@@ -261,6 +299,7 @@ const ANTHROPIC_COMPAT_GATE = {
 } as const satisfies Record<keyof AnthropicMessagesCompat, CompatDisposition>
 
 /** Disposition of every `BedrockCompat` field; a drift gate like the one above. */
+/** 中文说明：适配器局部值 BEDROCK_COMPAT_GATE，由紧邻初始化决定。 */
 const BEDROCK_COMPAT_GATE = {
   supportsStrictMode: 'offer',
 } as const satisfies Record<keyof BedrockCompat, CompatDisposition>
@@ -272,6 +311,7 @@ const BEDROCK_COMPAT_GATE = {
  * until someone classifies its fields. A protocol pi-ai gives no compat type
  * resolves away here and takes no configured compat at all.
  */
+/** 中文说明：类型或类 ApiWithCompat 约束模型请求、认证或流事件职责。 */
 type ApiWithCompat = { [K in KnownApi]: NonNullable<Model<K>['compat']> extends never ? never : K }[KnownApi]
 
 /**
@@ -283,6 +323,7 @@ type ApiWithCompat = { [K in KnownApi]: NonNullable<Model<K>['compat']> extends 
  * `azure-openai-responses` and `openai-codex-responses` the fields their own
  * models declare.
  */
+/** 中文说明：适配器局部值 COMPAT_GATES，由紧邻初始化决定。 */
 const COMPAT_GATES: Readonly<Record<ApiWithCompat, Readonly<Record<string, CompatDisposition>>>> = {
   'openai-completions': COMPLETIONS_COMPAT_GATE,
   'openai-responses': RESPONSES_COMPAT_GATE,
@@ -299,14 +340,17 @@ const COMPAT_GATES: Readonly<Record<ApiWithCompat, Readonly<Record<string, Compa
  * @param api - resolved wire protocol.
  * @returns that protocol's field gate, or `undefined` when it takes no compat.
  */
+/** 中文说明：函数 compatGate 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function compatGate(api: string): Readonly<Record<string, CompatDisposition>> | undefined {
   return (COMPAT_GATES as Readonly<Record<string, Readonly<Record<string, CompatDisposition>>>>)[api]
 }
 
 /** The field names one gate offers. */
+/** 中文说明：类型或类 OfferedIn 约束模型请求、认证或流事件职责。 */
 type OfferedIn<G> = { [K in keyof G]: G[K] extends 'offer' ? K : never }[keyof G]
 
 /** Every compat field name a profile may set, on whichever protocol takes it. */
+/** 中文说明：类型或类 OfferedCompatField 约束模型请求、认证或流事件职责。 */
 type OfferedCompatField =
   | OfferedIn<typeof COMPLETIONS_COMPAT_GATE>
   | OfferedIn<typeof RESPONSES_COMPAT_GATE>
@@ -331,6 +375,7 @@ type OfferedCompatField =
  * `openai-codex-responses`, which pi-ai gives one shared compat type, so a
  * switch settable on one is settable on all three.
  */
+/** 中文说明：类型或类 PiAiCompatProfile 约束模型请求、认证或流事件职责。 */
 export interface PiAiCompatProfile {
   /** Whether the endpoint accepts `store`; `openai-completions`. */
   supportsStore?: boolean
@@ -391,12 +436,14 @@ export interface PiAiCompatProfile {
 }
 
 /** Compile-time constraint that `T` is `never`. */
+/** 中文说明：类型或类 AssertNever 约束模型请求、认证或流事件职责。 */
 type AssertNever<T extends never> = T
 
 /**
  * Proof that every documented field is one a gate offers. A field the profile
  * declares past the gates fails compilation with its own name in the error.
  */
+/** 中文说明：类型或类 EveryProfileFieldIsOffered 约束模型请求、认证或流事件职责。 */
 export type EveryProfileFieldIsOffered = AssertNever<Exclude<keyof PiAiCompatProfile, OfferedCompatField>>
 
 /**
@@ -404,12 +451,15 @@ export type EveryProfileFieldIsOffered = AssertNever<Exclude<keyof PiAiCompatPro
  * `offer` without a profile field fails compilation with its own name in the
  * error, which is the half a schema alone cannot catch.
  */
+/** 中文说明：类型或类 EveryOfferedFieldIsDocumented 约束模型请求、认证或流事件职责。 */
 export type EveryOfferedFieldIsDocumented = AssertNever<Exclude<OfferedCompatField, keyof PiAiCompatProfile>>
 
 /** Compile-time constraint that `T` is `true`. */
+/** 中文说明：类型或类 AssertTrue 约束模型请求、认证或流事件职责。 */
 type AssertTrue<T extends true> = T
 
 /** Every compat type a gate classifies, merged so one `Pick` reaches all offered fields. */
+/** 中文说明：类型或类 UpstreamCompat 约束模型请求、认证或流事件职责。 */
 type UpstreamCompat = OpenAICompletionsCompat & OpenAIResponsesCompat & AnthropicMessagesCompat & BedrockCompat
 
 /**
@@ -421,6 +471,7 @@ type UpstreamCompat = OpenAICompletionsCompat & OpenAIResponsesCompat & Anthropi
  * refuses a value the provider accepts, which is how an upgrade that widens a
  * union would otherwise leave configuration silently behind.
  */
+/** 中文说明：类型或类 EveryProfileFieldMatchesUpstream 约束模型请求、认证或流事件职责。 */
 export type EveryProfileFieldMatchesUpstream = AssertTrue<
   PiAiCompatProfile extends Partial<Pick<UpstreamCompat, OfferedCompatField>>
     ? Partial<Pick<UpstreamCompat, OfferedCompatField>> extends PiAiCompatProfile ? true : false
@@ -441,8 +492,10 @@ export type EveryProfileFieldMatchesUpstream = AssertTrue<
  * @param compat - the configured switches, when any.
  * @returns the entries carrying a value, in declaration order.
  */
+/** 中文说明：函数 configuredCompatEntries 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function configuredCompatEntries(compat: PiAiCompatProfile | undefined): readonly (readonly [string, unknown])[] {
   return Object.entries(compat ?? {}).flatMap(([field, value]) => {
+    /** 中文说明：适配器局部值 empty，由紧邻初始化决定。 */
     const empty = typeof value === 'object' && value !== null && !Array.isArray(value)
       && Object.keys(value as object).length === 0
     return empty ? [] : [[field, value] as const]
@@ -455,6 +508,7 @@ function configuredCompatEntries(compat: PiAiCompatProfile | undefined): readonl
  * @returns the protocols whose compat takes it; empty when none does, which
  *   is either a withheld field or a name no upstream compat type declares.
  */
+/** 中文说明：函数 compatProtocols 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function compatProtocols(field: string): readonly string[] {
   return Object.entries(COMPAT_GATES).flatMap(([api, gate]) => gate[field] === 'offer' ? [api] : [])
 }
@@ -465,6 +519,7 @@ function compatProtocols(field: string): readonly string[] {
  * @param api - wire protocol.
  * @returns the offered field names, or an empty list for a protocol taking no compat.
  */
+/** 中文说明：函数 offeredCompatFields 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function offeredCompatFields(api: string): readonly string[] {
   return Object.entries(compatGate(api) ?? {}).flatMap(([field, disposition]) => disposition === 'offer' ? [field] : [])
 }
@@ -476,9 +531,13 @@ function offeredCompatFields(api: string): readonly string[] {
  * never have reached the protocol that declares the intended field.
  * @returns the offered field names across every protocol, in gate order.
  */
+/** 中文说明：函数 allOfferedCompatFields 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function allOfferedCompatFields(): readonly string[] {
+  /** 中文说明：适配器局部值 fields，由紧邻初始化决定。 */
   const fields = new Set<string>()
+  /** 中文说明：适配器局部值 api，由紧邻初始化决定。 */
   for (const api of Object.keys(COMPAT_GATES)) {
+    /** 中文说明：适配器局部值 field，由紧邻初始化决定。 */
     for (const field of offeredCompatFields(api)) fields.add(field)
   }
   return [...fields]
@@ -494,6 +553,7 @@ function allOfferedCompatFields(): readonly string[] {
  * @param compat - the configured switches, when any.
  * @throws Error naming the offending key.
  */
+/** 中文说明：函数 assertOfferedCompatFields 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function assertOfferedCompatFields(
   provider: string,
   site: string,
@@ -502,12 +562,14 @@ function assertOfferedCompatFields(
   // Every key, not only the ones carrying a value: a withheld or undeclared
   // name is never in the schema, so schemastery cannot have materialized it —
   // whatever its value, a person wrote it and expects it to do something.
+  /** 中文说明：适配器局部值 [field，由紧邻初始化决定。 */
   for (const [field, value] of Object.entries(compat ?? {})) {
     // The name is judged before the value, so a withheld or misspelled key
     // written bare is refused for being that name rather than for being empty:
     // the other order sends someone to supply a value the key would be refused
     // with anyway.
     if (compatProtocols(field).length === 0) {
+      /** 中文说明：适配器局部值 declared，由紧邻初始化决定。 */
       const declared = Object.values(COMPAT_GATES).some(gate => gate[field] !== undefined)
       if (declared) {
         invalid(provider, `${site} sets compat "${field}", which is not configurable here: pi-ai's installed`
@@ -531,6 +593,7 @@ function assertOfferedCompatFields(
 }
 
 /** One configured model entry: an id plus the catalog fields it overrides. */
+/** 中文说明：类型或类 PiAiModelProfile 约束模型请求、认证或流事件职责。 */
 export interface PiAiModelProfile {
   /** Model id sent to the provider and accepted by {@link GenerateOptions.model}. */
   id: string
@@ -576,9 +639,11 @@ export interface PiAiModelProfile {
  * rest of the catalog serving untouched, which is what makes "correct one
  * model, keep the other thirty-seven" a three-line edit.
  */
+/** 中文说明：类型或类 PiAiModelOverride 约束模型请求、认证或流事件职责。 */
 export type PiAiModelOverride = Omit<PiAiModelProfile, 'id'>
 
 /** The route-level facts model materialization reads. */
+/** 中文说明：类型或类 RouteCatalogRequest 约束模型请求、认证或流事件职责。 */
 export interface RouteCatalogRequest {
   /** Provider route key, stamped onto every materialized model. */
   provider: string
@@ -601,6 +666,7 @@ export interface RouteCatalogRequest {
 }
 
 /** Report a route the deployment cannot serve, naming the settings key at fault. */
+/** 中文说明：函数 invalid 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function invalid(provider: string, detail: string): never {
   throw new Error(`llm-pi-ai: provider "${provider}" ${detail}`)
 }
@@ -613,13 +679,17 @@ function invalid(provider: string, detail: string): never {
  * spanning Responses and Chat Completions) has no such answer, so a model it
  * does not describe must name its protocol at the route.
  */
+/** 中文说明：函数 sharedCatalogApi 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function sharedCatalogApi(defaults: ReadonlyMap<string, Model<Api>>): string | undefined {
+  /** 中文说明：适配器局部值 apis，由紧邻初始化决定。 */
   const apis = new Set<string>()
+  /** 中文说明：适配器局部值 model，由紧邻初始化决定。 */
   for (const model of defaults.values()) apis.add(model.api)
   return apis.size === 1 ? [...apis][0] : undefined
 }
 
 /** The reasoning fields one materialized model carries. */
+/** 中文说明：类型或类 ModelReasoning 约束模型请求、认证或流事件职责。 */
 interface ModelReasoning {
   /** Whether the model reasons at all; `false` makes pi-ai ignore the map. */
   reasoning: boolean
@@ -644,11 +714,13 @@ interface ModelReasoning {
  * @param base - the installed catalog entry of the same id, when one exists.
  * @returns the reasoning fields the materialized model carries.
  */
+/** 中文说明：函数 resolveModelReasoning 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function resolveModelReasoning(
   provider: string,
   entry: PiAiModelProfile,
   base: Model<Api> | undefined,
 ): ModelReasoning {
+  /** 中文说明：适配器局部值 efforts，由紧邻初始化决定。 */
   const efforts = entry.reasoningEfforts
   if (efforts === undefined) {
     // Reasoning rides the installed entry or is absent: a bare capability flag
@@ -670,10 +742,13 @@ function resolveModelReasoning(
     invalid(provider, `model "${entry.id}" has an empty reasoningEfforts; declare the offered levels, set`
       + ' false for a non-reasoning model, or omit the field to keep the installed catalog\'s capability')
   }
+  /** 中文说明：适配器局部值 declared，由紧邻初始化决定。 */
   const declared = THINKING_LEVELS.flatMap((level) => {
+    /** 中文说明：适配器局部值 wire，由紧邻初始化决定。 */
     const wire = efforts[level]
     return wire === undefined ? [] : [[level, wire] as const]
   })
+  /** 中文说明：适配器局部值 [level，由紧邻初始化决定。 */
   for (const [level, wire] of declared) {
     if (wire === null) {
       if (level !== 'off') {
@@ -688,8 +763,11 @@ function resolveModelReasoning(
     invalid(provider, `model "${entry.id}" reasoningEfforts offers no level beyond "off"; declare a thinking`
       + ' level, or set reasoningEfforts to false for a non-reasoning model')
   }
+  /** 中文说明：适配器局部值 map，由紧邻初始化决定。 */
   const map: ThinkingLevelMap = {}
+  /** 中文说明：适配器局部值 level，由紧邻初始化决定。 */
   for (const level of THINKING_LEVELS) {
+    /** 中文说明：适配器局部值 wire，由紧邻初始化决定。 */
     const wire = efforts[level]
     if (wire === undefined) {
       map[level] = null
@@ -701,6 +779,7 @@ function resolveModelReasoning(
 }
 
 /** The compat block a materialized model carries, whichever protocol it speaks. */
+/** 中文说明：类型或类 ModelCompat 约束模型请求、认证或流事件职责。 */
 type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMessagesCompat | BedrockCompat
 
 /**
@@ -721,6 +800,7 @@ type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMe
  * @param api - the model's resolved wire protocol.
  * @returns a `compat` field to spread into the model, or nothing.
  */
+/** 中文说明：函数 resolveModelCompat 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function resolveModelCompat(
   provider: string,
   entry: PiAiModelProfile,
@@ -728,14 +808,19 @@ function resolveModelCompat(
   base: Model<Api> | undefined,
   api: string,
 ): { compat: ModelCompat } | Record<string, never> {
+  /** 中文说明：适配器局部值 gate，由紧邻初始化决定。 */
   const gate = compatGate(api)
+  /** 中文说明：适配器局部值 configured，由紧邻初始化决定。 */
   const configured: Record<string, unknown> = {}
+  /** 中文说明：适配器局部值 [field，由紧邻初始化决定。 */
   for (const [field, value] of configuredCompatEntries(route)) {
     if (gate?.[field] !== 'offer') continue
     configured[field] = value
   }
+  /** 中文说明：适配器局部值 [field，由紧邻初始化决定。 */
   for (const [field, value] of configuredCompatEntries(entry.compat)) {
     if (gate?.[field] !== 'offer') {
+      /** 中文说明：适配器局部值 offered，由紧邻初始化决定。 */
       const offered = offeredCompatFields(api)
       invalid(provider, `model "${entry.id}" sets compat "${field}", but its api is "${api}", which does not`
         + ` take it; that switch exists on ${compatProtocols(field).join(', ')}, and "${api}" offers`
@@ -750,11 +835,13 @@ function resolveModelCompat(
   // inherited only while the resolved api still is the entry's. A repointed
   // model starts from pi-ai's baseURL-derived detection instead, which is
   // what a protocol change means for every other compat field too.
+  /** 中文说明：适配器局部值 inherited，由紧邻初始化决定。 */
   const inherited = base?.api === api ? base.compat : undefined
   return { compat: { ...inherited, ...configured } as ModelCompat }
 }
 
 /** One route's materialized catalog, plus the request caps its profile chose. */
+/** 中文说明：类型或类 RouteCatalog 约束模型请求、认证或流事件职责。 */
 export interface RouteCatalog {
   /** The materialized models in configuration order. */
   models: readonly Model<Api>[]
@@ -779,17 +866,24 @@ export interface RouteCatalog {
  * @param request - the route-level catalog facts.
  * @returns the materialized models and the explicitly configured request caps.
  */
+/** 中文说明：函数 resolveRouteModels 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function resolveRouteModels(request: RouteCatalogRequest): RouteCatalog {
+  /** 中文说明：适配器局部值 { provider }，由紧邻初始化决定。 */
   const { provider } = request
+  /** 中文说明：适配器局部值 defaults，由紧邻初始化决定。 */
   const defaults = catalogModels(provider)
+  /** 中文说明：适配器局部值 providerBaseUrl，由紧邻初始化决定。 */
   const providerBaseUrl = catalogProvider(provider)?.baseUrl
   // An absent `models` key and an empty one are the same request: the config
   // schema materializes `[]` for the absent case, and an empty catalog could
   // serve no request anyway, so both mean "serve the installed catalog".
+  /** 中文说明：适配器局部值 configured，由紧邻初始化决定。 */
   const configured = request.models ?? []
+  /** 中文说明：适配器局部值 overrides，由紧邻初始化决定。 */
   const overrides = request.modelOverrides ?? {}
   // Every miss is refused, never skipped: an override that lands nowhere is a
   // typo someone would otherwise hunt for in a silently unchanged model.
+  /** 中文说明：适配器局部值 [id，由紧邻初始化决定。 */
   for (const [id, override] of Object.entries(overrides)) {
     if (id.length === 0) invalid(provider, 'has a modelOverrides entry with an empty model id')
     if (defaults.size === 0) {
@@ -813,6 +907,7 @@ export function resolveRouteModels(request: RouteCatalogRequest): RouteCatalog {
   // An override becomes the catalog entry's configuration, so everything a
   // models entry may declare — capacities, efforts, compat — resolves through
   // the same path with the same diagnostics and request-default semantics.
+  /** 中文说明：适配器局部值 entries，由紧邻初始化决定。 */
   const entries: readonly PiAiModelProfile[] = configured.length > 0
     ? configured
     : [...defaults.values()].map(model => ({ id: model.id, ...overrides[model.id] }))
@@ -820,26 +915,34 @@ export function resolveRouteModels(request: RouteCatalogRequest): RouteCatalog {
     invalid(provider, 'resolves no models; the installed catalog does not describe this route, so its models'
       + ' must be listed in configuration')
   }
+  /** 中文说明：适配器局部值 routeApi，由紧邻初始化决定。 */
   const routeApi = sharedCatalogApi(defaults)
   // Vocabulary before protocols: a withheld or undeclared switch is refused
   // wherever it is written, so it cannot look applied on a route whose models
   // never reach the protocol that would have taken it.
   assertOfferedCompatFields(provider, 'route', request.compat)
+  /** 中文说明：适配器局部值 entry，由紧邻初始化决定。 */
   for (const entry of entries) {
     assertOfferedCompatFields(provider, `model "${entry.id}"`, entry.compat)
   }
+  /** 中文说明：适配器局部值 seen，由紧邻初始化决定。 */
   const seen = new Set<string>()
+  /** 中文说明：适配器局部值 configuredMaxTokens，由紧邻初始化决定。 */
   const configuredMaxTokens = new Map<string, number>()
+  /** 中文说明：适配器局部值 models，由紧邻初始化决定。 */
   const models = entries.map((entry) => {
     if (entry.id.length === 0) invalid(provider, 'has a model with an empty id')
     if (seen.has(entry.id)) invalid(provider, `lists model "${entry.id}" more than once`)
     seen.add(entry.id)
+    /** 中文说明：适配器局部值 base，由紧邻初始化决定。 */
     const base = defaults.get(entry.id)
+    /** 中文说明：适配器局部值 api，由紧邻初始化决定。 */
     const api = request.api ?? base?.api ?? routeApi
     if (api === undefined) {
       invalid(provider, `model "${entry.id}" needs an api; the installed catalog does not describe it, so set the`
         + ' route\'s api to the wire protocol its endpoint speaks')
     }
+    /** 中文说明：适配器局部值 baseUrl，由紧邻初始化决定。 */
     const baseUrl = request.baseURL ?? base?.baseUrl ?? providerBaseUrl
     if (baseUrl === undefined) {
       invalid(provider, `model "${entry.id}" needs a baseURL; the installed catalog does not describe this route`)
@@ -848,10 +951,12 @@ export function resolveRouteModels(request: RouteCatalogRequest): RouteCatalog {
     // discloses nothing but ids still yields a serviceable route. The fallback
     // is a guess by construction, which is why it is a configurable route field
     // rather than a constant buried here.
+    /** 中文说明：适配器局部值 contextWindow，由紧邻初始化决定。 */
     const contextWindow = entry.contextWindow ?? base?.contextWindow ?? request.defaultContextWindow
     if (!Number.isInteger(contextWindow) || contextWindow <= 0) {
       invalid(provider, `model "${entry.id}" contextWindow must be a positive integer`)
     }
+    /** 中文说明：适配器局部值 maxTokens，由紧邻初始化决定。 */
     const maxTokens = entry.maxTokens ?? base?.maxTokens ?? request.defaultMaxTokens
     if (!Number.isInteger(maxTokens) || maxTokens <= 0) {
       invalid(provider, `model "${entry.id}" maxTokens must be a positive integer`)
@@ -883,7 +988,9 @@ export function resolveRouteModels(request: RouteCatalogRequest): RouteCatalog {
   // models take beside one only its anthropic models do, and neither should
   // fail for the other's sake. What is refused is a route default no model on
   // the route could ever read, which is a route that will not behave as written.
+  /** 中文说明：适配器局部值 [field]，由紧邻初始化决定。 */
   for (const [field] of configuredCompatEntries(request.compat)) {
+    /** 中文说明：适配器局部值 takers，由紧邻初始化决定。 */
     const takers = compatProtocols(field)
     if (models.some(model => takers.includes(model.api))) continue
     invalid(provider, `sets compat "${field}", but no model on the route speaks a protocol that takes it;`

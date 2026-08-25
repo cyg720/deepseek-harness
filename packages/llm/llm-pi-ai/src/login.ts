@@ -6,6 +6,14 @@
  *
  * @module dsh-llm-pi-ai/login
  */
+/**
+ * 文件职责：实现Pi AI LLM的 login.ts 模块。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 
 import { createModels } from '@earendil-works/pi-ai'
 import type { AuthEvent, AuthPrompt, AuthType, Provider } from '@earendil-works/pi-ai'
@@ -26,10 +34,14 @@ import type { PiAiAuthInjection } from './adapter.ts'
  * @param provider - the installed catalog provider, if pi-ai ships one.
  * @returns its methods, most preferred first; empty when it offers no login.
  */
+/** 中文说明：函数 loginMethods 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function loginMethods(provider: Provider | undefined): AuthorizationMethod[] {
+  /** 中文说明：适配器局部值 methods，由紧邻初始化决定。 */
   const methods: AuthorizationMethod[] = []
+  /** 中文说明：适配器局部值 oauth，由紧邻初始化决定。 */
   const oauth = provider?.auth.oauth
   if (oauth !== undefined) methods.push({ id: 'oauth', label: oauth.loginLabel ?? oauth.name })
+  /** 中文说明：适配器局部值 apiKey，由紧邻初始化决定。 */
   const apiKey = provider?.auth.apiKey
   if (apiKey?.login !== undefined) methods.push({ id: 'api-key', label: apiKey.name })
   return methods
@@ -44,9 +56,11 @@ function loginMethods(provider: Provider | undefined): AuthorizationMethod[] {
  * @param event - what pi-ai reported.
  * @param session - the attempt to report it to.
  */
+/** 中文说明：函数 relay 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function relay(event: AuthEvent, session: AuthorizationSession): void {
   switch (event.type) {
     case 'info': {
+      /** 中文说明：适配器局部值 link，由紧邻初始化决定。 */
       const link = event.links?.[0]
       session.notify({ message: event.message, ...link === undefined ? {} : { url: link.url } })
       return
@@ -86,7 +100,9 @@ function relay(event: AuthEvent, session: AuthorizationSession): void {
  * @param prompt - what pi-ai asked.
  * @returns the neutral prompt to put to the human.
  */
+/** 中文说明：函数 restate 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function restate(prompt: AuthPrompt): AuthorizationPrompt {
+  /** 中文说明：适配器局部值 signal，由紧邻初始化决定。 */
   const signal = prompt.signal === undefined ? {} : { signal: prompt.signal }
   switch (prompt.type) {
     case 'select':
@@ -117,9 +133,13 @@ function restate(prompt: AuthPrompt): AuthorizationPrompt {
  * @param ctx - the plugin context carrying `ctx.authorization`.
  * @param auth - the injectables every collection here is built with.
  */
+/** 中文说明：函数 registerPiAiFlows 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function registerPiAiFlows(ctx: Context, auth: PiAiAuthInjection): void {
+  /** 中文说明：适配器局部值 providerId，由紧邻初始化决定。 */
   for (const providerId of catalogProviderIds()) {
+    /** 中文说明：适配器局部值 provider，由紧邻初始化决定。 */
     const provider = catalogProvider(providerId)
+    /** 中文说明：适配器局部值 [first, ...rest]，由紧邻初始化决定。 */
     const [first, ...rest] = loginMethods(provider)
     /* v8 ignore next 3 -- every id here names an installed provider and every
        installed provider ships a login, so nothing is skipped today; the guard
@@ -143,10 +163,12 @@ export function registerPiAiFlows(ctx: Context, auth: PiAiAuthInjection): void {
         // A collection of its own, holding only the provider being signed
         // into: login is not serving requests, and the credential it produces
         // lands in the shared store either way.
+        /** 中文说明：适配器局部值 models，由紧邻初始化决定。 */
         const models = createModels(auth)
         models.setProvider(provider)
         // Total over the two ids declared above, and the seam only ever hands
         // back one a flow declared.
+        /** 中文说明：适配器局部值 type，由紧邻初始化决定。 */
         const type: AuthType = session.method === 'oauth' ? 'oauth' : 'api_key'
         // pi-ai persists what the login returns through that same store, which
         // is what makes it the single writer of this record.

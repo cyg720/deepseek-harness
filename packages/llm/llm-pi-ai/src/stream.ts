@@ -7,6 +7,14 @@
  *
  * @module dsh-llm-pi-ai/stream
  */
+/**
+ * 文件职责：实现Pi AI LLM的 stream.ts 模块。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 
 import { CallId, CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { FinishReason, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
@@ -19,6 +27,7 @@ import { toPiReplayState } from './replay.ts'
  * @param usage - cumulative usage from the terminal pi-ai event.
  * @returns harness counts; cache fields appear only when non-zero (pi-ai reports zeros, not absence).
  */
+/** 中文说明：函数 mapUsage 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function mapUsage(usage: PiUsage): TokenUsage {
   return {
     inputTokens: usage.input,
@@ -36,6 +45,7 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // wrapper a bare `terminated`, so we are left pattern-matching terse words here.
 // If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
+/** 中文说明：函数 classifyPiAiError 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function classifyPiAiError(message: string): string {
   if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
   if (isQuotaExceededError(message)) return QUOTA_EXCEEDED_CODE
@@ -73,8 +83,11 @@ function classifyPiAiError(message: string): string {
  *   to `CONTEXT_WINDOW_EXCEEDED`; a `stop` with no content blocks maps to an
  *   `EMPTY_RESPONSE` error.
  */
+/** 中文说明：函数 mapStopReason 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function mapStopReason(message: AssistantMessage, contextWindow?: number): FinishReason {
+  /** 中文说明：适配器局部值 piAiOverflow，由紧邻初始化决定。 */
   const piAiOverflow = isContextOverflow(message, contextWindow)
+  /** 中文说明：适配器局部值 harnessOverflow，由紧邻初始化决定。 */
   const harnessOverflow = message.stopReason === 'error'
     && message.errorMessage !== undefined
     && isContextWindowExceededError(message.errorMessage)
@@ -109,6 +122,7 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
       failure: { message: message.errorMessage ?? 'pi-ai stream aborted', code: 'ABORTED' },
     }
     case 'error': {
+      /** 中文说明：适配器局部值 text，由紧邻初始化决定。 */
       const text = message.errorMessage ?? 'pi-ai stream error'
       return { kind: 'error', failure: { message: text, code: classifyPiAiError(text) } }
     }
@@ -124,14 +138,17 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
  * @returns the harness chunks, ending with `usage` then `finish`; throws
  *   `LlmError` (`STREAM_CLOSED`) if the source ends without a terminal event.
  */
+/** 中文说明：函数 toStreamChunks 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export async function* toStreamChunks(
   events: AsyncIterable<AssistantMessageEvent>,
   contextWindow?: number,
 ): AsyncGenerator<StreamChunk> {
   // pi-ai contentIndex ↔ our block index map 1:1 (both count blocks from 0
   // in stream order), but we track ids per index for tool calls.
+  /** 中文说明：适配器局部值 toolIds，由紧邻初始化决定。 */
   const toolIds = new Map<number, { id: string; name: string }>()
 
+  /** 中文说明：适配器局部值 event，由紧邻初始化决定。 */
   for await (const event of events) {
     switch (event.type) {
       case 'start':
@@ -156,14 +173,18 @@ export async function* toStreamChunks(
         break
       case 'toolcall_start': {
         // The id/name live on the partial's content at this index.
+        /** 中文说明：适配器局部值 partial，由紧邻初始化决定。 */
         const partial = event.partial.content[event.contentIndex]
+        /** 中文说明：适配器局部值 id，由紧邻初始化决定。 */
         const id = partial?.type === 'toolCall' ? partial.id : ''
+        /** 中文说明：适配器局部值 name，由紧邻初始化决定。 */
         const name = partial?.type === 'toolCall' ? partial.name : ''
         toolIds.set(event.contentIndex, { id, name })
         yield { type: 'block-start', index: event.contentIndex, blockType: 'tool-call' }
         break
       }
       case 'toolcall_delta': {
+        /** 中文说明：适配器局部值 known，由紧邻初始化决定。 */
         const known = toolIds.get(event.contentIndex)
         yield {
           type: 'tool-call-delta',

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Pi AI LLM的 convert.spec.ts 行为与网络边界。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type { AttachmentStore, ImageAttachmentRef, ImageRequestPolicy, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
@@ -8,6 +16,7 @@ import { toPiContext } from '../src/context.ts'
 import { toPiReplayState } from '../src/replay.ts'
 import { mapStopReason, mapUsage, toStreamChunks } from '../src/stream.ts'
 
+/** 中文说明：函数 usage 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function usage(input = 0, output = 0, cacheRead = 0, cacheWrite = 0): Usage {
   return {
     input,
@@ -19,6 +28,7 @@ function usage(input = 0, output = 0, cacheRead = 0, cacheWrite = 0): Usage {
   }
 }
 
+/** 中文说明：函数 assistant 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function assistant(overrides: Partial<AssistantMessage> = {}): AssistantMessage {
   return {
     role: 'assistant',
@@ -33,16 +43,22 @@ function assistant(overrides: Partial<AssistantMessage> = {}): AssistantMessage 
   }
 }
 
+/** 中文说明：函数 feed 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function* feed(...events: AssistantMessageEvent[]): AsyncGenerator<AssistantMessageEvent> {
+  /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
   for (const event of events) yield event
 }
 
+/** 中文说明：函数 collect 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function collect(stream: AsyncIterable<StreamChunk>): Promise<StreamChunk[]> {
+  /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
   const out: StreamChunk[] = []
+  /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
   for await (const chunk of stream) out.push(chunk)
   return out
 }
 
+/** 中文说明：函数 requestVersion 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function requestVersion(ref: ImageAttachmentRef): RequestImageAttachment {
   return {
     variantId: ImageVariantId(`sha256:${'e'.repeat(64)}`),
@@ -58,6 +74,7 @@ function requestVersion(ref: ImageAttachmentRef): RequestImageAttachment {
   }
 }
 
+/** 中文说明：函数 attachmentStore 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function attachmentStore(readImageRequest: (
   ref: ImageAttachmentRef,
   policy: ImageRequestPolicy,
@@ -68,6 +85,7 @@ function attachmentStore(readImageRequest: (
 
 describe('toPiContext', () => {
   it('maps system prompt, user text, and tools', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'deepseek-v4-flash',
@@ -86,12 +104,14 @@ describe('toPiContext', () => {
   })
 
   it('omits empty tools and absent system prompt', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({ provider: 'deepseek', model: 'm', messages: [], tools: [] })
     expect(context.systemPrompt).toBeUndefined()
     expect(context.tools).toBeUndefined()
   })
 
   it('resolves durable image references into native pi-ai image content', async () => {
+    /** 中文说明：测试局部值 attachment，由紧邻初始化决定。 */
     const attachment = {
       attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
       mediaType: 'image/png' as const,
@@ -99,9 +119,11 @@ describe('toPiContext', () => {
       width: 1,
       height: 1,
     }
+    /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
     const readImageRequest = vi.fn((value: ImageAttachmentRef, _policy: ImageRequestPolicy) => (
       Promise.resolve(requestVersion(value))
     ))
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = await toPiContext({
       provider: 'openai',
       model: 'gpt-4.1',
@@ -128,6 +150,7 @@ describe('toPiContext', () => {
   })
 
   it('flattens nested tool-result images into the enclosing result', async () => {
+    /** 中文说明：测试局部值 attachment，由紧邻初始化决定。 */
     const attachment = {
       attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`),
       mediaType: 'image/png' as const,
@@ -135,9 +158,11 @@ describe('toPiContext', () => {
       width: 1,
       height: 1,
     }
+    /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
     const readImageRequest = vi.fn((value: ImageAttachmentRef, _policy: ImageRequestPolicy) => (
       Promise.resolve(requestVersion(value))
     ))
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = await toPiContext({
       provider: 'openai',
       model: 'gpt-4.1',
@@ -196,6 +221,7 @@ describe('toPiContext', () => {
   })
 
   it('maps assistant text/reasoning/tool-call blocks', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -209,6 +235,7 @@ describe('toPiContext', () => {
         source: { kind: 'plugin', plugin: 'test' },
       })],
     })
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = context.messages[0] as AssistantMessage
     expect(message.role).toBe('assistant')
     expect(message.stopReason).toBe('toolUse')
@@ -220,6 +247,7 @@ describe('toPiContext', () => {
   })
 
   it('marks tool-call-free assistant messages with stopReason stop', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -232,6 +260,7 @@ describe('toPiContext', () => {
   })
 
   it('preserves provider and model for foreign assistant messages without replay state', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'openai',
       model: 'new-model',
@@ -250,6 +279,7 @@ describe('toPiContext', () => {
   })
 
   it('parses malformed tool-call arguments to {}', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -259,11 +289,13 @@ describe('toPiContext', () => {
         source: { kind: 'plugin', plugin: 'test' },
       })],
     })
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = context.messages[0] as AssistantMessage
     expect(message.content[0]).toEqual({ type: 'toolCall', id: 'c1', name: 'f', arguments: {} })
   })
 
   it('parses non-object argument JSON (arrays, scalars) to {}', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -277,6 +309,7 @@ describe('toPiContext', () => {
   })
 
   it('recovers toolName for tool results from the preceding assistant call', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -311,6 +344,7 @@ describe('toPiContext', () => {
   })
 
   it('labels unmatched tool results with toolName unknown and keeps isError', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -328,6 +362,7 @@ describe('toPiContext', () => {
   })
 
   it('splits mixed user text + tool results and folds history system messages', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -349,6 +384,7 @@ describe('toPiContext', () => {
   })
 
   it('skips plugin-added (unknown) blocks in assistant content', () => {
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -365,6 +401,7 @@ describe('toPiContext', () => {
   })
 
   it('recombines durable content with pi-ai replay metadata across target providers and models', () => {
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = toPiReplayState(assistant({
       api: 'openai-responses',
       provider: 'openai',
@@ -378,6 +415,7 @@ describe('toPiContext', () => {
         { type: 'toolCall', id: 'c1', name: 'f', arguments: { a: 1 }, thoughtSignature: 'tool-sig' },
       ],
     }))
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'anthropic',
       model: 'claude-next',
@@ -412,6 +450,7 @@ describe('toPiContext', () => {
   })
 
   it('replays all native block kinds when optional metadata is absent', () => {
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = toPiReplayState(assistant({
       content: [
         { type: 'thinking', thinking: 'private reasoning' },
@@ -419,6 +458,7 @@ describe('toPiContext', () => {
         { type: 'toolCall', id: 'c1', name: 'f', arguments: { a: 1 } },
       ],
     }))
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'new-model',
@@ -449,7 +489,9 @@ describe('toPiContext', () => {
   })
 
   it('degrades unsupported replay-state versions to provider-neutral history', () => {
+    /** 中文说明：测试局部值 onDegrade，由紧邻初始化决定。 */
     const onDegrade = vi.fn()
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -477,7 +519,9 @@ describe('toPiContext', () => {
   })
 
   it('degrades the flat pre-envelope replay state a legacy session log carries', () => {
+    /** 中文说明：测试局部值 onDegrade，由紧邻初始化决定。 */
     const onDegrade = vi.fn()
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -507,8 +551,11 @@ describe('toPiContext', () => {
   })
 
   it('degrades replay metadata whose blocks do not match the durable content', () => {
+    /** 中文说明：测试局部值 onDegrade，由紧邻初始化决定。 */
     const onDegrade = vi.fn()
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = toPiReplayState(assistant({ content: [{ type: 'text', text: 'done' }] }))
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -530,8 +577,11 @@ describe('toPiContext', () => {
   })
 
   it('degrades replay metadata whose block count differs from durable content', () => {
+    /** 中文说明：测试局部值 onDegrade，由紧邻初始化决定。 */
     const onDegrade = vi.fn()
+    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = toPiReplayState(assistant())
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'm',
@@ -555,6 +605,7 @@ describe('toPiContext', () => {
     expect(onDegrade).toHaveBeenCalledWith(expect.stringContaining('block count does not match assistant content'))
   })
 
+  /** 中文说明：测试局部值 validResponse，由紧邻初始化决定。 */
   const validResponse = {
     kind: 'pi-ai',
     version: 2,
@@ -563,11 +614,15 @@ describe('toPiContext', () => {
     model: 'deepseek-v4-flash',
     stopReason: 'stop',
   }
+  /** 中文说明：测试局部值 validReplay，由紧邻初始化决定。 */
   const validReplay = { response: validResponse, blocks: [{ type: 'text' }] }
 
   /** Convert with the given state and assert the message degraded to foreign with the given reason. */
+  /** 中文说明：函数 expectDegraded 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
   function expectDegraded(replayState: unknown, message: string): void {
+    /** 中文说明：测试局部值 onDegrade，由紧邻初始化决定。 */
     const onDegrade = vi.fn()
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = toPiContext({
       provider: 'deepseek',
       model: 'next-model',
@@ -622,12 +677,15 @@ describe('toPiContext', () => {
 })
 
 describe('toStreamChunks', () => {
+  /** 中文说明：测试局部值 partialWithToolCall，由紧邻初始化决定。 */
   const partialWithToolCall = assistant({
     content: [{ type: 'toolCall', id: 'call-1', name: 'f', arguments: {} }],
   })
 
   it('maps text events to text blocks', async () => {
+    /** 中文说明：测试局部值 done，由紧邻初始化决定。 */
     const done = assistant({ content: [{ type: 'text', text: 'hi' }], usage: usage(3, 2) })
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(toStreamChunks(feed(
       { type: 'start', partial: assistant() },
       { type: 'text_start', contentIndex: 0, partial: assistant() },
@@ -659,6 +717,7 @@ describe('toStreamChunks', () => {
   })
 
   it('maps thinking events to reasoning blocks', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(toStreamChunks(feed(
       { type: 'thinking_start', contentIndex: 0, partial: assistant() },
       { type: 'thinking_delta', contentIndex: 0, delta: 'mull', partial: assistant() },
@@ -673,6 +732,7 @@ describe('toStreamChunks', () => {
   })
 
   it('maps tool-call events, re-stringifying parsed arguments', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(toStreamChunks(feed(
       { type: 'toolcall_start', contentIndex: 0, partial: partialWithToolCall },
       { type: 'toolcall_delta', contentIndex: 0, delta: '{"a"', partial: partialWithToolCall },
@@ -710,6 +770,7 @@ describe('toStreamChunks', () => {
   })
 
   it('tolerates toolcall_start with a missing partial entry', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(toStreamChunks(feed(
       { type: 'toolcall_start', contentIndex: 0, partial: assistant() },
       { type: 'toolcall_delta', contentIndex: 0, delta: '{}', partial: assistant() },
@@ -719,7 +780,9 @@ describe('toStreamChunks', () => {
   })
 
   it('maps error events to error finish chunks (in-stream error style)', async () => {
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = assistant({ stopReason: 'error', errorMessage: 'boom', usage: usage(1, 0) })
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(toStreamChunks(feed(
       { type: 'error', reason: 'error', error },
     )))
@@ -730,7 +793,9 @@ describe('toStreamChunks', () => {
   })
 
   it('maps aborted error events to aborted finish', async () => {
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = assistant({ stopReason: 'aborted' })
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(toStreamChunks(feed({ type: 'error', reason: 'aborted', error })))
     expect(chunks.at(-1)).toEqual({
       type: 'finish',
@@ -744,7 +809,9 @@ describe('toStreamChunks', () => {
   })
 
   it('preserves an unknown SDK iterator Error exactly', async () => {
+    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = Object.assign(new Error('SDK transport exploded'), { code: 'ECONNRESET' })
+    /** 中文说明：函数 failedSdkStream 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
     async function* failedSdkStream(): AsyncGenerator<AssistantMessageEvent> {
       throw original
     }
@@ -856,6 +923,7 @@ describe('mapStopReason / mapUsage', () => {
   it('uses the resolved context window for silent and length-stop overflows', () => {
     // Non-empty content keeps the no-window branch on the successful stop path
     // (an empty stop is EMPTY_RESPONSE, covered above); overflow wins over both.
+    /** 中文说明：测试局部值 silent，由紧邻初始化决定。 */
     const silent = assistant({ stopReason: 'stop', usage: usage(101, 0), content: [{ type: 'text', text: 'x' }] })
     expect(mapStopReason(silent)).toEqual({ kind: 'stop' })
     expect(mapStopReason(silent, 100)).toEqual({
@@ -866,6 +934,7 @@ describe('mapStopReason / mapUsage', () => {
       },
     })
 
+    /** 中文说明：测试局部值 truncated，由紧邻初始化决定。 */
     const truncated = assistant({ stopReason: 'length', usage: usage(80, 0, 19) })
     expect(mapStopReason(truncated)).toEqual({ kind: 'max-tokens' })
     expect(mapStopReason(truncated, 100)).toMatchObject({
@@ -887,7 +956,9 @@ describe('mapStopReason / mapUsage', () => {
 
 describe('toStreamChunks edge branches', () => {
   it('omits the name field for tool calls whose partial carried an empty name', async () => {
+    /** 中文说明：测试局部值 blank，由紧邻初始化决定。 */
     const blank = assistant({ content: [{ type: 'toolCall', id: 'x', name: '', arguments: {} }] })
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(toStreamChunks(feed(
       { type: 'toolcall_start', contentIndex: 0, partial: blank },
       { type: 'toolcall_delta', contentIndex: 0, delta: '{}', partial: blank },
@@ -899,6 +970,7 @@ describe('toStreamChunks edge branches', () => {
 
 describe('toStreamChunks defensive branches', () => {
   it('tolerates a toolcall_delta with no preceding toolcall_start', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(toStreamChunks(feed(
       { type: 'toolcall_delta', contentIndex: 0, delta: '{}', partial: assistant() },
       { type: 'done', reason: 'stop', message: assistant() },

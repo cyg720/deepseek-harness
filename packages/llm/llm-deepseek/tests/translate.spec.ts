@@ -1,26 +1,41 @@
+/**
+ * 文件职责：验证DeepSeek LLM的 translate.spec.ts 行为与网络边界。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 import { describe, expect, it } from 'vitest'
 import { BlockAssembler, EMPTY_RESPONSE_CODE, LlmError } from '@deepseek-ai/dsh-llm'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import { DONE } from '../src/sse.ts'
 import { mapFinishReason, mapUsage, translate } from '../src/translate.ts'
 
+/** 中文说明：函数 feed 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function* feed(...payloads: (string | object)[]): AsyncGenerator<string> {
+  /** 中文说明：测试局部值 payload，由紧邻初始化决定。 */
   for (const payload of payloads) {
     yield typeof payload === 'string' ? payload : JSON.stringify(payload)
   }
 }
 
+/** 中文说明：函数 collect 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function collect(stream: AsyncIterable<StreamChunk>): Promise<StreamChunk[]> {
+  /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
   const out: StreamChunk[] = []
+  /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
   for await (const chunk of stream) out.push(chunk)
   return out
 }
 
 /** The live first-chunk signature: role + null content + EMPTY reasoning. */
+/** 中文说明：测试局部值 firstChunk，由紧邻初始化决定。 */
 const firstChunk = { choices: [{ delta: { role: 'assistant', content: null, reasoning_content: '' } }] }
 
 describe('translate: text', () => {
   it('streams a text block and defers finish to DONE', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { content: 'Hel' } }] },
@@ -39,7 +54,9 @@ describe('translate: text', () => {
   })
 
   it('assembles into the message BlockAssembler expects', async () => {
+    /** 中文说明：测试局部值 assembler，由紧邻初始化决定。 */
     const assembler = new BlockAssembler()
+    /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
     for await (const chunk of translate(feed(
       firstChunk,
       { choices: [{ delta: { content: 'hi' } }] },
@@ -48,6 +65,7 @@ describe('translate: text', () => {
     ))) {
       assembler.push(chunk)
     }
+    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = { message: assembler.message(), finish: assembler.finish }
     expect(result.message.content).toEqual([{ type: 'text', text: 'hi' }])
     expect(result.finish).toEqual({ kind: 'stop' })
@@ -56,6 +74,7 @@ describe('translate: text', () => {
 
 describe('translate: reasoning', () => {
   it('does NOT open a reasoning block for the empty first-chunk signature', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { content: 'plain' } }] },
@@ -66,6 +85,7 @@ describe('translate: reasoning', () => {
   })
 
   it('streams reasoning then text as separate blocks', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { content: null, reasoning_content: 'think' } }] },
@@ -87,6 +107,7 @@ describe('translate: reasoning', () => {
   })
 
   it('treats an entirely absent reasoning_content field as non-thinking', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       { choices: [{ delta: { role: 'assistant', content: 'x' } }] },
       { choices: [{ delta: {}, finish_reason: 'stop' }] },
@@ -100,6 +121,7 @@ describe('translate: reasoning', () => {
 
 describe('translate: tool calls', () => {
   it('reassembles a tool call from fragmented argument deltas (live capture shape)', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_00_x', type: 'function', function: { name: 'get_weather', arguments: '' } }] } }] },
@@ -124,6 +146,7 @@ describe('translate: tool calls', () => {
   })
 
   it('disambiguates parallel tool calls by wire index', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       {
@@ -140,6 +163,7 @@ describe('translate: tool calls', () => {
       { choices: [{ delta: {}, finish_reason: 'tool_calls' }] },
       DONE,
     )))
+    /** 中文说明：测试局部值 ends，由紧邻初始化决定。 */
     const ends = chunks.filter(chunk => chunk.type === 'block-end')
     expect(ends).toEqual([
       { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'a', name: 'one', arguments: '{}' } },
@@ -148,6 +172,7 @@ describe('translate: tool calls', () => {
   })
 
   it('interleaves text and tool-call blocks with distinct indices', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { content: 'Checking.' } }] },
@@ -155,6 +180,7 @@ describe('translate: tool calls', () => {
       { choices: [{ delta: {}, finish_reason: 'tool_calls' }] },
       DONE,
     )))
+    /** 中文说明：测试局部值 starts，由紧邻初始化决定。 */
     const starts = chunks.filter(chunk => chunk.type === 'block-start')
     expect(starts).toEqual([
       { type: 'block-start', index: 0, blockType: 'text' },
@@ -165,6 +191,7 @@ describe('translate: tool calls', () => {
 
 describe('translate: finish and usage handling', () => {
   it('takes usage from a trailing usage-only chunk (docs shape)', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { content: 'x' } }] },
@@ -177,17 +204,20 @@ describe('translate: finish and usage handling', () => {
   })
 
   it('last usage wins when both attached and trailing arrive', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1 } },
       { choices: [], usage: { prompt_tokens: 2, completion_tokens: 2 } },
       DONE,
     )))
+    /** 中文说明：测试局部值 usage，由紧邻初始化决定。 */
     const usage = chunks.find(chunk => chunk.type === 'usage')
     expect(usage).toEqual({ type: 'usage', usage: { inputTokens: 2, outputTokens: 2 } })
   })
 
   it('defaults to finish stop when no finish_reason ever arrives', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { content: 'x' } }] },
@@ -197,11 +227,13 @@ describe('translate: finish and usage handling', () => {
   })
 
   it('omits the usage chunk when none arrived', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(firstChunk, DONE)))
     expect(chunks.some(chunk => chunk.type === 'usage')).toBe(false)
   })
 
   it('handles chunks with no choices at all', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed({}, DONE)))
     expect(chunks).toEqual([{
       type: 'finish',
@@ -213,6 +245,7 @@ describe('translate: finish and usage handling', () => {
   })
 
   it('classifies an explicit stop with no opened blocks as EMPTY_RESPONSE, after usage', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 7, completion_tokens: 0 } },
@@ -231,6 +264,7 @@ describe('translate: finish and usage handling', () => {
   })
 
   it('keeps a reasoning-only stream a successful stop (any opened block counts)', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { content: null, reasoning_content: 'mull' } }] },
@@ -241,6 +275,7 @@ describe('translate: finish and usage handling', () => {
   })
 
   it('leaves non-stop finishes unclassified even with no opened blocks', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: {}, finish_reason: 'length' }] },
@@ -313,6 +348,7 @@ describe('mapUsage', () => {
 
 describe('translate: defensive tool-call branches', () => {
   it('handles deltas that never carry id or name (empty-string fallbacks)', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       // Hypothetical lenient wire: argument fragments with no id/name at all.
@@ -329,6 +365,7 @@ describe('translate: defensive tool-call branches', () => {
   })
 
   it('handles tool_call deltas with a function object but no arguments field', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { tool_calls: [{ index: 0, id: 'c', type: 'function', function: { name: 'f' } }] } }] },
@@ -339,6 +376,7 @@ describe('translate: defensive tool-call branches', () => {
   })
 
   it('handles tool_call deltas with no function object at all', async () => {
+    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await collect(translate(feed(
       firstChunk,
       { choices: [{ delta: { tool_calls: [{ index: 0, id: 'c' }] } }] },

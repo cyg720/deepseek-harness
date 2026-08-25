@@ -21,6 +21,14 @@
  *
  * @module dsh-llm-pi-ai/discovery
  */
+/**
+ * 文件职责：实现Pi AI LLM的 discovery.ts 模块。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 
 import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@deepseek-ai/dsh-llm'
 import type { LlmDiscoveredModel, LlmModelDiscoveryRequest } from '@deepseek-ai/dsh-llm'
@@ -35,6 +43,7 @@ import { catalogModels } from './catalog.ts'
  * either would report an authentication failure as a provider with no models.
  * pi-ai's remaining protocols are absent for the same reason.
  */
+/** 中文说明：适配器局部值 LISTABLE_PROTOCOLS，由紧邻初始化决定。 */
 const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
   'openai-completions',
   'openai-responses',
@@ -47,9 +56,11 @@ const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
  * uses for its own caller-supplied URLs, except that a truncated model listing
  * is not parseable, so overflow rejects instead of truncating.
  */
+/** 中文说明：适配器局部值 MAX_RESPONSE_BYTES，由紧邻初始化决定。 */
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 
 /** One entry of an OpenAI-compatible `GET /models` reply. */
+/** 中文说明：类型或类 ListingEntry 约束模型请求、认证或流事件职责。 */
 interface ListingEntry {
   id?: unknown
   /** Common gateway extensions; absent from the official listings. */
@@ -62,7 +73,9 @@ interface ListingEntry {
 }
 
 /** A positive integer field of a listing entry, or `undefined` when absent or unusable. */
+/** 中文说明：函数 capacity 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function capacity(...candidates: readonly unknown[]): number | undefined {
+  /** 中文说明：适配器局部值 candidate，由紧邻初始化决定。 */
   for (const candidate of candidates) {
     if (typeof candidate === 'number' && Number.isInteger(candidate) && candidate > 0) return candidate
   }
@@ -70,7 +83,9 @@ function capacity(...candidates: readonly unknown[]): number | undefined {
 }
 
 /** A non-empty string field of a listing entry, or `undefined`. */
+/** 中文说明：函数 label 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function label(...candidates: readonly unknown[]): string | undefined {
+  /** 中文说明：适配器局部值 candidate，由紧邻初始化决定。 */
   for (const candidate of candidates) {
     if (typeof candidate === 'string' && candidate.length > 0) return candidate
   }
@@ -83,6 +98,7 @@ function label(...candidates: readonly unknown[]): string | undefined {
  * `https://gateway.example/openai/v1` keeps its segments instead of losing
  * them to `URL` resolution.
  */
+/** 中文说明：函数 listingUrl 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function listingUrl(baseURL: string): string {
   return `${baseURL.replace(/\/+$/, '')}/models`
 }
@@ -93,9 +109,12 @@ function listingUrl(baseURL: string): string {
  * anything; the accumulated total is what actually enforces the bound, because
  * a server that under-declares (or streams) tells us nothing up front.
  */
+/** 中文说明：函数 readBounded 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function readBounded(response: Response, url: string): Promise<string> {
+  /** 中文说明：适配器局部值 oversized，由紧邻初始化决定。 */
   const oversized = (): LlmError =>
     new LlmError(`${url} answered with more than ${MAX_RESPONSE_BYTES} bytes`, 'DISCOVERY_FAILED')
+  /** 中文说明：适配器局部值 declared，由紧邻初始化决定。 */
   const declared = Number(response.headers.get('content-length') ?? Number.NaN)
   if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
     await response.body?.cancel()
@@ -103,11 +122,15 @@ async function readBounded(response: Response, url: string): Promise<string> {
   }
   /* v8 ignore next -- fetch always exposes a body stream on a 2xx Response; the null guard is defensive. */
   if (response.body === null) return ''
+  /** 中文说明：适配器局部值 reader，由紧邻初始化决定。 */
   const reader = response.body.getReader()
+  /** 中文说明：适配器局部值 chunks，由紧邻初始化决定。 */
   const chunks: Uint8Array[] = []
+  /** 中文说明：适配器局部值 total，由紧邻初始化决定。 */
   let total = 0
   try {
     for (;;) {
+      /** 中文说明：适配器局部值 { done, value }，由紧邻初始化决定。 */
       const { done, value } = await reader.read()
       if (done) break
       total += value.byteLength
@@ -121,8 +144,11 @@ async function readBounded(response: Response, url: string): Promise<string> {
       // an oversized one, is cleanup; the reply is already decided either way.
     })
   }
+  /** 中文说明：适配器局部值 body，由紧邻初始化决定。 */
   const body = new Uint8Array(total)
+  /** 中文说明：适配器局部值 offset，由紧邻初始化决定。 */
   let offset = 0
+  /** 中文说明：适配器局部值 chunk，由紧邻初始化决定。 */
   for (const chunk of chunks) {
     body.set(chunk, offset)
     offset += chunk.byteLength
@@ -135,7 +161,9 @@ async function readBounded(response: Response, url: string): Promise<string> {
  * skipped rather than failing the whole interrogation: a single malformed row
  * should not deny the user the rest of a working endpoint's catalog.
  */
+/** 中文说明：函数 readListing 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function readListing(body: unknown): LlmDiscoveredModel[] {
+  /** 中文说明：适配器局部值 data，由紧邻初始化决定。 */
   const data = (body as { data?: unknown } | null)?.data
   if (!Array.isArray(data)) {
     throw new LlmError(
@@ -143,13 +171,20 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
       'DISCOVERY_FAILED',
     )
   }
+  /** 中文说明：适配器局部值 models，由紧邻初始化决定。 */
   const models: LlmDiscoveredModel[] = []
+  /** 中文说明：适配器局部值 raw，由紧邻初始化决定。 */
   for (const raw of data) {
+    /** 中文说明：适配器局部值 entry，由紧邻初始化决定。 */
     const entry = raw as ListingEntry | null
+    /** 中文说明：适配器局部值 id，由紧邻初始化决定。 */
     const id = label(entry?.id)
     if (id === undefined) continue
+    /** 中文说明：适配器局部值 name，由紧邻初始化决定。 */
     const name = label(entry?.name, entry?.display_name)
+    /** 中文说明：适配器局部值 contextWindow，由紧邻初始化决定。 */
     const contextWindow = capacity(entry?.context_window, entry?.context_length)
+    /** 中文说明：适配器局部值 maxTokens，由紧邻初始化决定。 */
     const maxTokens = capacity(entry?.max_output_tokens, entry?.max_tokens)
     models.push({
       id,
@@ -169,7 +204,9 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
  * @param raw - the key typed into the form or read from storage.
  * @returns the trimmed, usable key.
  */
+/** 中文说明：函数 usableProbeKey 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function usableProbeKey(raw: string): string {
+  /** 中文说明：适配器局部值 checked，由紧邻初始化决定。 */
   const checked = normalizeApiKey(raw)
   if (checked.ok) return checked.value
   throw new LlmError(
@@ -192,6 +229,7 @@ function usableProbeKey(raw: string): string {
  * @throws LlmError when the protocol has no readable listing, the endpoint
  *   refuses or fails the request, or the reply is not a model listing.
  */
+/** 中文说明：函数 discoverModels 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export async function discoverModels(
   request: LlmModelDiscoveryRequest,
   storedApiKey?: () => Promise<string | undefined>,
@@ -199,6 +237,7 @@ export async function discoverModels(
   // A catalog route already has its answer, and a better one: the installed
   // entries carry context windows and output caps no listing endpoint reports.
   if (request.provider !== undefined) {
+    /** 中文说明：适配器局部值 installed，由紧邻初始化决定。 */
     const installed = catalogModels(request.provider)
     if (installed.size > 0) {
       return [...installed.values()].map(model => ({
@@ -222,6 +261,7 @@ export async function discoverModels(
   // the action from the case it exists for. The cost is a misdirected message
   // when the endpoint speaks something else (an Anthropic gateway answers 401,
   // which reads as a credential problem), and hand-entry remains the way out.
+  /** 中文说明：适配器局部值 api，由紧邻初始化决定。 */
   const api = request.api ?? 'openai-completions'
   if (!LISTABLE_PROTOCOLS.has(api)) {
     throw new LlmError(
@@ -229,6 +269,7 @@ export async function discoverModels(
       'DISCOVERY_UNSUPPORTED',
     )
   }
+  /** 中文说明：适配器局部值 url，由紧邻初始化决定。 */
   const url = listingUrl(request.baseURL)
   // A key typed into the form wins: it is the one the user is testing, and it
   // may be the replacement for exactly the stored key that is failing. The
@@ -237,8 +278,11 @@ export async function discoverModels(
   // lookup — and no diagnostic about a credential it never needed.
   // A probe carrying no key stays unauthenticated, which is how a route that
   // relies on the provider's own ambient discovery is meant to be asked.
+  /** 中文说明：适配器局部值 supplied，由紧邻初始化决定。 */
   const supplied = request.apiKey ?? await storedApiKey?.()
+  /** 中文说明：适配器局部值 apiKey，由紧邻初始化决定。 */
   const apiKey = supplied === undefined ? undefined : usableProbeKey(supplied)
+  /** 中文说明：适配器局部值 response: Response，由紧邻初始化决定。 */
   let response: Response
   try {
     response = await fetch(url, {
@@ -262,6 +306,7 @@ export async function discoverModels(
       'DISCOVERY_FAILED',
     )
   }
+  /** 中文说明：适配器局部值 text: string，由紧邻初始化决定。 */
   let text: string
   try {
     text = await readBounded(response, url)
@@ -274,6 +319,7 @@ export async function discoverModels(
     }
     throw error
   }
+  /** 中文说明：适配器局部值 body: unknown，由紧邻初始化决定。 */
   let body: unknown
   try {
     body = JSON.parse(text)

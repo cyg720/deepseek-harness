@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证DeepSeek LLM的 file-store.spec.ts 行为与网络边界。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -8,6 +16,7 @@ import { DeepSeekFileStore, MAX_CHAT_IMAGE_BYTES } from '../src/file-store.ts'
 import { DeepSeekFileId } from '../src/file-id.ts'
 import { deepSeekFileScope, DeepSeekUploadIndex } from '../src/upload-index.ts'
 
+/** 中文说明：测试局部值 REF，由紧邻初始化决定。 */
 const REF: ImageAttachmentRef = {
   attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
   mediaType: 'image/png',
@@ -15,6 +24,7 @@ const REF: ImageAttachmentRef = {
   width: 1,
   height: 1,
 }
+/** 中文说明：测试局部值 VERSION，由紧邻初始化决定。 */
 const VERSION: RequestImageAttachment = {
   variantId: ImageVariantId(`sha256:${'b'.repeat(64)}`),
   attachment: REF,
@@ -27,20 +37,28 @@ const VERSION: RequestImageAttachment = {
   space: 'srgb',
   hasAlpha: true,
 }
+/** 中文说明：测试局部值 CONNECTION，由紧邻初始化决定。 */
 const CONNECTION = { baseURL: 'https://api.deepseek.com', apiKey: 'key' }
+/** 中文说明：测试局部值 POLICY，由紧邻初始化决定。 */
 const POLICY = { expiresAfterSeconds: 604_800, refreshMarginSeconds: 3_600, quotaCleanupBatch: 100 }
+/** 中文说明：测试局部值 NOW，由紧邻初始化决定。 */
 const NOW = 1_700_000_000_000
 
+/** 中文说明：函数 requestUrl 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function requestUrl(input: string | URL | Request): string {
   if (typeof input === 'string') return input
   return input instanceof URL ? input.href : input.url
 }
 
+/** 中文说明：函数 uploadFetch 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function uploadFetch(now: () => number = () => NOW) {
+  /** 中文说明：测试局部值 uploads，由紧邻初始化决定。 */
   let uploads = 0
+  /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
   const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
     if (init?.method === 'POST') {
       uploads += 1
+      /** 中文说明：测试局部值 createdAt，由紧邻初始化决定。 */
       const createdAt = now() / 1_000
       return new Response(JSON.stringify({
         id: `file-api-${uploads}`,
@@ -53,6 +71,7 @@ function uploadFetch(now: () => number = () => NOW) {
       }), { status: 200 })
     }
     if (init?.method === 'DELETE') {
+      /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
       const id = requestUrl(_url).split('/').at(-1)
       return new Response(JSON.stringify({ id, object: 'file', deleted: true }), { status: 200 })
     }
@@ -63,11 +82,16 @@ function uploadFetch(now: () => number = () => NOW) {
 
 describe('DeepSeekFileStore', () => {
   it('singleflights the first upload and reuses the durable mapping across store instances', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
+    /** 中文说明：测试局部值 remote，由紧邻初始化决定。 */
     const remote = uploadFetch()
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = new DeepSeekFileStore({ index, now: () => NOW, fetch: remote.fetchImpl })
 
+    /** 中文说明：测试局部值 [a, b]，由紧邻初始化决定。 */
     const [a, b] = await Promise.all([
       first.ensureUploaded(VERSION, CONNECTION, POLICY),
       first.ensureUploaded(VERSION, CONNECTION, POLICY),
@@ -76,6 +100,7 @@ describe('DeepSeekFileStore', () => {
     expect(b.record.fileId).toBe('file-api-1')
     expect(remote.uploads()).toBe(1)
 
+    /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
     const resumed = new DeepSeekFileStore({ index, now: () => NOW, fetch: remote.fetchImpl })
     await expect(resumed.ensureUploaded(VERSION, CONNECTION, POLICY))
       .resolves.toMatchObject({ record: { fileId: 'file-api-1' }, uploaded: false })
@@ -83,10 +108,15 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('keeps a shared upload alive while another waiter remains', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
+    /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
     let complete: ((response: Response) => void) | undefined
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let uploadSignal: AbortSignal | undefined
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => {
       uploadSignal = init?.signal ?? undefined
       return new Promise<Response>((resolve, reject) => {
@@ -96,14 +126,19 @@ describe('DeepSeekFileStore', () => {
         }, { once: true })
       })
     }) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: fetchImpl })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
 
+    /** 中文说明：测试局部值 cancelled，由紧邻初始化决定。 */
     const cancelled = store.ensureUploaded(VERSION, CONNECTION, POLICY, controller.signal)
+    /** 中文说明：测试局部值 completed，由紧邻初始化决定。 */
     const completed = store.ensureUploaded(VERSION, CONNECTION, POLICY)
     await vi.waitFor(() => {
       expect(fetchImpl).toHaveBeenCalledTimes(1)
     })
+    /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
     const reason = new Error('cancel one upload waiter')
     controller.abort(reason)
 
@@ -122,9 +157,13 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('aborts the shared upload after its only waiter cancels', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let uploadSignal: AbortSignal | undefined
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => {
       uploadSignal = init?.signal ?? undefined
       return new Promise<Response>((_resolve, reject) => {
@@ -133,13 +172,17 @@ describe('DeepSeekFileStore', () => {
         }, { once: true })
       })
     }) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: fetchImpl })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 upload，由紧邻初始化决定。 */
     const upload = store.ensureUploaded(VERSION, CONNECTION, POLICY, controller.signal)
     await vi.waitFor(() => {
       expect(fetchImpl).toHaveBeenCalledTimes(1)
     })
 
+    /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
     const reason = new Error('cancel only upload waiter')
     controller.abort(reason)
 
@@ -148,7 +191,9 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('normalizes a non-Error cancellation reason', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => (
       new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => {
@@ -156,12 +201,15 @@ describe('DeepSeekFileStore', () => {
         }, { once: true })
       })
     )) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
       now: () => NOW,
       fetch: fetchImpl,
     })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 upload，由紧邻初始化决定。 */
     const upload = store.ensureUploaded(VERSION, CONNECTION, POLICY, controller.signal)
     await vi.waitFor(() => {
       expect(fetchImpl).toHaveBeenCalledOnce()
@@ -175,8 +223,11 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('starts a fresh upload while the cancelled transport is settling', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 requests，由紧邻初始化决定。 */
     let requests = 0
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => {
       requests += 1
       if (requests === 1) {
@@ -194,17 +245,21 @@ describe('DeepSeekFileStore', () => {
         expires_at: NOW / 1_000 + POLICY.expiresAfterSeconds,
       }), { status: 200 }))
     }) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
       now: () => NOW,
       fetch: fetchImpl,
     })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 cancelled，由紧邻初始化决定。 */
     const cancelled = store.ensureUploaded(VERSION, CONNECTION, POLICY, controller.signal)
     await vi.waitFor(() => {
       expect(fetchImpl).toHaveBeenCalledOnce()
     })
     controller.abort(new Error('cancel first'))
+    /** 中文说明：测试局部值 retried，由紧邻初始化决定。 */
     const retried = store.ensureUploaded(VERSION, CONNECTION, POLICY)
 
     await expect(cancelled).rejects.toThrow('cancel first')
@@ -212,8 +267,11 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('rejects a request version above the chat per-image limit before transport', async () => {
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn() as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ now: () => NOW, fetch: fetchImpl })
+    /** 中文说明：测试局部值 oversized，由紧邻初始化决定。 */
     const oversized = { ...VERSION, bytes: MAX_CHAT_IMAGE_BYTES + 1 }
     await expect(store.ensureUploaded(oversized, CONNECTION, POLICY))
       .rejects.toMatchObject({ code: 'INVALID_REQUEST' })
@@ -221,10 +279,15 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('does not persist an upload whose response is missing and retries on the next request', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
+    /** 中文说明：测试局部值 good，由紧邻初始化决定。 */
     const good = uploadFetch()
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     let first = true
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn((url: string | URL | Request, init?: RequestInit) => {
       if (first) {
         first = false
@@ -232,6 +295,7 @@ describe('DeepSeekFileStore', () => {
       }
       return good.fetchImpl(url, init)
     }) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: fetchImpl })
 
     await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY))
@@ -241,12 +305,15 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('rejects an upload response whose byte count differs from the request version', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       id: 'file-api-wrong-size', object: 'file', bytes: 2, created_at: NOW / 1_000,
       filename: 'dsh-wrong.png', purpose: 'user_data',
       expires_at: NOW / 1_000 + POLICY.expiresAfterSeconds,
     }), { status: 200 }))) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
       now: () => NOW,
@@ -261,16 +328,21 @@ describe('DeepSeekFileStore', () => {
     ['image/webp', 'webp'],
     ['image/gif', 'gif'],
   ] as const)('uses the %s filename extension for uploads', async (mediaType, extension) => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 remote，由紧邻初始化决定。 */
     const remote = uploadFetch()
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, `${extension}.json`)),
       now: () => NOW,
       fetch: remote.fetchImpl,
     })
     await store.ensureUploaded({ ...VERSION, mediaType }, CONNECTION, POLICY)
+    /** 中文说明：测试局部值 form，由紧邻初始化决定。 */
     const form = vi.mocked(remote.fetchImpl).mock.calls[0]?.[1]?.body
     expect(form).toBeInstanceOf(FormData)
+    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = (form as FormData).get('file')
     expect(file).toBeInstanceOf(File)
     if (!(file instanceof File)) throw new Error('expected multipart file')
@@ -278,9 +350,12 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('normalizes a non-Error failure from the durable upload index', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
     vi.spyOn(index, 'get').mockRejectedValue('index unavailable')
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: vi.fn() as typeof fetch })
 
     await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).rejects.toMatchObject({
@@ -290,10 +365,15 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('reuses local expires_at above the refresh margin and uploads again at the margin', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
+    /** 中文说明：测试局部值 now，由紧邻初始化决定。 */
     let now = NOW
+    /** 中文说明：测试局部值 remote，由紧邻初始化决定。 */
     const remote = uploadFetch(() => now)
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ index, now: () => now, fetch: remote.fetchImpl })
 
     await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY))
@@ -310,9 +390,13 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('releases an indexed file through DELETE and removes only that mapping', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
+    /** 中文说明：测试局部值 remote，由紧邻初始化决定。 */
     const remote = uploadFetch()
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: remote.fetchImpl })
     await store.ensureUploaded(VERSION, CONNECTION, POLICY)
 
@@ -322,7 +406,9 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('removes a losing upload and keeps the winning durable mapping when duplicate cleanup fails', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
     vi.spyOn(index, 'commit').mockResolvedValue({
       accepted: false,
@@ -336,11 +422,14 @@ describe('DeepSeekFileStore', () => {
         expiresAt: NOW + POLICY.expiresAfterSeconds * 1_000,
       },
     })
+    /** 中文说明：测试局部值 remote，由紧邻初始化决定。 */
     const remote = uploadFetch()
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn((url: string | URL | Request, init?: RequestInit) => {
       if (init?.method === 'DELETE') return Promise.resolve(new Response('failed', { status: 500 }))
       return remote.fetchImpl(url, init)
     }) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: fetchImpl })
 
     await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).resolves.toMatchObject({
@@ -351,8 +440,11 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('reclaims one owned file after quota rejection and retries the upload once', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 uploads，由紧邻初始化决定。 */
     let uploads = 0
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       if (init?.method === 'POST') {
         uploads += 1
@@ -380,6 +472,7 @@ describe('DeepSeekFileStore', () => {
         first_id: 'file-api-old', last_id: 'file-api-old', has_more: false,
       }), { status: 200 }))
     }) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
       now: () => NOW,
@@ -393,7 +486,9 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('preserves a quota error when no harness-owned file can be reclaimed', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn((_input: string | URL | Request, init?: RequestInit) => {
       if (init?.method === 'POST') return Promise.resolve(new Response(JSON.stringify({
         error: { message: 'file count quota exceeded', code: 'file_quota' },
@@ -407,6 +502,7 @@ describe('DeepSeekFileStore', () => {
         has_more: false,
       }), { status: 200 }))
     }) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
       now: () => NOW,
@@ -417,17 +513,24 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('finishes pagination before deleting cursor files during quota recovery', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 deleted，由紧邻初始化决定。 */
     const deleted = new Set<string>()
+    /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
     const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
       const target = new URL(requestUrl(input))
       if (init?.method === 'DELETE') {
+        /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
         const id = target.pathname.split('/').at(-1) ?? ''
         deleted.add(id)
         return new Response(JSON.stringify({ id, object: 'file', deleted: true }), { status: 200 })
       }
+      /** 中文说明：测试局部值 after，由紧邻初始化决定。 */
       const after = target.searchParams.get('after')
       if (after !== null && deleted.has(after)) throw new Error('deleted cursor cannot be reused')
+      /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
       const id = after === null ? 'file-api-oldest' : 'file-api-next'
       return new Response(JSON.stringify({
         object: 'list',
@@ -444,6 +547,7 @@ describe('DeepSeekFileStore', () => {
         has_more: after === null,
       }), { status: 200 })
     }) as typeof fetch
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
       now: () => NOW,
@@ -455,21 +559,28 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('stops pagination when a page omits or repeats its cursor', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 mode，由紧邻初始化决定。 */
     for (const mode of ['missing', 'repeated'] as const) {
+      /** 中文说明：测试局部值 page，由紧邻初始化决定。 */
       let page = 0
+      /** 中文说明：测试局部值 fetchImpl，由紧邻初始化决定。 */
       const fetchImpl = vi.fn((input: string | URL | Request, init?: RequestInit) => {
         if (init?.method === 'DELETE') {
+          /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
           const id = requestUrl(input).split('/').at(-1)
           return Promise.resolve(new Response(JSON.stringify({ id, object: 'file', deleted: true }), { status: 200 }))
         }
         page += 1
+        /** 中文说明：测试局部值 lastId，由紧邻初始化决定。 */
         const lastId = mode === 'missing' ? undefined : 'file-api-same'
         return Promise.resolve(new Response(JSON.stringify({
           object: 'list', data: [], has_more: true,
           ...lastId === undefined ? {} : { last_id: lastId },
         }), { status: 200 }))
       }) as typeof fetch
+      /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
       const store = new DeepSeekFileStore({
         index: new DeepSeekUploadIndex(join(dir, `${mode}.json`)),
         now: () => NOW,
@@ -481,12 +592,17 @@ describe('DeepSeekFileStore', () => {
   })
 
   it('releases every batch and clears the scoped upload index', async () => {
+    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
+    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: vi.fn() as typeof fetch })
+    /** 中文说明：测试局部值 reclaim，由紧邻初始化决定。 */
     const reclaim = vi.spyOn(store, 'reclaimOldestOwned')
       .mockResolvedValueOnce(1_000)
       .mockResolvedValueOnce(2)
+    /** 中文说明：测试局部值 clear，由紧邻初始化决定。 */
     const clear = vi.spyOn(index, 'clear')
 
     await expect(store.releaseAll(CONNECTION)).resolves.toBe(1_002)

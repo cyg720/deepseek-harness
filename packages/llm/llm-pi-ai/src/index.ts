@@ -54,6 +54,14 @@
  *
  * @module @deepseek-ai/dsh-llm-pi-ai
  */
+/**
+ * 文件职责：实现Pi AI LLM的 index.ts 模块。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
@@ -84,9 +92,12 @@ export type {
 export { recordKeyFor } from './auth.ts'
 export { supportedProtocols } from './provider.ts'
 
+/** 中文说明：适配器局部值 name，由紧邻初始化决定。 */
 export const name = 'llm-pi-ai'
+/** 中文说明：适配器局部值 inject，由紧邻初始化决定。 */
 export const inject = ['llm']
 
+/** 中文说明：适配器局部值 NS，由紧邻初始化决定。 */
 const NS = settingsNamespace('llm-pi-ai')
 
 /**
@@ -94,6 +105,7 @@ const NS = settingsNamespace('llm-pi-ai')
  * Sorted by provider so a settings document that merely reorders its keys is
  * not mistaken for a route change.
  */
+/** 中文说明：函数 registrationFacts 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function registrationFacts(profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>): unknown {
   return [...profiles.entries()]
     // `displayName` rides along because the registry hands it to every selector
@@ -115,11 +127,15 @@ function registrationFacts(profiles: ReadonlyMap<string, ResolvedPiAiProviderPro
  * @param profiles - the currently resolved provider profiles.
  * @returns the directory entries in catalog order, declared routes last.
  */
+/** 中文说明：函数 directoryEntries 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function directoryEntries(
   profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>,
 ): LlmConfigurableProvider[] {
+  /** 中文说明：适配器局部值 catalog，由紧邻初始化决定。 */
   const catalog = new Set(catalogProviderIds())
+  /** 中文说明：适配器局部值 entries，由紧邻初始化决定。 */
   const entries = new Map<string, LlmConfigurableProvider>()
+  /** 中文说明：适配器局部值 declare，由紧邻初始化决定。 */
   const declare = (provider: string, displayName: string): void => {
     entries.set(provider, {
       provider,
@@ -132,15 +148,21 @@ function directoryEntries(
       declared: !catalog.has(provider),
     })
   }
+  /** 中文说明：适配器局部值 provider，由紧邻初始化决定。 */
   for (const provider of catalog) declare(provider, provider)
+  /** 中文说明：适配器局部值 [provider，由紧邻初始化决定。 */
   for (const [provider, profile] of profiles) declare(provider, profile.displayName)
   return [...entries.values()]
 }
 
 /** Register one generic pi-ai adapter for all configured provider routes. */
+/** 中文说明：函数 apply 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function apply(ctx: Context, config: Config): void {
+  /** 中文说明：适配器局部值 current，由紧邻初始化决定。 */
   let current: () => Config = () => config
+  /** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
   let lastRaw: Config | undefined
+  /** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
   let memoized: ReadonlyMap<string, ResolvedPiAiProviderProfile> | undefined
   /**
    * The resolved profiles for the current configuration, memoized by the raw
@@ -153,9 +175,12 @@ export function apply(ctx: Context, config: Config): void {
    * last good value for a stored section that fails. Anything reaching this
    * point has already resolved once.
    */
+  /** 中文说明：适配器局部值 profiles，由紧邻初始化决定。 */
   const profiles = (): ReadonlyMap<string, ResolvedPiAiProviderProfile> => {
+    /** 中文说明：适配器局部值 raw，由紧邻初始化决定。 */
     const raw = current()
     if (raw === lastRaw && memoized !== undefined) return memoized
+    /** 中文说明：适配器局部值 next，由紧邻初始化决定。 */
     const next = resolveProfiles(raw.providers)
     lastRaw = raw
     memoized = next
@@ -163,10 +188,12 @@ export function apply(ctx: Context, config: Config): void {
   }
   profiles()
 
+  /** 中文说明：适配器局部值 resolveApiKey，由紧邻初始化决定。 */
   const resolveApiKey = async (
     provider: string,
     profile: ResolvedPiAiProviderProfile,
   ): Promise<string | undefined> => {
+    /** 中文说明：适配器局部值 ref，由紧邻初始化决定。 */
     const ref = profile.apiKeyEnv
     // Only a profile that names no credential at all defers to pi-ai's
     // provider-native discovery. Once one is named, a miss must fail loud:
@@ -174,7 +201,9 @@ export function apply(ctx: Context, config: Config): void {
     // (OPENAI_API_KEY and friends), billing another tenant for a request the
     // deployment meant to authenticate differently.
     if (ref === undefined) return undefined
+    /** 中文说明：适配器局部值 credentials，由紧邻初始化决定。 */
     const credentials = ctx.get('credentials')
+    /** 中文说明：适配器局部值 hit，由紧邻初始化决定。 */
     const hit = credentials !== undefined
       ? (await credentials.resolve(ref))?.value
       // Without the seam the environment is the whole credential plane.
@@ -191,7 +220,9 @@ export function apply(ctx: Context, config: Config): void {
   // One store and one ambient context for the whole plugin instance: both read
   // through `ctx` per call, so they stay correct across the collection rebuilds
   // a configuration change causes, and a sign-in survives one.
+  /** 中文说明：适配器局部值 auth，由紧邻初始化决定。 */
   const auth = { credentials: credentialStoreFrom(ctx), authContext: authContextFrom(ctx) }
+  /** 中文说明：适配器局部值 adapter，由紧邻初始化决定。 */
   const adapter = new PiAiAdapter({
     profiles,
     resolveApiKey,
@@ -214,9 +245,13 @@ export function apply(ctx: Context, config: Config): void {
   // mounts — dormant or not — so configuration surfaces can offer every
   // pi-ai provider before any route exists. Hand-declared routes join it as
   // profiles appear, and leave with them.
+  /** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
   let directory: DirectoryRegistrationHandle | undefined
+  /** 中文说明：适配器局部值 directoryFacts: unknown，由紧邻初始化决定。 */
   let directoryFacts: unknown
+  /** 中文说明：适配器局部值 ensureDirectory，由紧邻初始化决定。 */
   const ensureDirectory = (): void => {
+    /** 中文说明：适配器局部值 entries，由紧邻初始化决定。 */
     const entries = directoryEntries(profiles())
     if (deepEqualJson(entries, directoryFacts)) return
     // Atomic replace, never dispose-then-register: a route another adapter
@@ -239,8 +274,10 @@ export function apply(ctx: Context, config: Config): void {
    * discovery, so both answer `undefined` and the endpoint is asked
    * unauthenticated — the same posture a request to that route would take.
    */
+  /** 中文说明：适配器局部值 storedApiKey，由紧邻初始化决定。 */
   const storedApiKey = async (provider: string | undefined): Promise<string | undefined> => {
     if (provider === undefined) return undefined
+    /** 中文说明：适配器局部值 profile，由紧邻初始化决定。 */
     const profile = profiles().get(provider)
     if (profile === undefined) return undefined
     return resolveApiKey(provider, profile)
@@ -256,9 +293,13 @@ export function apply(ctx: Context, config: Config): void {
   // even when a swap runs inside the scoped settings callback below. A bare
   // mount (zero routes) is the dormant posture: nothing registers until a
   // settings section supplies profiles, and routes drop when it empties.
+  /** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
   let registration: AdapterRegistrationHandle | undefined
+  /** 中文说明：适配器局部值 registeredFacts: unknown，由紧邻初始化决定。 */
   let registeredFacts: unknown
+  /** 中文说明：适配器局部值 ensureRegistrationFacts，由紧邻初始化决定。 */
   const ensureRegistrationFacts = (): void => {
+    /** 中文说明：适配器局部值 facts，由紧邻初始化决定。 */
     const facts = registrationFacts(profiles())
     if (deepEqualJson(facts, registeredFacts)) return
     // The registry captures the route set and each route's retry policy at
@@ -267,6 +308,7 @@ export function apply(ctx: Context, config: Config): void {
     // conflicting route leaves the previous routes serving requests, and
     // `registeredFacts` only advances once the registry actually holds the
     // new set — so returning to a working configuration always re-applies.
+    /** 中文说明：适配器局部值 routes，由紧邻初始化决定。 */
     const routes = [...profiles().keys()]
     if (registration === undefined) {
       // Dormant bare mount: nothing is registered until a section supplies

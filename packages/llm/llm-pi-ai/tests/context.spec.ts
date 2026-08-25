@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Pi AI LLM的 context.spec.ts 行为与网络边界。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type {
@@ -11,6 +19,7 @@ import type { ContentBlock, GenerateOptions, Message } from '@deepseek-ai/dsh-ll
 import { toPiContext } from '../src/context.ts'
 import { toPiAssistant } from '../src/replay.ts'
 
+/** 中文说明：测试局部值 ref，由紧邻初始化决定。 */
 const ref: ImageAttachmentRef = {
   attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
   mediaType: 'image/png',
@@ -19,6 +28,7 @@ const ref: ImageAttachmentRef = {
   height: 1,
 }
 
+/** 中文说明：函数 requestImage 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function requestImage(value: ImageAttachmentRef, data: Uint8Array): RequestImageAttachment {
   return {
     variantId: ImageVariantId(`sha256:${'b'.repeat(64)}`),
@@ -34,6 +44,7 @@ function requestImage(value: ImageAttachmentRef, data: Uint8Array): RequestImage
   }
 }
 
+/** 中文说明：函数 projectionStore 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function projectionStore(
   readImageRequest: (
     value: ImageAttachmentRef,
@@ -46,8 +57,10 @@ function projectionStore(
   return { readImageRequest } as unknown as AttachmentStore
 }
 
+/** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
 const attachments = projectionStore()
 
+/** 中文说明：函数 request 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function request(messages: GenerateOptions['messages']): GenerateOptions {
   return {
     provider: 'openai',
@@ -58,22 +71,26 @@ function request(messages: GenerateOptions['messages']): GenerateOptions {
   }
 }
 
+/** 中文说明：函数 user 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function user(content: ContentBlock[]): Message {
   return createUserMessage({ content, source: { kind: 'plugin', plugin: 'test' } })
 }
 
+/** 中文说明：函数 history 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function history(role: 'system' | 'assistant', content: ContentBlock[]): Message {
   return createMessage({ role, content, source: { kind: 'plugin', plugin: 'test' } })
 }
 
 describe('pi-ai request context conversion', () => {
   it('omits absent and empty request-level optional fields', () => {
+    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = { provider: 'openai', model: 'gpt-4.1', messages: [] }
     expect(toPiContext(base)).toEqual({ messages: [] })
     expect(toPiContext({ ...base, tools: [] })).toEqual({ messages: [] })
   })
 
   it('converts complete text-only history and rejects nested images without storage', () => {
+    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
     const callId = CallId('call-1')
     expect(toPiContext(request([
       history('system', [{ type: 'text', text: 'history system' }]),
@@ -111,8 +128,11 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('resolves user and tool-result images while preserving explicit fallbacks', async () => {
+    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
     const callId = CallId('missing-call')
+    /** 中文说明：测试局部值 knownCallId，由紧邻初始化决定。 */
     const knownCallId = CallId('known-call')
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = await toPiContext(request([
       user([{ type: 'text', text: '' }]),
       history('assistant', [
@@ -175,7 +195,9 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('recursively converts nested tool-result text and images', async () => {
+    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
     const callId = CallId('nested-call')
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = await toPiContext(request([user([{
       type: 'tool-result',
       toolCallId: callId,
@@ -208,6 +230,7 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('flattens nested text-only tool results and ignores other block types without storage', () => {
+    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
     const callId = CallId('nested-text')
     expect(toPiContext(request([user([{
       type: 'tool-result',
@@ -229,14 +252,19 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('replaces the oldest images with placeholders once the request payload bound is exceeded', async () => {
+    /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
     const readImageRequest = vi.fn((value: ImageAttachmentRef) => (
       Promise.resolve(requestImage(value, Uint8Array.of(1, 2, 3)))
     ))
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = projectionStore(readImageRequest)
+    /** 中文说明：测试局部值 sized，由紧邻初始化决定。 */
     const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
+    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
     const callId = CallId('shot-call')
     // Three 3-byte images cost 4 base64 characters each (12 total); a bound of
     // 8 forces exactly the oldest one out, including one nested in a tool result.
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = await toPiContext(request([
       user([{
         type: 'tool-result',
@@ -278,13 +306,17 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('does not prepare an old image removed by the conservative request projection', async () => {
+    /** 中文说明：测试局部值 old，由紧邻初始化决定。 */
     const old = { ...ref, attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`), bytes: 3 }
+    /** 中文说明：测试局部值 recent，由紧邻初始化决定。 */
     const recent = { ...ref, attachmentId: AttachmentId(`sha256:${'d'.repeat(64)}`), bytes: 3 }
+    /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
     const readImageRequest = vi.fn((value: ImageAttachmentRef) => {
       if (value.attachmentId === old.attachmentId) throw new Error('old image must not be read')
       return Promise.resolve(requestImage(value, Uint8Array.of(1, 2, 3)))
     })
 
+    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = await toPiContext(request([user([
       { type: 'image', attachment: old },
       { type: 'image', attachment: recent },
@@ -303,7 +335,9 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('keeps every image at exactly the payload bound and drops all of them when even the newest cannot fit', async () => {
+    /** 中文说明：测试局部值 sized，由紧邻初始化决定。 */
     const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
+    /** 中文说明：测试局部值 exact，由紧邻初始化决定。 */
     const exact = await toPiContext(request([
       user([{ type: 'image', attachment: sized }]),
       user([{ type: 'image', attachment: sized }]),
@@ -321,10 +355,13 @@ describe('pi-ai request context conversion', () => {
       },
     ])
 
+    /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
     const readImageRequest = vi.fn((value: ImageAttachmentRef) => (
       Promise.resolve(requestImage(value, new Uint8Array(300)))
     ))
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = projectionStore(readImageRequest)
+    /** 中文说明：测试局部值 oversized，由紧邻初始化决定。 */
     const oversized = await toPiContext(request([
       user([{ type: 'image', attachment: { ...ref, bytes: 300 } }]),
     ]), store, undefined, 8)
@@ -336,18 +373,25 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('offloads repeated image-block occurrences by position rather than shared object identity', async () => {
+    /** 中文说明：测试局部值 sized，由紧邻初始化决定。 */
     const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
+    /** 中文说明：测试局部值 shared，由紧邻初始化决定。 */
     const shared: ContentBlock = { type: 'image', attachment: sized }
+    /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
     const readImageRequest = vi.fn((value: ImageAttachmentRef) => (
       Promise.resolve(requestImage(value, Uint8Array.of(1, 2, 3)))
     ))
+    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = projectionStore(readImageRequest)
+    /** 中文说明：测试局部值 aliased，由紧邻初始化决定。 */
     const aliased = await toPiContext(request([user([shared, shared])]), store, undefined, 4)
+    /** 中文说明：测试局部值 replayed，由紧邻初始化决定。 */
     const replayed = await toPiContext(request([user([
       { type: 'image', attachment: { ...sized } },
       { type: 'image', attachment: { ...sized } },
     ])]), store, undefined, 4)
 
+    /** 中文说明：测试局部值 expected，由紧邻初始化决定。 */
     const expected = [{
       role: 'user',
       content: [
@@ -363,6 +407,7 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('keeps empty text-only users while separating result-only messages', () => {
+    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
     const callId = CallId('unknown-call')
     expect(toPiContext(request([
       user([]),
@@ -385,8 +430,11 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('handles in-history system and assistant messages explicitly on the image path', async () => {
+    /** 中文说明：测试局部值 role，由紧邻初始化决定。 */
     for (const role of ['system', 'assistant'] as const) {
+      /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
       const readImageRequest = vi.fn()
+      /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
       const store = projectionStore(readImageRequest)
       await expect(toPiContext(request([
         history(role, [{ type: 'image', attachment: ref }]),
