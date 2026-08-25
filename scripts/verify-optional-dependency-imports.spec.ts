@@ -7,6 +7,14 @@
  * that resolves to a type all disappear; a bare import, a value binding, and a
  * star re-export remain.
  */
+/**
+ * 文件职责：验证 verify-optional-dependency-imports.spec.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
+ * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
+ * 逻辑维度：扫描仓库输入，构建检查模型，收集违规项，再输出诊断并设置退出状态。
+ * 关键边界：被检查文本与路径不可信；门禁结果必须确定；任何违规都应显式失败。
+ * 新手阅读建议：先看规则入口和扫描范围，再读违规收集，最后关注例外、诊断和退出码。
+ */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,6 +23,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { TypeScriptProject } from './ts-project.ts'
 import { collectOptionalImportViolations } from './verify-optional-dependency-imports.ts'
 
+/** 中文说明：常量 FIXTURE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FIXTURE: Record<string, string> = {
   'tsconfig.host.json': JSON.stringify({
     compilerOptions: {
@@ -100,11 +109,14 @@ const FIXTURE: Record<string, string> = {
   ].join('\n'),
 }
 
+/** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = mkdtempSync(join(tmpdir(), 'optional-imports-'))
+/** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
 for (const [rel, content] of Object.entries(FIXTURE)) {
   mkdirSync(dirname(join(root, rel)), { recursive: true })
   writeFileSync(join(root, rel), content)
 }
+/** 中文说明：变量 violations 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const violations = collectOptionalImportViolations(new TypeScriptProject(root))
 
 afterAll(() => {

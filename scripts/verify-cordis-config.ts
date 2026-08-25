@@ -9,6 +9,14 @@
  * resolve named plugins from their owning workspace manifests. Local example
  * packages must also be in the root TypeScript project graph.
  */
+/**
+ * 文件职责：实现 verify-cordis-config.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
+ * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
+ * 逻辑维度：扫描仓库输入，构建检查模型，收集违规项，再输出诊断并设置退出状态。
+ * 关键边界：被检查文本与路径不可信；门禁结果必须确定；任何违规都应显式失败。
+ * 新手阅读建议：先看规则入口和扫描范围，再读违规收集，最后关注例外、诊断和退出码。
+ */
 
 import { globSync, readFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
@@ -17,6 +25,7 @@ import ts from 'typescript'
 import { cordisConfigFiles } from './cordis-config-files.ts'
 import { isCordisGroupEntry, isJsExpr, loadCordisYaml } from './cordis-yaml.ts'
 
+/** 中文说明：interface PackageManifest 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface PackageManifest {
   name?: string
   dependencies?: Record<string, string>
@@ -24,22 +33,27 @@ export interface PackageManifest {
   dsh?: { bundle?: { patch?: string } }
 }
 
+/** 中文说明：interface PluginReference 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface PluginReference {
   file: string
   name: string
 }
 
+/** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
 // These example files are overlays consumed by the built dsh app, so their bare
 // specifiers resolve from apps/cli rather than the examples workspace.
+/** 中文说明：变量 appOverlayFiles 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const appOverlayFiles = new Set([
   'examples/web-cordis/cordis.yml',
   'examples/web-schedule/cordis.yml',
   ...globSync('examples/mcp-memory/*.cordis.yml', { cwd: root }),
 ])
+/** 中文说明：变量 metadataFields 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const metadataFields = ['id', 'name', 'group', 'inject', 'intercept', 'isolate'] as const
 
 /** The adaptive directory-picker chooser package (mounts a backend row at boot). */
+/** 中文说明：常量 CHOOSER_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CHOOSER_PACKAGE = '@deepseek-ai/dsh-host-directory-picker-auto'
 
 /**
@@ -49,24 +63,31 @@ const CHOOSER_PACKAGE = '@deepseek-ai/dsh-host-directory-picker-auto'
  * (which only ever resolves `browse`) hides a dropped `-native` dependency
  * until a macOS boot.
  */
+/** 中文说明：常量 CHOOSER_BACKEND_PACKAGES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CHOOSER_BACKEND_PACKAGES = [
   '@deepseek-ai/dsh-host-directory-picker-native',
   '@deepseek-ai/dsh-host-directory-picker-browse',
   '@deepseek-ai/dsh-client-ui-directory-picker-browse',
   '@deepseek-ai/dsh-client-ui-directory-picker-native',
 ]
+/** 中文说明：变量 errors 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const errors: string[] = []
+/** 中文说明：变量 pluginReferences 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const pluginReferences: PluginReference[] = []
 
 if (import.meta.main) {
+  /** 中文说明：变量 files 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const files = cordisConfigFiles(root)
 
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const file of files) {
+    /** 中文说明：变量 document 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const document = loadCordisYaml(readFileSync(resolve(root, file), 'utf8'))
     if (!isUnknownArray(document)) {
       errors.push(`${file}: root must be a Loader entry array`)
       continue
     }
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < document.length; index++) {
       validateEntry(document[index], file, `[${index}]`)
     }
@@ -80,6 +101,7 @@ if (import.meta.main) {
 
   if (errors.length > 0) {
     console.error('verify-cordis-config: invalid Loader metadata or plugin package resolution:')
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (const error of errors) console.error(`- ${error}`)
     process.exitCode = 1
   } else {
@@ -101,13 +123,17 @@ if (import.meta.main) {
  * @returns one violation per client package whose `./client` export and
  * `dsh.client` declaration disagree.
  */
+/** 中文说明：函数 validateClientHalvesDeclared 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateClientHalvesDeclared(): string[] {
   return globSync('packages/client/*/package.json', { cwd: root }).flatMap((manifestPath) => {
+    /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = readManifest(manifestPath) as PackageManifest & {
       exports?: Record<string, unknown>
       dsh?: { client?: unknown }
     }
+    /** 中文说明：变量 shipsClient 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const shipsClient = manifest.exports !== undefined && Object.hasOwn(manifest.exports, './client')
+    /** 中文说明：变量 declaresClient 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const declaresClient = manifest.dsh?.client !== undefined
     if (shipsClient === declaresClient) return []
     return [shipsClient
@@ -133,21 +159,32 @@ function validateClientHalvesDeclared(): string[] {
  * of each other, so a fix applied to three of four is the normal failure.
  * @returns one diagnostic per preset row that is also active on the host plane.
  */
+/** 中文说明：函数 validatePresetPlaneSeparation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validatePresetPlaneSeparation(): string[] {
+  /** 中文说明：变量 problems 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const problems: string[] = []
   // The shipped Web surface is two bundle patch layers over an empty root.
+  /** 中文说明：变量 hostFile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hostFile = 'packages/bundle/base/cordis.patch.yml'
+  /** 中文说明：变量 overlayFile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const overlayFile = 'packages/bundle/web-app/cordis.patch.yml'
+  /** 中文说明：变量 hostRows 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hostRows = rowIds(hostFile)
+  /** 中文说明：变量 overlay 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const overlay = loadEntries(overlayFile)
+  /** 中文说明：变量 disabled 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const disabled = new Set<string>()
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const entry of overlay) {
     if (!isRecord(entry)) continue
     if (entry.disabled === true && typeof entry.id === 'string') disabled.add(entry.id)
   }
   // The overlay's own inserts are host-plane too; its disables take them back out.
+  /** 中文说明：函数值 active 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const active = new Set([...hostRows, ...rowIds(overlayFile)].filter(id => !disabled.has(id)))
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const file of globSync('apps/cli/config/agent-presets/*/agent.cordis.yml', { cwd: root })) {
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (const id of rowIds(file)) {
       if (!active.has(id)) continue
       problems.push(
@@ -160,7 +197,9 @@ function validatePresetPlaneSeparation(): string[] {
 }
 
 /** Every entry of one config file, or an empty list when it is not an entry array. */
+/** 中文说明：函数 loadEntries 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadEntries(file: string): unknown[] {
+  /** 中文说明：变量 document 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const document = loadCordisYaml(readFileSync(resolve(root, file), 'utf8'))
   return isUnknownArray(document) ? document : []
 }
@@ -171,21 +210,27 @@ function loadEntries(file: string): unknown[] {
  * @param file - repository-relative config path.
  * @returns the declared ids.
  */
+/** 中文说明：函数 rowIds 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function rowIds(file: string): Set<string> {
+  /** 中文说明：变量 ids 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ids = new Set<string>()
+  /** 中文说明：函数值 walk 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const walk = (value: unknown): void => {
     if (isUnknownArray(value)) {
+      /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
       for (const item of value) walk(item)
       return
     }
     if (!isRecord(value)) return
     if (typeof value.id === 'string' && typeof value.name === 'string') ids.add(value.id)
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (const child of Object.values(value)) walk(child)
   }
   walk(loadEntries(file))
   return ids
 }
 
+/** 中文说明：函数 validateEntry 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateEntry(value: unknown, file: string, path: string): void {
   if (!isRecord(value)) {
     errors.push(`${file}${path}: entry must be an object`)
@@ -194,52 +239,72 @@ function validateEntry(value: unknown, file: string, path: string): void {
   recordPlugin(value, file)
   validateMetadata(value, file, path)
   if (isCordisGroupEntry(value)) {
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < value.config.length; index++) {
       validateEntry(value.config[index], file, `${path}.config[${index}]`)
     }
   }
   if (isUnknownArray(value.insert)) {
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < value.insert.length; index++) {
       validateEntry(value.insert[index], file, `${path}.insert[${index}]`)
     }
   }
   if (value.name !== '@deepseek-ai/cordis-plugin-include') return
+  /** 中文说明：变量 config 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const config = value.config
   if (!isRecord(config) || !isUnknownArray(config.patches)) return
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (let index = 0; index < config.patches.length; index++) {
+    /** 中文说明：变量 patch 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const patch = config.patches[index]
+    /** 中文说明：变量 patchPath 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const patchPath = `${path}.config.patches[${index}]`
     if (!isRecord(patch)) continue
     recordPlugin(patch, file)
     validateMetadata(patch, file, patchPath)
     if (!isUnknownArray(patch.insert)) continue
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (let insertIndex = 0; insertIndex < patch.insert.length; insertIndex++) {
       validateEntry(patch.insert[insertIndex], file, `${patchPath}.insert[${insertIndex}]`)
     }
   }
 }
 
+/** 中文说明：函数 recordPlugin 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function recordPlugin(entry: Record<string, unknown>, file: string): void {
   if (typeof entry.name === 'string') pluginReferences.push({ file, name: entry.name })
 }
 
+/** 中文说明：函数 validateExampleResolution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateExampleResolution(): string[] {
+  /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []
+  /** 中文说明：变量 exampleManifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const exampleManifest = readManifest('examples/package.json')
+  /** 中文说明：变量 dependencies 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dependencies = exampleManifest.dependencies ?? {}
+  /** 中文说明：变量 localPackages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const localPackages = localPackageDirectories()
+  /** 中文说明：变量 rootReferences 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rootReferences = rootProjectReferences()
+  /** 中文说明：函数值 exampleReferences 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const exampleReferences = pluginReferences.filter(reference => reference.file.startsWith('examples/') && !appOverlayFiles.has(reference.file))
   violations.push(...missingPluginDependencies(exampleReferences, dependencies, 'examples/package.json'))
+  /** 中文说明：函数值 requiredPackages 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const requiredPackages = new Set(exampleReferences.map(reference => packageNameFromSpecifier(reference.name)))
 
+  /** 中文说明：变量 localExamplePackages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const localExamplePackages = new Set([
     ...Object.keys(dependencies),
     ...[...requiredPackages].filter(packageName => packageName !== undefined),
   ])
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const packageName of localExamplePackages) {
+    /** 中文说明：变量 packageDirectory 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packageDirectory = localPackages.get(packageName)
     if (packageDirectory === undefined || rootReferences.has(packageDirectory)) continue
+    /** 中文说明：变量 repoPath 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const repoPath = relative(root, packageDirectory).replaceAll('\\', '/')
     violations.push(`tsconfig.json: missing project reference for ${packageName} (${repoPath})`)
   }
@@ -247,11 +312,15 @@ function validateExampleResolution(): string[] {
   return violations
 }
 
+/** 中文说明：函数 validateAppResolution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateAppResolution(): string[] {
+  /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []
+  /** 中文说明：变量 bundleManifests 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bundleManifests = bundleManifestPaths()
   // App overlays (and any config left under apps/cli/config) resolve from the
   // dsh app's own dependency surface — the profile module fallback mirrors it.
+  /** 中文说明：变量 appDependencies 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const appDependencies = {
     ...readManifest('apps/cli/package.json').dependencies,
     // The fallback also links every in-box bundle's own dependencies
@@ -260,18 +329,26 @@ function validateAppResolution(): string[] {
     ...Object.fromEntries(globSync('packages/bundle/*/package.json', { cwd: root })
       .flatMap(file => Object.entries(readManifest(file).dependencies ?? {}))),
   }
+  /** 中文说明：变量 shipped 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const shipped = new Set(globSync('*.cordis.yml', { cwd: resolve(root, 'apps/cli/config') })
     .map(file => `apps/cli/config/${file}`))
+  /** 中文说明：函数值 appReferences 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const appReferences = pluginReferences.filter(reference => shipped.has(reference.file) || appOverlayFiles.has(reference.file))
   violations.push(...missingPluginDependencies(appReferences, appDependencies, 'apps/cli/package.json or a bundle manifest'))
   // Each bundle's patch rows must resolve from that bundle's own dependencies:
   // per-layer resolution anchors on the bundle package directory.
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const manifestPath of bundleManifests) {
+    /** 中文说明：变量 bundleDir 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bundleDir = manifestPath.replace(/\/package\.json$/, '')
+    /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = readManifest(manifestPath)
+    /** 中文说明：变量 patch 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const patch = manifest.dsh?.bundle?.patch
     if (typeof patch !== 'string') continue
+    /** 中文说明：变量 patchFile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const patchFile = relative(root, resolve(root, bundleDir, patch)).replaceAll('\\', '/')
+    /** 中文说明：函数值 references 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
     const references = pluginReferences.filter(reference => reference.file === patchFile)
     violations.push(...bundlePluginDependencyErrors(manifestPath, manifest, references))
   }
@@ -283,6 +360,7 @@ function validateAppResolution(): string[] {
  * @param repoRoot Repository root to scan.
  * @returns Sorted slash-normalized repository-relative package manifest paths.
  */
+/** 中文说明：函数 bundleManifestPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function bundleManifestPaths(repoRoot: string = root): string[] {
   return globSync('packages/*/*/package.json', { cwd: repoRoot })
     .filter(path => typeof readManifest(path, repoRoot).dsh?.bundle?.patch === 'string')
@@ -297,6 +375,7 @@ export function bundleManifestPaths(repoRoot: string = root): string[] {
  * @param references Plugin rows read from the Bundle package directory.
  * @returns Missing production dependency diagnostics.
  */
+/** 中文说明：函数 bundlePluginDependencyErrors 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function bundlePluginDependencyErrors(
   manifestPath: string,
   manifest: PackageManifest,
@@ -319,9 +398,13 @@ export function bundlePluginDependencyErrors(
  * yet breaks every clean checkout. Anything but a `.ts`/`.tsx` hit (a `.d.ts`
  * or `.js` under built `lib/`) is that artifact-plane fallback, not source.
  */
+/** 中文说明：函数 validateSourcePlaneResolution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateSourcePlaneResolution(): string[] {
+  /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []
+  /** 中文说明：变量 localPackages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const localPackages = localPackageDirectories()
+  /** 中文说明：函数值 config 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const config = ts.readConfigFile(resolve(root, 'tsconfig.base.json'), path => ts.sys.readFile(path))
   if (config.error !== undefined) {
     throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
@@ -337,23 +420,32 @@ function validateSourcePlaneResolution(): string[] {
   // convertCompilerOptionsFromJson leaves `pathsBasePath` unset, so relative
   // `paths` targets resolve against the host's current directory; anchor it to
   // the repository root to keep the gate cwd-independent.
+  /** 中文说明：变量 host 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const host: ts.ModuleResolutionHost = {
     fileExists: path => ts.sys.fileExists(path),
     readFile: path => ts.sys.readFile(path),
     directoryExists: path => ts.sys.directoryExists(path),
     getCurrentDirectory: () => root,
   }
+  /** 中文说明：变量 sourceExtensions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceExtensions = new Set<string>([ts.Extension.Ts, ts.Extension.Tsx])
+  /** 中文说明：变量 containingFile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const containingFile = resolve(root, 'scripts/verify-cordis-config.ts')
+  /** 中文说明：变量 locationsBySpecifier 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const locationsBySpecifier = new Map<string, Set<string>>()
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const reference of pluginReferences) {
+    /** 中文说明：变量 packageName 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packageName = packageNameFromSpecifier(reference.name)
     if (packageName === undefined || !localPackages.has(packageName)) continue
+    /** 中文说明：变量 locations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const locations = locationsBySpecifier.get(reference.name) ?? new Set<string>()
     locations.add(reference.file)
     locationsBySpecifier.set(reference.name, locations)
   }
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const [specifier, locations] of locationsBySpecifier) {
+    /** 中文说明：变量 resolved 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resolved = ts.resolveModuleName(specifier, containingFile, options, host).resolvedModule
     if (resolved !== undefined && sourceExtensions.has(resolved.extension)) continue
     violations.push(`${[...locations].join(', ')}: ${specifier} does not resolve to workspace source through tsconfig.base.json paths (add a mapping so the tsx source launch does not depend on built lib/)`)
@@ -361,22 +453,29 @@ function validateSourcePlaneResolution(): string[] {
   return violations
 }
 
+/** 中文说明：函数 missingPluginDependencies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function missingPluginDependencies(
   references: readonly PluginReference[],
   dependencies: Readonly<Record<string, string>>,
   manifestPath: string,
 ): string[] {
+  /** 中文说明：变量 requiredPackages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const requiredPackages = new Map<string, Set<string>>()
+  /** 中文说明：函数值 require 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const require = (packageName: string, file: string): void => {
+    /** 中文说明：变量 locations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const locations = requiredPackages.get(packageName) ?? new Set<string>()
     locations.add(file)
     requiredPackages.set(packageName, locations)
   }
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const reference of references) {
+    /** 中文说明：变量 packageName 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packageName = packageNameFromSpecifier(reference.name)
     if (packageName === undefined) continue
     require(packageName, reference.file)
     if (packageName === CHOOSER_PACKAGE) {
+      /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
       for (const backend of CHOOSER_BACKEND_PACKAGES) require(backend, reference.file)
     }
   }
@@ -385,39 +484,54 @@ function missingPluginDependencies(
     : `${[...locations].join(', ')}: ${packageName} must be declared in ${manifestPath} dependencies`)
 }
 
+/** 中文说明：函数 readManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function readManifest(path: string, repoRoot: string = root): PackageManifest {
   return JSON.parse(readFileSync(resolve(repoRoot, path), 'utf8')) as PackageManifest
 }
 
+/** 中文说明：函数 localPackageDirectories 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function localPackageDirectories(): Map<string, string> {
+  /** 中文说明：变量 manifests 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests = globSync(['packages/*/*/package.json', 'vendor/*/package.json'], { cwd: root })
+  /** 中文说明：变量 packages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const packages = new Map<string, string>()
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const manifestPath of manifests) {
+    /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = readManifest(manifestPath)
     if (manifest.name !== undefined) packages.set(manifest.name, resolve(root, dirname(manifestPath)))
   }
   return packages
 }
 
+/** 中文说明：函数 rootProjectReferences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function rootProjectReferences(): Set<string> {
   // The root solution references the host and client aggregates (the two
   // sides merge cordis Context under the same keys, so one program cannot see
   // both — but this BFS only collects reference paths, it never forms a
   // program). Seed the solution and follow nested aggregate references to
   // collect the covered leaf project set.
+  /** 中文说明：变量 collected 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const collected = new Set<string>()
+  /** 中文说明：变量 queue 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const queue = [resolve(root, 'tsconfig.json')]
+  /** 中文说明：变量 seen 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seen = new Set<string>()
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (let file = queue.pop(); file !== undefined; file = queue.pop()) {
     if (seen.has(file)) continue
     seen.add(file)
+    /** 中文说明：函数值 config 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
     const config = ts.readConfigFile(file, path => ts.sys.readFile(path))
     if (config.error !== undefined) {
       throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
     }
+    /** 中文说明：变量 references 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const references = (config.config as { references?: Array<{ path?: unknown }> }).references ?? []
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (const reference of references) {
       if (typeof reference.path !== 'string') continue
+      /** 中文说明：变量 target 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const target = resolve(dirname(file), reference.path)
       if (target.endsWith('.json')) queue.push(target)
       else collected.add(target)
@@ -426,8 +540,10 @@ function rootProjectReferences(): Set<string> {
   return collected
 }
 
+/** 中文说明：函数 packageNameFromSpecifier 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packageNameFromSpecifier(specifier: string): string | undefined {
   if (specifier.startsWith('.') || specifier.startsWith('/') || /^[a-z][a-z+.-]*:/i.test(specifier)) return undefined
+  /** 中文说明：变量 segments 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const segments = specifier.split('/')
   if (specifier.startsWith('@')) {
     return segments.length >= 2 ? `${segments[0]}/${segments[1]}` : undefined
@@ -435,7 +551,9 @@ function packageNameFromSpecifier(specifier: string): string | undefined {
   return segments[0] || undefined
 }
 
+/** 中文说明：函数 validateMetadata 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateMetadata(entry: Record<string, unknown>, file: string, path: string): void {
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const problem of metadataExpressionErrors(entry, path)) {
     errors.push(`${file}${problem}`)
   }
@@ -450,24 +568,33 @@ function validateMetadata(entry: Record<string, unknown>, file: string, path: st
  * @param path - the entry's diagnostic path prefix.
  * @returns one diagnostic per offending expression.
  */
+/** 中文说明：函数 metadataExpressionErrors 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function metadataExpressionErrors(entry: Record<string, unknown>, path: string): string[] {
+  /** 中文说明：变量 problems 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const problems: string[] = []
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const field of metadataFields) {
     if (!(field in entry)) continue
+    /** 中文说明：变量 expressionPaths 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expressionPaths: string[] = []
     collectExpressionPaths(entry[field], `${path}.${field}`, expressionPaths)
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (const expressionPath of expressionPaths) problems.push(`${expressionPath}: !!js is not interpolated here`)
   }
+  /** 中文说明：变量 disabled 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const disabled = entry.disabled
   if (disabled !== undefined) {
     if (isJsExpr(disabled)) {
+      /** 中文说明：变量 detail 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const detail = disabledExpressionProblem(disabled.__jsExpr)
       if (detail !== undefined) problems.push(`${path}.disabled${detail}`)
     } else {
       // A non-expression value gates on Boolean() at mount; an expression
       // nested anywhere below it never evaluates, so it must stay literal.
+      /** 中文说明：变量 expressionPaths 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const expressionPaths: string[] = []
       collectExpressionPaths(disabled, `${path}.disabled`, expressionPaths)
+      /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
       for (const expressionPath of expressionPaths) problems.push(`${expressionPath}: !!js is not interpolated here`)
     }
   }
@@ -481,34 +608,41 @@ export function metadataExpressionErrors(entry: Record<string, unknown>, path: s
  * @param expression - the `!!js` expression text.
  * @returns the diagnostic suffix, or `undefined` when the expression parses.
  */
+/** 中文说明：函数 disabledExpressionProblem 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function disabledExpressionProblem(expression: string): string | undefined {
   try {
     // Compilation only — constructing a Script does not execute its source.
     new Script(`(${expression})`)
     return undefined
   } catch (error) {
+    /** 中文说明：变量 detail 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const detail = error instanceof Error ? error.message : String(error)
     return `: disabled expression does not parse: ${detail}`
   }
 }
 
+/** 中文说明：函数 collectExpressionPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectExpressionPaths(value: unknown, path: string, output: string[]): void {
   if (isJsExpr(value)) {
     output.push(path)
     return
   }
   if (isUnknownArray(value)) {
+    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < value.length; index++) collectExpressionPaths(value[index], `${path}[${index}]`, output)
     return
   }
   if (!isRecord(value)) return
+  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const [key, child] of Object.entries(value)) collectExpressionPaths(child, `${path}.${key}`, output)
 }
 
+/** 中文说明：函数 isRecord 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object'
 }
 
+/** 中文说明：函数 isUnknownArray 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isUnknownArray(value: unknown): value is unknown[] {
   return Array.isArray(value)
 }
