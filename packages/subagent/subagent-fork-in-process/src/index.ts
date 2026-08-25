@@ -6,6 +6,14 @@
  * unbalanced and cannot be replayed as a valid child session.
  * @module @deepseek-ai/dsh-subagent-fork-in-process
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的子代理启动、协议、继承与生命周期行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
+ * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
+ * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
+ * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
+ * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -20,19 +28,23 @@ import type {
 } from '@deepseek-ai/dsh-subagent'
 import { startInProcessRun } from '@deepseek-ai/dsh-subagent-in-process-driver'
 
+/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'subagent-fork-in-process'
 // `tools` is deliberately NOT injected — same rationale as subagent-spawn-in-process: the
 // per-run structured runtime gates its capture-tool registration on `tools`
 // itself, so this backend's apply timing (and the delegation tool's position
 // in the model-visible tool list) is unchanged by structured output.
+/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['subagents']
 
 /** Config: the registry name to register the provider under. */
+/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `fork`). */
   providerName: string
 }
 
+/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   providerName: z.string().default('fork'),
 })
@@ -45,8 +57,11 @@ export const Config: z<Config> = z.object({
  * @param parent - the agent whose session log to slice.
  * @returns the seed events, contiguous from seq 0; empty when no turn has completed.
  */
+/** 中文说明：函数 completedTurnPrefix 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function completedTurnPrefix(parent: Agent): SessionEvent[] {
+  /** 中文说明：变量 events 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events = parent.session.events
+  /** 中文说明：函数值 lastEnd 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const lastEnd = events.findLast(e => e.type === 'turn/end')
   if (lastEnd === undefined) return []
   // seq === array index (the append contract), so slice up to and including it.
@@ -58,6 +73,7 @@ function completedTurnPrefix(parent: Agent): SessionEvent[] {
  * in-process structured runtime), plus `toolFilter`/`persona` (scoped
  * restrict() and a scoped shadowing persona section).
  */
+/** 中文说明：class ForkInProcessProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
 class ForkInProcessProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = { outputSchema: true, depthLimit: true, toolFilter: true, persona: true }
   // Context contract: a forked child IS seeded with the parent's completed-turn prefix.
@@ -66,6 +82,7 @@ class ForkInProcessProvider implements SubagentProvider {
   constructor(readonly name: string) {}
 
   start(request: ResolvedSubagentStartRequest) {
+    /** 中文说明：变量 seed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seed = completedTurnPrefix(request.parent)
     return startInProcessRun(request, {
       // Only pass a seed when there's a completed turn to inherit; an empty seed
@@ -84,11 +101,13 @@ class ForkInProcessProvider implements SubagentProvider {
     // The fork prefix is captured ONCE, at creation: it becomes part of the
     // child's own durable transcript, so a later cold resume replays that
     // prefix instead of re-forking the parent's newer history.
+    /** 中文说明：变量 seed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seed = completedTurnPrefix(request.parent)
     return Promise.resolve(seed.length > 0 ? { seed } : {})
   }
 }
 
+/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   ctx.subagents.registerProvider(new ForkInProcessProvider(config.providerName))
 }

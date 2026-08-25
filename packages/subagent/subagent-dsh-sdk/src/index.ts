@@ -9,6 +9,14 @@
  * `docs/postmortem/0001-acp-default-export-drops-inject.md`).
  * @module @deepseek-ai/dsh-subagent-dsh-sdk
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的子代理启动、协议、继承与生命周期行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
+ * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
+ * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
+ * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
+ * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -19,13 +27,17 @@ import {
   DEFAULT_DISPOSE_GRACE_MS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   startSdkRun,
+  /** 中文说明：type SdkRunSpec 定义本模块所需的数据或行为，用于表达子代理场景。 */
   type SdkRunSpec,
 } from './run.ts'
 
+/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'subagent-dsh-sdk'
+/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['subagents']
 
 /** Config: how to spawn and drive the child SDK runtime process. */
+/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `dsh-sdk`). */
   providerName: string
@@ -68,6 +80,7 @@ export interface Config {
   disposeGraceMs?: number
 }
 
+/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   providerName: z.string().default('dsh-sdk'),
   command: z.string().required(),
@@ -83,6 +96,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** The shape after schemastery applied the defaults (`cwd` and `maxTokens` have none). */
+/** 中文说明：type ResolvedConfig 定义本模块所需的数据或行为，用于表达子代理场景。 */
 type ResolvedConfig = Required<Omit<Config, 'cwd' | 'maxTokens'>> & Pick<Config, 'cwd' | 'maxTokens'>
 
 /**
@@ -90,6 +104,7 @@ type ResolvedConfig = Required<Omit<Config, 'cwd' | 'maxTokens'>> & Pick<Config,
  * child cannot honor `outputSchema`/`maxDepth`/`toolFilter`/`persona` (the
  * service rejects a request needing any of them before `start` runs).
  */
+/** 中文说明：class SdkSubagentProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
 class SdkSubagentProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = NO_START_CAPABILITIES
   // Context contract: an out-of-process SDK child starts fresh — no parent conversation crosses the process boundary.
@@ -98,6 +113,7 @@ class SdkSubagentProvider implements SubagentProvider {
   constructor(readonly name: string, private readonly ctx: Context, private readonly config: ResolvedConfig) {}
 
   start(request: SubagentStartRequest) {
+    /** 中文说明：变量 spec 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec: SdkRunSpec = {
       command: this.config.command,
       args: this.config.args,
@@ -119,8 +135,10 @@ class SdkSubagentProvider implements SubagentProvider {
   }
 }
 
+/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   // schemastery (Config) has already filled every defaulted field.
+  /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved = config as ResolvedConfig
   assertPositiveFinite('subagent-dsh-sdk', 'shutdownTimeoutMs', resolved.shutdownTimeoutMs)
   assertPositiveFinite('subagent-dsh-sdk', 'disposeEofGraceMs', resolved.disposeEofGraceMs)
@@ -130,7 +148,9 @@ export function apply(ctx: Context, config: Config): void {
   }
   // Interpret a relative configured cwd against the harness launch directory
   // ONCE, at load, and fail a misconfigured directory here — not per start.
+  /** 中文说明：变量 configuredCwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const configuredCwd = validateConfiguredCwd('subagent-dsh-sdk', resolved.cwd)
+  /** 中文说明：变量 validated 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const validated: ResolvedConfig = configuredCwd === undefined
     ? resolved
     : { ...resolved, cwd: configuredCwd }

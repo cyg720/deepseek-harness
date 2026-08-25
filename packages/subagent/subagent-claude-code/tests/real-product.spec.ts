@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 real-product.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
+ * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
+ * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
+ * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
+ * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
+ */
 import { execFile } from 'node:child_process'
 import {
   existsSync,
@@ -31,20 +39,26 @@ import * as claudeCode from '../src/index.ts'
 import type { ClaudeCodePermissionMode } from '../src/run.ts'
 import {
   startMessagesFixture,
+  /** 中文说明：type MessagesBehavior 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type MessagesBehavior,
+  /** 中文说明：type MessagesFixture 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type MessagesFixture,
 } from './messages-fixture.ts'
 
+/** 中文说明：函数值 observedSdkMessages 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const observedSdkMessages = vi.hoisted((): SDKMessage[] => [])
+/** 中文说明：函数值 sdkTestOverrides 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const sdkTestOverrides = vi.hoisted((): { maxTurns?: number } => ({}))
 
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => {
+  /** 中文说明：变量 actual 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const actual = await importOriginal<
     typeof import('@anthropic-ai/claude-agent-sdk')
   >()
   return {
     ...actual,
     query(params: Parameters<typeof actual.query>[0]): Query {
+      /** 中文说明：变量 query 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const query = actual.query(sdkTestOverrides.maxTurns === undefined
         ? params
         : {
@@ -56,14 +70,17 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => {
         get(target, property) {
           if (property === Symbol.asyncIterator) {
             return async function* (): AsyncGenerator<SDKMessage, void> {
+              /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
               for await (const message of target) {
                 observedSdkMessages.push(message)
                 yield message
               }
             }
           }
+          /** 中文说明：变量 value 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const value: unknown = Reflect.get(target, property, target)
           if (typeof value === 'function') {
+            /** 中文说明：函数值 method 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
             const method = value as (...args: unknown[]) => unknown
             return method.bind(target)
           }
@@ -74,10 +91,13 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => {
   }
 })
 
+/** 中文说明：变量 execFileAsync 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const execFileAsync = promisify(execFile)
+/** 中文说明：变量 sdkRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const sdkRoot = dirname(fileURLToPath(
   import.meta.resolve('@anthropic-ai/claude-agent-sdk'),
 ))
+/** 中文说明：变量 sdkPackage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const sdkPackage = JSON.parse(readFileSync(
   join(sdkRoot, 'package.json'),
   'utf8',
@@ -86,23 +106,33 @@ const sdkPackage = JSON.parse(readFileSync(
   claudeCodeVersion: string
   optionalDependencies: Record<string, string>
 }
+/** 中文说明：变量 platformPackage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const platformPackage = `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}`
+/** 中文说明：变量 platformRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const platformRoot = resolve(sdkRoot, '..', platformPackage.split('/')[1]!)
+/** 中文说明：变量 claudeBin 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const claudeBin = join(
   platformRoot,
   process.platform === 'win32' ? 'claude.exe' : 'claude',
 )
+/** 中文说明：变量 settingsModel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const settingsModel = 'dsh-settings-inheritance-marker'
+/** 中文说明：变量 fakeKey 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeKey = 'dsh-fake-anthropic-key'
 
+/** 中文说明：变量 roots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const roots: string[] = []
+/** 中文说明：变量 fixtures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fixtures: MessagesFixture[] = []
+/** 中文说明：变量 contexts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const contexts: Context[] = []
 
 // Ambient Anthropic model env leaks into the real CLI and overrides the
 // fixture settings.json on developer machines; delete it for this file and
 // restore it after, like the workspace-context USERPROFILE isolation.
+/** 中文说明：变量 ambientAnthropicModel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const ambientAnthropicModel = process.env.ANTHROPIC_MODEL
+/** 中文说明：变量 ambientAnthropicSmallFastModel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const ambientAnthropicSmallFastModel = process.env.ANTHROPIC_SMALL_FAST_MODEL
 
 beforeAll(() => {
@@ -118,6 +148,7 @@ afterAll(() => {
 afterEach(async () => {
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
   await Promise.all(fixtures.splice(0).map(fixture => fixture.close()))
+  /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
   for (const root of roots.splice(0)) {
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   }
@@ -125,6 +156,7 @@ afterEach(async () => {
   delete sdkTestOverrides.maxTurns
 })
 
+/** 中文说明：interface RealHarness 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface RealHarness {
   readonly ctx: Context
   readonly handles: SubprocessHandle[]
@@ -134,20 +166,26 @@ interface RealHarness {
   readonly env: Record<string, string>
 }
 
+/** 中文说明：interface RealInstanceFixture 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface RealInstanceFixture {
   readonly fixture: MessagesFixture
   readonly workspace: string
   readonly env: Record<string, string>
 }
 
+/** 中文说明：函数 realInstanceFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function realInstanceFixture(
   behavior: MessagesBehavior,
   nativeAllow: readonly string[] = [],
 ): Promise<RealInstanceFixture> {
+  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'dsh-claude-code-real-'))
   roots.push(root)
+  /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workspace = join(root, 'workspace')
+  /** 中文说明：变量 claudeConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const claudeConfig = join(root, 'claude-config')
+  /** 中文说明：变量 xdgConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const xdgConfig = join(root, 'xdg')
   mkdirSync(workspace)
   mkdirSync(claudeConfig)
@@ -162,8 +200,10 @@ async function realInstanceFixture(
       },
     }, null, 2)}\n`,
   )
+  /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fixture = await startMessagesFixture(behavior)
   fixtures.push(fixture)
+  /** 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const env = {
     ANTHROPIC_API_KEY: fakeKey,
     ANTHROPIC_BASE_URL: fixture.baseUrl,
@@ -182,22 +222,29 @@ async function realInstanceFixture(
   return { fixture, workspace, env }
 }
 
+/** 中文说明：interface RealRuntime 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface RealRuntime {
   readonly ctx: Context
   readonly handles: SubprocessHandle[]
   readonly spawnSpecs: SubprocessSpawnSpec[]
 }
 
+/** 中文说明：函数 realRuntime 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function realRuntime(): Promise<RealRuntime> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(LocalSubprocessRuntime)
+  /** 中文说明：变量 handles 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handles: SubprocessHandle[] = []
+  /** 中文说明：变量 spawnSpecs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const spawnSpecs: SubprocessSpawnSpec[] = []
+  /** 中文说明：变量 spawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const spawn = ctx.subprocess.spawn.bind(ctx.subprocess)
   vi.spyOn(ctx.subprocess, 'spawn').mockImplementation((spec) => {
     spawnSpecs.push(spec)
+    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = spawn(spec)
     handles.push(handle)
     return handle
@@ -205,6 +252,7 @@ async function realRuntime(): Promise<RealRuntime> {
   return { ctx, handles, spawnSpecs }
 }
 
+/** 中文说明：函数 realHarness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function realHarness(
   behavior: MessagesBehavior,
   permissionMode?: ClaudeCodePermissionMode,
@@ -213,6 +261,7 @@ async function realHarness(
   readonly harness: RealHarness
   readonly fixture: MessagesFixture
 }> {
+  /** 中文说明：变量 instance 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const instance = await realInstanceFixture(behavior, nativeAllow)
   const { ctx, handles, spawnSpecs } = await realRuntime()
   await ctx.plugin(claudeCode, {
@@ -220,6 +269,7 @@ async function realHarness(
     ...permissionMode === undefined ? {} : { permissionMode },
     disposeGraceMs: 3_000,
   })
+  /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parent = {
     id: 'real-parent',
     session: { header: { cwd: instance.workspace } },
@@ -237,23 +287,28 @@ async function realHarness(
   }
 }
 
+/** 中文说明：函数 expectQuiescent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function expectQuiescent(
   handles: readonly SubprocessHandle[],
 ): Promise<void> {
   expect(handles.length).toBeGreaterThan(0)
+  /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
   for (const handle of handles) {
     await expect(handle.waitForExit()).resolves.toBe(true)
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await handle.done
     expect(outcome).toHaveProperty('exitCode')
     expect(outcome).toHaveProperty('signal')
   }
 }
 
+/** 中文说明：函数 expectedFailure 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectedFailure(
   stage: 'query-run' | 'process',
   category: 'error_during_execution' | 'process-exit',
   outcome: SubprocessOutcome,
 ): string {
+  /** 中文说明：变量 fields 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fields = [
     'product: Claude Code',
     `stage: ${stage}`,
@@ -264,6 +319,7 @@ function expectedFailure(
   return `Product subagent failure (${fields.join('; ')})`
 }
 
+/** 中文说明：函数 expectedObservedFailure 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectedObservedFailure(outcome: SubprocessOutcome): string {
   return observedSdkMessages.some(message =>
     message.type === 'result'
@@ -272,6 +328,7 @@ function expectedObservedFailure(outcome: SubprocessOutcome): string {
     : expectedFailure('process', 'process-exit', outcome)
 }
 
+/** 中文说明：函数 startRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function startRequest(
   harness: RealHarness,
   prompt: string,
@@ -288,7 +345,9 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
   timeout: 60_000,
 }, () => {
   it('inherits host settings and sends the exact task and fake key to local Messages', async () => {
+    /** 中文说明：变量 sentinel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sentinel = 'REAL_CLAUDE_CODE_SENTINEL_2_1_220'
+    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = 'Return the fixture sentinel exactly.'
     const { harness, fixture } = await realHarness({
       kind: 'complete',
@@ -297,11 +356,13 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
     expect(sdkPackage.version).toBe('0.3.220')
     expect(sdkPackage.claudeCodeVersion).toBe('2.1.220')
     expect(sdkPackage.optionalDependencies[platformPackage]).toBe('0.3.220')
+    /** 中文说明：变量 version 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const version = await execFileAsync(claudeBin, ['--version'], {
       env: { ...process.env, ...harness.env },
     })
     expect(version.stdout.trim()).toBe('2.1.220 (Claude Code)')
 
+    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startRequest(harness, task)
     await expect(run.result).resolves.toEqual({
       output: [{ type: 'text', text: sentinel }],
@@ -309,11 +370,13 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
     })
     await run.dispose()
 
+    /** 中文说明：变量 initMessage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initMessage = observedSdkMessages.find(
       (message): message is SDKSystemMessage =>
         message.type === 'system' && message.subtype === 'init',
     )
     expect(initMessage?.claude_code_version).toBe('2.1.220')
+    /** 中文说明：变量 spawnedExecutable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnedExecutable = harness.spawnSpecs[0]?.argv[0]
     expect(spawnedExecutable).toBeDefined()
     expect(process.platform === 'win32'
@@ -323,12 +386,14 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
         ? realpathSync(claudeBin).toLowerCase()
         : realpathSync(claudeBin))
     expect(fixture.requests).toHaveLength(1)
+    /** 中文说明：变量 recorded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recorded = fixture.requests[0]!
     expect(recorded.method).toBe('POST')
     expect(recorded.path).toMatch(/^\/v1\/messages(?:\?.*)?$/)
     expect(recorded.headers['x-api-key']).toBe(fakeKey)
     expect(recorded.body.model).toBe(settingsModel)
     expect(Array.isArray(recorded.body.messages)).toBe(true)
+    /** 中文说明：变量 messageTexts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const messageTexts = (
       recorded.body.messages as Array<{ content?: unknown }>
     ).flatMap((message): unknown[] =>
@@ -346,8 +411,10 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
   })
 
   it('maps a real SDK max-turns result to safe query-run facts', async () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-claude-code-max-turns-'))
     roots.push(root)
+    /** 中文说明：变量 target 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = join(root, 'max-turns.txt')
     sdkTestOverrides.maxTurns = 1
     const { harness, fixture } = await realHarness({
@@ -358,7 +425,9 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
         content: 'real-sdk-max-turns',
       },
     }, 'bypassPermissions')
+    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startRequest(harness, 'Exercise the SDK max-turns result.')
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(observedSdkMessages
       .filter(message => message.type === 'result')
@@ -379,32 +448,39 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
   })
 
   it('runs two named instances concurrently and unloads one without revoking its run', async () => {
+    /** 中文说明：变量 safeInstance 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeInstance = await realInstanceFixture({ kind: 'hold' })
+    /** 中文说明：变量 bypassInstance 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassInstance = await realInstanceFixture({
       kind: 'complete',
       text: 'NAMED_BYPASS_RESULT',
     })
     const { ctx, handles, spawnSpecs } = await realRuntime()
+    /** 中文说明：变量 safeFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeFiber = await ctx.plugin(claudeCode, {
       providerName: 'claude-safe',
       env: safeInstance.env,
       permissionMode: 'dontAsk',
       disposeGraceMs: 3_000,
     })
+    /** 中文说明：变量 bypassFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassFiber = await ctx.plugin(claudeCode, {
       providerName: 'claude-bypass',
       env: bypassInstance.env,
       permissionMode: 'bypassPermissions',
       disposeGraceMs: 3_000,
     })
+    /** 中文说明：变量 safeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeParent = {
       id: 'safe-parent',
       session: { header: { cwd: safeInstance.workspace } },
     } as unknown as Agent
+    /** 中文说明：变量 bypassParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassParent = {
       id: 'bypass-parent',
       session: { header: { cwd: bypassInstance.workspace } },
     } as unknown as Agent
+    /** 中文说明：变量 safeController 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeController = new AbortController()
 
     const [safeRun, bypassRun] = await Promise.all([
@@ -454,11 +530,14 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
 
   it('maps a real CLI process failure to its exit outcome', async () => {
     const { harness, fixture } = await realHarness({ kind: 'hold' })
+    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startRequest(harness, 'Exercise the failure path.')
     await fixture.requestStarted
     expect(harness.handles).toHaveLength(1)
     harness.handles[0]!.terminate()
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await harness.handles[0]!.done
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.output).toEqual([])
     expect(result.stopReason).toBe('error')
@@ -470,8 +549,10 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
   })
 
   it('overrides interactive settings, denies a write, and returns a safe diagnostic', async () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-claude-code-denied-target-'))
     roots.push(root)
+    /** 中文说明：变量 target 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = join(root, 'denied.txt')
     const { harness } = await realHarness({
       kind: 'tool-use',
@@ -481,6 +562,7 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
         content: 'SECRET_TOKEN must not reach the diagnostic',
       },
     })
+    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startRequest(harness, 'Write the requested fixture file.')
     await vi.waitFor(() => {
       expect(observedSdkMessages.some(message =>
@@ -489,10 +571,13 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
     }, { timeout: 30_000 })
     expect(existsSync(target)).toBe(false)
     harness.handles[0]!.terminate()
+    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await harness.handles[0]!.done
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.output).toEqual([])
     expect(result.stopReason).toBe('error')
+    /** 中文说明：变量 diagnosticLines 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const diagnosticLines = result.diagnostic?.split('\n') ?? []
     expect(diagnosticLines[0]).toBe(expectedObservedFailure(outcome))
     expect(diagnosticLines[1]).toBe(
@@ -505,8 +590,10 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
   })
 
   it('runs an explicitly selected bypass write in the isolated workspace', async () => {
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-claude-code-bypass-target-'))
     roots.push(root)
+    /** 中文说明：变量 target 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = join(root, 'bypass.txt')
     const { harness } = await realHarness({
       kind: 'tool-use',
@@ -517,6 +604,7 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
       },
       finalText: 'write complete',
     }, 'bypassPermissions')
+    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startRequest(harness, 'Write the requested fixture file.')
     await expect(run.result).resolves.toEqual({
       output: [{ type: 'text', text: 'write complete' }],
@@ -534,6 +622,7 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
       input: {},
       finalText: 'PLAN_ONLY_RESULT',
     }, 'plan', ['ExitPlanMode'])
+    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startRequest(harness, 'Design the fixture change without implementing it.')
     await expect(run.result).resolves.toEqual({
       output: [{ type: 'text', text: 'PLAN_ONLY_RESULT' }],
@@ -548,7 +637,9 @@ describe('real Claude Agent SDK 0.3.220 and its distributed Claude Code 2.1.220 
 
   it('settles cancellation and leaves the real SDK-spawned CLI tree quiescent', async () => {
     const { harness, fixture } = await realHarness({ kind: 'hold' })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startRequest(
       harness,
       'Wait for cancellation.',

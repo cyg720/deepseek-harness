@@ -6,6 +6,14 @@
  *
  * @module @deepseek-ai/dsh-subagent-codex/wire
  */
+/**
+ * 文件职责：实现 wire.ts 覆盖的子代理启动、协议、继承与生命周期行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
+ * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
+ * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
+ * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
+ * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
+ */
 
 import type { Readable, Writable } from 'node:stream'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
@@ -13,15 +21,18 @@ import type { SubagentResult } from '@deepseek-ai/dsh-subagent'
 import { JsonRpcLineTransport } from '@deepseek-ai/dsh-sdk-protocol'
 import type { CodexPermissionMode } from './run.ts'
 
+/** 中文说明：type JsonObject 定义本模块所需的数据或行为，用于表达子代理场景。 */
 type JsonObject = Record<string, unknown>
 
 /** Product facts owned by the Codex wire after publication. */
+/** 中文说明：interface CodexWireFailureFacts 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface CodexWireFailureFacts {
   readonly stage: 'turn-start' | 'turn'
   readonly category: string
   readonly httpStatus?: number | undefined
 }
 
+/** 中文说明：常量 THREAD_PERMISSION_PARAMS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const THREAD_PERMISSION_PARAMS: Readonly<Record<CodexPermissionMode, JsonObject>> = {
   never: { approvalPolicy: 'never' },
   'approve-for-me': {
@@ -35,6 +46,7 @@ const THREAD_PERMISSION_PARAMS: Readonly<Record<CodexPermissionMode, JsonObject>
   },
 }
 
+/** 中文说明：常量 STDERR_PERMISSION_SIGNATURES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STDERR_PERMISSION_SIGNATURES = [
   {
     text: 'approval policy is Never; reject command',
@@ -50,16 +62,21 @@ const STDERR_PERMISSION_SIGNATURES = [
   },
 ] as const
 
+/** 中文说明：常量 STDERR_SIGNATURE_TAIL_CHARS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STDERR_SIGNATURE_TAIL_CHARS = Math.max(
   ...STDERR_PERMISSION_SIGNATURES.map(signature => signature.text.length),
 ) - 1
 
+/** 中文说明：函数 stderrSignatureTail 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stderrSignatureTail(value: string): string {
+  /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
   for (
+    /** 中文说明：变量 length 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let length = Math.min(STDERR_SIGNATURE_TAIL_CHARS, value.length)
     ; length > 0
     ; length -= 1
   ) {
+    /** 中文说明：变量 tail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tail = value.slice(-length)
     if (STDERR_PERMISSION_SIGNATURES.some(signature =>
       tail.length < signature.text.length && signature.text.startsWith(tail))) {
@@ -69,6 +86,7 @@ function stderrSignatureTail(value: string): string {
   return ''
 }
 
+/** 中文说明：函数 object 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function object(value: unknown, label: string): JsonObject {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`subagent-codex: app-server returned invalid ${label}`)
@@ -76,6 +94,7 @@ function object(value: unknown, label: string): JsonObject {
   return value as JsonObject
 }
 
+/** 中文说明：函数 string 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function string(value: unknown, label: string): string {
   if (typeof value !== 'string' || value.length === 0) {
     throw new Error(`subagent-codex: app-server returned invalid ${label}`)
@@ -83,7 +102,9 @@ function string(value: unknown, label: string): string {
   return value
 }
 
+/** 中文说明：函数 unattendedDecision 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function unattendedDecision(params: JsonObject): 'cancel' | 'decline' {
+  /** 中文说明：变量 available 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const available = params.availableDecisions
   if (available === undefined || available === null) return 'decline'
   if (Array.isArray(available)) {
@@ -93,6 +114,7 @@ function unattendedDecision(params: JsonObject): 'cancel' | 'decline' {
   throw new Error('subagent-codex: app-server offered no unattended approval decision')
 }
 
+/** 中文说明：函数 numericHttpStatus 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function numericHttpStatus(value: unknown): number | undefined {
   return typeof value === 'number'
     && Number.isInteger(value)
@@ -102,19 +124,24 @@ function numericHttpStatus(value: unknown): number | undefined {
     : undefined
 }
 
+/** 中文说明：函数 objectFailureInfo 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function objectFailureInfo(value: JsonObject): {
   readonly category: string
   readonly httpStatus?: number | undefined
 } {
+  /** 中文说明：变量 keys 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const keys = Object.keys(value)
+  /** 中文说明：变量 category 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const category = keys[0]
   if (keys.length !== 1 || category === undefined) {
     return { category: 'unknown' }
   }
+  /** 中文说明：变量 detail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const detail = value[category]
   if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) {
     return { category: 'unknown' }
   }
+  /** 中文说明：变量 fields 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fields = detail as JsonObject
   switch (category) {
     case 'httpConnectionFailed':
@@ -122,6 +149,7 @@ function objectFailureInfo(value: JsonObject): {
     case 'responseStreamDisconnected':
     case 'responseTooManyFailedAttempts':
     {
+      /** 中文说明：变量 httpStatus 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const httpStatus = numericHttpStatus(fields.httpStatusCode)
       return httpStatus === undefined
         ? { category }
@@ -134,15 +162,18 @@ function objectFailureInfo(value: JsonObject): {
   }
 }
 
+/** 中文说明：函数 failureInfo 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function failureInfo(turn: JsonObject): {
   readonly category: string
   readonly httpStatus?: number | undefined
 } {
   if (turn.status !== 'failed') return { category: 'unknown' }
+  /** 中文说明：变量 error 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const error = turn.error
   if (error === null || typeof error !== 'object' || Array.isArray(error)) {
     return { category: 'unknown' }
   }
+  /** 中文说明：变量 info 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const info = (error as JsonObject).codexErrorInfo
   if (typeof info === 'string') {
     switch (info) {
@@ -167,6 +198,7 @@ function failureInfo(turn: JsonObject): {
     : { category: 'unknown' }
 }
 
+/** 中文说明：函数 unattendedDiagnostic 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function unattendedDiagnostic(
   mode: CodexPermissionMode,
   request: 'command approval' | 'file approval' | 'permission grant' | 'user input' | 'MCP elicitation' | 'command execution' | 'file change' | 'sandbox execution',
@@ -176,24 +208,30 @@ function unattendedDiagnostic(
   return `Codex unattended decision (mode: ${mode}; request: ${request}; decision: ${decision}): ${reason}`
 }
 
+/** 中文说明：函数 thrown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function thrown(value: unknown): Error {
   /* v8 ignore next -- typed protocol and stream failures reject with Error. */
   return value instanceof Error ? value : new Error(String(value))
 }
 
+/** 中文说明：函数 abortError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function abortError(signal: AbortSignal): Error {
   return signal.reason instanceof Error
     ? signal.reason
     : new Error(`subagent-codex: app-server request aborted: ${String(signal.reason)}`)
 }
 
+/** 中文说明：函数 raceAbort 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function raceAbort<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) {
     void pending.catch(() => {})
     throw abortError(signal)
   }
+  /** 中文说明：函数值 rejectAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   let rejectAbort!: (error: Error) => void
+  /** 中文说明：函数值 aborted 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const aborted = new Promise<never>((_resolve, reject) => { rejectAbort = reject })
+  /** 中文说明：函数值 onAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const onAbort = (): void => { rejectAbort(abortError(signal)) }
   signal.addEventListener('abort', onAbort, { once: true })
   try {
@@ -209,6 +247,7 @@ async function raceAbort<T>(pending: Promise<T>, signal: AbortSignal): Promise<T
  * The class deliberately exposes no generic request surface. Supporting
  * another product method must first become part of the provider contract.
  */
+/** 中文说明：class CodexAppServerWire 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export class CodexAppServerWire {
   private readonly transport: JsonRpcLineTransport
   private readonly fatal = Promise.withResolvers<never>()
@@ -306,12 +345,15 @@ export class CodexAppServerWire {
    * @param signal - unpublished-start cancellation.
    */
   async startThread(cwd: string, signal: AbortSignal): Promise<void> {
+    /** 中文说明：变量 response 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = object(await this.guarded(this.transport.request('thread/start', {
       cwd,
       ephemeral: true,
       ...THREAD_PERMISSION_PARAMS[this.permissionMode],
     }, signal), signal), 'thread/start response')
+    /** 中文说明：变量 thread 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const thread = object(response.thread, 'thread/start thread')
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = string(thread.id, 'thread/start thread id')
     if (thread.ephemeral !== true) {
       throw new Error('subagent-codex: app-server did not create an ephemeral thread')
@@ -330,17 +372,21 @@ export class CodexAppServerWire {
     texts: readonly string[],
     signal: AbortSignal,
   ): Promise<SubagentResult> {
+    /** 中文说明：变量 completion 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const completion = Promise.withResolvers<{
       readonly params: JsonObject
       readonly order: number
     }>()
     this.turnCompleted = completion
+    /** 中文说明：变量 threadId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadId = this.threadId as string
     try {
+      /** 中文说明：变量 response 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const response = object(await this.guarded(this.transport.request('turn/start', {
         threadId,
         input: texts.map(text => ({ type: 'text', text, text_elements: [] })),
       }, signal), signal), 'turn/start response')
+      /** 中文说明：变量 turn 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const turn = object(response.turn, 'turn/start turn')
       this.commitTurnId(string(turn.id, 'turn/start turn id'))
     } catch (error: unknown) {
@@ -348,10 +394,12 @@ export class CodexAppServerWire {
       throw error
     }
 
+    /** 中文说明：变量 completed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let completed: {
       readonly params: JsonObject
       readonly order: number
     }
+    /** 中文说明：变量 terminal 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let terminal: JsonObject
     try {
       completed = await this.guarded(completion.promise, signal)
@@ -360,8 +408,10 @@ export class CodexAppServerWire {
       this.recordFailure({ stage: 'turn', category: 'unknown' })
       throw error
     }
+    /** 中文说明：变量 status 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const status = terminal.status
     if (status !== 'completed') {
+      /** 中文说明：变量 parsed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parsed = failureInfo(terminal)
       this.recordFailure(parsed.httpStatus === undefined
         ? { stage: 'turn', category: parsed.category }
@@ -381,9 +431,11 @@ export class CodexAppServerWire {
       if (parsed.category === 'contextWindowExceeded') {
         return { output: this.collectOutput(), stopReason: 'max-tokens' }
       }
+      /** 中文说明：变量 detail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const detail = status === 'failed' ? `: ${parsed.category}` : ''
       throw new Error(`subagent-codex: Codex turn ended with status ${String(status)}${detail}`)
     }
+    /** 中文说明：变量 output 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = this.collectOutput()
     if (output.length === 0) {
       this.recordFailure({ stage: 'turn', category: 'unknown' })
@@ -409,6 +461,7 @@ export class CodexAppServerWire {
    * @returns the selected final or nullable-phase text block, if any.
    */
   collectOutput(): ContentBlock[] {
+    /** 中文说明：变量 selected 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const selected = this.lastFinalAnswer ?? this.lastUnphasedAnswer
     return selected !== undefined && selected.trim().length > 0
       ? [{ type: 'text', text: selected }]
@@ -438,10 +491,15 @@ export class CodexAppServerWire {
    * @param chunk - one decoded stderr chunk already forwarded to the host.
    */
   observeStderr(chunk: string): void {
+    /** 中文说明：变量 observed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const observed = `${this.stderrTail}${chunk}`
+    /** 中文说明：变量 latestIndex 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let latestIndex = -1
+    /** 中文说明：变量 latest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let latest: (typeof STDERR_PERMISSION_SIGNATURES)[number] | undefined
+    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const signature of STDERR_PERMISSION_SIGNATURES) {
+      /** 中文说明：变量 index 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const index = observed.lastIndexOf(signature.text)
       if (index > latestIndex) {
         latestIndex = index
@@ -463,6 +521,7 @@ export class CodexAppServerWire {
   }
 
   private async guarded<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
+    /** 中文说明：变量 withFatal 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const withFatal = Promise.race([this.fatal.promise, pending])
     return raceAbort(withFatal, signal)
   }
@@ -499,6 +558,7 @@ export class CodexAppServerWire {
       throw new Error('subagent-codex: turn/start response did not match the active turn')
     }
     this.turnId = id
+    /** 中文说明：变量 pendingDiagnostic 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pendingDiagnostic = this.pendingDiagnostic
     this.pendingDiagnostic = undefined
     if (pendingDiagnostic !== undefined) {
@@ -509,7 +569,9 @@ export class CodexAppServerWire {
         pendingDiagnostic.order,
       )
     }
+    /** 中文说明：变量 notifications 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const notifications = this.earlyTurnNotifications.splice(0)
+    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const notification of notifications) {
       this.handleNotification(
         notification.method,
@@ -532,6 +594,7 @@ export class CodexAppServerWire {
       throw new Error('subagent-codex: app-server request referenced another thread')
     }
     if (nullableTurn && params.turnId === null) return false
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = string(params.turnId, 'server request turn id')
     if (this.turnId === undefined) {
       this.observePendingTurnId(id)
@@ -549,6 +612,7 @@ export class CodexAppServerWire {
     decision: Parameters<typeof unattendedDiagnostic>[2],
     reason: string,
   ): void {
+    /** 中文说明：变量 order 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const order = this.nextObservationOrder()
     if (provisional) {
       this.pendingDiagnostic = {
@@ -614,7 +678,9 @@ export class CodexAppServerWire {
       switch (method) {
         case 'item/commandExecution/requestApproval':
         {
+          /** 中文说明：变量 provisional 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const provisional = this.validateRunIds(params)
+          /** 中文说明：变量 decision 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const decision = unattendedDecision(params)
           this.recordRequestDiagnostic(
             provisional,
@@ -626,7 +692,9 @@ export class CodexAppServerWire {
         }
         case 'item/fileChange/requestApproval':
         {
+          /** 中文说明：变量 provisional 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const provisional = this.validateRunIds(params)
+          /** 中文说明：变量 decision 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const decision = unattendedDecision(params)
           this.recordRequestDiagnostic(
             provisional,
@@ -664,6 +732,7 @@ export class CodexAppServerWire {
           throw new Error(`subagent-codex: unsupported app-server request ${JSON.stringify(method)}`)
       }
     } catch (error: unknown) {
+      /** 中文说明：变量 normalized 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const normalized = thrown(error)
       this.fail(normalized)
       return Promise.reject(normalized)
@@ -676,8 +745,10 @@ export class CodexAppServerWire {
     order?: number,
   ): void {
     if (method === 'turn/started') {
+      /** 中文说明：变量 threadId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const threadId = string(params.threadId, 'turn/started thread id')
       if (threadId !== this.threadId) return
+      /** 中文说明：变量 turn 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const turn = object(params.turn, 'turn/started turn')
       if (this.turnCompleted !== undefined && this.turnId === undefined) {
         this.observePendingTurnId(string(turn.id, 'turn/started turn id'))
@@ -685,8 +756,10 @@ export class CodexAppServerWire {
       return
     }
     if (method === 'item/completed') {
+      /** 中文说明：变量 threadId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const threadId = string(params.threadId, 'item/completed thread id')
       if (threadId !== this.threadId) return
+      /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const id = string(params.turnId, 'item/completed turn id')
       if (this.turnId === undefined) {
         if (this.turnCompleted !== undefined) {
@@ -700,9 +773,11 @@ export class CodexAppServerWire {
         return
       }
       if (id !== this.turnId) return
+      /** 中文说明：变量 item 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const item = object(params.item, 'item/completed item')
       if (this.recordDeclinedItem(item, order)) return
       if (item.type !== 'agentMessage') return
+      /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const text = typeof item.text === 'string'
         ? item.text
         : (() => { throw new Error('subagent-codex: app-server returned an invalid agent message') })()
@@ -716,10 +791,14 @@ export class CodexAppServerWire {
       return
     }
     if (method !== 'turn/completed') return
+    /** 中文说明：变量 threadId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadId = string(params.threadId, 'turn/completed thread id')
     if (threadId !== this.threadId) return
+    /** 中文说明：变量 turn 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turn = object(params.turn, 'turn/completed turn')
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = string(turn.id, 'turn/completed turn id')
+    /** 中文说明：变量 turnCompleted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnCompleted = this.turnCompleted
     if (turnCompleted === undefined) return
     if (this.turnId === undefined) {
