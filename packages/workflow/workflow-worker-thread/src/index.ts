@@ -5,6 +5,14 @@
  * and permits forced termination, but it is containment rather than a security boundary.
  * @module @deepseek-ai/dsh-workflow-worker-thread
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的工作流与 Worker Thread行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 
 import { randomUUID } from 'node:crypto'
 import { availableParallelism } from 'node:os'
@@ -29,6 +37,7 @@ export type {
 } from './types.ts'
 
 /** Plugin config (all optional — `static Config` supplies the defaults). */
+/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface Config {
   /** The `ctx.subagents` provider children run on (default `spawn`). */
   provider?: string
@@ -48,9 +57,11 @@ export interface Config {
   disposeGraceMs?: number
 }
 
+/** 中文说明：type ResolvedConfig 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 type ResolvedConfig = Required<Config>
 
 /** A body that still carries the Claude Code-style meta header (meta rides the seam as data here). */
+/** 中文说明：常量 META_STATEMENT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const META_STATEMENT = /^\s*export\s+const\s+meta\b/
 
 /**
@@ -61,6 +72,7 @@ const META_STATEMENT = /^\s*export\s+const\s+meta\b/
  * opening with `export const meta` gets a pointed message instead of the
  * wrapper's bare SyntaxError — the model's likeliest authoring slip.
  */
+/** 中文说明：函数 assertBodyParses 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertBodyParses(body: string, name: string): void {
   if (META_STATEMENT.test(body)) {
     throw new WorkflowError('workflow meta rides the `meta` request field, not the script: remove the `export const meta = {...}` statement from the body', 'SCRIPT_PARSE')
@@ -74,7 +86,9 @@ function assertBodyParses(body: string, name: string): void {
 }
 
 /** Resolve one run's provider route before publishing work. */
+/** 中文说明：函数 resolveSubagentProvider 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveSubagentProvider(ctx: Context, configured: string, override: string | undefined): string {
+  /** 中文说明：变量 provider 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const provider = override ?? configured
   if (provider.length === 0 || provider !== provider.trim()) {
     throw new WorkflowError(
@@ -89,6 +103,7 @@ function resolveSubagentProvider(ctx: Context, configured: string, override: str
 }
 
 /** Resolve one run's total-child cap against the engine deployment ceiling. */
+/** 中文说明：函数 resolveMaxTotalAgents 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveMaxTotalAgents(requested: number | undefined, ceiling: number): number {
   if (requested === undefined) return ceiling
   if (!Number.isSafeInteger(requested) || requested < 1) {
@@ -109,6 +124,7 @@ function resolveMaxTotalAgents(requested: number | undefined, ceiling: number): 
  * `result` never rejects; the `workflow/*` events fire around the run per
  * the seam contract.
  */
+/** 中文说明：class WorkerThreadWorkflowEngine 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class WorkerThreadWorkflowEngine extends WorkflowEngine {
   static inject = ['subagents']
 
@@ -141,12 +157,18 @@ class WorkerThreadWorkflowEngine extends WorkflowEngine {
    * @returns the live run (its `result` resolves when the script settles).
    */
   start(request: WorkflowStartRequest): WorkflowRun {
+    /** 中文说明：变量 meta 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const meta = validateMeta(request.meta)
     assertBodyParses(request.script, meta.name)
+    /** 中文说明：变量 subagentProvider 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const subagentProvider = resolveSubagentProvider(this.ctx, this.config.provider, request.subagentProvider)
+    /** 中文说明：变量 maxTotalAgents 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const maxTotalAgents = resolveMaxTotalAgents(request.maxTotalAgents, this.config.maxTotalAgents)
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = WorkflowRunId(randomUUID())
+    /** 中文说明：变量 info 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const info: WorkflowRunInfo = { id, meta }
+    /** 中文说明：变量 limits 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const limits: WorkerLimits = {
       maxConcurrentAgents: this.config.maxConcurrentAgents === 0
         ? Math.min(16, Math.max(1, availableParallelism() - 2))
@@ -155,6 +177,7 @@ class WorkerThreadWorkflowEngine extends WorkflowEngine {
       maxItemsPerCall: this.config.maxItemsPerCall,
       syncTimeoutMs: this.config.syncTimeoutMs,
     }
+    /** 中文说明：变量 init 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const init: WorkerInit = {
       meta,
       body: request.script,
@@ -167,8 +190,11 @@ class WorkerThreadWorkflowEngine extends WorkflowEngine {
     // starting children after an engine HMR unload removes ctx.workflowEngine.
     // Re-resolving `this.ctx.subagents` later from WorkerRun would instead walk
     // the now-inactive engine fiber and break the seam's holder-owned lifetime.
+    /** 中文说明：变量 runCtx 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runCtx = this.ctx
+    /** 中文说明：变量 subagents 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const subagents = runCtx.subagents
+    /** 中文说明：变量 workerRun 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workerRun = new WorkerRun(
       runCtx,
       subagents,

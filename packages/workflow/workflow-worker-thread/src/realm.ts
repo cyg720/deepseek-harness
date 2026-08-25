@@ -7,8 +7,17 @@
  * .agents/notes/implemented/feature/2026-07-05-dynamic-workflows.md for the isolation rationale.
  * @module @deepseek-ai/dsh-workflow-worker-thread/realm
  */
+/**
+ * 文件职责：实现 realm.ts 覆盖的工作流与 Worker Thread行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 
 /** Thrown by {@link materializeFromRealm}; the caller wraps it into the right `WorkflowError` code. */
+/** 中文说明：class MaterializeError 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export class MaterializeError extends Error {
   constructor(public readonly path: string, public readonly reason: string) {
     super(`${path}: ${reason}`)
@@ -25,10 +34,13 @@ export class MaterializeError extends Error {
  * @param error - any value thrown in the host or worker realm.
  * @returns human-readable text for the failure report; prefers the stack.
  */
+/** 中文说明：函数 renderThrown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function renderThrown(error: unknown): string {
   try {
+    /** 中文说明：变量 stack 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stack = (error as { stack?: unknown } | null | undefined)?.stack
     if (typeof stack === 'string' && stack.length > 0) return stack
+    /** 中文说明：变量 message 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = (error as { message?: unknown } | null | undefined)?.message
     if (typeof message === 'string' && message.length > 0) return message
     return String(error)
@@ -45,7 +57,9 @@ export function renderThrown(error: unknown): string {
  * cannot compare by identity across realms). A `Date`/`Map`/class instance
  * has a longer chain and is rejected.
  */
+/** 中文说明：函数 hasPlainPrototype 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasPlainPrototype(value: object): boolean {
+  /** 中文说明：变量 proto 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const proto: unknown = Object.getPrototypeOf(value)
   if (proto === null) return true
   return Object.getPrototypeOf(proto) === null
@@ -63,6 +77,7 @@ function hasPlainPrototype(value: object): boolean {
  * @throws {@link MaterializeError} for unsupported values, cycles, sparse arrays, exotic
  *   prototypes, or property reads that throw.
  */
+/** 中文说明：函数 materializeFromRealm 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function materializeFromRealm(value: unknown, root = 'value'): unknown {
   if (value === undefined) return undefined
   try {
@@ -75,6 +90,7 @@ export function materializeFromRealm(value: unknown, root = 'value'): unknown {
   }
 }
 
+/** 中文说明：函数 materialize 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function materialize(value: unknown, path: string, seen: Set<object>): unknown {
   switch (typeof value) {
     case 'boolean':
@@ -96,6 +112,7 @@ function materialize(value: unknown, path: string, seen: Set<object>): unknown {
       break
   }
   if (value === null) return null
+  /** 中文说明：变量 objectValue 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const objectValue: object = value
   if (seen.has(objectValue)) throw new MaterializeError(path, 'circular references are not JSON data')
   seen.add(objectValue)
@@ -107,15 +124,20 @@ function materialize(value: unknown, path: string, seen: Set<object>): unknown {
   }
 }
 
+/** 中文说明：函数 materializeArray 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function materializeArray(value: unknown[], path: string, seen: Set<object>): unknown[] {
+  /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: unknown[] = []
+  /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
   for (let index = 0; index < value.length; index++) {
     if (!(index in value)) throw new MaterializeError(`${path}[${index}]`, 'sparse arrays are not JSON data')
     out.push(materialize(value[index], `${path}[${index}]`, seen))
   }
   // Own enumerable props beyond the indices (e.g. `arr.total = 3`) would be
   // silently dropped by JSON — reject them instead.
+  /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
   for (const key of Object.keys(value)) {
+    /** 中文说明：变量 index 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const index = Number(key)
     if (!Number.isInteger(index) || index < 0 || index >= value.length) {
       throw new MaterializeError(`${path}.${key}`, 'arrays with non-index properties are not JSON data')
@@ -127,6 +149,7 @@ function materializeArray(value: unknown[], path: string, seen: Set<object>): un
   return out
 }
 
+/** 中文说明：函数 materializeObject 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function materializeObject(value: object, path: string, seen: Set<object>): Record<string, unknown> {
   if (!hasPlainPrototype(value)) {
     throw new MaterializeError(path, 'only plain objects and arrays are JSON data (exotic prototype)')
@@ -134,9 +157,11 @@ function materializeObject(value: object, path: string, seen: Set<object>): Reco
   if (Object.getOwnPropertySymbols(value).length > 0) {
     throw new MaterializeError(path, 'symbol-keyed properties are not plain JSON data')
   }
+  /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: Record<string, unknown> = {}
   // Object.keys = own enumerable string keys, matching JSON.stringify's
   // property selection exactly (non-enumerable props never reach JSON output).
+  /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
   for (const key of Object.keys(value)) {
     // defineProperty, never assignment: a "__proto__" key must become an OWN
     // data property of the copy, not a prototype mutation.

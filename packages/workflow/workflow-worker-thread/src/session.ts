@@ -10,6 +10,14 @@
  * drive without executing the body.
  * @module @deepseek-ai/dsh-workflow-worker-thread/session
  */
+/**
+ * 文件职责：实现 session.ts 覆盖的工作流与 Worker Thread行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 
 import type { MessagePort } from 'node:worker_threads'
 import { assertNever } from '@deepseek-ai/dsh-llm'
@@ -27,6 +35,7 @@ import type {
 } from './types.ts'
 
 /** The book-keeping for one in-flight child RPC (keyed by callId). */
+/** 中文说明：interface PendingChild 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface PendingChild {
   started: PromiseWithResolvers<string>
   settled: PromiseWithResolvers<ChildResult>
@@ -34,6 +43,7 @@ interface PendingChild {
 }
 
 /** The typed post half of the port: each tag pairs with ITS payload from the map (a mismatch is a compile error at the call site). */
+/** 中文说明：type Post 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 type Post = <T extends WorkerToHostType>(type: T, payload: WorkerToHostPayloads[T]) => void
 
 /**
@@ -41,6 +51,7 @@ type Post = <T extends WorkerToHostType>(type: T, payload: WorkerToHostPayloads[
  * every member is an RPC to the host keyed by this call's `callId`, resolved
  * by the session's message handler through the bridge's pending entry.
  */
+/** 中文说明：class RpcChildHandle 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class RpcChildHandle implements ChildHandle {
   readonly result: Promise<ChildResult>
 
@@ -65,6 +76,7 @@ class RpcChildHandle implements ChildHandle {
  * book-keeping the session's message handler settles via the `onChild*`
  * entry points.
  */
+/** 中文说明：class ChildRpcBridge 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class ChildRpcBridge implements ChildPort {
   private nextCallId = 0
   private readonly pending = new Map<number, PendingChild>()
@@ -73,7 +85,9 @@ class ChildRpcBridge implements ChildPort {
 
   async startAgent(request: ChildStartRequest): Promise<ChildHandle> {
     this.nextCallId += 1
+    /** 中文说明：变量 callId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const callId = this.nextCallId
+    /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry: PendingChild = {
       started: Promise.withResolvers<string>(),
       settled: Promise.withResolvers<ChildResult>(),
@@ -85,6 +99,7 @@ class ChildRpcBridge implements ChildPort {
     entry.settled.promise.catch(() => { /* consumed: unconsumed child settlement after failed start */ })
     this.pending.set(callId, entry)
     this.post(WorkerToHostType.ChildStart, { callId, request })
+    /** 中文说明：变量 childId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childId = await entry.started.promise
     return new RpcChildHandle(this.post, callId, entry, childId)
   }
@@ -96,6 +111,7 @@ class ChildRpcBridge implements ChildPort {
 
   /** Asynchronous provider start failed; reject and retire the pending RPC. */
   onChildStartError(callId: number, rendered: string): void {
+    /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = this.pending.get(callId)
     this.pending.delete(callId)
     entry?.started.reject(new Error(rendered))
@@ -113,6 +129,7 @@ class ChildRpcBridge implements ChildPort {
 
   /** The host acked the dispose; the call's book-keeping is complete. */
   onChildDisposed(callId: number): void {
+    /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = this.pending.get(callId)
     this.pending.delete(callId)
     entry?.disposed.resolve()
@@ -125,6 +142,7 @@ class ChildRpcBridge implements ChildPort {
  * @param port - `parentPort` as imported (null on the main thread).
  * @returns the port, non-null.
  */
+/** 中文说明：函数 requireParentPort 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function requireParentPort(port: MessagePort | null): MessagePort {
   if (port === null) throw new Error('the workflow worker entry must be loaded inside a worker thread (no parentPort)')
   return port
@@ -140,12 +158,16 @@ export function requireParentPort(port: MessagePort | null): MessagePort {
  *   of an in-process `MessageChannel` in tests).
  * @param init - the run payload the host provided as `workerData`.
  */
+/** 中文说明：函数 runWorkerSession 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function runWorkerSession(port: MessagePort, init: WorkerInit): Promise<void> {
+  /** 中文说明：函数值 post 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const post: Post = (type, payload) => {
     port.postMessage({ type, ...payload })
   }
+  /** 中文说明：变量 children 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const children = new ChildRpcBridge(post)
 
+  /** 中文说明：变量 observer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const observer: ExecutionObserver = {
     phase: (title) => { post(WorkerToHostType.Phase, { title }) },
     log: (message) => { post(WorkerToHostType.Log, { message }) },
@@ -153,6 +175,7 @@ export async function runWorkerSession(port: MessagePort, init: WorkerInit): Pro
     agentEnd: (info) => { post(WorkerToHostType.AgentEnd, { info }) },
   }
 
+  /** 中文说明：变量 execution 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let execution: WorkflowExecution
   try {
     execution = new WorkflowExecution(init.meta, init.body, init.args, init.limits, observer, children)
@@ -161,6 +184,7 @@ export async function runWorkerSession(port: MessagePort, init: WorkerInit): Pro
     return
   }
 
+  /** 中文说明：变量 gate 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const gate = Promise.withResolvers<void>()
   port.on('message', (message: HostToWorkerMessage) => {
     switch (message.type) {
@@ -196,6 +220,7 @@ export async function runWorkerSession(port: MessagePort, init: WorkerInit): Pro
 
   post(WorkerToHostType.Ready, {})
   await gate.promise
+  /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = await execution.drive()
   post(WorkerToHostType.Result, { result })
 }

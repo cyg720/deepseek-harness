@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 workflow-worker-thread.spec.ts 覆盖的工作流与 Worker Thread行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -15,6 +23,7 @@ import { HostToWorkerType, WorkerToHostType } from '../src/protocol.ts'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
 /** A minimal parent stand-in: the engine only threads it through to the provider. */
+/** 中文说明：函数 fakeParent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeParent(): Agent {
   return { id: SessionId('workflow-parent'), options: {} } as unknown as Agent
 }
@@ -27,14 +36,17 @@ vi.setConfig({ testTimeout: 30_000 })
  * Host reactions after an observed event use explicit tight overrides, so this generous startup
  * allowance cannot hide multi-second reap regressions.
  */
+/** 中文说明：函数 waitFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function waitFor(assertion: () => void, timeout = 10_000): Promise<void> {
   return vi.waitFor(assertion, { timeout, interval: 50 })
 }
 
 /** The vm-context escape hatch, spelled once: real Worker tests use it to make the WORKER misbehave. */
+/** 中文说明：常量 ESCAPE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ESCAPE = "globalThis.constructor.constructor('return process')()"
 
 /** One controllable child run: the test (or auto mode) settles it. */
+/** 中文说明：interface ControlledRun 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface ControlledRun {
   request: SubagentStartRequest
   /** Fulfill the provider's async start with a published child. */
@@ -54,6 +66,7 @@ interface ControlledRun {
  * up in `runs` for the test to settle. A run aborts (settles `aborted`) when
  * the request signal fires, like the real in-process backends.
  */
+/** 中文说明：class StubProvider 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class StubProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = { outputSchema: true, depthLimit: true, toolFilter: true, persona: false }
   readonly inheritsParentContext = false
@@ -69,10 +82,14 @@ class StubProvider implements SubagentProvider {
   ) {}
 
   async start(request: SubagentStartRequest): Promise<SubagentRun> {
+    /** 中文说明：变量 startGate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const startGate = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 terminal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const terminal = Promise.withResolvers<SubagentResult>()
     terminal.promise.catch(() => { /* provider owns early settlement until publication */ })
+    /** 中文说明：变量 published 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let published = false
+    /** 中文说明：变量 controlled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controlled: ControlledRun = {
       request,
       publish: () => { published = true; startGate.resolve(undefined) },
@@ -84,6 +101,7 @@ class StubProvider implements SubagentProvider {
       disposeCalls: 0,
     }
     this.runs.push(controlled)
+    /** 中文说明：变量 index 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const index = this.runs.length - 1
     request.signal.addEventListener('abort', () => {
       controlled.cancelled = String(request.signal.reason ?? 'cancelled')
@@ -94,6 +112,7 @@ class StubProvider implements SubagentProvider {
     }, { once: true })
     if (!this.deferStart) controlled.publish()
     if (this.reply) {
+      /** 中文说明：变量 reply 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const reply = this.reply
       queueMicrotask(() => { terminal.resolve(reply(request, index)) })
     }
@@ -127,10 +146,12 @@ class StubProvider implements SubagentProvider {
 }
 
 /** Text-reply helper for auto providers. */
+/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(reply: string): SubagentResult {
   return { output: [{ type: 'text', text: reply }], stopReason: 'completed' }
 }
 
+/** 中文说明：interface SetupOptions 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface SetupOptions {
   config?: Config
   reply?: (request: SubagentStartRequest, index: number) => SubagentResult
@@ -141,9 +162,12 @@ interface SetupOptions {
   onChildSignalAbort?: (reason: unknown, index: number) => void
 }
 
+/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(options?: SetupOptions) {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SubagentRuntime)
+  /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const provider = new StubProvider(
     'stub',
     options?.manual ? undefined : options?.reply ?? (() => text('stub reply')),
@@ -156,17 +180,21 @@ async function setup(options?: SetupOptions) {
   // A fixed concurrency ceiling: the auto-resolved default is machine-derived
   // (cores - 2, floored at 1), so tests that expect N children in flight
   // would wedge on small CI runners.
+  /** 中文说明：变量 engineFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const engineFiber = await ctx.plugin(WorkerThreadWorkflowEngine, { provider: 'stub', maxConcurrentAgents: 8, ...options?.config })
   return { ctx, provider, parent: fakeParent(), engineFiber }
 }
 
 /** The standard test meta plus a body, spread into a start request. */
+/** 中文说明：函数 scripted 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function scripted(body: string, metaExtra?: Partial<WorkflowMeta>): { script: string; meta: WorkflowMeta } {
   return { script: body, meta: { name: 'test-flow', description: 'a test workflow', ...metaExtra } }
 }
 
 /** Start + await one run, disposing on the way out. */
+/** 中文说明：函数 run 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function run(ctx: Context, parent: Agent, source: { script: string; meta: WorkflowMeta }, args?: unknown): Promise<WorkflowResult> {
+  /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle = ctx.workflowEngine.start({ ...source, parent, ...args !== undefined ? { args } : {} })
   try {
     return await handle.result
@@ -179,10 +207,13 @@ describe('dsh-workflow-worker-thread', () => {
   describe('script execution over a real worker thread', () => {
     it('runs a script end-to-end: agent() text results, phases, log, args, return value, events', async () => {
       const { ctx, parent, provider } = await setup({ reply: (_request, index) => text(`answer-${index}`) })
+      /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const events: [string, unknown[]][] = []
+      /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
       for (const name of ['workflow/start', 'workflow/phase', 'workflow/log', 'workflow/agent-start', 'workflow/agent-end', 'workflow/end'] as const) {
         ctx.on(name, (...payload: unknown[]) => { events.push([name, payload]) })
       }
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run(ctx, parent, scripted(`
         phase('Scan')
         log('starting with ' + args.files.length + ' files')
@@ -196,13 +227,16 @@ describe('dsh-workflow-worker-thread', () => {
       expect(result.value).toEqual({ answers: ['answer-0', 'answer-1'], count: 2 })
       expect(provider.runs.every(r => r.disposed)).toBe(true)
 
+      /** 中文说明：函数值 names 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const names = events.map(([name]) => name)
       expect(names[0]).toBe('workflow/start')
       expect(names).toContain('workflow/phase')
       expect(names).toContain('workflow/log')
       expect(names.at(-1)).toBe('workflow/end')
+      /** 中文说明：变量 info 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const info = events[0]![1][0] as WorkflowRunInfo
       expect(info.meta.name).toBe('test-flow')
+      /** 中文说明：变量 end 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const end = events.at(-1)![1][1] as Record<string, unknown>
       expect(end).toEqual({ stopReason: 'completed', agentsStarted: 2 })
       expect('value' in end).toBe(false)
@@ -212,6 +246,7 @@ describe('dsh-workflow-worker-thread', () => {
       const { ctx, parent, provider } = await setup({
         reply: () => ({ output: [], structured: { files: ['x.ts', 'y.ts'] }, stopReason: 'completed' }),
       })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run(ctx, parent, scripted(`
         const found = await agent('list files', { model: 'deepseek-v4-pro', schema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' } } }, required: ['files'] } })
         return { first: found.files[0], count: found.files.length }
@@ -228,6 +263,7 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('agent({provider}) forwards provider-only agentOptions across the thread', async () => {
       const { ctx, parent, provider } = await setup()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run(ctx, parent, scripted("return await agent('route me', { provider: 'openai' })"))
 
       expect(result.value).toBe('stub reply')
@@ -236,9 +272,11 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('a start-request provider override selects every child without changing the engine default', async () => {
       const { ctx, parent, provider } = await setup()
+      /** 中文说明：函数值 selected 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const selected = new StubProvider('selected', () => text('selected reply'))
       ctx.subagents.registerProvider(selected)
 
+      /** 中文说明：变量 overridden 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const overridden = ctx.workflowEngine.start({
         ...scripted("return await agent('route this run')"),
         parent,
@@ -249,6 +287,7 @@ describe('dsh-workflow-worker-thread', () => {
       expect(selected.runs).toHaveLength(1)
       expect(provider.runs).toHaveLength(0)
 
+      /** 中文说明：变量 ordinary 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ordinary = await run(ctx, parent, scripted("return await agent('use the default')"))
       expect(ordinary.value).toBe('stub reply')
       expect(provider.runs).toHaveLength(1)
@@ -256,11 +295,16 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('rejects invalid start-request provider routes before publishing a run', async () => {
       const { ctx, parent } = await setup()
+      /** 中文说明：变量 starts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let starts = 0
       ctx.on('workflow/start', () => { starts += 1 })
+      /** 中文说明：变量 messages 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const messages: string[] = []
+      /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
       for (const subagentProvider of ['', 'missing']) {
+        /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         let run: WorkflowRun | undefined
+        /** 中文说明：变量 thrown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         let thrown: unknown
         try {
           run = ctx.workflowEngine.start({
@@ -284,11 +328,15 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('rejects invalid per-run total-agent caps before publishing a run', async () => {
       const { ctx, parent } = await setup({ config: { maxTotalAgents: 2 } })
+      /** 中文说明：变量 starts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let starts = 0
       ctx.on('workflow/start', () => { starts += 1 })
+      /** 中文说明：变量 errors 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const errors: unknown[] = []
+      /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
       for (const maxTotalAgents of [0, 1.5, Number.NaN, 3]) {
         try {
+          /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const handle = ctx.workflowEngine.start({
             ...scripted("return 'must not start'"),
             parent,
@@ -313,11 +361,13 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('enforces a per-run total-agent cap below the engine ceiling', async () => {
       const { ctx, parent } = await setup({ config: { maxTotalAgents: 2 } })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("await agent('first'); await agent('second'); return 'unreachable'"),
         parent,
         maxTotalAgents: 1,
       })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('error')
       expect(result.agentsStarted).toBe(1)
@@ -327,6 +377,7 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('a fatal hook error inside the worker kills the script and reports the error', async () => {
       const { ctx, parent } = await setup()
+      /** 中文说明：函数值 result 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const result = await run(ctx, parent, scripted("return await parallel([() => agent('x', { isolation: 'worktree' })])"))
       expect(result.stopReason).toBe('error')
       expect(result.error).toContain('"isolation" is deferred')
@@ -334,6 +385,7 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('rejects an unregistered configured provider before publishing a run', async () => {
       const { ctx, parent } = await setup({ config: { provider: 'nonexistent' } })
+      /** 中文说明：变量 thrown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let thrown: unknown
       try {
         ctx.workflowEngine.start({ ...scripted("return 'must not start'"), parent })
@@ -348,13 +400,16 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('waits for async provider start before announcing a result that settled early', async () => {
       const { ctx, parent, provider } = await setup({ manual: true, deferStart: true })
+      /** 中文说明：变量 order 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const order: string[] = []
       ctx.on('workflow/agent-start', (_info, agent) => { order.push(`start:${agent.seq}`) })
       ctx.on('workflow/agent-end', (_info, agent) => { order.push(`end:${agent.outcome}`) })
       ctx.on('workflow/end', () => { order.push('run-end') })
 
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({ ...scripted("return await agent('p')"), parent })
       await waitFor(() => { expect(provider.runs.length).toBe(1) })
+      /** 中文说明：变量 early 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const early = text('accepted value')
       provider.runs[0]!.settle(early)
       // The provider still owns this early result while start is pending.
@@ -362,6 +417,7 @@ describe('dsh-workflow-worker-thread', () => {
       expect(order).toEqual([])
 
       provider.runs[0]!.publish()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.value).toBe('accepted value')
       expect(order).toEqual(['start:1', 'end:completed', 'run-end'])
@@ -371,15 +427,20 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('observes an early result rejection but sends ChildStarted before ChildFailed after start fulfills', async () => {
       const { ctx, parent, provider } = await setup({ manual: true, deferStart: true })
+      /** 中文说明：变量 lifecycle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const lifecycle: string[] = []
       ctx.on('workflow/agent-start', () => { lifecycle.push('start') })
       ctx.on('workflow/agent-end', (_info, agent) => { lifecycle.push(`end:${agent.outcome}`) })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("try { await agent('p'); return 'unreachable' } catch (e) { return { code: e.code, message: e.message } }"),
         parent,
       })
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: { postMessage(message: unknown): void } }).worker
+      /** 中文说明：变量 post 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const post = vi.spyOn(worker, 'postMessage')
+      /** 中文说明：函数值 childMessageTypes 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const childMessageTypes = (): HostToWorkerType[] => post.mock.calls
         .map(([message]) => (message as { type: HostToWorkerType }).type)
         .filter(type => type === HostToWorkerType.ChildStarted || type === HostToWorkerType.ChildFailed)
@@ -391,6 +452,7 @@ describe('dsh-workflow-worker-thread', () => {
       expect(lifecycle).toEqual([])
 
       provider.runs[0]!.publish()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.value).toMatchObject({ code: 'AGENT_RESULT' })
       expect((result.value as { message: string }).message).toContain('backend failed before publication')
@@ -402,10 +464,12 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('classifies provider start rejection as AGENT_START, drops an early result, and emits no false lifecycle pair', async () => {
       const { ctx, parent, provider } = await setup({ manual: true, deferStart: true })
+      /** 中文说明：变量 lifecycle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const lifecycle: string[] = []
       ctx.on('workflow/agent-start', () => { lifecycle.push('start') })
       ctx.on('workflow/agent-end', () => { lifecycle.push('end') })
 
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("try { await agent('p'); return 'unreachable' } catch (e) { return { code: e.code, message: e.message } }"),
         parent,
@@ -417,6 +481,7 @@ describe('dsh-workflow-worker-thread', () => {
       await new Promise(resolve => setTimeout(resolve, 0))
       provider.runs[0]!.rejectStart(new Error('publication rolled back'))
 
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.value).toMatchObject({ code: 'AGENT_START' })
       expect((result.value as { message: string }).message).toContain('publication rolled back')
@@ -431,12 +496,15 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('aborts a pending provider start once without publishing workflow lifecycle', async () => {
       const { ctx, parent, provider } = await setup({ manual: true, deferStart: true, config: { disposeGraceMs: 500 } })
+      /** 中文说明：变量 lifecycle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const lifecycle: string[] = []
       ctx.on('workflow/agent-start', () => { lifecycle.push('start') })
       ctx.on('workflow/agent-end', () => { lifecycle.push('end') })
 
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({ ...scripted("return await agent('pending')"), parent })
       await waitFor(() => { expect(provider.runs.length).toBe(1) })
+      /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const disposal = handle.dispose()
       await waitFor(() => {
         expect(provider.runs[0]!.cancelled).toBe('workflow disposed')
@@ -447,6 +515,7 @@ describe('dsh-workflow-worker-thread', () => {
       await new Promise(resolve => setTimeout(resolve, 0))
       provider.runs[0]!.rejectStart(new Error('cancelled before publication'))
 
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       await disposal
       expect(result.stopReason).toBe('cancelled')
@@ -455,8 +524,10 @@ describe('dsh-workflow-worker-thread', () => {
     })
 
     it('a child result REJECTION crosses back as a fatal AGENT_RESULT error (a broken provider is not a failed child)', async () => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SubagentRuntime)
+      /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const provider: SubagentProvider = {
         name: 'rejecting',
         capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: false },
@@ -470,6 +541,7 @@ describe('dsh-workflow-worker-thread', () => {
       }
       ctx.subagents.registerProvider(provider)
       await ctx.plugin(WorkerThreadWorkflowEngine, { provider: 'rejecting', maxConcurrentAgents: 2 })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run(ctx, fakeParent(), scripted(`
         try { await agent('p'); return 'unreachable' } catch (e) { return { name: e.name, code: e.code, fatal: e.fatal, message: e.message } }
       `))
@@ -481,6 +553,7 @@ describe('dsh-workflow-worker-thread', () => {
       const { ctx, parent } = await setup({
         reply: () => ({ output: [], structured: () => { /* deliberately outside lossless JSON */ }, stopReason: 'completed' }),
       })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run(ctx, parent, scripted(`
         try { await agent('p'); return 'unreachable' } catch (e) { return { code: e.code, message: e.message } }
       `))
@@ -491,11 +564,13 @@ describe('dsh-workflow-worker-thread', () => {
     it('contains a non-JSON result even if the injected subagent service violates its normalization contract', async () => {
       // The real worker boundary must reject a non-JSON same-process result.
       const { ctx, parent } = await setup()
+      /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const invalid = {
         output: [],
         structured: () => { /* deliberately outside lossless JSON */ },
         stopReason: 'completed',
       } as unknown as SubagentResult
+      /** 中文说明：变量 start 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const start = vi.spyOn(ctx.subagents, 'start').mockResolvedValue({
         id: SessionId('raw-invalid-child'),
         localAgent: undefined,
@@ -503,6 +578,7 @@ describe('dsh-workflow-worker-thread', () => {
         dispose: () => Promise.resolve(),
       })
 
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run(ctx, parent, scripted(`
         try { await agent('p'); return 'unreachable' } catch (e) { return { code: e.code, message: e.message } }
       `))
@@ -514,8 +590,10 @@ describe('dsh-workflow-worker-thread', () => {
     })
 
     it('a child whose dispose() throws synchronously cannot wedge the script (the host acks anyway)', async () => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SubagentRuntime)
+      /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const provider: SubagentProvider = {
         name: 'bad-dispose',
         capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: false },
@@ -530,14 +608,17 @@ describe('dsh-workflow-worker-thread', () => {
       }
       ctx.subagents.registerProvider(provider)
       await ctx.plugin(WorkerThreadWorkflowEngine, { provider: 'bad-dispose', maxConcurrentAgents: 2 })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run(ctx, fakeParent(), scripted("return await agent('p')"))
       expect(result.stopReason).toBe('completed')
       expect(result.value).toBe('fine')
     })
 
     it('a child dispose() rejecting an UNRENDERABLE value still acks — the containment warn is total', async () => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SubagentRuntime)
+      /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const provider: SubagentProvider = {
         name: 'coercion-trap-dispose',
         capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: false },
@@ -556,6 +637,7 @@ describe('dsh-workflow-worker-thread', () => {
       }
       ctx.subagents.registerProvider(provider)
       await ctx.plugin(WorkerThreadWorkflowEngine, { provider: 'coercion-trap-dispose', maxConcurrentAgents: 2 })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run(ctx, fakeParent(), scripted("return await agent('p')"))
       expect(result.stopReason).toBe('completed')
       expect(result.value).toBe('fine')
@@ -573,14 +655,17 @@ describe('dsh-workflow-worker-thread', () => {
       // The unbuilt worker forwards TSX_TSCONFIG_PATH (a path pin, not a
       // credential); clear it so this test observes the empty ambient case
       // regardless of the parent's environment.
+      /** 中文说明：变量 tsconfigPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const tsconfigPath = process.env.TSX_TSCONFIG_PATH
       delete process.env.TSX_TSCONFIG_PATH
       try {
+        /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const result = await run(ctx, parent, scripted(`
           const proc = ${ESCAPE}
           return { canary: proc.env.WORKFLOW_ENV_CANARY ?? null, keys: Object.keys(proc.env).sort() }
         `))
         expect(result.stopReason).toBe('completed')
+        /** 中文说明：变量 expectedKeys 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const expectedKeys = process.platform === 'win32' ? ['TEMP', 'TMP'] : []
         expect(result.value).toEqual({ canary: null, keys: expectedKeys })
       } finally {
@@ -591,12 +676,14 @@ describe('dsh-workflow-worker-thread', () => {
     })
 
     it('workerSpawnEnv injects the host temp path on win32 and leaves the POSIX peer empty', () => {
+      /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const tmp = tmpdir()
       expect(workerSpawnEnv('win32')).toEqual({ TMP: tmp, TEMP: tmp })
       expect(workerSpawnEnv('linux')).toEqual({})
     })
 
     it('workerSpawnEnv forwards TSX_TSCONFIG_PATH when the snapshot harness pins it', () => {
+      /** 中文说明：变量 tsconfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const tsconfig = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))
       expect(workerSpawnEnv('linux', tsconfig)).toEqual({ TSX_TSCONFIG_PATH: tsconfig })
       expect(workerSpawnEnv('win32', tsconfig)).toEqual({
@@ -612,15 +699,18 @@ describe('dsh-workflow-worker-thread', () => {
       // repo and pins the repo tsconfig through this variable; the worker
       // must inherit the pin (or its dsh-* imports silently resolve to
       // unbuilt lib/ bundles) while every other variable stays scrubbed.
+      /** 中文说明：变量 tsconfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const tsconfig = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))
       process.env.TSX_TSCONFIG_PATH = tsconfig
       process.env.WORKFLOW_ENV_CANARY = 'leak me'
       try {
+        /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const result = await run(ctx, parent, scripted(`
           const proc = ${ESCAPE}
           return { keys: Object.keys(proc.env).sort(), tsconfig: proc.env.TSX_TSCONFIG_PATH }
         `))
         expect(result.stopReason).toBe('completed')
+        /** 中文说明：变量 expectedKeys 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const expectedKeys = process.platform === 'win32'
           ? ['TEMP', 'TMP', 'TSX_TSCONFIG_PATH']
           : ['TSX_TSCONFIG_PATH']
@@ -646,13 +736,17 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('cancel() aborts in-flight children (signal AND cancel RPC) and settles the run cancelled', async () => {
       const { ctx, parent, provider } = await setup({ manual: true })
+      /** 中文说明：变量 ends 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ends: unknown[] = []
       ctx.on('workflow/agent-end', (_info, agent) => { ends.push(agent) })
+      /** 中文说明：变量 runEnds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const runEnds: WorkflowResultInfo[] = []
       ctx.on('workflow/end', (_info, result) => { runEnds.push(result) })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({ ...scripted("return await agent('long job')"), parent })
       await waitFor(() => { expect(provider.runs.length).toBe(1) })
       handle.cancel('user stopped it')
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
       expect(result.error).toContain('user stopped it')
@@ -666,11 +760,15 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('an already-aborted request signal cancels before the body ever runs (the go handshake holds it)', async () => {
       const { ctx, parent, provider } = await setup()
+      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
       controller.abort()
+      /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const logs: string[] = []
       ctx.on('workflow/log', (_info, message) => { logs.push(message) })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({ ...scripted("log('ran')\nreturn 123"), parent, signal: controller.signal })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
       expect(result.value).toBeNull()
@@ -681,16 +779,20 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('cancel() right after start() cancels before the body runs; the signal aborting mid-run cancels like cancel()', async () => {
       const { ctx, parent, provider } = await setup({ manual: true })
+      /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const first = ctx.workflowEngine.start({ ...scripted("return await agent('never')"), parent })
       // No-reason cancel: the canonical default reason must ride the result.
       first.cancel()
+      /** 中文说明：变量 firstResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const firstResult = await first.result
       expect(firstResult.stopReason).toBe('cancelled')
       expect(firstResult.error).toContain('workflow cancelled')
       expect(provider.runs.length).toBe(0)
       await first.dispose()
 
+      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
+      /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const second = ctx.workflowEngine.start({ ...scripted("return await agent('job')"), parent, signal: controller.signal })
       await waitFor(() => { expect(provider.runs.length).toBe(1) })
       controller.abort()
@@ -700,34 +802,47 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('removes the exact external abort callback on first settlement or teardown', async () => {
       const { ctx, parent } = await setup()
+      /** 中文说明：变量 settledController 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const settledController = new AbortController()
+      /** 中文说明：变量 settledAdd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const settledAdd = vi.spyOn(settledController.signal, 'addEventListener')
+      /** 中文说明：变量 settledRemove 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const settledRemove = vi.spyOn(settledController.signal, 'removeEventListener')
+      /** 中文说明：变量 completed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const completed = ctx.workflowEngine.start({ ...scripted('return 123'), parent, signal: settledController.signal })
+      /** 中文说明：函数值 settledAbort 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const settledAbort = settledAdd.mock.calls.find(([type]) => type === 'abort')?.[1]
       expect(typeof settledAbort).toBe('function')
 
       await expect(completed.result).resolves.toMatchObject({ value: 123, stopReason: 'completed' })
       expect(settledRemove).toHaveBeenCalledWith('abort', settledAbort)
+      /** 中文说明：变量 cancelAfterSettle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const cancelAfterSettle = vi.spyOn(completed, 'cancel')
       settledController.abort()
       expect(cancelAfterSettle).not.toHaveBeenCalled()
       cancelAfterSettle.mockRestore()
       await completed.dispose()
 
+      /** 中文说明：变量 manual 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const manual = await setup({ manual: true })
+      /** 中文说明：变量 teardownController 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const teardownController = new AbortController()
+      /** 中文说明：变量 teardownAdd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const teardownAdd = vi.spyOn(teardownController.signal, 'addEventListener')
+      /** 中文说明：变量 teardownRemove 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const teardownRemove = vi.spyOn(teardownController.signal, 'removeEventListener')
+      /** 中文说明：变量 tornDown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const tornDown = manual.ctx.workflowEngine.start({
         ...scripted("return await agent('job')"),
         parent: manual.parent,
         signal: teardownController.signal,
       })
       await waitFor(() => { expect(manual.provider.runs).toHaveLength(1) })
+      /** 中文说明：函数值 teardownAbort 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const teardownAbort = teardownAdd.mock.calls.find(([type]) => type === 'abort')?.[1]
       expect(typeof teardownAbort).toBe('function')
 
+      /** 中文说明：变量 disposing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const disposing = tornDown.dispose()
       expect(teardownRemove).toHaveBeenCalledWith('abort', teardownAbort)
       await disposing
@@ -741,7 +856,9 @@ describe('dsh-workflow-worker-thread', () => {
       // timing can hit reliably. (The closure runs only after `handle` below
       // is initialized — the listener fires on the worker's first message.)
       ctx.on('workflow/log', () => { handle.cancel('cancelled from the log listener') })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({ ...scripted("log('mark')\nreturn await agent('late')"), parent })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
       expect(provider.runs.length).toBe(0)
@@ -750,9 +867,11 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('post-cancel narration is suppressed host-side, and completion racing a cancel reports cancelled', async () => {
       const { ctx, parent } = await setup()
+      /** 中文说明：变量 narration 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const narration: string[] = []
       ctx.on('workflow/log', (_info, message) => { narration.push(message) })
       ctx.on('workflow/phase', (_info, title) => { narration.push(`phase:${title}`) })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         // The sync spin keeps the worker's loop busy so the cancel message
         // cannot be processed before the script settles `completed` — the
@@ -772,6 +891,7 @@ describe('dsh-workflow-worker-thread', () => {
       })
       await waitFor(() => { expect(narration).toContain('started') })
       handle.cancel('raced the completion')
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
       expect(result.error).toContain('raced the completion')
@@ -781,13 +901,16 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('cancel() force-settles a script parked on a promise no hook owns, and TERMINATES its worker', async () => {
       const { ctx, parent } = await setup({ config: { provider: 'stub', disposeGraceMs: 50 } })
+      /** 中文说明：变量 runEnds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const runEnds: WorkflowResultInfo[] = []
       ctx.on('workflow/end', (_info, result) => { runEnds.push(result) })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("await new Promise(() => {})\nreturn 'unreachable'"),
         parent,
       })
       handle.cancel('user aborted')
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
       expect(result.error).toContain('user aborted')
@@ -799,19 +922,23 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('dispose() on a stuck script returns within the grace instead of hanging (result settles cancelled)', async () => {
       const { ctx, parent } = await setup({ config: { provider: 'stub', disposeGraceMs: 50 } })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("await new Promise(() => {})\nreturn 'unreachable'"),
         parent,
       })
+      /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const before = Date.now()
       await handle.dispose()
       expect(Date.now() - before).toBeLessThan(2000)
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
     })
 
     it('dispose() is idempotent and settles cleanly after a completed run', async () => {
       const { ctx, parent } = await setup()
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({ ...scripted('return 1'), parent })
       await handle.result
       await handle.dispose()
@@ -821,10 +948,13 @@ describe('dsh-workflow-worker-thread', () => {
     it('a settled run arms NO grace timer: disposing a completed run must not pin it for disposeGraceMs', async () => {
       // A distinctive grace so the spy can tell the cancel-path grace timer
       // apart from every other timeout in flight.
+      /** 中文说明：常量 GRACE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
       const GRACE = 44_444
       const { ctx, parent } = await setup({ config: { provider: 'stub', disposeGraceMs: GRACE } })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({ ...scripted('return 1'), parent })
       await handle.result
+      /** 中文说明：变量 spy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const spy = vi.spyOn(globalThis, 'setTimeout')
       try {
         await handle.dispose()
@@ -832,6 +962,7 @@ describe('dsh-workflow-worker-thread', () => {
         // allowed here; before the settled guard, cancel() armed a second one
         // that nothing would ever clear (the run was already settled), keeping
         // the WorkerRun/Worker closure alive until the grace expired.
+        /** 中文说明：函数值 graceTimers 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const graceTimers = spy.mock.calls.filter(call => call[1] === GRACE)
         expect(graceTimers.length).toBe(1)
       } finally {
@@ -841,6 +972,7 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('strays: children fired without await are aborted once the script settles, and dispose() waits for their disposal', async () => {
       const { ctx, parent, provider } = await setup({ manual: true, disposeDelayMs: 40 })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted(`
           agent('stray')
@@ -848,6 +980,7 @@ describe('dsh-workflow-worker-thread', () => {
         `),
         parent,
       })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('completed')
       await waitFor(() => { expect(provider.runs.length).toBe(1) })
@@ -862,6 +995,7 @@ describe('dsh-workflow-worker-thread', () => {
         manual: true,
         config: { provider: 'stub', disposeGraceMs: 30_000 },
       })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("agent('stray')\nawait new Promise(() => {})"),
         parent,
@@ -871,6 +1005,7 @@ describe('dsh-workflow-worker-thread', () => {
       // Claim the host result while the real worker remains wedged, so it can
       // send neither ChildDispose nor an exit. This leaves the accepted child
       // in the host registry when public disposal begins.
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: Worker }).worker
       worker.emit('message', {
         type: WorkerToHostType.Result,
@@ -879,6 +1014,7 @@ describe('dsh-workflow-worker-thread', () => {
       await expect(handle.result).resolves.toMatchObject({ stopReason: 'completed' })
       await waitFor(() => { expect(provider.runs[0]!.disposed).toBe(true) }, 1000)
 
+      /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const disposal = handle.dispose()
       await disposal
       expect(provider.runs[0]!.disposeCalls).toBe(1)
@@ -886,15 +1022,20 @@ describe('dsh-workflow-worker-thread', () => {
     })
 
     it('the settle-reap fires the request signal too: a provider honoring ONLY the signal winds its stray down promptly', async () => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SubagentRuntime)
+      /** 中文说明：变量 aborted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const aborted: string[] = []
+      /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const provider: SubagentProvider = {
         name: 'signal-only',
         capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: false },
         inheritsParentContext: false,
         start: async (request) => {
+          /** 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
           let settle!: (result: SubagentResult) => void
+          /** 中文说明：函数值 result 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
           const result = new Promise<SubagentResult>((resolve) => { settle = resolve })
           request.signal.addEventListener('abort', () => {
             aborted.push(String(request.signal.reason))
@@ -910,6 +1051,7 @@ describe('dsh-workflow-worker-thread', () => {
       }
       ctx.subagents.registerProvider(provider)
       await ctx.plugin(WorkerThreadWorkflowEngine, { provider: 'signal-only', maxConcurrentAgents: 2 })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted(`
           agent('stray, never awaited')
@@ -917,6 +1059,7 @@ describe('dsh-workflow-worker-thread', () => {
         `),
         parent: fakeParent(),
       })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('completed')
       // BEFORE dispose(): the settlement itself must have aborted the signal —
@@ -930,13 +1073,16 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('the settle-reap aborts a pending provider start before workflow/end', async () => {
       const { ctx, parent, provider } = await setup({ manual: true, deferStart: true })
+      /** 中文说明：变量 childLifecycle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const childLifecycle: string[] = []
+      /** 中文说明：变量 cancellationAtWorkflowEnd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let cancellationAtWorkflowEnd: string | undefined
       ctx.on('workflow/agent-start', () => { childLifecycle.push('start') })
       ctx.on('workflow/agent-end', () => { childLifecycle.push('end') })
       ctx.on('workflow/end', () => {
         cancellationAtWorkflowEnd = provider.runs[0]?.cancelled
       })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted(`
           agent('start-pending stray')
@@ -945,6 +1091,7 @@ describe('dsh-workflow-worker-thread', () => {
         parent,
       })
 
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
 
       expect(result.stopReason).toBe('completed')
@@ -959,16 +1106,19 @@ describe('dsh-workflow-worker-thread', () => {
     })
 
     it('a duplicate Result after the terminal claim cannot repeat cleanup or rewrite the outcome', async () => {
+      /** 中文说明：变量 signalAborts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let signalAborts = 0
       const { ctx, parent, provider } = await setup({
         manual: true,
         onChildAbortString: (_reason, index) => { if (index === 0) signalAborts += 1 },
       })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("agent('stray')\nawait new Promise(() => {})"),
         parent,
       })
       await waitFor(() => { expect(provider.runs).toHaveLength(1) })
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: Worker }).worker
 
       worker.emit('message', {
@@ -992,6 +1142,7 @@ describe('dsh-workflow-worker-thread', () => {
         manual: true,
         config: { provider: 'stub', maxConcurrentAgents: 2, disposeGraceMs: 100 },
       })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         // Let child-start cross, then make the worker unable to process its
         // Cancel message. Grace settles the result and terminates the thread;
@@ -1008,6 +1159,7 @@ describe('dsh-workflow-worker-thread', () => {
       await waitFor(() => { expect(provider.runs).toHaveLength(1) })
 
       handle.cancel('force termination')
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
 
       expect(result.stopReason).toBe('cancelled')
@@ -1025,6 +1177,7 @@ describe('dsh-workflow-worker-thread', () => {
         disposeDelayMs: 40,
         config: { provider: 'stub', maxConcurrentAgents: 8, disposeGraceMs: 400 },
       })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         // Same shape as the wedged-cancel test above: the child's start RPC
         // reaches the host, then the script seizes its worker's loop, so the
@@ -1041,6 +1194,7 @@ describe('dsh-workflow-worker-thread', () => {
         parent,
       })
       await waitFor(() => { expect(provider.runs.length).toBe(1) })
+      /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const before = Date.now()
       await handle.dispose()
       // Bounded by the grace (plus the terminate), never by the 1.5s spin.
@@ -1050,12 +1204,14 @@ describe('dsh-workflow-worker-thread', () => {
       // host-driven drive, disposal only STARTED at the post-terminate reap,
       // so dispose() returned with it still in flight).
       expect(provider.runs[0]!.disposed).toBe(true)
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
     }, 15_000)
 
     it('a live child disposed by the dispose() drive is disposed ONCE, and the worker\'s late dispose RPC still gets its ack (the script settles, not the grace)', async () => {
       const { ctx, parent, provider } = await setup({ manual: true })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted(`
           await agent('long child')
@@ -1064,7 +1220,9 @@ describe('dsh-workflow-worker-thread', () => {
         parent,
       })
       await waitFor(() => { expect(provider.runs.length).toBe(1) })
+      /** 中文说明：变量 handleDispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handleDispose = handle.dispose()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       // The script itself settled (the wrapper's own dispose RPC found the
       // child already reaped host-side and was acked) — a missing ack would
@@ -1079,7 +1237,9 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('the grace force-settle pairs every stranded start: a host-synthesized cancelled agent-end lands before workflow/end', async () => {
       const { ctx, parent, provider } = await setup({ manual: true, config: { provider: 'stub', maxConcurrentAgents: 8, disposeGraceMs: 300 } })
+      /** 中文说明：变量 ends 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ends: { seq: number; outcome: string }[] = []
+      /** 中文说明：变量 order 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const order: string[] = []
       ctx.on('workflow/agent-start', (_info, agent) => { order.push(`start:${agent.seq}`) })
       ctx.on('workflow/agent-end', (_info, agent) => {
@@ -1087,6 +1247,7 @@ describe('dsh-workflow-worker-thread', () => {
         order.push(`end:${agent.seq}`)
       })
       ctx.on('workflow/end', () => { order.push('run-end') })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         // 'slow' starts and its agent-start crosses to observers (the awaited
         // 'fast' call keeps the worker loop turning), then the script seizes
@@ -1102,9 +1263,11 @@ describe('dsh-workflow-worker-thread', () => {
         parent,
       })
       await waitFor(() => { expect(order.filter(entry => entry.startsWith('start:')).length).toBe(2) })
+      /** 中文说明：函数值 fast 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const fast = provider.runs.find(run => (run.request.prompt[0] as { text?: string }).text === 'fast')!
       fast.settle(text('fast done'))
       handle.cancel('stop now')
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
       // fast's end is the worker's own report; slow's is host-synthesized at
@@ -1121,19 +1284,23 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('graceful cancellation keeps pairing worker-authored: exactly one agent-end per start, nothing synthesized on top', async () => {
       const { ctx, parent, provider } = await setup({ manual: true })
+      /** 中文说明：变量 ends 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ends: { seq: number; outcome: string }[] = []
+      /** 中文说明：变量 order 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const order: string[] = []
       ctx.on('workflow/agent-end', (_info, agent) => {
         ends.push({ seq: agent.seq, outcome: agent.outcome })
         order.push(`end:${agent.seq}`)
       })
       ctx.on('workflow/end', () => { order.push('run-end') })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("await parallel([() => agent('a'), () => agent('b')])\nreturn 'unreachable'"),
         parent,
       })
       await waitFor(() => { expect(provider.runs.length).toBe(2) })
       handle.cancel('user stop')
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
       // The live worker reported both pairs itself; the ledger must not add
@@ -1148,12 +1315,15 @@ describe('dsh-workflow-worker-thread', () => {
   describe('worker death', () => {
     it('the first death signal closes admission to messages Node delivers before exit', async () => {
       const { ctx, parent, provider } = await setup({ manual: true })
+      /** 中文说明：变量 phases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const phases: string[] = []
       ctx.on('workflow/phase', (_info, title) => { phases.push(title) })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted('await new Promise(() => {})'),
         parent,
       })
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: Worker }).worker
 
       // Node may physically emit error -> queued message -> exit. Reproduce
@@ -1171,6 +1341,7 @@ describe('dsh-workflow-worker-thread', () => {
         result: { value: 'late', stopReason: 'completed', agentsStarted: 1 },
       })
 
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('error')
       expect(result.error).toContain('synthetic error-before-message')
@@ -1181,12 +1352,18 @@ describe('dsh-workflow-worker-thread', () => {
     })
 
     it('refuses and disposes a provider run that becomes ready after its real worker dies', async () => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SubagentRuntime)
+      /** 中文说明：变量 requested 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const requested = Promise.withResolvers<SubagentStartRequest>()
+      /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ready = Promise.withResolvers<SubagentRun>()
+      /** 中文说明：变量 disposeCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let disposeCalls = 0
+      /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => ctx.logger)
+      /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const provider: SubagentProvider = {
         name: 'late-ready',
         capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: false },
@@ -1201,21 +1378,26 @@ describe('dsh-workflow-worker-thread', () => {
       }
       ctx.subagents.registerProvider(provider)
       await ctx.plugin(WorkerThreadWorkflowEngine, { provider: 'late-ready', maxConcurrentAgents: 1 })
+      /** 中文说明：变量 lifecycle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const lifecycle: string[] = []
       ctx.on('workflow/agent-start', () => { lifecycle.push('start') })
       ctx.on('workflow/agent-end', () => { lifecycle.push('end') })
 
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("return await agent('pending startup')"),
         parent: fakeParent(),
       })
+      /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const request = await requested.promise
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: Worker }).worker
 
       // Kill the actual Worker while provider startup is independently
       // pending. Death closes admission and aborts the shared signal, but this
       // deliberately uncooperative provider still fulfills afterward.
       await worker.terminate()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('error')
       expect(result.error).toContain('exit code')
@@ -1243,11 +1425,14 @@ describe('dsh-workflow-worker-thread', () => {
     })
 
     it('a worker that exits before settling reports an error result and reaps its children', async () => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SubagentRuntime)
       // The child's dispose() REJECTS on top of the worker death: the reap
       // must contain it (warn, not crash) while still emptying the registry.
+      /** 中文说明：变量 signalAborts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const signalAborts: unknown[] = []
+      /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const provider: SubagentProvider = {
         name: 'doomed',
         capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: false },
@@ -1269,17 +1454,22 @@ describe('dsh-workflow-worker-thread', () => {
       }
       ctx.subagents.registerProvider(provider)
       await ctx.plugin(WorkerThreadWorkflowEngine, { provider: 'doomed', maxConcurrentAgents: 2 })
+      /** 中文说明：变量 runEnds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const runEnds: WorkflowResultInfo[] = []
       ctx.on('workflow/end', (_info, result) => { runEnds.push(result) })
+      /** 中文说明：变量 childStarted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const childStarted = Promise.withResolvers<undefined>()
       ctx.on('workflow/agent-start', () => { childStarted.resolve(undefined) })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted("return await agent('doomed')"),
         parent: fakeParent(),
       })
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: Worker }).worker
       await childStarted.promise
       await worker.terminate()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('error')
       expect(result.error).toContain('exit code 1')
@@ -1299,6 +1489,7 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('an uncaught exception inside the worker surfaces as an error result and reaps the in-flight child', async () => {
       const { ctx, parent, provider } = await setup({ manual: true })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted(`
           agent('in flight when the worker dies')
@@ -1310,6 +1501,7 @@ describe('dsh-workflow-worker-thread', () => {
         `),
         parent,
       })
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('error')
       expect(result.error).toContain('worker blew up')
@@ -1325,7 +1517,9 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('a worker death pairs every stranded start: the synthesized cancelled agent-end precedes the error workflow/end', async () => {
       const { ctx, parent, provider } = await setup({ manual: true })
+      /** 中文说明：变量 ends 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ends: { seq: number; outcome: string }[] = []
+      /** 中文说明：变量 order 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const order: string[] = []
       ctx.on('workflow/agent-start', (_info, agent) => { order.push(`start:${agent.seq}`) })
       ctx.on('workflow/agent-end', (_info, agent) => {
@@ -1333,6 +1527,7 @@ describe('dsh-workflow-worker-thread', () => {
         order.push(`end:${agent.seq}`)
       })
       ctx.on('workflow/end', () => { order.push('run-end') })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted(`
           const p = agent('slow')
@@ -1341,12 +1536,15 @@ describe('dsh-workflow-worker-thread', () => {
         `),
         parent,
       })
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: Worker }).worker
       await waitFor(() => { expect(order.filter(entry => entry.startsWith('start:')).length).toBe(2) })
+      /** 中文说明：函数值 fast 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const fast = provider.runs.find(run => (run.request.prompt[0] as { text?: string }).text === 'fast')!
       fast.settle(text('fast done'))
       await waitFor(() => { expect(ends).toContainEqual({ seq: 2, outcome: 'completed' }) })
       await worker.terminate()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('error')
       expect(result.error).toContain('exit code 1')
@@ -1363,6 +1561,7 @@ describe('dsh-workflow-worker-thread', () => {
       // it has nowhere to go and must be dropped silently (the workerGone
       // guard in post()).
       const { ctx, parent, provider } = await setup({ disposeDelayMs: 300 })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted(`
           agent('stray, never awaited')
@@ -1370,6 +1569,7 @@ describe('dsh-workflow-worker-thread', () => {
         `),
         parent,
       })
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: Worker }).worker
       await waitFor(() => {
         expect(provider.runs).toHaveLength(1)
@@ -1377,6 +1577,7 @@ describe('dsh-workflow-worker-thread', () => {
         expect(provider.runs[0]!.disposed).toBe(false)
       })
       await worker.terminate()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('error')
       expect(result.error).toContain('exit code 1')
@@ -1389,6 +1590,7 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('a worker death AFTER a cancel reports cancelled, not error', async () => {
       const { ctx, parent } = await setup({ config: { provider: 'stub', disposeGraceMs: 60_000 } })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = ctx.workflowEngine.start({
         ...scripted(`
           log('armed')
@@ -1396,7 +1598,9 @@ describe('dsh-workflow-worker-thread', () => {
         `),
         parent,
       })
+      /** 中文说明：变量 worker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worker = (handle as unknown as { worker: Worker }).worker
+      /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const logs: string[] = []
       ctx.on('workflow/log', (_info, message) => { logs.push(message) })
       await waitFor(() => { expect(logs).toContain('armed') })
@@ -1404,6 +1608,7 @@ describe('dsh-workflow-worker-thread', () => {
       // The grace is deliberately huge: only the host-triggered worker death,
       // not the cancellation timer, settles this.
       await worker.terminate()
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handle.result
       expect(result.stopReason).toBe('cancelled')
       expect(result.error).toContain('stop it')
@@ -1414,9 +1619,12 @@ describe('dsh-workflow-worker-thread', () => {
   describe('service API', () => {
     it('run ids are unique and lifecycle meta is the run\'s borrowed immutable value', async () => {
       const { ctx, parent } = await setup()
+      /** 中文说明：变量 eventMeta 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let eventMeta: WorkflowRunInfo | undefined
       ctx.on('workflow/start', (info) => { eventMeta = info })
+      /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const first = ctx.workflowEngine.start({ ...scripted('return 1'), parent })
+      /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const second = ctx.workflowEngine.start({ ...scripted('return 2'), parent })
       expect(first.id).not.toBe(second.id)
       expect(eventMeta!.meta).toBe(second.meta)
@@ -1427,8 +1635,10 @@ describe('dsh-workflow-worker-thread', () => {
     })
 
     it('unregisters ctx.workflowEngine when the engine fiber is disposed (HMR safety)', async () => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(SubagentRuntime)
+      /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fiber = await ctx.plugin(WorkerThreadWorkflowEngine, {})
       expect(ctx.get('workflowEngine')).toBeDefined()
       await fiber.dispose()
@@ -1437,7 +1647,9 @@ describe('dsh-workflow-worker-thread', () => {
 
     it('keeps a holder-owned run usable when the engine unloads before its child starts', async () => {
       const { ctx, parent, provider, engineFiber } = await setup({ reply: () => text('survived reload') })
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let handle!: ReturnType<typeof ctx.workflowEngine.start>
+      /** 中文说明：函数值 holder 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const holder = await ctx.plugin(Object.assign((inner: Context) => {
         handle = inner.workflowEngine.start({ ...scripted("return await agent('after reload')"), parent })
       }, { inject: ['workflowEngine'] }))
@@ -1466,7 +1678,9 @@ describe('dsh-workflow-worker-thread', () => {
     it('has the class-plugin export shape (default = the engine service class)', () => {
       expect(workerEngineModule.default).toBe(WorkerThreadWorkflowEngine)
       expect('WorkerThreadWorkflowEngine' in workerEngineModule).toBe(false)
+      /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const loader = Object.create(Loader.prototype) as Loader
+      /** 中文说明：变量 unwrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const unwrapped: unknown = loader.unwrapExports(workerEngineModule)
       expect(unwrapped).toBe(WorkerThreadWorkflowEngine)
     })

@@ -1,9 +1,19 @@
+/**
+ * 文件职责：验证 meta.spec.ts 覆盖的工作流与 Worker Thread行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 import { describe, expect, it } from 'vitest'
 import { WorkflowError } from '@deepseek-ai/dsh-workflow'
 import { validateMeta } from '../src/meta.ts'
 
 /** Assert a META_INVALID throw whose message matches every given fragment. */
+/** 中文说明：函数 expectInvalid 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectInvalid(value: unknown, ...fragments: string[]): void {
+  /** 中文说明：变量 thrown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let thrown: unknown
   try {
     validateMeta(value)
@@ -12,6 +22,7 @@ function expectInvalid(value: unknown, ...fragments: string[]): void {
   }
   expect(thrown).toBeInstanceOf(WorkflowError)
   expect((thrown as WorkflowError).code).toBe('META_INVALID')
+  /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
   for (const fragment of fragments) {
     expect((thrown as WorkflowError).message).toContain(fragment)
   }
@@ -19,7 +30,9 @@ function expectInvalid(value: unknown, ...fragments: string[]): void {
 
 describe('validateMeta', () => {
   it('accepts a minimal meta and returns a normalized copy (no aliasing of the input)', () => {
+    /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const input = { name: 'audit', description: 'audit the repo' }
+    /** 中文说明：变量 meta 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const meta = validateMeta(input)
     expect(meta).toEqual({ name: 'audit', description: 'audit the repo' })
     expect(meta).not.toBe(input)
@@ -28,6 +41,7 @@ describe('validateMeta', () => {
   })
 
   it('accepts the full shape and rebuilds phases entry by entry', () => {
+    /** 中文说明：变量 meta 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const meta = validateMeta({
       name: 'migrate',
       description: 'migrate call sites',

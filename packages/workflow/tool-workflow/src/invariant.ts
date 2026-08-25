@@ -1,36 +1,52 @@
 /** Package-owned durable workflow-record invariants. @module @deepseek-ai/dsh-tool-workflow/invariant */
+/**
+ * 文件职责：实现 invariant.ts 覆盖的工作流与 Worker Thread行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 import type {} from './types.ts'
 
+/** 中文说明：常量 PACKAGE_NAME 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PACKAGE_NAME = '@deepseek-ai/dsh-tool-workflow'
 
 /** Cordis companion plugin name. */
+/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'tool-workflow-invariant'
 /** Services required to validate existing and newly appended Session logs. */
+/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['invariants']
 
+/** 中文说明：interface RunTrace 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface RunTrace {
   ended: boolean
   readonly members: Map<number, boolean>
 }
 
+/** 中文说明：type WorkflowTrace 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 type WorkflowTrace = Map<string, RunTrace>
 
 /** Whether this package owns the candidate Session event. */
+/** 中文说明：函数 isWorkflowRecordEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isWorkflowRecordEvent(event: SessionEvent): boolean {
   return event.type.startsWith('tool-workflow/')
 }
 
 /** Require a durable opaque identity to be a non-empty string. */
+/** 中文说明：函数 stringId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stringId(value: unknown, label: string, fail: InvariantFailure): string {
   if (typeof value !== 'string' || value.length === 0) fail(`${label} must be a non-empty string`)
   return value
 }
 
 /** Require one workflow member's 1-based sequence identity. */
+/** 中文说明：函数 memberSeq 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function memberSeq(value: unknown, fail: InvariantFailure): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1) {
     fail('tool-workflow member seq must be a positive safe integer')
@@ -39,7 +55,9 @@ function memberSeq(value: unknown, fail: InvariantFailure): number {
 }
 
 /** Read one plain payload field without trusting restored plugin data. */
+/** 中文说明：函数 recordOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function recordOf(event: SessionEvent, fail: InvariantFailure): Record<string, unknown> {
+  /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const data: unknown = event.data
   if (data === null || typeof data !== 'object' || Array.isArray(data)) {
     fail(`${event.type} data must be a JSON object`)
@@ -48,15 +66,20 @@ function recordOf(event: SessionEvent, fail: InvariantFailure): Record<string, u
 }
 
 /** Copy only the run one candidate can mutate; other committed states stay shared. */
+/** 中文说明：函数 cloneTraceForEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function cloneTraceForEvent(
   source: WorkflowTrace,
   event: SessionEvent,
   fail: InvariantFailure,
 ): WorkflowTrace {
+  /** 中文说明：变量 trace 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const trace = new Map(source)
   if (event.type === 'tool-workflow/run-start') return trace
+  /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const data = recordOf(event, fail)
+  /** 中文说明：变量 runId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const runId = stringId(data.runId, `${event.type} runId`, fail)
+  /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const run = source.get(runId)
   if (run !== undefined) {
     trace.set(runId, { ended: run.ended, members: new Map(run.members) })
@@ -65,7 +88,9 @@ function cloneTraceForEvent(
 }
 
 /** Require the named run to exist and remain open. */
+/** 中文说明：函数 openRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function openRun(trace: WorkflowTrace, runId: string, eventType: string, fail: InvariantFailure): RunTrace {
+  /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const run = trace.get(runId)
   if (run === undefined) fail(`${eventType} has no matching tool-workflow/run-start for run ${runId}`)
   if (run.ended) fail(`${eventType} appears after tool-workflow/run-end for run ${runId}`)
@@ -73,8 +98,11 @@ function openRun(trace: WorkflowTrace, runId: string, eventType: string, fail: I
 }
 
 /** Advance the workflow-record fold with one relevant Session event. */
+/** 中文说明：函数 applyEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function applyEvent(trace: WorkflowTrace, event: SessionEvent, fail: InvariantFailure): void {
+  /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const data = recordOf(event, fail)
+  /** 中文说明：变量 runId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const runId = stringId(data.runId, `${event.type} runId`, fail)
 
   switch (event.type) {
@@ -87,7 +115,9 @@ function applyEvent(trace: WorkflowTrace, event: SessionEvent, fail: InvariantFa
       return
     }
     case 'tool-workflow/agent-start': {
+      /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = openRun(trace, runId, event.type, fail)
+      /** 中文说明：变量 seq 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const seq = memberSeq(data.seq, fail)
       if (typeof data.label !== 'string') fail('tool-workflow/agent-start label must be a string')
       if (data.phase !== undefined && typeof data.phase !== 'string') {
@@ -99,11 +129,14 @@ function applyEvent(trace: WorkflowTrace, event: SessionEvent, fail: InvariantFa
       return
     }
     case 'tool-workflow/agent-end': {
+      /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = openRun(trace, runId, event.type, fail)
+      /** 中文说明：变量 seq 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const seq = memberSeq(data.seq, fail)
       if (data.outcome !== 'completed' && data.outcome !== 'failed' && data.outcome !== 'cancelled') {
         fail(`tool-workflow/agent-end outcome ${String(data.outcome)} is invalid`)
       }
+      /** 中文说明：变量 ended 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ended = run.members.get(seq)
       if (ended === undefined) fail(`tool-workflow/agent-end has no matching member seq ${seq} in run ${runId}`)
       if (ended) fail(`tool-workflow/agent-end repeats member seq ${seq} in run ${runId}`)
@@ -111,10 +144,12 @@ function applyEvent(trace: WorkflowTrace, event: SessionEvent, fail: InvariantFa
       return
     }
     case 'tool-workflow/run-end': {
+      /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = openRun(trace, runId, event.type, fail)
       if (data.stopReason !== 'completed' && data.stopReason !== 'cancelled' && data.stopReason !== 'error') {
         fail(`tool-workflow/run-end stopReason ${String(data.stopReason)} is invalid`)
       }
+      /** 中文说明：函数值 openMembers 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const openMembers = [...run.members].filter(([, ended]) => !ended).map(([seq]) => seq)
       if (openMembers.length > 0) {
         fail(`tool-workflow/run-end leaves member seq ${openMembers.join(', ')} open in run ${runId}`)
@@ -129,12 +164,18 @@ function applyEvent(trace: WorkflowTrace, event: SessionEvent, fail: InvariantFa
 }
 
 /** Install an independent incremental fold over every attached Session. */
+/** 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
+  /** 中文说明：变量 traces 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const traces = new WeakMap<Session, WorkflowTrace>()
+  /** 中文说明：变量 staged 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const staged = new WeakMap<SessionEvent, { session: Session; trace: WorkflowTrace }>()
 
+  /** 中文说明：函数值 seed 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const seed = (session: Session): WorkflowTrace => {
+    /** 中文说明：变量 trace 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const trace: WorkflowTrace = new Map()
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const event of session.events.filter(isWorkflowRecordEvent)) applyEvent(trace, event, fail)
     traces.set(session, trace)
     return trace
@@ -146,12 +187,14 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
     const [session, event] = args as [Session, SessionEvent]
     if (!isWorkflowRecordEvent(event)) return
     // session/event dispatch follows list() or session/created seeding.
+    /** 中文说明：变量 trace 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const trace = cloneTraceForEvent(traces.get(session) as WorkflowTrace, event, fail)
     applyEvent(trace, event, fail)
     staged.set(event, { session, trace })
   }, { global: true })
   ctx.on('session/event', (session, event) => {
     if (!isWorkflowRecordEvent(event)) return
+    /** 中文说明：变量 candidate 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const candidate = staged.get(event)
     /* v8 ignore next 2 -- internal/dispatch stages the exact session/event callback arguments. */
     if (candidate === undefined || candidate.session !== session) {
@@ -163,5 +206,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
 }, { inject: ['sessions'] })
 
 /** Register this package's invariant companion. */
+/** 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

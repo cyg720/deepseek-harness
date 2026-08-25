@@ -11,6 +11,14 @@
  * run within grace and terminates the thread.
  * @module @deepseek-ai/dsh-workflow-worker-thread/runtime
  */
+/**
+ * 文件职责：实现 runtime.ts 覆盖的工作流与 Worker Thread行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 
 import * as vm from 'node:vm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
@@ -28,6 +36,7 @@ import { materializeFromRealm, MaterializeError, renderThrown } from './realm.ts
 import type { ChildHandle, ChildPort, WorkerLimits } from './types.ts'
 
 /** The observers the execution reports progress through (the session posts them to the host). */
+/** 中文说明：interface ExecutionObserver 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface ExecutionObserver {
   phase(title: string): void
   log(message: string): void
@@ -36,11 +45,14 @@ export interface ExecutionObserver {
 }
 
 /** The `agent()` options the script may pass; everything else rejects loud. */
+/** 中文说明：常量 SUPPORTED_AGENT_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SUPPORTED_AGENT_OPTIONS = new Set(['label', 'phase', 'schema', 'provider', 'model'])
 /** Deferred Claude Code options we name explicitly in the rejection message. */
+/** 中文说明：常量 DEFERRED_AGENT_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFERRED_AGENT_OPTIONS = new Set(['effort', 'isolation', 'agentType'])
 
 /** Flatten a child's final output blocks to text (the non-schema `agent()` result). */
+/** 中文说明：函数 outputText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function outputText(blocks: ContentBlock[]): string {
   return blocks
     .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
@@ -49,8 +61,11 @@ function outputText(blocks: ContentBlock[]): string {
 }
 
 /** A short display label derived from the prompt when the script passes none. */
+/** 中文说明：函数 defaultLabel 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function defaultLabel(prompt: string): string {
+  /** 中文说明：变量 newline 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const newline = prompt.indexOf('\n')
+  /** 中文说明：变量 line 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const line = newline === -1 ? prompt : prompt.slice(0, newline)
   return line.length <= 48 ? line : `${line.slice(0, 47)}…`
 }
@@ -61,6 +76,7 @@ function defaultLabel(prompt: string): string {
  * becomes a {@link WorkflowResult} with a non-`completed` stop reason. The
  * host owns cancellation and cleanup of any dropped child work.
  */
+/** 中文说明：class WorkflowExecution 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export class WorkflowExecution {
   /** 1-based count of `agent()` calls started (the `agentsStarted` result field). */
   private started = 0
@@ -97,6 +113,7 @@ export class WorkflowExecution {
 
     this.context = vm.createContext({}, { name: `workflow:${meta.name}` })
 
+    /** 中文说明：变量 globals 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const globals: Record<string, unknown> = {
       agent: (prompt: unknown, opts?: unknown) => this.contain(this.agent(prompt, opts)),
       parallel: (thunks: unknown) => this.contain(this.parallel(thunks)),
@@ -106,6 +123,7 @@ export class WorkflowExecution {
       // workerData already performed the real cross-thread structured clone.
       args,
     }
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const [key, value] of Object.entries(globals)) {
       // Data properties on the contextified global; frozen shape not required —
       // a script overwriting its own hooks only sabotages itself.
@@ -147,6 +165,7 @@ export class WorkflowExecution {
     if (this.cancelReason !== undefined) return
     this.cancelReason = reason
     this.cancelError = new WorkflowError(`workflow run cancelled: ${this.cancelReason}`, 'CANCELLED')
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const waiter of this.slotWaiters.splice(0)) waiter.reject(this.cancelledError())
   }
 
@@ -165,12 +184,15 @@ export class WorkflowExecution {
       // relayed by the host before its `go`): the script must not execute at
       // all, let alone report `completed`.
       if (this.isCancelled()) throw this.cancelledError()
+      /** 中文说明：变量 scriptPromise 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const scriptPromise = this.compiled.runInContext(this.context, { timeout: this.limits.syncTimeoutMs }) as Promise<unknown>
+      /** 中文说明：变量 raw 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const raw: unknown = await this.contain(Promise.resolve(scriptPromise))
       // Cancelled while the body ran: a script that settled without touching
       // another hook (or without any) must still report `cancelled` — the
       // holder asked for cancellation and `completed` would be a lie.
       if (this.isCancelled()) throw this.cancelledError()
+      /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const value = raw === undefined ? null : this.materializeResult(raw)
       return { value, stopReason: 'completed', agentsStarted: this.started }
     } catch (error: unknown) {
@@ -242,6 +264,7 @@ export class WorkflowExecution {
 
   private releaseSlot(): void {
     this.activeSlots -= 1
+    /** 中文说明：变量 next 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const next = this.slotWaiters.shift()
     if (next) next.resolve()
   }
@@ -252,6 +275,7 @@ export class WorkflowExecution {
     if (typeof rawPrompt !== 'string' || rawPrompt.length === 0) {
       throw new WorkflowError('agent() requires a non-empty prompt string', 'INVALID_ARGUMENT')
     }
+    /** 中文说明：变量 opts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const opts = this.readAgentOptions(rawOpts)
     if (this.started >= this.limits.maxTotalAgents) {
       throw new WorkflowError(
@@ -260,8 +284,11 @@ export class WorkflowExecution {
       )
     }
     this.started += 1
+    /** 中文说明：变量 seq 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seq = this.started
+    /** 中文说明：变量 label 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const label = opts.label ?? defaultLabel(rawPrompt)
+    /** 中文说明：变量 phase 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const phase = opts.phase ?? this.currentPhase
 
     await this.acquireSlot()
@@ -272,6 +299,7 @@ export class WorkflowExecution {
       // reach the host (which would refuse anyway, but the refusal reads as
       // a start failure rather than the cancellation it is).
       this.throwIfCancelled()
+      /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let run: ChildHandle
       try {
         run = await this.children.startAgent({
@@ -295,9 +323,11 @@ export class WorkflowExecution {
         await run.dispose()
         throw this.cancelledError()
       }
+      /** 中文说明：变量 info 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const info: WorkflowAgentInfo = { seq, label, ...phase !== undefined ? { phase } : {}, childId: SessionId(run.id) }
       this.observer.agentStart(info)
       try {
+        /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         let result
         try {
           result = await run.result
@@ -353,6 +383,7 @@ export class WorkflowExecution {
     schema?: ObjectJsonSchema
   } {
     if (rawOpts === undefined) return {}
+    /** 中文说明：变量 opts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let opts: unknown
     try {
       opts = materializeFromRealm(rawOpts, 'agent() options')
@@ -364,7 +395,9 @@ export class WorkflowExecution {
     if (typeof opts !== 'object' || opts === null || Array.isArray(opts)) {
       throw new WorkflowError('agent() options must be an object', 'INVALID_ARGUMENT')
     }
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = opts as Record<string, unknown>
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const key of Object.keys(record)) {
       if (SUPPORTED_AGENT_OPTIONS.has(key)) continue
       if (DEFERRED_AGENT_OPTIONS.has(key)) {
@@ -372,11 +405,13 @@ export class WorkflowExecution {
       }
       throw new WorkflowError(`agent() option "${key}" is not recognized (supported: label, phase, schema, provider, model)`, 'UNSUPPORTED_OPTION')
     }
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const key of ['label', 'phase', 'provider', 'model'] as const) {
       if (record[key] !== undefined && typeof record[key] !== 'string') {
         throw new WorkflowError(`agent() option "${key}" must be a string`, 'INVALID_ARGUMENT')
       }
     }
+    /** 中文说明：变量 schema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let schema: ObjectJsonSchema | undefined
     if (record.schema !== undefined) {
       try {
@@ -404,6 +439,7 @@ export class WorkflowExecution {
       throw new WorkflowError('parallel() requires an array of zero-argument functions', 'INVALID_ARGUMENT')
     }
     this.assertItemCap(rawThunks.length, 'parallel()')
+    /** 中文说明：函数值 thunks 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const thunks = rawThunks.map((thunk, index) => {
       if (typeof thunk !== 'function') {
         throw new WorkflowError(`parallel() item ${index} is not a function`, 'INVALID_ARGUMENT')
@@ -434,6 +470,7 @@ export class WorkflowExecution {
     if (rawStages.length === 0) {
       throw new WorkflowError('pipeline() requires at least one stage function', 'INVALID_ARGUMENT')
     }
+    /** 中文说明：函数值 stages 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const stages = rawStages.map((stage, index) => {
       if (typeof stage !== 'function') {
         throw new WorkflowError(`pipeline() stage ${index} is not a function`, 'INVALID_ARGUMENT')
@@ -441,8 +478,10 @@ export class WorkflowExecution {
       return stage as (previous: unknown, item: unknown, index: number) => unknown
     })
     return Promise.all(rawItems.map(async (item: unknown, index) => {
+      /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let value: unknown = item
       try {
+        /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
         for (const stage of stages) {
           value = await stage(value, item, index)
         }

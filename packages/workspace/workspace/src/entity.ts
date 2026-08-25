@@ -7,6 +7,14 @@
  * `Workspace` interface.
  * @module @deepseek-ai/dsh-workspace/src/entity
  */
+/**
+ * 文件职责：实现 entity.ts 覆盖的工作区实体与配置行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作区实体与配置能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 
 import { stat } from 'node:fs/promises'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
@@ -16,6 +24,7 @@ import type { Workspace, WorkspaceId } from './types.ts'
 import { realpathNormalize } from './paths.ts'
 
 /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
+/** 中文说明：class WorkspaceMoveInvalidError 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export class WorkspaceMoveInvalidError extends Error {
   /**
    * @param message - Which id was unaccounted and where.
@@ -31,6 +40,7 @@ export class WorkspaceMoveInvalidError extends Error {
  * the registry itself — only the open table, the canonical session-path
  * index backing the `sessionIds` projection, and attach-time header reads.
  */
+/** 中文说明：interface WorkspaceEntityHost 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export interface WorkspaceEntityHost {
   /**
    * Resolve the open `workspaces` table.
@@ -63,9 +73,11 @@ export interface WorkspaceEntityHost {
 }
 
 /** Chain-slot abort sentinel thrown by the update fn when the record needs no change; only `mutate` observes it. */
+/** 中文说明：变量 unchangedSentinel 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const unchangedSentinel = new Error('workspace record unchanged (internal sentinel)')
 
 /** The single {@link Workspace} implementation; constructed only by the registry. */
+/** 中文说明：class WorkspaceEntity 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export class WorkspaceEntity implements Workspace {
   private record: WorkspaceRecord
 
@@ -112,6 +124,7 @@ export class WorkspaceEntity implements Workspace {
     // (stored header cwd, workspace path) are immutable. Membership itself is
     // decided on the write chain inside `mutate`, never on this snapshot.
     if (!this.record.sessionIds.includes(sessionId)) {
+      /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const header = await this.host.readSessionHeader(sessionId)
       if (header.cwd === undefined) {
         throw new Error(
@@ -119,6 +132,7 @@ export class WorkspaceEntity implements Workspace {
           + 'its stored header carries no cwd to validate against',
         )
       }
+      /** 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let cwd: string
       try {
         cwd = await realpathNormalize(header.cwd)
@@ -162,8 +176,11 @@ export class WorkspaceEntity implements Workspace {
         )
       }
       if (beforeSessionId === sessionId) return record
+      /** 中文说明：函数值 without 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const without = record.sessionIds.filter(id => id !== sessionId)
+      /** 中文说明：变量 at 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const at = beforeSessionId === undefined ? without.length : without.indexOf(beforeSessionId)
+      /** 中文说明：变量 sessionIds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionIds = [...without.slice(0, at), sessionId, ...without.slice(at)]
       return sessionIds.every((id, index) => id === record.sessionIds[index])
         ? record
@@ -200,10 +217,13 @@ export class WorkspaceEntity implements Workspace {
    * rewrites the medium nor emits a change event.
    */
   private async mutate(fn: (record: WorkspaceRecord) => WorkspaceRecord): Promise<void> {
+    /** 中文说明：变量 next 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let next: WorkspaceRecord
     try {
       next = await this.host.table().update(this.id, (current) => {
+        /** 中文说明：变量 changed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const changed = fn(current)
+        /** 中文说明：变量 sessionIds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const sessionIds = changed.sessionIds.filter(
           id => this.host.sessionPath(id) === changed.path,
         )

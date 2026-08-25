@@ -3,6 +3,14 @@
  * observe-only lifecycle events never expose run control.
  * @module @deepseek-ai/dsh-workflow
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的工作流与 Worker Thread行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
@@ -29,10 +37,12 @@ export type {
 export type { WorkflowRun, WorkflowStartRequest } from './runtime-types.ts'
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：interface Context 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
   interface Context {
     workflowEngine: WorkflowEngine
   }
 
+  /** 中文说明：interface Events 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
   interface Events {
     /**
      * A workflow run started — the script's meta block validated, the body
@@ -91,6 +101,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** The full set of `workflow/*` event names {@link WorkflowEngine.emitWorkflowEvent} dispatches. */
+/** 中文说明：type WorkflowEventName 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export type WorkflowEventName =
   | 'workflow/start'
   | 'workflow/phase'
@@ -105,6 +116,7 @@ export type WorkflowEventName =
  * values, and cancellation. An ordinary child failure resolves its item to
  * `null` and is not one of these fatal codes.
  */
+/** 中文说明：type WorkflowErrorCode 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export type WorkflowErrorCode =
   | 'SCRIPT_PARSE'
   | 'META_INVALID'
@@ -127,6 +139,7 @@ export type WorkflowErrorCode =
  * Every {@link WorkflowErrorCode} is fatal; the flag exists so the
  * distinction is explicit at every catch site rather than implied.
  */
+/** 中文说明：class WorkflowError 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export class WorkflowError extends HarnessError {
   /** Whether combinators must propagate this error instead of nulling the item. */
   readonly fatal: boolean
@@ -143,6 +156,7 @@ export class WorkflowError extends HarnessError {
  * @param error - any thrown value; fatality is host `instanceof` (unforgeable from a script realm).
  * @returns true iff `error` is a {@link WorkflowError} whose `fatal` flag is set.
  */
+/** 中文说明：函数 isFatalWorkflowError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function isFatalWorkflowError(error: unknown): boolean {
   return error instanceof WorkflowError && error.fatal
 }
@@ -173,8 +187,10 @@ export abstract class WorkflowEngine extends Service {
    * @param args - the event's payload, matching its declared signature.
    */
   protected emitWorkflowEvent(name: WorkflowEventName, ...args: unknown[]): void {
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const callback of this.ctx.events.dispatch('emit', [name, ...args])) {
       try {
+        /** 中文说明：函数值 returned 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const returned: unknown = (callback as (...payload: unknown[]) => unknown)(...args)
         void Promise.resolve(returned).catch((error: unknown) => {
           this.ctx.logger.warn(`workflow: ${name} listener rejected: ${renderListenerError(error)}`)
@@ -191,6 +207,7 @@ export abstract class WorkflowEngine extends Service {
  * @param error - any thrown value.
  * @returns `String(error)`, or a fixed label when even coercion throws.
  */
+/** 中文说明：函数 renderListenerError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderListenerError(error: unknown): string {
   try {
     return String(error)

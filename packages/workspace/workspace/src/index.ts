@@ -4,6 +4,14 @@
  * domain data form.
  * @module @deepseek-ai/dsh-workspace
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的工作区实体与配置行为与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
+ * 产品维度：保障 Agent 的工作区实体与配置能力稳定、可隔离且可诊断。
+ * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
+ * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
+ * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ */
 
 import { randomUUID } from 'node:crypto'
 import { stat } from 'node:fs/promises'
@@ -27,6 +35,7 @@ export type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
 export { realpathNormalize } from './paths.ts'
 
 /** Identifies one workspace record (see `src/types.ts` for the brand rationale). */
+/** 中文说明：type WorkspaceId 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export type WorkspaceId = WorkspaceIdBrand
 
 /**
@@ -34,6 +43,7 @@ export type WorkspaceId = WorkspaceIdBrand
  * @param id - Raw workspace id string.
  * @returns the same string, branded at compile time.
  */
+/** 中文说明：函数 WorkspaceId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function WorkspaceId(id: string): WorkspaceId {
   return id as WorkspaceId
 }
@@ -42,6 +52,7 @@ export function WorkspaceId(id: string): WorkspaceId {
  * An archiveSession request named a session neither live nor in session
  * persistence — a definite miss only; storage faults propagate as themselves.
  */
+/** 中文说明：class WorkspaceUnknownSessionError 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export class WorkspaceUnknownSessionError extends Error {
   /**
    * @param sessionId - The unknown session id.
@@ -53,6 +64,7 @@ export class WorkspaceUnknownSessionError extends Error {
 }
 
 /** A workspace reorder named a source or anchor absent from the durable registry order. */
+/** 中文说明：class WorkspaceOrderInvalidError 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export class WorkspaceOrderInvalidError extends Error {
   /**
    * @param workspaceId - Missing source or anchor id.
@@ -65,20 +77,24 @@ export class WorkspaceOrderInvalidError extends Error {
 
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：interface Context 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
   interface Context {
     workspaceRegistry: WorkspaceRegistry
   }
 }
 
+/** 中文说明：interface BootstrapGroup 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 interface BootstrapGroup {
   readonly path: string
   readonly headers: SessionHeader[]
   readonly newestAt: number
 }
 
+/** 中文说明：函数值 sameIds 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const sameIds = (left: readonly WorkspaceId[], right: readonly WorkspaceId[]): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index])
 
+/** 中文说明：函数值 compareHeaders 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const compareHeaders = (left: SessionHeader, right: SessionHeader): number =>
   right.createdAt - left.createdAt || String(left.id).localeCompare(String(right.id))
 
@@ -89,6 +105,7 @@ const compareHeaders = (left: SessionHeader, right: SessionHeader): number =>
  * mandatory so an unavailable peer can never be mistaken for an empty
  * history and commit the initialized marker.
  */
+/** 中文说明：class WorkspaceRegistry 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export class WorkspaceRegistry extends Service {
   static inject = ['storageDomain', 'sessionPersistence']
 
@@ -117,6 +134,7 @@ export class WorkspaceRegistry extends Service {
 
   /** Open the domain, finish bootstrap when required, and rebuild the ordered cache. */
   protected async [Service.init](): Promise<void> {
+    /** 中文说明：变量 domain 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const domain = await this.ctx.storageDomain.open(workspaceDomainSpec)
     this.ctx.effect(() => () => domain.close(), 'workspace.domainClose')
     this.table = domain.table('workspaces')
@@ -126,6 +144,7 @@ export class WorkspaceRegistry extends Service {
     await this.recoverPendingMutation()
     this.validateStoredState(this.state)
     if (!this.state.initialized) {
+      /** 中文说明：变量 headers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const headers = await this.ctx.sessionPersistence.list()
       await this.replaceHeaderIndex(headers)
       await this.bootstrap(headers)
@@ -156,6 +175,7 @@ export class WorkspaceRegistry extends Service {
   // drop the parameter with its @param clause and the `create(path, title?)`
   // lines in this package's README pair.
   async create(path: string, title?: string): Promise<Workspace> {
+    /** 中文说明：变量 canonical 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canonical = await realpathNormalize(path)
     if (!(await stat(canonical)).isDirectory()) {
       throw new Error(`cannot create a workspace at '${canonical}': path is not a directory`)
@@ -180,6 +200,7 @@ export class WorkspaceRegistry extends Service {
    */
   list(): Workspace[] {
     return this.requireState().workspaceIds.map((id) => {
+      /** 中文说明：变量 entity 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const entity = this.entities.get(id)
       if (entity === undefined) {
         throw new Error(`workspace registry order references missing workspace '${id}'`)
@@ -209,14 +230,18 @@ export class WorkspaceRegistry extends Service {
    */
   insertBefore(id: WorkspaceId, beforeId?: WorkspaceId): Promise<readonly WorkspaceId[]> {
     return this.enqueueOperation(async () => {
+      /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const state = this.requireState()
       if (!state.workspaceIds.includes(id)) throw new WorkspaceOrderInvalidError(id)
       if (beforeId !== undefined && !state.workspaceIds.includes(beforeId)) {
         throw new WorkspaceOrderInvalidError(beforeId)
       }
       if (beforeId === id) return state.workspaceIds
+      /** 中文说明：函数值 without 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const without = state.workspaceIds.filter(workspaceId => workspaceId !== id)
+      /** 中文说明：变量 at 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const at = beforeId === undefined ? without.length : without.indexOf(beforeId)
+      /** 中文说明：变量 workspaceIds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const workspaceIds = [...without.slice(0, at), id, ...without.slice(at)]
       if (sameIds(workspaceIds, state.workspaceIds)) return state.workspaceIds
       await this.setState({ ...state, workspaceIds })
@@ -249,6 +274,7 @@ export class WorkspaceRegistry extends Service {
       if (!(await this.sessionKnown(sessionId))) {
         throw new WorkspaceUnknownSessionError(sessionId)
       }
+      /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const state = this.requireState()
       await this.setState({ ...state, archivedSessionIds: [...state.archivedSessionIds, sessionId] })
     })
@@ -275,7 +301,9 @@ export class WorkspaceRegistry extends Service {
    * @returns the workspace owning the canonical path, when one exists.
    */
   async resolveByPath(path: string): Promise<Workspace | undefined> {
+    /** 中文说明：变量 canonical 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canonical = await realpathNormalize(path)
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const entity of this.entities.values()) {
       if (entity.path === canonical) return entity
     }
@@ -283,15 +311,22 @@ export class WorkspaceRegistry extends Service {
   }
 
   private async createCanonical(canonical: string, title?: string): Promise<WorkspaceEntity> {
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const entity of this.entities.values()) {
       if (entity.path === canonical) return entity
     }
 
+    /** 中文说明：变量 workspaceName 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspaceName = title ?? basename(canonical)
+    /** 中文说明：变量 table 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = this.requireTable()
+    /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const state = this.requireState()
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = WorkspaceId(randomUUID())
+    /** 中文说明：变量 now 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const now = new Date().toISOString()
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record: WorkspaceRecord = {
       path: canonical,
       title: workspaceName,
@@ -299,8 +334,10 @@ export class WorkspaceRegistry extends Service {
       createdAt: now,
       updatedAt: now,
     }
+    /** 中文说明：变量 entity 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entity = new WorkspaceEntity(this.host, id, record)
     this.entities.set(id, entity)
+    /** 中文说明：变量 pendingState 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pendingState: WorkspaceDomainState = {
       ...state,
       pendingMutation: { operation: 'create', workspaceId: id },
@@ -356,9 +393,12 @@ export class WorkspaceRegistry extends Service {
   }
 
   private async deleteKnown(id: WorkspaceId): Promise<boolean> {
+    /** 中文说明：变量 entity 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entity = this.entities.get(id)
     if (entity === undefined) return false
+    /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const state = this.requireState()
+    /** 中文说明：变量 nextState 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nextState = {
       initialized: true,
       workspaceIds: state.workspaceIds.filter(workspaceId => workspaceId !== id),
@@ -406,7 +446,9 @@ export class WorkspaceRegistry extends Service {
    * fails loud; this path never guesses which operation created a row from its shape alone.
    */
   private async recoverPendingMutation(): Promise<void> {
+    /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const state = this.requireState()
+    /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = state.pendingMutation
     if (pending === undefined) return
     if (state.workspaceIds.includes(pending.workspaceId)) {
@@ -424,39 +466,56 @@ export class WorkspaceRegistry extends Service {
   }
 
   private async bootstrap(headers: readonly SessionHeader[]): Promise<void> {
+    /** 中文说明：变量 table 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = this.requireTable()
+    /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const state = this.requireState()
+    /** 中文说明：变量 groupsByPath 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const groupsByPath = new Map<string, SessionHeader[]>()
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const header of headers) {
+      /** 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const path = this.sessionPaths.get(header.id)
       if (path === undefined) continue
+      /** 中文说明：变量 group 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const group = groupsByPath.get(path)
       if (group === undefined) groupsByPath.set(path, [header])
       else group.push(header)
     }
+    /** 中文说明：函数值 groups 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const groups: BootstrapGroup[] = [...groupsByPath].map(([path, groupHeaders]) => {
       groupHeaders.sort(compareHeaders)
+      /** 中文说明：变量 newest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const newest = groupHeaders[0] as SessionHeader
       return { path, headers: groupHeaders, newestAt: newest.createdAt }
     }).sort((left, right) =>
       right.newestAt - left.newestAt || left.path.localeCompare(right.path))
 
+    /** 中文说明：变量 byPath 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const byPath = new Map<string, WorkspaceId>()
+    /** 中文说明：变量 accounted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const accounted = new Map<SessionId, WorkspaceId>()
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const [id, record] of table.entries()) {
       byPath.set(record.path, id)
+      /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
       for (const sessionId of record.sessionIds) accounted.set(sessionId, id)
     }
 
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const group of groups) {
+      /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let id = byPath.get(group.path)
       if (id === undefined) {
+        /** 中文说明：变量 sessionIds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const sessionIds = group.headers
           .map(header => header.id)
           .filter(sessionId => !accounted.has(sessionId))
         if (sessionIds.length === 0) continue
         id = WorkspaceId(randomUUID())
+        /** 中文说明：变量 createdAt 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const createdAt = new Date(group.newestAt).toISOString()
+        /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const record: WorkspaceRecord = {
           path: group.path,
           title: basename(group.path),
@@ -466,15 +525,20 @@ export class WorkspaceRegistry extends Service {
         }
         await table.put(id, record)
         byPath.set(group.path, id)
+        /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
         for (const sessionId of sessionIds) accounted.set(sessionId, id)
         continue
       }
 
+      /** 中文说明：变量 current 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const current = table.get(id) as WorkspaceRecord
+      /** 中文说明：变量 historical 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const historical = group.headers
         .map(header => header.id)
         .filter(sessionId => accounted.get(sessionId) === undefined || accounted.get(sessionId) === id)
+      /** 中文说明：变量 historicalSet 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const historicalSet = new Set(historical)
+      /** 中文说明：变量 sessionIds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionIds = [
         ...historical,
         ...current.sessionIds.filter(sessionId => !historicalSet.has(sessionId)),
@@ -485,14 +549,20 @@ export class WorkspaceRegistry extends Service {
         sessionIds,
         updatedAt: new Date().toISOString(),
       }))
+      /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
       for (const sessionId of historical) accounted.set(sessionId, id)
     }
 
+    /** 中文说明：函数值 groupRank 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const groupRank = new Map(groups.map(group => [group.path, group.newestAt]))
+    /** 中文说明：函数值 priorRank 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const priorRank = new Map(state.workspaceIds.map((id, index) => [id, index]))
+    /** 中文说明：变量 workspaceIds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspaceIds = [...table.entries()]
       .sort(([leftId, left], [rightId, right]) => {
+        /** 中文说明：变量 leftTime 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const leftTime = groupRank.get(left.path) ?? Date.parse(left.createdAt)
+        /** 中文说明：变量 rightTime 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const rightTime = groupRank.get(right.path) ?? Date.parse(right.createdAt)
         return rightTime - leftTime
           || (priorRank.get(leftId) ?? Number.MAX_SAFE_INTEGER)
@@ -508,8 +578,11 @@ export class WorkspaceRegistry extends Service {
   }
 
   private validateStoredState(state: WorkspaceDomainState): void {
+    /** 中文说明：变量 table 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const table = this.requireTable()
+    /** 中文说明：变量 order 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const order = new Set<WorkspaceId>()
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const id of state.workspaceIds) {
       if (order.has(id)) {
         throw new Error(`workspace domain is inconsistent: registry order repeats workspace '${id}'`)
@@ -520,15 +593,20 @@ export class WorkspaceRegistry extends Service {
       order.add(id)
     }
     if (state.initialized && order.size !== table.size) {
+      /** 中文说明：函数值 orphan 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const orphan = [...table.keys()].find(id => !order.has(id))
       throw new Error(
         `workspace domain is inconsistent: workspace '${orphan as WorkspaceId}' is absent from registry order`,
       )
     }
 
+    /** 中文说明：变量 paths 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const paths = new Map<string, WorkspaceId>()
+    /** 中文说明：变量 accounted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const accounted = new Map<SessionId, WorkspaceId>()
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const [id, record] of table.entries()) {
+      /** 中文说明：变量 pathHolder 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pathHolder = paths.get(record.path)
       if (pathHolder !== undefined) {
         throw new Error(
@@ -537,7 +615,9 @@ export class WorkspaceRegistry extends Service {
         )
       }
       paths.set(record.path, id)
+      /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
       for (const sessionId of record.sessionIds) {
+        /** 中文说明：变量 holder 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const holder = accounted.get(sessionId)
         if (holder !== undefined) {
           throw new Error(
@@ -552,7 +632,9 @@ export class WorkspaceRegistry extends Service {
 
   private rebuildEntities(): void {
     this.entities.clear()
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const id of this.requireState().workspaceIds) {
+      /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const record = this.requireTable().get(id) as WorkspaceRecord
       this.entities.set(id, new WorkspaceEntity(this.host, id, record))
     }
@@ -566,6 +648,7 @@ export class WorkspaceRegistry extends Service {
   }
 
   private async indexHeaders(headers: readonly SessionHeader[]): Promise<void> {
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const header of headers) await this.indexHeader(header)
   }
 
@@ -577,6 +660,7 @@ export class WorkspaceRegistry extends Service {
       return
     }
     try {
+      /** 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const path = await realpathNormalize(header.cwd)
       if (!(await stat(path)).isDirectory()) {
         this.invalidSessionPaths.set(header.id, `cwd '${header.cwd}' is not a directory`)
@@ -590,17 +674,23 @@ export class WorkspaceRegistry extends Service {
   }
 
   private async indexLiveSessions(): Promise<void> {
+    /** 中文说明：变量 sessions 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sessions = this.ctx.get('sessions')
     if (sessions === undefined) return
     await this.indexHeaders(sessions.list().map(session => session.header))
   }
 
   private reportFilteredCandidates(): void {
+    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const entity of this.entities.values()) {
+      /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const record = this.requireTable().get(entity.id) as WorkspaceRecord
+      /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
       for (const sessionId of record.sessionIds) {
+        /** 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const path = this.sessionPaths.get(sessionId)
         if (path === record.path) continue
+        /** 中文说明：变量 reason 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const reason = this.invalidSessionPaths.get(sessionId)
           ?? (this.headers.has(sessionId)
             ? `canonical cwd '${path}' differs from workspace path '${record.path}'`
@@ -613,16 +703,20 @@ export class WorkspaceRegistry extends Service {
   }
 
   private async readSessionHeader(id: SessionId): Promise<SessionHeader> {
+    /** 中文说明：变量 live 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const live = this.ctx.get('sessions')?.get(id)
     if (live !== undefined) {
       this.headers.set(id, live.header)
       return live.header
     }
+    /** 中文说明：变量 cached 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cached = this.headers.get(id)
     if (cached !== undefined) return cached
 
+    /** 中文说明：变量 headers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const headers = await this.ctx.sessionPersistence.list()
     await this.indexHeaders(headers)
+    /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = this.headers.get(id)
     if (header === undefined) {
       throw new Error(`cannot validate session '${id}': session persistence holds no such session`)
@@ -646,6 +740,7 @@ export class WorkspaceRegistry extends Service {
   }
 
   private enqueueOperation<T>(operation: () => Promise<T>): Promise<T> {
+    /** 中文说明：函数值 result 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const result = this.operationTail.then(async () => {
       // A committed delete may leave only its marker cleanup pending. Retry
       // recovery before another create/delete can overwrite that pending operation record.
@@ -657,6 +752,7 @@ export class WorkspaceRegistry extends Service {
   }
 }
 
+/** 中文说明：函数值 sameSessionIds 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const sameSessionIds = (left: readonly SessionId[], right: readonly SessionId[]): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index])
 
