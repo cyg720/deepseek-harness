@@ -6,7 +6,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-client/api
  */
-/**
+/*
  * 文件职责：实现 api.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -27,7 +27,7 @@ import type { ContentBlock, DeepSeekHarnessOptions, HarnessClientOptions, Harnes
  * this instance until {@link close}; always close (or `await using`) so the
  * child is reaped.
  */
-/** 中文说明：class DeepSeekHarness 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class DeepSeekHarness 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class DeepSeekHarness implements AsyncDisposable {
   private clientInstance: HarnessClient
   private readonly launch: HarnessClientOptions
@@ -128,7 +128,7 @@ export class DeepSeekHarness implements AsyncDisposable {
 }
 
 /** Per-run options: target session and streaming observer. */
-/** 中文说明：interface RunOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface RunOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface RunOptions {
   /** Session id to run on; omitted mints a fresh session per call. */
   sessionId?: string
@@ -139,7 +139,7 @@ export interface RunOptions {
 /**
  * One SDK session: a stable id plus owned activity intervals.
  */
-/** 中文说明：class HarnessSession 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class HarnessSession 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class HarnessSession {
   /**
    * @param harness - the owning harness (supplies the client and handshake).
@@ -220,13 +220,13 @@ export class HarnessSession {
  * @param input - prompt text or content blocks.
  * @returns the content blocks to send.
  */
-/** 中文说明：函数 normalizeInput 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 normalizeInput 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function normalizeInput(input: string | ContentBlock[]): ContentBlock[] {
   return typeof input === 'string' ? [{ type: 'text', text: input }] : input
 }
 
 /** Validate the fields in a wire `session.event` envelope before returning the typed result. */
-/** 中文说明：函数 validatedSessionEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 validatedSessionEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function validatedSessionEvent(value: unknown): SessionEvent {
   if (!isRecord(value) || typeof value.type !== 'string') {
     throw new SdkProtocolError(`session.event carried no event envelope: ${JSON.stringify(value)}`)
@@ -247,7 +247,7 @@ function validatedSessionEvent(value: unknown): SessionEvent {
 }
 
 /** Whether a raw session event is the durable enqueue receipt for `messageId`. */
-/** 中文说明：函数 isInboxReceipt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isInboxReceipt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isInboxReceipt(value: unknown, messageId: string): boolean {
   if (!isRecord(value) || value.type !== 'agent/inbox/spliced' || !isRecord(value.data)) return false
   /** 中文说明：变量 inserted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -260,7 +260,7 @@ function isInboxReceipt(value: unknown, messageId: string): boolean {
  * @param events - the activity interval's `session.event` payloads in wire order.
  * @returns the final response text, or `''` when no assistant message exists.
  */
-/** 中文说明：函数 finalResponse 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 finalResponse 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function finalResponse(events: SessionEvent[]): string {
   /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (let index = events.length - 1; index >= 0; index--) {

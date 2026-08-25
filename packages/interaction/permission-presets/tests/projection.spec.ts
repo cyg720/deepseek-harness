@@ -8,7 +8,7 @@
  * compositions without either registry are unaffected; unmounting the
  * service removes the key (HMR safety).
  */
-/**
+/*
  * 文件职责：验证交互与审批的 projection.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
@@ -48,7 +48,7 @@ async function harness(options: { withPermission?: boolean; config?: Config } = 
 }
 
 /** Mint a scoped agent over a live session (the command executor's addressing shape). */
-/** 中文说明：函数 agentFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 agentFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function agentFor(ctx: Context, session: Session) {
   /** 中文说明：测试局部值 inject，由紧邻初始化决定。 */
   const inject = vi.fn<Agent['inject']>()

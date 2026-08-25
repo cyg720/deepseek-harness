@@ -6,7 +6,7 @@
  * calls, so these run on every platform; the real-FFI round-trip lives in
  * acl.spec.ts and probe.spec.ts (win32 only).
  */
-/**
+/*
  * 文件职责：验证 ffi.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -30,7 +30,7 @@ import * as abi from '../src/win32-abi.ts'
 const PVOID = koffi.pointer('void')
 
 /** A stub whose formatMessageW writes real UTF-16 text (the errorText round-trip). */
-/** 中文说明：函数 formatApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 formatApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function formatApi(): { api: Win32Bindings; formatMessageW: ReturnType<typeof vi.fn> } {
   /** 中文说明：函数值 formatMessageW 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const formatMessageW = vi.fn((_flags: number, _source: null, _id: number, _lang: number, buffer: Buffer, _size: number, _args: null) => {
@@ -48,7 +48,7 @@ function formatApi(): { api: Win32Bindings; formatMessageW: ReturnType<typeof vi
 }
 
 /** A minimal SID allocation: revision@0, subAuthorityCount@1, identifierAuthority@2, subauthorities@8. */
-/** 中文说明：函数 craftSid 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 craftSid 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function craftSid(revision: number, count: number, authority: number[] = [0, 0, 0, 0, 0, 0], subs: number[] = []): NativePtr {
   /** 中文说明：变量 sid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sid = allocBytes(8 + subs.length * 4)

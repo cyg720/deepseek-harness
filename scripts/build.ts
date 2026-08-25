@@ -1,5 +1,5 @@
 /** Run the complete repository build and bind its client artifacts to their public environment. */
-/**
+/*
  * 中文说明：
  * - 文件职责：串行执行仓库库构建和 Web 构建，并记录客户端产物对应的公开构建环境。
  * - 技术维度：使用 Node spawnSync、命令行参数解析、环境变量分层和构建记录文件。
@@ -23,7 +23,7 @@ import {
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
 /** Run one package script through the package manager that invoked this build. */
-/** 中文：在 environment 下运行一个 pnpm script；失败时抛错，无返回值。示例：runScript('build:web', env)。 */
+/* 中文：在 environment 下运行一个 pnpm script；失败时抛错，无返回值。示例：runScript('build:web', env)。 */
 function runScript(script: string, environment: NodeJS.ProcessEnv): void {
   /** 当前包管理器命令、参数和平台调用方式。 */
   const invocation = pnpmInvocation(['run', script], environment)
@@ -40,7 +40,7 @@ function runScript(script: string, environment: NodeJS.ProcessEnv): void {
 }
 
 /** Run the full build selected by `--profile` or `DSH_BUILD_CLIENT_PROFILE`. */
-/** 中文：解析构建 profile 并完成库、Web 与记录构建；无参数和返回值。 */
+/* 中文：解析构建 profile 并完成库、Web 与记录构建；无参数和返回值。 */
 function main(): void {
   /** 命令行解析结果；values.profile 可省略。 */
   const { values } = parseArgs({

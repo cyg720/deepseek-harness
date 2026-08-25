@@ -2,7 +2,7 @@
  * Stylesheets enter client bundles through virtual modules, so the loader must
  * register their physical files as watch dependencies.
  */
-/**
+/*
  * 文件职责：验证 client-bundle-css.spec.ts 覆盖的仓库构建、校验或维护脚本职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
  * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。

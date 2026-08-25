@@ -42,7 +42,7 @@ const testToolSignal = new AbortController().signal
  */
 
 /** A minimal parent Agent passed through to the provider request. */
-/** 中文说明：函数 fakeAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeAgent(id = 'parent-1'): Agent {
   return { id: SessionId(id) } as unknown as Agent
 }
@@ -879,7 +879,7 @@ describe('dsh-tool-subagent', () => {
 
 describe('dsh-tool-subagent background mode', () => {
   /** A live parent with a dedicated scope fiber for structural task cleanup. */
-  /** 中文说明：函数 ownerAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 ownerAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function ownerAgent(ctx: Context, sessionId: string, inject: (...args: unknown[]) => void = () => {}): Agent {
     /** 中文说明：函数值 scopeFiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const scopeFiber = ctx.plugin(() => {})
@@ -1234,7 +1234,7 @@ describe('dsh-tool-subagent continuable background mode', () => {
   })
 
   /** Boot the real continuable stack without any model-facing follow-up adapter. */
-  /** 中文说明：函数 continuableSetup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 continuableSetup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function continuableSetup() {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
@@ -1469,7 +1469,7 @@ describe('background preflight failure (no orphaned child, by construction)', ()
 
 describe('depth budget configuration', () => {
   /** Mount the tool over a request-capturing provider with full capabilities. */
-  /** 中文说明：函数 captureSetup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 captureSetup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function captureSetup(config: Omit<tool.Config, 'provider'> = {}) {
     /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const requests: SubagentStartRequest[] = []

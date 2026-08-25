@@ -9,7 +9,7 @@
  * out of win32 sessions and tool-pwsh out of POSIX sessions, and the
  * cold-start resolution closure for the pwsh rows' bare plugin names.
  */
-/**
+/*
  * 文件职责：验证发布配置在 Windows 与 POSIX 上只启用对应 shell 栈，并保持权限层一致。
  * 技术维度：使用真实 bundle 补丁组合、YAML 解析和受控 JavaScript 表达式求值模拟平台。
  * 产品维度：用户在不同操作系统上自动获得受沙箱约束的正确 shell，不会同时暴露两套工具。
@@ -32,7 +32,7 @@ import { composeEntries, initProfile, loadProfile, PROFILES_DIR } from '@deepsee
  * The effective disabled state of one row on one platform: a `!!js` expression
  * evaluates with a platform-scoped `process` so both outcomes pin on any host.
  */
-/**
+/*
  * 计算一行配置在指定模拟平台上的最终禁用状态。
  * @param row 可能包含布尔值或 !!js 表达式的配置行。
  * @param platform 要模拟的 Windows 或 Linux 平台。

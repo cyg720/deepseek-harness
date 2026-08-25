@@ -2,7 +2,7 @@
  * Lossless-JSON snapshots for the dependency-free source worker closure.
  * @module @deepseek-ai/dsh-code-runtime-worker-thread/worker-json
  */
-/**
+/*
  * 文件职责：实现代码运行时的 worker-json 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供代码运行时能力。
@@ -65,7 +65,7 @@ const intrinsicSetDelete = Reflect.get(Set.prototype, 'delete') as IntrinsicCall
 const intrinsicSetHas = Reflect.get(Set.prototype, 'has') as IntrinsicCallable
 
 /** Build a data descriptor that cannot inherit model-defined accessor fields. */
-/** 中文说明：函数 dataDescriptor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 dataDescriptor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function dataDescriptor(value: unknown): PropertyDescriptor {
   /** 中文说明：运行时局部值 descriptor，由紧邻初始化决定。 */
   const descriptor = intrinsicObjectCreate(null) as PropertyDescriptor
@@ -74,7 +74,7 @@ function dataDescriptor(value: unknown): PropertyDescriptor {
 }
 
 /** Define an ordinary enumerable data slot without a prototype-bearing descriptor. */
-/** 中文说明：函数 defineEnumerableDataProperty 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 defineEnumerableDataProperty 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function defineEnumerableDataProperty(target: object, key: PropertyKey, value: unknown): void {
   /** 中文说明：运行时局部值 descriptor，由紧邻初始化决定。 */
   const descriptor = dataDescriptor(value)
@@ -85,13 +85,13 @@ function defineEnumerableDataProperty(target: object, key: PropertyKey, value: u
 }
 
 /** Append without consulting a model-mutated `Array.prototype`. */
-/** 中文说明：函数 append 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 append 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function append<T>(target: T[], value: T): void {
   defineEnumerableDataProperty(target, target.length, value)
 }
 
 /** Pop without consulting a model-mutated `Array.prototype`. */
-/** 中文说明：函数 takeLast 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 takeLast 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function takeLast<T>(target: T[]): T | undefined {
   if (target.length === 0) return undefined
   /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
@@ -103,25 +103,25 @@ function takeLast<T>(target: T[]): T | undefined {
 }
 
 /** Whether one captured-intrinsic Set contains a value. */
-/** 中文说明：函数 setHas 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 setHas 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function setHas<T>(target: Set<T>, value: T): boolean {
   return intrinsicReflectApply(intrinsicSetHas, target, [value]) as boolean
 }
 
 /** Add to one captured-intrinsic Set. */
-/** 中文说明：函数 setAdd 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 setAdd 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function setAdd<T>(target: Set<T>, value: T): void {
   intrinsicReflectApply(intrinsicSetAdd, target, [value])
 }
 
 /** Delete from one captured-intrinsic Set. */
-/** 中文说明：函数 setDelete 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 setDelete 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function setDelete<T>(target: Set<T>, value: T): void {
   intrinsicReflectApply(intrinsicSetDelete, target, [value])
 }
 
 /** Whether a realm-owned intrinsic prototype is backed by its native constructor. */
-/** 中文说明：函数 hasIntrinsicConstructor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 hasIntrinsicConstructor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasIntrinsicConstructor(prototype: object, name: 'Array' | 'Object'): boolean {
   /** 中文说明：运行时局部值 descriptor，由紧邻初始化决定。 */
   const descriptor = intrinsicObjectGetOwnPropertyDescriptor(prototype, 'constructor')
@@ -138,13 +138,13 @@ function hasIntrinsicConstructor(prototype: object, name: 'Array' | 'Object'): b
 }
 
 /** Whether a candidate is a foreign realm's intrinsic `Object.prototype`. */
-/** 中文说明：函数 isForeignIntrinsicObjectPrototype 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 isForeignIntrinsicObjectPrototype 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isForeignIntrinsicObjectPrototype(value: object): boolean {
   return intrinsicObjectGetPrototypeOf(value) === null && hasIntrinsicConstructor(value, 'Object')
 }
 
 /** Whether an array uses one realm's intrinsic `Array.prototype`, not a subclass or forged prototype. */
-/** 中文说明：函数 hasPlainArrayPrototype 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 hasPlainArrayPrototype 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasPlainArrayPrototype(value: unknown[]): boolean {
   /** 中文说明：运行时局部值 prototype，由紧邻初始化决定。 */
   const prototype: unknown = intrinsicObjectGetPrototypeOf(value)
@@ -158,7 +158,7 @@ function hasPlainArrayPrototype(value: unknown[]): boolean {
 }
 
 /** Whether an object is a plain or null-prototype record from any JavaScript realm. */
-/** 中文说明：函数 hasPlainObjectPrototype 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 hasPlainObjectPrototype 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasPlainObjectPrototype(value: object): boolean {
   /** 中文说明：运行时局部值 prototype，由紧邻初始化决定。 */
   const prototype: unknown = intrinsicObjectGetPrototypeOf(value)
@@ -168,7 +168,7 @@ function hasPlainObjectPrototype(value: object): boolean {
 }
 
 /** Return every JSON-visible object key, or reject own data JSON would discard. */
-/** 中文说明：函数 enumerableStringKeys 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 enumerableStringKeys 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function enumerableStringKeys(value: object): string[] | undefined {
   /** 中文说明：运行时局部值 keys，由紧邻初始化决定。 */
   const keys = intrinsicReflectOwnKeys(value)
@@ -203,7 +203,7 @@ type SnapshotTask =
  * @param value - the candidate completion value.
  * @returns a detached lossless-JSON snapshot, or `undefined` when invalid.
  */
-/** 中文说明：函数 snapshotCodeJsonValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 snapshotCodeJsonValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function snapshotCodeJsonValue(value: unknown): CodeJsonValue | undefined {
   /** 中文说明：运行时局部值 active，由紧邻初始化决定。 */
   const active = new IntrinsicSet<object>()
@@ -322,7 +322,7 @@ type WorkerJsonToken = null | boolean | number | string | ArrayWireToken | Objec
  * markers and scalar leaves share one flat token array, so `worker_threads`
  * never has to structured-clone the value's application nesting.
  */
-/** 中文说明：类型或类 WorkerJsonWire 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 WorkerJsonWire 约束协议数据或模块职责。 */
 export type WorkerJsonWire = WorkerJsonToken[]
 
 /**
@@ -330,7 +330,7 @@ export type WorkerJsonWire = WorkerJsonToken[]
  * @param value - the lossless JSON value to transport.
  * @returns a pre-order token stream whose own nesting is bounded.
  */
-/** 中文说明：函数 encodeWorkerJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 encodeWorkerJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function encodeWorkerJson(value: CodeJsonValue): WorkerJsonWire {
   /** 中文说明：运行时局部值 wire，由紧邻初始化决定。 */
   const wire: WorkerJsonWire = []
@@ -377,7 +377,7 @@ type DecodeFrame =
   | { kind: 'object'; target: Record<string, CodeJsonValue>; keys: string[]; index: number }
 
 /** Whether an array contains exactly its dense indexed slots and `length`. */
-/** 中文说明：函数 isDenseArray 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 isDenseArray 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isDenseArray(value: unknown[]): boolean {
   if (!hasPlainArrayPrototype(value) || intrinsicReflectOwnKeys(value).length !== value.length + 1) return false
   /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
@@ -388,7 +388,7 @@ function isDenseArray(value: unknown[]): boolean {
 }
 
 /** Whether one exact string-key list contains a key, without consulting its prototype. */
-/** 中文说明：函数 keysContain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 keysContain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function keysContain(keys: string[], expected: string): boolean {
   /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
   for (let index = 0; index < keys.length; index++) {
@@ -398,7 +398,7 @@ function keysContain(keys: string[], expected: string): boolean {
 }
 
 /** Return one exact container marker, or reject any extra/missing fields. */
-/** 中文说明：函数 containerToken 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 containerToken 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function containerToken(value: object): ArrayWireToken | ObjectWireToken | undefined {
   if (intrinsicArrayIsArray(value) || !hasPlainObjectPrototype(value)) return undefined
   /** 中文说明：运行时局部值 keys，由紧邻初始化决定。 */
@@ -445,7 +445,7 @@ function containerToken(value: object): ArrayWireToken | ObjectWireToken | undef
  * @param input - untrusted message-port payload.
  * @returns the detached JSON value, or `undefined` when the wire is invalid.
  */
-/** 中文说明：函数 decodeWorkerJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 decodeWorkerJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function decodeWorkerJson(input: unknown): CodeJsonValue | undefined {
   try {
     if (!intrinsicArrayIsArray(input) || !isDenseArray(input) || input.length === 0) return undefined

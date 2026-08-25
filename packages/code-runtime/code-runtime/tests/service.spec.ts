@@ -17,7 +17,7 @@ import type { CodeRunRequest, CodeRunResult } from '@deepseek-ai/dsh-code-runtim
  * Service Definition package ships no provider, so the contract is exercised through
  * the smallest subclass that honors it.
  */
-/** 中文说明：类型或类 StubRuntime 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 StubRuntime 约束协议数据或模块职责。 */
 class StubRuntime extends CodeRuntime {
   readonly language = 'typescript'
   readonly isolation = 'in-process-stub'

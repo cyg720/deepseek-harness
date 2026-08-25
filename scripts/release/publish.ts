@@ -11,7 +11,7 @@
  * Skipping on identical integrity is what makes re-running the publish step over
  * the same artifact safe.
  */
-/**
+/*
  * 文件职责：实现 publish.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -36,11 +36,11 @@ import { packedIdentity, readPublishOrder } from './tarball.ts'
  * registry's own processing. A rejected payload (`E403` over an existing
  * version, a malformed manifest) never clears on a retry and must surface.
  */
-/** 中文说明：常量 TRANSIENT_PUBLISH_CODES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TRANSIENT_PUBLISH_CODES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TRANSIENT_PUBLISH_CODES = ['E409', 'E429', 'E500', 'E502', 'E503', 'E504', 'ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN'] as const
 
 /** How many times one tarball's publish is attempted before the run fails. */
-/** 中文说明：常量 PUBLISH_ATTEMPTS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PUBLISH_ATTEMPTS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PUBLISH_ATTEMPTS = 4
 
 /**
@@ -49,11 +49,11 @@ const PUBLISH_ATTEMPTS = 4
  * The registry needs a moment to commit a packument before the next write; back
  * to back publishes are what produce `E409`.
  */
-/** 中文说明：常量 PUBLISH_SPACING_MS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PUBLISH_SPACING_MS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PUBLISH_SPACING_MS = 2_000
 
 /** What the registry knows about one version. */
-/** 中文说明：type RegistryState 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type RegistryState 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type RegistryState =
   | { readonly kind: 'absent' }
   | { readonly kind: 'present'; readonly integrity: string }
@@ -63,7 +63,7 @@ type RegistryState =
  * @param output - combined npm output.
  * @returns True when the registry reported a write it did not commit.
  */
-/** 中文说明：函数 isTransientFailure 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isTransientFailure 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isTransientFailure(output: string): boolean {
   return TRANSIENT_PUBLISH_CODES.some(code => output.includes(`code ${code}`))
 }
@@ -73,7 +73,7 @@ function isTransientFailure(output: string): boolean {
  * @param tarball - absolute tarball path.
  * @returns A `sha512-<base64>` string.
  */
-/** 中文说明：函数 integrityOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 integrityOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function integrityOf(tarball: string): string {
   return `sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}`
 }
@@ -84,7 +84,7 @@ function integrityOf(tarball: string): string {
  * @param version - package version.
  * @returns The registry state for that version.
  */
-/** 中文说明：函数 registryState 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 registryState 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function registryState(name: string, version: string): RegistryState {
   /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = attempt('npm', ['view', `${name}@${version}`, 'dist.integrity', '--json'])
@@ -112,7 +112,7 @@ function registryState(name: string, version: string): RegistryState {
  * @param name - package name the tarball declares.
  * @param version - package version the tarball declares.
  */
-/** 中文说明：函数 publishTarball 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 publishTarball 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function publishTarball(tarball: string, name: string, version: string): Promise<void> {
   // A prerelease version never takes the latest dist-tag.
   /** 中文说明：变量 tagArgs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -149,7 +149,7 @@ async function publishTarball(tarball: string, name: string, version: string): P
 }
 
 /** Publish the family named by `--family` from the directory named by `--from`. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function main(): Promise<void> {
   const { values } = parseArgs({
     options: { family: { type: 'string' }, from: { type: 'string' } },

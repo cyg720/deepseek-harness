@@ -2,7 +2,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-persona`.
  * @module @deepseek-ai/dsh-persona/invariant
  */
-/**
+/*
  * 文件职责：为角色提示词注册插件声明包级不变量伴生插件。
  * 技术维度：使用 Cordis 依赖注入和 dsh-invariants 注册机制，以安装器描述可执行检查。
  * 产品维度：让维护者能在统一审计入口确认该包是否拥有需要持续核对的运行时关系。
@@ -19,10 +19,10 @@ const PACKAGE_NAME = '@deepseek-ai/dsh-persona'
 // 不变量注册表使用的正式包名；必须与当前 npm 包标识保持一致。
 
 /** Cordis companion plugin name. */
-/** Cordis 配置中引用的伴生插件名称；它不是面向最终用户的显示文本。 */
+/* Cordis 配置中引用的伴生插件名称；它不是面向最终用户的显示文本。 */
 export const name = 'persona-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 启动前必须注入的不变量服务；数组中的名称由 Cordis 依赖注入解析。 */
+/* 启动前必须注入的不变量服务；数组中的名称由 Cordis 依赖注入解析。 */
 export const inject = ['invariants']
 
 /**
@@ -38,7 +38,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 注册本包的不变量声明。@param ctx 提供不变量服务的 Cordis 上下文。@returns 解除本次注册的函数。@example await apply(ctx)。 */
+/* 注册本包的不变量声明。@param ctx 提供不变量服务的 Cordis 上下文。@returns 解除本次注册的函数。@example await apply(ctx)。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))
 /* jscpd:ignore-end */

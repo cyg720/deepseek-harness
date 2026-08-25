@@ -2,7 +2,7 @@
  * Pins shared client-bundle preset rules: the module-edge purity gate and
  * the physical watch dependencies hidden behind virtual CSS Modules.
  */
-/**
+/*
  * 文件职责：验证 client-bundle-purity.spec.ts 覆盖的仓库构建、校验或维护脚本职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
  * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
@@ -25,7 +25,7 @@ interface CssModulePlugin {
 }
 
 /** A representative dynamic bundle using the shared client baseline. */
-/** 中文说明：常量 REQUESTING_PACKAGE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 REQUESTING_PACKAGE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REQUESTING_PACKAGE = '@deepseek-ai/dsh-client-ui-conversation'
 
 /** 中文说明：函数 clientConfigs 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */

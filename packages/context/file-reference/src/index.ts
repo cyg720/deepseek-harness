@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】file-reference 能力缝（capability seam）的对外总入口：定义
  *             FileReferenceService 抽象服务（Host 端能力），供终端/Web 界面
@@ -35,7 +35,7 @@ export type { ActiveAtToken } from './grammar.ts'
 export type { FileReferenceCandidate } from './types.ts'
 
 /** Model guidance for path-only references selected by a user interface. */
-/** 模型侧指导语：@ 前缀的路径是用户显式引用的文件，需要内容时应使用 read 工具。 */
+/* 模型侧指导语：@ 前缀的路径是用户显式引用的文件，需要内容时应使用 read 工具。 */
 export const FILE_REFERENCE_PROMPT = 'Paths prefixed with @ are files explicitly referenced by the user. Use the read tool when their contents are needed; do not claim to have inspected a file before reading it.'
 
 /** 声明 Cordis Context 上的服务挂载点：其他插件可通过 ctx.fileReferences 访问本服务。 */
@@ -46,7 +46,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Host capability for cancellable file-reference discovery. */
-/** Host 端能力：可取消的文件引用发现服务。终端/Web 客户端远程调用，Host 侧提供实现。 */
+/* Host 端能力：可取消的文件引用发现服务。终端/Web 客户端远程调用，Host 侧提供实现。 */
 export abstract class FileReferenceService extends TypertRemoteService {
   /** 注册远程服务：super(ctx, 'fileReferences') 把自身登记为 Cordis 的远程服务。 */
   constructor(ctx: Context) {
@@ -60,7 +60,7 @@ export abstract class FileReferenceService extends TypertRemoteService {
    * @param signal - caller cancellation.
    * @returns deterministic path-only candidates.
    */
-  /**
+  /*
    * 列出某个 agent 工作目录下的文件/目录补全候选。
    * @param agent 目标 agent，其会话 cwd 决定了发现范围
    * @param query @ 或 @" 之后的路径文本（补全关键字）
@@ -81,7 +81,7 @@ export abstract class FileReferenceService extends TypertRemoteService {
    * @param signal - caller cancellation.
    * @returns deterministic path-only candidates.
    */
-  /**
+  /*
    * list 的远程暴露面：装饰器无法直接标注抽象成员，因此用这个具体适配方法
    * 承载完全相同的契约，客户端通过它跨进程调用 list。
    * @param agent 目标 agent，其会话 cwd 决定了发现范围

@@ -64,7 +64,7 @@ const PACKAGE_FILES: Readonly<Record<string, string>> = {
 }
 
 /** Materialize a stable package inventory inside the isolated session workspace. */
-/** 在隔离会话工作区写入固定包清单，消除真实仓库变化对记录结果的影响。 */
+/* 在隔离会话工作区写入固定包清单，消除真实仓库变化对记录结果的影响。 */
 async function seedPackageInventory(workspaceRoot: string): Promise<void> {
   for (const [relativePath, content] of Object.entries(PACKAGE_FILES)) {
     /** 当前夹具文件在 workspace 下的绝对路径。 */
@@ -75,7 +75,7 @@ async function seedPackageInventory(workspaceRoot: string): Promise<void> {
 }
 
 /** Await exactly the requested number of durable turn ends, then flush the session. */
-/** 等待精确数量的持久 turn/end，再刷新并返回会话编号。 */
+/* 等待精确数量的持久 turn/end，再刷新并返回会话编号。 */
 function whenTurnsSettled(scaffold: WebScaffold, count: number, timeoutMs: number): Promise<SessionId> {
   return new Promise<SessionId>((resolve, reject) => {
     /** 已观察到的 turn/end 数量。 */
@@ -98,7 +98,7 @@ function whenTurnsSettled(scaffold: WebScaffold, count: number, timeoutMs: numbe
 }
 
 /** Goal-owned round numbers in durable user-message order. */
-/** 按持久用户消息顺序提取 Goal 来源的轮次编号。 */
+/* 按持久用户消息顺序提取 Goal 来源的轮次编号。 */
 function goalRounds(events: readonly SessionEvent[]): number[] {
   return events.flatMap(event => event.type === 'user/message' && event.data.source.kind === 'goal'
     ? [event.data.source.round]
@@ -106,7 +106,7 @@ function goalRounds(events: readonly SessionEvent[]): number[] {
 }
 
 /** Objective written by each durable Goal creation. */
-/** 提取每次持久 Goal create 事件写入的目标文本。 */
+/* 提取每次持久 Goal create 事件写入的目标文本。 */
 function createdObjectives(events: readonly SessionEvent[]): string[] {
   return events.flatMap(event => event.type === 'goal/change' && event.data.operation === 'create'
     ? [event.data.goal.objective]
@@ -139,7 +139,7 @@ describe('web e2e: Goal keeps one assistant action row per completed turn', () =
   })
 
   /** Boot the real Web composition and connect a fresh package fixture workspace. */
-  /** 启动真实 Web 组合并连接带固定包清单的新工作区。 */
+  /* 启动真实 Web 组合并连接带固定包清单的新工作区。 */
   async function launch(): Promise<void> {
     sessionEvents = []
     scaffold = await launchWebScaffold(
@@ -156,7 +156,7 @@ describe('web e2e: Goal keeps one assistant action row per completed turn', () =
   }
 
   /** Submit the Goal command after arming the two-turn barrier. */
-  /** 在安装两轮结束屏障后提交 Goal 命令。 */
+  /* 在安装两轮结束屏障后提交 Goal 命令。 */
   async function runGoal(timeoutMs: number): Promise<SessionId> {
     /** 当前聊天编辑器。 */
     const input = page.locator('textarea').first()

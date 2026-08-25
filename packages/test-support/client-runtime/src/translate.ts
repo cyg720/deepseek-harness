@@ -6,7 +6,7 @@
  * seat with `makeTranslate(zh, commonZh)` instead of re-implementing the
  * chain per suite.
  */
-/**
+/*
  * 文件职责：提供客户端测试使用的轻量翻译函数替身。
  * 技术维度：使用普通字典、按序查找和正则替换模拟 LocaleRuntime 的键解析与模板插值。
  * 产品维度：让界面测试使用接近真实本地化行为的文案，而不必启动完整客户端运行时。
@@ -21,7 +21,7 @@
  * @param dicts - dictionaries consulted in order.
  * @returns the translate function (assignable to any `XxxProps['t']` seat).
  */
-/**
+/*
  * 构造按序查字典的翻译替身。
  * @param dicts 依次查询的只读字典，前面的字典优先。
  * @returns 接收键和可选参数的翻译函数。

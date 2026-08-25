@@ -3,7 +3,7 @@
  * sessions. Current-session switches remain on the composer `/permission`
  * control.
  */
-/**
+/*
  * 文件职责：实现权限预设的 PermissionRow 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：支持用户查看或调整权限预设。
@@ -24,7 +24,7 @@ import { FULL_ACCESS_PRESET } from './presentation.ts'
 import css from './PermissionRow.module.css'
 
 /** Registration-side business face for the host-backed preference. */
-/** 中文说明：类型或类 PermissionRowInjected 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 PermissionRowInjected 约束本文件数据或组件职责。 */
 export interface PermissionRowInjected {
   hooks: {
     /** Permission settings snapshot bound by the renderer as usePermission. */
@@ -37,7 +37,7 @@ export interface PermissionRowInjected {
 }
 
 /** Full component props. */
-/** 中文说明：类型或类 PermissionRowProps 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 PermissionRowProps 约束本文件数据或组件职责。 */
 export type PermissionRowProps =
   PropsRuntime<'settings.general.item'>
   & PropsLocale<'settings.permission'>
@@ -48,7 +48,7 @@ export type PermissionRowProps =
  * @param props - composed slot props.
  * @returns the row, or null when the host does not expose permission settings.
  */
-/** 中文说明：函数 PermissionRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 PermissionRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function PermissionRow({ load, select, usePermission, t }: PermissionRowProps) {
   /** 中文说明：组件局部值 state，由紧邻初始化决定。 */
   const state = usePermission(snapshot => snapshot)

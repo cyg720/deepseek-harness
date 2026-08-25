@@ -1,7 +1,7 @@
 /**
  * Boot the self-referential Cordis tools under Web or ACP, defaulting to Web. This is a repository demo wrapper, not a product CLI feature.
  */
-/**
+/*
  * 文件职责：以 Web 或 ACP 表面启动能检查并修改自身 Cordis 组合的仓库演示。
  * 技术维度：使用 Node.js spawn、Map 模式表和继承 stdio 启动现有 CLI 入口。
  * 产品维度：帮助开发者体验代理通过工具理解和调整自身插件运行时。

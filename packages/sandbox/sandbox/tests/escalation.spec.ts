@@ -5,7 +5,7 @@
  * families (`dsh-tool-bash`, `dsh-tool-fs`) delegate here, so the ordering and
  * verbatim texts are pinned once, next to the vocabulary that owns them.
  */
-/**
+/*
  * 文件职责：验证 escalation.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -72,7 +72,7 @@ describe('approveEscalation', () => {
     ...over,
   })
   /** An approver that records the request and returns a fixed outcome. */
-  /** 中文说明：函数值 approver 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+  /* 中文说明：函数值 approver 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const approver = (outcome: EscalationOutcome, sink?: (req: unknown) => void): EscalationApprover => ({
     request: async (request) => { sink?.(request); return outcome },
   })

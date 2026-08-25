@@ -5,7 +5,7 @@
  * missing or corrupt platform package (`--omit=optional`, partial install)
  * surfaces as a per-call `SEARCH_FAILED` — not a composition-load failure.
  */
-/**
+/*
  * 文件职责：验证打包 ripgrep 缺失或损坏时惰性解析在搜索调用处报告 SEARCH_FAILED。
  * 技术维度：使用 Vitest 模块 mock、Proxy 抛错和最小 ToolExecution 运行真实 runRipgrep 路径。
  * 产品维度：避免可选平台包问题阻止整个应用装配，并给单次文件搜索明确错误。

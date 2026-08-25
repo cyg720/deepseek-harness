@@ -20,7 +20,7 @@
  * some of them reject. The composer's model picker offers each model its own
  * levels instead.
  */
-/**
+/*
  * 文件职责：实现模型设置的 CustomProviderCard 组件。
  * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看和调整模型设置。
@@ -42,7 +42,7 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** The settings namespace a hand-declared provider is written into. */
-/** 中文说明：设置局部值 NS，由紧邻初始化决定。 */
+/* 中文说明：设置局部值 NS，由紧邻初始化决定。 */
 const NS = 'llm-pi-ai'
 
 /**
@@ -53,11 +53,11 @@ const NS = 'llm-pi-ai'
  * digit-leading id passes every check this card makes and then fails at the
  * credential seam with a raw regular expression the user cannot act on.
  */
-/** 中文说明：设置局部值 ROUTE_PATTERN，由紧邻初始化决定。 */
+/* 中文说明：设置局部值 ROUTE_PATTERN，由紧邻初始化决定。 */
 const ROUTE_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 
 /** Props of {@link CustomProviderCard}. */
-/** 中文说明：类型或类 CustomProviderCardProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 CustomProviderCardProps 约束设置数据或组件职责。 */
 export interface CustomProviderCardProps {
   /** Route ids already declared, so the card refuses to shadow one. */
   taken: readonly string[]
@@ -84,7 +84,7 @@ export interface CustomProviderCardProps {
  * @param props - existing routes, protocol choices, wire faces, and copy.
  * @returns the creation card.
  */
-/** 中文说明：函数 CustomProviderCard 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 CustomProviderCard 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const { taken, protocols, api, t } = props
@@ -113,12 +113,12 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
    * the fields that describe the provider are settled and the retry path is
    * the credential alone.
    */
-  /** 中文说明：设置局部值 [committed, setCommitted]，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 [committed, setCommitted]，由紧邻初始化决定。 */
   const [committed, setCommitted] = useState(false)
   /** 中文说明：设置局部值 disabled，由紧邻初始化决定。 */
   const disabled = props.readOnly || busy
   /** Everything but the key stops being editable once the provider exists. */
-  /** 中文说明：设置局部值 profileDisabled，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 profileDisabled，由紧邻初始化决定。 */
   const profileDisabled = disabled || committed
 
   /** 中文说明：设置局部值 routeInvalid，由紧邻初始化决定。 */
@@ -161,7 +161,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         : t('customNeedsModels')
 
   /** Perform the create, returning a failure message or undefined. */
-  /** 中文说明：设置局部值 createOnce，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 createOnce，由紧邻初始化决定。 */
   const createOnce = async (): Promise<string | undefined> => {
     /** 中文说明：设置局部值 keyRef，由紧邻初始化决定。 */
     const keyRef = deriveKeyRef(route)

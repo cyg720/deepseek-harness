@@ -4,7 +4,7 @@
  * surface order rather than step markers.
  * @module @deepseek-ai/dsh-compaction/tool-pairing
  */
-/**
+/*
  * 文件职责：实现上下文压缩的 tool-pairing.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的上下文压缩信息。
@@ -16,7 +16,7 @@
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 
 /** Incremental balance state for one session surface generation. */
-/** 中文说明：类型或类 BalanceCache 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 BalanceCache 约束上下文或压缩数据职责。 */
 interface BalanceCache {
   /** Surface rewrite generation this state describes. */
   generation: number
@@ -36,7 +36,7 @@ interface BalanceCache {
 const balanceCacheBySession = new WeakMap<Session, BalanceCache>()
 
 /** Return how one surface event changes the in-progress tool-call count. */
-/** 中文说明：函数 eventDelta 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 eventDelta 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function eventDelta(event: SessionEvent): number {
   switch (event.type) {
     case 'assistant/message':
@@ -49,7 +49,7 @@ function eventDelta(event: SessionEvent): number {
 }
 
 /** Read and validate the event named by a surface sequence. */
-/** 中文说明：函数 eventForSeq 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 eventForSeq 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function eventForSeq(events: readonly SessionEvent[], seq: number): SessionEvent {
   /** 中文说明：上下文局部值 event，由紧邻初始化决定。 */
   const event = events[seq]
@@ -60,7 +60,7 @@ function eventForSeq(events: readonly SessionEvent[], seq: number): SessionEvent
 }
 
 /** Fold surface sequences not yet in the cache into its balance state. */
-/** 中文说明：函数 extendCache 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 extendCache 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function extendCache(
   session: Session,
   cache: BalanceCache,
@@ -94,7 +94,7 @@ function extendCache(
 }
 
 /** Return balance state synchronized with the current session surface. */
-/** 中文说明：函数 balanceCache 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 balanceCache 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function balanceCache(session: Session): BalanceCache {
   /** 中文说明：上下文局部值 surface，由紧邻初始化决定。 */
   const surface = session.surface
@@ -123,7 +123,7 @@ function balanceCache(session: Session): BalanceCache {
 }
 
 /** Balance of the cut at a sequence's position plus offset, rejecting seqs outside current membership. */
-/** 中文说明：函数 cutBalance 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 cutBalance 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function cutBalance(cache: BalanceCache, seq: number, offset: 0 | 1): boolean {
   /** 中文说明：上下文局部值 index，由紧邻初始化决定。 */
   const index = cache.indexBySeq.get(seq)
@@ -143,7 +143,12 @@ function cutBalance(cache: BalanceCache, seq: number, offset: 0 | 1): boolean {
  * @throws when the seq is absent from the current surface, a surface sequence has no
  * matching log event, or a tool result has no preceding open call.
  */
-/** 中文说明：函数 toolPairingBalancedBefore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 toolPairingBalancedBefore 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param seq 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function toolPairingBalancedBefore(session: Session, seq: number): boolean {
   return cutBalance(balanceCache(session), seq, 0)
 }
@@ -156,7 +161,12 @@ export function toolPairingBalancedBefore(session: Session, seq: number): boolea
  * @throws when the seq is absent from the current surface, a surface sequence has no
  * matching log event, or a tool result has no preceding open call.
  */
-/** 中文说明：函数 toolPairingBalancedAfter 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 toolPairingBalancedAfter 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param seq 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function toolPairingBalancedAfter(session: Session, seq: number): boolean {
   return cutBalance(balanceCache(session), seq, 1)
 }

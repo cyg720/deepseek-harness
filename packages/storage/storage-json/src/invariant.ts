@@ -16,7 +16,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-storage-json`.
  * @module @deepseek-ai/dsh-storage-json/invariant
  */
-/**
+/*
  * 模块总览：正确性由后端一致性测试套件（介质往返）保障，进程内无可观察关系，
  * 故 install 为空，仅做体系占位。
  */

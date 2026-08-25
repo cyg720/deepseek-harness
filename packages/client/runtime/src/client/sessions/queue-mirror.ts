@@ -48,7 +48,7 @@ function textOf(content: readonly ContentBlock[]): string | null {
 type QueueItems = Extract<MuxFrame, { type: 'session/queue' }>['items']
 
 /** Authoritative transient queue projection and durable steering handoff. */
-/** 权威的瞬时队列投影与持久化 steering 交接器。 */
+/* 权威的瞬时队列投影与持久化 steering 交接器。 */
 export class SessionQueueMirror {
   private current: readonly QueuedMessage[] = [] // 当前不可变的队列投影
 
@@ -56,7 +56,7 @@ export class SessionQueueMirror {
    * Return the current immutable queue projection.
    * @returns current queue rows.
    */
-  /**
+  /*
    * 返回当前不可变的队列投影。
    * @returns 当前队列行。
    */
@@ -68,7 +68,7 @@ export class SessionQueueMirror {
    * Drop the stale generation before its replacement queue baseline arrives.
    * @returns whether any projected queue row was removed.
    */
-  /**
+  /*
    * 在替换队列基线到达前丢弃过期世代。
    * @returns 是否有任何投影队列行被移除。
    */
@@ -82,7 +82,7 @@ export class SessionQueueMirror {
    * Replace from one authoritative stream queue frame.
    * @param items - complete host queue snapshot.
    */
-  /**
+  /*
    * 用一帧权威的流队列替换当前投影。
    * @param items 完整的 Host 队列快照。
    */
@@ -102,7 +102,7 @@ export class SessionQueueMirror {
    * @param event - newly contiguous durable Session event.
    * @returns whether the projection changed.
    */
-  /**
+  /*
    * 一旦持久化消息进入日志，撤下对应的瞬时 steering 行。
    * @param event 新成为连续段的持久化会话事件。
    * @returns 投影是否发生变化。

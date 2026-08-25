@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】浏览器侧 locale 注册表：绑定翻译函数为注入消费方保持稳定
  *   身份；插件还把"语言"偏好行注册进设置 General 段——locale 功能拥有
@@ -23,7 +23,7 @@
  * preference row into the settings General section — the locale feature owns
  * its own settings surface.
  */
-/**
+/*
  * 浏览器侧 locale 注册表。绑定翻译函数为注入消费方保持稳定身份。插件还把
  * "语言"偏好行注册进设置 General 段——locale 功能拥有自己的设置面。
  */
@@ -73,40 +73,40 @@ export type { Translate, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Shared cross-feature vocabulary, consulted by the lookup chain after the entry's own namespace misses. */
-    /** 跨功能共享词汇，条目自身命名空间未命中后由查找链咨询。 */
+    /* 跨功能共享词汇，条目自身命名空间未命中后由查找链咨询。 */
     common: CommonKey
     /** This feature's own settings-row copy (the Language row). */
-    /** 本功能自己的设置行文案（语言行）。 */
+    /* 本功能自己的设置行文案（语言行）。 */
     'settings.locale': SettingsLocaleKey
   }
 }
 
 /** Locale dictionary: flat key to template string ({name} placeholders). */
-/** 语言词典：扁平键到模板字符串（{name} 占位符）。 */
+/* 语言词典：扁平键到模板字符串（{name} 占位符）。 */
 export type LocaleDict = Record<string, string>
 
 /** One selectable locale: id plus its self-described display name. */
-/** 一个可选语言：id + 其自述显示名。 */
+/* 一个可选语言：id + 其自述显示名。 */
 export interface LocaleDefinition {
   /** Locale id (persisted; the setLocale argument). */
-  /** 语言 id（持久化；setLocale 的参数）。 */
+  /* 语言 id（持久化；setLocale 的参数）。 */
   id: LocaleId
   /** Display name in its own language (中文 / English). */
-  /** 以其自身语言显示的标签（中文 / English）。 */
+  /* 以其自身语言显示的标签（中文 / English）。 */
   label: string
 }
 
 /** Immutable locale state published on every change. */
-/** 每次变更发布的不可变语言状态。 */
+/* 每次变更发布的不可变语言状态。 */
 export interface LocaleSnapshot {
   /** Active locale id. */
-  /** 激活语言 id。 */
+  /* 激活语言 id。 */
   active: LocaleId
   /** Selectable locales in display order. */
-  /** 按展示顺序的可选语言。 */
+  /* 按展示顺序的可选语言。 */
   locales: readonly LocaleDefinition[]
   /** Monotonic change counter (registry or active changes). */
-  /** 单调变更计数器（注册表或激活变化）。 */
+  /* 单调变更计数器（注册表或激活变化）。 */
   revision: number
 }
 
@@ -123,7 +123,7 @@ declare module '@deepseek-ai/cordis' {
      * @param snapshot - Current immutable locale snapshot.
      * @mode emit
      */
-    /**
+    /*
      * 激活语言已切换。字典注册不发射此事件（监听器可能响应式重新注册
      * 槽位，且启动按包注册一个命名空间）；连续渲染刷新改乘 LocaleFace
      * 修订号。
@@ -143,7 +143,7 @@ declare module '@deepseek-ai/cordis' {
  * zh because a browser naming neither shipped language is the reader least
  * likely to read Chinese.
  */
-/**
+/*
  * English 既是浏览器不命名任何发货语言时 UI 打开的语言（以及非浏览器
  * 运行），也是激活语言未命中键后咨询的字典。一个常量服务两种用途，因为
  * 发货的 zh/en 字典携带相同键集，任一方向都不会留下未解析键；残余情形
@@ -152,15 +152,15 @@ declare module '@deepseek-ai/cordis' {
 export const FALLBACK_LOCALE: LocaleId = 'en'
 
 /** Shared namespace for shell-level texts. */
-/** shell 级文本的共享命名空间。 */
+/* shell 级文本的共享命名空间。 */
 export const COMMON_NS = 'common'
 
 /** Namespace owning this feature's settings-row copy. */
-/** 拥有本功能设置行文案的命名空间。 */
+/* 拥有本功能设置行文案的命名空间。 */
 export const SETTINGS_NS = 'settings.locale'
 
 /** The two shipped locales. */
-/** 两个发货语言。 */
+/* 两个发货语言。 */
 const LOCALES: readonly LocaleDefinition[] = Object.freeze([
   { id: 'zh', label: '中文' },
   { id: 'en', label: 'English' },
@@ -174,7 +174,7 @@ const LOCALES: readonly LocaleDefinition[] = Object.freeze([
  * behavior. `zh` alone leaves the script ambiguous, so the shipped Chinese
  * copy names the variant it actually is.
  */
-/**
+/*
  * 每个发货语言的 <html lang> 标签。语言 id 是应用自己的词汇（主子标签）；
  * 文档属性要 BCP 47 标签——辅助技术与浏览器功能（发音规则、翻译提供、
  * 字体回退、拼写检查）读取它以选择自身行为。单独 zh 使脚本歧义，因此
@@ -188,7 +188,7 @@ const DOCUMENT_LANGUAGE: Record<LocaleId, string> = { zh: 'zh-CN', en: 'en' }
  * markup happened to declare.
  * @param active - the active locale id.
  */
-/**
+/*
  * 把 <html lang> 指向激活语言。每次语言变更都调用，使属性跟随 UI，而非
  * 停留在服务标记碰巧声明的值。
  * @param active 激活语言 id。
@@ -210,7 +210,7 @@ function syncDocumentLanguage(active: LocaleId): void {
  * LocaleFace getSnapshot/subscribe pair the render machinery consumes
  * (installed via `ctx.slots.installLocale`).
  */
-/**
+/*
  * 字典注册表 + 语言偏好。每键查找链：激活语言下的条目命名空间 -> 该命名
  * 空间的 en 回退 -> 共享 common 命名空间（激活，再 en）-> 键本身（缺失
  * 文本保持可见，UI 中响亮失败而非空白）。读经 getLocale；写只经
@@ -225,7 +225,7 @@ export class LocaleRuntime {
   private readonly ctx: Context
   private readonly host: SettingsScope<LocaleSettings> | undefined // 持久偏好作用域
   /** Browser-derived locale standing wherever no explicit Host selection does. */
-  /** 浏览器推导语言；无显式 Host 选择处站桩。 */
+  /* 浏览器推导语言；无显式 Host 选择处站桩。 */
   private readonly provisional: LocaleId
 
   /**
@@ -234,7 +234,7 @@ export class LocaleRuntime {
    * @param host - durable preference scope owned by the providing plugin;
    * absent compositions (standalone dictionary registries) stay process-local.
    */
-  /**
+  /*
    * @param ctx 属主上下文（变更事件在其上发射；作用域监听器在销毁时经
    *   ctx.effect 释放）。
    * @param host 提供插件拥有的持久偏好作用域；缺失组合（独立字典注册表）
@@ -255,7 +255,7 @@ export class LocaleRuntime {
    * Read the current immutable locale snapshot.
    * @returns the current snapshot (stable reference until the next change).
    */
-  /**
+  /*
    * 读取当前不可变语言快照。
    * @returns 当前快照（下次变更前引用稳定）。
    */
@@ -268,7 +268,7 @@ export class LocaleRuntime {
    * reference between changes, uSES-safe).
    * @returns the current snapshot.
    */
-  /**
+  /*
    * LocaleFace getSnapshot：当前快照（携带 revision；变更间引用稳定，
    * uSES 安全）。
    * @returns 当前快照。
@@ -284,7 +284,7 @@ export class LocaleRuntime {
    * @param fn - change callback.
    * @returns unsubscribe.
    */
-  /**
+  /*
    * LocaleFace subscribe：每次快照变更通知（语言切换或字典注册——注册会
    * 提升修订号，使已渲染输出口拾取迟到字典）。
    * @param fn 变更回调。
@@ -307,7 +307,7 @@ export class LocaleRuntime {
    * subscriber for nothing.
    * @param id - a registered locale id; unknown ids throw.
    */
-  /**
+  /*
    * 切换激活语言——唯一的用户偏好写入口。
    *
    * 即使 id 已匹配激活语言也会执行持久写入，因为激活值可能是尚未被任何
@@ -328,7 +328,7 @@ export class LocaleRuntime {
    * absent selection returns to the browser-derived locale.
    * @param host - the constructor-narrowed scope driving this adoption.
    */
-  /**
+  /*
    * 采纳作用域已接受的持久选择而不写回；选择缺失时回到浏览器推导语言。
    * @param host 驱动本次采纳的、构造函数收窄的作用域。
    */
@@ -352,7 +352,7 @@ export class LocaleRuntime {
    * @param dicts - complete dictionaries keyed by locale id.
    * @returns disposer removing every locale registered by this call (idempotent).
    */
-  /**
+  /*
    * 一次调用注册一个声明命名空间的所有语言字典——类型化形式：每个字典
    * 对照该命名空间的 LocaleNamespaceMap 键联合检查（缺失或多余键是编译
    * 错误），且每个发货语言都必须提供（注册时强制双语平衡）。重复
@@ -371,7 +371,7 @@ export class LocaleRuntime {
    * @param dict - dictionary.
    * @returns disposer (idempotent).
    */
-  /**
+  /*
    * 合并表外命名空间（动态组合、测试）的单语言无类型形式。
    * @param ns 命名空间。
    * @param locale 语言标签。
@@ -420,7 +420,7 @@ export class LocaleRuntime {
    * @param ns - a namespace merged into LocaleNamespaceMap.
    * @returns the typed translate function (reads the active locale at call time).
    */
-  /**
+  /*
    * 把声明命名空间绑定到按其字典键联合类型化的翻译函数（加共享公共
    * 词汇）——与框架注入 t 座位携带的键域相同。返回引用按命名空间稳定
    * （重复 bind 返回同一函数），因此可乘注入面而不破坏记忆化。
@@ -434,7 +434,7 @@ export class LocaleRuntime {
    * @param ns - namespace.
    * @returns the translate function.
    */
-  /**
+  /*
    * 合并表外命名空间（动态组合、测试）的无类型形式。
    * @param ns 命名空间。
    * @returns 翻译函数。
@@ -473,7 +473,7 @@ export class LocaleRuntime {
    * registration-heavy boot cannot storm event listeners (which may
    * re-register slots in response).
    */
-  /**
+  /*
    * 推进快照修订号并通知 LocaleFace 订阅者（渲染刷新）。只有激活语言切换
    * 才额外发射 locale/change——字典注册保持离线事件，使注册密集的启动
    * 不会风暴事件监听器（它们可能响应式重新注册槽位）。
@@ -503,7 +503,7 @@ export class LocaleRuntime {
  * The browser's own language wins over {@link FALLBACK_LOCALE}; an explicit
  * Host preference may replace this provisional value after plugin activation.
  */
-/**
+/*
  * 浏览器自身语言优先于 FALLBACK_LOCALE；显式 Host 偏好可在插件激活后替换
  * 该临时值。
  */
@@ -520,7 +520,7 @@ function resolveInitialLocale(): LocaleId {
  * client tree). `navigator.language` trails the ordered `languages` list and
  * covers its absence on hosts that expose only the single tag.
  */
-/**
+/*
  * 浏览器要求的第一个发货语言，按主子标签匹配，使每个地区变体落到其语言
  * （zh-Hans-CN -> zh，en-GB -> en）。用 window 做浏览器测试而非 navigator：
  * Node 暴露报告机器自身语言的全局 navigator，否则会为非浏览器运行
@@ -544,7 +544,7 @@ function detectBrowserLocale(): LocaleId | undefined {
 }
 
 /** Required services: slot registration plus the settings transport. */
-/** 必需服务：槽位注册 + 设置传输。 */
+/* 必需服务：槽位注册 + 设置传输。 */
 export const inject = ['slots', 'connection', 'remote', 'settingsScope']
 
 /**
@@ -553,7 +553,7 @@ export const inject = ['slots', 'connection', 'remote', 'settingsScope']
  * section's item slot (a feature owns its settings surface).
  * @param ctx - client cordis context.
  */
-/**
+/*
  * 客户端插件体：提供服务（带基础字典）并把功能自有的"语言"偏好行注册进
  * General 段的 item 槽位（功能拥有其设置面）。
  * @param ctx 客户端 cordis 上下文。

@@ -20,7 +20,7 @@
  * of truth with the tsdown client externals); values stay shell-static
  * imports so every bundle sees the same instance.
  */
-/**
+/*
  * 平台单例模块表。这些是 shell 共享进冻结模块表的唯一实体——拉取 bundle
  * 通过 loader 的 require 恰好对照这组说明符解析其外部依赖。键来自平台
  * 常量模块（./platform.ts，与 tsdown 客户端外部化的单一事实源）；值保持
@@ -39,7 +39,7 @@ import type { PlatformModule } from './platform.ts'
  * Build the static table handed to the module loader at boot.
  * @returns module specifier → exported entity (one entry per platform word).
  */
-/**
+/*
  * 构建启动时交给模块加载器的静态表。
  * @returns 模块说明符 -> 导出实体（每个平台词一个条目）。
  */

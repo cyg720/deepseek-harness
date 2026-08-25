@@ -8,7 +8,7 @@
  * PowerShell); the fake-executor suite (tools.spec.ts) carries the coverage
  * gate.
  */
-/**
+/*
  * 文件职责：验证 integration.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
  * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
@@ -42,7 +42,7 @@ const testToolSignal = new AbortController().signal
 const hasPwsh = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
 
 /** Normalize PowerShell's platform line endings (CRLF on Windows, LF elsewhere). */
-/** 中文说明：函数值 lf 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 lf 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const lf = (text: string): string => text.replace(/\r\n/g, '\n')
 
 /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

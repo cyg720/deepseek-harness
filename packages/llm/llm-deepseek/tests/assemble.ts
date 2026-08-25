@@ -4,7 +4,7 @@
  * streaming path production uses (the loop), rather than a service-level
  * one-shot convenience method.
  */
-/**
+/*
  * 文件职责：把 DeepSeek 官方提供者的流式片段装配成测试可断言的完整结果。
  * 技术维度：使用异步迭代、BlockAssembler 和共享 LLM 类型复现生产代理循环的流处理。
  * 产品维度：让官方提供者测试统一检查消息、令牌用量、结束原因和可选重放状态。

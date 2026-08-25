@@ -67,7 +67,7 @@ const AUTH_PROVIDER_MESSAGE = 'Authentication Fails, Your api key: sk-preview-se
 const PROMPT = 'Reply with a one-sentence description of event sourcing, then stop.'
 
 /** turn/end reasons observed, in order. */
-/** 按事件顺序提取回合结束原因；events 是会话事件，返回原因标识数组。示例：turnEndReasons(sessionEvents)。 */
+/* 按事件顺序提取回合结束原因；events 是会话事件，返回原因标识数组。示例：turnEndReasons(sessionEvents)。 */
 function turnEndReasons(events: SessionEvent[]): string[] {
   return events
     .filter(e => e.type === 'turn/end')
@@ -108,7 +108,7 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
   })
 
   /** Boot scaffold + page with an optional override doc materialized per run. */
-  /** 启动场景；buildOverride 生成可选覆盖，retryPolicy 配置重试，完成后无返回值。示例：await launch()。 */
+  /* 启动场景；buildOverride 生成可选覆盖，retryPolicy 配置重试，完成后无返回值。示例：await launch()。 */
   async function launch(
     buildOverride?: (sidecarHome: string) => ReplayOverrideDoc,
     retryPolicy?: RetryPolicyConfig,
@@ -146,7 +146,7 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
    * flattened by the caller's await, blocking on turn/end before the caller
    * can act mid-turn (the cancel scenario's whole point).
    */
-  /** 中文说明：发送固定提示并返回包装后的完成等待，使调用者能在回合中途执行取消等动作。 */
+  /* 中文说明：发送固定提示并返回包装后的完成等待，使调用者能在回合中途执行取消等动作。 */
   async function sendPrompt(timeoutMs?: number): Promise<{ settled: ReturnType<WebScaffold['whenTurnSettled']> }> {
     /** 当前页面的主消息编辑器。 */
     const input = page.locator('textarea').first()

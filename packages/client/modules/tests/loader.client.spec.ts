@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证客户端模块加载器的依赖排序、动态导入、失败隔离和卸载。
  * 技术维度：Cordis、Vitest、动态 import、依赖图与可控模块清单。
  * 产品维度：保证宿主声明的前端模块能够按依赖安全启动，并在变化时正确更新。
@@ -55,7 +55,7 @@ interface Bench {
 }
 
 /** Build the page-global facade shape consumed by the module system. */
-/** 中文说明：测试辅助函数 `registrationTarget`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `registrationTarget`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function registrationTarget(pending: ClientBundleRegistration[] = []): ClientModuleLoaderTarget {
   /** 中文说明：协调异步执行顺序或保存待完成工作的 Promise；变量 `pendingQueue` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const pendingQueue = [...pending]
@@ -77,7 +77,7 @@ function registrationTarget(pending: ClientBundleRegistration[] = []): ClientMod
  * a release callback, then registers the scripted factory through the window
  * sink (`null` scripts a bundle that never calls load).
  */
-/** 中文说明：测试辅助函数 `bench`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `bench`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function bench(
   entries: BootModuleRow[],
   bundles: Record<string, Factory | null> = {},

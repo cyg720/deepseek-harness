@@ -10,7 +10,7 @@
  * sessions-derived empty-Hero fact is active. Visible dialog chrome belongs
  * to the step, so a mounted-but-deciding step paints nothing here.
  */
-/**
+/*
  * 文件职责：实现通用设置的 SettingsRoot 模块。
  * 技术维度：React、TypeScript、Context、外部 Store 订阅和 Cordis 插槽。
  * 产品维度：为界面提供正确作用域的会话与插槽渲染。
@@ -28,7 +28,7 @@ import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-con
 import css from './SettingsRoot.module.css'
 
 /** Nav glyph by section id; unknown ids fall back to the settings gear. */
-/** 中文说明：函数 navIcon 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 navIcon 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function navIcon(id: string) {
   if (id === 'models') return <IconDataOutline16 className={css.navIcon} size={16} />
   if (id === 'agent-presets') return <IconAgentPresetOutline16 className={css.navIcon} size={16} />
@@ -50,7 +50,7 @@ type PanelProps = {
  * header button, a mask click, and document-level Escape (mounted only while
  * open, so the listener lifetime is the panel's).
  */
-/** 中文说明：函数 SettingsPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SettingsPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
@@ -116,7 +116,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
  * @param props - composed slot props (contract/slots.ts).
  * @returns the settings shell element tree.
  */
-/** 中文说明：函数 SettingsRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SettingsRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function SettingsRoot(props: SettingsRootComponentProps) {
   /** 中文说明：模块局部值 解构结果，由紧邻初始化决定。 */
   const { wide, useSections, useOnboardingSteps, useSessions, renderSlot } = props

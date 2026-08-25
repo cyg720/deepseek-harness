@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the runtime and invariant as independent bundles so shared fold code stays package-local. */
-/**
+/*
  * 文件职责：配置实验性代理团队运行时和不变量伴生模块的独立构建。
  * 技术维度：使用 tsdown 生成两个 Node.js ESM bundle，让共享折叠逻辑分别保持在包内。
  * 产品维度：支持内部试验多代理团队编排，同时保留独立的关系诊断入口。

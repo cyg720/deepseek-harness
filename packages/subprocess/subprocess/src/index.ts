@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】子进程能力缝（ctx.subprocess）的 Service Definition：执行世界可执行文件
  * 查找、完全指定的受管进程树（原始或收集式 stdio）、以及一个终端进程原语。命令默认值、
@@ -59,7 +59,7 @@ export type {
  * deliberately supplied entry survives because explicit env layers merge
  * after the scrub.
  */
-/**
+/*
  * 凭据形状的环境变量名不会转发给子进程（harness 自身的 DEEPSEEK_API_KEY 等密钥
  * 不能隐式泄漏进被 spawn 的进程）。这是仓库内所有 spawner 共用的一条启发式；
  * 显式提供的条目会存活，因为显式 env 层在擦除之后合并。
@@ -80,7 +80,7 @@ export const SENSITIVE_ENV_PATTERN = /KEY|PASSWORD|SECRET|TOKEN/i
  * transports) share the one scrub definition.
  * @returns a fresh environment object safe to hand to a child spawn.
  */
-/**
+/*
  * 父进程环境减去"凭据形状名称"与全部 DSH_* 名称后的结果——所有 harness 子进程
  * 的规范起点。PATH、HOME、locale、代理变量保留，子 CLI 正常运行；harness 身份不会
  * 隐式泄漏（刻意转发的凭据或当前 DSH_* 事实走规格的显式 env，在擦除后合并）。
@@ -132,7 +132,7 @@ declare module '@deepseek-ai/cordis' {
  *   in the PTY consumer. Its output stream ends after queued terminal output
  *   when the top-level process exits.
  */
-/**
+/*
  * 抽象的子进程服务。子类实现 spawn 后作为插件加载，即注册为 ctx.subprocess
  * （每个上下文只能有一个实现，加载第二个会抛错——Cordis 标准的重复服务行为）。
  *
@@ -164,7 +164,7 @@ export abstract class SubprocessRuntime extends Service {
    * @param signal - aborts remote or local lookup.
    * @returns a canonical executable path.
    */
-  /**
+  /*
    * 在该提供者的执行世界中解析一个配置好的可执行文件。绝对路径会被验证；裸名称
    * 用提供者擦除过的 PATH 加显式环境覆盖查找；含分隔符的相对路径被拒绝（解析基准
    * 未定义，提供者应响亮失败而不是猜）。
@@ -185,7 +185,7 @@ export abstract class SubprocessRuntime extends Service {
    * @param spec - argv, directory, stdio dispositions, grace, cancellation, and environment.
    * @returns the live process handle (streams/readers, signalling, outcome promise).
    */
-  /**
+  /*
    * 从完全指定的规格启动一个受管子进程；本缝不应用任何默认值。
    * @param spec argv、目录、stdio 配置、宽限期、取消与环境
    * @returns 存活进程句柄（流/读取器、信号、结果 promise）
@@ -199,7 +199,7 @@ export abstract class SubprocessRuntime extends Service {
    * @param spec - fully specified argv, cwd, environment, dimensions, grace, and allocation cancellation.
    * @returns the live terminal handle after allocation succeeds.
    */
-  /**
+  /*
    * 分配一个真实终端并启动一个受管进程会话。这是唯一的非管道进程原语：实现负责
    * 终端字节 I/O、前台组、信号与完整会话树清理。
    * @param spec 完全指定的 argv、cwd、环境、尺寸、宽限期与分配取消

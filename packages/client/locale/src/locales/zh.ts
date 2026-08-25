@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】common 命名空间的简体中文基础字典：跨功能标准词汇。
  * 【技术维度】纯常量字典：zh 是键集事实源（中文优先仓库约定），en 以
@@ -11,7 +11,7 @@
  * ==========================================================================
  */
 /** zh base dictionary for the common namespace: cross-feature standard words. */
-/** common 命名空间的简体中文基础字典：跨功能标准词汇。 */
+/* common 命名空间的简体中文基础字典：跨功能标准词汇。 */
 export const zh = {
   'ok': '确定',
   'cancel': '取消',
@@ -40,5 +40,5 @@ export const zh = {
 } satisfies Record<string, string>
 
 /** The common vocabulary key union (zh is the key-set source of truth). */
-/** 公共词汇键联合类型（zh 是键集事实源）。 */
+/* 公共词汇键联合类型（zh 是键集事实源）。 */
 export type CommonKey = keyof typeof zh

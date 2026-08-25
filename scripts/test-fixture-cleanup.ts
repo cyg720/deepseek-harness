@@ -7,7 +7,7 @@
  * already remove symlinks without following them, so the walk is a no-op
  * there.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：安全清理测试夹具，避免 Windows 递归删除跟随 junction 误删仓库真实目录。
  * - 技术维度：使用 lstat、递归目录遍历、符号链接 unlink 和带重试的 rmSync。
@@ -24,7 +24,7 @@ import { join } from 'node:path'
  * Recursively unlink every symbolic link (junction) under `path`.
  * @param path - the fixture tree whose reparse points are unlinked.
  */
-/** 中文：递归解除 path 下所有符号链接或 junction；普通文件保留，目录继续遍历，无返回值。 */
+/* 中文：递归解除 path 下所有符号链接或 junction；普通文件保留，目录继续遍历，无返回值。 */
 export function unlinkFixtureLinks(path: string): void {
   /** 中文：访问一个 entry；链接会被解除，目录会递归，普通文件跳过；无返回值。 */
   const visit = (entry: string): void => {
@@ -56,7 +56,7 @@ export function unlinkFixtureLinks(path: string): void {
  * so a bounded window suffices and never pins afterEach cleanup.
  * @param path - the fixture tree to remove.
  */
-/** 中文：先解除 path 内链接，再递归删除夹具树；无返回值，文件占用时最多重试 50 次。 */
+/* 中文：先解除 path 内链接，再递归删除夹具树；无返回值，文件占用时最多重试 50 次。 */
 export function removeFixtureSafely(path: string): void {
   unlinkFixtureLinks(path)
   rmSync(path, { recursive: true, force: true, maxRetries: 50, retryDelay: 200 })

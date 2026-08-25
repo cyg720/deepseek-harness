@@ -27,7 +27,7 @@ import css from './TerminalBlock.module.css'
  * TUI transcript's default tool-output budget so both front ends cut a long
  * command's output at the same place.
  */
-/** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
 export const DEFAULT_TERMINAL_MAX_LINES = 16
 
 /**
@@ -36,7 +36,7 @@ export const DEFAULT_TERMINAL_MAX_LINES = 16
  * defaults to the current built-in value, so existing consumers render
  * unchanged.
  */
-/** 中文说明：类型或类 TerminalBlockLabels 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 TerminalBlockLabels 约束基础组件的数据或职责。 */
 export interface TerminalBlockLabels {
   /** Status pill text for a signal-terminated command. */
   signal: (signal: string) => string
@@ -113,7 +113,7 @@ export interface TerminalBlockProps {
  * @param home - absolute home directory, when the caller knows it.
  * @returns the prompt label.
  */
-/** 中文说明：函数 promptLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 promptLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function promptLabel(cwd: string, home: string | undefined): string {
   /** 中文说明：组件局部值 trimmed，由紧邻初始化决定。 */
   const trimmed = cwd.replace(/[/\\]+$/, '')
@@ -132,7 +132,7 @@ function promptLabel(cwd: string, home: string | undefined): string {
  * @param labels - display copy for the pill text.
  * @returns the pill text, or undefined for a clean exit.
  */
-/** 中文说明：函数 statusText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 statusText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function statusText(
   exitCode: number | undefined,
   signal: string | undefined,
@@ -159,7 +159,7 @@ function statusText(
  * @param labels - display copy for the text label.
  * @returns the dot's state and its text label, since the dot is aria-hidden.
  */
-/** 中文说明：函数 runState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 runState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function runState(
   running: boolean,
   exitCode: number | undefined,
@@ -177,7 +177,7 @@ function runState(
  * @param line - the line's styled runs.
  * @returns the line's children.
  */
-/** 中文说明：函数 renderLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderLine(line: AnsiLine) {
   return line.map((span, index) => span.style === undefined
     ? span.text
@@ -189,7 +189,7 @@ function renderLine(line: AnsiLine) {
  * @param props - see {@link TerminalBlockProps}.
  * @returns the terminal block element.
  */
-/** 中文说明：函数 TerminalBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 TerminalBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function TerminalBlock({
   command,
   cwd,

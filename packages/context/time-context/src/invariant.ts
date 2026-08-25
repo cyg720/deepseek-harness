@@ -46,14 +46,14 @@ const READING = new RegExp(
 )
 
 /** Cordis companion plugin name. */
-/** 该伴生插件的注册名。 */
+/* 该伴生插件的注册名。 */
 export const name = 'time-context-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
+/* 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
 export const inject = ['invariants']
 
 /** Derive the open step boundary at which a time-context reading may append. */
-/** 推导允许追加时间读取的"打开的回合 + 步骤"位置：从事件历史回放状态机。 */
+/* 推导允许追加时间读取的"打开的回合 + 步骤"位置：从事件历史回放状态机。 */
 function preparationPosition(history: readonly SessionEvent[], fail: InvariantFailure): { turn: number; step: number } {
   let openTurn: number | undefined
   let openStep: number | undefined
@@ -97,7 +97,7 @@ function preparationPosition(history: readonly SessionEvent[], fail: InvariantFa
 }
 
 /** Collect the entered user messages belonging to one open turn. */
-/** 收集属于某个打开回合的已进入用户消息（供浏览器时区推导）。 */
+/* 收集属于某个打开回合的已进入用户消息（供浏览器时区推导）。 */
 function requestMessages(history: readonly SessionEvent[], turn: number) {
   const start = history.findLastIndex(event => event.type === 'turn/start' && event.data.turn === turn)
   return history.slice(start + 1)
@@ -105,7 +105,7 @@ function requestMessages(history: readonly SessionEvent[], turn: number) {
 }
 
 /** Validate one plugin-attributed time reading against its session position and timestamp. */
-/** 校验一条带插件归属的时间读取：块结构、文本正则、回合/步骤位置、来源与时间戳。 */
+/* 校验一条带插件归属的时间读取：块结构、文本正则、回合/步骤位置、来源与时间戳。 */
 function validateReading(
   history: readonly SessionEvent[],
   event: SessionEvent<'user/message'>,
@@ -199,7 +199,7 @@ function validateReading(
 
 /* jscpd:ignore-start -- package companions share replay and dispatch plumbing */
 /** Validate all package-owned readings already present in one session. */
-/** 校验一个会话中已存在的全部包归属时间读取（逐个按历史位置校验）。 */
+/* 校验一个会话中已存在的全部包归属时间读取（逐个按历史位置校验）。 */
 function validateSession(session: Session, fail: InvariantFailure): void {
   for (const [index, event] of session.events.entries()) {
     if (event.type !== 'user/message'
@@ -210,7 +210,7 @@ function validateSession(session: Session, fail: InvariantFailure): void {
 }
 
 /** Install validation for loaded and newly appended context readings. */
-/** 安装校验：已加载会话逐个校验，新会话与实时派发的读取事件即时校验。 */
+/* 安装校验：已加载会话逐个校验，新会话与实时派发的读取事件即时校验。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   for (const session of ctx.sessions.list()) validateSession(session, fail)
   ctx.on('session/created', (session) => { validateSession(session, fail) }, { global: true })
@@ -230,7 +230,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 登记 time-context 的 invariant 伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文
  * @returns 登记成功后的注销函数

@@ -27,7 +27,7 @@ const HARNESS = `${DOCS}/harness`
  * A trailing separator is dropped the way the Host's own `resolve` drops it,
  * so a directory part typed into the path editor addresses its level.
  */
-/** 中文说明：函数 listingFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 listingFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function listingFor(path?: string): DirectoryListing {
   /** 中文说明：测试局部值 asked，由紧邻初始化决定。 */
   const asked = path ?? HOME
@@ -129,13 +129,13 @@ function mount(overrides: Partial<Parameters<typeof DirectoryBrowser>[0]> = {}) 
 }
 
 /** The rendered level columns, left-to-right. */
-/** 中文说明：函数 columns 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 columns 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function columns(): HTMLElement[] {
   return screen.getAllByRole('list')
 }
 
 /** The actionable button inside a listitem seat (rows keep native button semantics). */
-/** 中文说明：函数 rowButton 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rowButton 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowButton(item: HTMLElement): HTMLButtonElement {
   return within(item).getByRole<HTMLButtonElement>('button')
 }
@@ -339,7 +339,7 @@ describe('DirectoryBrowser', () => {
    * settles them by path; the absent-path form (the initial home listing)
    * resolves normally so mounting is a one-flush setup.
    */
-  /** 中文说明：函数 manualLister 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 manualLister 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function manualLister() {
     /** 中文说明：测试局部值 settlers，由紧邻初始化决定。 */
     const settlers = new Map<string, (value: DirectoryListing) => void>()

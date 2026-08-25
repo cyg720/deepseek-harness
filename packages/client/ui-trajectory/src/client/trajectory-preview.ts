@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】轨迹记录的单行预览文本生成：截断源码后再投影成纯文本，限制输出长度。
  * 【技术维度】复用 ui-primitives 的 extractMarkdownPlainText；源码与输出分别设上限
@@ -23,7 +23,7 @@ const PREVIEW_OUTPUT_CHARACTERS = 512
  * @param text - Untrusted message, reasoning, payload, or result text.
  * @returns A compact preview capped independently from the retained source.
  */
-/**
+/*
  * 生成有界单行预览，不解析完整 Markdown 文档。
  * 使用示例：cell.text = trajectoryPreviewText(rawMarkdown)。
  * @param text - 不可信的消息 / 推理 / 载荷 / 结果文本。

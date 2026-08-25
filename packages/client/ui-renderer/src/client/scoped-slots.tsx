@@ -2,7 +2,7 @@
  * React renderer for declarative slots. Per-entry bindings enforce child
  * authorization, and entry boundaries contain registrant failures.
  */
-/**
+/*
  * 文件职责：实现客户端渲染器的 scoped-slots 模块。
  * 技术维度：React、TypeScript、Context、外部 Store 订阅和 Cordis 插槽。
  * 产品维度：为界面提供正确作用域的会话与插槽渲染。
@@ -51,7 +51,7 @@ type RenderSlotChainBinding = (key: string, owner: object, opts?: ChainRenderOpt
  * with the entry: a retained closure calling after the entry's disposal hits
  * the in-ledger check and throws.
  */
-/** 中文说明：模块局部值 renderSlotCache，由紧邻初始化决定。 */
+/* 中文说明：模块局部值 renderSlotCache，由紧邻初始化决定。 */
 const renderSlotCache = new WeakMap<StoredEntry, RenderSlotBinding>()
 
 /** 中文说明：函数 boundRenderSlot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
@@ -85,7 +85,7 @@ function boundRenderSlot(host: SlotRendererHost, entry: StoredEntry): RenderSlot
  * dead with the entry. The chain-kind check is the plain-JS backstop twin of
  * the declaration check; typed callers are narrowed to chain keys.
  */
-/** 中文说明：模块局部值 renderSlotChainCache，由紧邻初始化决定。 */
+/* 中文说明：模块局部值 renderSlotChainCache，由紧邻初始化决定。 */
 const renderSlotChainCache = new WeakMap<StoredEntry, RenderSlotChainBinding>()
 
 /** 中文说明：函数 boundRenderSlotChain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
@@ -118,7 +118,7 @@ function boundRenderSlotChain(host: SlotRendererHost, entry: StoredEntry): Rende
  * identity-stable per registration/session scope), so cache lifetime rides
  * the same axes as the values it memoizes.
  */
-/** 中文说明：模块局部值 rootInjectCache，由紧邻初始化决定。 */
+/* 中文说明：模块局部值 rootInjectCache，由紧邻初始化决定。 */
 const rootInjectCache = new WeakMap<StoredEntry, InjectedProps>()
 /** 中文说明：模块局部值 sessionInjectCache，由紧邻初始化决定。 */
 const sessionInjectCache = new WeakMap<StoredEntry, WeakMap<SessionProvideInfo, InjectedProps>>()
@@ -146,7 +146,7 @@ function runInject(entry: StoredEntry, info: SessionMaybeProvideInfo | undefined
  * Normalize one entry-owned inject face on its existing cache axis. Its hooks
  * compartment remains the original Observable-only contract.
  */
-/** 中文说明：函数 bindInjectHooks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bindInjectHooks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bindInjectHooks(face: InjectedProps): InjectedProps {
   /** 中文说明：模块局部值 sources，由紧邻初始化决定。 */
   const sources = face['hooks']
@@ -170,7 +170,7 @@ const slotInjectCache = new WeakMap<object, BoundSlotInject>()
 const EMPTY_SLOT_INJECT: BoundSlotInject = { props: EMPTY_INJECTED_PROPS }
 
 /** Normalize one dispatcher-owned inject face by its stable object identity. */
-/** 中文说明：函数 cachedSlotInject 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 cachedSlotInject 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function cachedSlotInject(face: object | undefined): BoundSlotInject {
   if (face === undefined) return EMPTY_SLOT_INJECT
   /** 中文说明：模块局部值 bound，由紧邻初始化决定。 */
@@ -208,7 +208,7 @@ function cachedSlotInject(face: object | undefined): BoundSlotInject {
 }
 
 /** Bind deferred slot-level factories for one stable renderSlot occurrence. */
-/** 中文说明：函数 bindSlotHookFactories 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bindSlotHookFactories 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bindSlotHookFactories(
   factories: SlotHookFactories,
   standard: InjectedProps,
@@ -282,7 +282,7 @@ function cachedSessionMaybeInject(
  * no extra invalidation channel. Within one revision the reference is stable
  * (memoized children do not churn on unrelated re-renders).
  */
-/** 中文说明：模块局部值 localeSeatCache，由紧邻初始化决定。 */
+/* 中文说明：模块局部值 localeSeatCache，由紧邻初始化决定。 */
 const localeSeatCache = new WeakMap<LocaleFace, Map<string, { revision: number; t: Translate }>>()
 
 /** 中文说明：函数 localeSeat 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
@@ -318,7 +318,7 @@ const zeroRevision = (): number => 0
  * whenever the subscribe reference changes — fresh closures per render would
  * churn one unsubscribe/resubscribe pair per outlet per render.
  */
-/** 中文说明：模块局部值 localeSubscriptionCache，由紧邻初始化决定。 */
+/* 中文说明：模块局部值 localeSubscriptionCache，由紧邻初始化决定。 */
 const localeSubscriptionCache = new WeakMap<LocaleFace, {
   subscribe: (fn: () => void) => () => void
   getRevision: () => number
@@ -346,7 +346,7 @@ function localeSubscription(face: LocaleFace): { subscribe: (fn: () => void) => 
  * before the first render that needs it — a face appearing later has no
  * notification channel to already-mounted outlets.
  */
-/** 中文说明：函数 useLocaleRevision 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 useLocaleRevision 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function useLocaleRevision(face: LocaleFace | undefined): number {
   /** 中文说明：模块局部值 subscription，由紧邻初始化决定。 */
   const subscription = face !== undefined ? localeSubscription(face) : undefined
@@ -366,7 +366,7 @@ function useLocaleRevision(face: LocaleFace | undefined): number {
  * changes (entries are identity-stable per registration, so the key is
  * stable while the same entry stays the winner).
  */
-/** 中文说明：模块局部值 nextEntryKey，由紧邻初始化决定。 */
+/* 中文说明：模块局部值 nextEntryKey，由紧邻初始化决定。 */
 let nextEntryKey = 0
 /** 中文说明：模块局部值 entryKeys，由紧邻初始化决定。 */
 const entryKeys = new WeakMap<StoredEntry, number>()
@@ -392,7 +392,7 @@ function entryKeyOf(entry: StoredEntry): number {
  * only shows until that re-render lands (permanently once the cell is dry —
  * the outlet then owns the crash face).
  */
-/** 中文说明：类型或类 SlotErrorBoundary 约束模块数据或职责。 */
+/* 中文说明：类型或类 SlotErrorBoundary 约束模块数据或职责。 */
 class SlotErrorBoundary extends Component<
   { slotKey: string; onEntryError: (error: unknown) => void; children: ReactNode }, { failed: boolean }
 > {
@@ -422,7 +422,7 @@ interface StandardPropsCache {
 const standardPropsCache = new WeakMap<SlotRendererHost, StandardPropsCache>()
 
 /** Stable official-props object used by contextual Hook factories. */
-/** 中文说明：函数 standardProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 standardProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function standardProps(
   host: SlotRendererHost,
   scope: SlotScope,
@@ -479,7 +479,7 @@ function standardProps(
  * per source (observableHook), so spreading a fresh kit object per render
  * never churns child subscriptions.
  */
-/** 中文说明：函数 standardKit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 standardKit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function standardKit(
   host: SlotRendererHost,
   entry: StoredEntry,
@@ -537,7 +537,7 @@ function standardKit(
  * + owner props (owner wins). The shares are erased at this render boundary;
  * the registration and renderSlot seams already proved their contracts.
  */
-/** 中文说明：函数 ContextualEntry 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ContextualEntry 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function ContextualEntry({
   slotKey, Comp, kit, standard, injected, slotInjected, ownerProps, hookContext, hasHookContext,
 }: {
@@ -649,7 +649,7 @@ function SessionMaybeEntryBody({ entry, ownerProps, info, slotKey, slotInjected,
  * that must SURVIVE a switch belongs in session-bound sources (machine,
  * store, hooks) — the existing layering rule, now load-bearing.
  */
-/** 中文说明：函数 SessionMaybeEntry 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SessionMaybeEntry 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SessionMaybeEntry({ entry, ownerProps, slotKey, slotInjected, hookContext, hasHookContext }: {
   entry: StoredEntry
   ownerProps: object
@@ -700,7 +700,7 @@ function SessionMaybeEntry({ entry, ownerProps, slotKey, slotInjected, hookConte
 }
 
 /** Adoption bookkeeping of one session-maybe outlet (see SessionMaybeEntry). */
-/** 中文说明：类型或类 MaybeIncarnation 约束模块数据或职责。 */
+/* 中文说明：类型或类 MaybeIncarnation 约束模块数据或职责。 */
 interface MaybeIncarnation {
   /** Session this incarnation adopted; undefined while born blank and unadopted. */
   readonly adopted: string | undefined
@@ -767,7 +767,7 @@ function StrictSessionEntry({ slotKey, entry, ownerProps, slotInjected, hookCont
  * the anchor is purely addressable surface. Module-level constant — a stable
  * reference so the wrapper never diffs its style prop.
  */
-/** 中文说明：模块局部值 ANCHOR_STYLE，由紧邻初始化决定。 */
+/* 中文说明：模块局部值 ANCHOR_STYLE，由紧邻初始化决定。 */
 const ANCHOR_STYLE = { display: 'contents' } as const
 
 /** 中文说明：函数 SlotOutlet 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
@@ -802,7 +802,7 @@ function SlotOutlet({ slotKey, ownerProps, opts }: {
 }
 
 /** Kind dispatch behind the outlet anchor (single/keyed/list/chain, fallbacks, crash faces). */
-/** 中文说明：函数 renderOutletContent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderOutletContent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderOutletContent(
   host: SlotRendererHost,
   slotKey: string,
@@ -994,7 +994,7 @@ function renderOutletContent(
 }
 
 /** Root outlet: the shell's single ctx-level render entry — an unregistered 'root' is a boot-order failure, never a silent blank. */
-/** 中文说明：函数 RootOutlet 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 RootOutlet 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function RootOutlet({ ownerProps }: { ownerProps: object }) {
   /** 中文说明：模块局部值 host，由紧邻初始化决定。 */
   const host = useHost()
@@ -1040,7 +1040,7 @@ function RootOutlet({ ownerProps }: { ownerProps: object }) {
  * install/renderSlot contract and the double-install/not-installed throws).
  * @returns the renderer.
  */
-/** 中文说明：函数 createSlotRenderer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 createSlotRenderer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function createSlotRenderer(): SlotRenderer {
   return {
     renderRoot(host, ownerProps) {

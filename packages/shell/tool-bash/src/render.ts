@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】bash 工具的模型可见结果渲染：把执行器返回的结构化结果（ShellRunResult /
  * ShellProcessRead）整理成模型看到的纯文本——输出正文 + 标记分区 + 退出状态标记，
@@ -27,7 +27,7 @@ import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import { escalationHintMarker, sandboxDenialMarker } from '@deepseek-ai/dsh-sandbox'
 
 /** Append the truncation notice (with the full-output spill path) to a stream's text. */
-/** 给流文本追加截断通知（含完整输出的 spill 文件路径）；未截断时原样返回。 */
+/* 给流文本追加截断通知（含完整输出的 spill 文件路径）；未截断时原样返回。 */
 function streamText(output: CollectedOutput): string {
   if (!output.truncated) return output.text
   return `${output.text}\n[output truncated; full output: ${output.spillPath ?? '(unavailable)'}]`
@@ -44,7 +44,7 @@ function streamText(output: CollectedOutput): string {
  *   (default `[]`: no hint).
  * @returns the model-facing text: output body (or `(no output)`), then any timeout/signal/exit markers, each on its own line.
  */
-/**
+/*
  * 把一次已完成的运行整理成模型看到的文本：先 stdout，再带标记的 stderr 分区，最后退出
  * 状态标记。非零退出只"报告"而不"报错"——由模型决定如何反应；只有基础设施故障
  * （spawn 错误、abort）才会以 isError 结果呈现。
@@ -104,7 +104,7 @@ export function renderResult(
  * @param escalationModes - escalation targets advertised by this composition.
  * @returns the delta text with any loss or sandbox notice appended.
  */
-/**
+/*
  * 把一次后台进程读取整理成模型看到的 job_output 增量：增量 delta 之外，若内存截断丢过
  * 未读字节，追加"丢失读取"通知（含完整流 spill 路径）。空增量的渲染（`(no new output)`）
  * 由通用 job 控制器负责。
@@ -141,7 +141,7 @@ export function renderProcessRead(
  * it (its renderer emits the same markers). Re-exported here to keep
  * `../src/render.ts` a single import root for bash-tool consumers.
  */
-/**
+/*
  * 退出状态解析是 shell 工具渲染故事的"共享标记契约"一半，由 dsh-shell 拥有，
  * 这样 dsh-tool-pwsh 也能复用（其渲染器发出同样的标记）。此处再导出，让 bash 工具
  * 消费者以本文件为单一导入根。

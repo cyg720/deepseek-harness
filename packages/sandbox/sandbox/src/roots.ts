@@ -12,7 +12,7 @@
  *
  * @module dsh-sandbox/roots
  */
-/**
+/*
  * 文件职责：实现 roots.ts 承担的沙箱安全与权限隔离配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的沙箱安全与权限隔离能力。
@@ -35,7 +35,11 @@ import type { SandboxExecutionPolicy } from './index.ts'
  *   (a missing root matches nothing until it exists — the conservative
  *   outcome; inventing a fallback would grant a path the caller never named).
  */
-/** 中文说明：函数 canonicalPath 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 canonicalPath 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function canonicalPath(path: string): string {
   try {
     // Node's JavaScript realpath implementation lexically collapses `..`
@@ -58,7 +62,11 @@ export function canonicalPath(path: string): string {
  * @param policy - the file-effect policy to derive the allow-list from.
  * @returns the canonical writable roots; empty exactly under `read-only`.
  */
-/** 中文说明：函数 writableRoots 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 writableRoots 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param policy 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function writableRoots(policy: SandboxExecutionPolicy): string[] {
   if (policy.mode !== 'workspace-write') return []
   return [...new Set([policy.workspaceRoot, '/tmp', tmpdir()].map(canonicalPath))]

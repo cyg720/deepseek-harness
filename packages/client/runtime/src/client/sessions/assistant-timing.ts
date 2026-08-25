@@ -31,7 +31,7 @@ import type { AssistantTiming } from './conversation.ts'
 export { isTokenDelta } from '@deepseek-ai/dsh-llm/message'
 
 /** Pre-finalize timing boundaries for one assistant step (start + first token). */
-/** 单个助手步骤在消息完成前的计时边界：步骤开始时刻 + 首 token 到达时刻。 */
+/* 单个助手步骤在消息完成前的计时边界：步骤开始时刻 + 首 token 到达时刻。 */
 export interface AssistantStepMetadata {
   stepStartTime: number | null
   firstTokenTime: number | null
@@ -43,7 +43,7 @@ export interface AssistantStepMetadata {
  * @param step - step number from the event payload.
  * @returns collision-free `turn`/`step` key (NUL separator).
  */
-/**
+/*
  * 构造单个助手步骤在计时索引中的复合键。
  * @param turn 事件负载中的轮次（turn）编号。
  * @param step 事件负载中的步骤（step）编号。
@@ -60,7 +60,7 @@ export function assistantStepKey(turn: number, step: number): string {
  * @param steps - the mutable per-step index, keyed by {@link assistantStepKey}.
  * @param event - the raw window event.
  */
-/**
+/*
  * 把一个事件折叠进按步骤组织的计时索引：step/start 开启条目，
  * 第一个非空 token delta 只盖章一次首 token 时刻；其他事件类型是空操作。
  * @param steps 可变的按步骤索引，键由 assistantStepKey 生成。
@@ -90,7 +90,7 @@ export function indexAssistantStepTiming(steps: Map<string, AssistantStepMetadat
  * @param completedTime - the assistant/message event timestamp (epoch ms).
  * @returns the node-ready timing record.
  */
-/**
+/*
  * 从步骤索引结算一条已完成助手消息的计时：若步骤的开始或首 token 落在
  * 窗口之外，对应边界为 null。
  * @param steps indexAssistantStepTiming 构建的按步骤索引。

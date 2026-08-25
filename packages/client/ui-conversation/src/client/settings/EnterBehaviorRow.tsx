@@ -1,5 +1,5 @@
 /** General Settings row for the Composer's busy-state Enter preference. */
-/**
+/*
  * 文件职责：实现输入设置中的 EnterBehaviorRow 组件。
  * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
  * 产品维度：支持用户查看和操作输入设置。
@@ -16,7 +16,7 @@ import type { ConversationKey } from '../locales.ts'
 import css from './EnterBehaviorRow.module.css'
 
 /** Registration-side preference face. */
-/** 中文说明：类型或类 EnterBehaviorRowInjected 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 EnterBehaviorRowInjected 约束本文件的数据或组件职责。 */
 export interface EnterBehaviorRowInjected {
   hooks: {
     /** Persisted busy-state preference bound as useBusyEnter. */
@@ -27,7 +27,7 @@ export interface EnterBehaviorRowInjected {
 }
 
 /** Full Settings-row props. */
-/** 中文说明：类型或类 EnterBehaviorRowProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 EnterBehaviorRowProps 约束本文件的数据或组件职责。 */
 export type EnterBehaviorRowProps =
   PropsRuntime<'settings.general.item'>
   & PropsLocale<'conversation'>
@@ -47,7 +47,7 @@ const OPTIONS: readonly {
  * @param props - composed Settings slot props.
  * @returns the preference row.
  */
-/** 中文说明：函数 EnterBehaviorRow 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 EnterBehaviorRow 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function EnterBehaviorRow({ useBusyEnter, setBusyEnter, t }: EnterBehaviorRowProps) {
   /** 中文说明：组件局部值 behavior，取值由紧邻初始化决定。 */
   const behavior = useBusyEnter(value => value)

@@ -4,7 +4,7 @@
  * needed to resume with a provider-valid transcript.
  * @module @deepseek-ai/dsh-session/repair
  */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】崩溃恢复：修复被打断的会话日志尾部。它保全已完整写下的最后一轮，并补齐缺失的
  *           工具结果、step 与 turn 边界事件，使日志能以“提供方合法的转录”继续 resume。
@@ -29,11 +29,11 @@ import type { ToolResultMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from './types.ts'
 
 /** Recovery code for an assistant tool request that never reached a recorded call start. */
-/** 恢复错误码：assistant 请求了某次工具调用，但日志中没有对应的“调用开始”记录。 */
+/* 恢复错误码：assistant 请求了某次工具调用，但日志中没有对应的“调用开始”记录。 */
 export const TOOL_NOT_STARTED = 'TOOL_NOT_STARTED'
 
 /** Recovery code for a recorded tool call whose completed outcome was not durably recorded. */
-/** 恢复错误码：调用已被记录开始，但其完成结果没有被耐久地记录下来（结局未知）。 */
+/* 恢复错误码：调用已被记录开始，但其完成结果没有被耐久地记录下来（结局未知）。 */
 export const TOOL_OUTCOME_UNKNOWN = 'TOOL_OUTCOME_UNKNOWN'
 
 /**
@@ -45,7 +45,7 @@ export const TOOL_OUTCOME_UNKNOWN = 'TOOL_OUTCOME_UNKNOWN'
  * @param events - the loaded durable log to scan (a valid committed prefix, possibly with a crash tail).
  * @returns the synthetic closer events to append after `events`, in order; empty when the log is already balanced.
  */
-/**
+/*
  * 生成确定性的合成事件来闭合一个未收尾的开放轮次：未配对的调用先收到错误结果，
  * 随后补上缺失的 step/end 与 interrupted 的 turn/end；seq 接续日志、时间戳复用最后一条
  * 真实事件。已经平衡（或为空）的日志返回空数组。

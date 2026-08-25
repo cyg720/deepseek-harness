@@ -3,7 +3,7 @@
  * the task becomes injected runner config, while help and usage errors leave
  * the consumer pending.
  */
-/**
+/*
  * 文件职责：验证headless命令行提供者通过真实Loader树把位置参数发布为运行器task配置。
  * 技术维度：使用Vitest、Commander桥接、临时ESM条目和Cordis Loader/Include执行注入顺序测试。
  * 产品维度：支持自然语言多词任务，并在缺少任务或请求帮助时不启动运行器。
@@ -24,7 +24,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { apply, HEADLESS_STARTUP_SERVICE, type HeadlessStartupValues } from '../src/startup.ts'
 
 /** What one boot of the fixture tree observed. */
-/** 一次夹具启动观察到的退出、输出和运行器配置。 */
+/* 一次夹具启动观察到的退出、输出和运行器配置。 */
 interface Observed {
   exits: number[]
   out: string

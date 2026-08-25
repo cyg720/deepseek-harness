@@ -5,7 +5,7 @@
  * error the product user sees names the direction and the raw log path.
  * @module session-format-guard-snapshot
  */
-/**
+/*
  * 文件职责：验证组装应用拒绝恢复更新格式或含未知必需事件的会话日志，并给出可操作错误。
  * 技术维度：使用 Vitest、SessionStore、JSONL 持久化、Loader smoke 和程序化事件日志。
  * 产品维度：避免旧版本 Harness 误读新日志造成数据损坏，并告诉用户升级方向和原始文件位置。
@@ -40,7 +40,7 @@ const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta
 const sessionId = SessionId('workspace-context-resume')
 
 /** Persist one session with the given header version and events, returning its log path. */
-/** 在 root 中写入 version 与 events 指定的会话并返回日志路径。 */
+/* 在 root 中写入 version 与 events 指定的会话并返回日志路径。 */
 async function seedSession(root: string, cwd: string, version: number, events: SessionEvent[]): Promise<string> {
   const ctx = new Context()
   await ctx.plugin(SessionStore)

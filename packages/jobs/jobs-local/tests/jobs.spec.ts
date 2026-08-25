@@ -75,7 +75,7 @@ async function disposeAgentScope(agent: Agent): Promise<void> {
 }
 
 /** A controllable producer start-spec: settle its `done` on demand, record cancels. */
-/** 中文说明：函数 producer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 producer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function producer(overrides: Partial<Omit<JobStart, 'run'> & JobHooks> = {}) {
   /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
   let settle!: (outcome: JobOutcome) => void
@@ -120,7 +120,7 @@ async function harness(config: JobsConfig = {}) {
  * without inject`, which is the same rule the shipped plugin obeys.
  * @param ctx - the context whose scope should own the controller.
  */
-/** 中文说明：函数 attachControllerIn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 attachControllerIn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function attachControllerIn(ctx: Context): Promise<void> {
   await ctx.plugin({
     inject: ['jobs'],
@@ -129,11 +129,11 @@ async function attachControllerIn(ctx: Context): Promise<void> {
 }
 
 /** Let the settlement continuation (a `done.then`) run. */
-/** 中文说明：测试局部值 tick，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 tick，由紧邻初始化决定。 */
 const tick = () => new Promise<void>(r => setTimeout(r, 0))
 
 /** Inspect the internal resolver registry to pin bounded retention while a job stays live. */
-/** 中文说明：函数 waitResolverCount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 waitResolverCount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function waitResolverCount(ctx: Context, id: JobId): number {
   /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
   const service = ctx.jobs as unknown as { store: Map<JobId, { waitResolvers: Set<() => void> }> }

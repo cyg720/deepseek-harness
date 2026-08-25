@@ -52,7 +52,7 @@ interface JsonObject {
 }
 
 /** Parse non-empty records from one JSONL artifact. */
-/** 解析 content 中非空 JSONL 行并返回对象数组。示例：parseJsonl(log)。 */
+/* 解析 content 中非空 JSONL 行并返回对象数组。示例：parseJsonl(log)。 */
 function parseJsonl(content: string): JsonObject[] {
   return content.split('\n').filter(line => line.trim().length > 0)
     .map(line => JSON.parse(line) as JsonObject)

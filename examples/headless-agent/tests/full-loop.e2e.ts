@@ -11,7 +11,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
  * The first place a REAL model meets the REAL bash tool: the cheap canary
  * before the coding-task e2e. Key-gated (see vitest.e2e.config.ts).
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：用真实 DeepSeek 模型和真实 Bash 工具验证完整 AgentLoop 的最小端到端路径。
  * - 技术维度：使用 Vitest 密钥门控、临时目录、真实插件栈、会话事件和异步资源释放。
@@ -21,7 +21,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
  * - 新手阅读建议：先看 skipIf 运行条件，再沿 followup、waitForIdle 和三组事件断言阅读。
  */
 
-/** 当前用例持有的真实 Harness 上下文。 */
+/* 当前用例持有的真实 Harness 上下文。 */
 let ctx: Context | undefined
 /** 当前用例的临时 Bash 工作目录。 */
 let workdir: string | undefined

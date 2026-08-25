@@ -7,7 +7,7 @@
  * paste attempt lifecycle, projectClipboard, and the decoration projection.
  * Pure event sequences — no React, no DOM, no ambient clock.
  */
-/**
+/*
  * 文件职责：验证会话输入的 input-machine.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
  * 产品维度：防止会话输入用户流程回归。
@@ -56,7 +56,7 @@ function effectAt<T extends InputEffect['type']>(
 }
 
 /** Drive plain → adjudicating and hand back the minted attempt. */
-/** 中文说明：函数 enterAdjudicating 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 enterAdjudicating 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function enterAdjudicating(m: InputMachine, draft: string, mode: 'queue' | 'steer' = 'queue'): SubmitAttempt {
   m.dispatch({ type: 'draft-changed', draft })
   /** 中文说明：测试局部值 fx，由紧邻初始化决定。 */
@@ -65,7 +65,7 @@ function enterAdjudicating(m: InputMachine, draft: string, mode: 'queue' | 'stee
 }
 
 /** Drive plain → claimed → submitting and hand back attempt + claim. */
-/** 中文说明：函数 enterSubmitting 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 enterSubmitting 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function enterSubmitting(m: InputMachine, name: string, args: string): { attempt: SubmitAttempt; claim: CommandClaim } {
   /** 中文说明：测试局部值 claim，由紧邻初始化决定。 */
   const claim = claimOf(name)
@@ -390,7 +390,7 @@ describe('input-machine: insert-ref and the occurrence table', () => {
 
 describe('input-machine: occurrence reconciliation on draft edits', () => {
   /** Machine with one reference range at offset 4 inside `see @worker-1 now`. */
-  /** 中文说明：函数 withChip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 withChip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function withChip(): InputMachine {
     /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = new InputMachine()

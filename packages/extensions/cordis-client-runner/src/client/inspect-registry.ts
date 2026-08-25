@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】浏览器侧"只读 Cordis 能力查询"注册表：登记 Client 提供者、向 Host
  *             发布完整清单镜像，并分派 Host 广播来的实时查询（首个本地结果回送）。
@@ -53,7 +53,7 @@ export interface ClientCordisInspectHost {
 }
 
 /** Client provider registry, manifest publisher, and live query dispatcher. */
-/**
+/*
  * 浏览器侧 inspect 注册表：登记提供者、发布完整清单给 Host，并把 Host 广播来的
  * 查询分派到本地提供者后回送首个有效结果。
  */
@@ -75,8 +75,10 @@ export class ClientCordisInspectRegistry {
    * @param registration - provider manifest and local handler.
    * @returns idempotent disposer.
    */
-  /**
+  /*
    * 注册一个 Client 提供者并发布新清单：ID 与重复方法名校验；返回幂等卸载函数。
+   * @param registration 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   register(registration: ClientCordisInspectProviderRegistration): () => void {
     const { manifest } = registration
@@ -101,7 +103,7 @@ export class ClientCordisInspectRegistry {
   }
 
   /** Publish the current complete manifest, including after reconnect. */
-  /**
+  /*
    * 发布当前完整清单（重连后也调用）：微任务合并突发注册，链式串行同步防乱序。
    */
   publish(): void {
@@ -123,9 +125,10 @@ export class ClientCordisInspectRegistry {
    * @param request - exact provider query and Session correlation received from Host.
    * @returns after the first local result has been sent back to Host.
    */
-  /**
+  /*
    * 执行并应答一次 Host 广播的查询：提供者/方法缺失与执行错误折叠为结构化 reason；
    * 已取消的查询不发送应答。
+   * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   async query(request: CordisInspectQueryRequest): Promise<void> {
     if (this.active.has(request.requestId)) return
@@ -162,8 +165,9 @@ export class ClientCordisInspectRegistry {
    * Cancel local work after another page answered or the Tool call ended.
    * @param requestId - query correlation that is no longer answerable.
    */
-  /**
+  /*
    * 取消本地查询工作（其他页面已应答或工具调用已结束）。
+   * @param requestId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   close(requestId: CordisInspectRequestId): void {
     this.active.get(requestId)?.abort()

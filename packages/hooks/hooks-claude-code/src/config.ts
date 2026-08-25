@@ -5,7 +5,7 @@
  * to commands at parse time.
  * @module @deepseek-ai/dsh-hooks-claude-code/config
  */
-/**
+/*
  * 文件职责：实现Claude Code Hook 桥的 config.ts 模块。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证Claude Code Hook 桥可预测地传递事件、限制循环或适配外部工具。
@@ -28,25 +28,25 @@ const CLAUDE_EVENTS = [
 ] as const
 
 /** A parsed CC config: event name → its matcher groups (command hooks only). */
-/** 中文说明：类型或类 ClaudeCodeHookConfig 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 ClaudeCodeHookConfig 约束 Hook、守卫或目标数据职责。 */
 export type ClaudeCodeHookConfig = Record<string, MatcherGroup[]>
 
 /** A skipped non-command hook, surfaced so the bridge can warn about it. */
-/** 中文说明：类型或类 SkippedHook 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 SkippedHook 约束 Hook、守卫或目标数据职责。 */
 export interface SkippedHook {
   event: string
   type: string
 }
 
 /** The outcome of parsing one config file: the runnable groups + what was skipped. */
-/** 中文说明：类型或类 ParsedClaudeConfig 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 ParsedClaudeConfig 约束 Hook、守卫或目标数据职责。 */
 export interface ParsedClaudeConfig {
   config: ClaudeCodeHookConfig
   skipped: SkippedHook[]
 }
 
 /** Substitution variables applied to each `command` string at parse time. */
-/** 中文说明：类型或类 SubstitutionVars 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 SubstitutionVars 约束 Hook、守卫或目标数据职责。 */
 export interface SubstitutionVars {
   /** Replaces `${CLAUDE_PLUGIN_ROOT}` — the plugin's root dir. */
   pluginRoot?: string
@@ -55,7 +55,7 @@ export interface SubstitutionVars {
 }
 
 /** A plain (non-null, non-array) object, else undefined. */
-/** 中文说明：函数 asObject 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 asObject 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function asObject(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -68,7 +68,12 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
  * @param vars - the substitution values; a token whose variable is unset stays verbatim.
  * @returns the command with every occurrence of each set token replaced.
  */
-/** 中文说明：函数 substituteCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 substituteCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param command 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param vars 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function substituteCommand(command: string, vars: SubstitutionVars): string {
   /** 中文说明：协议局部值 out，由紧邻初始化决定。 */
   let out = command
@@ -91,7 +96,12 @@ export function substituteCommand(command: string, vars: SubstitutionVars): stri
  *   none).
  * @returns the runnable per-event groups plus the skipped non-command hooks.
  */
-/** 中文说明：函数 parseClaudeCodeConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 parseClaudeCodeConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param raw 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param vars 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function parseClaudeCodeConfig(raw: unknown, vars: SubstitutionVars = {}): ParsedClaudeConfig {
   /** 中文说明：协议局部值 config，由紧邻初始化决定。 */
   const config: ClaudeCodeHookConfig = {}

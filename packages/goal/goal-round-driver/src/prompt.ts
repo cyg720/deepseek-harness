@@ -1,5 +1,5 @@
 /** Model-visible continuation prompt for one same-session goal round. */
-/**
+/*
  * 文件职责：生成同一会话下一轮目标执行所需的完整模型提示块。
  * 技术维度：使用 TypeScript 模板字符串、JSON.stringify 和 LLM ContentBlock 线协议类型。
  * 产品维度：让长期目标在多轮中持续推进，并提醒代理以当前工作区和持久状态为准完成验证。
@@ -17,7 +17,7 @@ import type { GoalView } from '@deepseek-ai/dsh-goal'
  * @param round - next positive round number.
  * @returns a fresh one-block prompt for `Agent.followup()`.
  */
-/**
+/*
  * 渲染完整目标续轮指令。
  * @param goal 当前获准执行的精确目标版本。
  * @param round 下一轮正整数编号。

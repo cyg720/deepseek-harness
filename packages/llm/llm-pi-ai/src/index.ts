@@ -54,7 +54,7 @@
  *
  * @module @deepseek-ai/dsh-llm-pi-ai
  */
-/**
+/*
  * 文件职责：实现Pi AI LLM的 index.ts 模块。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
@@ -105,7 +105,7 @@ const NS = settingsNamespace('llm-pi-ai')
  * Sorted by provider so a settings document that merely reorders its keys is
  * not mistaken for a route change.
  */
-/** 中文说明：函数 registrationFacts 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 registrationFacts 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function registrationFacts(profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>): unknown {
   return [...profiles.entries()]
     // `displayName` rides along because the registry hands it to every selector
@@ -127,7 +127,7 @@ function registrationFacts(profiles: ReadonlyMap<string, ResolvedPiAiProviderPro
  * @param profiles - the currently resolved provider profiles.
  * @returns the directory entries in catalog order, declared routes last.
  */
-/** 中文说明：函数 directoryEntries 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 directoryEntries 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function directoryEntries(
   profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>,
 ): LlmConfigurableProvider[] {
@@ -156,7 +156,7 @@ function directoryEntries(
 }
 
 /** Register one generic pi-ai adapter for all configured provider routes. */
-/** 中文说明：函数 apply 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 apply 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function apply(ctx: Context, config: Config): void {
   /** 中文说明：适配器局部值 current，由紧邻初始化决定。 */
   let current: () => Config = () => config
@@ -175,7 +175,7 @@ export function apply(ctx: Context, config: Config): void {
    * last good value for a stored section that fails. Anything reaching this
    * point has already resolved once.
    */
-  /** 中文说明：适配器局部值 profiles，由紧邻初始化决定。 */
+  /* 中文说明：适配器局部值 profiles，由紧邻初始化决定。 */
   const profiles = (): ReadonlyMap<string, ResolvedPiAiProviderProfile> => {
     /** 中文说明：适配器局部值 raw，由紧邻初始化决定。 */
     const raw = current()
@@ -274,7 +274,7 @@ export function apply(ctx: Context, config: Config): void {
    * discovery, so both answer `undefined` and the endpoint is asked
    * unauthenticated — the same posture a request to that route would take.
    */
-  /** 中文说明：适配器局部值 storedApiKey，由紧邻初始化决定。 */
+  /* 中文说明：适配器局部值 storedApiKey，由紧邻初始化决定。 */
   const storedApiKey = async (provider: string | undefined): Promise<string | undefined> => {
     if (provider === undefined) return undefined
     /** 中文说明：适配器局部值 profile，由紧邻初始化决定。 */

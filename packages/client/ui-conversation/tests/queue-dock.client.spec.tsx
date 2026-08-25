@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证会话输入的 queue-dock.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
  * 产品维度：防止会话输入用户流程回归。
@@ -55,7 +55,7 @@ function snapshotWith(queue: QueuedMessage[]): ConversationSnapshot {
 }
 
 /** Minimal live source backing the useSession stub. */
-/** 中文说明：函数 liveSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 liveSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function liveSession(initial: ConversationSnapshot) {
   /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
   let snapshot = initial
@@ -81,7 +81,7 @@ function liveSession(initial: ConversationSnapshot) {
 }
 
 /** InputZone owner stub (the dock reads useSession only; the zone fields satisfy the owner share). */
-/** 中文说明：测试局部值 INPUT_STATE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 INPUT_STATE，由紧邻初始化决定。 */
 const INPUT_STATE: InputState = { draft: '', imageIds: [], draftRev: 0, phase: 'plain', occurrences: [], queue: [] }
 
 // Standard locale seat stub mirroring the real ns → common → key chain.

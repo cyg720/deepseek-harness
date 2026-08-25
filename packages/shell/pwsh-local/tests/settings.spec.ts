@@ -1,5 +1,5 @@
 /** The shared `bash` settings section as the pwsh executor family resolves it. */
-/**
+/*
  * 文件职责：验证 settings.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
  * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
@@ -18,7 +18,7 @@ import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import { PwshLocalExecutor } from '@deepseek-ai/dsh-pwsh-local'
 
 /** The smallest real provider: one in-memory document, always writable. */
-/** 中文说明：class MemorySettings 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
+/* 中文说明：class MemorySettings 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
 class MemorySettings extends SettingsProvider {
   doc: Record<string, unknown> = {}
 

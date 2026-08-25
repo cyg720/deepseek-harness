@@ -39,18 +39,18 @@ import type { SessionRemotes } from './remotes.ts'
  * re-pulls ride the `state`/`error` axis, which is where failure is modeled
  * (no `error` phase here; that would duplicate `state`).
  */
-/** 中文说明：类型 `SessionListPhase` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `SessionListPhase` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export type SessionListPhase = 'pending' | 'ready'
 
 /** Request-local content hit returned to sidebar search consumers. */
-/** 中文说明：类型 `SessionSearchResultItem` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `SessionSearchResultItem` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface SessionSearchResultItem {
   sessionId: SessionId
   snippet: string
 }
 
 /** Immutable session-list snapshot for useSessionList. */
-/** 中文说明：类型 `SessionListSnapshot` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `SessionListSnapshot` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface SessionListSnapshot {
   items: readonly SessionListEntry[]
   /** Selected Session id (validated against items; masked to undefined while its session is off the list). */
@@ -66,7 +66,7 @@ export interface SessionListSnapshot {
 }
 
 /** One parent-addressed durable catalog projected through the sessions snapshot. */
-/** 中文说明：类型 `SubagentCatalogSnapshot` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `SubagentCatalogSnapshot` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface SubagentCatalogSnapshot extends SubagentCatalog {
   state: 'loading' | 'ready' | 'error'
   error: RpcError | null
@@ -91,7 +91,7 @@ type SessionListMutation =
   | { kind: 'engaged'; sessionId: SessionId }
 
 /** Stable identity of a frame retained until an uninstantiated Session can consume it. */
-/** 中文说明：内部函数 `bufferedRequestKey`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
+/* 中文说明：内部函数 `bufferedRequestKey`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function bufferedRequestKey(envelope: RpcRequest<MuxFrame>): string | undefined {
   /** 中文说明：当前处理、发送或断言的事件及其数据；变量 `frame` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const frame = envelope.payload
@@ -105,7 +105,7 @@ function bufferedRequestKey(envelope: RpcRequest<MuxFrame>): string | undefined 
 }
 
 /** Match ui-user-questions's binary plan-review routing at the wire boundary. */
-/** 中文说明：内部函数 `questionInteractionStatus`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
+/* 中文说明：内部函数 `questionInteractionStatus`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function questionInteractionStatus(
   questions: Extract<MuxFrame, { type: 'question/requested' }>['questions'],
 ): PendingInteractionStatus {
@@ -123,50 +123,50 @@ function questionInteractionStatus(
 }
 
 /** Instance cluster + frame entry + the session list. */
-/** 中文说明：类 `SessionManager` 负责封装本文件的核心状态与操作，实例由调用方创建并按生命周期释放。 */
+/* 中文说明：类 `SessionManager` 负责封装本文件的核心状态与操作，实例由调用方创建并按生命周期释放。 */
 export class SessionManager {
   /** 中文说明：类方法 `sessions`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly sessions = new Map<SessionId, Session>()
   /** Pre-instantiation buffer for answerable requests and the queued-turn snapshot, which history
    *  cannot reconstruct on open. Live requests remain until resolution; queue and replay duplicates
    *  compact by identity. Instantiation replays and clears it, while removal drops it. */
-  /** 中文说明：类方法 `pendingBuffers`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `pendingBuffers`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly pendingBuffers = new Map<SessionId, RpcRequest<MuxFrame>[]>()
   /** Outstanding answerable interactions per session, keyed by their stable request identity.
    *  Manager-owned rather than read off Session instances because the sidebar must light up for
    *  sessions never instantiated. Cleared per connection generation — the reopen replay re-adds
    *  still-pending requests — and on session-removed. */
-  /** 中文说明：类方法 `pendingInteractions`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `pendingInteractions`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly pendingInteractions = new Map<SessionId, Map<string, PendingInteractionStatus>>()
   /**
    * Sessions that finished running while not selected — the sidebar's green
    * "done" reminder (manager-owned, survives connection generations; cleared
    * on select and session-removed, re-armed by the next completion).
    */
-  /** 中文说明：类方法 `completedNotifications`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `completedNotifications`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly completedNotifications = new Set<SessionId>()
   /** Last-observed running bits per session; the true→false edge here arms {@link completedNotifications}. */
-  /** 中文说明：类方法 `prevRunning`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `prevRunning`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly prevRunning = new Map<SessionId, boolean>()
   /** Per-session projection value stores, retained independently of instance arrival (the
    *  title-snapshot precedent, generalized): push frames land here whether or not the Session
    *  is instantiated (list rows read the 'title' key), and an instantiated Session adopts the
    *  same store so history-baseline seeding and frames converge on one row set. */
-  /** 中文说明：类方法 `projectionStores`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `projectionStores`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly projectionStores = new Map<SessionId, ProjectionValueStore>()
   /** 中文说明：类成员 `summaries` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private summaries: SessionSummary[] = []
   /** 中文说明：类成员 `listState` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listState: 'idle' | 'loading' | 'error' = 'idle'
   /** Arrival phase; the pending → ready edge fires on the first successful pull (see SessionListPhase). */
-  /** 中文说明：类成员 `listPhase` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
+  /* 中文说明：类成员 `listPhase` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listPhase: SessionListPhase = 'pending'
   /** 中文说明：类成员 `listError` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listError: RpcError | null = null
   /** 中文说明：类成员 `listInflight` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listInflight: Promise<void> | null = null
   /** Mutations arriving after a list request starts are replayed over its response. */
-  /** 中文说明：类成员 `listMutations` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
+  /* 中文说明：类成员 `listMutations` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listMutations: SessionListMutation[] | null = null
   /** 中文说明：类方法 `addresses`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly addresses = new Map<SessionId, SubagentAddress>()
@@ -175,7 +175,7 @@ export class SessionManager {
   /** 中文说明：类方法 `catalogInflight`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly catalogInflight = new Map<SessionId, CatalogInflight>()
   /** Catalog owners whose membership changed while a pull was in flight: one trailing refresh after it settles. */
-  /** 中文说明：类方法 `catalogStale`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `catalogStale`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly catalogStale = new Set<SessionId>()
   /** 中文说明：类方法 `openCatalogs`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly openCatalogs = new Set<SessionId>()
@@ -185,7 +185,7 @@ export class SessionManager {
    * Background jobs per session, last-wins from `session/jobs`. An empty set
    * is stored as an absent key, so absence and `[]` are one representation.
    */
-  /** 中文说明：类方法 `jobsBySession`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `jobsBySession`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly jobsBySession = new Map<SessionId, readonly JobView[]>()
 
   /** 中文说明：类成员 `selected` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
@@ -196,7 +196,7 @@ export class SessionManager {
   /** Entry-identity cache (reference stability): list rebuilds reuse the previous entry
    *  object when every field matches — wire refreshes mint all-new summary objects, so identity
    *  must be recovered by value or every SessionListItem memo misses on every refresh. */
-  /** 中文说明：类方法 `entryCache`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `entryCache`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private entryCache = new Map<SessionId, SessionListEntry>()
   /** 中文说明：类成员 `itemsCache` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private itemsCache: readonly SessionListEntry[] = []
@@ -209,7 +209,7 @@ export class SessionManager {
    * @param api - shared wire client.
    * @param restoredSelection - persisted real-Session selection candidate.
    */
-  /** 中文说明：类方法 `constructor`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `constructor`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   constructor(
     private readonly api: IApiClient,
     private readonly remote: SessionRemotes,
@@ -228,7 +228,10 @@ export class SessionManager {
    * Select a listed Session or a retained catalog-addressed child.
    * @param sessionId - listed or catalog-addressed Session id.
    */
-  /** 中文说明：类方法 `select`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `select`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   select(sessionId: SessionId): void {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `address` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const address = this.navigationAddress(sessionId)
@@ -253,7 +256,10 @@ export class SessionManager {
    * Select a healthy child through its durable direct-parent address.
    * @param address - catalog-derived parent and child ids.
    */
-  /** 中文说明：类方法 `selectSubagent`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `selectSubagent`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param address 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   selectSubagent(address: SubagentAddress): void {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `catalog` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const catalog = this.catalogs.get(address.parentSessionId)
@@ -271,7 +277,7 @@ export class SessionManager {
   }
 
   /** Clear the selection (the layout falls to the no-session view state). */
-  /** 中文说明：类方法 `clearSelection`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `clearSelection`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   clearSelection(): void {
     this.selected = undefined
     this.notifier.notifyNow()
@@ -282,7 +288,11 @@ export class SessionManager {
    * @param sessionId - possible addressed child id.
    * @returns The direct-parent address, when navigation discovered one.
    */
-  /** 中文说明：类方法 `subagentAddress`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `subagentAddress`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   subagentAddress(sessionId: SessionId): SubagentAddress | undefined {
     return this.addresses.get(sessionId)
   }
@@ -292,7 +302,11 @@ export class SessionManager {
    * @param sessionId - possible child id in an already-loaded catalog.
    * @returns A retained or catalog-derived direct-parent address.
    */
-  /** 中文说明：类方法 `navigationAddress`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `navigationAddress`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   navigationAddress(sessionId: SessionId): SubagentAddress | undefined {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `retained` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const retained = this.addresses.get(sessionId)
@@ -316,7 +330,10 @@ export class SessionManager {
    * truth — a later get() lazily rebuilds and open() backfills history.
    * @param sessionId - the session to drop.
    */
-  /** 中文说明：类方法 `drop`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `drop`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   drop(sessionId: SessionId): void {
     this.sessions.delete(sessionId)
   }
@@ -327,7 +344,11 @@ export class SessionManager {
    * @param sessionId - the session to get.
    * @returns the resident instance.
    */
-  /** 中文说明：类方法 `get`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `get`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   get(sessionId: SessionId): Session {
     /** 中文说明：当前会话或对话投影对象；变量 `session` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let session = this.sessions.get(sessionId)
@@ -390,14 +411,14 @@ export class SessionManager {
   }
 
   /** Rebuild every resident Session after one coalesced registry transaction. */
-  /** 中文说明：类方法 `rebuildConversationRegistry`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `rebuildConversationRegistry`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   rebuildConversationRegistry(): void {
     /** 中文说明：当前会话或对话投影对象；变量 `session` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const session of this.sessions.values()) session.rebuildConversationRegistry()
   }
 
   /** Resident per-session projection store (create-on-demand; outlives instantiation). */
-  /** 中文说明：类方法 `projectionStore`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `projectionStore`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private projectionStore(sessionId: SessionId): ProjectionValueStore {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `store` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let store = this.projectionStores.get(sessionId)
@@ -415,7 +436,10 @@ export class SessionManager {
    * Refresh one direct-child catalog, reusing its in-flight request.
    * @param parentSessionId - catalog owner.
    */
-  /** 中文说明：类方法 `refreshSubagents`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `refreshSubagents`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param parentSessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   refreshSubagents(parentSessionId: SessionId): Promise<void> {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `existing` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const existing = this.catalogInflight.get(parentSessionId)
@@ -500,7 +524,11 @@ export class SessionManager {
    * @param parentSessionId - catalog owner.
    * @param open - current menu state.
    */
-  /** 中文说明：类方法 `setSubagentCatalogOpen`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `setSubagentCatalogOpen`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param parentSessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param open 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   setSubagentCatalogOpen(parentSessionId: SessionId, open: boolean): void {
     if (open) {
       this.openCatalogs.add(parentSessionId)
@@ -519,7 +547,7 @@ export class SessionManager {
   // ---- List API ----
 
   /** Full refresh via session.list (single-flight: an in-flight call is reused). */
-  /** 中文说明：类方法 `refreshList`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `refreshList`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   refreshList(): Promise<void> {
     if (this.listInflight !== null) return this.listInflight
     this.listState = 'loading'
@@ -714,7 +742,7 @@ export class SessionManager {
    * create() echo race — whichever lands second must fill the placeholder's
    * missing cwd/parentSessionId, never overwrite list-refresh data).
    */
-  /** 中文说明：类方法 `mergeSummary`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `mergeSummary`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private mergeSummary(summary: SessionSummary): void {
     this.recordMutation({ kind: 'upsert', summary })
   }
@@ -724,7 +752,11 @@ export class SessionManager {
    * @param sessionId - the switched session.
    * @param agentPreset - the preset id the host confirmed.
    */
-  /** 中文说明：类方法 `noteAgentPreset`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `noteAgentPreset`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param agentPreset 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   noteAgentPreset(sessionId: SessionId, agentPreset: string): void {
     this.recordMutation({ kind: 'upsert', summary: {
       sessionId, updatedAt: Date.now(), running: false, blank: true, agentPreset,
@@ -732,7 +764,7 @@ export class SessionManager {
   }
 
   /** Apply immediately and retain for replay when a list response is in flight. */
-  /** 中文说明：类方法 `recordMutation`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `recordMutation`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private recordMutation(mutation: SessionListMutation): void {
     this.listMutations?.push(mutation)
     this.summaries = applyMutation(this.summaries, mutation)
@@ -748,7 +780,11 @@ export class SessionManager {
    * @param listener - change callback.
    * @returns the unsubscribe function.
    */
-  /** 中文说明：类成员 `subscribe` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
+  /*
+   * 中文说明：类成员 `subscribe` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。
+   * @param listener 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   subscribe(listener: () => void): () => void {
     return this.notifier.subscribe(listener)
   }
@@ -757,14 +793,17 @@ export class SessionManager {
    * Cached list snapshot (rebuilt lazily when dirty with no listeners).
    * @returns the cached reference (stable until the next flush).
    */
-  /** 中文说明：类方法 `getListSnapshot`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `getListSnapshot`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   getListSnapshot(): SessionListSnapshot {
     this.notifier.ensureFresh()
     return this.listSnapshotCache
   }
 
   /** Add or refresh one stable pending-interaction identity. */
-  /** 中文说明：类方法 `trackPending`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `trackPending`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private trackPending(sessionId: SessionId, key: string, status: PendingInteractionStatus): void {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `interactions` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let interactions = this.pendingInteractions.get(sessionId)
@@ -778,7 +817,7 @@ export class SessionManager {
   }
 
   /** Settle one pending-interaction identity without disturbing sibling waits. */
-  /** 中文说明：类方法 `resolvePending`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `resolvePending`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private resolvePending(sessionId: SessionId, key: string): void {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `interactions` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const interactions = this.pendingInteractions.get(sessionId)
@@ -795,7 +834,10 @@ export class SessionManager {
    * history backfills them on open).
    * @param envelope - the frame with its wire rpcId.
    */
-  /** 中文说明：类方法 `handleMuxEnvelope`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `handleMuxEnvelope`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param envelope 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   handleMuxEnvelope(envelope: RpcRequest<MuxFrame>): void {
     /** 中文说明：当前处理、发送或断言的事件及其数据；变量 `frame` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const frame = envelope.payload
@@ -918,7 +960,10 @@ export class SessionManager {
    * Host frame entry: list upkeep + per-instance running/removed/agent-error relay.
    * @param envelope - the frame with its wire rpcId.
    */
-  /** 中文说明：类方法 `handleHostEnvelope`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `handleHostEnvelope`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param envelope 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   handleHostEnvelope(envelope: RpcRequest<HostFrame>): void {
     /** 中文说明：当前处理、发送或断言的事件及其数据；变量 `frame` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const frame = envelope.payload
@@ -1017,7 +1062,7 @@ export class SessionManager {
    * survive into the next generation — mux-open replay re-adds every still-pending
    * request with its live rpcId.
   */
-  /** 中文说明：类方法 `handleDisconnected`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `handleDisconnected`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   handleDisconnected(): void {
     if (this.pendingInteractions.size > 0) {
       this.pendingInteractions.clear()
@@ -1035,7 +1080,7 @@ export class SessionManager {
   }
 
   /** After each connection generation: refresh the session baseline and rebuild opened windows. */
-  /** 中文说明：类方法 `handleConnected`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `handleConnected`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   handleConnected(): void {
     void this.refreshList()
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `selectedAddress` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
@@ -1049,7 +1094,7 @@ export class SessionManager {
   }
 
   /** Debounce membership refetches while one parent catalog is selected or open. */
-  /** 中文说明：类方法 `scheduleCatalogRefresh`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `scheduleCatalogRefresh`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private scheduleCatalogRefresh(parentSessionId: SessionId): void {
     if (this.catalogDebounce.has(parentSessionId)) return
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `timer` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
@@ -1068,7 +1113,7 @@ export class SessionManager {
   }
 
   /** Apply one Agent-driver transition to loaded and in-flight catalogs. */
-  /** 中文说明：类方法 `updateCatalogActivity`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `updateCatalogActivity`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private updateCatalogActivity(childSessionId: SessionId, running: boolean): void {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `activity` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const activity = running ? 'running' as const : 'inactive' as const
@@ -1094,7 +1139,7 @@ export class SessionManager {
   }
 
   /** Preserve and project a positive expandability hint after one direct subagent publishes. */
-  /** 中文说明：类方法 `markCatalogParentExpandable`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `markCatalogParentExpandable`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private markCatalogParentExpandable(parentSessionId: SessionId): void {
     this.applyCatalogParentExpandable(parentSessionId)
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `inflight` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
@@ -1102,7 +1147,7 @@ export class SessionManager {
   }
 
   /** Apply one positive expandability hint to every loaded catalog containing that unique row id. */
-  /** 中文说明：类方法 `applyCatalogParentExpandable`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `applyCatalogParentExpandable`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private applyCatalogParentExpandable(parentSessionId: SessionId): void {
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `changed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let changed = false
@@ -1122,7 +1167,7 @@ export class SessionManager {
   }
 
   /** Fold request-local row mutations into one catalog result before publication. */
-  /** 中文说明：类方法 `withCatalogMutations`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `withCatalogMutations`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private withCatalogMutations(
     entries: SubagentCatalog['entries'],
     expandableRows: ReadonlySet<SessionId>,
@@ -1149,7 +1194,7 @@ export class SessionManager {
    * it. First observation only records the running bit — sessions already
    * idle at load get no reminder.
    */
-  /** 中文说明：类方法 `syncCompletedNotifications`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `syncCompletedNotifications`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private syncCompletedNotifications(): void {
     /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `seen` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const seen = new Set<SessionId>()
@@ -1255,7 +1300,7 @@ export class SessionManager {
 }
 
 /** Apply one list mutation without deriving display order. */
-/** 中文说明：内部函数 `applyMutation`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
+/* 中文说明：内部函数 `applyMutation`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function applyMutation(summaries: readonly SessionSummary[], mutation: SessionListMutation): SessionSummary[] {
   switch (mutation.kind) {
     case 'upsert': {
@@ -1306,7 +1351,7 @@ function applyMutation(summaries: readonly SessionSummary[], mutation: SessionLi
 }
 
 /** Temporary source-plane bridge while the Host contract and client project build independently. */
-/** 中文说明：内部函数 `workspaceAttachSessionId`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
+/* 中文说明：内部函数 `workspaceAttachSessionId`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function workspaceAttachSessionId(error: RpcError): SessionId | undefined {
   /** 中文说明：标识对象、顺序或版本的标量值；变量 `candidate` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const candidate = error as unknown as { code: string; details: { sessionId?: SessionId } }

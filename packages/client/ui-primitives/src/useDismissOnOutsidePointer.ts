@@ -18,7 +18,7 @@
  * Outside-pointer dismissal for trigger-owned popovers (jobs list, Cordis
  * panel): while the surface is open, a pointerdown outside the root closes it.
  */
-/**
+/*
  * 本文件实现 useDismissOnOutsidePointer："点击外部关闭"弹层的标准交互——
  * 打开期间，root 之外的 pointerdown 会把 open 状态置回 false。
  */
@@ -31,7 +31,7 @@ import type { RefObject } from 'react'
  * @param open - whether the surface is showing; false detaches the listener.
  * @param setOpen - state setter invoked with false on an outside pointerdown.
  */
-/**
+/*
  * 在 root 之外按下指针时关闭打开的弹层。
  * 使用示例：useDismissOnOutsidePointer(containerRef, open, setOpen)。
  * @param root - 同时包含触发器和弹出面的元素；其内部的点击不会被当作"外部"。

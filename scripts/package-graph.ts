@@ -4,7 +4,7 @@
  * supplies its own group ordering because the documents use different visual
  * priorities; manifest parsing and dependency-safe ordering have one owner.
  */
-/**
+/*
  * 文件职责：实现 package-graph.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -20,7 +20,7 @@ import { dirname, resolve, sep } from 'node:path'
 const SCOPE = '@deepseek-ai/dsh-'
 
 /** One harness package and its in-repo peer-dependency edges. */
-/** 中文说明：interface PackageGraphNode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface PackageGraphNode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface PackageGraphNode {
   /** Package name with the `@deepseek-ai/dsh-` prefix removed. */
   short: string
@@ -41,7 +41,7 @@ export interface PackageGraphNode {
  * @param gate - command name used in structural error messages.
  * @returns package nodes ordered after all of their in-repo dependencies.
  */
-/** 中文说明：函数 collectPackageGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectPackageGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectPackageGraph(root: string, groupOrder: readonly string[], gate: string): PackageGraphNode[] {
   /** 中文说明：变量 packages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const packages: PackageGraphNode[] = []
@@ -109,13 +109,13 @@ function comparePackages(a: PackageGraphNode, b: PackageGraphNode, groupOrder: r
 }
 
 /** Stable Mermaid id for a graph value. */
-/** 中文说明：函数 graphNodeId 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 graphNodeId 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function graphNodeId(prefix: string, value: string): string {
   return `${prefix}_${value.replace(/[^a-zA-Z0-9_]/g, '_')}`
 }
 
 /** Escape a value embedded in a quoted Mermaid label. */
-/** 中文说明：函数 escapeMermaidLabel 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 escapeMermaidLabel 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function escapeMermaidLabel(value: string): string {
   return value.replace(/"/g, '\\"')
 }

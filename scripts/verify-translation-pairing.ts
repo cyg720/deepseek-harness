@@ -9,7 +9,7 @@
  * scan. Translation quality remains a review responsibility.
  * See `docs/i18n/README.md` for the owning contract.
  */
-/**
+/*
  * 文件职责：实现 verify-translation-pairing.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -74,7 +74,7 @@ const indexFiles = indexMode ? gitIndexPaths(root) : undefined
 const contentCache = new Map<string, Buffer | undefined>()
 
 /** Read one repository path from the selected worktree or index plane. */
-/** 中文说明：函数 readRepositoryFile 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 readRepositoryFile 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function readRepositoryFile(file: string): Buffer | undefined {
   if (contentCache.has(file)) return contentCache.get(file)
   /** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -88,13 +88,13 @@ function readRepositoryFile(file: string): Buffer | undefined {
 }
 
 /** Whether one path exists in the selected content plane. */
-/** 中文说明：函数 repositoryFileExists 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 repositoryFileExists 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function repositoryFileExists(file: string): boolean {
   return indexMode ? indexFiles?.has(file) === true : readRepositoryFile(file) !== undefined
 }
 
 /** Discover source Markdown and pairing sidecars before applying the corpus predicate. */
-/** 中文说明：常量 SCOPE_PATTERNS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SCOPE_PATTERNS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SCOPE_PATTERNS = [
   '**/*.md',
   '**/*.i18n.yaml',
@@ -118,7 +118,7 @@ const isTranslationPairSource = translationPairSourcePredicate(manifest)
  * sibling like `docs/tool-catalog-notes/x.md` — so directory entries in the
  * manifest must keep their trailing slash.
  */
-/** 中文说明：函数 isExcluded 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isExcluded 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isExcluded(file: string): boolean {
   return isTranslationPairingManifestExcluded(file, manifest)
 }

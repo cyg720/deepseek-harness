@@ -27,14 +27,14 @@ import * as tool from '../src/list-agents.ts'
 import { parkParent } from './park-parent.ts'
 
 /** One scripted response that may wait on a caller-released gate before streaming. */
-/** 中文说明：interface GatedEntry 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
+/* 中文说明：interface GatedEntry 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
 interface GatedEntry {
   chunks: StreamChunk[]
   gate?: Promise<undefined>
 }
 
 /** Adapter whose entries can hold a model call open until the test releases it. */
-/** 中文说明：class GatedAdapter 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
+/* 中文说明：class GatedAdapter 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
 class GatedAdapter extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
 
@@ -117,7 +117,7 @@ function callTool(
 }
 
 /** Wait until a continuable child released its current Activation. */
-/** 中文说明：函数 waitNoActivation 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitNoActivation 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitNoActivation(ctx: Context, childId: SessionId): Promise<void> {
   await vi.waitFor(() => {
     expect(ctx.agents.get(childId)).toBeUndefined()

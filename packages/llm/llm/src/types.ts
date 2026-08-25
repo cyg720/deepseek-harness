@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义"provider 中立"的消息与流式词汇：会话循环、会话日志、插件
  * 共同使用的核心类型——内容块（ContentBlock）、结束原因（FinishReason）、
@@ -64,7 +64,7 @@ export type {
 } from './message.ts'
 
 /** Serializable provider or transport failure facts; policy decides whether they are retryable. */
-/**
+/*
  * （中文）可序列化的 provider/传输失败事实；重试策略据此决定失败是否可重试。
  */
 export interface LlmFailure {
@@ -99,7 +99,7 @@ export interface ReasoningBlock {
   text: string
 }
 
-/**
+/*
  * （中文）持久的栅格图像引用，可用于用户或助手内容。该块刻意保持角色中立；
  * 助手侧渲染是向前兼容——当前生产适配器声明只输出文本，因此今天只有用户
  * 内容携带图片。
@@ -139,7 +139,7 @@ export interface ToolResultBlock {
   isError?: boolean
 }
 
-/**
+/*
  * （中文）按 type 键可合并扩展的内容块映射。新增核心块必须同时具备适配器、
  * UI 与压缩（compaction）支持。
  */
@@ -162,7 +162,7 @@ export type ContentBlockType = keyof ContentBlockMap
 // 中文：任意已知内容块；按 type 分支处理，未知项显式放行（可合并扩展）。
 export type ContentBlock = ContentBlockMap[ContentBlockType]
 
-/**
+/*
  * （中文）模型响应停止的原因。可合并扩展，允许适配器暴露 provider 专属原因。
  */
 /**
@@ -189,7 +189,7 @@ export type FinishReason = FinishReasonMap[keyof FinishReasonMap]
  * sum of the three). Adapters whose providers fold cache hits into a total
  * prompt count (DeepSeek's `prompt_tokens`) subtract them out.
  */
-/**
+/*
  * （中文）一次模型调用的 token 计量（缓存字段可选）。
  * 计数是互斥的：inputTokens 只含未命中缓存的输入；缓存命中输入单列为
  * cacheReadTokens/cacheWriteTokens（计费输入 = 三者之和）。provider 若把
@@ -209,7 +209,7 @@ export interface TokenUsage {
 }
 
 /** Display metadata for one registered provider route. */
-/**
+/*
  * （中文）单个已注册 provider 路由的展示元数据。
  */
 export interface LlmProviderInfo {
@@ -232,7 +232,7 @@ export interface ModelModalityMap {
 // 中文：任意已声明的 provider 模型模态。
 export type ModelModality = ModelModalityMap[keyof ModelModalityMap]
 
-/**
+/*
  * （中文）适配器插件可通过配置激活的 provider 路由（无论当前是否已注册）。
  * 配置界面把该目录与 listProviders() 合并，从而同时呈现每个可配置 provider
  * 的"在线/休眠"状态。
@@ -275,7 +275,7 @@ export interface LlmConfigurableProvider {
   declared?: boolean
 }
 
-/**
+/*
  * （中文）对"配置尚未存储"的 provider 端点的一次探询。配置界面发送用户仍在
  * 编辑的草稿，因此请求直接携带端点与凭据而非命名路由：一个正在被添加的
  * provider 还没有可命名的路由。
@@ -315,7 +315,7 @@ export interface LlmModelDiscoveryRequest {
   signal?: AbortSignal
 }
 
-/**
+/*
  * （中文）端点自述的某个模型。除 id 外每个字段都可选——大多数 provider 的
  * 列表只披露 id 而无其他；采用这些模型之一的界面仍需补足其适配器所需的能力。
  */
@@ -340,7 +340,7 @@ export interface LlmDiscoveredModel {
 }
 
 /** One adapter-discovered model; catalog membership is advisory, not request validation. */
-/**
+/*
  * （中文）适配器发现的单个模型；目录成员资格只是建议性，不是请求校验。
  */
 export interface LlmModelInfo {
@@ -370,7 +370,7 @@ export interface LlmModelContext {
 }
 
 /** Display metadata for one adapter-owned reasoning effort. */
-/**
+/*
  * （中文）单个适配器自有的推理强度（reasoning effort）的展示元数据。
  */
 export interface LlmReasoningEffortInfo {
@@ -386,7 +386,7 @@ export interface LlmReasoningEffortInfo {
 }
 
 /** Selectable reasoning efforts for one exact provider/model route. */
-/**
+/*
  * （中文）某条精确 provider/model 路由可选的推理强度。
  */
 export interface LlmModelReasoningInfo {
@@ -403,7 +403,7 @@ export interface LlmModelReasoningInfo {
 }
 
 /** Exact-route model metadata resolved by its owning adapter. */
-/**
+/*
  * （中文）由所属适配器解析出的精确路由模型元数据。
  */
 export interface LlmResolvedModelInfo extends LlmModelInfo {
@@ -425,7 +425,7 @@ export interface LlmResolvedModelInfo extends LlmModelInfo {
  * split is shared vocabulary, so assembly can keep stored metadata aligned
  * with stored content without reading either half.
  */
-/**
+/*
  * （中文）回放成功响应所需的适配器私有无损 JSON 状态：由终结性 finish 块携带，
  * 存在组装后的助手消息的模型来源上。两半内容对 harness 保持不透明；共享的
  * 只是"拆分"这个约定，因此组装器可以在不读取任何一半的情况下保持存储元数据
@@ -449,7 +449,7 @@ export interface ReplayEnvelope {
   blocks?: readonly unknown[]
 }
 
-/**
+/*
  * （中文）适配器发出的原始流协议。
  * 块索引用于关联交错的 delta；block-end 携带组装好的块。适配器在终结 finish
  * 前发出 usage，之后不再发任何东西；工具参数保持原始 JSON 字符串。适配器实现
@@ -479,7 +479,7 @@ export type StreamChunk =
     replayState?: ReplayEnvelope
   }
 
-/**
+/*
  * （中文）发送给模型的工具 JSON-schema 描述。
  * 声明在这里（而非 dsh-tools）是因为它是 GenerateOptions 的一部分；dsh-tools
  * 的 ToolDefinition 与 dsh-system-prompt 的 PromptAssembly 都从本包导入它。
@@ -502,7 +502,7 @@ export interface ToolSchema {
 }
 
 /** A single model request, fully assembled. */
-/**
+/*
  * （中文）一次完整组装好的模型请求。
  */
 export interface GenerateOptions {

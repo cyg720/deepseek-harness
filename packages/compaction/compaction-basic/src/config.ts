@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-compaction-basic/config
  */
-/**
+/*
  * 文件职责：实现上下文压缩的 config 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供上下文压缩能力。
@@ -25,15 +25,15 @@ import type {
 } from './types.ts'
 
 /** Default request-pressure fraction for every routed model. */
-/** 中文说明：运行时局部值 DEFAULT_THRESHOLD_RATIO，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 DEFAULT_THRESHOLD_RATIO，由紧邻初始化决定。 */
 const DEFAULT_THRESHOLD_RATIO = 0.8
 
 /** Default verbatim-tail fraction for every routed model. */
-/** 中文说明：运行时局部值 DEFAULT_RETAIN_RATIO，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 DEFAULT_RETAIN_RATIO，由紧邻初始化决定。 */
 const DEFAULT_RETAIN_RATIO = 0.16
 
 /** Fields shared by top-level defaults and exact-target overrides. */
-/** 中文说明：运行时局部值 POLICY_CONFIG_KEYS，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 POLICY_CONFIG_KEYS，由紧邻初始化决定。 */
 const POLICY_CONFIG_KEYS = [
   'thresholdRatio',
   'retainRatio',
@@ -46,7 +46,7 @@ const POLICY_CONFIG_KEYS = [
 ] as const
 
 /** Complete public top-level configuration key set. */
-/** 中文说明：运行时局部值 BASIC_COMPACT_CONFIG_KEYS，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 BASIC_COMPACT_CONFIG_KEYS，由紧邻初始化决定。 */
 const BASIC_COMPACT_CONFIG_KEYS: ReadonlySet<string> = new Set([
   ...POLICY_CONFIG_KEYS,
   'modelPolicies',
@@ -54,7 +54,7 @@ const BASIC_COMPACT_CONFIG_KEYS: ReadonlySet<string> = new Set([
 ])
 
 /** Complete exact-target override key set. */
-/** 中文说明：运行时局部值 MODEL_POLICY_KEYS，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 MODEL_POLICY_KEYS，由紧邻初始化决定。 */
 const MODEL_POLICY_KEYS: ReadonlySet<string> = new Set([
   'provider',
   'model',
@@ -62,7 +62,7 @@ const MODEL_POLICY_KEYS: ReadonlySet<string> = new Set([
 ])
 
 /** Target-specific pressure configuration failure eligible for warning suppression. */
-/** 中文说明：类型或类 TargetPressureConfigError 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 TargetPressureConfigError 约束协议数据或模块职责。 */
 export class TargetPressureConfigError extends Error {
   /**
    * @param targetKey - exact provider/model route used as the warning key.
@@ -78,7 +78,11 @@ export class TargetPressureConfigError extends Error {
  * @param config - untrusted plugin configuration after Loader normalization.
  * @returns detached immutable defaults and validated exact-target overrides.
  */
-/** 中文说明：函数 resolveConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 resolveConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfig {
   validateKeys(config, BASIC_COMPACT_CONFIG_KEYS, 'BasicCompactionConfig')
   validatePolicy(config, 'BasicCompactionConfig')
@@ -121,7 +125,12 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
  * @param target - exact durable provider/model route to match.
  * @returns detached immutable policy before model-capacity scaling.
  */
-/** 中文说明：函数 resolveTargetPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 resolveTargetPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param target 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveTargetPolicy(
   config: ResolvedConfig,
   target: Pick<LlmCallConfig, 'provider' | 'model'>,
@@ -152,7 +161,12 @@ export function resolveTargetPolicy(
  * @param contextWindow - positive adapter-owned capacity for that target.
  * @returns detached immutable pressure and retention budgets.
  */
-/** 中文说明：函数 resolveCompactSpec 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 resolveCompactSpec 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param policy 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param contextWindow 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveCompactSpec(
   policy: ResolvedTargetPolicy,
   contextWindow: number,
@@ -193,7 +207,7 @@ export function resolveCompactSpec(
 }
 
 /** Choose an explicit retention form or inherit the already-resolved fallback. */
-/** 中文说明：函数 resolveRetention 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveRetention 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveRetention(
   config: CompactionPolicyConfig,
   fallback: ResolvedRetention,
@@ -204,7 +218,7 @@ function resolveRetention(
 }
 
 /** Reject a capacity-independent retention conflict at plugin load. */
-/** 中文说明：函数 validateRatioRetention 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateRatioRetention 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateRatioRetention(
   thresholdRatio: number,
   retention: ResolvedRetention,
@@ -219,7 +233,7 @@ function validateRatioRetention(
 }
 
 /** Validate, detach, and reject duplicate exact-target policies. */
-/** 中文说明：函数 resolveModelPolicies 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveModelPolicies 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveModelPolicies(configured: unknown): ModelCompactPolicyConfig[] {
   if (configured === undefined) return []
   if (!Array.isArray(configured)) {
@@ -244,7 +258,7 @@ function resolveModelPolicies(configured: unknown): ModelCompactPolicyConfig[] {
 }
 
 /** Validate one untrusted exact-target override and narrow its public type. */
-/** 中文说明：函数 assertModelPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertModelPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertModelPolicy(
   source: unknown,
   name: string,
@@ -257,7 +271,7 @@ function assertModelPolicy(
 }
 
 /** Validate the fields common to defaults and exact-target partial overrides. */
-/** 中文说明：函数 validatePolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validatePolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validatePolicy(
   config: CompactionPolicyConfig | Record<string, unknown>,
   name: string,
@@ -292,7 +306,7 @@ function validatePolicy(
 }
 
 /** Require one scope to omit, clear, or replace the summarization target as a pair. */
-/** 中文说明：函数 validateSummarizationPair 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateSummarizationPair 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateSummarizationPair(
   config: CompactionPolicyConfig | Record<string, unknown>,
   name: string,
@@ -318,7 +332,7 @@ function validateSummarizationPair(
 }
 
 /** Reject stale or misspelled keys before defaults can hide them. */
-/** 中文说明：函数 validateKeys 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateKeys 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateKeys(config: object, keys: ReadonlySet<string>, name: string): void {
   /** 中文说明：运行时局部值 key，由紧邻初始化决定。 */
   for (const key of Object.keys(config)) {

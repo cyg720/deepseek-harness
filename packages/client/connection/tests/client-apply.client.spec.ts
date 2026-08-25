@@ -1,4 +1,4 @@
-/**
+/*
  * 文件职责：验证浏览器端连接插件装载、状态订阅、HTTP RPC 和 WebSocket 事件流行为。
  * 技术维度：Cordis 测试 Context、Vitest、FakeWebSocket、Fetch 模拟和异步迭代器。
  * 产品维度：保证浏览器启动、重连、取消和目标管理调用在真实组装入口下可用。

@@ -1,5 +1,5 @@
 /** Language row store: snapshot-mirror action and the revision guard. */
-/**
+/*
  * 文件职责：验证语言设置行 store 的初始镜像、同步动作和版本防回退规则。
  * 技术维度：使用 Vitest 直接操作客户端轻量 store 和不可变快照。
  * 产品维度：保证语言列表与当前选择可靠同步，旧消息不会覆盖新偏好。

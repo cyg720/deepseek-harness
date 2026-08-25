@@ -7,7 +7,7 @@
  *
  * @module @deepseek-ai/dsh-tool-todo/types
  */
-/**
+/*
  * 文件职责：集中声明待办领域的纯类型、会话投影键和整体列表载荷。
  * 技术维度：使用 TypeScript 模块扩充和类型重导出，保持主机与浏览器类型入口零重复。
  * 产品维度：让模型写入的最新待办清单可被会话恢复、客户端显示和其他插件统一读取。
@@ -33,7 +33,7 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
      * or `null` before the first write. Whole-value rule: every `todo/write`
      * carries the complete replacement list, so the fold is last-wins.
      */
-    /**
+    /*
      * 代理当前完整待办列表，即最新 todo/write 快照；首次写入前为 null。
      * 每次事件都是整体替换，因此折叠规则是最后一次写入获胜。
      */

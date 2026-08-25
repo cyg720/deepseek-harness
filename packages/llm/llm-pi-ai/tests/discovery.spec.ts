@@ -18,7 +18,7 @@ import { discoverModels } from '../src/discovery.ts'
 /** 中文说明：测试局部值 servers，由紧邻初始化决定。 */
 const servers: Server[] = []
 /** Credential variables a test set, cleared so the next one starts unset. */
-/** 中文说明：测试局部值 touchedEnv，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 touchedEnv，由紧邻初始化决定。 */
 const touchedEnv: string[] = []
 
 afterEach(async () => {
@@ -41,7 +41,7 @@ interface ListingServer {
  * A stand-in provider that answers one scripted `GET /models`. `chunks` writes
  * without a declared length, which is how a real streamed reply arrives.
  */
-/** 中文说明：函数 listingServer 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 listingServer 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function listingServer(behavior: {
   status?: number
   body?: string
@@ -84,7 +84,7 @@ async function listingServer(behavior: {
 }
 
 /** A bare dormant mount: discovery is offered whether or not a route exists. */
-/** 中文说明：函数 harness 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 harness 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function harness(): Promise<Context> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

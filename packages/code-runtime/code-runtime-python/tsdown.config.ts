@@ -12,7 +12,7 @@ import { defineConfig } from 'tsdown'
  * Single ESM bundle. The Python-side code is not TypeScript and ships verbatim
  * under `py/` (whitelisted in package.json `files`) — no build step needed.
  */
-/**
+/*
  * 生成 Node ESM 构建配置；输入是单个配置对象，返回 tsdown 默认配置。
  * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-code-runtime-python bundle`。
  */

@@ -25,19 +25,19 @@ beforeEach(() => {
 })
 
 /** The rendered result rows, one string per visible row (CSS-module class prefix). */
-/** 中文说明：函数 lines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 lines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lines(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
 }
 
 /** The file-group header rows, one string per header (path + count concatenated). */
-/** 中文说明：函数 fileHeaders 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fileHeaders 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fileHeaders(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_fileHeader_"]')].map(row => row.textContent ?? '')
 }
 
 /** `count` numbered match lines under one file, without a terminating newline. */
-/** 中文说明：函数 group 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 group 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function group(path: string, count: number, from = 1): SearchFileGroup {
   return {
     path,

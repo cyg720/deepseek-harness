@@ -15,7 +15,7 @@
  *
  * @module @deepseek-ai/dsh-acp-snapshot/harness
  */
-/**
+/*
  * 文件职责：实现 harness.ts 覆盖的ACP 快照测试支持行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
  * 产品维度：保障 Agent 的ACP 快照测试支持能力稳定、可复现且可诊断。
@@ -79,7 +79,7 @@ const WAIT_POLL_INTERVAL_MS = 10
  * A standalone `cancel` may also wait for a cwd-relative readiness marker.
  * All wait timeouts default to 10s.
  */
-/** 中文说明：type InputStep 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
+/* 中文说明：type InputStep 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export type InputStep =
   | { op: 'initialize' }
   | { op: 'newSession' }
@@ -225,7 +225,12 @@ export interface RunOptions {
  * @param platform - the host platform, injectable for unit coverage.
  * @returns the root-relative snapshot spill directory.
  */
-/** 中文说明：函数 snapshotSpillRoot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/**
+ * 中文说明：函数 snapshotSpillRoot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param fixtureFile 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param platform 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function snapshotSpillRoot(
   fixtureFile: string,
   platform: NodeJS.Platform = process.platform,
@@ -248,7 +253,12 @@ export function snapshotSpillRoot(
  * @param opts The agent to boot, the mode, and the fixture wiring.
  * @returns The captured stdout/stderr, session id, generated cwd, and harvested logs.
  */
-/** 中文说明：函数 runScenario 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/**
+ * 中文说明：函数 runScenario 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param input 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param opts 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function runScenario(input: InputScript, opts: RunOptions): Promise<RunResult> {
   /** 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cwd = await mkdtemp(join(opts.workspaceParent ?? tmpdir(), 'acp-snap-cwd-'))

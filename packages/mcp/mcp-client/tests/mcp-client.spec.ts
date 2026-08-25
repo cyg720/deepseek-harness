@@ -95,7 +95,7 @@ const IMAGE_LIMITS: ImageAttachmentLimits = {
 }
 
 /** Attachment fake that records exact decoded batches while using the real batch contract. */
-/** 中文说明：class RecordingAttachmentStore 定义本测试所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：class RecordingAttachmentStore 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 class RecordingAttachmentStore extends AttachmentStore {
   readonly imageLimits = IMAGE_LIMITS
   readonly saved: SaveImageAttachment[] = []
@@ -125,7 +125,7 @@ class RecordingAttachmentStore extends AttachmentStore {
 }
 
 /** Exact-route fake used only for image-capability admission. */
-/** 中文说明：class ImageCatalogAdapter 定义本测试所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：class ImageCatalogAdapter 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 class ImageCatalogAdapter extends LlmAdapter {
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({
@@ -152,7 +152,7 @@ async function mountRichRegistry(): Promise<{ ctx: Context; attachments: Recordi
 }
 
 /** Calling-agent stand-in with no durable request header yet. */
-/** 中文说明：函数 agentOn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 agentOn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function agentOn(model: string | undefined = 'vision'): object {
   return {
     options: model === undefined ? {} : { provider: 'visual', model },
@@ -161,7 +161,7 @@ function agentOn(model: string | undefined = 'vision'): object {
 }
 
 /** Require one text block and return its text for diagnostic assertions. */
-/** 中文说明：函数 textAt 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 textAt 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function textAt(content: readonly ContentBlock[], index = 0): string {
   /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const block = content[index]

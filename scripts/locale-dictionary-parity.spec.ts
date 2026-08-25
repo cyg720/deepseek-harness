@@ -18,7 +18,7 @@
  * dictionary whose `en` counterpart cannot be found anywhere is an error, not
  * a skip.
  */
-/**
+/*
  * 文件职责：验证 locale-dictionary-parity.spec.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -38,13 +38,13 @@ import { describe, expect, it } from 'vitest'
 const root = fileURLToPath(new URL('..', import.meta.url))
 
 /** Repo-relative path with `/` separators, so messages and suffix tests match on every OS. */
-/** 中文说明：函数 relative 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 relative 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function relative(file: string): string {
   return file.slice(root.length).replaceAll('\\', '/')
 }
 
 /** Every `.ts` source file under each workspace package's `src`, excluding declarations. */
-/** 中文说明：函数 sourceFiles 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 sourceFiles 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sourceFiles(): string[] {
   /** 中文说明：变量 files 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const files: string[] = []
@@ -61,7 +61,7 @@ function sourceFiles(): string[] {
 }
 
 /** Immediate subdirectory names, or none when the path is not a directory. */
-/** 中文说明：函数 directories 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 directories 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function directories(dir: string): string[] {
   return readEntries(dir).filter(entry => entry.isDirectory()).map(entry => entry.name)
 }
@@ -73,7 +73,7 @@ function directories(dir: string): string[] {
  * @param dir - absolute directory path.
  * @returns entries, or none when the directory does not exist.
  */
-/** 中文说明：函数 readEntries 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 readEntries 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function readEntries(dir: string): Dirent[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
@@ -95,7 +95,7 @@ function walk(dir: string, out: string[]): void {
 }
 
 /** One discovered dictionary: which file and export name declared it. */
-/** 中文说明：interface Dictionary 定义本测试所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface Dictionary 定义本测试所需的数据或行为，用于表达仓库脚本场景。 */
 interface Dictionary {
   /** Repo-relative declaring file. */
   file: string
@@ -112,7 +112,7 @@ interface Dictionary {
  * @param file - absolute path of a candidate module.
  * @returns discovered dictionaries, keyed by locale-bearing name.
  */
-/** 中文说明：函数 dictionariesIn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 dictionariesIn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function dictionariesIn(file: string): Dictionary[] {
   /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const text = readFileSync(file, 'utf8')
@@ -237,7 +237,7 @@ function dictionariesIn(file: string): Dictionary[] {
 }
 
 /** Declared property names of an object literal, sorted. */
-/** 中文说明：函数 keysOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 keysOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function keysOf(literal: ts.ObjectLiteralExpression): string[] {
   /** 中文说明：变量 keys 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const keys: string[] = []
@@ -250,7 +250,7 @@ function keysOf(literal: ts.ObjectLiteralExpression): string[] {
 }
 
 /** Look through `satisfies`/`as`/parenthesized wrappers to the literal. */
-/** 中文说明：函数 unwrap 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 unwrap 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function unwrap(node: ts.Expression | undefined): ts.Expression | undefined {
   /** 中文说明：变量 current 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let current = node
@@ -273,7 +273,7 @@ function unwrap(node: ts.Expression | undefined): ts.Expression | undefined {
  * @param name - export name or synthetic inline name.
  * @returns locale plus pair key, or undefined when the name names no locale.
  */
-/** 中文说明：函数 localeOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 localeOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function localeOf(name: string): { locale: 'zh' | 'en'; pair: string } | undefined {
   /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const locale of ['zh', 'en'] as const) {

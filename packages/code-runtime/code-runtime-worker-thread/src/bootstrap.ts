@@ -4,7 +4,7 @@
  * V8 isolate the coverage provider cannot observe).
  * @module @deepseek-ai/dsh-code-runtime-worker-thread/src/bootstrap
  */
-/**
+/*
  * 文件职责：实现代码运行时的 bootstrap 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供代码运行时能力。
@@ -26,7 +26,7 @@ const capturedObjectCreate = Object.create
 const capturedObjectDefineProperty = Object.defineProperty
 
 /** Define one public binding-error field without consulting mutable globals or descriptor prototypes. */
-/** 中文说明：函数 defineBindingErrorField 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 defineBindingErrorField 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function defineBindingErrorField(error: Error, key: string, value: string): void {
   /** 中文说明：运行时局部值 attributes，由紧邻初始化决定。 */
   const attributes = capturedObjectCreate(null) as PropertyDescriptor
@@ -36,7 +36,7 @@ function defineBindingErrorField(error: Error, key: string, value: string): void
 }
 
 /** The port API the bootstrap needs — satisfied by `parentPort` and by the tests' fake. */
-/** 中文说明：类型或类 BootstrapPort 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 BootstrapPort 约束协议数据或模块职责。 */
 export interface BootstrapPort {
   postMessage(message: WorkerToHost): void
   on(event: 'message', listener: (message: ReplyMessage) => void): void
@@ -48,7 +48,7 @@ export interface BootstrapPort {
  * `process.stdout`/`process.stderr` (narrower chunk parameters) remain
  * assignable.
  */
-/** 中文说明：类型或类 PatchableStream 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 PatchableStream 约束协议数据或模块职责。 */
 export interface PatchableStream {
   write(chunk: unknown, ...rest: unknown[]): boolean
 }
@@ -61,7 +61,7 @@ export interface PatchableStream {
  * the fitting prefix and reports the limit once; the host turns that condition
  * into an explicit `output-limit` run failure.
  */
-/** 中文说明：类型或类 LogBuffer 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 LogBuffer 约束协议数据或模块职责。 */
 export class LogBuffer {
   private bytes = 2 // JSON serialization of the empty logs array: []
   private entries = 0
@@ -119,7 +119,7 @@ export class LogBuffer {
 }
 
 /** The five console methods the shim captures, in the seam's level vocabulary. */
-/** 中文说明：运行时局部值 CONSOLE_LEVELS，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 CONSOLE_LEVELS，由紧邻初始化决定。 */
 const CONSOLE_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const
 
 /**
@@ -131,7 +131,7 @@ const CONSOLE_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const
  * @param logs - the buffer every rendered line is pushed into.
  * @returns the five-method console object handed to the program.
  */
-/** 中文说明：函数 makeConsoleShim 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeConsoleShim 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function makeConsoleShim(logs: LogBuffer): Record<(typeof CONSOLE_LEVELS)[number], (...args: unknown[]) => void> {
   /** 中文说明：运行时局部值 render，由紧邻初始化决定。 */
   const render = (args: unknown[]): string =>
@@ -157,7 +157,7 @@ export function makeConsoleShim(logs: LogBuffer): Record<(typeof CONSOLE_LEVELS)
  * @returns the restore function (the in-process tests un-patch; the real
  *   worker never needs to).
  */
-/** 中文说明：函数 captureStreamWrites 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 captureStreamWrites 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function captureStreamWrites(logs: LogBuffer, stream: PatchableStream): () => void {
   // The slot's VALUE is stored for restore and reassigned — never invoked
   // detached, so the unbound-method concern does not apply.
@@ -179,7 +179,7 @@ export function captureStreamWrites(logs: LogBuffer, stream: PatchableStream): (
 }
 
 /** Bounded inspect options: deep enough to be useful, bounded so a pathological value cannot explode the rendering. */
-/** 中文说明：运行时局部值 INSPECT_OPTIONS，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 INSPECT_OPTIONS，由紧邻初始化决定。 */
 const INSPECT_OPTIONS = { depth: 4, maxArrayLength: 100, maxStringLength: 10_000 } as const
 
 /**
@@ -193,7 +193,7 @@ const INSPECT_OPTIONS = { depth: 4, maxArrayLength: 100, maxStringLength: 10_000
  * @param maxOutputBytes - the configured cap named in an overflow diagnostic.
  * @returns the done-message fragment: `{}` for `undefined`, else a flat wire `{ value }`.
  */
-/** 中文说明：函数 prepareCompletion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 prepareCompletion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function prepareCompletion(
   value: unknown,
   remainingOutputBytes: number,
@@ -222,13 +222,13 @@ export function prepareCompletion(
 }
 
 /** Build the fixed overflow fragment without carrying rejected variable bytes. */
-/** 中文说明：函数 outputLimit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 outputLimit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function outputLimit(maxOutputBytes: number): Omit<DoneMessage, 'type'> {
   return { error: { kind: 'output-limit', message: `outer output exceeded ${maxOutputBytes} bytes` } }
 }
 
 /** Admit one bounded failure message or replace it with the fixed overflow diagnostic. */
-/** 中文说明：函数 prepareFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 prepareFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function prepareFailure(
   kind: 'exception' | 'invalid-output',
   message: string,
@@ -247,7 +247,7 @@ function prepareFailure(
  * @param maxOutputBytes - the configured cap named in an overflow diagnostic.
  * @returns a bounded exception or fixed output-limit fragment.
  */
-/** 中文说明：函数 prepareException 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 prepareException 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function prepareException(
   error: unknown,
   remainingOutputBytes: number,
@@ -266,14 +266,14 @@ export function prepareException(
 }
 
 /** One awaited binding call's settlement handles, keyed by call id in the pending map. */
-/** 中文说明：类型或类 PendingCall 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 PendingCall 约束协议数据或模块职责。 */
 export interface PendingCall {
   resolve(value: unknown): void
   reject(error: Error): void
 }
 
 /** Constructor type for one program-visible binding rejection class. */
-/** 中文说明：类型或类 BindingErrorConstructor 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 BindingErrorConstructor 约束协议数据或模块职责。 */
 export type BindingErrorConstructor = new (memberName: string, message: string) => Error
 
 /**
@@ -281,7 +281,7 @@ export type BindingErrorConstructor = new (memberName: string, message: string) 
  * @param descriptor - program-global class name and member-name property.
  * @returns the constructor injected into the program and used for rejections.
  */
-/** 中文说明：函数 makeBindingErrorClass 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeBindingErrorClass 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeBindingErrorClass(
   descriptor: { name: string; memberNameProperty: string },
 ): BindingErrorConstructor {
@@ -295,7 +295,7 @@ function makeBindingErrorClass(
 }
 
 /** Create the namespace-specific rejection for one failed binding call. */
-/** 中文说明：函数 bindingFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bindingFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bindingFailure(errorClass: BindingErrorConstructor | undefined, memberName: string, message: string): Error {
   return errorClass ? new errorClass(memberName, message) : new CapturedError(message)
 }
@@ -305,7 +305,7 @@ function bindingFailure(errorClass: BindingErrorConstructor | undefined, memberN
  * @param data - binding namespace declarations from the boot payload.
  * @returns constructors keyed by their owning namespace global.
  */
-/** 中文说明：函数 makeBindingErrorClasses 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeBindingErrorClasses 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function makeBindingErrorClasses(
   data: Pick<WorkerBootData, 'namespaces'>,
 ): Map<string, BindingErrorConstructor> {
@@ -327,7 +327,7 @@ export function makeBindingErrorClasses(
  * @param port - the port whose `message` events carry the replies.
  * @param pending - the id-keyed map of unsettled binding calls.
  */
-/** 中文说明：函数 wireReplies 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 wireReplies 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function wireReplies(port: BootstrapPort, pending: Map<number, PendingCall>): void {
   port.on('message', (message: ReplyMessage) => {
     /** 中文说明：运行时局部值 entry，由紧邻初始化决定。 */
@@ -359,7 +359,7 @@ export function wireReplies(port: BootstrapPort, pending: Map<number, PendingCal
  * @param errorClasses - per-namespace constructors shared with program globals.
  * @returns one namespace object per declaration, in declaration order.
  */
-/** 中文说明：函数 makeNamespaces 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeNamespaces 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function makeNamespaces(
   data: Pick<WorkerBootData, 'namespaces'>,
   port: BootstrapPort,
@@ -420,7 +420,7 @@ export function makeNamespaces(
  * @param streams - stdout/stderr objects captured as program logs.
  * @returns after posting the done message.
  */
-/** 中文说明：函数 runWorkerMain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 runWorkerMain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function runWorkerMain(
   port: BootstrapPort,
   data: WorkerBootData,

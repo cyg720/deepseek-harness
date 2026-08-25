@@ -32,7 +32,7 @@ import { toolChatSnapshot } from './tool-details-render.client.tsx'
 const SID = 's1' as SessionId
 
 /** jsdom has no ResizeObserver; the composer seat publishes its height through one. */
-/** 中文说明：类型或类 ResizeObserverStub 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 ResizeObserverStub 约束工具或轨迹数据职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -58,7 +58,7 @@ const toolResult = (seq: number, callId: string, name: string, args = '{"command
 })
 
 /** Test-owned AppFrame role: declares and renders the resident conversation area. */
-/** 中文说明：类型或类 AppRootProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 AppRootProps 约束工具或轨迹数据职责。 */
 type AppRootProps = PropsRenderSlots<'conversation' | 'details'>
 /** 中文说明：函数 AppRoot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function AppRoot({ renderSlot }: AppRootProps) {
@@ -76,7 +76,7 @@ const LAYOUT_CHILDREN = {
  * service boundaries only, the package apply on its own
  * fiber, and the test AppFrame occupying 'root'.
  */
-/** 中文说明：函数 bench 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 async function bench(nodes: ToolResultNode[]) {
   /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()

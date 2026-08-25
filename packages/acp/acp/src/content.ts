@@ -1,5 +1,5 @@
 /** ACP wire-content admission and projection owned by the ACP adapter. @module */
-/**
+/*
  * 文件职责：负责 ACP 线协议内容与核心消息内容之间的准入、持久化和双向转换。
  * 技术维度：使用 TypeScript 判别联合、严格 Base64 校验、附件服务和模型能力查询处理富媒体内容。
  * 产品维度：让自动化客户端安全发送文本与图片，并只接收已经提交且可验证的助手输出。
@@ -16,7 +16,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 
 /** Raster formats shared by ACP image blocks and the core attachment vocabulary. */
-/** ACP 图片块与核心附件服务共同支持的栅格媒体类型白名单。 */
+/* ACP 图片块与核心附件服务共同支持的栅格媒体类型白名单。 */
 const IMAGE_MEDIA_TYPES: readonly ImageMediaType[] = [
   'image/png',
   'image/jpeg',
@@ -25,18 +25,18 @@ const IMAGE_MEDIA_TYPES: readonly ImageMediaType[] = [
 ]
 
 /** Canonical RFC 4648 base64, excluding whitespace and URL-safe aliases. */
-/** 严格 RFC 4648 Base64 正则，不接受空白、URL 安全变体或非规范填充。 */
+/* 严格 RFC 4648 Base64 正则，不接受空白、URL 安全变体或非规范填充。 */
 const CANONICAL_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
 
 /** Content-admission failure category used by the protocol handler. */
-/** 协议处理器使用的内容失败类别：请求无效或服务内部故障。 */
+/* 协议处理器使用的内容失败类别：请求无效或服务内部故障。 */
 export type AcpContentFailureKind = 'invalid' | 'internal'
 
 /** Error with a stable ACP request-failure category and no raw binary payload. */
-/** 带稳定 ACP 失败分类且不会泄露原始二进制数据的内容异常。 */
+/* 带稳定 ACP 失败分类且不会泄露原始二进制数据的内容异常。 */
 export class AcpContentError extends Error {
   /** Whether the bridge should report invalid params or an internal failure. */
-  /** 决定桥接层应报告参数错误还是内部错误。 */
+  /* 决定桥接层应报告参数错误还是内部错误。 */
   readonly kind: AcpContentFailureKind
 
   /**
@@ -44,7 +44,7 @@ export class AcpContentError extends Error {
    * @param kind - request-failure category.
    * @param options - optional causal chain for diagnostics.
    */
-  /**
+  /*
    * 创建带安全消息和稳定分类的内容异常。
    * @param message 可返回协议客户端且不含内联二进制的说明。
    * @param kind 请求失败类别。
@@ -59,7 +59,7 @@ export class AcpContentError extends Error {
 }
 
 /** Narrow a wire MIME string to the durable raster vocabulary. */
-/**
+/*
  * 将线协议 MIME 字符串收窄为附件服务支持的图片类型。
  * @param value 客户端提供的 MIME 字符串。
  * @returns 命中白名单时返回图片类型，否则返回 undefined。
@@ -70,7 +70,7 @@ function imageMediaType(value: string): ImageMediaType | undefined {
 }
 
 /** Strictly decode one ACP inline image without accepting base64 aliases. */
-/**
+/*
  * 严格解码一个 ACP 内联图片块。
  * @param block 已按判别字段收窄的图片块。
  * @returns 可提交给附件服务的字节与媒体类型。
@@ -94,7 +94,7 @@ function decodeImage(block: Extract<AcpContentBlock, { type: 'image' }>): SaveIm
 }
 
 /** Resolve the exact current route and require explicit image input support. */
-/**
+/*
  * 解析代理当前精确模型路由并确认它明确支持图片输入。
  * @param ctx 可查询 LLM 服务的 Cordis 上下文。
  * @param agent 本次接收提示的代理。
@@ -155,7 +155,7 @@ export async function supportsAcpImagePrompts(
 }
 
 /** Render one baseline resource link into the core's current text vocabulary. */
-/**
+/*
  * 将基础资源链接渲染为核心当前支持的文本标记。
  * @param block ACP 资源链接块。
  * @returns 保留名称与 URI 的换行文本。

@@ -2,7 +2,7 @@
  * Real HTTP coverage proves whether native `fetch` contacts a cross-origin `Location`; mocked
  * request-init assertions alone cannot observe that boundary.
  */
-/**
+/*
  * 文件职责：验证 redirect.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。
@@ -106,7 +106,7 @@ describe('DeepSeekSearchProvider redirect policy', () => {
 })
 
 /** Read a complete request received by the redirect target. */
-/** 中文说明：函数 captureRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 captureRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function captureRequest(request: IncomingMessage): Promise<ReceivedRequest> {
   return new Promise((resolve, reject) => {
     /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -127,7 +127,7 @@ function captureRequest(request: IncomingMessage): Promise<ReceivedRequest> {
 }
 
 /** Listen on an ephemeral loopback port and return the server origin. */
-/** 中文说明：函数 listen 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 listen 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function listen(server: Server): Promise<string> {
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
@@ -139,7 +139,7 @@ async function listen(server: Server): Promise<string> {
 }
 
 /** Close a listening fixture server after every request has settled. */
-/** 中文说明：函数 close 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 close 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function close(server: Server): Promise<void> {
   if (!server.listening) return
   await new Promise<void>((resolve, reject) => server.close((error) => {
@@ -149,7 +149,7 @@ async function close(server: Server): Promise<void> {
 }
 
 /** Normalize an unknown fixture failure for `ServerResponse.destroy`. */
-/** 中文说明：函数 asError 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 asError 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }

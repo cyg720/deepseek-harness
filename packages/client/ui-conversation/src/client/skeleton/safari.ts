@@ -28,7 +28,7 @@ const ALTERNATE_IOS_BROWSER = /\b(?:CriOS|FxiOS|EdgiOS|OPiOS|OPT|DuckDuckGo|Brav
  * @param identity - Browser user-agent and vendor values.
  * @returns Whether the identity should use the Safari-specific recovery.
  */
-/**
+/*
  * 检测 Safari 的 `Version/... Safari/...` 形态，同时排除已知的 iOS 其它浏览器标记。
  * @param identity - 浏览器的 user-agent 与 vendor。
  * @returns 是否应使用 Safari 专属修复。

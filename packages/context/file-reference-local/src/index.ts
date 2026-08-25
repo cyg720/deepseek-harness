@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】ctx.fileReferences 服务的本地文件系统实现：在 Host 进程中扫描
  *             agent 的工作目录，为 @ 文件补全提供候选。这是 file-reference
@@ -53,21 +53,21 @@ export { FILE_REFERENCE_PROMPT } from '@deepseek-ai/dsh-file-reference'
 export { activeAtToken, formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
 
 /** Local file-reference discovery configuration. */
-/** 本地文件引用发现的配置：均可由用户通过 cordis.yml 覆盖，未配置时用默认值。 */
+/* 本地文件引用发现的配置：均可由用户通过 cordis.yml 覆盖，未配置时用默认值。 */
 export interface Config {
   /** Maximum ranked candidates returned for one query. */
-  /** 单次查询最多返回的候选数（排序后截断）。 */
+  /* 单次查询最多返回的候选数（排序后截断）。 */
   maxResults?: number
   /** Maximum indexed files and directories per agent workspace. */
-  /** 每个 agent 工作区最多纳入索引的文件与目录总数（防止大仓库扫爆内存）。 */
+  /* 每个 agent 工作区最多纳入索引的文件与目录总数（防止大仓库扫爆内存）。 */
   maxEntries?: number
   /** Directory basenames never traversed or offered. */
-  /** 永不遍历/永不展示的目录名（如 .git、node_modules），只匹配 basename。 */
+  /* 永不遍历/永不展示的目录名（如 .git、node_modules），只匹配 basename。 */
   excludedDirectories?: string[]
 }
 
 /** Local-filesystem owner of the file-reference discovery service. */
-/** 本地文件系统实现：拥有并管理每个 agent 的搜索索引与提示词注入生命周期。 */
+/* 本地文件系统实现：拥有并管理每个 agent 的搜索索引与提示词注入生命周期。 */
 export class LocalFileReferenceService extends FileReferenceService {
   /** Cordis 依赖注入：需要 agents 服务（遍历/订阅 agent 生命周期）。 */
   static inject = ['agents']

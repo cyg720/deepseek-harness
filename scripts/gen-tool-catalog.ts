@@ -5,7 +5,7 @@
  * verifies the committed artifact. Rationale and ownership live in
  * `.agents/notes/implemented/process/2026-07-02-tool-schema-catalog.md`.
  */
-/**
+/*
  * 文件职责：实现 gen-tool-catalog.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -77,7 +77,7 @@ import * as ToolWorkflow from '@deepseek-ai/dsh-tool-workflow'
 import { githubSlug } from './verify-md-links.ts'
 
 /** Attachment seam marker that makes the attachments-conditional `read_image` schema harvestable. */
-/** 中文说明：class CatalogAttachmentStore 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class CatalogAttachmentStore 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class CatalogAttachmentStore extends AttachmentStore {
   readonly imageLimits: ImageAttachmentLimits = Object.freeze({
     maxImageBytes: 1,
@@ -112,7 +112,7 @@ const OUT = 'docs/tool-catalog.md'
  * mount under their shipped defaults (tool-subagent's default numeric maxDepth
  * requires `depthLimit`).
  */
-/** 中文说明：函数 registerCatalogSubagentProvider 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 registerCatalogSubagentProvider 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function registerCatalogSubagentProvider(ctx: Context, name: string): void {
   /** 中文说明：变量 provider 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const provider: SubagentProvider = {
@@ -127,7 +127,7 @@ function registerCatalogSubagentProvider(ctx: Context, name: string): void {
 }
 
 /** Minted child-scope keys for packages whose tools are never global. */
-/** 中文说明：变量 catalogChildScopes 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 catalogChildScopes 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const catalogChildScopes = new WeakMap<Context, Agent>()
 
 /**
@@ -138,7 +138,7 @@ const catalogChildScopes = new WeakMap<Context, Agent>()
  * @param key - agent-like scope key exposed to the package's scope selector.
  * @param inject - services the package installer must await before mounting.
  */
-/** 中文说明：函数 mountCatalogChildScope 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 mountCatalogChildScope 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function mountCatalogChildScope(
   ctx: Context,
   mountScoped: (childCtx: Context) => void,
@@ -156,7 +156,7 @@ async function mountCatalogChildScope(
  * prompt and registry; each recipe supplies only package-specific seams and
  * config, while `dir` participates in the completeness check.
  */
-/** 中文说明：interface ToolPackage 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface ToolPackage 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface ToolPackage {
   /** The npm package name, used as the catalog section heading. */
   pkg: string
@@ -201,7 +201,7 @@ export interface ToolPackage {
  * `packages/`). Ordered by package name (the render order); the completeness
  * guard proves it is exhaustive against the on-disk glob.
  */
-/** 中文说明：常量 TOOL_PACKAGES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TOOL_PACKAGES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TOOL_PACKAGES: ToolPackage[] = [
   {
     pkg: '@deepseek-ai/dsh-tool-ask-user',
@@ -631,7 +631,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
 ]
 
 /** One package's contribution to the catalog: its schemas plus attribution. */
-/** 中文说明：interface CatalogPackage 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface CatalogPackage 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface CatalogPackage {
   pkg: string
   sources: Readonly<Record<string, string>>
@@ -644,7 +644,7 @@ interface CatalogPackage {
 }
 
 /** The whole catalog: one entry per booted tool package, in manifest order. */
-/** 中文说明：type ToolCatalog 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type ToolCatalog 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type ToolCatalog = CatalogPackage[]
 
 /**
@@ -657,7 +657,7 @@ export type ToolCatalog = CatalogPackage[]
  *
  * `scanRoot` defaults to the repo root; a test may point it at a fixture tree.
  */
-/** 中文说明：函数 assertManifestComplete 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 assertManifestComplete 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function assertManifestComplete(packages: ToolPackage[] = TOOL_PACKAGES, scanRoot: string = root): void {
   /** 中文说明：函数值 onDisk 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const onDisk = globSync('packages/*/tool-*', { cwd: scanRoot }).map(p => basename(p)).sort()
@@ -687,7 +687,7 @@ export function assertManifestComplete(packages: ToolPackage[] = TOOL_PACKAGES, 
  * @param harvested - how many schemas its boot registered.
  * @throws when the boot registered no tool at all.
  */
-/** 中文说明：函数 assertToolsHarvested 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 assertToolsHarvested 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function assertToolsHarvested(entry: ToolPackage, harvested: number): void {
   if (harvested > 0) return
   throw new Error(
@@ -703,7 +703,7 @@ export function assertToolsHarvested(entry: ToolPackage, harvested: number): voi
  * schemas come from exactly that package) and isolates a boot failure to its
  * own entry. Disposed after harvest so no executor/provider outlives the run.
  */
-/** 中文说明：函数 collectToolCatalog 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectToolCatalog 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function collectToolCatalog(packages: ToolPackage[] = TOOL_PACKAGES): Promise<ToolCatalog> {
   assertManifestComplete(packages)
   /** 中文说明：变量 catalog 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -742,7 +742,7 @@ export async function collectToolCatalog(packages: ToolPackage[] = TOOL_PACKAGES
 }
 
 /** Resolve one harvested tool to the plugin source that registered it. */
-/** 中文说明：函数 toolSource 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 toolSource 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function toolSource(entry: ToolPackage, toolName: string): string {
   if (typeof entry.source === 'string') return entry.source
   /** 中文说明：变量 source 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -756,7 +756,7 @@ function toolSource(entry: ToolPackage, toolName: string): string {
 }
 
 /** Render one tool's entry: name, description, JSON-Schema parameters, source. */
-/** 中文说明：函数 renderTool 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderTool 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderTool(schema: ToolSchema, source: string): string[] {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out = [`### \`${schema.name}\``, '']
@@ -777,7 +777,7 @@ function tableCell(value: string | undefined): string {
 }
 
 /** Render the full catalog (pure, deterministic given the manifest-ordered input). */
-/** 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function render(catalog: ToolCatalog): string {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines: string[] = [
@@ -819,7 +819,7 @@ export function render(catalog: ToolCatalog): string {
 /** CLI entry: default writes the catalog, `--check` fails if the committed copy
  * is stale. Guarded behind an entry-point check so importing this module for
  * tests neither regenerates the committed file nor calls process.exit. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function main(): Promise<void> {
   /** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const content = render(await collectToolCatalog())

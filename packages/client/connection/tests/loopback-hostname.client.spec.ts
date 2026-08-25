@@ -1,5 +1,5 @@
 /** Shared loopback-hostname semantics for the Host fence and browser UI. */
-/**
+/*
  * 文件职责：验证宿主安全围栏和浏览器界面共享的回环主机名判断规则。
  * 技术维度：使用 Vitest 表驱动循环覆盖 localhost、IPv4 127/8 和带括号 IPv6。
  * 产品维度：确保本地专用功能只在真实回环地址上启用，不被相似远端域名绕过。

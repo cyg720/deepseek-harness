@@ -7,7 +7,7 @@
  * 新手阅读建议：先读 fakeHttpServer、fakeRequest、fakeResponse、mounted，再按路由安全和 RPC 注册分组阅读。
  */
 /** Node half: registers the /api prefix route bridging to the api gateway. */
-/** 文件职责：验证宿主路由与 RPC 注册。技术维度：Cordis、Node HTTP 和 Fetch。产品维度：安全提供浏览器 API。逻辑维度：装载路由后驱动请求。关键边界：信任规则和清理属于安全不变量。新手阅读建议：先读四个测试辅助函数。 */
+/* 文件职责：验证宿主路由与 RPC 注册。技术维度：Cordis、Node HTTP 和 Fetch。产品维度：安全提供浏览器 API。逻辑维度：装载路由后驱动请求。关键边界：信任规则和清理属于安全不变量。新手阅读建议：先读四个测试辅助函数。 */
 import { EventEmitter, once } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
 import { PassThrough, Readable } from 'node:stream'
@@ -23,7 +23,7 @@ import { API_PATH, apply, HOST_EVENTS_PATH, inject, MUX_EVENTS_PATH, type HostCo
 import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
 
 /** Structural webServer fake recording both route registries. */
-/** 中文说明：测试辅助函数 `fakeHttpServer`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+/* 中文说明：测试辅助函数 `fakeHttpServer`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakeHttpServer(
   routes: WebRoute[],
   upgrades: WebUpgradeRoute[],
@@ -46,7 +46,7 @@ function fakeHttpServer(
 }
 
 /** Bodyless GET carrying the given headers (enough for the trust fence + bridge). */
-/** 中文说明：测试辅助函数 `fakeRequest`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+/* 中文说明：测试辅助函数 `fakeRequest`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakeRequest(headers: Record<string, string>, url = `${API_PATH}/session.list`): IncomingMessage {
   /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const request = Readable.from([]) as unknown as IncomingMessage
@@ -55,7 +55,7 @@ function fakeRequest(headers: Record<string, string>, url = `${API_PATH}/session
 }
 
 /** JSON POST carrying a complete client-request envelope. */
-/** 中文说明：测试辅助函数 `fakePost`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+/* 中文说明：测试辅助函数 `fakePost`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakePost(headers: Record<string, string>, url: string, body: unknown): IncomingMessage {
   /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const request = Readable.from([Buffer.from(JSON.stringify(body))]) as unknown as IncomingMessage
@@ -64,7 +64,7 @@ function fakePost(headers: Record<string, string>, url: string, body: unknown): 
 }
 
 /** Raw POST for malformed-body and media-type boundary cases. */
-/** 中文说明：测试辅助函数 `fakeRawPost`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+/* 中文说明：测试辅助函数 `fakeRawPost`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakeRawPost(headers: Record<string, string>, url: string, body: string): IncomingMessage {
   /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const request = Readable.from([Buffer.from(body)]) as unknown as IncomingMessage
@@ -73,7 +73,7 @@ function fakeRawPost(headers: Record<string, string>, url: string, body: string)
 }
 
 /** Response recorder compatible with both the fence's short-circuit and the bridge. */
-/** 中文说明：测试辅助函数 `fakeResponse`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+/* 中文说明：测试辅助函数 `fakeResponse`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakeResponse(): { response: ServerResponse; state: { status?: number; body?: unknown } } {
   /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `state` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const state: { status?: number; body?: unknown } = {}
@@ -515,7 +515,7 @@ describe('connection node half', () => {
 
 describe('connection node half over a real HTTP server', () => {
   /** Serve the registered prefix route from a real server and return its port. */
-  /** 中文说明：测试辅助函数 `serve`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+  /* 中文说明：测试辅助函数 `serve`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
   async function serve(routes: WebRoute[]): Promise<{ port: number; close: () => Promise<void> }> {
     /** 中文说明：当前场景使用的临时宿主或服务器对象；变量 `server` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const server = createServer((request, response) => {
@@ -536,7 +536,7 @@ describe('connection node half over a real HTTP server', () => {
   }
 
   /** One real request; `host` spoofs the authority the way a LAN client's browser would send it. */
-  /** 中文说明：测试辅助函数 `call`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+  /* 中文说明：测试辅助函数 `call`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
   function call(port: number, method: string, host: string): Promise<number> {
     return new Promise((resolve, reject) => {
       /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */

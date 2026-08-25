@@ -6,7 +6,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-codex/wire
  */
-/**
+/*
  * 文件职责：实现 wire.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -25,7 +25,7 @@ import type { CodexPermissionMode } from './run.ts'
 type JsonObject = Record<string, unknown>
 
 /** Product facts owned by the Codex wire after publication. */
-/** 中文说明：interface CodexWireFailureFacts 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface CodexWireFailureFacts 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface CodexWireFailureFacts {
   readonly stage: 'turn-start' | 'turn'
   readonly category: string
@@ -247,7 +247,7 @@ async function raceAbort<T>(pending: Promise<T>, signal: AbortSignal): Promise<T
  * The class deliberately exposes no generic request surface. Supporting
  * another product method must first become part of the provider contract.
  */
-/** 中文说明：class CodexAppServerWire 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：class CodexAppServerWire 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export class CodexAppServerWire {
   private readonly transport: JsonRpcLineTransport
   private readonly fatal = Promise.withResolvers<never>()

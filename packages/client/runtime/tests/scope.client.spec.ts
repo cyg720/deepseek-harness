@@ -6,7 +6,7 @@
  * and a subject-less root dispatch stays unfiltered. Scope-owned listeners
  * dispose with the fiber.
  */
-/**
+/*
  * 文件职责：验证客户端运行时服务与会话状态在 Cordis 作用域中的隔离和清理。
  * 技术维度：Cordis Context、Vitest、作用域服务解析与 effect 生命周期。
  * 产品维度：避免不同窗口、插件或测试实例共享不属于自己的会话状态。

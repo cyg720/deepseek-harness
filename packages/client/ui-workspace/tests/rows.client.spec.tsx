@@ -29,7 +29,7 @@ const sid = (id: string) => id as SessionId
 const wid = (id: string) => id as WorkspaceId
 
 /** Half detection reads the row rect; jsdom rects are all-zero by default. */
-/** 中文说明：函数 stubRect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubRect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubRect(row: HTMLElement): void {
   row.getBoundingClientRect = () => ({
     top: 100, bottom: 134, left: 0, right: 200, width: 200, height: 34,
@@ -47,7 +47,7 @@ function dragProps(overrides: Partial<RowDragProps> = {}): RowDragProps {
 }
 
 /** Install the async browser clipboard and restore its prior host shape. */
-/** 中文说明：函数 installClipboard 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 installClipboard 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function installClipboard(writeText: (text: string) => Promise<void>): () => void {
   /** 中文说明：测试局部值 prior，由紧邻初始化决定。 */
   const prior = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
@@ -65,7 +65,7 @@ function installClipboard(writeText: (text: string) => Promise<void>): () => voi
 const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn() }
 
 /** jsdom lacks DragEvent — the fireEvent fallback drops clientY, so pin it on the built event. */
-/** 中文说明：函数 fireDrag 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fireDrag 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fireDrag(row: HTMLElement, kind: 'dragOver' | 'drop', clientY: number): void {
   /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
   const event = kind === 'dragOver' ? createEvent.dragOver(row) : createEvent.drop(row)

@@ -50,7 +50,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-acp/tests/mock-acp-server
  */
-/**
+/*
  * 文件职责：验证 mock-acp-server.ts 覆盖的子代理进程与协议行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。

@@ -1,5 +1,5 @@
 /** The Remote face delegates to the provider's discovery contract unchanged. */
-/**
+/*
  * 文件职责：验证文件引用服务的 Remote 接口原样委托具体提供者的发现方法。
  * 技术维度：使用 Vitest 模拟函数、抽象类测试子类、AbortSignal 和对象身份断言。
  * 产品维度：保证远端客户端获得提供者真实候选列表，不被服务门面改写或复制。

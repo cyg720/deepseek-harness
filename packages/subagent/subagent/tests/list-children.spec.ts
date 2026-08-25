@@ -43,7 +43,7 @@ afterEach(() => {
 })
 
 /** Boot the continuable stack with real JSONL session persistence. */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(
   script: Script,
   options: { sessionProjections?: boolean; projectionCache?: boolean } = {},
@@ -79,7 +79,7 @@ async function setup(
 const testSignal = new AbortController().signal
 
 /** Start one continuable child through the real service path and await Activation release. */
-/** 中文说明：函数 startChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 startChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function startChild(
   ctx: Context,
   parent: ReturnType<Context['agentLoop']['create']>,
@@ -99,7 +99,7 @@ async function startChild(
 }
 
 /** Author one persisted child session directly against the persistence backend. */
-/** 中文说明：函数 authorChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 authorChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function authorChild(
   ctx: Context,
   id: string,
@@ -119,7 +119,7 @@ async function authorChild(
 }
 
 /** Minimal complete-turn child log with one descriptor payload. */
-/** 中文说明：函数 childEvents 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 childEvents 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function childEvents(descriptor: unknown): SessionEvent[] {
   return [
     { type: 'turn/start', seq: 0, time: 1, data: { turn: 1, trigger: { kind: 'message', source: { kind: 'user' } } } },
@@ -158,7 +158,7 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
  * through it), while the poisoned state detonates only when a listing read
  * folds or serves this child through the registry.
  */
-/** 中文说明：变量 hostileProjectionDefinition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 hostileProjectionDefinition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const hostileProjectionDefinition = {
   key: 'subagentListHostileProbe',
   stateSchema: z.object({ poisoned: z.boolean().optional() }),
@@ -308,7 +308,7 @@ describe('SubagentRuntime.listChildren', () => {
   it('orders children by createdAt then id without listing ordinary forks', async () => {
     const { ctx, parent } = await setup([])
     /** Publish one live child with a pinned header ordering key. */
-    /** 中文说明：函数值 liveChild 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+    /* 中文说明：函数值 liveChild 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const liveChild = (parentId: SessionId, id: string, createdAt: number, label: string): SessionId => {
       /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const session = ctx.sessions.create(SessionId(id), {

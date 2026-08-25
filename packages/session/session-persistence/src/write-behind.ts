@@ -23,25 +23,25 @@
  * Bounded per-session write batching for the shared persistence coordinator.
  * @module @deepseek-ai/dsh-session-persistence/write-behind
  */
-/**
+/*
  * 【中文导读】上面英文说明：本模块为共享持久化协调器提供"每会话有界写攒批"。
  */
 
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
 /** Dependencies and scheduling policy for one live session's write controller. */
-/**
+/*
  * 【中文】单个活跃会话写控制器的依赖与调度策略。
  */
 export interface SessionWriteBehindOptions {
   /** Maximum intentional batching wait after an idle queue receives work. */
-  /** 【中文】空闲队列收到新事件后最多故意等多久（固定窗口时长，毫秒）。 */
+  /* 【中文】空闲队列收到新事件后最多故意等多久（固定窗口时长，毫秒）。 */
   readonly maxDelayMs: number
   /** Persist one stable ordered prefix; resolves only after backend durability. */
-  /** 【中文】把一段稳定的有序前缀交给后端持久化；仅在真正落盘后才 resolve。 */
+  /* 【中文】把一段稳定的有序前缀交给后端持久化；仅在真正落盘后才 resolve。 */
   readonly write: (events: readonly SessionEvent[]) => Promise<void>
   /** Observe a detached background write failure without rejecting the producer. */
-  /** 【中文】观察"脱管后台写"的失败：只上报不拒绝生产者。 */
+  /* 【中文】观察"脱管后台写"的失败：只上报不拒绝生产者。 */
   readonly reportBackgroundFailure: (error: unknown) => void
 }
 
@@ -49,7 +49,7 @@ export interface SessionWriteBehindOptions {
  * Owns one live session's pending events, fixed batching deadline, active write,
  * failure retention, and explicit quiescence barrier.
  */
-/**
+/*
  * 【中文】一个活跃会话的写后缓冲控制器：持有待写事件队列、固定攒批截止、
  * 进行中的写、失败保留与显式静默屏障。两条触发路径：自动窗口到期（后台写，
  * 失败不惊动生产者）与显式 flush（共享屏障，失败会拒绝调用方）。
@@ -71,14 +71,14 @@ export class SessionWriteBehind {
   /**
    * @param options - fixed scheduling policy and durable batch sink.
    */
-  /**
+  /*
    * 【中文】构造控制器。
    * @param options - 固定的调度策略与持久化批次出口。
    */
   constructor(private readonly options: SessionWriteBehindOptions) {}
 
   /** Whether this controller owns queued events or an active durable write. */
-  /**
+  /*
    * 【中文】是否还有未完成的工作（排队事件或进行中的写）。回收逻辑用它判断
    * 会话是否"干净"。
    */
@@ -91,7 +91,7 @@ export class SessionWriteBehind {
    * when the automatic path is idle.
    * @param event - frozen live event to retain independently of its producer.
    */
-  /**
+  /*
    * 【中文】把一条事件复制进持久化自有队列，并在自动路径空闲时启动固定窗口。
    * 深拷贝（structuredClone）让控制器持有独立副本，生产者后续改动互不影响。
    * 若屏障排空进行中则只入队（排空循环会带走）；自动路径被暂停时借机唤醒。
@@ -118,7 +118,7 @@ export class SessionWriteBehind {
    * Concurrent callers join the same barrier.
    * @returns a promise that rejects if the barrier's durable retry fails.
    */
-  /**
+  /*
    * 【中文】取消攒批等待并排空到一个静默点（队列清零且无活跃写）。并发调用者
    * 共享同一个屏障 Promise。
    * @returns 屏障内的持久化重试最终失败时该 Promise 以之拒绝。
@@ -136,7 +136,7 @@ export class SessionWriteBehind {
   }
 
   /** Cancel the current automatic deadline without draining retained work. */
-  /**
+  /*
    * 【中文】只取消当前的自动窗口，不动已保留的待写数据（不排空）。
    */
   cancelAutomaticWait(): void {
@@ -145,13 +145,13 @@ export class SessionWriteBehind {
   }
 
   /** Start the one fixed window for the current pending prefix. */
-  /** 【中文】为当前待写前缀启动唯一的固定窗口。 */
+  /* 【中文】为当前待写前缀启动唯一的固定窗口。 */
   private armTimer(): void {
     this.timer = setTimeout(() => { this.onDeadline() }, this.options.maxDelayMs)
   }
 
   /** Cancel any pending automatic deadline. */
-  /** 【中文】取消尚未到期的自动窗口（若有）。 */
+  /* 【中文】取消尚未到期的自动窗口（若有）。 */
   private cancelTimer(): void {
     if (this.timer === undefined) return
     clearTimeout(this.timer)
@@ -159,7 +159,7 @@ export class SessionWriteBehind {
   }
 
   /** Start a background write now, or remember that an active write used the budget. */
-  /**
+  /*
    * 【中文】窗口到期：若有活跃写占着单飞名额，就记下"预算已超支"，等它结束后
    * 立即续写；否则现在就启动一次后台写。
    */
@@ -173,7 +173,7 @@ export class SessionWriteBehind {
   }
 
   /** Start one detached write whose failure is reported and retained. */
-  /**
+  /*
    * 【中文】启动一次"脱管"后台写：失败只上报并保留数据，不拒绝任何调用方。
    * 完成后尝试续写（若预算已超支）。
    */
@@ -183,7 +183,7 @@ export class SessionWriteBehind {
   }
 
   /** Continue immediately after an over-budget active write, otherwise keep its timer. */
-  /**
+  /*
    * 【中文】活跃写结束后的自动续写判断：仅当没有屏障排空、队列非空、且窗口预算
    * 已在等待中超支时，立即再起一次后台写；否则保持现状等下一个窗口。
    */
@@ -196,7 +196,7 @@ export class SessionWriteBehind {
   }
 
   /** Await overlapping work, drain to quiescence, and settle the shared barrier. */
-  /**
+  /*
    * 【中文】屏障排空主循环：先等同一次重叠的活跃写落定，然后循环把队列写到清空，
    * 最后解除屏障并放行所有 flush 等待者。中途失败则拒绝屏障。
    * @param resolve - 屏障成功回调。
@@ -226,7 +226,7 @@ export class SessionWriteBehind {
   }
 
   /** Start one stable pending prefix, retaining it in order if durability fails. */
-  /**
+  /*
    * 【中文】发起一次底层写：整体取走当前队列作为稳定前缀。失败时把这批事件放回
    * 队首（保持顺序）、暂停自动路径并重抛错误——由上层决定上报还是拒绝。
    * @param background - 是否为脱管后台写（失败走上报而非拒绝）。

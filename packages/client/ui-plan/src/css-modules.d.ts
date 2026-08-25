@@ -6,7 +6,7 @@
  * 关键边界：声明覆盖任意模块化 CSS，无法在编译期检查单个选择器拼写。
  * 新手阅读建议：先看 `styles` 的导入类型，再查看计划控件对应的 CSS Modules 文件。
  */
-/** 使用方式：`import styles from './Plan.module.css'`，得到构建后的类名表。 */
+/* 使用方式：`import styles from './Plan.module.css'`，得到构建后的类名表。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码选择器名，值为隔离后的实际类名。 */
   const classes: Record<string, string>

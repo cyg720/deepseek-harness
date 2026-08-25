@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】把 harness 消息序列化为 DeepSeek chat-completions 请求：纯文本
  * 请求保留字符串形式的 user 内容；图片路径把持久附件解析为有序的 file-id 或
@@ -40,7 +40,7 @@ import type {
 } from './types.ts'
 
 /** Adapter-level request defaults (from plugin config). */
-/**
+/*
  * （中文）适配器级请求默认值（来自插件配置）：thinking 模式与默认推理强度。
  */
 export interface RequestDefaults {
@@ -55,7 +55,7 @@ interface ResolvedThinking {
 }
 
 /** Provider representation for every retained image in one request. */
-/**
+/*
  * （中文）一次请求中每张保留图片的 provider 表示方式：file（解析成可复用的
  * DeepSeek 文件 id）或 base64（内联）。
  */
@@ -73,7 +73,7 @@ export type ImageRequestRepresentation =
   | { kind: 'base64' }
 
 /** Dependencies required only when the request contains image input. */
-/**
+/*
  * （中文）仅在请求含图片输入时才需要的依赖。
  */
 export interface ImageSerializationOptions {
@@ -98,7 +98,7 @@ export interface ImageSerializationOptions {
 }
 
 /** Durable message and image ordinal used in provider diagnostics. */
-/**
+/*
  * （中文）provider 诊断用的持久消息序号与图片序号（用于报错定位）。
  */
 export interface ImageWireLocation {
@@ -303,7 +303,7 @@ function serializeAssistant(message: Message): WireMessage {
   }
 }
 
-/**
+/*
  * （中文）序列化对话。tool-result 块变成独立的 {role: 'tool'} 消息；harness
  * 把每个工具结果放在独立的 user 角色消息里，因此混合的 user 消息先贡献其
  * 文本，其工具结果再作为独立线上消息跟在后面。
@@ -352,7 +352,7 @@ export function serializeMessages(messages: Message[]): WireMessage[] {
   return wire
 }
 
-/**
+/*
  * （中文）在解析持久附件后序列化具备图片能力的历史。连续的工具结果保持
  * 字符串 tool 消息，并共享一条紧随其后、包含它们图片的 user 消息。
  * @param messages 请求大小卸载后的临时请求历史。
@@ -461,7 +461,7 @@ function requestWithMessages(
   }
 }
 
-/**
+/*
  * （中文）构建完整线上请求。始终流式（stream: true、用量上报开启）；可选
  * 字段省略而非发送 null，让 provider 默认值生效。
  * @param options harness 请求（模型、历史、系统提示、工具、采样）。
@@ -489,7 +489,7 @@ export function serializeRequest(
   return requestWithMessages(options, messages, defaults)
 }
 
-/**
+/*
  * （中文）构建一个具备图片能力的请求，同时把持久字节挡在会话消息之外。
  * 在精确请求版本字节长度已知、provider 序列化之前，超大的最旧图片变成确定性
  * 文本。

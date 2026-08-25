@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】由 cordis-client-runner 注册的"第一方 Client inspect 提供者"：把
  *             客户端能力目录（Service/Event）、闭包符号、实时槽位树与主题 token
@@ -56,7 +56,7 @@ const SUBTREE_INPUT = {
 } as const
 
 /** Exact Client closure symbols exposed by the evaluator and guard. */
-/**
+/*
  * 求值器与守卫实际暴露的 Client 闭包符号清单（供 inspect 展示）。
  */
 export const CLIENT_BUILTIN_INSPECTION: readonly JsonValue[] = [
@@ -97,9 +97,11 @@ export const CLIENT_BUILTIN_INSPECTION: readonly JsonValue[] = [
  * @param ctx - Client context used for live Service-backed queries.
  * @returns registrations for static catalogs and live Client capabilities.
  */
-/**
+/*
  * 组装第一方 Client 提供者：Service/Event（渐进目录）、Builtin（闭包符号清单）、
  * Slots（实时槽位树 + 精确契约）、Theme（主题 token 清单）。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function clientInspectProviders(ctx: Context): ClientCordisInspectProviderRegistration[] {
   return [

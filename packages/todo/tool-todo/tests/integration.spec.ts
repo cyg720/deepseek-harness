@@ -22,7 +22,7 @@ import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent
  * tool/call + tool/result session events AND the todo/write event the tool
  * appends. Only the model is mocked; the tool and the session log are real.
  */
-/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(adapter: MockAdapter): Promise<Context> {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()

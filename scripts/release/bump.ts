@@ -14,7 +14,7 @@
  * The version lands in the manifests, the lockfile follows, and a human creates
  * the tag after the commit merges. CI never writes to the repository.
  */
-/**
+/*
  * 文件职责：实现 bump.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -30,7 +30,7 @@ import { releaseFamily, type ReleaseFamily, type ReleaseMember } from './familie
 import { capture, isEntry } from './process.ts'
 
 /** Files npm publishes whether or not `files` lists them. */
-/** 中文说明：常量 ALWAYS_PUBLISHED 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ALWAYS_PUBLISHED 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ALWAYS_PUBLISHED = ['package.json', 'README*', 'LICENSE*', 'LICENCE*'] as const
 
 /**
@@ -39,19 +39,19 @@ const ALWAYS_PUBLISHED = ['package.json', 'README*', 'LICENSE*', 'LICENCE*'] as 
  * the sources or the build configuration changes the tarball while no published
  * path appears in the diff.
  */
-/** 中文说明：常量 BUILD_INPUTS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 BUILD_INPUTS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const BUILD_INPUTS = ['src/**', 'tsconfig*.json', 'tsdown.config.*', 'build.config.*'] as const
 
 /** Release types the dsh family accepts besides an explicit version. */
-/** 中文说明：常量 RELEASE_TYPES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RELEASE_TYPES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RELEASE_TYPES = ['major', 'minor', 'patch'] as const
 
 /** The workspace root manifest, which carries the dsh family's version. */
-/** 中文说明：常量 ROOT_MANIFEST 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ROOT_MANIFEST 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ROOT_MANIFEST = 'package.json'
 
 /** One manifest the bump rewrites, and the tag its new version will carry. */
-/** 中文说明：interface PlannedVersion 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface PlannedVersion 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface PlannedVersion {
   /** Repository-relative manifest path. */
   readonly manifestPath: string
@@ -66,7 +66,7 @@ interface PlannedVersion {
 }
 
 /** One private dsh package whose version follows the publishable family. */
-/** 中文说明：interface PrivateDshVersion 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface PrivateDshVersion 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface PrivateDshVersion {
   /** Repository-relative manifest path. */
   readonly manifestPath: string
@@ -81,7 +81,7 @@ interface PrivateDshVersion {
  * @param version - the current version.
  * @returns Major, minor, and patch.
  */
-/** 中文说明：函数 releaseNumbers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 releaseNumbers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function releaseNumbers(version: string): [number, number, number] {
   /** 中文说明：变量 match 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const match = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(version)
@@ -95,7 +95,7 @@ function releaseNumbers(version: string): [number, number, number] {
  * @param right - the other version.
  * @returns Negative when `left` is lower, positive when higher, zero when equal.
  */
-/** 中文说明：函数 compareReleaseNumbers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 compareReleaseNumbers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function compareReleaseNumbers(left: string, right: string): number {
   const [leftMajor, leftMinor, leftPatch] = releaseNumbers(left)
   const [rightMajor, rightMinor, rightPatch] = releaseNumbers(right)
@@ -107,7 +107,7 @@ function compareReleaseNumbers(left: string, right: string): number {
  * @param version - the version to read.
  * @returns The segment after the first `-`.
  */
-/** 中文说明：函数 prereleaseOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 prereleaseOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function prereleaseOf(version: string): string | undefined {
   /** 中文说明：变量 index 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const index = version.indexOf('-')
@@ -125,7 +125,7 @@ function prereleaseOf(version: string): string | undefined {
  * @param right - the other version.
  * @returns Negative when `left` is lower, positive when higher, zero when equal.
  */
-/** 中文说明：函数 compareVersions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 compareVersions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function compareVersions(left: string, right: string): number {
   /** 中文说明：变量 numbers 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const numbers = compareReleaseNumbers(left, right)
@@ -170,7 +170,7 @@ export function compareVersions(left: string, right: string): number {
  * @param request - `major`, `minor`, `patch`, or an explicit version.
  * @returns The target version.
  */
-/** 中文说明：函数 nextSharedVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 nextSharedVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function nextSharedVersion(current: string, request: string): string {
   if (!RELEASE_TYPES.includes(request as typeof RELEASE_TYPES[number])) {
     if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(request)) {
@@ -200,7 +200,7 @@ function nextSharedVersion(current: string, request: string): string {
  * @param prerelease - prerelease identifier to append, for a rehearsal publication.
  * @returns The target version.
  */
-/** 中文说明：函数 nextVendorVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 nextVendorVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function nextVendorVersion(
   current: string,
   tagged: string | undefined,
@@ -234,7 +234,7 @@ export function nextVendorVersion(
  * @param path - repository-relative path.
  * @returns True when `files`, npm's always-published set, or a build input selects it.
  */
-/** 中文说明：函数 reachesPayload 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 reachesPayload 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function reachesPayload(member: ReleaseMember, path: string): boolean {
   /** 中文说明：变量 relative 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const relative = path.slice(member.directory.length + 1)
@@ -256,7 +256,7 @@ export function reachesPayload(member: ReleaseMember, path: string): boolean {
  * @param member - the member.
  * @returns The version, or undefined when the member has no release tag.
  */
-/** 中文说明：函数 lastTaggedVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 lastTaggedVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function lastTaggedVersion(family: ReleaseFamily, member: ReleaseMember): string | undefined {
   /** 中文说明：变量 prefix 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const prefix = family.tagPrefixFor(member)
@@ -274,7 +274,7 @@ function lastTaggedVersion(family: ReleaseFamily, member: ReleaseMember): string
  * @param from - the version the manifest currently carries.
  * @param to - the target version.
  */
-/** 中文说明：函数 writeVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 writeVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function writeVersion(root: string, manifestPath: string, from: string, to: string): void {
   /** 中文说明：变量 path 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = join(root, manifestPath)
@@ -291,7 +291,7 @@ function writeVersion(root: string, manifestPath: string, from: string, to: stri
  * @param root - repository root.
  * @returns The root manifest version.
  */
-/** 中文说明：函数 rootVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 rootVersion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function rootVersion(root: string): string {
   /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifest: unknown = JSON.parse(readFileSync(join(root, ROOT_MANIFEST), 'utf8'))
@@ -307,7 +307,7 @@ function rootVersion(root: string): string {
  * @param root - repository root.
  * @returns Private package manifests sorted by path.
  */
-/** 中文说明：函数 privateDshVersions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 privateDshVersions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function privateDshVersions(root: string): PrivateDshVersion[] {
   return globSync('packages/*/*/package.json', { cwd: root })
     .map(path => path.replaceAll('\\', '/'))
@@ -341,7 +341,7 @@ function privateDshVersions(root: string): PrivateDshVersion[] {
  * @param request - `major`, `minor`, `patch`, or an explicit version.
  * @returns The manifests to rewrite and the shared target version.
  */
-/** 中文说明：函数 planShared 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 planShared 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function planShared(
   family: ReleaseFamily,
   root: string,
@@ -392,7 +392,7 @@ export function planShared(
  * @param prerelease - prerelease identifier to append, for a rehearsal publication.
  * @returns The manifests to rewrite.
  */
-/** 中文说明：函数 planPerPackage 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 planPerPackage 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function planPerPackage(
   family: ReleaseFamily,
   members: readonly ReleaseMember[],
@@ -422,7 +422,7 @@ function planPerPackage(
  * plan. `--prerelease rc.1` makes the vendored family publish a rehearsal
  * version, which never takes the stable dist-tag.
  */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   const { values, positionals } = parseArgs({
     options: {

@@ -11,7 +11,7 @@
  *
  * @module
  */
-/**
+/*
  * 文件职责：实现 tools.ts 承担的MCP 客户端连接、工具映射与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、MCP/JSON-RPC 协议和异步资源管理。
  * 产品维度：让 Agent 能发现并调用外部 MCP 服务器提供的工具。
@@ -34,7 +34,7 @@ import { assertSupportedJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { JsonSchemaNode, JsonValue } from '@deepseek-ai/dsh-tools'
 
 /** Resolved options relevant to tool bridging. */
-/** 中文说明：interface ToolBridgeOptions 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface ToolBridgeOptions 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface ToolBridgeOptions {
   /** Whether a registry conflict is contained or rejects this synchronization. */
   registrationFailure: 'contain' | 'throw'
@@ -43,11 +43,11 @@ export interface ToolBridgeOptions {
 }
 
 /** State for one sync generation: the current set of disposers keyed by public name. */
-/** 中文说明：type ToolDisposers 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：type ToolDisposers 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export type ToolDisposers = Map<string, () => void>
 
 /** Canonical MCP result exposed to Code Mode without discarding protocol blocks. */
-/** 中文说明：type McpResult 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：type McpResult 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export type McpResult<Structured extends JsonValue = JsonValue> = {
   content: JsonValue[]
   structuredContent?: Structured
@@ -57,23 +57,23 @@ export type McpResult<Structured extends JsonValue = JsonValue> = {
  * DeepSeek function-name contract: at most 64 characters. Wire-protocol
  * constant, not configuration.
  */
-/** 中文说明：常量 MAX_PUBLIC_NAME_LENGTH 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_PUBLIC_NAME_LENGTH 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MAX_PUBLIC_NAME_LENGTH = 64
 
 /** DeepSeek function-name contract: only `[A-Za-z0-9_-]` is allowed. */
-/** 中文说明：常量 INVALID_NAME_CHARS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 INVALID_NAME_CHARS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const INVALID_NAME_CHARS = /[^A-Za-z0-9_-]/g
 
 /** Hex chars of the SHA-256 identity hash appended on lossy normalization. */
-/** 中文说明：常量 HASH_LENGTH 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 HASH_LENGTH 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const HASH_LENGTH = 12
 
 /** Raw result record: the bridge owns JSON-value validation after transport. */
-/** 中文说明：变量 RawCallToolResultSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 RawCallToolResultSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const RawCallToolResultSchema = z.record(z.string(), z.unknown())
 
 /** Raster formats supported by the durable attachment vocabulary. */
-/** 中文说明：常量 IMAGE_MEDIA_TYPES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 IMAGE_MEDIA_TYPES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const IMAGE_MEDIA_TYPES: readonly ImageMediaType[] = [
   'image/png',
   'image/jpeg',
@@ -82,11 +82,11 @@ const IMAGE_MEDIA_TYPES: readonly ImageMediaType[] = [
 ]
 
 /** Canonical RFC 4648 base64, excluding whitespace and URL-safe aliases. */
-/** 中文说明：常量 CANONICAL_BASE64 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CANONICAL_BASE64 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CANONICAL_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
 
 /** List without mutating the SDK's per-page output-validator cache. */
-/** 中文说明：函数 listToolsUncached 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 listToolsUncached 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function listToolsUncached(client: Client, cursor?: string) {
   return client.request(
     { method: 'tools/list', ...cursor === undefined ? {} : { params: { cursor } } },
@@ -95,7 +95,7 @@ function listToolsUncached(client: Client, cursor?: string) {
 }
 
 /** Call without the SDK pre-validating an output schema the bridge may not support. */
-/** 中文说明：函数 callToolUncached 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 callToolUncached 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function callToolUncached(
   client: Client,
   rawName: string,
@@ -127,7 +127,12 @@ function callToolUncached(
  * @param rawName - The MCP server's own tool name.
  * @returns The globally unique, model-facing ToolRuntime name.
  */
-/** 中文说明：函数 publicToolName 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 publicToolName 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param serverName 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param rawName 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function publicToolName(serverName: string, rawName: string): string {
   /** 中文说明：变量 joined 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const joined = `mcp__${serverName}__${rawName}`
@@ -163,7 +168,14 @@ export function publicToolName(serverName: string, rawName: string): string {
  * @returns A map of registered public tool names to their unregister
  *   disposers — the exact set of live registrations owned by this server.
  */
-/** 中文说明：函数 syncTools 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 syncTools 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param client 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param opts 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param previous 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function syncTools(
   client: Client,
   ctx: Context,
@@ -231,7 +243,7 @@ export async function syncTools(
  * from an external MCP server process via JSON-RPC), so fields that the SDK
  * declares required may be absent at runtime if the server is buggy.
  */
-/** 中文说明：interface McpContentBlock 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface McpContentBlock 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 interface McpContentBlock {
   type: string
   text?: string
@@ -242,7 +254,7 @@ interface McpContentBlock {
 }
 
 /** Async rich projection staged for one exact ToolRuntime execution. */
-/** 中文说明：interface PreparedProjection 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface PreparedProjection 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 interface PreparedProjection {
   /** Canonical MCP value returned by execute before registry materialization. */
   value: McpResult
@@ -253,7 +265,7 @@ interface PreparedProjection {
 }
 
 /** Keep a supported advertised schema; unsupported MCP vocabulary falls back to JsonValue. */
-/** 中文说明：函数 supportedOutputSchema 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 supportedOutputSchema 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function supportedOutputSchema(candidate: unknown): JsonSchemaNode | undefined {
   if (candidate === undefined) return undefined
   try {
@@ -277,7 +289,7 @@ function supportedOutputSchema(candidate: unknown): JsonSchemaNode | undefined {
  * @param opts - bridge timeout and namespace options.
  * @returns a complete ToolRuntime definition.
  */
-/** 中文说明：函数 createDefinition 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 createDefinition 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function createDefinition(
   client: Client,
   ctx: Context,
@@ -311,7 +323,7 @@ function createDefinition(
 }
 
 /** Build the canonical result schema and existing Native text projection. */
-/** 中文说明：函数 createOutput 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 createOutput 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function createOutput(rawName: string, structuredSchema: JsonSchemaNode | undefined): ToolDefinition['output'] {
   return {
     schema: {
@@ -341,7 +353,7 @@ function createOutput(rawName: string, structuredSchema: JsonSchemaNode | undefi
  * When the MCP server returns `isError: true`, the executor throws so that
  * the ToolRuntime's catch path produces an `isError` result for the model.
  */
-/** 中文说明：函数 createExecutor 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 createExecutor 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function createExecutor(
   client: Client,
   ctx: Context,
@@ -412,25 +424,25 @@ function createExecutor(
 }
 
 /** Whether an untrusted MCP content array contains a declared image block. */
-/** 中文说明：函数 containsImage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 containsImage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function containsImage(content: JsonValue[]): boolean {
   return content.some(value => isRecord(value) && value.type === 'image')
 }
 
 /** Narrow one JSON value to a string-keyed object. */
-/** 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isRecord(value: JsonValue): value is { [key: string]: JsonValue } {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** Narrow a declared MIME string to the durable image vocabulary. */
-/** 中文说明：函数 isImageMediaType 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isImageMediaType 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isImageMediaType(value: string): value is ImageMediaType {
   return IMAGE_MEDIA_TYPES.includes(value as ImageMediaType)
 }
 
 /** Decode one untrusted MCP image block without accepting base64 aliases. */
-/** 中文说明：函数 decodeImage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 decodeImage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function decodeImage(block: McpContentBlock): SaveImageAttachment {
   if (block.mimeType === undefined || !isImageMediaType(block.mimeType)) {
     throw new Error('the declared media type is not PNG, JPEG, WebP, or GIF')
@@ -452,7 +464,7 @@ function decodeImage(block: McpContentBlock): SaveImageAttachment {
  * @param exec - exact tool execution whose agent supplies the latest route.
  * @returns the attachment store after exact positive image-capability proof.
  */
-/** 中文说明：函数 resolveImageAdmission 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveImageAdmission 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function resolveImageAdmission(ctx: Context, exec: ToolExecution): Promise<AttachmentStore> {
   /** 中文说明：变量 attachments 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const attachments = ctx.get('attachments')
@@ -483,7 +495,7 @@ async function resolveImageAdmission(ctx: Context, exec: ToolExecution): Promise
 }
 
 /** Stable diagnostic text for an image block that was not admitted. */
-/** 中文说明：函数 imageDiagnostic 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 imageDiagnostic 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function imageDiagnostic(block: McpContentBlock, reason: string): string {
   /** 中文说明：变量 mediaType 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mediaType = block.mimeType ?? 'unknown media type'
@@ -495,7 +507,7 @@ function imageDiagnostic(block: McpContentBlock, reason: string): string {
  * Any refusal projects every image as text while retaining the canonical raw
  * value for programmatic callers.
  */
-/** 中文说明：函数 prepareImageProjection 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 prepareImageProjection 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function prepareImageProjection(
   ctx: Context,
   exec: ToolExecution,
@@ -569,7 +581,7 @@ async function prepareImageProjection(
  * Defensive: fields that the MCP spec declares required (mimeType, text) are
  * guarded with fallbacks because this is a network trust boundary.
  */
-/** 中文说明：函数 extractText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 extractText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function extractText(mcpContent: JsonValue[], toolName: string): string {
   /** 中文说明：变量 content 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const content = projectContent(mcpContent, toolName)
@@ -583,7 +595,7 @@ function extractText(mcpContent: JsonValue[], toolName: string): string {
  * Text-like runs are newline-coalesced; admitted images split those runs at
  * their original position.
  */
-/** 中文说明：函数 projectContent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 projectContent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function projectContent(
   mcpContent: JsonValue[],
   toolName: string,

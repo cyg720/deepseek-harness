@@ -69,21 +69,21 @@ export const name = 'tool-pwsh'
 export const inject = ['tools', 'shell', 'systemPrompt', 'shellEnv']
 
 /** Configuration for the pwsh tool. */
-/** pwsh 工具的配置。 */
+/* pwsh 工具的配置。 */
 export interface Config {
   /** Expose `run_in_background` (default true); disabled calls are also rejected. */
-  /** 是否暴露 run_in_background 参数（默认 true）；禁用时相关调用也会被拒绝。 */
+  /* 是否暴露 run_in_background 参数（默认 true）；禁用时相关调用也会被拒绝。 */
   enableRunInBackground?: boolean
 }
 
 /** Runtime configuration schema for the pwsh tool plugin. */
-/** pwsh 工具插件的运行时配置 schema。 */
+/* pwsh 工具插件的运行时配置 schema。 */
 export const Config: z<Config> = z.object({
   enableRunInBackground: z.boolean().default(true),
 })
 
 /** Parsed tool args; execute validates value constraints absent from ParameterSchemaSpec. */
-/** 解析后的工具参数；execute 负责校验 ParameterSchemaSpec 表达不了的取值约束。 */
+/* 解析后的工具参数；execute 负责校验 ParameterSchemaSpec 表达不了的取值约束。 */
 interface PwshToolArgs {
   command: string
   description: string
@@ -95,7 +95,7 @@ interface PwshToolArgs {
 }
 
 /** The canonical foreground result of one pwsh call (the `output.schema` value shape). */
-/** 一次 pwsh 调用的规范化前台结果（与 output.schema 的值形状一致）。 */
+/* 一次 pwsh 调用的规范化前台结果（与 output.schema 的值形状一致）。 */
 interface PwshForegroundResult {
   kind: 'foreground'
   exitCode: number | null
@@ -184,7 +184,7 @@ function pwshDescription(backgroundEnabled: boolean, escalationModes: readonly S
  * Resolve an explicit workdir first, making a relative one session-workspace-relative;
  * otherwise use the session header cwd and leave executor defaulting as the fallback.
  */
-/**
+/*
  * 解析显式 workdir：相对路径按会话工作区解析；未指定时使用会话头 cwd，把执行器默认值
  * 作为兜底（pwsh 版没有沙箱策略根目录参与的版本，因为策略根由执行器侧处理）。
  */
@@ -198,7 +198,7 @@ function resolveWorkdir(modelWorkdir: string | undefined, exec: { agent?: Agent 
 }
 
 /** Detach the executor DTO from readonly Service Definition types into plain JSON data. */
-/** 把执行器 DTO 从只读的 Service Definition 类型剥离为普通 JSON 数据（序列化前清理）。 */
+/* 把执行器 DTO 从只读的 Service Definition 类型剥离为普通 JSON 数据（序列化前清理）。 */
 function canonicalPwshResult(result: ShellRunResult): PwshForegroundResult {
   const output = (stream: ShellRunResult['stdout']) => ({
     text: stream.text,
@@ -227,7 +227,7 @@ function canonicalPwshResult(result: ShellRunResult): PwshForegroundResult {
 }
 
 /** Canonical background-handle properties shared by the pwsh output union. */
-/** pwsh 输出联合类型中共享的规范化后台句柄属性（kind 恒为 background，带 jobId）。 */
+/* pwsh 输出联合类型中共享的规范化后台句柄属性（kind 恒为 background，带 jobId）。 */
 const BACKGROUND_OUTPUT_PROPERTIES = {
   kind: { type: 'string', required: true, const: 'background' },
   jobId: { type: 'string', required: true },
@@ -249,7 +249,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   }
   /* jscpd:ignore-end */
   /** Resolve the complete standing policy for this call when a confining executor is mounted. */
-  /** 当挂载了受限执行器时，为本次调用解析完整的常驻策略（无 agent 时传空会话）。 */
+  /* 当挂载了受限执行器时，为本次调用解析完整的常驻策略（无 agent 时传空会话）。 */
   const resolveSandboxPolicy = (exec: ToolExecution): SandboxExecutionPolicy | undefined =>
     sandboxPolicy?.resolve(exec.agent === undefined ? {} : { session: exec.agent.session })
 
@@ -266,7 +266,7 @@ export function apply(ctx: Context, config: Config = {}): void {
    * executor advertises confinement, so a split composition fails at
    * tool-plugin load.
    */
-  /**
+  /*
    * 在任何执行发生之前，经 ctx.approval 处理沙箱升级请求，把共享的"失败即关闭"序列
    * （严格加宽、渠道解析、结果映射）委托给 approveEscalation（与 bash 版镜像）。
    * 执行器宣传隔离时必须有共享策略解析器，否则拆分的组合体在工具插件加载时就失败。

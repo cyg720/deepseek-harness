@@ -2,7 +2,7 @@
  * Negative-path tests for the persistence log catalog generator
  * (`scripts/gen-persistence-catalog.ts`).
  */
-/**
+/*
  * 文件职责：验证Session 持久状态的 gen-persistence-catalog.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
  * 产品维度：保证Session 持久状态在配置、错误、恢复和生命周期场景中可靠。
@@ -24,7 +24,7 @@ import {
 } from '../../../../scripts/gen-persistence-catalog.ts'
 
 /** Create a fixture scan root; `files` maps `packages/…`-relative paths to source. */
-/** 中文说明：函数 fixtureRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fixtureRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fixtureRoot(files: Record<string, string>): string {
   /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = mkdtempSync(join(tmpdir(), 'persistence-catalog-'))
@@ -49,7 +49,7 @@ const make = (files: Record<string, string>): string => {
 }
 
 /** A merge-form declaration file wrapping `members` in the session module. */
-/** 中文说明：测试局部值 merge，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 merge，由紧邻初始化决定。 */
 const merge = (members: string): string =>
   `declare module '@deepseek-ai/dsh-session/types' {\n  interface SessionEventMap {\n${members}\n  }\n}\n`
 
@@ -58,7 +58,7 @@ afterEach(() => {
 })
 
 /** The manifest that marks a fixture package as the owning session package. */
-/** 中文说明：测试局部值 OWNER_MANIFEST，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 OWNER_MANIFEST，由紧邻初始化决定。 */
 const OWNER_MANIFEST = '{ "name": "@deepseek-ai/dsh-session" }\n'
 
 describe('gen-persistence-catalog collectLogEvents', () => {

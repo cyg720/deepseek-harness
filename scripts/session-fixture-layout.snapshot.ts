@@ -1,5 +1,5 @@
 /** Repository-wide canonical-layout check for committed session snapshots. */
-/**
+/*
  * 文件职责：检查已提交的会话格式 JSONL 测试数据是否使用规范的紧凑布局。
  * 技术维度：使用 Vitest 调用布局检查器，并通过 Node 路径 API 定位仓库根目录。
  * 产品维度：保持会话夹具与真实持久化格式一致，降低 SDK 和回放测试读取差异。

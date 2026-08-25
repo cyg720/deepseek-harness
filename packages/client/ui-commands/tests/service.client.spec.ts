@@ -7,7 +7,7 @@
  * payload, the scoped consume-token dispatch, per-session popupFor
  * lifecycle, and the directory invalidation event subscriptions.
  */
-/**
+/*
  * 文件职责：验证命令弹层的 service.client.spec.ts 行为。
  * 技术维度：Vitest、React 测试渲染和可控替身。
  * 产品维度：防止命令弹层用户流程发生回归。
@@ -29,7 +29,7 @@ import { CommandUiRuntime } from '../src/client/service.ts'
 const sid = (k: string): SessionId => k as SessionId
 
 /** The agent-backed session projection (single state; identity only). */
-/** 中文说明：测试场景的局部值 proj，由紧邻初始化决定。 */
+/* 中文说明：测试场景的局部值 proj，由紧邻初始化决定。 */
 const proj = (id: string): ClientSessionContext => ({ sessionId: sid(id) })
 
 /** 中文说明：测试场景的局部值 S1_CMDS，由紧邻初始化决定。 */
@@ -62,7 +62,7 @@ interface BenchOptions {
  * @param produce - the scripted answer for one Remote method.
  * @returns the carried result the service reads.
  */
-/** 中文说明：函数 carried 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 carried 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 async function carried<T>(produce: () => Promise<T>) {
   try {
     return { ok: true as const, value: await produce() }
@@ -161,7 +161,7 @@ async function bench(opts: BenchOptions = {}) {
     executions.push({ sessionId, name, result })
   })
   /** Notices the fake conversation face collected (runDetached routing). */
-  /** 中文说明：测试场景的局部值 notices，由紧邻初始化决定。 */
+  /* 中文说明：测试场景的局部值 notices，由紧邻初始化决定。 */
   const notices: Array<{ scope: SessionId | undefined; level: 'info' | 'error'; text: string }> = []
   ctx.provide('conversation', {
     input: {
@@ -188,7 +188,7 @@ async function bench(opts: BenchOptions = {}) {
     return handle
   }
   /** Warm one session's catalog through the source's own candidate pull. */
-  /** 中文说明：测试场景的局部值 warm，由紧邻初始化决定。 */
+  /* 中文说明：测试场景的局部值 warm，由紧邻初始化决定。 */
   const warm = async (session: ClientSessionContext) => {
     await source.candidates(session, { query: '', position: 'leading', signal: new AbortController().signal })
   }

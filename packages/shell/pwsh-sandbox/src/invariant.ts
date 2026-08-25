@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】注册 dsh-pwsh-sandbox 包在 invariants 服务中的"包属主"声明：本包是沙箱化的
  * PowerShell 执行器，行为契约由 ctx.shell / ctx.sandbox 缝强制执行，无独立运行时不变式。
@@ -21,20 +21,20 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 
 const PACKAGE_NAME = '@deepseek-ai/dsh-pwsh-sandbox'
-/** 本包的 npm 完整名称，作为 invariants 服务中包属主登记的键。 */
+/* 本包的 npm 完整名称，作为 invariants 服务中包属主登记的键。 */
 
 /** Cordis companion plugin name. */
-/** 伴生插件的注册名，出现在 Cordis 日志与依赖图中。 */
+/* 伴生插件的注册名，出现在 Cordis 日志与依赖图中。 */
 export const name = 'pwsh-sandbox-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 插件启动前必须已加载的服务列表：invariants 服务就绪后本伴生插件才能完成注册。 */
+/* 插件启动前必须已加载的服务列表：invariants 服务就绪后本伴生插件才能完成注册。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: this package exposes no independent event sequence or
  * mutable data relation beyond contracts enforced at its owning seams.
  */
-/**
+/*
  * 安装函数体：本包没有独立的事件序列或可变数据关系需要运行时观测，
  * 契约都由所属能力缝强制执行，故为空实现（显式声明而非遗漏）。
  */
@@ -45,7 +45,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 注册本包的 invariants 伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文
  * @returns 注册完成后得到的释放器，插件卸载时由 Cordis 自动调用

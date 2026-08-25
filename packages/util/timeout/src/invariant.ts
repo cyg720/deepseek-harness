@@ -2,7 +2,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-timeout`.
  * @module @deepseek-ai/dsh-timeout/invariant
  */
-/**
+/*
  * 文件职责：为超时纯工具包注册包所有权明确的空不变量伴生插件。
  * 技术维度：使用统一 Cordis 注册元数据，不为纯函数工具引入可变状态。
  * 产品维度：让诊断清单包含超时工具，同时保持其实现轻量且行为由测试证明。
@@ -19,17 +19,17 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-timeout'
 
 /** Cordis companion plugin name. */
-/** name：伴生插件稳定名称。 */
+/* name：伴生插件稳定名称。 */
 export const name = 'timeout-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** inject：唯一所需的不变量服务。 */
+/* inject：唯一所需的不变量服务。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: this pure utility owns no event stream or mutable runtime data; its value
  * algebra is enforced by unit tests.
  */
-/** install：空安装器；纯值代数由单元测试负责。 */
+/* install：空安装器；纯值代数由单元测试负责。 */
 const install: InvariantInstaller = () => {}
 
 /**
@@ -37,7 +37,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 注册超时工具伴生插件。@param ctx Cordis 上下文。@returns 注销函数。@example await apply(ctx)。 */
+/* 注册超时工具伴生插件。@param ctx Cordis 上下文。@returns 注销函数。@example await apply(ctx)。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))
 /* jscpd:ignore-end */

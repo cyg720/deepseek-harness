@@ -146,7 +146,7 @@ function mergeMatches(
 }
 
 /** Event Registry subset consumed by a Session-owned Assembler. */
-/** 中文说明：类型 `ConversationEventDefinitions` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `ConversationEventDefinitions` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface ConversationEventDefinitions {
   /** @returns ordinary Definitions in registration order. */
   entries(): readonly ConversationNodeDefinition[]
@@ -155,7 +155,7 @@ export interface ConversationEventDefinitions {
 }
 
 /** View Registry subset consumed by a Session-owned Assembler. */
-/** 中文说明：类型 `ConversationViewDefinitions` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `ConversationViewDefinitions` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface ConversationViewDefinitions {
   /** @returns view builder factories in registration order. */
   entries(): readonly ConversationViewDefinition[]
@@ -165,7 +165,7 @@ export interface ConversationViewDefinitions {
  * Session-owned incremental engine that assembles business Contexts from a
  * contiguous Event window and materializes registered view snapshots.
  */
-/** 中文说明：类 `ConversationNodeAssembler` 负责封装本文件的核心状态与操作，实例由调用方创建并按生命周期释放。 */
+/* 中文说明：类 `ConversationNodeAssembler` 负责封装本文件的核心状态与操作，实例由调用方创建并按生命周期释放。 */
 export class ConversationNodeAssembler implements ConversationViewSnapshotStore {
   /** 中文说明：类方法 `contexts`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly contexts = new Map<string, InternalContext>()
@@ -196,7 +196,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * @param eventDefinitions - live Event Definition registry.
    * @param viewDefinitions - live view builder registry.
    */
-  /** 中文说明：类方法 `constructor`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `constructor`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   constructor(
     private readonly eventDefinitions: ConversationEventDefinitions,
     private readonly viewDefinitions: ConversationViewDefinitions,
@@ -210,7 +210,12 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * @param hasMore - whether older history remains outside the window.
    * @returns immediate publication request.
    */
-  /** 中文说明：类方法 `replaceWindow`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `replaceWindow`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param entries 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param hasMore 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   replaceWindow(entries: readonly ConversationEventInput[], hasMore: boolean): ConversationPublication {
     this.contexts.clear()
     this.contextsByKind.clear()
@@ -241,7 +246,11 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * @param input - appended Event and optional wire view.
    * @returns highest requested publication cadence.
    */
-  /** 中文说明：类方法 `append`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `append`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param input 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   append(input: ConversationEventInput): ConversationPublication {
     if (this.inputs.has(input.event.seq)) return 'none'
     this.revised.clear()
@@ -274,7 +283,12 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * @param hasMore - whether history still precedes the expanded window.
    * @returns highest requested publication cadence.
    */
-  /** 中文说明：类方法 `prepend`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `prepend`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param entries 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param hasMore 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   prepend(entries: readonly ConversationEventInput[], hasMore: boolean): ConversationPublication {
     this.revised.clear()
     /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `publication` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
@@ -315,7 +329,10 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * Rebuild against the current Registry set after a low-frequency plugin change.
    * @returns immediate publication request.
    */
-  /** 中文说明：类方法 `rebuildRegistry`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `rebuildRegistry`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   rebuildRegistry(): ConversationPublication {
     this.resetViewBuilders()
     return this.replaceWindow(this.sortedInputs(), this.hasMore)
@@ -325,7 +342,10 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * Materialize dirty Contexts and advance every registered view builder.
    * @returns whether any view snapshot was rebuilt or incrementally applied.
    */
-  /** 中文说明：类方法 `flush`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `flush`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   flush(): boolean {
     if (!this.replacePending && this.dirty.size === 0 && !this.timelineDirty) return false
     if (this.replacePending) {
@@ -401,7 +421,11 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * @param target - registered view target.
    * @returns target snapshot, or undefined when no builder is registered.
    */
-  /** 中文说明：类方法 `snapshot`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /*
+   * 中文说明：类方法 `snapshot`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
+   * @param target 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   snapshot(target: string): unknown {
     return this.views.get(target)?.snapshot
   }
@@ -766,7 +790,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
   }
 
   /** Insert one newly discovered start into its Definition's ordered predecessor index. */
-  /** 中文说明：类方法 `indexStartedContext`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：类方法 `indexStartedContext`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private indexStartedContext(context: InternalContext): void {
     /** 中文说明：标识对象、顺序或版本的标量值；变量 `seq` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const seq = context.startSeq
@@ -994,7 +1018,7 @@ function requireState(
 }
 
 /** Structural registry pair accepted by Session and SessionManager. */
-/** 中文说明：类型 `ConversationRuntime` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `ConversationRuntime` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface ConversationRuntime {
   readonly events: ConversationEventDefinitions & { subscribe(listener: () => void): () => void }
   readonly views: ConversationViewDefinitions & { subscribe(listener: () => void): () => void }

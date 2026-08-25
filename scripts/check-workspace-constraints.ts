@@ -4,7 +4,7 @@
  *
  * Run: `tsx scripts/check-workspace-constraints.ts`.
  */
-/**
+/*
  * 文件职责：实现 check-workspace-constraints.ts 覆盖的仓库构建、校验或维护脚本职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
  * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
@@ -50,7 +50,7 @@ const publicLandlockPackages = new Set([
   '@deepseek-ai/node-addon-landlock-run-linux-x64',
 ])
 /** Deliberate source payloads whose exact bytes are part of the package's audit surface. */
-/** 中文说明：变量 publicationSourceAllowlist 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 publicationSourceAllowlist 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const publicationSourceAllowlist: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/node-addon-landlock-run': ['src/main.c'],
 }
@@ -61,16 +61,16 @@ const repositoryUrl = 'git+https://github.com/deepseek-harness/deepseek-harness.
  * {@link repositoryUrl}, which the Landlock packages keep because npm resolves
  * their trusted publishing against the repository that runs the workflow.
  */
-/** 中文说明：变量 publishedRepositoryUrl 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 publishedRepositoryUrl 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const publishedRepositoryUrl = 'git+https://github.com/deepseek-ai/deepseek-harness.git'
 /** Private packages that participate in workspace checks but not releases. */
-/** 中文说明：变量 experimentalPackageDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 experimentalPackageDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** npm namespace reserved for private experimental packages. */
-/** 中文说明：变量 experimentalPackageNamePrefix 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 experimentalPackageNamePrefix 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const experimentalPackageNamePrefix = '@deepseek-ai/dsh-experimental-'
 /** Directories whose packages this repository publishes: one release member each. */
-/** 中文说明：变量 releaseMemberDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 releaseMemberDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const releaseMemberDirectory = /^(?:packages\/(?!experimental\/)[^/]+\/[^/]+|apps\/[^/]+|vendor\/[^/]+)$/
 
 /** 中文说明：变量 localArtifactDirs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -84,7 +84,7 @@ const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
 }
 
 /** The subset of package.json fields this constraint check cares about. */
-/** 中文说明：interface PackageManifest 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：interface PackageManifest 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export interface PackageManifest {
   name?: string
   version?: string
@@ -118,7 +118,7 @@ export interface PackageManifest {
 }
 
 /** One workspace manifest and its repo-relative path. */
-/** 中文说明：interface WorkspaceManifest 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：interface WorkspaceManifest 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export interface WorkspaceManifest {
   dir: string
   manifest: PackageManifest
@@ -139,7 +139,7 @@ const landlockWorkspaceManifest = readJson(join(root, 'native/landlock-run/packa
 const landlockVersion = landlockWorkspaceManifest.version
 
 /** Repo-relative dirs holding a package.json, walked to the configured depth. */
-/** 中文说明：函数 packageDirs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 packageDirs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function packageDirs(base: string, depth: number): string[] {
   if (depth === 1) {
     return readdirSync(join(root, base), { withFileTypes: true })
@@ -252,7 +252,7 @@ function expectedDshPackageFiles(manifest: PackageManifest): readonly string[] {
 }
 
 /** Whether one conditional export exactly names the generated runtime and declaration pair. */
-/** 中文说明：函数 hasExportPair 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 hasExportPair 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasExportPair(
   manifest: PackageManifest,
   subpath: string,
@@ -268,7 +268,7 @@ function hasExportPair(
 }
 
 /** Runtime target of an export entry: conditional `default`, or the bare-string shorthand. */
-/** 中文说明：函数 exportDefault 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 exportDefault 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function exportDefault(manifest: PackageManifest, subpath: string): string | undefined {
   /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entry = manifest.exports?.[subpath]
@@ -278,14 +278,14 @@ function exportDefault(manifest: PackageManifest, subpath: string): string | und
 }
 
 /** Whether any export's runtime default points into the tsc-emitted lib/types tree. */
-/** 中文说明：函数 usesEmittedTreeDefaults 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 usesEmittedTreeDefaults 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function usesEmittedTreeDefaults(manifest: PackageManifest): boolean {
   return Object.keys(manifest.exports ?? {}).some(subpath =>
     exportDefault(manifest, subpath)?.startsWith('./lib/types/') === true)
 }
 
 /** Experimental manifest requirements enforced independently from release metadata. */
-/** 中文说明：函数 checkExperimentalManifest 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 checkExperimentalManifest 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function checkExperimentalManifest({ dir, manifest }: WorkspaceManifest): string[] {
   if (!experimentalPackageDirectory.test(dir)) return []
   /** 中文说明：变量 label 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -447,7 +447,7 @@ function checkWorkspace({ dir, manifest }: WorkspaceManifest): string[] {
  * Enforce `packages/<group>/<pkg>`: groups are open-named containers without a
  * package.json, and packages may be neither flat nor more deeply nested.
  */
-/** 中文说明：函数 checkHierarchyShape 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 checkHierarchyShape 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function checkHierarchyShape(): string[] {
   /** 中文说明：变量 errors 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const errors: string[] = []
@@ -485,10 +485,10 @@ function checkRepositoryVersion(): string[] {
 }
 
 /** Dependency sections whose ranges reach a published tarball or a local install. */
-/** 中文说明：变量 dependencySections 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 dependencySections 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const dependencySections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const
 /** Dependency sections present in an installed runtime. */
-/** 中文说明：变量 runtimeDependencySections 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 runtimeDependencySections 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const runtimeDependencySections = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const
 
 /**
@@ -496,7 +496,7 @@ const runtimeDependencySections = ['dependencies', 'optionalDependencies', 'peer
  * @param manifests - release, private experimental, and deployment-root manifests.
  * @returns One error for each forbidden runtime dependency.
  */
-/** 中文说明：函数 checkExperimentalDependencyIsolation 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 checkExperimentalDependencyIsolation 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function checkExperimentalDependencyIsolation(manifests: readonly WorkspaceManifest[]): string[] {
   /** 中文说明：变量 experimentalNames 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const experimentalNames = new Set(manifests
@@ -530,7 +530,7 @@ export function checkExperimentalDependencyIsolation(manifests: readonly Workspa
  * @param manifests - every workspace manifest.
  * @returns One error per reference that names a workspace member without the protocol.
  */
-/** 中文说明：函数 checkWorkspaceProtocol 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 checkWorkspaceProtocol 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]): string[] {
   /** 中文说明：函数值 members 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const members = new Set(manifests.map(entry => entry.manifest.name).filter(name => name !== undefined))
@@ -551,7 +551,7 @@ function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]): string
 }
 
 /** Run the repository constraint gate. */
-/** 中文说明：函数 main 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 main 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function main(): void {
   /** 中文说明：变量 manifests 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests = workspaceManifests()

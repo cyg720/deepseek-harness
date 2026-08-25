@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】client-hmr 的浏览器半边：客户端插件条目的热更新驱动——监听
  *   Host 的系统 SSE 通道（GET /plugins/events），收到 rebuilt 帧时重载
@@ -79,7 +79,7 @@
  * fiberless (the next rebuilt frame retries from scratch); an apply failure
  * leaves a FAILED fiber for the shell's status projection. Both log loudly.
  */
-/**
+/*
  * client-hmr 的浏览器半边：客户端插件条目的热更新驱动。
  *
  * 监听 Host 的系统 SSE 通道（GET /plugins/events）；收到 rebuilt 帧时重载
@@ -137,15 +137,15 @@ export type { PluginsEventFrame } from '../events.ts'
 export { EVENTS_ENDPOINT } from '../events.ts'
 
 /** Cordis plugin name. */
-/** Cordis 插件名。 */
+/* Cordis 插件名。 */
 export const name = 'client-hmr'
 
 /** Required services: the vendored Loader (entry governance) and the client module system (boot provide, service name `modules`). */
-/** 必需服务：vendored Loader（条目治理）与客户端模块系统（启动提供，服务名 modules）。 */
+/* 必需服务：vendored Loader（条目治理）与客户端模块系统（启动提供，服务名 modules）。 */
 export const inject = ['loader', 'modules']
 
 /** Find the loader entry whose module specifier is `id` (entry tree ids are random; the package name lives in `options.name`). */
-/** 查找模块说明符为 id 的 loader 条目（条目树 id 是随机的；包名在 options.name）。 */
+/* 查找模块说明符为 id 的 loader 条目（条目树 id 是随机的；包名在 options.name）。 */
 function findEntry(loader: Loader, id: string): Entry | undefined {
   for (const entry of loader.entries()) {
     if (entry.options.name === id) return entry
@@ -154,7 +154,7 @@ function findEntry(loader: Loader, id: string): Entry | undefined {
 }
 
 /** Remove every `<style data-plugin>` tag owned by `id` (attribute compared verbatim — no CSS-selector escaping pitfalls). */
-/** 移除 id 拥有的每个 <style data-plugin> 标签（属性逐字比较——无 CSS 选择器转义陷阱）。 */
+/* 移除 id 拥有的每个 <style data-plugin> 标签（属性逐字比较——无 CSS 选择器转义陷阱）。 */
 function removeOwnedStyles(id: string): void {
   for (const el of document.querySelectorAll('style[data-plugin]')) {
     if (el.getAttribute('data-plugin') === id) el.remove()
@@ -166,7 +166,7 @@ function removeOwnedStyles(id: string): void {
  * rebuilt entries.
  * @param ctx - plugin context with `loader` and `modules` available.
  */
-/**
+/*
  * 挂载 HMR 驱动：订阅系统 SSE 通道并热换重建条目。
  * @param ctx 含可用 loader 与 modules 的插件上下文。
  */

@@ -3,7 +3,7 @@
  * and process-local continuation activation.
  * @module @deepseek-ai/dsh-goal
  */
-/**
+/*
  * 文件职责：实现目标管理的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
@@ -72,7 +72,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Wire payload schema of the `goal` projection (whole current goal or pre-create/cleared null). */
-/** 中文说明：领域局部值 goalProjectionSchema，由紧邻初始化决定。 */
+/* 中文说明：领域局部值 goalProjectionSchema，由紧邻初始化决定。 */
 const goalProjectionSchema: ZodType<GoalProjection | null> = zod.union([
   zod.object({
     goal: zod.object({
@@ -103,7 +103,12 @@ const goalProjectionSchema: ZodType<GoalProjection | null> = zod.union([
  * @param event - the next committed session event.
  * @returns the next projection (same reference when the event is not a goal change).
  */
-/** 中文说明：函数 applyGoalProjection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 applyGoalProjection 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param state 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param event 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function applyGoalProjection(state: GoalProjection | null, event: SessionEvent): GoalProjection | null {
   if (event.type !== 'goal/change') return state
   /** 中文说明：领域局部值 解构结果，由紧邻初始化决定。 */
@@ -125,21 +130,21 @@ export function applyGoalProjection(state: GoalProjection | null, event: Session
 }
 
 /** Deployment defaults for goal creation. */
-/** 中文说明：类型或类 Config 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 Config 约束文件或目标数据职责。 */
 export interface Config {
   /** Total rounds used when a create request omits its own cap. */
   defaultMaxGoalRounds?: number
 }
 
 /** Resolved defaults. */
-/** 中文说明：类型或类 ResolvedConfig 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 ResolvedConfig 约束文件或目标数据职责。 */
 export interface ResolvedConfig {
   /** Validated positive safe-integer default round cap. */
   defaultMaxGoalRounds: number
 }
 
 /** Process-local cache plus activation intent crossing the synchronous append boundary. */
-/** 中文说明：类型或类 GoalCache 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 GoalCache 约束文件或目标数据职责。 */
 interface GoalCache {
   readonly state: GoalFoldState
   activation: GoalActivation
@@ -148,14 +153,14 @@ interface GoalCache {
 }
 
 /** Validated create input with every deployment default materialized. */
-/** 中文说明：类型或类 ResolvedCreateGoal 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 ResolvedCreateGoal 约束文件或目标数据职责。 */
 interface ResolvedCreateGoal {
   readonly objective: string
   readonly maxGoalRounds: number
 }
 
 /** Validate a caller-visible positive safe-integer round cap. */
-/** 中文说明：函数 resolveMaxGoalRounds 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveMaxGoalRounds 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveMaxGoalRounds(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new GoalError('maxGoalRounds must be a positive safe integer', 'GOAL_INVALID_MAX_ROUNDS')
@@ -164,7 +169,7 @@ function resolveMaxGoalRounds(value: number): number {
 }
 
 /** Validate and normalize an objective at the domain boundary. */
-/** 中文说明：函数 resolveObjective 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveObjective 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveObjective(value: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new GoalError('goal objective must be a non-empty string', 'GOAL_INVALID_OBJECTIVE')
@@ -173,7 +178,7 @@ function resolveObjective(value: string): string {
 }
 
 /** Materialize deployment defaults and validate one create request. */
-/** 中文说明：函数 resolveCreateGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveCreateGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveCreateGoal(request: CreateGoalRequest, defaultMaxGoalRounds: number): ResolvedCreateGoal {
   return {
     objective: resolveObjective(request.objective),
@@ -182,7 +187,7 @@ function resolveCreateGoal(request: CreateGoalRequest, defaultMaxGoalRounds: num
 }
 
 /** Validate and detach one policy-owned blocker explanation. */
-/** 中文说明：函数 resolveBlockReason 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveBlockReason 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveBlockReason(reason: unknown): GoalBlockReason {
   /** 中文说明：领域局部值 record，由紧邻初始化决定。 */
   const record = typeof reason === 'object' && reason !== null && !Array.isArray(reason)
@@ -203,7 +208,7 @@ function resolveBlockReason(reason: unknown): GoalBlockReason {
 }
 
 /** Goal service (`ctx.goals`) backed exclusively by the owning session log. */
-/** 中文说明：类型或类 GoalService 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 GoalService 约束文件或目标数据职责。 */
 export class GoalService extends TypertRemoteService {
   static inject = ['agents']
 

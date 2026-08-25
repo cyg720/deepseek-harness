@@ -6,7 +6,7 @@
  * 关键边界：声明不会检查真实类名，组件与样式文件重命名必须同步。
  * 新手阅读建议：从命令组件的两类 CSS 导入出发理解它们的用途差异。
  */
-/** 使用方式：`import styles from './Commands.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Commands.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源选择器，值为构建器生成的实际类名。 */
   const classes: Record<string, string>

@@ -58,13 +58,13 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
 const text = (t: string): ContentBlock[] => [{ type: 'text', text: t }]
 
 /** Throw an arbitrary callback value to exercise the public unknown-error boundary. */
-/** 中文说明：测试辅助函数 throwUnknown 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 throwUnknown 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function throwUnknown(value: unknown): never {
   throw value
 }
 
 /** Invoke the exact lifecycle effect to exercise same-stack reentrant teardown. */
-/** 中文说明：测试辅助函数 disposeCurrentLifecycle 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 disposeCurrentLifecycle 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function disposeCurrentLifecycle(ownerCtx: Context): void {
   /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定，仅在当前场景使用。 */
   const lifecycle = [...ownerCtx.fiber._disposables]

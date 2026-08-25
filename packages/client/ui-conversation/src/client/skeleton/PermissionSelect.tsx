@@ -52,7 +52,7 @@ const permissionGlyphs = {
 } as Record<string, ReactNode>
 
 /** Glyph for a permission option value; host-configured names outside the design set get none. */
-/** 中文说明：函数 permissionGlyph 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 permissionGlyph 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function permissionGlyph(value: string): ReactNode | undefined {
   return permissionGlyphs[value]
 }
@@ -64,7 +64,7 @@ function permissionGlyph(value: string): ReactNode | undefined {
  * transform so both permission surfaces use the product label `Full access`;
  * the warning body remains locale-aware.
  */
-/** 中文说明：函数 displayName 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 displayName 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function displayName(name: string): string {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) return name
   return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')

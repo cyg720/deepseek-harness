@@ -1,5 +1,5 @@
 /** Frame-wide dynamic Plugin inventory, approvals, versions, and lifecycle actions. */
-/**
+/*
  * 文件职责：实现Cordis 扩展界面的 CordisPanel.tsx 模块。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
@@ -28,7 +28,7 @@ import { cordisVisibleStatus, packageOf, type CordisVisibleStatus } from './stat
 import css from './CordisPanel.module.css'
 
 /** Full panel props composed by the sidebar footer-action slot. */
-/** 中文说明：类型或类 CordisPanelProps 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 CordisPanelProps 约束扩展或反馈数据职责。 */
 export type CordisPanelProps =
   PropsRuntime<'sidebar.footer.action'> & InjectFace<CordisPanelFace> & PropsLocale<'cordis'>
 
@@ -124,7 +124,7 @@ function DoubleCheckIcon() {
 }
 
 /** Render the inventory panel and its unified footer action. */
-/** 中文说明：函数 CordisPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 CordisPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function CordisPanel({
   wide,
   useSessions, useInventory, useActiveRuns, useRunErrors, useLoaded, useRenderFailures,

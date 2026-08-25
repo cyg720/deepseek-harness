@@ -1,5 +1,5 @@
 /** The `web-search-deepseek` settings section layered over the composition entry. */
-/**
+/*
  * 文件职责：验证 settings.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。
@@ -18,7 +18,7 @@ import * as deepseekPlugin from '@deepseek-ai/dsh-web-search-deepseek'
 import { WEB_SEARCH_DEEPSEEK_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-web-search-deepseek'
 
 /** The smallest real provider: one in-memory document, always writable. */
-/** 中文说明：class MemorySettings 定义本测试所需的数据或行为，用于表达Web 搜索与抓取场景。 */
+/* 中文说明：class MemorySettings 定义本测试所需的数据或行为，用于表达Web 搜索与抓取场景。 */
 class MemorySettings extends SettingsProvider {
   doc: Record<string, unknown> = {}
 
@@ -45,7 +45,7 @@ function jsonResponse(body: unknown): Response {
 }
 
 /** The smallest Anthropic-shaped answer the provider accepts — enough to observe the request. */
-/** 中文说明：常量 ONE_RESULT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ONE_RESULT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ONE_RESULT = {
   content: [
     { type: 'text', text: 'ok' },
@@ -81,7 +81,7 @@ afterEach(() => {
  * @param ctx - context whose `ctx.web` serves the search.
  * @returns the URL the provider fetched.
  */
-/** 中文说明：函数 searchOnce 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 searchOnce 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function searchOnce(ctx: Context): Promise<string> {
   /** 中文说明：变量 fetchSpy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fetchSpy = vi.spyOn(globalThis, 'fetch')

@@ -19,7 +19,7 @@ import {
 } from '@deepseek-ai/dsh-output-retention'
 
 /** Decode a RetainedText via a round-trip helper for readable UTF-8 assertions. */
-/** 中文说明：函数值 utf8 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 utf8 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s)
 
 describe('ItemRetainer — head retention', () => {

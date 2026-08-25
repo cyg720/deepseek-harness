@@ -1,5 +1,5 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
-/**
+/*
  * 文件职责：实现 workspaces.ts 覆盖的客户端运行时测试支持行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
@@ -21,7 +21,7 @@ import type { Stabilizer } from './fixtures.ts'
  * TestWorkspaces.calls}; defaults are inert echoes — feature tests needing
  * richer behavior replace them via {@link TestWorkspaces.stub}.
  */
-/** 中文说明：class TestWorkspaces 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：class TestWorkspaces 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestWorkspaces implements IWorkspaces {
   /** The useWorkspaces standard feed. */
   readonly list: SnapshotStore<WorkspaceListState>

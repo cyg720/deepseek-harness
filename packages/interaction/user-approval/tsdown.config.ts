@@ -6,7 +6,7 @@ import { defineConfig } from 'tsdown'
  * multi-entry build emits a shared chunk the package's exact `files`
  * whitelist omits; separate builds inline it.
  */
-/**
+/*
  * 文件职责：分别构建用户审批主入口和不变量伴生入口，确保共享类型被各自内联。
  * 技术维度：使用 tsdown 两次单入口 ESM 构建，避免多入口产生发布白名单未包含的共享 chunk。
  * 产品维度：让危险操作的用户批准流程和诊断模块都能从完整发布包中可靠加载。

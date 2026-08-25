@@ -17,7 +17,7 @@ import type { PluginInventoryLocaleKey } from './locales.ts'
 import css from './PluginInventorySettingsTab.module.css'
 
 /** Registration-side Remote face used by the section. */
-/** 中文说明：类型或类 PluginInventorySettingsTabInjected 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 PluginInventorySettingsTabInjected 约束设置数据或组件职责。 */
 export interface PluginInventorySettingsTabInjected {
   /** Read a current Host inventory snapshot. */
   list: () => Promise<PluginInventorySnapshot>
@@ -29,7 +29,7 @@ type PluginInventoryEntry = PluginInventorySnapshot['entries'][number]
 type PluginFiberPhase = PluginInventoryEntry['fiberPhase']
 
 /** Full component props assembled by the Settings slot renderer. */
-/** 中文说明：类型或类 PluginInventorySettingsTabProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 PluginInventorySettingsTabProps 约束设置数据或组件职责。 */
 export type PluginInventorySettingsTabProps =
   PropsRuntime<'settings.plugins.tab'>
   & PropsLocale<'settings.pluginInventory'>
@@ -51,7 +51,7 @@ const PHASE_KEYS = {
 } satisfies Record<Exclude<PluginFiberPhase, null>, PluginInventoryLocaleKey>
 
 /** Localized accessible label for one root Fiber phase. */
-/** 中文说明：函数 phaseLabel 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 phaseLabel 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function phaseLabel(
   phase: PluginFiberPhase,
   t: PluginInventorySettingsTabProps['t'],
@@ -60,7 +60,7 @@ function phaseLabel(
 }
 
 /** Compact a module specifier without guessing whether its Loader id was generated. */
-/** 中文说明：函数 moduleShortName 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 moduleShortName 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function moduleShortName(moduleName: string): string {
   /** 中文说明：设置局部值 unscoped，由紧邻初始化决定。 */
   const unscoped = moduleName.startsWith('@') ? moduleName.slice(moduleName.indexOf('/') + 1) : moduleName
@@ -71,7 +71,7 @@ function moduleShortName(moduleName: string): string {
 }
 
 /** Whether an inventory row matches the local catalog query. */
-/** 中文说明：函数 matches 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 matches 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function matches(entry: PluginInventoryEntry, normalizedQuery: string): boolean {
   if (normalizedQuery.length === 0) return true
   return [entry.moduleName, entry.entryId]
@@ -79,7 +79,7 @@ function matches(entry: PluginInventoryEntry, normalizedQuery: string): boolean 
 }
 
 /** Render the read-only current Loader inventory. */
-/** 中文说明：函数 PluginInventorySettingsTab 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 PluginInventorySettingsTab 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function PluginInventorySettingsTab({ list, t }: PluginInventorySettingsTabProps): ReactNode {
   /** 中文说明：设置局部值 catalogId，由紧邻初始化决定。 */
   const catalogId = useId()

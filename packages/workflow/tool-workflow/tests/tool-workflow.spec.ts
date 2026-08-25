@@ -28,7 +28,7 @@ import { Session, SessionId } from '@deepseek-ai/dsh-session'
 const testToolSignal = new AbortController().signal
 
 /** A controllable engine standing in behind ctx.workflowEngine (the tool's only seam). */
-/** 中文说明：class StubEngine 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class StubEngine 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class StubEngine extends WorkflowEngine {
   requests: WorkflowStartRequest[] = []
   cancels: string[] = []

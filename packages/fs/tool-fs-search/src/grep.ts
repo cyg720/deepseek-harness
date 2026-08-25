@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】面向模型的 grep 工具：用 ripgrep 正则表达式搜索文件内容。执行时通过
  * 子进程接缝、用普通 argv 向量直接启动打包的 ripgrep 二进制（@vscode/ripgrep），
@@ -38,7 +38,7 @@
  *
  * @module @deepseek-ai/dsh-tool-fs-search/grep
  */
-/**
+/*
  * 模块总览：本文件是 grep 工具的定义与执行体。--json 记录解析与结果格式化在这里，
  * spawn/终止/捕获在 search-core.ts 与 ctx.subprocess。
  */
@@ -59,7 +59,7 @@ import { acceptedDirectCallValue } from './direct-call.ts'
  * `grepMaxMatches` config), matching Claude Code's default `GrepTool`
  * `head_limit`.
  */
-/**
+/*
  * 单次 grep 调用内联保留扁平匹配数的默认上限（grepMaxMatches 配置的默认值）：
  * 250，与 Claude Code 默认 GrepTool 的 head_limit 一致。
  */
@@ -69,40 +69,40 @@ export const GREP_MAX_MATCHES = 250
  * Default cap in bytes on one matched-line preview (the `grepMaxLineBytes`
  * config); the cut preserves UTF-8 boundaries.
  */
-/**
+/*
  * 单条匹配行预览的默认字节上限（grepMaxLineBytes 配置的默认值）：2000；
  * 截断保留 UTF-8 边界。
  */
 export const GREP_MAX_LINE_BYTES = 2000
 
 /** Resolved grep-tool caps — plugin config after defaulting (see `Config` in index.ts). */
-/** 已解析的 grep 工具上限——默认化后的插件配置（见 index.ts 的 Config）。 */
+/* 已解析的 grep 工具上限——默认化后的插件配置（见 index.ts 的 Config）。 */
 export interface GrepToolCaps {
   /** Max flat matches retained inline; later matches go to the formatted spill file. */
-  /** 内联保留的最大扁平匹配数；后面的匹配进格式化 spill 文件。 */
+  /* 内联保留的最大扁平匹配数；后面的匹配进格式化 spill 文件。 */
   maxMatches: number
   /** Max bytes retained per matched-line preview. */
-  /** 每条匹配行预览保留的最大字节数。 */
+  /* 每条匹配行预览保留的最大字节数。 */
   maxLineBytes: number
   /** Max bytes of serialized `presentationMeta`; trailing file groups drop past it. */
-  /** 序列化 presentationMeta 的最大字节数；超出后尾部文件组被丢弃。 */
+  /* 序列化 presentationMeta 的最大字节数；超出后尾部文件组被丢弃。 */
   maxMetaBytes: number
   /** Cap on the complete raw `rg` stdout the tool will parse. */
-  /** 工具将解析的完整原始 rg stdout 上限。 */
+  /* 工具将解析的完整原始 rg stdout 上限。 */
   rawOutputMaxBytes: number
   /** Terminate-escalation grace period (ms) for the search process. */
-  /** 搜索进程的终止升级宽限期（毫秒）。 */
+  /* 搜索进程的终止升级宽限期（毫秒）。 */
   graceMs: number
   /** Cap on the retained stderr diagnostic tail. */
-  /** 保留 stderr 诊断尾部的上限。 */
+  /* 保留 stderr 诊断尾部的上限。 */
   stderrMaxBytes: number
   /** Cooperative tool-call budget (ms) attached as `ToolDefinition.timeoutMs`. */
-  /** 协作式工具调用预算（毫秒），作为 ToolDefinition.timeoutMs 附加。 */
+  /* 协作式工具调用预算（毫秒），作为 ToolDefinition.timeoutMs 附加。 */
   timeoutMs: number
 }
 
 /** Validated `grep` arguments. */
-/** 已校验的 grep 参数。 */
+/* 已校验的 grep 参数。 */
 export interface GrepInput {
   pattern: string
   path?: string
@@ -114,7 +114,7 @@ export interface GrepInput {
  * negated patterns (`!…`), and comma-separated lists. A comma inside a brace
  * group is fine — `*.{ts,tsx}` is one glob with alternation, not a list.
  */
-/**
+/*
  * 拒绝不是"一个正向 glob 过滤器"的 include：空白字符串、取反模式（!…）、逗号分隔
  * 列表。大括号组里的逗号合法——*.{ts,tsx} 是带交替的一个 glob，不是列表。
  */
@@ -140,7 +140,7 @@ function validateInclude(include: string): void {
  * @param args - the schema-validated `grep` arguments.
  * @returns the accepted input, unchanged.
  */
-/**
+/*
  * 校验 schema DSL 表达不了的值约束：pattern 非空（空白是合法正则）、给出时 path
  * 非空白、include 是单个正向 glob。否则抛普通 Error（常规工具参数错误）。
  * @param args 已通过 schema 校验的 grep 参数。
@@ -168,7 +168,7 @@ export function parseGrepArgs(args: { pattern: string; path?: string; include?: 
  * @param input - the validated arguments.
  * @returns the complete ripgrep argument vector (excluding the binary itself).
  */
-/**
+/*
  * 为一次 grep 调用构造固定的面向行 rg --json argv。每个模型控制值（pattern、path、
  * include）都是普通 argv 元素——没有 shell 层，所以不存在引号问题；pattern 与
  * include 用 --flag=value 形式、目标跟在 -- 后，前导横线值绝不会被解析成旗标。
@@ -186,7 +186,7 @@ export function buildGrepCommand(input: GrepInput): string[] {
  * The uniform malformed-output failure: raw `rg --json` is an internal
  * transport, so missing or invalid response fields cause a search failure, not a partial result.
  */
-/**
+/*
  * 统一的畸形输出失败：原始 rg --json 是内部传输，所以缺失或无效的响应字段导致搜索
  * 失败，而不是给出部分结果。
  */
@@ -202,7 +202,7 @@ function malformedRecord(detail: string, cause?: unknown): SearchError {
  * UTF-8 (ripgrep sends base64 `bytes` instead of `text`) yields a placeholder
  * preview rather than failing the whole search.
  */
-/**
+/*
  * 把一行 rg --json NDJSON 解析成匹配；非匹配记录类型（begin/end/context/summary）
  * 返回 undefined。不是 JSON 的行、或缺 path/行号/行内容的 match 记录抛 SearchError
  * SEARCH_FAILED。行不是合法 UTF-8 的匹配（ripgrep 发 base64 bytes 而非 text）用
@@ -246,7 +246,7 @@ function parseRecord(line: string): GrepMatch | undefined {
  * @param stdout - the complete raw `rg --json` stdout.
  * @returns the flat matches; empty for output with no match records.
  */
-/**
+/*
  * 把完整 rg --json stdout 解析成扁平匹配表（输出顺序；ripgrep 连续发出一个文件的
  * 匹配）。只消费 match 记录。
  * @param stdout 完整原始 rg --json stdout。
@@ -263,7 +263,7 @@ export function parseGrepMatches(stdout: string): GrepMatch[] {
 }
 
 /** `match` / `matches` for a count. */
-/** 按计数给出 match/matches 单复数。 */
+/* 按计数给出 match/matches 单复数。 */
 function matchNoun(count: number): string {
   return count === 1 ? 'match' : 'matches'
 }
@@ -275,7 +275,7 @@ function matchNoun(count: number): string {
  * @param matches - the flat matches to render.
  * @returns the grouped body text.
  */
-/**
+/*
  * 把扁平匹配按文件分组（首见顺序）成模型可见正文：每个文件的展示路径，然后每个
  * 匹配一行 `Line N: <text>`。
  * @param matches 要渲染的扁平匹配。
@@ -305,7 +305,7 @@ export function formatGrepMatches(matches: GrepMatch[]): string {
  * @param spillRef - the saved complete-result reference, or `undefined` when unsaved.
  * @returns the model-facing text.
  */
-/**
+/*
  * 格式化模型侧 grep 结果：找到计数头、按文件分组的保留匹配，然后——结果被截断
  * 时——脚注携带格式化 spill 的恢复定位符或"无法保存"说明。省略的计数是预算事实：
  * 搜索本身完成了。
@@ -326,7 +326,7 @@ export function formatGrepOutput(retained: RetainedItems<GrepMatch>, spillRef: S
 }
 
 /** Format one already-retained match list for the Native surface. */
-/** 为 Native 面格式化一份已保留的匹配表。 */
+/* 为 Native 面格式化一份已保留的匹配表。 */
 function formatRetainedGrep(retained: RetainedItems<GrepMatch>, spillRef?: SpillRef): string {
   if (retained.seen === 0) return 'No matches found'
   return formatGrepOutput(retained, spillRef)
@@ -339,7 +339,7 @@ function formatRetainedGrep(retained: RetainedItems<GrepMatch>, spillRef?: Spill
  * @param args - the raw tool arguments; `pattern`, `path`, and `include` feed the title.
  * @returns the generic card view (`kind: 'search'`) shown while the call runs.
  */
-/**
+/*
  * 挂起调用展示：以模式（与目标/include 过滤器）为标题的搜索卡片。
  * @param args 原始工具参数；pattern、path 与 include 进入标题。
  * @returns 调用运行期间展示的通用卡片视图（kind: 'search'）。
@@ -361,7 +361,7 @@ export function presentGrepCall(args: { pattern: string; path?: string; include?
  * @param result - the final model-facing tool result carrying the projected metadata.
  * @returns the search card view, or `undefined` for the generic fallback.
  */
-/**
+/*
  * 完成调用展示：从结果 presentationMeta（按文件分组的匹配 + 截断信号）投影搜索
  * 卡片。没有搜索卡片能力的 UI 回退到原始 tool/result 内容，所以视图自身不携带
  * 结果文本。畸形/缺失元数据（过时或手工编辑的重放日志）回退到通用卡片。
@@ -386,7 +386,7 @@ export function presentGrepResult(
  *   execution uses its `subprocess` service.
  * @param caps - the deployment's resolved grep caps (plugin config after defaulting).
  */
-/**
+/*
  * 注册 grep 工具与其系统提示指南。
  * @param ctx 插件上下文；注册是作用域于它的副作用，执行使用其 subprocess 服务。
  * @param caps 部署的已解析 grep 上限（默认化后的插件配置）。

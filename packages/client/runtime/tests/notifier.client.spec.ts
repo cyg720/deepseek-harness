@@ -2,7 +2,7 @@
  * Notifier: microtask/frame batching, rebuild-before-notify ordering,
  * no-listener laziness, synchronous notifyNow, and unsubscribe.
  */
-/**
+/*
  * 文件职责：验证运行时通知器的订阅、异常隔离、取消订阅和发布顺序。
  * 技术维度：Vitest、回调集合与同步通知机制。
  * 产品维度：保证多个界面消费者能收到状态变化，单个消费者报错不会阻断其他消费者。

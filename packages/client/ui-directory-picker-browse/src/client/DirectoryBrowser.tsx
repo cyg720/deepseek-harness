@@ -34,7 +34,7 @@
  * the crumbs name where the walk ended, and Open's fallback target follows
  * them.
  */
-/**
+/*
  * 文件职责：实现目录选择的 DirectoryBrowser 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：支持用户查看或操作目录选择。
@@ -54,7 +54,7 @@ import type { Translate } from '@deepseek-ai/dsh-client-locale/client'
 import css from './DirectoryBrowser.module.css'
 
 /** Owner-supplied browser props: browse calls, pick semantics, and copy. */
-/** 中文说明：类型或类 DirectoryBrowserProps 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 DirectoryBrowserProps 约束本文件数据或组件职责。 */
 export interface DirectoryBrowserProps {
   /** Dialog visibility (owner-local; closed unmounts nothing but resets on reopen). */
   open: boolean
@@ -73,7 +73,7 @@ export interface DirectoryBrowserProps {
 }
 
 /** Failure text: the Host business message when typed, else the throw's text. */
-/** 中文说明：函数 failureText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 failureText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function failureText(error: unknown): string {
   if (error instanceof DirectoryBrowseError) return error.rpcError.message
   return error instanceof Error ? error.message : String(error)
@@ -86,7 +86,7 @@ function failureText(error: unknown): string {
  * intermediate frame at all; only a genuinely slow host (a network mount, a
  * cold disk) surfaces the indicator.
  */
-/** 中文说明：组件局部值 SLOW_SCAN_DELAY_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 SLOW_SCAN_DELAY_MS，由紧邻初始化决定。 */
 const SLOW_SCAN_DELAY_MS = 300
 
 /**
@@ -96,7 +96,7 @@ const SLOW_SCAN_DELAY_MS = 300
  * at once (an Enter-submitted navigation is never held hostage by a stalled
  * parent) and the late parent leg upgrades the landing in place.
  */
-/** 中文说明：组件局部值 PARENT_LEG_WAIT_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 PARENT_LEG_WAIT_MS，由紧邻初始化决定。 */
 const PARENT_LEG_WAIT_MS = 200
 
 /**
@@ -106,7 +106,7 @@ const PARENT_LEG_WAIT_MS = 200
  * separator would otherwise be its own scan) while staying short enough that
  * a pause reads as "the list moved with me".
  */
-/** 中文说明：组件局部值 DRAFT_PREVIEW_DEBOUNCE_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 DRAFT_PREVIEW_DEBOUNCE_MS，由紧邻初始化决定。 */
 const DRAFT_PREVIEW_DEBOUNCE_MS = 250
 
 /**
@@ -114,7 +114,7 @@ const DRAFT_PREVIEW_DEBOUNCE_MS = 250
  * localized Home crumb; outside it the full ancestry shows, the root labeled
  * by its own path.
  */
-/** 中文说明：函数 displayCrumbs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 displayCrumbs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function displayCrumbs(listing: DirectoryListing, homeLabel: string): DirectoryEntry[] {
   /** 中文说明：组件局部值 homeIndex，由紧邻初始化决定。 */
   const homeIndex = listing.crumbs.findIndex(crumb => crumb.path === listing.home)
@@ -133,13 +133,13 @@ function displayCrumbs(listing: DirectoryListing, homeLabel: string): DirectoryE
  * DirectoryListing so the platform fact travels verbatim (the trade-off is
  * recorded in the directory-picker capability seam Agent Note).
  */
-/** 中文说明：函数 separatorOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 separatorOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function separatorOf(listing: DirectoryListing): '\\' | '/' {
   return listing.home.includes('\\') ? '\\' : '/'
 }
 
 /** The listed level as a directory part: its own path, separator-terminated (the root already is). */
-/** 中文说明：函数 levelDirectory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 levelDirectory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function levelDirectory(listing: DirectoryListing): string {
   /** 中文说明：组件局部值 sep，由紧邻初始化决定。 */
   const sep = separatorOf(listing)
@@ -147,7 +147,7 @@ function levelDirectory(listing: DirectoryListing): string {
 }
 
 /** The directory text a draft-following scan last sent, with the level path the host answered it with. */
-/** 中文说明：类型或类 ScannedDirectory 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 ScannedDirectory 约束本文件数据或组件职责。 */
 interface ScannedDirectory {
   /** The draft's directory part, verbatim as it went to the host. */
   readonly directory: string
@@ -162,7 +162,7 @@ interface ScannedDirectory {
  * slash separates too (the host's `resolve` accepts either), while on POSIX a
  * backslash is a legal name character and never separates.
  */
-/** 中文说明：函数 draftDirectory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 draftDirectory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function draftDirectory(listing: DirectoryListing, draft: string): string | null {
   /** 中文说明：组件局部值 cut，由紧邻初始化决定。 */
   const cut = separatorOf(listing) === '\\'
@@ -185,7 +185,7 @@ function draftDirectory(listing: DirectoryListing, draft: string): string | null
  * @returns the draft's directory part (null with no separator typed) and its
  * filtering tail (null when this level does not answer that directory).
  */
-/** 中文说明：函数 readDraft 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 readDraft 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function readDraft(
   listing: DirectoryListing,
   draft: string,
@@ -212,7 +212,7 @@ function readDraft(
  * `hidden` means dot-prefixed, so it cannot), the level would narrow to
  * nothing.
  */
-/** 中文说明：函数 visibleEntries 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 visibleEntries 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function visibleEntries(
   entries: readonly DirectoryEntry[],
   selectedPath: string | null,
@@ -237,7 +237,7 @@ function visibleEntries(
 }
 
 /** One column of folder rows (the Miller view renders one or two of these). */
-/** 中文说明：函数 LevelColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 LevelColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPrefix, pathEditing }: {
   entries: readonly DirectoryEntry[]
   selectedPath: string | null
@@ -292,7 +292,7 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
  * @param props - owner-controlled browser props.
  * @returns the dialog element (null while closed, via Modal).
  */
-/** 中文说明：函数 DirectoryBrowser 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 DirectoryBrowser 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen, onClose, busy, t }: DirectoryBrowserProps) {
   // Miller state: the listed level, the selected row in it, and the selected
   // folder's own listing (the right column; null while nothing is selected).
@@ -363,7 +363,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }
 
   /** Newer intent wins: invalidate the pending listing's settlement AND abort its wire request. */
-  /** 中文说明：组件局部值 supersede，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 supersede，由紧邻初始化决定。 */
   const supersede = useCallback((): number => {
     scanController.current?.abort()
     scanController.current = null
@@ -371,14 +371,14 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [])
 
   /** Hide any prior indicator and start a fresh silence window for one listing call. */
-  /** 中文说明：组件局部值 restartSlowScanWindow，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 restartSlowScanWindow，由紧邻初始化决定。 */
   const restartSlowScanWindow = useCallback((): void => {
     setSlowScan(false)
     setScanWindow(value => value + 1)
   }, [])
 
   /** Launch one listing under a fresh controller so a later supersession can abort it. */
-  /** 中文说明：组件局部值 launchListing，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 launchListing，由紧邻初始化决定。 */
   const launchListing = useCallback((path: string | undefined): { seq: number; scan: Promise<DirectoryListing> } => {
     /** 中文说明：组件局部值 seq，由紧邻初始化决定。 */
     const seq = supersede()
@@ -393,7 +393,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * Launch a follow-up listing under the CURRENT supersession seq: a newer
    * intent aborts it like the leg it continues, and it supersedes nothing.
    */
-  /** 中文说明：组件局部值 continueScan，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 continueScan，由紧邻初始化决定。 */
   const continueScan = useCallback((path: string): Promise<DirectoryListing> => {
     /** 中文说明：组件局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
@@ -409,7 +409,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * it set until the operator edits again, so the rejected path is not
    * immediately re-scanned as a preview.
    */
-  /** 中文说明：组件局部值 previewSuspended，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 previewSuspended，由紧邻初始化决定。 */
   const previewSuspended = useRef(false)
 
   // The panes as the draft-following scan must read them when its wait
@@ -430,7 +430,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * onto, so the focus it drops is re-parked on the still-open editor (the
    * Modal has no focus trap). Consumed by the refocus effect below.
    */
-  /** 中文说明：组件局部值 refocusPathInput，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 refocusPathInput，由紧邻初始化决定。 */
   const refocusPathInput = useRef(false)
 
   /**
@@ -462,7 +462,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * bounds the wait for the parent leg; `announce` surfaces a failure as the
    * dialog's alert.
    */
-  /** 中文说明：组件局部值 land，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 land，由紧邻初始化决定。 */
   const land = useCallback((path: string | undefined, options: { closeEditor: boolean; announce: boolean }) => {
     /** 中文说明：组件局部值 { seq, scan }，由紧邻初始化决定。 */
     const { seq, scan } = launchListing(path)
@@ -542,7 +542,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [launchListing, continueScan])
 
   /** Commit a submitted path (Enter, a crumb, the initial home listing): the editor closes, failures surface. */
-  /** 中文说明：组件局部值 navigate，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 navigate，由紧邻初始化决定。 */
   const navigate = useCallback((path?: string) => {
     land(path, { closeEditor: true, announce: true })
   }, [land])
@@ -570,7 +570,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * rule governs whole-view replacement, where nothing acknowledges the
    * click but the swap itself.
    */
-  /** 中文说明：组件局部值 select，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 select，由紧邻初始化决定。 */
   const select = useCallback((entry: DirectoryEntry) => {
     /** 中文说明：组件局部值 { seq, scan }，由紧邻初始化决定。 */
     const { seq, scan } = launchListing(entry.path)
@@ -608,13 +608,13 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * exactly as a crumb jump does, and the draft's final segment
    * prefix-filters the arrival from the next render on.
    */
-  /** 中文说明：组件局部值 previewDraftLevel，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 previewDraftLevel，由紧邻初始化决定。 */
   const previewDraftLevel = useCallback((directory: string) => {
     land(directory, { closeEditor: false, announce: false })
   }, [land])
 
   /** Abandon path editing (Escape or clicking away) and restore the crumb view. */
-  /** 中文说明：组件局部值 cancelPathEdit，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 cancelPathEdit，由紧邻初始化决定。 */
   const cancelPathEdit = useCallback(() => {
     // Cancel also withdraws a navigation the editor already launched: its
     // late success must not jump to the cancelled path, so the pending
@@ -634,7 +634,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [supersede, child, parent, navigate])
 
   /** A right-column pick advances the view one level: child becomes the level. */
-  /** 中文说明：组件局部值 advance，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 advance，由紧邻初始化决定。 */
   const advance = useCallback((entry: DirectoryEntry) => {
     /* v8 ignore next -- narrowing guard: the right column only renders with a child listing. */
     if (child === null) return
@@ -672,7 +672,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [open, navigate, supersede])
 
   /** The folder a create or Open acts on: the selection, else the listed level. */
-  /** 中文说明：组件局部值 targetPath，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 targetPath，由紧邻初始化决定。 */
   const targetPath = selected?.path ?? parent?.path ?? null
   /** 中文说明：组件局部值 targetName，由紧邻初始化决定。 */
   const targetName = selected?.name

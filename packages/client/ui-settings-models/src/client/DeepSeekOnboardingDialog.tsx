@@ -5,7 +5,7 @@
  * official DeepSeek route. The step reuses that page's credential editor in
  * the onboarding plugin's shared modal, so the key is entered once.
  */
-/**
+/*
  * 文件职责：实现模型设置的 DeepSeekOnboardingDialog 组件。
  * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看和调整模型设置。
@@ -28,7 +28,7 @@ import { OnboardingModal } from './OnboardingModal.tsx'
 import styles from './DeepSeekOnboardingDialog.module.css'
 
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
-/** 中文说明：类型或类 DeepSeekOnboardingInjected 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 DeepSeekOnboardingInjected 约束设置数据或组件职责。 */
 export interface DeepSeekOnboardingInjected {
   hooks: {
     /** Shared Models-page join state, bound by the slot renderer. */
@@ -45,7 +45,7 @@ export interface DeepSeekOnboardingInjected {
 }
 
 /** Slot owner props plus the feature's injected dependencies. */
-/** 中文说明：类型或类 DeepSeekOnboardingDialogProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 DeepSeekOnboardingDialogProps 约束设置数据或组件职责。 */
 export type DeepSeekOnboardingDialogProps =
   PropsRuntime<'settings.onboarding'> & InjectFace<DeepSeekOnboardingInjected>
 
@@ -61,7 +61,7 @@ function assertNever(_value: never): never {
  * @param props - settings-shell owner state and Models feature dependencies.
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
-/** 中文说明：函数 DeepSeekOnboardingDialog 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 DeepSeekOnboardingDialog 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
   /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const { complete, controller, useModels, api, schema, t } = props

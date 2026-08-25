@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】agent-presets 域的 zod schema 集合（名字从地图键派生）：list /
  * select / read / copy / openDocument / remove 的请求载荷与响应值校验。

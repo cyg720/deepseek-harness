@@ -66,7 +66,7 @@ const STEER_ONE = 'Interjection: include the word BANANA in your final reply.'
 const STEER_TWO = 'Interjection: include the word ORANGE in your final reply.'
 
 /** Concatenated assistant text deltas — the model-visible reply body. */
-/** 拼接 events 中助手文本增量并返回模型可见回复正文。示例：assistantText(events)。 */
+/* 拼接 events 中助手文本增量并返回模型可见回复正文。示例：assistantText(events)。 */
 function assistantText(events: SessionEvent[]): string {
   return events
     .filter(e => e.type === 'assistant/chunk')

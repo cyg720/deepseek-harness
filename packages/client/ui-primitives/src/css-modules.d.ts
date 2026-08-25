@@ -6,7 +6,7 @@
  * 关键边界：本声明不依赖 Cordis，也不验证具体组件选择器的存在性。
  * 新手阅读建议：先查看一个简单原子组件，再理解它如何从映射中读取类名。
  */
-/** 使用方式：`import styles from './Button.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Button.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源码类名，值是构建后的隔离类名。 */
   const classes: Record<string, string>

@@ -3,7 +3,7 @@
  * detector behind logged changed headers) and the deepFreeze ownership helper
  * the loop applies to every built request.
  */
-/**
+/*
  * 文件职责：验证 call-config.spec.ts 覆盖的 LLM 配置、调用与事件处理行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
  * 产品维度：保障模型接入在配置变化、认证、重试与异常场景下仍能给 Agent 稳定反馈。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】提供 markdown 到纯文本的"投影"函数 extractMarkdownPlainText：去掉展示性
  *             标记，生成紧凑摘要/标签用的纯文本。解析复用渲染器的流式 GFM 语法 parseGfm，
@@ -31,7 +31,7 @@ import { parseGfm } from './parse.ts'
 export type MarkdownPlainTextMode = 'all' | 'first-line' | 'first-paragraph'
 
 /** Options for {@link extractMarkdownPlainText}. */
-/**
+/*
  * extractMarkdownPlainText 的选项；当前只有 mode 一个字段。
  */
 export interface MarkdownPlainTextOptions {
@@ -134,7 +134,7 @@ function fullText(root: MarkdownNode): string {
  * @param options - Optional extraction boundary.
  * @returns Plain text for the whole document, first visible line, or first semantic paragraph.
  */
-/**
+/*
  * 解析 GFM Markdown 并去掉展示性标记，原始 HTML 保持字面。
  * 使用示例：extractMarkdownPlainText(md, { mode: 'first-paragraph' }) 取消息摘要。
  * @param markdown - Markdown 源码。

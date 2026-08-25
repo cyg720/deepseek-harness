@@ -22,7 +22,7 @@ import type {
  * In-memory credentials provider for interface and consumer tests: one
  * always-writable `memory` source seeded from plugin config.
  */
-/** 中文说明：类型或类 MemoryCredentials 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 MemoryCredentials 约束远程资源或测试数据职责。 */
 export class MemoryCredentials extends CredentialProvider {
   private readonly store = new Map<string, string>()
   private readonly records = new Map<CredentialKey, CredentialRecord>()

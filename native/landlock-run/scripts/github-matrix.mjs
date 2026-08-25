@@ -7,7 +7,7 @@
  *   node scripts/github-matrix.mjs ci                → one leg per distinct platform
  *   node scripts/github-matrix.mjs release-prebuild  → one leg per platform package
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：从原生平台包清单生成 GitHub Actions 的 CI 或发布矩阵 JSON。
  * - 技术维度：使用 Node.js ESM、文件路径工具、Set 去重和命令行标准输出。
@@ -21,7 +21,7 @@ import path from 'node:path';
 import { platformDirs, readJson, root } from './repo.mjs';
 
 /** GitHub runner per prebuilds.json `platform` value — native builders only, no cross toolchain. */
-/** 中文：平台标识到 GitHub 原生构建机器的固定映射；不使用交叉编译工具链。 */
+/* 中文：平台标识到 GitHub 原生构建机器的固定映射；不使用交叉编译工具链。 */
 const RUNNERS = {
   'linux-x64': 'ubuntu-24.04',
   'linux-arm64': 'ubuntu-24.04-arm',

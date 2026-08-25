@@ -4,7 +4,7 @@
  * key needed — the server is a local dev dependency. This establishes one compatibility floor
  * (TypeScript), not a cross-language claim.
  */
-/**
+/*
  * 文件职责：验证 LSP 连接、生命周期、协议转换与语言服务器协作行为（typescript-server.e2e.ts）。
  * 技术维度：TypeScript、Vitest、JSON-RPC/LSP 协议、Node.js 流与可控进程。
  * 产品维度：保障语言服务器能力能被 Agent 稳定调用。
@@ -85,7 +85,7 @@ afterAll(async () => {
 })
 
 /** One-based helper mirroring the model contract, converted to the seam's zero-based position. */
-/** 中文说明：函数 at 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 at 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function at(operation: LspQueryRequest['operation'], line1: number, char1: number, filePath = 'shapes.ts'): LspQueryRequest {
   return { operation, filePath, position: { line: line1 - 1, character: char1 - 1 }, workspaceRoot: ws }
 }

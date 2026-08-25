@@ -22,7 +22,7 @@ function isBuildFaceClient(value: unknown): boolean {
  * declare a browser bundle and lets their package-local configs emit both
  * their Node loader entry and browser artifact.
  */
-/** 创建工作区构建配置。@param env tsdown 传入的环境变量映射。@returns 当前构建面对应的 tsdown 配置。@example DSH_BUILD_FACE=client 时不运行 Typert 插件。 */
+/* 创建工作区构建配置。@param env tsdown 传入的环境变量映射。@returns 当前构建面对应的 tsdown 配置。@example DSH_BUILD_FACE=client 时不运行 Typert 插件。 */
 export default defineConfig(({ env }) => {
   // 是否选择浏览器客户端构建面；值经过严格解析，不接受拼写错误。
   const client = isBuildFaceClient(env?.DSH_BUILD_FACE)

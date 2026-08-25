@@ -16,7 +16,7 @@ import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/
 import { SettingsScopeController } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-scope.ts'
 
 /** Stateless schema service for scope construction in this jsdom fixture. */
-/** 中文说明：测试局部值 schemaService，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 schemaService，由紧邻初始化决定。 */
 const schemaService = new SettingsSchemaService(new Context())
 import { WelcomeNotice } from '../src/client/WelcomeNotice.tsx'
 import type { WelcomeNoticeProps } from '../src/client/WelcomeNotice.tsx'

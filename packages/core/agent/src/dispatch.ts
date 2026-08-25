@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】agent 作用域分发助手：构建“把 agent 主体与其作用域载体绑定”的融合分发器（agentEvents），以及 prompt 组装上下文助手（assembleContextFor）。
  * 【技术维度】类型体操提取 agent-subject 事件（Scoped<Agent> this 检查）；融合分发器把载体作为 thisArg、把 agent 注入 payload，保证“作用域键与 payload.agent 永不背离”。

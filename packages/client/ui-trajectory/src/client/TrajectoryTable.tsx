@@ -1,5 +1,5 @@
 /** Turn-aware trajectory event ledger with a local record inspector. */
-/**
+/*
  * 文件职责：实现运行轨迹的 TrajectoryTable 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：向用户展示运行轨迹参数、结果和状态。
@@ -331,7 +331,7 @@ function formatStartedAt(timestamp: number | null): string {
 }
 
 /** Whether a click lands on an active text selection and should keep it. */
-/** 中文说明：函数 clickSelectsText 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 clickSelectsText 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function clickSelectsText(target: Node): boolean {
   /** 中文说明：视图局部值 selection，由紧邻初始化决定。 */
   const selection = window.getSelection()
@@ -412,7 +412,7 @@ function AssistantTimingPanel({ metrics }: { metrics: AssistantMetricDetail }) {
 }
 
 /** Props for the trajectory ledger. */
-/** 中文说明：类型或类 TrajectoryTableProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 TrajectoryTableProps 约束工具或轨迹数据职责。 */
 export interface TrajectoryTableProps {
   /** Session-global request numbers for the request groups visible in this context. */
   requestNumbers?: readonly TrajectoryRequestNumber[]
@@ -459,7 +459,7 @@ export interface TrajectoryTableProps {
 }
 
 /** Request-inspector fields shared by ordinary generation and compaction. */
-/** 中文说明：类型或类 TrajectoryRequestNumberBase 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 TrajectoryRequestNumberBase 约束工具或轨迹数据职责。 */
 interface TrajectoryRequestNumberBase {
   /** Request anchor event sequence; absent for the currently streaming ordinary request. */
   seq?: number
@@ -481,7 +481,7 @@ interface TrajectoryRequestNumberBase {
 }
 
 /** One purpose-discriminated request identity paired with its session-global number. */
-/** 中文说明：类型或类 TrajectoryRequestNumber 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 TrajectoryRequestNumber 约束工具或轨迹数据职责。 */
 export type TrajectoryRequestNumber = TrajectoryRequestNumberBase & (
   | {
     purpose?: 'assistant'
@@ -496,7 +496,7 @@ export type TrajectoryRequestNumber = TrajectoryRequestNumberBase & (
 )
 
 /** Disjoint provider token buckets for one request or a session prefix. */
-/** 中文说明：类型或类 TrajectoryUsage 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 TrajectoryUsage 约束工具或轨迹数据职责。 */
 export interface TrajectoryUsage {
   input?: number
   cacheRead?: number
@@ -1907,7 +1907,7 @@ function OverviewSection({
  * @param props - Grouped trajectory data and whole-ledger fold state.
  * @returns The ledger and an optional local record inspector.
  */
-/** 中文说明：函数 TrajectoryTable 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 TrajectoryTable 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function TrajectoryTable({
   requestNumbers: sessionRequestNumbers,
   turns,

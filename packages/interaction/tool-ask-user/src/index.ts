@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-tool-ask-user
  */
-/**
+/*
  * 文件职责：实现交互与审批的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】为 dsh-llm 包提供"穷尽性断言"工具函数 assertNever，用于在
  * 封闭联合类型（closed union，即所有成员都定义在本包内、不会被外部扩展的
@@ -34,7 +34,7 @@
  * @param context - optional label (e.g. the switch site) prefixed into the throw message.
  * @returns never — it always throws, with the offending value JSON-rendered in the message.
  */
-/**
+/*
  * （中文）对"按类型系统本不该到达"的分支抛出异常：一旦未来给某个封闭联合
  * 类型新增了变体，而某处 switch 没有处理它，编译期就会因为实参类型不再是
  * never 而直接报错；若是有值在运行时逃逸了类型检查，则在这里带诊断信息抛出。

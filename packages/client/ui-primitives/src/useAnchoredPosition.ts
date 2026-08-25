@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】提供一个 React Hook：让"悬浮面板/弹层"始终贴在其触发元素下方，并在滚动、
  *             窗口缩放、面板自身尺寸变化时自动重新定位。是 ui-primitives 中 HoverCard、
@@ -28,7 +28,7 @@
  * changes while the element is open.
  * @module @deepseek-ai/dsh-client-ui-primitives/useAnchoredPosition
  */
-/**
+/*
  * 本文件实现 useAnchoredPosition：负责"浮层跟随锚点"这一件事——测量锚点、
  * 把面板偏移到其下方、钳制进视口，并在滚动、窗口缩放、面板尺寸变化时重算。
  */
@@ -36,7 +36,7 @@
 import { useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react'
 
 /** Inputs for {@link useAnchoredPosition}. */
-/**
+/*
  * useAnchoredPosition 的输入参数集：由调用方传入"是否打开"、锚点与面板的引用，
  * 以及间距与边距常量。
  */
@@ -63,7 +63,7 @@ export interface AnchoredPositionOptions {
  * @param options - the open state, the two refs, and the gap/margin distances.
  * @returns `left`/`top` for the panel, or `null` before the first measurement.
  */
-/**
+/*
  * 跟踪锚点并返回面板的 fixed 定位坐标。
  * 使用示例：const pos = useAnchoredPosition({ open, anchorRef, panelRef, gap: 8, margin: 12 })；
  *   pos 为 null 时渲染 null，否则把 { left, top } 作为面板的 style。

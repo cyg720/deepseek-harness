@@ -29,7 +29,7 @@ import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
  * intentional because bwrap replaces `/tmp`, which cannot prove the workspace-root boundary.
  */
 
-/** 中文说明：变量 probe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 probe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const probe = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], { timeout: 5_000, stdio: 'ignore' })
 /** 中文说明：变量 bwrapUsable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const bwrapUsable = probe.status === 0

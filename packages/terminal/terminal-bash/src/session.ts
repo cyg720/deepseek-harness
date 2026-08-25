@@ -1,5 +1,5 @@
 /** Persistent PTY session over the subprocess seam's terminal primitive. */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现 TerminalBackendSession：LocalPtySession 把子进程缝的终端句柄
  * （SubprocessTerminalHandle）包装为一次一个排他发送的后端会话——净化输出、滚动区
@@ -191,7 +191,7 @@ class LocalSendOperation implements TerminalSendOperation {
 }
 
 /** Backend session wrapping one provider-owned terminal process. */
-/** 包装一个提供者自有终端进程的后端会话。 */
+/* 包装一个提供者自有终端进程的后端会话。 */
 export class LocalPtySession implements TerminalBackendSession {
   motd = ''
   readonly pid: number

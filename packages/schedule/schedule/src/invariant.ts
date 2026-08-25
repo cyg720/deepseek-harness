@@ -2,7 +2,7 @@
  * Package-owned strict Schedule stream invariant.
  * @module @deepseek-ai/dsh-schedule/invariant
  */
-/**
+/*
  * 文件职责：注册日程事件流的不变量检查器，拒绝无法按日程领域规则重放的会话事件。
  * 技术维度：使用 Cordis 插件事件、会话重放和领域折叠函数实施运行时一致性校验。
  * 产品维度：防止损坏的日程记录进入会话，保证计划任务在恢复和继续执行时可信。
@@ -20,14 +20,14 @@ import { foldScheduleEvents, ScheduleLogError } from './domain.ts'
 const PACKAGE_NAME = '@deepseek-ai/dsh-schedule'
 
 /** Cordis invariant-companion plugin name. */
-/** Cordis 中日程不变量伴随插件的名称。 */
+/* Cordis 中日程不变量伴随插件的名称。 */
 export const name = 'tool-schedule-invariant'
 /** Service required before reserving this package's invariant ownership. */
-/** 注册包级不变量所有权前必须存在的不变量服务。 */
+/* 注册包级不变量所有权前必须存在的不变量服务。 */
 export const inject = ['invariants']
 
 /** Validate a complete exact-session stream under its fork suffix policy. */
-/**
+/*
  * 按会话分叉后缀规则验证完整事件流。
  * @param events 待重放的会话事件。
  * @param seedLength 分叉种子部分的事件数量。
@@ -49,7 +49,7 @@ function validate(events: readonly SessionEvent[], seedLength: number, fail: Inv
 /* jscpd:ignore-start -- package companions share replay and dispatch plumbing */
 /* 各包的伴随检查器共享相同的重放和分发接线，因此复制检测忽略这一段。 */
 /** Install replay and pre-append validation for the owned event stream. */
-/** 安装已有会话重放、新建会话检查和写入前检查。 */
+/* 安装已有会话重放、新建会话检查和写入前检查。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** 遍历当前已加载的会话，确保启动时的历史记录有效。 */
   for (const session of ctx.sessions.list()) {
@@ -74,7 +74,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant registry.
  * @returns Exact registration disposer after child setup succeeds.
  */
-/**
+/*
  * 向不变量注册表登记日程包拥有的检查器。
  * @param ctx 提供不变量注册表的 Cordis 上下文。
  * @returns 子插件安装成功后可精确撤销本次注册的函数。

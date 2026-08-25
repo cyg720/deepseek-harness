@@ -5,7 +5,7 @@
  * `exec.signal` aborts, mirroring how a real capability forwards the signal and
  * reaches quiescence.
  */
-/**
+/*
  * 文件职责：验证循环守卫的 timeout-policy.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证循环守卫可预测地传递事件、限制循环或适配外部工具。
@@ -27,7 +27,7 @@ import { TOOL_TIMEOUT } from '@deepseek-ai/dsh-tool-call-timeout-policy'
 const testToolSignal = new AbortController().signal
 
 /** Mount the registry + the zero-config timeout-policy enforcer. */
-/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup() {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -38,7 +38,7 @@ async function setup() {
 }
 
 /** A cooperative tool that settles ONLY when its exec.signal aborts (returns text). */
-/** 中文说明：测试局部值 cooperativeTool，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 cooperativeTool，由紧邻初始化决定。 */
 const cooperativeTool = defineContentToolFixture({
   name: 'slow', description: 'stops when aborted', parameters: {}, timeoutMs: 100,
   execute(_args, exec): Promise<{ type: 'text'; text: string }[]> {
@@ -50,7 +50,7 @@ const cooperativeTool = defineContentToolFixture({
 })
 
 /** A cooperative tool that THROWS its own upstream-abort error when aborted (web-provider shape). */
-/** 中文说明：测试局部值 abortThrowingTool，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 abortThrowingTool，由紧邻初始化决定。 */
 const abortThrowingTool = defineContentToolFixture({
   name: 'aborter', description: 'throws WEB_ABORTED when aborted', parameters: {}, timeoutMs: 100,
   execute(_args, exec): Promise<never> {

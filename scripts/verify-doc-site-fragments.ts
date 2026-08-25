@@ -7,7 +7,7 @@
  * This runs as part of `docs:build` and can also run directly after a build
  * with `tsx scripts/verify-doc-site-fragments.ts`.
  */
-/**
+/*
  * 文件职责：实现 verify-doc-site-fragments.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -25,7 +25,7 @@ import { rawMarkdownFiles } from './project-doc-site.ts'
 const root = resolve(import.meta.dirname, '..')
 
 /** One fragment reference that does not resolve in the built site. */
-/** 中文说明：interface BrokenSiteFragment 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface BrokenSiteFragment 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface BrokenSiteFragment {
   /** HTML file containing the link. */
   source: string
@@ -38,7 +38,7 @@ export interface BrokenSiteFragment {
 }
 
 /** Result of checking every fragment-bearing anchor in a built site. */
-/** 中文说明：interface SiteFragmentReport 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface SiteFragmentReport 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface SiteFragmentReport {
   /** Number of internal fragment references inspected. */
   checked: number
@@ -94,7 +94,7 @@ function decodedFragment(hash: string): string {
  * @param distRoot - Directory containing generated HTML files.
  * @returns Counted internal links and every unresolved target.
  */
-/** 中文说明：函数 inspectSiteFragments 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 inspectSiteFragments 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function inspectSiteFragments(distRoot: string): SiteFragmentReport {
   /** 中文说明：变量 files 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const files = globSync('**/*.html', { cwd: distRoot }).map(posixPath).sort()
@@ -185,7 +185,7 @@ export function inspectSiteFragments(distRoot: string): SiteFragmentReport {
  * @param expected - Site-relative files the build must carry.
  * @returns The absent files, in the given order.
  */
-/** 中文说明：函数 missingSiteFiles 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 missingSiteFiles 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function missingSiteFiles(distRoot: string, expected: readonly string[]): string[] {
   return expected.filter(file => !existsSync(resolve(distRoot, file)))
 }

@@ -8,7 +8,7 @@
  * (config validation, executable resolution) run on every platform. PowerShell
  * writes CRLF on Windows, so exact text assertions normalize line endings.
  */
-/**
+/*
  * 文件职责：验证 executor.spec.ts 覆盖的Agent 预设行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
  * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
@@ -39,11 +39,11 @@ const spillDir = mkdtempSync(join(tmpdir(), 'dsh-pwsh-exec-spec-'))
 const hasPwsh = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
 
 /** Normalize PowerShell's platform line endings (CRLF on Windows, LF elsewhere). */
-/** 中文说明：函数值 lf 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 lf 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const lf = (text: string): string => text.replace(/\r\n/g, '\n')
 
 /** Filesystem path equality across macOS temp symlinks and Windows drive-letter casing. */
-/** 中文说明：函数 samePath 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 samePath 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function samePath(actual: string, expected: string): boolean {
   /** 中文说明：函数值 norm 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const norm = (value: string) => (
@@ -70,7 +70,7 @@ async function setup(config: ConstructorParameters<typeof PwshLocalExecutor>[1] 
  * `expected`; returns the accumulation (reads never re-deliver, so the caller
  * gets everything produced up to the match).
  */
-/** 中文说明：函数 readUntil 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 readUntil 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function readUntil(proc: ShellProcess, expected: string, timeoutMs = 5_000): Promise<string> {
   /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs
@@ -180,7 +180,7 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
 
 describe('spawn construction (pure, every platform)', () => {
   /** A subprocess service that records spawn specs and settles instantly. */
-  /** 中文说明：class CapturingSubprocessRuntime 定义本测试所需的数据或行为，用于表达Agent 预设场景。 */
+  /* 中文说明：class CapturingSubprocessRuntime 定义本测试所需的数据或行为，用于表达Agent 预设场景。 */
   class CapturingSubprocessRuntime extends SubprocessRuntime {
     specs: SubprocessSpawnSpec[] = []
     override async resolveExecutable(command: string): Promise<string> { return command }

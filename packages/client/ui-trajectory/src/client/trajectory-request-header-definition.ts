@@ -97,7 +97,7 @@ const trajectoryRequestHeaderDefinition: ConversationNodeDefinition<TrajectoryRe
  *
  * @param ctx - Plugin context receiving the Definition.
  */
-/**
+/*
  * 注册轨迹请求头事实状态机。
  * @param ctx - 接收该 Definition 的插件上下文。
  */

@@ -4,7 +4,7 @@
  * caller has no owning list and is rejected. Named exports preserve loader injection metadata.
  * @module @deepseek-ai/dsh-tool-todo
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的Todo 工具行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的Todo 工具能力保障 Agent 功能在集成层稳定。
@@ -33,11 +33,11 @@ export const name = 'tool-todo'
 export const inject = ['tools']
 
 /** The valid {@link TodoItem} statuses, as a runtime set for input narrowing. */
-/** 中文说明：常量 STATUSES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 STATUSES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STATUSES = ['pending', 'in_progress', 'completed'] as const
 
 /** Model-facing todo tool configuration. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达Todo 工具场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达Todo 工具场景。 */
 export interface Config {
   /**
    * Required deployment choice for whether several todos may be `in_progress` at once. True suits
@@ -50,7 +50,7 @@ export interface Config {
 }
 
 /** Schemastery configuration for the todo tool consumer. */
-/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   allowParallelInProgress: z.boolean().required(),
 })
@@ -88,7 +88,7 @@ const DESCRIPTION_TAIL =
  * @param allowParallel - whether several todos may be `in_progress` at once.
  * @returns the composed tool description.
  */
-/** 中文说明：函数 describe 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 describe 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function describe(allowParallel: boolean): string {
   return DESCRIPTION_HEAD
     + (allowParallel ? DESCRIPTION_PARALLEL : DESCRIPTION_SINGLE)
@@ -106,7 +106,7 @@ function describe(allowParallel: boolean): string {
  * @param allowParallel - whether several items may be `in_progress` at once.
  * @returns the canonical list.
  */
-/** 中文说明：函数 toTodoList 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 toTodoList 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toTodoList(raw: { content: string; status: string }[], allowParallel: boolean): TodoItem[] {
   /** 中文说明：变量 todos 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const todos: TodoItem[] = []
@@ -135,7 +135,7 @@ function toTodoList(raw: { content: string; status: string }[], allowParallel: b
 }
 
 /** Wire payload schema of the `todos` projection (whole list or pre-first-write null). */
-/** 中文说明：变量 todosProjectionSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 todosProjectionSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const todosProjectionSchema: ZodType<TodoItem[] | null> = zod.union([
   zod.array(zod.object({
     content: zod.string(),
@@ -150,7 +150,7 @@ const todosProjectionSchema: ZodType<TodoItem[] | null> = zod.union([
  * @param ctx - registrant context carrying the tool registry.
  * @param config - deployment's explicit todo policy.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   /** 中文说明：变量 allowParallel 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const allowParallel = config.allowParallelInProgress

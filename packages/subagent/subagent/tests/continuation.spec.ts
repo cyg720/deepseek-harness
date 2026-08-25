@@ -35,14 +35,14 @@ import * as SubagentInvariant from '../src/invariant.ts'
 type Script = ConstructorParameters<typeof MockAdapter>[0]
 
 /** One scripted response that may wait on a caller-released gate before streaming. */
-/** 中文说明：interface GatedEntry 定义本测试所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface GatedEntry 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface GatedEntry {
   chunks: StreamChunk[]
   gate?: Promise<undefined>
 }
 
 /** Adapter whose entries can hold a model call open until the test releases it. */
-/** 中文说明：class GatedAdapter 定义本测试所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：class GatedAdapter 定义本测试所需的数据或行为，用于表达子代理场景。 */
 class GatedAdapter extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
 
@@ -81,7 +81,7 @@ afterEach(async () => {
 })
 
 /** Boot the full continuable stack: loop, persistence, providers, and subagents. */
-/** 中文说明：函数 setupWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setupWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setupWith(adapter: LlmAdapter, options: { persistence?: boolean } = {}) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -146,7 +146,7 @@ function hasUserText(events: readonly SessionEvent[], text: string): boolean {
 }
 
 /** Caller-supplied user message texts in log order (runtime-context snapshots excluded). */
-/** 中文说明：函数 userTexts 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 userTexts 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function userTexts(events: readonly SessionEvent[]): string[] {
   return events.flatMap(event => event.type === 'user/message' && event.data.source.kind !== 'plugin'
     ? event.data.content.flatMap(block => block.type === 'text' ? [block.text] : [])
@@ -171,7 +171,7 @@ function followup(
  * Exercise manager-wide teardown through the package-private owner rather than
  * adding the irreversible operation to the public service contract.
  */
-/** 中文说明：函数 drainManager 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 drainManager 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function drainManager(ctx: Context): Promise<void> {
   /** 中文说明：变量 manager 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manager = (ctx.subagents as unknown as {
@@ -182,7 +182,7 @@ function drainManager(ctx: Context): Promise<void> {
 }
 
 /** Wait until a child's Activation is gone, i.e. its handle finished disposal. */
-/** 中文说明：函数 waitNoActivation 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitNoActivation 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitNoActivation(ctx: Context, childId: SessionId): Promise<void> {
   await vi.waitFor(() => {
     expect(ctx.agents.get(childId)).toBeUndefined()
@@ -194,7 +194,7 @@ async function waitNoActivation(ctx: Context, childId: SessionId): Promise<void>
  * settlement wakes its parent, so a suite that scripts only child responses
  * would otherwise spend them on the parent's own turns.
  */
-/** 中文说明：函数 parkParent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 parkParent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function parkParent(ctx: Context, parent: Agent): void {
   ctx.on('agent/pre-step', async ({ agent: subject }, next) => {
     if (subject !== parent) return next()
@@ -203,7 +203,7 @@ function parkParent(ctx: Context, parent: Agent): void {
 }
 
 /** Observe calls at the Agent cancellation boundary without a production event. */
-/** 中文说明：函数 observeCancel 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 observeCancel 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function observeCancel(agent: Agent, callback: () => void): void {
   /** 中文说明：变量 cancel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cancel = agent.cancel.bind(agent)
@@ -1974,7 +1974,7 @@ describe('continuable review regressions', () => {
 })
 
 /** Every settlement notice this agent received, in order, as flat text. */
-/** 中文说明：函数 settlementNotices 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 settlementNotices 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function settlementNotices(agent: Agent): { sender: string; text: string; summary: string }[] {
   /** 中文说明：函数值 logged 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const logged = agent.session.events.flatMap(event => event.type === 'user/message' ? [event.data] : [])

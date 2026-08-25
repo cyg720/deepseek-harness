@@ -45,7 +45,7 @@ function acknowledgedNamespace(version: string, revision = 1) {
 }
 
 /** The welcome store over a real mirror-derived scope and a fake wire. */
-/** 中文说明：函数 buildWelcome 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 buildWelcome 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function buildWelcome(
   api: { describe?: ReturnType<typeof vi.fn>; mutate?: ReturnType<typeof vi.fn> },
   persistence: 'host' | 'memory' = 'host',

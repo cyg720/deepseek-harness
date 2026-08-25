@@ -23,7 +23,7 @@ import { ToolRow } from '../components/ToolRow.tsx'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
 
 /** One parsed answer entry, shape-checked (result JSON crosses the wire). */
-/** 中文说明：类型或类 AnswerEntry 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 AnswerEntry 约束工具或轨迹数据职责。 */
 interface AnswerEntry { selected?: unknown; custom?: unknown }
 
 /** 中文说明：函数 isAnswer 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
@@ -33,7 +33,7 @@ function isAnswer(value: unknown): value is AnswerEntry {
 
 /** Answered-count summary from the result JSON (a skipped question has
  *  empty `selected` and no `custom`); null when answer fields are invalid. */
-/** 中文说明：函数 answeredSummary 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 answeredSummary 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function answeredSummary(text: string, t: AskQuestionRowProps['t']): string | null {
   /** 中文说明：视图局部值 parsed: unknown，由紧邻初始化决定。 */
   let parsed: unknown
@@ -54,12 +54,12 @@ function answeredSummary(text: string, t: AskQuestionRowProps['t']): string | nu
 }
 
 /** Full row props: the toolview runtime share plus the standard locale seat. */
-/** 中文说明：类型或类 AskQuestionRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 AskQuestionRowProps 约束工具或轨迹数据职责。 */
 type AskQuestionRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /** One-line question-interaction row (the whole row toggles the call's
  *  Input/Output sections, ToolRow's unified expand). */
-/** 中文说明：函数 AskQuestionRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 AskQuestionRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function AskQuestionRow({ toolName, block, inspect, t }: AskQuestionRowProps) {
   /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
@@ -107,7 +107,7 @@ export function AskQuestionRow({ toolName, block, inspect, t }: AskQuestionRowPr
  * The ask-question row as a plain registrant plugin following the chat
  * toolview declaration across independent activation and reload lifetimes.
  */
-/** 中文说明：视图局部值 askQuestionToolview，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 askQuestionToolview，由紧邻初始化决定。 */
 export const askQuestionToolview = {
   name: 'ask-question-toolview',
   inject: ['slots'],

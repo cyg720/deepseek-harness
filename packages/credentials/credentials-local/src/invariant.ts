@@ -3,7 +3,7 @@
  * @module @deepseek-ai/dsh-credentials-local/invariant
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】credentials-local 包的"不变量伴随插件"：向 invariants 服务注册本包名，
  *   并声明本包没有需要在运行时校验的不变量。

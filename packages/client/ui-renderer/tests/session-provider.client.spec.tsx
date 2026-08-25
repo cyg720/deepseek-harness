@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证客户端渲染器的 session-provider.client.spec.tsx 行为。
  * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
  * 产品维度：防止客户端渲染器的展示、作用域或交互回归。
@@ -40,7 +40,7 @@ function observable<T>(initial: T) {
  * render inside the renderer tree (HostContext), so the harness mounts a real
  * root entry whose body is the test's render-prop provider.
  */
-/** 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeHost(bodies: { root: (rp: (key: string, owner: object) => React.ReactNode) => React.ReactNode }) {
   /** 中文说明：测试局部值 absentInfo，由紧邻初始化决定。 */
   const absentInfo: SessionMaybeProvideInfo = { sessionId: undefined, hooks: { session: undefined }, props: {} }

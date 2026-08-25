@@ -7,7 +7,7 @@
  * structure and every original JSDoc comment. Byte-identical `.zh.md` blocks
  * reuse the manifest-backed check of their unsuffixed sibling.
  */
-/**
+/*
  * 文件职责：实现 verify-type-equiv.ts 覆盖的仓库一致性验证职责。
  * 技术维度：使用 TypeScript、Node.js 文件系统、类型检查或链接扫描。
  * 产品维度：保障类型与 vendored 文档链接保持正确。
@@ -27,11 +27,11 @@ import { isArchivedAgentNotePath } from './repo-files.ts'
 const root = resolve(import.meta.dirname, '..')
 
 /** Scan doc-typecheck's full Markdown scope so unmanifested blocks also fail. */
-/** 中文说明：常量 MARKDOWN_GLOBS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MARKDOWN_GLOBS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MARKDOWN_GLOBS = ['README.md', '.agents/notes/**/*.md', 'docs/**/*.md', 'packages/*/*.md', 'packages/*/*/*.md']
 
 /** One manifest entry: a source-equivalence block and its source symbol. */
-/** 中文说明：interface ManifestEntry 定义本模块所需的数据或行为，用于表达当前配置场景。 */
+/* 中文说明：interface ManifestEntry 定义本模块所需的数据或行为，用于表达当前配置场景。 */
 interface ManifestEntry {
   /** Doc file (repo-relative) containing the source-equivalence block. */
   doc: string
@@ -44,7 +44,7 @@ interface ManifestEntry {
 }
 
 /** One extracted ` ```ts type-equiv ` or ` ```ts public-api ` block. */
-/** 中文说明：interface EquivBlock 定义本模块所需的数据或行为，用于表达当前配置场景。 */
+/* 中文说明：interface EquivBlock 定义本模块所需的数据或行为，用于表达当前配置场景。 */
 interface EquivBlock {
   doc: string
   /** 1-based line of the opening fence (for diagnostics). */
@@ -58,7 +58,7 @@ interface EquivBlock {
 }
 
 /** Normalize declaration structure independently of comments and whitespace. */
-/** 中文说明：函数 normalizeStructure 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 normalizeStructure 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function normalizeStructure(code: string): string {
   return code
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -71,20 +71,20 @@ function normalizeStructure(code: string): string {
  * Extract normalized JSDoc comments in source order. Type declarations in this
  * repository do not contain comment delimiters inside string literals.
  */
-/** 中文说明：函数 normalizeJSDoc 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 normalizeJSDoc 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function normalizeJSDoc(code: string): string[] {
   return [...code.matchAll(/\/\*\*[\s\S]*?\*\//g)]
     .map(match => match[0].replace(/\s+/g, ' ').trim())
 }
 
 /** Strip source-only export modifiers. */
-/** 中文说明：函数 stripExport 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 stripExport 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function stripExport(code: string): string {
   return code.replace(/^export\s+(default\s+)?/, '')
 }
 
 /** Parse the declared symbol name from a source-equivalence block body. */
-/** 中文说明：函数 blockSymbol 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 blockSymbol 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function blockSymbol(code: string): string | null {
   /** 中文说明：变量 sf 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sf = ts.createSourceFile('type-equiv.ts', code, ts.ScriptTarget.Latest, /* setParentNodes */ false, ts.ScriptKind.TS)
@@ -100,7 +100,7 @@ function blockSymbol(code: string): string | null {
 }
 
 /** Extract every source-equivalence block from one Markdown file. */
-/** 中文说明：函数 extractEquivBlocks 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 extractEquivBlocks 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function extractEquivBlocks(docRel: string): EquivBlock[] {
   /** 中文说明：变量 blocks 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const blocks: EquivBlock[] = []

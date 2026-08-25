@@ -113,7 +113,7 @@ export interface ToolRowProps {
 /** Leading-slot state substitution: the tool icon yields to the terminal state
  *  semantic (error = red, interrupted = amber halo). Running keeps the icon —
  *  the row sweep (CSS on data-state) carries the in-flight signal. */
-/** 中文说明：函数 leadingFor 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 leadingFor 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function leadingFor(state: ToolRowState, icon: ReactNode): ReactNode {
   switch (state) {
     case 'error': return <StateDot state="error" />
@@ -126,7 +126,7 @@ function leadingFor(state: ToolRowState, icon: ReactNode): ReactNode {
  *  aria-hidden / colour-only, so assistive technology needs this text to know a
  *  row is running, failed, or interrupted. null in the ok state (the icon and
  *  summary already describe a settled row). */
-/** 中文说明：函数 stateStatus 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 stateStatus 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function stateStatus(state: ToolRowState, t: TranslateNS<'conversation'>): string | null {
   switch (state) {
     case 'running': return t('row.running')

@@ -4,7 +4,7 @@
  * real-provider integration lives in `tests/landlock.e2e.ts`. A mode-0555 directory supplies
  * the Unix denial signature used by the classifier without requiring a real sandbox runner.
  */
-/**
+/*
  * 文件职责：验证 sandbox.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
  * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
@@ -32,22 +32,22 @@ import type { Config } from '@deepseek-ai/dsh-bash-sandbox'
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-bash-sandbox-spec-'))
 
 /** One recorded provider call: the argv handed over and the policy it rode with. */
-/** 中文说明：interface ConfineCall 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
+/* 中文说明：interface ConfineCall 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
 interface ConfineCall {
   argv: string[]
   policy: SandboxPolicy
 }
 
 /** The Linux file-denial dialects the fake wraps carry — matches the unix-permission denials the tests below produce. */
-/** 中文说明：常量 UNIX_SIGNATURES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 UNIX_SIGNATURES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const UNIX_SIGNATURES = ['read-only file system', 'permission denied'] as const
 
 /** The runner-failure rule the fake wraps carry (a fake-runner: error line marks the sandbox itself failing). */
-/** 中文说明：常量 RUNNER_FAILURE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RUNNER_FAILURE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RUNNER_FAILURE = [{ fatalSignatures: ['fake-runner: '] }] as const
 
 /** Provider argv[0] forms that all share the caller-owned cwd spawn precondition. */
-/** 中文说明：常量 RUNNER_FORMS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RUNNER_FORMS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RUNNER_FORMS = [
   ['absolute', process.execPath],
   ['bare', 'node'],
@@ -55,7 +55,7 @@ const RUNNER_FORMS = [
 ] as const
 
 /** A passthrough wrap: the caller's argv unchanged, asserted full — commands run unconfined, deterministically. */
-/** 中文说明：函数值 passthrough 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 passthrough 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const passthrough = (argv: readonly string[]): ConfinedArgv =>
   ({ argv: [...argv], enforcement: 'full', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE })
 
@@ -63,7 +63,7 @@ const passthrough = (argv: readonly string[]): ConfinedArgv =>
  * Boot a context with a recording fake `ctx.sandbox` (behavior injectable
  * per test) and the executor under test on top of it.
  */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(
   config: { mode?: SandboxMode; workspaceRoot?: string } & Config = {},
   behavior: (argv: readonly string[], policy: SandboxPolicy) => ConfinedArgv = passthrough,

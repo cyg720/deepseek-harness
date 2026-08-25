@@ -26,7 +26,7 @@ import {
  * the default unit gate) and import the normalizers directly.
  */
 
-/** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const ctx: NormalizeContext = {
   sessionIds: ['11111111-2222-3333-4444-555555555555'],
   cwd: '/tmp/acp-snap-cwd-abc123',

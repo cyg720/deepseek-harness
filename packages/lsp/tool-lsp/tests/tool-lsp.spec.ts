@@ -18,7 +18,7 @@ import { DEFAULT_LSP_TOOL_TIMEOUT_MS, LSP_PROMPT_TEXT } from '@deepseek-ai/dsh-t
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 
 /** A scripted provider recording queries; `respond` yields the result or throws. */
-/** 中文说明：函数 stubProvider 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 stubProvider 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function stubProvider(
   respond: (request: LspProviderQuery) => LspQueryResult,
   extensionToLanguage: Record<string, string> = { '.ts': 'typescript' },
@@ -37,7 +37,7 @@ function stubProvider(
 }
 
 /** Mount the real tool stack over a real seam plus one stub provider. */
-/** 中文说明：函数 mount 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 mount 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mount(
   provider?: LspProvider,
   config: ToolLsp.Config = {},
@@ -65,7 +65,7 @@ const resolvedWorkspaceUri = pathToFileURL(resolvedWorkspaceRoot).href
 /** 中文说明：变量 workspaceAlias 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const workspaceAlias = resolve('/virtual/workspace-alias')
 /** `cwd: null` means "no agent" (tests LSP_WORKSPACE_REQUIRED); a string is the session cwd. */
-/** 中文说明：函数 call 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 call 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function call(ctx: Context, args: unknown, cwd: string | null = workspaceRoot) {
   return ctx.tools.execute({
     signal: testToolSignal,

@@ -35,7 +35,7 @@ const CONFIG_DIR = fileURLToPath(new URL('../config/', import.meta.url))
 /** 仓库根目录。 */
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 /** The shipped Web surface: the dsh-base and dsh-web-app bundle patches over an empty preset root. */
-/** 发布版 Web 表面由基础和 Web 应用两个 bundle 补丁组成。 */
+/* 发布版 Web 表面由基础和 Web 应用两个 bundle 补丁组成。 */
 const BASE_PATCH = join(REPO_ROOT, 'packages/bundle/base/cordis.patch.yml')
 /** Web 应用 bundle 补丁路径。 */
 const WEB_PATCH = join(REPO_ROOT, 'packages/bundle/web-app/cordis.patch.yml')
@@ -44,7 +44,7 @@ const CODEX_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-codex')
 /** Claude Code 子代理产品包目录。 */
 const CLAUDE_CODE_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-claude-code')
 /** The installation anchor whose dependency surface the preset module fallback mirrors. */
-/** 预设模块回退复制依赖面的 CLI 安装锚点。 */
+/* 预设模块回退复制依赖面的 CLI 安装锚点。 */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 /** minimal 预设应产生的精确人格提示词。 */
 const MINIMAL_PROMPT = 'You are a helpful software engineer assistant.'
@@ -63,7 +63,7 @@ const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
  * touch the network, or write outside the test. Everything that decides an
  * agent's capabilities is the real thing, including both shipped presets.
  */
-/**
+/*
  * 启动去除端口、网络和本机写入副作用后的真实 Web 组合。
  * @param settingsFile 隔离设置文件路径。
  * @param extra 附加在发布层后的测试覆盖补丁。

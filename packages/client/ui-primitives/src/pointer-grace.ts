@@ -36,7 +36,7 @@ import { useCallback, useEffect, useRef } from 'react'
 export const POINTER_GRACE_MS = 200
 
 /** Cancelable delayed close for a pointer-dismissed popup. */
-/**
+/*
  * 可取消的延迟关闭句柄：arm 重新计时，cancel 中止挂起的关闭。
  */
 export interface PointerGrace {
@@ -55,7 +55,7 @@ export interface PointerGrace {
  * time, so callers may pass a fresh closure each render.
  * @returns the {@link PointerGrace} handle.
  */
-/**
+/*
  * 延迟"指针移出"弹层的关闭动作，让指针有时间跨过锚点与弹层之间的空隙。
  * 使用示例：const { arm, cancel } = usePointerGrace(() => setOpen(false))；
  *   在 onPointerLeave 里调 arm、onPointerEnter 里调 cancel。

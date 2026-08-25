@@ -6,7 +6,7 @@
  *
  * @module @deepseek-ai/dsh-user-questions
  */
-/**
+/*
  * 文件职责：实现交互与审批的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
@@ -34,7 +34,7 @@ export type {
 } from './types.ts'
 
 /** Request for a human answer. */
-/** 中文说明：类型或类 AskUserQuestionRequest 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 AskUserQuestionRequest 约束宿主、交互或任务数据职责。 */
 export interface AskUserQuestionRequest {
   /** Questions to display. */
   questions: AskUserQuestionItem[]
@@ -45,13 +45,13 @@ export interface AskUserQuestionRequest {
 }
 
 /** UI-side provider for user questions. */
-/** 中文说明：类型或类 UserQuestionProvider 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 UserQuestionProvider 约束宿主、交互或任务数据职责。 */
 export interface UserQuestionProvider {
   ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer>
 }
 
 /** Stable error taxonomy for user-questions failures. */
-/** 中文说明：类型或类 UserQuestionError 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 UserQuestionError 约束宿主、交互或任务数据职责。 */
 export class UserQuestionError extends HarnessError {
   constructor(message: string, code: string, options?: ErrorOptions) {
     super(message, code, options)
@@ -60,7 +60,7 @@ export class UserQuestionError extends HarnessError {
 }
 
 /** `ctx.userQuestions`: one active UI provider plus an `ask()` API. */
-/** 中文说明：类型或类 UserQuestionService 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 UserQuestionService 约束宿主、交互或任务数据职责。 */
 export class UserQuestionService extends Service {
   private provider: UserQuestionProvider | undefined
 

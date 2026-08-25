@@ -18,7 +18,7 @@ type OfficialBrandMarkProps = HeroBrandMarkOwnerProps & SidebarBrandMarkOwnerPro
  * @param props - Host-supplied mark presentation.
  * @returns the official whale mark.
  */
-/**
+/*
  * 按宿主请求的尺寸和类名渲染官方鱼形标记。
  * @param props - size 控制图形尺寸，className 提供宿主附加样式。
  * @returns 对应展示属性的 FishLogo 元素。
@@ -32,7 +32,7 @@ export function OfficialBrandMark({ size, className }: OfficialBrandMarkProps) {
  * Render the official name artwork without its independently slotted mark.
  * @returns the official name wordmark.
  */
-/**
+/*
  * 渲染不带独立图形标记的官方名称字标。
  * @returns includeMark 固定为 false 的 BrandWordmark 元素。
  * @example <OfficialBrandName />

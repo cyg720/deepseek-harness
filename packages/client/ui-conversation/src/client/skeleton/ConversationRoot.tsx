@@ -18,7 +18,7 @@ import { HeroGlow, HeroShell, WorkspaceChip, workspaceLabel } from './EmptyHero.
 import css from './ConversationRoot.module.css'
 
 /** Full props composed from the slot contract. */
-/** 中文说明：类型或类 ConversationRootProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ConversationRootProps 约束本文件的数据或组件职责。 */
 export type ConversationRootProps = ConversationSlotProps
 
 /** 中文说明：函数 ConversationRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */

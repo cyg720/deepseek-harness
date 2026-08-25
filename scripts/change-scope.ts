@@ -1,5 +1,5 @@
 /** Report the explicit committed and worktree scope of a repository change. */
-/**
+/*
  * 文件职责：实现 change-scope.ts 覆盖的仓库构建、校验或维护脚本职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
  * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
@@ -277,7 +277,7 @@ function collectReport(options: ChangeScopeOptions, cwd: string): ChangeScopeRep
  * @param cwd - Directory whose containing Git worktree is inspected.
  * @returns JSON report with a trailing newline.
  */
-/** 中文说明：函数 renderChangeScope 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderChangeScope 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function renderChangeScope(args: string[], cwd: string): string {
   /** 中文说明：变量 options 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const options = parseOptions(args)

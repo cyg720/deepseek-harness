@@ -4,7 +4,7 @@
  * durable commit + image-block rendering, attachment admission failures, and
  * the regression that `read` keeps its text-only contract.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 read-image.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -39,17 +39,17 @@ import {
 } from '../src/read-image.ts'
 
 /** 1x1 red PNG (valid signature, IHDR, IDAT). */
-/** 中文说明：测试局部值 PNG_1X1，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 PNG_1X1，由紧邻初始化决定。 */
 const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64')
 /** 3x3 red PNG used to trip a tiny configured pixel limit. */
-/** 中文说明：测试局部值 PNG_3X3，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 PNG_3X3，由紧邻初始化决定。 */
 const PNG_3X3 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAEElEQVR4nGP4z8AAQQxYWACPjgj4kWPEuQAAAABJRU5ErkJggg==', 'base64')
 
 /** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
 /** Exact-route fake adapter; `stream` is unreachable in these tests. */
-/** 中文说明：类型或类 CatalogAdapter 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 CatalogAdapter 约束文件或目标数据职责。 */
 class CatalogAdapter extends LlmAdapter {
   constructor(
     private readonly models: LlmModelInfo[],
@@ -79,7 +79,7 @@ class CatalogAdapter extends LlmAdapter {
 }
 
 /** In-process Code Mode seam fake that invokes the real registry bindings. */
-/** 中文说明：类型或类 FakeRuntime 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 FakeRuntime 约束文件或目标数据职责。 */
 class FakeRuntime extends CodeRuntime {
   readonly language = 'typescript'
   readonly isolation = 'fake'
@@ -141,7 +141,7 @@ async function setup(options: SetupOptions = {}) {
 }
 
 /** A fake calling agent pinned to one routed provider/model. */
-/** 中文说明：函数 agentOn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 agentOn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function agentOn(model: string | undefined, provider = 'visual', messages: readonly Message[] = []): object {
   return {
     options: {},
@@ -389,7 +389,7 @@ describe('argument and service preconditions', () => {
 
   it('refuses a media type the deployment does not accept', async () => {
     /** Store whose deployment accepts JPEG only. */
-    /** 中文说明：类型或类 JpegOnlyStore 约束文件或目标数据职责。 */
+    /* 中文说明：类型或类 JpegOnlyStore 约束文件或目标数据职责。 */
     class JpegOnlyStore extends AttachmentStore {
       readonly imageLimits: ImageAttachmentLimits = Object.freeze({
         maxImageBytes: 1024,
@@ -478,7 +478,7 @@ describe('image admission failures', () => {
 
   it('passes storage faults and non-attachment failures through unchanged', async () => {
     /** Store whose commit fails with a configurable error; admission itself passes. */
-    /** 中文说明：类型或类 FailingStore 约束文件或目标数据职责。 */
+    /* 中文说明：类型或类 FailingStore 约束文件或目标数据职责。 */
     class FailingStore extends AttachmentStore {
       static failure: unknown
       readonly imageLimits: ImageAttachmentLimits = Object.freeze({
@@ -557,7 +557,7 @@ describe('image admission failures', () => {
 
   it('omits the display name when the store returns a reference without one', async () => {
     /** Store echoing a fixed nameless reference; deployments may strip names entirely. */
-    /** 中文说明：类型或类 NamelessStore 约束文件或目标数据职责。 */
+    /* 中文说明：类型或类 NamelessStore 约束文件或目标数据职责。 */
     class NamelessStore extends AttachmentStore {
       readonly imageLimits: ImageAttachmentLimits = Object.freeze({
         maxImageBytes: 1024,
@@ -594,7 +594,7 @@ describe('image admission failures', () => {
 
   it('names the on-disk dimensions and coordinate multiplier when storage downscales', async () => {
     /** Store whose normalized image halves the input on both sides. */
-    /** 中文说明：类型或类 DownscalingStore 约束文件或目标数据职责。 */
+    /* 中文说明：类型或类 DownscalingStore 约束文件或目标数据职责。 */
     class DownscalingStore extends AttachmentStore {
       readonly imageLimits: ImageAttachmentLimits = Object.freeze({
         maxImageBytes: 1024,

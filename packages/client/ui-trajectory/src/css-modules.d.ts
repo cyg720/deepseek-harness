@@ -6,7 +6,7 @@
  * 关键边界：类型不解释时间数据，也不能验证图表选择器是否齐全。
  * 新手阅读建议：先从轨迹列表阅读样式，再看时间概览的交互状态。
  */
-/** 使用方式：`import styles from './Trajectory.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Trajectory.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源选择器，值为构建后的隔离类名。 */
   const classes: Record<string, string>

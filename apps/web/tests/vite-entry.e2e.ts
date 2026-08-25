@@ -1,5 +1,5 @@
 /** Bare Vite must fail before it can present a bootless shell as a working GUI. */
-/** 裸 Vite 必须在把缺少主机能力的空壳误呈现为可用界面前明确失败。 */
+/* 裸 Vite 必须在把缺少主机能力的空壳误呈现为可用界面前明确失败。 */
 /**
  * 文件职责：验证 apps/web 不能作为独立 Vite 应用启动，并向开发者提示使用完整 dsh web 主机。
  * 技术维度：使用 Vitest、execa、临时目录、TCP 空闲端口探测和 Node 预加载探针。
@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest'
 const WEB_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 /** Reserve an available loopback port, then release it for the child invocation. */
-/** 临时占用本机端口后释放并返回端口号。示例：await freePort()。 */
+/* 临时占用本机端口后释放并返回端口号。示例：await freePort()。 */
 async function freePort(): Promise<number> {
   const server = createServer()
   await new Promise<void>((resolve, reject) => {

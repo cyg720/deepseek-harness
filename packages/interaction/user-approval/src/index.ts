@@ -3,7 +3,7 @@
  * answerers fail closed; grants apply only to the requested action.
  * @module @deepseek-ai/dsh-user-approval
  */
-/**
+/*
  * 文件职责：实现交互与审批的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
@@ -90,7 +90,7 @@ export { ApprovalRequestId } from './types.ts'
 export type { ApprovalOutcome } from './types.ts'
 
 /** Every {@link ApprovalOutcome}, for runtime normalization of answerer returns. */
-/** 中文说明：服务局部值 OUTCOMES，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 OUTCOMES，由紧邻初始化决定。 */
 const OUTCOMES: readonly ApprovalOutcome[] = ['allowed-once', 'rejected', 'cancelled', 'unavailable']
 
 /**
@@ -103,18 +103,18 @@ const OUTCOMES: readonly ApprovalOutcome[] = ['allowed-once', 'rejected', 'cance
  *   deterministically. The strict headless stance (CI, unattended runs) and
  *   the policy whose outcome is knowable without asking.
  */
-/** 中文说明：类型或类 ApprovalPolicy 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 ApprovalPolicy 约束宿主、交互或任务数据职责。 */
 export type ApprovalPolicy = 'ask' | 'never'
 
 /** Every {@link ApprovalPolicy}, for option advertisement and runtime validation of untrusted policy strings. */
-/** 中文说明：服务局部值 APPROVAL_POLICIES，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 APPROVAL_POLICIES，由紧邻初始化决定。 */
 export const APPROVAL_POLICIES: readonly ApprovalPolicy[] = ['ask', 'never']
 
 /** Model-facing statement for the deterministic `'never'` policy. */
-/** 中文说明：服务局部值 NEVER_SENTENCE，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 NEVER_SENTENCE，由紧邻初始化决定。 */
 const NEVER_SENTENCE = 'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
 /** Model-facing statement for an interactive policy that may still fail closed. */
-/** 中文说明：服务局部值 ASK_SENTENCE，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 ASK_SENTENCE，由紧邻初始化决定。 */
 const ASK_SENTENCE = 'Approval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed.'
 
 /**
@@ -125,7 +125,11 @@ const ASK_SENTENCE = 'Approval policy: ask. Operations that require approval may
  * @param events - session events in log order (other event types are skipped).
  * @returns the policy of the last switch event, or undefined without one.
  */
-/** 中文说明：函数 effectiveApprovalPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 effectiveApprovalPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function effectiveApprovalPolicy(events: readonly SessionEvent[]): ApprovalPolicy | undefined {
   /** 中文说明：服务局部值 index，由紧邻初始化决定。 */
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -143,7 +147,7 @@ export function effectiveApprovalPolicy(events: readonly SessionEvent[]): Approv
  * commit/replay boundary, so a bare event appended between turns is
  * indistinguishable from a crash tail and silently dropped on reload.
  */
-/** 中文说明：函数 hasOpenTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 hasOpenTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasOpenTurn(events: readonly SessionEvent[]): boolean {
   /** 中文说明：服务局部值 index，由紧邻初始化决定。 */
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -161,7 +165,11 @@ function hasOpenTurn(events: readonly SessionEvent[]): boolean {
  * @param session - the session the override belongs to.
  * @param policy - the policy in effect until the next switch.
  */
-/** 中文说明：函数 setApprovalPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 setApprovalPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param policy 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function setApprovalPolicy(session: Session, policy: ApprovalPolicy): void {
   if (!APPROVAL_POLICIES.includes(policy)) {
     throw new TypeError('approval policy must be one of "ask" or "never"')
@@ -173,7 +181,7 @@ export function setApprovalPolicy(session: Session, policy: ApprovalPolicy): voi
  * Readonly same-process permission question. `callId` links to an already
  * presented tool call, so arguments are not duplicated here.
  */
-/** 中文说明：类型或类 ApprovalRequest 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 ApprovalRequest 约束宿主、交互或任务数据职责。 */
 export interface ApprovalRequest {
   /**
    * The agent on whose behalf the question is asked. Routes the question (a
@@ -198,7 +206,7 @@ export interface ApprovalRequest {
 }
 
 /** Plugin config. All optional — `static Config` supplies the defaults. */
-/** 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
 export interface Config {
   /**
    * The deployment's default {@link ApprovalPolicy} for sessions without an
@@ -214,7 +222,7 @@ export interface Config {
  * ask/outcome pair to the requesting session. It exposes deterministic policy
  * changes to the model through the runtime-context snapshot and switch notices.
  */
-/** 中文说明：类型或类 ApprovalService 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 ApprovalService 约束宿主、交互或任务数据职责。 */
 export class ApprovalService extends Service {
   static Config: z<Config> = z.object({
     policy: z.union(['ask', 'never'] as const).default('ask'),

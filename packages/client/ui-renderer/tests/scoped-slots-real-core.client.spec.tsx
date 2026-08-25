@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证客户端渲染器的 scoped-slots-real-core.client.spec.tsx 行为。
  * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
  * 产品维度：防止客户端渲染器的展示、作用域或交互回归。
@@ -37,7 +37,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 type FrameSlots = PropsRenderSlots<'spec.single' | 'spec.list'>
 
 /** Passthrough host over the real core (store/session seats unused here). */
-/** 中文说明：函数 hostOver 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 hostOver 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hostOver(core: SlotCore): SlotRendererHost {
   /** 中文说明：测试局部值 absentInfo，由紧邻初始化决定。 */
   const absentInfo = { sessionId: undefined, hooks: {}, props: {} }
@@ -61,7 +61,7 @@ function hostOver(core: SlotCore): SlotRendererHost {
 }
 
 /** Register the root frame (declaring both child keys) and mount the renderer. */
-/** 中文说明：函数 mountFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mountFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountFrame(core: SlotCore, body: (renderSlot: FrameSlots['renderSlot']) => React.ReactNode) {
   /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
   const dispose = core.register({

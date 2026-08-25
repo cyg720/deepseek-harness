@@ -4,7 +4,7 @@
  * catalog injection, advisory pass-through models, and the prompt-assembly
  * boundary for a running selection change.
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-models.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。

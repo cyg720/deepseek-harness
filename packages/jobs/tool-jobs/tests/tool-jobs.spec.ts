@@ -45,7 +45,7 @@ async function setup(config: ToolTasks.Config = {}) {
 }
 
 /** The delivery surface a completion notice may reach on a fake owner. */
-/** 中文说明：类型或类 FakeDelivery 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 FakeDelivery 约束宿主、交互或任务数据职责。 */
 interface FakeDelivery {
   inject?: (...args: unknown[]) => void
   followup?: (...args: unknown[]) => void
@@ -57,7 +57,7 @@ interface FakeDelivery {
  * A fake agent with the shared agent/session identity, registered in
  * `ctx.agents` with a dedicated lifecycle scope.
  */
-/** 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeAgent(ctx: Context, sessionId: string, delivery: FakeDelivery = {}): Agent {
   /** 中文说明：测试局部值 scopeFiber，由紧邻初始化决定。 */
   const scopeFiber = ctx.plugin(() => {})
@@ -86,7 +86,7 @@ function detachAgent(agent: Agent): void {
 }
 
 /** Dispose the agent's own lifecycle scope, which is what drains its owned jobs. */
-/** 中文说明：函数 disposeAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 disposeAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function disposeAgentScope(agent: Agent): Promise<void> {
   /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = agentScopeFibers.get(agent)
@@ -95,7 +95,7 @@ async function disposeAgentScope(agent: Agent): Promise<void> {
 }
 
 /** A controllable producer start-spec (settle `done` on demand, record cancels). */
-/** 中文说明：函数 producer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 producer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function producer(overrides: Partial<Omit<JobStart, 'run'> & JobHooks> = {}) {
   /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
   let settle!: (outcome: JobOutcome) => void
@@ -136,7 +136,7 @@ function text(result: { content: { type: string; text?: string }[] }): string {
 const tick = () => new Promise<void>(r => setTimeout(r, 0))
 
 /** Start and settle `count` owned jobs one at a time, letting each notice land. */
-/** 中文说明：函数 settleTasks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 settleTasks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function settleTasks(ctx: Context, owner: Agent, count: number): Promise<void> {
   /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
   for (let i = 0; i < count; i += 1) {

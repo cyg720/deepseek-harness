@@ -5,7 +5,7 @@
  * every entry drops its snapshot and prewarms), the warm hook's cold/failed
  * gate, and the per-key ensureReady strong-wait policy.
  */
-/**
+/*
  * 文件职责：验证命令弹层的 directory.client.spec.ts 行为。
  * 技术维度：Vitest、React 测试渲染和可控替身。
  * 产品维度：防止命令弹层用户流程发生回归。
@@ -49,7 +49,7 @@ const S2_CMDS: CommandDescriptor[] = [
 ]
 
 /** Directory over per-key pull queues: each fetch appends a hand-settled deferred. */
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function bench() {
   /** 中文说明：测试场景的局部值 pulls，由紧邻初始化决定。 */
   const pulls = new Map<SessionId, Array<ReturnType<typeof deferred<readonly CommandDescriptor[]>>>>()

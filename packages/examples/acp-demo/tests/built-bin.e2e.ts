@@ -39,7 +39,7 @@ import { afterEach, describe, expect, it } from 'vitest'
  * published persistence behavior that the tsx source-path smoke cannot. It skips before build.
  */
 
-/** 中文说明：测试局部值 repoRoot，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 repoRoot，由紧邻初始化决定。 */
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 /** 中文说明：测试局部值 acpBin，由紧邻初始化决定。 */
 const acpBin = join(repoRoot, 'packages/examples/acp-demo/lib/bin.js')
@@ -83,7 +83,7 @@ async function link(target: string, name: string, nm: string): Promise<void> {
 }
 
 /** Build a temp consumer dir + a minimal acp `cordis.yml`. Returns the dir. */
-/** 中文说明：函数 makeConsumer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeConsumer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function makeConsumer(): Promise<string> {
   /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'acp-built-bin-'))
@@ -269,7 +269,7 @@ describe.skipIf(!existsSync(acpBin))('dsh-acp-demo BUILT bin (node lib/bin.js, n
 })
 
 /** Spawn the built acp bin against `configArg` (stdin closed at EOF) and resolve with its exit code + stderr. */
-/** 中文说明：函数 runBinExpectingExit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 runBinExpectingExit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function runBinExpectingExit(configArg: string, cwd: string = tmpdir()): Promise<{ code: number; stderr: string }> {
   /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
   const result = await execa(process.execPath, [acpBin, '--config', configArg], {

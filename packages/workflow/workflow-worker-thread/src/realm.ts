@@ -7,7 +7,7 @@
  * .agents/notes/implemented/feature/2026-07-05-dynamic-workflows.md for the isolation rationale.
  * @module @deepseek-ai/dsh-workflow-worker-thread/realm
  */
-/**
+/*
  * 文件职责：实现 realm.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -17,7 +17,7 @@
  */
 
 /** Thrown by {@link materializeFromRealm}; the caller wraps it into the right `WorkflowError` code. */
-/** 中文说明：class MaterializeError 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class MaterializeError 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export class MaterializeError extends Error {
   constructor(public readonly path: string, public readonly reason: string) {
     super(`${path}: ${reason}`)
@@ -34,7 +34,11 @@ export class MaterializeError extends Error {
  * @param error - any value thrown in the host or worker realm.
  * @returns human-readable text for the failure report; prefers the stack.
  */
-/** 中文说明：函数 renderThrown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 renderThrown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param error 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function renderThrown(error: unknown): string {
   try {
     /** 中文说明：变量 stack 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -57,7 +61,7 @@ export function renderThrown(error: unknown): string {
  * cannot compare by identity across realms). A `Date`/`Map`/class instance
  * has a longer chain and is rejected.
  */
-/** 中文说明：函数 hasPlainPrototype 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 hasPlainPrototype 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasPlainPrototype(value: object): boolean {
   /** 中文说明：变量 proto 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const proto: unknown = Object.getPrototypeOf(value)
@@ -77,7 +81,12 @@ function hasPlainPrototype(value: object): boolean {
  * @throws {@link MaterializeError} for unsupported values, cycles, sparse arrays, exotic
  *   prototypes, or property reads that throw.
  */
-/** 中文说明：函数 materializeFromRealm 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 materializeFromRealm 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param root 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function materializeFromRealm(value: unknown, root = 'value'): unknown {
   if (value === undefined) return undefined
   try {

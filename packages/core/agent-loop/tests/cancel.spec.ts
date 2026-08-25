@@ -50,7 +50,7 @@ function send(agent: Agent, text: string) {
 }
 
 /** Resolve on the agent's next idle transition (event-based, not status poll). */
-/** 中文说明：测试辅助函数 waitForIdle 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 waitForIdle 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
   return new Promise((resolve) => {
     /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
@@ -61,7 +61,7 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
 }
 
 /** All user-message texts recorded in the log (to assert what actually ran). */
-/** 中文说明：测试辅助函数 userTexts 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 userTexts 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function userTexts(agent: Agent): string[] {
   return agent.session.events
     .filter(e => e.type === 'user/message')

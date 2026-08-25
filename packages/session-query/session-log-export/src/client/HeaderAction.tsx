@@ -16,7 +16,7 @@ import css from './HeaderAction.module.css'
  * @param props - Session runtime, download controller, and localized dialog copy.
  * @returns the persistent Header action and Session-scoped dialog.
  */
-/**
+/*
  * 渲染会话日志下载页头操作。
  * @param props 会话标识、下载状态控制器和本地化对话框文案。
  * @returns 常驻页头按钮及会话范围的结果对话框。

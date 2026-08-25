@@ -43,7 +43,7 @@ const FILE_REFERENCE_PROMPT = fileURLToPath(new URL(
  * `mcp_*` servers spawn outside `ctx.shell`. The composition Agent Note owns the
  * rationale and its sources.
  */
-/** 中文说明：正式组合应向模型公开的工具，排除下方依赖 ripgrep 的两项和主动禁用的高风险工具。 */
+/* 中文说明：正式组合应向模型公开的工具，排除下方依赖 ripgrep 的两项和主动禁用的高风险工具。 */
 /** 与宿主可选依赖无关的固定模型工具名称列表。 */
 const EXPECTED_TOOLS = [
   'ask_user_question',
@@ -77,7 +77,7 @@ const EXPECTED_TOOLS = [
  * is always present on every host — asserted as fixed members, not a host
  * dependency.
  */
-/** 只有宿主安装可用 ripgrep 时才公开的文件搜索工具。 */
+/* 只有宿主安装可用 ripgrep 时才公开的文件搜索工具。 */
 const RIPGREP_TOOLS = ['glob', 'grep']
 
 /** 当前测试启动的脚手架，afterEach 中安全释放。 */

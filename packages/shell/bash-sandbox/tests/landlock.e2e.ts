@@ -31,12 +31,12 @@ import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
  * `native/landlock-run` before running this file.
  */
 
-/** 中文说明：变量 probe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 probe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const probe = spawnSync(launcherPath(), ['--probe'], { timeout: 5_000, encoding: 'utf8' })
 /** 中文说明：变量 landlockUsable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const landlockUsable = probe.status === 0
 /** The kernel's enforcement level from the probe report — stamped facts below must match it. */
-/** 中文说明：变量 enforcement 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 enforcement 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const enforcement = /partially enforced/.test(probe.stdout ?? '') ? 'partial' : 'full'
 
 /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

@@ -26,7 +26,7 @@ import { logTruncationMarker, PROTOCOL_FD, WIRE_FRAME_FIELDS } from '../src/prot
  * codec unconditionally.
  */
 
-/** 中文说明：测试局部值 execFileAsync，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 execFileAsync，由紧邻初始化决定。 */
 const execFileAsync = promisify(execFile)
 /** 中文说明：测试局部值 pyDir，由紧邻初始化决定。 */
 const pyDir = fileURLToPath(new URL('../py', import.meta.url))

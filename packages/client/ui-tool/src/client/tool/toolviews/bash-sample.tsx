@@ -35,7 +35,7 @@ import { CONVERSATION_NS as NS } from '../../locale.ts'
 import css from './bash-sample.module.css'
 
 /** Bash row props: the toolview runtime share plus the standard locale seat. */
-/** 中文说明：类型或类 BashRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 BashRowProps 约束工具或轨迹数据职责。 */
 type BashRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /** 中文说明：函数 leadingFor 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
@@ -49,7 +49,7 @@ function leadingFor(state: ToolRowState) {
 }
 
 /** Visually hidden status — StateDot is aria-hidden; AT needs a text label. */
-/** 中文说明：函数 stateStatus 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 stateStatus 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function stateStatus(state: ToolRowState, t: BashRowProps['t']): string | null {
   switch (state) {
     case 'running': return t('bash.running')
@@ -64,7 +64,7 @@ function stateStatus(state: ToolRowState, t: BashRowProps['t']): string | null {
  * whole row toggling the command's terminal or generic error card (ToolRow's unified
  * expand interaction, replicated locally per the registrant posture).
  */
-/** 中文说明：函数 BashRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 BashRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }: BashRowProps) {
   /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
@@ -192,7 +192,7 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
  * The sample as a plain registrant plugin. Slot injection follows the chat
  * toolview declaration across independent activation and reload lifetimes.
  */
-/** 中文说明：视图局部值 bashToolviewSample，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 bashToolviewSample，由紧邻初始化决定。 */
 export const bashToolviewSample = {
   name: 'bash-toolview-sample',
   inject: ['slots'],

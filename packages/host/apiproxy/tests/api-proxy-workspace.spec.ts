@@ -72,7 +72,7 @@ function stubAgent(session: Session): Agent {
 }
 
 /** Compose the API over real Session, Agent, Storage, Domain, and Workspace services. */
-/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(
   root = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-apiproxy-workspace-'))),
   picker: DirectoryPickerCapability = { kind: 'native', pick: async () => null },
@@ -134,7 +134,7 @@ async function harness(
 }
 
 /** Stage one directory under the harness root for path adoption. */
-/** 中文说明：函数 stageDir 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stageDir 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stageDir(root: string, name: string): string {
   /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
   const path = join(root, name)
@@ -192,7 +192,7 @@ describe('host.pickDirectory', () => {
 })
 
 /** Canned browse capability: one listing, one created path, typed failures on demand. */
-/** 中文说明：测试局部值 BROWSE_STUB，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 BROWSE_STUB，由紧邻初始化决定。 */
 const BROWSE_STUB: DirectoryPickerCapability = {
   kind: 'browse',
   list: async (path) => {

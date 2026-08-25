@@ -28,9 +28,9 @@ import { cleanupAcpExampleTest } from './cleanup.ts'
  * Also asserts stdout purity (only framed JSON-RPC on stdout) — that one runs
  * WITHOUT a key, since it only needs the server to boot and answer initialize.
  */
-/** 中文说明：真实子进程通过 ACP stdio 交互，结果以写入文件验证；协议纯净度检查无需真实密钥。 */
+/* 中文说明：真实子进程通过 ACP stdio 交互，结果以写入文件验证；协议纯净度检查无需真实密钥。 */
 
-/** ACP 示例的入口脚本、组合配置和 TypeScript 路径。 */
+/* ACP 示例的入口脚本、组合配置和 TypeScript 路径。 */
 const AGENT: AgentUnderTest = {
   binScript: fileURLToPath(new URL('../../../packages/examples/acp-demo/src/bin.ts', import.meta.url)),
   configPath: fileURLToPath(new URL('../cordis.yml', import.meta.url)),

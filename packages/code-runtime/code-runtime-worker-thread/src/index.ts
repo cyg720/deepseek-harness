@@ -5,7 +5,7 @@
  * event-loop busy-time and wall-time budgets, and termination that also stops synchronous loops.
  * @module @deepseek-ai/dsh-code-runtime-worker-thread
  */
-/**
+/*
  * 文件职责：实现代码运行时的 index 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供代码运行时能力。
@@ -30,7 +30,7 @@ import { decodeWorkerJson, encodeWorkerJson } from './worker-json.ts'
 import type { WorkerJsonWire } from './worker-json.ts'
 
 /** Plugin config: every execution cap, changeable from `cordis.yml` (no hardcoded tunables). */
-/** 中文说明：类型或类 Config 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 Config 约束协议数据或模块职责。 */
 export interface Config {
   /**
    * Busy-time budget in milliseconds: the run fails with kind `'timeout'`
@@ -60,7 +60,7 @@ export interface Config {
 }
 
 /** {@link Config} after schemastery fills the defaults (every field present). */
-/** 中文说明：类型或类 ResolvedConfig 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 ResolvedConfig 约束协议数据或模块职责。 */
 type ResolvedConfig = Required<Config>
 
 /**
@@ -70,11 +70,11 @@ type ResolvedConfig = Required<Config>
  * one interval), and nothing a deployment could tune here improves that
  * without burning host CPU.
  */
-/** 中文说明：运行时局部值 ELU_POLL_INTERVAL_MS，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 ELU_POLL_INTERVAL_MS，由紧邻初始化决定。 */
 const ELU_POLL_INTERVAL_MS = 25
 
 /** Smallest cap that can represent the counted payloads: an empty logs array plus an empty JSON failure message. */
-/** 中文说明：运行时局部值 MIN_OUTPUT_BYTES，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 MIN_OUTPUT_BYTES，由紧邻初始化决定。 */
 const MIN_OUTPUT_BYTES = 4
 
 /**
@@ -82,7 +82,7 @@ const MIN_OUTPUT_BYTES = 4
  * `CodeBindingNamespace.global`): no `$`, which is JS-only spelling — the same
  * namespace list must be usable against every backend regardless of language.
  */
-/** 中文说明：运行时局部值 IDENTIFIER，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 IDENTIFIER，由紧邻初始化决定。 */
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 /**
@@ -94,11 +94,11 @@ const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
  * byte-identical and the body slices back out with the model's own
  * line/column positions intact.
  */
-/** 中文说明：运行时局部值 STRIP_WRAP，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 STRIP_WRAP，由紧邻初始化决定。 */
 const STRIP_WRAP = { prefix: 'async function __dsh_program__() {\n', suffix: '\n}' } as const
 
 /** One in-flight run's host-side state, tracked for disposal. */
-/** 中文说明：类型或类 LiveRun 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 LiveRun 约束协议数据或模块职责。 */
 interface LiveRun {
   worker: Worker
   settle(failure: CodeRunFailure): void
@@ -117,18 +117,18 @@ interface LiveRun {
  * `import.meta.url` with a query string; relative resolution drops it. Worker
  * receives a filesystem string so pkg's VFS Worker hook can resolve it.
  */
-/** 中文说明：运行时局部值 WORKER_PATH，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 WORKER_PATH，由紧邻初始化决定。 */
 /* v8 ignore next -- the './worker.cjs' arm is the built-lib world, unreachable unbuilt by construction; the built-lib e2e pins it. */
 const WORKER_PATH = fileURLToPath(new URL(new URL(import.meta.url).pathname.endsWith('.ts') ? './worker.ts' : './worker.cjs', import.meta.url))
 
 /** Render an unknown thrown value as a message, `Error` or not. */
-/** 中文说明：函数 messageOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 messageOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
 /** Resolve after a worker pipe emits all queued data, or closes/errors during termination. */
-/** 中文说明：函数 waitForPipeDrain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 waitForPipeDrain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function waitForPipeDrain(stream: Readable): Promise<void> {
   if (stream.readableEnded || stream.destroyed) return Promise.resolve()
   return new Promise((resolve) => {
@@ -158,7 +158,7 @@ function waitForPipeDrain(stream: Readable): Promise<void> {
  * `undefined` and is dropped — a throw in the host's `message` listener would
  * crash the host process.
  */
-/** 中文说明：函数 parseWorkerMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 parseWorkerMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function parseWorkerMessage(raw: unknown): WorkerToHost | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
   /** 中文说明：运行时局部值 m，由紧邻初始化决定。 */
@@ -189,7 +189,7 @@ function parseWorkerMessage(raw: unknown): WorkerToHost | undefined {
 
 
 /** One run's combined outer-output ledger; binding values never enter it. */
-/** 中文说明：类型或类 OutputLedger 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 OutputLedger 约束协议数据或模块职责。 */
 class OutputLedger {
   private bytes = 2 // JSON serialization of the empty logs array: []
   private entries = 0
@@ -274,7 +274,7 @@ class OutputLedger {
  * the contract this implements (error-as-field, hostile-peer port,
  * no cross-run state, dispose to quiescence).
  */
-/** 中文说明：类型或类 WorkerThreadCodeRuntime 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 WorkerThreadCodeRuntime 约束协议数据或模块职责。 */
 export class WorkerThreadCodeRuntime extends CodeRuntime {
   static Config: z<Config> = z.object({
     computeMs: z.number().default(60_000),

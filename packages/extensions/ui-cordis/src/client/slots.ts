@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】ui-cordis 各 UI 面（face）的注入类型契约，以及包自有的
  *             `tool.view.cordis` 槽位声明：动态包 Client 代码注册业务视图的锚点。
@@ -30,7 +30,7 @@ import type {
 } from './events.ts'
 
 /** Owner currency delivered to a dynamic Package's business view. */
-/**
+/*
  * 交给动态包"业务视图"的所有者信息：插件/包/运行三重 ID，标识当前视图归哪次激活。
  */
 export interface CordisToolViewOwnerProps {
@@ -56,7 +56,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Live facts used by the read-only Define card. */
-/**
+/*
  * Define 卡片所需的活数据：共享库存 + 本页已加载的 Client 活动列表。
  */
 export interface CordisCardFace {
@@ -77,7 +77,7 @@ export interface CordisRunCardFace extends CordisCardFace {
 }
 
 /** Frame-wide panel state and lifecycle verbs. */
-/**
+/*
  * 全框架面板的状态与生命周期动词面：库存/活动运行/错误/渲染失败等 hooks，
  * 以及审批、运行、停止、删除、刷新等回调。
  */

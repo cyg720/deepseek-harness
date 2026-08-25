@@ -10,7 +10,7 @@
  * The briefing rules live in `scripts/translation-brief.ts`; the
  * consuming workflow is `.agents/skills/dsh-translate-docs/SKILL.md`.
  */
-/**
+/*
  * 文件职责：实现 gen-translation-brief.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -68,7 +68,7 @@ function isExcluded(file: string): boolean {
 }
 
 /** Recorded hashes of one consistency record: basename → blob hash. */
-/** 中文说明：函数 parseMeta 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseMeta 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parseMeta(content: string): Map<string, string> | undefined {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out = new Map<string, string>()
@@ -100,7 +100,7 @@ function blobText(hash: string): string {
 }
 
 /** Unified diff between two texts, headers stripped, via `git diff --no-index`. */
-/** 中文说明：函数 diffTexts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 diffTexts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function diffTexts(before: string, after: string): string {
   /** 中文说明：变量 dir 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'translation-brief-'))
@@ -130,7 +130,7 @@ interface PairState {
 }
 
 /** Load one pair's recorded and current state, or explain why it cannot be briefed. */
-/** 中文说明：函数 loadPair 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 loadPair 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadPair(anchor: string): PairState | string {
   /** 中文说明：变量 zh 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const zh = anchor.replace(/\.md$/, '.zh.md')
@@ -173,7 +173,7 @@ function loadPair(anchor: string): PairState | string {
 }
 
 /** Assemble bundles for the given changed + first-occurrence span indices. */
-/** 中文说明：函数 bundlesFor 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 bundlesFor 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function bundlesFor(
   indices: number[],
   extraIndices: number[],
@@ -215,7 +215,7 @@ interface PlannedBrief {
 }
 
 /** Choose the narrowest safely mapped granularity for one drifted side. */
-/** 中文说明：函数 planScope 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 planScope 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function planScope(
   sourceLast: string,
   sourceCurrent: string,
@@ -272,7 +272,7 @@ function planScope(
 }
 
 /** Validate a computed mechanical counterpart and write it. */
-/** 中文说明：函数 applyMechanical 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 applyMechanical 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function applyMechanical(counterpartPath: string, sourceCurrent: string, result: string): void {
   /** 中文说明：变量 counterpartBase 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const counterpartBase = basename(counterpartPath)
@@ -305,7 +305,7 @@ function applyMechanical(counterpartPath: string, sourceCurrent: string, result:
 }
 
 /** Render (and under `--apply`, apply) the briefing for one drifted side. */
-/** 中文说明：函数 briefDirection 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 briefDirection 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function briefDirection(pair: PairState, direction: BriefDirection, apply: boolean): string {
   /** 中文说明：变量 sourceIsEnglish 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceIsEnglish = direction === 'en-to-zh'

@@ -18,12 +18,12 @@ import type { ConversationNodeDefinition } from '../contract/conversation.ts'
 import { ConversationDefinitionRegistry } from './definition-registry.ts'
 
 /** Runtime registry of independently owned Conversation business Definitions. */
-/** 独立持有的会话业务定义的运行时注册表。 */
+/* 独立持有的会话业务定义的运行时注册表。 */
 export class ConversationEventRegistry extends ConversationDefinitionRegistry<ConversationNodeDefinition> {
   private fallback: ConversationNodeDefinition | undefined // 唯一兜底定义；未注册时为 undefined
 
   /** @param ctx - owning Client Runtime context. */
-  /** 构造函数：把注册表挂到给定上下文，注册表键名为 'conversationEvents'。 */
+  /* 构造函数：把注册表挂到给定上下文，注册表键名为 'conversationEvents'。 */
   constructor(ctx: Context) {
     super(ctx, 'conversationEvents')
   }
@@ -33,7 +33,7 @@ export class ConversationEventRegistry extends ConversationDefinitionRegistry<Co
    * @param definition - Definition contribution.
    * @returns idempotent disposer.
    */
-  /**
+  /*
    * 为调用方生命周期注册一个键唯一的业务定义。
    * @param definition 定义贡献。
    * @returns 幂等销毁函数。
@@ -53,7 +53,7 @@ export class ConversationEventRegistry extends ConversationDefinitionRegistry<Co
    * @param definition - fallback Definition.
    * @returns idempotent disposer.
    */
-  /**
+  /*
    * 注册唯一的兜底定义，仅在没有普通定义匹配时使用。
    * @param definition 兜底定义。
    * @returns 幂等销毁函数。
@@ -80,7 +80,7 @@ export class ConversationEventRegistry extends ConversationDefinitionRegistry<Co
    * Return the current unmatched-event fallback.
    * @returns installed fallback, when present.
    */
-  /**
+  /*
    * 返回当前未匹配事件的兜底定义。
    * @returns 已安装的兜底定义（若有）。
    */

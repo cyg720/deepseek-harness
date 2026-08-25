@@ -52,7 +52,7 @@ const COMMAND = 'sleep 45'
  * @param sessionId - the opened session's identity.
  * @returns the registered Agent instance.
  */
-/**
+/*
  * 等待打开会话后主机发布对应的真实 Agent。
  * @param scaffold 已启动的 Web 脚手架。
  * @param sessionId 已打开会话编号。

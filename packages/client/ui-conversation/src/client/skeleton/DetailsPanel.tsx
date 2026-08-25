@@ -23,7 +23,7 @@ import { findToolCall } from '../chat/tool-node-reader.ts'
 import css from './DetailsPanel.module.css'
 
 /** Full props composed by reference from the contract (automatic shares & injected share). */
-/** 中文说明：类型或类 DetailsPanelProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 DetailsPanelProps 约束本文件的数据或组件职责。 */
 export type DetailsPanelProps = DetailsSlotProps
 
 /**
@@ -33,7 +33,7 @@ export type DetailsPanelProps = DetailsSlotProps
  * running split is read off it with the `'kind' in block` discrimination
  * instead of duplicated as flags.
  */
-/** 中文说明：类型或类 CallMaterial 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 CallMaterial 约束本文件的数据或组件职责。 */
 interface CallMaterial {
   name: string
   argsRaw: string | null
@@ -41,13 +41,13 @@ interface CallMaterial {
 }
 
 /** Material of a settled result node (native call or run_code sub-dispatch). */
-/** 中文说明：函数 settledMaterial 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 settledMaterial 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function settledMaterial(node: ToolResultNode, callId: string): CallMaterial {
   return { name: node.call?.name ?? callId, argsRaw: node.call?.argsRaw ?? null, block: node }
 }
 
 /** Material of an in-flight call (native call or run_code sub-dispatch). */
-/** 中文说明：函数 runningMaterial 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 runningMaterial 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function runningMaterial(call: RunningToolCall): CallMaterial {
   return { name: call.name, argsRaw: call.argsRaw, block: call }
 }
@@ -71,7 +71,7 @@ function pretty(raw: string): string {
 }
 
 /** Flatten a settled result for the no-ui-tool fallback. */
-/** 中文说明：函数 rawResultText 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 rawResultText 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function rawResultText(block: ToolCallBlock): string {
   if (!('kind' in block)) return ''
   /** 中文说明：组件局部值 parts，取值由紧邻初始化决定。 */

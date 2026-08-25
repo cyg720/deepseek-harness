@@ -1,5 +1,5 @@
 /** Appearance row store: snapshot-mirror action and the revision guard. */
-/**
+/*
  * 文件职责：验证外观设置存储的初始快照、同步动作和版本号防回退规则。
  * 技术维度：使用 Vitest 直接创建轻量客户端 store 并检查同步后的不可变快照。
  * 产品维度：确保主题偏好正确跟随宿主设置，同时旧消息不会覆盖较新的用户选择。

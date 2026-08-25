@@ -35,7 +35,7 @@ const roots: string[] = []
 const contexts = new Set<Context>()
 
 /** Detached durable Team read: the service exposes views, so assertions fold the Lead log. */
-/** 中文说明：函数 durable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 durable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function durable(agent: Agent): {
   members: TeamMemberSnapshot[]
   tasks: TeamTaskSnapshot[]

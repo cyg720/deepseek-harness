@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】cordis_runtime_inspect 工具的文本渲染层：把"运行期事实"（服务存储、
  *             插件注册表）与"能力目录"（生成自 api-catalog.ts）联接成人类可读的
@@ -37,7 +37,7 @@ import type { EventApiEntry, InheritedApiEntry, ServiceApiEntry, ServiceApiMetho
 import { FiberState, STATE_LABELS } from './fiber-state.ts'
 
 /** One live service joined with what the generated catalog knows about it. */
-/**
+/*
  * 一个运行中的服务与其目录知识的联接结果：名称、提供者 Fiber、生命周期状态、
  * 目录摘要与方法签名（目录未收录时方法为空且 catalogued 为 false）。
  */
@@ -57,7 +57,7 @@ interface LiveService {
 }
 
 /** The live service registrations, read from the reflect store. */
-/**
+/*
  * 从反射存储读取所有活的服务注册：store 是对象，用自身符号键枚举每个实现记录。
  */
 function liveImpls(ctx: Context): { name: string; fiber: Fiber }[] {
@@ -84,7 +84,7 @@ function plainSummary(summary: string): string {
  * and a live service the catalog does not cover stays in the list as reachable
  * with no signatures rather than being dropped.
  */
-/**
+/*
  * 联接运行期与目录：每个活服务一行，带提供者名、生命周期状态、目录摘要与签名；
  * 目录未收录的活服务保留在列表中（无签名）而非丢弃。
  */
@@ -106,7 +106,7 @@ function liveServices(ctx: Context, api: readonly ServiceApiEntry[]): LiveServic
 }
 
 /** Catalogued services with no live provider: loadable in principle, absent here. */
-/**
+/*
  * 目录已收录但当前没有活提供者的服务：原则上可加载、此处未运行。
  */
 function absentServices(ctx: Context, api: readonly ServiceApiEntry[]): string[] {
@@ -120,8 +120,11 @@ function absentServices(ctx: Context, api: readonly ServiceApiEntry[]): string[]
  * @param root - the subtree root to test against.
  * @returns true when `fiber` belongs to that subtree.
  */
-/**
+/*
  * 判断 fiber 是否就是 root 本身或挂载在 root 子树内的任意位置（沿 parent 链上溯）。
+ * @param fiber 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param root 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function withinFiber(fiber: Fiber, root: Fiber): boolean {
   let current = fiber
@@ -139,8 +142,11 @@ export function withinFiber(fiber: Fiber, root: Fiber): boolean {
  * @param fiber - the root of the mounted fiber subtree.
  * @returns the provided service names in lexical order.
  */
-/**
+/*
  * 某次挂载（fiber 子树）提供的全部服务名：取其子树内所有活服务实现，按字典序返回。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fiber 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function providedServices(ctx: Context, fiber: Fiber): string[] {
   return liveImpls(ctx)
@@ -157,9 +163,12 @@ export function providedServices(ctx: Context, fiber: Fiber): string[] {
  * @param fiber - the fiber whose `inject` declarations are checked.
  * @returns the missing service names, in declaration order.
  */
-/**
+/*
  * 某 fiber 声明但尚不存在的服务名：已挂载未激活的 fiber 恰好等这些服务
  * （Cordis 语义：服务出现时自动激活）。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fiber 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function missingServices(ctx: Context, fiber: Fiber): string[] {
   return Object.keys(fiber.inject).filter(service => ctx.get(service) === undefined)
@@ -173,9 +182,12 @@ export function missingServices(ctx: Context, fiber: Fiber): string[] {
  * @param api - the generated service entries whose summaries annotate the live ones.
  * @returns one line per service, or a single placeholder line when none are provided.
  */
-/**
+/*
  * 渲染 services 分节：每个活服务一行（提供者 + 状态 + 目录摘要）；api 分节才带签名，
  * 本分节回答"存在什么、谁提供的"。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function describeServices(ctx: Context, api: readonly ServiceApiEntry[] = SERVICE_API): string[] {
   const live = liveServices(ctx, api)
@@ -195,9 +207,11 @@ export function describeServices(ctx: Context, api: readonly ServiceApiEntry[] =
  * @param ctx - the runtime whose registry is enumerated.
  * @returns one line per loaded plugin fiber.
  */
-/**
+/*
  * 渲染 plugins 分节：注册表里每个 Fiber 一行（含生命周期状态），按插件名排序；
  * 同一插件多次挂载会重复出现（每个实例一行）。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function describePlugins(ctx: Context): string[] {
   const fibers: Fiber[] = []
@@ -217,9 +231,12 @@ export function describePlugins(ctx: Context): string[] {
  * @param scope - the calling agent (the viewing scope); omitted = global view.
  * @returns one line per visible tool.
  */
-/**
+/*
  * 渲染 tools 分节：当前调用 agent 可见的工具名（其作用域层对受限全局工具集的
  * 遮蔽/合并结果），是工具描述里"你能调什么"的诚实答案。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param scope 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function describeTools(ctx: Context, scope?: ScopeKey): string[] {
   return ctx.tools.schemas(scope).map(schema => `- ${schema.name}`)
@@ -234,9 +251,12 @@ export function describeTools(ctx: Context, scope?: ScopeKey): string[] {
  * @param agent - the calling agent; without one there is no definition space to report.
  * @returns one line per package, or a single placeholder line when none exist.
  */
-/**
+/*
  * 渲染 temporary 分节：每个动态包一行，含当前/目标版本、活动运行、两端提供/等待、
  * 注册的 Host 方法与最近渲染失败；无动态包时给出"仅进程内存"的说明行。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function describeDynamic(ctx: Context, agent?: Agent): string[] {
   const rows = agent === undefined ? [] : ctx.dynamicCordisRunner.snapshot(agent)
@@ -295,7 +315,7 @@ function typeClosure(seeds: string[], types: readonly TypeApiEntry[]): TypeApiEn
 }
 
 /** Render one live catalogued service; `documented` is non-empty only for an exact-name report. */
-/**
+/*
  * 渲染一个已收录的活服务：服务行 + 每个方法的签名；精确名称报告时额外带上方法的
  * 描述、参数、返回值与抛出条件。
  */
@@ -328,9 +348,15 @@ function serviceLines(
  * @param types - public type shapes, replaceable in tests.
  * @returns the section lines.
  */
-/**
+/*
  * 渲染 api 分节：活且已收录的服务带方法签名；精确名称时给结构化契约；未收录的活
  * 服务、可加载未运行的服务、被引用类型形状、继承 ctx API 依次列出。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param inherited 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param types 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function describeApi(
   ctx: Context,
@@ -382,9 +408,12 @@ export function describeApi(
  * @param name - exact event name whose signature should include its structured contract; omitted for the compact catalog.
  * @returns the section lines.
  */
-/**
+/*
  * 渲染 events 分节：每个事件一行（名称/模式/摘要/签名），精确名称时补结构化契约；
  * 末尾固定附上水瀑布监听器必须调用 next() 的告诫。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function describeEvents(events: readonly EventApiEntry[] = EVENT_API, name?: string): string[] {
   let selected = events

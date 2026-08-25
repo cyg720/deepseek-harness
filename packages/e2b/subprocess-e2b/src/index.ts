@@ -3,7 +3,7 @@
  * shared sandbox and retains command output/status paths in that remote world.
  * @module @deepseek-ai/dsh-subprocess-e2b
  */
-/**
+/*
  * 文件职责：实现E2B 远程沙箱的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
@@ -30,7 +30,7 @@ import { asError, signalOpts } from './remote.ts'
 import { spawnE2BTerminal } from './terminal.ts'
 
 /** Configuration for the E2B subprocess adapter. */
-/** 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
 export interface Config {
   /** Remote status/liveness poll cadence in milliseconds; each tick is one control-plane request. */
   pollMs?: number
@@ -53,7 +53,7 @@ interface TerminalSetup {
  * the remote force-escalation deadline unreachable.
  * @param graceMs - The spec's cleanup grace in milliseconds.
  */
-/** 中文说明：函数 requireRepresentableGrace 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 requireRepresentableGrace 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function requireRepresentableGrace(graceMs: number): void {
   if (!Number.isFinite(graceMs) || graceMs <= 0 || graceMs > MAX_TIMER_DELAY_MS) {
     throw new Error(`subprocess graceMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`)
@@ -61,7 +61,7 @@ function requireRepresentableGrace(graceMs: number): void {
 }
 
 /** E2B command manager registered as `ctx.subprocess`. */
-/** 中文说明：类型或类 E2BSubprocessRuntime 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 E2BSubprocessRuntime 约束远程资源或测试数据职责。 */
 export class E2BSubprocessRuntime extends SubprocessRuntime {
   static inject = ['e2b']
 

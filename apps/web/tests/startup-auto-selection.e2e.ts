@@ -41,19 +41,19 @@ import { acknowledgeReloadConnectionLoss, launchWebScaffold, watchConsole, type 
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
 /** Wire path of the history round-trip the conversation root waits out (POST /api/session.history). */
-/** 会话根节点启动时等待的 history RPC 路由匹配式。 */
+/* 会话根节点启动时等待的 history RPC 路由匹配式。 */
 const HISTORY_ROUTE = '**/api/session.history'
 
 /**
  * The conversation root's own phase attribute. `div` disambiguates it from the
  * composer textarea, which carries an unrelated `data-phase` of its own.
  */
-/** 中文说明：用 div 限定会话根，避免匹配同样带 data-phase 的编辑器文本框。 */
+/* 中文说明：用 div 限定会话根，避免匹配同样带 data-phase 的编辑器文本框。 */
 /** 定位会话根自身阶段属性的选择器。 */
 const ROOT_PHASE = 'div[data-phase]'
 
 /** Every distinct `data-phase` the conversation root shows, in order, across one page load. */
-/** 读取 page 一次加载期间记录的全部不同会话阶段并返回数组。 */
+/* 读取 page 一次加载期间记录的全部不同会话阶段并返回数组。 */
 function recordedPhases(page: Page): Promise<string[]> {
   return page.evaluate(() => (window as unknown as { __conversationPhases: string[] }).__conversationPhases)
 }

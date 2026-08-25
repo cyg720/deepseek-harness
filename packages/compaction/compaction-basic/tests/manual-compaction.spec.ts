@@ -49,7 +49,7 @@ const SIGNAL = new AbortController().signal
 const PROMPT = 'older conversation history '.repeat(60)
 
 /** A summarizer under test control: it can block, fail, or mutate mid-call. */
-/** 中文说明：类型或类 GatedCompactionEngine 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 GatedCompactionEngine 约束上下文或压缩数据职责。 */
 class GatedCompactionEngine extends BasicCompactionEngine {
   summary: ContentBlock[] = [{ type: 'text', text: 'checkpoint' }]
   rawOutput: ContentBlock[] | undefined
@@ -79,7 +79,7 @@ class GatedCompactionEngine extends BasicCompactionEngine {
 }
 
 /** One text answer per request, with a context window large enough to avoid pressure. */
-/** 中文说明：类型或类 TextAdapter 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 TextAdapter 约束上下文或压缩数据职责。 */
 class TextAdapter extends LlmAdapter {
   readonly requests: Message[][] = []
 
@@ -110,7 +110,7 @@ interface LoopHarness {
 }
 
 /** Real loop, session store, and invariant companions around manual compaction. */
-/** 中文说明：函数 loopHarness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 loopHarness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function loopHarness(): Promise<LoopHarness> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -145,7 +145,7 @@ async function loopHarness(): Promise<LoopHarness> {
 }
 
 /** Drive one real turn so the closed history holds a compactable older span. */
-/** 中文说明：函数 seedHistory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 seedHistory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function seedHistory(harness: LoopHarness): Promise<void> {
   harness.agent.followup(createUserMessage({
     content: [{ type: 'text', text: PROMPT }],
@@ -156,7 +156,7 @@ async function seedHistory(harness: LoopHarness): Promise<void> {
 }
 
 /** Text of every derived model-visible message, in request order. */
-/** 中文说明：函数 derivedText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 derivedText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function derivedText(session: Session): string[] {
   return session.deriveMessages().map((message: Message) => message.content
     .map(block => block.type === 'text' ? block.text : '')
@@ -164,7 +164,7 @@ function derivedText(session: Session): string[] {
 }
 
 /** Await one classified manual-compaction rejection. */
-/** 中文说明：函数 rejection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rejection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function rejection(operation: Promise<unknown> | (() => Promise<unknown>)): Promise<ManualCompactionError> {
   /** 中文说明：测试局部值 caught: unknown，由紧邻初始化决定。 */
   let caught: unknown
@@ -182,7 +182,7 @@ async function rejection(operation: Promise<unknown> | (() => Promise<unknown>))
 }
 
 /** The Error a classified failure wraps. */
-/** 中文说明：函数 causeOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 causeOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function causeOf(error: ManualCompactionError): Error {
   /** 中文说明：测试局部值 { cause }，由紧邻初始化决定。 */
   const { cause } = error
@@ -198,7 +198,7 @@ function deferred(): { promise: Promise<undefined>; resolve: () => void } {
 }
 
 /** A closed-tail session with compactable exchanges and no live agent. */
-/** 中文说明：函数 closedConversation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 closedConversation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function closedConversation(turns = 2, lastTurnNumber = turns): Session {
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(SessionId(`closed-${turns}-${lastTurnNumber}`))
@@ -233,7 +233,7 @@ function closedConversation(turns = 2, lastTurnNumber = turns): Session {
 }
 
 /** A fake idle agent whose maintenance claim is scripted per test. */
-/** 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeAgent(
   session: Session,
   reserve: () => (() => void) | undefined,
@@ -252,7 +252,7 @@ function fakeAgent(
 }
 
 /** Service over a store-detached session for failure classification. */
-/** 中文说明：函数 detachedService 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 detachedService 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function detachedService(): { ctx: Context; compact: GatedCompactionEngine; flushes: () => number } {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

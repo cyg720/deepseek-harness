@@ -33,7 +33,7 @@ import type { ShellProcess } from '@deepseek-ai/dsh-shell'
  * @param proc - the settled process handle.
  * @returns the outcome for the `ctx.jobs` registration.
  */
-/**
+/*
  * 把已落定的后台进程映射到通用任务结果词汇：killed 保持 killed（detail 为已知信号名），
  * 其它一律 completed 并以退出码为 detail。非零命令退出只报告而不失败，与前台渲染一致。
  * @param proc 已落定的进程句柄

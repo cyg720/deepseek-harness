@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证会话输入的 todo-panel.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
  * 产品维度：防止会话输入用户流程回归。
@@ -37,7 +37,7 @@ const LIST: TodoItem[] = [
 ]
 
 /** A parallel plan: three tasks running at once (concurrent subagents). */
-/** 中文说明：测试局部值 PARALLEL，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 PARALLEL，由紧邻初始化决定。 */
 const PARALLEL: TodoItem[] = [
   { content: '搭骨架', status: 'completed' },
   { content: '写组件', status: 'in_progress' },
@@ -120,7 +120,7 @@ describe('TodoPanel', () => {
 })
 
 /** Dock props stub: the adapter reads the 'todos' projection only; the rest of the owner share is unused. */
-/** 中文说明：函数 dockProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 dockProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function dockProps(store: ReturnType<typeof createSnapshotStore<{ value: readonly TodoItem[] | null | undefined }>>): TodoDockProps {
   /** 中文说明：测试局部值 useProjection，由紧邻初始化决定。 */
   const useProjection = (_key: string, selector?: (v: unknown) => unknown) =>

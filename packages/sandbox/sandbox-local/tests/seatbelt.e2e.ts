@@ -25,7 +25,7 @@ import { seatbeltProfileArgs } from '../src/profiles.ts'
  * workspace-write proves the workspace-root grant itself.
  */
 
-/** 中文说明：变量 probe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 probe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const probe = spawnSync('sandbox-exec', [...seatbeltProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], { timeout: 5_000, stdio: 'ignore' })
 /** 中文说明：变量 seatbeltUsable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const seatbeltUsable = probe.status === 0
@@ -60,7 +60,7 @@ async function provider(): Promise<LocalSandboxProvider> {
 }
 
 /** Confine a shell command under `policy` and run it for real; returns the spawn result and the wrap's facts. */
-/** 中文说明：函数 runConfined 承担本测试的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 runConfined 承担本测试的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runConfined(sandbox: LocalSandboxProvider, command: string, policy: SandboxPolicy) {
   /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const confined = sandbox.confine(['bash', '-c', command], policy)

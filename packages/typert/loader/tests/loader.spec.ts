@@ -33,7 +33,7 @@ afterEach(async () => {
 })
 
 /** Write a fake installed package under the fixture root's node_modules. */
-/** 中文说明：函数 writePackage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 writePackage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function writePackage(
   base: string,
   pkgName: string,
@@ -108,7 +108,7 @@ function invocationTypertSource(pkgName: string): string {
 }
 
 /** Boot a real Loader over a fixture root; plugin modules resolve from its node_modules. */
-/** 中文说明：函数 boot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 boot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function boot(): Promise<Context> {
   context = new Context()
   context.baseUrl = pathToFileURL(join(root as string, 'cordis.yml')).href

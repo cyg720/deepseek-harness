@@ -3,7 +3,7 @@
  * property-based), run-boundary rules, whitelist fall-through, and decoder
  * validation failures.
  */
-/**
+/*
  * 文件职责：验证Session 状态的 chunk-rows.spec.ts 行为与不变量。
  * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
  * 产品维度：防止Session 状态在取消、恢复、错误或并发场景中产生回归。
@@ -20,20 +20,20 @@ import { decodeStorageRecord, packChunkRuns } from '@deepseek-ai/dsh-session'
 import type { ChunkRow, SessionEvent, StorageRecord } from '@deepseek-ai/dsh-session'
 
 /** Build an `assistant/chunk` event with the exact live-append shape. */
-/** 中文说明：测试辅助函数 chunkEvent 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 chunkEvent 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function chunkEvent(seq: number, time: number, chunk: StreamChunk, turn = 1, step = 1): SessionEvent {
   return { type: 'assistant/chunk', seq, time, data: { turn, step, chunk } }
 }
 
 /** Sequential delta events (contiguous seqs, fixed 10ms gaps) of one kind. */
-/** 中文说明：测试辅助函数 deltaRun 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 deltaRun 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function deltaRun(kind: 'text-delta' | 'reasoning-delta', count: number, seq0 = 0, index = 0): SessionEvent[] {
   return Array.from({ length: count }, (_, k) =>
     chunkEvent(seq0 + k, 1000 + 10 * k, { type: kind, index, text: `t${k}` }))
 }
 
 /** Decode a packed record list back to a flat event list. */
-/** 中文说明：测试辅助函数 decodeAll 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 decodeAll 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function decodeAll(records: readonly StorageRecord[]): SessionEvent[] {
   return records.flatMap(record => decodeStorageRecord(JSON.parse(JSON.stringify(record))))
 }
@@ -249,7 +249,7 @@ const boundaryChunkArb: fc.Arbitrary<StreamChunk> = fc.oneof(
  * realistic clocks) so the property exercises the gap-overflow guard: two safe
  * endpoints can differ by more than a double subtracts exactly.
  */
-/** 中文说明：测试局部值 batchArb，由紧邻初始化决定，仅在当前场景使用。 */
+/* 中文说明：测试局部值 batchArb，由紧邻初始化决定，仅在当前场景使用。 */
 const batchArb: fc.Arbitrary<SessionEvent[]> = fc.array(
   fc.record({
     chunk: fc.oneof({ weight: 4, arbitrary: deltaChunkArb }, { weight: 1, arbitrary: boundaryChunkArb }),

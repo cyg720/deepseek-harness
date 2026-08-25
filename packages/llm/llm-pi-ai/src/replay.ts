@@ -7,7 +7,7 @@
  *
  * @module dsh-llm-pi-ai/replay
  */
-/**
+/*
  * 文件职责：实现Pi AI LLM的 replay.ts 模块。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
@@ -21,14 +21,14 @@ import type { Message, ModelMessageSource, ReplayEnvelope } from '@deepseek-ai/d
 import type { Api, AssistantMessage, Usage as PiUsage } from '@earendil-works/pi-ai'
 
 /** Per-block half of the pi-ai replay envelope, one entry per content block. */
-/** 中文说明：类型或类 PiAiReplayBlock 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 PiAiReplayBlock 约束模型请求、认证或流事件职责。 */
 export type PiAiReplayBlock =
   | { type: 'text'; textSignature?: string }
   | { type: 'reasoning'; thinkingSignature?: string; redacted?: boolean }
   | { type: 'tool-call'; thoughtSignature?: string }
 
 /** Versioned response-level half of the pi-ai replay envelope. */
-/** 中文说明：类型或类 PiAiReplayResponse 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 PiAiReplayResponse 约束模型请求、认证或流事件职责。 */
 export interface PiAiReplayResponse {
   kind: 'pi-ai'
   version: 2
@@ -41,14 +41,14 @@ export interface PiAiReplayResponse {
 }
 
 /** The validated halves of one pi-ai replay envelope. */
-/** 中文说明：类型或类 PiAiReplayState 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 PiAiReplayState 约束模型请求、认证或流事件职责。 */
 interface PiAiReplayState {
   response: PiAiReplayResponse
   blocks: PiAiReplayBlock[]
 }
 
 /** Parse tool-call argument JSON; tolerate model malformations with {}. */
-/** 中文说明：函数 parseArguments 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 parseArguments 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function parseArguments(raw: string): Record<string, unknown> {
   try {
     /** 中文说明：适配器局部值 parsed，由紧邻初始化决定。 */
@@ -63,7 +63,7 @@ function parseArguments(raw: string): Record<string, unknown> {
 }
 
 /** Construct the zero usage value required by historical pi-ai messages. */
-/** 中文说明：函数 emptyPiUsage 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 emptyPiUsage 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function emptyPiUsage(): PiUsage {
   return {
     input: 0,
@@ -83,7 +83,11 @@ function emptyPiUsage(): PiUsage {
  * @param message - completed native pi-ai assistant response.
  * @returns the versioned lossless-JSON replay projection.
  */
-/** 中文说明：函数 toPiReplayState 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 toPiReplayState 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param message 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function toPiReplayState(message: AssistantMessage): ReplayEnvelope {
   /** 中文说明：适配器局部值 response，由紧邻初始化决定。 */
   const response: PiAiReplayResponse = {
@@ -124,7 +128,7 @@ function invalidReplay(message: string): never {
 }
 
 /** Validate the durable adapter-private envelope before it reaches pi-ai. */
-/** 中文说明：函数 readReplayState 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 readReplayState 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function readReplayState(value: unknown): PiAiReplayState {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return invalidReplay('expected a replay envelope')
   /** 中文说明：适配器局部值 envelope，由紧邻初始化决定。 */
@@ -167,7 +171,7 @@ function readReplayState(value: unknown): PiAiReplayState {
 }
 
 /** Convert provider-neutral blocks without trusting them as same-model replay. */
-/** 中文说明：函数 foreignAssistant 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 foreignAssistant 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function foreignAssistant(message: Message): AssistantMessage {
   /** 中文说明：适配器局部值 source，由紧邻初始化决定。 */
   const source = message.source.kind === 'model' ? message.source : undefined
@@ -206,7 +210,7 @@ function foreignAssistant(message: Message): AssistantMessage {
 }
 
 /** Recombine durable Harness content with validated pi-ai replay metadata. */
-/** 中文说明：函数 replayedAssistant 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 replayedAssistant 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function replayedAssistant(message: Message, source: ModelMessageSource, rawState: unknown): AssistantMessage {
   /** 中文说明：适配器局部值 state，由紧邻初始化决定。 */
   const state = readReplayState(rawState)
@@ -268,7 +272,12 @@ function replayedAssistant(message: Message, source: ModelMessageSource, rawStat
  *   state falls back to provider-neutral conversion.
  * @returns a native pi-ai assistant message reconstructed from durable content.
  */
-/** 中文说明：函数 toPiAssistant 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 toPiAssistant 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param message 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param onDegrade 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function toPiAssistant(message: Message, onDegrade?: (reason: string) => void): AssistantMessage {
   /** 中文说明：适配器局部值 source，由紧邻初始化决定。 */
   const source = message.source

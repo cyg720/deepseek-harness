@@ -1,5 +1,5 @@
 /** Package-local scripted child boundary for deterministic tool-subagent tests. */
-/**
+/*
  * 文件职责：验证 scripted-provider.ts 覆盖的子代理工具行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
  * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
@@ -29,7 +29,7 @@ const DEFAULT_CAPABILITIES: SubagentCapabilities = {
 }
 
 /** Options for one scripted provider fixture. */
-/** 中文说明：interface Config 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
+/* 中文说明：interface Config 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
 export interface Config {
   /** Registry name to register under. */
   name: string
@@ -50,7 +50,7 @@ export interface Config {
 }
 
 /** Scripted provider whose result aborts if its signal or disposer wins first. */
-/** 中文说明：class ScriptedSubagentProvider 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
+/* 中文说明：class ScriptedSubagentProvider 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
 class ScriptedSubagentProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities
   readonly inheritsParentContext: boolean
@@ -125,7 +125,7 @@ class ScriptedSubagentProvider implements SubagentProvider {
  * @param config - scripted provider identity and outcome.
  * @returns the fixture plugin's disposable fiber.
  */
-/** 中文说明：函数 mountScriptedProvider 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 mountScriptedProvider 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function mountScriptedProvider(ctx: Context, config: Config) {
   return ctx.plugin({
     name: 'scripted-subagent-provider',

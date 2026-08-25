@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】集中定义每次 provider 请求都会发送的非机密产品身份标识
  * （User-Agent 等归属头），防止各适配器各自为政产生漂移。
@@ -34,7 +34,7 @@ import { createRequire } from 'node:module'
 // 实际发布的版本保持一致（该相对路径在 src/ 与打包后的 lib/ 下都能解析）。
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string }
 
-/**
+/*
  * （中文）发送给 LLM provider 的静态公开应用身份。所有字段都是公开的产品
  * 事实，可安全随每个请求发送：这里不允许出现密钥、本地路径、会话 id、提示词
  * 或任何按用户区分的标识，且没有任何按请求变化的数据可以影响这些值。
@@ -58,7 +58,7 @@ export interface AppIdentity {
   url: string
 }
 
-/**
+/*
  * （中文）harness 自身的默认身份：所有适配器默认发送它。需要白标身份的部署
  * 方可以把自定义 AppIdentity 传给 attributionHeaders——省略时回退到这个默认值；
  * 没有任何机制能完全取消归属头。
@@ -75,7 +75,7 @@ export const APP_IDENTITY: AppIdentity = {
   url: 'https://github.com/deepseek-ai/deepseek-harness',
 }
 
-/**
+/*
  * （中文）标准的 User-Agent 值：`product/version (+url)`。括号里的 +url 注释
  * 是 RFC 9110 §10.1.5 规定的 product + comment 自报家门形式。
  * @param identity 要渲染的身份；缺省用 APP_IDENTITY。
@@ -92,7 +92,7 @@ export function userAgent(identity: AppIdentity = APP_IDENTITY): string {
   return `${identity.product}/${identity.version} (+${identity.url})`
 }
 
-/**
+/*
  * （中文）构造适配器必须在每个 provider 请求上发送的归属头。头部名使用小写
  * （HTTP 字段名在线上不区分大小写）。
  * @param identity 要发送的身份；缺省用 APP_IDENTITY——省略不能取消归属头。

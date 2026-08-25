@@ -3,7 +3,7 @@
  * change, reconnect re-baselining, pre-instantiation buffering, editable-text
  * projection, and snapshot reference stability.
  */
-/**
+/*
  * 文件职责：验证客户端会话运行时的 queue-store 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -44,7 +44,7 @@ interface QueueFixture {
 }
 
 /** Build one authoritative queue snapshot. */
-/** 中文说明：函数 queueFrame 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 queueFrame 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function queueFrame(items: QueueFixture[]): MuxFrame {
   return {
     type: 'session/queue',

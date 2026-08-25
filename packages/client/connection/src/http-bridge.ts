@@ -2,7 +2,7 @@
  * node:http ↔ WHATWG fetch bridge for the /api transport (host side of the
  * web carrier; the fetch-shaped handler itself is transport-agnostic).
  */
-/**
+/*
  * 文件职责：在 Node.js HTTP 请求/响应与标准 Fetch Request/Response 之间转换数据。
  * 技术维度：使用 node:http、WHATWG Fetch、异步迭代、AbortController 和流背压控制。
  * 产品维度：让同一套 API 处理器接入宿主 HTTP 服务，并可靠服务浏览器客户端。
@@ -17,19 +17,19 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
  * aggregate image limit (200 MiB) after base64 expansion plus envelope
  * headroom (~267.7 MiB required), rounded up for slack. The bridge buffers
  * each body in memory, so this cap is also the per-request resident bound. */
-/** 中文说明：默认请求体上限为 300 MiB，依据图片 Base64 膨胀后的默认总量并预留信封空间。 */
+/* 中文说明：默认请求体上限为 300 MiB，依据图片 Base64 膨胀后的默认总量并预留信封空间。 */
 export const DEFAULT_MAX_REQUEST_BODY_BYTES = 300 * 1024 * 1024
-/** 中文说明：默认请求体上限为 300 MiB，依据图片 Base64 膨胀后的默认总量并预留信封空间。 */
+/* 中文说明：默认请求体上限为 300 MiB，依据图片 Base64 膨胀后的默认总量并预留信封空间。 */
 
 /** Transport-independent request handler consumed by the Host HTTP bridge. */
-/** 中文说明：与具体 HTTP 服务器无关的 Fetch 风格处理器，由宿主桥接层调用。 */
+/* 中文说明：与具体 HTTP 服务器无关的 Fetch 风格处理器，由宿主桥接层调用。 */
 export interface FetchHandler {
   /**
    * Handle one standard Fetch request.
    * @param request - request produced by the active transport bridge.
    * @returns complete or streaming Fetch response.
    */
-  /** 中文说明：处理一个标准 Fetch 请求；`request` 是桥接后的请求；返回完整或流式 Response，例如 `await handler.fetch(request)`。 */
+  /* 中文说明：处理一个标准 Fetch 请求；`request` 是桥接后的请求；返回完整或流式 Response，例如 `await handler.fetch(request)`。 */
   fetch(request: Request): Promise<Response>
 }
 
@@ -41,7 +41,7 @@ export interface FetchHandler {
  * @param apiHandler - fetch-shaped API carrier the request is dispatched to.
  * @param maxRequestBodyBytes - maximum body bytes buffered before dispatch.
  */
-/**
+/*
  * 中文说明：把一条 Node HTTP 请求桥接到 Fetch 处理器，并把 Fetch 响应完整写回客户端。
  * @param req 待读取的 Node 入站请求。
  * @param res 由本函数负责结束的 Node 响应。

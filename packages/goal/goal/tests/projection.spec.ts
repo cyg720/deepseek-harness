@@ -7,7 +7,7 @@
  * ignored fail-soft (same-reference return) — strict replay validation
  * belongs to the write side and foldGoal, never the projection drive.
  */
-/**
+/*
  * 文件职责：验证目标工具与投影的 projection.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证目标工具与投影可预测地传递事件、限制循环或适配外部工具。
@@ -38,7 +38,7 @@ interface Bench {
 }
 
 /** Register a minimal registry-compatible live agent over a store session. */
-/** 中文说明：函数 liveAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 liveAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function liveAgent(ctx: Context, session: Session): Agent {
   /** 中文说明：测试局部值 status，由紧邻初始化决定。 */
   const status: AgentStatus = 'idle'
@@ -88,7 +88,7 @@ async function harness(withGoal: boolean): Promise<Bench> {
 }
 
 /** One paginable message so the tail is non-degenerate. */
-/** 中文说明：函数 seedMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 seedMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function seedMessage(session: Session): void {
   session.append('user/message', createUserMessage({
     content: [{ type: 'text', text: 'hi' }],

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】客户端模块系统的浏览器安全契约面（零 node 导入）：__DSH_BOOT__
  *   线类型、启动清单解析器，以及 ClientModuleSystem 周围的边界。
@@ -45,7 +45,7 @@
  * {@link ClientModuleSystem}. The package root is the host-side service that
  * composes the wire.
  */
-/**
+/*
  * 客户端模块系统：Node 内置 ESM loader 的浏览器对应物，构建为懒 CJS 表。
  * vendored cordis Loader 经其 internal 契约消费本对象（唯一调用点是
  * EntryTree.import -> internal.import），使条目治理（fiber 生命周期、
@@ -75,7 +75,7 @@ import type { ClientModuleSystem } from './system.ts'
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** The client module system the web shell builds at boot (provided by the `./client` wrapper plugin). */
-    /** web shell 启动时构建的客户端模块系统（由 ./client 包装插件提供）。 */
+    /* web shell 启动时构建的客户端模块系统（由 ./client 包装插件提供）。 */
     modules: ClientModuleLoader
   }
 }
@@ -89,7 +89,7 @@ declare module '@deepseek-ai/cordis' {
  * module-graph edges: unlike `inject`, they constrain code arrival because
  * `require` is synchronous (see {@link WebBootGraph.entries}).
  */
-/**
+/*
  * Host 推送的一条组合客户端条目（图行）。线的单一来源：Host 节点半边
  * （包根）产出同一形状。immediately 标记一阶段预取；inject 是信息性图
  * 元数据（权威边活在每个包的 dsh.client 声明里，经条目创建到达 fiber）。
@@ -98,37 +98,37 @@ declare module '@deepseek-ai/cordis' {
  */
 export interface WebBootEntry {
   /** Entry name == package name. */
-  /** 条目名 == 包名。 */
+  /* 条目名 == 包名。 */
   id: string
   /** Bundle endpoint, '/plugins/<id>/client.js?rev=<rev>'. */
-  /** bundle 端点：/plugins/<id>/client.js?rev=<rev>。 */
+  /* bundle 端点：/plugins/<id>/client.js?rev=<rev>。 */
   url: string
   /** Bundle content hash (cache-busting consistency anchor). */
-  /** bundle 内容哈希（缓存破坏一致性锚）。 */
+  /* bundle 内容哈希（缓存破坏一致性锚）。 */
   rev: string
   /** Package-name dependency edges, informational (preflight display / HMR diffing). */
-  /** 包名依赖边，信息性（预检展示 / HMR 差异）。 */
+  /* 包名依赖边，信息性（预检展示 / HMR 差异）。 */
   inject?: string[]
   /** Stage-one prefetch mark: load the script for factory registration during module-face boot. */
-  /** 一阶段预取标记：模块面启动期间加载脚本以注册工厂。 */
+  /* 一阶段预取标记：模块面启动期间加载脚本以注册工厂。 */
   immediately?: boolean
   /** Non-baseline module specifiers this row requests; omitted when it requests none. */
-  /** 本行请求的非基线模块说明符；无请求时省略。 */
+  /* 本行请求的非基线模块说明符；无请求时省略。 */
   external?: string[]
 }
 
 /** The composed client entry graph the host injects as `window.__DSH_BOOT__`. */
-/** Host 以 window.__DSH_BOOT__ 注入的组合客户端条目图。 */
+/* Host 以 window.__DSH_BOOT__ 注入的组合客户端条目图。 */
 export interface WebBootGraph {
   /** Consistency anchor over the whole graph (content + bundle hashes). */
-  /** 整张图的一致性锚（内容 + bundle 哈希）。 */
+  /* 整张图的一致性锚（内容 + bundle 哈希）。 */
   rev: string
   /**
    * Composed entries in module-graph order — a dynamic package row precedes
    * rows whose `external` requests that package. Cordis activation order is
    * unrelated and remains owned by fiber service waiting.
    */
-  /**
+  /*
    * 按模块图顺序的组合条目——动态包行先于其 external 请求该包的行。
    * Cordis 激活顺序与此无关，仍由 fiber 服务等待拥有。
    */
@@ -136,47 +136,47 @@ export interface WebBootGraph {
 }
 
 /** The npm-package view of one boot row: what the module table needs to fetch the bundle. */
-/** 一个启动行的 npm 包视图：模块表拉取 bundle 所需的。 */
+/* 一个启动行的 npm 包视图：模块表拉取 bundle 所需的。 */
 export interface BootModuleRow {
   /** Entry name == package name (module-table key). */
-  /** 条目名 == 包名（模块表键）。 */
+  /* 条目名 == 包名（模块表键）。 */
   id: string
   /** Bundle endpoint, '/plugins/<id>/client.js?rev=<rev>'. */
-  /** bundle 端点：/plugins/<id>/client.js?rev=<rev>。 */
+  /* bundle 端点：/plugins/<id>/client.js?rev=<rev>。 */
   url: string
   /** Bundle content hash. */
-  /** bundle 内容哈希。 */
+  /* bundle 内容哈希。 */
   rev: string
   /** Module specifiers this row requests from the module table ([] when the wire omits them). */
-  /** 本行向模块表请求的模块说明符（线省略时为 []）。 */
+  /* 本行向模块表请求的模块说明符（线省略时为 []）。 */
   external: string[]
 }
 
 /** The cordis-plugin view of one boot row: what entry composition needs (optional wire fields normalized). */
-/** 一个启动行的 cordis 插件视图：条目组合所需的（可选线字段已规范化）。 */
+/* 一个启动行的 cordis 插件视图：条目组合所需的（可选线字段已规范化）。 */
 export interface BootPluginRow {
   /** Entry name == package name. */
-  /** 条目名 == 包名。 */
+  /* 条目名 == 包名。 */
   id: string
   /** Package-name dependency edges ([] when the wire omits them). */
-  /** 包名依赖边（线省略时为 []）。 */
+  /* 包名依赖边（线省略时为 []）。 */
   inject: string[]
   /** Stage-one prefetch tier (false when the wire omits it). */
-  /** 一阶段预取层级（线省略时为 false）。 */
+  /* 一阶段预取层级（线省略时为 false）。 */
   immediately: boolean
 }
 
 /** The parsed boot manifest: one wire, two consumer views. */
-/** 解析后的启动清单：一条线，两个消费视图。 */
+/* 解析后的启动清单：一条线，两个消费视图。 */
 export interface BootManifest {
   /** Consistency anchor over the whole graph. */
-  /** 整张图的一致性锚。 */
+  /* 整张图的一致性锚。 */
   rev: string
   /** Rows as the module table consumes them. */
-  /** 模块表消费的行。 */
+  /* 模块表消费的行。 */
   modules: BootModuleRow[]
   /** Rows as entry composition consumes them. */
-  /** 条目组合消费的行。 */
+  /* 条目组合消费的行。 */
   plugins: BootPluginRow[]
 }
 
@@ -189,7 +189,7 @@ export interface BootManifest {
  * @returns the validated array, or undefined when the field is absent.
  * @throws {Error} when the value is present but is not an array of strings.
  */
-/**
+/*
  * 校验从 dsh.client 声明或启动线读取的可选字符串数组字段。
  * @param subject 命名包或线行的诊断前缀。
  * @param field 诊断中出现的字段名。
@@ -214,7 +214,7 @@ export function optionalStringArray(subject: string, field: string, value: unkno
  * @param spec - module specifier as a bundle requires it or a declaration spells it.
  * @returns the specifier with a trailing `/client` removed.
  */
-/**
+/*
  * 把模块说明符规范到拥有它的图行：插件 bundle 就是其包的客户端半边，
  * 因此 <id>/client（外部 bundle 发射的导出子路径）与裸包名解析到同一
  * 导出。require 路径与图组合都在这里规范化——这使每个导入包可请求其
@@ -233,7 +233,7 @@ export function stripClientSuffix(spec: string): string {
  * @param wire - the raw `window.__DSH_BOOT__` value.
  * @returns the manifest with optional plugin-view fields normalized.
  */
-/**
+/*
  * 把 window.__DSH_BOOT__ 解析为两个消费视图。线上边界：缺失或畸形图会
  * 抛错（shell 展示响亮失败——没有有效清单的页面无法启动任何东西）。
  * @param wire 原始 window.__DSH_BOOT__ 值。
@@ -283,17 +283,17 @@ export function parseBootManifest(wire: unknown): BootManifest {
 }
 
 /** One client bundle's factory registration submitted through `window.__ModuleLoader__.load`. */
-/** 经 window.__ModuleLoader__.load 提交的一个客户端 bundle 工厂注册。 */
+/* 经 window.__ModuleLoader__.load 提交的一个客户端 bundle 工厂注册。 */
 export interface ClientBundleRegistration {
   /** Plugin id (package name) — the registration key; must match the graph row being executed. */
-  /** 插件 id（包名）——注册键；必须匹配正在执行的图行。 */
+  /* 插件 id（包名）——注册键；必须匹配正在执行的图行。 */
   id: string
   /**
    * Closure factory holding the whole bundle body: receives the synchronous
    * require bound to the module table and returns the bundle's exports. Runs
    * once, at materialization.
    */
-  /**
+  /*
    * 持有整个 bundle 体的闭包工厂：接收绑定到模块表的同步 require，返回
    * bundle 的导出。在物化时运行一次。
    */
@@ -301,72 +301,72 @@ export interface ClientBundleRegistration {
 }
 
 /** Inputs passed by the web entry when it creates the client module system. */
-/** web 入口创建客户端模块系统时传入的输入。 */
+/* web 入口创建客户端模块系统时传入的输入。 */
 export interface ClientModuleCreateOptions {
   /** Raw Host-injected boot graph; the modules bundle owns validation and projection. */
-  /** 原始 Host 注入启动图；modules bundle 拥有校验与投影。 */
+  /* 原始 Host 注入启动图；modules bundle 拥有校验与投影。 */
   boot: unknown
   /** Module-table seed: platform-singleton specifier → shell instance. */
-  /** 模块表种子：平台单例说明符 -> shell 实例。 */
+  /* 模块表种子：平台单例说明符 -> shell 实例。 */
   staticModules: Record<string, unknown>
   /** Bundle-load hook. Defaults to a same-origin classic `<script src>` element. */
-  /** bundle 加载钩子。默认是同源经典 <script src> 元素。 */
+  /* bundle 加载钩子。默认是同源经典 <script src> 元素。 */
   loadBundle?: (url: string) => Promise<void>
 }
 
 /** The modules bundle after its factory has been materialized by the HTML bootstrap facade. */
-/** 其工厂已被 HTML bootstrap 门面物化后的 modules bundle。 */
+/* 其工厂已被 HTML bootstrap 门面物化后的 modules bundle。 */
 export interface ClientBootstrapModule {
   /** Graph/module id carried by the modules bundle registration. */
-  /** modules bundle 注册携带的图/模块 id。 */
+  /* modules bundle 注册携带的图/模块 id。 */
   id: string
   /** Materialized exports reused when Cordis later activates the modules entry. */
-  /** 物化导出；Cordis 之后激活 modules 条目时复用。 */
+  /* 物化导出；Cordis 之后激活 modules 条目时复用。 */
   exports: Record<string, unknown>
 }
 
 /** Stable page-global facade: queues early bundle registrations, then registers them live. */
-/** 稳定的页面全局门面：先排队早期 bundle 注册，之后实时注册。 */
+/* 稳定的页面全局门面：先排队早期 bundle 注册，之后实时注册。 */
 export interface ClientModuleLoaderTarget {
   /** Queue before {@link create}; live registration after it returns. */
-  /** create 前为 queue；其返回后为实时注册。 */
+  /* create 前为 queue；其返回后为实时注册。 */
   mode: 'queue' | 'live'
   /** Registrations submitted by parser-preloaded scripts before the module system exists. */
-  /** 模块系统存在前、解析器预载脚本提交的注册。 */
+  /* 模块系统存在前、解析器预载脚本提交的注册。 */
   pendingQueue: ClientBundleRegistration[]
   /** Queue or immediately register one bundle factory according to {@link mode}. */
-  /** 按 mode 排队或立即注册一个 bundle 工厂。 */
+  /* 按 mode 排队或立即注册一个 bundle 工厂。 */
   load(registration: ClientBundleRegistration): void
   /** Create the module system exactly once from the parser-preloaded modules bundle. */
-  /** 从解析器预载的 modules bundle 恰好一次地创建模块系统。 */
+  /* 从解析器预载的 modules bundle 恰好一次地创建模块系统。 */
   create(options: ClientModuleCreateOptions): ClientModuleSystem
 }
 
 /** Window API of the web boot protocol: the host-injected graph and registration facade. */
-/** web 启动协议的 Window API：Host 注入的图与注册门面。 */
+/* web 启动协议的 Window API：Host 注入的图与注册门面。 */
 export interface DshWindow {
   /** Host-composed entry graph, injected before the shell bundle runs; wire-boundary raw until {@link parseBootManifest}. */
-  /** Host 组合条目图，在 shell bundle 运行前注入；parseBootManifest 前保持线上边界原始态。 */
+  /* Host 组合条目图，在 shell bundle 运行前注入；parseBootManifest 前保持线上边界原始态。 */
   __DSH_BOOT__?: unknown
   /** HTML-installed facade: a pending registration queue, then the live module-system target. */
-  /** HTML 安装的门面：先是待处理注册队列，之后是实时模块系统目标。 */
+  /* HTML 安装的门面：先是待处理注册队列，之后是实时模块系统目标。 */
   __ModuleLoader__?: ClientModuleLoaderTarget
 }
 
 /** Per-module bookkeeping in {@link ClientModuleLoader.loadCache} (module-graph boundary, flat today). */
-/** loadCache 中的每模块记账（模块图边界，当前为扁平）。 */
+/* loadCache 中的每模块记账（模块图边界，当前为扁平）。 */
 export interface ClientModuleRecord {
   /** Module id (entry name / package name). */
-  /** 模块 id（条目名 / 包名）。 */
+  /* 模块 id（条目名 / 包名）。 */
   id: string
   /** Materialized exports (`module.exports` from a factory or bootstrap registration). */
-  /** 物化导出（来自工厂或 bootstrap 注册的 module.exports）。 */
+  /* 物化导出（来自工厂或 bootstrap 注册的 module.exports）。 */
   exports: unknown
   /** Owned `<style data-plugin>` tag ids (`data-plugin-css` values) injected during materialization. */
-  /** 物化期间注入的属主 <style data-plugin> 标签 id（data-plugin-css 值）。 */
+  /* 物化期间注入的属主 <style data-plugin> 标签 id（data-plugin-css 值）。 */
   styles: string[]
   /** Observed `require()` edges (module-graph boundary; only table words can appear today). */
-  /** 观察到的 require() 边（模块图边界；当前只可出现表词）。 */
+  /* 观察到的 require() 边（模块图边界；当前只可出现表词）。 */
   edges: Set<string>
 }
 
@@ -375,19 +375,19 @@ export interface ClientModuleRecord {
  * consume. Mounted on `ctx.loader.internal` by the shell boot and provided
  * as `ctx.modules`.
  */
-/**
+/*
  * vendored Loader 与客户端 HMR 插件消费的 internal 契约子集。由 shell 启动
  * 挂在 ctx.loader.internal 上，并以 ctx.modules 提供。
  */
 export interface ClientModuleLoader {
   /** Discriminant against Node's internal loader shapes ('v1'/'v2'). */
-  /** 与 Node 内置 loader 形状区分的判别（'v1'/'v2' 之外）。 */
+  /* 与 Node 内置 loader 形状区分的判别（'v1'/'v2' 之外）。 */
   version: 'client'
   /** Parsed Host boot graph shared with the web entry after module-system creation. */
-  /** 解析后的 Host 启动图；模块系统创建后与 web 入口共享。 */
+  /* 解析后的 Host 启动图；模块系统创建后与 web 入口共享。 */
   manifest: BootManifest
   /** Materialized-module registry: id → record. The governance-side read API for entry exports. */
-  /** 物化模块注册表：id -> 记录。治理侧读条目导出的 API。 */
+  /* 物化模块注册表：id -> 记录。治理侧读条目导出的 API。 */
   loadCache: Map<string, ClientModuleRecord>
   /**
    * Internal contract consumed by the vendored Loader's `tree.import`. Resolves
@@ -398,7 +398,7 @@ export interface ClientModuleLoader {
    * @param attrs - Import attributes (unused; interface parity with Node's loader contract).
    * @returns the module's exports.
    */
-  /**
+  /*
    * vendored Loader 的 tree.import 消费的 internal 契约。按模块文档的分支
    * 顺序解析 specifier，需要时拉取并执行 bundle。
    * @param specifier 模块说明符（条目名或表词）。
@@ -417,7 +417,7 @@ export interface ClientModuleLoader {
    * {@link invalidate} first.
    * @param id - graph entry name.
    */
-  /**
+  /*
    * 一阶段到达：加载条目声明的动态请求、再加载自身脚本以注册其工厂
    * （不物化——模块副作用等 import）。
    * 对已物化的 bootstrap id 是空操作。已注册图行仍会先注册任何未解析的
@@ -432,7 +432,7 @@ export interface ClientModuleLoader {
    * invalidation hook). The bootstrap module remains materialized.
    * @param id - entry name to invalidate.
    */
-  /**
+  /*
    * 非 bootstrap 模块的全量重置：丢弃其已注册工厂与物化记录，使下一次
    * prefetch/import 重新加载它（HMR 失效钩子）。bootstrap 模块保持物化。
    * @param id 要失效的条目名。
@@ -441,21 +441,21 @@ export interface ClientModuleLoader {
 }
 
 /** Internal construction inputs assembled by the modules bundle's bootstrap export. */
-/** modules bundle 的 bootstrap 导出组装的内部构造输入。 */
+/* modules bundle 的 bootstrap 导出组装的内部构造输入。 */
 export interface ClientModuleSystemOptions {
   /** Parsed boot graph owned by the resulting module system. */
-  /** 结果模块系统拥有的解析启动图。 */
+  /* 结果模块系统拥有的解析启动图。 */
   manifest: BootManifest
   /** Module-table seed: platform-singleton specifier → shell instance. */
-  /** 模块表种子：平台单例说明符 -> shell 实例。 */
+  /* 模块表种子：平台单例说明符 -> shell 实例。 */
   staticModules: Record<string, unknown>
   /** Stable HTML-installed registration facade to switch from queue to live mode. */
-  /** 要从 queue 切换到 live 模式的稳定 HTML 安装注册门面。 */
+  /* 要从 queue 切换到 live 模式的稳定 HTML 安装注册门面。 */
   registrationTarget: ClientModuleLoaderTarget
   /** Already-materialized modules bundle consumed while creating the system. */
-  /** 创建系统时消费的已物化 modules bundle。 */
+  /* 创建系统时消费的已物化 modules bundle。 */
   bootstrapModule: ClientBootstrapModule
   /** Bundle-load hook. Defaults to a same-origin classic `<script src>` element. */
-  /** bundle 加载钩子。默认是同源经典 <script src> 元素。 */
+  /* bundle 加载钩子。默认是同源经典 <script src> 元素。 */
   loadBundle?: (url: string) => Promise<void>
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】建立在 Harness 文件系统接缝之上的、面向模型的 str_replace_editor
  * 工具：一个支持 view/create/str_replace/insert 四种命令的"字符串替换编辑器"。
@@ -27,7 +27,7 @@
  * Model-facing `str_replace_editor` over the Harness filesystem seam.
  * @module @deepseek-ai/dsh-tool-str-replace-editor
  */
-/**
+/*
  * 模块总览：本文件是"字符串替换编辑器"工具：一个工具四个命令，全部变更都走
  * ctx.fs 的原子带守卫写，并接入沙箱策略与观察态事件。
  */
@@ -474,7 +474,7 @@ function presentEditorCall(args: {
 }
 
 /** Register the model-facing `str_replace_editor` tool. */
-/** 注册模型侧 str_replace_editor 工具。 */
+/* 注册模型侧 str_replace_editor 工具。 */
 function registerStrReplaceEditor(ctx: Context, config: ResolvedConfig): void {
   const policy = new MutationPolicy(ctx)
   ctx.tools.register(defineTool({
@@ -553,25 +553,25 @@ export const name = 'tool-str-replace-editor'
 export const inject = ['tools', 'fs']
 
 /** Configuration for the string-replacement editor tool. */
-/** 字符串替换编辑器工具配置。 */
+/* 字符串替换编辑器工具配置。 */
 export interface Config {
   /** Maximum returned view characters before clipping (default 16000). */
-  /** 返回视图的最大字符数，超限裁剪（默认 16000）。 */
+  /* 返回视图的最大字符数，超限裁剪（默认 16000）。 */
   maxOutputChars?: number
   /** Model-facing tool description. */
-  /** 模型侧工具描述。 */
+  /* 模型侧工具描述。 */
   description?: string
 }
 
 /** Runtime configuration schema for the string-replacement editor tool. */
-/** 字符串替换编辑器工具的运行时配置 schema。 */
+/* 字符串替换编辑器工具的运行时配置 schema。 */
 export const Config: z<Config> = z.object({
   maxOutputChars: z.number().default(16_000),
   description: z.string().default(DEFAULT_DESCRIPTION),
 })
 
 /** Register one `str_replace_editor` tool over `ctx.fs`. */
-/**
+/*
  * 注册一个基于 ctx.fs 的 str_replace_editor 工具。
  */
 export function apply(ctx: Context, config: Config): void {

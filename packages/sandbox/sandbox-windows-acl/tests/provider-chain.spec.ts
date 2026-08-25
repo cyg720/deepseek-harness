@@ -6,7 +6,7 @@
  * suites are excluded) — the end-to-end runner behavior lives in
  * runner.spec.ts on win32 hosts.
  */
-/**
+/*
  * 文件职责：验证 provider-chain.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。

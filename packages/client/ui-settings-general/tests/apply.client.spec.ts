@@ -1,5 +1,5 @@
 /** Ownerless-copy registrations: the five seats, dictionaries, thunked labels, and HMR recovery. */
-/**
+/*
  * 文件职责：验证通用设置的 apply.client.spec.ts 行为。
  * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
  * 产品维度：防止通用设置的展示、作用域或交互回归。
@@ -25,7 +25,7 @@ import type { SettingsDocumentActionInjected } from '../src/client/SettingsDocum
 // FALLBACK_LOCALE (en); bench stages zh explicitly on the locale instead.
 
 /** The seats this plugin fills for a loopback browser (slot name → expected component). */
-/** 中文说明：测试局部值 SEATS，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 SEATS，由紧邻初始化决定。 */
 const SEATS = [
   ['settings.trigger', TriggerContent],
   ['settings.header', HeaderContent],
@@ -70,7 +70,7 @@ async function bench(isLoopback = true) {
 }
 
 /** Declare the shell's six child slots the way ui-settings' entry does. */
-/** 中文说明：函数 declare 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 declare 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function declare(slots: SlotRegistry): () => void {
   return slots.register(
     {

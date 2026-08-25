@@ -34,7 +34,7 @@ import css from './ChatView.module.css'
 const FOLLOW_THRESHOLD = 24
 
 /** Active column host when present; otherwise the view-local scroller. */
-/** 中文说明：函数 scrollerOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 scrollerOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function scrollerOf(from: HTMLElement): HTMLElement {
   return (from.closest('[data-conversation-scroll]')) ?? from
 }
@@ -48,7 +48,7 @@ interface PagingAnchor {
 }
 
 /** Find an already-rendered settled row without interpolating a selector. */
-/** 中文说明：函数 anchorElement 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 anchorElement 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function anchorElement(list: HTMLElement, key: string): HTMLElement | null {
   /** 中文说明：当前组件的局部值 row，由紧邻初始化决定。 */
   for (const row of list.querySelectorAll<HTMLElement>('[data-chat-anchor-key]')) {
@@ -58,14 +58,14 @@ function anchorElement(list: HTMLElement, key: string): HTMLElement | null {
 }
 
 /** Row position in scrollport coordinates (viewport-independent). */
-/** 中文说明：函数 flowTop 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 flowTop 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function flowTop(row: HTMLElement, scrollport: HTMLElement): number {
   return row.getBoundingClientRect().top - scrollport.getBoundingClientRect().top
 }
 
 /** Select a visible stable node/call identity, falling back only when layout
  * has not exposed a visible box yet. */
-/** 中文说明：函数 pagingAnchor 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 pagingAnchor 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function pagingAnchor(list: HTMLElement, scrollport: HTMLElement): HTMLElement | null {
   /** 中文说明：当前组件的局部值 viewport，由紧邻初始化决定。 */
   const viewport = scrollport.getBoundingClientRect()
@@ -116,7 +116,7 @@ function pagingAnchor(list: HTMLElement, scrollport: HTMLElement): HTMLElement |
 type ChatScrollPosition = NonNullable<ReturnType<ChatViewSlotProps['chatScroll']['read']>>
 
 /** Capture a reflow-resistant reader position from the current rendered window. */
-/** 中文说明：函数 scrollPosition 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 scrollPosition 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function scrollPosition(list: HTMLElement, scrollport: HTMLElement): ChatScrollPosition | null {
   /** 中文说明：当前组件的局部值 row，由紧邻初始化决定。 */
   const row = pagingAnchor(list, scrollport)
@@ -131,7 +131,7 @@ function scrollPosition(list: HTMLElement, scrollport: HTMLElement): ChatScrollP
 }
 
 /** Host/OS refusal text for the file-open dialog; empty throws keep a locale fallback. */
-/** 中文说明：函数 openFailureMessage 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 openFailureMessage 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function openFailureMessage(error: unknown, fallback: string): string {
   /** 中文说明：当前组件的局部值 message，由紧邻初始化决定。 */
   const message = error instanceof Error ? error.message : String(error)
@@ -139,7 +139,7 @@ function openFailureMessage(error: unknown, fallback: string): string {
 }
 
 /** ProducedFiles opens the session workspace as `.`. */
-/** 中文说明：函数 isFolderOpenPath 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 isFolderOpenPath 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function isFolderOpenPath(path: string): boolean {
   return path === '.'
 }
@@ -156,7 +156,7 @@ function runningTurnStartTime(timeline: ConversationTimelineSnapshot): number | 
 }
 
 /** Turn-level model activity label retained across first-token, tool, and streaming phases. */
-/** 中文说明：函数 TurnStatus 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 TurnStatus 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function TurnStatus({ startTime, t }: {
   /** The running turn's logged `turn/start` time; null falls back to mount
    *  time when that boundary is outside the window. */
@@ -202,7 +202,7 @@ function TurnStatus({ startTime, t }: {
  * The chat view slot entry: pure component over the composed props; each
  * ordered business Node crosses the keyed renderer seat.
  */
-/** 中文说明：函数 ChatView 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 ChatView 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function ChatView({
   useSession, useSessions, useStore, renderSlot, sessionId, openFile, loadOlder, loadImage, inspectCall, chatScroll, forkAt,
   fileMentions, t,
@@ -293,11 +293,11 @@ export function ChatView({
   /** 中文说明：当前组件的局部值 [atBottom, setAtBottom]，由紧邻初始化决定。 */
   const [atBottom, setAtBottom] = useState(true)
   /** Last position delivered or written on the main thread. */
-  /** 中文说明：当前组件的局部值 observedTopRef，由紧邻初始化决定。 */
+  /* 中文说明：当前组件的局部值 observedTopRef，由紧邻初始化决定。 */
   const observedTopRef = useRef(0)
   /** Paging anchor: semantic row/position at click, updated by reader scrolls
    * while the request is pending and restored after the prepend lands. */
-  /** 中文说明：当前组件的局部值 anchorRef，由紧邻初始化决定。 */
+  /* 中文说明：当前组件的局部值 anchorRef，由紧邻初始化决定。 */
   const anchorRef = useRef<PagingAnchor | null>(null)
   /** 中文说明：当前组件的局部值 firstSeqRef，由紧邻初始化决定。 */
   const firstSeqRef = useRef<number | null>(null)
@@ -310,7 +310,7 @@ export function ChatView({
   /** Flow tip signature — follow-scroll only when this moves, never on a
    *  scroll-driven at-bottom chrome re-render (which would snap inertial
    *  scrolls the rest of the way to the floor). */
-  /** 中文说明：当前组件的局部值 followSigRef，由紧邻初始化决定。 */
+  /* 中文说明：当前组件的局部值 followSigRef，由紧邻初始化决定。 */
   const followSigRef = useRef<string | null>(null)
 
   /** 中文说明：当前组件的局部值 firstKey，由紧邻初始化决定。 */
@@ -612,7 +612,7 @@ export function ChatView({
 }
 
 /** In-page Host open-path refusal: the wire reason plus a retry of the same path. */
-/** 中文说明：函数 FileOpenErrorDialog 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 FileOpenErrorDialog 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function FileOpenErrorDialog({
   path, message, busy, onClose, onRetry, t,
 }: {

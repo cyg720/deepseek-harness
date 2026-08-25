@@ -1,5 +1,5 @@
 /** Publication payload policy shared by static manifests and packed tarballs. */
-/**
+/*
  * 文件职责：实现 publication-payload.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -13,7 +13,7 @@
  * @param manifest - parsed package manifest to inspect.
  * @returns whether the canonical `./remote` export pair is present.
  */
-/** 中文说明：函数 hasTypertRemoteNavigation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 hasTypertRemoteNavigation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function hasTypertRemoteNavigation(manifest: unknown): boolean {
   if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) return false
   /** 中文说明：变量 exportsField 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -29,7 +29,7 @@ export function hasTypertRemoteNavigation(manifest: unknown): boolean {
 }
 
 /** Normalize a package manifest path or npm tarball member to its payload-relative path. */
-/** 中文说明：函数 payloadPath 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 payloadPath 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function payloadPath(file: string): string {
   /** 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const normalized = file.replaceAll('\\', '/').replace(/^\.\/+/, '').replace(/\/+$/, '')
@@ -44,7 +44,7 @@ function payloadPath(file: string): string {
  * @param file - manifest path or tarball member to classify.
  * @returns whether publishing this path is forbidden.
  */
-/** 中文说明：函数 isForbiddenPublicationFile 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isForbiddenPublicationFile 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isForbiddenPublicationFile(file: string): boolean {
   /** 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const normalized = payloadPath(file)
@@ -59,7 +59,7 @@ export function isForbiddenPublicationFile(file: string): boolean {
  * @param files - tarball members to validate.
  * @param context - tarball identity named in the failure.
  */
-/** 中文说明：函数 validateTarballPayload 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 validateTarballPayload 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function validateTarballPayload(files: readonly string[], context: string): void {
   /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const file of files) {

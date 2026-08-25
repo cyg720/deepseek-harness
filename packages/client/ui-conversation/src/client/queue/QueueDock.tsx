@@ -24,21 +24,21 @@ import { NS } from '../locales.ts'
 import css from './QueueDock.module.css'
 
 /** Queue operations injected by the session-scoped registration. */
-/** 中文说明：类型或类 QueueDockInjected 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 QueueDockInjected 约束本文件的数据或组件职责。 */
 export interface QueueDockInjected {
   updateQueue: (itemId: QueueItemId, action: QueueAction) => Promise<void>
   notify: (level: 'info' | 'error', text: string) => void
 }
 
 /** Full props of a dock entry: InputZone owner share + session standard kit + global seat + the locale seat. */
-/** 中文说明：类型或类 QueueDockProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 QueueDockProps 约束本文件的数据或组件职责。 */
 export type QueueDockProps = PropsRuntime<'conversation.input.dock'> & QueueDockInjected & PropsLocale<'conversation'>
 
 /**
  * Queue strip: one item renders directly; multiple items default to a
  * collapsible count header; an empty queue renders nothing.
  */
-/** 中文说明：函数 QueueDock 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 QueueDock 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps) {
   /** 中文说明：组件局部值 inbox，取值由紧邻初始化决定。 */
   const inbox = useSession(s => s.queue)
@@ -240,7 +240,7 @@ export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps
  * The dock entry as a plain registrant plugin. The conversation service is
  * the action contract; the slot declaration has an independent lifecycle boundary.
  */
-/** 中文说明：组件局部值 queueDockEntry，取值由紧邻初始化决定。 */
+/* 中文说明：组件局部值 queueDockEntry，取值由紧邻初始化决定。 */
 export const queueDockEntry = {
   name: 'conversation-queue-dock',
   inject: ['slots', 'conversation', 'sessions'],

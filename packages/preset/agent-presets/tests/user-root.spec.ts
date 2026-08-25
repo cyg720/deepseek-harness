@@ -9,7 +9,7 @@
  * constructor: the plugin must be mounted while the environment names the
  * temporary home, or it would reach the developer's real one.
  */
-/**
+/*
  * 文件职责：验证 user-root.spec.ts 覆盖的 Agent 预设发现、装载与会话行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和临时配置目录。
  * 产品维度：保障用户选择的 Agent 预设能稳定生效并保持会话一致。
@@ -34,7 +34,7 @@ const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 /** 中文说明：常量 SYSTEM_ROOT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SYSTEM_ROOT = join(FIXTURES, 'system')
 /** Spelled out rather than imported: the convention is what these tests assert. */
-/** 中文说明：常量 USER_ROOT_SEGMENT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 USER_ROOT_SEGMENT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const USER_ROOT_SEGMENT = '.agent-presets'
 /** 中文说明：常量 VALID 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const VALID = '- id: tool-alpha\n  name: ../../plugins/contribute.js\n  config:\n    tool: alpha\n'
@@ -56,7 +56,7 @@ afterEach(() => {
 })
 
 /** Boot a roster over the fixture system root, with the derived root left to the plugin. */
-/** 中文说明：函数 roster 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 roster 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function roster(config: Partial<Config> = {}): Promise<Context> {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -73,7 +73,7 @@ async function roster(config: Partial<Config> = {}): Promise<Context> {
 }
 
 /** Hand-place a preset directory under the harness home's preset root. */
-/** 中文说明：函数 seedHomePreset 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 seedHomePreset 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function seedHomePreset(id: string): Promise<void> {
   await mkdir(join(home, USER_ROOT_SEGMENT, id), { recursive: true })
   await writeFile(join(home, USER_ROOT_SEGMENT, id, COMPOSITION_FILE), VALID)

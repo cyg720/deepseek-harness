@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义持久化"修订号"（SessionPersistenceRevision）这一品牌化类型及其
  *   打品牌工厂函数，为轻量级存储观察提供不透明的变更令牌词汇。
@@ -14,7 +14,7 @@
  * ==========================================================================
  */
 /** Opaque revision identity for lightweight persistence observations. */
-/**
+/*
  * 【中文导读】上面英文说明：本模块给出"轻量持久化观察"用的不透明修订号身份。
  */
 
@@ -24,7 +24,7 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
  * Backend-owned token that identifies both one storage source and one revision
  * of a persisted session log.
  */
-/**
+/*
  * 【中文】由后端拥有的令牌：同时标识"哪个存储源"和"该会话日志的哪一次修订"。
  * 内容不变则令牌不变；任何变化都会产生新令牌。
  */
@@ -35,7 +35,7 @@ export type SessionPersistenceRevision = Branded<'SessionPersistenceRevision'>
  * @param value - backend-owned opaque revision representation.
  * @returns the same runtime string with persistence-revision identity.
  */
-/**
+/*
  * 【中文】把后端自有的修订字符串打上品牌，供中立契约使用。运行时就是同一个
  * 字符串，仅在类型系统里获得身份。
  * @param value - 后端自有的不透明修订表示。

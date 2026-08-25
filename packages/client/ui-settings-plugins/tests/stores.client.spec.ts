@@ -2,7 +2,7 @@
  * The staged card form: what a draft shows before it is written, which wire
  * call a save reaches, and what happens to drafts the Host did not accept.
  */
-/**
+/*
  * 文件职责：验证插件配置的 stores.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止插件配置保存、发现和错误提示回归。
@@ -23,7 +23,7 @@ import { ConfigurablePluginsTabController } from '../src/client/tab-store.ts'
 import { WebSearchCardController, type WebSearchSettings } from '../src/client/web-search-card-controller.ts'
 
 /** Make the stub behave like a Host that accepts every write. */
-/** 中文说明：函数 acceptWrites 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 acceptWrites 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function acceptWrites<T>(host: StubSettingsScope<T>): void {
   /** 中文说明：测试局部值 section，由紧邻初始化决定。 */
   const section = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().value as object })
@@ -657,7 +657,7 @@ describe('ConfigurablePluginsTabController', () => {
   }
 
   /** Slot ledger stand-in: one stored entry per registered card key. */
-  /** 中文说明：函数 ledger 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+  /* 中文说明：函数 ledger 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
   function ledger(...keys: string[]) {
     return keys.map(key => ({ component: null, options: { key } }))
   }

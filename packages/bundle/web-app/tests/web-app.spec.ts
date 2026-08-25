@@ -4,7 +4,7 @@
  * prompt section and bash runtime variables, and readiness publication through
  * the URL line and default-browser handoff.
  */
-/**
+/*
  * 文件职责：验证Web运行时胶水的dist挂载、提示与Shell贡献、LAN信任、URL公告和浏览器子进程处理。
  * 技术维度：使用Vitest模块模拟、假WebServer、系统提示服务、LaunchEnvironment快照和ChildProcess替身。
  * 产品维度：保证Web GUI地址、模型上下文和浏览器交接准确，同时不会因SSH或启动器失败误导用户。
@@ -66,13 +66,13 @@ const originalOpenBrowser = internals.openBrowser
 type BrowserLauncher = ChildProcess & { stderr: PassThrough }
 
 /** Minimal browser-launcher process for the native handoff adapter. */
-/** 构造满足浏览器交接适配器观察字段的最小子进程。 */
+/* 构造满足浏览器交接适配器观察字段的最小子进程。 */
 function launcher(): BrowserLauncher {
   return Object.assign(new EventEmitter(), { stderr: new PassThrough() }) as unknown as BrowserLauncher
 }
 
 /** Stage a dist fixture and point the bundle's resolver at it. */
-/** 创建临时index.html并让Bundle解析钩子指向它。 */
+/* 创建临时index.html并让Bundle解析钩子指向它。 */
 function stageDist(): string {
   dist = mkdtempSync(join(tmpdir(), 'dsh-web-app-'))
   mkdirSync(join(dist, 'dist'))
@@ -83,7 +83,7 @@ function stageDist(): string {
 }
 
 /** A fake webServer capturing the fallback seat and index taps. */
-/** 构造记录fallback席位并提供固定host/port的WebServer替身。 */
+/* 构造记录fallback席位并提供固定host/port的WebServer替身。 */
 function fakeHttpServer(host: '127.0.0.1' | '0.0.0.0' = '127.0.0.1'): { server: WebServer; seat: () => unknown } {
   let fallback: unknown
   const server = {
@@ -99,7 +99,7 @@ function fakeHttpServer(host: '127.0.0.1' | '0.0.0.0' = '127.0.0.1'): { server: 
 }
 
 /** A fake Loader whose settlement the test controls (the URL line waits on it). */
-/** 在上下文提供可控settlement的最小Loader服务。 */
+/* 在上下文提供可控settlement的最小Loader服务。 */
 function provideLoader(ctx: Context, settle: () => Promise<void> = async () => {}): void {
   ctx.provide('loader', { await: settle } as never)
 }

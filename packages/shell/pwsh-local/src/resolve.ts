@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】PowerShell 可执行文件解析：枚举 Windows 上 pwsh 的常见安装位置并按顺序探测，
  * 产出执行器实际 spawn 的 pwsh 路径。刻意保持零依赖，让非包消费者（如仓库 vitest.config.ts
@@ -36,7 +36,7 @@ import { join } from 'node:path'
  * @param env - the environment to probe; defaults to the process environment.
  * @returns candidate `pwsh` executable paths in resolution order.
  */
-/**
+/*
  * 枚举 pwsh 可执行文件的候选路径：Windows 的常见安装位置加上 PATH 条目，新的在前。
  * 显式以 env 为参数，使解析在任何平台上都是输入的纯函数（便于测试与复用）。
  * @param env 待探测的环境变量，缺省用进程环境
@@ -67,7 +67,7 @@ export function candidatePwshPaths(env: NodeJS.ProcessEnv = process.env): string
  * on current releases and as a plain file on older ones, and CreateProcess
  * resolves either shape. A real directory never matches.
  */
-/**
+/*
  * 判断候选路径是否可被 spawn：lstat 直接打开条目本身而不跟随重解析点，因此能"看见"
  * Store 应用的执行别名（stat 会命中目标 ACL 报 EACCES）。Node 当前版本把该别名报为
  * 符号链接、旧版本报为普通文件，CreateProcess 两种形状都能解析；真实目录永远不匹配。
@@ -93,7 +93,7 @@ function candidateExists(candidate: string): boolean {
  *   install, a PATH entry such as the Microsoft Store install, then Windows
  *   PowerShell 5.1), else `pwsh` for PATH resolution.
  */
-/**
+/*
  * 解析本执行器要 spawn 的 pwsh 可执行文件：Windows 上依次探测已知安装位置并返回第一个
  * 存在的（PowerShell 7 安装目录、PATH 条目如 Microsoft Store 安装、再退到 Windows
  * PowerShell 5.1），非 Windows 平台返回裸 `pwsh` 交给 PATH 解析。

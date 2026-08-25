@@ -20,7 +20,7 @@ interface CompactionCommandCardProps extends CommandRowOwnerProps {
 }
 
 /** Render one manual compaction lifecycle without duplicating its checkpoint marker. */
-/**
+/*
  * 渲染一次手动压缩生命周期。
  * @param node 命令行节点。
  * @param compaction 可选压缩检查点节点。

@@ -45,7 +45,7 @@ export interface MessageFixture {
 }
 
 /** Append one deterministic transcript used by target-validation tests. */
-/** 中文说明：函数 appendMessageFixture 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 appendMessageFixture 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function appendMessageFixture(session: Session): Omit<MessageFixture, 'session'> {
   session.append('turn/start', { turn: 1 })
   session.append('step/start', { turn: 1, step: 1 })
@@ -113,7 +113,7 @@ export function appendMessageFixture(session: Session): Omit<MessageFixture, 'se
 }
 
 /** Construct one cold persistence fixture without publishing a live Session. */
-/** 中文说明：函数 messageFixture 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 messageFixture 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function messageFixture(
   rawId: string,
   options: { readonly createdAt?: number; readonly cwd?: string } = {},
@@ -133,7 +133,7 @@ export function messageFixture(
 }
 
 /** Minimal controllable persistence provider for service-level tests. */
-/** 中文说明：类型或类 TestPersistence 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 TestPersistence 约束扩展或反馈数据职责。 */
 class TestPersistence extends SessionPersistence {
   override readonly supportsRawArtifacts = false
 
@@ -215,7 +215,7 @@ export interface TestHarness {
 }
 
 /** Compose the service over the real storage hub/domain/JSON backend. */
-/** 中文说明：函数 setupHarness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 setupHarness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function setupHarness(maxNoteBytes = 64): Promise<TestHarness> {
   /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = await mkdtemp(join(tmpdir(), 'dsh-message-feedback-test-'))

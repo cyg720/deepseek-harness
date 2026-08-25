@@ -8,7 +8,7 @@
  *
  * @module @deepseek-ai/dsh-acp
  */
-/**
+/*
  * 文件职责：把 Harness 代理会话通过标准输入输出上的 ACP JSON-RPC 暴露给可信自动化客户端。
  * 技术维度：使用 Cordis 插件生命周期、Agent Client Protocol SDK、异步结算门和会话事件流桥接代理运行时。
  * 产品维度：支持自动化工具创建独立会话、发送文本或图片、接收已提交输出、取消任务并回答一次性权限请求。
@@ -51,7 +51,7 @@ import { turnEndToStopReason } from './codec.ts'
 // Cordis 插件注册名称。
 export const name = 'acp'
 /** The bridge creates and owns agents; every other concern is carried by the agent composition. */
-/** 桥接层只强制依赖代理工厂，其余能力由创建出的代理组合提供。 */
+/* 桥接层只强制依赖代理工厂，其余能力由创建出的代理组合提供。 */
 export const inject = ['agents']
 
 /**
@@ -64,7 +64,7 @@ interface ContinuableDrain {
    * Close admission below exact host-owned parents, then dispose only their
    * continuable descendants child-first.
    */
-  /**
+  /*
    * 关闭指定父代理下的新准入，并按子节点优先顺序释放可继续子代理。
    * @param parents ACP 桥接层精确拥有的顶层代理。
    * @returns 所有相关后代释放完成后的 Promise。
@@ -74,7 +74,7 @@ interface ContinuableDrain {
 }
 
 /** Preserve invalid-parameter detail in the SDK wire error message. */
-/**
+/*
  * 构造保留安全详情的 ACP 参数错误。
  * @param detail 可返回客户端的参数问题说明。
  * @returns SDK 的 invalid params 错误对象。
@@ -85,7 +85,7 @@ function invalidParams(detail: string): RequestError {
 }
 
 /** Preserve failed-turn detail; plain handler errors become a generic wire internal error. */
-/**
+/*
  * 构造保留安全详情的 ACP 内部错误。
  * @param detail 不含敏感数据的失败说明。
  * @returns SDK 的 internal error 对象。
@@ -96,16 +96,16 @@ function internalError(detail: string): RequestError {
 }
 
 /** Plugin config: the provider/model selection used for each ACP-created agent. */
-/** ACP 插件配置，决定新建代理使用的模型路由和可选测试传输层。 */
+/* ACP 插件配置，决定新建代理使用的模型路由和可选测试传输层。 */
 export interface AcpConfig {
   /** Provider route for created agents. */
-  /** 新建代理使用的提供方路由；省略时交给代理默认配置。 */
+  /* 新建代理使用的提供方路由；省略时交给代理默认配置。 */
   provider?: string
   /** Model name for created agents. */
-  /** 新建代理使用的精确模型名称；省略时交给代理默认配置。 */
+  /* 新建代理使用的精确模型名称；省略时交给代理默认配置。 */
   model?: string
   /** Runtime-only transport override; production uses stdio. */
-  /** 仅运行时使用的传输覆盖，生产环境默认使用标准输入输出。 */
+  /* 仅运行时使用的传输覆盖，生产环境默认使用标准输入输出。 */
   stream?: Stream
 }
 
@@ -116,36 +116,36 @@ export const Config: Schema<AcpConfig> = Schema.object({
 })
 
 /** Per-session protocol state. */
-/** 单个 ACP 会话的代理所有权、输出顺序和当前提示生命周期状态。 */
+/* 单个 ACP 会话的代理所有权、输出顺序和当前提示生命周期状态。 */
 interface SessionRecord {
   /** 由桥接层创建并精确拥有的 Harness 代理。 */
   agent: Agent
   /** Exact owned-agent disposer; resolves after registry, loop, and session teardown. */
-  /** 精确代理释放器，在注册表、循环和会话清理完成后解决。 */
+  /* 精确代理释放器，在注册表、循环和会话清理完成后解决。 */
   dispose: () => Promise<void>
   /** Ordered assistant-output delivery; every task contains its own failure. */
-  /** 串行的助手输出交付链，每个任务自行容纳失败。 */
+  /* 串行的助手输出交付链，每个任务自行容纳失败。 */
   outputTail: Promise<void>
   /** In-flight admission/turn/output lifecycle for exact settlement. */
-  /** 当前唯一提示的准入、轮次、输出和取消状态；空值表示可接收新提示。 */
+  /* 当前唯一提示的准入、轮次、输出和取消状态；空值表示可接收新提示。 */
   inflight: {
     /** 以 ACP 停止原因成功完成提示请求。 */
     resolve: (reason: StopReason) => void
     /** 以协议错误拒绝提示请求。 */
     reject: (error: Error) => void
     /** Set only after rich-content admission succeeds and the message is built. */
-    /** 富内容准入成功并创建用户消息后才设置的消息标识。 */
+    /* 富内容准入成功并创建用户消息后才设置的消息标识。 */
     messageId: string | undefined
     /** Whether this prompt has entered the Agent's durable inbox interval. */
-    /** 提示是否已经进入代理的持久收件箱区间。 */
+    /* 提示是否已经进入代理的持久收件箱区间。 */
     messageQueued: boolean
     /** 收件箱认领后关联到的轮次编号。 */
     turn: number | undefined
     /** The correlated turn's ending, set at turn/end and settled at whole-agent idle. */
-    /** 关联轮次的结束原因，在整个代理空闲后才用于结算。 */
+    /* 关联轮次的结束原因，在整个代理空闲后才用于结算。 */
     endReason: TurnEndReason | undefined
     /** Admission quiescence gate, including any attachment write already in progress. */
-    /** 包含进行中附件写入的准入静止门。 */
+    /* 包含进行中附件写入的准入静止门。 */
     admissionDone: Promise<void>
     /** 标记准入阶段已经结束的解决函数。 */
     finishAdmission: () => void
@@ -156,10 +156,10 @@ interface SessionRecord {
     /** 是否已经启动唯一的异步结算任务。 */
     settlementStarted: boolean
     /** Conversion failure for committed output owned by this prompt's turn. */
-    /** 当前提示轮次的已提交输出转换失败。 */
+    /* 当前提示轮次的已提交输出转换失败。 */
     outputError: Error | undefined
     /** Interval-wide failure outside the correlated turn. */
-    /** 关联轮次之外、但发生在本提示活动区间内的代理失败。 */
+    /* 关联轮次之外、但发生在本提示活动区间内的代理失败。 */
     agentError: Error | undefined
   } | undefined
 }
@@ -169,7 +169,7 @@ interface SessionRecord {
  * @param ctx - Cordis context carrying the agent factory and session events.
  * @param config - Initial provider/model selection and optional test transport.
  */
-/**
+/*
  * 挂载自动化专用 ACP 服务及其会话生命周期监听。
  * @param ctx 提供代理工厂、日志、事件和可选能力服务的 Cordis 上下文。
  * @param config 初始模型路由及可选测试传输配置。
@@ -193,7 +193,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
   let imagePromptEnabled = false
 
   /** Return the bridge-owned record for an agent, rejecting same-id impostors. */
-  /** 根据代理对象身份返回精确拥有记录，同标识的其他对象不会被接受。 */
+  /* 根据代理对象身份返回精确拥有记录，同标识的其他对象不会被接受。 */
   const ownedRecord = (agent: Agent): SessionRecord | undefined => {
     // 使用会话标识初步查找的候选记录。
     const record = sessions.get(agent.session.id)
@@ -214,7 +214,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
   }
 
   /** Send one ordered protocol update while containing transport-only failure. */
-  /** 发送一个有序协议更新，并把仅传输层失败限制为日志警告。 */
+  /* 发送一个有序协议更新，并把仅传输层失败限制为日志警告。 */
   const notify = async (notification: SessionNotification): Promise<void> => {
     try {
       await conn.sessionUpdate(notification)
@@ -237,7 +237,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
    * Settle one exact prompt only after admission, agent activity, and ordered
    * assistant delivery have all reached quiescence.
    */
-  /** 在准入、代理活动和有序输出全部静止后结算精确提示。 */
+  /* 在准入、代理活动和有序输出全部静止后结算精确提示。 */
   const settleAfterQuiescence = (
     record: SessionRecord,
     inflight: NonNullable<SessionRecord['inflight']>,
@@ -651,7 +651,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
  * @param config - ACP provider/model configuration.
  * @returns the configured fields only.
  */
-/**
+/*
  * 从插件配置构造代理选项，并避免写入值为 undefined 的可选字段。
  * @param config ACP 提供方和模型配置。
  * @returns 只包含实际配置字段的代理选项。
@@ -665,7 +665,7 @@ function agentOptions(config: AcpConfig): { provider?: string; model?: string } 
 }
 
 /** Reject session features outside the automation contract. */
-/**
+/*
  * 拒绝自动化协议范围之外的会话特性。
  * @param params 客户端请求的新会话参数。
  * @returns 合法时无返回值；相对路径、额外目录或 MCP 服务会抛出参数错误。

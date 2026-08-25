@@ -1,5 +1,5 @@
 /** Bounded host-side projection of a complete output file retained in E2B. */
-/**
+/*
  * 文件职责：实现E2B 远程沙箱的 output.ts 模块。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
@@ -15,11 +15,11 @@ import type { SubprocessOutputRead, SubprocessOutputReader } from '@deepseek-ai/
 const BASE64_TEXT = /^[A-Za-z0-9+/]+={0,2}$/u
 
 /** Reserved non-base64 frame proving that one remote encoder reached clean EOF. */
-/** 中文说明：运行时局部值 E2B_OUTPUT_COMPLETE_FRAME，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 E2B_OUTPUT_COMPLETE_FRAME，由紧邻初始化决定。 */
 export const E2B_OUTPUT_COMPLETE_FRAME = '!dsh-e2b-output-complete!'
 
 /** Incrementally decode newline-delimited base64 frames emitted by one remote encoder. */
-/** 中文说明：类型或类 E2BBase64Decoder 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 E2BBase64Decoder 约束远程资源或测试数据职责。 */
 export class E2BBase64Decoder {
   private pending = ''
   private complete = false
@@ -77,7 +77,7 @@ export class E2BBase64Decoder {
 }
 
 /** Offset reader used for one collect-mode E2B stream. */
-/** 中文说明：类型或类 E2BOutputReader 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 E2BOutputReader 约束远程资源或测试数据职责。 */
 export class E2BOutputReader implements SubprocessOutputReader {
   private chunks: Buffer[] = []
   private retainedBytes = 0

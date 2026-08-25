@@ -3,7 +3,7 @@
  * manifest round-trips, two-anchor bundle resolution, patch-layer loading,
  * empty-root composition, and the installation module-fallback healing.
  */
-/**
+/*
  * 文件职责：验证Profile目录、初始化、清单往返、Bundle解析、补丁组合和模块回退修复。
  * 技术维度：使用Vitest、临时npm包布局、符号链接和真实清单/补丁文件执行文件系统测试。
  * 产品维度：确保官方与自定义Profile都能稳定解析插件依赖，并保护用户修改不被初始化覆盖。
@@ -33,7 +33,7 @@ import {
 const tmp = (): string => mkdtempSync(join(tmpdir(), 'dsh-profile-'))
 
 /** Stage a fake installed app: package.json with deps and a node_modules holding bundles. */
-/** 构造含package.json、node_modules和可选补丁Bundle的假安装应用。 */
+/* 构造含package.json、node_modules和可选补丁Bundle的假安装应用。 */
 function stageInstallation(bundles: Record<string, { patch?: string; deps?: Record<string, string> }>): string {
   const root = tmp()
   const appDir = join(root, 'app')

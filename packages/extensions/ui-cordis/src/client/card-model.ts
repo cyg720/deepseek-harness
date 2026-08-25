@@ -30,7 +30,7 @@ type Block = ToolCallViewProps['block']
 export type CordisToolState = 'running' | 'ok' | 'error' | 'stopped'
 
 /** Frozen `cordis_define` presentation data. */
-/**
+/*
  * 冻结的 cordis_define 展示数据：解析后的插件/包 ID、名称/用途、两端源码、
  * 输出文本、错误摘要与调用状态（空值表示该字段不可得）。
  */
@@ -47,7 +47,7 @@ export interface CordisDefineCard {
 }
 
 /** Frozen `cordis_run` presentation data. */
-/**
+/*
  * 冻结的 cordis_run 展示数据：解析后的插件/包/运行 ID、模式、日志序列号、
  * 输出、错误摘要与调用状态。
  */
@@ -63,7 +63,7 @@ export interface CordisRunCard {
 }
 
 /** Frozen `cordis_stop` or `cordis_undefine` presentation data. */
-/**
+/*
  * 冻结的 stop/undefine 动作展示数据：插件 ID、输出、错误摘要与调用状态。
  */
 export interface CordisActionCard {
@@ -125,6 +125,8 @@ function metaObject(block: Block): Record<string, unknown> | null {
 /**
  * 从冻结的调用/结果切片推导一张 Define 卡片：优先用展示元数据（meta）中的
  * ID，回退解析 args；进行中的调用输出为 null。
+ * @param block 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function cordisDefineCard(block: Block): CordisDefineCard {
   const settled = 'kind' in block
@@ -156,6 +158,8 @@ export function cordisDefineCard(block: Block): CordisDefineCard {
 /**
  * 从冻结切片推导一张 Run 卡片：ID 优先取 meta、回退 args；seq 仅已结算块有值；
  * mode 只接受 run/update 两个合法值。
+ * @param block 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function cordisRunCard(block: Block): CordisRunCard {
   const settled = 'kind' in block
@@ -186,6 +190,8 @@ export function cordisRunCard(block: Block): CordisRunCard {
  */
 /**
  * 从冻结切片推导一张 Stop/Remove 动作卡片：插件 ID 取 args.pluginId 或 args.id。
+ * @param block 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function cordisActionCard(block: Block): CordisActionCard {
   const settled = 'kind' in block

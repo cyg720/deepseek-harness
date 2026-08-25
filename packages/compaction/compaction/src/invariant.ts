@@ -1,5 +1,5 @@
 /** Package-owned compaction log-stream invariants. @module @deepseek-ai/dsh-compaction/invariant */
-/**
+/*
  * 文件职责：实现上下文压缩的 invariant.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的上下文压缩信息。
@@ -21,10 +21,10 @@ import type {} from './types.ts'
 const PACKAGE_NAME = '@deepseek-ai/dsh-compaction'
 
 /** Cordis companion plugin name. */
-/** 中文说明：上下文局部值 name，由紧邻初始化决定。 */
+/* 中文说明：上下文局部值 name，由紧邻初始化决定。 */
 export const name = 'compaction-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文说明：上下文局部值 inject，由紧邻初始化决定。 */
+/* 中文说明：上下文局部值 inject，由紧邻初始化决定。 */
 export const inject = ['invariants']
 
 /** 中文说明：类型或类 CompactionTrace 约束上下文或压缩数据职责。 */
@@ -50,13 +50,13 @@ type CompactionTransition =
   | { kind: 'end-seed' }
 
 /** Require a durable opaque identity to be a non-empty string. */
-/** 中文说明：函数 validateId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateId(value: unknown, label: string, fail: InvariantFailure): asserts value is string {
   if (typeof value !== 'string' || value.length === 0) fail(`${label} must be a non-empty string`)
 }
 
 /** Keep the optional initiating command identity stable across one transaction. */
-/** 中文说明：函数 validateSourceCommandId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateSourceCommandId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateSourceCommandId(
   eventType: string,
   value: unknown,
@@ -70,7 +70,7 @@ function validateSourceCommandId(
 }
 
 /** Validate one replacement checkpoint against its open compaction transaction. */
-/** 中文说明：函数 validateCheckpoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateCheckpoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateCheckpoint(
   trace: SessionTrace,
   event: SessionEvent<'user/message'>,
@@ -92,7 +92,7 @@ function validateCheckpoint(
 }
 
 /** Compaction starts still unmatched when a later seed boundary made them stale. */
-/** 中文说明：函数 inheritedOrphanStartSeqs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 inheritedOrphanStartSeqs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inheritedOrphanStartSeqs(
   events: readonly SessionEvent[],
 ): ReadonlySet<number> {
@@ -115,7 +115,7 @@ function inheritedOrphanStartSeqs(
 }
 
 /** Keep every live compaction bracket on one side of each turn boundary. */
-/** 中文说明：函数 validateTurnBoundary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateTurnBoundary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateTurnBoundary(
   trace: SessionTrace,
   event: SessionEvent,
@@ -133,7 +133,7 @@ function validateTurnBoundary(
 }
 
 /** Advance the committed turn cursor after its boundary has been accepted. */
-/** 中文说明：函数 applyTurnBoundary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 applyTurnBoundary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function applyTurnBoundary(trace: SessionTrace, event: SessionEvent): boolean {
   if (event.type === 'turn/start') {
     trace.openTurn = event.data.turn
@@ -147,7 +147,7 @@ function applyTurnBoundary(trace: SessionTrace, event: SessionEvent): boolean {
 }
 
 /** Require a numbered bracket inside its exact turn, or a standalone bracket between turns. */
-/** 中文说明：函数 validateOwner 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateOwner 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateOwner(
   owner: number | null,
   openTurn: number | null,
@@ -163,7 +163,7 @@ function validateOwner(
 }
 
 /** Validate one compaction event without advancing committed trace state. */
-/** 中文说明：函数 validateCompactionEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateCompactionEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateCompactionEvent(
   trace: SessionTrace,
   event: SessionEvent,
@@ -249,7 +249,7 @@ function validateCompactionEvent(
 }
 
 /** Apply one committed compaction transition. */
-/** 中文说明：函数 applyCompactionTransition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 applyCompactionTransition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function applyCompactionTransition(
   transition: CompactionTransition,
 ): CompactionTrace | undefined {
@@ -349,6 +349,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文说明：上下文局部值 apply，由紧邻初始化决定。 */
+/* 中文说明：上下文局部值 apply，由紧邻初始化决定。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

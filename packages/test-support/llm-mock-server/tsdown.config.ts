@@ -9,7 +9,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Builds each public entry as a self-contained file admitted by the package whitelist. */
-/**
+/*
  * 生成模拟服务器公开入口配置；输入为两项配置数组，返回 tsdown 默认配置。
  * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-llm-mock-server bundle` 时自动加载。
  */

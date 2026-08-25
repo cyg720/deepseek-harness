@@ -5,7 +5,7 @@
  * parse; this spec pins the parse's own edges (marker-like output, body
  * slicing) once, at the seam that owns it.
  */
-/**
+/*
  * 文件职责：验证 shell 输出末尾退出码、信号和超时标记的共享反解析规则。
  * 技术维度：使用 Vitest 对纯 parseExitStatus 函数进行字符串边界测试。
  * 产品维度：让 Bash 与 PowerShell 工具卡正确展示正文、退出码和终止信号，不误判用户输出。

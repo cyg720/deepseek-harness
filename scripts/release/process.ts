@@ -2,7 +2,7 @@
  * Process helpers shared by the release scripts: the release steps drive `git`,
  * `pnpm`, `npm`, and `tar`, and each needs one of three failure behaviours.
  */
-/**
+/*
  * 文件职责：实现 process.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -16,7 +16,7 @@ import { realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 /** Where and with what environment a release step runs a command. */
-/** 中文说明：interface RunOptions 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface RunOptions 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface RunOptions {
   /** Working directory; defaults to the current one. */
   readonly cwd?: string
@@ -25,7 +25,7 @@ export interface RunOptions {
 }
 
 /** What a command produced, for a caller that decides what a failure means. */
-/** 中文说明：interface CommandResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface CommandResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface CommandResult {
   /** Exit status, or null when a signal ended the process. */
   readonly status: number | null
@@ -42,7 +42,7 @@ export interface CommandResult {
  * @param options - working directory and environment.
  * @returns The exit status and captured streams.
  */
-/** 中文说明：函数 attempt 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 attempt 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function attempt(command: string, args: readonly string[], options: RunOptions = {}): CommandResult {
   /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = spawnSync(command, [...args], { cwd: options.cwd, env: options.env, encoding: 'utf8' })
@@ -69,7 +69,7 @@ export function attempt(command: string, args: readonly string[], options: RunOp
  * @param options - working directory and environment.
  * @returns The exit status and captured streams.
  */
-/** 中文说明：函数 attemptEchoed 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 attemptEchoed 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function attemptEchoed(command: string, args: readonly string[], options: RunOptions = {}): CommandResult {
   /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = spawnSync(command, [...args], {
@@ -93,7 +93,7 @@ export function attemptEchoed(command: string, args: readonly string[], options:
  * @param options - working directory and environment.
  * @returns The trimmed standard output.
  */
-/** 中文说明：函数 capture 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 capture 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function capture(command: string, args: readonly string[], options: RunOptions = {}): string {
   /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = attempt(command, args, options)
@@ -110,7 +110,7 @@ export function capture(command: string, args: readonly string[], options: RunOp
  * @param args - command arguments.
  * @param options - working directory and environment.
  */
-/** 中文说明：函数 run 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 run 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function run(command: string, args: readonly string[], options: RunOptions = {}): void {
   /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = spawnSync(command, [...args], { cwd: options.cwd, env: options.env, stdio: 'inherit' })
@@ -127,7 +127,7 @@ export function run(command: string, args: readonly string[], options: RunOption
  * @param moduleUrl - the caller's `import.meta.url`.
  * @returns True when Node started this module.
  */
-/** 中文说明：函数 isEntry 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isEntry 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isEntry(moduleUrl: string): boolean {
   /** 中文说明：变量 invoked 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const invoked = process.argv[1]

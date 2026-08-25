@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-agent 插件本体：AgentRegistry 服务（ctx.agents）维护在线 agent 注册表，并提供进程内“发起者（initiator）”作用域链；智能体的具体创建由 AgentLoop 工厂实现。
  * 【技术维度】Cordis Service + AsyncLocalStorage 传播发起者；事件带作用域载体（Scoped<Agent>）分发；factory 经 getTraceable 重定向到调用者上下文，使所有权跟随调用者。

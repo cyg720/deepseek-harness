@@ -3,7 +3,7 @@
  * The node half registers this prefix on the web server; both halves share the
  * event paths below for the browser WebSocket downlinks.
  */
-/**
+/*
  * 文件职责：集中定义 Web 传输两端共同使用的 API 与 WebSocket 路径。
  * 技术维度：使用 TypeScript 字符串常量和模板字符串派生子路径。
  * 产品维度：浏览器请求与主机路由使用同一地址，避免连接端点漂移。
@@ -13,13 +13,13 @@
  */
 
 /** Route prefix owning every api request (`/api` and `/api/<anything>`). */
-/** 所有 API 请求的固定根前缀；覆盖 `/api` 本身及其全部子路径。 */
+/* 所有 API 请求的固定根前缀；覆盖 `/api` 本身及其全部子路径。 */
 export const API_PATH = '/api'
 
 /** Browser mux-frame WebSocket pathname. */
-/** 浏览器复用帧 WebSocket 路径；由 API_PATH 派生，不应手写重复前缀。 */
+/* 浏览器复用帧 WebSocket 路径；由 API_PATH 派生，不应手写重复前缀。 */
 export const MUX_EVENTS_PATH = `${API_PATH}/events.mux`
 
 /** Browser host-frame WebSocket pathname. */
-/** 浏览器主机帧 WebSocket 路径；由 API_PATH 派生，与复用帧通道分离。 */
+/* 浏览器主机帧 WebSocket 路径；由 API_PATH 派生，与复用帧通道分离。 */
 export const HOST_EVENTS_PATH = `${API_PATH}/events.host`

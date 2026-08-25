@@ -37,7 +37,7 @@ const PROMPT = 'Reply with the single word LIGHTHOUSE and stop.'
 const MODE = webSnapshotMode()
 
 /** Last AppFrame grid track in CSS pixels. */
-/** 返回 AppFrame 最后一列详情轨道的 CSS 像素宽度。 */
+/* 返回 AppFrame 最后一列详情轨道的 CSS 像素宽度。 */
 async function detailsTrack(page: Page): Promise<number> {
   return await appFrame(page).evaluate((element) => {
     /** AppFrame 解析后的网格列宽列表。 */
@@ -47,7 +47,7 @@ async function detailsTrack(page: Page): Promise<number> {
 }
 
 /** First AppFrame grid track in CSS pixels. */
-/** 返回 AppFrame 第一列侧栏轨道的 CSS 像素宽度。 */
+/* 返回 AppFrame 第一列侧栏轨道的 CSS 像素宽度。 */
 async function sidebarTrack(page: Page): Promise<number> {
   return await appFrame(page).evaluate((element) => {
     /** AppFrame 解析后的网格列宽列表。 */
@@ -57,13 +57,13 @@ async function sidebarTrack(page: Page): Promise<number> {
 }
 
 /** AppFrame is the only product element with an inline grid track template. */
-/** 返回唯一带内联网格列模板的 AppFrame 定位器。 */
+/* 返回唯一带内联网格列模板的 AppFrame 定位器。 */
 function appFrame(page: Page) {
   return page.locator('[style*="grid-template-columns"]').first()
 }
 
 /** Render the two column-resize handles without platform-dependent coordinates. */
-/** 渲染不含平台坐标的两列尺寸把手 Markdown 快照。 */
+/* 渲染不含平台坐标的两列尺寸把手 Markdown 快照。 */
 async function handleSnapshot(page: Page): Promise<string> {
   /** 每个把手的侧别、光标和伪元素存在性。 */
   const handles = await page.locator('[class*="handle"]').evaluateAll(elements =>

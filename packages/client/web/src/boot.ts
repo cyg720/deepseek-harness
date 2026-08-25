@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】web 启动内核：只拥有模块系统、Cordis loader 与一个无框架
  *   启动页；动态 UI 渲染器在所有客户端条目激活后收到挂载点。
@@ -21,7 +21,7 @@
  * point after every client entry activates.
  * @module @deepseek-ai/dsh-client-web/src/boot
  */
-/**
+/*
  * web 启动内核。它只拥有模块系统、Cordis loader 与一个无框架启动页。
  * 动态 UI 渲染器在所有客户端条目激活后收到挂载点。
  * @module @deepseek-ai/dsh-client-web/src/boot
@@ -38,11 +38,11 @@ import { STATE_LABELS } from './loader-status.ts'
 import './base.css'
 
 /** Module transport hook replaced by jsdom tests. */
-/** 模块传输钩子（jsdom 测试可替换）。 */
+/* 模块传输钩子（jsdom 测试可替换）。 */
 export type BootSeams = Pick<ClientModuleCreateOptions, 'loadBundle'>
 
 /** Browser boot entry consumed by `apps/web`. */
-/** 由 apps/web 消费的浏览器启动入口。 */
+/* 由 apps/web 消费的浏览器启动入口。 */
 export class AppWebEntry {
   private readonly container: HTMLElement // 应用挂载点
   private readonly seams: BootSeams | undefined // 测试可替换的传输缝
@@ -56,7 +56,7 @@ export class AppWebEntry {
    * @param container - Application mount point.
    * @param seams - Optional module transport replacement.
    */
-  /**
+  /*
    * 绘制启动页；run 启动 loader。
    * @param container 应用挂载点。
    * @param seams 可选的模块传输替换。
@@ -72,7 +72,7 @@ export class AppWebEntry {
    * UI renderer. Plugin failures remain visible on the boot page.
    * @returns Resolves after application mount or failure rendering.
    */
-  /**
+  /*
    * 加载并激活每个客户端条目，然后把挂载点交给 UI 渲染器。插件失败保持
    * 在启动页可见。
    * @returns 应用挂载或失败渲染后解析。
@@ -115,7 +115,7 @@ export class AppWebEntry {
   }
 
   /** Dispose the client plugin tree and whichever page owns the mount point. */
-  /** 拆除客户端插件树与拥有挂载点的页面。 */
+  /* 拆除客户端插件树与拥有挂载点的页面。 */
   async dispose(): Promise<void> {
     const ctx = this.ctx
     this.ctx = undefined
@@ -124,7 +124,7 @@ export class AppWebEntry {
   }
 
   /** Mount through a dependency fiber so replacing uiRenderer remounts the application. */
-  /** 经依赖 fiber 挂载，使替换 uiRenderer 会重挂应用。 */
+  /* 经依赖 fiber 挂载，使替换 uiRenderer 会重挂应用。 */
   private async mountApp(ctx: Context): Promise<void> {
     const mounted = ctx.inject(['uiRenderer'], (scope) => {
       scope.effect(() => scope.uiRenderer.mount(this.container), 'web boot: application mount')
@@ -133,7 +133,7 @@ export class AppWebEntry {
   }
 
   /** Prefetch stage-one bundles; their import path owns any eventual failure. */
-  /** 预取一阶段 bundle；其导入路径承担任何最终失败。 */
+  /* 预取一阶段 bundle；其导入路径承担任何最终失败。 */
   private async prefetchImmediateTier(): Promise<void> {
     // A transport carrying loadBundle owns the bundle bytes; HTTP prefetch
     // against its static deployment answers nothing. A transport without
@@ -153,7 +153,7 @@ export class AppWebEntry {
   }
 
   /** Mount the Loader, create all graph entries, await quiescence, and audit activation. */
-  /** 挂载 Loader、创建全部图条目、等待静默并审计激活。 */
+  /* 挂载 Loader、创建全部图条目、等待静默并审计激活。 */
   private async runPluginBoot(ctx: Context, prefetching: Promise<void>): Promise<void> {
     await ctx.plugin(Loader)
     const loader = ctx.loader
@@ -179,7 +179,7 @@ export class AppWebEntry {
   }
 
   /** Reject entries that failed import/apply or still wait on missing services. */
-  /** 拒绝导入/apply 失败或仍在等待缺失服务的条目。 */
+  /* 拒绝导入/apply 失败或仍在等待缺失服务的条目。 */
   private assertEntriesActive(ctx: Context): void {
     const failures: string[] = []
     for (const entry of ctx.loader.entries()) {

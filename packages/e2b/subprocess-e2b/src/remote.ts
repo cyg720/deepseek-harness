@@ -3,7 +3,7 @@
  * shaping, poll ticks, and the one tolerant process-group signal used by both
  * the ordinary-process and terminal teardown ladders.
  */
-/**
+/*
  * 文件职责：实现E2B 远程沙箱的 remote.ts 模块。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
@@ -20,7 +20,11 @@ import type { Sandbox } from '@deepseek-ai/dsh-e2b'
  * @param error - Any thrown or rejected value.
  * @returns The value itself when already an Error, else a stringified wrapper.
  */
-/** 中文说明：函数 asError 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 asError 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param error 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }
@@ -30,7 +34,11 @@ export function asError(error: unknown): Error {
  * @param signal - Optional cancellation for one SDK request.
  * @returns An options fragment that omits an undefined signal.
  */
-/** 中文说明：函数 signalOpts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 signalOpts 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function signalOpts(signal: AbortSignal | undefined): { signal?: AbortSignal } {
   return signal === undefined ? {} : { signal }
 }
@@ -41,7 +49,12 @@ export function signalOpts(signal: AbortSignal | undefined): { signal?: AbortSig
  * @param signal - Optional cancellation for the SDK request.
  * @returns Options for `sandbox.commands.run` control invocations.
  */
-/** 中文说明：函数 commandOpts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 commandOpts 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param envs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function commandOpts(
   envs: Record<string, string>,
   signal?: AbortSignal,
@@ -54,7 +67,10 @@ export function commandOpts(
  * @param ms - Milliseconds to wait.
  * @returns Settles after the timeout.
  */
-/** 中文说明：函数 delay 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 delay 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param ms 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -65,7 +81,12 @@ export function delay(ms: number): Promise<void> {
  * @param signal - Optional abort that ends the wait early.
  * @returns `true` after a full tick, `false` when aborted first.
  */
-/** 中文说明：函数 waitTick 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 waitTick 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param pollMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function waitTick(pollMs: number, signal?: AbortSignal): Promise<boolean> {
   if (signal?.aborted === true) return Promise.resolve(false)
   return new Promise<boolean>((resolve) => {
@@ -93,7 +114,13 @@ export function waitTick(pollMs: number, signal?: AbortSignal): Promise<boolean>
  * @param groups - Positive process-group ids to signal.
  * @param signal - `TERM` or `KILL`.
  */
-/** 中文说明：函数 signalRemoteGroups 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 signalRemoteGroups 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param sandbox 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param envs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param groups 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export async function signalRemoteGroups(
   sandbox: Sandbox,
   envs: Record<string, string>,

@@ -8,7 +8,7 @@
  * teardown cancel force-fails only the record and reports a possible orphan.
  * @module @deepseek-ai/dsh-jobs-local
  */
-/**
+/*
  * 文件职责：实现后台任务的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证后台任务在授权、等待、失败和清理场景中可靠。
@@ -30,15 +30,15 @@ import type {
 } from '@deepseek-ai/dsh-jobs'
 
 /** Timeout code that distinguishes a bounded wait from caller cancellation. */
-/** 中文说明：服务局部值 TASK_WAIT_TIMEOUT，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 TASK_WAIT_TIMEOUT，由紧邻初始化决定。 */
 export const TASK_WAIT_TIMEOUT = 'TASK_WAIT_TIMEOUT'
 
 /** Default maximum number of active jobs in one exact-owner bucket. */
-/** 中文说明：服务局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 解构结果，由紧邻初始化决定。 */
 const DEFAULT_MAX_CONCURRENT_TASKS_PER_OWNER = 10
 
 /** Configuration for the process-local job registry. */
-/** 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
 export interface Config {
   /**
    * Maximum `running` plus `stopping` jobs per exact owner or in the shared unowned bucket;
@@ -48,7 +48,7 @@ export interface Config {
 }
 
 /** The registry's mutable per-job record (never handed out — see {@link LocalJobRegistry.snapshot}). */
-/** 中文说明：类型或类 TrackedTask 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 TrackedTask 约束宿主、交互或任务数据职责。 */
 interface TrackedTask {
   id: JobId
   kind: JobKind
@@ -75,7 +75,7 @@ interface TrackedTask {
 }
 
 /** True for the three terminal {@link JobStatus} values. */
-/** 中文说明：函数 isTerminal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 isTerminal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isTerminal(status: JobStatus): boolean {
   return status === 'completed' || status === 'killed' || status === 'failed'
 }
@@ -86,7 +86,7 @@ function isTerminal(status: JobStatus): boolean {
  * contribution is identified by its own disposer, never by a name a second
  * registrant could shadow.
  */
-/** 中文说明：类型或类 JobLayer 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 JobLayer 约束宿主、交互或任务数据职责。 */
 class JobLayer implements ScopeLayer {
   readonly controllers = new AnonymousEntries<symbol>()
   readonly listeners = new AnonymousEntries<JobDoneListener>()
@@ -102,7 +102,7 @@ class JobLayer implements ScopeLayer {
  * `@deepseek-ai/dsh-jobs` for the ownership, isolation, and lifecycle
  * semantics this implementation honors.
  */
-/** 中文说明：类型或类 LocalJobRegistry 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 LocalJobRegistry 约束宿主、交互或任务数据职责。 */
 export class LocalJobRegistry extends JobRegistry {
   static Config: z<Config> = z.object({
     maxConcurrentJobsPerOwner: z.number()

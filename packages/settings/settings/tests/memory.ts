@@ -4,7 +4,7 @@
  * provider. Kept in `tests/` because production providers live in their own
  * packages.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：提供 SettingsProvider 的最小内存实现，供基类行为测试控制存储、写权限和延迟。
  * - 技术维度：使用 TypeScript 继承、受保护钩子、structuredClone 和可配置异步等待。
@@ -17,20 +17,20 @@
 import { SettingsProvider, type SettingsNamespace } from '../src/index.ts'
 
 /** In-memory provider exposing the protected provider hooks to tests. */
-/** 中文：面向测试的内存设置提供者，用于模拟加载、保存、只读状态、延迟和外部更新。 */
+/* 中文：面向测试的内存设置提供者，用于模拟加载、保存、只读状态、延迟和外部更新。 */
 export class MemorySettings extends SettingsProvider {
   /** Raw document the provider "storage" currently holds. */
-  /** 中文：当前内存存储的原始设置文档；键为命名空间。 */
+  /* 中文：当前内存存储的原始设置文档；键为命名空间。 */
   doc: Record<string, unknown>
   /** Every persist() call observed, in order. */
-  /** 中文：按发生顺序记录的所有持久化调用，初始为空。 */
+  /* 中文：按发生顺序记录的所有持久化调用，初始为空。 */
   persisted: Array<{ ns: SettingsNamespace; section: Record<string, unknown> }> = []
   /** When false, update() must reject before reaching persist(). */
-  /** 中文：写权限开关；false 时基类应在调用 persist 前拒绝更新。 */
+  /* 中文：写权限开关；false 时基类应在调用 persist 前拒绝更新。 */
   writableFlag: boolean
 
   /** Artificial persist latency so tests can interleave concurrent updates. */
-  /** 中文：人为持久化延迟毫秒数；0 表示不等待，正数用于编排并发。 */
+  /* 中文：人为持久化延迟毫秒数；0 表示不等待，正数用于编排并发。 */
   persistDelayMs: number
 
   /** 中文：创建内存提供者；ctx 是 Cordis 上下文，options 可给初始文档、可写性和延迟。示例：new MemorySettings(ctx, { writable: false })。 */
@@ -66,7 +66,7 @@ export class MemorySettings extends SettingsProvider {
   }
 
   /** Simulate an external storage change reaching the provider. */
-  /** 中文：用 doc 替换内存文档并发布副本；无返回值。示例：settings.pushExternal({ ui: {} })。 */
+  /* 中文：用 doc 替换内存文档并发布副本；无返回值。示例：settings.pushExternal({ ui: {} })。 */
   pushExternal(doc: Record<string, unknown>): void {
     this.doc = structuredClone(doc)
     this.publish(structuredClone(doc))

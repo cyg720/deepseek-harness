@@ -8,7 +8,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-jsonrpc-server
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -32,7 +32,7 @@ export const name = 'sdk-jsonrpc-server'
 export const inject = ['agents']
 
 /** JSON-RPC deployment config plus runtime-only test hooks. */
-/** 中文说明：interface JsonRpcConfig 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface JsonRpcConfig 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface JsonRpcConfig {
   /** Report max-token turn/subagent termination as a successful SDK result. */
   maxTokensAsSuccess?: boolean
@@ -55,7 +55,7 @@ export const Config: Schema<JsonRpcConfig> = Schema.object({
  * before the root runtime is disposed and the process exits 0; the app bin
  * owns root-context disposal for EOF and signals.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: JsonRpcConfig): void {
   // Cordis applies the schema default before invoking the plugin.
   /** 中文说明：变量 resolvedConfig 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

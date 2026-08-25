@@ -30,7 +30,7 @@ const testToolSignal = new AbortController().signal
  */
 
 /** Boot the core spine + the guard; the caller registers adapters and extra listeners. */
-/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(config: Config = {}): Promise<Context> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -48,7 +48,7 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
 }
 
 /** Every injected-context user message in the agent's log, flattened to joined text + source for terse assertions. */
-/** 中文说明：函数 reminders 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 reminders 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function reminders(agent: Agent): { text: string; source: unknown }[] {
   return [...agent.session.events]
     .filter((e): e is SessionEvent<'user/message'> => e.type === 'user/message' && e.data.source.kind !== 'user')

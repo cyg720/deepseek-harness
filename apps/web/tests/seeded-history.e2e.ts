@@ -73,7 +73,7 @@ const PROMPT = 'Use the read tool twice in one assistant message: read a.txt and
  * it verbatim.
  * @returns the fixture with a manual compaction lifecycle appended.
  */
-/** 中文说明：raw 是已实现占位符的日志，meter 计算精确影子价格，返回追加手动压缩后的 fixture。 */
+/* 中文说明：raw 是已实现占位符的日志，meter 计算精确影子价格，返回追加手动压缩后的 fixture。 */
 function withCompaction(raw: string, meter: TokenMeter): string {
   const decoded = parseSeedFixture(raw)
   const events = decoded.events as unknown as Array<{

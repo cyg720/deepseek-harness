@@ -53,7 +53,7 @@ import { candidateScopeKey, renderInstructionChanges, renderWorkspaceInstruction
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
 /** Per-candidate reconciliation scope key: directory paired with the file name. */
-/** 中文说明：测试局部值 sk，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 sk，由紧邻初始化决定。 */
 const sk = (directory: string, candidateName: string): string => candidateScopeKey(directory, candidateName)
 
 /** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */

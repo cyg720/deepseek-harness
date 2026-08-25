@@ -5,7 +5,7 @@
  * environment rules, matcher mode, and typed extension-point mappings.
  * @module @deepseek-ai/dsh-hook-protocol
  */
-/**
+/*
  * 文件职责：集中导出 hook 协议的公共类型、匹配、执行、解码、合并、事件和后台任务工具。
  * 技术维度：采用 TypeScript ESM 重导出，把各子模块的实现汇聚为稳定的包入口。
  * 产品维度：让 Claude Code、Codex 等桥接插件复用一致的 hook 行为，同时保留各自的载荷差异。

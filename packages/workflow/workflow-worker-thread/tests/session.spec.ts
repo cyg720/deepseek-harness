@@ -15,13 +15,13 @@ import { requireParentPort, runWorkerSession } from '../src/session.ts'
 import type { ChildResult, WorkerInit } from '../src/types.ts'
 
 /** Default limits for in-process sessions (concurrency pinned; auto is machine-derived). */
-/** 中文说明：函数 limits 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 limits 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function limits(overrides?: Partial<WorkerInit['limits']>): WorkerInit['limits'] {
   return { maxConcurrentAgents: 8, maxTotalAgents: 1000, maxItemsPerCall: 4096, syncTimeoutMs: 5000, ...overrides }
 }
 
 /** Wrap a body in the minimal valid meta header (the session receives it pre-extracted). */
-/** 中文说明：函数 init 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 init 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function init(body: string, args?: unknown, limitOverrides?: Partial<WorkerInit['limits']>): WorkerInit {
   return {
     meta: { name: 'test-flow', description: 'a test workflow' },
@@ -32,7 +32,7 @@ function init(body: string, args?: unknown, limitOverrides?: Partial<WorkerInit[
 }
 
 /** One scripted host over the other end of a MessageChannel. */
-/** 中文说明：interface FakeHost 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface FakeHost 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface FakeHost {
   port: MessagePort
   messages: WorkerToHostMessage[]
@@ -63,7 +63,7 @@ interface FakeHostOptions {
  * protocol discipline (one started/start-error per start; settled/disposed
  * follow).
  */
-/** 中文说明：函数 fakeHost 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeHost 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeHost(options?: FakeHostOptions): FakeHost {
   /** 中文说明：变量 channel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const channel = new MessageChannel()
@@ -123,7 +123,7 @@ function fakeHost(options?: FakeHostOptions): FakeHost {
 }
 
 /** A completed text child result. */
-/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(reply: string): ChildResult {
   return { output: [{ type: 'text', text: reply }], stopReason: 'completed' }
 }

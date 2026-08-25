@@ -5,7 +5,7 @@
  * contract (double install / not installed / non-root key), store instance
  * resolution and lifecycle on the ledger axis, and the entry-unload cascade.
  */
-/**
+/*
  * 文件职责：验证客户端会话运行时的 slots-service 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -37,7 +37,7 @@ const C: FC<object> = () => null
  * face rides wave-1 ui-slots types (red until that wave lands); the runtime
  * semantics under test are final.
  */
-/** 中文说明：类型 ErasedService 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 ErasedService 约束本文件数据字段及允许取值。 */
 interface ErasedService {
   /** 中文说明：成员 register 保存可编排测试状态，取值由声明类型限定。 */
   register(options: object, component: unknown): () => void
@@ -74,7 +74,7 @@ async function boot(): Promise<Bench> {
 }
 
 /** Engine-shaped instance stub (bare-source form: subscribe/getSnapshot + baked actions + clearPersisted). */
-/** 中文说明：类型 FakeInstance 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 FakeInstance 约束本文件数据字段及允许取值。 */
 interface FakeInstance {
   /** 中文说明：成员 getSnapshot 保存可编排测试状态，取值由声明类型限定。 */
   getSnapshot: () => undefined
@@ -87,7 +87,7 @@ interface FakeInstance {
 }
 
 /** Fake store handle factory (create-count and clearPersisted observable). */
-/** 中文说明：函数 fakeHandle 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fakeHandle 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fakeHandle() {
   /** 中文说明：测试场景的局部值 created，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const created: FakeInstance[] = []
@@ -111,7 +111,7 @@ function fakeHandle() {
  * same call — 'root' is single, so the one occupant is also the declarer),
  * and pull the host face out through renderSlot('root').
  */
-/** 中文说明：函数 captureHost 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 captureHost 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function captureHost(bench: Bench, children?: object): SlotRendererHost {
   /** 中文说明：测试场景的局部值 解构结果，取值由紧邻初始化决定，仅在当前作用域使用。 */
   let host: SlotRendererHost | undefined
@@ -127,7 +127,7 @@ function captureHost(bench: Bench, children?: object): SlotRendererHost {
 }
 
 /** Minimal independent Workspace list source for the renderer host contract. */
-/** 中文说明：函数 fakeWorkspaces 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fakeWorkspaces 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fakeWorkspaces() {
   /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const state = { items: [], phase: 'ready' as const }
@@ -135,7 +135,7 @@ function fakeWorkspaces() {
 }
 
 /** Minimal sessions face for the host contract (list observable + current provide projection). */
-/** 中文说明：函数 fakeSessions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fakeSessions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fakeSessions() {
   /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const state = { ids: [], byId: {}, current: undefined as string | undefined }
@@ -620,7 +620,7 @@ describe('host face', () => {
 
 describe('store instance axis', () => {
   /** Boot with 'root' occupied and the three test children declared. */
-  /** 中文说明：函数 storeBench 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+  /* 中文说明：函数 storeBench 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   async function storeBench() {
     /** 中文说明：测试场景的局部值 bench，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const bench = await boot()

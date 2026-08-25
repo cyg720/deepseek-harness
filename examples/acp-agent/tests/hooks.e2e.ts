@@ -25,9 +25,9 @@ import { cleanupAcpExampleTest } from './cleanup.ts'
  * model is asked to write there, and absence of the file proves interception.
  * The test owns and disposes the ACP subprocess.
  */
-/** 中文说明：进程级 hooks.json 拒绝所有 PreToolUse，真实模型尝试写文件后以文件缺失证明拦截。 */
+/* 中文说明：进程级 hooks.json 拒绝所有 PreToolUse，真实模型尝试写文件后以文件缺失证明拦截。 */
 
-/** ACP 示例的入口、组合配置和 TypeScript 路径。 */
+/* ACP 示例的入口、组合配置和 TypeScript 路径。 */
 const AGENT: AgentUnderTest = {
   binScript: fileURLToPath(new URL('../../../packages/examples/acp-demo/src/bin.ts', import.meta.url)),
   configPath: fileURLToPath(new URL('../cordis.yml', import.meta.url)),

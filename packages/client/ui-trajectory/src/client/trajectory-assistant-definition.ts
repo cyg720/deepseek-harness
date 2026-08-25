@@ -301,7 +301,7 @@ function assistantRequest(
 }
 
 /** Trajectory-owned Assistant streaming, settlement, and request lifecycle. */
-/** 轨迹拥有的 assistant 流式 / 定格 / 请求生命周期状态机。 */
+/* 轨迹拥有的 assistant 流式 / 定格 / 请求生命周期状态机。 */
 const trajectoryAssistantDefinition: ConversationNodeDefinition<AssistantState> = {
   kind: 'trajectory-assistant-step',
   target: 'trajectory',

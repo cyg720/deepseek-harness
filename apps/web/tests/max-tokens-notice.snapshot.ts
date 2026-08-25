@@ -30,7 +30,7 @@ const EXPECTED = join(process.cwd(), 'apps/web/tests/snapshots/max-tokens-notice
 installAssembledBootEnv()
 
 /** Normalize the notice row to stable fields: its dot state, title, and hint. */
-/** 将 row 归一化为圆点状态、标题和提示，返回快照文本。示例：noticeShape(statusRow)。 */
+/* 将 row 归一化为圆点状态、标题和提示，返回快照文本。示例：noticeShape(statusRow)。 */
 function noticeShape(row: Element): string {
   /** 按 CSS 模块类名查找首个元素文本；缺失时返回稳定占位符。 */
   const first = (name: string): string =>

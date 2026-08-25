@@ -1,5 +1,5 @@
 /** Wire-form admission of base64-encoded image uploads. @module @deepseek-ai/dsh-attachment/admission */
-/**
+/*
  * 文件职责：接纳线协议中的 Base64 图片批次，规范解码后交给附件存储执行统一策略。
  * 技术维度：使用 Node Buffer 严格往返校验规范 Base64，并通过 AttachmentStore 批量保存。
  * 产品维度：拒绝歧义或损坏上传，确保浏览器图片以稳定顺序持久化并返回引用。
@@ -14,7 +14,7 @@ import type { AttachmentStore } from './index.ts'
 import type { EncodedImageAttachment, ImageAttachmentRef, SaveImageAttachment } from './types.ts'
 
 /** Decode one upload payload while rejecting non-canonical base64 forms. */
-/** 解码单条上传。@param data Base64 文本。@returns 字节数组。@throws AttachmentError 非规范或空输入。@example decodeBase64('aGk=')。 */
+/* 解码单条上传。@param data Base64 文本。@returns 字节数组。@throws AttachmentError 非规范或空输入。@example decodeBase64('aGk=')。 */
 function decodeBase64(data: string): Uint8Array {
   // Node 宽松解码出的字节；随后必须重新编码比较以排除非规范形式。
   const decoded = Buffer.from(data, 'base64')
@@ -25,7 +25,7 @@ function decodeBase64(data: string): Uint8Array {
 }
 
 /** Store input for one decoded upload. */
-/** 构造存储输入。@param image 线协议编码图片。@returns 已解码 SaveImageAttachment。@example saveInput(image)。 */
+/* 构造存储输入。@param image 线协议编码图片。@returns 已解码 SaveImageAttachment。@example saveInput(image)。 */
 function saveInput(image: EncodedImageAttachment): SaveImageAttachment {
   return {
     data: decodeBase64(image.data),
@@ -44,7 +44,12 @@ function saveInput(image: EncodedImageAttachment): SaveImageAttachment {
  * @returns durable references in the same order as `images`.
  * @throws AttachmentError on a non-canonical payload or a refused batch.
  */
-/** 接纳图片批次。@param attachments 附件存储。@param images 按调用方顺序的编码图片。@returns 同序持久引用。@example await admitEncodedImages(store, images)。 */
+/*
+ * 接纳图片批次。@param attachments 附件存储。@param images 按调用方顺序的编码图片。@returns 同序持久引用。@example await admitEncodedImages(store, images)。
+ * @param attachments 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param images 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function admitEncodedImages(
   attachments: AttachmentStore,
   images: readonly EncodedImageAttachment[],

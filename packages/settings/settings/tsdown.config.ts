@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and optional invariant companion as independent bundles. */
-/**
+/*
  * 文件职责：配置用户设置能力主入口和可选不变量伴生入口的构建。
  * 技术维度：使用 tsdown 将两个 tsc 中间入口独立输出为 Node.js ESM。
  * 产品维度：让应用读取和更新用户设置，并可按需检查设置服务装配关系。

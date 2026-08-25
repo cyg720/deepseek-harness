@@ -12,7 +12,7 @@ import { SettingsProvider, settingsNamespace, type SettingsNamespace } from '@de
 import { apply } from '../src/index.ts'
 
 /** Mirrors the module-local namespace id in src/index.ts. */
-/** 镜像 src/index.ts 的模块内命名空间标识；用于断言而非另立产品配置。 */
+/* 镜像 src/index.ts 的模块内命名空间标识；用于断言而非另立产品配置。 */
 const ONBOARDING_SETTINGS_NAMESPACE = 'ui-onboarding'
 
 /** 仅供测试使用的内存设置提供者；允许写入但不读取或持久化真实文件。 */

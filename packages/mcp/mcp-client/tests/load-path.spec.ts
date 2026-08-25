@@ -9,7 +9,7 @@
  * This test unwraps the module through the REAL `Loader.prototype.unwrapExports`
  * and verifies the namespace shape is preserved.
  */
-/**
+/*
  * 文件职责：守护 MCP 客户端插件的真实 Loader 命名空间导出形式。
  * 技术维度：使用 Vitest、真实 Loader.prototype.unwrapExports 和 TypeScript 命名空间导入。
  * 产品维度：防止默认导出使 inject 丢失，从而导致插件启动时无法访问 tools 服务。

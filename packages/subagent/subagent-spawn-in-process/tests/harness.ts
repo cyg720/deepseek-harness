@@ -26,7 +26,7 @@ import * as ToolSubagent from '@deepseek-ai/dsh-tool-subagent'
  * work (writes a file). Lives outside the *.e2e.ts pattern so importing it never
  * re-registers another file's tests.
  */
-/**
+/*
  * 创建可运行真实父子代理委派流程的完整测试上下文。
  * @param workdir 本地 bash 工具允许操作的隔离工作目录。
  * @returns 已安装并绑定 spawn 后端的 Cordis 上下文。

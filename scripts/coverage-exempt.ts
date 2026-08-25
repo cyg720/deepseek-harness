@@ -9,7 +9,7 @@
  * only the v8 instrumentation tax on compiler- and subprocess-heavy fixtures
  * is dropped.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：声明应从带插桩覆盖率运行中移出、但仍在并行普通测试中执行的重型套件。
  * - 技术维度：使用 TypeScript 只读配置表、Vitest 文件过滤前缀和 exclude glob。
@@ -20,13 +20,13 @@
  */
 
 /** One coverage-exempt suite: a Vitest CLI filter and its exclude glob. */
-/** 中文：一项覆盖率豁免重型套件的普通运行过滤器和插桩排除规则。 */
+/* 中文：一项覆盖率豁免重型套件的普通运行过滤器和插桩排除规则。 */
 export interface CoverageExemptSuite {
   /** Positional file filter selecting the suite in the uninstrumented gate. */
-  /** 中文：普通无插桩门禁传给 Vitest 的位置文件过滤前缀。 */
+  /* 中文：普通无插桩门禁传给 Vitest 的位置文件过滤前缀。 */
   readonly filter: string
   /** Exclude glob removing the suite from the instrumented gate. */
-  /** 中文：从带插桩项目中移除同一测试集合的 glob。 */
+  /* 中文：从带插桩项目中移除同一测试集合的 glob。 */
   readonly exclude: string
 }
 
@@ -35,11 +35,11 @@ export interface CoverageExemptSuite {
  * the exempt suites from every project. CLI `--exclude` cannot express this:
  * it does not reach per-project include resolution.
  */
-/** 中文：插桩门禁设置为 1 的环境变量；Vitest 配置据此从各项目移除重型套件。 */
+/* 中文：插桩门禁设置为 1 的环境变量；Vitest 配置据此从各项目移除重型套件。 */
 export const COVERAGE_EXEMPT_ENV = 'DSH_COVERAGE_EXEMPT_HEAVY'
 
 /** Coverage-exempt heavy suites; keep filter and exclude selecting the same files. */
-/** 中文：获准并行无插桩运行的重型套件清单；每个过滤器和排除 glob 必须等价。 */
+/* 中文：获准并行无插桩运行的重型套件清单；每个过滤器和排除 glob 必须等价。 */
 export const coverageExemptHeavySuites: readonly CoverageExemptSuite[] = [
   // Whole-workspace compiler analysis per case — the lane's longest tail.
   // Generator src is threshold-excluded; tools-catalog's registry and

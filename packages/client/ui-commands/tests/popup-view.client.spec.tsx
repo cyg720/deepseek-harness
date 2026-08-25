@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证命令弹层的 popup-view.client.spec.tsx 行为。
  * 技术维度：Vitest、React 测试渲染和可控替身。
  * 产品维度：防止命令弹层用户流程发生回归。

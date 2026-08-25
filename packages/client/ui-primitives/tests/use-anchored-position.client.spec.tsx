@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证UI 基础组件的 use-anchored-position.client.spec.tsx 行为。
  * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
  * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
@@ -29,7 +29,7 @@ afterEach(() => {
 })
 
 /** One recorded `ResizeObserver` instance, so a test can drive its callback. */
-/** 中文说明：类型或类 Recorded 约束模块数据或职责。 */
+/* 中文说明：类型或类 Recorded 约束模块数据或职责。 */
 interface Recorded {
   callback: ResizeObserverCallback
   observed: Element[]
@@ -40,7 +40,7 @@ interface Recorded {
  * Install a recording `ResizeObserver` double.
  * @returns the list every constructed observer registers itself in.
  */
-/** 中文说明：函数 stubResizeObserver 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubResizeObserver 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubResizeObserver(): Recorded[] {
   /** 中文说明：测试局部值 made，由紧邻初始化决定。 */
   const made: Recorded[] = []
@@ -63,7 +63,7 @@ function stubResizeObserver(): Recorded[] {
  * @param props - whether the panel is open.
  * @returns the anchor and, while open, the panel carrying the position.
  */
-/** 中文说明：函数 Host 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 Host 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function Host({ open }: { open: boolean }) {
   /** 中文说明：测试局部值 anchorRef，由紧邻初始化决定。 */
   const anchorRef = useRef<HTMLButtonElement>(null)

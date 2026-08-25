@@ -43,7 +43,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Extract the opaque item version while keeping every surrounding wire field snapshot-owned. */
-/** 从成功响应提取不透明版本号；响应字段不完整时抛错。示例：createdVersion(created)。 */
+/* 从成功响应提取不透明版本号；响应字段不完整时抛错。示例：createdVersion(created)。 */
 function createdVersion(response: unknown): string {
   if (!isRecord(response) || !isRecord(response.result) || response.result.ok !== true
     || !isRecord(response.result.value) || response.result.value.ok !== true
@@ -55,7 +55,7 @@ function createdVersion(response: unknown): string {
 }
 
 /** Replace only run-owned UUID/time values; all protocol names and business fields stay exact. */
-/** 仅替换 version 和时间运行值并返回 JSON；其余协议字段保持精确。示例：normalizeProtocol(items, version)。 */
+/* 仅替换 version 和时间运行值并返回 JSON；其余协议字段保持精确。示例：normalizeProtocol(items, version)。 */
 function normalizeProtocol(exchanges: readonly ProtocolExchange[], version: string): string {
   return JSON.stringify(exchanges, (key, value: unknown) => {
     if ((key === 'version' || key === 'ifVersion') && value === version) return '{{version}}'

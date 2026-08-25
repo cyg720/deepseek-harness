@@ -4,7 +4,7 @@
  * model-owning runtime itself). Covers the turn loop, notification routing
  * and session-tree scoping, error surfaces, timeouts, and the dispose ladder.
  */
-/**
+/*
  * 文件职责：验证 sdk-client.spec.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -45,7 +45,7 @@ afterEach(async () => {
 type LaunchOverrides = Partial<ConstructorParameters<typeof HarnessClient>[0]>
 
 /** Launch options running the fake runtime on the current node (type stripping). */
-/** 中文说明：函数 fakeLaunch 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeLaunch 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeLaunch(env: Record<string, string> = {}, extra: LaunchOverrides = {}) {
   return {
     command: process.execPath,

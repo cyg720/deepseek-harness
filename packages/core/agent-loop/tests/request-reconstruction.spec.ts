@@ -4,7 +4,7 @@
  * request/header snapshot. Each request extends its predecessor unless a logged compaction
  * replacement or header change explains the difference.
  */
-/**
+/*
  * 文件职责：验证Agent Loop的 request-reconstruction.spec.ts 行为与不变量。
  * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
  * 产品维度：防止Agent Loop在取消、恢复、错误或并发场景中产生回归。
@@ -67,7 +67,7 @@ function send(agent: Agent, text: string) {
 }
 
 /** Assert `previous` is a strict value-prefix of `current`. */
-/** 中文说明：测试辅助函数 expectPrefixExtension 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 expectPrefixExtension 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function expectPrefixExtension(previous: GenerateOptions, current: GenerateOptions) {
   expect(current.messages.length).toBeGreaterThan(previous.messages.length)
   expect(current.messages.slice(0, previous.messages.length)).toEqual([...previous.messages])
@@ -727,7 +727,7 @@ describe('request stability across the loop', () => {
 
 describe('request/context capacity records', () => {
   /** Adapter advertising a per-model capacity, keyed by model id. */
-  /** 中文说明：测试辅助函数 capacityAdapter 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+  /* 中文说明：测试辅助函数 capacityAdapter 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
   function capacityAdapter(windows: Record<string, number>, script: StreamChunk[][]): MockAdapter {
     return new class extends MockAdapter {
       override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {

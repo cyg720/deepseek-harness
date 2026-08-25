@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】InputHub：SessionInputResolver 的实现（ctx.conversation.input）——每个会话
  *             一个 SessionInputShell，在 sessions provide 物化时创建、由作用域释放器销毁；
@@ -53,7 +53,7 @@ interface ConversationAttachmentFace {
 }
 
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
-/** 按会话寻址的输入门面注册表（SessionInputResolver 面 + 输入栏层扩展）。 */
+/* 按会话寻址的输入门面注册表（SessionInputResolver 面 + 输入栏层扩展）。 */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new Map<SessionId, SessionInputShell>()
 

@@ -33,7 +33,7 @@ async function mintScope(ctx: Context, name: string): Promise<Scope> {
 }
 
 /** The key a test scope was minted with. */
-/** 中文说明：函数 keyOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 keyOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function keyOf(scope: Scope): ScopeKey {
 
   return scopeOf(scope.ctx)!

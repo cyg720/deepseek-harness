@@ -1,5 +1,5 @@
 /** Event-level policy tests; no filesystem provider is needed because the plugin performs no I/O. */
-/**
+/*
  * 文件职责：验证文件系统与工具的 policy.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -27,12 +27,12 @@ const present = (version: string): FsObservation => ({ kind: 'present', version:
 const absent: FsObservation = { kind: 'absent' }
 
 /** Dispatch the write-intent waterfall with the bare default thunk. */
-/** 中文说明：函数 writeIntent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 writeIntent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function writeIntent(ctx: Context, t: FsTarget, actor: object | undefined): Promise<FsWriteIntent | undefined> {
   return ctx.waterfall('fs/write-intent', t, actor, () => undefined)
 }
 /** Dispatch the edit-intent waterfall with the bare default thunk. */
-/** 中文说明：函数 editIntent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 editIntent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function editIntent(ctx: Context, t: FsTarget, actor: object | undefined): Promise<{ version: FsVersion } | undefined> {
   return ctx.waterfall('fs/edit-intent', t, actor, () => undefined)
 }

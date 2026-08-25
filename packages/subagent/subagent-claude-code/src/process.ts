@@ -4,7 +4,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-claude-code/process
  */
-/**
+/*
  * 文件职责：实现 process.ts 覆盖的子代理进程与协议行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
@@ -39,7 +39,11 @@ function thrown(value: unknown): Error {
  * @param env - SDK-composed child environment after its removals and replacements.
  * @returns explicit values plus tombstones for surviving ambient names the SDK removed.
  */
-/** 中文说明：函数 sdkEnvironmentOverlay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 sdkEnvironmentOverlay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param env 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function sdkEnvironmentOverlay(
   env: SpawnOptions['env'],
 ): NodeJS.ProcessEnv {
@@ -58,7 +62,12 @@ export function sdkEnvironmentOverlay(
  * @param graceMs - process-tree termination grace.
  * @returns the fully explicit shared subprocess request.
  */
-/** 中文说明：函数 claudeSpawnSpec 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 claudeSpawnSpec 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param graceMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function claudeSpawnSpec(
   options: SpawnOptions,
   graceMs: number,
@@ -80,7 +89,7 @@ export function claudeSpawnSpec(
  * SDK-facing view of one shared managed process. Protocol transport remains
  * in the official SDK; this adapter only projects streams and exit events.
  */
-/** 中文说明：class ManagedClaudeCodeProcess 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：class ManagedClaudeCodeProcess 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export class ManagedClaudeCodeProcess implements SpawnedProcess {
   readonly stdin
   readonly stdout

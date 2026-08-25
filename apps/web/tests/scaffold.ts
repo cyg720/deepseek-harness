@@ -100,14 +100,14 @@ export const WELCOME_NOTICE_COPY = {
 } as const
 
 /** Snapshot mode for the lane, from $DSH_SNAPSHOT (same vocabulary as the other snapshot suites). */
-/** Web 快照运行模式：无密钥回放、真实录制或无密钥刷新预期。 */
+/* Web 快照运行模式：无密钥回放、真实录制或无密钥刷新预期。 */
 export type WebSnapshotMode = 'replay' | 'record' | 'refresh'
 
 /**
  * Resolve and validate the lane's snapshot mode.
  * @returns the active mode; unset/empty selects replay.
  */
-/** 读取 DSH_SNAPSHOT 并返回合法运行模式。示例：const mode = webSnapshotMode()。 */
+/* 读取 DSH_SNAPSHOT 并返回合法运行模式。示例：const mode = webSnapshotMode()。 */
 export function webSnapshotMode(): WebSnapshotMode {
   const value = process.env.DSH_SNAPSHOT
   if (value === undefined || value === '' || value === 'replay') return 'replay'
@@ -116,15 +116,15 @@ export function webSnapshotMode(): WebSnapshotMode {
 }
 
 /** The shipped composition under test: the dsh-base and dsh-web-app bundle patches over the empty profile root. */
-/** 正式基础 bundle 的补丁入口。 */
+/* 正式基础 bundle 的补丁入口。 */
 const BASE_PATCH_PATH = join(REPO_ROOT, 'packages/bundle/base/cordis.patch.yml')
 /** 正式 Web 应用 bundle 的补丁入口。 */
 const WEB_PATCH_PATH = join(REPO_ROOT, 'packages/bundle/web-app/cordis.patch.yml')
 /** The installation anchor whose dependency surface the profile module fallback mirrors. */
-/** Loader 解析已安装插件时使用的包锚点。 */
+/* Loader 解析已安装插件时使用的包锚点。 */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 /** The deployment's own agent-preset root, shipped beside the app's config. */
-/** 正式 CLI 随附的智能体预设目录。 */
+/* 正式 CLI 随附的智能体预设目录。 */
 const SHIPPED_PRESET_DIR = join(REPO_ROOT, 'apps/cli/config/agent-presets')
 
 // Replay publishes the provider catalog the gateway routes to (providers
@@ -189,7 +189,7 @@ function replayProviders(contextWindow: number | undefined): typeof REPLAY_PROVI
 }
 
 /** A booted web scaffold: real composition, mode-selected model backend, temp world. */
-/** 一个已启动 Web 测试世界及其服务、路径、同步和关闭能力。 */
+/* 一个已启动 Web 测试世界及其服务、路径、同步和关闭能力。 */
 export interface WebScaffold {
   /** The active snapshot mode this scaffold booted under. */
   mode: WebSnapshotMode
@@ -214,7 +214,7 @@ export interface WebScaffold {
 }
 
 /** Options for {@link launchWebScaffold}. */
-/** 控制脚手架模型模式、组合覆盖、首次启动状态和重试策略的选项。 */
+/* 控制脚手架模型模式、组合覆盖、首次启动状态和重试策略的选项。 */
 export interface LaunchOptions {
   /**
    * Optional product overlay applied after the shipped Web surface and before
@@ -326,7 +326,7 @@ export interface LaunchOptions {
 }
 
 /** Dispose the booted tree and remove both owned temp roots, reporting every independent cleanup failure. */
-/** 释放 ctx 并删除两个临时根，返回所有清理错误。 */
+/* 释放 ctx 并删除两个临时根，返回所有清理错误。 */
 async function cleanupScaffoldWorld(ctx: Context, workspaceCwd: string, persistenceRoot: string): Promise<unknown[]> {
   const failures: unknown[] = []
   await Promise.resolve(ctx.fiber.dispose()).catch((error: unknown) => failures.push(error))
@@ -340,7 +340,7 @@ async function cleanupScaffoldWorld(ctx: Context, workspaceCwd: string, persiste
  * @param options - replay fixture selection and pacing.
  * @returns the running scaffold.
  */
-/** 按 options 启动隔离真实 Web 组合并返回控制句柄。示例：await launchWebScaffold({ replayFixture })。 */
+/* 按 options 启动隔离真实 Web 组合并返回控制句柄。示例：await launchWebScaffold({ replayFixture })。 */
 export async function launchWebScaffold(options: LaunchOptions = {}): Promise<WebScaffold> {
   requireDist()
   const mode = webSnapshotMode()

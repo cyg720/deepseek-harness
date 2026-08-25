@@ -4,7 +4,7 @@
  * command substitution.
  * @module @deepseek-ai/dsh-hooks-codex/config
  */
-/**
+/*
  * 文件职责：实现Codex Hook 桥的 config.ts 模块。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证Codex Hook 桥可预测地传递事件、限制循环或适配外部工具。
@@ -16,22 +16,22 @@
 import { matcherDiagnostic, type MatcherGroup } from '@deepseek-ai/dsh-hook-protocol'
 
 /** The five Codex hook points this bridge supports. */
-/** 中文说明：协议局部值 CODEX_EVENTS，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 CODEX_EVENTS，由紧邻初始化决定。 */
 export const CODEX_EVENTS = ['PreToolUse', 'PostToolUse', 'SessionStart', 'UserPromptSubmit', 'Stop'] as const
 
 /** A parsed Codex config: event name → its matcher groups (command hooks only). */
-/** 中文说明：类型或类 CodexHookConfig 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 CodexHookConfig 约束 Hook、守卫或目标数据职责。 */
 export type CodexHookConfig = Record<string, MatcherGroup[]>
 
 /** A skipped non-command (or async) hook, surfaced so the bridge can warn. */
-/** 中文说明：类型或类 SkippedHook 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 SkippedHook 约束 Hook、守卫或目标数据职责。 */
 export interface SkippedHook {
   event: string
   reason: string
 }
 
 /** The outcome of parsing one Codex config file. */
-/** 中文说明：类型或类 ParsedCodexConfig 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 ParsedCodexConfig 约束 Hook、守卫或目标数据职责。 */
 export interface ParsedCodexConfig {
   config: CodexHookConfig
   skipped: SkippedHook[]
@@ -53,7 +53,11 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
  * @param raw - the parsed JSON config: a `{ hooks: … }` wrapper or the bare event map.
  * @returns the runnable per-event groups plus the skipped hooks with their reasons.
  */
-/** 中文说明：函数 parseCodexConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 parseCodexConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param raw 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function parseCodexConfig(raw: unknown): ParsedCodexConfig {
   /** 中文说明：协议局部值 config，由紧邻初始化决定。 */
   const config: CodexHookConfig = {}

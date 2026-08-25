@@ -63,7 +63,7 @@ function hook<T>(snapshot: T) {
 }
 
 /** jsdom lacks DragEvent — the fireEvent fallback drops clientY, so pin it on the built event. */
-/** 中文说明：函数 fireDrag 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fireDrag 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fireDrag(row: HTMLElement, kind: 'dragOver' | 'drop', clientY: number): void {
   /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
   const event = kind === 'dragOver' ? createEvent.dragOver(row) : createEvent.drop(row)
@@ -113,7 +113,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
 }
 
 /** Re-render with (possibly) changed props — WorkspaceBrowser has no side channel. */
-/** 中文说明：函数 rerender 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rerender 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rerender(b: ReturnType<typeof mount>, overrides: Partial<WorkspaceBrowserProps>) {
   Object.assign(b.props, overrides)
   b.view.rerender(<WorkspaceBrowser {...b.props} />)

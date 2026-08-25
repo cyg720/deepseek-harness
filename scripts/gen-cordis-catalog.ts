@@ -17,7 +17,7 @@
  * byte for byte" test failing, which reads like a snapshot regression rather than
  * a missing regeneration.
  */
-/**
+/*
  * 文件职责：实现 gen-cordis-catalog.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -65,7 +65,7 @@ export { REGION_BEGIN, REGION_END }
  * and an entry whose key the projection no longer discovers are both hard
  * errors, so the partition can never silently drift from the service API.
  */
-/** 中文说明：常量 SERVICE_PAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SERVICE_PAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SERVICE_PAGE: Record<string, string> = {
   agentLoop: 'core.md',
   agentDefaultModel: 'core.md',
@@ -146,7 +146,7 @@ export const SERVICE_PAGE: Record<string, string> = {
  * surface has its own generated catalog (`scripts/gen-client-catalog.ts`, served
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
-/** 中文说明：常量 SERVICE_WALK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SERVICE_WALK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   agent: 'not a service: the DX accessor field on Agent.ctx (root accessor defaulting to undefined) — docs/subsystems/core.md owns the Agent handle',
   appExit: 'not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract',
@@ -219,7 +219,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
  * silently. Keys are full event names rather than scopes, so a scope-level
  * exemption cannot mask another declaration in that scope.
  */
-/** 中文说明：常量 EVENT_WALK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 EVENT_WALK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
   'command/executed': 'client-face local command acknowledgment — packages/client/ui-commands/README.md owns the API',
   'connection/reset': 'client-face transport signal — packages/client/runtime/README.md owns the API',
@@ -238,7 +238,7 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * reuse the type-equivalence manifest's map-symbol entries and some symbols
  * appear on more than one page.
  */
-/** 中文说明：常量 LINK_MAP 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 LINK_MAP 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const LINK_MAP: Readonly<Record<string, string>> = {
   Agent: 'core.md',
   AgentCancelCause: 'core.md',
@@ -550,7 +550,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
 }
 
 /** TypeScript lib and pinned framework types with no repository-owned data page. */
-/** 中文说明：常量 FOUNDATION_TYPE_NAMES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 FOUNDATION_TYPE_NAMES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
   'AbortSignal',
   'AsyncIterable',
@@ -569,7 +569,7 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
 ])
 
 /** Project types deliberately documented outside the subsystems catalog. */
-/** 中文说明：常量 TYPE_LINK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TYPE_LINK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   z: 'schemastery schema constructor is owned by vendor/schemastery (vendored upstream)',
   BeginCommandRequest: 'event-local request contract is owned by packages/client/ui-input-trigger/src/types.ts',
@@ -647,7 +647,7 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */
-/** 中文说明：常量 CORDIS_CATALOG_POLICY 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CORDIS_CATALOG_POLICY 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
   linkedTypePages: LINK_MAP,
   foundationTypeNames: FOUNDATION_TYPE_NAMES,
@@ -730,7 +730,7 @@ export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
  * @param region - the freshly rendered marker-delimited region.
  * @returns the page text with the region replaced.
  */
-/** 中文说明：函数 spliceRegion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 spliceRegion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function spliceRegion(content: string, region: string): string {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = content.split('\n')
@@ -750,7 +750,7 @@ export function spliceRegion(content: string, region: string): string {
 }
 
 /** The declared-vs-rendered inputs {@link walkPartitionProblems} judges. */
-/** 中文说明：interface WalkPartitionInput 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface WalkPartitionInput 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface WalkPartitionInput {
   /** Service key → source pointer, as the rendering projection produced them. */
   readonly renderedKeys: ReadonlyMap<string, string>
@@ -765,7 +765,7 @@ export interface WalkPartitionInput {
 }
 
 /** The curated partition maps {@link walkPartitionProblems} enforces. */
-/** 中文说明：interface WalkPartitionMaps 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface WalkPartitionMaps 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface WalkPartitionMaps {
   readonly servicePage: Readonly<Record<string, string>>
   readonly serviceWalkExemptions: Readonly<Record<string, string>>
@@ -774,7 +774,7 @@ export interface WalkPartitionMaps {
 }
 
 /** Project paired Markdown destinations in one generated region to the page's locale. */
-/** 中文说明：函数 localizePageRegion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 localizePageRegion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function localizePageRegion(region: string, pageRel: string, scanRoot: string = root): string {
   if (!pageRel.endsWith('.zh.md')) return region
   /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -801,7 +801,7 @@ export function localizePageRegion(region: string, pageRel: string, scanRoot: st
  * @param maps - the curated page maps and walk exemptions.
  * @returns one message per violation, empty when the partition holds.
  */
-/** 中文说明：函数 walkPartitionProblems 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 walkPartitionProblems 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkPartitionMaps): string[] {
   /** 中文说明：变量 problems 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const problems: string[] = []
@@ -884,7 +884,7 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
  * exemption, and a mapped page missing its markers are all aggregated errors.
  * @returns `[repo-relative path, exact content]` for every generated artifact.
  */
-/** 中文说明：函数 computeOutputs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 computeOutputs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function computeOutputs(): [string, string][] {
   const { projector, model } = projectCordisCatalog(root, CORDIS_CATALOG_POLICY)
   /** 中文说明：变量 services 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -977,7 +977,7 @@ export function computeOutputs(): [string, string][] {
  * @param scanRoot - repository root override for tests.
  * @returns true when the record was refreshed.
  */
-/** 中文说明：函数 maybeRecordPair 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 maybeRecordPair 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function maybeRecordPair(pageRel: string, before: Map<string, Buffer>, scanRoot: string = root): boolean {
   /** 中文说明：变量 zhRel 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const zhRel = pageRel.replace(/\.md$/, '.zh.md')
@@ -1029,7 +1029,7 @@ export function maybeRecordPair(pageRel: string, before: Map<string, Buffer>, sc
  * tests neither regenerates the committed files nor calls process.exit.
  * @returns nothing; writes files or reports freshness through the process.
  */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function main(): void {
   /** 中文说明：变量 outputs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const outputs: [string, string][] = [

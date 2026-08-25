@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-jsonrpc-demo/bin
  */
-/**
+/*
  * 文件职责：作为通用 JSON-RPC Agent 命令行入口启动外部 Cordis 配置。
  * 技术维度：使用 Node shebang、顶层 await 和共享 `runJsonrpcAgent` 运行器。
  * 产品维度：用户可用自己的插件依赖与 cordis.yml 启动 stdio JSON-RPC 服务。

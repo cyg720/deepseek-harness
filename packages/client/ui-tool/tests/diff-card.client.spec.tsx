@@ -36,7 +36,7 @@ import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.t
 afterEach(cleanup)
 
 /** FileMutationRow's full prop shape (ToolRow runtime share + conversation locale seat). */
-/** 中文说明：类型或类 FileMutationRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 FileMutationRowProps 约束工具或轨迹数据职责。 */
 type FileMutationRowProps = Parameters<typeof FileMutationRow>[0]
 
 /** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
@@ -49,14 +49,14 @@ const t = makeTranslate(zh, commonZh)
 const ARGS = '{"file_path":"notes/demo.txt","old_string":"hello","new_string":"hello fixture"}'
 
 /** The edit tool's own call view (a call-time diff derived from the arguments). */
-/** 中文说明：测试局部值 callDiff，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 callDiff，由紧邻初始化决定。 */
 const callDiff = (over?: Partial<Extract<ToolCallView, { card: 'diff' }>>): ToolCallView => ({
   card: 'diff', title: 'Edit notes/demo.txt',
   diffs: [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixture' }], ...over,
 })
 
 /** The edit tool's own result view (the applied hunk diff). */
-/** 中文说明：测试局部值 resultDiff，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 resultDiff，由紧邻初始化决定。 */
 const resultDiff = (over?: Partial<Extract<ToolResultView, { card: 'diff' }>>): ToolResultView => ({
   card: 'diff', title: 'Edit notes/demo.txt',
   diffs: [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixture' }], ...over,
@@ -194,7 +194,7 @@ describe('FileMutationRow diff card', () => {
   } as unknown as FileMutationRowProps)
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
-  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }

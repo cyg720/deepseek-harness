@@ -5,7 +5,7 @@
  * and does not append `hook/*` outside a turn.
  * @module @deepseek-ai/dsh-hook-protocol/events
  */
-/**
+/*
  * 文件职责：实现Hook 线协议的 events.ts 模块。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
@@ -18,7 +18,7 @@ import type { Session } from '@deepseek-ai/dsh-session'
 import type { HookDialect, HookOutput } from './types.ts'
 
 /** What identifies a hook invocation across its invoked/result pair. */
-/** 中文说明：类型或类 HookInvocation 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 HookInvocation 约束 Hook、守卫或目标数据职责。 */
 export interface HookInvocation {
   /** The open turn the invocation lives inside. */
   turn: number
@@ -33,7 +33,7 @@ export interface HookInvocation {
 }
 
 /** The decided outcome half of the pair. */
-/** 中文说明：类型或类 HookResultRecord 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 HookResultRecord 约束 Hook、守卫或目标数据职责。 */
 export interface HookResultRecord {
   turn: number
   point: string
@@ -60,7 +60,7 @@ export interface HookResultRecord {
  * rule it bounds, so the bridges cannot drift apart on the shared event's
  * default cap.
  */
-/** 中文说明：协议局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 解构结果，由紧邻初始化决定。 */
 export const DEFAULT_STDERR_SUMMARY_MAX_CHARS = 500
 
 /**
@@ -72,7 +72,12 @@ export const DEFAULT_STDERR_SUMMARY_MAX_CHARS = 500
  * @param maxChars - the character cap for the summary (the bridge's config value).
  * @returns the trimmed, capped summary, or `undefined` when stderr is blank.
  */
-/** 中文说明：函数 summarizeStderr 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 summarizeStderr 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param stderr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param maxChars 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function summarizeStderr(stderr: string, maxChars: number): string | undefined {
   /** 中文说明：协议局部值 t，由紧邻初始化决定。 */
   const t = stderr.trim()
@@ -85,7 +90,11 @@ export function summarizeStderr(stderr: string, maxChars: number): string | unde
  * @param session - the session whose open turn records the event.
  * @param invocation - the invocation identity; an absent `matcher` is omitted from the payload.
  */
-/** 中文说明：函数 appendHookInvoked 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 appendHookInvoked 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param invocation 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function appendHookInvoked(session: Session, invocation: HookInvocation): void {
   session.append('hook/invoked', {
     turn: invocation.turn,
@@ -103,7 +112,11 @@ export function appendHookInvoked(session: Session, invocation: HookInvocation):
  * @param session - the session whose open turn records the event.
  * @param record - the outcome to record: the decoded output plus the summary cap and duration.
  */
-/** 中文说明：函数 appendHookResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 appendHookResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param record 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function appendHookResult(session: Session, record: HookResultRecord): void {
   /** 中文说明：协议局部值 { output }，由紧邻初始化决定。 */
   const { output } = record

@@ -7,7 +7,7 @@
  * artifact. Tier policy and ownership live in
  * `.agents/notes/implemented/process/2026-07-30-generated-third-party-notices.md`.
  */
-/**
+/*
  * 文件职责：实现 gen-third-party-notices.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -28,10 +28,10 @@ const root = resolve(import.meta.dirname, '..')
 const OUT = 'THIRD_PARTY_NOTICES.md'
 
 /** Dependency-declaration kinds a consumer resolves at runtime. */
-/** 中文说明：常量 RUNTIME_KINDS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RUNTIME_KINDS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RUNTIME_KINDS = ['dependencies', 'optionalDependencies'] as const
 /** All manifest sections that name an external package this file must disclose. */
-/** 中文说明：常量 ALL_KINDS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ALL_KINDS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ALL_KINDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const
 
 /**
@@ -42,7 +42,7 @@ const ALL_KINDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'p
  * runtime dependency because any plugin package can be mounted from a user's
  * `cordis.yml`.
  */
-/** 中文说明：常量 DEV_ONLY_AREAS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEV_ONLY_AREAS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEV_ONLY_AREAS = [
   'package.json',
   'packages/test-support/',
@@ -53,7 +53,7 @@ const DEV_ONLY_AREAS = [
 ] as const
 
 /** First-party public native packages: reachable at runtime but not third-party. */
-/** 中文说明：常量 FIRST_PARTY 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 FIRST_PARTY 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FIRST_PARTY = new Set([
   '@deepseek-ai/node-addon-landlock-run',
   '@deepseek-ai/node-addon-landlock-run-linux-arm64',
@@ -61,7 +61,7 @@ const FIRST_PARTY = new Set([
 ])
 
 /** Official SDK identity covered by the project's narrow owner authorization. */
-/** 中文说明：常量 CLAUDE_AGENT_SDK_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CLAUDE_AGENT_SDK_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CLAUDE_AGENT_SDK_PACKAGE = '@anthropic-ai/claude-agent-sdk'
 /** 中文说明：常量 CLAUDE_PLATFORM_PACKAGE_PREFIX 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLAUDE_PLATFORM_PACKAGE_PREFIX = `${CLAUDE_AGENT_SDK_PACKAGE}-`
@@ -74,7 +74,7 @@ const CLAUDE_PLATFORM_DECLARED_LICENSE = 'SEE LICENSE IN LICENSE.md'
  * @param name - exact npm package identity.
  * @returns true only for the official Claude Agent SDK package.
  */
-/** 中文说明：函数 isOwnerAuthorizedRuntime 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isOwnerAuthorizedRuntime 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isOwnerAuthorizedRuntime(name: string): boolean {
   return name === CLAUDE_AGENT_SDK_PACKAGE
 }
@@ -83,7 +83,7 @@ export function isOwnerAuthorizedRuntime(name: string): boolean {
  * Metadata overrides where the installed manifest is wrong or unreachable.
  * Each entry documents why the store cannot answer.
  */
-/** 中文说明：常量 OVERRIDES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 OVERRIDES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OVERRIDES: Record<string, { license?: string; repo?: string }> = {
   // Rust workspaces publishing npm bins without `license` in package.json.
   'oxlint': { license: 'MIT', repo: 'https://github.com/oxc-project/oxc' },
@@ -101,7 +101,7 @@ const OVERRIDES: Record<string, { license?: string; repo?: string }> = {
  * without installed metadata to harvest, so license/repo are recorded here and
  * the generator fails when a manifest names a package this map misses.
  */
-/** 中文说明：常量 PYTHON_METADATA 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PYTHON_METADATA 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PYTHON_METADATA: Record<string, { license: string; repo: string; role: string }> = {
   pydantic: { license: 'MIT', repo: 'https://github.com/pydantic/pydantic', role: 'runtime dependency of `deepseek-harness-sdk`' },
   hatchling: { license: 'MIT', repo: 'https://github.com/pypa/hatch', role: 'build backend' },
@@ -112,7 +112,7 @@ const PYTHON_METADATA: Record<string, { license: string; repo: string; role: str
 type PythonMetadata = typeof PYTHON_METADATA
 
 /** Tools fetched by scripts at build time, keyed by the pin the script owns. */
-/** 中文说明：常量 BUILD_TIME_TOOLS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 BUILD_TIME_TOOLS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const BUILD_TIME_TOOLS = [
   {
     name: '@yao-pkg/pkg',
@@ -124,7 +124,7 @@ const BUILD_TIME_TOOLS = [
 ]
 
 /** The `package.json` fields this generator reads. */
-/** 中文说明：interface Manifest 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface Manifest 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface Manifest {
   name?: string
   version?: string
@@ -137,7 +137,7 @@ export interface Manifest {
 }
 
 /** One disclosed external npm dependency. */
-/** 中文说明：interface ExternalDep 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface ExternalDep 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface ExternalDep {
   name: string
   license: string
@@ -147,7 +147,7 @@ interface ExternalDep {
 }
 
 /** Read and parse a workspace-relative `package.json`. */
-/** 中文说明：函数 readManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 readManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function readManifest(rel: string): Manifest {
   return JSON.parse(readFileSync(resolve(root, rel), 'utf8')) as Manifest
 }
@@ -169,7 +169,7 @@ export function manifestPatterns(rootMembers: readonly string[]): string[] {
 }
 
 /** The `packages:` member globs declared by one pnpm workspace file. */
-/** 中文说明：函数 workspaceMembers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 workspaceMembers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function workspaceMembers(rel: string): string[] {
   /** 中文说明：变量 declared 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const declared = (yaml.load(readFileSync(resolve(root, rel), 'utf8')) as { packages?: unknown }).packages
@@ -186,7 +186,7 @@ function workspaceMembers(rel: string): string[] {
  * `tierExternalDeps` compares `/`-suffixed prefixes, so Windows backslashes
  * would silently push dev-area manifests into the runtime tier.
  */
-/** 中文说明：函数 loadWorkspaceManifests 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 loadWorkspaceManifests 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadWorkspaceManifests(): { manifests: Map<string, Manifest>; names: Set<string> } {
   /** 中文说明：变量 patterns 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const patterns = manifestPatterns(workspaceMembers('pnpm-workspace.yaml'))
@@ -219,14 +219,14 @@ type VirtualManifest = Manifest & {
 }
 
 /** One platform payload declared by the official Claude Agent SDK. */
-/** 中文说明：interface ClaudePlatformPayload 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface ClaudePlatformPayload 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface ClaudePlatformPayload {
   readonly name: string
   readonly version: string
 }
 
 /** Current SDK and CLI distribution facts derived from the installed SDK manifest. */
-/** 中文说明：interface ClaudeDistribution 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface ClaudeDistribution 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface ClaudeDistribution {
   readonly sdkVersion: string
   readonly claudeCodeVersion: string
@@ -250,7 +250,7 @@ function requiredManifestString(
  * @param manifest - installed official SDK manifest.
  * @returns current SDK, CLI, and optional platform payload facts.
  */
-/** 中文说明：函数 claudeDistributionFromManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 claudeDistributionFromManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function claudeDistributionFromManifest(
   manifest: VirtualManifest,
 ): ClaudeDistribution {
@@ -300,7 +300,7 @@ export function claudeDistributionFromManifest(
  * @returns the parsed manifest, or `undefined` when neither the prefix match
  *   nor the content scan finds the package's `package.json`.
  */
-/** 中文说明：函数 virtualManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 virtualManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function virtualManifest(virtual: string, name: string): VirtualManifest | undefined {
   /** 中文说明：变量 prefix 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const prefix = `${name.replace('/', '+')}@`
@@ -321,7 +321,7 @@ export function virtualManifest(virtual: string, name: string): VirtualManifest 
 }
 
 /** Resolve one installed external package manifest from either pnpm store. */
-/** 中文说明：函数 installedManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 installedManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function installedManifest(name: string): VirtualManifest | undefined {
   /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let manifest: (Manifest & { license?: string; repository?: string | { url?: string }; homepage?: string }) | undefined
@@ -345,7 +345,7 @@ function installedManifest(name: string): VirtualManifest | undefined {
 }
 
 /** License and repository URL for an installed external package, from the pnpm store. */
-/** 中文说明：函数 installedMetadata 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 installedMetadata 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function installedMetadata(name: string): { license: string; repo: string } {
   /** 中文说明：变量 override 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const override = OVERRIDES[name]
@@ -401,7 +401,7 @@ function collectClaudeDistribution(): ClaudeDistribution {
 }
 
 /** Normalize a manifest repository/homepage value to a browsable https URL. */
-/** 中文说明：函数 normalizeRepo 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 normalizeRepo 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function normalizeRepo(raw: string | undefined): string | undefined {
   if (raw === undefined || raw === '') return undefined
   /** 中文说明：变量 url 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -422,7 +422,7 @@ function normalizeRepo(raw: string | undefined): string | undefined {
  * by tooling, test infrastructure, the website, or the demo leaves — whatever
  * the declaring section is called — is development-only.
  */
-/** 中文说明：函数 collectNpmDeps 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectNpmDeps 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectNpmDeps(): ExternalDep[] {
   const { manifests, names } = loadWorkspaceManifests()
   return [...tierExternalDeps(manifests, names)]
@@ -437,7 +437,7 @@ function collectNpmDeps(): ExternalDep[] {
  * @param names - every workspace package name, which never counts as external.
  * @returns each external package mapped to whether it is a runtime dependency.
  */
-/** 中文说明：函数 tierExternalDeps 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 tierExternalDeps 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function tierExternalDeps(manifests: Map<string, Manifest>, names: Set<string>): Map<string, boolean> {
   /** 中文说明：变量 tiers 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const tiers = new Map<string, boolean>()
@@ -462,7 +462,7 @@ export function tierExternalDeps(manifests: Map<string, Manifest>, names: Set<st
 }
 
 /** A vendored package row parsed out of the `vendor/README.md` manifest table. */
-/** 中文说明：interface VendoredRow 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface VendoredRow 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface VendoredRow {
   npmName: string
   /** The name this package carries upstream; MIT attribution names the fork's origin, not our scope. */
@@ -475,7 +475,7 @@ export interface VendoredRow {
  * @param text - the complete `vendor/README.md` contents.
  * @returns one row per manifest-table entry, in table order.
  */
-/** 中文说明：函数 parseVendoredRows 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseVendoredRows 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseVendoredRows(text: string): VendoredRow[] {
   /** 中文说明：变量 rows 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rows: VendoredRow[] = []
@@ -498,7 +498,7 @@ export function parseVendoredRows(text: string): VendoredRow[] {
  * disclosed, so a row that stops matching the table format is a hard error
  * rather than a package that quietly vanishes from the notices.
  */
-/** 中文说明：函数 collectVendored 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectVendored 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectVendored(): VendoredRow[] {
   /** 中文说明：变量 rows 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rows = parseVendoredRows(readFileSync(resolve(root, 'vendor/README.md'), 'utf8'))
@@ -534,13 +534,13 @@ function collectVendored(): VendoredRow[] {
 }
 
 /** Whether a parsed TOML value is a table rather than an array or scalar. */
-/** 中文说明：函数 isTomlTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isTomlTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isTomlTable(value: TomlValueWithoutBigInt | undefined): value is TomlTableWithoutBigInt {
   return value !== undefined && typeof value === 'object' && !Array.isArray(value)
 }
 
 /** Parse one PEP 508 requirement string into its distribution name. */
-/** 中文说明：函数 parsePythonRequirement 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parsePythonRequirement 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parsePythonRequirement(requirement: string): string {
   /** 中文说明：变量 name 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const name = /^\s*([a-zA-Z][a-zA-Z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(?:[<>=!~;@].*)?$/.exec(requirement)?.[1]
@@ -551,7 +551,7 @@ function parsePythonRequirement(requirement: string): string {
 }
 
 /** Add the string requirements from one parsed TOML array. */
-/** 中文说明：函数 collectPythonRequirementArray 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectPythonRequirementArray 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectPythonRequirementArray(
   names: string[],
   value: TomlValueWithoutBigInt | undefined,
@@ -576,7 +576,7 @@ function collectPythonRequirementArray(
 }
 
 /** Read an optional TOML table and reject a present non-table value. */
-/** 中文说明：函数 optionalTomlTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 optionalTomlTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function optionalTomlTable(value: TomlValueWithoutBigInt | undefined, location: string): TomlTableWithoutBigInt | undefined {
   if (value === undefined || isTomlTable(value)) return value
   throw new Error(`gen-third-party-notices: ${location} must be a table.`)
@@ -592,7 +592,7 @@ function optionalTomlTable(value: TomlValueWithoutBigInt | undefined, location: 
  * @param text - the complete `pyproject.toml` contents.
  * @returns the local project name and declared requirement names.
  */
-/** 中文说明：函数 parsePyproject 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parsePyproject 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parsePyproject(text: string): { projectName?: string; requirements: string[] } {
   /** 中文说明：变量 names 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const names: string[] = []
@@ -633,13 +633,13 @@ function parsePyproject(text: string): { projectName?: string; requirements: str
  * @param text - the complete `pyproject.toml` contents.
  * @returns each declared requirement's distribution name, in file order.
  */
-/** 中文说明：函数 parsePyprojectRequirements 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parsePyprojectRequirements 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parsePyprojectRequirements(text: string): string[] {
   return parsePyproject(text).requirements
 }
 
 /** Normalize a Python distribution name according to the packaging name rule. */
-/** 中文说明：函数 normalizePythonDistributionName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 normalizePythonDistributionName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function normalizePythonDistributionName(name: string): string {
   return name.toLowerCase().replace(/[-_.]+/g, '-')
 }
@@ -650,7 +650,7 @@ function normalizePythonDistributionName(name: string): string {
  * @param metadata - disclosure metadata for every external dependency.
  * @returns disclosed dependencies in normalized name order.
  */
-/** 中文说明：函数 collectPythonDependencies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectPythonDependencies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectPythonDependencies(
   pyprojects: string[],
   metadata: PythonMetadata = PYTHON_METADATA,
@@ -674,7 +674,7 @@ export function collectPythonDependencies(
 }
 
 /** Direct Python dependencies named by the `pyproject.toml` manifests under `python/`. */
-/** 中文说明：函数 collectPython 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectPython 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectPython(): { name: string; license: string; repo: string; role: string }[] {
   /** 中文说明：变量 manifests 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests = globSync('python/*/pyproject.toml', { cwd: root })
@@ -683,7 +683,7 @@ function collectPython(): { name: string; license: string; repo: string; role: s
 }
 
 /** pnpm-patched external packages, from `pnpm-workspace.yaml`. */
-/** 中文说明：函数 collectPatched 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectPatched 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectPatched(): { spec: string; patch: string }[] {
   /** 中文说明：变量 workspace 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workspace = yaml.load(readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')) as { patchedDependencies?: Record<string, string> }
@@ -691,7 +691,7 @@ function collectPatched(): { spec: string; patch: string }[] {
 }
 
 /** Verify each build-time tool pin still appears in its owning script. */
-/** 中文说明：函数 verifyBuildTimePins 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 verifyBuildTimePins 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function verifyBuildTimePins(): void {
   /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const tool of BUILD_TIME_TOOLS) {
@@ -704,11 +704,11 @@ function verifyBuildTimePins(): void {
 }
 
 /** SPDX identifiers this project may ship without further review. */
-/** 中文说明：常量 PERMISSIVE_LICENSES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PERMISSIVE_LICENSES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PERMISSIVE_LICENSES = new Set(['MIT', 'ISC', 'BSD-2-Clause', 'BSD-3-Clause', 'Apache-2.0', '0BSD', 'Unlicense', 'CC0-1.0', 'BlueOak-1.0.0', 'Python-2.0'])
 
 /** Evaluate a parsed SPDX expression under the repository's license policy. */
-/** 中文说明：函数 isPermissiveSpdx 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isPermissiveSpdx 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isPermissiveSpdx(expression: ReturnType<typeof parseSpdx>): boolean {
   if ('conjunction' in expression) {
     return expression.conjunction === 'and'
@@ -730,7 +730,7 @@ function isPermissiveSpdx(expression: ReturnType<typeof parseSpdx>): boolean {
  * @param license - the SPDX expression from the package manifest.
  * @returns true when the expression's obligations are all permissive.
  */
-/** 中文说明：函数 isPermissive 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isPermissive 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isPermissive(license: string): boolean {
   // Some npm manifests use a slash for a choice despite SPDX requiring `OR`.
   /** 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -748,7 +748,7 @@ export function isPermissive(license: string): boolean {
  * @param deps - development dependencies whose license is not permissive.
  * @returns the paragraph to place after the development table.
  */
-/** 中文说明：函数 renderNonPermissiveNote 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderNonPermissiveNote 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderNonPermissiveNote(deps: ExternalDep[]): string {
   if (deps.length === 0) return ''
   /** 中文说明：函数值 named 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
@@ -759,7 +759,7 @@ function renderNonPermissiveNote(deps: ExternalDep[]): string {
 }
 
 /** Render one npm dependency table. */
-/** 中文说明：函数 renderNpmTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderNpmTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderNpmTable(deps: ExternalDep[]): string {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = ['| Package | License |', '| --- | --- |']
@@ -794,7 +794,7 @@ ${rows.join('\n')}
  * Render the complete notices document.
  * @returns the exact bytes `THIRD_PARTY_NOTICES.md` must hold.
  */
-/** 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function render(): string {
   verifyBuildTimePins()
   /** 中文说明：变量 npm 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -890,7 +890,7 @@ ${BUILD_TIME_TOOLS.map(tool => `| [\`${tool.name}\`](${tool.repo}) | ${tool.lice
 /** CLI entry: default writes the notices, `--check` fails if the committed copy
  * is stale. Guarded behind an entry-point check so importing this module for
  * tests neither regenerates the committed file nor calls process.exit. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   /** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const content = render()

@@ -30,13 +30,13 @@ beforeEach(() => {
 })
 
 /** The rendered output rows, one string per visible line (CSS-module class prefix). */
-/** 中文说明：函数 outputLines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 outputLines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function outputLines(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
 }
 
 /** The prompt line's run-state dot: its StateDot state plus the hidden text label beside it. */
-/** 中文说明：函数 runStateOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 runStateOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function runStateOf(container: HTMLElement): { state: string | null; label: string | undefined } {
   /** 中文说明：测试局部值 dot，由紧邻初始化决定。 */
   const dot = container.querySelector('[class*="_runState_"][data-state]')
@@ -47,13 +47,13 @@ function runStateOf(container: HTMLElement): { state: string | null; label: stri
 }
 
 /** The prompt rows as `<label><command>`, one per command line (the visual gap is CSS). */
-/** 中文说明：函数 promptRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 promptRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function promptRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_promptLine_"]')].map(row => (row.textContent ?? '').trim())
 }
 
 /** `count` numbered output lines, without the terminating newline. */
-/** 中文说明：函数 body 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 body 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function body(count: number): string {
   return Array.from({ length: count }, (_value, index) => `line ${index + 1}`).join('\n')
 }

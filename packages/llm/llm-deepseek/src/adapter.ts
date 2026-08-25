@@ -61,7 +61,7 @@ import { translate } from './translate.ts'
 import type { WireError, WireRequest } from './types.ts'
 
 /** One optional model entry advertised by the direct-fetch adapter. */
-/**
+/*
  * （中文）直连 fetch 适配器宣传的一条可选模型条目。
  */
 export interface DeepSeekCatalogModel {
@@ -164,7 +164,7 @@ export interface DeepSeekConnectionOptions {
 }
 
 /** Constructor options for {@link DeepSeekAdapter}: the operation-local resolution hooks the plugin owns. */
-/**
+/*
  * （中文）DeepSeekAdapter 的构造选项：插件拥有的操作级解析钩子。
  */
 export interface DeepSeekAdapterOptions {

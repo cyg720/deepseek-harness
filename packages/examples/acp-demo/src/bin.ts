@@ -9,7 +9,7 @@
  * reserved for JSON-RPC, so diagnostics go only to stderr.
  * @module @deepseek-ai/dsh-acp-demo/bin
  */
-/**
+/*
  * 文件职责：从 Cordis 配置启动基于标准输入输出的 ACP 自动化服务器。
  * 技术维度：使用 Node.js ESM、parseArgs、顶层 await 和 dsh-app-boot 共享启动辅助函数。
  * 产品维度：提供可直接运行及可快照重放的 ACP 演示入口，供自动化客户端连接。

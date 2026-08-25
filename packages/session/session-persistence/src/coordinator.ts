@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现"与具体存储无关"的会话写入/读取编排器 PersistenceCoordinator：
  *   第一方后端（如 JSONL）只需提供最底层的存取原语（PersistenceBackend 接口），
@@ -29,7 +29,7 @@
  * persistence seam directly.
  * @module @deepseek-ai/dsh-session-persistence/coordinator
  */
-/**
+/*
  * 【中文导读】上面英文概括本模块定位：为第一方后端提供共享的缓冲、序列化、收养
  * （把磁盘上已有日志接到内存会话）、修复与释放编排。第三方后端也可以绕过协调器、
  * 直接实现 index.ts 里的公共持久化接口。
@@ -69,7 +69,7 @@ export const DEFAULT_WRITE_BATCH_MAX_DELAY_MS = 200
 export const MAX_WRITE_BATCH_DELAY_MS = MAX_TIMER_DELAY_MS
 
 /** Durable session contents failed validation after a successful backend read. */
-/**
+/*
  * 【中文】"损坏"错误：后端成功读出了字节，但内容没通过校验（seq 断档、JSON 解析
  * 失败、头信息非法等）。与下面的"格式不支持"相对——损坏意味着数据真的坏了，
  * 而不只是本程序读不懂。
@@ -79,7 +79,7 @@ export class SessionPersistenceCorruptionError extends Error {
    * @param message - stable corruption context.
    * @param options - original validation failure.
    */
-  /**
+  /*
    * 【中文】构造损坏错误。
    * @param message - 稳定的损坏上下文描述。
    * @param options - 通过 cause 携带最初的校验失败原因，便于逐层排障。
@@ -98,7 +98,7 @@ export class SessionPersistenceCorruptionError extends Error {
  * remains readable at {@link location} when the backend keeps one artifact
  * per session.
  */
-/**
+/*
  * 【中文】"格式不支持"错误：磁盘日志本身完好，只是当前构建无法忠实解读——头信息
  * 带着本构建不认识的格式版本，或出现了未标记 ignorable 的未知事件类型。与损坏错误
  * 的本质区别：数据没坏，用户该看到的是"请升级 harness"，而不是"日志损坏"。若
@@ -110,7 +110,7 @@ export class SessionFormatUnsupportedError extends Error {
    *   including the raw-log path when one exists.
    * @param location - the backend's artifact location, when one exists.
    */
-  /**
+  /*
    * 【中文】构造格式拒绝错误。
    * @param message - 无法解读日志的稳定原因（可能已附带原始日志路径）。
    * @param location - 后端工件位置（存在时才有），便于提示用户去哪里看原文。
@@ -131,7 +131,7 @@ export class SessionFormatUnsupportedError extends Error {
  * @param version - the stored format version.
  * @returns the stable refusal text, without a raw-log path suffix.
  */
-/**
+/*
  * 【中文】按方向生成格式版本拒绝文案：存的版本比当前构建新 → 提示"升级 harness"；
  * 比当前构建旧 → 说明本构建没有旧版升级路径。协调器的加载检查与各后端的解码前
  * 预检共用此文案，保证用户在任何入口看到的说法一致。
@@ -147,15 +147,15 @@ export function sessionFormatVersionRefusal(id: string, version: number): string
 }
 
 /** Coordinator policy supplied by a concrete persistence backend. */
-/**
+/*
  * 【中文】协调器策略参数：由具体后端在构造协调器时给定。
  */
 export interface PersistenceCoordinatorOptions {
   /** Maximum completed unpublished preparations retained for reuse. */
-  /** 【中文】最多保留多少个"已完成、未发布"的准备会话供 resume 复用。 */
+  /* 【中文】最多保留多少个"已完成、未发布"的准备会话供 resume 复用。 */
   readonly preparedSessionCacheSize: number
   /** Maximum intentional batching wait after an idle live queue receives work. */
-  /** 【中文】空闲写队列收到新事件后，最多故意等多久再落盘（写合并窗口）。 */
+  /* 【中文】空闲写队列收到新事件后，最多故意等多久再落盘（写合并窗口）。 */
   readonly writeBatchMaxDelayMs: number
 }
 
@@ -166,7 +166,7 @@ export interface PersistenceCoordinatorOptions {
  * returns its value to {@link PersistenceBackend.commitRepair}; each backend
  * owns the marker type.
  */
-/**
+/*
  * 【中文】一次冷读得到的"已存前缀"：头信息 + 有效的连续事件前缀 + 标识这段前缀的
  * 修订号 + 可选的"残尾标记"。修订号精确对应这份前缀；协调器只检查 tornMarker
  * 是否存在并把原值传回 {@link PersistenceBackend.commitRepair}，标记的具体类型由
@@ -176,7 +176,7 @@ export interface StoredPrefix<TornMarker = unknown> {
   meta: SessionHeader
   events: SessionEvent[]
   /** Revision observed for exactly this detached prefix. */
-  /** 【中文】读取时观察到的、恰好对应这份前缀的修订号。 */
+  /* 【中文】读取时观察到的、恰好对应这份前缀的修订号。 */
   revision: SessionPersistenceRevision
   tornMarker?: TornMarker
 }
@@ -187,7 +187,7 @@ export interface StoredPrefix<TornMarker = unknown> {
  * {@link PersistenceBackend.loadStoredFrom} hook. Non-mutating reads carry no
  * torn marker: there is nothing to repair.
  */
-/**
+/*
  * 【中文】"已存后缀"：头信息 + 从请求 seq 起的已存事件，是可选的按位寻址读取钩子
  * {@link PersistenceBackend.loadStoredFrom} 的返回结构。纯读不改任何状态，因此
  * 没有残尾标记——没有需要修复的东西。
@@ -207,7 +207,7 @@ export interface StoredSuffix {
  * @typeParam TornMarker - the backend's opaque torn-tail repair token (see
  * {@link StoredPrefix}). The coordinator treats it as fully opaque.
  */
-/**
+/*
  * 【中文】协调器与具体后端之间的存储契约：编排层所需的全部持久化原语的最小集合。
  * 后端负责实现这些原语（可以基于文件、数据库行、对象存储等）；其余一切（缓冲、
  * 序列化、游标推进、收养、崩溃修复时序、释放时的静默排空）都由协调器提供。
@@ -215,7 +215,7 @@ export interface StoredSuffix {
  */
 export interface PersistenceBackend<TornMarker = unknown> {
   /** Human-readable backend name, used in the dispose-failure AggregateError. */
-  /** 【中文】后端可读名称，用于释放失败的聚合错误信息。 */
+  /* 【中文】后端可读名称，用于释放失败的聚合错误信息。 */
   readonly name: string
 
   /**
@@ -231,7 +231,7 @@ export interface PersistenceBackend<TornMarker = unknown> {
    * @param id - persisted session id to resolve.
    * @param signal - optional cancellation for backend read work.
    */
-  /**
+  /*
    * 【中文】按 id 读取"已存前缀"，要扫描后端的每一个存储作用域（如所有项目目录）；
    * 找不到返回 undefined。供 resume/load、活跃收养使用，也用 `!== undefined` 充当
    * 创建冲突探测。tornMarker 存在当且仅当有需要截断的残尾。关键要求：返回的头与
@@ -248,7 +248,7 @@ export interface PersistenceBackend<TornMarker = unknown> {
    * @param id - persisted session id to observe.
    * @param signal - optional cancellation for backend read work.
    */
-  /**
+  /*
    * 【中文】只读某个已存会话当前的"来源限定修订号"，不加载事件日志。身份不存在时
    * 返回 undefined。用于廉价的"日志是否变了"检查（乐观并发控制的核心）。
    * @param id - 要观察的已持久化会话 id。
@@ -278,7 +278,7 @@ export interface PersistenceBackend<TornMarker = unknown> {
    *   validated by the coordinator before this hook runs).
    * @param signal - optional cancellation for backend read work.
    */
-  /**
+  /*
    * 【中文】可选的"按 seq 寻址后缀读取"钩子（支撑服务的 readFrom）：只返回
    * seq >= fromSeq 的已存事件，不读全量。能按下标取行的介质（SQLite）实现它让
    * readFrom 随后缀规模伸缩；顺序介质的后端省略它，协调器会退回 {@link loadStored}
@@ -296,7 +296,7 @@ export interface PersistenceBackend<TornMarker = unknown> {
    * commit ATOMICALLY (a crash between them must not leave a materialized-but-
    * empty session). Returns once the batch is durable.
    */
-  /**
+  /*
    * 【中文】把一批"连续"事件持久化追加；当 isMaterialized 为 false 时先惰性物化
    * 该会话。物化写与首个事件批必须原子提交——若两者之间崩溃，绝不能留下
    * "已物化但零事件"的空会话。本方法在批次落盘（durable）后才返回。
@@ -313,7 +313,7 @@ export interface PersistenceBackend<TornMarker = unknown> {
    * Used by load (truncate + synthetic closers) and by live-adoption (truncate
    * only, `closers = []`).
    */
-  /**
+  /*
    * 【中文】把崩溃修复持久化：若给了 tornMarker 就截掉残尾，若给了 closers（合成
    * 收尾事件）就追加。不要求原子——文件后端可以"先截断、再追加"两步各自 fsync。
    * load 用它做"截断 + 合成收尾"；活跃收养只用它做"仅截断"（closers 为空）。
@@ -324,7 +324,7 @@ export interface PersistenceBackend<TornMarker = unknown> {
    * List all stored (materialized) sessions' metadata.
    * @param signal - optional cancellation for backend listing work.
    */
-  /**
+  /*
    * 【中文】列出所有已物化会话的头信息。
    * @param signal - 可选取消信号。
    */
@@ -336,7 +336,7 @@ export interface PersistenceBackend<TornMarker = unknown> {
    * Backends without one artifact per session omit it or return `undefined`.
    * @param meta - the header whose artifact is requested.
    */
-  /**
+  /*
    * 【中文】可选的、无副作用的工件定位钩子：给 {@link SessionFormatUnsupportedError}
    * 之类的拒绝诊断指明原始日志位置。没有单会话工件的后端可省略或返回 undefined。
    * @param meta - 请求其工件位置的会话头。
@@ -348,7 +348,7 @@ export interface PersistenceBackend<TornMarker = unknown> {
    * coordinator's dispose effect AFTER the quiescence drain. A stateless file
    * backend omits it.
    */
-  /**
+  /*
    * 【中文】可选的生命周期收尾钩子（例如关闭数据库句柄）。协调器的 dispose effect
    * 会在"静默排空"完成之后再 await 它。无状态文件后端可省略。
    */
@@ -356,21 +356,21 @@ export interface PersistenceBackend<TornMarker = unknown> {
 }
 
 /** Per-session write state held by the coordinator's in-memory bookkeeping. */
-/**
+/*
  * 【中文】协调器内存记账中的"每会话写状态"。注意它按会话 id 记账，与活跃 Session
  * 对象是两回事（活跃对象记在 live 表里）；owner 字段才把两者关联起来。
  */
 interface SessionState {
   meta: SessionHeader
   /** The next seq the backend expects to append (the stored log length). */
-  /** 【中文】后端期待的下一个 seq（等于已存日志长度），追加时据此校验连续性。 */
+  /* 【中文】后端期待的下一个 seq（等于已存日志长度），追加时据此校验连续性。 */
   cursor: number
   /**
    * Whether lazy creation has produced a durable artifact. The first append
    * atomically materializes the header with events; reclaim logic uses this to
    * distinguish an unused id from a persisted collision.
    */
-  /**
+  /*
    * 【中文】惰性创建是否已产生持久化工件。第一次 append 会把头与事件原子地物化；
    * 回收逻辑据此区分"登记过但从未写入的 id"（可回收）与"真的已持久化冲突"。
    */
@@ -381,7 +381,7 @@ interface SessionState {
    * to a live session lets `onCreated` reject a second, unrelated session on the
    * same id (a collision) instead of silently no-opping.
    */
-  /**
+  /*
    * 【中文】通过 onCreated 绑定到本状态的活跃 Session（若有）。经由公共
    * create()/load() 建立的状态没有 owner；绑定了 owner 之后，若另一个不相干的
    * 会话复用同一 id，onCreated 能明确拒绝（冲突）而不是静默跳过。
@@ -390,7 +390,7 @@ interface SessionState {
 }
 
 /** One live session's initialization and bounded write-behind controller. */
-/**
+/*
  * 【中文】一个活跃会话的两件套：init 是初始化 Promise（首次创建/收养完成即落定），
  * writes 是该会话专属的写后缓冲控制器（见 write-behind.ts），负责攒批与排空。
  */
@@ -400,7 +400,7 @@ interface LiveSessionState {
 }
 
 /** One validated cold source and the exact unpublished Session built from it. */
-/**
+/*
  * 【中文】一个"已校验的冷数据源"以及由它精确构建出的未发布 Session：检视视图、
  * 准备好的 Session、读取时的修订号、构建后的会话长度、残尾标记与合成收尾事件。
  * 协调器用它实现"读一次、多方复用"。
@@ -410,14 +410,14 @@ interface PreparedSessionSource<TornMarker> {
   readonly session: Session
   readonly revision: SessionPersistenceRevision
   /** Session length after constructor-owned seed markers were appended. */
-  /** 【中文】构造器自有的种子标记追加完毕后的 Session 长度，用于判断是否可复用。 */
+  /* 【中文】构造器自有的种子标记追加完毕后的 Session 长度，用于判断是否可复用。 */
   readonly sessionLength: number
   readonly tornMarker: TornMarker | undefined
   readonly closers: readonly SessionEvent[]
 }
 
 /** Collect the rejection reasons from a set of promises (none-throwing). */
-/**
+/*
  * 【中文】等一组 Promise 全部落定并收集所有被拒绝的原因；本身永不抛错。
  * 用于 dispose 时把多个会话的排空错误聚合成一个 AggregateError。
  * @param promises - 任意一组 Promise。
@@ -433,7 +433,7 @@ async function settledErrors(promises: Iterable<Promise<unknown>>): Promise<unkn
 }
 
 /** Whether a live session seed reproduces a persisted prefix exactly. */
-/**
+/*
  * 【中文】判断活跃会话的种子事件是否与已持久化前缀逐条一致（长度覆盖 + 逐条
  * JSON 字符串相等）。用于收养场景：确认"内存里的会话历史"与"磁盘上的前缀"
  * 讲的是同一段历史，防止错误地把两份不同日志缝在一起。
@@ -450,7 +450,7 @@ function seedCoversPrefix(seed: readonly SessionEvent[], prefix: readonly Sessio
 }
 
 /** Reject events from an obsolete v0 vocabulary that this build cannot replay. */
-/**
+/*
  * 【中文】拒绝本构建已无法重放的旧版（v0）事件词表：request/header-delta、mode/set
  * 两种已删除的事件类型，以及 reason 为 "fallback" 的 request/header。写入侧与
  * 读取侧共用此守卫，保证"本后端拒读的形状也绝不被写入"。
@@ -477,7 +477,7 @@ function assertSupportedEvents(events: readonly SessionEvent[], id: SessionId): 
 }
 
 /** Return an object record without widening arrays into message payloads. */
-/**
+/*
  * 【中文】把值收窄为"普通对象记录"（非 null、非数组），否则返回 undefined。
  * 迁移代码用它安全地探查旧事件 data 的字段，而不会把数组误当消息载荷处理。
  * @param value - 任意待检查的值。
@@ -490,7 +490,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 /** Whether a record contains every required key and no key outside the optional extension set. */
-/**
+/*
  * 【中文】形状检查：记录必须含全部必填键，且不得出现"必填 + 可选"之外的键。
  * 迁移逻辑据此判断一个旧事件是否严格匹配某个已知的旧版信封，防止把畸形数据
  * 误升级成看似合法的当前格式。
@@ -514,7 +514,7 @@ type PersistedMessageId = SessionEvent<'user/message'>['data']['id']
 // 类型）。旧格式日志没有消息 id，迁移时按下面的函数规则补造一个稳定 id。
 
 /** Mint the stable import identity for a message persisted before identities existed. */
-/**
+/*
  * 【中文】为"身份机制出现之前"持久化的消息铸造稳定的导入身份：`legacy-message:
  * <会话id>:<seq>`。同一条日志每次读取都会得到同一个 id，因此跨进程、跨加载保持
  * 稳定，可安全用于消息替换等按 id 引用的场景。
@@ -527,7 +527,7 @@ function legacyMessageId(id: SessionId, seq: number): PersistedMessageId {
 }
 
 /** Read a replacement target while leaving malformed surface metadata to the session validator. */
-/**
+/*
  * 【中文】读取旧 tool/result 事件上的 surfaceOp.replace.start（消息替换目标位置），
  * 形状不对就返回 undefined——畸形的表面元数据交给会话校验器去报错，这里不越权。
  * @param event - 待检查的事件。
@@ -541,7 +541,7 @@ function replacementStart(event: SessionEvent): number | undefined {
 }
 
 /** Whether one suffix event needs facts available only from the preceding stored prefix. */
-/**
+/*
  * 【中文】判断一个"后缀事件"是否需要只有前缀里才有的旧事实才能归一化。命中情形：
  * 已删除的 steering/message 类型，或 user/message、assistant/message、tool/result
  * 缺少当前信封字段（id/message）却带着旧 content 字段的形状。readFrom 的寻址读取
@@ -567,7 +567,7 @@ function needsLegacyPrefix(event: SessionEvent): boolean {
 }
 
 /** Upgrade the removed steering surface event into its current user-message equivalent. */
-/**
+/*
  * 【中文】把已删除的 steering/message（旧"转向消息"表面事件）升级为等价的当前
  * user/message。兼容两种旧信封：message 包裹形与 turn+content+source 平铺形；
  * 两种都对不上就报畸形错误，绝不猜测。
@@ -603,7 +603,7 @@ function migrateLegacySteeringEvent(event: SessionEvent, id: SessionId): Session
 }
 
 /** Remove the obsolete trigger after verifying the complete old turn-start envelope. */
-/**
+/*
  * 【中文】清理旧版 turn/start 事件里已废弃的 trigger 字段：先完整校验旧信封
  * （turn 正整数 + trigger.kind 非空字符串 + 无多余键），再剥掉 trigger 只留 turn。
  * 校验不过按畸形报错，保持"宁可拒绝也不误升级"。
@@ -625,7 +625,7 @@ function migrateLegacyTurnStartEvent(event: SessionEvent, id: SessionId): Sessio
 }
 
 /** Upgrade an obsolete turn ending while preserving the latest-master envelope. */
-/**
+/*
  * 【中文】把旧版 turn/end 的 reason 结构升级为当前信封：completed/blocked/max-tokens/
  * interrupted 保持不变；aborted 补上 { kind:'legacy' } 子原因；disposed 归一为
  * aborted+disposed；error 的多种旧形状（failure 对象或 message/code 平铺）统一为
@@ -711,7 +711,7 @@ function migrateLegacyTurnEndEvent(event: SessionEvent, id: SessionId): SessionE
  * Current-looking malformed events remain untouched so validation rejects them
  * instead of disguising corruption as legacy data.
  */
-/**
+/*
  * 【中文】把"消息身份机制出现之前"的消息事件升级为当前包裹信封：
  * - user/message：补 id 与 role:'user'；
  * - assistant/message：content+provenance 包裹为 message{...}（source.kind='model'）；
@@ -799,7 +799,7 @@ function migrateLegacyMessageEvent(
 }
 
 /** Read the identified message carried by one validated current event. */
-/**
+/*
  * 【中文】从一个"已迁移为当前格式"的事件里读出其携带的消息 id：user/message 的
  * data 本身就是消息；其余类型从 data.message 里取。取不到返回 undefined。
  * @param event - 当前格式的事件。
@@ -812,7 +812,7 @@ function eventMessageId(event: SessionEvent): PersistedMessageId | undefined {
 }
 
 /** Materialize stored events as upgraded, validated snapshots with immutable messages. */
-/**
+/*
  * 【中文】把磁盘上读出的事件序列整体"物化"：先拒绝不支持的旧词表，再逐条做旧格式
  * 迁移，最后 snapshotSessionEvent（深拷贝 + 校验 + 深冻结），产出全新的、不可变的
  * 事件数组。返回值与输入完全脱钩，调用方可安全持有。同时维护 seq→消息 id 映射供
@@ -837,7 +837,7 @@ function snapshotStoredEvents(events: readonly SessionEvent[], id: SessionId): S
 }
 
 /** Upgrade and validate an exclusively owned backend result without copying it. */
-/**
+/*
  * 【中文】与 snapshotStoredEvents 类似的迁移 + 校验流水线，但采用"收养"（adopt）
  * 方式：直接在后端返回的数组上就地迁移、校验并深冻结，不额外拷贝——前提是调用方
  * 独占该结果（协调器契约保证后端不保留引用）。省一次深拷贝。
@@ -873,7 +873,7 @@ function adoptStoredEvents(events: SessionEvent[], id: SessionId): SessionEvent[
  *
  * @typeParam TornMarker - the backend's opaque torn-tail repair token.
  */
-/**
+/*
  * 【中文】会话写路径的"总编排器"。具体后端 `new PersistenceCoordinator(ctx, this)`
  * 构造一个实例、实现 {@link PersistenceBackend}，再把自己服务的读写方法一一委托给
  * 协调器的同名方法即可。要点：
@@ -884,28 +884,28 @@ function adoptStoredEvents(events: SessionEvent[], id: SessionId): SessionEvent[
  */
 export class PersistenceCoordinator<TornMarker = unknown> {
   /** Backend bookkeeping keyed by session id (NOT the live Session object). */
-  /** 【中文】按会话 id 记账的后端状态表（键是 id，不是活跃 Session 对象）。 */
+  /* 【中文】按会话 id 记账的后端状态表（键是 id，不是活跃 Session 对象）。 */
   private states = new Map<SessionId, SessionState>()
   /** Lifecycle and write-behind state keyed by the exact live Session. */
-  /** 【中文】按活跃 Session 对象本身记账的生命周期与写后缓冲状态。 */
+  /* 【中文】按活跃 Session 对象本身记账的生命周期与写后缓冲状态。 */
   private live = new Map<Session, LiveSessionState>()
   /** Exact disposed lifecycles whose buffered tail is still draining. */
-  /** 【中文】已销毁、但缓冲尾仍在排空中的会话生命周期（id → 排空 Promise）。 */
+  /* 【中文】已销毁、但缓冲尾仍在排空中的会话生命周期（id → 排空 Promise）。 */
   private retirements = new Map<SessionId, Promise<void>>()
   /** Shared cold reads, unpublished reservations, and completed LRU entries. */
-  /** 【中文】共享冷读、未发布预留与已完成 LRU 的准备池（见 preparations.ts）。 */
+  /* 【中文】共享冷读、未发布预留与已完成 LRU 的准备池（见 preparations.ts）。 */
   private readonly preparations: SessionPreparations<PreparedSessionSource<TornMarker>, SessionState>
   /**
    * Per-session serialization: every operation chains onto the prior one for the
    * same id, so writes for one session never interleave. Keyed by session id.
    */
-  /**
+  /*
    * 【中文】每会话串行链：同一 id 的操作依次链接在前一个之后，保证写入永不交错。
    * 键为会话 id。
    */
   private chains = new Map<SessionId, Promise<unknown>>()
   /** Resolved fixed write-batching window shared by per-session controllers. */
-  /** 【中文】解析后的固定写合并窗口，供各会话的写控制器共享。 */
+  /* 【中文】解析后的固定写合并窗口，供各会话的写控制器共享。 */
   private readonly writeBatchMaxDelayMs: number
 
   /**
@@ -943,7 +943,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * Register detached session metadata for lazy creation on the first append.
    * @param meta - header to snapshot; duplicate tracked or persisted ids reject.
    */
-  /**
+  /*
    * 【中文】登记一个"惰性创建"的会话：此刻只快照头信息记账，不落盘；第一次 append
    * 才真正物化。id 已在本后端记账/准备中、或磁盘上已有同 id 日志时都会拒绝。
    * @param meta - 要快照的头信息。
@@ -992,7 +992,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * @param events - the contiguous batch to persist, in seq order; materialized
    *   as a detached lossless-JSON snapshot at call time.
    */
-  /**
+  /*
    * 【中文】把一批事件持久化落盘：遵守追加式与 seq 连续契约；无法无损 JSON 序列化
    * 的 event.data 直接拒绝。调用即对整批做深快照，之后排队等待该会话的串行链。
    * @param id - 批次所属会话 id。
@@ -1062,7 +1062,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * @param signal - optional cancellation for reading and repair.
    * @returns an owned preparation released after publication or rollback.
    */
-  /**
+  /*
    * 【中文】准备并预留 resume 专用的"未发布 Session"。基于修订号重试：只要持久化
    * 日志在"读一次 + 校验一次"的来回里保持不变即可收敛；外部持续写入会推迟完成。
    * 会话仍活跃时拒绝。返回的准备品在发布或回滚后释放。
@@ -1111,7 +1111,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * @param id - persisted session to load.
    * @returns prepared header and balanced events.
    */
-  /**
+  /*
    * 【中文】提交恢复并返回其不可变逻辑视图，但不发布 Session。与 prepare 相同的
    * 修订号重试语义。若该 id 已有活跃 Session，则改为把活跃会话的写缓冲排空后
    * 返回其持久快照。
@@ -1151,7 +1151,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * @param signal - optional cancellation for preparation work.
    * @returns immutable prepared metadata and events; a live view may have an open turn.
    */
-  /**
+  /*
    * 【中文】检视：不发布、不提交恢复地读取逻辑会话。就绪但过期的源会被重读；已被
    * 提交或被 resume 预留的源保持独占，检视只借用其不可变视图。修订号重试语义同前。
    * @param id - 要检视的已持久化会话 id。
@@ -1210,7 +1210,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * @param signal - optional cancellation for queued and backend read work.
    * @returns stored header and the valid stored events with `seq >= fromSeq`.
    */
-  /**
+  /*
    * 【中文】readFrom 的协调器实现：与写操作同一条每 id 串行链上执行；实现了寻址钩子
    * {@link PersistenceBackend.loadStoredFrom} 的后端只读后缀，其余后端在此处读取
    * 完整前缀再向前跳过。纯物理读取，不做任何修复。
@@ -1271,7 +1271,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Read one detached physical prefix without logical recovery or caching. */
-  /**
+  /*
    * 【中文】读取一份"脱钩的物理前缀"：不做逻辑恢复、不进缓存、不截断残尾——
    * 残尾碎片天然不会进入返回值（解析器只产出完整记录）。供 readFrom 等纯读场景用。
    * @param id - 会话 id。
@@ -1297,7 +1297,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Read, repair in memory, validate, and freeze one cold source once. */
-  /**
+  /*
    * 【中文】冷读流水线（只执行一次）：读已存前缀 → 校验 id 与格式版本 → 收养并
    * 迁移事件 → 校验事件词表 → 为完整中断的回合计算合成收尾 → 用配平后的日志构建
    * 未发布 Session 并冻结检视视图。格式拒绝原样上抛；其余校验失败统一包装为
@@ -1351,7 +1351,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Commit one prepared repair and establish its ownerless durable cursor. */
-  /**
+  /*
    * 【中文】提交一次准备好的修复并确立无主的持久游标：若需要修复（有残尾或合成
    * 收尾）就先写盘，然后返回 undefined 让调用方重读（因为修订号已变）；无需修复时
    * 直接建立内存状态。已有活跃归属的 id 会拒绝。
@@ -1391,7 +1391,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Whether one cached source still names the current durable log revision. */
-  /**
+  /*
    * 【中文】乐观并发控制的核心检查：缓存源记录的修订号是否仍等于磁盘当前修订号。
    * @param source - 待校验的缓存源。
    * @param signal - 可选取消信号。
@@ -1405,7 +1405,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Return one durable immutable view of an already-live Session. */
-  /**
+  /*
    * 【中文】为"已是活跃会话"的 load 场景返回持久不可变视图：先排空其写缓冲保证
    * 磁盘与内存一致；开着回合的活跃日志拒绝加载（用户应使用活跃会话或等回合关闭）。
    * @param session - 活跃 Session。
@@ -1425,7 +1425,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Borrow one immutable view from an already-live Session. */
-  /**
+  /*
    * 【中文】inspect 的活跃捷径：直接借用活跃会话当前的不可变头信息与事件视图，
    * 不排空、不修复——只求"此刻看到什么就是什么"。
    * @param session - 活跃 Session。
@@ -1436,7 +1436,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Await one retiring lifecycle with caller cancellation. */
-  /**
+  /*
    * 【中文】等待某个 id 的退役排空完成（若在退役中）；支持调用方取消观察。
    * @param id - 会话 id。
    * @param signal - 可选取消信号。
@@ -1461,7 +1461,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * public methods must NOT call each other (deadlock); they call the unserialized
    * `*Core` helpers instead.
    */
-  /**
+  /*
    * 【中文】串行化执行器：让同一会话 id 的操作依次排队，写入永不交错；单个操作的
    * 失败不会污染后续队列。铁律：已串行化的公共方法之间禁止互相调用（会死锁），
    * 它们只能调用未串行化的 *Core 助手。
@@ -1502,7 +1502,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Build a state for a session discovered in storage but not yet in memory. */
-  /**
+  /*
    * 【中文】收养：为"磁盘上存在、内存中尚无状态"的会话建立写状态。优先取准备池里
    * 就绪的冷读源，否则现做一次冷读；随后提交修复/游标状态。若提交期间日志又变了
    * （返回 undefined）就循环重试。必须在串行链内调用，因此只用 core 助手。
@@ -1540,7 +1540,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * this build still reads and rejected the ones it does not, so those keep
    * their specific diagnostics.
    */
-  /**
+  /*
    * 【中文】拒绝包含本构建不认识的事件类型的日志——除非写入方标记了该事件
    * ignorable。原因：一个未被识别的"必需"事件可能改变整份日志的解读方式，
    * 静默跳过会重建出错误的会话。本检查运行在归一化之后的事件上：旧形状已先被
@@ -1557,7 +1557,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Build a format refusal that points at the raw artifact when the backend has one. */
-  /**
+  /*
    * 【中文】构造格式拒绝错误；若后端能定位原始工件，把路径追加到文案里方便用户
    * 自查日志。
    * @param meta - 所属会话头。
@@ -1573,7 +1573,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Reject backend metadata that is not bound to the requested session id. */
-  /**
+  /*
    * 【中文】身份一致性守卫：后端返回的头信息必须就是请求的那个会话，否则视为
    * 存储错乱并报错。
    * @param id - 请求的会话 id。
@@ -1652,7 +1652,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Start and observe one disposed session's final drain. */
-  /**
+  /*
    * 【中文】启动并观察某个已销毁会话的最后一次排空：登记到 retirements 表供他人
    * 等待，排空结束后移除；失败只记日志（销毁路径不向外抛错）。
    * @param session - 刚被销毁的 Session。
@@ -1671,7 +1671,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Drain and release state owned by one exact disposed Session lifecycle. */
-  /**
+  /*
    * 【中文】排空并释放某个精确销毁生命周期所拥有的状态：先 flush 落盘缓冲，再在
    * 串行链内解除 live 绑定并删除该会话的记账状态（仅当归属仍是本会话）。
    * @param session - 已销毁的 Session。
@@ -1686,7 +1686,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Return the one lifecycle controller for a live session, creating it if needed. */
-  /**
+  /*
    * 【中文】取活跃会话唯一的生命周期控制器；没有则创建。若存在与该 Session 精确
    * 匹配的"已准备预留"（resume 发布场景），走 attachPrepared 接管；否则按全新
    * 初始化处理：以会话当前事件为种子，串行执行 onCreated 并启动写后缓冲。
@@ -1718,7 +1718,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Bind one exact prepared Session and persist only its unpublished suffix. */
-  /**
+  /*
    * 【中文】把"精确匹配的准备 Session"与其持久化状态接驳：多重一致性检查（对象
    * 同一性、无其他归属、游标对齐 firstLiveSeq）通过后，把尚未持久化的后缀事件
    * 深拷贝入队补写，并消费预留、登记归属。
@@ -1756,7 +1756,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * events. A `cursor` of 0 (nothing persisted yet) trivially matches. Used when
    * a live session claims ownerless state left by a prior `load()`/`create()`.
    */
-  /**
+  /*
    * 【中文】判断活跃会话的种子是否恰好复现了已持久化的前 cursor 条事件。
    * cursor 为 0（磁盘上还没有内容）时平凡成立。用于活跃会话认领先前
    * load()/create() 留下的"无主状态"前的安全检查。
@@ -1788,7 +1788,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    *   4. Not tracked and NO artifact → a genuinely new session: register meta
    *      (lazy) and persist its seed once.
    */
-  /**
+  /*
    * 【中文】session/created 的核心处理：把后端内存状态与活跃 Session 同步。
    * 按"是否已记账 / 磁盘是否有工件"分四种情形：
    *   1. 已记账 → 无操作（或种子吻合时认领无主状态，或回收真正被弃用的 id，
@@ -1879,7 +1879,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
    * the live Session is still the authority), bind ownership, and persist the
    * live suffix that was ahead of the stored prefix.
    */
-  /**
+  /*
    * 【中文】把已存前缀收养为活跃会话的历史（HMR/重载场景）：校验种子覆盖前缀、
    * cwd 一致、版本与词表受支持；只截断物理残尾（不关闭未完回合——活跃 Session
    * 仍是权威）；绑定归属，并把领先于已存前缀的活跃后缀补写落盘。
@@ -1935,7 +1935,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Build one package-private write controller around initialization and id serialization. */
-  /**
+  /*
    * 【中文】为会话构建包内私有的写控制器：写动作 = 等初始化就绪 → 排进该 id 的
    * 串行链执行 appendLiveBatch；后台写失败只告警并保留缓冲事件等待重试。
    * @param session - 目标活跃 Session。
@@ -1956,7 +1956,7 @@ export class PersistenceCoordinator<TornMarker = unknown> {
   }
 
   /** Append one controller-owned prefix after filtering events initialization already stored. */
-  /**
+  /*
    * 【中文】追加写控制器持有的批次：先按当前游标过滤掉"初始化时已经写过"的事件，
    * 再把剩余部分交给 appendCore。游标之后的都是新事件。
    * @param id - 会话 id。

@@ -2,7 +2,7 @@
  * Enforce the MIT license declaration for repository-owned DSH npm packages.
  * @module scripts/verify-dsh-package-licenses
  */
-/**
+/*
  * 文件职责：实现 verify-dsh-package-licenses.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -20,7 +20,7 @@ const ROOT = resolve(import.meta.dirname, '..')
 const DSH_PACKAGE_NAME = /^@deepseek-ai\/dsh(?:-|$)/
 
 /** Result of checking every DSH package reachable through the root workspace list. */
-/** 中文说明：interface DshPackageLicenseReport 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface DshPackageLicenseReport 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface DshPackageLicenseReport {
   /** Number of DSH package manifests checked. */
   packageCount: number
@@ -75,7 +75,7 @@ function printable(value: unknown): string {
  * @param root - absolute repository root containing the workspace package.json.
  * @returns the checked package count and every non-MIT declaration.
  */
-/** 中文说明：函数 inspectDshPackageLicenses 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 inspectDshPackageLicenses 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function inspectDshPackageLicenses(root: string): DshPackageLicenseReport {
   /** 中文说明：变量 packageCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let packageCount = 0

@@ -4,7 +4,7 @@
  * @module @deepseek-ai/dsh-commands/invariant
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-commands 包的"不变量伴随插件"：校验命令生命周期事件在同一会话日志内按
  *   commandId 正确配对——run 不重复、done 必有先前 run 且 sourceEventSeq 指向合法的前置域事件。

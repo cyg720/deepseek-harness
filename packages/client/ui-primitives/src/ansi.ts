@@ -54,7 +54,7 @@ interface AnsiChunk {
 }
 
 /** One run of terminal text; `style` is undefined for text that carries no SGR state. */
-/**
+/*
  * 一段终端文本：style 为 undefined 表示这段文本没有任何 SGR 样式，无需包裹。
  */
 export interface AnsiSpan {
@@ -184,7 +184,7 @@ const WIDE_CHAR = new RegExp(
  * @param char - one character from the output.
  * @returns true when the terminal advances two columns for it.
  */
-/**
+/*
  * 判断字符是否占两个终端列（CJK、全角、emoji）。覆盖命令输出实际会带的区间；
  * 猜窄了会导致本卡片要保留的列对齐被破坏。
  * @param char - 输出中的单个字符。
@@ -233,7 +233,7 @@ const ATTR_CLOSERS: Record<string, readonly string[]> = {
  * @param params - the sequence's raw parameter string (`31`, `1;4`, `38;5;208`).
  * @returns the state the sequence leaves in force.
  */
-/**
+/*
  * 把一条 SGR 序列的参数折叠进它产生的状态。
  * @param state - 序列生效前的状态。
  * @param params - 序列的原始参数字符串（如 `31`、`1;4`、`38;5;208`）。
@@ -279,7 +279,7 @@ function foldSgr(state: SgrState, params: string): SgrState {
  * @param state - the state to open.
  * @returns the SGR sequence, or the empty string for the default state.
  */
-/**
+/*
  * 把一个状态渲染成"从默认状态建立它"的唯一规范序列，保证任何状态边界只输出有界字符串。
  * @param state - 要开启的状态。
  * @returns SGR 序列；默认状态返回空字符串。
@@ -318,7 +318,7 @@ function sameSgr(a: SgrState, b: SgrState): boolean {
  * @returns the line as the terminal would have it after every movement, plus the
  *   SGR state at its end for the next line to enter with.
  */
-/**
+/*
  * 按终端实际绘制方式把一行的光标移动回放到"列缓冲"里。回车与退格只移动光标、
  * 不擦除任何东西，所以读者看到的是每列"最后写入"的内容——这正是要用缓冲而不是
  * 字符串裁剪的原因：`100%\rOK` 显示 `OK0%`（重绘比底层帧短），末尾 `abc\b` 仍显示
@@ -490,7 +490,7 @@ interface Cell {
  * @param text - output text, already free of OSC and non-CSI escapes.
  * @returns the text with each line painted as the terminal would.
  */
-/**
+/*
  * 逐行回放光标移动。仅用于终止 CRLF 行的 \r 先被去掉，否则这些行会把自己重绘到
  * 自己身上。SGR 状态跨行传递：换行不重置状态，所以重绘前开启的 run 仍会着色其后的行。
  * @param text - 已清除 OSC 与非 CSI 转义的输出文本。
@@ -528,7 +528,7 @@ function applyCursorMovements(text: string): string {
  * @param text - raw command output.
  * @returns text whose only remaining escapes are CSI sequences.
  */
-/**
+/*
  * 清除所有不携带颜色的转义序列与控制字符，只给 anser 留 CSI 序列、给布局留 \n 与 \t。
  * 光标移动（回车、退格）必须先回放：它们对可见文本的影响必须落在表达它们的字符被
  * 删除之前。
@@ -545,7 +545,7 @@ function sanitize(text: string): string {
  * @param chunk - the anser chunk to style.
  * @returns the run's inline style, or undefined when it carries no SGR state.
  */
-/**
+/*
  * 解析一个 run 的颜色与装饰。
  * @param chunk - 要样式化的 anser 片段。
  * @returns 该 run 的内联样式；没有任何 SGR 状态时返回 undefined。
@@ -574,7 +574,7 @@ function resolveStyle(chunk: AnsiChunk): CSSProperties | undefined {
  * @param text - raw output text, which may contain ANSI escape sequences.
  * @returns one entry per output line (always at least one, possibly empty).
  */
-/**
+/*
  * 把命令输出解析成"按行分组的带样式 span"——TerminalBlock 的直接输入。
  * 使用示例：parseAnsiLines(rawOutput).map((line, i) => <div key={i}>{line.map(renderSpan)}</div>)。
  * @param text - 原始输出文本，可能含 ANSI 转义序列。

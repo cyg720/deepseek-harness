@@ -8,7 +8,7 @@
  * @module @deepseek-ai/dsh-credentials
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】凭据引用能力缝（ctx.credentials）的服务定义：定义两种互不相交的键空间——
  *   CredentialRef（环境变量名式引用，回答"这个引用背后是什么值"）与 CredentialKey

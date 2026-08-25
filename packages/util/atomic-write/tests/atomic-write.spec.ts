@@ -40,7 +40,7 @@ async function scratch(): Promise<string> {
 }
 
 /** Resolve once the lockfile exists, so contention is measured against a held lock. */
-/** 中文说明：函数 waitForLock 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitForLock 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForLock(lockPath: string): Promise<void> {
   /** 中文说明：该循环依次处理输入或结果；循环变量仅在当前循环中有效。 */
   for (;;) {

@@ -31,7 +31,7 @@
  * — a cold session's host Agent is already disposed while its client actx
  * stays alive for history viewing.
  */
-/**
+/*
  * 客户端 Agent 作用域原语：铸造一个带"所属 Agent 身份"标签的 Cordis 上下文。
  * 机制镜像 Host 侧 dsh-scope 架构（no-op 插件 fiber + 上下文标签 +
  * Context.filter 路由谓词）；形态上刻意分歧：过滤器放在 actx 上下文本身
@@ -49,35 +49,35 @@ import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { TypertClientRemote, TypertRemoteScopeApi } from '@deepseek-ai/dsh-typert-protocol'
 
 /** Client Cordis Context carrying one Agent identity and its scoped Remote namespaces. */
-/** 携带一个 Agent 身份及其作用域化 Remote 命名空间的客户端 Cordis 上下文。 */
+/* 携带一个 Agent 身份及其作用域化 Remote 命名空间的客户端 Cordis 上下文。 */
 export type AgentContext = Omit<Context, 'remote'> & {
   readonly remote: TypertClientRemote & TypertRemoteScopeApi<'agent'>
 }
 
 /** Context tag written by {@link createScope}. */
-/** createScope 写入上下文中的标签（用 Symbol 作键，避免与普通属性冲突）。 */
+/* createScope 写入上下文中的标签（用 Symbol 作键，避免与普通属性冲突）。 */
 const kScope = Symbol('dsh.client.scope')
 
 /** A minted Agent scope and its disposal boundary. */
-/** 一个已铸造的 Agent 作用域及其销毁边界。 */
+/* 一个已铸造的 Agent 作用域及其销毁边界。 */
 export interface AgentScopeHandle {
   /**
    * Tagged context: scope-owned registrations and scoped dispatch both go
    * through it (passing it as the dispatch subject routes to this agent's
    * tagged listeners plus every untagged one).
    */
-  /**
+  /*
    * 带标签的上下文：作用域内的注册与作用域化分发都经过它（把它作为分发
    * 主体会把事件路由到该 agent 的带标签监听器以及所有未带标签的监听器）。
    */
   ctx: AgentContext
   /** Backing fiber (dispose tears down every scope-owned registration). */
-  /** 底层 fiber（销毁它会拆除所有作用域内的注册）。 */
+  /* 底层 fiber（销毁它会拆除所有作用域内的注册）。 */
   fiber: Fiber
 }
 
 /** Shared no-op plugin backing each Agent scope fiber. */
-/** 支撑每个 Agent 作用域 fiber 的共享 no-op 插件（本身不做任何事，只提供生命周期）。 */
+/* 支撑每个 Agent 作用域 fiber 的共享 no-op 插件（本身不做任何事，只提供生命周期）。 */
 function agentScope(): void {}
 
 /**
@@ -89,7 +89,7 @@ function agentScope(): void {}
  * @param key - owning agent identity (the routing tag; agent id === session id).
  * @returns the tagged context and its backing fiber.
  */
-/**
+/*
  * 在 ctx 下铸造一个 Agent 作用域：no-op 插件 fiber，其上下文携带 agent
  * 标签与分发过滤器——未带标签的监听器全局放行，带标签的只对匹配的
  * agent 放行。通过返回 ctx 做的注册随 fiber 一起销毁。
@@ -117,7 +117,7 @@ export function createScope(ctx: Context, key: SessionId): AgentScopeHandle {
  * @param ctx - any client context.
  * @returns its agent identity (the session id), or undefined for root contexts.
  */
-/**
+/*
  * 读取上下文继承到的最近一个 agent 标签。
  * @param ctx 任意客户端上下文。
  * @returns 其 agent 身份（即会话 id），根上下文返回 undefined。

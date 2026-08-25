@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and optional invariant companion as independent bundles. */
-/**
+/*
  * 文件职责：配置代理循环核心入口和可选不变量伴生入口的独立构建。
  * 技术维度：使用 tsdown 输出 Node.js ESM，并从 tsc 的 lib/types 目录读取入口。
  * 产品维度：提供驱动模型、工具和会话事件的核心循环，同时允许诊断装配关系。

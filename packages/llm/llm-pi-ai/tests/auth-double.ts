@@ -17,7 +17,7 @@ import type { PiAiAuthInjection } from '../src/adapter.ts'
  * @param seed - credentials to start with, by pi-ai provider id.
  * @returns the injection to hand `PiAiAdapter`, with its store readable.
  */
-/** 创建内存认证注入。@param seed 按提供者 id 索引的初始凭据。@returns 注入对象和可读 stored Map。@example memoryAuth({ deepseek: credential })。 */
+/* 创建内存认证注入。@param seed 按提供者 id 索引的初始凭据。@returns 注入对象和可读 stored Map。@example memoryAuth({ deepseek: credential })。 */
 export function memoryAuth(seed: Record<string, Credential> = {}): PiAiAuthInjection & {
   // 供测试直接检查的凭据映射。
   stored: Map<string, Credential>

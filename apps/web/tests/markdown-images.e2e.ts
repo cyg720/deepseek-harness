@@ -64,7 +64,7 @@ interface ImageOrigin {
 }
 
 /** Start the deterministic remote image origin used by this browser scenario. */
-/** 启动确定性远程图片源，无参数，返回服务器及请求记录。示例：await startImageOrigin()。 */
+/* 启动确定性远程图片源，无参数，返回服务器及请求记录。示例：await startImageOrigin()。 */
 async function startImageOrigin(): Promise<ImageOrigin> {
   /** 保存服务器收到的所有图片请求。 */
   const requests: ImageOrigin['requests'] = []

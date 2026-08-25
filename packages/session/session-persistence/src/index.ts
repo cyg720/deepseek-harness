@@ -28,7 +28,7 @@
  * {@link SessionHeader} metadata separately.
  * @module @deepseek-ai/dsh-session-persistence
  */
-/**
+/*
  * 【中文导读】上面英文说明本模块是"持久化会话数据"的服务定义。Cordis 中每个能力缝
  * 都拆成三个角色：Service Definition（契约）/ Provider（实现）/ Consumer（使用方）；
  * 本包扮演契约角色，JSONL、SQLite 后端是实现方，代理循环等则是使用方。
@@ -45,50 +45,50 @@ export type { SessionHeader } from '@deepseek-ai/dsh-session'
 export { SessionPersistenceRevision } from './revision.ts'
 
 /** Lightweight immutable source identity returned without loading a full log. */
-/**
+/*
  * 【中文】轻量级"存储快照"条目：不解析整份日志，仅凭元数据即可回答"磁盘上存了哪些
  * 会话、各自内容变过没有"。由 listSnapshots 返回，用于会话列表与廉价变更检测。
  */
 export interface SessionPersistenceSnapshot {
   /** Detached metadata for one materialized session. */
-  /** 【中文】该已落盘会话的头信息副本（id、格式版本、cwd、谱系等），与会话本体解耦。 */
+  /* 【中文】该已落盘会话的头信息副本（id、格式版本、cwd、谱系等），与会话本体解耦。 */
   header: SessionHeader
   /** Opaque source-qualified token that changes whenever this stored log changes. */
-  /** 【中文】来源限定的不透明修订令牌：日志内容不变则令牌不变，一旦变化即换新值。
+  /* 【中文】来源限定的不透明修订令牌：日志内容不变则令牌不变，一旦变化即换新值。
    * 只用于"是否需要重新加载"的相等性比较，切勿解析或猜测其内部格式。 */
   revision: SessionPersistenceRevision
 }
 
 /** Immutable logical session prepared from persistence or a live owner. */
-/**
+/*
  * 【中文】一次"检视"得到的完整逻辑会话：校验过的头信息 + 从 seq 0 起连续的事件日志，
  * 整体冻结为只读。数据既可能来自磁盘冷数据（load/inspect），也可能借用自内存中
  * 的活跃会话。调用方只能读取，不得修改。
  */
 export interface SessionInspection {
   /** Validated immutable session metadata. */
-  /** 【中文】已通过校验的不可变会话头。 */
+  /* 【中文】已通过校验的不可变会话头。 */
   readonly meta: SessionHeader
   /** Validated contiguous logical event log. */
-  /** 【中文】严格连续的事件日志；冷读时可能已附带崩溃修复所需的合成收尾事件。 */
+  /* 【中文】严格连续的事件日志；冷读时可能已附带崩溃修复所需的合成收尾事件。 */
   readonly events: readonly SessionEvent[]
 }
 
 /** A backend's own raw artifact text for one session, verbatim. */
-/**
+/*
  * 【中文】后端亲手写下的"原始工件"全文，一字不改地返回。供调试、导出、排障使用：
  * 它保留打包行、键顺序、换行等后端私有序列化细节，而不是由解析后的事件重新拼装
  * 出来的"看起来一样"的文本。
  */
 export interface SessionRawArtifact {
   /** The session header parsed from the artifact's own first line. */
-  /** 【中文】从工件自身第一行解析出的会话头。 */
+  /* 【中文】从工件自身第一行解析出的会话头。 */
   readonly meta: SessionHeader
   /** The artifact's base filename on disk, without any physical encoding suffix. */
-  /** 【中文】工件的逻辑文件名（不含压缩等物理编码后缀），JSONL 后端固定为 session.jsonl。 */
+  /* 【中文】工件的逻辑文件名（不含压缩等物理编码后缀），JSONL 后端固定为 session.jsonl。 */
   readonly filename: string
   /** The artifact's full text content, decoded from the backend's physical encoding. */
-  /** 【中文】解码物理编码后的完整正文文本（如 zstd 已解压），忠实对应原始字节。 */
+  /* 【中文】解码物理编码后的完整正文文本（如 zstd 已解压），忠实对应原始字节。 */
   readonly content: string
 }
 
@@ -139,7 +139,7 @@ export interface SessionLocation {
  * durability, and {@link load} balances a complete interrupted tail without
  * rewriting committed events.
  */
-/**
+/*
  * 【中文】持久化能力的抽象基类，即服务契约本体。所有后端继承它并实现各抽象方法；
  * readRaw / prepare 提供通用默认实现。核心契约三条：① append-only——已提交事件
  * 绝不改写；② append 在数据真正持久化后才 resolve；③ load 会"配平"被中断的尾部
@@ -161,7 +161,7 @@ export abstract class SessionPersistence extends Service {
    * @param meta - the immutable session header whose artifact is requested.
    * @returns the backend-specific absolute location, when one exists.
    */
-  /**
+  /*
    * 【中文】解析某会话在本后端下的独立本地工件位置——纯计算：不读盘、不建目录、
    * 不触发物化。像 SQLite 这种"全部会话共用一个库、没有单会话文件"的后端返回
    * undefined。
@@ -174,7 +174,7 @@ export abstract class SessionPersistence extends Service {
    * Whether this backend exposes one verbatim raw artifact per session.
    * A backend that declares `true` must override {@link readRaw}.
    */
-  /**
+  /*
    * 【中文】本后端是否支持"每个会话一份原样工件"的读取能力。声明 true 就必须同时
    * 重写 readRaw；调用方应先查这个开关再决定是否调 readRaw。
    */
@@ -195,7 +195,7 @@ export abstract class SessionPersistence extends Service {
    * session is absent.
    * @throws when this backend does not expose per-session raw artifacts.
    */
-  /**
+  /*
    * 【中文】readRaw 的默认实现：不支持原始工件的后端直接拒绝。若调用方在进入前就已
    * 取消（signal.aborted），优先用信号携带的原因失败；否则抛"后端不提供原始工件"
    * 错误。真正的读取逻辑由声明 supportsRawArtifacts = true 的子类重写。
@@ -228,7 +228,7 @@ export abstract class SessionPersistence extends Service {
    * @param id - the session the batch belongs to.
    * @param events - the contiguous batch to persist, in seq order.
    */
-  /**
+  /*
    * 【中文】把一批事件持久化落盘，是写路径的核心入口。必须同时遵守两条铁律：
    * ① 追加式——已提交内容永不改写；② seq 连续——批内首个事件的 seq 必须等于
    * 已存的下一序号。无法无损 JSON 序列化的 event.data 会报错并点名事件类型。
@@ -247,7 +247,7 @@ export abstract class SessionPersistence extends Service {
    * @param signal - optional cancellation for preparation work.
    * @returns one owned unpublished Session preparation.
    */
-  /**
+  /*
    * 【中文】prepare 的通用默认实现：先 load 出日志，再以其为种子构建一个"未发布"
    * 的 Session 准备品（供 resume 流程接管）。对事件与头信息做 structuredClone
    * 深拷贝，是为了让准备品与检视结果彻底脱钩、互不共享可变状态。
@@ -285,7 +285,7 @@ export abstract class SessionPersistence extends Service {
    * @param id - the persisted session to reload.
    * @returns the header and a log ending on a balanced `turn/end`.
    */
-  /**
+  /*
    * 【中文】加载 = 读日志 + 必要时提交"冷恢复"。若最后一轮对话因崩溃而完整地停在
    * 半路，会补齐缺失的合成收尾事件（工具错误、step/end、turn/end 等）并把修复
    * 持久化；只有物理上残缺的最后一行会被丢弃。未知版本、已提交前缀中的损坏都会
@@ -311,7 +311,7 @@ export abstract class SessionPersistence extends Service {
    * @param signal - optional cancellation for queued and backend read work.
    * @returns the validated header and current logical event log.
    */
-  /**
+  /*
    * 【中文】"只看不改"版加载：不提交任何修复（冷数据里中断回合的合成收尾只存在于
    * 返回值的内存副本中）、不发布会话；残缺的物理尾部原样不动。若该 id 已有活跃
    * Session，就直接借用其当前不可变快照（可能含未关闭的回合及其 session/end-seed
@@ -340,7 +340,7 @@ export abstract class SessionPersistence extends Service {
    * @param signal - optional cancellation for queued and backend read work.
    * @returns the header and the stored events with `seq >= fromSeq`.
    */
-  /**
+  /*
    * 【中文】"从第 fromSeq 条起向后读"的原语，服务于增量消费方：例如带水位线
    * （checkpoint）的投影缓存只需折叠新增的尾部。与 inspect 的本质区别是纯物理读取：
    * 不截断尾巴、不补合成事件、不碰准备缓存与发布状态。只返回有效连续前缀内的事件，
@@ -360,7 +360,7 @@ export abstract class SessionPersistence extends Service {
    * @param signal - optional cancellation for backend listing work.
    * @returns one header per materialized session.
    */
-  /**
+  /*
    * 【中文】轻量列举所有"已物化"（真正落过盘）的会话：每条只读头信息，不解析整份
    * 日志，成本与会话数量成正比而与会话长度无关。
    * @param signal - 可选取消信号。
@@ -378,7 +378,7 @@ export abstract class SessionPersistence extends Service {
    * @param signal - optional cancellation for backend snapshot-listing work.
    * @returns one header and opaque revision per materialized session without loading full logs.
    */
-  /**
+  /*
    * 【中文】在 list 基础上为每个日志附加廉价变更令牌（revision）：对同一份不变的日志
    * 反复观察得到相同令牌；一次成功的 load 修复会改变下次列出的令牌；不同后端/
    * 存储源的令牌互相隔离、不会撞号。适合实现"哪些会话有新内容"的轮询判断。

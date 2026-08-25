@@ -52,7 +52,7 @@ export interface TrajectorySourceBlock {
 }
 
 /** Data and optional presentation attributes for one trajectory record. */
-/**
+/*
  * 一条轨迹记录的数据与可选展示属性：index 是显示用序号；text / previewMarkdown 是
  * 列表摘要；各 *Detail 字段供详情面板展示；时间与 token 字段用于度量。
  */
@@ -153,7 +153,7 @@ export interface TrajectoryCellProps extends HTMLAttributes<HTMLDivElement> {
  * @param cell - Projected trajectory record.
  * @returns Stable identity from the owning event or tool call, with a fixture fallback.
  */
-/**
+/*
  * 解析记录身份：向前加载更早记录后仍保持稳定。优先用 recordId，其次 callId / sourceSeq
  * 合成，最后用 kind + index 兜底（测试夹具用）。
  * @param cell - 投影后的轨迹记录。
@@ -171,7 +171,7 @@ export function trajectoryRecordId(cell: TrajectoryCellProps): string {
  * @param milliseconds - Duration in milliseconds, or `null` when absent.
  * @returns `—` when unknown, otherwise an integer-millisecond label.
  */
-/**
+/*
  * 格式化毫秒时长（带千分位）。未知（null 或非有限数）时返回长破折号。
  * @param milliseconds - 毫秒时长；缺失时为 null。
  * @returns 未知时返回 '—'，否则返回整数毫秒标签。
@@ -187,7 +187,7 @@ export function formatDurationMillis(milliseconds: number | null): string {
  * @param seconds - Duration seconds, or `null` when absent.
  * @returns `—` when unknown, otherwise an integer-millisecond label.
  */
-/**
+/*
  * 把以秒给出的时长格式化成毫秒标签（转成毫秒后复用 formatDurationMillis）。
  * @param seconds - 时长秒数；缺失时为 null。
  * @returns 未知时返回 '—'，否则返回整数毫秒标签。

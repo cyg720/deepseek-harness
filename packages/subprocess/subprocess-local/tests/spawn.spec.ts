@@ -27,7 +27,7 @@ import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
  * @param command - the bash `-c` command string used by the test.
  * @returns the argv to spawn.
  */
-/** 中文说明：函数 shellArgv 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 shellArgv 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function shellArgv(command: string): string[] {
   if (process.platform !== 'win32') return ['bash', '-c', command]
   /** 中文说明：函数值 node 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
@@ -119,7 +119,7 @@ function spec(command: string, overrides: SpecOverrides = {}) {
 }
 
 /** Poll until a pid no longer exists, or is only a zombie on Linux. */
-/** 中文说明：函数 waitGone 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitGone 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitGone(pid: number, timeoutMs = 5_000): Promise<void> {
   /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs
@@ -158,7 +158,7 @@ async function waitForStdout(running: SubprocessHandle, expected: string, timeou
 }
 
 /** Await settlement and project both collected streams like a batch outcome. */
-/** 中文说明：函数 finish 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 finish 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function finish(running: SubprocessHandle) {
   /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const outcome = await running.done

@@ -62,7 +62,7 @@ async function harness(baseURL: string, config: object = {}) {
 }
 
 /** Direct adapter over the plugin's real resolve step, with a static key. */
-/** 中文说明：函数 adapterOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 adapterOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function adapterOf(
   config: Partial<LlmDeepSeek.Config> & { apiKey?: string } = {},
   attachments?: AttachmentStore,

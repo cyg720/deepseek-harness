@@ -15,7 +15,7 @@
  * key set (Chinese-first repo convention); en is checked complete against it
  * — a missing or extra en key is a compile error.
  */
-/**
+/*
  * common 命名空间的字典对。zh 是键集的事实源（中文优先仓库约定）；en
  * 对照它检查完整性——缺失或多余 en 键是编译错误。
  */

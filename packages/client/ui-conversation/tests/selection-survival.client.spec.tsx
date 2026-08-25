@@ -45,7 +45,7 @@ async function bench() {
 }
 
 /** Resolve the store instance the renderer would hand a slot's component for a session. */
-/** 中文说明：函数 storeFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 storeFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function storeFor(b: Awaited<ReturnType<typeof bench>>, slot: 'conversation.session' | 'details', sessionId: SessionId) {
   return b.runtime.storeOf(slot, sessionId) as ChatInstance
 }

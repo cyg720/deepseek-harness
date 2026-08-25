@@ -28,7 +28,7 @@ import { createHash } from 'node:crypto'
  * @param content - exact UTF-8 instruction text.
  * @returns lowercase SHA-1 digest in hexadecimal form.
  */
-/**
+/*
  * 计算指令加载与会话状态共用的内容标识：精确内容的 SHA-1 摘要。
  * @param content 精确的 UTF-8 指令文本
  * @returns 十六进制小写形式的 SHA-1 摘要
@@ -45,7 +45,7 @@ export function instructionContentSha1(content: string): string {
  * @param content - exact UTF-8 instruction text.
  * @returns SHA-1 digest of the trimmed content.
  */
-/**
+/*
  * 计算用于每目录重复抑制的空白不敏感标识：哈希前去掉首尾空白，
  * 使仅周边空白不同的软链/字节复制孪生文件仍折叠为单次渲染。
  * @param content 精确的 UTF-8 指令文本

@@ -28,7 +28,7 @@
  * parent directory is fsynced on POSIX so the new entry is crash-durable.
  * @module @deepseek-ai/dsh-storage-json/src/atomic
  */
-/**
+/*
  * 模块总览：这里实现"崩溃安全写入"的核心原语。与 session-log 后端"不覆盖"的
  * link()+unlink() 协议相反，单元文件是"每进程唯一写者、后写覆盖先写"（last-write-wins）。
  */
@@ -43,7 +43,7 @@ import { randomUUID } from 'node:crypto'
  * @param data - Full new file content.
  * @returns resolution after the replacement is crash-durable.
  */
-/**
+/*
  * 持久地以 data 替换 path 处的文件。
  * 流程：同目录建独占临时文件（wx + 随机名，权限 0600）→ 写内容 → fsync →
  * rename 覆盖目标 → POSIX 上 fsync 父目录。任一步失败都清理临时文件并重抛。
@@ -72,7 +72,7 @@ export async function writeAtomic(path: string, data: string): Promise<void> {
 }
 
 /** fsync a POSIX directory so a just-renamed entry is crash-durable. */
-/**
+/*
  * fsync 一个 POSIX 目录，使刚 rename 进来的新条目达到崩溃持久。
  * Windows 上直接返回（以 O_RDONLY 打开目录会被拒绝，见下方 v8 ignore 说明）；
  * 其余平台用只读方式打开目录句柄并 sync，确保目录项本身落盘。

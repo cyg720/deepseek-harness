@@ -49,7 +49,7 @@ const DEFAULT_RETRYABLE_CODES = Object.freeze([
 ])
 
 /** Bounded exponential backoff with symmetric jitter around each local delay. */
-/**
+/*
  * （中文）有上限的指数退避配置：每次重试间隔按指数增长，但封顶在 maxDelayMs；
  * 每次实际延迟在计算值周围做对称随机抖动。
  */
@@ -66,7 +66,7 @@ export interface BackoffConfig {
 }
 
 /** Current bounded transient retry behavior for one provider route. */
-/**
+/*
  * （中文）normal 模式：只对配置的可重试失败码做有上限的重试（默认 5 次）。
  */
 export interface NormalRetryPolicyConfig {
@@ -85,7 +85,7 @@ export interface NormalRetryPolicyConfig {
 }
 
 /** Unbounded retry behavior for every model-request failure on one provider route. */
-/**
+/*
  * （中文）always 模式：对该 provider 路由上的每次模型请求失败都重试，直到
  * 成功、取消或插件被销毁。
  */
@@ -99,13 +99,13 @@ export interface AlwaysRetryPolicyConfig {
 }
 
 /** Provider-owned model-request retry policy configuration. */
-/**
+/*
  * （中文）两种模式的并集：normal（有界瞬时重试）或 always（无界全重试）。
  */
 export type RetryPolicyConfig = NormalRetryPolicyConfig | AlwaysRetryPolicyConfig
 
 /** Fully resolved backoff shared by both retry modes. */
-/**
+/*
  * （中文）两种模式共享的、完全解析后的退避参数（已补默认并冻结）。
  */
 export interface ResolvedRetryBackoff {
@@ -115,7 +115,7 @@ export interface ResolvedRetryBackoff {
 }
 
 /** Fully resolved bounded transient retry policy. */
-/**
+/*
  * （中文）完全解析后的 normal 策略：模式、最大重试次数、可重试码、退避参数
  * 都已确定并只读。
  */
@@ -126,7 +126,7 @@ export interface ResolvedNormalRetryPolicy extends ResolvedRetryBackoff {
 }
 
 /** Fully resolved unbounded retry policy. */
-/**
+/*
  * （中文）完全解析后的 always 策略：模式 + 退避参数，全部只读。
  */
 export interface ResolvedAlwaysRetryPolicy extends ResolvedRetryBackoff {
@@ -134,7 +134,7 @@ export interface ResolvedAlwaysRetryPolicy extends ResolvedRetryBackoff {
 }
 
 /** Immutable provider policy captured when its adapter route is registered. */
-/**
+/*
  * （中文）注册适配器路由时捕获的不可变策略类型，两种模式取其一。
  */
 export type ResolvedRetryPolicy = ResolvedNormalRetryPolicy | ResolvedAlwaysRetryPolicy

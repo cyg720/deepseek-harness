@@ -20,7 +20,7 @@
  *
  * @module @deepseek-ai/dsh-brand
  */
-/**
+/*
  * 文件职责：提供跨包标识使用的纯类型品牌工具 Branded。
  * 技术维度：使用 unique symbol 与交叉类型实现零运行时开销的 TypeScript 名义类型。
  * 产品维度：防止会话、调用、任务等外观相同的字符串标识在二次开发中被意外混用。
@@ -33,5 +33,5 @@
 declare const BRAND: unique symbol
 
 /** A string carrying a compile-time-only brand `B`. */
-/** 带编译期品牌 B 的字符串；B 应是拥有该标识的稳定名称。 */
+/* 带编译期品牌 B 的字符串；B 应是拥有该标识的稳定名称。 */
 export type Branded<B extends string> = string & { readonly [BRAND]: B }

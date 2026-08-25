@@ -16,7 +16,7 @@ import css from './Pill.module.css'
  * @param props.active - selected/active visual state.
  * @returns pill element.
  */
-/**
+/*
  * 渲染静态或可交互胶囊。
  * @param props - active 控制选中态；onClick 决定是否使用 button；其余为原生按钮属性。
  * @returns 无 onClick 时为 span，有 onClick 时为 button。

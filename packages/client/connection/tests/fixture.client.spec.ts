@@ -4,7 +4,7 @@
  * baseline replay, timing hooks) — this is the vitest-side drift detector for
  * the hand-written fixture/host parallel implementations.
  */
-/**
+/*
  * 文件职责：验证连接夹具的 fixture 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -64,7 +64,7 @@ interface TimingHooks {
 const timing = (): TimingHooks => (globalThis as Record<string, unknown>).__fxTiming as TimingHooks
 
 /** Collect stream frames until the predicate or a soft cap; abort ends the stream. */
-/** 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 async function collect<F>(stream: AsyncIterable<RpcRequest<F>>, abort: AbortController, done: (frames: F[]) => boolean): Promise<F[]> {
   /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const frames: F[] = []

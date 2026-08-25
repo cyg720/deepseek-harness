@@ -18,13 +18,13 @@ import { attachmentRailLabels, dropOverlayLabels, lightboxLabels } from './label
 import css from './ComposerAttachments.module.css'
 
 /** Rail item retaining its browser-owned attachment for callbacks. */
-/** 中文说明：类型或类 ComposerRailItem 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ComposerRailItem 约束本文件的数据或组件职责。 */
 interface ComposerRailItem extends AttachmentRailItem {
   attachment: ComposerAttachment
 }
 
 /** Draft-image rail, document drop target, and original-image preview slot entry. */
-/** 中文说明：函数 ComposerAttachments 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 ComposerAttachments 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function ComposerAttachments({
   attachments, canAcceptDrop, onAddImages, onRemoveImage, dropLimits, t,
 }: ComposerAttachmentsProps) {

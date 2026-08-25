@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】以 Cordis 伴随插件形式注册本包（@deepseek-ai/dsh-tools）的运行时
  *   不变量检查：工具流水线阶段顺序、最终结果快照的冻结契约、code-dispatch 子调用
@@ -30,10 +30,10 @@ import type { ToolExecution, ToolExecutionResult } from './index.ts'
 const PACKAGE_NAME = '@deepseek-ai/dsh-tools'
 
 /** Cordis companion plugin name. */
-/** 【中文】Cordis 函数式插件约定导出的插件名。 */
+/* 【中文】Cordis 函数式插件约定导出的插件名。 */
 export const name = 'tools-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 【中文】依赖声明：必须先加载 invariants 服务才能登记包所有权。 */
+/* 【中文】依赖声明：必须先加载 invariants 服务才能登记包所有权。 */
 export const inject = ['invariants']
 
 /**
@@ -43,7 +43,7 @@ export const inject = ['invariants']
 type ToolStage = 'pre' | 'execute' | 'post'
 
 /** Validate the immutable final execution/result snapshot. */
-/**
+/*
  * 【中文】校验发布到 tools/result 观察者的最终快照：执行对象必须已冻结；结果对象
  *   及其 content 数组必须冻结；name 与 callId 必须非空。这是"观察者拿到的是不可变
  *   只读视图"这一承诺的可执行版本。
@@ -63,7 +63,7 @@ function validateResult(
 }
 
 /** Install monotonic pipeline, final-snapshot, and code-dispatch enclosure checks. */
-/**
+/*
  * 【中文】安装三类不变量检查：① 流水线单调——同一执行的 pre → execute → post 严格
  *   依次发生且各一次，tools/result 后清除标记；② 最终快照——发布前必须冻结且标识
  *   非空（见 validateResult）；③ code-dispatch 封闭关系——三元 id 非空、subCallId 的
@@ -193,7 +193,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 【中文】函数式插件的 apply 入口：在不变量服务上以 PACKAGE_NAME 登记上面的 install
  *   安装器，完成"包所有权 + 检查逻辑"的一次性挂载。
  * @param ctx - 携带 invariants 服务的 Cordis 上下文。

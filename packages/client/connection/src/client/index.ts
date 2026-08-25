@@ -3,7 +3,7 @@
  * the shared API client, and lets the runtime object layer start the stream
  * controller with its sinks.
  */
-/**
+/*
  * 文件职责：选择fixture、页面HTTP/WebSocket或宿主注入传输，并向浏览器Cordis树提供统一connection服务。
  * 技术维度：组合ApiClient、通用RPC调用器、ConnectionController和订阅式Host描述快照，支持全局传输钩子。
  * 产品维度：让Web应用与测试/Worker预览共用业务层，同时发布连接状态、宿主能力和可停止的事件流循环。
@@ -51,18 +51,18 @@ export type { ClientConnectionRpc } from '../rpc.ts'
 export type { RpcFetch } from './rpc.ts'
 
 /** Observable Host description published by each completed connection handshake. */
-/** 每次完整连接握手发布的可订阅Host描述源。 */
+/* 每次完整连接握手发布的可订阅Host描述源。 */
 export interface HostDescriptionSource {
   /** Latest connected-generation description; absent before connect and while reconnecting. */
-  /** 读取最近已连接代际描述；初次连接前和重连中为空。 */
+  /* 读取最近已连接代际描述；初次连接前和重连中为空。 */
   getSnapshot(): HostDescription | undefined
   /** Subscribe to description replacement and connection loss. */
-  /** 订阅描述替换和连接丢失，并返回注销器。 */
+  /* 订阅描述替换和连接丢失，并返回注销器。 */
   subscribe(listener: () => void): () => void
 }
 
 /** Required services (none — this is the wire root). */
-/** 连接插件是线协议根，不要求其他Cordis服务。 */
+/* 连接插件是线协议根，不要求其他Cordis服务。 */
 export const inject: string[] = []
 
 /**
@@ -73,22 +73,22 @@ export const inject: string[] = []
  */
 export interface ClientTransportHooks {
   /** Build the API carrier: unary calls plus the two downstream event streams. */
-  /** 创建同时承载一元调用和两条下行事件流的API客户端。 */
+  /* 创建同时承载一元调用和两条下行事件流的API客户端。 */
   createApiClient(): IApiClient
   /** Transport for generic unary RPC channels (the Typert gateway). */
-  /** Typert网关等通用一元RPC频道使用的fetch式传输。 */
+  /* Typert网关等通用一元RPC频道使用的fetch式传输。 */
   fetch: RpcFetch
   /**
    * Bundle transport for the module system, present when the carrier also owns
    * bundle bytes (the worker tunnel). Absent in the served web app, whose
    * bundles load over HTTP.
    */
-  /** 可选Bundle字节加载器；Worker隧道提供，普通页面通过HTTP加载时省略。 */
+  /* 可选Bundle字节加载器；Worker隧道提供，普通页面通过HTTP加载时省略。 */
   loadBundle?(url: string): Promise<void>
 }
 
 /** Page global carrying {@link ClientTransportHooks}; absent in the served web app. */
-/** 页面可选全局传输钩子的结构。 */
+/* 页面可选全局传输钩子的结构。 */
 interface ClientTransportGlobal {
   /** 由拥有物理传输的宿主在插件启动前设置。 */
   __DSH_TRANSPORT__?: ClientTransportHooks
@@ -101,16 +101,16 @@ interface ClientTransportGlobal {
  */
 export interface ConnectionHandle {
   /** Shared api client (fixture or real, decided at boot from the page URL). */
-  /** 启动时由页面模式选定并共享的API客户端。 */
+  /* 启动时由页面模式选定并共享的API客户端。 */
   readonly api: IApiClient
   /** Whether the current page authority is loopback; non-browser contexts default to true. */
-  /** 当前页面authority是否为回环；无浏览器location时默认为true。 */
+  /* 当前页面authority是否为回环；无浏览器location时默认为true。 */
   readonly isLoopback: boolean
   /** Generation-scoped Host facts, including the account home and native path-open capability. */
-  /** 代际范围内的Host事实订阅源，包括账户主目录和本地打开能力。 */
+  /* 代际范围内的Host事实订阅源，包括账户主目录和本地打开能力。 */
   readonly hostDescription: HostDescriptionSource
   /** Generic logical RPC channels over the same Connection transport. */
-  /** 复用同一Connection载体的通用逻辑RPC频道。 */
+  /* 复用同一Connection载体的通用逻辑RPC频道。 */
   readonly rpc: ClientConnectionRpc
   /**
    * Start the connect/pump/reconnect loop with the consumer's frame sinks.

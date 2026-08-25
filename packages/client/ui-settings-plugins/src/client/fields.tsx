@@ -5,7 +5,7 @@
  * layer. Nothing here writes: a control reports what the user typed, and the
  * card's save is the single point where a draft becomes a document mutation.
  */
-/**
+/*
  * 文件职责：实现插件配置的 fields 组件。
  * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看和调整插件配置。
@@ -17,7 +17,7 @@
 import css from './fields.module.css'
 
 /** What every field control needs regardless of its value type. */
-/** 中文说明：类型或类 FieldProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 FieldProps 约束设置数据或组件职责。 */
 export interface FieldProps {
   /** Stable id associating the label with its control. */
   id: string
@@ -52,7 +52,7 @@ export interface FieldProps {
  * @param props - the field's copy, its staged text, and the edit actions.
  * @returns the labelled control.
  */
-/** 中文说明：函数 ValueField 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 ValueField 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function ValueField(props: FieldProps & {
   /** Hints a numeric keypad without narrowing what the control accepts. */
   numeric?: boolean
@@ -104,7 +104,7 @@ export function ValueField(props: FieldProps & {
  * @param props - the field's copy, its staged text, and the configured state.
  * @returns the labelled control.
  */
-/** 中文说明：函数 SecretField 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 SecretField 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function SecretField(props: Pick<FieldProps, 'id' | 'label' | 'hint' | 'text' | 'disabled' | 'onEdit'> & {
   /** Whether the Host reports a configured credential for this reference. */
   configured: boolean

@@ -29,7 +29,7 @@ import WorkerThreadWorkflowEngine from '../src/index.ts'
  * DEEPSEEK_API_KEY).
  */
 
-/** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let ctx: Context | undefined
 
 afterEach(async () => {

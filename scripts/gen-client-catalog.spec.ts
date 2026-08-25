@@ -6,7 +6,7 @@
  * generator's own `--check` covers freshness; these cases pin the rules that
  * make a stale or undocumented contract fail loudly instead of shipping.
  */
-/**
+/*
  * 文件职责：验证 gen-client-catalog.spec.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -20,7 +20,7 @@ import { collectSlotEntries, oversizedSlotReports, resolveSlotEntries, validateS
 import type { SlotDeclaration, SlotRegistration, TypeDeclaration } from './slot-walk.ts'
 
 /** A declaration with every field the catalog needs, overridable per case. */
-/** 中文说明：函数 declaration 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 declaration 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function declaration(over: Partial<SlotDeclaration> = {}): SlotDeclaration {
   return {
     key: 'demo.seat',
@@ -34,7 +34,7 @@ function declaration(over: Partial<SlotDeclaration> = {}): SlotDeclaration {
 }
 
 /** A registration into `demo.seat`, overridable per case. */
-/** 中文说明：函数 registration 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 registration 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function registration(over: Partial<SlotRegistration> = {}): SlotRegistration {
   return {
     key: 'demo.seat',
@@ -47,7 +47,7 @@ function registration(over: Partial<SlotRegistration> = {}): SlotRegistration {
 }
 
 /** An exported owner-props declaration the catalog can resolve. */
-/** 中文说明：常量 OWNER_TYPES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 OWNER_TYPES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OWNER_TYPES = new Map<string, TypeDeclaration>([
   ['DemoOwnerProps', {
     name: 'DemoOwnerProps',

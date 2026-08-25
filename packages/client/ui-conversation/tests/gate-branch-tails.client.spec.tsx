@@ -34,7 +34,7 @@ const t: AssistantMarkdownProps['t'] = makeTranslate(zh, commonZh)
 const renderMessageImages: AssistantMarkdownProps['renderMessageImages'] = () => null
 
 /** jsdom has no ResizeObserver; StatsLine watches its row for ellipsis truncation through one. */
-/** 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -51,11 +51,11 @@ afterEach(() => {
 const SID = 's1' as SessionId
 
 /** Minimal framework seat for direct DetailsPanel host tests. */
-/** 中文说明：测试局部值 SessionProviderStub，取值由紧邻初始化决定。 */
+/* 中文说明：测试局部值 SessionProviderStub，取值由紧邻初始化决定。 */
 const SessionProviderStub: SessionProviderComponent = ({ children }) => children(SID)
 
 /** Observe the owner currency without importing the Tool details renderer. */
-/** 中文说明：函数 renderToolDetailsProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 renderToolDetailsProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function renderToolDetailsProbe(owners?: DetailsToolOwnerProps[]): DetailsSlotProps['renderSlot'] {
   return (_key, owner) => {
     owners?.push(owner as unknown as DetailsToolOwnerProps)

@@ -11,7 +11,7 @@
  * wire, while a provider removal first requires confirmation; the page
  * re-renders from pushed invalidations or the post-apply reload.
  */
-/**
+/*
  * 文件职责：实现模型设置的 ModelsSection 组件。
  * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看和调整模型设置。
@@ -34,7 +34,7 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
-/** 中文说明：类型或类 ModelsSectionInjected 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 ModelsSectionInjected 约束设置数据或组件职责。 */
 export interface ModelsSectionInjected {
   /** The page store (loaded on mount, refreshed on pushed invalidations). */
   controller: ModelsSettingsStore
@@ -54,14 +54,14 @@ export interface ModelsSectionInjected {
  * Props delivered by the slot outlet: the inject face spread flat (the
  * renderer erases the share boundary at the render call).
  */
-/** 中文说明：类型或类 ModelsSectionProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 ModelsSectionProps 约束设置数据或组件职责。 */
 export type ModelsSectionProps = Partial<InjectFace<ModelsSectionInjected>>
 
 /** 中文说明：类型或类 ModelsSectionFace 约束设置数据或组件职责。 */
 type ModelsSectionFace = InjectFace<ModelsSectionInjected>
 
 /** Provider identity shared by row actions and confirmation copy. */
-/** 中文说明：类型或类 ProviderIdentity 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 ProviderIdentity 约束设置数据或组件职责。 */
 export interface ProviderIdentity {
   /** Stable provider route id. */
   provider: string
@@ -70,7 +70,7 @@ export interface ProviderIdentity {
 }
 
 /** One existing row or dormant directory entry addressed by an editor action. */
-/** 中文说明：类型或类 EditorTarget 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 EditorTarget 约束设置数据或组件职责。 */
 interface EditorTarget extends ProviderIdentity {
   settingsNs: string
   settingsPath: readonly string[]
@@ -81,7 +81,7 @@ interface EditorTarget extends ProviderIdentity {
 }
 
 /** Values that vary around the shared provider-editor rendering. */
-/** 中文说明：类型或类 ProviderEditorRenderProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 ProviderEditorRenderProps 约束设置数据或组件职责。 */
 interface ProviderEditorRenderProps extends Pick<
   ProviderEditorProps,
   'namespace' | 'schema' | 'api' | 't' | 'readOnly' | 'onClose'
@@ -90,7 +90,7 @@ interface ProviderEditorRenderProps extends Pick<
 }
 
 /** Render an editor for either the setup posture or an expanded provider row. */
-/** 中文说明：函数 renderProviderEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 renderProviderEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function renderProviderEditor({ target, ...props }: ProviderEditorRenderProps): ReactNode {
   return (
     <ProviderEditor
@@ -114,7 +114,7 @@ function renderProviderEditor({ target, ...props }: ProviderEditorRenderProps): 
  * @param target - the provider's settings address and optional managed credential.
  * @returns the failure message, or undefined once the write and reload landed.
  */
-/** 中文说明：函数 removeProviderProfile 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 removeProviderProfile 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export async function removeProviderProfile(
   api: Pick<IApiClient, 'settings' | 'credentials'>,
   controller: ModelsSettingsStore,
@@ -150,7 +150,7 @@ export async function removeProviderProfile(
  * @param anyUsable - whether any joined row can already serve requests.
  * @returns whether to render the setup card.
  */
-/** 中文说明：函数 needsSetup 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 needsSetup 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function needsSetup(row: ProviderRow, anyUsable: boolean): boolean {
   if (anyUsable) return false
   if (row.entry.settingsPath.length > 0) return false
@@ -181,7 +181,7 @@ function targetOf(row: ProviderRow): EditorTarget {
 }
 
 /** Stable visible and accessible identity for one provider target. */
-/** 中文说明：函数 providerTargetLabel 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 providerTargetLabel 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function providerTargetLabel(target: ProviderIdentity): string {
   return target.provider === target.displayName
     ? target.provider
@@ -189,7 +189,7 @@ export function providerTargetLabel(target: ProviderIdentity): string {
 }
 
 /** Replace the one provider placeholder in localized destructive-action copy. */
-/** 中文说明：函数 providerCopy 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 providerCopy 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function providerCopy(template: string, target: ProviderIdentity): string {
   return template.replace('{provider}', () => providerTargetLabel(target))
 }
@@ -199,7 +199,7 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @param props - slot-delivered injected dependencies.
  * @returns the section, or null while the shell has not injected yet.
  */
-/** 中文说明：函数 ModelsSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 ModelsSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
   /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const { controller, useSnapshot, api, schema, t } = props
@@ -256,7 +256,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
    * own — the provider falls back to an ordinary row for the rest of the
    * session, and reopens through Edit.
    */
-  /** 中文说明：设置局部值 closeSetup，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 closeSetup，由紧邻初始化决定。 */
   const closeSetup = (changed: boolean, target: ProviderIdentity): void => {
     setDismissedSetup(previous => new Set([...previous, target.provider]))
     if (changed) announceSaved(target)

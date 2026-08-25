@@ -1,7 +1,7 @@
 /** locale apply wiring: service + dictionaries provision, declaration-aware
  * Language row registration, snapshot projection into the row store, and
  * recovery after an HMR collapse of the declaring entry. */
-/**
+/*
  * 文件职责：验证本地化的 apply 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -71,7 +71,7 @@ async function bench() {
 }
 
 /** Stand in for the settings shell: declare the General item slot from root. */
-/** 中文说明：函数 declareItems 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 declareItems 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function declareItems(slots: SlotRegistry): () => void {
   return slots.register(
     { name: 'root', children: { [SLOT]: { kind: 'list', scope: 'root' } } } as never,
@@ -81,7 +81,7 @@ function declareItems(slots: SlotRegistry): () => void {
 
 /** Mirror the framework's inject choreography: bake a real instance from the
  * declared handle and hand its actions to the entry's inject factory. */
-/** 中文说明：函数 faceOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 faceOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function faceOf(slots: SlotRegistry) {
   /** 中文说明：测试场景的局部值 entry，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const entry = slots.entries(SLOT).find(e => e.component === LanguageRow)!

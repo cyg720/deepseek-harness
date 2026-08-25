@@ -1,5 +1,5 @@
 /** Generate model-visible Host/Client Service and Event inspect catalogs. */
-/**
+/*
  * 文件职责：实现 gen-cordis-inspect-catalog.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。

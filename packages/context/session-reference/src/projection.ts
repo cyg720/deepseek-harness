@@ -40,7 +40,7 @@ interface ProjectedItem extends ReferencedConversationItem {
 }
 
 /** Snapshot data serialized inside the untrusted prompt. */
-/** 序列化进不可信提示词封套的快照数据：会话元信息 + 对话投影。 */
+/* 序列化进不可信提示词封套的快照数据：会话元信息 + 对话投影。 */
 export interface ReferencedSessionData {
   sessionId: string
   label: string
@@ -50,7 +50,7 @@ export interface ReferencedSessionData {
 }
 
 /** Retention facts stored beside the durable context. */
-/** 保留统计：与持久化上下文一起存放，供日志与诊断使用。 */
+/* 保留统计：与持久化上下文一起存放，供日志与诊断使用。 */
 export interface ReferenceRetentionStats {
   compacted: boolean
   originalMessages: number
@@ -61,7 +61,7 @@ export interface ReferenceRetentionStats {
 }
 
 /** Project current user/assistant conversation while excluding tools, reasoning, and injected context. */
-/** 把表面快照投影成用户/助手纯文本对话：工具结果、推理与注入上下文一律排除。 */
+/* 把表面快照投影成用户/助手纯文本对话：工具结果、推理与注入上下文一律排除。 */
 function projectSessionConversation(snapshot: SessionSurfaceSnapshot): ProjectedItem[] {
   const conversation: ProjectedItem[] = []
   for (const event of snapshot.events) {
@@ -96,7 +96,7 @@ function projectSessionConversation(snapshot: SessionSurfaceSnapshot): Projected
  * @param maxBytes - maximum UTF-8 bytes for the serialized data object.
  * @returns retained data and stats, or `undefined` when fixed data cannot fit.
  */
-/**
+/*
  * 把一份投影快照塞进精确的渲染 JSON 字节上限：第一阶段优先丢弃
  * 非检查点消息（保留最新消息），第二阶段对剩余最长消息做头尾保留式截断。
  * @param snapshot 当前表面的来源观测（事件流 + 会话元信息）

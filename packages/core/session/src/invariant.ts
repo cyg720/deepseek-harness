@@ -4,7 +4,7 @@
  *
  * @module @deepseek-ai/dsh-session/invariant
  */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】session 包的关系不变量伴随插件：对会话事件日志执行跨事件的关系校验——seq 严格递增、
  *           turn/step 编号连续且正确嵌套、tool/result 必须有同步骤内先行的 tool/call（除非是崩溃
@@ -44,7 +44,7 @@ export const name = 'session-invariant'
 export const inject = ['invariants']
 
 /** Per-session bookkeeping for relational log checks. */
-/** 单个会话的关系校验簿记状态。 */
+/* 单个会话的关系校验簿记状态。 */
 interface SessionTrace {
   // 已见的最大事件 seq。
   lastSeq: number
@@ -61,7 +61,7 @@ interface SessionTrace {
 }
 
 /** One accepted event's deferred mutation of a committed session trace. */
-/** 一个已接受事件对已提交 trace 的延迟改动（校验通过后才套用）。 */
+/* 一个已接受事件对已提交 trace 的延迟改动（校验通过后才套用）。 */
 interface SessionTraceTransition {
   // 标量游标的整体替换值。
   scalars: Pick<SessionTrace, 'lastSeq' | 'openTurn' | 'openStep' | 'nextTurn' | 'nextStep'>
@@ -73,7 +73,7 @@ interface SessionTraceTransition {
 }
 
 /** Assert that a step-scoped event names the currently open turn and step. */
-/** 断言一个步骤级事件所指的 turn/step 恰是当前开着的那个，否则经 fail 上报。 */
+/* 断言一个步骤级事件所指的 turn/step 恰是当前开着的那个，否则经 fail 上报。 */
 function requireOpenStep(
   trace: SessionTrace,
   kind: string,
@@ -87,7 +87,7 @@ function requireOpenStep(
 }
 
 /** Validate one candidate event without mutating the committed trace. */
-/** 校验一个候选事件但不改动已提交的 trace：返回它获批后的延迟过渡。seq 不递增、编号错乱、调用无出处等都经 fail 上报。 */
+/* 校验一个候选事件但不改动已提交的 trace：返回它获批后的延迟过渡。seq 不递增、编号错乱、调用无出处等都经 fail 上报。 */
 function validateEvent(
   trace: SessionTrace,
   event: SessionEvent,
@@ -208,7 +208,7 @@ function validateEvent(
 }
 
 /** Apply one already-validated transition after its event commits. */
-/** 在事件提交后，把一个已校验的过渡一次性套用到 trace 上。 */
+/* 在事件提交后，把一个已校验的过渡一次性套用到 trace 上。 */
 function applyTransition(trace: SessionTrace, transition: SessionTraceTransition): void {
   Object.assign(trace, transition.scalars)
   switch (transition.pendingCalls.kind) {
@@ -230,7 +230,7 @@ function applyTransition(trace: SessionTrace, transition: SessionTraceTransition
 }
 
 /** Install the session contribution into its child registration fiber. */
-/** 把会话校验贡献安装进其子注册 fiber：为存量会话补建 trace，并挂三个全局监听点。 */
+/* 把会话校验贡献安装进其子注册 fiber：为存量会话补建 trace，并挂三个全局监听点。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   // 会话 → 校验 trace 的弱映射：会话销毁即随之回收。
   const traces = new WeakMap<Session, SessionTrace>()
@@ -296,7 +296,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 注册 session 的不变量伴随插件。
  * @param ctx - 携带 invariants 服务的 Cordis 上下文。
  * @returns 设置成功后该注册的 disposer。

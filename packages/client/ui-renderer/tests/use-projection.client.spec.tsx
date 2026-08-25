@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证客户端渲染器的 use-projection.client.spec.tsx 行为。
  * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
  * 产品维度：防止客户端渲染器的展示、作用域或交互回归。
@@ -47,7 +47,7 @@ function makeHost() {
   /** 中文说明：测试局部值 cells，由紧邻初始化决定。 */
   const cells = new Map<string, ReturnType<typeof observable<unknown>>>()
   /** Store-parallel face: always defined per key; an unseen key snapshots undefined. */
-  /** 中文说明：测试局部值 absent，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 absent，由紧邻初始化决定。 */
   const absent = { getSnapshot: () => undefined, subscribe: () => () => {} }
   /** 中文说明：测试局部值 sessionEntries，由紧邻初始化决定。 */
   const sessionEntries: StoredEntry[] = []

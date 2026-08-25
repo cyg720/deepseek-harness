@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { createDetachedRuns } from '@deepseek-ai/dsh-hook-protocol'
 
 /** A promise settled from outside, so a test controls exactly when a tracked run finishes. */
-/** 中文说明：函数 deferred 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 deferred 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function deferred(): { promise: Promise<void>; resolve: () => void; reject: (error: Error) => void } {
   /** 中文说明：测试局部值 resolve，由紧邻初始化决定。 */
   let resolve!: () => void

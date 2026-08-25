@@ -4,7 +4,7 @@
  *
  * @module @deepseek-ai/dsh-compaction-basic/region
  */
-/**
+/*
  * 文件职责：实现上下文压缩的 region 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供上下文压缩能力。
@@ -39,7 +39,7 @@ interface RegionDependencies {
 }
 
 /** One validated inclusive span of current surface positions. */
-/** 中文说明：类型或类 SurfaceSelection 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 SurfaceSelection 约束协议数据或模块职责。 */
 interface SurfaceSelection {
   readonly start: number
   readonly end: number
@@ -49,7 +49,7 @@ interface SurfaceSelection {
 }
 
 /** A selection with its priced snapshot and the replay input built from it. */
-/** 中文说明：类型或类 PreparedCompaction 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 PreparedCompaction 约束协议数据或模块职责。 */
 interface PreparedCompaction extends SurfaceSelection {
   readonly measurement: TokenMeasurement
   readonly selectedNodes: TokenMeasurement['nodes']
@@ -86,11 +86,11 @@ interface CompactionEntryState {
  * built from, distinguished from summarizer and shrink failures so a manual
  * caller can report the two causes differently.
  */
-/** 中文说明：类型或类 SurfaceChangedError 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 SurfaceChangedError 约束协议数据或模块职责。 */
 class SurfaceChangedError extends Error {}
 
 /** Whether the summary may still replace the span it was built from. */
-/** 中文说明：类型或类 StabilityCheck 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 StabilityCheck 约束协议数据或模块职责。 */
 type StabilityCheck = (
   dependencies: RegionDependencies,
   session: Session,
@@ -98,7 +98,7 @@ type StabilityCheck = (
 ) => void
 
 /** Failure captured after `compaction/start` has committed. */
-/** 中文说明：类型或类 TransactionFailure 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 TransactionFailure 约束协议数据或模块职责。 */
 interface TransactionFailure {
   readonly error: unknown
   readonly stage: 'summary' | 'commit'
@@ -112,7 +112,13 @@ interface TransactionFailure {
  * @param retainTokens - minimum recent tail budget retained verbatim.
  * @returns the inclusive positional seq range to compact, or `null`.
  */
-/** 中文说明：函数 selectCompactableRange 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 selectCompactableRange 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param measurement 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param retainTokens 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function selectCompactableRange(
   session: Session,
   measurement: TokenMeasurement,
@@ -174,7 +180,17 @@ export function selectCompactableRange(
  * @param signal - optional summarization cancellation signal.
  * @returns the successful durable compaction result.
  */
-/** 中文说明：函数 compactSurfaceRegion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 compactSurfaceRegion 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param dependencies 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param start 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param end 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function compactSurfaceRegion(
   dependencies: RegionDependencies,
   session: Session,
@@ -297,7 +313,7 @@ export async function compactSurfaceRegion(
 }
 
 /** Classify one closed manual attempt without weakening cancellation precedence. */
-/** 中文说明：函数 throwManualFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 throwManualFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function throwManualFailure(failure: TransactionFailure): never {
   if (failure.stage === 'commit') {
     throw new ManualCompactionError(
@@ -327,7 +343,7 @@ function throwManualFailure(failure: TransactionFailure): never {
  * @param latestEndSeedSeq - newest constructor-seed boundary, if any.
  * @param stage - operation label included in the busy diagnostic.
  */
-/** 中文说明：函数 assertCompactionInactive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertCompactionInactive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertCompactionInactive(
   unmatchedCompactionStart: SessionEvent<'compaction/start'> | undefined,
   latestEndSeedSeq: number | undefined,
@@ -347,7 +363,11 @@ function assertCompactionInactive(
  * @param session - session whose latest marker state is inspected.
  * @param stage - operation label included in the busy diagnostic.
  */
-/** 中文说明：函数 assertNoActiveCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 assertNoActiveCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param stage 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function assertNoActiveCompaction(session: Session, stage: string): void {
   /** 中文说明：运行时局部值 entryState，由紧邻初始化决定。 */
   const entryState = inspectCompactionEntryState(session.events)
@@ -359,7 +379,7 @@ export function assertNoActiveCompaction(session: Session, stage: string): void 
 }
 
 /** Validate one requested surface-position span before asynchronous work begins. */
-/** 中文说明：函数 validateSurfaceRegion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateSurfaceRegion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateSurfaceRegion(session: Session, start: number, end: number): SurfaceSelection {
   /** 中文说明：运行时局部值 nodes，由紧邻初始化决定。 */
   const nodes = session.surface.nodes
@@ -387,7 +407,7 @@ function validateSurfaceRegion(session: Session, start: number, end: number): Su
 }
 
 /** Snapshot pricing and replay input for a validated surface range. */
-/** 中文说明：函数 prepareCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 prepareCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function prepareCompaction(
   dependencies: RegionDependencies,
   session: Session,
@@ -411,7 +431,7 @@ function prepareCompaction(
 }
 
 /** Run the summarizer and frame its replacement checkpoint. */
-/** 中文说明：函数 summarizeCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 summarizeCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function summarizeCompaction(
   dependencies: RegionDependencies,
   prepared: PreparedCompaction,
@@ -442,7 +462,7 @@ async function summarizeCompaction(
 }
 
 /** Reject a summary prepared against any earlier surface generation. */
-/** 中文说明：函数 assertWholeSurfaceUnchanged 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertWholeSurfaceUnchanged 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertWholeSurfaceUnchanged(
   dependencies: RegionDependencies,
   session: Session,
@@ -460,7 +480,7 @@ function assertWholeSurfaceUnchanged(
  * equally priced, balanced replacement target. Nodes added outside it remain
  * visible and do not invalidate the summary.
  */
-/** 中文说明：函数 assertSelectedSpanStable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertSelectedSpanStable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertSelectedSpanStable(
   dependencies: RegionDependencies,
   session: Session,
@@ -487,7 +507,7 @@ function assertSelectedSpanStable(
 }
 
 /** Append one completed summary record and replacement body without yielding. */
-/** 中文说明：函数 commitCompactionBody 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 commitCompactionBody 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commitCompactionBody(
   session: Session,
   startEvent: SessionEvent<'compaction/start'>,
@@ -545,7 +565,7 @@ function commitCompactionBody(
 }
 
 /** Attach the successfully appended close event to a pending result. */
-/** 中文说明：函数 completeCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 completeCompaction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function completeCompaction(
   pending: Omit<CompactionResult, 'endSeq'>,
   endEvent: SessionEvent<'compaction/end'>,
@@ -563,7 +583,7 @@ function completeCompaction(
  * @param shadowedSeqs - the surface-node seqs, in order, being compacted.
  * @returns the replayed conversation prefix to condense.
  */
-/** 中文说明：函数 buildSummarizationInput 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 buildSummarizationInput 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function buildSummarizationInput(
   session: Session,
   shadowedSeqs: readonly number[],
@@ -586,7 +606,7 @@ function buildSummarizationInput(
 }
 
 /** Inspect open-turn, unmatched-compaction, and latest seed-boundary state independently. */
-/** 中文说明：函数 inspectCompactionEntryState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 inspectCompactionEntryState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inspectCompactionEntryState(events: readonly SessionEvent[]): CompactionEntryState {
   /** 中文说明：运行时局部值 openTurn，由紧邻初始化决定。 */
   let openTurn: number | null = null

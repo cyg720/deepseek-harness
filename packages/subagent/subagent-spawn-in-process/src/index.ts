@@ -5,7 +5,7 @@
  * reusing the agent factory's quiescent teardown.
  * @module @deepseek-ai/dsh-subagent-spawn-in-process
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -32,7 +32,7 @@ export const name = 'subagent-spawn-in-process'
 export const inject = ['subagents']
 
 /** Config: the registry name to register the provider under. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `spawn`). */
   providerName: string
@@ -50,7 +50,7 @@ export const Config: z<Config> = z.object({
  * `restrict()` and a scoped shadowing persona section, applied in the child's
  * creation window).
  */
-/** 中文说明：class SpawnInProcessProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：class SpawnInProcessProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
 class SpawnInProcessProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = { outputSchema: true, depthLimit: true, toolFilter: true, persona: true }
   // Context contract: a spawned child starts fresh — it never sees the parent conversation.

@@ -70,7 +70,7 @@ async function persistSession(sessionId: SessionId): Promise<string> {
 }
 
 /** Build a detached preparation for lifecycle-race test doubles. */
-/** 中文说明：测试辅助函数 preparationFromSnapshot 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 preparationFromSnapshot 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function preparationFromSnapshot(
   ctx: Context,
   snapshot: { meta: SessionHeader; events: readonly SessionEvent[] },
@@ -93,7 +93,7 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
 }
 
 /** Fail a lifecycle regression promptly instead of waiting for Vitest's suite timeout. */
-/** 中文说明：测试辅助函数 promptly 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 promptly 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function promptly<T>(job: Promise<T>): Promise<T> {
   /** 中文说明：测试局部值 timeout，由紧邻初始化决定，仅在当前场景使用。 */
   const timeout = Promise.withResolvers<never>()
@@ -107,7 +107,7 @@ async function promptly<T>(job: Promise<T>): Promise<T> {
 }
 
 /** Throw an arbitrary callback value to exercise the public unknown-error boundary. */
-/** 中文说明：测试辅助函数 throwUnknown 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 throwUnknown 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function throwUnknown(value: unknown): never {
   throw value
 }

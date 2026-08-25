@@ -7,7 +7,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-protocol
  */
-/**
+/*
  * 文件职责：汇总 TypeScript 与 Python SDK 共同使用的 JSON-RPC 传输、请求、结果和通知类型。
  * 技术维度：使用 ESM 重导出和 TypeScript 类型导出建立无运行时重复的协议公共入口。
  * 产品维度：让运行时服务器与多语言客户端使用同一套线协议词汇，减少字段和状态漂移。

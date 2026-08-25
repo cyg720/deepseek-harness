@@ -4,7 +4,7 @@
  *
  * @module @deepseek-ai/dsh-tool-workflow/types
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：声明工作流工具写入父会话的四类持久事件数据，并扩展 SessionEventMap。
  * - 技术维度：使用浏览器安全 TypeScript 类型、品牌标识和模块声明合并。
@@ -20,7 +20,7 @@ import type {
 } from '@deepseek-ai/dsh-workflow/types'
 
 /** Opens one durable top-level workflow run record. */
-/** 中文：打开一条顶层工作流持久记录的数据。 */
+/* 中文：打开一条顶层工作流持久记录的数据。 */
 export interface ToolWorkflowRunStartData {
   /** 本次工作流运行的稳定品牌标识。 */
   readonly runId: WorkflowRunId
@@ -29,7 +29,7 @@ export interface ToolWorkflowRunStartData {
 }
 
 /** Records one workflow member after its child Session is published. */
-/** 中文：子会话发布后记录一个工作流成员开始的数据。 */
+/* 中文：子会话发布后记录一个工作流成员开始的数据。 */
 export interface ToolWorkflowAgentStartData {
   readonly runId: WorkflowRunId
   /** 运行内成员序号，用于与结束事件配对。 */
@@ -43,7 +43,7 @@ export interface ToolWorkflowAgentStartData {
 }
 
 /** Settles one previously started workflow member. */
-/** 中文：结算先前已开始成员的数据。 */
+/* 中文：结算先前已开始成员的数据。 */
 export interface ToolWorkflowAgentEndData {
   readonly runId: WorkflowRunId
   /** 对应 agent-start 的成员序号。 */
@@ -53,7 +53,7 @@ export interface ToolWorkflowAgentEndData {
 }
 
 /** Settles one workflow run after its live resources reach quiescence. */
-/** 中文：全部活动资源静止后结算顶层运行的数据。 */
+/* 中文：全部活动资源静止后结算顶层运行的数据。 */
 export interface ToolWorkflowRunEndData {
   readonly runId: WorkflowRunId
   /** 工作流终止原因。 */
@@ -67,25 +67,25 @@ declare module '@deepseek-ai/dsh-session/types' {
      * Opens one top-level workflow record.
      * @param data - stable run identity and display name.
      */
-    /** 中文：打开工作流记录；data 包含运行标识和显示名称。 */
+    /* 中文：打开工作流记录；data 包含运行标识和显示名称。 */
     'tool-workflow/run-start': ToolWorkflowRunStartData
     /**
      * Records one published workflow member.
      * @param data - run identity, member sequence, display identity, and child Session.
      */
-    /** 中文：记录已发布成员；data 包含运行、序号、显示信息和子会话。 */
+    /* 中文：记录已发布成员；data 包含运行、序号、显示信息和子会话。 */
     'tool-workflow/agent-start': ToolWorkflowAgentStartData
     /**
      * Records one member settlement.
      * @param data - run identity, paired member sequence, and outcome.
      */
-    /** 中文：记录成员结算；data 包含运行标识、配对序号和结果。 */
+    /* 中文：记录成员结算；data 包含运行标识、配对序号和结果。 */
     'tool-workflow/agent-end': ToolWorkflowAgentEndData
     /**
      * Closes one workflow record after cleanup.
      * @param data - stable run identity and terminal reason.
      */
-    /** 中文：关闭工作流记录；data 包含运行标识和终止原因。 */
+    /* 中文：关闭工作流记录；data 包含运行标识和终止原因。 */
     'tool-workflow/run-end': ToolWorkflowRunEndData
   }
 }

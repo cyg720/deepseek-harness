@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现"持久化的附件→文件 id 上传索引"：DeepSeekUploadIndex 把
  * 每次完成的远端上传落盘为 JSON 索引（DSH 主目录下），供同主目录的所有
@@ -31,7 +31,7 @@ import { DeepSeekFileId, DeepSeekFileScope } from './file-id.ts'
 import type { DeepSeekFileId as DeepSeekFileIdType, DeepSeekFileScope as DeepSeekFileScopeType } from './file-id.ts'
 
 /** One durable remote upload mapping. Unix times are milliseconds. */
-/**
+/*
  * （中文）一条持久的远端上传映射。Unix 时间单位为毫秒。
  */
 export interface DeepSeekUploadRecord {
@@ -63,7 +63,7 @@ interface StoredIndex {
 class InvalidUploadIndexError extends Error {}
 
 /** Candidate commit outcome when another process already published a reusable upload. */
-/**
+/*
  * （中文）候选提交的结果：当另一个进程已经发布了可复用的上传时，给出获胜者
  * 与"是否被接受"。
  */
@@ -72,7 +72,7 @@ export interface UploadIndexCommit {
   accepted: boolean
 }
 
-/**
+/*
  * （中文）推导一个非机密的稳定索引命名空间，不持久化也不记录 API key。
  * @param baseURL 规范化的 provider 端点命名空间。
  * @param apiKey 已解析的凭据，仅作哈希输入。
@@ -158,7 +158,7 @@ function reusable(record: DeepSeekUploadRecord, now: number, refreshMarginMs: nu
 }
 
 /** Atomic local index shared by every DeepSeek session in this DSH home. */
-/**
+/*
  * （中文）本 DSH 主目录下所有 DeepSeek 会话共享的原子本地索引。
  */
 export class DeepSeekUploadIndex {
@@ -166,7 +166,7 @@ export class DeepSeekUploadIndex {
   // 中文：绝对路径的所有者私有 JSON 索引路径。
   readonly path: string
 
-  /**
+  /*
    * （中文）构造。
    * @param path 显式测试路径；缺省用 DSH_HOME/llm-deepseek/files-v3.json。
    */
@@ -197,7 +197,7 @@ export class DeepSeekUploadIndex {
     })
   }
 
-  /**
+  /*
    * （中文）读取一条可复用映射。
    * @param scope 端点/API key 命名空间。
    * @param variantId 完整请求图片变换身份。
@@ -225,7 +225,7 @@ export class DeepSeekUploadIndex {
     return record !== undefined && reusable(record, now, refreshMarginMs) ? record : undefined
   }
 
-  /**
+  /*
    * （中文）发布一次已完成的上传，除非另一进程已发布了可复用映射。
    * @param candidate 完成的远端上传。
    * @param now 当前 Unix 毫秒时间。
@@ -265,7 +265,7 @@ export class DeepSeekUploadIndex {
     })
   }
 
-  /**
+  /*
    * （中文）移除一条精确映射，不删除并发安装的后继。
    * @param scope 端点/API key 命名空间。
    * @param variantId 完整请求图片变换身份。
@@ -293,7 +293,7 @@ export class DeepSeekUploadIndex {
     })
   }
 
-  /**
+  /*
    * （中文）移除某个远端命名空间的全部本地映射。
    * @param scope 端点/API key 命名空间。
    */

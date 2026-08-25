@@ -22,7 +22,7 @@
  * @module @deepseek-ai/dsh-token-meter/projection
  */
 
-/**
+/*
  * （中文）整份会话日志的持久累计 provider 用量。
  * 四个桶互斥：特别是推理 token 已包含在 outputTokens 里，不再重复累计。
  */

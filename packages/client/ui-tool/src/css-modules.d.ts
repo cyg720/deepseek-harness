@@ -6,7 +6,7 @@
  * 关键边界：类型不会枚举真实选择器，重命名 CSS 类时仍需同步修改组件。
  * 新手阅读建议：先找工具组件中的 `styles.xxx`，再对照同目录样式文件。
  */
-/** 使用方式：`import styles from './Tool.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Tool.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键和值为字符串，值由构建器哈希处理后生成。 */
   const classes: Record<string, string>

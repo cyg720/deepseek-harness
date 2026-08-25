@@ -20,7 +20,7 @@
  * `apt-get install musl-tools`). Non-Linux hosts fail fast — no platform
  * package exists for them to build.
  */
-/**
+/*
  * 文件职责：根据受检入平台矩阵，在当前 Linux 架构上原生编译所有声明的 Landlock 工具二进制。
  * 技术维度：使用 Node 同步文件 API、musl-gcc、静态链接、prebuilds.json 和原生进程执行。
  * 产品维度：为各平台 npm 包生成无动态 libc 依赖、可审计且可在发布门禁中验证的启动器。
@@ -33,7 +33,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 
 /** Each native tool's C source, keyed by the `tool` field in prebuilds.json. */
-/** 按 prebuilds.json 的 tool 名称映射到受审查 C 源文件。 */
+/* 按 prebuilds.json 的 tool 名称映射到受审查 C 源文件。 */
 const TOOLS: Record<string, { source: string }> = {
   'landlock-run': { source: 'packages/entry/src/main.c' },
 }
@@ -49,7 +49,7 @@ if (process.platform !== 'linux') {
 const hostPlatform = `linux-${process.arch}`
 
 /** This host's platform packages, from the checked-in matrix. */
-/** 当前平台包声明的全部待构建二进制目标。 */
+/* 当前平台包声明的全部待构建二进制目标。 */
 const targets: { packageDir: string; tool: string; binaryPath: string; kind: string }[] = []
 /** 包含入口包和所有平台包的目录。 */
 const packagesRoot = join(repoRoot, 'packages')

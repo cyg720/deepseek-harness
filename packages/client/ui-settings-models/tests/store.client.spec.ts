@@ -1,5 +1,5 @@
 /** Page-store join: directory × namespaces × credentials, with last-good rows on failure. */
-/**
+/*
  * 文件职责：验证模型设置的 store.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止模型设置保存、发现和错误提示回归。

@@ -4,7 +4,7 @@
  * menu. Registered by this package — the locale feature owns its own
  * settings surface.
  */
-/**
+/*
  * 文件职责：渲染客户端设置中的语言选择行，并把用户选择写入语言状态。
  * 技术维度：React/TSX、受控选择框、客户端本地化服务与样式类名。
  * 产品维度：让用户在界面中切换显示语言，并立即看到本地化文本变化。
@@ -20,14 +20,14 @@ import type { createLanguageRowStore } from './settings-store.ts'
 import css from './LanguageRow.module.css'
 
 /** Injected business face: the preference write (t rides the standard locale seat). */
-/** 中文说明：类型 `LanguageRowInjected` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `LanguageRowInjected` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface LanguageRowInjected {
   /** Switch the active locale (a registered locale id). */
   setLocale: (id: string) => void
 }
 
 /** Full component props: runtime share + store share + locale seat + injected face. */
-/** 中文说明：类型 `LanguageRowComponentProps` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `LanguageRowComponentProps` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export type LanguageRowComponentProps =
   PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createLanguageRowStore>>
   & PropsLocale<'settings.locale'> & LanguageRowInjected
@@ -37,7 +37,7 @@ export type LanguageRowComponentProps =
  * @param props - composed slot props.
  * @returns the row element tree.
  */
-/** 中文说明：内部函数 `LanguageRow`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
+/* 中文说明：内部函数 `LanguageRow`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 export function LanguageRow({ t, setLocale, useStore }: LanguageRowComponentProps) {
   /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `active` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
   const active = useStore(s => s.active)

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证侧栏的 sidebar-snapshot.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止侧栏显示、导航或生命周期回归。
@@ -39,7 +39,7 @@ afterEach(() => {
  * what an untouched client shows; `locale: 'en'` pins the en copy instead.
  * The installed face backs the entry's standard `t` seat either way.
  */
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(options: { locale?: 'en' } = {}) {
   /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()

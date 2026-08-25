@@ -10,7 +10,7 @@
  * plugin may read the same immutable snapshot.
  * @module @deepseek-ai/dsh/profile-boot
  */
-/**
+/*
  * 文件职责：组合配置补丁、启动完整 Cordis 应用树，并接通信号、热重载和有界退出。
  * 技术维度：使用补丁层组合、Cordis Loader/HMR、环境快照、AbortController 与进程信号。
  * 产品维度：所有 dsh 运行形态都能按相同规则加载用户配置、应用参数并安全响应配置变更。
@@ -40,7 +40,7 @@ import {
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 
 /** Shipped agent-preset root: beside this app's own config, in both source and built layouts. */
-/** 随应用发布的代理预设根目录，源码和构建布局均可用。 */
+/* 随应用发布的代理预设根目录，源码和构建布局均可用。 */
 const SHIPPED_PRESET_ROOT = fileURLToPath(new URL('../config/agent-presets/', import.meta.url))
 
 import { DSH_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
@@ -56,7 +56,7 @@ const NAME = 'dsh'
  * `$DSH_HOME` may be set by the test or launcher after import.
  * @returns the absolute patch-file path.
  */
-/**
+/*
  * 解析对所有配置生效的主目录用户补丁路径。
  * @returns 当前 DSH_HOME 下补丁文件的绝对路径。
  * @example `homePatchPath()`
@@ -66,15 +66,15 @@ export function homePatchPath(): string {
 }
 
 /** Absolute path of this dsh installation's package.json (both anchors: src/ and lib/ sit one level under apps/cli). */
-/** 当前 dsh 安装的 package.json 绝对路径，源码与构建目录采用同一相对层级。 */
+/* 当前 dsh 安装的 package.json 绝对路径，源码与构建目录采用同一相对层级。 */
 export const INSTALL_ANCHOR = fileURLToPath(new URL('../package.json', import.meta.url))
 
 /** The session-telemetry row id the DSH_TELEMETRY_DISABLED switch targets. */
-/** 遥测禁用开关要定位的配置行编号。 */
+/* 遥测禁用开关要定位的配置行编号。 */
 const TELEMETRY_ROW_ID = 'session-telemetry-otel'
 
 /** The empty root entry list every profile tree patches over. */
-/** 每个配置补丁树应用到的空根配置文本。 */
+/* 每个配置补丁树应用到的空根配置文本。 */
 const PROFILE_ROOT_CONFIG = `# dsh profile root — an empty entry list. The tree is composed as patches:
 # each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
 # --patch overlays. Edit cordis.patch.yml, not this file.
@@ -82,7 +82,7 @@ const PROFILE_ROOT_CONFIG = `# dsh profile root — an empty entry list. The tre
 `
 
 /** Root config filename inside a profile directory. */
-/** 配置目录中供 Loader 锚定基础路径的根配置文件名。 */
+/* 配置目录中供 Loader 锚定基础路径的根配置文件名。 */
 export const PROFILE_ROOT_FILENAME = 'cordis.yml'
 
 /**
@@ -96,7 +96,7 @@ export const PROFILE_ROOT_FILENAME = 'cordis.yml'
  * @param hasRow - whether the composition carries the telemetry row.
  * @returns the disable patch, or `undefined` when no hard-disable patch is required.
  */
-/**
+/*
  * 将遥测环境开关解析为禁用指定配置行的补丁。
  * @param disabledEnv DSH_TELEMETRY_DISABLED 原始值。
  * @param hasRow 当前组合是否包含遥测行。
@@ -121,7 +121,7 @@ export function resolveTelemetryPatch(disabledEnv: string | undefined, hasRow: b
  * @param userLayer - `false` skips parsing `cordis.patch.yml` (the default dump).
  * @returns the loaded profile.
  */
-/**
+/*
  * 加载指定配置并重写空根文件，避免 Loader 回写污染下一次组合。
  * @param name 配置名称。
  * @param userLayer 是否解析配置自身的用户补丁。
@@ -137,29 +137,29 @@ export function prepareProfile(name: string, userLayer = true): Profile {
 }
 
 /** One profile's patch layers (application order) and the row index of its pre-flag composition. */
-/** 一个配置按应用顺序拆分的补丁层及其启动器可查询行索引。 */
+/* 一个配置按应用顺序拆分的补丁层及其启动器可查询行索引。 */
 interface ComposedProfile {
   /** 已加载的配置元数据与用户补丁。 */
   profile: Profile
   /** Bundle layers concatenated — the part below the user layers on a live reload. */
-  /** 位于用户层下方、按声明顺序拼接的 bundle 补丁。 */
+  /* 位于用户层下方、按声明顺序拼接的 bundle 补丁。 */
   bundlePatches: PatchOptions[]
   /** The home-level user layer (`$DSH_HOME/cordis.patch.yml`), applied after the profile's own. */
-  /** 应用在配置用户层之后的主目录级用户补丁。 */
+  /* 应用在配置用户层之后的主目录级用户补丁。 */
   homePatches: PatchOptions[]
   /** Layers above the user layers on a live reload: `--patch` overlays and the telemetry switch. */
-  /** 位于用户层之上的命令行覆盖和遥测开关。 */
+  /* 位于用户层之上的命令行覆盖和遥测开关。 */
   overlays: PatchOptions[]
   /**
    * id → row of the composed tree (bundles + user layers + overlays), for the
    * launcher's own row checks.
    */
-  /** 组合树中配置行编号到行内容的只读索引。 */
+  /* 组合树中配置行编号到行内容的只读索引。 */
   rows: ReadonlyMap<string, EntryOptions>
 }
 
 /** The full patch stack of one composed profile, in application order. */
-/**
+/*
  * 按最终应用顺序展开一个已组合配置的全部补丁。
  * @param composed 已拆分各层的配置。
  * @returns bundle、配置用户层、主目录用户层和覆盖层组成的新数组。
@@ -185,7 +185,7 @@ function allPatches(composed: ComposedProfile): PatchOptions[] {
  * @param patchFiles - `--patch` overlay paths, in argv order.
  * @returns the profile, its patch layers, and the composed row index.
  */
-/**
+/*
  * 加载配置并组合 bundle、两级用户层、命令行覆盖和遥测开关。
  * @param name 配置名称。
  * @param patchFiles 命令行补丁路径，保持 argv 顺序。
@@ -232,19 +232,19 @@ function composeProfile(
 }
 
 /** Options for {@link runProfile}. */
-/** 启动一个配置所需的环境、配置名、覆盖层和应用参数。 */
+/* 启动一个配置所需的环境、配置名、覆盖层和应用参数。 */
 export interface RunProfileOptions {
   /** This run's frozen environment snapshot, provided before any entry mounts. */
-  /** 在任何配置行挂载前提供的冻结启动环境快照。 */
+  /* 在任何配置行挂载前提供的冻结启动环境快照。 */
   environment: LaunchEnvironmentSnapshot
   /** The profile name to boot. */
-  /** 要启动的配置名称。 */
+  /* 要启动的配置名称。 */
   profile: string
   /** `--patch` overlay paths, in argv order. */
-  /** 按命令行顺序应用的额外补丁路径。 */
+  /* 按命令行顺序应用的额外补丁路径。 */
   patchFiles: readonly string[]
   /** The invocation's inner arguments, handed to the tree through `ctx.cmdlineArgs`. */
-  /** 通过 cmdlineArgs 服务交给应用插件的内部参数。 */
+  /* 通过 cmdlineArgs 服务交给应用插件的内部参数。 */
   args: readonly string[]
 }
 
@@ -258,7 +258,7 @@ export interface RunProfileOptions {
  * @param signal - this invocation's signal-shutdown fact.
  * @param error - the setup failure.
  */
-/**
+/*
  * 仅在应用仍活跃时重新抛出监听安装错误，正常关闭中的失败则忽略。
  * @param ctx 已启动的根上下文。
  * @param signal 当前调用的信号关闭状态。
@@ -278,7 +278,7 @@ function suppressShutdownError(ctx: Context, signal: AbortSignal, error: unknown
  * @param options - environment snapshot, profile name, overlays, and the booted app's own arguments.
  * @returns the settled root context and the shutdown controller.
  */
-/**
+/*
  * 端到端启动一个配置，并返回根上下文与统一关闭控制器。
  * @param options 环境快照、配置名称、覆盖路径和应用参数。
  * @returns 已完成启动的上下文及进程关闭控制器。

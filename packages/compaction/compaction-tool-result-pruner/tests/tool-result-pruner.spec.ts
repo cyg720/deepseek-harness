@@ -46,7 +46,7 @@ function service(config: ToolResultPruneConfig = SMALL): ToolResultPruner {
 }
 
 /** Pricing oracle mirroring the service's estimator for expectations. */
-/** 中文说明：测试局部值 METER，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 METER，由紧邻初始化决定。 */
 const METER = new TokenMeter(new Context())
 
 /** 中文说明：函数 appendToolStep 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */

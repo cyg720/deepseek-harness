@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现 token-meter 投影单元共享的 O(1) 表面 token 折叠。
  * 【技术维度】投影状态必须保持有界（持久化投影缓存会检查点每个单元的整个
@@ -43,7 +43,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-compaction'
 import { estimateMessage } from './estimate.ts'
 
-/**
+/*
  * （中文）一个已武装的影子价格：紧随其后的表面 replace 事件要替换的区间，
  * 其启发式 token 数。武装期间属于持久单元状态的一部分，因此必须是纯 JSON。
  */
@@ -65,7 +65,7 @@ export interface ShadowPriceClaim {
 }
 
 /** One event's effect on a running surface-token total. */
-/**
+/*
  * （中文）一个事件对运行中表面 token 总量的影响。
  */
 export interface SurfaceTokensFold {
@@ -77,7 +77,7 @@ export interface SurfaceTokensFold {
   readonly claim: ShadowPriceClaim | undefined
 }
 
-/**
+/*
  * （中文）把一个已提交事件折叠到运行中的表面 token 总量上。
  * 影子价格事件武装一个 claim；任何其他事件使其过期；表面 replace 消费"命名其
  * 精确区间"的 claim——生产者把计量事件与替换事件同步相邻追加，因此存活的

@@ -6,7 +6,7 @@
  * 关键边界：类型不涉及子代理生命周期，也不检查样式选择器存在性。
  * 新手阅读建议：按目录、续接、引用三个界面入口查看样式使用。
  */
-/** 使用方式：`import styles from './Subagent.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Subagent.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源类名，值是构建后的隔离类名。 */
   const classes: Record<string, string>

@@ -8,7 +8,7 @@
  * must carry the parent session's cwd. Mock-only composition, so only this
  * keyless tier applies (the with-key tier lives in subagent-sdk.e2e.ts).
  */
-/**
+/*
  * 文件职责：验证 loader-composition.e2e.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。

@@ -22,13 +22,13 @@ const STANDALONE_ERROR = 'apps/web is not a standalone application: bare Vite ca
 const DEFAULT_CLIENT_TITLE = 'DSH Local Build'
 
 /** Escape build-time text before placing it in the HTML title element. */
-/** 转义 value 中影响 HTML 文本的字符并返回安全标题。示例：escapeHtmlText('A & B')。 */
+/* 转义 value 中影响 HTML 文本的字符并返回安全标题。示例：escapeHtmlText('A & B')。 */
 function escapeHtmlText(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 /** Project the public build title into the initial HTML document. */
-/** 创建把公开构建标题写入首页的 Vite 插件。示例：clientDocumentTitle()。 */
+/* 创建把公开构建标题写入首页的 Vite 插件。示例：clientDocumentTitle()。 */
 function clientDocumentTitle(): Plugin {
   /** 经过 HTML 转义的最终文档标题。 */
   const title = escapeHtmlText(process.env.DSH_CLIENT_TITLE ?? DEFAULT_CLIENT_TITLE)
@@ -41,7 +41,7 @@ function clientDocumentTitle(): Plugin {
 }
 
 /** Fail before a Vite dev or preview server can expose the boot-manifest-free shell. */
-/** 创建拒绝 Vite serve 命令的插件，构建命令不受影响。 */
+/* 创建拒绝 Vite serve 命令的插件，构建命令不受影响。 */
 function rejectStandaloneServe(): Plugin {
   return {
     name: 'dsh-reject-standalone-web-serve',
@@ -71,7 +71,7 @@ function rejectStandaloneServe(): Plugin {
  * vendor. The React side of markdown/math rendering is workspace code and
  * rides index.
  */
-/** 中文说明：仅列出工作区直接导入、体积大且不含 React 的稳定依赖，以隔离缓存变动。 */
+/* 中文说明：仅列出工作区直接导入、体积大且不含 React 的稳定依赖，以隔离缓存变动。 */
 /** 分配到共享 vendor 块的精确 npm 包名集合。 */
 const VENDOR_PACKAGES: ReadonlySet<string> = new Set([
   // math

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】本文件定义 Perplexity 搜索 API 的线上类型：OpenAI 兼容的 chat-completions
  *             请求/响应结构（含结构化 search_results 与 URL-only citations 两种来源）。

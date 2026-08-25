@@ -5,7 +5,7 @@
  * nothing bypasses the tool registry. Fetch verifies world effects against loopback HTTP; search
  * uses the real Exa provider with only its network boundary stubbed.
  */
-/**
+/*
  * 文件职责：验证 integration.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。

@@ -194,7 +194,7 @@ describe('Tooltip', () => {
   })
 
   /** Anchor and bubble rects, so a placement test measures real room rather than jsdom's all-zero boxes. */
-  /** 中文说明：测试局部值 placed，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 placed，由紧邻初始化决定。 */
   const placed = (anchorTop: number, anchorBottom: number, bubbleHeight: number) =>
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
       /** 中文说明：测试局部值 [top, bottom]，由紧邻初始化决定。 */

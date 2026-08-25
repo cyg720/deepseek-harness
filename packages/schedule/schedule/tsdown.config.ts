@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and invariant companion as independent bundles. */
-/**
+/*
  * 文件职责：配置计划任务能力主入口和不变量伴生入口的独立构建。
  * 技术维度：使用 tsdown 将 tsc 产物打包为 Node.js ES2024 模块。
  * 产品维度：让提醒与后续任务调度能力可被应用装配，并提供状态关系检查入口。

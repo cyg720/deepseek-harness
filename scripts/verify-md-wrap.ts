@@ -5,7 +5,7 @@
  * files are deduped. VitePress frontmatter and custom-container delimiters are
  * masked before parsing. The owning convention is in `docs/AGENTS.md`.
  */
-/**
+/*
  * 文件职责：实现 verify-md-wrap.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -24,7 +24,7 @@ import { isArchivedAgentNotePath, uniqueRepoFiles } from './repo-files.ts'
 const root = resolve(import.meta.dirname, '..')
 
 /** Files to check: doc-typecheck's scope, system-prompt expected outputs, and the AGENTS.md pair. */
-/** 中文说明：常量 PATTERNS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PATTERNS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PATTERNS = [
   'README.md',
   'README.zh.md',
@@ -39,7 +39,7 @@ const PATTERNS = [
 ]
 
 /** A located hard-wrap: a prose paragraph spanning more than one source line. */
-/** 中文说明：interface Violation 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface Violation 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface Violation {
   file: string
   /** 1-based line where the hard-wrapped paragraph starts. */
@@ -63,7 +63,7 @@ function maskVitePressStructure(source: string): string {
 }
 
 /** Find every hard-wrapped prose paragraph in one Markdown file via its AST. */
-/** 中文说明：函数 findViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 findViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function findViolations(absPath: string): Violation[] {
   /** 中文说明：变量 file 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const file = relative(root, absPath)

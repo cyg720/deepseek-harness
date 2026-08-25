@@ -6,7 +6,7 @@
  * under the default `wakeup` delivery, bounded per owner.
  * @module @deepseek-ai/dsh-tool-jobs
  */
-/**
+/*
  * 文件职责：实现后台任务的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证后台任务在授权、等待、失败和清理场景中可靠。
@@ -36,11 +36,11 @@ export const inject = ['tools', 'jobs', 'systemPrompt']
  * opens a turn for it, `quiet` leaves it pending until something else wakes the
  * owner. A busy owner is injected either way.
  */
-/** 中文说明：类型或类 CompletionDelivery 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 CompletionDelivery 约束宿主、交互或任务数据职责。 */
 export type CompletionDelivery = 'quiet' | 'wakeup'
 
 /** Configures bounded `job_output` waits and completion-notice delivery. */
-/** 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
 export interface Config {
   /** Wait duration applied when `job_output` sets `wait` without `timeout_ms` (default 30s). */
   waitTimeoutMs?: number
@@ -66,7 +66,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** Task state safe for model-authored programs; ownership/bookkeeping fields are omitted. */
-/** 中文说明：类型或类 PublicJobSnapshot 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 PublicJobSnapshot 约束宿主、交互或任务数据职责。 */
 export interface PublicJobSnapshot {
   id: string
   kind: string
@@ -78,7 +78,7 @@ export interface PublicJobSnapshot {
 }
 
 /** Shared schema for job-control outputs. */
-/** 中文说明：服务局部值 PUBLIC_TASK_SCHEMA，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 PUBLIC_TASK_SCHEMA，由紧邻初始化决定。 */
 const PUBLIC_TASK_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -98,7 +98,7 @@ const PUBLIC_TASK_SCHEMA = {
 } as const
 
 /** Remove job ownership and notification bookkeeping from a registry snapshot. */
-/** 中文说明：函数 publicJob 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 publicJob 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function publicJob(snapshot: JobSnapshot): PublicJobSnapshot {
   return {
     id: snapshot.id,
@@ -116,7 +116,11 @@ function publicJob(snapshot: JobSnapshot): PublicJobSnapshot {
  * @param snapshot - job state to render.
  * @returns a bracketed status line.
  */
-/** 中文说明：函数 statusLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 statusLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param snapshot 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function statusLine(snapshot: Pick<JobSnapshot, 'status' | 'detail'>): string {
   return snapshot.detail !== undefined
     ? `[status: ${snapshot.status}, ${snapshot.detail}]`
@@ -165,7 +169,7 @@ function fitWithSuffix(
  * @param snapshot - the settled job.
  * @returns its kind, label, and status, bounded like every notice summary.
  */
-/** 中文说明：函数 completionSummary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 completionSummary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function completionSummary(snapshot: JobSnapshot): string {
   return boundContextSummary(`${snapshot.kind} ${snapshot.label} ${statusLine(snapshot)}`)
 }
@@ -235,7 +239,7 @@ function visibleOutputLimit(ctx: Context, exec: ToolExecution): number | undefin
 }
 
 /** Validate the non-empty constraint that ParameterSchemaSpec cannot express. */
-/** 中文说明：函数 validateJobId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateJobId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateJobId(value: string): JobId {
   if (value.length === 0) {
     throw new Error(`invalid job_id: expected a non-empty string, got ${JSON.stringify(value)}`)
@@ -244,7 +248,7 @@ function validateJobId(value: string): JobId {
 }
 
 /** Pending presentation shared by the three generic job controls. */
-/** 中文说明：函数 presentTaskCall 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 presentTaskCall 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function presentTaskCall(title: string, kind: 'read' | 'execute', rawInput?: string): GenericCallView {
   return { card: 'generic', title, kind, ...rawInput !== undefined ? { rawInput } : {} }
 }

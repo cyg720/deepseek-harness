@@ -25,7 +25,7 @@ import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
 const NS = settingsNamespace('llm-pi-ai')
 
 /** Minimal foreign adapter: only needs to own a route the pi-ai plugin then wants. */
-/** 中文说明：class StubAdapter 定义本测试所需的数据或行为，用于表达模型调用相关场景。 */
+/* 中文说明：class StubAdapter 定义本测试所需的数据或行为，用于表达模型调用相关场景。 */
 class StubAdapter extends LlmAdapter {
 
   override async * stream(): AsyncIterable<never> {
@@ -51,7 +51,7 @@ async function home(): Promise<string> {
 }
 
 /** Real dynamic composition mirroring the deepseek twin's harness. */
-/** 中文说明：函数 boot 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 boot 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function boot(
   dir: string,
   config: LlmPiAi.Config,

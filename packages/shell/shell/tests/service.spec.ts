@@ -17,7 +17,7 @@ import type { ShellExecRequest, ShellExecSpec, ShellProcess, ShellProcessRead, S
  * task semantics live in `ctx.jobs`), so this stub is all an implementation
  * owes the abstract class.
  */
-/** 中文说明：class StubExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
+/* 中文说明：class StubExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
 class StubExecutor extends ShellExecutor {
   resolve(request: ShellExecRequest): ShellExecSpec {
     return {

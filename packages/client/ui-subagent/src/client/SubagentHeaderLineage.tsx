@@ -31,7 +31,7 @@ type CatalogEntry = SubagentCatalogSnapshot['entries'][number]
 type Catalogs = SessionListState['subagentsByParent']
 
 /** Business actions supplied by the slot registration. */
-/** 中文说明：类型或类 SubagentCatalogInjected 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 SubagentCatalogInjected 约束模块数据或组件职责。 */
 export interface SubagentCatalogInjected {
   openChild: (address: SubagentAddress) => void
   refresh: (parentSessionId: SessionId) => void
@@ -39,7 +39,7 @@ export interface SubagentCatalogInjected {
 }
 
 /** Full props for the session-header lineage renderer. */
-/** 中文说明：类型或类 SubagentHeaderLineageProps 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 SubagentHeaderLineageProps 约束模块数据或组件职责。 */
 export type SubagentHeaderLineageProps =
   PropsRuntime<'conversation.session.header.lineage'> & SubagentCatalogInjected & PropsLocale<typeof NS>
 
@@ -79,7 +79,7 @@ function treeItems(root: HTMLDivElement | null): HTMLElement[] {
 }
 
 /** Compact token count shared in shape with the conversation stats strip. */
-/** 中文说明：函数 formatTokens 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 formatTokens 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function formatTokens(value: number): string {
   /** 中文说明：组件局部值 scaled，由紧邻初始化决定。 */
   const scaled = (next: number): string => next >= 100
@@ -91,7 +91,7 @@ function formatTokens(value: number): string {
 }
 
 /** Sum the four disjoint durable provider-usage buckets. */
-/** 中文说明：函数 tokenTotal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 tokenTotal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tokenTotal(
   usage: SessionProjectionMap['tokenUsage'] | undefined,
 ): number | undefined {
@@ -102,7 +102,7 @@ function tokenTotal(
 }
 
 /** Exact whole-second active-turn duration for one catalog row. */
-/** 中文说明：函数 activityDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 activityDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function activityDuration(
   summary: SessionSummary | undefined,
   activity: 'running' | 'inactive',
@@ -150,7 +150,7 @@ function splitDuration(ms: number): DurationParts {
 }
 
 /** Format a duration with decreasing visual precision at larger scales. */
-/** 中文说明：函数 formatDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 formatDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function formatDuration(ms: number, t: TranslateNS<typeof NS>): string {
   /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const { seconds, minutes, hours, days, totalMinutes, totalHours } = splitDuration(ms)
@@ -194,7 +194,7 @@ function formatDuration(ms: number, t: TranslateNS<typeof NS>): string {
 }
 
 /** Preserve exact whole seconds for hover and accessible naming. */
-/** 中文说明：函数 formatExactDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 formatExactDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function formatExactDuration(ms: number, t: TranslateNS<typeof NS>): string {
   /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const { seconds, minutes, hours, days } = splitDuration(ms)
@@ -236,7 +236,7 @@ function SubagentSwitcherIcon() {
 }
 
 /** Render the known direct-child shape while its authoritative catalog hydrates. */
-/** 中文说明：函数 CatalogLoadingRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 CatalogLoadingRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function CatalogLoadingRows({
   parentSessionId,
   summaries,
@@ -273,7 +273,7 @@ function CatalogLoadingRows({
 }
 
 /** Render one catalog level and recurse only through explicitly expanded rows. */
-/** 中文说明：函数 CatalogRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 CatalogRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function CatalogRows({
   parentSessionId, currentSessionId, catalog, catalogs, summaries, expanded, level, now,
   openChild, refresh, toggleBranch, closeCatalog, t,
@@ -529,7 +529,7 @@ type CatalogDropdownProps = CatalogDropdownSharedProps & (
 const MENU_VIEWPORT_MARGIN = 16
 
 /** Place a portaled catalog below its trigger without crossing the viewport edge. */
-/** 中文说明：函数 catalogMenuPosition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 catalogMenuPosition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function catalogMenuPosition(trigger: HTMLButtonElement): CSSProperties {
   /** 中文说明：组件局部值 rect，由紧邻初始化决定。 */
   const rect = trigger.getBoundingClientRect()
@@ -545,7 +545,7 @@ function catalogMenuPosition(trigger: HTMLButtonElement): CSSProperties {
 }
 
 /** One trigger-plus-tree dropdown over the catalog rooted at `rootSessionId`. */
-/** 中文说明：函数 CatalogDropdown 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 CatalogDropdown 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function CatalogDropdown({
   rootSessionId, currentSessionId, displayTitle, openTitle, variant, separator = false,
   useSessions, openChild, refresh, setCatalogOpen, t,
@@ -929,7 +929,7 @@ function CatalogDropdown({
  * @param props - Breadcrumb title, session standard props, and catalog actions.
  * @returns An ordinary-title descendant count, or a title-and-chevron sibling switcher.
  */
-/** 中文说明：函数 SubagentHeaderLineage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SubagentHeaderLineage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function SubagentHeaderLineage({
   lineageSessionId, displayTitle, openTitle,
   useSessions, openChild, refresh, setCatalogOpen, t,

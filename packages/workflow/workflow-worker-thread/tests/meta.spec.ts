@@ -11,7 +11,7 @@ import { WorkflowError } from '@deepseek-ai/dsh-workflow'
 import { validateMeta } from '../src/meta.ts'
 
 /** Assert a META_INVALID throw whose message matches every given fragment. */
-/** 中文说明：函数 expectInvalid 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 expectInvalid 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectInvalid(value: unknown, ...fragments: string[]): void {
   /** 中文说明：变量 thrown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let thrown: unknown

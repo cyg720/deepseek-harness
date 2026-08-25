@@ -1,5 +1,5 @@
 /** Package-owned workflow lifecycle invariants. @module @deepseek-ai/dsh-workflow/invariant */
-/**
+/*
  * 文件职责：实现 invariant.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -21,10 +21,10 @@ import type {
 const PACKAGE_NAME = '@deepseek-ai/dsh-workflow'
 
 /** Cordis companion plugin name. */
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'workflow-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['invariants']
 
 /** 中文说明：interface WorkflowTrace 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
@@ -35,7 +35,7 @@ interface WorkflowTrace {
 }
 
 /** Require every event for a run to retain its validated identity snapshot. */
-/** 中文说明：函数 traceFor 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 traceFor 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function traceFor(
   traces: ReadonlyMap<string, WorkflowTrace>,
   info: WorkflowRunInfo,
@@ -51,7 +51,7 @@ function traceFor(
 }
 
 /** Assert the immutable identity fields shared by an agent pair. */
-/** 中文说明：函数 validateAgentEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 validateAgentEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function validateAgentEnd(start: WorkflowAgentInfo, end: WorkflowAgentEndInfo, fail: InvariantFailure): void {
   if (start.label !== end.label || start.phase !== end.phase || start.childId !== end.childId) {
     fail(`workflow/agent-end identity diverges from workflow/agent-start for seq ${end.seq}`)
@@ -64,7 +64,7 @@ function validateAgentEnd(start: WorkflowAgentInfo, end: WorkflowAgentEndInfo, f
 }
 
 /** Validate a terminal result against the accumulated run trace. */
-/** 中文说明：函数 validateWorkflowEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 validateWorkflowEnd 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function validateWorkflowEnd(trace: WorkflowTrace, result: WorkflowResultInfo, fail: InvariantFailure): void {
   if (trace.agents.size > 0) fail(`workflow/end has ${trace.agents.size} agent call(s) without workflow/agent-end`)
   if (!Number.isSafeInteger(result.agentsStarted) || result.agentsStarted < trace.starts) {
@@ -76,7 +76,7 @@ function validateWorkflowEnd(trace: WorkflowTrace, result: WorkflowResultInfo, f
 }
 
 /** Install workflow start/end and child-call pairing checks. */
-/** 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+/* 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const install: InvariantInstaller = (ctx, fail) => {
   /** 中文说明：变量 traces 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const traces = new Map<string, WorkflowTrace>()
@@ -163,6 +163,6 @@ const install: InvariantInstaller = (ctx, fail) => {
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+/* 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

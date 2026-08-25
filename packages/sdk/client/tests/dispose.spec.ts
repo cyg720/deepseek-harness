@@ -3,7 +3,7 @@
  * escalation tier's timing is driven exactly (the client suite exercises the
  * same ladder against real subprocesses end to end).
  */
-/**
+/*
  * 文件职责：验证 dispose.spec.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -18,11 +18,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { disposeRuntimeProcess } from '../src/dispose.ts'
 
 /** What fells a scripted {@link FakeChild}. */
-/** 中文说明：type LethalTrigger 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：type LethalTrigger 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
 type LethalTrigger = 'eof' | NodeJS.Signals
 
 /** Per-scenario script for a {@link FakeChild}. */
-/** 中文说明：interface FakeChildScript 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface FakeChildScript 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
 interface FakeChildScript {
   /**
    * The one trigger that makes the child exit (SIGKILL always does,
@@ -42,7 +42,7 @@ interface FakeChildScript {
  * ladder reads: `exitCode`/`signalCode`, `stdin.end()`, `kill()`, and the
  * `exit` event.
  */
-/** 中文说明：class FakeChild 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class FakeChild 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
 class FakeChild extends EventEmitter {
   exitCode: number | null = null
   signalCode: NodeJS.Signals | null = null
@@ -79,7 +79,7 @@ class FakeChild extends EventEmitter {
 }
 
 /** The ladder takes a real ChildProcess; the fake carries the read surface. */
-/** 中文说明：函数 asChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 asChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function asChild(fake: FakeChild): ChildProcess {
   return fake as unknown as ChildProcess
 }

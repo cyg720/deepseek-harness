@@ -2,7 +2,7 @@
  * PartialAccumulator: six-variant chunk folding, sparse-index compaction, and
  * the block/snapshot reference discipline (a delta swaps only that block).
  */
-/**
+/*
  * 文件职责：验证客户端会话运行时的 partial 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。

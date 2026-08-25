@@ -6,7 +6,7 @@
  * 关键边界：类型只保证字符串映射，不能证明每个模型状态都有对应样式。
  * 新手阅读建议：先看模型选择组件的类名分支，再对照样式文件。
  */
-/** 使用方式：`import styles from './ModelSelect.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './ModelSelect.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源类名，值为构建后的隔离类名。 */
   const classes: Record<string, string>

@@ -6,7 +6,7 @@
  * 关键边界：声明不影响技能执行，也不能验证具体类名是否存在。
  * 新手阅读建议：分别查看技能引用来源和工具行组件的样式导入。
  */
-/** 使用方式：`import styles from './Skill.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Skill.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码类名，值为构建生成的实际类名。 */
   const classes: Record<string, string>

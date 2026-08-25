@@ -19,15 +19,15 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import css from './SkillRow.module.css'
 
 /** Skill row lifecycle derived solely from the durable call slice. */
-/** 中文说明：类型或类 SkillRowState 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 SkillRowState 约束模块数据或组件职责。 */
 type SkillRowState = 'running' | 'ok' | 'error' | 'stopped'
 
 /** Full row props: the toolview runtime share plus this package's locale seat. */
-/** 中文说明：类型或类 SkillRowProps 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 SkillRowProps 约束模块数据或组件职责。 */
 type SkillRowProps = ToolCallViewProps & PropsLocale<'skill'>
 
 /** Compact, replay-stable view model for the dedicated row. */
-/** 中文说明：类型或类 SkillRowModel 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 SkillRowModel 约束模块数据或组件职责。 */
 interface SkillRowModel {
   readonly name: string
   readonly output: string | null
@@ -36,7 +36,7 @@ interface SkillRowModel {
 }
 
 /** First physical line for the collapsed error summary and malformed-args fallback. */
-/** 中文说明：函数 firstLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 firstLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function firstLine(text: string): string {
   /** 中文说明：组件局部值 newline，由紧邻初始化决定。 */
   const newline = text.indexOf('\n')
@@ -44,7 +44,7 @@ function firstLine(text: string): string {
 }
 
 /** Skill names are the only call argument the compact row presents. */
-/** 中文说明：函数 skillName 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 skillName 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function skillName(argsRaw: string, callId: string): string {
   try {
     /** 中文说明：组件局部值 parsed，由紧邻初始化决定。 */
@@ -63,7 +63,7 @@ function skillName(argsRaw: string, callId: string): string {
 
 /** Flatten durable result blocks under the generic Tool-row text contract.
  *  Keep aligned with ui-tool's models/tool-call-model.ts `resultText`. */
-/** 中文说明：函数 resultText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resultText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resultText(block: ToolCallViewProps['block']): string | null {
   if (!('kind' in block)) return null
   /** 中文说明：组件局部值 parts，由紧邻初始化决定。 */
@@ -79,7 +79,7 @@ function resultText(block: ToolCallViewProps['block']): string | null {
 }
 
 /** Derive display state without consulting the live skill catalog. */
-/** 中文说明：函数 skillRowModel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 skillRowModel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function skillRowModel(block: ToolCallViewProps['block']): SkillRowModel {
   /** 中文说明：组件局部值 settled，由紧邻初始化决定。 */
   const settled = 'kind' in block
@@ -102,7 +102,7 @@ function skillRowModel(block: ToolCallViewProps['block']): SkillRowModel {
 }
 
 /** State substitution for the collapsed leading slot. */
-/** 中文说明：函数 leadingFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 leadingFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function leadingFor(state: SkillRowState): ReactNode {
   switch (state) {
     case 'error': return <StateDot state="error" />
@@ -112,7 +112,7 @@ function leadingFor(state: SkillRowState): ReactNode {
 }
 
 /** Leading disclosure slot: state icon at rest, chevron on hover or while open. */
-/** 中文说明：函数 disclosureLeading 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 disclosureLeading 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function disclosureLeading(state: SkillRowState, open: boolean, expandable: boolean): ReactNode {
   if (open) return <IconChevronDownOutline14 className={css.chevron} />
   /** 中文说明：组件局部值 icon，由紧邻初始化决定。 */
@@ -127,7 +127,7 @@ function disclosureLeading(state: SkillRowState, open: boolean, expandable: bool
 }
 
 /** Visually hidden state copy for the colour-only lifecycle cues. */
-/** 中文说明：函数 stateStatus 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stateStatus 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stateStatus(state: SkillRowState, t: SkillRowProps['t']): string | null {
   switch (state) {
     case 'running': return t('row.running')
@@ -142,7 +142,7 @@ function stateStatus(state: SkillRowState, t: SkillRowProps['t']): string | null
  * @param props - keyed toolview payload plus the skill locale seat.
  * @returns the dedicated skill row.
  */
-/** 中文说明：函数 SkillRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SkillRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function SkillRow({ block, inspect, t }: SkillRowProps) {
   /** 中文说明：组件局部值 model，由紧邻初始化决定。 */
   const model = skillRowModel(block)

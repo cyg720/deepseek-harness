@@ -2,7 +2,7 @@
  * Shared structural source of truth for the Agent Note tree. Lifecycle and class
  * sets are closed under `.agents/notes/README.md`; importing this module is pure.
  */
-/**
+/*
  * 文件职责：实现 agent-note-tree.ts 覆盖的仓库构建、校验或维护脚本职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
  * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
@@ -18,7 +18,7 @@ import { resolve, sep } from 'node:path'
 export const agentNoteRoot = resolve(import.meta.dirname, '../.agents/notes')
 
 /** The closed set of active Agent Note lifecycles (top-level folders under .agents/notes/). */
-/** 中文说明：常量 AGENT_NOTE_LIFECYCLES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 AGENT_NOTE_LIFECYCLES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const AGENT_NOTE_LIFECYCLES = ['proposed', 'implemented', 'rejected'] as const
 
 /**
@@ -26,19 +26,19 @@ const AGENT_NOTE_LIFECYCLES = ['proposed', 'implemented', 'rejected'] as const
  * class is a deliberate act: extend this list AND the README's Classification
  * section. The gate rejects any folder not listed here.
  */
-/** 中文说明：常量 AGENT_NOTE_CLASSES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 AGENT_NOTE_CLASSES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const AGENT_NOTE_CLASSES = ['feature', 'bug-fix', 'simplification', 'architecture', 'process', 'testing'] as const
 
 /** Historical implemented notes live outside the active lifecycle tree. */
-/** 中文说明：常量 AGENT_NOTE_ARCHIVE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 AGENT_NOTE_ARCHIVE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const AGENT_NOTE_ARCHIVE = 'archived'
 
 /** Non-Agent Note Markdown allowed to sit directly at a lifecycle root. */
-/** 中文说明：常量 ROOT_ALLOWLIST 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ROOT_ALLOWLIST 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ROOT_ALLOWLIST = new Set(['AGENTS.md', 'CLAUDE.md'])
 
 /** One Agent Note file, as discovered by the walker. */
-/** 中文说明：interface AgentNote 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：interface AgentNote 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export interface AgentNote {
   lifecycle: string
   /** Path relative to .agents/notes. */
@@ -52,7 +52,7 @@ export interface AgentNote {
  * plus one error string per violation (unknown lifecycle or class folder, bad
  * depth, or bad filename). Callers treat a non-empty error list as fatal.
  */
-/** 中文说明：函数 walkAgentNoteTree 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 walkAgentNoteTree 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function walkAgentNoteTree(): { notes: AgentNote[]; errors: string[] } {
   /** 中文说明：变量 notes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const notes: AgentNote[] = []

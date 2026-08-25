@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】Windows 安全描述符（ACL/DACL）助手，服务于本地文件的原子替换：
  * 读取既有文件的 DACL、把受保护的 DACL 拷到暂存文件、用 ReplaceFileW 完成
@@ -24,7 +24,7 @@
  * non-Windows processes never open Win32 libraries.
  * @module @deepseek-ai/dsh-fs-local/win32
  */
-/**
+/*
  * 模块总览：本文件只在 Windows 上被使用（fsio.ts 的平台分支），且只在写入/替换
  * 文件时需要保留安全语义时才调用这些 API。
  */
@@ -118,7 +118,7 @@ function win32Error(syscall: string, win32Code: number, path: string): Win32Errn
  * @param path - existing file whose DACL is read.
  * @returns a descriptor buffer accepted by `SetFileSecurityW`.
  */
-/**
+/*
  * 读取文件的"自相对 DACL 安全描述符"。先查所需缓冲区大小（传入 null/0），
  * 再分配缓冲区真正读取；失败抛带 win32Code 的错误。
  * @param path 要读取 DACL 的既有文件。
@@ -144,7 +144,7 @@ export async function readFileDaclWin32(path: string): Promise<Buffer> {
  * @param source - existing file whose DACL is copied.
  * @param destination - existing file that receives the protected DACL.
  */
-/**
+/*
  * 把既有文件的 DACL 复制到另一个文件，并加上"禁止从暂存父目录继承"保护。
  * 若机密性依赖本调用，目标文件此刻必须仍为空（尚未写入内容）。
  * @param source 提供 DACL 的既有文件。
@@ -164,7 +164,7 @@ export async function copyFileDaclWin32(source: string, destination: string): Pr
  * @param replaced - existing destination file.
  * @param replacement - closed staging file on the same volume.
  */
-/**
+/*
  * 替换 Windows 文件并保留被替换文件的 ACL 及其它替换元数据。
  * @param replaced 既有的目标文件。
  * @param replacement 同卷上已关闭的暂存文件。

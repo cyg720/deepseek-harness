@@ -1,5 +1,5 @@
 /** Test adapter for the production conversation.details.tool registration. */
-/**
+/*
  * 文件职责：验证工具调用的 tool-details-render.client.tsx 行为。
  * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
  * 产品维度：防止工具调用展示与展开交互回归。
@@ -16,11 +16,11 @@ import type { DetailsSlotProps, DetailsToolOwnerProps } from '@deepseek-ai/dsh-c
 import { ToolDetails } from '../src/client/tool/ToolDetails.tsx'
 
 /** Framework session-area seat used by direct DetailsPanel tests. */
-/** 中文说明：测试局部值 SessionProviderStub，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 SessionProviderStub，由紧邻初始化决定。 */
 export const SessionProviderStub: SessionProviderComponent = ({ children }) => children('s1' as SessionId)
 
 /** Build the canonical Chat slice consumed by Tool rows and details tests. */
-/** 中文说明：函数 toolChatSnapshot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 toolChatSnapshot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function toolChatSnapshot(
   settled: readonly ConversationNode[] = [],
   running: readonly RunningToolCall[] = [],
@@ -69,7 +69,7 @@ export function toolChatSnapshot(
  * @param description - optional Host description so the details card can abbreviate home paths.
  * @returns a direct-test renderSlot implementation.
  */
-/** 中文说明：函数 renderToolDetails 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 renderToolDetails 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function renderToolDetails(
   t: TranslateNS<'conversation'>,
   description?: HostDescription,

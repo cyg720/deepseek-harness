@@ -6,7 +6,7 @@
  * fields, a composition without `ctx.jobs` emits nothing, and listing never
  * resumes a cold session.
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-jobs.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -36,7 +36,7 @@ type JobFrame = Extract<MuxFrame, { type: 'session/jobs' }>
  * settle, so a kill is observable as the distinct `stopping` step before the
  * test supplies the terminal outcome and its detail.
  */
-/** 中文说明：函数 producer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 producer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function producer(label = 'sleep 60') {
   /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
   let settle!: (outcome: JobOutcome) => void
@@ -86,7 +86,7 @@ async function harness(withRegistry: boolean): Promise<{ ctx: Context; session: 
 const api = (ctx: Context) => createApiProxy(ctx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' })
 
 /** Drain the mux until `count` session/jobs frames arrived, then abort. */
-/** 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function collect(
   iterable: AsyncIterable<RpcRequest<MuxFrame>>,
   count: number,

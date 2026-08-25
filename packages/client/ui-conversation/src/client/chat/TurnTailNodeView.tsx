@@ -18,7 +18,7 @@ type TurnTailNodeViewProps = ChatNodeViewProps<'turn-tail'>
   & PropsRenderSlots<'conversation.chat.turnTail' | 'conversation.chat.assistant-actions'>
 
 /** Turn-local actions and feature tail over the Location index, independent of Assistant placement. */
-/** 中文说明：当前组件的局部值 TurnTailNodeView，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 TurnTailNodeView，由紧邻初始化决定。 */
 export const TurnTailNodeView = memo(function TurnTailNodeView({
   node, openFile, forkAt, renderSlot, renderSlotChain, t, useSession,
 }: TurnTailNodeViewProps) {

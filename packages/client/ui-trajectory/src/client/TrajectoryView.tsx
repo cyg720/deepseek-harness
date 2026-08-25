@@ -1,5 +1,5 @@
 /** Trajectory view: compact summary over a turn-aware event ledger. */
-/**
+/*
  * 文件职责：实现运行轨迹的 TrajectoryView 组件。
  * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
  * 产品维度：支持用户查看或操作运行轨迹。
@@ -88,7 +88,7 @@ function partialStructureSignature(partial: ConversationSnapshot['partial']): st
 }
 
 /** Session-bound controls not already supplied by the conversation view slot. */
-/** 中文说明：类型或类 TrajectoryViewInjected 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 TrajectoryViewInjected 约束模块数据或组件职责。 */
 export interface TrajectoryViewInjected {
   hooks: {
     duration: SnapshotStore<boolean>

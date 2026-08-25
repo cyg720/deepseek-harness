@@ -19,7 +19,7 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 // 中文：同一请求步骤重试链里所有尝试共享的稳定身份（每次调度与启动记录携带）。
 export type RetryId = Branded<'RetryId'>
 
-/**
+/*
  * （中文）给实现铸造的重试链身份打上品牌标签。
  * @param id 不透明的重试身份。
  * @returns 同一个字符串，品牌化为 RetryId；不做校验。

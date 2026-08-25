@@ -23,7 +23,7 @@ import { HostToWorkerType, WorkerToHostType } from '../src/protocol.ts'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
 /** A minimal parent stand-in: the engine only threads it through to the provider. */
-/** 中文说明：函数 fakeParent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeParent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeParent(): Agent {
   return { id: SessionId('workflow-parent'), options: {} } as unknown as Agent
 }
@@ -36,17 +36,17 @@ vi.setConfig({ testTimeout: 30_000 })
  * Host reactions after an observed event use explicit tight overrides, so this generous startup
  * allowance cannot hide multi-second reap regressions.
  */
-/** 中文说明：函数 waitFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function waitFor(assertion: () => void, timeout = 10_000): Promise<void> {
   return vi.waitFor(assertion, { timeout, interval: 50 })
 }
 
 /** The vm-context escape hatch, spelled once: real Worker tests use it to make the WORKER misbehave. */
-/** 中文说明：常量 ESCAPE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ESCAPE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ESCAPE = "globalThis.constructor.constructor('return process')()"
 
 /** One controllable child run: the test (or auto mode) settles it. */
-/** 中文说明：interface ControlledRun 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface ControlledRun 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface ControlledRun {
   request: SubagentStartRequest
   /** Fulfill the provider's async start with a published child. */
@@ -66,7 +66,7 @@ interface ControlledRun {
  * up in `runs` for the test to settle. A run aborts (settles `aborted`) when
  * the request signal fires, like the real in-process backends.
  */
-/** 中文说明：class StubProvider 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class StubProvider 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class StubProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = { outputSchema: true, depthLimit: true, toolFilter: true, persona: false }
   readonly inheritsParentContext = false
@@ -146,7 +146,7 @@ class StubProvider implements SubagentProvider {
 }
 
 /** Text-reply helper for auto providers. */
-/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(reply: string): SubagentResult {
   return { output: [{ type: 'text', text: reply }], stopReason: 'completed' }
 }
@@ -186,13 +186,13 @@ async function setup(options?: SetupOptions) {
 }
 
 /** The standard test meta plus a body, spread into a start request. */
-/** 中文说明：函数 scripted 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 scripted 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function scripted(body: string, metaExtra?: Partial<WorkflowMeta>): { script: string; meta: WorkflowMeta } {
   return { script: body, meta: { name: 'test-flow', description: 'a test workflow', ...metaExtra } }
 }
 
 /** Start + await one run, disposing on the way out. */
-/** 中文说明：函数 run 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 run 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function run(ctx: Context, parent: Agent, source: { script: string; meta: WorkflowMeta }, args?: unknown): Promise<WorkflowResult> {
   /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle = ctx.workflowEngine.start({ ...source, parent, ...args !== undefined ? { args } : {} })

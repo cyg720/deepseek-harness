@@ -6,7 +6,7 @@
  * 关键边界：内联文本是公开构件内容；类型不验证实际选择器或 CSS 合法性。
  * 新手阅读建议：先比较三种导入返回值，再追踪主题运行时如何安装样式。
  */
-/** 使用方式：`import styles from './Theme.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Theme.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源类名，值为构建后的隔离类名。 */
   const classes: Record<string, string>

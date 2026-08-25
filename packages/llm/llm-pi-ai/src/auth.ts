@@ -7,7 +7,7 @@
  *
  * @module dsh-llm-pi-ai/auth
  */
-/**
+/*
  * 文件职责：实现Pi AI LLM的 auth.ts 模块。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
@@ -34,7 +34,7 @@ import { LlmError } from '@deepseek-ai/dsh-llm'
  * reader — a configuration UI, or a second adapter family serving the same
  * provider name — that this plugin owns the format inside the record.
  */
-/** 中文说明：适配器局部值 RECORD_SCOPE，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 RECORD_SCOPE，由紧邻初始化决定。 */
 export const RECORD_SCOPE = 'llm-pi-ai'
 
 /**
@@ -42,7 +42,11 @@ export const RECORD_SCOPE = 'llm-pi-ai'
  * @param providerId - pi-ai's own provider id, which is also the harness route key.
  * @returns the scoped credential key this adapter family reads and writes.
  */
-/** 中文说明：函数 recordKeyFor 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 recordKeyFor 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param providerId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function recordKeyFor(providerId: string): CredentialKey {
   return credentialKey(RECORD_SCOPE, providerId)
 }
@@ -57,7 +61,7 @@ export function recordKeyFor(providerId: string): CredentialKey {
  * @param record - the stored record, or undefined when nothing is stored.
  * @returns the pi-ai credential, or undefined for an absent record.
  */
-/** 中文说明：函数 toPiCredential 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 toPiCredential 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function toPiCredential(record: CredentialRecord | undefined): Credential | undefined {
   if (record === undefined) return undefined
   if (record.kind === 'api-key') {
@@ -75,7 +79,7 @@ function toPiCredential(record: CredentialRecord | undefined): Credential | unde
  * @param credential - what a login or refresh produced.
  * @returns the record to commit, in the union the credential seam stores.
  */
-/** 中文说明：函数 toRecord 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 toRecord 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function toRecord(credential: Credential): CredentialRecord {
   if (credential.type === 'api_key') {
     return {
@@ -97,7 +101,7 @@ function toRecord(credential: Credential): CredentialRecord {
  * @returns the live service.
  * @throws {LlmError} code `NO_CREDENTIAL_STORE` when none is mounted.
  */
-/** 中文说明：函数 writableStore 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 writableStore 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function writableStore(ctx: Context): CredentialProvider {
   /** 中文说明：适配器局部值 credentials，由紧邻初始化决定。 */
   const credentials = ctx.get('credentials')
@@ -128,7 +132,11 @@ function writableStore(ctx: Context): CredentialProvider {
  * @param ctx - the plugin context carrying the optional `ctx.credentials`.
  * @returns the store to hand `createModels()`.
  */
-/** 中文说明：函数 credentialStoreFrom 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 credentialStoreFrom 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function credentialStoreFrom(ctx: Context): CredentialStore {
   return {
     async read(providerId) {
@@ -197,7 +205,11 @@ export function credentialStoreFrom(ctx: Context): CredentialStore {
  * @param ctx - the plugin context carrying the optional `ctx.credentials`.
  * @returns the auth context to hand `createModels()`.
  */
-/** 中文说明：函数 authContextFrom 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 authContextFrom 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function authContextFrom(ctx: Context): AuthContext {
   return {
     async env(name) {

@@ -11,10 +11,10 @@ import css from './TrajectoryGroupHeader.module.css'
 /** 轨迹分组标题属性，包含必需标题和可选次要摘要。 */
 export interface TrajectoryGroupHeaderProps {
   /** Group title (`Message`, `Step 1`, …). */
-  /** 分组主标题，例如 Message 或 Step 1。 */
+  /* 分组主标题，例如 Message 或 Step 1。 */
   title: string
   /** Secondary summary (`49 s`, `2.2 s skill`, …). */
-  /** 可选次要摘要，例如耗时或技能名称；空字符串不会显示。 */
+  /* 可选次要摘要，例如耗时或技能名称；空字符串不会显示。 */
   description?: string
 }
 
@@ -23,7 +23,7 @@ export interface TrajectoryGroupHeaderProps {
  * @param props - title and optional description.
  * @returns the group header element.
  */
-/**
+/*
  * 渲染一条消息或步骤分组标题。
  * @param props - title 是必需主标题；description 是可选且非空时显示的摘要。
  * @returns 包含主标题和可选描述的分组标题元素。

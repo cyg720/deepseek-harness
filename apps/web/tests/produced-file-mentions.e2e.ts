@@ -34,17 +34,17 @@ const SEED_ID = 'produced-file-mentions-web-e2e'
 const DONE = 'FILE_MENTION_DONE'
 
 /** One-part text content for a built message. */
-/** 将 value 包装成单段文本内容，返回消息内容数组。示例：text('done')。 */
+/* 将 value 包装成单段文本内容，返回消息内容数组。示例：text('done')。 */
 function text(value: string): { type: 'text'; text: string }[] {
   return [{ type: 'text', text: value }]
 }
 
 /** The files the built turn writes; `notes.md` is named in prose but never written. */
-/** 本轮实际写入的三个相对路径；notes.md 只会在回复中出现。 */
+/* 本轮实际写入的三个相对路径；notes.md 只会在回复中出现。 */
 const WRITES = ['site/report.html', 'a/style.css', 'b/style.css']
 
 /** Build a settled write turn whose closing prose mentions files in inline code. */
-/** 构造含写入事件与文件提及的已完成会话 JSONL。示例：mentionFixture()。 */
+/* 构造含写入事件与文件提及的已完成会话 JSONL。示例：mentionFixture()。 */
 function mentionFixture(): string {
   /** 累积固定写入回合事件的内存会话。 */
   const session = Session.create(SessionId('produced-file-mentions-source'))

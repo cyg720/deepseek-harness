@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现增量式"块级" markdown 解析器 IncrementalMarkdownParser：面向只追加的
  *             流式文本。每次新内容到达时不重新解析整个文档，而是冻结大部分旧块、只重解析
@@ -42,7 +42,7 @@
  * reference whose definition lands on the other side of the freeze boundary
  * renders literally until the settled full parse self-heals it.
  */
-/**
+/*
  * 本文件实现只追加文本流的增量块级 markdown 解析：每次只重解析尾部少量块，
  * 之前的块一旦越过冻结边界就不会再变。
  */
@@ -59,7 +59,7 @@ import type { Root, RootContent } from 'mdast'
 const UNSTABLE_TAIL_BLOCKS = 2
 
 /** A top-level mdast block plus a render key that is stable across chunks. */
-/**
+/*
  * 一个顶层 mdast 块 + 跨更新稳定的渲染 key。
  */
 export interface PositionedBlock {
@@ -77,7 +77,7 @@ export interface PositionedBlock {
 }
 
 /** One {@link IncrementalMarkdownParser.update} result. */
-/**
+/*
  * update() 的一次返回值：冻结块 + 尾部块 + 代数。
  */
 export interface IncrementalBlocks {
@@ -100,7 +100,7 @@ export interface IncrementalBlocks {
  * position-less parse keeps every block in the tail (real grammars always
  * stamp positions and never take this path).
  */
-/**
+/*
  * 块的渲染 key：绝对起始偏移。没有 position 的节点回退为负数下标 key——该回退只可能
  * 发生在尾部：冻结需要被切块的 position，故无 position 时整棵解析都在尾部。
  * @param node - 待取 key 的块。
@@ -117,7 +117,7 @@ function blockKey(node: RootContent, base: number, index: number): number {
  * Append-only incremental parser over a caller-supplied grammar. One instance
  * accumulates one streaming document; non-append input resets it.
  */
-/**
+/*
  * 基于调用方语法的只追加增量解析器。一个实例累积一份流式文档；非追加输入会重置它。
  * 使用示例：const parser = new IncrementalMarkdownParser(parseGfm)；每收到一个 chunk 调用
  *   update(accumulatedText)，把返回的 frozen 与 tail 交给渲染层。
@@ -135,7 +135,7 @@ export class IncrementalMarkdownParser {
   private cached: IncrementalBlocks | null = null
 
   /** @param parse - Grammar shared with whatever renders the blocks, so boundaries agree. */
-  /**
+  /*
    * @param parse - 与块渲染方共享的语法（如 parseGfm），保证块边界判定一致。
    */
   constructor(private readonly parse: (text: string) => Root) {}
@@ -147,7 +147,7 @@ export class IncrementalMarkdownParser {
    * @param text - The full accumulated markdown source.
    * @returns Frozen and tail blocks with stream-stable render keys.
    */
-  /**
+  /*
    * 归并当前累积文本并返回 frozen / tail 划分。对相同输入是幂等的（直接返回上次结果），
    * 因此渲染路径中重复调用也安全。
    * 使用示例：const { frozen, tail } = parser.update(text)；渲染层拼 frozen + tail。

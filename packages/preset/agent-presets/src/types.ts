@@ -1,5 +1,5 @@
 /** Client-safe event declarations owned by the agent-preset domain. */
-/**
+/*
  * 文件职责：声明代理预设领域可供客户端安全引用的 Cordis 事件类型。
  * 技术维度：通过 TypeScript 模块扩充为 Cordis Events 接口增加强类型事件签名。
  * 产品维度：让界面在会话切换代理预设后准确刷新由该会话组合派生的状态。
@@ -20,7 +20,7 @@ declare module '@deepseek-ai/cordis' {
      * @param sessionId - the session whose composition changed.
      * @param agentPreset - the preset recorded by the committed selection.
      */
-    /**
+    /*
      * 一个会话把新的代理预设提交到持久日志后发出此事件。
      * 消费方只应失效由该会话组合派生的状态。
      * @mode emit

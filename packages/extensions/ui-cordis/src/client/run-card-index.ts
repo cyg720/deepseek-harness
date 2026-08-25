@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】会话级"运行卡片指针"所有权索引：追踪每次成功的 cordis_run 结果，
  *             决定哪个卡片承载该插件的业务视图（tool.view.cordis），并保证同一
@@ -24,13 +24,13 @@ import type {
 } from './events.ts'
 
 /** Stable keyed-slot identity of one Package-owned business view. */
-/**
+/*
  * 一个包业务视图的稳定槽位键：由 插件ID.包ID 组成，注册与运行卡片用同一键对齐。
  */
 export type CordisToolViewKey = `${CordisDynamicPluginId}.${CordisDynamicPackageId}`
 
 /** One successful tool result competing to host a Package business view. */
-/**
+/*
  * 一次成功工具结果的指针：携带槽位键、调用 ID、日志序列号与运行 ID，
  * 参与"谁承载业务视图"的竞争。
  */
@@ -69,7 +69,7 @@ function createStore(): CordisRunCardStore {
 }
 
 /** Page-lifetime registry that gives all cards of one session the same Store. */
-/**
+/*
  * 页面生命周期内的注册表：为每个会话创建并保留唯一的 Store，使同会话所有
  * 运行卡片共享同一份"最新卡片"索引。
  */
@@ -97,8 +97,11 @@ export class CordisRunCardRegistry {
  * @param packageId - immutable Package identity.
  * @returns the shared business-view key.
  */
-/**
+/*
  * 构造业务视图共享键：注册与运行卡片都用它对齐同一插件/包。
+ * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param packageId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function cordisToolViewKey(
   pluginId: CordisDynamicPluginId,

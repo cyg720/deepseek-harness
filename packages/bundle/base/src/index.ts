@@ -5,7 +5,7 @@
  * this module carries no runtime API.
  * @module @deepseek-ai/dsh-base
  */
-/**
+/*
  * 文件职责：作为基础配置包的空运行时入口，实际内容由 `cordis.patch.yml` 提供。
  * 技术维度：使用空 ESM 导出维持 npm 包入口，配置加载由 Cordis profile composer 完成。
  * 产品维度：所有 profile 都能从同一组模型、工具、存储与策略插件开始组合。
@@ -14,5 +14,5 @@
  * 新手阅读建议：跳过空导出，直接阅读本包的 package.json 与 cordis.patch.yml。
  */
 
-/** 空导出把文件标记为 ESM 模块；不提供任何运行时值。 */
+/* 空导出把文件标记为 ESM 模块；不提供任何运行时值。 */
 export {}

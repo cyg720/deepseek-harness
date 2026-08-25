@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】"仅事件的文件系统观察策略"插件：不注册任何服务，用弱引用
  * 拥有者/目标映射记录每次权威的存在/不存在观察，用单槽意图监听器从该状态推导
@@ -29,7 +29,7 @@
  * README for composition rules.
  * @module @deepseek-ai/dsh-fs-observation-policy
  */
-/**
+/*
  * 模块总览：本插件只"听事件、记状态、给决策"，不注册服务、不做文件操作。
  * 它让"观察过才能写/编辑"成为默认行为（先读后写防覆盖）。
  */
@@ -45,7 +45,7 @@ export type { FsObservationActor } from './types.ts'
  * Per-context observed-file state and the three `fs/*` decisions over it. One
  * instance is created per `apply()` so disposal can drop all state for HMR.
  */
-/**
+/*
  * 每个上下文一份的"观察文件状态"及基于它的三个 fs/* 决策。每次 apply() 创建一个
  * 实例，便于卸载时丢弃全部状态（HMR 安全）。
  */
@@ -56,7 +56,7 @@ class ObservedStateGate {
    * entry's presence is the prior-observation record; its discriminant keeps
    * confirmed absence distinct from an unseen target.
    */
-  /**
+  /*
    * 观察文件状态：先按拥有者对象（弱持有，会话被回收即释放其状态），再按
    * targetKey 索引。条目存在即"先前观察过"的记录；其 kind 判别符把"确认不存在"
    * 与"从未见过"区分开。
@@ -69,7 +69,7 @@ class ObservedStateGate {
    * direct tool call with no agent); such calls read freely but cannot satisfy
    * the write/edit prior-observation policy.
    */
-  /**
+  /*
    * 从不透明事件 actor 推导观察态拥有者——通常是活动代理会话。推导不出时为
    * undefined（如无代理的直接工具调用）；此类调用可以自由读，但无法满足
    * "写/编辑前必须先观察"的策略。
@@ -99,7 +99,7 @@ class ObservedStateGate {
   }
 
   /** Drop all recorded state (HMR safety / disposal). */
-  /** 丢弃全部记录状态（HMR 安全 / 卸载）。 */
+  /* 丢弃全部记录状态（HMR 安全 / 卸载）。 */
   clear(): void {
     this.observed = new WeakMap()
   }
@@ -108,7 +108,7 @@ class ObservedStateGate {
    * Decide the write intent: unseen or confirmed absent ⇒ `createIfAbsent`;
    * confirmed present ⇒ `replaceIfVersion` at the observed version.
    */
-  /**
+  /*
    * 决策写意图：从未见过或确认不存在 → createIfAbsent（不存在才创建）；
    * 确认存在 → 以观察到的版本做 replaceIfVersion（按版本替换）。
    */
@@ -125,7 +125,7 @@ class ObservedStateGate {
    * confirmed absence rejects with `FS_NOT_FOUND`, and presence supplies the
    * observed version as the CAS basis.
    */
-  /**
+  /*
    * 决策编辑版本守卫：从未见过以 FS_NOT_OBSERVED 拒绝（要求先读），确认不存在以
    * FS_NOT_FOUND 拒绝，确认存在则提供观察到的版本作为 CAS（比较并交换）基础。
    */
@@ -142,7 +142,7 @@ class ObservedStateGate {
   }
 
   /** Record an authoritative present or absent observation for this owner and target. */
-  /** 为某拥有者与目标记录一次权威的存在/不存在观察（无拥有者时无记录价值）。 */
+  /* 为某拥有者与目标记录一次权威的存在/不存在观察（无拥有者时无记录价值）。 */
   observe(target: FsTarget, observation: FsObservation, actor: object | undefined): void {
     const owner = this.owner(actor)
     if (owner) this.set(owner, target.targetKey, observation)
@@ -150,7 +150,7 @@ class ObservedStateGate {
 }
 
 /** Cordis plugin name used by loader diagnostics. */
-/** 插件名（供加载器诊断使用）。 */
+/* 插件名（供加载器诊断使用）。 */
 export const name = 'fs-observation-policy'
 
 /**
@@ -159,7 +159,7 @@ export const name = 'fs-observation-policy'
  * (the tool dispatches them with no `this`), so the listeners take the raw
  * `(target, actor, next)` arguments.
  */
-/**
+/*
  * 注册三个 fs/* 监听器。没有 inject——本插件不读任何服务，只操作自己的 WeakMap。
  * waterfall 监听器未绑定 this（工具不带 this 分发），所以监听器直接取原始参数。
  */

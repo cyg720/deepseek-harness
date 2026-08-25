@@ -42,7 +42,7 @@
  *
  * @module @deepseek-ai/dsh-spill-policy
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的大结果落盘行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的大结果落盘能力稳定、安全且可诊断。
@@ -65,7 +65,7 @@ import type { SpillPolicyExec } from './types.ts'
 export type { SpillPolicyExec } from './types.ts'
 
 /** Plugin config. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达大结果落盘场景。 */
 export interface Config {
   /**
    * The model-facing context cap for a plain-text tool result, in UTF-8 bytes.
@@ -76,11 +76,11 @@ export interface Config {
 }
 
 /** Cordis plugin name used by loader diagnostics. */
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'spill-policy'
 
 /** Require the tool registry (its `tools/post-execute` waterfall is the extension point we transform). */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['tools']
 
 /** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -89,7 +89,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** All-text content flattened to one UTF-8 string, or `undefined` if any block is non-text. */
-/** 中文说明：函数 flattenPlainText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 flattenPlainText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function flattenPlainText(content: ContentBlock[]): string | undefined {
   /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let text = ''
@@ -102,13 +102,13 @@ function flattenPlainText(content: ContentBlock[]): string | undefined {
 }
 
 /** The owning session id, or `undefined` for a call with no agent (a direct/test call). */
-/** 中文说明：函数 ownerSessionId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 ownerSessionId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function ownerSessionId(exec: ToolExecution): SessionId | undefined {
   return (exec as SpillPolicyExec).agent?.session.header.id
 }
 
 /** Build the bounded head/tail preview for `text`, splitting `budget` bytes across the two ends. */
-/** 中文说明：函数 preview 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 preview 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function preview(text: string, budget: number): { text: string; omitted: Omitted } {
   /** 中文说明：变量 headBytes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const headBytes = Math.ceil(budget / 2)
@@ -123,7 +123,7 @@ function preview(text: string, budget: number): { text: string; omitted: Omitted
 }
 
 /** The spill-notice line for a given omission + saved reference (no preview, no leading blank line). */
-/** 中文说明：函数 spillNotice 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 spillNotice 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function spillNotice(omitted: Omitted, ref: SpillRef): string {
   /** 中文说明：变量 omission 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const omission = describeOmitted(omitted, 'bytes')
@@ -153,7 +153,7 @@ export function apply(ctx: Context, config: Config): void {
    * Shared verbatim by the model-facing post-execute arm and the durable
    * dispatch-log arm so both produce byte-identical projections.
    */
-  /** 中文说明：函数 spillReplacement 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+  /* 中文说明：函数 spillReplacement 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   async function spillReplacement(
     text: string,
     totalBytes: number,

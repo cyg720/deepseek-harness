@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现"增量块组装器"BlockAssembler：把原始 StreamChunk 流逐步
  * 组装成完整内容块与最终的助手消息，是 agent loop 构建助手消息的唯一规范
@@ -45,7 +45,7 @@ interface PartialBlock {
   block?: ContentBlock
 }
 
-/**
+/*
  * （中文）把原始 StreamChunk 增量组装成完整 ContentBlock 与最终助手消息。
  * agent loop 在把原始 chunk 记入日志（保回放保真）的同时喂给它，流结束后读
  * blocks()/message()/usage/finish；流被取消截断时读 interruptedBlocks()。
@@ -76,7 +76,7 @@ export class BlockAssembler {
   // 中文：finish 块携带的回放元数据（可选）。
   private _replayState: ReplayEnvelope | undefined
 
-  /**
+  /*
    * （中文）喂入一个按流顺序排列的原始块，更新组装状态。
    * @param chunk 下一个原始流块。
    */
@@ -173,7 +173,7 @@ export class BlockAssembler {
     return partial
   }
 
-  /**
+  /*
    * （中文）对所有见过的块做统一的保留/丢弃决策：max-token 截断时丢弃"无法
    * 安全执行"的工具调用。产物块与回放元数据都由这一处决策派生，两者不会
    * 相互矛盾。
@@ -202,7 +202,7 @@ export class BlockAssembler {
     }
   }
 
-  /**
+  /*
    * （中文）按流顺序组装所有已见块。
    * @returns 每个已见索引对应一个块；max-token 截断时丢弃无法安全执行的
    * 工具调用；未关闭块按累积 delta 组装（从未被 block-end 关闭的未知块类型抛错）。
@@ -217,7 +217,7 @@ export class BlockAssembler {
     return this.assembled().blocks
   }
 
-  /**
+  /*
    * （中文）组装中断流可以安全收尾的前缀：已关闭/未关闭的、含非空白内容的
    * text/reasoning 块，按流顺序排列。工具调用被省略——中断发生在分发之前，
    * 保留一个工具调用就需要伪造其结果；未关闭的未知块也被省略。
@@ -254,7 +254,7 @@ export class BlockAssembler {
     return this._finish ?? { kind: 'stop' }
   }
 
-  /**
+  /*
    * （中文）终结 finish 块携带的回放元数据（若有），逐块条目与 blocks() 同步
    * 裁剪；条目数与发出的块对不上时返回 undefined。
    */
@@ -267,7 +267,7 @@ export class BlockAssembler {
     return this.assembled().replay
   }
 
-  /**
+  /*
    * （中文）组装好的助手消息。
    * @param source 组装消息的生产者归属；缺省标记为 dsh-llm/assembler 插件。
    * @returns 基于 blocks() 的冻结助手角色消息（同一套开放块组装规则）。

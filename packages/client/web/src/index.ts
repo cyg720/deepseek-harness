@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】web shell 库入口：产品是 AppWebEntry——apps/web 的 Vite 入口
  *   针对 #root 运行它；启动页与 fiber 状态投影保持内部；静态模块表及其
@@ -19,7 +19,7 @@
  * form the package's build-time contract.
  * @module @deepseek-ai/dsh-client-web
  */
-/**
+/*
  * web shell 库入口。shell 的产品是 AppWebEntry——apps/web 的 Vite 入口
  * 针对 #root 运行它。启动页与 fiber 状态投影保持内部；静态模块表及其
  * 平台词构成包的构建期契约。

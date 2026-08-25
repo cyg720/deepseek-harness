@@ -5,7 +5,7 @@
  * stops at mount — where a preset's activation audit can name it — rather
  * than at the first prompt assembly.
  */
-/**
+/*
  * 文件职责：验证工具呈现的 agent-tool-presentation.spec.ts 行为与不变量。
  * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
  * 产品维度：防止工具呈现在取消、恢复、错误或并发场景中产生回归。
@@ -26,7 +26,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import { apply, Config, inject, name } from '@deepseek-ai/dsh-agent-tool-presentation'
 
 /** A runtime that never runs anything: presentation never dispatches. */
-/** 中文说明：测试类型或类 StubRuntime 约束夹具数据和行为。 */
+/* 中文说明：测试类型或类 StubRuntime 约束夹具数据和行为。 */
 class StubRuntime extends CodeRuntime {
   readonly language = 'typescript'
   readonly isolation = 'stub'
@@ -37,7 +37,7 @@ class StubRuntime extends CodeRuntime {
 }
 
 /** A host plane with one tool, optionally carrying a code runtime. */
-/** 中文说明：测试辅助函数 host 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 host 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function host(options: { runtime?: boolean } = {}) {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
   const ctx = new Context()
@@ -55,7 +55,7 @@ async function host(options: { runtime?: boolean } = {}) {
 }
 
 /** Mount the row under one agent's scope, as a preset subtree does. */
-/** 中文说明：测试辅助函数 mount 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 mount 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function mount(ctx: Context, config: Config, id = 'agent') {
   /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
   const agent = { id: SessionId(id) } as Agent

@@ -6,7 +6,7 @@
  *
  * @module @deepseek-ai/dsh-tool-todo/client
  */
-/**
+/*
  * 文件职责：把待办工具的共享类型投影到客户端专用导入路径。
  * 技术维度：使用 TypeScript 纯类型通配导出，复用 `types.ts` 声明。
  * 产品维度：Web 待办展示可读取事件和条目类型，而不加载模型工具实现。

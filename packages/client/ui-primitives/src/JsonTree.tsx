@@ -32,7 +32,7 @@ const PREVIEW_DEPTH_LIMIT = 2
  * field defaults to the current built-in value, so existing consumers render
  * unchanged.
  */
-/** 中文说明：类型或类 JsonTreeLabels 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 JsonTreeLabels 约束基础组件的数据或职责。 */
 export interface JsonTreeLabels {
   /** Menu item: copy the raw primitive value. */
   copyValue: string
@@ -438,7 +438,7 @@ function copyText(target: CopyTarget, mode: 'json' | 'path' | 'prettyJson' | 'va
 }
 
 /** Props for the read-only, token-themed JSON tree. */
-/** 中文说明：类型或类 JsonTreeProps 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 JsonTreeProps 约束基础组件的数据或职责。 */
 export interface JsonTreeProps {
   /** Parsed JSON object or array. */
   data: object | unknown[]
@@ -459,7 +459,7 @@ export interface JsonTreeProps {
  * @param props - Parsed data, accessible label, and display options.
  * @returns A read-only JSON tree with an optionally fixed-open top level.
  */
-/** 中文说明：函数 JsonTree 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 JsonTree 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function JsonTree({
   data,
   label = 'JSON',

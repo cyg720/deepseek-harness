@@ -2,7 +2,7 @@
  * Model-extraction and negative-path contracts for the Cordis catalog generator
  * (`scripts/gen-cordis-catalog.ts`).
  */
-/**
+/*
  * 文件职责：验证 cordis-catalog-contract.spec.ts 覆盖的Typert 类型目录生成行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的Typert 类型目录生成能力保障 Agent 功能在集成层稳定。
@@ -67,7 +67,7 @@ const TYPE_FIXTURES = [
 ].join('\n')
 
 /** Materialize one independently compilable package and its host aggregate. */
-/** 中文说明：函数 writeProject 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 writeProject 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function writeProject(root: string, source: string): void {
   /** 中文说明：变量 packageRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const packageRoot = join(root, 'packages', 'group', 'fix')
@@ -104,7 +104,7 @@ function writeProject(root: string, source: string): void {
 
 /** Write a fixture package exposing one `interface Events` block and return the
  * scan root to hand `collectEvents`. */
-/** 中文说明：函数 fixtureRoot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fixtureRoot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fixtureRoot(eventsBlock: string): string {
   /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'cordis-catalog-'))
@@ -118,7 +118,7 @@ function fixtureRoot(eventsBlock: string): string {
 /** Write a fixture package exposing one `interface Context` entry (`ctx.fix` →
  * `FixService`) plus the class source, and return the scan root to hand
  * `collectServices`. */
-/** 中文说明：函数 serviceFixtureRoot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 serviceFixtureRoot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function serviceFixtureRoot(classSource: string): string {
   /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'cordis-catalog-'))

@@ -24,12 +24,12 @@ import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
  * Landlock's wholesale `/tmp` grant, so workspace-write proves the workspace-root grant itself.
  */
 
-/** 中文说明：变量 probe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 probe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const probe = spawnSync(launcherPath(), ['--probe'], { timeout: 5_000, encoding: 'utf8' })
 /** 中文说明：变量 landlockUsable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const landlockUsable = probe.status === 0
 /** The running kernel's enforcement level, from the launcher's probe report — every wrap below must carry exactly this. */
-/** 中文说明：变量 enforcement 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 enforcement 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const enforcement = /partially enforced/.test(probe.stdout ?? '') ? 'partial' : 'full'
 
 /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -62,7 +62,7 @@ async function provider(): Promise<LocalSandboxProvider> {
 }
 
 /** Confine a shell command under `policy` and run it for real; returns the spawn result and the wrap's enforcement. */
-/** 中文说明：函数 runConfined 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 runConfined 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runConfined(sandbox: LocalSandboxProvider, command: string, policy: SandboxPolicy) {
   /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const confined = sandbox.confine(['bash', '-c', command], policy)

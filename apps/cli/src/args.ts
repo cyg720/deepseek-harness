@@ -14,7 +14,7 @@
  * plugin dependencies by forwarding to pnpm.
  * @module @deepseek-ai/dsh/args
  */
-/**
+/*
  * 文件职责：解析 dsh 启动器自身参数，并把剩余参数原样交给所选应用或 pnpm。
  * 技术维度：使用 Commander 构建命令、别名和子命令，并以判别联合表达解析结果。
  * 产品维度：用户可启动指定配置、查看组合配置或管理插件，同时让各应用拥有自己的参数空间。
@@ -26,52 +26,52 @@
 import { Command, CommanderError } from 'commander'
 
 /** Boot a named profile and hand it the invocation's inner arguments. */
-/** 启动指定配置并把内部参数交给应用的调用结果。 */
+/* 启动指定配置并把内部参数交给应用的调用结果。 */
 interface ProfileInvocation {
   /** 判别字段，表示执行配置启动。 */
   mode: 'profile'
   /** 要启动的配置名称。 */
   profile: string
   /** Extra patch-list overlays applied after the profile's own layer, in argv order. */
-  /** 按命令行顺序追加在配置层之后的补丁文件。 */
+  /* 按命令行顺序追加在配置层之后的补丁文件。 */
   patches: string[]
   /** Everything after the launcher's own flags, verbatim, for injected app plugins. */
-  /** 启动器参数之后原样交给应用插件的参数。 */
+  /* 启动器参数之后原样交给应用插件的参数。 */
   args: string[]
 }
 
 /** Print a composed profile tree and exit without booting. */
-/** 输出组合后的配置树但不启动应用的调用结果。 */
+/* 输出组合后的配置树但不启动应用的调用结果。 */
 interface DumpConfigInvocation {
   /** 判别字段，表示执行配置导出。 */
   mode: 'dump-config'
   /** 要组合并输出的配置名称。 */
   profile: string
   /** Omit the profile's user layer and --patch overlays; print bundle layers only. */
-  /** 为 true 时仅输出内置 bundle 层，不加载用户层与额外补丁。 */
+  /* 为 true 时仅输出内置 bundle 层，不加载用户层与额外补丁。 */
   defaultOnly: boolean
   /** 普通配置导出时按顺序应用的额外补丁。 */
   patches: string[]
 }
 
 /** Manage a profile's plugins: forward `args` to pnpm inside the profile directory. */
-/** 在配置目录中把参数转发给 pnpm 的插件管理调用结果。 */
+/* 在配置目录中把参数转发给 pnpm 的插件管理调用结果。 */
 interface PluginInvocation {
   /** 判别字段，表示执行插件管理。 */
   mode: 'plugin'
   /** 要管理插件的配置名称。 */
   profile: string
   /** Raw pnpm arguments, verbatim. */
-  /** 原样传递给 pnpm 的参数。 */
+  /* 原样传递给 pnpm 的参数。 */
   args: string[]
 }
 
 /** The resolved `dsh` invocation. Help, version, and errors exit inside {@link parseDshArgs}. */
-/** dsh 可执行的三种解析结果；帮助、版本和错误不会作为结果返回。 */
+/* dsh 可执行的三种解析结果；帮助、版本和错误不会作为结果返回。 */
 export type DshInvocation = ProfileInvocation | DumpConfigInvocation | PluginInvocation
 
 /** Launcher flags shared by the default command and the `web` alias. */
-/** 根启动命令和 web 别名共享的启动器选项。 */
+/* 根启动命令和 web 别名共享的启动器选项。 */
 interface BootOptions {
   /** 可重复提供的额外补丁路径。 */
   patch?: string[]
@@ -85,7 +85,7 @@ interface BootOptions {
  * Repeatable single-value collector: `--patch a.yml --patch b.yml`. Never
  * variadic — a variadic `--patch` would swallow the inner arguments.
  */
-/**
+/*
  * 收集一个可重复出现的 --patch 值，不吞掉后续应用参数。
  * @param value 本次出现的补丁路径。
  * @param previous 已收集的补丁路径。
@@ -95,7 +95,7 @@ interface BootOptions {
 const collect = (value: string, previous: string[] = []): string[] => [...previous, value]
 
 /** The launcher's own help text; each app prints its own. */
-/** 启动器自己的帮助示例；具体应用另行输出自身选项。 */
+/* 启动器自己的帮助示例；具体应用另行输出自身选项。 */
 const HELP_EXAMPLES = `
 Examples:
   dsh --profile web                          boot the web profile (same as: dsh web)
@@ -115,7 +115,7 @@ Examples:
  * @param args - the leftover arguments, in argv order.
  * @returns the resolved invocation.
  */
-/**
+/*
  * 根据已解析的启动选项和剩余参数生成启动或配置导出调用。
  * @param program 负责报告参数错误的 Commander 命令。
  * @param profile 目标配置名称。
@@ -156,7 +156,7 @@ function resolveBoot(program: Command, profile: string, options: BootOptions, ar
  * @param version - version string printed by `--version`.
  * @returns the resolved invocation.
  */
-/**
+/*
  * 把 argv 解析成一种 dsh 调用；帮助、版本或错误会通过进程退出处理。
  * @param argv Node 可执行文件与脚本路径之后的参数。
  * @param version --version 输出的版本字符串。
@@ -205,7 +205,7 @@ export function parseDshArgs(argv: readonly string[], version: string): DshInvoc
     })
 
   /** Reject parent options supplied before a subcommand. */
-  /**
+  /*
    * 拒绝在子命令前混入根命令选项。
    * @param command 当前子命令名称，用于错误信息。
    * @returns 无返回值；发现父选项时由 Commander 报错退出。

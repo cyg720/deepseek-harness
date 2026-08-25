@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】JSONL 后端的 Zstandard（zstd）帧原语：在不解压的前提下扫描帧边界、
  *   压缩/解压单帧、提供可互换的同步多帧解码器，以及从残缺尾帧抢救明文。
@@ -24,7 +24,7 @@
  * without exposing compression mechanics through the persistence seam.
  * @module dsh-session-persistence-jsonl/zstd
  */
-/**
+/*
  * 【中文导读】上面英文概括：后端自有多帧拼接容器，使追加与恢复批次成为可能，
  * 同时不把压缩细节暴露给持久化接缝之外。
  */
@@ -56,27 +56,27 @@ const INCOMPLETE_FRAME_OPTIONS: ZstdOptions = {
 }
 
 /** Byte range occupied by one structurally complete Zstandard frame. */
-/** 【中文】一个结构完整 zstd 帧占用的字节区间：start 含头，end 不含（左闭右开）。 */
+/* 【中文】一个结构完整 zstd 帧占用的字节区间：start 含头，end 不含（左闭右开）。 */
 export interface ZstdFrameRange {
   /** Inclusive frame start. */
-  /** 【中文】帧起始偏移（含）。 */
+  /* 【中文】帧起始偏移（含）。 */
   start: number
   /** Exclusive frame end. */
-  /** 【中文】帧结束偏移（不含）。 */
+  /* 【中文】帧结束偏移（不含）。 */
   end: number
 }
 
 /** Structural scan result for a concatenated Zstandard stream. */
-/**
+/*
  * 【中文】对拼接帧流的结构扫描结果：完整帧列表 + 可选的残尾帧起始偏移。
  * tornStart 存在表示 EOF 打断了最后一帧。
  */
 export interface ZstdFrameScan {
   /** Complete frames in file order. */
-  /** 【中文】按文件顺序排列的完整帧。 */
+  /* 【中文】按文件顺序排列的完整帧。 */
   frames: ZstdFrameRange[]
   /** Start of an incomplete final frame, when EOF interrupts one. */
-  /** 【中文】被 EOF 截断的末帧起始偏移（无残尾时缺省）。 */
+  /* 【中文】被 EOF 截断的末帧起始偏移（无残尾时缺省）。 */
   tornStart?: number
 }
 
@@ -87,7 +87,7 @@ export interface ZstdFrameScan {
  * @param maxFrames - optional complete-frame limit for metadata-only readers.
  * @returns complete frame ranges and an optional incomplete-final-frame start.
  */
-/**
+/*
  * 【中文】定位所有完整帧而不解压任何块：逐帧解析魔数 → 帧头描述符（保留位、
  * 内容大小标志、单段标志、校验和标志、字典标志）→ 逐块解析块头直到"末块"，
  * 再跳过可选的 4 字节校验和。任何完整结构非法即抛错；字节在帧中间耗尽（EOF
@@ -162,7 +162,7 @@ export function scanZstdFrames(buffer: Buffer, maxFrames = Number.POSITIVE_INFIN
  * @param input - JSONL bytes for a header or durable event batch.
  * @returns the complete encoded frame.
  */
-/**
+/*
  * 【中文】压缩出一个独立可解、带校验和的 zstd 帧。
  * @param input - 头记录或持久化事件批的 JSONL 字节。
  * @returns 完整的编码帧。
@@ -176,7 +176,7 @@ export async function compressZstdFrame(input: Buffer | string): Promise<Buffer>
  * @param input - one structurally complete Zstandard frame.
  * @returns the frame plaintext.
  */
-/**
+/*
  * 【中文】解压单个完整帧并验证校验和。
  * @param input - 结构完整的单个 zstd 帧。
  * @returns 帧明文。
@@ -186,7 +186,7 @@ export async function decompressZstdFrame(input: Buffer): Promise<Buffer> {
 }
 
 /** Common lifecycle for interchangeable synchronous multi-frame decoders. */
-/**
+/*
  * 【中文】可互换的同步多帧解码器公共接口：私有句柄实现与公开 API 回退实现
  * 都遵守这一生命周期。
  */
@@ -198,7 +198,7 @@ export interface ZstdFrameDecoder {
    * @param frames - structurally complete ranges within `source`.
    * @returns one plaintext buffer per frame.
    */
-  /**
+  /*
    * 【中文】按源顺序解码并校验完整帧；每次产出的缓冲在下一次推进迭代器前有效。
    * @param source - 拼接的 zstd 帧字节。
    * @param frames - 其中的结构完整帧区间。
@@ -206,7 +206,7 @@ export interface ZstdFrameDecoder {
    */
   decode(source: Buffer, frames: readonly ZstdFrameRange[]): Generator<Buffer, void, void>
   /** Release decoder-owned resources; repeated calls are harmless. */
-  /** 【中文】释放解码器资源；重复调用无害。 */
+  /* 【中文】释放解码器资源；重复调用无害。 */
   close(): void
 }
 
@@ -215,7 +215,7 @@ export interface ZstdFrameDecoder {
  * compatible, otherwise preserve correctness with the public one-shot API.
  * @returns a synchronous decoder with an implementation-independent lifecycle.
  */
-/**
+/*
  * 【中文】解码器工厂：当前 Node（22/24/26）暴露预期的私有流形状时选共享句柄的
  * 私有实现；否则回退到公开一次性 API 保证正确性。对调用方完全透明。
  * @returns 具有实现无关生命周期的同步解码器。
@@ -231,7 +231,7 @@ export function createZstdFrameDecoder(): ZstdFrameDecoder {
  * @param input - available bytes from a known incomplete Zstandard frame.
  * @returns plaintext produced from the available input.
  */
-/**
+/*
  * 【中文】从"结构上不完整"的尾帧抢救可用明文。调用前必须先确认残帧边界；
  * 解不出任何明文时由上层兜底（此前完整帧不受影响）。
  * @param input - 已知不完整帧的现存字节。

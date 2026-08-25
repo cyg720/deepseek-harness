@@ -20,7 +20,7 @@ const OFFICIAL_DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
 const MAX_REQUEST_BYTES = 1_048_576
 
 /** One running test-only Responses-to-DeepSeek bridge. */
-/** 中文说明：interface DeepSeekResponsesBridge 定义本测试所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface DeepSeekResponsesBridge 定义本测试所需的数据或行为，用于表达子代理场景。 */
 export interface DeepSeekResponsesBridge {
   readonly baseUrl: string
   readonly completedRequests: number
@@ -139,7 +139,7 @@ function closeServer(server: Server): Promise<void> {
  * @param nonce - unique answer the incoming Responses task must request.
  * @returns loopback endpoint, completion count, and close operation.
  */
-/** 中文说明：函数 startDeepSeekResponsesBridge 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 startDeepSeekResponsesBridge 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export async function startDeepSeekResponsesBridge(
   nonce: string,
 ): Promise<DeepSeekResponsesBridge> {

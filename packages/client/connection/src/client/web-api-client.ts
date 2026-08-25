@@ -1,5 +1,5 @@
 /** Browser API carrier: HTTP upstream plus one WebSocket per downstream event stream. */
-/**
+/*
  * 文件职责：实现浏览器端 API 客户端，用 HTTP 发送请求，并用两个 WebSocket 接收复用事件和主机事件。
  * 技术维度：基于 Fetch、WebSocket、异步生成器和运行时模式解析器完成传输与校验。
  * 产品维度：让浏览器界面能够调用宿主能力，并持续接收会话状态与主机状态更新。
@@ -20,7 +20,7 @@ type SocketItem<F> = { kind: 'frame'; envelope: RpcRequest<F> } | { kind: 'end' 
 type Parser<F> = { parse(value: unknown): F }
 
 /** Browser platform subclass: unary/respond use fetch; mux/host use downlink-only WebSockets. */
-/** 中文说明：浏览器平台的 API 客户端；普通调用使用 Fetch，两个事件流使用只接收数据的 WebSocket。 */
+/* 中文说明：浏览器平台的 API 客户端；普通调用使用 Fetch，两个事件流使用只接收数据的 WebSocket。 */
 export class WebApiClient extends AbstractApiClient {
   /**
    * 中文说明：通过浏览器全局 Fetch 发出一次 HTTP 请求。

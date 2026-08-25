@@ -47,11 +47,11 @@ afterEach(cleanup)
  * alignment this card exists to preserve is exactly what the default
  * whitespace-collapsing matcher would hide.
  */
-/** 中文说明：测试局部值 RAW，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 RAW，由紧邻初始化决定。 */
 const RAW = { normalizer: (text: string) => text }
 
 /** The rendered card's run-state dot state, so a render site cannot silently drop it. */
-/** 中文说明：函数 runStateOf 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 runStateOf 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function runStateOf(container: HTMLElement): string | null {
   return container.querySelector('[data-terminal] [data-state]')?.getAttribute('data-state') ?? null
 }
@@ -63,13 +63,13 @@ const SID = 's1' as SessionId
 const ARGS = '{"command":"ls -la","description":"List files"}'
 
 /** The bash tool's own call view for a foreground command. */
-/** 中文说明：测试局部值 callTerminal，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 callTerminal，由紧邻初始化决定。 */
 const callTerminal = (over?: Partial<Extract<ToolCallView, { card: 'terminal' }>>): ToolCallView => ({
   card: 'terminal', title: 'ls -la', description: 'List files', ...over,
 })
 
 /** The bash tool's own result view for a settled foreground command. */
-/** 中文说明：测试局部值 resultTerminal，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 resultTerminal，由紧邻初始化决定。 */
 const resultTerminal = (over?: Partial<Extract<ToolResultView, { card: 'terminal' }>>): ToolResultView => ({
   card: 'terminal', output: 'a.ts  b.ts\nc.ts  d.ts\n', exitCode: 0, ...over,
 })
@@ -267,7 +267,7 @@ describe('chat row terminal body', () => {
   })
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
-  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }

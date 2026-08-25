@@ -6,7 +6,7 @@
  * unbalanced and cannot be replayed as a valid child session.
  * @module @deepseek-ai/dsh-subagent-fork-in-process
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -38,7 +38,7 @@ export const name = 'subagent-fork-in-process'
 export const inject = ['subagents']
 
 /** Config: the registry name to register the provider under. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `fork`). */
   providerName: string
@@ -57,7 +57,7 @@ export const Config: z<Config> = z.object({
  * @param parent - the agent whose session log to slice.
  * @returns the seed events, contiguous from seq 0; empty when no turn has completed.
  */
-/** 中文说明：函数 completedTurnPrefix 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 completedTurnPrefix 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function completedTurnPrefix(parent: Agent): SessionEvent[] {
   /** 中文说明：变量 events 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events = parent.session.events
@@ -73,7 +73,7 @@ function completedTurnPrefix(parent: Agent): SessionEvent[] {
  * in-process structured runtime), plus `toolFilter`/`persona` (scoped
  * restrict() and a scoped shadowing persona section).
  */
-/** 中文说明：class ForkInProcessProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：class ForkInProcessProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
 class ForkInProcessProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = { outputSchema: true, depthLimit: true, toolFilter: true, persona: true }
   // Context contract: a forked child IS seeded with the parent's completed-turn prefix.

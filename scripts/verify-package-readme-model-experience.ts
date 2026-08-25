@@ -4,7 +4,7 @@
  * text blocks, generated-catalog links, and final-section order. See the
  * [Model Experience Agent Note](../.agents/notes/implemented/process/2026-07-12-package-model-experience-contract.md).
  */
-/**
+/*
  * 文件职责：实现 verify-package-readme-model-experience.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -46,7 +46,7 @@ interface SentenceContract {
  * Model Experience entirely; the reason stays here as reviewable audit evidence
  * so an absent section cannot be mistaken for forgotten documentation.
  */
-/** 中文说明：常量 NO_MODEL_EXPERIENCE_SECTION 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 NO_MODEL_EXPERIENCE_SECTION 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
   'packages/core/scope': 'The package is a model-agnostic registration and lifecycle primitive; model-facing consumers own any context selection.',
   'packages/util/brand': 'The package is a type-only primitive erased at compile time.',
@@ -59,7 +59,7 @@ const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
  * a KV-cache field. Every other package must carry canonical model-context
  * blocks. A package moves on or off this list with its context behavior.
  */
-/** 中文说明：常量 SENTENCE_MODEL_EXPERIENCE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SENTENCE_MODEL_EXPERIENCE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/attachment/attachment': { kind: 'indirect', reason: 'The storage seam delegates model request rendering to provider adapters.' },
   'packages/attachment/attachment-local': { kind: 'indirect', reason: 'The local backend delegates model request rendering to provider adapters.' },
@@ -215,7 +215,7 @@ interface ParsedField {
 }
 
 /** Validate H5-plus-markdown literals nested under one Model Experience field. */
-/** 中文说明：函数 validateNestedVerbatim 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 validateNestedVerbatim 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateNestedVerbatim(raw: readonly string[], fragments: Set<string>): { blocks: number; error?: string } {
   /** 中文说明：变量 cursor 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let cursor = 0
@@ -262,13 +262,13 @@ function headingFragment(title: string): string {
 }
 
 /** A direct stable system-prompt contribution, as named by the README rules. */
-/** 中文说明：函数 isDirectSystemPromptEntry 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isDirectSystemPromptEntry 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isDirectSystemPromptEntry(title: string): boolean {
   return /\bsystem prompt\b/i.test(title)
 }
 
 /** Anchored generated-catalog links in one model-view field. */
-/** 中文说明：函数 toolCatalogLinkFragments 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 toolCatalogLinkFragments 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function toolCatalogLinkFragments(text: string): string[] {
   return [...text.matchAll(/\]\(\.\.\/\.\.\/\.\.\/docs\/tool-catalog\.md#([a-z0-9_-]+)\)/g)]
     .map(match => match[1] as string)

@@ -37,7 +37,7 @@ const SEED_ID = 'math-rendering-web-e2e'
 const DONE = 'MATH_RENDERING_DONE'
 
 /** Build a settled assistant reply that exercises every supported math delimiter. */
-/** 构造覆盖全部受支持公式分隔符的已完成回复并返回 JSONL。示例：mathFixture()。 */
+/* 构造覆盖全部受支持公式分隔符的已完成回复并返回 JSONL。示例：mathFixture()。 */
 function mathFixture(): string {
   /** 累积数学回复事件的内存会话。 */
   const session = Session.create(SessionId('math-rendering-source'))

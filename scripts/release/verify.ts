@@ -6,7 +6,7 @@
  * checks are gates on the workflow, not advisory local warnings
  * ([rationale](../../.agents/notes/implemented/process/2026-08-10-npm-release-sequences.md)).
  */
-/**
+/*
  * 文件职责：实现 verify.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -30,7 +30,7 @@ import { releaseFamily, type PublishPlan, type ReleaseFamily, type ReleaseMember
  * @param family - the release family.
  * @param plan - the resolved order and its dropped edges.
  */
-/** 中文说明：函数 reportPublishOrder 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 reportPublishOrder 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function reportPublishOrder(family: ReleaseFamily, plan: PublishPlan): void {
   console.log(`release verify: publish order for family ${family.id}, ${String(plan.order.length)} member(s):`)
   /** 中文说明：变量 width 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -53,7 +53,7 @@ function reportPublishOrder(family: ReleaseFamily, plan: PublishPlan): void {
  * Assert every member may be published: npm refuses a `private` package.
  * @param members - the family's members.
  */
-/** 中文说明：函数 verifyPublishable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 verifyPublishable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function verifyPublishable(members: readonly ReleaseMember[]): void {
   /** 中文说明：函数值 priv 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const priv = members.filter(member => member.manifest.private === true)
@@ -69,7 +69,7 @@ function verifyPublishable(members: readonly ReleaseMember[]): void {
  * @param members - the family's members.
  * @param ref - the `GITHUB_REF` value.
  */
-/** 中文说明：函数 verifyTag 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 verifyTag 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function verifyTag(family: ReleaseFamily, members: readonly ReleaseMember[], ref: string): void {
   /** 中文说明：变量 prefix 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const prefix = 'refs/tags/'
@@ -89,7 +89,7 @@ function verifyTag(family: ReleaseFamily, members: readonly ReleaseMember[], ref
 }
 
 /** Run the verification for the family named by `--family`. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   const { values } = parseArgs({
     options: { family: { type: 'string' } },

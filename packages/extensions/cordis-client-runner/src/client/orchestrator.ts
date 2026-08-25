@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】页面侧的运行编排：把"模型审批"与"面板直跑"两类激活请求统一驱动为
  *             Host 启动 → 拉取 Client 源码 → 本页加载 → 结算回 Host 的完整流程，
@@ -43,7 +43,7 @@ import { errorDetails } from './runtime.ts'
 import type { CordisErrorDetails, CordisObservable, DynamicCordisPackageRunner } from './runtime.ts'
 
 /** One Plugin's in-flight approval or activation. */
-/**
+/*
  * 某插件"进行中"的审批或激活：awaiting-approval（等待用户决策）或 orchestrating
  * （正在编排执行，含目标包与模式）。
  */
@@ -77,7 +77,7 @@ export interface CordisRunFailure {
 }
 
 /** Host operations consumed by the orchestrator after transport folding. */
-/**
+/*
  * 编排器消费的 Host 操作接缝（传输错误已在 index.ts 折叠为消息）。
  */
 export interface CordisRunHostSeam {
@@ -145,7 +145,7 @@ interface RunPlan extends CordisUserRunRequest {
 }
 
 /** Drives Host → Client activation and publishes Plugin-keyed activity. */
-/**
+/*
  * 页面侧运行编排器：驱动"Host 激活 → Client 加载 → 结算"全流程（模型审批与面板
  * 直跑共用），按插件维护待审批请求、进行中活动与最近失败，供所有表面订阅。
  */
@@ -162,7 +162,7 @@ export class CordisRunOrchestrator {
   constructor(private readonly env: CordisRunOrchestratorEnv) {}
 
   /** Open approvals and current activation attempts, keyed by stable Plugin ID. */
-  /**
+  /*
    * 以稳定插件 ID 为键的"待审批 + 进行中激活"表。
    */
   readonly activeRuns: CordisObservable<ReadonlyMap<CordisDynamicPluginId, CordisRunActivity>> = {
@@ -180,9 +180,10 @@ export class CordisRunOrchestrator {
    * Register a Client activation request, starting it immediately when the Plugin is already authorized.
    * @param request - forwarded approval and activation metadata.
    */
-  /**
+  /*
    * 登记一个转发来的激活请求：已授权（无需审批）则立即编排执行；需要审批则挂起
    * 为 awaiting-approval 等待面板决策。
+   * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   open(request: CordisRunRequest): void {
     this.requests.set(request.requestId, request)
@@ -283,8 +284,9 @@ export class CordisRunOrchestrator {
    * Close an approval settled by another page or by cancellation.
    * @param requestId - approval request that can no longer be answered here.
    */
-  /**
+  /*
    * 关闭一个已被其他页面或取消结算的审批：删除请求并清理对应待审批活动。
+   * @param requestId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   close(requestId: ApprovalRequestId): void {
     const request = this.requests.get(requestId)
@@ -302,9 +304,11 @@ export class CordisRunOrchestrator {
    * @param requestId - approval request to execute.
    * @param approveFutureVersions - whether this approval covers later Packages for the same Plugin.
    */
-  /**
+  /*
    * 批准并执行一个仍打开的模型请求：以 resolveRequestRun 结算（approveFutureVersions
    * 决定是否顺带授权该插件后续版本）。
+   * @param requestId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param approveFutureVersions 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   approve(requestId: ApprovalRequestId, approveFutureVersions: boolean): Promise<void> {
     const request = this.requests.get(requestId)
@@ -324,8 +328,9 @@ export class CordisRunOrchestrator {
    * Reject one still-open model request without executing either half.
    * @param requestId - approval request to reject.
    */
-  /**
+  /*
    * 拒绝一个仍打开的模型请求：不执行任何半部，直接以 rejected 应答 Host。
+   * @param requestId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   async decline(requestId: ApprovalRequestId): Promise<void> {
     const request = this.requests.get(requestId)
@@ -342,8 +347,9 @@ export class CordisRunOrchestrator {
    * Execute a direct panel run; the user gesture itself authorizes it.
    * @param request - exact Package activation selected by the user.
    */
-  /**
+  /*
    * 执行面板直跑（用户手势本身即授权）：进入标准编排流程，以 settleUserRun 结算。
+   * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   startUserRun(request: CordisUserRunRequest): Promise<void> {
     return this.orchestrate(request)

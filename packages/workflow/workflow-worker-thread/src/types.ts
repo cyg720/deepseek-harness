@@ -4,7 +4,7 @@
  * `./protocol.ts`; transported child requests and results are plain JSON for structured clone.
  * @module @deepseek-ai/dsh-workflow-worker-thread/types
  */
-/**
+/*
  * 文件职责：实现 types.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -21,7 +21,7 @@ import type { WorkflowMeta } from '@deepseek-ai/dsh-workflow'
  * The per-run limits the worker-side runtime enforces. The host keeps the
  * knobs only it can act on (`provider`, `disposeGraceMs`).
  */
-/** 中文说明：interface WorkerLimits 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface WorkerLimits 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface WorkerLimits {
   /** Concurrent `agent()` ceiling (already auto-resolved; ≥ 1). */
   maxConcurrentAgents: number
@@ -34,7 +34,7 @@ export interface WorkerLimits {
 }
 
 /** The `workerData` payload one run is initialized with (host → worker, once, at spawn). */
-/** 中文说明：interface WorkerInit 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface WorkerInit 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface WorkerInit {
   /** The validated meta block (plain data off the start request, validated host-side). */
   meta: WorkflowMeta
@@ -47,7 +47,7 @@ export interface WorkerInit {
 }
 
 /** What the worker asks the host to start for one `agent()` call (options already validated worker-side). */
-/** 中文说明：interface ChildStartRequest 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface ChildStartRequest 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface ChildStartRequest {
   /** The child's prompt text. */
   prompt: string
@@ -64,7 +64,7 @@ export interface ChildStartRequest {
  * seam's `stopReason` union is merge-extensible, so it degrades to `string`
  * on the wire — the runtime only ever branches on `'completed'`.
  */
-/** 中文说明：interface ChildResult 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface ChildResult 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface ChildResult {
   /** The child's final assistant output blocks. */
   output: ContentBlock[]
@@ -78,7 +78,7 @@ export interface ChildResult {
  * The worker-side handle for one started child — the RPC mirror of the
  * subagent seam's run handle, reduced to what the runtime consumes.
  */
-/** 中文说明：interface ChildHandle 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface ChildHandle 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface ChildHandle {
   /** The child agent's id (minted host-side by the subagent seam). */
   readonly id: string
@@ -96,7 +96,7 @@ export interface ChildHandle {
  * The worker-side port the runtime starts child agents through — the seam
  * that lets the execution core stay ignorant of the thread boundary.
  */
-/** 中文说明：interface ChildPort 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface ChildPort 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface ChildPort {
   /**
    * Start one child agent on the host (the `agent()` hook's start half).

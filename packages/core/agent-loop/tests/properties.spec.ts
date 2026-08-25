@@ -8,7 +8,7 @@
  * turn numbers strictly increase; status transitions follow
  * idle→running→idle, while teardown is a registry lifecycle.
  */
-/**
+/*
  * 文件职责：验证Agent Loop的 properties.spec.ts 行为与不变量。
  * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
  * 产品维度：防止Agent Loop在取消、恢复、错误或并发场景中产生回归。
@@ -31,7 +31,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import fc from 'fast-check'
 
 /** A never-exhausting adapter: every model call returns the same short reply. */
-/** 中文说明：测试类型或类 EchoAdapter 约束夹具数据和行为。 */
+/* 中文说明：测试类型或类 EchoAdapter 约束夹具数据和行为。 */
 class EchoAdapter extends LlmAdapter {
   async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     if (options.signal?.aborted) throw new Error('aborted')
@@ -60,7 +60,7 @@ async function harness() {
 }
 
 /** Resolve on the agent's next transition to idle (event-based, not polled). */
-/** 中文说明：测试辅助函数 nextIdle 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 nextIdle 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function nextIdle(ctx: Context, agent: Agent): Promise<void> {
   return new Promise((resolve) => {
     /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
@@ -75,7 +75,7 @@ function nextIdle(ctx: Context, agent: Agent): Promise<void> {
 
 /** Record every status transition for the legal-machine assertion. Returns
  * the seen list plus a disposer for the listener (per the registry convention). */
-/** 中文说明：测试辅助函数 recordStatus 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 recordStatus 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function recordStatus(ctx: Context, agent: Agent): { seen: string[]; dispose: () => void } {
   /** 中文说明：测试局部值 seen，由紧邻初始化决定，仅在当前场景使用。 */
   const seen: string[] = []
@@ -120,7 +120,7 @@ function userMessageCountsByTurn(agent: Agent): number[] {
 }
 
 /** Assert a status trace is a legal run: idle/running alternating, ending idle. */
-/** 中文说明：测试辅助函数 assertLegalStatusTrace 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 assertLegalStatusTrace 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function assertLegalStatusTrace(trace: string[]): void {
   /** 中文说明：测试局部值 i，由紧邻初始化决定，仅在当前场景使用。 */
   for (let i = 1; i < trace.length; i++) {

@@ -1,5 +1,5 @@
 /** Shared remote-environment scrubbing for E2B process and terminal launchers. */
-/**
+/*
  * 文件职责：实现E2B 远程沙箱的 environment.ts 模块。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
@@ -38,7 +38,12 @@ function remoteEnvironmentEntries(raw: string): Array<readonly [string, string]>
  * @param signal - optional cancellation for the control-plane request.
  * @returns the complete NUL-delimited UTF-8 environment.
  */
-/** 中文说明：函数 readRemoteEnvironment 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 readRemoteEnvironment 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param sandbox 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function readRemoteEnvironment(sandbox: Sandbox, signal?: AbortSignal): Promise<string> {
   // TODO(e2b-replace-environment): Remove this ambient probe when E2B can start
   // a command with a replacement environment instead of merged overrides.
@@ -80,7 +85,11 @@ export async function readRemoteEnvironment(sandbox: Sandbox, signal?: AbortSign
  * @param raw - The complete NUL-delimited remote environment.
  * @returns Mutable retained entries for the caller to overlay and serialize.
  */
-/** 中文说明：函数 scrubRemoteEnvironment 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 scrubRemoteEnvironment 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param raw 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function scrubRemoteEnvironment(raw: string): Map<string, string> {
   /** 中文说明：运行时局部值 environment，由紧邻初始化决定。 */
   const environment = new Map<string, string>()
@@ -97,7 +106,11 @@ export function scrubRemoteEnvironment(raw: string): Map<string, string> {
  * @param raw - The complete NUL-delimited remote environment.
  * @returns Explicit E2B command or PTY overrides for bootstrap-shell startup.
  */
-/** 中文说明：函数 bootstrapEnvironment 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 bootstrapEnvironment 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param raw 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function bootstrapEnvironment(raw: string): Record<string, string> {
   /** 中文说明：运行时局部值 environment，由紧邻初始化决定。 */
   const environment: Record<string, string> = { TERM: 'dumb' }
@@ -114,7 +127,12 @@ export function bootstrapEnvironment(raw: string): Record<string, string> {
  * @param explicit - Deliberate caller overrides applied after ambient scrubbing; an `undefined` tombstone removes an ambient entry.
  * @returns NUL-delimited `name=value` entries accepted by `env -i`.
  */
-/** 中文说明：函数 serializeRemoteEnvironment 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 serializeRemoteEnvironment 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param raw 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param explicit 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function serializeRemoteEnvironment(
   raw: string,
   explicit: Readonly<NodeJS.ProcessEnv> | undefined,

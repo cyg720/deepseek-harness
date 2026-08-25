@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】grep/glob 的"结果时搜索卡片展示"：两个工具都落在 card: 'search'
  * 渲染意图上，按 shape 判别符分两种变体——grep 按文件分组投影匹配
@@ -50,7 +50,7 @@
  *
  * @module @deepseek-ai/dsh-tool-fs-search/presentation
  */
-/**
+/*
  * 模块总览：本模块是搜索结果的"卡片投影层"：把规范结果变成 meta 里的结构化形状
  * （重放安全），并在重放时把 meta 收窄回视图。文本与卡片共用同一份保留结果。
  */
@@ -70,7 +70,7 @@ import type { GrepMatch } from './search-core.ts'
  * satisfy this structural subset, so a projection consumes either without a fake
  * `kept`/`omitted`.
  */
-/**
+/*
  * meta 投影要读的保留字段：保留页、是否截断、截断前总数。完整 RetainedItems
  * （retainGrepMatches 产物）与 glob 的采样页都满足这个结构子集，因此投影可消费
  * 任一种而不需要伪造 kept/omitted。
@@ -91,7 +91,7 @@ type RetainedPage<T> = Pick<RetainedItems<T>, 'items' | 'truncated' | 'seen'>
  * returns; the two are structurally identical, so the projected value still reads
  * back as a {@link SearchResultView}.
  */
-/**
+/*
  * grep/glob 工具私有的 tool/result meta 载荷：被上限约束的结构化搜索结果。以不透明
  * JsonValue 形式附在工具结果上并随会话日志持久化，presentResult 因此能在重放时
  * 复现搜索卡片。matches 形状携带按文件分组；paths 形状携带扁平表；都带截断前 total
@@ -105,11 +105,11 @@ export type SearchMeta =
   | { shape: 'paths'; paths: string[]; truncated: boolean; total: number }
 
 /** One matched line in {@link SearchMeta} (the JSON-assignable form of {@link SearchLineMatch}). */
-/** SearchMeta 里的一行匹配（SearchLineMatch 的 JSON 可赋值形式）。 */
+/* SearchMeta 里的一行匹配（SearchLineMatch 的 JSON 可赋值形式）。 */
 type MetaLineMatch = { lineNumber: number; line: string }
 
 /** One file's grouped matches in {@link SearchMeta} (the JSON-assignable form of {@link SearchFileMatches}). */
-/** SearchMeta 里一个文件的匹配组（SearchFileMatches 的 JSON 可赋值形式）。 */
+/* SearchMeta 里一个文件的匹配组（SearchFileMatches 的 JSON 可赋值形式）。 */
 type MetaFileMatches = { path: string; matches: MetaLineMatch[] }
 
 /**
@@ -122,7 +122,7 @@ type MetaFileMatches = { path: string; matches: MetaLineMatch[] }
  * @param matches - the retained matches to group, in output order.
  * @returns one entry per file, in first-seen order.
  */
-/**
+/*
  * 把扁平匹配按文件分组（首见顺序）成结构化"按文件"形状，UI 渲染成可展开的逐文件组。
  * 分组与模型侧文本分组（grep 的 formatGrepMatches）一致，卡片与文本在文件顺序与
  * 成员上一致。
@@ -141,7 +141,7 @@ export function groupMatchesByFile(matches: GrepMatch[]): MetaFileMatches[] {
 }
 
 /** The serialized UTF-8 byte size of one meta payload (the size persisted and re-sent). */
-/** 一个 meta 载荷序列化后的 UTF-8 字节大小（被持久化并重发的尺寸）。 */
+/* 一个 meta 载荷序列化后的 UTF-8 字节大小（被持久化并重发的尺寸）。 */
 function metaBytes(meta: SearchMeta): number {
   return Buffer.byteLength(JSON.stringify(meta), 'utf8')
 }
@@ -157,7 +157,7 @@ function metaBytes(meta: SearchMeta): number {
  * @param maxMetaBytes - the serialized-meta byte budget.
  * @returns the same meta when it fits, else a byte-bounded copy marked `truncated`.
  */
-/**
+/*
  * 从尾部丢弃顶级条目（文件组或路径），直到序列化 meta 落在 maxMetaBytes 内；
  * 丢弃过任何东西就置 truncated。total 被保留（它数的是搜索找到的数量，不是 meta
  * 保留的数量）。单个过大条目仍保留：不变量是"可丢处有界"，绝不做隐藏真实结果的
@@ -189,7 +189,7 @@ function capMetaBytes(meta: SearchMeta, maxMetaBytes: number): SearchMeta {
  * @param maxMetaBytes - the serialized-meta byte budget.
  * @returns the `matches`-shaped search metadata.
  */
-/**
+/*
  * 把保留的 grep 匹配投影成搜索卡片的 SearchMeta。消费与模型侧渲染相同的
  * RetainedItems（预览预算与内联匹配上限已应用），按文件分组，报告 total（每个
  * 解析出的匹配）与 truncated，再把序列化 meta 约束到 maxMetaBytes。
@@ -217,7 +217,7 @@ export function grepSearchMeta(retained: RetainedPage<GrepMatch>, maxMetaBytes: 
  * @param maxMetaBytes - the serialized-meta byte budget.
  * @returns the `paths`-shaped search metadata.
  */
-/**
+/*
  * 把保留的 glob 路径投影成搜索卡片的 SearchMeta。消费与模型侧渲染相同的
  * RetainedItems（内联路径上限已应用），报告 total（每个发现的路径）与 truncated，
  * 再把序列化 meta 约束到 maxMetaBytes。
@@ -236,7 +236,7 @@ export function globSearchMeta(retained: RetainedPage<string>, maxMetaBytes: num
 }
 
 /** Whether `value` is a valid {@link SearchLineMatch} (defensive narrowing from opaque `meta`). */
-/** value 是否为合法的 SearchLineMatch（从不透明 meta 做的防御性收窄）。 */
+/* value 是否为合法的 SearchLineMatch（从不透明 meta 做的防御性收窄）。 */
 function isSearchLineMatch(value: unknown): value is SearchLineMatch {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const { lineNumber, line } = value as Record<string, unknown>
@@ -244,7 +244,7 @@ function isSearchLineMatch(value: unknown): value is SearchLineMatch {
 }
 
 /** Whether `value` is a valid {@link SearchFileMatches} (defensive narrowing from opaque `meta`). */
-/** value 是否为合法的 SearchFileMatches（从不透明 meta 做的防御性收窄）。 */
+/* value 是否为合法的 SearchFileMatches（从不透明 meta 做的防御性收窄）。 */
 function isSearchFileMatches(value: unknown): value is SearchFileMatches {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const { path, matches } = value as Record<string, unknown>
@@ -266,7 +266,7 @@ function isSearchFileMatches(value: unknown): value is SearchFileMatches {
  * @param meta - result metadata (the {@link SearchMeta} the tool projected).
  * @returns the search view, or `undefined` for absent or malformed metadata.
  */
-/**
+/*
  * 把不透明的实时/重放结果 meta 收窄成 SearchResultView。畸形 meta 返回 undefined，
  * 让 presentResult 在重放旧日志或手工编辑日志时回退到通用卡片而不是抛错。
  * 视图不携带结果文本：没有搜索卡片能力的 UI 回退到原始 tool/result 内容。

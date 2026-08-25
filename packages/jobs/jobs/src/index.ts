@@ -5,7 +5,7 @@
  * process-local registry lives in `@deepseek-ai/dsh-jobs-local`.
  * @module @deepseek-ai/dsh-jobs
  */
-/**
+/*
  * 文件职责：实现后台任务的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证后台任务在授权、等待、失败和清理场景中可靠。

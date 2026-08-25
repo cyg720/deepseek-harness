@@ -25,43 +25,43 @@ import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/t
 import type { PendingInteractionStatus } from './pending.ts'
 
 /** Host list summary enriched with the latest mux-projected durable title. */
-/** 补充了最新 mux 投影持久标题的 Host 列表概要。 */
+/* 补充了最新 mux 投影持久标题的 Host 列表概要。 */
 export interface TitledSessionSummary extends SessionSummary {
   title?: string
   /** Current host-computed projection values for list consumers. */
-  /** 供列表消费方使用的当前 Host 计算投影值。 */
+  /* 供列表消费方使用的当前 Host 计算投影值。 */
   projectionValues?: Readonly<Partial<SessionProjectionMap>>
 }
 
 /** One flattened session-list row with lineage depth and live pending interaction. */
-/** 一行带谱系深度与实时待处理交互的扁平会话列表行。 */
+/* 一行带谱系深度与实时待处理交互的扁平会话列表行。 */
 export interface SessionListEntry {
   sessionId: SessionId
   title?: string
   updatedAt: number
   running: boolean
   /** Empty-log bit mirrored from the summary; lists hide blank sessions (filtering stays with the consumer). */
-  /** 从概要镜像的空日志位；列表隐藏空白会话（过滤留在消费方）。 */
+  /* 从概要镜像的空日志位；列表隐藏空白会话（过滤留在消费方）。 */
   blank: boolean
   parentSessionId?: SessionId
   /** Coarse durable origin for navigation filtering; not a continuation capability. */
-  /** 供导航过滤使用的粗粒度持久来源；不是续接能力。 */
+  /* 供导航过滤使用的粗粒度持久来源；不是续接能力。 */
   origin?: 'subagent'
   cwd?: string
   /** Agent preset the session's agent was composed from (summary passthrough). */
-  /** 会话 agent 组合时使用的 agent preset（概要直通）。 */
+  /* 会话 agent 组合时使用的 agent preset（概要直通）。 */
   agentPreset?: string
   /** Current host-computed projection values for list consumers. */
-  /** 供列表消费方使用的当前 Host 计算投影值。 */
+  /* 供列表消费方使用的当前 Host 计算投影值。 */
   projectionValues?: Readonly<Partial<SessionProjectionMap>>
   /** User interaction currently blocking this session, derived from live mux frames. */
-  /** 当前阻塞本会话的用户交互，由实时 mux 帧推导。 */
+  /* 当前阻塞本会话的用户交互，由实时 mux 帧推导。 */
   pendingInteraction?: PendingInteractionStatus
   /** Finished running while not selected and not yet opened — the sidebar's green "done" reminder (clears on select or the next run). */
-  /** 未选中且未打开时已运行完成——侧边栏的绿色"完成"提醒（选中或下次运行时清除）。 */
+  /* 未选中且未打开时已运行完成——侧边栏的绿色"完成"提醒（选中或下次运行时清除）。 */
   completed: boolean
   /** Lineage indent depth: root = 0; the UI just multiplies by the indent width. */
-  /** 谱系缩进深度：根为 0；UI 直接乘以缩进宽度。 */
+  /* 谱系缩进深度：根为 0；UI 直接乘以缩进宽度。 */
   depth: number
 }
 
@@ -74,7 +74,7 @@ export interface SessionListEntry {
  * @param completed - sessions with a pending completion reminder (manager-owned live fact; absent = false).
  * @returns display rows in render order.
  */
-/**
+/*
  * 会话概要 -> 带谱系缩进的扁平列表。根与兄弟的顺序遵循已建立的输入顺序；
  * 本投影绝不用可变时间戳重排已水合（hydrated）的列表。
  * @param summaries Host 的 session.list 项。

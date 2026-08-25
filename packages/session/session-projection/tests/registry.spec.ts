@@ -6,7 +6,7 @@
  * cache), duplicate-key rejection, stateVersion validation, and effect-tied
  * removal of registrations and change listeners (HMR safety).
  */
-/**
+/*
  * 文件职责：验证 registry.spec.ts 覆盖的会话投影统计行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话投影统计状态稳定、可重放且可诊断。
@@ -46,7 +46,7 @@ declare module '@deepseek-ai/dsh-session/types' {
 /** 中文说明：type MarksState 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
 type MarksState = { marks: string[] } | null
 /** Whole-value unit: latest test/mark event wins; unrelated events return the same reference. */
-/** 中文说明：变量 marksUnit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 marksUnit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const marksUnit = (): Omit<ProjectionDefinition<'test/marks', MarksState>, 'wire'>
   & { wire: NonNullable<ProjectionDefinition<'test/marks', MarksState>['wire']> } => ({
   key: 'test/marks',
@@ -61,7 +61,7 @@ const marksUnit = (): Omit<ProjectionDefinition<'test/marks', MarksState>, 'wire
 })
 
 /** Host-only counting unit over every event — state changes on each apply. */
-/** 中文说明：函数值 countUnit 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 countUnit 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const countUnit = (): ProjectionDefinition<'test/count', number> => ({
   key: 'test/count',
   stateSchema: z.number().int().nonnegative(),

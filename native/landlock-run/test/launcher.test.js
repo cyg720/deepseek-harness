@@ -11,7 +11,7 @@
  *   the very platform that exists to prove enforcement would be a false
  *   green).
  */
-/**
+/*
  * 文件职责：在真实 Linux 内核与启动器二进制上验证 Landlock CLI、退出码传递和文件隔离行为。
  * 技术维度：使用 Node.js assert、同步子进程和临时目录执行端到端系统级验证。
  * 产品维度：证明发布的启动器既能运行正常命令，也能阻止未授权写入并允许明确授权路径。

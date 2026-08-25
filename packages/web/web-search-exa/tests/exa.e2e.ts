@@ -13,7 +13,7 @@ import { ExaSearchProvider, EXA_DEFAULT_BASE_URL, EXA_DEFAULT_HIGHLIGHTS_PER_RES
  * Real-API smoke for the Exa search provider. Self-skips without `$EXA_API_KEY`
  * (CI has no secrets), per the with-key e2e policy in docs/testing.md.
  */
-/** 真实 API 冒烟测试；按测试策略在缺少 EXA_API_KEY 的 CI 中自动跳过。 */
+/* 真实 API 冒烟测试；按测试策略在缺少 EXA_API_KEY 的 CI 中自动跳过。 */
 // apiKey：可选 Exa API 密钥；只有非空时才执行真实网络测试。
 const apiKey = process.env.EXA_API_KEY
 // maybe：有密钥时为 describe，否则为 describe.skip。

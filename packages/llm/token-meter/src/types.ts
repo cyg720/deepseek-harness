@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义 token-meter 的公共配置与测量词汇：配置类型、测量基线、
  * 测量快照（TokenMeasurement）与表面节点（TokenSurfaceNode）。
@@ -30,7 +30,7 @@ export type { ContextBreakdownProjection, ContextPressureProjection, TokenUsageP
 export type TokenMeterConfig = Record<string, never>
 
 /** The baseline from which a signed surface delta produces current pressure. */
-/**
+/*
  * （中文）"有符号表面增量"据以产生当前压力的基线锚点：none（还没有任何
  * 内容）、estimated（启发式估价）、usage（provider 实测用量）。
  */
@@ -40,7 +40,7 @@ export type TokenMeasurementBaseline =
   | { readonly kind: 'usage'; readonly tokens: number; readonly usage: Readonly<TokenUsage> }
 
 /** Detached immutable request-pressure and surface snapshot at one consumed log revision. */
-/**
+/*
  * （中文）在某个已消费日志修订号上的剥离、不可变请求压力与表面快照。
  */
 export interface TokenMeasurement {
@@ -65,7 +65,7 @@ export interface TokenMeasurement {
 }
 
 /** One token-priced node in the current ordered session surface. */
-/**
+/*
  * （中文）当前有序会话表面里的一个已定价节点。
  */
 export interface TokenSurfaceNode {

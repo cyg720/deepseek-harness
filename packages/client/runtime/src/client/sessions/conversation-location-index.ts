@@ -30,7 +30,7 @@ interface OwnedLocationData {
 }
 
 /** One Context's previous and next Location-data publication. */
-/** 一个上下文的先前与下一个位置数据发布。 */
+/* 一个上下文的先前与下一个位置数据发布。 */
 export interface ConversationLocationDataChange {
   readonly owner: string
   readonly previous: ConversationLocationData | null
@@ -154,7 +154,7 @@ function sameLocation(left: ConversationLocation | undefined, right: Conversatio
 }
 
 /** Session-owned Turn/Step timeline and event-to-Location index. */
-/** 会话拥有的轮次/步骤时间线与事件到位置索引。 */
+/* 会话拥有的轮次/步骤时间线与事件到位置索引。 */
 export class ConversationLocationIndex {
   private coordinates = new Map<number, Coordinates>() // 事件 seq -> 坐标
   private locations = new Map<number, ConversationLocation>() // 事件 seq -> 已解析位置
@@ -169,7 +169,7 @@ export class ConversationLocationIndex {
    * Return the current reference-stable timeline.
    * @returns current timeline snapshot.
    */
-  /**
+  /*
    * 返回当前引用稳定的时间线。
    * @returns 当前时间线快照。
    */
@@ -182,7 +182,7 @@ export class ConversationLocationIndex {
    * @param entries - complete current set of Definition-owned Location values.
    * @returns whether any published Location data changed.
    */
-  /**
+  /*
    * 替换所有定义拥有的位置值，同时保持读取器身份（存储对象不换）。
    * @param entries 定义拥有位置值的完整当前集合。
    * @returns 是否有任何已发布的位置数据发生变化。
@@ -217,7 +217,7 @@ export class ConversationLocationIndex {
    * @param changes - incremental removals and replacements from published Contexts.
    * @returns whether any published Location data changed.
    */
-  /**
+  /*
    * 应用已发布上下文的变更，不重建轮次/步骤成员。
    * @param changes 已发布上下文的增量移除与替换。
    * @returns 是否有任何已发布的位置数据发生变化。
@@ -242,7 +242,7 @@ export class ConversationLocationIndex {
    * @param event - event already ingested into this index.
    * @returns current Location, falling back to session when it has no Turn/Step affinity.
    */
-  /**
+  /*
    * 解析一个事件的最近位置。
    * @param event 已摄入本索引的事件。
    * @returns 当前位置；事件无轮次/步骤亲和时回退为会话位置。
@@ -256,7 +256,7 @@ export class ConversationLocationIndex {
    * @param entries - complete current window in ascending seq order.
    * @returns seqs whose resolved Location changed.
    */
-  /**
+  /*
    * 在替换/前插或边界追加后重建时间线事实。
    * @param entries 当前完整窗口，按 seq 升序。
    * @returns 已解析位置发生变化的 seq 集合。
@@ -410,7 +410,7 @@ export class ConversationLocationIndex {
    * @param event - contiguous tail boundary event.
    * @returns seqs whose immutable Location reference changed.
    */
-  /**
+  /*
    * 追加一个轮次/步骤边界，只复查所属轮次。
    * @param event 连续尾部的边界事件。
    * @returns 不可变位置引用发生变化的 seq 集合。
@@ -504,7 +504,7 @@ export class ConversationLocationIndex {
    * Index one non-boundary tail event without rescanning the window.
    * @param event - contiguous appended event.
    */
-  /**
+  /*
    * 索引一个非边界尾部事件，不重扫窗口。
    * @param event 连续追加的事件。
    */

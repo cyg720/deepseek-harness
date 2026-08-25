@@ -20,7 +20,7 @@ import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
  * cwd, so `fsCwd` is their workspace; `persona` configures the deployment prompt.
  * This helper lives outside the e2e glob so imports do not register tests.
  */
-/** 构建真实文件工具测试栈。@param fsCwd 工作区路径。@param persona 可选提示词。@returns 已装配上下文。@example await fsHarness(tempDir)。 */
+/* 构建真实文件工具测试栈。@param fsCwd 工作区路径。@param persona 可选提示词。@returns 已装配上下文。@example await fsHarness(tempDir)。 */
 export async function fsHarness(fsCwd: string, persona = ''): Promise<Context> {
   // 新的独立测试上下文；调用方在测试结束后负责释放。
   const ctx = new Context()

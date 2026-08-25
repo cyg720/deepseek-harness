@@ -39,7 +39,7 @@
  *    revoke under live children.
  * @module @deepseek-ai/dsh-sandbox-windows-acl
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的沙箱策略或 Windows ACL 隔离职责。
  * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
  * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
@@ -67,7 +67,7 @@ export { tempWriteSid, workspaceWriteSid } from './workspace-sid.ts'
 export { Win32Error } from './errors.ts'
 
 /** Construction options: the workspace/temp allowlists and their distinct SID identities. */
-/** 中文说明：interface AclSandboxOptions 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface AclSandboxOptions 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface AclSandboxOptions {
   /** Directories the confined child may write into (must exist and be caller-owned). */
   writableDirs: readonly string[]
@@ -110,7 +110,7 @@ export interface AclSandboxOptions {
 }
 
 /** Per-spawn options: the program, its argv/cwd, and the stdio shape. */
-/** 中文说明：interface AclSandboxSpawnOptions 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface AclSandboxSpawnOptions 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface AclSandboxSpawnOptions {
   /** Program to run (resolved via PATH search when unqualified, like CreateProcess). */
   command: string
@@ -128,7 +128,7 @@ export interface AclSandboxSpawnOptions {
 }
 
 /** A settled confined child: captured stdio and the exit code. */
-/** 中文说明：interface AclSandboxChildResult 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface AclSandboxChildResult 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface AclSandboxChildResult {
   stdout: Buffer
   stderr: Buffer
@@ -136,7 +136,7 @@ export interface AclSandboxChildResult {
 }
 
 /** A running confined child: its pid and a settlement promise. */
-/** 中文说明：interface AclSandboxChild 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface AclSandboxChild 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface AclSandboxChild {
   /** Child process id. */
   pid: number
@@ -145,7 +145,7 @@ export interface AclSandboxChild {
 }
 
 /** Free one optional SID while retaining a failure for best-effort sibling cleanup. */
-/** 中文说明：函数 freeSidBestEffort 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 freeSidBestEffort 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function freeSidBestEffort(
   api: Win32Bindings,
   sidPtr: NativePtr | undefined,
@@ -171,7 +171,7 @@ function freeSidBestEffort(
  * `manageDacls: false` the caller owns the grants (the sandbox seam's grant
  * reuse): init() applies none and dispose() revokes none.
  */
-/** 中文说明：class AclSandbox 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：class AclSandbox 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export class AclSandbox {
   /** Absolute writable directories (constructor-validated). */
   readonly writableDirs: string[]

@@ -26,7 +26,7 @@ import * as jsonrpc from '../src/index.ts'
  */
 
 /** One ordered frame, write completion, or exit observation. */
-/** 中文说明：type WireEvent 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：type WireEvent 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
 type WireEvent =
   | { kind: 'frame'; frame: Record<string, unknown> }
   | { kind: 'write-complete'; ids: (string | number)[] }
@@ -50,7 +50,7 @@ interface ApplyHarness {
 }
 
 /** Poll asynchronous output for up to five seconds. */
-/** 中文说明：函数 waitFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitFor<T>(get: () => T | undefined, description: string): Promise<T> {
   /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + 5000
@@ -65,13 +65,13 @@ async function waitFor<T>(get: () => T | undefined, description: string): Promis
 }
 
 /** Drain asynchronous work before a negative assertion. */
-/** 中文说明：函数 settle 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 settle 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function settle(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 25))
 }
 
 /** Mount the real plugin on a minimal harness with in-memory stdio and exit. */
-/** 中文说明：函数 mountPlugin 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 mountPlugin 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountPlugin(
   storageDir: string,
   options: {
@@ -165,7 +165,7 @@ afterEach(async () => {
 })
 
 /** Keyless SSE endpoint for completing a prompt turn. */
-/** 中文说明：函数 mockCompletionServer 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 mockCompletionServer 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mockCompletionServer(): Promise<{ url: string; requests: unknown[] }> {
   /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const requests: unknown[] = []

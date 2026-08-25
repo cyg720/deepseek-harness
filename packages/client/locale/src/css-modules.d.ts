@@ -6,7 +6,7 @@
  * 关键边界：声明不检查文件存在性或类名拼写，实际处理仍由客户端构建器负责。
  * 新手阅读建议：先比较两种声明的返回差异，再查看源码中两类导入写法。
  */
-/** 使用方式：`import styles from './Locale.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Locale.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码类名，值为构建时生成的隔离类名。 */
   const classes: Record<string, string>

@@ -5,7 +5,7 @@
  * prove the default path rejects cleanly (koffi cannot load ole32 there),
  * and win32 hosts briefly open and auto-abort a real dialog.
  */
-/**
+/*
  * 文件职责：验证宿主服务的 win32-dialog.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证宿主服务在授权、等待、失败和清理场景中可靠。

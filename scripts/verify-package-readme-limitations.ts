@@ -4,7 +4,7 @@
  * top-level bullet; audited packages in {@link NO_LIMITATIONS} must omit it.
  * See the [limitations Agent Note](../.agents/notes/implemented/process/2026-07-10-readme-known-limitations-gate.md).
  */
-/**
+/*
  * 文件职责：实现 verify-package-readme-limitations.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -21,17 +21,17 @@ import { markdownHeadingLines, markdownProseLines } from './markdown.ts'
 const root = resolve(import.meta.dirname, '..')
 
 /** The one canonical section heading, required verbatim as an h2. */
-/** 中文说明：常量 CANONICAL 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CANONICAL 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CANONICAL = '## Known Limitations and Deferred Work'
 
 /** Packages audited as having no limitations section, keyed by repo-relative directory. */
-/** 中文说明：常量 NO_LIMITATIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 NO_LIMITATIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const NO_LIMITATIONS: Readonly<Record<string, string>> = {
   'packages/util/brand': 'Type-only nominal-branding primitive with no runtime behavior or deferred work.',
 }
 
 /** A heading that reads as a limitations section — canonical or drifted. */
-/** 中文说明：函数 isLimitationsLike 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isLimitationsLike 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isLimitationsLike(headingText: string): boolean {
   return (
     /\blimitations?\b/i.test(headingText)

@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-llm-mock-server
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的LLM 测试替身行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的LLM 测试替身能力保障 Agent 功能在集成层稳定。
@@ -21,7 +21,7 @@ import { isIP, type AddressInfo } from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 
 /** Request-scoped behaviors accepted by {@link startMockLlmServer}. */
-/** 中文说明：常量 MOCK_LLM_BEHAVIORS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MOCK_LLM_BEHAVIORS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MOCK_LLM_BEHAVIORS = [
   'connection_reset',
   'stream_disconnect',
@@ -50,22 +50,22 @@ export const MOCK_LLM_BEHAVIORS = [
 ] as const
 
 /** One scripted mock behavior name; `random` selects a concrete behavior per request. */
-/** 中文说明：type MockLlmBehavior 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：type MockLlmBehavior 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmBehavior = typeof MOCK_LLM_BEHAVIORS[number]
 
 /** One concrete request behavior after resolving a `random` script entry. */
-/** 中文说明：type ConcreteMockLlmBehavior 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：type ConcreteMockLlmBehavior 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type ConcreteMockLlmBehavior = Exclude<MockLlmBehavior, 'random'>
 
 /** Relative non-negative weights for random request behavior selection. */
-/** 中文说明：type MockLlmRandomWeights 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：type MockLlmRandomWeights 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmRandomWeights = Partial<Record<ConcreteMockLlmBehavior, number>>
 
 /**
  * Default stress profile for `random`. Weights are configurable test pressure,
  * not a claim about production incident frequency.
  */
-/** 中文说明：常量 DEFAULT_MOCK_LLM_RANDOM_WEIGHTS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_MOCK_LLM_RANDOM_WEIGHTS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_MOCK_LLM_RANDOM_WEIGHTS: Readonly<MockLlmRandomWeights> = Object.freeze({
   success: 48,
   slow_success: 10,
@@ -83,15 +83,15 @@ export const DEFAULT_MOCK_LLM_RANDOM_WEIGHTS: Readonly<MockLlmRandomWeights> = O
 })
 
 /** Largest millisecond delay accepted by Node timers without truncation. */
-/** 中文说明：常量 MAX_MOCK_LLM_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_MOCK_LLM_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_MOCK_LLM_TIMER_DELAY_MS = 2_147_483_647
 
 /** How one accepted request ended at the mock boundary. */
-/** 中文说明：type MockLlmRequestOutcome 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：type MockLlmRequestOutcome 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmRequestOutcome = 'completed' | 'reset' | 'stalled' | 'client_closed' | 'server_error'
 
 /** Immutable telemetry emitted when a request starts or reaches an outcome. */
-/** 中文说明：type MockLlmServerEvent 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：type MockLlmServerEvent 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmServerEvent =
   | {
     readonly type: 'request'
@@ -110,7 +110,7 @@ export type MockLlmServerEvent =
   }
 
 /** Captured wire request and its final server-side outcome. */
-/** 中文说明：interface MockLlmRequestRecord 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface MockLlmRequestRecord 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface MockLlmRequestRecord {
   /** One-based accepted chat-completions request number. */
   readonly attempt: number
@@ -131,7 +131,7 @@ export interface MockLlmRequestRecord {
 }
 
 /** Configuration for one mock server instance. */
-/** 中文说明：interface MockLlmServerOptions 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface MockLlmServerOptions 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface MockLlmServerOptions {
   /** Loopback host by default. */
   readonly host?: string
@@ -172,7 +172,7 @@ export interface MockLlmServerOptions {
 }
 
 /** Running mock server and captured request state. */
-/** 中文说明：interface MockLlmServer 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface MockLlmServer 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface MockLlmServer {
   /** Base URL without `/v1`; both root and `/v1` chat-completions paths are accepted. */
   readonly baseURL: string
@@ -700,7 +700,11 @@ function chooseRandomBehavior(
  * @param options - listener, script, response content, timing, and telemetry options.
  * @returns the listening handle after the port is bound.
  */
-/** 中文说明：函数 startMockLlmServer 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 startMockLlmServer 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function startMockLlmServer(options: MockLlmServerOptions): Promise<MockLlmServer> {
   /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved = resolveOptions(options)

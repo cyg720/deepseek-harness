@@ -15,7 +15,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-tool-str-replace-editor`.
  * @module @deepseek-ai/dsh-tool-str-replace-editor/invariant
  */
-/**
+/*
  * 模块总览：工具适配器不拥有独立持久状态，变更关系在提供者与策略插件，
  * 故 install 为空，仅做体系占位。
  */

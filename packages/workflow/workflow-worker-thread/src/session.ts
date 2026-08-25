@@ -10,7 +10,7 @@
  * drive without executing the body.
  * @module @deepseek-ai/dsh-workflow-worker-thread/session
  */
-/**
+/*
  * 文件职责：实现 session.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -35,7 +35,7 @@ import type {
 } from './types.ts'
 
 /** The book-keeping for one in-flight child RPC (keyed by callId). */
-/** 中文说明：interface PendingChild 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface PendingChild 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface PendingChild {
   started: PromiseWithResolvers<string>
   settled: PromiseWithResolvers<ChildResult>
@@ -43,7 +43,7 @@ interface PendingChild {
 }
 
 /** The typed post half of the port: each tag pairs with ITS payload from the map (a mismatch is a compile error at the call site). */
-/** 中文说明：type Post 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：type Post 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 type Post = <T extends WorkerToHostType>(type: T, payload: WorkerToHostPayloads[T]) => void
 
 /**
@@ -51,7 +51,7 @@ type Post = <T extends WorkerToHostType>(type: T, payload: WorkerToHostPayloads[
  * every member is an RPC to the host keyed by this call's `callId`, resolved
  * by the session's message handler through the bridge's pending entry.
  */
-/** 中文说明：class RpcChildHandle 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class RpcChildHandle 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class RpcChildHandle implements ChildHandle {
   readonly result: Promise<ChildResult>
 
@@ -76,7 +76,7 @@ class RpcChildHandle implements ChildHandle {
  * book-keeping the session's message handler settles via the `onChild*`
  * entry points.
  */
-/** 中文说明：class ChildRpcBridge 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class ChildRpcBridge 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class ChildRpcBridge implements ChildPort {
   private nextCallId = 0
   private readonly pending = new Map<number, PendingChild>()
@@ -142,7 +142,11 @@ class ChildRpcBridge implements ChildPort {
  * @param port - `parentPort` as imported (null on the main thread).
  * @returns the port, non-null.
  */
-/** 中文说明：函数 requireParentPort 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 requireParentPort 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param port 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function requireParentPort(port: MessagePort | null): MessagePort {
   if (port === null) throw new Error('the workflow worker entry must be loaded inside a worker thread (no parentPort)')
   return port
@@ -158,7 +162,11 @@ export function requireParentPort(port: MessagePort | null): MessagePort {
  *   of an in-process `MessageChannel` in tests).
  * @param init - the run payload the host provided as `workerData`.
  */
-/** 中文说明：函数 runWorkerSession 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 runWorkerSession 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param port 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param init 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export async function runWorkerSession(port: MessagePort, init: WorkerInit): Promise<void> {
   /** 中文说明：函数值 post 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const post: Post = (type, payload) => {

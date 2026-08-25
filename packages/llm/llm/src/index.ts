@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-llm 包的入口与核心：实现 LLM 服务（LlmRuntime）——适配器
  * 注册表 + 可被瀑布流拦截的流式调用 API，并导出抽象适配器基类 LlmAdapter、
@@ -89,7 +89,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Structured provider facts and cause accepted by {@link LlmError}. */
-/**
+/*
  * （中文）LlmError 接受的结构化 provider 事实与 cause（ErrorOptions 的扩展）。
  */
 export interface LlmErrorOptions extends ErrorOptions {
@@ -104,7 +104,7 @@ export interface LlmErrorOptions extends ErrorOptions {
   requestId?: ProviderRequestId
 }
 
-/**
+/*
  * （中文）LLM 相关失败的强类型错误。继承 HarnessError，因此 code 字符串
  * （如 AUTH、RATE_LIMIT、NO_ADAPTER）共享同一套分类法。
  */
@@ -117,7 +117,7 @@ export class LlmError extends HarnessError {
   // 中文：保存在这个活 Error 旁边的可序列化事实（冻结副本）。
   readonly failure: LlmFailure
 
-  /**
+  /*
    * （中文）构造 LlmError：先校验参数（message/code 非空字符串、status 为
    * 100~599 整数、延迟为正有限数、requestId 非空），再冻结 failure 快照。
    * @param message 非空的人类可读失败摘要。
@@ -157,7 +157,7 @@ export class LlmError extends HarnessError {
   }
 }
 
-/**
+/*
  * （中文）接受一个提供的凭据，或者把它判为不可用并拒绝。
  * 已存 key 可能来自凭据缝合层、.env 行或 shell 导出，都可能带周围空白，所以
  * 静默 trim；其他任何问题都失败在这里而非 fetch 内部（后者只报 UTF-16 码点
@@ -209,7 +209,7 @@ export function assertUsableApiKey(raw: string, pkg: string, ref: string): strin
 }
 
 /** One model call whose config and adapter registration were resolved together. */
-/**
+/*
  * （中文）一次"配置与适配器注册一起被解析好"的模型调用预备体。
  */
 export interface PreparedLlmCall {
@@ -228,7 +228,7 @@ export interface PreparedLlmCall {
   /** Config fields materialized by the captured adapter rather than proposed by the caller. */
   // 中文：由捕获的适配器（而非调用方提议）物化的配置字段标记。
   readonly adapterDefaults: LlmCallConfigAdapterDefaults
-  /**
+  /*
    * （中文）通过预备时捕获的注册，一次性分发这次调用。请求的 call-config 字段
    * 必须与 config 一致；复用或错配会以 INVALID_PREPARED_CALL 失败。
    * @param options 携带预备配置的完整组装请求。
@@ -245,7 +245,7 @@ export interface PreparedLlmCall {
 }
 
 /** One adapter-owned model-resolution generation bound to its eventual stream call. */
-/**
+/*
  * （中文）一次"适配器自有的模型解析世代"与其最终流式调用的绑定。
  */
 export interface PreparedAdapterCall {
@@ -257,7 +257,7 @@ export interface PreparedAdapterCall {
   stream(options: GenerateOptions): AsyncIterable<StreamChunk>
 }
 
-/**
+/*
  * （中文）面向 harness 消息与流词汇的 provider 线上适配器。用
  * ctx.llm.registerAdapter(providers, adapter) 注册实现。每个 provider HTTP
  * 请求都必须包含 attributionHeaders()；须证明头已加进线上请求或库头钩子。
@@ -271,7 +271,7 @@ export interface PreparedAdapterCall {
  * DeepSeek and library-backed pi-ai adapters meet this contract through different internals.
  */
 export abstract class LlmAdapter {
-  /**
+  /*
    * （中文）描述本适配器拥有的一个 provider 路由。
    * @param provider 传给本实例 registerAdapter() 的路由。
    * @returns 剥离的展示元数据，其 id 必须等于 provider。
@@ -392,7 +392,7 @@ export interface AdapterRegistrationHandle {
   /** Release every route this registration currently holds. */
   // 中文：释放本注册当前持有的全部路由。
   (): void
-  /**
+  /*
    * （中文）用 providers 替换本注册的路由，保持同一适配器实例。候选集先整体
    * 校验——与其他适配器冲突、名称非法或 provider 元数据错误都会抛错并保持
    * 现有路由不变——而交换本身是一个同步区段，没有任何请求能观察到空档。

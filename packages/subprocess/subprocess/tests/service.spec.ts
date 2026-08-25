@@ -23,7 +23,7 @@ import type {
  * defaulting, shell semantics, and deadlines belong to callers — so this stub
  * is all an implementation owes the abstract class.
  */
-/** 中文说明：class StubSubprocessRuntime 定义本测试所需的数据或行为，用于表达子进程管理场景。 */
+/* 中文说明：class StubSubprocessRuntime 定义本测试所需的数据或行为，用于表达子进程管理场景。 */
 class StubSubprocessRuntime extends SubprocessRuntime {
   async resolveExecutable(command: string): Promise<string> {
     return `/bin/${command}`

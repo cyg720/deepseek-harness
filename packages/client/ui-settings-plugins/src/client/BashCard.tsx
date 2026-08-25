@@ -1,5 +1,5 @@
 /** The shell plugin's card: the limits every command the agent runs is bound by. */
-/**
+/*
  * 中文说明：
  * - 文件职责：渲染 Shell 插件设置卡片，编辑命令超时和最大输出字节数。
  * - 技术维度：使用 React 函数组件、注入状态面、国际化文案和可复用 ValueField/PluginCard。
@@ -16,7 +16,7 @@ import type { BashCardFace } from './bash-card-controller.ts'
 import type {} from './slot-contract.ts'
 
 /** Props the renderer binds for the shell card. */
-/** 中文：渲染器绑定的 Shell 卡片属性，包含插槽运行时、翻译函数和控制器状态面。 */
+/* 中文：渲染器绑定的 Shell 卡片属性，包含插槽运行时、翻译函数和控制器状态面。 */
 export type BashCardProps =
   PropsRuntime<'settings.plugin.item'>
   & PropsLocale<'settings.plugins'>
@@ -27,7 +27,7 @@ export type BashCardProps =
  * @param props - locale copy, the card snapshot, and its form actions.
  * @returns the card.
  */
-/** 中文：渲染 Shell 配置卡片；props 提供状态和操作，返回 React 元素。示例：<BashCard {...props} />。 */
+/* 中文：渲染 Shell 配置卡片；props 提供状态和操作，返回 React 元素。示例：<BashCard {...props} />。 */
 export function BashCard(props: BashCardProps) {
   /** 设置插件命名空间的翻译函数。 */
   const { t } = props

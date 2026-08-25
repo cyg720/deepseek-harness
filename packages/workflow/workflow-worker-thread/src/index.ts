@@ -5,7 +5,7 @@
  * and permits forced termination, but it is containment rather than a security boundary.
  * @module @deepseek-ai/dsh-workflow-worker-thread
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -37,7 +37,7 @@ export type {
 } from './types.ts'
 
 /** Plugin config (all optional — `static Config` supplies the defaults). */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface Config {
   /** The `ctx.subagents` provider children run on (default `spawn`). */
   provider?: string
@@ -61,7 +61,7 @@ export interface Config {
 type ResolvedConfig = Required<Config>
 
 /** A body that still carries the Claude Code-style meta header (meta rides the seam as data here). */
-/** 中文说明：常量 META_STATEMENT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 META_STATEMENT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const META_STATEMENT = /^\s*export\s+const\s+meta\b/
 
 /**
@@ -72,7 +72,7 @@ const META_STATEMENT = /^\s*export\s+const\s+meta\b/
  * opening with `export const meta` gets a pointed message instead of the
  * wrapper's bare SyntaxError — the model's likeliest authoring slip.
  */
-/** 中文说明：函数 assertBodyParses 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 assertBodyParses 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertBodyParses(body: string, name: string): void {
   if (META_STATEMENT.test(body)) {
     throw new WorkflowError('workflow meta rides the `meta` request field, not the script: remove the `export const meta = {...}` statement from the body', 'SCRIPT_PARSE')
@@ -86,7 +86,7 @@ function assertBodyParses(body: string, name: string): void {
 }
 
 /** Resolve one run's provider route before publishing work. */
-/** 中文说明：函数 resolveSubagentProvider 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveSubagentProvider 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveSubagentProvider(ctx: Context, configured: string, override: string | undefined): string {
   /** 中文说明：变量 provider 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const provider = override ?? configured
@@ -103,7 +103,7 @@ function resolveSubagentProvider(ctx: Context, configured: string, override: str
 }
 
 /** Resolve one run's total-child cap against the engine deployment ceiling. */
-/** 中文说明：函数 resolveMaxTotalAgents 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveMaxTotalAgents 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveMaxTotalAgents(requested: number | undefined, ceiling: number): number {
   if (requested === undefined) return ceiling
   if (!Number.isSafeInteger(requested) || requested < 1) {

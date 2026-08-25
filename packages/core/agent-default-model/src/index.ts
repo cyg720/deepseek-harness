@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】默认模型选择服务（ctx.agentDefaultModel）：为没有显式指定模型的 agent 提供 provider/model/reasoningEffort 默认值，并支持通过 settings 动态读写。
  * 【技术维度】Cordis Service + schemastery 配置校验；settings 提供者可选（没挂载时退回组合配置项）；所有读取都经 currentSelection() 实时投影。

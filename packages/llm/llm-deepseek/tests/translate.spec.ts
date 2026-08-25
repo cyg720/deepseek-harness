@@ -30,7 +30,7 @@ async function collect(stream: AsyncIterable<StreamChunk>): Promise<StreamChunk[
 }
 
 /** The live first-chunk signature: role + null content + EMPTY reasoning. */
-/** 中文说明：测试局部值 firstChunk，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 firstChunk，由紧邻初始化决定。 */
 const firstChunk = { choices: [{ delta: { role: 'assistant', content: null, reasoning_content: '' } }] }
 
 describe('translate: text', () => {

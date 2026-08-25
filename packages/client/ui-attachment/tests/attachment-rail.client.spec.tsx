@@ -50,7 +50,7 @@ function item(id: string): AttachmentRailItem {
 }
 
 /** Stub the rail's scroll geometry (jsdom reports 0 for every metric). */
-/** 中文说明：函数 stubGeometry 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 stubGeometry 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function stubGeometry(rail: HTMLElement, { scrollWidth, clientWidth }: { scrollWidth: number; clientWidth: number }) {
   Object.defineProperty(rail, 'scrollWidth', { value: scrollWidth, configurable: true })
   Object.defineProperty(rail, 'clientWidth', { value: clientWidth, configurable: true })

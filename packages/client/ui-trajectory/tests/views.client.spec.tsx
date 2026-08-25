@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证运行轨迹的 views.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
  * 产品维度：防止运行轨迹展示与操作流程回归。
@@ -69,7 +69,7 @@ beforeEach(() => {
 })
 
 /** Node fixture: user prologue, two turns, one tool result inside turn 1. */
-/** 中文说明：测试局部值 NODES，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 NODES，由紧邻初始化决定。 */
 const NODES = [
   { kind: 'user', seq: 1, time: 1_000, content: [], source: null },
   {
@@ -163,7 +163,7 @@ function fakeSession(nodes: ConversationSnapshot['nodes']) {
 }
 
 /** Empty sessions-list hook; breadcrumbs therefore fall back to the raw id. */
-/** 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emptySessions() {
   /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<SessionListState>(
@@ -182,7 +182,7 @@ function emptyWorkspaces() {
 }
 
 /** Standalone view props: the session-scope standard kit the outlet would bake. */
-/** 中文说明：函数 standaloneProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 standaloneProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function standaloneProps(
   nodes: ConversationSnapshot['nodes'],
 ): ConvViewProps & { t: (key: LocaleKeysOf<'trajectory'>) => string } {
@@ -198,7 +198,7 @@ function standaloneProps(
 }
 
 /** Real-stack bench: root Context + real SlotRegistry ring + the plugin fiber. */
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(snapshot = historySnapshot(NODES)) {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -243,14 +243,14 @@ async function bench(snapshot = historySnapshot(NODES)) {
 }
 
 /** Tab projection twin of apply's viewTabs (the render-side consumption path). */
-/** 中文说明：函数 tabsOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 tabsOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tabsOf(slots: SlotRegistry): ViewTab[] {
   return slots.entries('conversation.view')
     .map(e => ({ id: e.options.id!, label: resolveSlotLabel(e.options.label) ?? e.options.id! }))
 }
 
 /** Mount the strict Session header/body over the ring ledger with outlet-faithful render shares. */
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mount(slots: SlotRegistry, nodes: ConversationSnapshot['nodes'] = NODES) {
   /** 中文说明：测试局部值 sessionSnapshot，由紧邻初始化决定。 */
   const sessionSnapshot = sessionSnapshots.get(slots) ?? createSnapshotStore(historySnapshot(nodes))

@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-home-paths
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的通用运行时工具行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的通用运行时工具能力稳定、可复现且可诊断。
@@ -17,15 +17,15 @@ import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
 /** Directory name for the default DeepSeek Harness home under the OS home. */
-/** 中文说明：常量 DSH_HOME_DIR_NAME 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DSH_HOME_DIR_NAME 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DSH_HOME_DIR_NAME = '.dsh'
 
 /** Stable user-facing display form for the default DeepSeek Harness home. */
-/** 中文说明：常量 DEFAULT_DSH_HOME_DISPLAY 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_DSH_HOME_DISPLAY 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DSH_HOME_DISPLAY = `~/${DSH_HOME_DIR_NAME}`
 
 /** Environment variable that overrides the default DeepSeek Harness home. */
-/** 中文说明：常量 DSH_HOME_ENV 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DSH_HOME_ENV 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DSH_HOME_ENV = 'DSH_HOME'
 
 /**
@@ -41,7 +41,11 @@ export const DSH_HOME_ENV = 'DSH_HOME'
  * @throws when ancestor traversal encounters an error other than absence, or
  * the existing ancestor of a missing suffix is not an enumerable directory.
  */
-/** 中文说明：函数 canonicalizeWatchPath 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 canonicalizeWatchPath 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function canonicalizeWatchPath(path: string): Promise<string> {
   /** 中文说明：变量 current 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let current = resolve(path)
@@ -75,7 +79,10 @@ export async function canonicalizeWatchPath(path: string): Promise<string> {
  * Resolve the default DeepSeek Harness home using Node's platform path rules.
  * @returns the absolute default harness home path.
  */
-/** 中文说明：函数 defaultDshHome 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 defaultDshHome 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function defaultDshHome(): string {
   return join(homedir(), DSH_HOME_DIR_NAME)
 }
@@ -85,7 +92,11 @@ export function defaultDshHome(): string {
  * @param path - configured path that may begin with `~`, `~/`, or `~\`.
  * @returns the expanded path, or the original value when no supported prefix is present.
  */
-/** 中文说明：函数 expandHomePath 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 expandHomePath 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function expandHomePath(path: string): string {
   if (path === '~') return homedir()
   if (path.startsWith('~/') || path.startsWith('~\\')) return join(homedir(), path.slice(2))
@@ -103,7 +114,12 @@ export function expandHomePath(path: string): string {
  * @param env - environment mapping used to read `DSH_HOME`.
  * @returns the normalized absolute harness home path.
  */
-/** 中文说明：函数 resolveDshHome 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 resolveDshHome 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param configured 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param env 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveDshHome(configured?: string, env: Record<string, string | undefined> = process.env): string {
   /** 中文说明：变量 fromEnv 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fromEnv = env[DSH_HOME_ENV]
@@ -117,7 +133,11 @@ export function resolveDshHome(configured?: string, env: Record<string, string |
  * @param segments - path segments appended to the Harness home; an empty list returns the home itself.
  * @returns the normalized absolute joined path.
  */
-/** 中文说明：函数 dshHomePath 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 dshHomePath 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param segments 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function dshHomePath(...segments: string[]): string {
   return join(resolveDshHome(), ...segments)
 }
@@ -130,7 +150,11 @@ export function dshHomePath(...segments: string[]): string {
  * @param resolvedHome - the absolute path returned by {@link resolveDshHome}.
  * @returns `~/.dsh` for the default home, otherwise `$DSH_HOME`.
  */
-/** 中文说明：函数 dshHomeDisplay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 dshHomeDisplay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param resolvedHome 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function dshHomeDisplay(resolvedHome: string): string {
   return resolvedHome === resolve(defaultDshHome()) ? DEFAULT_DSH_HOME_DISPLAY : `$${DSH_HOME_ENV}`
 }

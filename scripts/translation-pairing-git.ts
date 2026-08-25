@@ -1,5 +1,5 @@
 /** Git-blob operations owned by the bilingual pairing workflow. */
-/**
+/*
  * 文件职责：实现 translation-pairing-git.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -15,11 +15,11 @@ import { createHash } from 'node:crypto'
 const SNAPSHOT_REF_PREFIX = 'refs/dsh/translation-pairing/snapshots'
 
 /** Maximum buffered stdout or stderr for repository-owned Git subprocesses. */
-/** 中文说明：常量 GIT_COMMAND_MAX_BUFFER 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 GIT_COMMAND_MAX_BUFFER 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const GIT_COMMAND_MAX_BUFFER = 1 << 26
 
 /** Full SHA-1 Git blob hash (the 40-hex format used by pairing records). */
-/** 中文说明：函数 gitBlobHash 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 gitBlobHash 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function gitBlobHash(content: Buffer): string {
   /** 中文说明：变量 hash 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hash = createHash('sha1')
@@ -38,7 +38,7 @@ export function gitBlobHash(content: Buffer): string {
  * @returns Exact stdout bytes.
  * @throws Error when Git cannot start or exits unsuccessfully.
  */
-/** 中文说明：函数 runGit 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 runGit 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function runGit(root: string, args: string[], operation: string, input?: Buffer): Buffer {
   /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = spawnSync('git', ['-C', root, ...args], {
@@ -55,7 +55,7 @@ export function runGit(root: string, args: string[], operation: string, input?: 
 }
 
 /** One regular stage-zero Git index entry and its exact blob bytes. */
-/** 中文说明：interface GitIndexBlob 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface GitIndexBlob 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface GitIndexBlob {
   /** Object ID recorded in the index. */
   objectId: string
@@ -64,7 +64,7 @@ export interface GitIndexBlob {
 }
 
 /** Every stage-zero path currently present in the Git index. */
-/** 中文说明：函数 gitIndexPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 gitIndexPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function gitIndexPaths(root: string): Set<string> {
   /** 中文说明：变量 paths 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const paths = new Set<string>()
@@ -91,7 +91,7 @@ export function gitIndexPaths(root: string): Set<string> {
  * heads into stage zero. The explicit post-conflict resolver has no GITHEAD
  * entries and therefore uses the already-merged index alone.
  */
-/** 中文说明：函数 gitMergeInputPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 gitMergeInputPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function gitMergeInputPaths(root: string, environment: NodeJS.ProcessEnv = process.env): Set<string> {
   /** 中文说明：变量 paths 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const paths = gitIndexPaths(root)
@@ -120,7 +120,7 @@ export function gitMergeInputPaths(root: string, environment: NodeJS.ProcessEnv 
  * @returns The stage-zero blob, or `undefined` when the path is absent.
  * @throws Error when the path is unmerged or its index entries are not a valid merge state.
  */
-/** 中文说明：函数 readGitIndexBlob 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 readGitIndexBlob 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function readGitIndexBlob(root: string, path: string): GitIndexBlob | undefined {
   /** 中文说明：变量 output 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const output = runGit(
@@ -147,7 +147,7 @@ export function readGitIndexBlob(root: string, path: string): GitIndexBlob | und
  * commit. The returned object ID is checked against the pairing format's own
  * content hash before the caller writes a sidecar.
  */
-/** 中文说明：函数 storeGitBlob 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 storeGitBlob 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function storeGitBlob(root: string, content: Buffer): string {
   /** 中文说明：变量 expected 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const expected = gitBlobHash(content)

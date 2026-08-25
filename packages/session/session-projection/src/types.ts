@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】session-projection 的纯类型出口：两张可合并扩展的类型表
  *   （客户端视图表 SessionProjectionMap、宿主折叠状态表 SessionProjectionStateMap）。

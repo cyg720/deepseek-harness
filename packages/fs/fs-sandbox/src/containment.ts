@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】文件系统沙箱的"路径包含判定"机制：判断一个规范目标是否在可写根
  * 之内或之下。
@@ -22,7 +22,7 @@
  * fallback for alias-equivalent roots such as Windows 8.3 names and casing.
  * @module @deepseek-ai/dsh-fs-sandbox/containment
  */
-/**
+/*
  * 模块总览：本文件解决"某路径是否在根目录之内"的判定，兼顾性能（词汇快路径）
  * 与正确性（身份回退处理别名等价拼写）。
  */
@@ -83,7 +83,7 @@ function sameIdentity(left: BigIntStats, right: BigIntStats): boolean {
  *   to the host filesystem convention used by supported platforms.
  * @returns whether the target is the root or a descendant of it.
  */
-/**
+/*
  * 判断规范目标是否是可写根本身或位于其下。词汇快路径处理正常规范拼写；
  * 拼写不同时沿目标已有祖先逐级向上、与根做文件系统身份比对——这样能识别
  * Windows 长名/8.3 别名与大小写差异，而不把包含判定弱化成文本近似。

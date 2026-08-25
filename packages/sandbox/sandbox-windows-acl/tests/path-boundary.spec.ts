@@ -1,5 +1,5 @@
 /** Canonical path-overlap checks that keep workspace and temp capabilities separate. */
-/**
+/*
  * 中文说明：
  * - 文件职责：验证 Windows ACL 沙箱对工作区与私有临时目录包含关系的拒绝和接受规则。
  * - 技术维度：使用 Vitest、真实临时目录、Node 路径与同步文件系统 API。

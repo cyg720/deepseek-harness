@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】/plugins/events 开发 SSE 通道的线协议——本包两个半边（节点
  *   半边的发布端与浏览器半边的接收端）共享的唯一类型来源。
@@ -18,7 +18,7 @@
  * browser half validates them at its JSON parse point; sharing the type keeps
  * the two ends from drifting, not from parsing.
  */
-/**
+/*
  * /plugins/events 开发 SSE 通道的线协议——本包两个半边的单一来源。帧仍跨
  * 线上边界：浏览器半边在其 JSON 解析点校验；共享类型只是防止两端漂移，
  * 并不替代解析。
@@ -27,11 +27,11 @@
 import type { WebBootGraph } from '@deepseek-ai/dsh-client-modules'
 
 /** One SSE frame: the full graph on connect, or one rebuilt bundle notice. */
-/** 一个 SSE 帧：连接时的完整图，或一条重建 bundle 通知。 */
+/* 一个 SSE 帧：连接时的完整图，或一条重建 bundle 通知。 */
 export type PluginsEventFrame =
   | { type: 'graph'; graph: WebBootGraph }
   | { type: 'rebuilt'; id: string; rev: string }
 
 /** System SSE endpoint pushing graph/rebuilt frames (wire protocol constant). */
-/** 推送 graph/rebuilt 帧的系统 SSE 端点（线协议常量）。 */
+/* 推送 graph/rebuilt 帧的系统 SSE 端点（线协议常量）。 */
 export const EVENTS_ENDPOINT = '/plugins/events'

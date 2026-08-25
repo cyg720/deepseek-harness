@@ -9,7 +9,7 @@
  * guarded surface as a genuine plugin, or neither activation gating nor the
  * disposal cascade under test would be real.
  */
-/**
+/*
  * 文件职责：验证Cordis 客户端运行器的 runner.client.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证Cordis 客户端运行器在配置、运行、失败和清理场景中可理解且可靠。
@@ -47,7 +47,7 @@ function runId(value: number): CordisDynamicPluginRunId {
 }
 
 /** One browser half as the host hands it over. */
-/** 中文说明：函数 half 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 half 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function half(overrides: Partial<DynamicCordisClientHalf> = {}): DynamicCordisClientHalf {
   return {
     pluginId: PLUGIN,
@@ -91,7 +91,7 @@ interface Bench {
  * through `fiber.await()`; without a handler on the fiber itself, a deliberately
  * failing package would also surface as an unhandled rejection.
  */
-/** 中文说明：函数 seated 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 seated 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function seated<T>(fiber: T): T {
   void Promise.resolve(fiber).catch(() => {})
   return fiber
@@ -422,7 +422,7 @@ describe('observation and disposal', () => {
 
 describe('render failures', () => {
   /** A package that seats one component in `root`, so a crash has something to name. */
-  /** 中文说明：测试局部值 CONTRIBUTOR，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 CONTRIBUTOR，由紧邻初始化决定。 */
   const CONTRIBUTOR = `return {
     inject: ['slots'],
     apply(ctx) { ctx.slots.register({ name: 'root' }, () => null) },

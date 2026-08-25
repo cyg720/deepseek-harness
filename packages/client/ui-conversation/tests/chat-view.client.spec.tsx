@@ -68,7 +68,7 @@ function snapshotBase(): ConversationSnapshot {
 }
 
 /** Scripted snapshot source: set() swaps the top-level object like the real Session. */
-/** 中文说明：函数 makeSource 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 makeSource 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function makeSource(init?: Partial<ConversationSnapshot>) {
   /** 中文说明：测试局部值 initial，取值由紧邻初始化决定。 */
   const initial = { ...snapshotBase(), ...init }
@@ -161,7 +161,7 @@ const compaction = (over: Partial<CompactionSummaryNode> = {}): CompactionSummar
 })
 
 /** Empty sessions-list hook for the global standard-kit seat. */
-/** 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function emptySessions() {
   /** 中文说明：状态快照 store，取值由紧邻初始化决定。 */
   const store = createSnapshotStore<SessionListState>(
@@ -358,7 +358,7 @@ function makeHarness(init?: Partial<ConversationSnapshot>) {
 
 /** Simulate reader input (any device): a delivered position that deviates
  * from the observed-top ledger of programmatic writes. */
-/** 中文说明：函数 readerScroll 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 readerScroll 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function readerScroll(element: HTMLElement, top: number): void {
   element.scrollTop = top
   fireEvent.scroll(element)

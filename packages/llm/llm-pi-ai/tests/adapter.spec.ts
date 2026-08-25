@@ -54,7 +54,7 @@ async function harness(baseURL: string, overrides: Record<string, unknown> = {})
 }
 
 /** Direct adapter over the real profile resolver, with a fixed key per call. */
-/** 中文说明：函数 adapterOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 adapterOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function adapterOf(
   providers: Record<string, LlmPiAi.PiAiProviderProfile>,
   apiKey: string | undefined = 'test-key',

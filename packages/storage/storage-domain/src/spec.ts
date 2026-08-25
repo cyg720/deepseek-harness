@@ -12,17 +12,17 @@ import type { ZodType } from 'zod'
 import { UNIT_NAME_RE, type KvUnitDescriptor } from '@deepseek-ai/dsh-storage'
 
 /** Global singleton declaration: schema plus the value used before the first write. */
-/**
+/*
  * 全局单例（global）的声明：领域里一个可选的"全局唯一值"槽位。
  * 与表不同，它不是按键存取的集合，而是整个领域只有一个值（例如一段全局配置）。
  * schema 负责校验该值，initial 负责在介质尚无该值时兜底。
  */
 export interface DomainGlobalSpec<G> {
   /** Validates the stored global at the durable boundary. */
-  /** 在持久化边界校验存储的 global 值：介质里的原始数据必须符合它才能被读取。 */
+  /* 在持久化边界校验存储的 global 值：介质里的原始数据必须符合它才能被读取。 */
   readonly schema: ZodType<G>
   /** Value served when the medium holds no global yet; not written until the first `set`. */
-  /** 介质中还没有 global 时对外提供的初始值；该值不会写入介质，直到第一次 set 才落盘。 */
+  /* 介质中还没有 global 时对外提供的初始值；该值不会写入介质，直到第一次 set 才落盘。 */
   readonly initial: G
 }
 
@@ -31,42 +31,42 @@ export interface DomainGlobalSpec<G> {
  * string) carried for compile-time projection only; keys are plain strings on
  * the medium.
  */
-/**
+/*
  * 单张"表"（table）的声明：表是一组"字符串键 → 结构化记录"的集合，类似数据库表。
  * K 是"幻影键类型"（phantom type）：只在编译期把键的类型（通常是 Branded 字符串）
  * 带给使用者，运行时介质里的键始终是普通字符串。V 是记录值的类型。
  */
 export interface DomainTableSpec<K extends string = string, V = unknown> {
   /** Validates every stored record at the durable boundary. */
-  /** 在持久化边界校验每条存储记录；记录 schema 用 zod 编写，同一 schema 日后可投影成 RPC schema。 */
+  /* 在持久化边界校验每条存储记录；记录 schema 用 zod 编写，同一 schema 日后可投影成 RPC schema。 */
   readonly valueSchema: ZodType<V>
   /** Phantom carrier for the key type; never present at runtime. */
-  /** 键类型的"幻影载体"：只用来让 TypeScript 记住键的类型，运行时不存在该字段。 */
+  /* 键类型的"幻影载体"：只用来让 TypeScript 记住键的类型，运行时不存在该字段。 */
   readonly __key?: K
 }
 
 /** Static declaration of one domain: identity, version, and record layout. */
-/**
+/*
  * 一个领域的静态声明：身份（name）、格式版本（version）与记录布局（tables/global）。
  * 它是整个领域定义的"唯一事实来源"：类型派生与运行时行为都由它决定。
  */
 export interface DomainSpec {
   /** Domain name; must match `UNIT_NAME_RE` (doubles as the backend unit name). */
-  /** 领域名；必须匹配 UNIT_NAME_RE（该正则约束也决定了它可作后端单元名，即介质上的存储单元名）。 */
+  /* 领域名；必须匹配 UNIT_NAME_RE（该正则约束也决定了它可作后端单元名，即介质上的存储单元名）。 */
   readonly name: string
   /** Domain format version; a medium stamped with a different version rejects at open. */
-  /** 领域格式版本；介质上盖的版本戳与之不同时，打开介质会被拒绝（防止读到不兼容的旧格式）。 */
+  /* 领域格式版本；介质上盖的版本戳与之不同时，打开介质会被拒绝（防止读到不兼容的旧格式）。 */
   readonly version: number
   /** Optional global singleton slot. */
-  /** 可选的全局单例槽位；不声明就没有 global。 */
+  /* 可选的全局单例槽位；不声明就没有 global。 */
   readonly global?: DomainGlobalSpec<unknown>
   /** Table declarations keyed by table name; each name must match `UNIT_NAME_RE`. */
-  /** 表声明集合，以表名为键；每个表名都必须匹配 UNIT_NAME_RE。 */
+  /* 表声明集合，以表名为键；每个表名都必须匹配 UNIT_NAME_RE。 */
   readonly tables: Record<string, DomainTableSpec>
 }
 
 /** Key type of one declared table, recovered from its phantom carrier. */
-/**
+/*
  * 从领域声明 S 与表名 N 反推出该表的键类型（取自幻影载体）。条件类型（conditional type）
  * 是 TypeScript 在"类型层面"的 if/else，这里用 extends 判断并取出 infer 推断的类型。
  */
@@ -74,12 +74,12 @@ export type TableKeyOf<S extends DomainSpec, N extends keyof S['tables']> =
   S['tables'][N] extends DomainTableSpec<infer K> ? K : never
 
 /** Value type of one declared table. */
-/** 从领域声明 S 与表名 N 反推出该表的记录值类型。 */
+/* 从领域声明 S 与表名 N 反推出该表的记录值类型。 */
 export type TableValueOf<S extends DomainSpec, N extends keyof S['tables']> =
   S['tables'][N] extends DomainTableSpec<string, infer V> ? V : never
 
 /** Global value type of a spec; `never` when the spec declares no global. */
-/**
+/*
  * 反推出领域声明的 global 值类型；声明中没有 global 时结果是 never。
  * never 表示"该类型不存在"：此时访问 global 的代码会在编译期报错，起到类型防线作用。
  */
@@ -91,10 +91,12 @@ export type GlobalValueOf<S extends DomainSpec> =
  * @param schema - zod schema validating every stored record of this table.
  * @returns the table declaration, key-typed by `K`.
  */
-/**
+/*
  * 声明一张表的辅助函数：给定记录值的 zod schema，返回该表的声明对象。
  * K 泛型由调用方显式给出（或由上下文推断），决定这张表的键类型。
  * 使用示例：domainTable<SessionId, Session>(sessionSchema)
+ * @param schema 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function domainTable<K extends string, V>(schema: ZodType<V>): DomainTableSpec<K, V> {
   return { valueSchema: schema }
@@ -112,7 +114,7 @@ export function domainTable<K extends string, V>(schema: ZodType<V>): DomainTabl
  * @param spec - The domain declaration.
  * @returns the same spec, narrowed to its literal type.
  */
-/**
+/*
  * 领域声明入口：既"钉住"声明的字面量类型（让 TypeScript 保留精确的 name/version 字面量），
  * 又做加载期校验，使错误配置在所属包模块加载时就立刻报错（fail loud），而不是等到读写介质才暴露。
  * 校验点：域名、表名必须匹配 UNIT_NAME_RE；version 必须是非负整数；global 的 schema 不得接受 null。
@@ -147,9 +149,11 @@ export function defineDomain<S extends DomainSpec>(spec: S): S {
  * @param spec - The domain declaration.
  * @returns the descriptor handed to `KvFacet.open`.
  */
-/**
+/*
  * 把领域声明"投影"成后端面对的描述符：后端（SQLite、JSON 文件等介质）只认这个最小结构，
  * 不关心 zod schema 等上层细节。KvFacet.open 用该描述符打开对应单元。
+ * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function descriptorOf(spec: DomainSpec): KvUnitDescriptor {
   return {

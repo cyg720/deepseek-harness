@@ -19,7 +19,7 @@ import type {
  * only (ids, snapshots, authorization-shaped signatures); the registry
  * behavior suite lives with `@deepseek-ai/dsh-jobs-local`.
  */
-/** 中文说明：类型或类 StubJobRegistry 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 StubJobRegistry 约束宿主、交互或任务数据职责。 */
 class StubJobRegistry extends JobRegistry {
   snapshotOf(id: JobId): JobSnapshot {
     return {

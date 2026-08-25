@@ -6,7 +6,7 @@
  * domain-face behavior is covered props-direct in question-composer.spec.tsx;
  * no renderer machinery here.
  */
-/**
+/*
  * 文件职责：验证用户提问与计划复审的 browser-plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
  * 产品维度：防止用户提问与计划复审展示与操作流程回归。

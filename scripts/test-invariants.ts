@@ -4,7 +4,7 @@
  * One topology test mounts every companion; focused invariant tests own their
  * service topology explicitly.
  */
-/**
+/*
  * 文件职责：实现 test-invariants.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -34,7 +34,7 @@ declare global {
 }
 
 /** Loader-safe exports shared by every package invariant companion. */
-/** 中文说明：interface TestInvariantCompanion 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface TestInvariantCompanion 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface TestInvariantCompanion {
   readonly name: string
   readonly inject: readonly string[]
@@ -43,7 +43,7 @@ export interface TestInvariantCompanion {
 }
 
 /** Private service dependency that holds ordinary root plugins until invariant startup completes. */
-/** 中文说明：常量 TEST_INVARIANT_READY_SERVICE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TEST_INVARIANT_READY_SERVICE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const TEST_INVARIANT_READY_SERVICE = 'testInvariantReady'
 
 /**
@@ -53,12 +53,12 @@ export const TEST_INVARIANT_READY_SERVICE = 'testInvariantReady'
  * registration while per-file setup stops importing 168 companions and their
  * transitive package sources.
  */
-/** 中文说明：函数值 testInvariantCompanions 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
+/* 中文说明：函数值 testInvariantCompanions 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
 export const testInvariantCompanions: Readonly<Record<string, () => Promise<TestInvariantCompanion>>> =
   import.meta.glob<TestInvariantCompanion>('../packages/*/*/src/invariant.ts')
 
 /** Manual-topology suites whose names cannot follow the focused invariant convention. */
-/** 中文说明：常量 MANUAL_INVARIANT_TEST_EXCEPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MANUAL_INVARIANT_TEST_EXCEPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MANUAL_INVARIANT_TEST_EXCEPTIONS = [
   '/packages/runtime-diagnostics/invariants/tests/service.spec.ts',
   '/packages/examples/agent-spine-demo/tests/agent-core.spec.ts',
@@ -127,7 +127,7 @@ RegistryService.prototype.plugin = function(plugin: Plugin, config?: unknown, ge
  * @param testPath - absolute or repo-relative Vitest file path.
  * @returns whether the global invariant host must leave the root untouched.
  */
-/** 中文说明：函数 usesManualInvariantTree 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 usesManualInvariantTree 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function usesManualInvariantTree(testPath: string): boolean {
   /** 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const normalized = testPath.replaceAll('\\', '/')
@@ -172,7 +172,7 @@ class TestAttachmentStore extends AttachmentStore {
  * @param testPath - absolute or repo-relative normalized Vitest file path.
  * @returns sorted `import.meta.glob` keys for companions to mount.
  */
-/** 中文说明：函数 testInvariantCompanionPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 testInvariantCompanionPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function testInvariantCompanionPaths(testPath: string): string[] {
   /** 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const normalized = testPath.replaceAll('\\', '/')

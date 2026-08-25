@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】tool-fs 包的"不变式伴生插件"：登记一个空的自检安装器。
  * 【技术维度】Cordis 伴生插件形态：导出 name/inject/apply；install 为空函数。
@@ -15,7 +15,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-tool-fs`.
  * @module @deepseek-ai/dsh-tool-fs/invariant
  */
-/**
+/*
  * 模块总览：工具层是薄适配器，执行关系由能力接缝（dsh-fs 等）拥有，
  * 故 install 为空，仅做体系占位。
  */

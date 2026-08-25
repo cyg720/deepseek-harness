@@ -12,7 +12,7 @@
  * Network reachability and authentication stay out of scope: binding policy
  * belongs to the webserver config, and this fence is not an auth layer.
  */
-/**
+/*
  * 文件职责：为每个/api请求执行Host、Fetch-Metadata和Origin信任检查，阻止DNS重绑定与跨站浏览器调用。
  * 技术维度：使用WHATWG URL规范化Node/Fetch请求头，并按回环地址和部署trustedHosts比较authority。
  * 产品维度：保护本地Harness HTTP API不被恶意网页借用浏览器访问，同时允许合法CLI、LAN和显式信任客户端。
@@ -25,7 +25,7 @@ import type { IncomingHttpHeaders } from 'node:http'
 import { isLoopbackHostname } from './loopback-hostname.ts'
 
 /** The request facts the fence reads from either HTTP representation. */
-/** 信任围栏从Node HTTP或Fetch表示中读取的最小请求事实。 */
+/* 信任围栏从Node HTTP或Fetch表示中读取的最小请求事实。 */
 interface ApiTrustRequest {
   /** Node IncomingHttpHeaders或浏览器Headers对象。 */
   headers: IncomingHttpHeaders | Headers
@@ -39,7 +39,7 @@ function header(headers: IncomingHttpHeaders | Headers, name: string): string | 
 }
 
 /** Normalized URL of a Host-header authority (hostname lowercased, default port stripped, IPv6 bracketed), or undefined when unparsable. */
-/** 将Host authority解析为规范URL；无法解析时返回undefined。 */
+/* 将Host authority解析为规范URL；无法解析时返回undefined。 */
 function parseAuthority(authority: string): URL | undefined {
   try {
     // http: is a WHATWG "special scheme": parsing yields a non-empty hostname or throws.

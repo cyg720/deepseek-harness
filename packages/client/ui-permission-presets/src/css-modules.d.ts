@@ -6,7 +6,7 @@
  * 关键边界：类型只保证键值为字符串，不能证明某个类名真实存在。
  * 新手阅读建议：先看组件的样式导入，再回到 CSS 文件核对对应类选择器。
  */
-/** 使用方式：`import styles from './Permission.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Permission.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键和值均为字符串，内容由 CSS Modules 构建步骤生成。 */
   const classes: Record<string, string>

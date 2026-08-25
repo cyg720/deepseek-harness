@@ -1,7 +1,7 @@
 /** ui-theme apply wiring: service provision, settings dictionaries riding the
  * locale service, declaration-aware Appearance row registration, snapshot
  * projection into the row store, and HMR collapse recovery. */
-/**
+/*
  * 文件职责：验证主题与设计系统的 apply.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止主题与设计系统显示、导航或生命周期回归。
@@ -84,7 +84,7 @@ async function bench(isLoopback = true) {
 }
 
 /** Stand in for the settings shell: declare the General item slot from root. */
-/** 中文说明：函数 declareItems 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 declareItems 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function declareItems(slots: SlotRegistry): () => void {
   return slots.register(
     { name: 'root', children: { [SLOT]: { kind: 'list', scope: 'root' } } } as never,
@@ -94,7 +94,7 @@ function declareItems(slots: SlotRegistry): () => void {
 
 /** Mirror the framework's inject choreography: bake a real instance from the
  * declared handle and hand its actions to the entry's inject factory. */
-/** 中文说明：函数 faceOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 faceOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function faceOf(slots: SlotRegistry) {
   /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
   const entry = slots.entries(SLOT).find(e => e.component === AppearanceRow)!

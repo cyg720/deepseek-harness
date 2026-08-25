@@ -7,7 +7,7 @@
  *
  * @module @deepseek-ai/dsh-session/surface
  */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】在会话事件日志之上实现“表面（surface）”层：一个由产生 LLM 消息的事件构成的有序视图；
  *           并提供类型守卫（isSurfaceEvent 等）、单事件投影规则（deriveEventMessage）、全量折叠
@@ -45,7 +45,7 @@ const SURFACE_EVENT_TYPES = new Set<string>([
  * @param type - event type to test.
  * @returns true for one of the three message-producing event types.
  */
-/**
+/*
  * 判断一个事件类型是否允许进入模型可见表面。
  * @param type - 待判断的事件类型字符串。
  * @returns 是三种产生消息的事件类型之一时为 true。
@@ -59,7 +59,7 @@ export function isSurfaceEligibleType(type: string): boolean {
  * @param event - event to test.
  * @returns true when both the type and marker identify a surface event.
  */
-/**
+/*
  * 把事件收窄为“带必需标记的表面合格事件”：类型与 surfaceOp 标记两者齐备才算表面事件。
  * @param event - 待判断的事件。
  * @returns 类型与标记都能确认时为 true（此时参数类型收窄为 SurfaceEvent）。
@@ -80,7 +80,7 @@ export function isSurfaceEvent(event: SessionEvent): event is SurfaceEvent {
  * @param event - event to test.
  * @returns true when the event appended to the surface tail.
  */
-/**
+/*
  * 收窄为“追加式”表面事件：在自己的日志位置进入表面、且从未充当替换副本的事件。
  * 模型可见表面刻意保留被替换区间的“影子”，因此不适合做人读转录——一次落地替换会
  * 抹掉用户已经看过的对话；追加来源事件才是人类转录的耐久素材，替换副本只供模型使用。
@@ -100,7 +100,7 @@ export function isAppendSurfaceEvent(
  * @param event - event to test.
  * @returns true when the event replaced a surface range.
  */
-/**
+/*
  * 收窄为“替换式”表面节点：遮蔽了既有表面区间而非追加到尾部的事件，
  * 是 {@link isAppendSurfaceEvent} 在两个 {@link SurfaceOp} 变体上的对应面。
  * @param event - 待判断的事件。
@@ -125,7 +125,7 @@ export function isReplacementSurfaceEvent(
  * @param event - the event to project.
  * @returns the derived message, or null when the event produces none.
  */
-/**
+/*
  * 把单个事件投影为它派生出的 LLM 消息；不产生消息时返回 null——非表面事件
  * （chunk、边界标记、纯日志记录）以及空内容的 assistant/message（只为承载 usage 存在）
  * 都属于此类。这是唯一的“单节点投影规则”：Session.deriveMessages 在活跃表面上折叠它，
@@ -174,16 +174,16 @@ export function deriveEventMessage(event: SessionEvent): Message | null {
 }
 
 /** One replacement operation observed while folding a session surface. */
-/** 折叠会话表面过程中观察到的一次替换操作。 */
+/* 折叠会话表面过程中观察到的一次替换操作。 */
 export interface SurfaceFoldReplacement {
   /** Seq of the event that replaced the prior surface range. */
-  /** 执行替换的事件 seq。 */
+  /* 执行替换的事件 seq。 */
   seq: number
   /** Declared inclusive start seq of the replaced surface range. */
-  /** 声明的被替换表面区间起点（含端点）。 */
+  /* 声明的被替换表面区间起点（含端点）。 */
   start: number
   /** Declared inclusive end seq of the replaced surface range. */
-  /** 声明的被替换表面区间终点（含端点）。 */
+  /* 声明的被替换表面区间终点（含端点）。 */
   end: number
   /** Actual surface entries removed by the operation, in surface order. */
   // 实际被该操作移除的表面条目 seq，按表面顺序排列。
@@ -191,29 +191,29 @@ export interface SurfaceFoldReplacement {
 }
 
 /** Complete result of replaying the surface operations in a session log. */
-/** 重放一段会话日志中全部表面操作的完整结果。 */
+/* 重放一段会话日志中全部表面操作的完整结果。 */
 export interface SurfaceFoldResult {
   /** Current surface event sequences in model-visible order. */
-  /** 当前表面事件 seq，按模型可见顺序。 */
+  /* 当前表面事件 seq，按模型可见顺序。 */
   nodes: number[]
   /** Replacement operations in event order. */
-  /** 按事件顺序排列的替换操作列表。 */
+  /* 按事件顺序排列的替换操作列表。 */
   replacements: SurfaceFoldReplacement[]
 }
 
 /** Readonly live projection of the message-producing session events. */
-/** 产生消息的会话事件的只读活跃投影（对外接口）。 */
+/* 产生消息的会话事件的只读活跃投影（对外接口）。 */
 export interface SessionSurface {
   /** Current surface event sequences in model-visible order. */
-  /** 当前表面事件 seq，按模型可见顺序。 */
+  /* 当前表面事件 seq，按模型可见顺序。 */
   readonly nodes: readonly number[]
   /** Monotonic count of committed positional replacements. */
-  /** 已提交位置替换的单调计数；变化即表示表面发生过改写，派生缓存需重建。 */
+  /* 已提交位置替换的单调计数；变化即表示表面发生过改写，派生缓存需重建。 */
   readonly replaceGeneration: number
 }
 
 /** Mutable state shared by complete and incremental folds. */
-/** 完整折叠与增量折叠共享的可变内部状态。 */
+/* 完整折叠与增量折叠共享的可变内部状态。 */
 interface SurfaceFoldState {
   // 当前表面节点 seq 列表。
   nodes: number[]
@@ -222,7 +222,7 @@ interface SurfaceFoldState {
 }
 
 /** A validated replacement transition that has not mutated fold state yet. */
-/** 已通过校验、尚未改动折叠状态的替换过渡计划。 */
+/* 已通过校验、尚未改动折叠状态的替换过渡计划。 */
 interface SurfaceReplacePlan extends SurfaceFoldReplacement {
   kind: 'replace'
   // 被替换区间在当前 nodes 数组中的起始下标。
@@ -232,25 +232,25 @@ interface SurfaceReplacePlan extends SurfaceFoldReplacement {
 }
 
 /** One validated surface transition that has not mutated fold state yet. */
-/** 一种已校验、尚未改动状态的表面过渡：追加或替换。 */
+/* 一种已校验、尚未改动状态的表面过渡：追加或替换。 */
 type SurfacePlan =
   | { kind: 'append'; seq: number }
   | SurfaceReplacePlan
 
 /** Create an empty surface fold state. */
-/** 创建一个空的表面折叠状态。 */
+/* 创建一个空的表面折叠状态。 */
 function createFoldState(): SurfaceFoldState {
   return { nodes: [], replaceGeneration: 0 }
 }
 
 /** Whether a runtime value is a non-negative safe event sequence. */
-/** 判断运行时值是否为非负安全整数范围内的事件序号。 */
+/* 判断运行时值是否为非负安全整数范围内的事件序号。 */
 function isEventSeq(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
 /** Whether a runtime value is the exact positional-replacement shape. */
-/** 判断运行时值是否恰好是位置替换操作的结构（op/start/end 三键、值类型正确）。 */
+/* 判断运行时值是否恰好是位置替换操作的结构（op/start/end 三键、值类型正确）。 */
 function isReplaceOp(value: object): value is Extract<SurfaceOp, { op: 'replace' }> {
   const op = value as Record<string, unknown>
   return Object.keys(op).length === 3
@@ -263,7 +263,7 @@ function isReplaceOp(value: object): value is Extract<SurfaceOp, { op: 'replace'
 }
 
 /** Validate event-local surface eligibility and return its operation. */
-/** 校验单个事件的表面资格并返回其表面操作：非表面事件携带标记、表面合格事件缺标记、标记形状非法都会抛错。 */
+/* 校验单个事件的表面资格并返回其表面操作：非表面事件携带标记、表面合格事件缺标记、标记形状非法都会抛错。 */
 function surfaceOpOf(event: SessionEvent): SurfaceOp | undefined {
   const raw = event as SessionEvent & { surfaceOp?: unknown; sourceEventSeqs?: unknown }
   if (!isSurfaceEligibleType(event.type)) {
@@ -290,7 +290,7 @@ function surfaceOpOf(event: SessionEvent): SurfaceOp | undefined {
 }
 
 /** Validate cited source-event seqs against prior log entries and the replacement range. */
-/** 对照先前日志条目与替换区间，校验事件引用的源事件 seq：必须是更早事件的非重复安全整数集合；替换时还必须覆盖全部被遮蔽节点。 */
+/* 对照先前日志条目与替换区间，校验事件引用的源事件 seq：必须是更早事件的非重复安全整数集合；替换时还必须覆盖全部被遮蔽节点。 */
 function assertProvenance(
   event: SessionEvent,
   shadowedSeqs: readonly number[],
@@ -329,7 +329,7 @@ function assertProvenance(
 }
 
 /** Locate one replacement range without mutating the current fold state. */
-/** 在当前表面中定位替换区间的下标范围，不修改折叠状态；start/end 不存在或先后颠倒会抛错。 */
+/* 在当前表面中定位替换区间的下标范围，不修改折叠状态；start/end 不存在或先后颠倒会抛错。 */
 function replacementRange(
   state: SurfaceFoldState,
   op: Extract<SurfaceOp, { op: 'replace' }>,
@@ -357,7 +357,7 @@ function replacementRange(
  * (null/boolean/number/string, arrays, plain objects). Replaces
  * `node:util`'s isDeepStrictEqual to keep this module browser-safe.
  */
-/**
+/*
  * 会话事件 JSON 值域（null/布尔/数字/字符串、数组、普通对象）上的深结构相等比较。
  * 自行实现以替代 node:util 的 isDeepStrictEqual，保持本模块浏览器可用。
  */
@@ -375,7 +375,7 @@ function isDeepEqualJson(a: unknown, b: unknown): boolean {
 }
 
 /** Restrict a tool-result replacement to one current result's content. */
-/** 限制 tool/result 的替换：只能改写当前某一个 tool/result，且除 content 内容本身外其余部分必须与原事件完全一致。 */
+/* 限制 tool/result 的替换：只能改写当前某一个 tool/result，且除 content 内容本身外其余部分必须与原事件完全一致。 */
 function assertToolResultRewrite(
   event: SessionEvent,
   shadowedSeqs: readonly number[],
@@ -411,7 +411,7 @@ function assertToolResultRewrite(
 }
 
 /** Validate one event at its replay boundary and prepare its atomic fold transition. */
-/** 在重放边界处校验一个事件并准备其原子折叠过渡计划（不改动状态）；seq 不连续立即抛错。 */
+/* 在重放边界处校验一个事件并准备其原子折叠过渡计划（不改动状态）；seq 不连续立即抛错。 */
 function planSurfaceEvent(
   state: SurfaceFoldState,
   event: SessionEvent,
@@ -441,7 +441,7 @@ function planSurfaceEvent(
 }
 
 /** Apply one event and return replacement metadata only when one occurred. */
-/** 应用一个事件：先规划（校验）再提交；发生替换时返回其元数据。 */
+/* 应用一个事件：先规划（校验）再提交；发生替换时返回其元数据。 */
 function applySurfaceEvent(
   state: SurfaceFoldState,
   event: SessionEvent,
@@ -454,7 +454,7 @@ function applySurfaceEvent(
 }
 
 /** Commit one previously validated surface transition. */
-/** 提交一个此前已校验的表面过渡：追加即推入尾部队列；替换即执行 splice 并递增 replaceGeneration。 */
+/* 提交一个此前已校验的表面过渡：追加即推入尾部队列；替换即执行 splice 并递增 replaceGeneration。 */
 function applySurfacePlan(
   state: SurfaceFoldState,
   plan: SurfacePlan | undefined,
@@ -480,7 +480,7 @@ function applySurfacePlan(
  * @returns detached current sequences and replacement history.
  * @throws when an event violates surface metadata, source-event references, range, or tool-result rewrite rules.
  */
-/**
+/*
  * 把一份完整会话日志重放经过规范的表面折叠。
  * @param events - 按连续 seq 顺序排列的会话事件。
  * @returns 分离的当前表面 seq 列表与替换历史。
@@ -498,7 +498,7 @@ export function foldSurface(events: readonly SessionEvent[]): SurfaceFoldResult 
 }
 
 /** Incremental ordered surface view and append-boundary validator. */
-/**
+/*
  * 增量维护的有序表面视图，兼作“追加边界”的校验器。
  * 内部持有日志窗口的引用：读取 nodes/replaceGeneration 或 validateNext 时，
  * 会先把自上次访问以来新追加进日志的事件折叠掉，再执行本次操作。
@@ -518,7 +518,7 @@ export class SurfaceManager implements SessionSurface {
    * @param log - Contiguous complete log or loaded event window.
    * @param baseSeq - Absolute sequence of the window's first event.
    */
-  /**
+  /*
    * @param log - 连续完整的日志，或已加载的事件窗口。
    * @param baseSeq - 窗口第一个事件的绝对 seq。
    */
@@ -533,7 +533,7 @@ export class SurfaceManager implements SessionSurface {
    * Validate the next candidate without mutating the committed surface.
    * @param event - candidate event that has not entered the log yet.
    */
-  /**
+  /*
    * 校验下一个候选事件但不提交：先折叠日志新尾部，再按“即将写入的位置”规划过渡并存入 _pendingPlan，
    * 待该事件真正进入日志时由 _processDelta 复用这份计划，避免重复校验。
    * @param event - 尚未进入日志的候选事件。
@@ -549,21 +549,21 @@ export class SurfaceManager implements SessionSurface {
   }
 
   /** Monotonic count of folded positional replacements. */
-  /** 已折叠的位置替换的单调计数。 */
+  /* 已折叠的位置替换的单调计数。 */
   get replaceGeneration(): number {
     if (this._lastProcessedSeq < this.baseSeq + this.log.length - 1) this._processDelta()
     return this._state.replaceGeneration
   }
 
   /** Surface event sequences in model-visible order. */
-  /** 按模型可见顺序排列的表面事件 seq。 */
+  /* 按模型可见顺序排列的表面事件 seq。 */
   get nodes(): readonly number[] {
     if (this._lastProcessedSeq < this.baseSeq + this.log.length - 1) this._processDelta()
     return this._state.nodes
   }
 
   /** Fold events appended since the previous access. */
-  /** 折叠自上次访问以来追加进日志的事件；优先消费 validateNext 预留的 pending 计划，避免重复校验。 */
+  /* 折叠自上次访问以来追加进日志的事件；优先消费 validateNext 预留的 pending 计划，避免重复校验。 */
   private _processDelta(): void {
     const tailSeq = this.baseSeq + this.log.length - 1
     for (let seq = this._lastProcessedSeq + 1; seq <= tailSeq; seq++) {

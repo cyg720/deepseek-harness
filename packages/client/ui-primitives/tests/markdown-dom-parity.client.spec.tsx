@@ -37,7 +37,7 @@ afterEach(cleanup)
  * blocks that HTML rendering collapses), attributes sorted by name, children
  * indented for reviewable diffs.
  */
-/** 中文说明：函数 serialize 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 serialize 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function serialize(node: Node, indent: string, inPre: boolean): string {
   if (node.nodeType !== Node.ELEMENT_NODE) return ''
   /** 中文说明：测试局部值 element，由紧邻初始化决定。 */
@@ -81,7 +81,7 @@ function serializeChildren(element: Element, indent: string, inPre: boolean): st
 }
 
 /** Render one markdown source through MarkdownText and serialize the DOM. */
-/** 中文说明：函数 renderCase 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderCase 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderCase(text: string, streaming: boolean): string {
   /** 中文说明：测试局部值 { container, unmount }，由紧邻初始化决定。 */
   const { container, unmount } = render(<MarkdownText text={text} streaming={streaming} />)

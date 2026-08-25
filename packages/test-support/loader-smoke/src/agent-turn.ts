@@ -2,7 +2,7 @@
  * Test-only direct-agent turn driver shared by assembled Loader fixtures.
  * @module @deepseek-ai/dsh-loader-smoke/agent-turn
  */
-/**
+/*
  * 文件职责：实现 agent-turn.ts 覆盖的快照与装载测试支持行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的快照与装载测试支持能力保障 Agent 功能在集成层稳定。
@@ -17,7 +17,7 @@ import { createUserMessage, type TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
 /** Result envelope consumed only by snapshot and composition tests. */
-/** 中文说明：interface FixtureTurnResult 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface FixtureTurnResult 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface FixtureTurnResult {
   readonly type: 'result'
   readonly sessionId: string
@@ -26,7 +26,7 @@ export interface FixtureTurnResult {
 }
 
 /** Options for one fixture turn against exactly one configured root agent. */
-/** 中文说明：interface FixtureTurnOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface FixtureTurnOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface FixtureTurnOptions {
   readonly task: string
   readonly onEvent?: (sessionId: string, event: SessionEvent) => void
@@ -70,7 +70,12 @@ function onlyRootAgent(ctx: Context): Agent {
  * @param options - task and optional canonical-event observer.
  * @returns the final assistant text and accumulated model usage.
  */
-/** 中文说明：函数 runFixtureTurn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 runFixtureTurn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function runFixtureTurn(ctx: Context, options: FixtureTurnOptions): Promise<FixtureTurnResult> {
   /** 中文说明：变量 agent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = onlyRootAgent(ctx)

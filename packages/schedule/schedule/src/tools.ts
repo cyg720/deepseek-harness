@@ -2,7 +2,7 @@
  * Agent-scoped Schedule management tools over the durable session fold.
  * @module @deepseek-ai/dsh-schedule
  */
-/**
+/*
  * 文件职责：实现 tools.ts 承担的计划调度配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的计划调度能力。
@@ -88,7 +88,7 @@ const EVERY_VIEW_SCHEMA = {
 const VIEW_SCHEMA = { oneOf: [AFTER_VIEW_SCHEMA, AT_VIEW_SCHEMA, EVERY_VIEW_SCHEMA] } as const
 
 /** Build one exact two-field error schema while preserving its literal code. */
-/** 中文说明：函数 basicErrorSchema 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 basicErrorSchema 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function basicErrorSchema<const C extends string>(code: C) {
   return {
     type: 'object',
@@ -185,7 +185,7 @@ const DELETE_DESCRIPTION =
   + 'or schedule_list. Unknown or already-finished ids return deleted false.'
 
 /** Deterministic model content for every canonical Schedule value. */
-/** 中文说明：函数 renderValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderValue(_args: unknown, value: unknown): ContentBlock[] {
   // The ToolRuntime has already validated the value against the lossless-JSON output schema.
   /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -194,25 +194,25 @@ function renderValue(_args: unknown, value: unknown): ContentBlock[] {
 }
 
 /** Pure generic pending card. */
-/** 中文说明：函数 present 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 present 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function present(title: string, kind: 'read' | 'other', rawInput?: unknown): GenericCallView {
   return { card: 'generic', title, kind, ...rawInput === undefined ? {} : { rawInput } }
 }
 
 /** Stable error for failures not safe to expose. */
-/** 中文说明：函数 internalError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 internalError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function internalError(): InternalScheduleError {
   return { code: 'internal_error', message: 'The schedule operation failed.' }
 }
 
 /** Placeholder the registry replaces with its canonical ABORTED result after body quiescence. */
-/** 中文说明：函数 cancellationPlaceholder 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 cancellationPlaceholder 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function cancellationPlaceholder(signal: AbortSignal): InternalScheduleError | undefined {
   return signal.aborted ? internalError() : undefined
 }
 
 /** Serialize one operation, stopping a body whose caller cancelled before its FIFO turn. */
-/** 中文说明：函数 runCancellableScheduleTransaction 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 runCancellableScheduleTransaction 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function runCancellableScheduleTransaction<T>(
   agent: Agent,
   signal: AbortSignal,
@@ -226,13 +226,13 @@ function runCancellableScheduleTransaction<T>(
 }
 
 /** Stable durable-log failure. */
-/** 中文说明：函数 corruptLogError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 corruptLogError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function corruptLogError(): ScheduleToolError {
   return { code: 'corrupt_schedule_log', message: 'The session schedule log is corrupt.' }
 }
 
 /** Stable persistence uncertainty with the known operation identity. */
-/** 中文说明：函数 persistenceError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 persistenceError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function persistenceError(
   operation: SchedulePersistenceOperation,
   id?: ScheduleIdType,
@@ -246,13 +246,13 @@ function persistenceError(
 }
 
 /** Translate one contained input failure to the closed tool union. */
-/** 中文说明：函数 inputError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 inputError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function inputError(error: ScheduleInputError): ScheduleToolError {
   return { code: error.code, message: error.message }
 }
 
 /** Fold only after a successful preflight, mapping corruption to a stable value. */
-/** 中文说明：函数 foldForTool 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 foldForTool 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function foldForTool(agent: Agent): ReturnType<typeof foldScheduleEvents> | ScheduleToolError {
   try {
     return foldScheduleEvents(agent.session.events, agent.session.header.seedLength ?? 0)
@@ -262,7 +262,7 @@ function foldForTool(agent: Agent): ReturnType<typeof foldScheduleEvents> | Sche
 }
 
 /** Whether a fold attempt produced an error rather than replay state. */
-/** 中文说明：函数 isToolError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isToolError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isToolError(
   value: ReturnType<typeof foldScheduleEvents> | ScheduleToolError,
 ): value is ScheduleToolError {
@@ -270,7 +270,7 @@ function isToolError(
 }
 
 /** Require one persistence checkpoint without leaking the backend failure. */
-/** 中文说明：函数 preflight 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 preflight 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function preflight(
   rootCtx: Context,
   agent: Agent,
@@ -286,7 +286,7 @@ async function preflight(
 }
 
 /** Validate the v1 selector constraints that the open parameter root cannot express. */
-/** 中文说明：函数 validateCreateArgs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 validateCreateArgs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function validateCreateArgs(args: {
   prompt: string
   after_seconds?: number
@@ -334,7 +334,14 @@ function validateCreateArgs(args: {
  * @param onDurableChange - Called after every successful preflight and again after a create or actual delete barrier succeeds.
  * @returns Idempotent aggregate disposer for the three registrations.
  */
-/** 中文说明：函数 registerScheduleTools 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 registerScheduleTools 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param rootCtx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param toolCtx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param onDurableChange 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function registerScheduleTools(
   rootCtx: Context,
   toolCtx: Context,
@@ -345,7 +352,7 @@ export function registerScheduleTools(
   const disposers: Array<() => void> = []
 
   /** A projection observer cannot reverse a completed durability barrier. */
-  /** 中文说明：函数值 notifyDurableChange 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+  /* 中文说明：函数值 notifyDurableChange 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const notifyDurableChange = (): void => {
     try {
       onDurableChange()

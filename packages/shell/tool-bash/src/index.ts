@@ -53,21 +53,21 @@ export const name = 'tool-bash'
 export const inject = ['tools', 'shell', 'systemPrompt', 'shellEnv']
 
 /** Configuration for the bash tool. */
-/** bash 工具的配置。 */
+/* bash 工具的配置。 */
 export interface Config {
   /** Expose `run_in_background` (default true); disabled calls are also rejected. */
-  /** 是否暴露 run_in_background 参数（默认 true）；禁用时相关调用也会被拒绝。 */
+  /* 是否暴露 run_in_background 参数（默认 true）；禁用时相关调用也会被拒绝。 */
   enableRunInBackground?: boolean
 }
 
 /** Runtime configuration schema for the bash tool plugin. */
-/** bash 工具插件的运行时配置 schema。 */
+/* bash 工具插件的运行时配置 schema。 */
 export const Config: z<Config> = z.object({
   enableRunInBackground: z.boolean().default(true),
 })
 
 /** Parsed tool args; execute validates value constraints absent from ParameterSchemaSpec. */
-/** 解析后的工具参数；execute 负责校验 ParameterSchemaSpec 表达不了的取值约束。 */
+/* 解析后的工具参数；execute 负责校验 ParameterSchemaSpec 表达不了的取值约束。 */
 interface BashToolArgs {
   command: string
   description: string
@@ -132,7 +132,7 @@ function bashDescription(backgroundEnabled: boolean, escalationModes: readonly S
  * The command remains the title on both paths; foreground cwd is passed through
  * for the bridge to resolve, while background descriptions remain card content.
  */
-/**
+/*
  * 前台调用展示为 terminal 卡片，后台启动展示为 generic 卡片。两种路径都以命令为标题；
  * 前台 cwd 透传给桥接层解析，后台描述作为卡片内容保留。
  */
@@ -160,7 +160,7 @@ function presentBashCall(args: BashCallArgs): GenericCallView | TerminalCallView
  * Present completed foreground output as a terminal; background acknowledgements
  * and execution errors use generic fenced output without an exit-status pill.
  */
-/**
+/*
  * 已完成的前台输出展示为 terminal 卡片；后台确认与执行错误用 generic 围栏输出，
  * 不带退出状态徽章。
  */
@@ -186,7 +186,7 @@ function presentBashResult(args: unknown, result: ToolResult): ToolResultView | 
  * defaulting as the fallback. A resolved sandbox-policy root wins so workdir
  * and confinement use the exact same per-call identity.
  */
-/**
+/*
  * 解析显式 workdir：相对路径按会话工作区解析；未指定时使用会话 cwd 的文件系统身份，
  * 把执行器默认值作为兜底。已解析的沙箱策略根目录优先，这样工作目录与隔离范围
  * 使用完全相同的按调用身份。
@@ -206,7 +206,7 @@ function resolveWorkdir(
 }
 
 /** Detach the executor DTO from readonly Service Definition types into plain JSON data. */
-/** 把执行器 DTO 从只读的 Service Definition 类型剥离为普通 JSON 数据（序列化前清理）。 */
+/* 把执行器 DTO 从只读的 Service Definition 类型剥离为普通 JSON 数据（序列化前清理）。 */
 function canonicalBashResult(result: ShellRunResult) {
   const output = (stream: ShellRunResult['stdout']) => ({
     text: stream.text,
@@ -233,7 +233,7 @@ function canonicalBashResult(result: ShellRunResult) {
 }
 
 /** Canonical background-handle properties shared by the bash output union. */
-/** bash 输出联合类型中共享的规范化后台句柄属性（kind 恒为 background，带 jobId）。 */
+/* bash 输出联合类型中共享的规范化后台句柄属性（kind 恒为 background，带 jobId）。 */
 const BACKGROUND_OUTPUT_PROPERTIES = {
   kind: { type: 'string', required: true, const: 'background' },
   jobId: { type: 'string', required: true },
@@ -249,7 +249,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     throw new Error('tool-bash: the mounted bash executor confines but ctx.sandboxPolicy is missing')
   }
   /** Resolve the complete standing policy for this call when a confining executor is mounted. */
-  /** 当挂载了受限执行器时，为本次调用解析完整的常驻策略（无 agent 时传空会话）。 */
+  /* 当挂载了受限执行器时，为本次调用解析完整的常驻策略（无 agent 时传空会话）。 */
   const resolveSandboxPolicy = (exec: ToolExecution): SandboxExecutionPolicy | undefined =>
     sandboxPolicy?.resolve(exec.agent === undefined ? {} : { session: exec.agent.session })
 
@@ -264,7 +264,7 @@ export function apply(ctx: Context, config: Config = {}): void {
    * ingredients. The shared policy resolver is required whenever the executor
    * advertises confinement, so a split composition fails at tool-plugin load.
    */
-  /**
+  /*
    * 在任何执行发生之前，经 ctx.approval 处理沙箱升级请求，把共享的"失败即关闭"序列
    * （严格加宽、渠道解析、结果映射）委托给 approveEscalation。本工具只贡献组合体守卫
    * （无沙箱执行器时这些字段不宣传，但 schema 只校验已宣传的键，未宣传的

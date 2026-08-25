@@ -34,11 +34,11 @@ import css from './ReadBlock.module.css'
  * TerminalBlock's default so a long read and a long command output cut at the
  * same place in the same flow.
  */
-/** 中文说明：组件局部值 DEFAULT_READ_MAX_LINES，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 DEFAULT_READ_MAX_LINES，由紧邻初始化决定。 */
 export const DEFAULT_READ_MAX_LINES = 16
 
 /** One line of the read window: its file line number and its text (no trailing newline). */
-/** 中文说明：类型或类 ReadBlockLine 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 ReadBlockLine 约束基础组件的数据或职责。 */
 export interface ReadBlockLine {
   /** 1-based line number in the file (a window past an offset keeps the file's own numbering). */
   number: number
@@ -69,7 +69,7 @@ export interface ReadBlockProps {
  * @param spans - the line's styled runs.
  * @returns the line's children.
  */
-/** 中文说明：函数 renderSpans 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderSpans 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderSpans(spans: readonly HighlightSpan[]) {
   return spans.map((span, index) => <span key={index} style={span.style}>{span.text}</span>)
 }
@@ -80,7 +80,7 @@ function renderSpans(spans: readonly HighlightSpan[]) {
  * @param props - see {@link ReadBlockProps}.
  * @returns the read block element.
  */
-/** 中文说明：函数 ReadBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ReadBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function ReadBlock({
   label,
   lines,
@@ -145,7 +145,7 @@ export function ReadBlock({
    * @param slice - the lines to draw, each with its aligned run array.
    * @returns the row elements.
    */
-  /** 中文说明：组件局部值 rows，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 rows，由紧邻初始化决定。 */
   const rows = (slice: readonly (readonly [ReadBlockLine, readonly HighlightSpan[] | undefined])[]) =>
     slice.map(([line, spans]) => (
       <div key={line.number} className={css.line}>

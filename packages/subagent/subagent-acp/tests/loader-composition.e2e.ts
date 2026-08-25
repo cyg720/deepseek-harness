@@ -23,7 +23,7 @@ import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-l
  * only this keyless tier applies (the with-key tier lives in subagent-acp.e2e.ts).
  */
 
-/** 中文说明：变量 driver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 driver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const driver = fileURLToPath(new URL(
   '../../../../examples/acp-agent/tests/fixtures/subagent/subagent-acp/driver.ts',
   import.meta.url,

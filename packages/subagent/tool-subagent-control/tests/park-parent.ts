@@ -3,7 +3,7 @@
  * model corpus.
  * @module park-parent
  */
-/**
+/*
  * 文件职责：为子代理控制测试提供共享辅助函数，阻止占位父代理进入脚本化模型语料。
  * 技术维度：通过 Cordis agent/pre-step 事件监听器按品牌化 SessionId 拦截父代理步骤。
  * 产品维度：让子代理交付测试只消耗为子代理轮次准备的确定性脚本响应。
@@ -22,7 +22,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
  * @param ctx - the booted test context.
  * @param parent - the stand-in parent whose turns must not reach the model.
  */
-/**
+/*
  * 拒绝占位父代理的每一个模型步骤，同时让其他代理继续正常执行。
  * @param ctx - 已完成启动的测试 Cordis 上下文，用于注册事件监听器。
  * @param parent - 需要停放的占位父代理，只读取其品牌化 id。

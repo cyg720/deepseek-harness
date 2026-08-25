@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】轨迹列表的"折叠"（fold）：把会话快照折叠成 回合 → 组（Message / Step N /
  *             Compaction）→ 展开后的单元格；补全消息助手块、为 Message 附着用量、
@@ -158,7 +158,7 @@ function inputCellDetail(node: InputNode): Pick<
  * @param input - nodes plus in-flight partial/runningCalls.
  * @returns turns ordered by first appearance.
  */
-/**
+/*
  * 把快照折叠成 回合 → Message / Step 组 → 展开单元格 的布局。
  * 使用示例：const turns = deriveTrajectoryLayout(snapshotSlice)；视图按 turns 渲染列表。
  * @param input - 节点 + 流式 partial / 运行中调用（可带请求与 schema）。
@@ -566,7 +566,7 @@ export function deriveTrajectoryLayout(input: TrajectoryLayoutInput): readonly T
  * @param lastIndex - Highest cell index in the finalized layout.
  * @returns The original layout without a partial, otherwise a layout sharing every unaffected turn.
  */
-/**
+/*
  * 把变化中的"流式 assistant 单元格"追加到已定稿布局上：partial 为 null 时原样返回；
  * 否则单独折叠出流式回合，与同回合的定稿组按标题合并（同 callId 的旧单元格被替换）。
  * @param turns - 以空块 partial 锚点导出的定稿布局。

@@ -2,7 +2,7 @@
  * Consumer API tests over a fake provider and the real policy collaborator: schemas,
  * validation, formatting, typed errors, intent dispatch, and observation-driven authorization.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 tools.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -44,7 +44,7 @@ import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
 const testToolSignal = new AbortController().signal
 
 /** An in-memory fake provider; a test can arm a rejection on any primitive. */
-/** 中文说明：类型或类 FakeFs 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 FakeFs 约束文件或目标数据职责。 */
 class FakeFs extends FileSystem {
   files = new Map<string, string>()
   rejectWith?: FsError
@@ -907,7 +907,7 @@ describe('read caps are plugin config', () => {
 
 describe('sandbox escalation API (write/edit)', () => {
   /** A confining fake `ctx.fs`: reports a default mode, records each per-call policy, and can arm a sandbox denial. */
-  /** 中文说明：类型或类 SandboxingFakeFs 约束文件或目标数据职责。 */
+  /* 中文说明：类型或类 SandboxingFakeFs 约束文件或目标数据职责。 */
   class SandboxingFakeFs extends FakeFs {
     stamped: (SandboxExecutionPolicy | undefined)[] = []
     override get sandboxMode(): SandboxMode {
@@ -950,7 +950,7 @@ describe('sandbox escalation API (write/edit)', () => {
   }
 
   /** A fake agent whose session records appends (the approval audit trail), mid-turn, carrying the given events for the fold. */
-  /** 中文说明：函数 escalationAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 escalationAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function escalationAgent(events: Array<{ type: string; data?: Record<string, unknown> }> = []): object {
     return {
       id: 'agent-fs-esc',

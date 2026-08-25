@@ -38,7 +38,7 @@ afterEach(cleanup)
 type FrameProps = PropsRenderSlots<'trt.panel' | 'trt.chat' | 'trt.rows'>
 
 /** Root frame declaring all three suite slots (render sites for each kind). */
-/** 中文说明：函数 Frame 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 Frame 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function Frame({ renderSlot, SessionProvider }: FrameProps) {
   return (
     <>

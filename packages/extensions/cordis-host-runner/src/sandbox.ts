@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】动态插件 Host 半部求值所用的 node:vm 沙箱：创建全新的 realm（全局
  *             环境），注入带标签的 console、harness 注册助手、编码原语，以及对
@@ -38,7 +38,7 @@ import { createContext, runInContext, Script } from 'node:vm'
 import { sandboxDefineTool, sandboxRegisterTool } from './guard.ts'
 
 /** Exact Host closure symbols exposed by the sandbox and guarded Context. */
-/**
+/*
  * 沙箱与守卫 ctx 实际暴露的 Host 闭包符号清单：供 inspect 工具向模型展示
  * "沙箱里有什么、怎么用"（名称/说明/签名）。
  */
@@ -75,7 +75,7 @@ export const HOST_BUILTIN_INSPECTION = [
  * a registered listener fires long after the run call returned, and its output
  * must land somewhere the user can see — for a terminal entry point, the host terminal.
  */
-/**
+/*
  * 为单个插件构造"直写式" console：每行输出都带 [cordis:插件ID] 标签，直接写到宿主
  * 标准输出/错误（不缓存进工具结果——监听器可能在调用返回很久后才触发，输出必须
  * 落在用户可见的地方）。
@@ -91,7 +91,7 @@ function taggedConsole(id: string): Record<'log' | 'info' | 'warn' | 'error' | '
  * Patch only VM constructors so `instanceof` accepts both VM values and host values passed as
  * arguments, events, or service results; host intrinsics remain untouched.
  */
-/**
+/*
  * 只修补 VM 构造器的 Symbol.hasInstance，使 instanceof 同时接受 VM 值（沙箱产生的）
  * 与宿主值（作为参数/事件/服务结果传入的）；宿主内建构造器保持原样。
  */
@@ -112,7 +112,7 @@ const DUAL_REALM_INSTANCEOF_PRELUDE = `
 `
 
 /** Run {@link DUAL_REALM_INSTANCEOF_PRELUDE} in a freshly created sandbox, handing it the host intrinsics to pair up. */
-/**
+/*
  * 在新沙箱中执行双 realm instanceof 修补：把宿主侧的核心构造器清单交给预置脚本，
  * 让沙箱的 instanceof 同时承认两种 realm 的实例。
  */
@@ -151,7 +151,7 @@ const NODE_API_REDIRECTS: Record<string, string> = {
 }
 
 /** Build the trap functions for {@link NODE_API_REDIRECTS}: calling one throws the redirect. */
-/**
+/*
  * 为被禁的 Node API 构建陷阱函数：调用即抛出指向 Cordis 替代方案的错误。
  */
 function nodeApiTraps(): Record<string, () => never> {
@@ -172,9 +172,12 @@ function nodeApiTraps(): Record<string, () => never> {
  * @param harnessExtras - per-package `harness` verbs beyond the registration pair (`handle`).
  * @returns the contextified sandbox object to pass to {@link evaluateHostCode}.
  */
-/**
+/*
  * 组装一个 Host 半部求值用的 vm 上下文：陷阱、带标签 console、harness 助手、
  * 编码原语齐备，并完成 createContext 与双 realm instanceof 修补。
+ * @param id 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param harnessExtras 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function createSandbox(id: string, harnessExtras: Record<string, unknown> = {}): object {
   const sandbox = {
@@ -213,9 +216,11 @@ function isSyntaxError(error: unknown): error is Error {
  * @param error - the `SyntaxError` (host- or sandbox-realm) thrown while compiling package code.
  * @returns the stack prefix up to and including the `SyntaxError: …` line.
  */
-/**
+/*
  * 提取语法错误的"出问题源码行 + 行首标记 + 消息"前缀：vm 的 SyntaxError 堆栈里
  * 就带这段预演，正是模型自我修正所需；无此类前缀时退回 String(error)。
+ * @param error 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function syntaxErrorContext(error: Error): string {
   const lines = (error.stack ?? '').split('\n')
@@ -232,9 +237,12 @@ export function syntaxErrorContext(error: Error): string {
  * @param context - the {@link syntaxErrorContext} of the failure.
  * @returns the model-facing error message.
  */
-/**
+/*
  * 生成一次解析失败的教学文案（定义期预检与运行期求值共用同一措辞）：
  * 命中 TypeScript 标注特征（出错行含 `as`）提示移除类型标注，否则提示括号配平。
+ * @param half 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param context 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function parseErrorMessage(half: 'code.host' | 'code.client', context: string): string {
   // Scope the TypeScript heuristic to the OFFENDING line, not the whole code:
@@ -269,10 +277,12 @@ export function parseErrorMessage(half: 'code.host' | 'code.client', context: st
  * @param half - which define argument carried it, for the error text.
  * @throws when the body does not parse, with the offending line and a teaching hint.
  */
-/**
+/*
  * 定义期预检：用 new Function 编译"异步函数体"而不执行，保证无法解析的代码进不了
  * 注册表（模型改对了再 define，而不是运行期才暴露）；vm.Script 仅作为美化错误上下
  * 文的尽力尝试。
+ * @param code 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param half 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
  */
 export function precheckCode(code: string, half: 'code.host' | 'code.client'): void {
   const wrapped = `(async () => {\n${code}\n})()`
@@ -294,7 +304,7 @@ export function precheckCode(code: string, half: 'code.host' | 'code.client'): v
  * @param refusal - the gate's own `SyntaxError`, the fallback context source.
  * @returns the vm prelude when a real vm produced one, else the bare refusal.
  */
-/**
+/*
  * 尽力用 vm.Script 重编译一次被 new Function 拒绝的代码，只为拿到"源码行 + 标记"
  * 前缀；vm 不可用（如浏览器 worker 的桩实现）时退回门面自己的错误文本。
  */
@@ -320,9 +330,14 @@ function prettyParseContext(wrapped: string, half: 'code.host' | 'code.client', 
  * @param vmTimeoutMs - the synchronous evaluation bound in milliseconds.
  * @returns whatever the code returned, still un-narrowed (the run lifecycle checks plugin shape).
  */
-/**
+/*
  * 在沙箱中把 Host 半部作为异步函数体求值：vmTimeoutMs 只约束同步段（异步体可逃逸，
  * 属模块信任立场的可接受代价）；解析错误同样走教学文案。
+ * @param sandbox 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param code 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param id 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param vmTimeoutMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export async function evaluateHostCode(sandbox: object, code: string, id: string, vmTimeoutMs: number): Promise<unknown> {
   try {

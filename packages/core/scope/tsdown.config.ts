@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and optional invariant companion as independent bundles. */
-/**
+/*
  * 文件职责：配置作用域核心包和可选不变量伴生模块的独立构建。
  * 技术维度：使用 tsdown 输出两个 Node.js ESM bundle，并让 invariant 外部引用根包。
  * 产品维度：保证作用域载体身份在不同入口之间共享，避免同一对象被误判为不同作用域。

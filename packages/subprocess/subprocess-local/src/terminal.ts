@@ -1,5 +1,5 @@
 /** Local node-pty terminal-process implementation for the subprocess seam. */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现子进程缝的本地终端进程：LocalTerminalHandle 把 node-pty 的 PTY 会话
  * 包装为 SubprocessTerminalHandle，负责输出转发、退出事实、前台组检查/发信号与
@@ -55,7 +55,7 @@ function signalName(number: number | undefined): NodeJS.Signals | null {
  * inspection). A first genuinely asynchronous step in any handle call must add
  * the tracking a remote provider needs.
  */
-/**
+/*
  * 本地终端：进程会话所有权保持在 PTY 后端之下。契约要求的 terminate() promise
  * （落定后无 write/检查/信号在途）在这里无需操作跟踪即成立，因为每个句柄调用
  * 底层都是同步完成的（node-pty write、ps 检查）。任何句柄调用出现第一个真正的
@@ -73,7 +73,7 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
   private exited = false
   private trackedDescendants: ProcessIdentity[] = []
   /** The spawned shell's start identity; scans stop adopting members once the root pid no longer carries it. */
-  /** 被 spawn 的 shell 的启动身份；根 pid 不再携带该身份后，扫描停止收养新成员。 */
+  /* 被 spawn 的 shell 的启动身份；根 pid 不再携带该身份后，扫描停止收养新成员。 */
   private readonly rootIdentity: ProcessIdentity | undefined
 
   /**
@@ -168,7 +168,7 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
    * Force-terminate the observable session synchronously during Node's exit
    * event. This does not claim quiescence and does not replace terminate().
    */
-  /**
+  /*
    * 在 Node 退出事件期间同步强制终止可观测会话。这不声称静默，也不替代 terminate()。
    */
   terminateForHostExit(): void {

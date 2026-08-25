@@ -6,7 +6,7 @@
  * plugin that ships a browser half owns its own card and this tab only decides
  * which keys to dispatch.
  */
-/**
+/*
  * 文件职责：枚举宿主声明的可配置插件命名空间，并通过键控插槽渲染各插件自有设置卡。
  * 技术维度：使用 React Fragment、状态 hook、键控 renderSlot 和组合插槽属性类型。
  * 产品维度：让新增插件自行贡献设置界面，而公共标签页无需理解具体配置字段。
@@ -22,7 +22,7 @@ import type { ConfigurablePluginsTabFace } from './tab-store.ts'
 import css from './PluginsSettingsSection.module.css'
 
 /** Props the renderer binds for the configurable tab. */
-/** 渲染器绑定的运行时、本地化、卡片插槽和标签页状态属性。 */
+/* 渲染器绑定的运行时、本地化、卡片插槽和标签页状态属性。 */
 export type ConfigurablePluginsTabProps =
   PropsRuntime<'settings.plugins.tab'>
   & PropsLocale<'settings.plugins'>
@@ -34,7 +34,7 @@ export type ConfigurablePluginsTabProps =
  * @param props - locale copy, slot rendering, and the namespaces to dispatch.
  * @returns the card list, or the empty line once the Host has answered.
  */
-/** 渲染可配置插件标签。@param props 文案、插槽渲染和命名空间状态。@returns 卡片列表、空文案或加载中的 null。@example <ConfigurablePluginsTab {...props} />。 */
+/* 渲染可配置插件标签。@param props 文案、插槽渲染和命名空间状态。@returns 卡片列表、空文案或加载中的 null。@example <ConfigurablePluginsTab {...props} />。 */
 export function ConfigurablePluginsTab(props: ConfigurablePluginsTabProps) {
   // 翻译函数与键控插槽渲染器。
   const { t, renderSlot } = props

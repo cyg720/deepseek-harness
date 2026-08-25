@@ -8,9 +8,9 @@ import { spawnHarness, waitForIdle } from './harness.ts'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
 /** Key-gated smoke for a real parent delegating filesystem work to a real child. */
-/** 中文：需要真实 API 密钥的冒烟测试，覆盖父代理委派子代理执行文件系统任务。 */
+/* 中文：需要真实 API 密钥的冒烟测试，覆盖父代理委派子代理执行文件系统任务。 */
 
-/** 当前用例持有的 Harness 上下文；未启动或清理后为 undefined。 */
+/* 当前用例持有的 Harness 上下文；未启动或清理后为 undefined。 */
 let ctx: Context | undefined
 /** 当前用例的临时工作目录；清理后为 undefined。 */
 let workdir: string | undefined

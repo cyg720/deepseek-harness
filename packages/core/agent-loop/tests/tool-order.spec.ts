@@ -67,7 +67,7 @@ function registerNamed(ctx: Context, name: string) {
 }
 
 /** Run one text-only turn and return the harness context + agent. */
-/** 中文说明：测试辅助函数 runTurn 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 runTurn 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function runTurn(registrationOrder: string[], toolOrder?: SystemPromptConfig['toolOrder']) {
   /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
   const adapter = new MockAdapter([textResponse('done')])

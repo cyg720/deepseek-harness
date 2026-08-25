@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-tool-subagent-report
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理工具行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
  * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
@@ -31,11 +31,11 @@ export const name = 'tool-subagent-report'
 export const inject = ['subagents', 'tools', 'systemPrompt']
 
 /** Guidance order after every per-tool section a continuable child can carry. */
-/** 中文说明：常量 REPORT_SECTION_ORDER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 REPORT_SECTION_ORDER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REPORT_SECTION_ORDER = 117
 
 /** Config: how accepted reports are scheduled on the parent. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 export interface Config {
   /**
    * Parent scheduling (default `next-step`). `next-step` wakes the parent and
@@ -59,7 +59,13 @@ export const Config: z<Config> = z.object({
  * @param delivery - resolved deployment scheduling policy.
  * @returns disposer that attempts both child registrations before reporting cleanup failures.
  */
-/** 中文说明：函数 installReportTool 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 installReportTool 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param childCtx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param delivery 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function installReportTool(
   childCtx: Context,
   ctx: Context,
@@ -153,7 +159,7 @@ export function installReportTool(
  * @param ctx - context carrying tools, the system prompt, and the subagent service.
  * @param config - deployment scheduling policy.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config = {}): void {
   // Config() applies the schema default at runtime; the schemastery return
   // type keeps the input's optional shape, so assert the resolved one.

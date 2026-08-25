@@ -5,7 +5,7 @@
  * pinned vendored sources; a registry copy of the same name coexisting with
  * the vendored one silently forks the framework layer (vendor/README.md).
  */
-/**
+/*
  * 文件职责：实现 verify-vendored-links.ts 覆盖的仓库一致性验证职责。
  * 技术维度：使用 TypeScript、Node.js 文件系统、类型检查或链接扫描。
  * 产品维度：保障类型与 vendored 文档链接保持正确。

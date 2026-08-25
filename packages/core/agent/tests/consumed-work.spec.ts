@@ -13,25 +13,25 @@ import type { TurnEndReason } from '@deepseek-ai/dsh-session'
 import { foldConsumedWork } from '@deepseek-ai/dsh-agent'
 
 /** One pending message, as the inbox records it. */
-/** 中文说明：测试辅助函数 message 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 message 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function message(text: string) {
   return createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })
 }
 
 /** Log an accepted message the way `Inbox.append()` does. */
-/** 中文说明：测试辅助函数 accept 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 accept 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function accept(session: Session, text: string): void {
   session.append('agent/inbox/spliced', { target: 'next-turn', start: 0, inserted: [message(text)] })
 }
 
 /** Log the step-boundary read of one pending message, as `Inbox.claim()` does. */
-/** 中文说明：测试辅助函数 claim 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 claim 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function claim(session: Session): void {
   session.append('agent/inbox/spliced', { target: 'next-turn', start: 0, removedCount: 1, inserted: [] })
 }
 
 /** Log a cancellation of one pending message, as `Inbox.clear()` does. */
-/** 中文说明：测试辅助函数 cancelPending 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 cancelPending 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function cancelPending(session: Session): void {
   session.append('agent/inbox/spliced', {
     target: 'next-turn', start: 0, removedCount: 1, inserted: [], outcome: 'canceled',
@@ -39,7 +39,7 @@ function cancelPending(session: Session): void {
 }
 
 /** Run one whole turn that reached a model step. */
-/** 中文说明：测试辅助函数 steppedTurn 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 steppedTurn 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function steppedTurn(session: Session, turn: number, reason: TurnEndReason): void {
   session.append('turn/start', { turn })
   claim(session)

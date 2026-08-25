@@ -6,7 +6,7 @@
  * replay-from-seed reproduces it; seq is strictly monotonic; non-message
  * events never affect derived history.
  */
-/**
+/*
  * 文件职责：验证Session 持久状态的 properties.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
  * 产品维度：保证Session 持久状态在配置、错误、恢复和生命周期场景中可靠。

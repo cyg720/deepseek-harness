@@ -141,7 +141,7 @@ function ModelRetryItem({ node, active, t }: {
 }
 
 /** Persistent, turn-positioned feedback for a terminal failure. */
-/** 中文说明：函数 TurnErrorItem 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 TurnErrorItem 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function TurnErrorItem({ node, t }: {
   node: TurnErrorNode
   t: ChatViewSlotProps['t']
@@ -159,7 +159,7 @@ function TurnErrorItem({ node, t }: {
 }
 
 /** Persistent, turn-positioned notice for a turn ended at the output-token cap. */
-/** 中文说明：函数 TurnMaxTokensItem 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 TurnMaxTokensItem 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function TurnMaxTokensItem({ t }: {
   t: ChatViewSlotProps['t']
 }) {
@@ -183,7 +183,7 @@ function TurnMaxTokensItem({ t }: {
  * scan as the composer, minus the lexicon: sent tokens were validated at
  * compose time, so shape alone decorates).
  */
-/** 中文说明：函数 projectUserText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 projectUserText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function projectUserText(text: string, sessionLabels: readonly string[]): ReactNode {
   /** 中文说明：当前组件的局部值 ranges，由紧邻初始化决定。 */
   const ranges: { start: number; end: number; label: string; kind: 'session' | 'plain' }[] = []
@@ -259,7 +259,7 @@ function projectUserText(text: string, sessionLabels: readonly string[]): ReactN
 }
 
 /** Right-aligned bubble shared by user and steering rows. */
-/** 中文说明：函数 UserStyleBubble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 UserStyleBubble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function UserStyleBubble({
   content, renderMessageImages, actions, pending = false, referenceLabels = [], t,
 }: {
@@ -304,7 +304,7 @@ function UserStyleBubble({
  * @param props - Pending message content and conversation translator.
  * @returns the pending steering bubble.
  */
-/** 中文说明：函数 PendingSteeringBubble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 PendingSteeringBubble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function PendingSteeringBubble({ content, renderMessageImages, t }: {
   content: readonly unknown[]
   renderMessageImages: ChatNodeOwnerProps['renderMessageImages']
@@ -329,7 +329,7 @@ export function PendingSteeringBubble({ content, renderMessageImages, t }: {
 }
 
 /** User and admitted-steering keyed Chat renderer. */
-/** 中文说明：当前组件的局部值 UserMessageNodeView，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 UserMessageNodeView，由紧邻初始化决定。 */
 export const UserMessageNodeView = memo(function UserMessageNodeView({
   node, renderMessageImages, t,
 }: ChatNodeViewProps<'user' | 'steering'>) {
@@ -355,7 +355,7 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
 })
 
 /** Injected-context keyed Chat renderer. */
-/** 中文说明：当前组件的局部值 ContextMessageNodeView，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 ContextMessageNodeView，由紧邻初始化决定。 */
 export const ContextMessageNodeView = memo(function ContextMessageNodeView({ node, t }: ChatNodeViewProps<'context'>) {
   /** 中文说明：当前组件的局部值 data，由紧邻初始化决定。 */
   const data = node.data
@@ -371,13 +371,13 @@ export const ContextMessageNodeView = memo(function ContextMessageNodeView({ nod
 })
 
 /** Automatic compaction keyed Chat renderer. */
-/** 中文说明：当前组件的局部值 CompactionNodeView，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 CompactionNodeView，由紧邻初始化决定。 */
 export const CompactionNodeView = memo(function CompactionNodeView({ node, t }: ChatNodeViewProps<'compaction'>) {
   return <CompactionItem node={node.data} t={t} />
 })
 
 /** Correlated retry-chain keyed Chat renderer. */
-/** 中文说明：当前组件的局部值 RetryNodeView，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 RetryNodeView，由紧邻初始化决定。 */
 export const RetryNodeView = memo(function RetryNodeView({ node, t }: ChatNodeViewProps<'model-retry'>) {
   /** 中文说明：当前组件的局部值 data，由紧邻初始化决定。 */
   const data = node.data
@@ -385,19 +385,19 @@ export const RetryNodeView = memo(function RetryNodeView({ node, t }: ChatNodeVi
 })
 
 /** Terminal turn-error keyed Chat renderer. */
-/** 中文说明：当前组件的局部值 TurnErrorNodeView，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 TurnErrorNodeView，由紧邻初始化决定。 */
 export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t }: ChatNodeViewProps<'turn-error'>) {
   return <TurnErrorItem node={node.data} t={t} />
 })
 
 /** Max-tokens turn-end notice keyed Chat renderer. */
-/** 中文说明：当前组件的局部值 TurnMaxTokensNodeView，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 TurnMaxTokensNodeView，由紧邻初始化决定。 */
 export const TurnMaxTokensNodeView = memo(function TurnMaxTokensNodeView({ t }: ChatNodeViewProps<'turn-max-tokens'>) {
   return <TurnMaxTokensItem t={t} />
 })
 
 /** Explicit unknown-surface keyed Chat renderer. */
-/** 中文说明：当前组件的局部值 UnknownNodeView，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 UnknownNodeView，由紧邻初始化决定。 */
 export const UnknownNodeView = memo(function UnknownNodeView({ node, t }: ChatNodeViewProps<'unknown'>) {
   /** 中文说明：当前组件的局部值 data，由紧邻初始化决定。 */
   const data = node.data

@@ -1,5 +1,5 @@
 /** Resolve the native node-pty input used by the Python SDK runtime builder. */
-/**
+/*
  * 文件职责：为 Python SDK 运行时可执行程序构建解析 Linux node-pty 原生插件路径。
  * 技术维度：使用 Node.js 文件存在检查和路径拼接，在工作流构建产物与依赖预构建物之间选择。
  * 产品维度：保证打包的 Python SDK 运行时包含目标架构可用的伪终端原生模块。
@@ -17,7 +17,7 @@ import { join } from 'node:path'
  * @param arch - Linux target architecture.
  * @returns the existing addon path.
  */
-/**
+/*
  * 解析目标 Linux 架构现有的 node-pty 原生插件。
  * @param packageDirectory - 已安装 node-pty 包的目录。
  * @param arch - Linux 目标架构，仅允许 x64 或 arm64。

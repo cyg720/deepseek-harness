@@ -6,7 +6,7 @@
  * always reaches the console, and the fiber owns the runner's teardown. Plus the two plane-level companions: the
  * node half's empty apply and the invariant registration.
  */
-/**
+/*
  * 文件职责：验证Cordis 客户端运行器的 plugin.client.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证Cordis 客户端运行器在配置、运行、失败和清理场景中可理解且可靠。
@@ -49,7 +49,7 @@ const USER_RUN = {
  * bridge hands `host/remote-event` to the Remote service, which fans it out to
  * `$on` subscribers with the Host's own argument list.
  */
-/** 中文说明：函数 forward 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 forward 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function forward(ctx: Context, event: string, payload: object): void {
   ctx.remote.$dispatch(event, [payload])
 }
@@ -93,7 +93,7 @@ interface Bench {
 }
 
 /** Mount the browser half over a module table and a loader standing on real fibers. */
-/** 中文说明：函数 boot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 boot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function boot(): Promise<Bench> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

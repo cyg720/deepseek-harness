@@ -40,7 +40,7 @@ import type {
 import type { ViewTab } from '../src/client/contract/views.ts'
 
 /** Machine-backed wiring over a sink spy. */
-/** 中文说明：函数 fakeWiring 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fakeWiring 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeWiring() {
   /** 中文说明：测试局部值 sink，由紧邻初始化决定。 */
   const sink = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
@@ -50,7 +50,7 @@ function fakeWiring() {
 }
 
 /** jsdom has no ResizeObserver; the composer seat publishes its height through one. */
-/** 中文说明：类型或类 ResizeObserverStub 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 ResizeObserverStub 约束本文件数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -192,7 +192,7 @@ function mount(
     version: () => 1,
   }
   /** Owner share handed to the two composer tool-row seats, per render. */
-  /** 中文说明：测试局部值 seatOwners，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 seatOwners，由紧邻初始化决定。 */
   const seatOwners: { key: string; owner: unknown }[] = []
   /** 中文说明：测试局部值 pickerOwner: unknown，由紧邻初始化决定。 */
   let pickerOwner: unknown

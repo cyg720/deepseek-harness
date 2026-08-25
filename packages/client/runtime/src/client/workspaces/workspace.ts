@@ -16,7 +16,7 @@
  * ==========================================================================
  */
 /** React-free Workspace entity with a client-local materialization lifecycle. */
-/** 无 React 依赖的 Workspace 实体，具有客户端本地的物化（materialization）生命周期。 */
+/* 无 React 依赖的 Workspace 实体，具有客户端本地的物化（materialization）生命周期。 */
 
 import type {
   IApiClient, RpcResult, WorkspaceView,
@@ -26,11 +26,11 @@ import type { ObservableSnapshot } from '../contract/store.ts'
 import { Notifier } from '../sessions/notifier.ts'
 
 /** Host input retained by a local Workspace until materialization succeeds. */
-/** 本地 Workspace 在物化成功前保留的 Host 创建输入：目前只有路径。 */
+/* 本地 Workspace 在物化成功前保留的 Host 创建输入：目前只有路径。 */
 export type WorkspaceCreateInput = { path: string }
 
 /** Observable state of a client-local Workspace intent. */
-/** 客户端本地 Workspace 意图的可观察状态：名字 + 阶段 + 可选错误。 */
+/* 客户端本地 Workspace 意图的可观察状态：名字 + 阶段 + 可选错误。 */
 export interface WorkspaceIntentSnapshot {
   name: string
   phase: 'ready' | 'creating'
@@ -38,7 +38,7 @@ export interface WorkspaceIntentSnapshot {
 }
 
 /** A Workspace is either a local intent or a materialized Host view. */
-/** 工作区快照：要么是本地意图，要么是已物化的 Host 视图（同一时刻只存在一种）。 */
+/* 工作区快照：要么是本地意图，要么是已物化的 Host 视图（同一时刻只存在一种）。 */
 export interface WorkspaceSnapshot {
   view: WorkspaceView | undefined
   intent: WorkspaceIntentSnapshot | undefined
@@ -55,7 +55,7 @@ interface WorkspaceIntent {
  * Local instances retain their create input and failure state; materialized
  * instances expose the latest Host view.
  */
-/**
+/*
  * 可观察的 Workspace 对象：对象身份在 Host 物化前后保持不变。
  * 本地实例保留创建输入与失败状态；已物化实例暴露最新的 Host 视图。
  */
@@ -72,7 +72,7 @@ export class Workspace implements ObservableSnapshot<WorkspaceSnapshot> {
    * @param api - shared wire client.
    * @param source - local create input or an existing Host Workspace view.
    */
-  /**
+  /*
    * 构造 Workspace：source 若是已有 Host 视图则直接采纳；否则包装为本地意图。
    * @param api 共享的远程调用客户端（wire client）。
    * @param source 本地创建输入（WorkspaceCreateInput）或已有的 Host 工作区视图。
@@ -94,7 +94,7 @@ export class Workspace implements ObservableSnapshot<WorkspaceSnapshot> {
    * Re-entry shares the in-flight completion; a materialized instance returns undefined.
    * @returns the Host result, or undefined when this Workspace is already materialized.
    */
-  /**
+  /*
    * 通过 Host 创建 API 物化本工作区：重入共享进行中的 Promise；
    * 已物化的实例调用返回 undefined。
    * @returns Host 的创建结果，或 undefined（本实例已物化）。
@@ -117,7 +117,7 @@ export class Workspace implements ObservableSnapshot<WorkspaceSnapshot> {
    * An existing materialized identity accepts updates only for the same Workspace id.
    * @param view - latest Host projection.
    */
-  /**
+  /*
    * 采纳一份 Host 视图而不替换本 Workspace 对象。
    * 已物化的身份只接受同一 workspaceId 的更新。
    * @param view 最新的 Host 投影。
@@ -136,7 +136,7 @@ export class Workspace implements ObservableSnapshot<WorkspaceSnapshot> {
    * @param listener - snapshot invalidation callback.
    * @returns unsubscribe function.
    */
-  /**
+  /*
    * 订阅工作区快照的失效通知。
    * @param listener 快照失效回调（不携带新快照，需再调 getSnapshot 读取）。
    * @returns 取消订阅函数。
@@ -149,7 +149,7 @@ export class Workspace implements ObservableSnapshot<WorkspaceSnapshot> {
    * Read the cached Workspace snapshot after flushing pending notifications.
    * @returns the cached Workspace snapshot.
    */
-  /**
+  /*
    * 先冲刷待处理的通知，再读取缓存的工作区快照。
    * @returns 缓存的工作区快照。
    */

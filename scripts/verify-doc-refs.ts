@@ -21,20 +21,20 @@ import { findReferenceViolations, uniqueRepoFiles, type ReferenceViolation as Vi
 const root = resolve(import.meta.dirname, '..')
 
 /** Repo-authored TypeScript that may cite docs in comments. */
-/** 可能在注释中引用文档的仓库 TypeScript glob。 */
+/* 可能在注释中引用文档的仓库 TypeScript glob。 */
 const PATTERNS = ['packages/**/*.ts', 'examples/**/*.ts']
 
 /** Paths excluded from the scan: built output and vendored upstream source. */
-/** 判断扫描排除路径。@param p 根相对正斜杠路径。@returns 是否为构建物、声明或 vendored 源码。 */
+/* 判断扫描排除路径。@param p 根相对正斜杠路径。@returns 是否为构建物、声明或 vendored 源码。 */
 const isExcluded = (p: string): boolean =>
   p.includes('/lib/') || p.endsWith('.d.ts') || p.startsWith('vendor/')
 
 /** Root-relative Markdown path token, excluding trailing prose. */
-/** 根相对 docs 或 Agent Notes Markdown 路径匹配式，不包含尾随正文。 */
+/* 根相对 docs 或 Agent Notes Markdown 路径匹配式，不包含尾随正文。 */
 const DOC_REF = /(?:\bdocs|\.agents\/notes)\/[A-Za-z0-9._/-]+\.md/g
 
 /** Find every broken root-relative documentation reference in one TypeScript file. */
-/** 查找单文件死链。@param absPath 文件绝对路径。@returns 违规列表。@example findViolations(path)。 */
+/* 查找单文件死链。@param absPath 文件绝对路径。@returns 违规列表。@example findViolations(path)。 */
 function findViolations(absPath: string): Violation[] {
   return findReferenceViolations(root, absPath, DOC_REF, ref => ref, ref => !existsSync(resolve(root, ref)))
 }

@@ -9,7 +9,7 @@
  * guard prevent later calls from reopening a completed structured run.
  * @module @deepseek-ai/dsh-subagent-in-process-driver/structured
  */
-/**
+/*
  * 文件职责：实现 structured.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -24,7 +24,7 @@ import type { ToolExecution, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { ToolArgsError, validateJsonSchemaValue, type ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 
 /** The model-facing tool name a structured child must call to finish. */
-/** 中文说明：常量 STRUCTURED_OUTPUT_TOOL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 STRUCTURED_OUTPUT_TOOL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const STRUCTURED_OUTPUT_TOOL = 'structured_output'
 
 /**
@@ -32,14 +32,14 @@ export const STRUCTURED_OUTPUT_TOOL = 'structured_output'
  * the tool-guidance band) scoped prompt section: the demand travels with the
  * tool, as ordinary prompt state of exactly one agent.
  */
-/** 中文说明：常量 STRUCTURED_OUTPUT_INSTRUCTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 STRUCTURED_OUTPUT_INSTRUCTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const STRUCTURED_OUTPUT_INSTRUCTION
   = 'When you have your final answer, you MUST report it by calling the '
     + `\`${STRUCTURED_OUTPUT_TOOL}\` tool with arguments matching its parameter schema exactly. `
     + 'Do not finish with a plain text answer: only the tool call counts as your result.'
 
 /** One structured run's live handle: read the captured value once the child settles. */
-/** 中文说明：interface StructuredAttachment 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface StructuredAttachment 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface StructuredAttachment {
   /**
    * The captured value, once the child called the tool with valid arguments
@@ -57,7 +57,12 @@ export interface StructuredAttachment {
  *   `assertObjectJsonSchema` in dsh-tools).
  * @returns the attachment handle (read `captured()` after the child settles).
  */
-/** 中文说明：函数 attachStructuredRuntime 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 attachStructuredRuntime 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param childCtx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param schema 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function attachStructuredRuntime(childCtx: Context, schema: ObjectJsonSchema): StructuredAttachment {
   /**
    * Validated values staged by the capture tool body, awaiting THEIR OWN
@@ -68,10 +73,10 @@ export function attachStructuredRuntime(childCtx: Context, schema: ObjectJsonSch
    * correlate nested transports. The final notification always deletes its own
    * stage, whether the result succeeded or failed.
    */
-  /** 中文说明：变量 staged 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 staged 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const staged = new WeakMap<ToolExecution, { value: unknown }>()
   /** Successful nested capture waiting for its enclosing transport to commit. */
-  /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let pending: { parent: ToolExecution['token']; value: unknown } | undefined
   /** 中文说明：变量 captured 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let captured: { value: unknown } | undefined

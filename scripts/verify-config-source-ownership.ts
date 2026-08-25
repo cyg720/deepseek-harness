@@ -3,7 +3,7 @@
  * Cordis configuration.
  * @module scripts/verify-config-source-ownership
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：扫描随产品发布的 Cordis 配置，禁止通过 !!js 直接内联凭据和端点环境读取。
  * - 技术维度：使用 Node globSync、逐行正则检查、路径标准化和可执行脚本入口。
@@ -20,7 +20,7 @@ import { resolve, sep } from 'node:path'
 const ROOT = resolve(import.meta.dirname, '..')
 
 /** Shipped Cordis configuration these rules apply to. */
-/** 中文：本门禁覆盖的随产品发布 Cordis 配置 glob。 */
+/* 中文：本门禁覆盖的随产品发布 Cordis 配置 glob。 */
 const SHIPPED_CONFIG_GLOBS = [
   'apps/*/config/*.yml',
   'examples/*/*.cordis.yml',
@@ -34,11 +34,11 @@ const SHIPPED_CONFIG_GLOBS = [
 ]
 
 /** Ordinary single-line configuration forms this source check rejects; not full YAML analysis. */
-/** 中文：拒绝凭据或端点字段直接绑定 !!js 的单行正则；不承担完整 YAML 解析。 */
+/* 中文：拒绝凭据或端点字段直接绑定 !!js 的单行正则；不承担完整 YAML 解析。 */
 const INLINE_DENY = /^\s*(apiKey|baseURL|apiKeyEnv|authToken|headers)\s*:\s*!!js\b/
 
 /** Return every forbidden inline environment form in shipped configuration. */
-/** 中文：扫描 root 下发布配置并返回所有违规诊断；参数为仓库根路径。示例：collectConfigSourceOwnershipViolations(ROOT)。 */
+/* 中文：扫描 root 下发布配置并返回所有违规诊断；参数为仓库根路径。示例：collectConfigSourceOwnershipViolations(ROOT)。 */
 export function collectConfigSourceOwnershipViolations(root: string): string[] {
   /** 累积的文件、行号与修复说明。 */
   const failures: string[] = []

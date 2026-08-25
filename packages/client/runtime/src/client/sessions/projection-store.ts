@@ -24,7 +24,7 @@
  * exists: a domain ships projection support with zero client code. Per-key
  * bare observable faces feed `useProjection` (ui-renderer binds them).
  */
-/**
+/*
  * 通用的按会话投影值存储（推送模型；见 docs/subsystems/session-projection.md）：
  * Host 是唯一计算点；客户端按键持有完整的最终值——key -> { value, seq }——
  * 由历史尾部页的 projections 块播种，由 session/projection 推送帧更新，
@@ -58,7 +58,7 @@ export type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/t
  * binding; reference stability holds because a key's value reference changes
  * only when a frame or baseline lands).
  */
-/**
+/*
  * 第五个框架钩子座位（见 docs/subsystems/session-projection.md）：通过标准
  * 套件交付的按键寻址投影读取器。undefined 统一表示"能力缺失"——Host 单位
  * 未挂载，或尚无基线/帧携带该键。选择器重载镜像 useSession（按键 uSES
@@ -79,29 +79,29 @@ export type UseProjection = {
  * React-free store depends only on the type table, not the wire package's
  * response vocabulary.
  */
-/**
+/*
  * 尾部页的投影基线——与线上的 SessionProjectionsBlock（apiproxy api 层）
  * 结构一致，在这里重述，使无 React 的存储只依赖类型表，而不依赖 wire
  * 包的响应词汇表。
  */
 export interface ProjectionsBaseline {
   /** The consistent-cut seq (equals the window tail seq by construction). */
-  /** 一致切割的 seq（按构造等于窗口尾部 seq）。 */
+  /* 一致切割的 seq（按构造等于窗口尾部 seq）。 */
   asOfSeq: number
   /** Whole current values by key; a registered key absent here means the capability is absent. */
-  /** 按键的完整当前值；已注册键在此缺失表示该能力缺失。 */
+  /* 按键的完整当前值；已注册键在此缺失表示该能力缺失。 */
   values: Partial<SessionProjectionMap>
 }
 
 /** One key's row: the latest finished value and the seq it is consistent with. */
-/** 一个键的行：最新完整值及其一致的 seq。 */
+/* 一个键的行：最新完整值及其一致的 seq。 */
 interface Row {
   value: unknown
   seq: number
 }
 
 /** Per-key notification channel: the bare face plus its batching notifier. */
-/** 每键通知通道：裸面 + 其批处理通知器。 */
+/* 每键通知通道：裸面 + 其批处理通知器。 */
 interface Channel {
   face: ObservableSnapshot<unknown>
   notifier: Notifier
@@ -117,7 +117,7 @@ interface Channel {
  * once; the store-level channel (`subscribeAny`) serves coarse consumers (the
  * manager's list projection reads the `title` key).
  */
-/**
+/*
  * 一个会话的投影值。框架语义对每个键一致：基线在其切割处播种行，推送帧
  * 更新一行，两条路径中"小于等于的 seq 输"——重放帧不能回退值，陈旧基线
  * 不能覆盖新帧。存储从未见过的键读作 undefined（能力缺失）。面按键身份
@@ -129,7 +129,7 @@ export class ProjectionValueStore {
   private readonly channels = new Map<string, Channel>() // 键 -> 通知通道缓存
   private valuesCache: Readonly<Partial<SessionProjectionMap>> | undefined // 整体值快照缓存
   /** Coarse any-key channel (no snapshot cache to rebuild: reads hit rows directly). */
-  /** 粗粒度的任意键通道（无快照缓存可重建：读直接命中 rows）。 */
+  /* 粗粒度的任意键通道（无快照缓存可重建：读直接命中 rows）。 */
   private readonly anyNotifier = new Notifier(() => {})
 
   /**
@@ -139,7 +139,7 @@ export class ProjectionValueStore {
    * @param key - projection key.
    * @returns the identity-stable face for this key.
    */
-  /**
+  /*
    * 按键寻址的裸可观察面（useProjection 的解析路径）。总是存在——缺失是
    * undefined 快照，绝不是缺少面，因此组件可在键尚未携带值前订阅。
    * @param key 投影键。
@@ -155,7 +155,7 @@ export class ProjectionValueStore {
    * @param key - projection key.
    * @returns the value, or undefined while the key is absent.
    */
-  /**
+  /*
    * 一个键的当前完整值（擦除类型的框架读；类型化读取走 useProjection 的
    * 映射查找）。
    * @param key 投影键。
@@ -169,7 +169,7 @@ export class ProjectionValueStore {
    * Read every current projection value as one reference-stable snapshot.
    * @returns The same frozen value map until a row changes.
    */
-  /**
+  /*
    * 把所有当前投影值读成一个引用稳定的快照。
    * @returns 同一份冻结值映射，直到某行变化。
    */
@@ -188,7 +188,7 @@ export class ProjectionValueStore {
    * @param listener - change callback.
    * @returns the unsubscribe function.
    */
-  /**
+  /*
    * 订阅任意键的变更（微任务批处理）——管理器的列表重建通道。
    * @param listener 变更回调。
    * @returns 取消订阅函数。
@@ -203,7 +203,7 @@ export class ProjectionValueStore {
    * @param value - whole value computed by the host unit.
    * @param seq - the unit's watermark at emission.
    */
-  /**
+  /*
    * 应用一个完整值（session/projection 推送帧路径）。
    * @param key 投影键。
    * @param value Host 单位计算出的完整值。
@@ -225,7 +225,7 @@ export class ProjectionValueStore {
    * clear newer values).
    * @param baseline - the response's projections block.
    */
-  /**
+  /*
    * 从历史尾部页的 projections 块播种：每个携带的键按与帧相同的 seq 规则
    * 落地；块省略的键在切割处为能力缺失——除非已有更新的帧超越该切割，
    * 否则清空其行（陈旧基线既不能覆盖也不能清除更新的值）。
@@ -255,7 +255,7 @@ export class ProjectionValueStore {
    * generalized).
    * @param lastSeq - the subscribed frame's durable baseline seq.
    */
-  /**
+  /*
    * 丢弃超过 mux 世代基线（session/subscribed.lastSeq）的行：声称知道
    * 超过 Host 自身持久基线的行，骑乘了重启丢失的状态——在"后到者胜"下
    * 它会永远错误地压过 Host 重算（较低 seq）的值。持久重放与下一个基线

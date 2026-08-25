@@ -5,7 +5,7 @@ import type { SessionLogDownloadState } from './controller.ts'
 import { NS } from './locales.ts'
 
 /** Browser operations and state injected into the Session Header contribution. */
-/** 中文：注入会话标题栏贡献的浏览器下载状态与操作。 */
+/* 中文：注入会话标题栏贡献的浏览器下载状态与操作。 */
 export interface SessionLogDownloadDialogInjected {
   /** 按会话保存下载状态的响应式快照。 */
   hooks: { sessionLogDownload: ObservableSnapshot<SessionLogDownloadState> }
@@ -26,7 +26,7 @@ export type SessionLogDownloadDialogProps =
  * @param props - Session runtime, bound controller state, actions, and localized copy.
  * @returns the modal portal contribution.
  */
-/** 中文：渲染会话导出状态模态框；props 提供会话、快照、关闭动作和翻译，返回 Modal 贡献。 */
+/* 中文：渲染会话导出状态模态框；props 提供会话、快照、关闭动作和翻译，返回 Modal 贡献。 */
 export function SessionLogDownloadDialog({
   sessionId, useSessionLogDownload, dismiss, t,
 }: SessionLogDownloadDialogProps) {

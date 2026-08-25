@@ -23,7 +23,7 @@ import type {
  * @param data - Trajectory-specific contribution payload.
  * @returns The contribution wrapped as a Trajectory view node.
  */
-/**
+/*
  * 把一个贡献包进 Engine 拥有的目标信封（trajectory 视图节点）。
  * 使用示例：各 Definition 的 buildViewNode 里调用 trajectoryNode(context, seq, { kind: 'tool', root })。
  * @param context - 拥有该贡献身份的 Context（提供 key / kind / id / location）。

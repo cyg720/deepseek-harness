@@ -1,5 +1,5 @@
 /** Streaming terminal-control sanitizer for the line-oriented first release. */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】面向行导向首版的流式终端控制净化器：从 PTY 输出里剥离 CSI/OSC/短转义
  * 序列，同时识别受控 bash 在每次提示符前发出的私有 OSC 标记（133;D;），保留标记后
@@ -21,20 +21,20 @@
 import { Buffer } from 'node:buffer'
 
 /** OSC marker emitted by the controlled bash before each prompt. */
-/** 受控 bash 在每次提示符前发出的 OSC 标记前缀。 */
+/* 受控 bash 在每次提示符前发出的 OSC 标记前缀。 */
 export const PROMPT_MARKER_PREFIX = '133;D;'
 
 /** Exact printable prompt emitted after the private marker. */
-/** 私有标记之后发出的确切可打印提示符。 */
+/* 私有标记之后发出的确切可打印提示符。 */
 export const CONTROLLED_PROMPT = 'dsh> '
 
 /** One sanitized chunk plus whether it contained the owned prompt marker. */
-/** 一个已净化块，外加它是否包含自有提示符标记。 */
+/* 一个已净化块，外加它是否包含自有提示符标记。 */
 export interface SanitizedChunk {
   text: string
   prompt: boolean
   /** Printable text after the latest owned marker in this chunk. */
-  /** 本块中最新的自有标记之后的可打印文本。 */
+  /* 本块中最新的自有标记之后的可打印文本。 */
   promptTail?: string
 }
 
@@ -43,7 +43,7 @@ export interface SanitizedChunk {
  * Full terminal emulation is deliberately deferred; ordinary line output and
  * the private prompt marker are the supported contract.
  */
-/**
+/*
  * 去除 CSI/OSC/短转义序列，同时保留跨块切分的序列状态。完整终端仿真刻意延后；
  * 普通行输出与私有提示符标记是受支持契约。
  */
@@ -61,7 +61,7 @@ export class TerminalSanitizer {
    * @param chunk - decoded terminal data.
    * @returns Printable text and whether the private prompt marker completed.
    */
-  /**
+  /*
    * 消费一个解码后的 node-pty 数据块。
    * @param chunk 解码后的终端数据
    * @returns 可打印文本与私有提示符标记是否完成
@@ -148,7 +148,7 @@ export class TerminalSanitizer {
    * Flush a trailing printable fragment when the PTY exits.
    * @returns Remaining printable text; incomplete escapes are discarded.
    */
-  /**
+  /*
    * PTY 退出时冲刷残留的可打印片段。
    * @returns 剩余可打印文本；不完整转义被丢弃。
    */
@@ -228,7 +228,7 @@ export class TerminalSanitizer {
  * @param text - sanitized terminal text.
  * @returns Line-normalized text with BEL removed.
  */
-/**
+/*
  * 为行导向渲染归一化 CRLF 与独立回车。
  * @param text 已净化的终端文本
  * @returns 行归一化且去除 BEL 的文本

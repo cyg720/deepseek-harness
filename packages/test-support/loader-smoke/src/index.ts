@@ -10,7 +10,7 @@
  *
  * @module @deepseek-ai/dsh-loader-smoke
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的快照与装载测试支持行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的快照与装载测试支持能力保障 Agent 功能在集成层稳定。
@@ -36,15 +36,15 @@ export {
 const DEFAULT_PROCESS_TIMEOUT_MS = 30_000
 
 /** Vitest deadline that leaves room for the subprocess-owned 30-second diagnostic timeout. */
-/** 中文说明：常量 LOADER_SMOKE_TEST_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 LOADER_SMOKE_TEST_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const LOADER_SMOKE_TEST_TIMEOUT_MS = DEFAULT_PROCESS_TIMEOUT_MS + 15_000
 
 /** Which artifact an example bin is booted from: unbuilt `src` via tsx, or built `lib` via plain Node. */
-/** 中文说明：type ExampleMode 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：type ExampleMode 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export type ExampleMode = 'src' | 'lib'
 
 /** Environment variable selecting the mode; CI sets it to `lib`, dev leaves it unset (`src`). */
-/** 中文说明：常量 EXAMPLE_MODE_ENV 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 EXAMPLE_MODE_ENV 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const EXAMPLE_MODE_ENV = 'DSH_EXAMPLE_MODE'
 
 /**
@@ -54,7 +54,11 @@ export const EXAMPLE_MODE_ENV = 'DSH_EXAMPLE_MODE'
  * @param raw - the raw value; defaults to `process.env.DSH_EXAMPLE_MODE`.
  * @returns the validated mode.
  */
-/** 中文说明：函数 resolveExampleMode 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 resolveExampleMode 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param raw 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveExampleMode(raw: string | undefined = process.env[EXAMPLE_MODE_ENV]): ExampleMode {
   switch (raw) {
     case undefined:
@@ -69,7 +73,7 @@ export function resolveExampleMode(raw: string | undefined = process.env[EXAMPLE
 }
 
 /** Inputs to {@link resolveExampleLaunch}. */
-/** 中文说明：interface ExampleLaunchOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface ExampleLaunchOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface ExampleLaunchOptions {
   /** Absolute path to the example bin's TypeScript source entry (`<pkg>/src/bin.ts`); the `lib` bin is derived from it. */
   readonly srcBin: string
@@ -86,7 +90,7 @@ export interface ExampleLaunchOptions {
 }
 
 /** The resolved spawn: `spawn(command, args, { env: { ...process.env, ...env } })`. */
-/** 中文说明：interface ExampleLaunch 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface ExampleLaunch 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface ExampleLaunch {
   /** The executable to spawn — always the current Node binary. */
   readonly command: string
@@ -97,7 +101,7 @@ export interface ExampleLaunch {
 }
 
 /** Derive the built-lib bin (`<pkg>/lib/<name>.js`) from a source bin (`<pkg>/src/<name>.ts`). */
-/** 中文说明：函数 toLibBin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 toLibBin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toLibBin(srcBin: string): string {
   /** 中文说明：变量 markerLength 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const markerLength = '/src/'.length
@@ -126,7 +130,11 @@ function toLibBin(srcBin: string): string {
  * @param options - the source bin, config arguments, mode, and environment.
  * @returns the command, argument vector, and mode-specific environment to spawn with.
  */
-/** 中文说明：函数 resolveExampleLaunch 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 resolveExampleLaunch 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveExampleLaunch(options: ExampleLaunchOptions): ExampleLaunch {
   /** 中文说明：变量 mode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mode = options.mode ?? resolveExampleMode()
@@ -149,7 +157,7 @@ export function resolveExampleLaunch(options: ExampleLaunchOptions): ExampleLaun
 }
 
 /** Inputs that vary between real-Loader example smokes. */
-/** 中文说明：interface LoaderSmokeOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface LoaderSmokeOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface LoaderSmokeOptions {
   /** Human-readable example name used in failure diagnostics. */
   readonly label: string
@@ -185,7 +193,7 @@ export interface LoaderSmokeOptions {
 }
 
 /** Captured output from a Loader smoke that exited successfully. */
-/** 中文说明：interface LoaderSmokeResult 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface LoaderSmokeResult 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface LoaderSmokeResult {
   /** Complete stdout after clean exit. */
   readonly stdout: string
@@ -200,7 +208,11 @@ export interface LoaderSmokeResult {
  * @param options - example paths, mode, environment, and diagnostic identity.
  * @returns captured stdout and stderr after a zero exit.
  */
-/** 中文说明：函数 runLoaderSmoke 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 runLoaderSmoke 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function runLoaderSmoke(options: LoaderSmokeOptions): Promise<LoaderSmokeResult> {
   /** 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cwd = await mkdtemp(join(tmpdir(), options.tempDirPrefix))

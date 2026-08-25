@@ -2,7 +2,7 @@
  * Disposable live timer projection for one exact root agent.
  * @module @deepseek-ai/dsh-schedule
  */
-/**
+/*
  * 文件职责：实现 runtime.ts 承担的计划调度配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的计划调度能力。
@@ -27,7 +27,7 @@ import { flushSchedulePersistence } from './persistence.ts'
 import { runScheduleTransaction } from './transaction.ts'
 
 /** Largest delay that Node timers represent without clamping. */
-/** 中文说明：常量 MAX_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_TIMER_DELAY_MS = 2_147_483_647
 
 /** 中文说明：interface EveryDue 定义本模块所需的数据或行为，用于表达计划调度场景。 */
@@ -43,7 +43,7 @@ type DueDecision =
   | { readonly kind: 'wait'; readonly target?: number }
 
 /** Select one due one-shot, one complete fixed-rate batch, or the next wake. */
-/** 中文说明：函数 dueDecision 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 dueDecision 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function dueDecision(folded: FoldedSchedules, now: number): DueDecision {
   /** 中文说明：函数值 indexed 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const indexed = folded.active.map((record, index) => ({ record, index }))
@@ -87,13 +87,13 @@ function dueDecision(folded: FoldedSchedules, now: number): DueDecision {
 }
 
 /** Render an unknown value for process-local diagnostics only. */
-/** 中文说明：函数 renderThrown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderThrown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderThrown(value: unknown): string {
   return value instanceof Error ? value.message : String(value)
 }
 
 /** One process-local, disposable projection of an exact agent's durable schedules. */
-/** 中文说明：class ScheduleRuntime 定义本模块所需的数据或行为，用于表达计划调度场景。 */
+/* 中文说明：class ScheduleRuntime 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 export class ScheduleRuntime {
   private readonly stop = Promise.withResolvers<void>()
   private timer: ReturnType<typeof setTimeout> | undefined

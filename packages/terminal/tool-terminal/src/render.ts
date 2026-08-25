@@ -1,5 +1,5 @@
 /** Model and UI rendering for persistent terminal tool results. */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】持久化终端工具结果的模型与 UI 渲染：把会话/发送/读取/列表等结构化结果
  * 渲染为模型可见文本，并对完整结果做 UTF-8 安全的字节预算截断。
@@ -112,7 +112,7 @@ function boundBodyWithSuffix(
  * @param maxBytes - positive final result cap.
  * @returns bounded text with a truncation marker when it fits.
  */
-/**
+/*
  * 给一条完整终端确认文本设字节上限，并保持 UTF-8 切分完整。
  * @param text 完整确认文本
  * @param maxBytes 正的结果上限
@@ -131,7 +131,7 @@ export function boundTerminalText(text: string, maxBytes: number): string {
  * @param maxBytes - complete UTF-8 result cap.
  * @returns Model-facing session acknowledgement.
  */
-/**
+/*
  * 渲染一个已创建会话及其有界 MOTD。
  * @param result 已发布的 spawn 结果
  * @param maxBytes 完整 UTF-8 结果上限
@@ -151,7 +151,7 @@ export function renderSpawn(result: RenderedSpawnResult, maxBytes: number): stri
  * @param maxBytes - complete UTF-8 result cap.
  * @returns Terminal output plus wait/session markers.
  */
-/**
+/*
  * 渲染一次已落定的交互式发送。
  * @param result 已落定的发送结果
  * @param maxBytes 完整 UTF-8 结果上限
@@ -176,7 +176,7 @@ export function renderSend(result: RenderedSendResult, maxBytes: number): string
  * @returns Delta plus its upstream truncation marker. The generic task control
  *   applies the producer's complete-result cap after adding job status.
  */
-/**
+/*
  * 渲染一次增量式的后台操作读取。
  * @param read 消耗式的操作增量
  * @returns 增量加其上游截断标记；通用任务控制会在附加 job 状态后应用生产者的
@@ -193,7 +193,7 @@ export function renderSendRead(read: RenderedSendRead): string {
  * @param maxBytes - complete UTF-8 result cap.
  * @returns Page text plus pagination and truncation markers.
  */
-/**
+/*
  * 渲染一页有界的历史滚动区。
  * @param result 保留的滚动区页
  * @param maxBytes 完整 UTF-8 结果上限
@@ -215,7 +215,7 @@ export function renderRead(result: RenderedReadResult, maxBytes: number): string
  * @param maxBytes - complete UTF-8 result cap.
  * @returns One line per session or the empty marker.
  */
-/**
+/*
  * 渲染 owner 可见的存活会话列表。
  * @param sessions 新鲜的 owner 级快照
  * @param maxBytes 完整 UTF-8 结果上限

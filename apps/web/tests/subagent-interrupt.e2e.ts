@@ -36,7 +36,7 @@ const WAKING = 'And add one concrete example.'
 type RpcResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
 
 /** POST one unary RPC through the real HTTP carrier and unwrap its result. */
-/** 向 baseUrl 的 method 发送 payload 并返回业务结果。示例：await rpc(url, 'subagent.interrupt', payload)。 */
+/* 向 baseUrl 的 method 发送 payload 并返回业务结果。示例：await rpc(url, 'subagent.interrupt', payload)。 */
 async function rpc<T>(baseUrl: string, method: string, payload: unknown): Promise<RpcResult<T>> {
   const response = await fetch(`${baseUrl}/api/${method}`, {
     method: 'POST',
@@ -53,7 +53,7 @@ async function rpc<T>(baseUrl: string, method: string, payload: unknown): Promis
 }
 
 /** Poll a synchronous condition (hook-safe; expect.poll is test-body only). */
-/** 轮询 predicate；what 用于超时错误，timeoutMs 默认三十秒，成功时无返回值。 */
+/* 轮询 predicate；what 用于超时错误，timeoutMs 默认三十秒，成功时无返回值。 */
 async function waitFor(predicate: () => boolean, what: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (!predicate()) {
@@ -63,7 +63,7 @@ async function waitFor(predicate: () => boolean, what: string, timeoutMs = 30_00
 }
 
 /** One text-only scripted model completion (no tool calls: real tools are mounted). */
-/** 把 text 包装为一次无工具的完整模型回放对象。示例：textCompletion('done')。 */
+/* 把 text 包装为一次无工具的完整模型回放对象。示例：textCompletion('done')。 */
 function textCompletion(text: string): object {
   return {
     kind: 'chunks',

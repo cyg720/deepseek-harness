@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证消息反馈的 message-feedback-actions.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染和可控服务替身。
  * 产品维度：防止消息反馈用户流程回归。
@@ -47,7 +47,7 @@ function item(overrides: Partial<MessageFeedbackItem> = {}): MessageFeedbackItem
 }
 
 /** Render the controls over a fixed view and recording verbs. */
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mount(options: {
   current?: MessageFeedbackItem | undefined
   rateResult?: MessageFeedbackActionResult

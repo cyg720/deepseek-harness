@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】ClientModuleSystem——ClientModuleLoader 契约背后的实现：
  *   状态表 + 到达（加载/注册）/物化机制。
@@ -21,7 +21,7 @@
  * documented on the public interfaces in `./manifest.ts`; this file owns the
  * state tables and the load/materialize machinery.
  */
-/**
+/*
  * ClientModuleSystem——ClientModuleLoader 契约背后的实现。概念契约（懒 CJS
  * 模型、解析分支顺序）记录在 ./manifest.ts 的公开接口上；本文件拥有状态
  * 表与加载/物化机制。
@@ -33,7 +33,7 @@ import type {
 } from './manifest.ts'
 
 /** Default bundle-load hook: same-origin external classic script. */
-/** 默认 bundle 加载钩子：同源外部经典脚本。 */
+/* 默认 bundle 加载钩子：同源外部经典脚本。 */
 const defaultLoadBundle = (url: string): Promise<void> => new Promise((resolve, reject) => {
   const el = document.createElement('script')
   el.async = true
@@ -54,7 +54,7 @@ const defaultLoadBundle = (url: string): Promise<void> => new Promise((resolve, 
  * materialization: preset-emitted tags arrive pre-tagged with data-plugin;
  * any untagged tag is claimed for the materializing plugin (HMR bookkeeping).
  */
-/**
+/*
  * 认领并盘点工厂在物化期间注入的 <style> 标签：预设发射的标签自带
  * data-plugin；任何未带标签的标签被认领给物化插件（HMR 记账）。
  */
@@ -77,7 +77,7 @@ const claimStyles = (id: string): string[] => {
  * already-materialized bootstrap module, and switches the HTML-installed
  * loader facade from its pending queue to live registration.
  */
-/**
+/*
  * 客户端模块系统：状态表 + 实现 ClientModuleLoader 的到达/物化机制
  * （其成员携带契约文档）。构造时索引启动行、保留已物化的 bootstrap 模块，
  * 并把 HTML 安装的 loader 门面从待处理队列切换为实时注册。
@@ -91,10 +91,10 @@ export class ClientModuleSystem implements ClientModuleLoader {
   private readonly factories = new Map<string, ClientBundleRegistration['factory']>() // 已注册工厂表
   private readonly bootstrapIds = new Set<string>() // bootstrap 模块 id（不可 invalidate）
   /** In-flight prefetch (script load) per id; concurrent callers share it. */
-  /** 每 id 进行中的预取（脚本加载）；并发调用方共享它。 */
+  /* 每 id 进行中的预取（脚本加载）；并发调用方共享它。 */
   private readonly pendingArrival = new Map<string, Promise<void>>()
   /** Materialization re-entrancy guard: factory-form CJS cannot deliver partial exports, so a cycle is fatal. */
-  /** 物化重入守卫：工厂形 CJS 无法交付部分导出，因此环是致命的。 */
+  /* 物化重入守卫：工厂形 CJS 无法交付部分导出，因此环是致命的。 */
   private readonly materializing = new Set<string>()
   private readonly graphRows = new Map<string, BootModuleRow>() // 启动图行：id -> 行
   private readonly loadBundle: (url: string) => Promise<void>
@@ -103,7 +103,7 @@ export class ClientModuleSystem implements ClientModuleLoader {
    * Build the module system over the parsed boot rows.
    * @param options - Parsed graph, platform seed, bootstrap module, registration facade, and transport.
    */
-  /**
+  /*
    * 在解析后的启动行上构建模块系统。
    * @param options 解析图、平台种子、bootstrap 模块、注册门面与传输。
    */
@@ -141,7 +141,7 @@ export class ClientModuleSystem implements ClientModuleLoader {
   }
 
   /** Register one bundle factory, rejecting a script that executes twice without invalidation. */
-  /** 注册一个 bundle 工厂；拒绝未经 invalidate 就二次执行的脚本。 */
+  /* 注册一个 bundle 工厂；拒绝未经 invalidate 就二次执行的脚本。 */
   private register(registration: ClientBundleRegistration): void {
     const id = stripClientSuffix(registration.id)
     if (this.bootstrapIds.has(id) || this.factories.has(id)) {
@@ -151,7 +151,7 @@ export class ClientModuleSystem implements ClientModuleLoader {
   }
 
   /** Load one graph row so its factory is registered (idempotent per in-flight arrival). */
-  /** 加载一个图行使工厂被注册（按在途到达幂等）。 */
+  /* 加载一个图行使工厂被注册（按在途到达幂等）。 */
   private arrive(row: BootModuleRow): Promise<void> {
     const { id, url } = row
     const pending = this.pendingArrival.get(id)
@@ -167,7 +167,7 @@ export class ClientModuleSystem implements ClientModuleLoader {
   }
 
   /** Register each unresolved dynamic request before registering its consumer. */
-  /** 在注册消费方之前先注册每个未解析的动态请求。 */
+  /* 在注册消费方之前先注册每个未解析的动态请求。 */
   private async arriveGraphRow(row: BootModuleRow, open: readonly string[] = []): Promise<void> {
     const cycleStart = open.indexOf(row.id)
     if (cycleStart !== -1) {
@@ -187,7 +187,7 @@ export class ClientModuleSystem implements ClientModuleLoader {
   }
 
   /** Materialize a registered factory (synchronous; memoized in loadCache). */
-  /** 物化一个已注册工厂（同步；在 loadCache 中记忆化）。 */
+  /* 物化一个已注册工厂（同步；在 loadCache 中记忆化）。 */
   private materialize(id: string): ClientModuleRecord {
     const existing = this.loadCache.get(id)
     if (existing !== undefined) return existing
@@ -215,7 +215,7 @@ export class ClientModuleSystem implements ClientModuleLoader {
    * from here; an external dynamic package must have arrived before its
    * consumer materializes.
    */
-  /**
+  /*
    * 应答给工厂的同步 require：seed -> 记忆化记录 -> 已注册工厂。拉取是
    * 异步的，因此从这里不可达；外部动态包必须先于其消费方物化前到达。
    */

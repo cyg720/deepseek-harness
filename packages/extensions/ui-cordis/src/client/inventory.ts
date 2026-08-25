@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】浏览器侧"插件库存"（inventory）：以可订阅 observable 的形式持有
  *             Host 定义注册表在本页最近一次读取到的行，供面板/卡片/@ 触发共用，
@@ -42,7 +42,7 @@ import type { CordisDynamicPort, CordisInventoryRow } from './dynamic-port.ts'
 import type { CordisDynamicPluginId } from './events.ts'
 
 /** What the panel reads: the rows, and whether the first read has happened. */
-/**
+/*
  * 面板读取的库存快照：行集合、本页显式移除的插件（历史卡片保留）、
  * 是否已完成首次读取（未完成前显示加载行而非空态）与最近读取失败信息。
  */
@@ -60,7 +60,7 @@ export interface CordisInventorySnapshot {
 }
 
 /** Inventory source: an observable of the rows plus the read trigger. */
-/**
+/*
  * 库存源接口：既是可订阅的 observable（getSnapshot/subscribe），又暴露三个操作——
  * refresh（无在途读取时重读）、retire（记录显式移除并立刻丢行）、reset（丢弃结果，
  * 重连后可能是新 Host）。
@@ -80,10 +80,13 @@ export interface CordisInventory extends HostObservable<CordisInventorySnapshot>
  * @param onError - reporter for a failed read (console in production, captured in specs).
  * @returns the inventory observable and its read trigger.
  */
-/**
+/*
  * 创建库存源：返回带 refresh（单飞读取）/retire（本地移除）/reset（丢弃旧结果）的
  * 可订阅 observable。全部行在每次读取时整体重读（而非修补），因为线缆事件不携带
  * 标签，修补式缓存会漂移。
+ * @param port 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param onError 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function createCordisInventory(
   port: CordisDynamicPort,

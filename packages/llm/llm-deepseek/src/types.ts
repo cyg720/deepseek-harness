@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义 DeepSeek chat-completions 线上格式（wire format，OpenAI
  * 兼容）的类型集合：请求体、消息、工具、流式块与用量、错误体。纯类型文件。
@@ -120,7 +120,7 @@ export type WireMessage =
   | WireAssistantMessage
   | WireToolMessage
 
-/**
+/*
  * （中文）助手角色的历史消息。工具调用轮次回放 content 为 ""（绝不 null，
  * 某些网关拒绝 null）；只有该轮既无文本也无工具调用时才发 null。
  */
@@ -221,7 +221,7 @@ export interface WireToolCallDelta {
   }
 }
 
-/**
+/*
  * （中文）线上 token 计量。prompt_tokens 包含缓存命中（等于
  * prompt_cache_hit_tokens + prompt_cache_miss_tokens）；mapUsage 会扣除它们
  * 以保持 harness"计数互斥"的约定。prompt_tokens_details.cached_tokens 是

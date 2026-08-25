@@ -6,7 +6,7 @@
  * `warn` instead of failing — mirroring the Loader's boot-time warning for a
  * shared overlay whose row exists only on another surface.
  */
-/**
+/*
  * 文件职责：验证renderConfigDump离线组合与真实boot一致，并正确展示表达式、来源分组和跳过警告。
  * 技术维度：使用Vitest、临时YAML文件和Cordis Include相同解析/补丁算法比较配置输出。
  * 产品维度：让用户在启动前查看最终配置，并理解每层补丁来源而不执行插件树。

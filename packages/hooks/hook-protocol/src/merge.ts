@@ -5,7 +5,7 @@
  * in hook order.
  * @module @deepseek-ai/dsh-hook-protocol/merge
  */
-/**
+/*
  * 文件职责：实现Hook 线协议的 merge.ts 模块。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
@@ -17,11 +17,11 @@
 import type { HookOutput } from './types.ts'
 
 /** The single decision a hook point resolves to after merging all matched hooks. */
-/** 中文说明：类型或类 MergedDecision 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 MergedDecision 约束 Hook、守卫或目标数据职责。 */
 export type MergedDecision = 'allow' | 'ask' | 'deny' | 'none'
 
 /** The folded outcome of every hook that matched one point. */
-/** 中文说明：类型或类 MergedHookOutcome 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 MergedHookOutcome 约束 Hook、守卫或目标数据职责。 */
 export interface MergedHookOutcome {
   /**
    * The most-restrictive permission decision across all hooks (`deny` > `ask` >
@@ -42,7 +42,7 @@ export interface MergedHookOutcome {
 }
 
 /** Rank a single hook's decision for the deny>ask>allow precedence (higher = stricter). */
-/** 中文说明：函数 rank 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rank 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rank(decision: HookOutput['decision']): number {
   switch (decision) {
     case 'deny': case 'block': return 3
@@ -53,7 +53,7 @@ function rank(decision: HookOutput['decision']): number {
 }
 
 /** Collapse a ranked decision back to the merged enum. */
-/** 中文说明：函数 decisionForRank 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 decisionForRank 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function decisionForRank(maxRank: number): MergedDecision {
   switch (maxRank) {
     case 3: return 'deny'
@@ -71,7 +71,11 @@ function decisionForRank(maxRank: number): MergedDecision {
  * @param outputs - every matched hook's decoded output, in hook order.
  * @returns the single folded outcome the bridge maps onto its extension point.
  */
-/** 中文说明：函数 mergeHookOutputs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 mergeHookOutputs 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param outputs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function mergeHookOutputs(outputs: HookOutput[]): MergedHookOutcome {
   /** 中文说明：协议局部值 maxRank，由紧邻初始化决定。 */
   let maxRank = 0

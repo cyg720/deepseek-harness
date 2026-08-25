@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】存储枢纽与各后端共用的错误词汇表：错误码联合与统一的 StorageError 异常类。
  * 【技术维度】与领域层错误（DomainError）并列的另一错误家族：StorageError 带稳定判别码
@@ -16,13 +16,13 @@
  * Error vocabulary for the storage hub and its backends.
  * @module @deepseek-ai/dsh-storage/src/error
  */
-/**
+/*
  * 模块总览：本文件的错误同时被枢纽（hub）与后端实现使用；领域层错误在
  * dsh-storage-domain 的 error.ts 中定义，两者是两个独立家族。
  */
 
 /** Discriminant codes carried by every {@link StorageError}. */
-/**
+/*
  * StorageError 携带的错误码，消费方按它稳定分类：
  * backend-not-found 后端名未登记；form-not-mounted 数据形态未挂载；duplicate-backend
  * 后端重名登记；duplicate-mount 形态重复挂载；version-mismatch 介质版本不匹配；
@@ -41,7 +41,7 @@ export type StorageErrorCode =
  * Error thrown by the hub and by backend implementations. The `code` is the
  * stable contract consumers may switch on; `message` is diagnostic prose.
  */
-/**
+/*
  * 枢纽与后端实现抛出的错误：code 是稳定契约，message 是诊断说明。
  */
 export class StorageError extends Error {
@@ -52,7 +52,7 @@ export class StorageError extends Error {
    * @param message - Human-readable diagnostic detail.
    * @param options - Standard error options (`cause`).
    */
-  /**
+  /*
    * @param code 失败类别的稳定判别码。
    * @param message 给人看的诊断细节。
    * @param options 标准错误选项（cause 链上原始异常）。

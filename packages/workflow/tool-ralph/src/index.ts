@@ -4,7 +4,7 @@
  * only the immutable objective and the previous bounded handoff between them.
  * @module @deepseek-ai/dsh-tool-ralph
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的Ralph 工作流行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的Ralph 工作流能力稳定、可复现且可诊断。
@@ -30,7 +30,7 @@ export const name = 'tool-ralph'
 export const inject = ['tools', 'workflowEngine', 'subagents', 'systemPrompt']
 
 /** Deployment policy for the fixed Ralph workflow. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达Ralph 工作流场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达Ralph 工作流场景。 */
 export interface Config {
   /** Fresh structured-output provider used for every round (default `spawn`). */
   subagentProvider?: string
@@ -43,7 +43,7 @@ export interface Config {
 }
 
 /** Schemastery configuration for the Ralph tool. */
-/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   subagentProvider: z.string().default('spawn'),
   maxRounds: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(256),
@@ -108,7 +108,7 @@ const RALPH_META = {
  * Fixed, deployment-owned orchestration. The model supplies data only; it
  * cannot alter the loop, provider route, schema, or handoff validation.
  */
-/** 中文说明：常量 RALPH_SCRIPT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RALPH_SCRIPT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RALPH_SCRIPT = String.raw`
 const reportSchema = {
   type: 'object',
@@ -207,7 +207,7 @@ const DESCRIPTION = 'Run a foreground fresh-agent Ralph loop toward one immutabl
   + 'belongs to goal tools.'
 
 /** Validate defaults even when a caller invokes apply() without Loader normalization. */
-/** 中文说明：函数 resolveConfig 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveConfig 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveConfig(config: Config): ResolvedConfig {
   /** 中文说明：变量 subagentProvider 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const subagentProvider = config.subagentProvider ?? 'spawn'
@@ -233,7 +233,7 @@ function resolveConfig(config: Config): ResolvedConfig {
 }
 
 /** Resolve one model-selected cap against the deployment ceiling. */
-/** 中文说明：函数 resolveMaxRounds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveMaxRounds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveMaxRounds(requested: number | undefined, ceiling: number): number {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value = requested ?? ceiling
@@ -247,7 +247,7 @@ function resolveMaxRounds(requested: number | undefined, ceiling: number): numbe
 }
 
 /** Require the configured route to mean a genuinely fresh structured child. */
-/** 中文说明：函数 requireFreshProvider 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 requireFreshProvider 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function requireFreshProvider(ctx: Context, name: string): SubagentProvider {
   /** 中文说明：变量 provider 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const provider = ctx.subagents.getProvider(name)
@@ -279,7 +279,7 @@ function normalizedList(value: unknown): value is string[] {
 }
 
 /** Defensively decode the fixed script's report across a provider boundary. */
-/** 中文说明：函数 readReport 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 readReport 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readReport(value: unknown, expectedStatus: RalphRoundStatus, maxChars: number): RalphRoundReport {
   if (!isRecord(value)
     || Object.keys(value).sort().join(',') !== 'blocker,evidence,nextSteps,status,summary'
@@ -318,7 +318,7 @@ function readReport(value: unknown, expectedStatus: RalphRoundStatus, maxChars: 
 }
 
 /** Defensively decode the fixed script's terminal value. */
-/** 中文说明：函数 readRunResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 readRunResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readRunResult(value: unknown, maxRounds: number, maxHandoffChars: number): RalphTerminalResult {
   if (!isRecord(value)
     || typeof value['roundsStarted'] !== 'number'
@@ -373,7 +373,7 @@ function readRunResult(value: unknown, maxRounds: number, maxHandoffChars: numbe
 }
 
 /** A non-clean workflow finish is an error, never a partial Ralph success. */
-/** 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stopReasonError(result: WorkflowResult): string | undefined {
   switch (result.stopReason) {
     case 'completed':
@@ -393,7 +393,7 @@ function stopReasonError(result: WorkflowResult): string | undefined {
 const TRUNCATION_NOTICE = '\n… [truncated]'
 
 /** Bound complete parent-facing text, including its envelope and truncation marker. */
-/** 中文说明：函数 boundResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 boundResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function boundResult(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text
   if (maxChars <= TRUNCATION_NOTICE.length) return TRUNCATION_NOTICE.slice(0, maxChars)
@@ -401,7 +401,7 @@ function boundResult(text: string, maxChars: number): string {
 }
 
 /** Render the fixed terminal envelope without presenting self-report as certification. */
-/** 中文说明：函数 renderResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderResult(result: RalphRunResult, maxChars: number): string {
   /** 中文说明：变量 rounds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rounds = `${result.roundsStarted} round${result.roundsStarted === 1 ? '' : 's'}`
@@ -422,7 +422,7 @@ function renderResult(result: RalphRunResult, maxChars: number): string {
 }
 
 /** Canonical Ralph result fields shared by schema inference and rendering. */
-/** 中文说明：常量 RALPH_OUTPUT_PROPERTIES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RALPH_OUTPUT_PROPERTIES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RALPH_OUTPUT_PROPERTIES = {
   runId: { type: 'string', required: true },
   agentsStarted: { type: 'integer', required: true },
@@ -430,7 +430,7 @@ const RALPH_OUTPUT_PROPERTIES = {
 } as const
 
 /** Render an ordinary child failure with the most recent durable handoff. */
-/** 中文说明：函数 renderRoundFailure 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderRoundFailure 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderRoundFailure(result: RalphRoundFailure, maxChars: number): string {
   /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const header = `Ralph round ${result.roundsStarted} child failed before producing a structured report.`
@@ -454,7 +454,7 @@ function presentResult(args: RalphCallArgs, result: { content: ContentBlock[]; i
 }
 
 /** Register the fixed Ralph tool and its explicit-ask usage policy. */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved = resolveConfig(config)

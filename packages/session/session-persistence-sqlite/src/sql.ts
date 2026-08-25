@@ -2,7 +2,7 @@
  * Closed, package-owned SQL resource loading for SQLite.
  * @module @deepseek-ai/dsh-session-persistence-sqlite/sql
  */
-/**
+/*
  * 文件职责：按封闭资源名同步加载并缓存 SQLite 包拥有的 SQL 语句。
  * 技术维度：使用 TypeScript const 元组、派生联合类型、import.meta.url 和 Map 缓存。
  * 产品维度：保证会话数据库只执行随包发布且经过审查的 SQL 文件，并避免重复磁盘读取。
@@ -53,7 +53,7 @@ const SQL_RESOURCES = [
 ] as const
 
 /** A resource basename selected exclusively by package code. */
-/** 只能由包代码选择的 SQL 资源基名联合类型。 */
+/* 只能由包代码选择的 SQL 资源基名联合类型。 */
 export type SqlResourceName = typeof SQL_RESOURCES[number]
 
 // 已加载 SQL 文本缓存；键为封闭资源名，值为 UTF-8 语句文本。
@@ -64,7 +64,11 @@ const cache = new Map<SqlResourceName, string>()
  * @param name - package-owned resource basename.
  * @returns the resource text.
  */
-/** 加载不可变 SQL 语句。@param name 包拥有的资源基名。@returns UTF-8 SQL 文本。@example sql('begin')。 */
+/*
+ * 加载不可变 SQL 语句。@param name 包拥有的资源基名。@returns UTF-8 SQL 文本。@example sql('begin')。
+ * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function sql(name: SqlResourceName): string {
   // 之前读取并缓存的语句；存在时避免再次访问磁盘。
   const cached = cache.get(name)

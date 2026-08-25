@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】面向模型的文件系统发现工具套件（glob、grep），建立在打包的 ripgrep
  * 二进制（@vscode/ripgrep）之上。这个单一插件注册两个工具；二进制随 npm 依赖分发，
@@ -48,7 +48,7 @@
  *
  * @module @deepseek-ai/dsh-tool-fs-search
  */
-/**
+/*
  * 模块总览：本文件是搜索工具套件的插件组装层：配置校验 + 注册 glob/grep。
  * 两个工具的 argv 构造与结果解析分别在 glob.ts / grep.ts。
  */
@@ -92,47 +92,47 @@ export {
 export type { GrepMatch, RipgrepRun, SearchErrorCode } from './search-core.ts'
 
 /** Cordis plugin name used by loader diagnostics. */
-/** 插件名（供加载器诊断使用）。 */
+/* 插件名（供加载器诊断使用）。 */
 export const name = 'tool-fs-search'
 
 /** Services required by the search tool suite (`spillStore` is optional, read via `ctx.get()`). */
-/** 搜索工具套件依赖的服务（spillStore 可选，经 ctx.get() 读取）。 */
+/* 搜索工具套件依赖的服务（spillStore 可选，经 ctx.get() 读取）。 */
 export const inject = ['tools', 'systemPrompt', 'subprocess']
 
 /** Plugin config; over-cap glob sampling is an explicit deployment choice and the remaining fields have defaults. */
-/**
+/*
  * 插件配置：超过上限的 glob 采样是显式部署选择（必填），其余字段有默认值。
  */
 export interface Config {
   /** Whether an over-cap `glob` page is sampled across top-level entries instead of taking the modification-time head. */
-  /** 超限 glob 页是否跨顶级条目采样（而不是取修改时间头）。 */
+  /* 超限 glob 页是否跨顶级条目采样（而不是取修改时间头）。 */
   sampleOverCapGlobResults: boolean
   /** Max paths one `glob` call retains inline; later paths go to the formatted spill file. */
-  /** 单次 glob 调用内联保留的最大路径数；后面的路径进格式化 spill 文件。 */
+  /* 单次 glob 调用内联保留的最大路径数；后面的路径进格式化 spill 文件。 */
   globMaxResults?: number
   /** Max flat matches one `grep` call retains inline; later matches go to the formatted spill file. */
-  /** 单次 grep 调用内联保留的最大扁平匹配数；后面的匹配进格式化 spill 文件。 */
+  /* 单次 grep 调用内联保留的最大扁平匹配数；后面的匹配进格式化 spill 文件。 */
   grepMaxMatches?: number
   /** Max bytes retained for one matched-line preview (the cut preserves UTF-8 boundaries). */
-  /** 一条匹配行预览保留的最大字节数（截断保留 UTF-8 边界）。 */
+  /* 一条匹配行预览保留的最大字节数（截断保留 UTF-8 边界）。 */
   grepMaxLineBytes?: number
   /** Max bytes of one search's serialized `presentationMeta`; trailing groups/paths drop past it so the persisted card stays bounded. */
-  /** 单次搜索序列化 presentationMeta 的最大字节数；超出的尾部组/路径被丢弃，持久化卡片保持有界。 */
+  /* 单次搜索序列化 presentationMeta 的最大字节数；超出的尾部组/路径被丢弃，持久化卡片保持有界。 */
   searchMetaMaxBytes?: number
   /** Max complete raw `rg` stdout bytes a search will parse; larger raw output fails with `SEARCH_RAW_OUTPUT_OVERFLOW`. */
-  /** 搜索将解析的完整原始 rg stdout 最大字节数；更大输出以 SEARCH_RAW_OUTPUT_OVERFLOW 失败。 */
+  /* 搜索将解析的完整原始 rg stdout 最大字节数；更大输出以 SEARCH_RAW_OUTPUT_OVERFLOW 失败。 */
   rawOutputMaxBytes?: number
   /** Terminate-escalation grace (ms), handed to the subprocess seam and bounded by `MAX_TIMER_DELAY_MS`. */
-  /** 终止升级宽限（毫秒），交给子进程接缝，并以 MAX_TIMER_DELAY_MS 为界。 */
+  /* 终止升级宽限（毫秒），交给子进程接缝，并以 MAX_TIMER_DELAY_MS 为界。 */
   graceMs?: number
   /** Max bytes retained for one search's stderr tail; the excerpt is embedded in `SEARCH_*` error messages, never shown on success. */
-  /** 单次搜索保留 stderr 尾部的最大字节数；摘录嵌入 SEARCH_* 错误消息，成功时绝不展示。 */
+  /* 单次搜索保留 stderr 尾部的最大字节数；摘录嵌入 SEARCH_* 错误消息，成功时绝不展示。 */
   stderrMaxBytes?: number
   /**
    * Cooperative tool-call timeout budget (ms) on both tools, enforced by
    * `@deepseek-ai/dsh-tool-call-timeout-policy` through `exec.signal`.
    */
-  /**
+  /*
    * 两个工具的协作式工具调用超时预算（毫秒），由 dsh-tool-call-timeout-policy
    * 经 exec.signal 强制。
    */
@@ -153,11 +153,11 @@ export const Config: z<Config> = z.object({
 })
 
 /** The shape after schemastery applied the defaults. */
-/** schemastery 套用默认值后的配置形态。 */
+/* schemastery 套用默认值后的配置形态。 */
 type ResolvedConfig = Required<Config>
 
 /** Every search cap counts items/bytes/milliseconds — a positive integer, or retention and timeout arithmetic misbehaves silently. */
-/**
+/*
  * 每个搜索上限都是条目/字节/毫秒计数——必须是正整数，否则保留与超时算术会静默出错。
  */
 function assertPositiveInteger(name: string, value: number): void {
@@ -174,7 +174,7 @@ function assertPositiveInteger(name: string, value: number): void {
  * @param ctx - plugin context; registrations are effects scoped to this plugin.
  * @param config - resolved plugin configuration from schemastery.
  */
-/**
+/*
  * 注册 glob/grep 文件系统发现工具套件。打包的 ripgrep 二进制总是可用（npm 依赖），
  * 所以注册无条件。
  * @param ctx 插件上下文；注册是作用域于本插件的副作用。

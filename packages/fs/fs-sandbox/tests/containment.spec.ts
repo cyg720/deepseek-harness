@@ -1,7 +1,7 @@
 /**
  * Containment tests for lexical canonical paths and filesystem-identity aliases.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：验证文件沙箱路径包含判断同时处理规范字符串关系和符号链接身份别名。
  * - 技术维度：使用 Vitest、真实临时目录、realpath、symlink 和可配置大小写比较。

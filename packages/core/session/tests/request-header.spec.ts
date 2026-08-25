@@ -1,5 +1,5 @@
 /** Request-header canonicalization, equality, snapshot folding, and format rejection. */
-/**
+/*
  * 文件职责：验证Session 持久状态的 request-header.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
  * 产品维度：保证Session 持久状态在配置、错误、恢复和生命周期场景中可靠。
@@ -141,7 +141,7 @@ describe('Session.requestContext', () => {
   const CAPACITY = { provider: 'mock', model: 'm', contextWindow: 128_000 }
 
   /** A turn-enclosed capacity record; the invariant rejects one outside a turn. */
-  /** 中文说明：函数 seedWith 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 seedWith 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function seedWith(...records: { provider: string; model: string; contextWindow?: number }[]): SessionEvent[] {
     /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [{

@@ -35,7 +35,7 @@ import css from './Modal.module.css'
  * localized copy (this package is cordis-free, so copy arrives via props).
  * @returns null when closed; otherwise the overlay tree.
  */
-/** 中文说明：函数 Modal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 Modal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function Modal({
   open, onClose, title, closeLabel = 'Close', description, children, footer, className, contentClassName, headless = false,
 }: {

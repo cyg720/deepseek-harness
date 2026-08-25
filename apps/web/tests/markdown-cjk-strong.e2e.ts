@@ -48,7 +48,7 @@ const CASES = [
 ] as const
 
 /** Build one settled assistant reply covering CJK-adjacent strong punctuation boundaries. */
-/** 构造覆盖中日韩文本相邻粗体标点的已完成助手回复，并返回可注入的 JSONL。 */
+/* 构造覆盖中日韩文本相邻粗体标点的已完成助手回复，并返回可注入的 JSONL。 */
 function markdownFixture(): string {
   /** 在内存中累积测试事件的源会话。 */
   const session = Session.create(SessionId('markdown-cjk-strong-source'))

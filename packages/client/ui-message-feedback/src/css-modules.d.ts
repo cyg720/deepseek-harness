@@ -6,7 +6,7 @@
  * 关键边界：声明不验证类名或交互状态样式，组件测试仍需覆盖视觉状态。
  * 新手阅读建议：从反馈按钮的 `styles` 引用反查对应样式规则。
  */
-/** 使用方式：`import styles from './Feedback.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Feedback.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源码选择器，值是哈希隔离后的类名。 */
   const classes: Record<string, string>

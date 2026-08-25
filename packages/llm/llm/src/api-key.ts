@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】给出"合法 provider API key"的唯一判定标准：任何要把 key 放进
  * HTTP 请求头的适配器都复用这里的 normalizeApiKey 做校验。
@@ -21,7 +21,7 @@
  * @module @deepseek-ai/dsh-llm/api-key
  */
 
-/**
+/*
  * （中文）合法 key 的字符范围：可打印 ASCII（0x21 到 0x7E），排除空格。
  * HTTP 头值必须能原样携带这些字符，且所有已知 provider 的 key 只使用它们；
  * 超出该集合的 key 根本无法到达任何 provider（fetch 会拒绝构造该头），所以
@@ -37,14 +37,14 @@
  */
 const LEGAL_API_KEY = /^[\x21-\x7E]+$/
 
-/**
+/*
  * （中文）key 不可用的原因：'empty' 表示去空白后为空（压根没配）；'illegal
  * Characters' 表示含有 HTTP 头无法携带的字符。
  */
 /** Why a supplied API key cannot be used. */
 export type ApiKeyRejection = 'empty' | 'illegalCharacters'
 
-/**
+/*
  * （中文）对一次 key 校验的判定结果：成功时携带可用值，失败时携带拒绝原因，
  * 调用方通过 ok 字段区分两种情况。
  */
@@ -53,7 +53,7 @@ export type ApiKeyCheck =
   | { readonly ok: true; readonly value: string }
   | { readonly ok: false; readonly reason: ApiKeyRejection }
 
-/**
+/*
  * （中文）校验一个"已提供"的 API key：先静默去除首尾空白（因为来自配置文件、
  * .env 或 shell 导出的 key 都可能带上多余空白），再判空、判字符集。
  * @param raw 配置/存储/输入时原样的 key 字符串。

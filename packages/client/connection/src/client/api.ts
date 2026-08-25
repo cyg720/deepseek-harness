@@ -47,7 +47,7 @@ export type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 export type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm/types'
 
 /** Successful value returned by the connection-generation host handshake. */
-/** 每个连接代际Host握手成功后返回的描述值类型。 */
+/* 每个连接代际Host握手成功后返回的描述值类型。 */
 export type HostDescription = import('@deepseek-ai/dsh-host-apiproxy/api').ResponseValue<'host.describe'>
 
 import type { RpcResponse, RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
@@ -58,7 +58,11 @@ import type { RpcResponse, RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
  * @param response - the unary response.
  * @returns its result slot.
  */
-/** 从一元RPC响应中取出业务层只关心的result槽。 */
+/*
+ * 从一元RPC响应中取出业务层只关心的result槽。
+ * @param response 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resultOf<T>(response: RpcResponse<T>): RpcResult<T> {
   return response.result
 }

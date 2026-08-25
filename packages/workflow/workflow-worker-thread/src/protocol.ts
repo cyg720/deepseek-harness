@@ -6,7 +6,7 @@
  * make tag/payload mismatches compile-time errors rather than silently skipped messages.
  * @module @deepseek-ai/dsh-workflow-worker-thread/protocol
  */
-/**
+/*
  * 文件职责：实现 protocol.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -19,7 +19,7 @@ import type { WorkflowAgentEndInfo, WorkflowAgentInfo, WorkflowResult } from '@d
 import type { ChildResult, ChildStartRequest } from './types.ts'
 
 /** Message tags the worker sends the host (the wire values are the tag strings). */
-/** 中文说明：enum WorkerToHostType 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：enum WorkerToHostType 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export enum WorkerToHostType {
   /** The startup handshake: the session is listening and awaits {@link HostToWorkerType.Go}. */
   Ready = 'ready',
@@ -40,7 +40,7 @@ export enum WorkerToHostType {
 }
 
 /** The payload each worker→host tag carries. */
-/** 中文说明：interface WorkerToHostPayloads 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface WorkerToHostPayloads 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface WorkerToHostPayloads {
   /** Ready carries nothing. */
   [WorkerToHostType.Ready]: Record<never, never>
@@ -61,7 +61,7 @@ export interface WorkerToHostPayloads {
 }
 
 /** Message tags the host sends the worker (the wire values are the tag strings). */
-/** 中文说明：enum HostToWorkerType 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：enum HostToWorkerType 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export enum HostToWorkerType {
   /** Releases the startup gate: run the script body. */
   Go = 'go',
@@ -80,7 +80,7 @@ export enum HostToWorkerType {
 }
 
 /** The payload each host→worker tag carries. */
-/** 中文说明：interface HostToWorkerPayloads 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface HostToWorkerPayloads 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface HostToWorkerPayloads {
   /** Go carries nothing. */
   [HostToWorkerType.Go]: Record<never, never>
@@ -102,7 +102,7 @@ export interface HostToWorkerPayloads {
  * One worker→host message of tag `T`; unparameterized, the closed union over
  * every tag (a discriminated union — `switch` on `type` narrows).
  */
-/** 中文说明：type WorkerToHostMessage 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：type WorkerToHostMessage 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export type WorkerToHostMessage<T extends WorkerToHostType = WorkerToHostType> =
   { [K in T]: { type: K } & WorkerToHostPayloads[K] }[T]
 
@@ -110,6 +110,6 @@ export type WorkerToHostMessage<T extends WorkerToHostType = WorkerToHostType> =
  * One host→worker message of tag `T`; unparameterized, the closed union over
  * every tag (a discriminated union — `switch` on `type` narrows).
  */
-/** 中文说明：type HostToWorkerMessage 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：type HostToWorkerMessage 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export type HostToWorkerMessage<T extends HostToWorkerType = HostToWorkerType> =
   { [K in T]: { type: K } & HostToWorkerPayloads[K] }[T]

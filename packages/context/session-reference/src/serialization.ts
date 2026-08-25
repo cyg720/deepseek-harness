@@ -20,7 +20,7 @@
  * @param value - JSON-compatible reference data.
  * @returns JSON whose parse result is unchanged and whose data contains no literal `<`.
  */
-/**
+/*
  * 序列化 JSON，同时防止来源数据拼出类似 XML 的开标签。
  * 具体做法：把每个 `<` 替换为转义序列 \u003c，JSON 解析结果不变，
  * 但渲染后的纯文本中不可能出现 <tag> 结构。

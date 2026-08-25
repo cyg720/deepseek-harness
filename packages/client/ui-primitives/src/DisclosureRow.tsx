@@ -12,7 +12,7 @@ import { IconChevronDownOutline14 } from './icons/index.tsx'
 import css from './DisclosureRow.module.css'
 
 /** Shared 24px disclosure chrome for compact flow rows. */
-/** 中文说明：类型或类 DisclosureRowProps 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 DisclosureRowProps 约束基础组件的数据或职责。 */
 export interface DisclosureRowProps {
   icon: ReactNode
   title: string
@@ -39,7 +39,7 @@ export interface DisclosureRowProps {
  * @param props - Visual content, controlled state, and interaction policy.
  * @returns the disclosure row.
  */
-/** 中文说明：函数 DisclosureRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 DisclosureRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function DisclosureRow({
   icon,
   title,

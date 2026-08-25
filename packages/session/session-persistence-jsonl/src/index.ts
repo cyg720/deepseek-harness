@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】JSONL 持久化后端：把每个会话存成磁盘上"一个目录 + 一个追加式文件"，
  *   文件第一行是头记录、其后是逐条事件行；实现 SessionPersistence 服务接口并实现
@@ -29,7 +29,7 @@
  * absolute per-session log target before materialization.
  * @module @deepseek-ai/dsh-session-persistence-jsonl
  */
-/**
+/*
  * 【中文导读】上面英文概括本模块：JSONL 落盘后端——每会话一个追加文件，头与事件
  * 同存；编排交给协调器；定位器无副作用，物化前就能给出绝对路径。
  */
@@ -71,14 +71,14 @@ const DEFAULT_COMPRESSION: JsonlCompression = 'zstd'
  * frame-boundary event-loop yields against `setImmediate` overhead. One frame
  * remains an indivisible synchronous decode.
  */
-/**
+/*
  * 【中文】内部调度常量（非部署配置）：解码大日志时每隔约 500ms 让出一次事件循环，
  * 在"帧边界让出"与"setImmediate 开销"间取平衡；单帧内部仍是不可分割的同步解码。
  */
 const ZSTD_DECODE_YIELD_INTERVAL_MS = 500
 
 /** Assert that the independently decodable first frame contains only the header record. */
-/**
+/*
  * 【中文】校验第一帧解压后恰好是一行头记录（以换行结尾且只有一行）。第一帧独立
  * 可解是"列举只读头"优化的前提。
  * @param plaintext - 第一帧的明文。
@@ -90,7 +90,7 @@ function assertZstdHeaderFrame(plaintext: Buffer): void {
 }
 
 /** Loader schema for the JSONL artifact's physical encoding. */
-/**
+/*
  * 【中文】加载器配置 Schema：JSONL 工件的物理编码取 'zstd' 或 'none'，默认 zstd。
  */
 export const JsonlCompressionSchema: z<JsonlCompression> = z.union([
@@ -99,7 +99,7 @@ export const JsonlCompressionSchema: z<JsonlCompression> = z.union([
 ]).default(DEFAULT_COMPRESSION)
 
 /** Plugin config: where the JSONL backend keeps its session logs, and the packed-row write switch. */
-/**
+/*
  * 【中文】插件配置：会话日志存放在哪、以及写打包行的开关等。
  */
 export interface Config {
@@ -128,7 +128,7 @@ export interface Config {
 }
 
 /** Opaque coordinator token for replacing bytes recovered from a torn frame. */
-/**
+/*
  * 【中文】JSONL 后端专属的残尾修复令牌（对协调器 opaque）：truncateTo 是应截断到的
  * 字节偏移（残帧起点）；recoveredEvents 是从残帧里抢救出的、已完整可解析的事件，
  * 截断后需要原样补写回去。
@@ -151,7 +151,7 @@ interface FileRevisionIdentity {
 }
 
 /** Build the source-qualified revision shared by full and lightweight reads. */
-/**
+/*
  * 【中文】把文件身份五元组拼成"来源限定"的修订号字符串。全量读（readStableFile）与
  * 轻量读（readStoredRevision/listSnapshots）共用同一构造，保证两者可比较。
  * @param identity - stat 得到的文件身份。
@@ -168,7 +168,7 @@ function fileRevision(identity: FileRevisionIdentity): PersistenceRevision {
 }
 
 /** Whether a filesystem error means absence; every non-ENOENT failure must surface. */
-/**
+/*
  * 【中文】判断一个文件系统错误是否表示"目标不存在"（ENOENT）。只有 ENOENT 才能被
  * 当作"没有"；权限、IO 等其他错误必须向上抛出，绝不能伪装成"不存在"。
  * @param error - 待判断的错误。
@@ -184,7 +184,7 @@ function isENOENT(error: unknown): boolean {
  * listeners. Its torn-tail marker carries the byte offset and any events
  * recovered from an incomplete final Zstandard frame.
  */
-/**
+/*
  * 【中文】JSONL 持久化后端本体：作为插件加载后注册为 ctx.sessionPersistence，
  * 并（经协调器）安装写路径监听。它同时实现两个角色：
  * - SessionPersistence（服务面）：对外 API；
@@ -212,7 +212,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * `Service.name` without changing the service key captured by the base
    * constructor.
    */
-  /**
+  /*
    * 【中文】后端显示名，用于协调器诊断与 effect 命名。它遮蔽了 Service.name，
    * 但不改变基类构造时捕获的服务键（仍是 sessionPersistence）。
    */
@@ -302,7 +302,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   // --- PersistenceBackend 钩子（文件字节级的存取原语） ---
 
   /** Read a stored prefix by id across all project directories when cwd is unknown. */
-  /**
+  /*
    * 【中文】后端钩子：按 id 读"已存前缀"。cwd 未知时扫描所有项目目录找日志；
    * 找不到返回 undefined。找到则进入 readPrefix 做解析与残尾识别。
    * @param id - 会话 id。
@@ -322,7 +322,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * Read one log's stat-derived revision without loading its event bytes.
    * Resolving an id with unknown cwd still scans the project directories.
    */
-  /**
+  /*
    * 【中文】后端钩子：只 stat 日志文件派生修订号，不加载事件字节。cwd 未知的
    * id 仍要扫描项目目录定位文件。
    * @param id - 会话 id。
@@ -359,7 +359,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * @returns the raw artifact text plus the header parsed from its own first
    * line, or `undefined` when the session has no stored artifact.
    */
-  /**
+  /*
    * 【中文】原样读取会话工件：返回后端写下的确切 JSONL 文本（zstd 已解压拼接，
    * 或 UTF-8 明文）——绝不是由解析后的事件重新拼装。打包行、键顺序、换行都
    * 逐字节保留；残尾帧被省略，与其他读法的"已提交前缀"语义一致。
@@ -411,7 +411,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * @param signal - optional cancellation for the stat/read work.
    * @returns the stable bytes and the revision that matched both stats.
    */
-  /**
+  /*
    * 【中文】修订号稳定循环读：stat → 读 → 再 stat，两次 stat 的修订号一致才返回。
    * 若写者在 stat 与 readFile 之间追加过，字节会撕裂——此时重试整个循环。
    * @param path - 要读的工件文件路径。
@@ -436,7 +436,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * Read a stored prefix and convert torn-tail state to the opaque marker the
    * coordinator can round-trip without knowing the physical encoding.
    */
-  /**
+  /*
    * 【中文】读取已存前缀并把"残尾状态"翻译成协调器可往返的不透明标记：
    * zstd 走 readZstdPrefix；明文走 scanLog（committedBytes < 文件长度即有残行）。
    * 解析期发现的格式拒绝若缺路径，在这里补上本工件的位置。
@@ -485,7 +485,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Decode complete frames and retain complete JSONL records from a torn final frame. */
-  /**
+  /*
    * 【中文】zstd 读路径：扫描帧 → 解码首帧并校验"恰好一行头"→ 逐帧喂给
    * SessionLogScanner（定期让出事件循环防卡死）→ checkpoint 确认完整帧内没有
    * 撕裂行。无残尾直接 finish；有残尾则尽力解压残帧前缀、把抢救出的完整事件
@@ -572,7 +572,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Durably append a batch, lazily materializing the file when not yet present. */
-  /**
+  /*
    * 【中文】后端钩子：把一批连续事件持久化。文件尚不存在时走 materialize
    * （头 + 首批原子发布）；已存在则直接追加行并 fsync。
    * @param meta - 会话头。
@@ -593,7 +593,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * decoded from it, then append synthetic closers. Two fsync'd steps — the seam
    * does not require this to be atomic.
    */
-  /**
+  /*
    * 【中文】把崩溃修复落盘：先截断残尾，再补写"从残尾抢救出的事件 + 协调器给的
    * 合成收尾"。两步各自 fsync——契约不要求这两步原子。
    * @param meta - 会话头。
@@ -611,7 +611,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** List valid unique stored sessions' metadata (header line only — no full-log parse). */
-  /**
+  /*
    * 【中文】列举所有有效且不重复的已存会话元数据：只读各自头行，不解析整份日志。
    * @param signal - 可选取消信号。
    * @returns 每个会话一条头信息。
@@ -621,7 +621,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** List metadata plus a stat-derived identity for each append-only log. */
-  /**
+  /*
    * 【中文】在 list 基础上为每份追加日志附上 stat 派生的修订号。stat 期间文件
    * 恰好消失（ENOENT）则跳过该条；其他错误照常上抛。
    * @param signal - 可选取消信号。
@@ -698,7 +698,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   // --- 物化 / 追加 / 修复（文件力学） ---
 
   /** Atomically write the header line + first batch (temp-write, fsync, publish). */
-  /**
+  /*
    * 【中文】原子物化：写"头行 + 首批事件"。先拒绝对面编码的既有工件，编码内容
    * 后按平台分派：Windows 用 Win32 写透发布，POSIX 用 link 发布。头与首批分成两个
    * zstd 帧，保证首帧独立可解（列举只读头的优化依赖这一点）。
@@ -849,7 +849,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Encode the header and first batch without combining their frame boundaries. */
-  /**
+  /*
    * 【中文】物化编码：头行与首批事件各自独立成帧（绝不合并帧边界），保证首帧
    * 单独解压即得头记录。明文模式直接拼接字符串。
    * @param meta - 会话头。
@@ -866,7 +866,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Encode one durable append batch in the configured physical representation. */
-  /**
+  /*
    * 【中文】把一批事件编码为当前物理表示：zstd 压成一个完整帧，明文原样返回。
    * @param events - 事件批次。
    * @returns 已编码内容。
@@ -877,7 +877,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** fsync a POSIX directory so a just-created/renamed entry is crash-durable. */
-  /**
+  /*
    * 【中文】fsync 一个 POSIX 目录：让刚创建/改名出来的目录项具备崩溃持久性。
    * Windows 没有对应机制，走 win32.ts 的写透命名空间操作。
    * @param dir - 要同步的目录路径。
@@ -898,7 +898,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * previous size before rethrowing because the unchanged cursor will retry the
    * batch; leaving partial bytes would create duplicate sequence numbers.
    */
-  /**
+  /*
    * 【中文】追加事件行并 fsync。写入或同步部分失败时，先把文件恢复到追加前的
    * 尺寸再抛错——因为游标未动、这批会被重试；留下半截字节会造成重复 seq。
    * @param meta - 会话头（定位日志文件）。
@@ -953,7 +953,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Truncate the log file to `offset` bytes and fsync (discard the crash tail). */
-  /**
+  /*
    * 【中文】崩溃修复的截断步骤：把日志截到 offset 字节并 fsync，丢弃残尾。
    * @param meta - 会话头。
    * @param offset - 安全截断偏移（残帧起点）。
@@ -977,7 +977,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * file. Returns undefined if the file is empty or has no complete first line.
    * Reads in bounded chunks so a huge log costs only the header read.
    */
-  /**
+  /*
    * 【中文】读明文日志的首行（到第一个换行为止），不整文件加载。按 8KB 有界分块
    * 读取，超大日志也只花"一个头行"的代价。空文件或无完整首行返回 undefined。
    * @param path - 文件路径。
@@ -1011,7 +1011,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Read and validate only the independently compressed header frame. */
-  /**
+  /*
    * 【中文】zstd 日志的首行读取：分块累积字节，每轮用 scanZstdFrames(content, 1)
    * 尝试定位首帧；凑齐后解压、校验"恰好一行头"并返回该行。头帧独立压缩使列举
    * 无需解压整个日志。
@@ -1056,7 +1056,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Find the unique physical log for an id across every project directory. */
-  /**
+  /*
    * 【中文】在 root 下所有项目目录中定位某 id 的唯一物理日志：逐目录拒绝旧版
    * 平铺工件与对面编码工件；命中多个目录视为存储损坏报错。
    * @param id - 会话 id。
@@ -1087,7 +1087,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Require an existing configured root to be a readable directory. */
-  /**
+  /*
    * 【中文】构造期校验：root 已存在时必须是可读目录（用 readdirSync 探测）；
    * 不存在（ENOENT）则放行——它会在首次物化时创建。
    */
@@ -1101,7 +1101,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Reject metadata that does not identify the selected physical log. */
-  /**
+  /*
    * 【中文】存储身份守卫：头里的 id/cwd 必须恰好指向被读取的这份物理文件。
    * expectedId 给出时先比对 id；再由头信息推算期望路径，路径拼写不同时用
    * sameFile（realpath）确认是否同一文件——兼容大小写不敏感文件系统上的
@@ -1138,7 +1138,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
    * case aliases on case-insensitive filesystems without weakening identity
    * checks on case-sensitive stores.
    */
-  /**
+  /*
    * 【中文】判断两个路径拼写是否指向同一个物理文件：对双方都做 realpath 后比较。
    * realpath ENOENT 视为"不是同一文件"（其一不存在）；其他错误上抛——
    * 权限/IO 故障不能被误判为"不同文件"。
@@ -1163,7 +1163,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** The human-readable project directories under the configured root. */
-  /**
+  /*
    * 【中文】列出 root 下的一层子目录（即各项目目录）。root 不存在视为"没有会话"
    * 返回空数组；其他 IO 错误一律上抛。
    * @param signal - 可选取消信号。
@@ -1184,7 +1184,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** List session-owned directories and reject the obsolete flat-file layout. */
-  /**
+  /*
    * 【中文】列出某项目目录下的会话目录；若发现旧版"平铺日志文件"
    *（*.jsonl / *.jsonl.zstd 直接躺在项目目录里）则报错，提示迁移布局。
    * @param project - 项目目录。
@@ -1202,7 +1202,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   }
 
   /** Reject a root that already belongs to the other physical encoding. */
-  /**
+  /*
    * 【中文】root 编码一致性检查（懒执行且只执行一次）：扫描全部会话目录，
    * 一旦发现"对面编码"的工件就报错。避免同一 root 下两种编码混存。
    * @returns 首次调用时启动检查；后续调用复用同一 Promise。

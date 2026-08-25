@@ -5,7 +5,7 @@
  * behavior is each implementation's suite (`dsh-sandbox-local`); consumer
  * behavior is each consumer's (`dsh-bash-sandbox`).
  */
-/**
+/*
  * 文件职责：固定沙箱不可用错误的结构化身份、操作提示和运行器失败详情。
  * 技术维度：使用 Vitest 检查 SandboxUnavailableError 的 Error 继承、代码和消息模板。
  * 产品维度：让工具和消费者可靠识别安全失败，并向操作员说明可选模式与底层原因。

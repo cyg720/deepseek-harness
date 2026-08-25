@@ -7,7 +7,7 @@
  * struct layouts are asserted at load time against verify/abi-probe.cpp.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/ffi
  */
-/**
+/*
  * 文件职责：实现 ffi.ts 承担的沙箱策略或 Windows ACL 隔离职责。
  * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
  * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
@@ -21,10 +21,10 @@ import { Win32Error } from './errors.ts'
 import * as abi from './win32-abi.ts'
 
 /** Branded koffi 3 native pointer. Koffi 3 pointers are BigInt values; the brand keeps them out of numeric contexts. */
-/** 中文说明：变量 nativePtr 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 nativePtr 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 declare const nativePtr: unique symbol
 /** Koffi 3 native pointer (a BigInt address), branded so it cannot silently enter numeric contexts. */
-/** 中文说明：type NativePtr 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：type NativePtr 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export type NativePtr = bigint & { readonly [nativePtr]: true }
 
 /**
@@ -32,7 +32,11 @@ export type NativePtr = bigint & { readonly [nativePtr]: true }
  * @param value - a pointer as koffi may hand it back (pointer, null, or 0n).
  * @returns a type guard narrowing to the NULL shapes.
  */
-/** 中文说明：函数 isNullPtr 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 isNullPtr 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function isNullPtr(value: NativePtr | null | undefined): value is null | undefined {
   return value === null || value === undefined || (value as bigint) === 0n
 }
@@ -43,7 +47,11 @@ export function isNullPtr(value: NativePtr | null | undefined): value is null | 
  * @param handle - the handle CreateFileW returned.
  * @returns whether the handle signals failure.
  */
-/** 中文说明：函数 isInvalidHandle 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 isInvalidHandle 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param handle 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function isInvalidHandle(handle: NativePtr | null | undefined): boolean {
   if (isNullPtr(handle)) return true
   return (handle as bigint) === 0xFFFFFFFFFFFFFFFFn || (handle as bigint) === -1n
@@ -53,7 +61,7 @@ export function isInvalidHandle(handle: NativePtr | null | undefined): boolean {
 type Ptr = ReturnType<typeof koffi.pointer>
 
 /** Field subset written into a zeroed STARTUPINFOW (layout verified: size 104). */
-/** 中文说明：interface StartupInfoInput 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface StartupInfoInput 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface StartupInfoInput {
   cb: number
   dwFlags: number
@@ -63,7 +71,7 @@ export interface StartupInfoInput {
 }
 
 /** Decoded PROCESS_INFORMATION (layout verified: size 24). */
-/** 中文说明：interface ProcessInfoOutput 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface ProcessInfoOutput 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface ProcessInfoOutput {
   hProcess: NativePtr | null
   hThread: NativePtr | null
@@ -72,7 +80,7 @@ export interface ProcessInfoOutput {
 }
 
 /** The lazy koffi binding table: every Win32 call the ACL backend uses, signature-verified against the real headers. */
-/** 中文说明：interface Win32Bindings 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface Win32Bindings 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface Win32Bindings {
   // ---- process / token handles --------------------------------------------
   openProcess(desiredAccess: number, inheritHandle: number, pid: number): NativePtr
@@ -157,7 +165,7 @@ const PVOID: Ptr = koffi.pointer('void')
 const PPVOID: Ptr = koffi.pointer(PVOID)
 
 /** koffi STARTUPINFOW layout; its size is asserted against abi.STARTUPINFOW_SIZE at load. */
-/** 中文说明：常量 STARTUPINFOW 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 STARTUPINFOW 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const STARTUPINFOW = koffi.struct('STARTUPINFOW', {
   cb: 'uint32',
   lpReserved: 'str16',
@@ -180,7 +188,7 @@ export const STARTUPINFOW = koffi.struct('STARTUPINFOW', {
 })
 
 /** koffi PROCESS_INFORMATION layout; its size is asserted against abi.PROCESS_INFORMATION_SIZE at load. */
-/** 中文说明：常量 PROCESS_INFORMATION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PROCESS_INFORMATION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const PROCESS_INFORMATION = koffi.struct('PROCESS_INFORMATION', {
   hProcess: PVOID,
   hThread: PVOID,
@@ -201,7 +209,10 @@ if (PROCESS_INFORMATION.size !== abi.PROCESS_INFORMATION_SIZE) {
  * Allocate one pointer-sized slot (for `T **` out-parameters).
  * @returns the allocated slot pointer.
  */
-/** 中文说明：函数 allocPtrSlot 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 allocPtrSlot 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function allocPtrSlot(): NativePtr {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.alloc(PVOID, 1)
@@ -212,7 +223,10 @@ export function allocPtrSlot(): NativePtr {
  * Allocate one uint32 slot.
  * @returns the allocated slot pointer.
  */
-/** 中文说明：函数 allocUint32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 allocUint32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function allocUint32(): NativePtr {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.alloc('uint32', 1)
@@ -224,7 +238,11 @@ export function allocUint32(): NativePtr {
  * @param slot - the slot allocated by {@link allocUint32}.
  * @param value - the uint32 to encode.
  */
-/** 中文说明：函数 encodeUint32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 encodeUint32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param slot 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function encodeUint32(slot: NativePtr, value: number): void {
   koffi.encode(slot, 'uint32', value)
 }
@@ -234,7 +252,11 @@ export function encodeUint32(slot: NativePtr, value: number): void {
  * @param slot - the pointer-sized slot holding the out-parameter value.
  * @returns the decoded pointer, or null for NULL.
  */
-/** 中文说明：函数 decodePtr 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodePtr 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param slot 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodePtr(slot: NativePtr): NativePtr | null {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.decode(slot, PVOID)
@@ -247,7 +269,11 @@ export function decodePtr(slot: NativePtr): NativePtr | null {
  * @param slot - the uint32 slot holding the out-parameter value.
  * @returns the decoded uint32.
  */
-/** 中文说明：函数 decodeUint32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeUint32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param slot 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeUint32(slot: NativePtr): number {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.decode(slot, 'uint32')
@@ -259,7 +285,11 @@ export function decodeUint32(slot: NativePtr): number {
  * @param ptr - the koffi pointer.
  * @returns the pointer's numeric address.
  */
-/** 中文说明：函数 ptrAddress 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 ptrAddress 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param ptr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function ptrAddress(ptr: NativePtr): bigint {
   return koffi.address(ptr)
 }
@@ -269,7 +299,11 @@ export function ptrAddress(ptr: NativePtr): bigint {
  * @param length - the block size in bytes.
  * @returns the allocated block pointer.
  */
-/** 中文说明：函数 allocBytes 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 allocBytes 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param length 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function allocBytes(length: number): NativePtr {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.alloc('uint8', length)
@@ -284,7 +318,10 @@ export function allocBytes(length: number): NativePtr {
  * (the byte range locks from offset 0, hEvent stays NULL).
  * @returns the zeroed block pointer.
  */
-/** 中文说明：函数 allocOverlapped 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 allocOverlapped 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function allocOverlapped(): NativePtr {
   return allocBytes(32)
 }
@@ -295,7 +332,12 @@ export function allocOverlapped(): NativePtr {
  * @param offset - byte offset of the pointer inside the buffer.
  * @returns the decoded pointer, or null for NULL.
  */
-/** 中文说明：函数 decodePtrAt 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodePtrAt 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param buffer 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param offset 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodePtrAt(buffer: Buffer, offset: number): NativePtr | null {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.decode(buffer, offset, PVOID)
@@ -311,7 +353,12 @@ export function decodePtrAt(buffer: Buffer, offset: number): NativePtr | null {
  * @param offset - byte offset from the pointer.
  * @returns the decoded uint8.
  */
-/** 中文说明：函数 decodeUint8At 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeUint8At 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param ptr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param offset 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeUint8At(ptr: NativePtr, offset: number): number {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.decode(ptr, offset, 'uint8')
@@ -324,7 +371,12 @@ export function decodeUint8At(ptr: NativePtr, offset: number): number {
  * @param offset - byte offset from the pointer.
  * @returns the decoded uint16.
  */
-/** 中文说明：函数 decodeUint16At 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeUint16At 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param ptr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param offset 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeUint16At(ptr: NativePtr, offset: number): number {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.decode(ptr, offset, 'uint16')
@@ -337,7 +389,12 @@ export function decodeUint16At(ptr: NativePtr, offset: number): number {
  * @param offset - byte offset from the pointer.
  * @returns the decoded uint32.
  */
-/** 中文说明：函数 decodeUint32At 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeUint32At 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param ptr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param offset 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeUint32At(ptr: NativePtr, offset: number): number {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.decode(ptr, offset, 'uint32')
@@ -356,7 +413,14 @@ export function decodeUint32At(ptr: NativePtr, offset: number): number {
  * @param rightOffset - byte offset of the SID structure within `right`.
  * @returns whether the SIDs are identical.
  */
-/** 中文说明：函数 sameSidAt 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 sameSidAt 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param left 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param leftOffset 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param right 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param rightOffset 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function sameSidAt(left: NativePtr, leftOffset: number, right: NativePtr, rightOffset: number): boolean {
   /** 中文说明：变量 leftRevision 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const leftRevision = decodeUint8At(left, leftOffset)
@@ -383,7 +447,10 @@ export function sameSidAt(left: NativePtr, leftOffset: number, right: NativePtr,
  * Allocate a zeroed STARTUPINFOW.
  * @returns the allocated struct pointer.
  */
-/** 中文说明：函数 allocStartupInfo 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 allocStartupInfo 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function allocStartupInfo(): NativePtr {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.alloc(STARTUPINFOW, 1)
@@ -395,7 +462,11 @@ export function allocStartupInfo(): NativePtr {
  * @param startupInfo - the allocated STARTUPINFOW to encode into.
  * @param fields - the field subset to write.
  */
-/** 中文说明：函数 encodeStartupInfo 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 encodeStartupInfo 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param startupInfo 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fields 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function encodeStartupInfo(startupInfo: NativePtr, fields: StartupInfoInput): void {
   koffi.encode(startupInfo, STARTUPINFOW, fields)
 }
@@ -404,7 +475,10 @@ export function encodeStartupInfo(startupInfo: NativePtr, fields: StartupInfoInp
  * Allocate a zeroed PROCESS_INFORMATION.
  * @returns the allocated struct pointer.
  */
-/** 中文说明：函数 allocProcessInfo 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 allocProcessInfo 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function allocProcessInfo(): NativePtr {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.alloc(PROCESS_INFORMATION, 1)
@@ -416,7 +490,11 @@ export function allocProcessInfo(): NativePtr {
  * @param processInfo - the PROCESS_INFORMATION filled by the spawn call.
  * @returns the decoded handle/id fields.
  */
-/** 中文说明：函数 decodeProcessInfo 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeProcessInfo 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param processInfo 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeProcessInfo(processInfo: NativePtr): ProcessInfoOutput {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = koffi.decode(processInfo, PROCESS_INFORMATION)
@@ -495,7 +573,10 @@ function bindings(): Win32Bindings {
  * Resolve the lazy Win32 bindings (throws the first binding failure, fail-closed).
  * @returns the cached binding table.
  */
-/** 中文说明：函数 win32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 win32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function win32(): Promise<Win32Bindings> {
   return Promise.resolve(bindings())
 }
@@ -508,7 +589,10 @@ export function win32(): Promise<Win32Bindings> {
  * the runner's await-shaped call sites).
  * @returns the cached binding table.
  */
-/** 中文说明：函数 win32Sync 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 win32Sync 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function win32Sync(): Win32Bindings {
   return bindings()
 }
@@ -519,7 +603,12 @@ export function win32Sync(): Win32Bindings {
  * @param win32Code - the error code to format.
  * @returns the formatted message text, or '' when formatting fails.
  */
-/** 中文说明：函数 errorText 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 errorText 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param win32Code 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function errorText(api: Win32Bindings, win32Code: number): string {
   /** 中文说明：变量 buffer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const buffer = Buffer.alloc(1024)
@@ -541,7 +630,11 @@ export function errorText(api: Win32Bindings, win32Code: number): string {
  * @param api - the binding table.
  * @returns the NUL-terminated temp path decoded as a string.
  */
-/** 中文说明：函数 getTempPath 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 getTempPath 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function getTempPath(api: Win32Bindings): string {
   /** 中文说明：变量 buffer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const buffer = Buffer.alloc((abi.MAX_PATH + 1) * 2)
@@ -562,7 +655,13 @@ export function getTempPath(api: Win32Bindings): string {
  * @param detail - optional detail overriding the formatted system message.
  * @returns never — always throws.
  */
-/** 中文说明：函数 throwLastError 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 throwLastError 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param detail 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function throwLastError(api: Win32Bindings, name: string, detail?: string): never {
   /** 中文说明：变量 win32Code 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const win32Code = api.getLastError()
@@ -577,7 +676,14 @@ export function throwLastError(api: Win32Bindings, name: string, detail?: string
  * @param detail - optional detail overriding the formatted system message.
  * @returns never — always throws.
  */
-/** 中文说明：函数 throwWin32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 throwWin32 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param win32Code 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param detail 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function throwWin32(api: Win32Bindings, name: string, win32Code: number, detail?: string): never {
   throw new Win32Error(name, win32Code, detail ?? errorText(api, win32Code))
 }

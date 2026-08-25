@@ -3,7 +3,7 @@
  * connection handle, stream-loop sink wiring into the object layer, and the
  * fiber-scoped loop teardown.
  */
-/**
+/*
  * 文件职责：验证客户端运行时插件装载后提供会话服务、连接依赖和销毁行为。
  * 技术维度：Cordis 测试 Context、Vitest、连接 API 替身和响应式服务。
  * 产品维度：保证浏览器运行时入口能够稳定向界面暴露会话管理能力。

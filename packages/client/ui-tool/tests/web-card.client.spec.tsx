@@ -45,7 +45,7 @@ afterEach(cleanup)
 const SID = 's1' as SessionId
 
 /** Locale seat for the card render sites (GenericToolCard, DetailsPanel), as the sibling suites build it. */
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = makeTranslate(zh, commonZh)
 
 /** 中文说明：测试局部值 SEARCH_ARGS，由紧邻初始化决定。 */
@@ -54,7 +54,7 @@ const SEARCH_ARGS = '{"query":"deepseek harness"}'
 const FETCH_ARGS = '{"url":"https://example.com/page"}'
 
 /** A web_search result view; overrides tune the sources / answer / truncation. */
-/** 中文说明：测试局部值 resultSearch，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 resultSearch，由紧邻初始化决定。 */
 const resultSearch = (over?: Partial<Extract<ToolResultView, { card: 'web'; kind: 'search' }>>): ToolResultView => ({
   card: 'web', kind: 'search', truncated: false,
   answer: 'A short answer.',
@@ -66,7 +66,7 @@ const resultSearch = (over?: Partial<Extract<ToolResultView, { card: 'web'; kind
 })
 
 /** A web_fetch result view. */
-/** 中文说明：测试局部值 resultFetch，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 resultFetch，由紧邻初始化决定。 */
 const resultFetch = (over?: Partial<Extract<ToolResultView, { card: 'web'; kind: 'fetch' }>>): ToolResultView => ({
   card: 'web', kind: 'fetch', url: 'https://example.com/page', statusCode: 200, truncated: false, ...over,
 })
@@ -158,7 +158,7 @@ describe('chat row web body', () => {
     ({ ...ownerProps(block, toolName), t } as unknown as Parameters<typeof WebRow>[0])
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
-  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }

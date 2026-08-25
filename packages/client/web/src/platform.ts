@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】共享浏览器平台模块清单：播种、捆绑外部化与 Vite 别名都消费
  *   这份列表，使模块身份不会漂移。
@@ -18,14 +18,14 @@
  * aliases consume this list so their module identities cannot drift.
  * @module @deepseek-ai/dsh-client-web/src/platform
  */
-/**
+/*
  * 共享浏览器平台模块。播种、捆绑外部化与 Vite 别名都消费这份列表，使
  * 模块身份不会漂移。
  * @module @deepseek-ai/dsh-client-web/src/platform
  */
 
 /** The module specifiers the shell shares into the frozen module table. */
-/** shell 共享进冻结模块表的模块说明符（种子表键）。 */
+/* shell 共享进冻结模块表的模块说明符（种子表键）。 */
 export const PLATFORM_MODULES = [
   'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-ui-slots',
@@ -33,11 +33,11 @@ export const PLATFORM_MODULES = [
 ] as const
 
 /** Client-bundle specifiers whose factories the parser preloads before the shell starts. */
-/** 解析器在 shell 启动前预载其工厂的客户端 bundle 说明符。 */
+/* 解析器在 shell 启动前预载其工厂的客户端 bundle 说明符。 */
 export const PRELOADED_CLIENT_EXTERNALS = [
   '@deepseek-ai/dsh-client-runtime/client',
 ] as const
 
 /** One platform module specifier (a seed-table key). */
-/** 一个平台模块说明符（种子表键）。 */
+/* 一个平台模块说明符（种子表键）。 */
 export type PlatformModule = (typeof PLATFORM_MODULES)[number]

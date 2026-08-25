@@ -1,5 +1,5 @@
 /** Default Agent model settings layered over a real settings provider. */
-/**
+/*
  * 文件职责：验证默认模型选择的 agent-default-model.spec.ts 行为。
  * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
  * 产品维度：防止默认模型选择改变模型可见内容或生命周期语义。
@@ -16,7 +16,7 @@ import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
 /** The smallest real provider: one in-memory document, always writable. */
-/** 中文说明：类型或类 MemorySettings 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 MemorySettings 约束上下文或压缩数据职责。 */
 class MemorySettings extends SettingsProvider {
   doc: Record<string, unknown> = {}
 

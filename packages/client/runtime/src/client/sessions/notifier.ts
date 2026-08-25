@@ -36,7 +36,7 @@
 // 先拉取时被饿死。
 
 /** Subscription + batched notification primitive (shared by Session and SessionManager). */
-/** 订阅 + 批量通知原语（Session 与 SessionManager 共用）。 */
+/* 订阅 + 批量通知原语（Session 与 SessionManager 共用）。 */
 export class Notifier {
   private listeners = new Set<() => void>() // 订阅者集合
   private dirty = false // 快照已过期（需重建）标志
@@ -45,7 +45,7 @@ export class Notifier {
   private scheduleGeneration = 0 // 计划代数：用于让过期计划失效
 
   /** @param rebuild - snapshot rebuild function injected by the owner (writes the owner's snapshotCache). */
-  /** @param rebuild 属主注入的快照重建函数（写入属主的 snapshotCache）。 */
+  /* @param rebuild 属主注入的快照重建函数（写入属主的 snapshotCache）。 */
   constructor(private readonly rebuild: () => void) {}
 
   /**
@@ -53,7 +53,7 @@ export class Notifier {
    * @param listener - change callback.
    * @returns the unsubscribe function.
    */
-  /**
+  /*
    * uSES（useSyncExternalStore）的订阅入口。
    * @param listener 变更回调。
    * @returns 取消订阅函数。
@@ -66,7 +66,7 @@ export class Notifier {
   }
 
   /** State-change entry: mark dirty and schedule the batched flush. */
-  /** 状态变更入口：标记脏并计划批量冲刷。 */
+  /* 状态变更入口：标记脏并计划批量冲刷。 */
   markDirty(): void {
     this.dirty = true
     this.notifyPending = true
@@ -75,7 +75,7 @@ export class Notifier {
   }
 
   /** Stream-change entry: mark dirty and publish the cumulative state at most once per frame. */
-  /** 流式变更入口：标记脏并保证每帧最多发布一次累积状态。 */
+  /* 流式变更入口：标记脏并保证每帧最多发布一次累积状态。 */
   markFrameDirty(): void {
     this.dirty = true
     this.notifyPending = true
@@ -87,7 +87,7 @@ export class Notifier {
    * Synchronous flush: controlled-input writes must notify in the same tick as
    * onChange, or React rolls the DOM back to the stale value and the caret jumps to the end.
    */
-  /**
+  /*
    * 同步冲刷：受控输入的写入必须在 onChange 同一 tick 内通知，否则 React
    * 会把 DOM 回滚到旧值，光标跳到末尾。
    */
@@ -102,7 +102,7 @@ export class Notifier {
    * Pre-getSnapshot check: rebuild synchronously when dirty (read path
    * before first subscribe / while unobserved). Notification stays pending.
    */
-  /**
+  /*
    * getSnapshot 前的检查：脏时同步重建（首次订阅前/未被观察时的读路径）。
    * 通知仍保持待处理状态。
    */

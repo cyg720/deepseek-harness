@@ -85,7 +85,7 @@ function query(operation: LspProviderQuery['operation'] = 'goToDefinition'): Lsp
 }
 
 /** Run a query against an instance, reading the source first the way the provider does. */
-/** 中文说明：函数 run 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 run 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function run(instance: LspInstance, operation: LspProviderQuery['operation'] = 'goToDefinition', signal?: AbortSignal): Promise<LspQueryResult> {
   /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workspace = {
@@ -99,7 +99,7 @@ async function run(instance: LspInstance, operation: LspProviderQuery['operation
 }
 
 /** Build an instance whose "server" is an inline node script (for teardown-escalation control). */
-/** 中文说明：函数 scriptInstance 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 scriptInstance 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function scriptInstance(script: string, overrides: Partial<InstanceSpec> = {}): LspInstance {
   /** 中文说明：变量 instance 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const instance = new LspInstance({
@@ -121,7 +121,7 @@ function scriptInstance(script: string, overrides: Partial<InstanceSpec> = {}): 
 }
 
 /** An inline server that answers initialize + definition and echoes a location. */
-/** 中文说明：常量 RESPONDING_SERVER 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RESPONDING_SERVER 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RESPONDING_SERVER =
   'let b=Buffer.alloc(0);'
   + 'const fr=(o)=>{const x=Buffer.from(JSON.stringify({jsonrpc:"2.0",...o}));return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};'
@@ -416,7 +416,7 @@ describe('LspInstance disposal', () => {
 })
 
 /** Probe a pid without changing its state. */
-/** 中文说明：函数 processAlive 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 processAlive 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function processAlive(pid: number): boolean {
   try {
     process.kill(pid, 0)
@@ -438,7 +438,7 @@ function processAlive(pid: number): boolean {
 }
 
 /** Wait until a process can no longer execute so temporary-workspace cleanup cannot race handle release. */
-/** 中文说明：函数 waitForProcessExit 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitForProcessExit 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForProcessExit(pid: number, timeoutMs = 3_000): Promise<void> {
   /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const started = Date.now()
@@ -449,7 +449,7 @@ async function waitForProcessExit(pid: number, timeoutMs = 3_000): Promise<void>
 }
 
 /** Write normally except for one method whose callback receives a deterministic transport error. */
-/** 中文说明：函数 failingWriter 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 failingWriter 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function failingWriter(method: string): ConnectionWriter {
   return (stdin, message, done) => {
     if ((message as { method?: unknown }).method === method) {
@@ -461,7 +461,7 @@ function failingWriter(method: string): ConnectionWriter {
 }
 
 /** Wait until a fixture marker exists, bounded so a broken handshake cannot hang the test. */
-/** 中文说明：函数 waitForFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitForFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForFile(path: string, timeoutMs = 3000): Promise<void> {
   /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const started = Date.now()

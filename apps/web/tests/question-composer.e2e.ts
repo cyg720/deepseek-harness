@@ -63,7 +63,7 @@ const CAP_LINES = 6
  * @param field - the composer's custom-answer textarea.
  * @returns whole text lines the content box holds, and whether the field scrolls.
  */
-/** 中文说明：field 是自定义答案框，返回完整可见行数和是否滚动。示例：await capMetrics(field)。 */
+/* 中文说明：field 是自定义答案框，返回完整可见行数和是否滚动。示例：await capMetrics(field)。 */
 async function capMetrics(field: Locator): Promise<{ textLines: number; scrolls: boolean }> {
   await field.fill('x\n'.repeat(40))
   return field.evaluate((el: HTMLTextAreaElement) => {

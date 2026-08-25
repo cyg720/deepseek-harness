@@ -9,7 +9,7 @@
  * background job wiring, and the UI presenters. Real-pwsh behavior
  * is pinned separately in integration.spec.ts.
  */
-/**
+/*
  * 文件职责：验证 tools.spec.ts 覆盖的PowerShell 工具行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的PowerShell 工具能力稳定、安全且可诊断。
@@ -50,7 +50,7 @@ const testToolSignal = new AbortController().signal
  * returns the armed foreground script, `start()` returns the armed background
  * handle.
  */
-/** 中文说明：class FakeBash 定义本测试所需的数据或行为，用于表达PowerShell 工具场景。 */
+/* 中文说明：class FakeBash 定义本测试所需的数据或行为，用于表达PowerShell 工具场景。 */
 class FakeBash extends ShellExecutor {
   requests: ShellExecRequest[] = []
   specs: ShellExecSpec[] = []
@@ -86,7 +86,7 @@ class FakeBash extends ShellExecutor {
 }
 
 /** A successful run result over the given stdout; overrides script the failure shapes. */
-/** 中文说明：函数 runResult 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 runResult 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runResult(stdout: string, overrides?: Partial<ShellRunResult>): ShellRunResult {
   return {
     exitCode: 0,
@@ -101,7 +101,7 @@ function runResult(stdout: string, overrides?: Partial<ShellRunResult>): ShellRu
 }
 
 /** A settled successful background handle; overrides script failure shapes. */
-/** 中文说明：函数 fakeProcess 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeProcess 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeProcess(delta = 'bg-ok\n'): ShellProcess {
   /** 中文说明：变量 consumed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let consumed = false
@@ -120,7 +120,7 @@ function fakeProcess(delta = 'bg-ok\n'): ShellProcess {
 }
 
 /** A running background handle whose kill() settles it as killed (like a real job_kill). */
-/** 中文说明：函数 killableProcess 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 killableProcess 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function killableProcess(): ShellProcess {
   /** 中文说明：函数值 resolveDone 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   let resolveDone: () => void = () => {}
@@ -160,7 +160,7 @@ async function setup(toolConfig: Partial<ToolPwsh.Config> = {}, dshHome?: string
 }
 
 /** Full harness: the generic job runtime + its controller, then the pwsh tool. */
-/** 中文说明：函数 setupWithTasks 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setupWithTasks 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setupWithTasks(toolConfig: Partial<ToolPwsh.Config> = {}, dshHome?: string) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -184,7 +184,7 @@ async function setupWithTasks(toolConfig: Partial<ToolPwsh.Config> = {}, dshHome
  * Records each confined mode and returns scriptable sandbox facts so the
  * escalation and rendering surfaces are testable without a real backend.
  */
-/** 中文说明：class ConfiningFakeBash 定义本测试所需的数据或行为，用于表达PowerShell 工具场景。 */
+/* 中文说明：class ConfiningFakeBash 定义本测试所需的数据或行为，用于表达PowerShell 工具场景。 */
 class ConfiningFakeBash extends ShellExecutor {
   requests: ShellExecRequest[] = []
   modes: Array<string | undefined> = []
@@ -226,7 +226,7 @@ class ConfiningFakeBash extends ShellExecutor {
 }
 
 /** Sandboxed composition: the shared policy service + a confining executor + the pwsh tool (+ optional approval). */
-/** 中文说明：函数 setupSandboxed 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setupSandboxed 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setupSandboxed(withApproval = false) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -251,7 +251,7 @@ async function setupSandboxed(withApproval = false) {
  * appendable log (the approval service records decisions through
  * `session.append`).
  */
-/** 中文说明：函数 sandboxAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 sandboxAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sandboxAgent(
   mode?: 'read-only' | 'workspace-write' | 'danger-full-access',
   ctx?: Context,
@@ -286,7 +286,7 @@ function sandboxAgent(
  * The fake session carries an empty event log (the sandbox-policy resolver
  * folds the log for mode overrides, mirroring a real session).
  */
-/** 中文说明：函数 registerFakeAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 registerFakeAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function registerFakeAgent(ctx: Context, sessionId: string): Agent {
   /** 中文说明：函数值 scopeFiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const scopeFiber = ctx.plugin(() => {})

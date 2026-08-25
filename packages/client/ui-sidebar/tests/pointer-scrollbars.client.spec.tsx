@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证侧栏的 pointer-scrollbars.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止侧栏显示、导航或生命周期回归。
@@ -20,7 +20,7 @@ import { SidebarRoot } from '../src/client/SidebarRoot.tsx'
 import { en } from '../src/client/locales.ts'
 
 /** Pinned column box; the shell compares pointer coordinates against it. */
-/** 中文说明：测试局部值 COLUMN_WIDTH，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 COLUMN_WIDTH，由紧邻初始化决定。 */
 const COLUMN_WIDTH = 280
 /** 中文说明：测试局部值 COLUMN_HEIGHT，由紧邻初始化决定。 */
 const COLUMN_HEIGHT = 600
@@ -28,7 +28,7 @@ const COLUMN_HEIGHT = 600
 /** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: SidebarRootComponentProps['t'] = key => (en as Record<string, string>)[key] ?? key
 /** The shell never reads the global hooks; the props share carries them regardless. */
-/** 中文说明：测试局部值 neverHook，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 neverHook，由紧邻初始化决定。 */
 const neverHook = (() => { throw new Error('shell must not read global hooks') }) as never
 
 afterEach(() => {
@@ -40,7 +40,7 @@ afterEach(() => {
  * Render the shell and expose its column element.
  * @returns the column element and whether it currently carries the quiet state.
  */
-/** 中文说明：函数 mountColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mountColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountColumn(): { column: HTMLElement; quiet: () => boolean } {
   /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(
@@ -75,7 +75,7 @@ function mountColumn(): { column: HTMLElement; quiet: () => boolean } {
  * @param column - the sidebar column element.
  * @param direction - `in` to enter the column, `out` to leave it.
  */
-/** 中文说明：函数 movePointer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 movePointer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function movePointer(column: HTMLElement, direction: 'in' | 'out'): void {
   /** 中文说明：测试局部值 outside，由紧邻初始化决定。 */
   const outside = document.body
@@ -89,7 +89,7 @@ function movePointer(column: HTMLElement, direction: 'in' | 'out'): void {
  * @param x - client x coordinate.
  * @param y - client y coordinate.
  */
-/** 中文说明：函数 movePointerOverDocument 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 movePointerOverDocument 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function movePointerOverDocument(x: number, y: number): void {
   fireEvent.pointerMove(document, { clientX: x, clientY: y })
 }

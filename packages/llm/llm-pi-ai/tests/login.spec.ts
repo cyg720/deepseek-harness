@@ -37,7 +37,7 @@ const CODEX = recordKeyFor('openai-codex')
 const dirs: string[] = []
 
 /** A context with the record store, the seam, and every pi-ai login flow. */
-/** 中文说明：函数 harness 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 harness 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function harness(): Promise<Context> {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-pi-login-'))
@@ -51,7 +51,7 @@ async function harness(): Promise<Context> {
 }
 
 /** An interaction recording everything a flow says, answering every question. */
-/** 中文说明：函数 surface 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 surface 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function surface(answer = 'typed'): AuthorizationInteraction & {
   notices: AuthorizationNotice[]
   prompts: AuthorizationPrompt[]
@@ -72,7 +72,7 @@ function surface(answer = 'typed'): AuthorizationInteraction & {
 }
 
 /** Drive one attempt, letting the mocked login talk back through `converse`. */
-/** 中文说明：函数 attempt 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 attempt 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function attempt(
   ctx: Context,
   converse: (interaction: AuthInteraction) => Promise<void>,

@@ -15,7 +15,7 @@ import css from './JsonBlock.module.css'
 const MAX_CHARS = 20_000
 
 /** Default truncation footer; the owner passes a localized formatter. */
-/** 中文说明：函数 defaultTruncatedLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 defaultTruncatedLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function defaultTruncatedLabel(total: number): string {
   return `… 已截断，共 ${total} 字符`
 }

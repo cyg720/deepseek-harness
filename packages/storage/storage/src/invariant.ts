@@ -20,7 +20,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-storage`.
  * @module @deepseek-ai/dsh-storage/invariant
  */
-/**
+/*
  * 模块总览：枢纽（hub）是纯注册表（名字→后端、形态→facility），其一致性已在调用点
  * 完全保证（重复/缺失条目同步报错），没有需要跨检查的事件流或可变介质——
  * 所以这里没有运行时自检，install 为空。

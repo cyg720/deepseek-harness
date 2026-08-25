@@ -1,5 +1,5 @@
 /** Build, publish, and verify one commit-addressed npm workspace baseline. */
-/**
+/*
  * 文件职责：实现 publish-npm-baseline.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -145,7 +145,7 @@ interface PackOptions {
 }
 
 /** Fixes the identity of one pack attempt before any expensive work begins. */
-/** 中文说明：class BaselinePackPlan 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class BaselinePackPlan 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class BaselinePackPlan {
   constructor(
     readonly commit: string,
@@ -176,7 +176,7 @@ class BaselinePackPlan {
 }
 
 /** Runs child processes without involving a command shell. */
-/** 中文说明：class CommandRunner 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class CommandRunner 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class CommandRunner {
   run(
     command: string,
@@ -227,7 +227,7 @@ class CommandRunner {
 }
 
 /** Owns a temporary detached worktree and removes it after staging. */
-/** 中文说明：class DetachedWorktree 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class DetachedWorktree 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class DetachedWorktree {
   private constructor(
     readonly path: string,
@@ -266,7 +266,7 @@ class DetachedWorktree {
 }
 
 /** Discovers and stages every package published in one repository baseline. */
-/** 中文说明：class WorkspacePackageSet 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class WorkspacePackageSet 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class WorkspacePackageSet {
   private constructor(
     readonly packages: PackageTarget[],
@@ -340,7 +340,7 @@ class WorkspacePackageSet {
 }
 
 /** Immutable local release bundle consumed by publish and verify. */
-/** 中文说明：class ReleaseBundle 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class ReleaseBundle 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class ReleaseBundle {
   private constructor(
     readonly directory: string,
@@ -490,7 +490,7 @@ class ReleaseBundle {
 }
 
 /** Installs one complete bundle outside the workspace and probes the shipped dsh entry. */
-/** 中文说明：class InstalledBundleSmoke 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class InstalledBundleSmoke 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class InstalledBundleSmoke {
   constructor(
     private readonly bundle: ReleaseBundle,
@@ -567,7 +567,7 @@ class InstalledBundleSmoke {
 }
 
 /** Builds a release bundle without mutating the caller's checkout. */
-/** 中文说明：class BaselinePackager 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class BaselinePackager 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class BaselinePackager {
   constructor(
     private readonly repositoryRoot: string,
@@ -701,7 +701,7 @@ class BaselinePackager {
 }
 
 /** Publishes and verifies a release bundle against its recorded registry. */
-/** 中文说明：class RegistryPublication 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class RegistryPublication 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class RegistryPublication {
   private readonly npmEnvironment = npmClientEnvironment()
   private readonly npmWorkingDirectory = tmpdir()

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】tool-cordis 上下文门面的浏览器孪生：白名单生命周期安全动词 + 可选
  *             ctx.get 查找 + 已声明服务的属性访问，扣留框架内部件、拒绝 Context
@@ -46,7 +46,7 @@ const CTX_VERBS = new Set([
 const TIMER_VERBS = new Set(['timeout', 'interval', 'setTimeout', 'setInterval', 'throttle', 'debounce'])
 
 /** One package's slot-registration ledger row (contribution projection source). */
-/**
+/*
  * 一个包的槽位注册账目行：目标槽位与分配的遮蔽优先级（全局唯一，用于把胜出者
  * 匹配回所属包）。
  */
@@ -58,7 +58,7 @@ export interface DynamicCordisSlotLedgerRow {
 }
 
 /** What the facade needs beyond the real ctx to govern one package. */
-/**
+/*
  * 门面治理单个包所需的额外输入：分派到的包行、账目接收器、组件归属声明、
  * 优先级分配与守卫失败上报。
  */
@@ -214,10 +214,13 @@ function guardedTheme(theme: ThemeRuntime, env: DynamicCordisGuardEnv, ctx: Cont
  * @param env - package row + ledger sink.
  * @returns the whitelisting proxy standing in for ctx.
  */
-/**
+/*
  * 构造动态插件 apply 收到的门面 ctx（Host sandboxContext 的浏览器孪生）：
  * ctx.get 做可选查找；直接 ctx.serviceName 访问必须经过 fiber 的 inject 声明闸门；
  * slots/theme 两个座位走专用守卫。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param env 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function dynamicCordisContext(ctx: Context, env: DynamicCordisGuardEnv): Context {
   const declared = new Set(Object.keys(ctx.fiber.inject))

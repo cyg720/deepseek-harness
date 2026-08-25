@@ -60,14 +60,14 @@ const MODE = webSnapshotMode()
 /** 注入测试会话时使用的稳定标识。 */
 const SEED_ID = 'markdown-wide-table-web-e2e'
 /** Painted into the final paragraph; the open barrier waits for it. */
-/** 绘制在末段的完成标记，页面打开流程以它作为稳定屏障。 */
+/* 绘制在末段的完成标记，页面打开流程以它作为稳定屏障。 */
 const TAIL_MARKER = 'MWT_TABLES_DONE'
 
 /**
  * First-header-cell markers identify each table without depending on CSS
  * module hashes or DOM order.
  */
-/** 中文说明：首个表头单元格标记让测试不依赖 CSS 哈希或 DOM 顺序。 */
+/* 中文说明：首个表头单元格标记让测试不依赖 CSS 哈希或 DOM 顺序。 */
 /** 三列表格的唯一定位标记。 */
 const FILL_MARKER = 'MWT_FILL_C1'
 /** 十二列宽表格的唯一定位标记。 */
@@ -77,7 +77,7 @@ const LONG_CELL_MARKER = 'MWT_LONGCELL_F1'
 /** 按固定顺序列出三种表格定位标记。 */
 const MARKERS = [FILL_MARKER, WIDE_MARKER, LONG_CELL_MARKER]
 /** Golden-facing names, in {@link MARKERS} order. */
-/** 写入快照的稳定表格名称，顺序与 MARKERS 一致。 */
+/* 写入快照的稳定表格名称，顺序与 MARKERS 一致。 */
 const TABLE_NAMES = ['fill', 'wide', 'long-cell']
 
 /**
@@ -88,21 +88,21 @@ const TABLE_NAMES = ['fill', 'wide', 'long-cell']
  * for the whole sweep (see beforeAll), so the transcript width follows the
  * viewport identically on overlay- and classic-scrollbar platforms.
  */
-/** 中文说明：视口序列同时覆盖宽转录区与小于消息列的窄转录区，并保持侧栏收起。 */
+/* 中文说明：视口序列同时覆盖宽转录区与小于消息列的窄转录区，并保持侧栏收起。 */
 /** 从宽到窄扫描的浏览器视口宽度，单位为 CSS 像素。 */
 const WIDTHS = [1680, 1100, 640]
 
 /** A sentence long enough that three of them cannot sit unwrapped in the 748px column. */
-/** 用于扩展宽表格自然宽度的英文句子。 */
+/* 用于扩展宽表格自然宽度的英文句子。 */
 const SENTENCE = 'This cell carries one full sentence so the unwrapped table is far wider than the message column.'
 /** Unbroken path-like token (no scheme, so GFM does not autolink it and no anchor joins the tab order). */
-/** 验证长不可分隔路径处理方式的重复文本。 */
+/* 验证长不可分隔路径处理方式的重复文本。 */
 const LONG_TOKEN = 'workspace/deepseek-harness/packages/client/ui-primitives/src/markdown/render.tsx/'.repeat(3)
 /** 验证中文长内容在窄列中保持可读换行的句子。 */
 const CJK_SENTENCE = '这个单元格包含一段较长的中文说明，用来验证长内容在窄列宽下按最小可读宽度换行而不是把列压缩到无法阅读。'
 
 /** The assistant markdown: one 3-column fill, one 12-column wide, one long-cell table. */
-/** 生成三类 Markdown 表格文本，无参数，返回完整回复片段。示例：tablesMarkdown()。 */
+/* 生成三类 Markdown 表格文本，无参数，返回完整回复片段。示例：tablesMarkdown()。 */
 function tablesMarkdown(): string {
   /** 十二列表格的表头数组。 */
   const wideHeader = [WIDE_MARKER, ...Array.from({ length: 11 }, (_, i) => `C${String(i + 2).padStart(2, '0')}`)]
@@ -132,7 +132,7 @@ function tablesMarkdown(): string {
 }
 
 /** Build one closed, invariant-checked session fixture carrying the three tables. */
-/** 构造包含三类表格的已完成会话 JSONL。示例：wideTableFixture()。 */
+/* 构造包含三类表格的已完成会话 JSONL。示例：wideTableFixture()。 */
 function wideTableFixture(): string {
   /** 累积表格回复事件的内存会话。 */
   const session = Session.create(SessionId('markdown-wide-table-source'))
@@ -181,7 +181,7 @@ function wideTableFixture(): string {
 }
 
 /** One table's layout relations at the current viewport. */
-/** 一张表格在当前视口下的几何与滚动状态摘要。 */
+/* 一张表格在当前视口下的几何与滚动状态摘要。 */
 interface TableReading {
   /** Identifying first-header-cell marker. */
   marker: string
@@ -200,7 +200,7 @@ interface TableReading {
 }
 
 /** Read all three tables' relations in one pass. */
-/** 从 page 读取三张表的布局，返回稳定摘要。示例：await readTables(page)。 */
+/* 从 page 读取三张表的布局，返回稳定摘要。示例：await readTables(page)。 */
 function readTables(page: Page): Promise<TableReading[]> {
   return page.evaluate((markers) => {
     /** 页面中全部 Markdown 表格滚动容器。 */

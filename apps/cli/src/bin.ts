@@ -5,7 +5,7 @@
  * `--help`/`--version`/a parse error, so only a valid mode reaches the switch.
  * @module @deepseek-ai/dsh/bin
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：作为 dsh 命令行可执行入口，解析参数并把请求分派到 profile、plugin 或配置导出模式。
  * - 技术维度：采用 Node.js ESM、顶层 await、动态 import 和分层环境变量加载。
@@ -28,7 +28,7 @@ import { parseDshArgs } from './args.ts'
 // same relative hop from either artifact.
 // 中文：源码目录和构建目录都位于 apps/cli 下一层，因此都能用同一个 ../package.json 相对路径读取版本。
 /** This app's version, read from its checked-in package.json. */
-/** 中文：读取当前 CLI 包清单中的版本；无参数，返回版本字符串，字段异常时返回 0.0.0。示例：readVersion()。 */
+/* 中文：读取当前 CLI 包清单中的版本；无参数，返回版本字符串，字段异常时返回 0.0.0。示例：readVersion()。 */
 function readVersion(): string {
   /** 解析后的包清单；version 在外部 JSON 输入中可能不是字符串，因此先保留 unknown 类型。 */
   const manifest = JSON.parse(

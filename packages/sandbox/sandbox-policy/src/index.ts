@@ -17,7 +17,7 @@
  *
  * @module @deepseek-ai/dsh-sandbox-policy
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的沙箱策略或 Windows ACL 隔离职责。
  * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
  * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
@@ -38,13 +38,13 @@ import { effectiveSandboxMode } from './session-mode.ts'
 export { SANDBOX_MODES, effectiveSandboxMode, setSandboxMode } from './session-mode.ts'
 
 /** Resolve filesystem identity before lexical normalization can erase symlink-sensitive components. */
-/** 中文说明：函数 resolveWorkspaceRoot 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveWorkspaceRoot 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveWorkspaceRoot(path: string): string {
   return resolvePath(canonicalPath(path))
 }
 
 /** Render the policy without claiming which capabilities are mounted. */
-/** 中文说明：函数 renderPolicyContext 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderPolicyContext 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderPolicyContext(policy: SandboxExecutionPolicy): string {
   switch (policy.mode) {
     case 'read-only':
@@ -76,7 +76,7 @@ declare module '@deepseek-ai/cordis' {
  * runner choice is NOT here (it is the `ctx.sandbox` provider's config), nor
  * is any per-family knob: this is the one shared policy home.
  */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface Config {
   /** File-sandbox mode a session starts from (default: `read-only`). */
   mode?: SandboxMode
@@ -88,7 +88,7 @@ export interface Config {
 }
 
 /** Inputs that select the sandbox policy for one capability call. */
-/** 中文说明：interface SandboxPolicyRequest 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：interface SandboxPolicyRequest 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface SandboxPolicyRequest {
   /** Calling session; its immutable cwd becomes the workspace boundary. */
   session?: Session
@@ -102,7 +102,7 @@ export interface SandboxPolicyRequest {
  * section. Tool layers call {@link resolve} for each execution so a session's
  * mode log and immutable cwd travel together to every enforcing capability.
  */
-/** 中文说明：class SandboxPolicyService 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：class SandboxPolicyService 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export class SandboxPolicyService extends Service {
   // Inline schema call: the config catalog walks `static Config` statically.
   static Config: z<Config> = z.object({

@@ -9,7 +9,7 @@
  * message (empty content) adds no extra step. Wall-time math runs against the
  * exported definition directly, where event times are controlled.
  */
-/**
+/*
  * 文件职责：验证 projection.spec.ts 覆盖的会话投影统计行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话投影统计状态稳定、可重放且可诊断。
@@ -39,14 +39,14 @@ async function harness(withStatsPlugin: boolean): Promise<{ ctx: Context; sessio
 }
 
 /** Close one step; returns the counted `step/end` seq. */
-/** 中文说明：函数 closeStep 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 closeStep 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function closeStep(session: Session, turn: number, step: number): number {
   session.append('step/start', { turn, step })
   return session.append('step/end', { turn, step }).seq
 }
 
 /** Append the max-tokens usage-host shape: an assistant/message with empty content. */
-/** 中文说明：函数 appendEmptyAssistantMessage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 appendEmptyAssistantMessage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendEmptyAssistantMessage(session: Session, turn: number, step: number): void {
   session.append('assistant/message', {
     turn,
@@ -60,7 +60,7 @@ function appendEmptyAssistantMessage(session: Session, turn: number, step: numbe
 }
 
 /** The all-zero projection value plus overrides, for exact fold expectations. */
-/** 中文说明：函数 totals 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 totals 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function totals(overrides: Partial<SessionStatsProjection> = {}): SessionStatsProjection {
   return {
     turns: 0, steps: 0, llmMs: 0, toolMs: 0, ttftMs: 0, ttftSteps: 0, decodeMs: 0, decodeTokens: 0,
@@ -168,13 +168,13 @@ describe('sessionStats projection unit (registry drive)', () => {
 })
 
 /** Build one synthetic committed event with a controlled timestamp. */
-/** 中文说明：函数 at 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 at 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function at(time: number, type: string, data: unknown): SessionEvent {
   return { type, seq: time, time, data } as unknown as SessionEvent
 }
 
 /** Fold a synthetic event list through the definition and view the result. */
-/** 中文说明：函数 fold 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fold 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fold(events: readonly SessionEvent[]): SessionStatsProjection {
   /** 中文说明：变量 state 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const state = events.reduce<Parameters<typeof sessionStatsProjectionDefinition.apply>[0]>(

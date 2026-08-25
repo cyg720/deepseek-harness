@@ -7,7 +7,7 @@
  *
  * No API key needed — all servers are local/keyless.
  */
-/**
+/*
  * 文件职责：验证 mcp-client.e2e.ts 覆盖的MCP 客户端行为与异常场景。
  * 技术维度：使用 TypeScript、Vitest、异步协议连接和可控测试替身。
  * 产品维度：保障 Agent 能稳定使用MCP 客户端提供的外部能力。
@@ -60,7 +60,7 @@ async function mountRegistry(): Promise<Context> {
 }
 
 /** Exact-route adapter used to prove real MCP image admission without an API key. */
-/** 中文说明：class ImageAdapter 定义本测试所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：class ImageAdapter 定义本测试所需的数据或行为，用于表达当前协议场景。 */
 class ImageAdapter extends LlmAdapter {
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({ provider, id: model, name: model, inputModalities: ['text', 'image'] })
@@ -82,7 +82,7 @@ async function mountImageRegistry(dshHome: string): Promise<Context> {
 }
 
 /** Calling-agent stand-in pinned to the keyless image-capable route. */
-/** 中文说明：函数 imageAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 imageAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function imageAgent(): object {
   return {
     options: { provider: 'visual', model: 'vision' },
@@ -99,7 +99,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** Narrow a result content block to its text, failing the test on any other shape. */
-/** 中文说明：函数 textOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 textOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function textOf(block: unknown): string {
   if (block && typeof block === 'object' && 'text' in block && typeof block.text === 'string') {
     return block.text
@@ -532,7 +532,7 @@ describe('streamable-http — in-process MCP server', () => {
   /** 中文说明：变量 baseUrl 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let baseUrl: string
   /** Authorization header values observed by the HTTP server, in arrival order. */
-  /** 中文说明：变量 seenAuth 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 seenAuth 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seenAuth: Array<string | undefined> = []
 
   /**
@@ -540,7 +540,7 @@ describe('streamable-http — in-process MCP server', () => {
    * per request (the SDK's documented stateless pattern — no session id, no
    * SSE stream to keep). The tool set mirrors a minimal fixture server.
    */
-  /** 中文说明：函数 handleMcpRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 handleMcpRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function handleMcpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     seenAuth.push(req.headers.authorization)
     /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

@@ -6,7 +6,7 @@
  * 关键边界：类型只描述导入结果，不保证选择器存在或样式规则正确。
  * 新手阅读建议：先从组件的 `styles` 对象看局部样式，再识别普通 CSS 导入。
  */
-/** 使用方式：`import styles from './Conversation.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Conversation.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码类名，值为构建后的隔离类名。 */
   const classes: Record<string, string>

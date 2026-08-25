@@ -1,5 +1,5 @@
 /** Assistant reasoning disclosure, independent of Tool-call presentation. */
-/**
+/*
  * 文件职责：实现会话聊天界面的 ReasoningRow 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：向用户展示并操作会话聊天相关状态。
@@ -37,7 +37,7 @@ function latestLine(text: string): string {
  * @param props.t - conversation locale seat for the running status.
  * @returns the reasoning disclosure.
  */
-/** 中文说明：函数 ReasoningRow 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 ReasoningRow 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function ReasoningRow({ text, running, t }: { text: string; running: boolean; t: ChatViewSlotProps['t'] }) {
   /** 中文说明：当前组件的局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(false)

@@ -6,7 +6,7 @@
  * every tarball from one commit, and hands the publish step exactly those bytes
  * ([rationale](../../.agents/notes/implemented/process/2026-08-10-npm-release-sequences.md)).
  */
-/**
+/*
  * 文件职责：实现 pack.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -23,7 +23,7 @@ import { isEntry, run } from './process.ts'
 import { PUBLISH_ORDER_FILE, tarballFiles } from './tarball.ts'
 
 /** Where pack output lands when `--out` is omitted. */
-/** 中文说明：常量 DEFAULT_OUTPUT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_OUTPUT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_OUTPUT = 'dist/npm'
 
 /**
@@ -33,7 +33,7 @@ const DEFAULT_OUTPUT = 'dist/npm'
  * @param destination - absolute output directory.
  * @returns The tarball filename.
  */
-/** 中文说明：函数 packMember 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 packMember 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packMember(family: ReleaseFamily, member: ReleaseMember, destination: string): string {
   run('pnpm', ['--dir', member.directory, 'pack', '--pack-destination', destination])
 
@@ -47,7 +47,7 @@ function packMember(family: ReleaseFamily, member: ReleaseMember, destination: s
 }
 
 /** Pack the family named by `--family` into `--out`. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   const { values } = parseArgs({
     options: { family: { type: 'string' }, out: { type: 'string' } },

@@ -31,7 +31,7 @@ const testToolSignal = new AbortController().signal
 /** Targeted branch coverage for the CC bridge: option arms, warn paths, no-agent
  * fallbacks, contextFrom-empty, and the detached-listener catch handlers. */
 
-/** 中文说明：测试局部值 dirs，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 dirs，由紧邻初始化决定。 */
 const dirs: string[] = []
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }) })
 
@@ -75,7 +75,7 @@ function waitForIdle(_ctx: Context, agent: Agent): Promise<void> {
 function events(agent: Agent): SessionEvent[] { return [...agent.session.events] }
 /** Poll until `predicate` holds or the deadline passes — robust to detached
  * emit-listener hooks firing on a `.then` (a fixed sleep flakes under load). */
-/** 中文说明：函数 waitFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 waitFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function waitFor(predicate: () => boolean, timeout = 5000, interval = 10): Promise<void> {
   /** 中文说明：测试局部值 deadline，由紧邻初始化决定。 */
   const deadline = Date.now() + timeout
@@ -89,7 +89,7 @@ async function waitFor(predicate: () => boolean, timeout = 5000, interval = 10):
 export type CoverageGroup = 'config' | 'stop' | 'context' | 'edge-paths'
 
 /** Register independently schedulable slices of the hooks-claude-code coverage matrix. */
-/** 中文说明：函数 defineCoverageCases 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 defineCoverageCases 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function defineCoverageCases(group: CoverageGroup): void {
   if (group === 'config') describe('hooks-claude-code coverage — config option arms + substitution + skip warning', () => {
     it('uses the persistence locator for transcript_path and an empty string without one', async () => {

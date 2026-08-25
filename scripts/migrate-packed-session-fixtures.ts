@@ -4,7 +4,7 @@
  *
  * @see ../.agents/notes/proposed/process/2026-07-26-remove-packed-session-fixture-migrator.md
  */
-/**
+/*
  * 文件职责：把仓库内旧布局的会话 JSONL 夹具一次性重写为规范紧凑布局。
  * 技术维度：使用 Node.js 文件写入、路径解析和共享布局检查器执行确定性迁移。
  * 产品维度：保持会话回放与 SDK 测试数据和当前持久化格式一致，便于分支合并。

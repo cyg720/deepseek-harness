@@ -4,7 +4,7 @@
  * owning gates verify them. Byte-identical `.zh.md` copies reuse their unsuffixed sibling's check. A
  * build-coordinated mode consumes existing declarations without emit.
  */
-/**
+/*
  * 文件职责：实现 doc-typecheck.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -30,11 +30,11 @@ const root = resolve(import.meta.dirname, '..')
  * counted in the opt-out ratio; the catalog and type-equivalence variants are
  * excluded from that ratio because their owning gates verify them.
  */
-/** 中文说明：type BlockKind 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type BlockKind 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type BlockKind = 'check' | 'ignore' | 'type-equiv' | 'cordis-catalog' | 'persistence-catalog' | 'config-catalog'
 
 /** One extracted code block. */
-/** 中文说明：interface Block 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface Block 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface Block {
   file: string
   /** 1-based line of the opening fence. */
@@ -44,7 +44,7 @@ interface Block {
 }
 
 /** The info-string → kind table this gate tracks. */
-/** 中文说明：常量 KIND_BY_INFO 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 KIND_BY_INFO 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const KIND_BY_INFO: Record<string, BlockKind> = {
   'ts': 'check',
   'ts ignore-check': 'ignore',
@@ -56,7 +56,7 @@ const KIND_BY_INFO: Record<string, BlockKind> = {
 }
 
 /** Extract every recognized TypeScript fence from one Markdown file. */
-/** 中文说明：函数 extractBlocks 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 extractBlocks 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function extractBlocks(absPath: string): Block[] {
   /** 中文说明：变量 file 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const file = relative(root, absPath)
@@ -82,7 +82,7 @@ const configHost: ts.ParseConfigFileHost = {
  * aggregate (never the root solution — it has no compilerOptions) carries the
  * workspace paths via tsconfig.base.json.
  */
-/** 中文说明：函数 builtTypeCompilerOptions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 builtTypeCompilerOptions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function builtTypeCompilerOptions(): ts.CompilerOptions {
   /** 中文说明：变量 configPath 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const configPath = join(root, 'tsconfig.host.json')
@@ -116,7 +116,7 @@ function builtTypeCompilerOptions(): ts.CompilerOptions {
 }
 
 /** Compile Markdown blocks as virtual files against declarations from the coordinated build. */
-/** 中文说明：函数 compileBlocksAgainstBuiltTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 compileBlocksAgainstBuiltTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function compileBlocksAgainstBuiltTypes(blocks: Block[]): readonly ts.Diagnostic[] {
   /** 中文说明：变量 options 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const options = builtTypeCompilerOptions()
@@ -156,7 +156,7 @@ function compileBlocksAgainstBuiltTypes(blocks: Block[]): readonly ts.Diagnostic
 }
 
 /** Render compiler diagnostics with virtual block paths mapped back to Markdown. */
-/** 中文说明：函数 formatDiagnostics 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 formatDiagnostics 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function formatDiagnostics(diagnostics: readonly ts.Diagnostic[], blocks: Block[]): string {
   /** 中文说明：变量 formatted 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const formatted = ts.formatDiagnostics(diagnostics, {
@@ -172,7 +172,7 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[], blocks: Block[
  * root. Generated Client API examples opt out because their declarations do
  * not exist until Host tsdown has run.
  */
-/** 中文说明：函数 workspaceReferences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 workspaceReferences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function workspaceReferences(): { path: string }[] {
   /** 中文说明：变量 file 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const file = join(root, 'tsconfig.host.json')
@@ -191,7 +191,7 @@ function workspaceReferences(): { path: string }[] {
 }
 
 /** The standalone temp project used when no coordinated build owns declaration freshness. */
-/** 中文说明：函数 tempTsconfig 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 tempTsconfig 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function tempTsconfig(): string {
   return JSON.stringify({
     extends: '../tsconfig.host.json',
@@ -206,7 +206,7 @@ function tempTsconfig(): string {
 }
 
 /** Compile blocks through project references for the standalone command. */
-/** 中文说明：函数 compileBlocksStandalone 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 compileBlocksStandalone 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function compileBlocksStandalone(blocks: Block[]): string | undefined {
   /** 中文说明：变量 tmp 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const tmp = mkdtempSync(join(root, '.doc-typecheck-'))
@@ -234,7 +234,7 @@ function compileBlocksStandalone(blocks: Block[]): string | undefined {
 }
 
 /** Map virtual or temporary block paths back to their owning Markdown fences. */
-/** 中文说明：函数 remapBlockPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 remapBlockPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function remapBlockPaths(output: string, blocks: Block[]): string {
   return output.replace(/(?:[^\s:()]*[/\\])?block-(\d+)\.ts\((\d+),(\d+)\)/g, (_match, index: string, line: string, column: string) => {
     /** 中文说明：变量 block 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

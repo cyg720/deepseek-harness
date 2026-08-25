@@ -3,7 +3,7 @@
  * owner, stay resident through Host rejection, and clear only after an
  * accepted prompt.
  */
-/**
+/*
  * 文件职责：验证会话输入的 input-reference-submit.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
  * 产品维度：防止会话输入用户流程回归。

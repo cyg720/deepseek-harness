@@ -44,14 +44,14 @@ const MENU_EXPECTED = join(SNAPSHOT_DIR, 'menu.expected.md')
 /** 已开始会话头部预设标签和操作快照。 */
 const HEADER_EXPECTED = join(SNAPSHOT_DIR, 'header.expected.md')
 /** The shipped roster, beside the composition that names it. */
-/** 与 CLI 组合一同发布的系统预设根目录。 */
+/* 与 CLI 组合一同发布的系统预设根目录。 */
 const SHIPPED_PRESETS = fileURLToPath(new URL('../../cli/config/agent-presets', import.meta.url))
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 /** 播种历史会话的固定编号。 */
 const SEED_ID = 'agent-preset-selection-web-e2e'
 /** A project skill only a preset that mounts `skill-filesystem` can discover. */
-/** 只有挂载 skill-filesystem 的预设才能发现的项目技能名。 */
+/* 只有挂载 skill-filesystem 的预设才能发现的项目技能名。 */
 const SKILL_NAME = 'preset-catalog-demo'
 
 /**
@@ -62,7 +62,7 @@ const SKILL_NAME = 'preset-catalog-demo'
  * skill group a statement about the session's composition.
  * @param workspaceCwd - the scaffold's temp project parent.
  */
-/** 在连接工作区下创建只供完整预设发现的项目技能。 */
+/* 在连接工作区下创建只供完整预设发现的项目技能。 */
 async function seedWorkspaceSkill(workspaceCwd: string): Promise<void> {
   /** 技能目录的绝对路径。 */
   const directory = join(workspaceCwd, 'workspace', '.agents', 'skills', SKILL_NAME)
@@ -84,7 +84,7 @@ async function seedWorkspaceSkill(workspaceCwd: string): Promise<void> {
  * the golden to a provider's wording for no gain.
  * @returns a tokenized session log ending on a closed turn.
  */
-/** 创建一个已结束且不含模型回复的一轮会话日志。 */
+/* 创建一个已结束且不含模型回复的一轮会话日志。 */
 function seedLog(): string {
   /** 保持快照稳定的固定会话时间。 */
   const time = 1784974100000
@@ -110,7 +110,7 @@ function seedLog(): string {
  * @param scaffold - the booted Web scaffold.
  * @param parentId - the seeded session whose header the browser opens.
  */
-/** 持久化一个 minimal 子会话，使头部快照同时覆盖子代理操作贡献。 */
+/* 持久化一个 minimal 子会话，使头部快照同时覆盖子代理操作贡献。 */
 async function seedSubagent(scaffold: WebScaffold, parentId: SessionId): Promise<void> {
   /** 固定子会话编号。 */
   const childId = sessionId('agent-preset-selection-child')
@@ -169,7 +169,7 @@ async function seedSubagent(scaffold: WebScaffold, parentId: SessionId): Promise
  * @param baseUrl - the scaffold's origin.
  * @returns the live session's preset, or undefined before it is listed.
  */
-/** 通过会话列表 RPC 查询当前空白会话实际采用的预设。 */
+/* 通过会话列表 RPC 查询当前空白会话实际采用的预设。 */
 async function livePreset(baseUrl: string): Promise<string | undefined> {
   /** session.list RPC 的 HTTP 响应。 */
   const response = await fetch(`${baseUrl}/api/session.list`, {
@@ -187,7 +187,7 @@ async function livePreset(baseUrl: string): Promise<string | undefined> {
 }
 
 /** Every option label the trigger menu currently lists. */
-/** 返回触发建议列表当前显示的所有选项文本。 */
+/* 返回触发建议列表当前显示的所有选项文本。 */
 async function menuOptions(page: Page): Promise<string[]> {
   /** 编辑器触发建议的列表框。 */
   const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })

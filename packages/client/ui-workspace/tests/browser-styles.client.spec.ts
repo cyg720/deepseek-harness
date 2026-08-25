@@ -3,7 +3,7 @@
  * row fills share the shell's trailing inset, the stable scrollbar counts
  * inside it, and flat, grouped, and search views keep their intended rhythm.
  */
-/**
+/*
  * 文件职责：验证工作区浏览的 browser-styles.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
  * 产品维度：防止工作区浏览展示与操作流程回归。
@@ -26,7 +26,7 @@ const rowsCss = readFileSync(fileURLToPath(new URL('../src/client/rows/Rows.modu
  * @param selector - one exact selector, including a leading dot for local classes.
  * @returns the rule's declarations, or undefined when no such rule exists.
  */
-/** 中文说明：函数 declarationsFrom 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 declarationsFrom 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function declarationsFrom(source: string, selector: string): Map<string, string> | undefined {
   /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
   const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, ' ')

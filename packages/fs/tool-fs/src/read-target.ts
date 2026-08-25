@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】模型侧读取工具共享的"路径解析 + 常规文件校验"：解析路径、观察缺失、
  * 并要求目标是普通文件。
@@ -31,7 +31,7 @@ import { sessionResolveOptions } from './session-cwd.ts'
  * @param requestedPath - the raw path supplied to the tool.
  * @returns the resolved target and its single stat result.
  */
-/**
+/*
  * 解析模型提供的路径、观察缺失、并要求目标是普通文件。
  * @param ctx 提供文件系统解析与观察事件的插件上下文。
  * @param exec 当前工具执行（含会话 cwd 与取消信号）。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】fs-observation-policy 插件的词汇：一个最小化的"工具执行上下文"结构，
  * 用于把 fs/* 事件携带的不透明 object actor 收窄成"观察态拥有者"。
@@ -39,7 +39,7 @@
  * The owner is `agent.session` when present. It is treated as an opaque object
  * identity (a `WeakMap` key); this package never reads any of its fields.
  */
-/**
+/*
  * 策略插件需要的"工具执行"最小结构视图。dsh-tools 的 ToolExecution 包含这些字段，
  * 因此工具把它的 exec 原样作为 fs/* 事件的不透明 object actor 传过来；本插件把
  * actor 收窄成 FsObservationActor，而不必 import dsh-tools/dsh-agent/dsh-session。
@@ -48,10 +48,10 @@
  */
 export interface FsObservationActor {
   /** The agent on whose behalf the call runs, when there is one. */
-  /** 代行本次调用的 agent（存在时才有）。 */
+  /* 代行本次调用的 agent（存在时才有）。 */
   agent?: {
     /** The session that owns observed-file state, used as an opaque key. */
-    /** 拥有"观察到的文件状态"的会话，仅用作不透明键。 */
+    /* 拥有"观察到的文件状态"的会话，仅用作不透明键。 */
     session?: object
   }
 }

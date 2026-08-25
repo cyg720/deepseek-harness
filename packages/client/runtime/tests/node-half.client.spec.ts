@@ -1,5 +1,5 @@
 /** Node half: the empty host apply (Loader governance + dsh.client discovery placeholder). */
-/**
+/*
  * 文件职责：验证客户端运行时包的 Node 半边 `apply` 是可安全调用的空占位。
  * 技术维度：使用 Vitest 直接调用插件入口，并以无异常作为可观察结果。
  * 产品维度：Loader 可发现客户端包而不会在主机侧意外启动浏览器逻辑。

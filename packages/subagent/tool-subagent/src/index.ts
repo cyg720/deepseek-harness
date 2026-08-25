@@ -7,7 +7,7 @@
  * `ctx.subagents.startContinuable()`.
  * @module @deepseek-ai/dsh-tool-subagent
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理工具行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
  * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
@@ -33,11 +33,11 @@ export const name = 'tool-subagent'
 export const inject = ['tools', 'subagents', 'systemPrompt']
 
 /** Prompt order after bounded delegation policy and before child reporting. */
-/** 中文说明：常量 SUBAGENT_SECTION_ORDER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SUBAGENT_SECTION_ORDER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SUBAGENT_SECTION_ORDER = 116.5
 
 /** Config: which registered provider this tool delegates to, plus child defaults. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 export interface Config {
   /** The `ctx.subagents` provider name to start runs on (e.g. `spawn`, `acp`). */
   provider: string
@@ -112,7 +112,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** Render text blocks from the canonical JSON block array without trusting arbitrary values. */
-/** 中文说明：函数 outputValueText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 outputValueText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function outputValueText(values: JsonValue[]): string {
   return values
     .filter((value): value is { type: 'text'; text: string } =>
@@ -123,7 +123,7 @@ function outputValueText(values: JsonValue[]): string {
 }
 
 /** Settle pending startup without rejecting the task producer contract. */
-/** 中文说明：函数 settleStart 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 settleStart 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function settleStart(start: Promise<SubagentRun>, signal: AbortSignal): Promise<JobOutcome> {
   try {
     return await settleRun(await start)
@@ -137,7 +137,7 @@ async function settleStart(start: Promise<SubagentRun>, signal: AbortSignal): Pr
 }
 
 /** A non-`completed` stop reason means the child did not finish cleanly. */
-/** 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stopReasonError(result: SubagentResult): string | undefined {
   switch (result.stopReason) {
     case 'completed':
@@ -165,7 +165,7 @@ function stopReasonError(result: SubagentResult): string | undefined {
  * @param result - the child's terminal result.
  * @returns the headline, diagnostic, and partial text that are present.
  */
-/** 中文说明：函数 withDiagnosticAndPartialText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 withDiagnosticAndPartialText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function withDiagnosticAndPartialText(error: string, result: SubagentResult): string {
   /** 中文说明：变量 diagnostic 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const diagnostic = result.diagnostic === undefined
@@ -194,7 +194,7 @@ type ForegroundToolResult = {
  * Collect and release one foreground run without letting disposal replace an
  * independent result failure.
  */
-/** 中文说明：函数 settleForegroundRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 settleForegroundRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function settleForegroundRun(run: SubagentRun): Promise<ForegroundToolResult> {
   const [execution] = await Promise.allSettled([
     run.result.then((result): ForegroundToolResult => {
@@ -240,7 +240,7 @@ async function settleForegroundRun(run: SubagentRun): Promise<ForegroundToolResu
  *   scope, or authority inheritance.
  * @returns the tool `description` and the `prompt` parameter description.
  */
-/** 中文说明：函数 providerWording 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 providerWording 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function providerWording(inheritsConversation: boolean): { description: string; promptDescription: string } {
   if (inheritsConversation) {
     return {
@@ -279,7 +279,7 @@ interface DelegationRunSpec {
 }
 
 /** Resolve the model's optional scheduling request into one execution route. */
-/** 中文说明：函数 resolveDelegationRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveDelegationRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveDelegationRun(
   request: DelegationRunRequest,
   options: { readonly backgroundEnabled: boolean; readonly continuable: boolean },

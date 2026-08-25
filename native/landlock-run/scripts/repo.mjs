@@ -6,7 +6,7 @@
  * declares its binaries; everything else under `packages/` is an entry
  * package. Scripts derive from these files and never guess.
  */
-/**
+/*
  * 文件职责：为 Landlock 发布脚本提供包发现、JSON 读取和平台二进制校验等共享能力。
  * 技术维度：使用 ESM URL、Node.js 文件系统与路径 API，并读取 ELF 头部的 e_machine 字段核对架构。
  * 产品维度：让所有发布脚本从同一份显式元数据识别包，防止错包、漏包或跨架构二进制进入发行物。
@@ -25,7 +25,7 @@ export const root = fileURLToPath(new URL('..', import.meta.url));
 const packagesRoot = path.join(root, 'packages');
 
 /** ELF `e_machine` (offset 18, little-endian) per platform-package `cpu` value. */
-/** CPU 名称到 ELF 头机器编号的固定对应关系。 */
+/* CPU 名称到 ELF 头机器编号的固定对应关系。 */
 const E_MACHINE = { x64: 62, arm64: 183 };
 // CPU 名称到 ELF e_machine 数值的固定映射，用于识别二进制真实架构。
 
@@ -40,7 +40,7 @@ export function readJson(file) {
 }
 
 /** Platform packages: every `packages/<name>` carrying a `prebuilds.json`. */
-/**
+/*
  * 查找所有带 prebuilds.json 的平台包。
  * @returns {string[]} 排序后的平台包相对目录。
  * @example platformDirs();
@@ -53,7 +53,7 @@ export function platformDirs() {
 }
 
 /** Entry packages: every other `packages/<name>` with a `package.json`. */
-/**
+/*
  * 查找没有 prebuilds.json、但带 package.json 的入口包。
  * @returns {string[]} 排序后的入口包相对目录。
  * @example entryDirs();
@@ -67,7 +67,7 @@ export function entryDirs() {
 }
 
 /** All published packages in publish order: platform packages before the entries that optionally depend on them. */
-/**
+/*
  * 生成平台包在前、入口包在后的完整发布目录列表。
  * @returns {string[]} 可直接用于打包或发布的相对目录。
  * @example packageDirs();
@@ -82,7 +82,7 @@ export function packageDirs() {
  * file's ELF `e_machine` matches the package's declared `cpu`. Throws with
  * a remediation message on the first mismatch.
  */
-/**
+/*
  * 根据清单和 prebuilds.json 验证一个平台包的二进制集合、权限和架构。
  * @param {string} packageDir 平台包目录，可以是绝对或当前进程可解析的路径。
  * @returns {{name: string, count: number}} 包名及已验证二进制数量。

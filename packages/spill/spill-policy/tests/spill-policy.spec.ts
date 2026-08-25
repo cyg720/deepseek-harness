@@ -7,7 +7,7 @@
  * `saveText` failure / missing backend / missing owner all preserve the original
  * result without an `isError`.
  */
-/**
+/*
  * 文件职责：验证 spill-policy.spec.ts 覆盖的大结果落盘行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的大结果落盘能力稳定、安全且可诊断。
@@ -35,7 +35,7 @@ import { WorkerThreadCodeRuntime } from '@deepseek-ai/dsh-code-runtime-worker-th
 const testToolSignal = new AbortController().signal
 
 /** A stub spill backend recording its saves; `fail` exercises the best-effort fallback. */
-/** 中文说明：class StubStore 定义本测试所需的数据或行为，用于表达大结果落盘场景。 */
+/* 中文说明：class StubStore 定义本测试所需的数据或行为，用于表达大结果落盘场景。 */
 class StubStore extends SpillStore {
   saves: SaveTextSpill[] = []
   fail = false
@@ -55,7 +55,7 @@ class StubStore extends SpillStore {
 }
 
 /** A tool returning `text` verbatim (name configurable so we can register `read`). */
-/** 中文说明：函数 textTool 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 textTool 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function textTool(name: string, text: string) {
   return defineContentToolFixture({
     name,
@@ -66,7 +66,7 @@ function textTool(name: string, text: string) {
 }
 
 /** A minimal exec carrying a session header id (the spill owner). */
-/** 中文说明：函数 exec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 exec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function exec(name: string, session = 's1'): ToolExecution {
   // Only agent.session.header.id is read by the policy; a structural stub suffices.
   /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -78,7 +78,7 @@ function exec(name: string, session = 's1'): ToolExecution {
  * Build a context with tools + the policy, and optionally a spill backend.
  * Returns the context and the backend handle (undefined when `withSpill` false).
  */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(
   config: SpillPolicy.Config,
   withSpill = true,
@@ -101,7 +101,7 @@ async function setup(
 }
 
 /** Flatten a result's text blocks. */
-/** 中文说明：函数 textOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 textOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function textOf(content: ContentBlock[]): string {
   return content.filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('')
 }
@@ -271,7 +271,7 @@ describe('read skip', () => {
 
 describe('the durable dispatch-log arm', () => {
   /** Boot code mode + the policy + the worker runtime; run one program via the real bridge. */
-  /** 中文说明：函数 runCodeWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 runCodeWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function runCodeWith(program: string, maxInlineBytes: number, extraTools: ToolDefinition[] = []) {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()

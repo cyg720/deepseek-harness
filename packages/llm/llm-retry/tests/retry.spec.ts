@@ -98,7 +98,7 @@ function textResponse(text: string): StreamChunk[] {
  * routes on); the message text here is the deepseek adapter's phrasing (pi-ai
  * qualifies it with the model name).
  */
-/** 中文说明：函数 emptyCompletion 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 emptyCompletion 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function emptyCompletion(): StreamChunk[] {
   return [
     { type: 'usage', usage: { inputTokens: 0, outputTokens: 0 } },

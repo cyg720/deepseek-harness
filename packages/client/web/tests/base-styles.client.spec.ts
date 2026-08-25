@@ -1,5 +1,5 @@
 /** Shell base styles stay independent from the dynamically loaded theme bundle. */
-/**
+/*
  * 文件职责：验证 Web 壳基础样式不静态导入动态加载的主题包。
  * 技术维度：使用 Node.js 读取 CSS、正则提取 @import 顺序并通过 Vitest 断言。
  * 产品维度：允许主题插件在运行时选择和切换，避免基础壳提前绑定某个主题。
@@ -22,7 +22,7 @@ const baseCss = readFileSync(fileURLToPath(new URL('../src/base.css', import.met
  * @param css - stylesheet text.
  * @returns import specifiers in declaration order.
  */
-/**
+/*
  * 按源码顺序提取样式表中的 @import 说明符。
  * @param css - 待扫描的完整 CSS 文本。
  * @returns 导入路径数组；引号和周围空白不影响结果，重复项保留。

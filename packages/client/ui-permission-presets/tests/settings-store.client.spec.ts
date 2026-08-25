@@ -53,7 +53,7 @@ function ok<T>(value: T) {
 }
 
 /** The permission controller over a real mirror and one fake wire. */
-/** 中文说明：函数 permissionController 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 permissionController 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function permissionController(api: object) {
   /** 中文说明：测试局部值 wire，由紧邻初始化决定。 */
   const wire = { settings: api } as never

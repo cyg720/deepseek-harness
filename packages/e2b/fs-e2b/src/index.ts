@@ -3,7 +3,7 @@
  * atomic staging files remain inside the shared remote sandbox.
  * @module @deepseek-ai/dsh-fs-e2b
  */
-/**
+/*
  * 文件职责：实现E2B 远程沙箱的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
@@ -204,7 +204,7 @@ function literalEdit(content: string, request: FsEditRequest, displayPath: strin
 }
 
 /** Remote filesystem backend sharing the sandbox owned by `ctx.e2b`. */
-/** 中文说明：类型或类 E2BFileSystem 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 E2BFileSystem 约束远程资源或测试数据职责。 */
 export class E2BFileSystem extends FileSystem {
   static inject = ['e2b']
 

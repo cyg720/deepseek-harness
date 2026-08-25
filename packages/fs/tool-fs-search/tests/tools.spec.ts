@@ -9,7 +9,7 @@
  * formatted-result spill handoff, and the no-background-job invariant.
  * Real-`rg` behavior is pinned separately in integration.spec.ts.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 tools.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -55,11 +55,11 @@ const testToolSignal = new AbortController().signal
  * the workdir-relative display conversion group by `node:path.sep`, so
  * `/`-literal paths would collapse into per-path groups on Windows.
  */
-/** 中文说明：测试局部值 w，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 w，由紧邻初始化决定。 */
 const w = (path: string): string => path.replaceAll('/', sep)
 
 /** One scripted collect-mode stream, returned by `readFrom(0)` after settlement. */
-/** 中文说明：类型或类 ScriptedStream 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 ScriptedStream 约束文件或目标数据职责。 */
 interface ScriptedStream {
   text: string
   lossy?: boolean
@@ -67,7 +67,7 @@ interface ScriptedStream {
 }
 
 /** One scripted spawn: exit facts plus the collected streams the tool reads. */
-/** 中文说明：类型或类 ScriptedRun 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 ScriptedRun 约束文件或目标数据职责。 */
 interface ScriptedRun {
   outcome: SubprocessOutcome
   stdout: ScriptedStream
@@ -75,7 +75,7 @@ interface ScriptedRun {
 }
 
 /** A successful run over the given stdout; overrides script the failure shapes. */
-/** 中文说明：函数 runResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 runResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function runResult(
   stdout: string,
   overrides?: Partial<SubprocessOutcome> & { stdout?: Partial<ScriptedStream>; stderr?: ScriptedStream },
@@ -90,7 +90,7 @@ function runResult(
 }
 
 /** A fixed-response collect-mode reader: the tools read each stream once, from 0, after settlement. */
-/** 中文说明：类型或类 FakeReader 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 FakeReader 约束文件或目标数据职责。 */
 class FakeReader implements SubprocessOutputReader {
   constructor(private readonly read: ScriptedStream) {}
 
@@ -110,7 +110,7 @@ class FakeReader implements SubprocessOutputReader {
  * the spec's abort signal marks the handle terminated — mirroring the seam's
  * abort→terminate escalation.
  */
-/** 中文说明：类型或类 FakeHandle 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 FakeHandle 约束文件或目标数据职责。 */
 class FakeHandle implements SubprocessHandle {
   readonly pid = 4242
   readonly stdin = undefined
@@ -163,7 +163,7 @@ class FakeHandle implements SubprocessHandle {
  * never spawn outside a single awaited foreground call, so every test can
  * assert on the exact spawn specs and settled handles.
  */
-/** 中文说明：类型或类 FakeSubprocess 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 FakeSubprocess 约束文件或目标数据职责。 */
 class FakeSubprocess extends SubprocessRuntime {
   spawns: SubprocessSpawnSpec[] = []
   override async resolveExecutable(command: string): Promise<string> { return command }
@@ -184,7 +184,7 @@ class FakeSubprocess extends SubprocessRuntime {
 }
 
 /** A recording spill backend; arm `failWith` to script a storage failure. */
-/** 中文说明：类型或类 FakeSpill 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 FakeSpill 约束文件或目标数据职责。 */
 class FakeSpill extends SpillStore {
   saves: SaveTextSpill[] = []
   failWith?: Error
@@ -230,7 +230,7 @@ async function setup(options: SetupOptions = {}) {
 }
 
 /** A stand-in agent whose session header carries the given cwd (and a stable id). */
-/** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 agent，由紧邻初始化决定。 */
 const agent = (cwd?: string) => ({ session: { header: { id: 'session-1', ...cwd !== undefined ? { cwd } : {} } } })
 
 /** 中文说明：测试局部值 callCounter，由紧邻初始化决定。 */
@@ -259,7 +259,7 @@ function text(result: { content: { type: string; text?: string }[] }): string {
 }
 
 /** One rg --json match record line. */
-/** 中文说明：函数 matchLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 matchLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function matchLine(path: string, lineNumber: number, lineText: string): string {
   return JSON.stringify({ type: 'match', data: { path: { text: path }, lines: { text: lineText }, line_number: lineNumber, absolute_offset: 0, submatches: [] } })
 }

@@ -4,7 +4,7 @@
  * bare `apply`, dropping `inject` (postmortem 0001). This verifies the namespace survives
  * `Loader.prototype.unwrapExports`; the `lsp-definition` ACP snapshot owns full app composition.
  */
-/**
+/*
  * 文件职责：防止 tool-lsp 的命名空间导出被 Cordis Loader 错误折叠为单个 apply 函数。
  * 技术维度：使用 Vitest、真实 Loader.prototype.unwrapExports 和包命名空间导入检查导出集合。
  * 产品维度：保证 LSP 工具装配时保留名称、依赖和配置，避免启动后能力静默缺失。

@@ -5,7 +5,7 @@
  * backends are held to identical semantics.
  * @module
  */
-/**
+/*
  * 文件职责：验证 contract.ts 覆盖的持久化存储行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的持久化存储能力稳定、安全且可诊断。
@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest'
 import type { KvUnitDescriptor, StorageBackend } from '../src/backend.ts'
 
 /** One conformance run: a fresh backend plus a way to reopen the same medium (crash simulation). */
-/** 中文说明：interface KvBackendContractHarness 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
+/* 中文说明：interface KvBackendContractHarness 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
 export interface KvBackendContractHarness {
   /** The backend under test, freshly created over an empty medium. */
   backend: StorageBackend
@@ -39,7 +39,7 @@ const DESCRIPTOR: KvUnitDescriptor = {
  * @param label - Suite label, e.g. `json` / `sqlite`.
  * @param create - Factory producing a fresh harness per test.
  */
-/** 中文说明：函数 runKvBackendContract 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 runKvBackendContract 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function runKvBackendContract(label: string, create: () => Promise<KvBackendContractHarness>) {
   describe(`kv backend contract: ${label}`, () => {
     it('opens a missing unit as empty and serves loadAll immediately', async () => {

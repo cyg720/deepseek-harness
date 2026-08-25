@@ -8,7 +8,7 @@
  * [hook-bridges Agent Note](../../../../.agents/notes/implemented/feature/2026-06-30-hook-bridges.md).
  * @module @deepseek-ai/dsh-hooks-codex
  */
-/**
+/*
  * 文件职责：实现Codex Hook 桥的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -54,7 +54,7 @@ export const name = 'hooks-codex'
 export const inject = ['shell']
 
 /** Plugin config: where the Codex hooks.json lives + the model name for payloads. */
-/** 中文说明：类型或类 Config 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 Config 约束 API、Hook 或目录数据职责。 */
 export interface Config {
   /**
    * Path to a Codex `hooks.json`. Process-level: read once at load, a relative
@@ -90,7 +90,7 @@ function nextHandlerId(point: string): string {
 const PLUGIN_SOURCE: MessageSource = { kind: 'plugin', plugin: 'hooks-codex' }
 
 /** The summary cap bounds a persisted event field — a positive integer or the slice misbehaves silently. */
-/** 中文说明：函数 assertPositiveInteger 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertPositiveInteger 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertPositiveInteger(name: string, value: number): void {
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`hooks-codex: ${name} must be a positive integer`)
@@ -138,7 +138,7 @@ export function apply(ctx: Context, config: Config): void {
    * A supplied turn records the hook invocation/result pair inside that open turn.
    * Detached lifecycle points omit it.
    */
-  /** 中文说明：函数 runPoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 runPoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function runPoint(
     point: string,
     matchQuery: string,
@@ -217,7 +217,7 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   /** Prepend one context without flattening source fields or other downstream metadata. */
-  /** 中文说明：函数 prependContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 prependContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): UserMessage[] {
     return [ours, ...theirs ?? []]
   }
@@ -345,7 +345,7 @@ function blocksToText(content: ContentBlock[]): string {
 /* jscpd:ignore-end */
 
 /** Base fields on every Codex payload (no turn_id). */
-/** 中文说明：函数 base 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 base 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function base(ctx: Context, agent: Agent | undefined, event: string, model: string): Record<string, unknown> {
   return {
     session_id: agent?.session.header.id ?? '',
@@ -360,13 +360,13 @@ function base(ctx: Context, agent: Agent | undefined, event: string, model: stri
 }
 
 /** Base + turn_id, for the turn-scoped events (PreToolUse/PostToolUse/UserPromptSubmit/Stop). */
-/** 中文说明：函数 turnBase 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 turnBase 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function turnBase(ctx: Context, agent: Agent | undefined, event: string, model: string): Record<string, unknown> {
   return { ...base(ctx, agent, event, model), turn_id: String(lastTurn(agent)) }
 }
 
 /** Extract a `command` string from a tool call's parsed arguments, else ''. */
-/** 中文说明：函数 commandOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 commandOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commandOf(args: unknown): string {
   if (typeof args === 'object' && args !== null && 'command' in args) {
     /** 中文说明：宿主局部值 command，由紧邻初始化决定。 */

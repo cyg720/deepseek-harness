@@ -76,13 +76,13 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-tab-geometry', 
  * the bar's width when it does not — including under the control, so the golden
  * carries the shift the uncompensated cascade produces rather than only its absence.
  */
-/** 记录宽窄视口中两标签卡片相对几何与无补偿对照的黄金文件。 */
+/* 记录宽窄视口中两标签卡片相对几何与无补偿对照的黄金文件。 */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 
 /** Long enough that the transcript overflows the lane's 1000px viewport; the scenario asserts the overflow rather than trusting it. */
-/** 足以让聊天列在 1000 像素高视口产生真实滚动条的长会话夹具。 */
+/* 足以让聊天列在 1000 像素高视口产生真实滚动条的长会话夹具。 */
 const FIXTURE = createChatScrollFixture({
   markerPrefix: 'TAB_GEOMETRY',
   title: 'COMPOSER_TAB_GEOMETRY long session',
@@ -92,7 +92,7 @@ const FIXTURE = createChatScrollFixture({
 const SEED_ID = 'composer-tab-geometry-web-e2e'
 
 /** Viewport widths the scenario measures at: the card capped, and the card shrinking with the column. */
-/** 编辑器达到最大宽度时的宽视口。 */
+/* 编辑器达到最大宽度时的宽视口。 */
 const WIDE_VIEWPORT = { width: 1680, height: 1000 }
 /** 编辑器随中心列缩小时的窄视口。 */
 const NARROW_VIEWPORT = { width: 800, height: 1000 }
@@ -104,7 +104,7 @@ const NARROW_VIEWPORT = { width: 800, height: 1000 }
  * @param viewport - the viewport dimensions to apply.
  * @param sidebarCollapsed - the sidebar state expected at this width.
  */
-/** 调整到测量视口并等待侧栏与中心列宽度连续三帧稳定。 */
+/* 调整到测量视口并等待侧栏与中心列宽度连续三帧稳定。 */
 async function setMeasuredViewport(
   page: Page,
   viewport: { width: number; height: number },
@@ -141,7 +141,7 @@ async function setMeasuredViewport(
  * rules without a rebuild, and the id lets the control be lifted again in the
  * same session.
  */
-/** 注入无补偿对照样式时使用的元素编号。 */
+/* 注入无补偿对照样式时使用的元素编号。 */
 const CONTROL_STYLE_ID = 'composer-tab-geometry-control'
 /** 将轨迹覆盖编辑器右侧补偿归零的对照 CSS。 */
 const CONTROL_CSS = `
@@ -149,7 +149,7 @@ const CONTROL_CSS = `
 `
 
 /** The column scroller and the input card as the browser lays them out, in one tab. */
-/** 单个标签下中心列滚动样式和编辑器卡片矩形指标。 */
+/* 单个标签下中心列滚动样式和编辑器卡片矩形指标。 */
 interface TabMetrics {
   /** Resolved `scrollbar-gutter` on the column's scroller. */
   gutter: string
@@ -170,7 +170,7 @@ interface TabMetrics {
 }
 
 /** One tab's metrics beside the other's, plus the distances between them. */
-/** Chat 与 Trajectory 指标及两者卡片边缘和宽度差。 */
+/* Chat 与 Trajectory 指标及两者卡片边缘和宽度差。 */
 interface TabComparison {
   chat: TabMetrics
   trajectory: TabMetrics

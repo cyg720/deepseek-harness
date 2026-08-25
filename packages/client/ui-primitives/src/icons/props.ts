@@ -10,7 +10,7 @@
  * ==========================================================================
  */
 /** Shared props for every ic_ds_* icon component. */
-/**
+/*
  * 所有 ic_ds_* 图标组件共享的 props：size 控制边长，className 控制布局与颜色。
  */
 export interface IconProps {

@@ -5,7 +5,7 @@
  * cleanup, and quiescence waits for both while synthesizing any missing end events.
  * @module @deepseek-ai/dsh-workflow-worker-thread/host
  */
-/**
+/*
  * 文件职责：实现 host.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -32,7 +32,7 @@ import type { HostToWorkerPayloads, WorkerToHostMessage } from './protocol.ts'
 import type { ChildResult, ChildStartRequest, WorkerInit } from './types.ts'
 
 /** One published child and its shared quiescent-disposal transaction. */
-/** 中文说明：interface ChildRecord 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface ChildRecord 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface ChildRecord {
   readonly run: SubagentRun
   disposal?: Promise<void>
@@ -51,7 +51,12 @@ interface ChildRecord {
  *   passes one, so the built worker never observes the host's pin.
  * @returns the scrubbed worker environment object.
  */
-/** 中文说明：函数 workerSpawnEnv 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 workerSpawnEnv 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param platform 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param tsconfigPath 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function workerSpawnEnv(
   platform: NodeJS.Platform = process.platform,
   tsconfigPath?: string,
@@ -76,7 +81,7 @@ export function workerSpawnEnv(
  * @param init - the run payload, passed as `workerData`.
  * @returns the entry path or URL and the Worker options to spawn it with.
  */
-/** 中文说明：函数 resolveWorkerSpawn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveWorkerSpawn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveWorkerSpawn(init: WorkerInit): { entry: string | URL; options: WorkerOptions } {
   /* v8 ignore next 3 -- the built-output arm: tests always run unbuilt (src/); the built-worker e2e exercises this shape for real */
   if (!import.meta.url.endsWith('.ts')) {
@@ -116,7 +121,7 @@ function resolveWorkerSpawn(init: WorkerInit): { entry: string | URL; options: W
  * engine returns this run, so unloading the engine removes only the ability to
  * start another workflow; this run can still start and clean up its children.
  */
-/** 中文说明：class WorkerRun 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class WorkerRun 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export class WorkerRun implements WorkflowRun {
   /** Settles exactly once with the run's outcome; never rejects. */
   readonly result: Promise<WorkflowResult>
@@ -655,7 +660,7 @@ export class WorkerRun implements WorkflowRun {
 }
 
 /** A plain timer sleep (the dispose grace); unref'd so it never holds the process open. */
-/** 中文说明：函数 sleep 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 sleep 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     /** 中文说明：变量 timer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

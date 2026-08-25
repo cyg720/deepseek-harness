@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】图片附件错误与数量 / 大小限制的文案生成：字节数转 MB 文案；宿主拒绝附件时
  *             按 reason 代码映射成用户可理解的横幅文案。
@@ -36,7 +36,7 @@ export function imageSizeText(bytes: number): string {
  * @param limits - projected limits interpolated into count/size copy, when known.
  * @returns the banner text.
  */
-/**
+/*
  * 宿主拒绝附件时的产品文案。用户可解决的 reason 点出限制与出路；
  * 用户无法处理的 reason 折叠成一行"发送失败"并携带原因码供上报。
  * @param t - conversation 命名空间的翻译函数。

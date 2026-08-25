@@ -22,8 +22,10 @@ import type { GenericCallView } from '@deepseek-ai/dsh-tools'
  * @param args - requested runtime category and optional member name.
  * @returns replay-safe generic call presentation.
  */
-/**
+/*
  * 渲染运行时检查调用（cordis_runtime_inspect）的卡片标题。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentRuntimeInspectCall(args: { what?: string; name?: string }): GenericCallView {
   const target = args.name === undefined ? args.what : `${args.what}: ${args.name}`
@@ -34,8 +36,9 @@ export function presentRuntimeInspectCall(args: { what?: string; name?: string }
  * Render provider-directory inspection.
  * @returns replay-safe generic call presentation.
  */
-/**
+/*
  * 渲染"列出 inspect 提供者"调用的卡片标题。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentInspectListCall(): GenericCallView {
   return { card: 'generic', kind: 'read', title: 'List Cordis Inspect Providers' }
@@ -46,8 +49,10 @@ export function presentInspectListCall(): GenericCallView {
  * @param args - target platform, provider, and method.
  * @returns replay-safe generic call presentation.
  */
-/**
+/*
  * 渲染一次提供者查询调用的卡片标题（含平台与 提供者.方法）。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentInspectQueryCall(args: { platform: string; provider: string; method: string }): GenericCallView {
   return { card: 'generic', kind: 'read', title: `Query Cordis ${args.platform} ${args.provider}.${args.method}` }
@@ -58,8 +63,10 @@ export function presentInspectQueryCall(args: { platform: string; provider: stri
  * @param args - optional Plugin and Package identity.
  * @returns replay-safe generic call presentation.
  */
-/**
+/*
  * 渲染分层自查调用的卡片标题（无 ID 时为插件列表，否则按层级细化）。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentInspectSelfCall(args: { pluginId?: string; packageId?: string }): GenericCallView {
   const target = args.pluginId === undefined
@@ -73,8 +80,10 @@ export function presentInspectSelfCall(args: { pluginId?: string; packageId?: st
  * @param args - exact Plugin and Package identity.
  * @returns replay-safe generic call presentation.
  */
-/**
+/*
  * 渲染"检查包版本源码"调用的卡片标题。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentPackageInspectCall(args: { pluginId: string; packageId: string }): GenericCallView {
   return { card: 'generic', kind: 'read', title: `Inspect Cordis Package ${args.pluginId}/${args.packageId}` }
@@ -85,8 +94,10 @@ export function presentPackageInspectCall(args: { pluginId: string; packageId: s
  * @param args - target Plugin, Package metadata, and source halves.
  * @returns replay-safe generic call presentation with source in raw input.
  */
-/**
+/*
  * 渲染定义包版本调用的卡片：标题含目标插件与用途，rawInput 携带两端源码供展开查看。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentDefineCall(args: {
   plugin: { kind: 'new'; idPrefix: string } | { kind: 'existing'; pluginId: string }
@@ -108,8 +119,10 @@ export function presentDefineCall(args: {
  * @param args - Plugin identity to remove.
  * @returns replay-safe generic call presentation.
  */
-/**
+/*
  * 渲染删除插件调用的卡片标题。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentUndefineCall(args: { pluginId: string }): GenericCallView {
   return { card: 'generic', kind: 'delete', title: `Remove Cordis Plugin ${args.pluginId}` }
@@ -120,8 +133,10 @@ export function presentUndefineCall(args: { pluginId: string }): GenericCallView
  * @param args - Plugin, Package, and activation mode.
  * @returns replay-safe generic call presentation.
  */
-/**
+/*
  * 渲染激活包版本调用的卡片标题（update 与 run 措辞不同）。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentRunCall(args: { pluginId: string; packageId: string; mode: 'run' | 'update' }): GenericCallView {
   return {
@@ -136,8 +151,10 @@ export function presentRunCall(args: { pluginId: string; packageId: string; mode
  * @param args - Plugin identity to stop.
  * @returns replay-safe generic call presentation.
  */
-/**
+/*
  * 渲染停止插件调用的卡片标题。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function presentStopCall(args: { pluginId: string }): GenericCallView {
   return { card: 'generic', kind: 'execute', title: `Stop Cordis Plugin ${args.pluginId}` }

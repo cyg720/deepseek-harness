@@ -4,7 +4,7 @@
  * `meta` narrowing. These pin the exact hunk reconstruction (context lines,
  * multi-hunk replaceAll, pure insertion/deletion, no-op) that UIs render.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 diff.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。

@@ -30,15 +30,15 @@ import type { BasicCompactionConfig } from '@deepseek-ai/dsh-compaction-basic'
  * outside the *.e2e.ts pattern so importing it never re-registers another
  * file's tests.
  */
-/** 中文说明：共享 Harness 位于 e2e 命名模式之外，避免被导入时重复注册其他测试文件的用例。 */
+/* 中文说明：共享 Harness 位于 e2e 命名模式之外，避免被导入时重复注册其他测试文件的用例。 */
 
-/** 普通编码任务的系统角色提示，要求用 bash 操作文件并简洁报告。 */
+/* 普通编码任务的系统角色提示，要求用 bash 操作文件并简洁报告。 */
 export const SYSTEM_PROMPT = 'You are a coding agent. Use bash for file operations '
   + 'with cat/grep/heredocs; check [exit code: N] markers, '
   + 'and report results briefly.'
 
 /** System prompt for the todo_write e2e: nudges the model to plan with the tool. */
-/** todo_write 场景的系统提示，要求持续维护完整且及时更新的任务列表。 */
+/* todo_write 场景的系统提示，要求持续维护完整且及时更新的任务列表。 */
 export const TODO_SYSTEM_PROMPT = 'You are a coding agent. For multi-step work, '
   + 'use the todo_write tool to track a task list: send the WHOLE list each call, '
   + 'mark every task being actively worked on in_progress (several at once when '
@@ -46,7 +46,7 @@ export const TODO_SYSTEM_PROMPT = 'You are a coding agent. For multi-step work, 
   + 'completed as soon as it is done.'
 
 /** Options for {@link codingHarness}. */
-/** 控制共享编码 Harness 的角色、持久化、压缩和模型上下文容量。 */
+/* 控制共享编码 Harness 的角色、持久化、压缩和模型上下文容量。 */
 export interface CodingHarnessOptions {
   /**
    * Deployment persona for the tree (the system-prompt plugin's `persona`

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】session-reference 包自有的不变式伴生插件：向 dsh-invariants
  *             服务登记本包，声明本包的运行时不变量归属。
@@ -24,17 +24,17 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-session-reference'
 
 /** Cordis companion plugin name. */
-/** 该伴生插件的注册名。 */
+/* 该伴生插件的注册名。 */
 export const name = 'session-reference-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
+/* 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: preparation returns immutable per-call snapshots validated while they are
  * built, and the agent/session layers own durable context admission, freezing, and replay.
  */
-/**
+/*
  * 空安装函数：准备过程返回的每次调用独立不可变快照在构建时就地校验，
  * 持久化上下文的接纳/冻结/回放由 agent/session 层负责，故无需额外检查。
  */
@@ -45,7 +45,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 登记本包的 invariant 伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文
  * @returns 登记成功后的注销函数

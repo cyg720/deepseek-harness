@@ -31,7 +31,7 @@
 
 /* jscpd:ignore-start */
 /** One named parameter in a Service method or Event listener. */
-/**
+/*
  * 服务方法或事件监听器中的一个命名参数：名字来自精确签名，描述来自源码文档。
  */
 export interface ApiParameter {
@@ -42,7 +42,7 @@ export interface ApiParameter {
 }
 
 /** One public service member and its source-owned contract. */
-/**
+/*
  * 一个公开服务方法及其源码文档契约：签名（去函数体）、描述、命名参数、返回值与
  * 失败条件。
  */
@@ -60,7 +60,7 @@ export interface ServiceApiMethod {
 }
 
 /** One harness `ctx.<key>` service and its public methods. */
-/**
+/*
  * 一个 harness 服务（ctx.<key>）及其公开方法：键名、摘要/完整描述与方法签名列表。
  */
 export interface ServiceApiEntry {
@@ -75,7 +75,7 @@ export interface ServiceApiEntry {
 }
 
 /** One harness event: its dispatch mode, exact signature, and listener contract. */
-/**
+/*
  * 一个 harness 事件：派发模式（@mode）、精确签名与监听器契约。
  */
 export interface EventApiEntry {
@@ -94,7 +94,7 @@ export interface EventApiEntry {
 }
 
 /** One inherited (cordis core + loader/hmr/timer) `ctx` member group with its summary. */
-/**
+/*
  * 一个继承的 ctx 成员组（cordis 核心 + loader/hmr/timer）及其一句话摘要。
  */
 export interface InheritedApiEntry {
@@ -105,7 +105,7 @@ export interface InheritedApiEntry {
 }
 
 /** One named type declaration referenced by a Service or Event signature. */
-/**
+/*
  * 被服务/事件签名引用的一个具名类型声明：导出名 + 去掉注释后的完整声明文本。
  */
 export interface TypeApiEntry {
@@ -904,7 +904,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
 ]
 
 /** The inherited `ctx` API (cordis core + loader/hmr/timer), in curated order. */
-/**
+/*
  * 继承的 ctx API 清单（cordis 核心 + loader/hmr/timer），按策划顺序排列。
  */
 export const INHERITED_CTX_API: readonly InheritedApiEntry[] = [
@@ -953,9 +953,12 @@ function contextProperty(key: string): string {
  * @param services - platform-specific visible Service entries.
  * @returns compact navigation data or one detailed Service with its referenced type closure.
  */
-/**
+/*
  * 投影服务目录：无 key 时为紧凑目录；有 key 时为精确契约（含访问方式、方法详情
  * 与被引用的类型闭包）。
+ * @param key 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param services 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function queryServiceApi(key?: string, services: readonly ServiceApiEntry[] = SERVICE_API): object {
   if (key === undefined) {
@@ -991,8 +994,11 @@ export function queryServiceApi(key?: string, services: readonly ServiceApiEntry
  * @param events - platform-specific visible Event entries.
  * @returns compact navigation data or one detailed Event with its referenced type closure.
  */
-/**
+/*
  * 投影事件目录：无 name 时为紧凑目录；有 name 时为精确契约（含完整描述与参数）。
+ * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function queryEventApi(name?: string, events: readonly EventApiEntry[] = EVENT_API): object {
   if (name === undefined) {

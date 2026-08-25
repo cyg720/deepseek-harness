@@ -7,7 +7,7 @@
  *
  * @module @deepseek-ai/dsh-session-persistence/tests/contract
  */
-/**
+/*
  * 文件职责：验证 contract.ts 覆盖的会话持久化行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。
@@ -23,14 +23,14 @@ import { CallId, MessageId, createMessage, freezeMessage } from '@deepseek-ai/ds
 import type { SessionPersistence } from '../src/index.ts'
 
 /** A backend under test plus its teardown. */
-/** 中文说明：interface ContractBackend 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface ContractBackend 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
 export interface ContractBackend {
   persistence: SessionPersistence
   dispose: () => Promise<void>
 }
 
 /** Build a minimal {@link SessionHeader} for a session id. */
-/** 中文说明：函数 meta 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 meta 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function meta(id: string, cwd?: string): SessionHeader {
   return {
     version: SESSION_FORMAT_VERSION,
@@ -41,7 +41,7 @@ export function meta(id: string, cwd?: string): SessionHeader {
 }
 
 /** A well-formed one-turn event log (contiguous seqs from 0). */
-/** 中文说明：函数 oneTurnLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 oneTurnLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function oneTurnLog(): SessionEvent[] {
   return [
     { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
@@ -73,7 +73,7 @@ export function oneTurnLog(): SessionEvent[] {
  * `SessionEvent` union makes the typed marker optional, but the runtime guard must still reject a
  * surface event whose fixture omitted it; this helper never synthesizes a default.
  */
-/** 中文说明：函数 appendLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 appendLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function appendLog(session: Session, events: readonly SessionEvent[]): void {
   /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
   for (const e of events) {
@@ -96,7 +96,7 @@ export function appendLog(session: Session, events: readonly SessionEvent[]): vo
  * Run the backend-agnostic contract suite. `make()` MUST return a fresh, empty
  * backend each call.
  */
-/** 中文说明：函数 runPersistenceContract 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 runPersistenceContract 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function runPersistenceContract(name: string, make: () => Promise<ContractBackend>): void {
   describe(`SessionPersistence contract: ${name}`, () => {
     it('round-trips a session: create + append → load returns identical meta and byte-identical events', async () => {

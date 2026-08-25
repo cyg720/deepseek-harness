@@ -140,7 +140,7 @@ const trajectoryMessageDefinition: ConversationNodeDefinition<MessageNode> = {
  *
  * @param ctx - Plugin context receiving the Definitions.
  */
-/**
+/*
  * 注册轨迹拥有的收件箱分类与消息记录状态机。
  * @param ctx - 接收这些 Definition 的插件上下文。
  */

@@ -27,7 +27,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  * before the harness and native packages are built.
  */
 
-/** 中文说明：变量 packageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 packageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const packageDir = fileURLToPath(new URL('..', import.meta.url))
 /** 中文说明：变量 repoRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url))
@@ -39,7 +39,7 @@ const sourceLauncher = join(nativeDir, 'packages', `linux-${process.arch}`, 'bin
 const platformPackageName = `@deepseek-ai/node-addon-landlock-run-linux-${process.arch}`
 
 /** The harness closure the consumer needs; native tarballs are packed through their mode-preserving release script. */
-/** 中文说明：常量 WORKSPACE_CLOSURE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 WORKSPACE_CLOSURE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WORKSPACE_CLOSURE = [
   'packages/sandbox/sandbox-local',
   // sandbox-local's win32 chain rung is a runtime dependency: a packed
@@ -65,7 +65,7 @@ const WORKSPACE_CLOSURE = [
 ]
 
 /** ELF `e_machine` (offset 18, LE) for this host: x86-64 = 62, AArch64 = 183. */
-/** 中文说明：常量 E_MACHINE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 E_MACHINE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const E_MACHINE = { x64: 62, arm64: 183 }[process.arch as 'x64' | 'arm64']
 
 /** 中文说明：变量 packable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -80,7 +80,7 @@ let consumerDir = ''
 /** 中文说明：变量 workDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let workDir = ''
 /** The consumer script's JSON verdict (see its source below). */
-/** 中文说明：变量 verdict 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 verdict 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let verdict: {
   launcher: string
   launcherExists: boolean

@@ -14,7 +14,7 @@
  *
  * @module
  */
-/**
+/*
  * 文件职责：实现 connection.ts 承担的MCP 客户端连接、工具映射与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、MCP/JSON-RPC 协议和异步资源管理。
  * 产品维度：让 Agent 能发现并调用外部 MCP 服务器提供的工具。
@@ -33,7 +33,7 @@ import type { ToolBridgeOptions, ToolDisposers } from './tools.ts'
 import type { Config } from './index.ts'
 
 /** Automatic reconnect policy for one MCP server connection. */
-/** 中文说明：interface ReconnectConfig 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface ReconnectConfig 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface ReconnectConfig {
   /** Reconnect automatically after a lost connection (default true). */
   enabled?: boolean
@@ -46,7 +46,7 @@ export interface ReconnectConfig {
 }
 
 /** Defaults shared by the Config schema and {@link resolveReconnectPolicy}. */
-/** 中文说明：常量 RECONNECT_DEFAULTS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RECONNECT_DEFAULTS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const RECONNECT_DEFAULTS: Required<ReconnectConfig> = Object.freeze({
   enabled: true,
   initialDelayMs: 500,
@@ -61,7 +61,7 @@ export const RECONNECT_DEFAULTS: Required<ReconnectConfig> = Object.freeze({
 const GENERATION_CLOSE_TIMEOUT_MS = 5_000
 
 /** Fully resolved reconnect policy captured at plugin load. */
-/** 中文说明：type ResolvedReconnectPolicy 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：type ResolvedReconnectPolicy 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export type ResolvedReconnectPolicy = Readonly<Required<ReconnectConfig>>
 
 /**
@@ -74,7 +74,12 @@ export type ResolvedReconnectPolicy = Readonly<Required<ReconnectConfig>>
  * @param path - Diagnostic prefix naming the config location in thrown messages.
  * @returns The frozen resolved policy.
  */
-/** 中文说明：函数 resolveReconnectPolicy 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 resolveReconnectPolicy 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveReconnectPolicy(config: ReconnectConfig | undefined, path: string): ResolvedReconnectPolicy {
   if (config !== undefined) {
     /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
@@ -108,14 +113,14 @@ export function resolveReconnectPolicy(config: ReconnectConfig | undefined, path
 }
 
 /** Result from the initial connection attempt, for startup-await semantics. */
-/** 中文说明：interface ConnectionOutcome 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface ConnectionOutcome 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface ConnectionOutcome {
   /** If the initial connection or tool sync failed, the error; otherwise absent. */
   error?: unknown
 }
 
 /** Handle for one plugin instance's supervised connection. */
-/** 中文说明：interface ConnectionHandle 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface ConnectionHandle 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface ConnectionHandle {
   /**
    * Settles when the first connection attempt completes (success or failure).
@@ -140,7 +145,13 @@ export interface ConnectionHandle {
  * @param policy - Resolved reconnect policy from {@link resolveReconnectPolicy}.
  * @returns Handle with a `ready` promise for startup-await and a `dispose` for teardown.
  */
-/** 中文说明：函数 startConnection 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 startConnection 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param policy 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function startConnection(ctx: Context, config: Config, policy: ResolvedReconnectPolicy): ConnectionHandle {
   /** 中文说明：变量 label 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const label = `mcp-client(${config.serverName})`
@@ -161,28 +172,28 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   /** 中文说明：变量 disposed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let disposed = false
   /** Current generation: the connecting or connected client; undefined during backoff waits and after final failure. */
-  /** 中文说明：变量 client 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 client 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let client: Client | undefined
   /** Close signal paired with {@link client}; captured by dispose before current ownership is cleared. */
-  /** 中文说明：变量 clientClosed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 clientClosed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let clientClosed: Promise<void> | undefined
   /** Live tool registrations owned by this server; only {@link enqueueSync} and dispose swap it. */
-  /** 中文说明：变量 disposers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 disposers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let disposers: ToolDisposers = new Map()
   /** 中文说明：变量 reconnectTimer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let reconnectTimer: NodeJS.Timeout | undefined
   /** Consecutive failed connection attempts within the current outage. */
-  /** 中文说明：变量 failedAttempts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 failedAttempts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let failedAttempts = 0
   /** When the current generation finished connect + initial sync; undefined while down. */
-  /** 中文说明：变量 connectedAt 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 connectedAt 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let connectedAt: number | undefined
   /** The real error from the first connection attempt, for startup-await diagnostics. */
-  /** 中文说明：变量 firstAttemptError 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 firstAttemptError 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let firstAttemptError: unknown
 
   /** A generation may act only while it is the current one on a live plugin. */
-  /** 中文说明：函数值 isCurrent 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+  /* 中文说明：函数值 isCurrent 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const isCurrent = (generation: Client): boolean => !disposed && client === generation
 
   /**
@@ -191,7 +202,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
    * dispose-previous/register-next swap (which would double-dispose one
    * generation and leak another).
    */
-  /** 中文说明：变量 syncChain 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 syncChain 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let syncChain: Promise<void> = Promise.resolve()
   /** 中文说明：函数 enqueueSync 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   function enqueueSync(generation: Client, syncOpts: ToolBridgeOptions = opts): Promise<void> {
@@ -206,7 +217,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   }
 
   /** One disconnect decision per generation: the isCurrent guard makes racing close/error signals idempotent. */
-  /** 中文说明：函数 generationDown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+  /* 中文说明：函数 generationDown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   function generationDown(generation: Client): void {
     if (!isCurrent(generation)) return
     client = undefined
@@ -215,7 +226,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   }
 
   /** Wait for the transport-owned close signal without letting a broken transport wedge teardown forever. */
-  /** 中文说明：函数 waitForClose 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+  /* 中文说明：函数 waitForClose 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   function waitForClose(closed: Promise<void>): Promise<boolean> {
     return new Promise((resolve) => {
       /** 中文说明：函数值 timeout 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
@@ -279,7 +290,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
    *
    * @param startup - Whether this is the plugin's activation attempt.
    */
-  /** 中文说明：函数 connectGeneration 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+  /* 中文说明：函数 connectGeneration 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   async function connectGeneration(startup: boolean): Promise<void> {
     /** 中文说明：变量 generation 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generation = new Client(
@@ -357,7 +368,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   }
 
   /** The in-flight (or last settled) connection attempt; dispose awaits it for quiescence. */
-  /** 中文说明：变量 settling 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 settling 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let settling = connectGeneration(true)
 
   // The ready promise settles when the first attempt finishes (regardless of

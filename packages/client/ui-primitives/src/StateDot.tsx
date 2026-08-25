@@ -17,11 +17,11 @@ import clsx from 'clsx'
 import css from './StateDot.module.css'
 
 /** Four-color state semantic (green done / amber user-attention / blue running ring / red error). */
-/** 中文：四种颜色语义：绿色完成、琥珀需关注、蓝色运行、红色错误。 */
+/* 中文：四种颜色语义：绿色完成、琥珀需关注、蓝色运行、红色错误。 */
 export type StateDotState = 'done' | 'warning' | 'ongoing' | 'error'
 
 /** Outer 3x3 matrix cells (2px pixels on a 10px grid), clockwise from top-left. */
-/** 中文：10px 网格中 3×3 外圈八个 2px 单元坐标，从左上开始顺时针排列。 */
+/* 中文：10px 网格中 3×3 外圈八个 2px 单元坐标，从左上开始顺时针排列。 */
 const MATRIX_CELLS: readonly (readonly [number, number])[] = [
   [0, 0], [4, 0], [8, 0], [8, 4], [8, 8], [4, 8], [0, 8], [0, 4],
 ]
@@ -33,7 +33,7 @@ const MATRIX_CELLS: readonly (readonly [number, number])[] = [
  * @param props.className - extra class for layout placement.
  * @returns the dot element (aria-hidden; pair with text for accessibility).
  */
-/** 中文：渲染状态点；state 必填，size 默认 10，className 可扩展布局，返回装饰性元素。示例：<StateDot state="ongoing" />。 */
+/* 中文：渲染状态点；state 必填，size 默认 10，className 可扩展布局，返回装饰性元素。示例：<StateDot state="ongoing" />。 */
 export function StateDot({ state, size = 10, className }: {
   state: StateDotState
   size?: number | undefined

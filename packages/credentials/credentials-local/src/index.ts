@@ -35,7 +35,7 @@
  * @module @deepseek-ai/dsh-credentials-local
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】本地文件凭据提供者（LocalCredentialProvider）：以 $DSH_HOME/.credentials.yaml 为
  *   可写存储，按"继承进程环境 > 托管文件 > 项目 .env > 用户 .env"的信任分层解析凭据引用。

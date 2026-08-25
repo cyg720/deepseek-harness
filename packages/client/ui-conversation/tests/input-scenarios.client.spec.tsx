@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证会话输入的 input-scenarios.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
  * 产品维度：防止会话输入用户流程回归。
@@ -41,7 +41,7 @@ import type { ConversationSnapshot } from '@deepseek-ai/dsh-client-runtime/clien
 afterEach(cleanup)
 
 /** Directory row driving kind derivation (input? = leadingInput, else execute). */
-/** 中文说明：类型或类 FakeCommand 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 FakeCommand 约束本文件数据或组件职责。 */
 interface FakeCommand {
   name: string
   description: string
@@ -49,7 +49,7 @@ interface FakeCommand {
 }
 
 /** Decision-table source over an in-memory directory (menu/space/enter columns for leadingInput + execute). */
-/** 中文说明：函数 commandSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 commandSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commandSource(
   commands: FakeCommand[],
   execute: (line: string, images?: readonly SubmitImageAttachment[]) => Promise<SubmitOutcome>,
@@ -125,7 +125,7 @@ const COMMANDS: FakeCommand[] = [
 const PNG: SubmitImageAttachment = { mediaType: 'image/png', data: 'AA==' }
 
 /** Real scope bench: SessionRuntime over one listed session + InputTriggerController + shell listeners (the hub wiring shape). */
-/** 中文说明：函数 scopedBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 scopedBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function scopedBench(register?: (inputTriggers: InputTriggerService) => void) {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

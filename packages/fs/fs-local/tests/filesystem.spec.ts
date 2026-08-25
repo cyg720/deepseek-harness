@@ -5,7 +5,7 @@
  * identity, and HMR/disposal. Read WINDOWING is policy and lives in
  * `dsh-fs-observation-policy`, so it is not exercised here.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 filesystem.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -51,7 +51,7 @@ function lockCount(localFs: LocalFileSystem): number {
 }
 
 /** The version the backend currently reports for a resolved target. */
-/** 中文说明：函数 versionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 versionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function versionOf(target: FsTarget): Promise<FsVersion> {
   /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
   const info = await fs.stat(target)

@@ -5,7 +5,7 @@
  * config expressions, and drive the Cordis Loader against a leaf `cordis.yml` until the tree settles.
  * @module @deepseek-ai/dsh-app-boot
  */
-/**
+/*
  * 文件职责：为dsh系列入口统一装配环境变量、配置路径、用户补丁、Loader根树、失败处理和启动完成校验。
  * 技术维度：使用Cordis Loader/Include/HMR、js-yaml、Node.js环境与路径API驱动插件树生命周期。
  * 产品维度：让CLI、ACP等入口以一致规则启动配置，并在配置错误或插件激活失败时快速给出明确诊断。
@@ -86,7 +86,12 @@ export function resolveConfigPath(
  * @param dir - the directory whose `.env` to load.
  * @param warn - sink for the one-line misconfiguration diagnostic.
  */
-/** 从指定目录加载可选.env，缺失时静默沿用进程环境，其他错误写入单行警告。 */
+/*
+ * 从指定目录加载可选.env，缺失时静默沿用进程环境，其他错误写入单行警告。
+ * @param binName 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param dir 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param warn 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function loadEnv(
   binName: string, dir: string = process.cwd(),
   warn: (line: string) => void = line => void process.stderr.write(line),
@@ -102,7 +107,7 @@ export function loadEnv(
 }
 
 /** Exact names no discovered file may set. */
-/** 任何磁盘环境层都不能设置的精确启动变量名。 */
+/* 任何磁盘环境层都不能设置的精确启动变量名。 */
 const BOOTSTRAP_NAMES = new Set([
   // Process launch and module resolution.
   'PATH', 'HOME', 'USERPROFILE', 'SHELL',
@@ -136,7 +141,7 @@ const BOOTSTRAP_PREFIXES = ['DSH_', 'XDG_', 'DYLD_', 'BASH_FUNC_']
  * @param name - the variable name.
  * @returns true when only the inherited environment may supply it.
  */
-/** 判断变量名是否只能由启动进程环境提供。 */
+/* 判断变量名是否只能由启动进程环境提供。 */
 function isBootstrapOnly(name: string): boolean {
   // 统一大写以执行不区分大小写的安全匹配。
   const upper = name.toUpperCase()
@@ -152,7 +157,7 @@ function isBootstrapOnly(name: string): boolean {
  * @returns the parsed entries, or `undefined` when the file is absent or unreadable.
  * @throws when the file declares a name {@link isBootstrapOnly} rejects.
  */
-/** 读取一个可选.env层并过滤所有启动专用变量。 */
+/* 读取一个可选.env层并过滤所有启动专用变量。 */
 function readEnvLayer(
   binName: string, dir: string, warn: (line: string) => void,
 ): { path: string; values: Record<string, string> } | undefined {
@@ -233,7 +238,7 @@ const bootstrapIncludes = new WeakMap<Context, Entry>()
 const userPatchesSchema = entryListSchema
 
 /** Options for live user patch-layer reconciliation. */
-/** 用户补丁热重载注册需要的诊断、文件和组合配置。 */
+/* 用户补丁热重载注册需要的诊断、文件和组合配置。 */
 export interface UserPatchWatchOptions {
   /** Diagnostic prefix used by {@link loadOptionalPatches}. */
   binName: string

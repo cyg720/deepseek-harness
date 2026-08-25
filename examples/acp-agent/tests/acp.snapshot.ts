@@ -36,7 +36,7 @@ import { OFFLOADED_IMAGE_TEXT } from '@deepseek-ai/dsh-llm'
  * See the package README (packages/test-support/acp-snapshot) and the snapshot Agent Note,
  * .agents/notes/implemented/testing/2026-06-19-acp-snapshot-tests.md.
  */
-/** 中文说明：套件工厂统一负责期望输出、重持久日志、录制刷新和 fixture 门禁，场景材料位于 snapshots。 */
+/* 中文说明：套件工厂统一负责期望输出、重持久日志、录制刷新和 fixture 门禁，场景材料位于 snapshots。 */
 
 // The dsh-acp-demo bin (the demo:acp entry), this example's cordis.yml, and
 // the repo-root tsconfig (four levels up from examples/acp-agent/tests) — all

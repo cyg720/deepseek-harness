@@ -36,7 +36,7 @@ export const inject = ['invariants']
  * plain effect whose disposal the slot ledger's own specs and this
  * package's behavior specs observe directly.
  */
-/**
+/*
  * 安装函数为空实现：本包是纯消费者，不发 Cordis 事件、不拥有可变跨插件状态；
  * 视图槽注册是普通 effect，其释放由槽账本与本包行为 spec 直接观察。
  */
@@ -47,7 +47,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 登记本包的 invariant 伴生插件。
  * @param ctx - 携带 invariant 服务的 Cordis 上下文。
  * @returns 登记成功后的释放函数（插件卸载时调用）。

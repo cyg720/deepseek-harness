@@ -1,5 +1,5 @@
 /** Regression coverage for source declarations owned by the client test aggregate. */
-/**
+/*
  * 文件职责：验证客户端 TypeScript 聚合配置直接加载各客户端包的 CSS Modules 声明。
  * 技术维度：使用 TypeScript 配置解析 API、Node 目录枚举和 Vitest 比较规范化文件路径。
  * 产品维度：防止工作区软链接真实路径差异导致客户端样式类型在某些环境丢失。

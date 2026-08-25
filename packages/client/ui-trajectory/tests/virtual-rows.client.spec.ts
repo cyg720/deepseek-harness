@@ -1,5 +1,5 @@
 /** Measurable virtual-row grouping and durable identity contracts. */
-/**
+/*
  * 文件职责：验证运行轨迹的 virtual-rows.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
  * 产品维度：防止运行轨迹展示与操作流程回归。

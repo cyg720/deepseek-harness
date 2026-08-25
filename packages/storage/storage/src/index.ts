@@ -23,7 +23,7 @@
  * data forms (the domain layer first) own semantics.
  * @module @deepseek-ai/dsh-storage
  */
-/**
+/*
  * 模块总览：枢纽 = 后端注册表 + 形态挂载表。它不读写介质（那是后端的事），
  * 也不解释数据（那是领域层等形态的事），只负责"把名字解析到实现"。
  */
@@ -47,7 +47,7 @@ export type { StorageBackend, KvFacet, KvUnit, KvUnitDescriptor } from './backen
  * @param name - Backend registry name.
  * @returns the corresponding lifecycle-only service key.
  */
-/**
+/*
  * 把一个后端名派生为对应的 Cordis 生命周期服务键。数据形态插件注入这些键，
  * 从而"后端注册"与"形态激活"不会竞争（等后端服务就绪才激活）；
  * 但调用方仍然通过 storage 注册表解析后端实例，两者各司其职。
@@ -70,7 +70,7 @@ declare module '@deepseek-ai/cordis' {
  * this map via declaration merging (the domain layer merges
  * `domain: DomainFacility`) and mount the facility in their `apply`.
  */
-/**
+/*
  * 可挂载到枢纽上的数据形态，按形态名索引。形态拥有者通过声明合并扩展这个映射
  * （领域层合并入 domain: DomainFacility），并在自己的 apply 里挂载 facility。
  */
@@ -80,13 +80,13 @@ export interface StorageForms {}
  * The storage hub service. Backends register under `backend`; data forms
  * mount under their `StorageForms` key and are reached as `ctx.storage.<form>`.
  */
-/**
+/*
  * 存储枢纽服务。后端登记在 backend 下；数据形态挂载在各自的 StorageForms 键下，
  * 通过 ctx.storage.<form> 访问。
  */
 export class Storage extends Service {
   /** Named backend table; multiple backends stay mounted side by side. */
-  /** 命名后端表：多个后端可并存。 */
+  /* 命名后端表：多个后端可并存。 */
   readonly backend: BackendRegistry = new BackendRegistry()
 
   // 形态名 → facility 的映射表。
@@ -103,7 +103,7 @@ export class Storage extends Service {
    * @param facility - The facility instance to expose.
    * @returns the disposer that unmounts the form.
    */
-  /**
+  /*
    * 把一个数据形态 facility 挂到枢纽上。挂载是副作用：返回的注销函数用于卸载。
    * @param form StorageForms 中声明的形态键。
    * @param facility 要暴露的 facility 实例。
@@ -129,7 +129,7 @@ export class Storage extends Service {
    * @param form - Form key declared in {@link StorageForms}.
    * @returns the mounted facility.
    */
-  /**
+  /*
    * 解析一个已挂载的数据形态。
    * @param form StorageForms 中声明的形态键。
    * @returns 已挂载的 facility。
@@ -142,7 +142,7 @@ export class Storage extends Service {
   }
 
   /** Domain data form; present once the domain layer plugin is loaded. */
-  /** 领域数据形态；领域层插件加载后即可用（类型上通过条件类型保证未加载时不可访问）。 */
+  /* 领域数据形态；领域层插件加载后即可用（类型上通过条件类型保证未加载时不可访问）。 */
   get domain(): StorageForms extends { domain: infer D } ? D : never {
     return this.form('domain' as keyof StorageForms)
   }

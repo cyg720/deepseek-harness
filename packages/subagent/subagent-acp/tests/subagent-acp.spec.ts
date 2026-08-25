@@ -31,11 +31,11 @@ import { spawnSubprocess } from '@deepseek-ai/dsh-subprocess-local/src/spawn.ts'
  * No model, no key.
  */
 
-/** 中文说明：变量 mockServer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 mockServer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const mockServer = fileURLToPath(new URL('./mock-acp-server.ts', import.meta.url))
 
 /** A parent Agent stub. The ACP backend reads exactly one thing off it: the session header's cwd (the workspace its child inherits). */
-/** 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeParent = { id: 'parent', session: { header: { cwd: process.cwd() } } } as unknown as Agent
 
 /** 中文说明：函数 request 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
@@ -53,7 +53,7 @@ interface SetupEnv {
  * Mount the ACP backend pointed at the mock server, scripted by `mockEnv`.
  * `permission` selects the backend's auto-answer policy.
  */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(mockEnv: SetupEnv = {}, permission: 'allow' | 'reject' = 'reject') {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -80,7 +80,7 @@ function text(blocks: { type: string; text?: string }[]): string {
  * subprocess cold-start is variable, and a fixed sleep both flakes and
  * slows the suite. Fails loud if the child never signals readiness.
  */
-/** 中文说明：函数 waitForFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitForFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForFile(file: string, timeoutMs = 5000): Promise<void> {
   /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs

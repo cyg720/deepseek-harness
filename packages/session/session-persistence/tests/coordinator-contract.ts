@@ -30,7 +30,7 @@ import { meta, oneTurnLog, appendLog } from './contract.ts'
  * public service API. A fresh fixture is created per test (isolated storage);
  * the suite mounts/disposes backend instances on it and cleans it up at the end.
  */
-/** 中文说明：interface CoordinatorFixture 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface CoordinatorFixture 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
 export interface CoordinatorFixture {
   /** Mount the real backend through `ctx.plugin` over shared storage and return only that fiber. */
   mount: (ctx: Context) => Promise<Fiber>
@@ -46,19 +46,19 @@ export interface CoordinatorFixture {
 }
 
 /** A constant absolute cwd; jsonl keys directories off it, memory/sqlite ignore it. */
-/** 中文说明：常量 WORK 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 WORK 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WORK = '/w'
 /** 中文说明：常量 OTHER 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OTHER = '/other'
 
 /** Append a whole event log to a live session, event by event (drives session/event). */
-/** 中文说明：函数 send 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 send 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function send(session: Session, events: readonly SessionEvent[]): void {
   appendLog(session, events)
 }
 
 /** A valid persisted log from immediately before messages gained wrappers and identities. */
-/** 中文说明：函数 legacyMessageLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 legacyMessageLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function legacyMessageLog(): SessionEvent[] {
   return [
     { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
@@ -122,7 +122,7 @@ function legacyMessageLog(): SessionEvent[] {
 }
 
 /** A complete log in the durable event vocabulary of the react-loop refactor base. */
-/** 中文说明：函数 preReactLoopLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 preReactLoopLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function preReactLoopLog(): SessionEvent[] {
   /** 中文说明：变量 prompt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const prompt = createUserMessage({
@@ -215,7 +215,7 @@ function preReactLoopLog(): SessionEvent[] {
 }
 
 /** A live session created inside its OWN fiber, so it survives a backend reload. */
-/** 中文说明：函数 liveSessionInFiber 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 liveSessionInFiber 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function liveSessionInFiber(
   ctx: Context, id: string, cwd: string | undefined,
 ): Promise<Session> {
@@ -231,11 +231,11 @@ async function liveSessionInFiber(
  * Run the coordinator orchestration suite against a backend. `makeFixture()`
  * MUST return a fresh fixture (isolated storage) each call.
  */
-/** 中文说明：函数 runCoordinatorContract 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 runCoordinatorContract 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function runCoordinatorContract(name: string, makeFixture: () => Promise<CoordinatorFixture>): void {
   describe(`PersistenceCoordinator orchestration: ${name}`, () => {
     /** Mount SessionStore + a backend instance on a fresh context over the fixture's storage. */
-    /** 中文说明：函数 freshCtx 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+    /* 中文说明：函数 freshCtx 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
     async function freshCtx(fix: CoordinatorFixture): Promise<{ ctx: Context; fiber: Fiber }> {
       /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()

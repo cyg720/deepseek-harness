@@ -7,7 +7,7 @@
  * byte cap, and the malformed-metadata fallback a replayed or hand-edited log can
  * deliver.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 presentation.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -31,7 +31,7 @@ import { retainGlobPaths, retainGrepMatches } from '../src/search-core.ts'
 const match = (path: string, lineNumber: number, line: string): GrepMatch => ({ path, lineNumber, line })
 
 /** A byte cap large enough that no test payload here is meta-capped. */
-/** 中文说明：测试局部值 WIDE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 WIDE，由紧邻初始化决定。 */
 const WIDE = 1_000_000
 
 describe('groupMatchesByFile', () => {

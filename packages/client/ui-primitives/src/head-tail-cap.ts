@@ -22,7 +22,7 @@
 // 块组件统一使用——长结果保留前 ceil(maxLines / 2) 行与后若干行，中间折叠。
 
 /** The head/tail split metrics for a capped list. */
-/**
+/*
  * 截断切分指标：调用方按 headLines / tailLines 自行切片自己的行数组。
  */
 export interface HeadTailCap {
@@ -50,7 +50,7 @@ export interface HeadTailCap {
  * @param expanded - whether the surface is expanded (uncaps the list).
  * @returns the split metrics.
  */
-/**
+/*
  * 计算列表的"首尾截断"指标。纯算术函数、无副作用；调用方自己负责切片，
  * 以便在切分逻辑之上叠加自己的定制（如 SearchBlock 恢复尾部文件头）。
  * 使用示例：const { headLines, tailLines, capped } = headTailCap(rows.length, 20, expanded)。

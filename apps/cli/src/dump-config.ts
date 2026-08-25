@@ -5,7 +5,7 @@
  * profile's own patch file, and each `--patch` overlay.
  * @module @deepseek-ai/dsh/dump-config
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：在不启动插件或执行 !!js 的情况下合并 profile 配置层并输出带来源注释的最终配置。
  * - 技术维度：使用补丁层算法、文件存在检查、路径解析和标准输出。
@@ -38,7 +38,7 @@ const NAME = 'dsh'
  * never parsed).
  * @param patches - `--patch` overlay paths, in argv order.
  */
-/** 中文：输出 profile 合成配置；profile 是名称，defaultOnly 控制用户层，patches 按 argv 顺序覆盖，无返回值。 */
+/* 中文：输出 profile 合成配置；profile 是名称，defaultOnly 控制用户层，patches 按 argv 顺序覆盖，无返回值。 */
 export function runDumpConfig(profile: string, defaultOnly: boolean, patches: readonly string[]): void {
   /** 已准备的 profile 目录、基础层与可选用户补丁。 */
   const loaded = prepareProfile(profile, !defaultOnly)

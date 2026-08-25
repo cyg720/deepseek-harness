@@ -1,5 +1,5 @@
 /** Package-owned permission-preset event invariants. @module @deepseek-ai/dsh-permission-presets/invariant */
-/**
+/*
  * 文件职责：验证已加载和新追加的 permission/preset 事件始终引用当前可解析的 preset。
  * 技术维度：使用 Cordis 全局内部事件监听、会话遍历和 dsh-invariants 失败回调。
  * 产品维度：防止会话日志包含未知权限方案，导致恢复后安全设置无法解释。
@@ -16,14 +16,14 @@ import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-inva
 const PACKAGE_NAME = '@deepseek-ai/dsh-permission-presets'
 
 /** Cordis companion plugin name. */
-/** Cordis 配置引用的伴生插件名称。 */
+/* Cordis 配置引用的伴生插件名称。 */
 export const name = 'permission-presets-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 注册前必须注入不变量服务。 */
+/* 注册前必须注入不变量服务。 */
 export const inject = ['invariants']
 
 /** Validate the package-owned event fields and ignore unrelated events. */
-/** 校验单事件。@param ctx 提供 preset 名称。@param event 会话事件。@param fail 失败报告函数。@returns 无。@example validateEvent(ctx, event, fail)。 */
+/* 校验单事件。@param ctx 提供 preset 名称。@param event 会话事件。@param fail 失败报告函数。@returns 无。@example validateEvent(ctx, event, fail)。 */
 function validateEvent(ctx: Context, event: SessionEvent, fail: InvariantFailure): void {
   if (event.type === 'permission/preset' && !ctx.permissionPresets.names.includes(event.data.preset)) {
     fail(`permission/preset names unknown preset ${JSON.stringify(event.data.preset)}`)
@@ -31,7 +31,7 @@ function validateEvent(ctx: Context, event: SessionEvent, fail: InvariantFailure
 }
 
 /** Install validation that loaded and newly appended preset events remain resolvable. */
-/** 安装历史和实时校验；ctx/fail 由不变量注册表传入，返回值由监听 effect 管理。 */
+/* 安装历史和实时校验；ctx/fail 由不变量注册表传入，返回值由监听 effect 管理。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   // 当前已加载会话。
   for (const session of ctx.sessions.list()) {
@@ -51,6 +51,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 注册权限不变量伴生插件。@param ctx Cordis 上下文。@returns 注销函数。@example await apply(ctx)。 */
+/* 注册权限不变量伴生插件。@param ctx Cordis 上下文。@returns 注销函数。@example await apply(ctx)。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

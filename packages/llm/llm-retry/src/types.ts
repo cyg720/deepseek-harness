@@ -32,7 +32,7 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 /** Durable payload recorded before one provider-routed model-request retry wait. */
-/**
+/*
  * （中文）一次 provider 路由的模型请求重试等待前记录的持久负载。normal 模式
  * 额外携带 maxRetries（供校验 retry 不超限）；always 模式省略它。
  */
@@ -73,7 +73,7 @@ export type LlmRetryEventData =
   }
 
 /** Durable transition recorded after one retry delay completes. */
-/**
+/*
  * （中文）一次重试延迟完成后记录的持久转换（等待成功、即将开始下一次尝试）。
  */
 export interface LlmRetryStartedEventData {

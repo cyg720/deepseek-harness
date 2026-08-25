@@ -5,7 +5,7 @@
  * dependency graphs, scheduler environment, and process diagnostics.
  * @see ../.agents/notes/implemented/process/2026-07-06-parallel-pre-push-gates.md
  */
-/**
+/*
  * 文件职责：实现 run-gates.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -28,7 +28,7 @@ import {
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
 /** A named aggregate exposed by the gate runner. */
-/** 中文说明：type Mode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type Mode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type Mode =
   | 'ci-primary'
   | 'ci-linux-primary'
@@ -52,7 +52,7 @@ type GateResultStatus = 'passed' | 'failed' | 'skipped'
 type GateState = 'pending' | 'running' | GateResultStatus
 
 /** A command and its dependency metadata inside one aggregate. */
-/** 中文说明：interface Gate 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface Gate 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface Gate {
   id: string
   label: string
@@ -70,7 +70,7 @@ export interface Gate {
 }
 
 /** The observed outcome of one gate process. */
-/** 中文说明：interface GateResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface GateResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface GateResult {
   gate: Gate
   status: GateResultStatus
@@ -171,7 +171,7 @@ function parseMode(raw: string | undefined): Mode {
  * @param available - host CPU availability for ordinary modes.
  * @returns the default worker count and its diagnostic source.
  */
-/** 中文说明：函数 defaultConcurrency 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 defaultConcurrency 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function defaultConcurrency(
   selectedMode: Mode,
   total: number,
@@ -217,7 +217,7 @@ function pnpmScript(id: string, script: string, options: Partial<Gate> = {}): Ga
 }
 
 /** Build official client artifacts inside a CI aggregate without changing sibling gate environments. */
-/** 中文说明：函数 ciBuildGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 ciBuildGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciBuildGate(id = 'build', options: Partial<Gate> = {}): Gate {
   return pnpmScript(id, 'build', {
     ...options,
@@ -241,7 +241,7 @@ function pnpmExec(id: string, args: string[], options: Partial<Gate> = {}): Gate
  * @param selected - aggregate mode to construct.
  * @returns the aggregate's gate graph.
  */
-/** 中文说明：函数 gatesForMode 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 gatesForMode 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function gatesForMode(selected: Mode): Gate[] {
   switch (selected) {
     case 'ci-primary':
@@ -413,7 +413,7 @@ function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
 }
 
 /** Active Node major used to select version-specific compatibility checks. */
-/** 中文说明：函数 runningNodeMajor 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 runningNodeMajor 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function runningNodeMajor(): number {
   /** 中文说明：变量 major 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const major = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10)
@@ -802,7 +802,7 @@ function builtBinSmokeGate(needs: string[] = ['build']): Gate {
  * Reject a gate list whose graph cannot be executed unambiguously.
  * @param gates - complete aggregate to validate.
  */
-/** 中文说明：函数 validateGateGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 validateGateGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateGateGraph(gates: readonly Gate[]): void {
   if (gates.length === 0) throw new Error('run-gates: gate graph has no gates.')
 
@@ -886,7 +886,7 @@ function findDependencyCycle(gates: readonly Gate[]): string[] | undefined {
  * @param observe - result observer invoked when each gate settles.
  * @returns results in aggregate order.
  */
-/** 中文说明：函数 runGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 runGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function runGates(
   gates: Gate[],
   maxActive: number,
@@ -982,7 +982,7 @@ function gateFailed(state: GateState | undefined): boolean {
  * @param gate - command and scheduler environment to execute.
  * @returns the complete process outcome.
  */
-/** 中文说明：函数 runGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 runGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function runGate(gate: Gate): Promise<GateResult> {
   /** 中文说明：变量 started 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const started = performance.now()
@@ -1043,7 +1043,7 @@ export async function runGate(gate: Gate): Promise<GateResult> {
  * @param result - unsuccessful gate result.
  * @returns error, exit, and signal facts without allowing one to hide another.
  */
-/** 中文说明：函数 formatGateResultReason 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 formatGateResultReason 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function formatGateResultReason(result: GateResult): string {
   /** 中文说明：变量 facts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const facts: string[] = []

@@ -23,7 +23,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 const testToolSignal = new AbortController().signal
 
 /** Mount the registry (with its systemPrompt dependency) on a fresh context. */
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(): Promise<Context> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -33,7 +33,7 @@ async function mount(): Promise<Context> {
 }
 
 /** Mint a scope whose key doubles as a minimal Agent-like object. */
-/** 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mintAgentScope(ctx: Context, name: string): Promise<{ scope: Scope; key: Agent }> {
   /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
   const key = { id: name as SessionId } as Agent
@@ -248,7 +248,7 @@ describe('restrict()', () => {
 
 describe('restrict() over an inherited scope layer', () => {
   /** Mint a child scope parented to `parent`, as a subagent's creation window does. */
-  /** 中文说明：函数 mintChild 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 mintChild 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function mintChild(ctx: Context, parentKey: Agent, name: string): Promise<{ scope: Scope; key: Agent }> {
     /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = { id: name as SessionId } as Agent

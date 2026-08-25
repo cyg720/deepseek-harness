@@ -28,7 +28,7 @@ const PLAN_CONFIG = { section: 'Test plan mode instructions.' }
  * Only the model is mocked; the loop, the session log, and the plugin are
  * real.
  */
-/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(adapter: MockAdapter): Promise<Context> {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()

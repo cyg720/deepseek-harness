@@ -15,14 +15,14 @@ const decoratorSyntax = /^\s*@[A-Za-z_$][\w$]*/m
  * Worker arguments that keep process-wide Web Storage from shadowing jsdom storage.
  * Node lists the positive spelling in `allowedNodeEnvironmentFlags` for this negatable flag.
  */
-/** Vitest worker 使用的 Node 参数；支持 webstorage 标志的 Node 显式关闭进程级存储。 */
+/* Vitest worker 使用的 Node 参数；支持 webstorage 标志的 Node 显式关闭进程级存储。 */
 export const vitestExecArgv = process.allowedNodeEnvironmentFlags.has('--webstorage') ? ['--no-webstorage'] : []
 
 /**
  * Transform standard TypeScript decorators before Vite's default parser sees source files.
  * @returns a pre-transform Vite plugin shared by source-mode test configurations.
  */
-/** 创建标准装饰器预转换插件。@returns 多个源码测试配置共享的 Vite pre 插件。@example plugins: [standardDecoratorPlugin()]。 */
+/* 创建标准装饰器预转换插件。@returns 多个源码测试配置共享的 Vite pre 插件。@example plugins: [standardDecoratorPlugin()]。 */
 export function standardDecoratorPlugin() {
   return {
     name: 'dsh-standard-decorators',

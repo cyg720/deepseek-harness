@@ -4,7 +4,7 @@
  * resolution contract (platform package → fallback), and probe verdicts over
  * fake launchers. Requires built `lib/` (`pnpm build:ts`).
  */
-/**
+/*
  * 文件职责：无密钥验证 Landlock JavaScript 入口包的纯 API、平台路径解析和探测结果解析。
  * 技术维度：使用 Node.js assert 与临时文件模拟启动器，通过依赖注入隔离包解析逻辑。
  * 产品维度：确保所有主机都能验证命令参数稳定性及缺少原生能力时的安全降级。

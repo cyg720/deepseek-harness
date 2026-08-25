@@ -24,7 +24,7 @@ class MemorySettings extends SettingsProvider {
 }
 
 /** Collect the injection table the way an index render or boot payload does. */
-/** 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function collect(ctx: Context): IndexInjection[] {
   /** 中文说明：测试局部值 table，由紧邻初始化决定。 */
   const table: IndexInjection[] = []
@@ -33,7 +33,7 @@ function collect(ctx: Context): IndexInjection[] {
 }
 
 /** Narrow the theme row and return its script body. */
-/** 中文说明：函数 scriptText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 scriptText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function scriptText(row: IndexInjection | undefined): string {
   if (row?.kind !== 'script') throw new Error('expected a script row')
   return row.text

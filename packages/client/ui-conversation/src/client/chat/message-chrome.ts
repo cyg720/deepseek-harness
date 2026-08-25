@@ -29,7 +29,7 @@ function pad2(n: number): string {
  * @param ms - Unix epoch ms.
  * @returns Midnight of that local calendar day.
  */
-/**
+/*
  * 某个时刻所在本地日历日的零点（毫秒）。
  * @param ms - Unix 毫秒时间戳。
  * @returns 该本地日历日的零点。
@@ -45,7 +45,7 @@ export function startOfLocalDay(ms: number): number {
  * @param ms - Unix epoch ms.
  * @returns Milliseconds until the following local midnight.
  */
-/**
+/*
  * 距 ms 之后下一个本地午夜的延迟（至少 1ms）。
  * @param ms - Unix 毫秒时间戳。
  * @returns 到下一个本地午夜之间的毫秒数。
@@ -62,7 +62,7 @@ export function msUntilNextLocalMidnight(ms: number): number {
  * @param t - Translate seat supplying the duration templates.
  * @returns Display string in whole seconds.
  */
-/**
+/*
  * 运行中与已定格回合装饰共用的本地化已用时标签。
  * @param ms - 已用时毫秒（负数钳制为 0）。
  * @param t - 提供时长模板的翻译座位。
@@ -83,7 +83,7 @@ export function formatRunDuration(ms: number, t: RunDurationTranslate): string {
  * @param ms - Latency in milliseconds (negatives clamp to zero).
  * @returns Display number in seconds without unit.
  */
-/**
+/*
  * 子回合延迟数字：10 秒以内一位小数，以上取整秒。无单位——秒的后缀由语言模板负责。
  * @param ms - 延迟毫秒（负数钳制为 0）。
  * @returns 以秒计的显示数字（无单位）。
@@ -98,7 +98,7 @@ export function formatLatencySeconds(ms: number): string {
  * @param tps - Tokens per second.
  * @returns Display number without unit.
  */
-/**
+/*
  * 解码吞吐数字：10 以上取整，以下一位小数。
  * @param tps - 每秒 token 数。
  * @returns 无单位的显示数字。
@@ -118,7 +118,7 @@ export function formatTokensPerSecond(tps: number): string {
  * @param now - Reference instant for the day/year cut (defaults to wall clock).
  * @returns Date-aware clock string (24-hour, zero-padded time).
  */
-/**
+/*
  * 消息行图标动作的紧凑本地时间戳：同一日历日只显示 HH:mm；同年更早显示"日期模板 + 时钟"；
  * 跨年显示"年月日模板 + 时钟"。纯函数——日期模板来自调用方的 locale 座位。
  * @param time - 源会话事件的 Unix 毫秒时间戳。

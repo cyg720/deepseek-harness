@@ -6,7 +6,7 @@
  * deferral — the stage follows list.current), binding identity, breadcrumb
  * projection, create.
  */
-/**
+/*
  * 文件职责：验证客户端会话运行时的 sessions-service 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -45,7 +45,7 @@ function bench(): Bench {
 }
 
 /** Refresh the manager list from programmable rows and flush the microtask batch. */
-/** 中文说明：类型 FeedRow 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 FeedRow 约束本文件数据字段及允许取值。 */
 type FeedRow = {
   /** 中文说明：成员 id 保存可编排测试状态，取值由声明类型限定。 */
   id: string

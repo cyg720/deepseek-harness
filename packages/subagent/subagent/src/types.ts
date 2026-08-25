@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】subagent 能力缝对外暴露的消费者契约：一次性子代理的请求（SubagentStartRequest）、
  *   结果（SubagentResult）、运行句柄（SubagentRun）、提供者（SubagentProvider）以及

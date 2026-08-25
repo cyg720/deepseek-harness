@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】工作区路径的工具函数：把相对路径解析成 Host 侧拼写，
  *   以及把 POSIX home 缩写为展示用的 ~ 形式。
@@ -19,7 +19,7 @@
  * @param path - absolute or workspace-relative path.
  * @returns an absolute path when a workspace root is available, otherwise the original path.
  */
-/**
+/*
  * 把工作区相对路径解析为 openPath 使用的 Host 侧拼写。
  * @param cwd 会话工作区根路径（已知时）。
  * @param path 绝对路径或工作区相对路径。
@@ -34,7 +34,7 @@ export function resolveWorkspacePath(cwd: string | undefined, path: string): str
 }
 
 /** Drive-letter or UNC path; Web display must not rewrite these as `~`. */
-/** 盘符或 UNC 路径；Web 展示不得把它们改写成 ~。 */
+/* 盘符或 UNC 路径；Web 展示不得把它们改写成 ~。 */
 function isWindowsStylePath(value: string): boolean {
   return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith('\\\\')
 }
@@ -47,7 +47,7 @@ function isWindowsStylePath(value: string): boolean {
  * @param home - host account home from `host.describe`; absent skips abbreviation.
  * @returns `~` or `~/…` for the POSIX home and its descendants, otherwise `path`.
  */
-/**
+/*
  * 仅用于展示的 POSIX home 缩写。Windows 盘符与 UNC 路径保持原样，包括
  * home 本身是 Windows 路径时；home 缺失、为空或为文件系统根时不缩写，
  * 以免把 / 变成 ~。

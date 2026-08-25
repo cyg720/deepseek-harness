@@ -10,7 +10,7 @@ import type { GenerateOptions, LlmModelReasoningInfo, LlmResolvedModelInfo, Stre
 import { CallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
 
 /** Helpers to write scripted responses tersely. */
-/** 中文说明：测试辅助函数 textResponse 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 textResponse 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 export function textResponse(text: string): StreamChunk[] {
   return [
     { type: 'block-start', index: 0, blockType: 'text' },
@@ -26,7 +26,7 @@ export function textResponse(text: string): StreamChunk[] {
  * the model was cut off at the output-token ceiling (DeepSeek's `length`).
  * Used to exercise the turn-end `max-tokens` surfacing rule.
  */
-/** 中文说明：测试辅助函数 maxTokensResponse 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 maxTokensResponse 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 export function maxTokensResponse(text: string): StreamChunk[] {
   return [
     { type: 'block-start', index: 0, blockType: 'text' },
@@ -71,7 +71,7 @@ export function toolCallResponse(rawCallId: string, name: string, args: object, 
 }
 
 /** Script entry that streams the given chunks, then hangs until aborted. */
-/** 中文说明：测试类型或类 HangAfter 约束夹具数据和行为。 */
+/* 中文说明：测试类型或类 HangAfter 约束夹具数据和行为。 */
 export interface HangAfter {
   hangAfter: StreamChunk[]
 }
@@ -85,7 +85,7 @@ export interface HangAfter {
  * (LLM stream cancellation, tool unwinding) — or a {@link HangAfter}
  * scripting the exact chunks delivered before the hang.
  */
-/** 中文说明：测试类型或类 MockAdapter 约束夹具数据和行为。 */
+/* 中文说明：测试类型或类 MockAdapter 约束夹具数据和行为。 */
 export class MockAdapter extends LlmAdapter {
   requests: GenerateOptions[] = []
 

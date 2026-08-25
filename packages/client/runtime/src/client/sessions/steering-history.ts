@@ -14,19 +14,19 @@
  * ==========================================================================
  */
 /** Reconstruct durable steering identity from the event-sourced agent inbox. */
-/** 从事件溯源（event-sourced）的 agent 收件箱重建持久化的 steering 身份。 */
+/* 从事件溯源（event-sourced）的 agent 收件箱重建持久化的 steering 身份。 */
 
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { InboxTarget } from '@deepseek-ai/dsh-agent/types'
 
 /** Minimal pending identity retained while replaying durable inbox splices. */
-/** 回放持久化收件箱拼接时保留的最小待处理身份。 */
+/* 回放持久化收件箱拼接时保留的最小待处理身份。 */
 interface PendingIdentity {
   readonly id: string
 }
 
 /** Client-side structural view of the host-owned inbox event. */
-/** Host 侧收件箱事件在客户端的结构化视图。 */
+/* Host 侧收件箱事件在客户端的结构化视图。 */
 interface InboxSplice {
   readonly target: InboxTarget
   readonly start: number
@@ -41,7 +41,7 @@ interface InboxSplice {
  * preceding `agent/inbox/spliced` events preserve whether it came from the
  * queued-turn list or the next-step list.
  */
-/**
+/*
  * 增量识别从 next-step 收件箱认领的 user/message 事件。agent 循环把所有
  * 被受理的输入记录为 user/message；其前的 agent/inbox/spliced 事件保留了
  * 它来自排队轮列表还是下一步列表。
@@ -55,7 +55,7 @@ export class SteeringHistory {
   private readonly claimedNextStep = new Set<string>() // 已从 next-step 认领、等待 user/message 兑现的身份集合
 
   /** Clear all replay state before rebuilding a history window. */
-  /** 在重建历史窗口前清空全部回放状态。 */
+  /* 在重建历史窗口前清空全部回放状态。 */
   reset(): void {
     this.inbox['next-turn'] = []
     this.inbox['next-step'] = []
@@ -67,7 +67,7 @@ export class SteeringHistory {
    * @param event - next raw session event in sequence order.
    * @returns true only for a user-origin message previously claimed from `next-step`.
    */
-  /**
+  /*
    * 吸收一个事件并报告它是否是持久化的用户 steering 消息。
    * @param event 按顺序到达的下一个原始会话事件。
    * @returns 仅当该消息是先前从 next-step 认领的用户来源消息时为 true。
@@ -84,7 +84,7 @@ export class SteeringHistory {
   }
 
   /** Replay one host-validated inbox splice. */
-  /** 回放一次 Host 已验证的收件箱拼接操作。 */
+  /* 回放一次 Host 已验证的收件箱拼接操作。 */
   private applySplice({ target, start, removedCount = 0, inserted, outcome }: InboxSplice): void {
     const removed = this.inbox[target].splice(start, removedCount, ...inserted)
     for (const identity of inserted) this.claimedNextStep.delete(identity.id)

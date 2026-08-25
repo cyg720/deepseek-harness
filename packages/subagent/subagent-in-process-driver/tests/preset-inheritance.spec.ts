@@ -6,7 +6,7 @@
  * tools at all. These assert the model-visible result — the schemas in the
  * child's own request — rather than the join that produces it.
  */
-/**
+/*
  * 文件职责：验证 preset-inheritance.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -44,7 +44,7 @@ afterEach(async () => {
 })
 
 /** A host composition carrying no model-facing rows, plus the preset roster. */
-/** 中文说明：函数 setupPresetHost 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setupPresetHost 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setupPresetHost(): Promise<{ ctx: Context; adapter: MockAdapter; parent: Agent }> {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -68,7 +68,7 @@ async function setupPresetHost(): Promise<{ ctx: Context; adapter: MockAdapter; 
 }
 
 /** The one-shot spawn request shape both in-process providers build. */
-/** 中文说明：函数 spawnRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 spawnRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function spawnRequest(parent: Agent) {
   return {
     label: 'child task',

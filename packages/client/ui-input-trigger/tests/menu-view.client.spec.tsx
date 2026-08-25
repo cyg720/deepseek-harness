@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证输入触发菜单的 menu-view.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染和可控服务替身。
  * 产品维度：防止输入触发菜单用户流程回归。
@@ -84,7 +84,7 @@ function mount(state: MenuState) {
 }
 
 /** The non-interactive group title rows (role=presentation), in document order. */
-/** 中文说明：函数 titles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 titles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function titles(container: HTMLElement): string[] {
   return [...container.querySelectorAll('div[role="presentation"][data-source]')]
     .map(el => el.textContent ?? '')

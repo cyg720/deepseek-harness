@@ -5,7 +5,7 @@
  * containment boundary rather than a style rule; the shipped `.system` set
  * stays read-only.
  */
-/**
+/*
  * 文件职责：验证 authoring.spec.ts 覆盖的Agent 预设行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
  * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
@@ -38,7 +38,7 @@ let ctx: Context
 let userRoot: string
 
 /** Hand-craft a preset directory (tests cannot author text through the service). */
-/** 中文说明：函数 seedPreset 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 seedPreset 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function seedPreset(
   root: string, id: string, options: { composition?: string; metadata?: string; extras?: Record<string, string> } = {},
 ): Promise<void> {

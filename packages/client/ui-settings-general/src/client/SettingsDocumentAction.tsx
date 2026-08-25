@@ -1,5 +1,5 @@
 /** Optional settings-header action for opening a file-backed Host document. */
-/**
+/*
  * 中文说明：
  * - 文件职责：在设置页标题区按 Host 能力显示“打开设置文档”操作及错误状态。
  * - 技术维度：使用 React 函数组件、Effect、外部快照订阅、依赖注入和 CSS Modules。
@@ -17,20 +17,20 @@ import type { SettingsDocumentStore } from './settings-document-store.ts'
 import css from './SettingsDocumentAction.module.css'
 
 /** Registrant-owned dependencies of {@link SettingsDocumentAction}. */
-/** 中文：注册方注入给设置文档操作组件的控制器和响应式状态接口。 */
+/* 中文：注册方注入给设置文档操作组件的控制器和响应式状态接口。 */
 export interface SettingsDocumentActionInjected {
   /** Provider metadata and action state owner. */
-  /** 中文：拥有提供者元数据、加载流程和打开动作的状态控制器。 */
+  /* 中文：拥有提供者元数据、加载流程和打开动作的状态控制器。 */
   controller: SettingsDocumentStore
   hooks: {
     /** Controller snapshot bound by the UI renderer as useSnapshot. */
-    /** 中文：由 UI 渲染器绑定的控制器快照，组件通过 useSnapshot 订阅读取。 */
+    /* 中文：由 UI 渲染器绑定的控制器快照，组件通过 useSnapshot 订阅读取。 */
     snapshot: SettingsDocumentStore['store']
   }
 }
 
 /** Header-action owner share, localized copy, and the registrant's state face. */
-/** 中文：组件属性类型，合并标题操作运行时信息、设置文案和注入状态接口。 */
+/* 中文：组件属性类型，合并标题操作运行时信息、设置文案和注入状态接口。 */
 export type SettingsDocumentActionProps =
   PropsRuntime<'settings.action'> & PropsLocale<'settings'> & InjectFace<SettingsDocumentActionInjected>
 
@@ -39,7 +39,7 @@ export type SettingsDocumentActionProps =
  * @param props - header owner props, localized copy, and injected document state.
  * @returns the action, or null while unavailable or unresolved.
  */
-/** 中文：渲染打开文档按钮；props 提供控制器、快照订阅和翻译，未就绪时返回 null。示例：<SettingsDocumentAction {...props} />。 */
+/* 中文：渲染打开文档按钮；props 提供控制器、快照订阅和翻译，未就绪时返回 null。示例：<SettingsDocumentAction {...props} />。 */
 export function SettingsDocumentAction({ controller, useSnapshot, t }: SettingsDocumentActionProps): ReactNode {
   /** 控制器的当前完整状态；更新时组件会重新渲染。 */
   const state = useSnapshot(snapshot => snapshot)

@@ -35,7 +35,7 @@ const PLAN_CONFIG = { section: TEST_PLAN_SECTION } satisfies PlanModeConfig
  * and the following `step/start` session event used by the loop.
  */
 
-/** 中文说明：函数 agentWithSession 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 agentWithSession 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function agentWithSession(
   ctx: Context,
   id = 'agent-1',
@@ -76,7 +76,7 @@ async function agentWithSession(
 }
 
 /** Assemble exactly as the loop does: the agent is both subject and scope. */
-/** 中文说明：函数 assembleFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 assembleFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function assembleFor(ctx: Context, agent: Agent) {
   return ctx.systemPrompt.assemble({ agent, scope: agent })
 }
@@ -94,7 +94,7 @@ async function setup(config: PlanModeConfig = PLAN_CONFIG): Promise<Context> {
 /**
  * Dispatch pre-step processing and optionally its following step-start commit.
  */
-/** 中文说明：函数 boundary 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 boundary 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function boundary(ctx: Context, agent: Agent & { session: Session }, type: 'pre-step' | 'step-start'): Promise<void> {
   /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events = agentEvents(ctx, agent)
@@ -125,19 +125,19 @@ async function boundary(ctx: Context, agent: Agent & { session: Session }, type:
 }
 
 /** Open a turn so a selection queues for the boundary flush (the mid-turn shape). */
-/** 中文说明：函数 openTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 openTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function openTurn(session: Session, turn = 0): void {
   session.append('turn/start', { turn })
 }
 
 /** Close the open turn (the between-turns shape: selections commit immediately). */
-/** 中文说明：函数 closeTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 closeTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function closeTurn(session: Session, turn = 0): void {
   session.append('turn/end', { turn, reason: { kind: 'completed' } })
 }
 
 /** Append a minimal `request/header` snapshot so the log has a "what the model was told" anchor. */
-/** 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function header(session: Session): void {
   session.append('request/header', { header: { config: { provider: 'test', model: 'test-model' } }, reason: 'initial' })
 }
@@ -163,7 +163,7 @@ function registerNamedTools(ctx: Context, names: string[]): void {
 }
 
 /** Assert the mapped Code Mode SDK includes the stable plan exit binding and test tools. */
-/** 中文说明：函数 expectPlanCodeSdkBindings 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 expectPlanCodeSdkBindings 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectPlanCodeSdkBindings(sdk: string): void {
   expect(sdk).toContain('interface ToolArgsMap {')
   expect(sdk).toContain('read: Record<string, JsonValue>;')

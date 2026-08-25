@@ -26,16 +26,16 @@
 import type { FileReferenceCandidate } from './types.ts'
 
 /** Active `@` token ending at the editor cursor. */
-/** 当前正处于编辑器光标处的 @ 标记：编辑器据此判断是否弹出补全。 */
+/* 当前正处于编辑器光标处的 @ 标记：编辑器据此判断是否弹出补全。 */
 export interface ActiveAtToken {
   /** Complete token replaced when the user accepts a completion. */
-  /** 完整的标记文本（含 @ 或 @");用户确认补全时整体替换掉它。 */
+  /* 完整的标记文本（含 @ 或 @");用户确认补全时整体替换掉它。 */
   prefix: string
   /** Path query after `@` or `@"`. */
-  /** @ 或 @" 之后的路径查询文本，即补全关键字。 */
+  /* @ 或 @" 之后的路径查询文本，即补全关键字。 */
   query: string
   /** Whether the user opened a quoted path. */
-  /** 用户是否已输入左引号（@" 形式），影响后续补全与格式化行为。 */
+  /* 用户是否已输入左引号（@" 形式），影响后续补全与格式化行为。 */
   quoted: boolean
 }
 
@@ -46,7 +46,7 @@ export interface ActiveAtToken {
  * @param cursorCol - cursor column within that line.
  * @returns the active token, or `undefined` outside an `@` token.
  */
-/**
+/*
  * 提取光标处的 @ 标记。两个正则都要求 @ 前面是行首或空白，因此邮箱等
  * "嵌在其他 token 中间的 @" 不会误触发补全。
  * @param line 当前编辑器行文本
@@ -73,7 +73,7 @@ export function activeAtToken(line: string, cursorCol: number): ActiveAtToken | 
  * @param preserveQuote - retain an explicitly opened quote even when unnecessary.
  * @returns the insertion value, or `undefined` for a path the editor grammar cannot represent safely.
  */
-/**
+/*
  * 把用户选中的候选路径格式化为可插入的提示词文本。含空白时用 @"path" 引号语法；
  * 目录在引号内保留尾部斜杠且不闭合引号，方便补全继续进入下一层。
  * @param candidate 被选中的文件或目录候选

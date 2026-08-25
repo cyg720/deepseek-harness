@@ -7,7 +7,7 @@
  * dynamic package from reaching a foreign context. Registrations ride the
  * CALLING fiber, so disposing it must remove them (HMR safety).
  */
-/**
+/*
  * 文件职责：验证Cordis 客户端运行器的 guard.client.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证Cordis 客户端运行器在配置、运行、失败和清理场景中可理解且可靠。
@@ -32,7 +32,7 @@ import type { DynamicCordisSlotLedgerRow } from '../src/client/guard.ts'
 const C: FC<object> = () => null
 
 /** The exact running package carried by a Client dispatch. */
-/** 中文说明：函数 pkg 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 pkg 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function pkg(): DynamicCordisPackage {
   return {
     pluginId: 'dyn-1' as CordisDynamicPluginId,
@@ -43,7 +43,7 @@ function pkg(): DynamicCordisPackage {
 }
 
 /** Erased facade view: a dynamic package reads services off plain properties. */
-/** 中文说明：类型或类 Facade 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 Facade 约束扩展或反馈数据职责。 */
 type Facade = Record<string, unknown> & { get(name: string): unknown }
 
 /** 中文说明：类型或类 Bench 约束扩展或反馈数据职责。 */
@@ -63,7 +63,7 @@ interface Bench {
  * Mount a dynamic-plugin fiber declaring `inject`, and capture the facade its
  * apply receives (the real product path: the facade wraps the fiber's own ctx).
  */
-/** 中文说明：函数 boot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 boot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function boot(inject: string[], extras: Record<string, unknown> = {}): Promise<Bench> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

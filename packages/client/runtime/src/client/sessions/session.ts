@@ -49,17 +49,17 @@ import { resolvedClientTimeZone } from '../time-zone.ts'
 import { SessionQueueMirror } from './queue-mirror.ts'
 
 /** Messages requested per history page. */
-/** 每页历史请求的消息数。 */
+/* 每页历史请求的消息数。 */
 export const PAGE_MESSAGES = 50
 
 /** Manager-owned observers of a Session object's local state edges. */
-/** 管理器拥有的、观察 Session 对象本地状态边界的钩子。 */
+/* 管理器拥有的、观察 Session 对象本地状态边界的钩子。 */
 export interface SessionOptions {
   /** Catalog-discovered address selecting non-activating subagent transport. */
-  /** 目录发现的地址，选择非激活的子代理传输。 */
+  /* 目录发现的地址，选择非激活的子代理传输。 */
   address?: SubagentAddress
   /** Whether the exact direct parent Agent was live at the latest catalog read. */
-  /** 最近一次目录读取时精确直接父 Agent 是否存活。 */
+  /* 最近一次目录读取时精确直接父 Agent 是否存活。 */
   parentAvailable?: boolean
   /**
    * First ACCEPTED prompt on a blank session (fires at most once, on the
@@ -69,7 +69,7 @@ export interface SessionOptions {
    * is in the host log; a rejected first prompt keeps the session blank
    * (hidden, still reusable by connectWorkspace).
    */
-  /**
+  /*
    * 空白会话上的首条被接受提示词（最多触发一次，在 prompt RPC 成功响应
    * 时）：管理器把 blank -> false 翻转镜像进其列表行，使会话不必等 Host
    * 帧即浮出。受理是翻转点，因为它证明用户消息已在 Host 日志；被拒绝的
@@ -81,13 +81,13 @@ export interface SessionOptions {
    * manager and values outlive instantiation); omitted, the Session owns a
    * private store (bare object-layer construction).
    */
-  /**
+  /*
    * 要采纳的管理器自有投影值存储（帧经管理器路由，值比实例更长寿）；
    * 省略时 Session 自持私有存储（裸对象层构造）。
    */
   projections?: ProjectionValueStore
   /** Runtime registries used by this Session-owned Conversation assembler. */
-  /** 本会话拥有的会话装配器使用的运行时注册表。 */
+  /* 本会话拥有的会话装配器使用的运行时注册表。 */
   conversation?: ConversationRuntime
 }
 
@@ -97,7 +97,7 @@ export interface SessionOptions {
  * the {@link SessionFace} slice (ISession verbs + the snapshot source); the
  * remaining public members are manager/runtime entry points.
  */
-/**
+/*
  * 拥有会话的事件窗口、派生会话状态与可观察快照。React 绑定留在该数据层
  * 之外。功能包只看到 SessionFace 切片（ISession 动词 + 快照源）；其余
  * 公开成员是管理器/运行时入口。
@@ -108,7 +108,7 @@ export class Session implements SessionFace {
   private events: SessionEvent[] = [] // 连续窗口内的原始事件（按 seq 升序）
   /** Wire views aligned with `events` by index (envelope-level annotations; undefined = no view).
    *  Kept parallel rather than merged so `events` stays the raw log slice (model-visible ⟺ logged). */
-  /** 与 events 按下标对齐的 wire 视图（信封级注解；undefined = 无视图）。
+  /* 与 events 按下标对齐的 wire 视图（信封级注解；undefined = 无视图）。
    *  保持平行数组而非合并，使 events 保持原始日志切片（模型可见 ⟺ 已记录）。 */
   private views: (ToolEventView | undefined)[] = []
   private baseSeq = 0 // 窗口首事件的 seq（分页边界）
@@ -119,7 +119,7 @@ export class Session implements SessionFace {
   /** Bumped by resync to invalidate an in-flight doOpen: a reconnect must rebuild, never adopt
    *  a pre-disconnect open whose history request is already doomed. Stale doOpen
    *  passes drop all writes once the generation moves on. */
-  /** 由 resync 递增以使进行中的 doOpen 失效：重连必须重建，绝不采纳断连前
+  /* 由 resync 递增以使进行中的 doOpen 失效：重连必须重建，绝不采纳断连前
    *  其历史请求已注定失败的开窗。世代前进后，过期的 doOpen 阶段丢弃全部写。 */
   private openGeneration = 0
   private loadingOlder = false // 正在翻更早的历史
@@ -127,10 +127,10 @@ export class Session implements SessionFace {
   private pendingRev = 0 // pending 列表修订号
   private pendingCache: { rev: number; value: PendingInteraction[] } | null = null // pending 列表缓存
   /** Authoritative stream-only inbox snapshot; pending work never hits history. */
-  /** 权威的仅流收件箱快照；待处理工作绝不进入历史。 */
+  /* 权威的仅流收件箱快照；待处理工作绝不进入历史。 */
   private readonly queueMirror = new SessionQueueMirror()
   /** Session-owned business Context engine over the contiguous raw window. */
-  /** 覆盖连续原始窗口的会话自有业务上下文引擎。 */
+  /* 覆盖连续原始窗口的会话自有业务上下文引擎。 */
   private readonly conversation: ConversationNodeAssembler
   private running = false // 是否有运行中的轮次
   private address: SubagentAddress | undefined
@@ -140,28 +140,28 @@ export class Session implements SessionFace {
    * synchronously before prompt()'s first await, never reset — the blank →
    * engaging edge of the phase machine (see ComposerPhase).
    */
-  /**
+  /*
    * 粘性发送标记，composerPhase 推导的私有输入：在 prompt() 首次 await 前
    * 同步置位，永不重置——阶段机的 blank -> engaging 边（见 ComposerPhase）。
    */
   private promptAttempted = false
   /** A first accepted prompt stays in the engaging phase until its turn is observable. */
-  /** 首条被接受提示词在轮次可见前保持 engaging 阶段。 */
+  /* 首条被接受提示词在轮次可见前保持 engaging 阶段。 */
   private firstPromptPendingTurn = false
   /** Empty-log mirror (see ConversationSnapshot.blank); unknown bare sessions begin conservatively blank. */
-  /** 空日志镜像（见 ConversationSnapshot.blank）；未知裸会话保守地从空白开始。 */
+  /* 空日志镜像（见 ConversationSnapshot.blank）；未知裸会话保守地从空白开始。 */
   private blankBit = true
   private removed = false // host/session-removed 后置位
   private promptError: PromptError | null = null
   private lastAgentError: string | null = null
   /** Live events buffered during open/resync and stitched by sequence once history lands. */
-  /** open/resync 期间缓冲的实时事件；历史落地后按序列缝合。 */
+  /* open/resync 期间缓冲的实时事件；历史落地后按序列缝合。 */
   private liveBuffer: { event: SessionEvent; view: ToolEventView | undefined }[] = []
   /** Gap repair in flight; live events detour to the buffer until the tail page lands. */
-  /** 间隙修复进行中；实时事件绕道缓冲，直到尾部页落地。 */
+  /* 间隙修复进行中；实时事件绕道缓冲，直到尾部页落地。 */
   private stitching = false
   /** subscribed.lastSeq baseline (gap detection; null when no subscribed frame arrived — degrade to the liveBuffer dedup path). */
-  /** subscribed.lastSeq 基线（间隙检测；无订阅帧到达时为 null——降级到 liveBuffer 去重路径）。 */
+  /* subscribed.lastSeq 基线（间隙检测；无订阅帧到达时为 null——降级到 liveBuffer 去重路径）。 */
   private subscribedLastSeq: number | null = null
 
   /**
@@ -176,7 +176,7 @@ export class Session implements SessionFace {
    * the store outlives instantiation, the title-snapshot precedent); a bare
    * construction gets a private store.
    */
-  /**
+  /*
    * 按会话的投影值存储（推送模型；见 docs/subsystems/session-projection.md）：
    * Host 计算的完整值，由尾部页 projections 块播种、由 session/projection
    * 帧更新，遵循单一"更高 seq 胜"规则。键经 projections.faceOf(key) 读取
@@ -195,7 +195,7 @@ export class Session implements SessionFace {
    * unbound (bare object-layer construction) or already pruned — both skip
    * dispatch-dependent behavior rather than fail.
    */
-  /**
+  /*
    * Agent 作用域化的 Cordis 上下文，由 SessionRuntime 铸造作用域时绑定一次
    * （Host Agent loopCtx 的客户端镜像）。Session 通过它分发自己的作用域
    * 事件；undefined 表示未绑定（裸对象层构造）或已被裁剪——两者都跳过
@@ -209,7 +209,7 @@ export class Session implements SessionFace {
    * @param remote - generated Remote namespaces this session calls.
    * @param options - optional manager-owned state observers.
    */
-  /**
+  /*
    * @param sessionId Host 会话身份（客户端会话总是 Host 出生）。
    * @param api 共享的线上客户端。
    * @param remote 本会话调用的生成远程命名空间。
@@ -245,7 +245,7 @@ export class Session implements SessionFace {
    * mirror).
    * @param actx - the agent's scoped context.
    */
-  /**
+  /*
    * 绑定 SessionRuntime 铸造的 Agent 作用域上下文（单次写；二次绑定是接线
    * 错误并抛错）。此绑定边界方向保持单向：消费方仍经 sessions.sessionOf
    * 到达 Session，而 Session 持有自己的分发点（Host Agent.loopCtx 镜像）。
@@ -257,7 +257,7 @@ export class Session implements SessionFace {
   }
 
   /** Release the bound scope at prune time (a later rebind accompanies a freshly minted scope). */
-  /** 在裁剪时释放已绑定作用域（之后的重新绑定伴随新铸造的作用域）。 */
+  /* 在裁剪时释放已绑定作用域（之后的重新绑定伴随新铸造的作用域）。 */
   unbindScope(): void {
     this.actx = undefined
   }
@@ -271,7 +271,7 @@ export class Session implements SessionFace {
    * @param mode - queue appends after the current turn; steer interrupts it.
    * @returns the prompt result (also mirrored into promptError on failure).
    */
-  /**
+  /*
    * 发送提示词（queue/steer 1:1 透传）；失败落入快照的 promptError。
    * @param content 文本 + 浏览器侧持有的临时图片上传。
    * @param mode queue 在当前轮之后追加；steer 打断它。
@@ -365,7 +365,7 @@ export class Session implements SessionFace {
    * @param attachmentId - opaque id found in the folded session log.
    * @returns the authenticated reference and decoded bytes.
    */
-  /**
+  /*
    * 把本会话引用的一张图片解析为浏览器可消费的字节。
    * @param attachmentId 在折叠会话日志中找到的不透明 id。
    * @returns 已鉴权引用 + 解码后的字节。
@@ -388,7 +388,7 @@ export class Session implements SessionFace {
   }
 
   /** Apply one operation to a still-pending queue occurrence. */
-  /** 对仍待处理的队列条目应用一个操作。 */
+  /* 对仍待处理的队列条目应用一个操作。 */
   async updateQueue(itemId: MessageId, action: QueueAction): Promise<RpcResult<{ accepted: true }>> {
     try {
       return (await this.api.sessions.updateQueue({ sessionId: this.sessionId, itemId, action })).result
@@ -406,7 +406,7 @@ export class Session implements SessionFace {
    * defensive).
    * @returns the cancel result.
    */
-  /**
+  /*
    * 停止活跃轮次，同时 Host 保留待处理收件箱工作；失败落入 promptError
    * （同一错误条展示位）。可续接的子代理地址经 subagent.interrupt 路由，
    * 其持久父地址权威在父 Agent 不存活时仍有效；一次性地址保持不可取消
@@ -452,7 +452,7 @@ export class Session implements SessionFace {
    * @param title - raw title text (the host normalizes acceptance).
    * @returns the rename result (normalized accepted title + title event seq).
    */
-  /**
+  /*
    * 重命名：契约 session.rename 1:1。成功后按存储的"更高 seq 胜"规则，
    * 用响应的 {title, seq} 结算 title 投影单元（之后到达的推送帧是无操作
    * 重放），使列表行与任何 useProjection('title') 读取器无需等 mux 帧。
@@ -476,7 +476,7 @@ export class Session implements SessionFace {
    * @param line - the full command line, leading slash included.
    * @returns the admission result, or the error branch on transport failure.
    */
-  /**
+  /*
    * 对本会话 agent 执行一条斜杠命令——纯受理语义（Host 执行器持久记录
    * 生命周期；结果渲染为流节点，绝不作响应回显）。
    * @param line 完整命令行，含开头的斜杠。
@@ -489,7 +489,7 @@ export class Session implements SessionFace {
   }
 
   /** First open: pull the tail page (idempotent — in-flight/already-open returns the existing promise). */
-  /** 首次打开：拉取尾部页（幂等——进行中/已打开时返回既有 promise）。 */
+  /* 首次打开：拉取尾部页（幂等——进行中/已打开时返回既有 promise）。 */
   open(): Promise<void> {
     if (this.openState === 'open') return Promise.resolve()
     if (this.openPromise !== null) return this.openPromise
@@ -503,7 +503,7 @@ export class Session implements SessionFace {
   }
 
   /** Page up: pull one earlier page with the window's first seq as beforeSeq and prepend. */
-  /** 向上翻页：以窗口首 seq 作为 beforeSeq 拉取更早一页并前插。 */
+  /* 向上翻页：以窗口首 seq 作为 beforeSeq 拉取更早一页并前插。 */
   async loadOlder(): Promise<void> {
     if (this.openState !== 'open' || !this.hasMore || this.loadingOlder) return
     this.loadingOlder = true
@@ -545,7 +545,7 @@ export class Session implements SessionFace {
    *  reset the window and rerun open; pending waits for the baseline replay. Invalidates any
    *  in-flight open first — its history request rode the dead connection and must not settle
    *  the fresh generation into 'error'. */
-  /**
+  /*
    * 重连重建（管理器在 onConnected 时为已打开的实例调用）：重置窗口并
    * 重跑 open；pending 等待基线重放。先使任何进行中的 open 失效——其历史
    * 请求骑乘了已死连接，不得把新世代结算成 error。
@@ -590,7 +590,7 @@ export class Session implements SessionFace {
    * @param listener - change callback.
    * @returns the unsubscribe function.
    */
-  /**
+  /*
    * uSES 订阅入口。
    * @param listener 变更回调。
    * @returns 取消订阅函数。
@@ -603,7 +603,7 @@ export class Session implements SessionFace {
    * Cached conversation snapshot (rebuilt lazily when dirty with no listeners).
    * @returns the cached reference (stable until the next flush).
    */
-  /**
+  /*
    * 缓存的会话快照（脏且无监听器时懒重建）。
    * @returns 缓存引用（直到下次冲刷前稳定）。
    */
@@ -620,7 +620,7 @@ export class Session implements SessionFace {
    * @param rpcId - the frame envelope id (the respond backfill key for requested frames).
    * @param frame - the routed frame.
    */
-  /**
+  /*
    * mux 帧到达（分发开关）。
    * @param rpcId 帧信封 id（被请求帧的 respond 回填键）。
    * @param frame 被路由的帧。
@@ -683,7 +683,7 @@ export class Session implements SessionFace {
    * Running-bit relay from the host stream (list entry and snapshot stay consistent).
    * @param running - the new running state.
    */
-  /**
+  /*
    * 来自 Host 流的运行位中继（列表条目与快照保持一致）。
    * @param running 新的运行状态。
    */
@@ -708,7 +708,7 @@ export class Session implements SessionFace {
    * @param address - direct parent/child address, or undefined for ordinary transport.
    * @param parentAvailable - latest exact-parent availability hint.
    */
-  /**
+  /*
    * 安装或清除目录发现的传输地址。地址变化时通过新历史路由重建已打开
    * 的窗口。
    * @param address 直接父/子地址；普通传输为 undefined。
@@ -728,7 +728,7 @@ export class Session implements SessionFace {
    * Update only the parent availability hint from a catalog refresh.
    * @param available - whether the exact direct parent is live.
    */
-  /**
+  /*
    * 只更新目录刷新带来的父可用性提示。
    * @param available 精确直接父是否存活。
    */
@@ -745,7 +745,7 @@ export class Session implements SessionFace {
    * re-blanks.
    * @param blank - the summary's derived empty-log bit.
    */
-  /**
+  /*
    * 来自权威概要源（列表基线与 session-added 帧）的空白位中继。单调：
    * 一旦任何信号（本地首次发送、运行翻转、更早概要）清除它，陈旧的 true
    * 绝不再置空。
@@ -759,7 +759,7 @@ export class Session implements SessionFace {
   }
 
   /** host/session-removed relay: flag the snapshot (instance survives — resident-instance rule). */
-  /** host/session-removed 中继：给快照置位（实例存活——驻留实例规则）。 */
+  /* host/session-removed 中继：给快照置位（实例存活——驻留实例规则）。 */
   handleRemoved(): void {
     this.removed = true
     this.notifier.markDirty()
@@ -769,7 +769,7 @@ export class Session implements SessionFace {
    * host/agent-error relay: the only outlet for live failures with no turn position.
    * @param message - the stringified error.
    */
-  /**
+  /*
    * host/agent-error 中继：无轮次位置的实时失败的唯一出口。
    * @param message 字符串化的错误。
    */
@@ -779,11 +779,11 @@ export class Session implements SessionFace {
   }
 
   /** No-op because session instances remain resident. */
-  /** 空操作：会话实例保持驻留。 */
+  /* 空操作：会话实例保持驻留。 */
   dispose(): void {}
 
   /** Rebuild the current window after a low-frequency Definition or view registration change. */
-  /** 低频定义或视图注册变化后重建当前窗口。 */
+  /* 低频定义或视图注册变化后重建当前窗口。 */
   rebuildConversationRegistry(): void {
     this.scheduleConversation(this.conversation.rebuildRegistry())
   }
@@ -792,14 +792,14 @@ export class Session implements SessionFace {
   // ---- 私有 ----
 
   /** Requested-frame arrival: the wait enters the pending map under its own key. */
-  /** 被请求帧到达：等待以其自身键进入 pending 表。 */
+  /* 被请求帧到达：等待以其自身键进入 pending 表。 */
   private mint(wait: PendingInteraction): void {
     this.pending.set(wait.key, wait)
     this.pendingRev++
   }
 
   /** Authoritative resolved-frame settlement: mark, then drop from the pending map. */
-  /** 权威已解析帧的结算：标记，然后从 pending 表移除。 */
+  /* 权威已解析帧的结算：标记，然后从 pending 表移除。 */
   private settle(wait: PendingInteraction): void {
     wait.markSettled()
     this.pending.delete(wait.key)
@@ -808,7 +808,7 @@ export class Session implements SessionFace {
 
   /** @param generation - openGeneration at launch; every await re-checks it and a stale pass
    *  drops all writes (resync superseded this open — its outcome belongs to a dead connection). */
-  /** @param generation 启动时的 openGeneration；每次 await 后复查，过期阶段丢弃全部写
+  /* @param generation 启动时的 openGeneration；每次 await 后复查，过期阶段丢弃全部写
    *  （resync 已取代此 open——其结果属于已死连接）。 */
   private async doOpen(generation: number): Promise<void> {
     this.openState = 'loading'
@@ -850,7 +850,7 @@ export class Session implements SessionFace {
    *  A carried projections block seeds the value store (higher seq wins, so a stale
    *  baseline cannot overwrite a newer push frame); the window events themselves are
    *  never folded — the host is the only computation site. */
-  /**
+  /*
    * 安装历史窗口并缝合 liveBuffer（seq 是唯一去重键）。
    * 缝合绝不能经 acceptLiveEvent 路由：这里 openState 仍是 loading
    * （doOpen 在 install 后才翻转），递归会把每个缓冲事件直接推回
@@ -873,7 +873,7 @@ export class Session implements SessionFace {
   }
 
   /** Seq-guarded append shared by stitching and the open-state live path. */
-  /** 缝合与打开态实时路径共享的 seq 守卫追加。 */
+  /* 缝合与打开态实时路径共享的 seq 守卫追加。 */
   private appendLive(event: SessionEvent, view?: ToolEventView): ConversationPublication {
     const tailSeq = this.windowTailSeq()
     if (tailSeq !== null && event.seq <= tailSeq) return 'none' // replay overlap, drop
@@ -891,7 +891,7 @@ export class Session implements SessionFace {
    *  expected reconnect-window artifact, repaired by refetch). The window stays one contiguous
    *  raw range, which lets Conversation Definitions correlate every recorded event between its
    *  ends and lets a compaction checkpoint resolve its cited summary event. */
-  /**
+  /*
    * 落地一个实时 session/event（open/修复进行中 -> 缓冲；重叠 seq -> 丢弃；
    * seq 间隙 -> 缓冲 + 重拉尾部页，而不是补一个洞（间隙是预期中的重连
    * 窗口产物，由重新拉取修复）。窗口保持一个连续原始区间，使会话定义能
@@ -914,7 +914,7 @@ export class Session implements SessionFace {
   }
 
   /** Route assembler cadence into the Session's existing microtask/RAF notifier. */
-  /** 把装配器节奏路由进 Session 既有的微任务/RAF 通知器。 */
+  /* 把装配器节奏路由进 Session 既有的微任务/RAF 通知器。 */
   private scheduleConversation(publication: ConversationPublication): void {
     if (publication === 'immediate') this.notifier.markDirty()
     else if (publication === 'animation-frame') this.notifier.markFrameDirty()
@@ -923,7 +923,7 @@ export class Session implements SessionFace {
   /** Resync-lite: repull the tail page and stitch the liveBuffer through the shared
    *  installWindow path. No openState transition — the UI keeps the current window (no loading
    *  flash); events arriving meanwhile detour to liveBuffer via the stitching flag. */
-  /**
+  /*
    * 轻量重同步：重拉尾部页并通过共享 installWindow 路径缝合 liveBuffer。
    * 无 openState 转换——UI 保持当前窗口（无 loading 闪烁）；其间到达的
    * 事件经 stitching 标志绕道 liveBuffer。

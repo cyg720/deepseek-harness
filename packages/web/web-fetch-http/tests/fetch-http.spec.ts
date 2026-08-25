@@ -366,7 +366,7 @@ describe('HttpFetchProvider invalid URLs and abort', () => {
 
 describe('HttpFetchProvider body cancellation on error paths', () => {
   /** A fake Response whose body.cancel is observable. */
-  /** 中文说明：type FakeInit 定义本测试所需的数据或行为，用于表达Web 搜索与抓取场景。 */
+  /* 中文说明：type FakeInit 定义本测试所需的数据或行为，用于表达Web 搜索与抓取场景。 */
   type FakeInit = { status: number; headers: Record<string, string>; location?: string }
   /** 中文说明：函数 fakeResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function fakeResponse(init: FakeInit): { response: Response; cancelled: () => boolean } {

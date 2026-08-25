@@ -10,7 +10,7 @@
  * @module @deepseek-ai/dsh-commands/brand
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-commands 自有的品牌类型 CommandId：把一次命令执行的 command/run 与
  *   command/done 两条生命周期记录、以及 command.execute 的 admission 响应配对起来。

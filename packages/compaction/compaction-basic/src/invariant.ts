@@ -2,7 +2,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-compaction-basic`.
  * @module @deepseek-ai/dsh-compaction-basic/invariant
  */
-/**
+/*
  * 文件职责：为基础压缩提供者注册空不变量伴生插件。
  * 技术维度：使用 Cordis 注册协议保留所有权。
  * 产品维度：让基础上下文压缩实现可被诊断发现。
@@ -19,17 +19,17 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-compaction-basic'
 
 /** Cordis companion plugin name. */
-/** name：稳定伴生名称。 */
+/* name：稳定伴生名称。 */
 export const name = 'compaction-basic-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** inject：注册所需服务。 */
+/* inject：注册所需服务。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: this package exposes no independent event sequence or mutable data relation
  * beyond contracts enforced at its owning seam.
  */
-/** install：空安装器；关系由压缩接缝拥有。 */
+/* install：空安装器；关系由压缩接缝拥有。 */
 const install: InvariantInstaller = () => {}
 
 /**
@@ -37,7 +37,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 注册伴生插件。@param ctx 上下文。@returns 注销函数。@example await apply(ctx)。 */
+/* 注册伴生插件。@param ctx 上下文。@returns 注销函数。@example await apply(ctx)。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))
 /* jscpd:ignore-end */

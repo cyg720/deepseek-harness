@@ -1,5 +1,5 @@
 /** Test-owned sessions face: the SlotRegistry host contract over declarative fixtures. */
-/**
+/*
  * 文件职责：实现 sessions.ts 覆盖的客户端运行时测试支持行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
@@ -30,7 +30,7 @@ import type { SessionFixture, Stabilizer } from './fixtures.ts'
  * declare — an unstubbed call names itself instead of half-working). Extra
  * fixture methods are grafted verbatim for feature-side casts.
  */
-/** 中文说明：class FixtureSession 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：class FixtureSession 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class FixtureSession implements SessionFace {
   /**
    * The useProjection seat: identity-stable per-key faces over the fixture's
@@ -155,7 +155,7 @@ export class FixtureSession implements SessionFace {
 }
 
 /** One live test session: fixture-derived stores plus its minted scope state. */
-/** 中文说明：interface SessionRecord 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：interface SessionRecord 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 interface SessionRecord {
   summary: SessionSummary
   snapshot: SnapshotStore<ConversationSnapshot>
@@ -167,7 +167,7 @@ interface SessionRecord {
 }
 
 /** Test binding shape handed to provider resolvers and feature injects (a SessionBinding whose session is the fixture face). */
-/** 中文说明：interface TestSessionBinding 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：interface TestSessionBinding 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export interface TestSessionBinding {
   readonly sessionId: SessionId
   readonly session: FixtureSession
@@ -185,7 +185,7 @@ export interface TestSessionBinding {
  * members (add/updateSnapshot/setCurrent/remove/behavior/calls/stubSearch and
  * the legacy provideInfo/maybeProvideInfo lookups) are bench-only surface.
  */
-/** 中文说明：class TestSessions 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：class TestSessions 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestSessions implements ISessions {
   /** The useSessions standard feed (list rows + current selection). */
   readonly list: SnapshotStore<SessionListState>

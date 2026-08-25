@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现 DeepSeek Files API 的"上传复用、失效与配额恢复"存储：
  * DeepSeekFileStore 把确定性的请求图片版本映射到可复用的 provider 文件 id。
@@ -35,7 +35,7 @@ export const MAX_CHAT_IMAGE_BYTES = 32 * 1024 * 1024
 const OWNED_FILE_PREFIX = 'dsh-'
 
 /** Resolved file-store policy from the plugin configuration. */
-/**
+/*
  * （中文）来自插件配置的文件存储策略（已解析）。
  */
 export interface DeepSeekFilePolicy {
@@ -55,7 +55,7 @@ export interface DeepSeekFileConnection {
 }
 
 /** Result of one file-id resolution. */
-/**
+/*
  * （中文）一次文件 id 解析的结果：可复用记录 + 是否新上传。
  */
 export interface DeepSeekFileReference {
@@ -150,7 +150,7 @@ function filename(version: RequestImageAttachment): string {
 }
 
 /** User-scoped durable file-id reuse for the DeepSeek route. */
-/**
+/*
  * （中文）DeepSeek 路由的"用户作用域持久文件 id 复用"存储。
  */
 export class DeepSeekFileStore {
@@ -163,7 +163,7 @@ export class DeepSeekFileStore {
   // 中文：进行中的共享上传（键为 scope+变体 id）。
   private readonly inflight = new Map<string, SharedUpload>()
 
-  /**
+  /*
    * （中文）构造。
    * @param options 可测试的索引、时钟与传输边界。
    */
@@ -185,7 +185,7 @@ export class DeepSeekFileStore {
     })
   }
 
-  /**
+  /*
    * （中文）解析或上传一张确定性请求图片。并发调用共享同一次上传，各自保留
    * 独立的等待。
    * @param version 确定性的模型请求字节与完整变换身份。
@@ -304,7 +304,7 @@ export class DeepSeekFileStore {
     return { record: committed.record, uploaded: committed.accepted }
   }
 
-  /**
+  /*
    * （中文）在 chat 端点拒绝其远端 id 后，失效一条精确的本地映射。
    * @param version 远端世代失败的请求图片版本。
    * @param fileId 被拒绝的精确文件 id。
@@ -328,7 +328,7 @@ export class DeepSeekFileStore {
     )
   }
 
-  /**
+  /*
    * （中文）删除某附件的已索引远端文件并移除本地映射。
    * @param version 要释放的精确请求图片版本。
    * @param connection 端点与 API key 快照。
@@ -363,7 +363,7 @@ export class DeepSeekFileStore {
     return true
   }
 
-  /**
+  /*
    * （中文）删除文件名标识为 harness 自有的最旧 provider 文件。
    * @param connection 端点与 API key 快照。
    * @param count 要删除的正数文件数上限。
@@ -405,7 +405,7 @@ export class DeepSeekFileStore {
     return owned.length
   }
 
-  /**
+  /*
    * （中文）删除活跃 API key 命名空间里的每个远端 harness 自有文件并清空索引。
    * @param connection 端点与 API key 快照。
    * @param signal 请求取消。

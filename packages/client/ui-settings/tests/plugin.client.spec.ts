@@ -4,7 +4,7 @@
  * fresh on settings-document and connection-reset invalidations, and retires
  * both the service and the subscriptions with its fiber.
  */
-/**
+/*
  * 文件职责：验证设置插件的 plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止设置插件保存、发现和错误提示回归。
@@ -20,7 +20,7 @@ import { SettingsSchemaService } from '../src/client/schema.ts'
 import { SettingsScopeBinder } from '../src/client/settings-scope.ts'
 
 /** Boot the browser half over a fake loopback connection and test remote. */
-/** 中文说明：函数 bench 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function bench() {
   /** 中文说明：测试局部值 describeCall，由紧邻初始化决定。 */
   const describeCall = vi.fn().mockResolvedValue({

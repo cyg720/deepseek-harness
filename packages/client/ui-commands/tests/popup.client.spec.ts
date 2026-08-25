@@ -6,7 +6,7 @@
  * and binding-identity revocation of late settlements after
  * dismiss/reopen/dispose.
  */
-/**
+/*
  * 文件职责：验证命令弹层的 popup.client.spec.ts 行为。
  * 技术维度：Vitest、React 测试渲染和可控替身。
  * 产品维度：防止命令弹层用户流程发生回归。
@@ -56,7 +56,7 @@ function spec(overrides: Partial<PopupSpec<Ctx>> = {}): PopupSpec<Ctx> {
 }
 
 /** Fake session wiring: records consume/focus calls; consume answer is settable per test. */
-/** 中文说明：函数 makeDeps 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 makeDeps 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function makeDeps(consumeResult = true) {
   /** 中文说明：测试场景的局部值 consume，由紧邻初始化决定。 */
   const consume = vi.fn((_segment: TokenSegment) => consumeResult)

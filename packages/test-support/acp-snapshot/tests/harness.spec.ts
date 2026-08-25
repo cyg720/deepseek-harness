@@ -46,7 +46,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
  * assertions read plain `rawStdout`.
  */
 
-/** 中文说明：变量 fakeAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 fakeAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeAgent = fileURLToPath(new URL('./fixtures/fake-acp-agent.ts', import.meta.url))
 /** 中文说明：常量 AGENT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const AGENT: AgentUnderTest = {
@@ -58,7 +58,7 @@ const AGENT: AgentUnderTest = {
 }
 
 /** Temp scenario dirs to drop after the suite. */
-/** 中文说明：变量 tempDirs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 tempDirs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const tempDirs: string[] = []
 afterAll(async () => {
   /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
@@ -66,7 +66,7 @@ afterAll(async () => {
 })
 
 /** Write a behavior.json into a fresh temp dir; return the sibling fixture path the harness points the bin at. */
-/** 中文说明：函数 scenario 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 scenario 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function scenario(behavior: object): Promise<{ dir: string; fixtureFile: string }> {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'acp-snap-spec-'))

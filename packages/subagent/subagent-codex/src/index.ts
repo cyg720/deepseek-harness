@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-codex
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -49,7 +49,7 @@ export const inject = ['subagents', 'subprocess']
 const DEFAULT_PROVIDER_NAME = 'codex'
 
 /** Deployment-owned permission, environment, and process-release settings. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `codex`). */
   providerName?: string
@@ -133,7 +133,7 @@ class CodexProvider implements SubagentProvider {
  * @param ctx - context carrying shared subagent and subprocess services.
  * @param config - registry name, permission mode, child environment, and disposal grace.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved: ResolvedConfig = {

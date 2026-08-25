@@ -3,7 +3,7 @@
  * @module @deepseek-ai/dsh-credentials/invariant
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-credentials 包的"不变量伴随插件"：校验 credentials/reference-updated 事件
  *   只能在凭据服务存活时发出——事件代表一次已提交的变更，服务已销毁却仍发出意味着 Provider

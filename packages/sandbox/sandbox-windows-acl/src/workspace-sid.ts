@@ -23,7 +23,7 @@
  * once.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/workspace-sid
  */
-/**
+/*
  * 文件职责：实现 workspace-sid.ts 承担的沙箱安全与权限隔离配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的沙箱安全与权限隔离能力。
@@ -40,7 +40,11 @@ import { createHash } from 'node:crypto'
  * @param workspaceRoot - the canonical workspace path.
  * @returns the SDDL string form.
  */
-/** 中文说明：函数 workspaceWriteSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 workspaceWriteSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param workspaceRoot 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function workspaceWriteSid(workspaceRoot: string): string {
   /** 中文说明：变量 digest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const digest = createHash('sha256').update(workspaceRoot, 'utf8').digest()
@@ -58,7 +62,11 @@ export function workspaceWriteSid(workspaceRoot: string): string {
  * @param tempDir - the private temp directory's absolute path.
  * @returns the SDDL string form.
  */
-/** 中文说明：函数 tempWriteSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 tempWriteSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param tempDir 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function tempWriteSid(tempDir: string): string {
   /** 中文说明：变量 digest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const digest = createHash('sha256').update('temp\0', 'utf8').update(tempDir, 'utf8').digest()

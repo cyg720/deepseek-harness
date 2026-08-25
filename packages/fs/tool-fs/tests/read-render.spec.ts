@@ -4,7 +4,7 @@
  * capped line buffer for newline-free giant lines — all over an async-iterable
  * of decoded text chunks (so one code path serves whole-file and streamed reads).
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 read-render.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -23,13 +23,13 @@ const DEFAULT_CAPS = { maxLineLength: READ_MAX_LINE_LENGTH, maxBytes: READ_MAX_B
 const READ_ALL: ReadWindow = { offset: 1, limit: 2000, ...DEFAULT_CAPS }
 
 /** Yield `text` as one chunk (whole-file read shape). */
-/** 中文说明：函数 whole 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 whole 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function* whole(text: string): AsyncIterable<string> {
   yield text
 }
 
 /** Yield `text` split into fixed-size chunks (streamed read shape). */
-/** 中文说明：函数 chunked 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 chunked 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function* chunked(text: string, size: number): AsyncIterable<string> {
   /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
   for (let i = 0; i < text.length; i += size) yield text.slice(i, i + size)

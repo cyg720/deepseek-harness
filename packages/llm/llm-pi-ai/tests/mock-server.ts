@@ -23,13 +23,13 @@ export interface MockServer {
 const servers: Server[] = []
 
 /** Close every server opened since the last call; run from each spec's afterEach. */
-/** 中文说明：函数 closeMockServers 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 closeMockServers 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 export async function closeMockServers(): Promise<void> {
   await Promise.all(servers.splice(0).map(server => new Promise(resolve => server.close(resolve))))
 }
 
 /** A minimal complete text generation in pi-ai's chat-completions shape. */
-/** 中文说明：变量 textEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 textEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const textEvents = [
   '{"choices":[{"delta":{"role":"assistant","content":""},"index":0,"finish_reason":null}]}',
   '{"choices":[{"delta":{"content":"hello"},"index":0,"finish_reason":null}]}',
@@ -38,7 +38,7 @@ export const textEvents = [
 ]
 
 /** Local provider stand-in: replays scripted behaviors per request. */
-/** 中文说明：函数 mockServer 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 mockServer 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 export async function mockServer(script: {
   status?: number
   events?: string[]

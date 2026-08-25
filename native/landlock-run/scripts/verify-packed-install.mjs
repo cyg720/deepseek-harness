@@ -20,7 +20,7 @@
  * kernel a failure instead of a skipped world-proof (set on CI, where the
  * kernel is known).
  */
-/**
+/*
  * 文件职责：在不发布 npm 的前提下，按真实消费者安装路径验证 Landlock tarball 的内容、依赖和运行效果。
  * 技术维度：使用 tar 解包、临时 ESM 工程、哈希比对和同步子进程，并在 Linux 上执行真实 Landlock 隔离证明。
  * 产品维度：提前发现压缩包缺文件、依赖未转换、二进制被替换或安装后不可运行等发布级问题。

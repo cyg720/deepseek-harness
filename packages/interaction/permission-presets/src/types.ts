@@ -8,7 +8,7 @@
  *
  * @module @deepseek-ai/dsh-permission-presets/types
  */
-/**
+/*
  * 文件职责：定义权限 preset 选项、权限选择投影及会话投影键的纯类型。
  * 技术维度：使用 TypeScript 接口和模块声明合并，供宿主与浏览器入口零重复共享。
  * 产品维度：让客户端展示可切换权限方案、当前有效值和无法匹配预设时的 custom 状态。
@@ -18,16 +18,16 @@
  */
 
 /** The select-option shape a presentation layer advertises for one preset (or for the derived `custom` state). */
-/** 展示层公开的单个权限 preset 或派生 custom 选项。 */
+/* 展示层公开的单个权限 preset 或派生 custom 选项。 */
 export interface PresetOption {
   /** Stable option value: the table key, or `custom`. */
-  /** 稳定选项值：表键或 custom。 */
+  /* 稳定选项值：表键或 custom。 */
   value: string
   /** The display label. */
-  /** 面向用户的显示名称。 */
+  /* 面向用户的显示名称。 */
   name: string
   /** One user-facing sentence on what the value means; omitted when not configured. */
-  /** 可选的一句话说明；未配置时整个字段缺失。 */
+  /* 可选的一句话说明；未配置时整个字段缺失。 */
   description?: string
 }
 
@@ -36,13 +36,13 @@ export interface PresetOption {
  * order (plus the derived current-only `custom` when the knobs match no
  * entry) and the effective current value.
  */
-/** 完整 permissions 投影值，包含顺序选项和当前有效值。 */
+/* 完整 permissions 投影值，包含顺序选项和当前有效值。 */
 export interface PermissionSelect {
   /** Switchable presets, plus `custom` appended exactly while it is current. */
-  /** 可切换 preset；仅当前为 custom 时在末尾追加 custom。 */
+  /* 可切换 preset；仅当前为 custom 时在末尾追加 custom。 */
   options: PresetOption[]
   /** The effective current value: a preset table key, or `custom`. */
-  /** 当前有效值：preset 表键或 custom。 */
+  /* 当前有效值：preset 表键或 custom。 */
   currentValue: string
 }
 
@@ -56,7 +56,7 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
      * over the composition defaults. Key absence means no permission service
      * is composed — clients hide the control.
      */
-    /** 从三类完整权限事件和组合默认值折叠而来；键缺失时客户端隐藏权限控件。 */
+    /* 从三类完整权限事件和组合默认值折叠而来；键缺失时客户端隐藏权限控件。 */
     permissions: PermissionSelect
   }
 }

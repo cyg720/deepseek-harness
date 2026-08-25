@@ -41,7 +41,7 @@ const HOLD_PROVIDER = 'web-test-hold'
 const HOLD_MODEL = 'hold'
 
 /** Model stub that completes the owner turn, then holds its delegated child open. */
-/** 先结束父回合、再持续挂起子回合的确定性模型适配器。 */
+/* 先结束父回合、再持续挂起子回合的确定性模型适配器。 */
 class StagedAdapter extends LlmAdapter {
   /** 当前处于挂起阶段的模型调用数量，取值不小于零。 */
   activeCalls = 0

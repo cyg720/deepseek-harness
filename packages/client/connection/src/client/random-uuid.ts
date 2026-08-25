@@ -1,5 +1,5 @@
 /** Browser-safe UUID generation for client-side wire correlation. */
-/**
+/*
  * 文件职责：在浏览器端生成用于线协议关联的随机 UUID v4。
  * 技术维度：使用 Web Crypto 填充 16 字节，并按 RFC 4122 设置版本与变体位。
  * 产品维度：并发客户端请求可携带互不混淆的关联标识。
@@ -12,7 +12,7 @@
  * Generate an RFC 4122 version 4 UUID without requiring a secure context.
  * @returns a UUID backed by `crypto.getRandomValues()`, which browsers expose on insecure origins.
  */
-/**
+/*
  * 生成一个 RFC 4122 第 4 版 UUID。
  * @returns 形如 `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx` 的随机字符串。
  * @example `const rpcId = randomUuid()`

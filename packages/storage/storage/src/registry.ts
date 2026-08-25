@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】存储枢纽（storage hub）的"后端注册表"：用名字登记/解析多个存储后端，
  * 让多个后端（JSON、SQLite 等）并存，由消费方（如领域层）按名字选择。
@@ -17,7 +17,7 @@
  * Named backend registry of the storage hub.
  * @module @deepseek-ai/dsh-storage/src/registry
  */
-/**
+/*
  * 模块总览：后端注册表只解决"名字 ↔ 后端实例"的登记与查找，不做任何读写。
  * 哪个消费方用哪个后端，是消费方自己的配置（如领域层的路由表），枢纽不做全局选择。
  */
@@ -30,7 +30,7 @@ import { StorageError } from './error.ts'
  * which backend serves which consumer is the consumer's configuration
  * (e.g. the domain layer's route table), never a hub-global choice.
  */
-/**
+/*
  * 可变的"名字 → 后端"表。多个后端可同时登记；谁服务谁由消费方配置决定，
  * 例如领域层的 routes 路由表，而不是枢纽的全局选择。
  */
@@ -46,7 +46,7 @@ export class BackendRegistry {
    * @param backend - The backend instance.
    * @returns the disposer that unregisters the name.
    */
-  /**
+  /*
    * 登记一个命名后端。登记是一种副作用（effect）：返回的注销函数用于移除该名字。
    * 注意：注销并不关闭后端——关闭由拥有它的插件在注销后自行负责。
    * @param name 后端名，例如 json 或 sqlite。
@@ -74,7 +74,7 @@ export class BackendRegistry {
    * @param name - Registered backend name.
    * @returns the backend.
    */
-  /**
+  /*
    * 按名字解析后端。
    * @param name 已登记的后端名。
    * @returns 后端实例。
@@ -94,7 +94,7 @@ export class BackendRegistry {
    * Registered backend names, for diagnostics.
    * @returns a snapshot array of names.
    */
-  /**
+  /*
    * 已登记的后端名清单（用于诊断）。
    * @returns 名字的快照数组。
    */

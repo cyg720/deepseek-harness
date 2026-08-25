@@ -11,7 +11,7 @@ import type { ChatNodeViewProps, TurnTailOwnerProps } from '../contract/slots.ts
 import { AssistantMarkdown } from './AssistantMarkdown.tsx'
 
 /** Streaming, settled, and interrupted Assistant states share one keyed renderer instance. */
-/** 流式、完成和中断助手状态共享同一键控组件实例，避免状态切换时丢失渲染上下文。 */
+/* 流式、完成和中断助手状态共享同一键控组件实例，避免状态切换时丢失渲染上下文。 */
 export const AssistantNodeView = memo(function AssistantNodeView({
   node, useTurnData, openFile, renderMessageImages, fileMentions, t,
 }: ChatNodeViewProps<'assistant-step'>) {

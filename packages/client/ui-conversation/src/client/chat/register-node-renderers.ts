@@ -26,7 +26,7 @@ import { TurnTailNodeView } from './TurnTailNodeView.tsx'
  * Register this package's business renderers behind the keyed Chat Node seat.
  * @param ctx - owning UI Conversation context.
  */
-/**
+/*
  * 把本包的业务渲染器注册到"按 key 的聊天节点座位"之后。
  * @param ctx - 拥有者 UI 会话上下文。
  */

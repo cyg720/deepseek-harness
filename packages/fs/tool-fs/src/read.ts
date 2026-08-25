@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】面向模型的 UTF-8 读取工具。它做一次提供者 stat（用于类型、路由与
  * 观察版本），大文件或大小未知的文件走流式，渲染一个有界窗口，然后发出观察事件。
@@ -23,7 +23,7 @@
  * streams large or size-unknown files, renders a bounded window, then emits the observation.
  * @module @deepseek-ai/dsh-tool-fs/src/read
  */
-/**
+/*
  * 模块总览：本文件是 read 工具的定义与执行体。读取成功后的 observed 事件是
  * "先读后写"策略的状态来源。
  */
@@ -37,38 +37,38 @@ import { buildWindow, formatReadOutput, langFromPath, readMetaFromMeta } from '.
 import { resolveRegularReadTarget } from './read-target.ts'
 
 /** Default and maximum number of lines returned by one `read` call (the `readLimit` config). */
-/** 单次 read 默认且最大的返回行数（readLimit 配置的默认值）：2000。 */
+/* 单次 read 默认且最大的返回行数（readLimit 配置的默认值）：2000。 */
 export const READ_LIMIT = 2000
 
 /**
  * Default streaming threshold (the `readStreamMinSize` config): files at or
  * above this size stream; smaller files read whole into memory.
  */
-/**
+/*
  * 默认流式阈值（readStreamMinSize 配置）：达到或超过 10 MiB 的文件流式读取；
  * 更小的整读进内存。
  */
 export const STREAM_MIN_SIZE = 10 * 1024 * 1024
 
 /** Resolved read-tool caps — plugin config after defaulting (see `Config` in index.ts). */
-/** 已解析的读工具上限——默认化后的插件配置（见 index.ts 的 Config）。 */
+/* 已解析的读工具上限——默认化后的插件配置（见 index.ts 的 Config）。 */
 export interface ReadToolCaps {
   /** Default and maximum number of lines returned by one call. */
-  /** 单次调用默认且最大的返回行数。 */
+  /* 单次调用默认且最大的返回行数。 */
   limit: number
   /** Maximum characters returned for a single line. */
-  /** 单行最大返回字符数。 */
+  /* 单行最大返回字符数。 */
   maxLineLength: number
   /** Maximum bytes returned for selected file lines. */
-  /** 选中行最大返回字节数。 */
+  /* 选中行最大返回字节数。 */
   maxBytes: number
   /** Files at or above this size stream; smaller files read whole into memory. */
-  /** 达到或超过该大小流式；更小的整读进内存。 */
+  /* 达到或超过该大小流式；更小的整读进内存。 */
   streamMinSize: number
 }
 
 /** Validated `read` arguments after defaulting. */
-/** 默认化后的已校验 read 参数。 */
+/* 默认化后的已校验 read 参数。 */
 interface ReadInput {
   filePath: string
   offset: number
@@ -89,7 +89,7 @@ function parsePositiveInteger(value: number, name: string): number {
  * @param maxLimit - the configured line cap: both the default `limit` and the largest one accepted.
  * @returns the validated input with `offset` defaulted to 1 and `limit` to `maxLimit`.
  */
-/**
+/*
  * 校验 schema DSL 表达不了的值约束。maxLimit 是部署的行上限（既是默认 limit 也是
  * 可接受的最大值）。
  * @param args 已通过 schema 校验的原始工具参数；给定时 offset/limit 必须是正整数。
@@ -109,7 +109,7 @@ export function parseReadArgs(args: { file_path: string; offset?: number; limit?
  * @param ctx - the plugin context; registrations are effects scoped to it, and execution uses its `fs` service.
  * @param caps - the deployment's resolved read caps (plugin config after defaulting).
  */
-/**
+/*
  * 注册 read 工具与其系统提示指南。
  * @param ctx 插件上下文；注册是作用域于它的副作用，执行使用其 fs 服务。
  * @param caps 部署的已解析读上限（默认化后的插件配置）。

@@ -9,7 +9,7 @@
 import { createServer, type IncomingHttpHeaders, type ServerResponse } from 'node:http'
 
 /** One deterministic response emitted by the package-private Messages server. */
-/** 中文说明：type MessagesBehavior 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：type MessagesBehavior 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
 export type MessagesBehavior =
   | { readonly kind: 'complete'; readonly text: string }
   | { readonly kind: 'hold' }
@@ -21,7 +21,7 @@ export type MessagesBehavior =
   }
 
 /** One recorded Anthropic Messages request. */
-/** 中文说明：interface RecordedMessagesRequest 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：interface RecordedMessagesRequest 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
 interface RecordedMessagesRequest {
   readonly method: string
   readonly path: string
@@ -30,7 +30,7 @@ interface RecordedMessagesRequest {
 }
 
 /** Running package-private Anthropic Messages fixture. */
-/** 中文说明：interface MessagesFixture 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：interface MessagesFixture 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
 export interface MessagesFixture {
   readonly baseUrl: string
   readonly requests: RecordedMessagesRequest[]
@@ -169,7 +169,7 @@ function toolUse(
  * @param behavior - the single response behavior for this fixture.
  * @returns the bound server and its recorded requests.
  */
-/** 中文说明：函数 startMessagesFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 startMessagesFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export async function startMessagesFixture(
   behavior: MessagesBehavior,
 ): Promise<MessagesFixture> {

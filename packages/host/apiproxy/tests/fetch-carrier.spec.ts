@@ -14,7 +14,7 @@ import { toFetchHandler } from '../src/fetch/handler.ts'
 import { AbstractApiClient, InProcessApiClient } from '../src/fetch/client.ts'
 
 /** Minimal in-memory ApiProxy: echoes rpcIds, scripts one frame per stream. */
-/** 中文说明：函数 fakeApi 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fakeApi 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFrame[]; crashOn: string }> = {}): ApiProxy {
   /** 中文说明：测试局部值 muxFrames，由紧邻初始化决定。 */
   const muxFrames = overrides.muxFrames ?? [{ type: 'session/subscribed', sessionId: 's1' as never, lastSeq: -1 }]

@@ -33,7 +33,7 @@ import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent
  * loads the bridge pointed at them, and asserts the hook's effect on the loop.
  */
 
-/** 中文说明：测试局部值 dirs，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 dirs，由紧邻初始化决定。 */
 const dirs: string[] = []
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }) })
 
@@ -43,7 +43,7 @@ function subagentCarrier(ctx: Context) {
 }
 
 /** Write a hooks.json + named executable scripts into a fresh temp dir. */
-/** 中文说明：函数 writeConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 writeConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function writeConfig(hooks: unknown, scripts: Record<string, string> = {}): string {
   /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'dsh-hooks-claude-'))
@@ -65,7 +65,7 @@ async function harness(configDir: string, adapter: MockAdapter, beforeHooks?: (c
 }
 
 /** {@link harness}, also exposing the bridge's fiber for tests that dispose it. */
-/** 中文说明：函数 harnessWithFiber 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 harnessWithFiber 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harnessWithFiber(
   configDir: string,
   adapter: MockAdapter,
@@ -100,7 +100,7 @@ function events(agent: Agent): SessionEvent[] {
  * await directly; polling for the observable EFFECT is robust under load, where a
  * single fixed sleep flakes ("async state is not synchronous state").
  */
-/** 中文说明：函数 waitFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 waitFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function waitFor(predicate: () => boolean, timeout = 5000, interval = 10): Promise<void> {
   /** 中文说明：测试局部值 deadline，由紧邻初始化决定。 */
   const deadline = Date.now() + timeout

@@ -4,7 +4,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-client/types
  */
-/**
+/*
  * 文件职责：实现 types.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -17,7 +17,7 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
 /** One server-to-client notification as received off the wire. */
-/** 中文说明：interface HarnessNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface HarnessNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface HarnessNotification {
   /** The JSON-RPC notification method name. */
   method: string
@@ -26,11 +26,11 @@ export interface HarnessNotification {
 }
 
 /** Predicate deciding whether a subscription receives a notification. */
-/** 中文说明：type NotificationFilter 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：type NotificationFilter 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export type NotificationFilter = (notification: HarnessNotification) => boolean
 
 /** Launch and timeout options for {@link HarnessClient}. */
-/** 中文说明：interface HarnessClientOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface HarnessClientOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface HarnessClientOptions {
   /** The runtime executable (the `dsh-jsonrpc-agent` bin, a packaged exe, or `node`). */
   command: string
@@ -56,7 +56,7 @@ export interface HarnessClientOptions {
 }
 
 /** Options for the high-level {@link DeepSeekHarness} wrapper. */
-/** 中文说明：interface DeepSeekHarnessOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface DeepSeekHarnessOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface DeepSeekHarnessOptions {
   /** Launch spec for the runtime subprocess (command, args, cwd, env, timeouts). */
   launch: HarnessClientOptions
@@ -71,7 +71,7 @@ export interface DeepSeekHarnessOptions {
 }
 
 /** One owned session activity interval, from enqueue receipt through idle. */
-/** 中文说明：interface RunResult 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface RunResult 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface RunResult {
   /** The session the activity ran on. */
   sessionId: string

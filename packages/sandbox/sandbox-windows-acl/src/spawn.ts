@@ -8,7 +8,7 @@
  * pipe-based and unaffected; the child shares the host console.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/spawn
  */
-/**
+/*
  * 文件职责：实现 spawn.ts 承担的沙箱安全与权限隔离配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的沙箱安全与权限隔离能力。
@@ -31,7 +31,11 @@ import * as abi from './win32-abi.ts'
  * @param argument - one argv entry to quote.
  * @returns the quoted entry (bare when quoting is unnecessary).
  */
-/** 中文说明：函数 quoteArg 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 quoteArg 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param argument 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function quoteArg(argument: string): string {
   if (argument === '') return '""'
   if (!/[\s"]/u.test(argument)) return argument
@@ -63,7 +67,12 @@ export function quoteArg(argument: string): string {
  * @param args - the remaining argv entries.
  * @returns the joined, quoted command line.
  */
-/** 中文说明：函数 buildCommandLine 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 buildCommandLine 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param program 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function buildCommandLine(program: string, args: readonly string[]): string {
   return [program, ...args].map(quoteArg).join(' ')
 }
@@ -97,7 +106,7 @@ function setInheritable(api: Win32Bindings, handle: NativePtr, label: string): v
 }
 
 /** A confined child spawned with piped stdio: process handle plus the pipe read ends to drain. */
-/** 中文说明：interface SpawnedNative 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface SpawnedNative 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface SpawnedNative {
   pid: number
   process: NativePtr
@@ -118,7 +127,13 @@ export interface SpawnedNative {
  * @param options - command, args, and working directory.
  * @returns the spawned child's handles.
  */
-/** 中文说明：函数 spawnSandboxed 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 spawnSandboxed 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param token 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function spawnSandboxed(
   api: Win32Bindings,
   token: NativePtr,
@@ -205,7 +220,12 @@ export function spawnSandboxed(
  * @param handle - the pipe read end to drain (closed when done).
  * @returns the complete pipe contents.
  */
-/** 中文说明：函数 drainPipe 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 drainPipe 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param handle 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function drainPipe(api: Win32Bindings, handle: NativePtr): Promise<Buffer> {
   /** 中文说明：变量 chunks 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const chunks: Buffer[] = []
@@ -255,7 +275,12 @@ export async function drainPipe(api: Win32Bindings, handle: NativePtr): Promise<
  * @param process - the child process handle (closed when done).
  * @returns the child's exit code.
  */
-/** 中文说明：函数 waitForExit 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 waitForExit 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param process 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function waitForExit(api: Win32Bindings, process: NativePtr): number {
   /** 中文说明：变量 waitResult 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const waitResult = api.waitForSingleObject(process, abi.INFINITE)
@@ -274,7 +299,7 @@ export function waitForExit(api: Win32Bindings, process: NativePtr): number {
  * Windows terminates every process in the job — the orphan-child backstop.
  * The caller keeps the returned handle open for the child's lifetime.
  */
-/** 中文说明：函数 createKillOnCloseJob 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 createKillOnCloseJob 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function createKillOnCloseJob(api: Win32Bindings): NativePtr {
   /** 中文说明：变量 job 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const job = api.createJobObjectW(null, null)
@@ -292,7 +317,7 @@ function createKillOnCloseJob(api: Win32Bindings): NativePtr {
 }
 
 /** A confined child spawned with inherited stdio: process handle plus its kill-on-close job. */
-/** 中文说明：interface SpawnedInherited 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface SpawnedInherited 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface SpawnedInherited {
   pid: number
   process: NativePtr
@@ -318,7 +343,13 @@ export interface SpawnedInherited {
  * @param options - command, args, and working directory.
  * @returns the spawned child's handles and job.
  */
-/** 中文说明：函数 spawnSandboxedInherited 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 spawnSandboxedInherited 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param token 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function spawnSandboxedInherited(
   api: Win32Bindings,
   token: NativePtr,

@@ -28,7 +28,7 @@ import {
 } from '@deepseek-ai/dsh-llm'
 
 /** Build a minimal session with turn boundaries and a single user message. */
-/** 中文说明：函数 surfaceSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 surfaceSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function surfaceSession(): Session {
   /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
   const s = Session.create(SessionId('ss'))

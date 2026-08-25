@@ -1,5 +1,5 @@
 /** Trajectory toolbar: timeline and ledger fold controls. */
-/**
+/*
  * 文件职责：实现运行轨迹的 TrajectoryToolbar 组件。
  * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
  * 产品维度：支持用户查看或操作运行轨迹。
@@ -44,7 +44,7 @@ export interface TrajectoryToolbarProps {
  * @param props - rendered counts and whole-list fold state.
  * @returns the toolbar element.
  */
-/** 中文说明：函数 TrajectoryToolbar 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 TrajectoryToolbar 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function TrajectoryToolbar({
   actualDuration,
   onActualDurationChange,

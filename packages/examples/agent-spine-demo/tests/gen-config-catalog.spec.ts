@@ -1,7 +1,7 @@
 /**
  * Negative-path tests for the config catalog generator (`scripts/gen-config-catalog.ts`).
  */
-/**
+/*
  * 文件职责：验证Agent Spine 示例的 gen-config-catalog.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证Agent Spine 示例在真实组装、失败和清理场景中可靠。
@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { collectConfigCatalog, render } from '../../../../scripts/gen-config-catalog.ts'
 
 /** Write one fixture package (package.json + src files) under a scan root. */
-/** 中文说明：函数 writePkg 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 writePkg 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function writePkg(root: string, dir: string, name: string, files: Record<string, string>): void {
   /** 中文说明：测试局部值 pkgDir，由紧邻初始化决定。 */
   const pkgDir = join(root, 'packages', dir)
@@ -37,7 +37,7 @@ const makeRoot = (): string => {
   return root
 }
 /** One-package fixture: the common case. */
-/** 中文说明：测试局部值 make，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 make，由紧邻初始化决定。 */
 const make = (files: Record<string, string>, name = '@fix/one'): string => {
   /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = makeRoot()

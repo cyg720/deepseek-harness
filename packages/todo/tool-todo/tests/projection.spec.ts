@@ -6,7 +6,7 @@
  * composition without tool-todo has no `todos` key; unmounting tool-todo
  * removes it (HMR safety). The carrier and framework are exercised unmodified.
  */
-/**
+/*
  * 文件职责：验证 projection.spec.ts 覆盖的Todo 工具行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的Todo 工具能力保障 Agent 功能在集成层稳定。
@@ -74,7 +74,7 @@ async function harness(withTodoTool: boolean): Promise<Bench> {
 }
 
 /** One paginable message so the tail page is non-degenerate. */
-/** 中文说明：函数 seedMessage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 seedMessage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function seedMessage(session: Session): void {
   session.append('user/message', createUserMessage({
     content: [{ type: 'text', text: 'hi' }],

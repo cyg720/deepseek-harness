@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】JSON 单元文件的"磁盘格式"：定义内存态（UnitState）与文件内容之间的
  * 序列化/反序列化，以及读取时的形状与版本校验。
@@ -21,7 +21,7 @@
  * legibility is this backend's reason to exist.
  * @module @deepseek-ai/dsh-storage-json/src/format
  */
-/**
+/*
  * 模块总览：文件内容永远是"当前净状态"，不写追加日志。保持人类可读是
  * JSON 后端区别于 SQLite 后端的核心卖点。
  */
@@ -30,7 +30,7 @@ import { StorageError } from '@deepseek-ai/dsh-storage'
 import type { KvUnitDescriptor } from '@deepseek-ai/dsh-storage'
 
 /** In-memory authoritative state of one unit; the file is its projection. `global` is `null` until first written. */
-/**
+/*
  * 一个单元的内存权威态；磁盘文件只是它的投影。
  * global 在首次写入前为 null（与领域层的"从未写入"哨兵语义一致）。
  */
@@ -46,7 +46,7 @@ export interface UnitState {
  * @param state - Authoritative in-memory state.
  * @returns pretty-printed JSON document with a trailing newline.
  */
-/**
+/*
  * 把单元内存态序列化为文件内容。
  * 结构：{ unit: { name, version }, global, tables }；美化打印（2 空格缩进）并以换行结尾。
  * @param name 单元名，盖进文件头。
@@ -73,7 +73,7 @@ export function serialize(name: string, state: UnitState): string {
  * @param descriptor - Expected identity; version mismatch rejects.
  * @returns the parsed state.
  */
-/**
+/*
  * 把文件内容解析成单元状态，并校验形状与版本。四步失败依次为：
  * 非法 JSON → malformed-medium；顶层不是对象 → malformed-medium；单元头缺失或
  * 名字不符 → malformed-medium；version 与预期不符 → version-mismatch；表不是普通

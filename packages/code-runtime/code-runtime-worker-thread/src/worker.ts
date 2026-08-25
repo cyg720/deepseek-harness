@@ -3,7 +3,7 @@
  * `bootstrap.ts` for in-process coverage; real-worker tests cover this glue.
  * @module @deepseek-ai/dsh-code-runtime-worker-thread/src/worker
  */
-/**
+/*
  * 文件职责：作为代码运行时 Worker 的仅生成入口，把真实端口与启动数据交给 bootstrap。
  * 技术维度：使用 Node worker_threads，并把 stdout/stderr 显式传给工作线程主函数。
  * 产品维度：模型生成的代码可在线程中执行，不阻塞 Harness 主事件循环。

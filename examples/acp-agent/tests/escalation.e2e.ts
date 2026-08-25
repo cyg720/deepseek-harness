@@ -40,9 +40,9 @@ import { cleanupAcpExampleTest } from './cleanup.ts'
  * over `session/request_permission`. An approved workspace-write retry must
  * then land ON DISK (world-verified).
  */
-/** 中文说明：无密钥只验证真实组合启动；有密钥时从只读拒绝，经客户端审批升级后以落盘文件证明成功。 */
+/* 中文说明：无密钥只验证真实组合启动；有密钥时从只读拒绝，经客户端审批升级后以落盘文件证明成功。 */
 
-/** 默认 ACP 示例的入口、组合配置和 TypeScript 配置。 */
+/* 默认 ACP 示例的入口、组合配置和 TypeScript 配置。 */
 const AGENT: AgentUnderTest = {
   binScript: fileURLToPath(new URL('../../../packages/examples/acp-demo/src/bin.ts', import.meta.url)),
   configPath: fileURLToPath(new URL('../cordis.yml', import.meta.url)),

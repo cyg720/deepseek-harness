@@ -10,7 +10,7 @@
  * through the three framework shares — zero cordis or framework imports,
  * zero self-made hooks.
  */
-/**
+/*
  * 文件职责：实现应用布局的 AppFrame 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：支持用户查看或调整应用布局。
@@ -26,20 +26,20 @@ import type { createLayoutStore } from './stores.ts'
 import css from './AppFrame.module.css'
 
 /** Full composed props: runtime share + child-slot render share + store share. */
-/** 中文说明：类型或类 AppFrameProps 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 AppFrameProps 约束本文件数据或组件职责。 */
 export type AppFrameProps =
   & PropsRuntime<'root'>
   & PropsRenderSlots<'sidebar' | 'conversation' | 'details' | 'shell.overlay'>
   & PropsStore<ReturnType<typeof createLayoutStore>>
 
 /** Center column grid item (session-body building block). */
-/** 中文说明：函数 CenterColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 CenterColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function CenterColumn(props: { children?: ReactNode }) {
   return <div className={css.centerCol}>{props.children}</div>
 }
 
 /** Details column grid item; width 0 keeps the subtree mounted (never unmount on close). */
-/** 中文说明：函数 DetailsColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 DetailsColumn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function DetailsColumn(props: { children?: ReactNode }) {
   return <div className={css.detailsCol}>{props.children}</div>
 }
@@ -48,7 +48,7 @@ function DetailsColumn(props: { children?: ReactNode }) {
  * One drag handle: pointer capture, rAF-throttled dx reports against the drag-start origin.
  * `side` keys the hover-reveal CSS to the owning column.
  */
-/** 中文说明：函数 DragHandle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 DragHandle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function DragHandle(props: { side: 'sidebar' | 'details'; left: number; onStart: () => void; onDrag: (dx: number) => void; onEnd: () => void }) {
   /** 中文说明：组件局部值 [dragging, setDragging]，由紧邻初始化决定。 */
   const [dragging, setDragging] = useState(false)
@@ -104,7 +104,7 @@ function DragHandle(props: { side: 'sidebar' | 'details'; left: number; onStart:
 }
 
 /** The three-column frame (see module doc). */
-/** 中文说明：函数 AppFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 AppFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function AppFrame({
   useStore,
   useSessions,

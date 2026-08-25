@@ -1,5 +1,5 @@
 /** Node-half coverage for the model guidance paired with Web file references. */
-/**
+/*
  * 文件职责：验证 Web 交付物插件在挂载期间注册最终回复文件引用提示词。
  * 技术维度：使用 Vitest、Cordis 和真实 SystemPrompt 注册表检查提示区段生命周期。
  * 产品维度：指导模型把生成文件写成 Web 可点击的路径引用。

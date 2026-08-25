@@ -23,7 +23,7 @@
  * each single call publishes a complete, durable file.
  * @module @deepseek-ai/dsh-storage-json/src/unit
  */
-/**
+/*
  * 模块总览：本文件是 JSON 后端的"单元运行时"。注意写不排队：并发写由领域层
  * 的写链串行化，本单元只承诺"单次调用发布出完整、持久的文件"。
  */
@@ -42,7 +42,7 @@ import type { UnitState } from './format.ts'
  * @param onClose - Backend callback releasing the unit's open-slot.
  * @returns the opened unit.
  */
-/**
+/*
  * 打开（加载或懒创建）一个由 path 支撑的单元。
  * 文件存在 → parse 成内存态；文件不存在（ENOENT）→ 返回空形态的单元，
  * 物化推迟到首次写入。
@@ -80,7 +80,7 @@ class JsonKvUnit implements KvUnit {
   // 关闭标记：关闭后一切操作抛 closed。
   private closed = false
   /** In-flight publishes; close() drains them before releasing the unit. */
-  /** 在途发布集合：close() 在释放单元前先等它们全部结束。 */
+  /* 在途发布集合：close() 在释放单元前先等它们全部结束。 */
   private readonly inFlight = new Set<Promise<void>>()
 
   constructor(

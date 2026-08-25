@@ -6,7 +6,7 @@
  * 关键边界：类型不约束布局数值，也不能检查选择器是否实际存在。
  * 新手阅读建议：先从 AppFrame 的类名引用理解各布局区域。
  */
-/** 使用方式：`import styles from './AppFrame.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './AppFrame.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源类名，值为构建阶段生成的隔离类名。 */
   const classes: Record<string, string>

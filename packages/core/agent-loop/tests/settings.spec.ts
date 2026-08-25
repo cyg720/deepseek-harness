@@ -1,5 +1,5 @@
 /** The `agent-loop` settings section layered over the composition entry. */
-/**
+/*
  * 文件职责：验证Agent Loop的 settings.spec.ts 行为与不变量。
  * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
  * 产品维度：防止Agent Loop在取消、恢复、错误或并发场景中产生回归。
@@ -21,7 +21,7 @@ import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import AgentLoop, { AGENT_LOOP_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-agent-loop'
 
 /** The smallest real provider: one in-memory document, always writable. */
-/** 中文说明：测试类型或类 MemorySettings 约束夹具数据和行为。 */
+/* 中文说明：测试类型或类 MemorySettings 约束夹具数据和行为。 */
 class MemorySettings extends SettingsProvider {
   doc: Record<string, unknown> = {}
 

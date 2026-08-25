@@ -4,7 +4,7 @@
  * carrier; the test measures event-loop and scheduled-interaction delay while
  * the assembled React surface keeps a collapsed Think row live.
  */
-/**
+/*
  * 文件职责：通过十万条推理增量重现并测量浏览器渲染期间的主线程卡顿。
  * 技术维度：使用 Playwright、Vitest 轮询、浏览器 Performance API 和真实 Web 测试脚手架。
  * 产品维度：保证长推理流持续到达时，聊天界面仍能响应计时器和用户交互。

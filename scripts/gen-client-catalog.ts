@@ -11,7 +11,7 @@
  *
  * `--check` verifies the committed artifact is fresh.
  */
-/**
+/*
  * 文件职责：实现 gen-client-catalog.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -39,18 +39,18 @@ const root = resolve(import.meta.dirname, '..')
 const OUT = 'packages/extensions/cordis-client-runner/src/client/slot-catalog.ts'
 
 /** Source globs: every workspace package's sources, `.tsx` included (a contract may live in one). */
-/** 中文说明：常量 SOURCE_GLOBS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SOURCE_GLOBS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SOURCE_GLOBS = ['packages/*/*/src/**/*.ts', 'packages/*/*/src/**/*.tsx']
 
 /** Slot cardinalities the contract allows. */
-/** 中文说明：常量 KINDS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 KINDS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const KINDS = ['single', 'list', 'keyed', 'chain'] as const
 /** Slot data scopes the contract allows. */
-/** 中文说明：常量 SCOPES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SCOPES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SCOPES = ['root', 'session', 'session-maybe'] as const
 
 /** Declarations longer than this render truncated; the full shape stays in source. */
-/** 中文说明：常量 MAX_DECL_CHARS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_DECL_CHARS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MAX_DECL_CHARS = 1200
 
 /**
@@ -61,11 +61,11 @@ const MAX_DECL_CHARS = 1200
  * ways a report runs away: an owner share that hands down a subsystem instead of
  * a share, and prose that grew into a manual.
  */
-/** 中文说明：常量 MAX_ENTRY_LINES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_ENTRY_LINES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MAX_ENTRY_LINES = 120
 
 /** One register-call option as the catalog teaches it. */
-/** 中文说明：interface OptionDoc 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface OptionDoc 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface OptionDoc {
   readonly name: string
   readonly requirement: 'required' | 'optional'
@@ -82,7 +82,7 @@ interface OptionDoc {
  * registrant. `verify-client-catalog` pins the authority's text so a change
  * there forces this table to be revisited.
  */
-/** 中文说明：常量 REGISTER_OPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 REGISTER_OPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REGISTER_OPTIONS: Readonly<Record<(typeof KINDS)[number], readonly OptionDoc[]>> = {
   single: [],
   list: [
@@ -99,11 +99,11 @@ const REGISTER_OPTIONS: Readonly<Record<(typeof KINDS)[number], readonly OptionD
 }
 
 /** The one register option a dynamic package must NOT pass, and why. */
-/** 中文说明：常量 PRIORITY_NOTE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PRIORITY_NOTE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PRIORITY_NOTE = 'Do NOT pass `priority`: the browser-half facade assigns one automatically, and it is LOWER than every shipped entry — in a single or keyed cell that means your entry is the one that renders.'
 
 /** Cross-cutting rules a registrant needs once, not per slot. */
-/** 中文说明：常量 CLIENT_NOTES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CLIENT_NOTES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLIENT_NOTES: readonly string[] = [
   'Contribute UI only through `ctx.slots.register(options, Component)`; declare `inject: [\'slots\']` in your returned plugin (object form) or the seat is withheld.',
   'Wrap every registration in `ctx.slots.inject(key, () => ctx.slots.register(...))`. A slot exists only while the entry that declared it is mounted, and registering into an undeclared slot throws; `inject` runs your registration when the declaration is (or becomes) live and re-runs it if the owner remounts.',
@@ -114,7 +114,7 @@ const CLIENT_NOTES: readonly string[] = [
 ]
 
 /** Standard-kit interface that applies to each scope, beyond the global one. */
-/** 中文说明：常量 SCOPE_KIT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SCOPE_KIT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SCOPE_KIT: Readonly<Record<(typeof SCOPES)[number], string | undefined>> = {
   'root': undefined,
   'session': 'SessionStandardProps',
@@ -122,7 +122,7 @@ const SCOPE_KIT: Readonly<Record<(typeof SCOPES)[number], string | undefined>> =
 }
 
 /** One resolved catalog entry, ready to render. */
-/** 中文说明：interface SlotEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface SlotEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface SlotEntry {
   readonly key: string
   readonly kind: string
@@ -150,7 +150,7 @@ export interface SlotEntry {
  * @returns the entries, sorted by key.
  * @throws when any declared slot is unteachable or the scan contradicts itself.
  */
-/** 中文说明：函数 collectSlotEntries 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectSlotEntries 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectSlotEntries(scanRoot: string): SlotEntry[] {
   /** 中文说明：变量 files 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const files = scanSlotFiles(scanRoot, SOURCE_GLOBS)
@@ -182,7 +182,7 @@ export function collectSlotEntries(scanRoot: string): SlotEntry[] {
  * @param entries - resolved catalog entries.
  * @returns one message per over-budget slot, empty when every report is readable.
  */
-/** 中文说明：函数 oversizedSlotReports 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 oversizedSlotReports 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function oversizedSlotReports(entries: readonly SlotEntry[]): string[] {
   return entries
     .filter(entry => entryLines(entry) > MAX_ENTRY_LINES)
@@ -192,7 +192,7 @@ export function oversizedSlotReports(entries: readonly SlotEntry[]): string[] {
 }
 
 /** Line count of one entry's variable-length content, the proxy for its rendered report. */
-/** 中文说明：函数 entryLines 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 entryLines 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function entryLines(entry: SlotEntry): number {
   /** 中文说明：函数值 blocks 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const blocks = [entry.doc, entry.example, ...entry.ownerProps, ...entry.registerOptions.map(option => option.doc)]
@@ -209,7 +209,7 @@ function entryLines(entry: SlotEntry): number {
  * @param types - exported type index the owner-props reference resolves against.
  * @returns one message per violation, empty when the surface is teachable.
  */
-/** 中文说明：函数 validateSlotContracts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 validateSlotContracts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function validateSlotContracts(
   declarations: readonly SlotDeclaration[],
   registrations: readonly SlotRegistration[],
@@ -271,7 +271,7 @@ export function validateSlotContracts(
  * @param kits - framework prop seats per scope.
  * @returns the entries, sorted by key.
  */
-/** 中文说明：函数 resolveSlotEntries 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 resolveSlotEntries 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function resolveSlotEntries(
   declarations: readonly SlotDeclaration[],
   registrations: readonly SlotRegistration[],
@@ -293,7 +293,7 @@ export function resolveSlotEntries(
 }
 
 /** The framework prop seats per scope, read from the merged standard-kit interfaces. */
-/** 中文说明：函数 standardKits 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 standardKits 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function standardKits(files: readonly ScannedFile[]): ReadonlyMap<string, readonly string[]> {
   /** 中文说明：变量 global 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const global = standardKitMembers(files, 'GlobalStandardProps')
@@ -309,7 +309,7 @@ function standardKits(files: readonly ScannedFile[]): ReadonlyMap<string, readon
 }
 
 /** Resolve one declaration into its catalog entry. */
-/** 中文说明：函数 entryOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 entryOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function entryOf(
   declaration: SlotDeclaration,
   registrations: readonly SlotRegistration[],
@@ -363,7 +363,7 @@ function entryOf(
  * lines), which defeats the purpose of narrowing to a single slot — a registrant
  * needs the fields and their documented meaning, not the type graph behind them.
  */
-/** 中文说明：函数 ownerShapes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 ownerShapes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ownerShapes(
   ownerType: string | undefined,
   types: ReadonlyMap<string, TypeDeclaration>,
@@ -380,7 +380,7 @@ function ownerShapes(
 }
 
 /** How a keyed slot's key domain is constrained, '' for the other kinds. */
-/** 中文说明：函数 keyDomainOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 keyDomainOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function keyDomainOf(declaration: SlotDeclaration, occupants: readonly SlotRegistration[]): string {
   if (declaration.kind !== 'keyed') return ''
   /** 中文说明：函数值 taken 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
@@ -393,7 +393,7 @@ function keyDomainOf(declaration: SlotDeclaration, occupants: readonly SlotRegis
 }
 
 /** A runnable minimal registration for one slot, per cardinality. */
-/** 中文说明：函数 exampleOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 exampleOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function exampleOf(declaration: SlotDeclaration): string {
   /** 中文说明：变量 options 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const options = [`name: '${declaration.key}'`, ...KIND_EXAMPLE[declaration.kind] ?? []].join(', ')
@@ -411,7 +411,7 @@ function exampleOf(declaration: SlotDeclaration): string {
 }
 
 /** Extra example options per cardinality. */
-/** 中文说明：常量 KIND_EXAMPLE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 KIND_EXAMPLE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const KIND_EXAMPLE: Readonly<Record<string, readonly string[]>> = {
   single: [],
   list: ["id: 'my-entry'", 'order: 100', "label: 'My entry'"],
@@ -420,13 +420,13 @@ const KIND_EXAMPLE: Readonly<Record<string, readonly string[]>> = {
 }
 
 /** Drop the `@deepseek-ai/dsh-` prefix so rows stay readable. */
-/** 中文说明：函数 shortPackage 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 shortPackage 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function shortPackage(name: string): string {
   return name.replace('@deepseek-ai/dsh-', '')
 }
 
 /** Truncate an over-long declaration, naming the truncation. */
-/** 中文说明：函数 truncate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 truncate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function truncate(text: string): string {
   return text.length > MAX_DECL_CHARS
     ? `${text.slice(0, MAX_DECL_CHARS)} /* …truncated — full shape in source */`
@@ -434,7 +434,7 @@ function truncate(text: string): string {
 }
 
 /** JSDoc prose: comment markers and block tags removed, paragraphs kept. */
-/** 中文说明：函数 docProse 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 docProse 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function docProse(jsDoc: string): string {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = jsDoc.replace(/^\/\*\*/, '').replace(/\*\/$/, '').split('\n')
@@ -450,7 +450,7 @@ function docProse(jsDoc: string): string {
 }
 
 /** First sentence of a prose block, for the compact listing. */
-/** 中文说明：函数 firstSentence 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 firstSentence 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function firstSentence(doc: string): string {
   /** 中文说明：变量 flat 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const flat = doc.replace(/\s+/g, ' ').trim()
@@ -460,13 +460,13 @@ function firstSentence(doc: string): string {
 }
 
 /** Render one value as a single-quoted TypeScript literal. */
-/** 中文说明：函数 quote 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 quote 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function quote(value: string): string {
   return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', '\\n')}'`
 }
 
 /** Render a readonly string-array literal. */
-/** 中文说明：函数 list 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 list 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function list(values: readonly string[], indent: string): string {
   if (values.length === 0) return '[]'
   return ['[', ...values.map(value => `${indent}  ${quote(value)},`), `${indent}]`].join('\n')
@@ -477,7 +477,7 @@ function list(values: readonly string[], indent: string): string {
  * @param entries - resolved catalog entries.
  * @returns the module source.
  */
-/** 中文说明：函数 renderClientCatalog 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderClientCatalog 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function renderClientCatalog(entries: readonly SlotEntry[]): string {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines: string[] = [
@@ -607,7 +607,7 @@ export function renderClientCatalog(entries: readonly SlotEntry[]): string {
  * CLI entry: regenerate the catalog, or with `--check` fail when it is stale.
  * @returns nothing; writes the artifact or reports freshness through the process.
  */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function main(): void {
   /** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const content = renderClientCatalog(collectSlotEntries(root))

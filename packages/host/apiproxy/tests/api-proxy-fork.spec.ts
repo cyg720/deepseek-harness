@@ -1,5 +1,5 @@
 /** Session-fork boundaries, lineage, and inherited model routing. */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-fork.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -64,7 +64,7 @@ async function composed(workspaces: readonly Workspace[] = []): Promise<Context>
 }
 
 /** Tail turn appended after the completed ones: left open, or closed as aborted (a stopped turn). */
-/** 中文说明：类型或类 Tail 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 Tail 约束 API、Hook 或目录数据职责。 */
 type Tail = 'none' | 'open' | 'aborted'
 
 /** 中文说明：函数 liveAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */

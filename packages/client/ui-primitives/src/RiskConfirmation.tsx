@@ -2,7 +2,7 @@
  * Controlled risk acknowledgement dialog shared by product surfaces that
  * must gate a sensitive action behind an explicit checkbox.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：提供敏感操作共用的受控风险确认对话框，要求用户先勾选确认再执行。
  * - 技术维度：使用 React 受控属性、Modal、Button、复选框和 CSS Modules。
@@ -46,7 +46,7 @@ export interface RiskConfirmationProps {
  * Render one in-page confirmation whose primary action is unavailable until
  * the caller-controlled acknowledgement is checked.
  */
-/** 中文：渲染风险确认对话框；所有显示状态和回调来自 props，返回 React 元素。示例：<RiskConfirmation open acknowledged={false} ... />。 */
+/* 中文：渲染风险确认对话框；所有显示状态和回调来自 props，返回 React 元素。示例：<RiskConfirmation open acknowledged={false} ... />。 */
 export function RiskConfirmation({
   open,
   title,

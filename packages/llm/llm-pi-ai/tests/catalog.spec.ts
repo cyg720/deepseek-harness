@@ -46,7 +46,7 @@ afterEach(async () => {
 })
 
 /** A throwaway $DSH_HOME with an empty settings document. */
-/** 中文说明：函数 home 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 home 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function home(): Promise<string> {
   /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-pi-catalog-'))
@@ -56,7 +56,7 @@ async function home(): Promise<string> {
 }
 
 /** The dormant composition plus a real settings service, as the product mounts it. */
-/** 中文说明：函数 bootWithSettings 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 bootWithSettings 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function bootWithSettings(dir: string, config: LlmPiAi.Config): Promise<Context> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -67,7 +67,7 @@ async function bootWithSettings(dir: string, config: LlmPiAi.Config): Promise<Co
 }
 
 /** A complete hand-declared route: nothing about it exists in pi-ai's catalog. */
-/** 中文说明：函数 gateway 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 gateway 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function gateway(baseURL: string, overrides: Record<string, unknown> = {}): LlmPiAi.Config {
   return {
     providers: {
@@ -679,13 +679,13 @@ describe('catalog routes with per-model configuration', () => {
 
 describe('per-model reasoning efforts', () => {
   /** One hand-declared route holding exactly the given models. */
-  /** 中文说明：函数 declared 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+  /* 中文说明：函数 declared 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
   function declared(models: LlmPiAi.PiAiModelProfile[]): Record<string, LlmPiAi.PiAiProviderProfile> {
     return { 'acme-gateway': { api: 'openai-completions', baseURL: 'https://acme.test', models } }
   }
 
   /** The first materialized model of one route, or throw. */
-  /** 中文说明：函数 modelOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+  /* 中文说明：函数 modelOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
   function modelOf(providers: Record<string, LlmPiAi.PiAiProviderProfile>, route = 'acme-gateway'): Model<Api> {
     /** 中文说明：测试局部值 [model]，由紧邻初始化决定。 */
     const [model] = resolveProfiles(providers).get(route)?.piProvider.getModels() ?? []
@@ -871,7 +871,7 @@ describe('modelOverrides', () => {
 
 describe('compat switches', () => {
   /** The materialized models of one route, keyed by id. */
-  /** 中文说明：函数 modelsOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+  /* 中文说明：函数 modelsOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
   function modelsOf(providers: Record<string, LlmPiAi.PiAiProviderProfile>, route: string): Map<string, Model<Api>> {
     /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = resolveProfiles(providers).get(route)?.piProvider.getModels() ?? []

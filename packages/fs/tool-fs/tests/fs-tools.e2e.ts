@@ -17,7 +17,7 @@ import { fsHarness, waitForIdle } from './harness.ts'
 
 /** Key-gated smoke for a real model driving the local read/write/edit tools. */
 
-/** 中文说明：测试局部值 ctx: Context | undefined，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 ctx: Context | undefined，由紧邻初始化决定。 */
 let ctx: Context | undefined
 /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let workdir: string | undefined

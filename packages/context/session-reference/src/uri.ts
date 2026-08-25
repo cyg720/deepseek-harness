@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】会话引用的规范 URI 编码与内联提及（mention）语法：把任意会话 id
  *             编码成无损的 dsh-session: URI，并负责在用户文本里解析/生成
@@ -25,7 +25,7 @@ import { SessionReferenceError } from './config.ts'
 import type { SessionReferenceInput } from './types.ts'
 
 /** URI scheme reserved for DeepSeek Harness session snapshots. */
-/** 保留给 DeepSeek Harness 会话快照的 URI 协议前缀：dsh-session:。 */
+/* 保留给 DeepSeek Harness 会话快照的 URI 协议前缀：dsh-session:。 */
 export const SESSION_REFERENCE_SCHEME = 'dsh-session:'
 
 /**
@@ -33,7 +33,7 @@ export const SESSION_REFERENCE_SCHEME = 'dsh-session:'
  * @param sessionId - opaque session id to serialize.
  * @returns canonical `dsh-session:` URI.
  */
-/**
+/*
  * 把任意 JavaScript 字符串形式的会话 id 编码为规范的无损 URI。
  * 先 JSON 序列化再 base64url，保证任何字符（含非 UTF-8 安全的）都能无损还原。
  * @param sessionId 待序列化的不透明会话 id
@@ -49,7 +49,7 @@ export function encodeSessionReferenceUri(sessionId: SessionIdType): string {
  * @param uri - complete canonical URI.
  * @returns decoded session id.
  */
-/**
+/*
  * 解码并规范化一个会话引用 URI：解码出的 id 必须能重新编码出完全相同的
  * URI，否则视为伪造/非规范形式直接拒绝。
  * @param uri 完整的规范 URI
@@ -80,7 +80,7 @@ export function decodeSessionReferenceUri(uri: string): SessionIdType {
  * @param reference - structured id and optional display label.
  * @returns escaped `@[label](uri)` mention.
  */
-/**
+/*
  * 生成宿主无关的 Markdown 提及：@[label](uri)。label 缺省时用会话 id 本身，
  * 含特殊字符的 label 会被转义保证语法正确。
  * @param reference 结构化引用：会话 id 与可选展示 label
@@ -92,13 +92,13 @@ export function formatSessionReferenceMention(reference: SessionReferenceInput):
 }
 
 /** Result of extracting canonical mentions from plain text. */
-/** 从纯文本中提取规范提及的结果：可读文本 + 结构化引用列表。 */
+/* 从纯文本中提取规范提及的结果：可读文本 + 结构化引用列表。 */
 export interface ParsedSessionReferenceText {
   /** Text with opaque tokens replaced by readable `@label` spans. */
-  /** 替换后的文本：原来的长 URI 都被换成可读的 @label 片段。 */
+  /* 替换后的文本：原来的长 URI 都被换成可读的 @label 片段。 */
   text: string
   /** Structured references in first-appearance order, before service deduplication. */
-  /** 按首次出现顺序收集的结构化引用（尚未经过服务层去重）。 */
+  /* 按首次出现顺序收集的结构化引用（尚未经过服务层去重）。 */
   references: SessionReferenceInput[]
 }
 
@@ -110,7 +110,7 @@ export interface ParsedSessionReferenceText {
  * @param text - host text to normalize.
  * @returns readable text and structured references in appearance order.
  */
-/**
+/*
  * 从一段文本中提取 Markdown 提及与裸规范 URI。显式 Markdown 提及遇到
  * 畸形 URI 直接失败；裸文本只有负载长得像 base64url 才当作候选，
  * 且候选必须通过规范性校验。

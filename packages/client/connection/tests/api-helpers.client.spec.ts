@@ -3,7 +3,7 @@
  * (The assistant block classifier half of the legacy spec lives in
  * runtime/tests — the classifier moved there.)
  */
-/**
+/*
  * 文件职责：验证客户端 API 层把传输异常折叠为统一错误，并从 RPC 包装中解出结果。
  * 技术维度：使用 Vitest 对 Error、非 Error 值和品牌化 RPC 标识执行纯函数测试。
  * 产品维度：让界面收到稳定的成功或失败结果，不直接依赖底层传输抛出的任意值。

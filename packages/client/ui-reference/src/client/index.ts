@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-client-ui-reference/client
  */
-/**
+/*
  * 文件职责：实现客户端统一引用搜索的数据来源（index.ts）。
  * 技术维度：TypeScript、并行异步查询、取消信号与生成的 Remote API。
  * 产品维度：让用户能在输入框中快速引用文件和会话。
@@ -27,7 +27,7 @@ import type { SessionReferenceMentionCandidate } from '@deepseek-ai/dsh-session-
 import { en, NS, zh, type ReferenceKey } from './locales.ts'
 
 /** Required services: the trigger registry, the Remote namespaces, and the copy. */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = [
   'inputTriggers', 'locale', 'remote', 'remote.fileReferences', 'remote.sessionReferenceResolver',
 ]
@@ -36,7 +36,7 @@ export const inject = [
  * Register the combined `@file` / `@session` source.
  * @param ctx - client root context.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-reference: dictionaries')
   /** 中文说明：变量 t 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

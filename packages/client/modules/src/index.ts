@@ -40,7 +40,7 @@
  * {@link ClientModuleRegistry.rebuilt}.
  * @module @deepseek-ai/dsh-client-modules
  */
-/**
+/*
  * 客户端模块系统的节点半边（dsh.client 双面包）：扫描 Host Loader 条目中
  * 声明 dsh.client 的包，按模块图顺序组合 window.__DSH_BOOT__ 条目图
  * （线单一来源：./client/manifest.ts 的 WebBootEntry），服务
@@ -78,18 +78,18 @@ export type {
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** The web plugin table (provided by the client-modules node half). */
-    /** web 插件表（由 client-modules 节点半边提供）。 */
+    /* web 插件表（由 client-modules 节点半边提供）。 */
     clientModules: ClientModuleRegistry
   }
 }
 
 /** package.json `dsh.client` declaration fields, validated one by one after reading the file. */
-/** package.json 的 dsh.client 声明字段，读文件后逐项校验。 */
+/* package.json 的 dsh.client 声明字段，读文件后逐项校验。 */
 interface DshClientDeclaration {
   inject?: string[]
   platform: string
   /** Boot phase-one prefetch mark; absent means lazy (fetched on demand). */
-  /** 启动一阶段预取标记；缺省为懒（按需拉取）。 */
+  /* 启动一阶段预取标记；缺省为懒（按需拉取）。 */
   immediately?: boolean
   /**
    * Exact module-table requests beyond the implicit client baseline. Any
@@ -98,7 +98,7 @@ interface DshClientDeclaration {
    * import is not a request because the transform erases it before resolution.
    * Absent means the package uses only the baseline externals.
    */
-  /**
+  /*
    * 超出隐式客户端基线的精确模块表请求。任何说明符都有效，含 <pkg>/client
    * 之类子路径；每个导入包声明自己的例外请求。仅类型导入不是请求，因为
    * 转换在解析前就擦除它。缺省表示包只用基线外部化。
@@ -107,27 +107,27 @@ interface DshClientDeclaration {
 }
 
 /** The declared fields a graph row carries, normalized (absent array declarations become empty). */
-/** 图行携带的声明字段，已规范化（缺省数组声明变空）。 */
+/* 图行携带的声明字段，已规范化（缺省数组声明变空）。 */
 interface WebBootRowFields {
   inject?: string[]
   /** Module specifiers the package requests from the module table. */
-  /** 包向模块表请求的模块说明符。 */
+  /* 包向模块表请求的模块说明符。 */
   external: string[]
   immediately: boolean
 }
 
 /** Resolved package metadata for one `dsh.client` package (cached per name, never expires). */
-/** 一个 dsh.client 包的已解析包元数据（按名缓存，永不过期）。 */
+/* 一个 dsh.client 包的已解析包元数据（按名缓存，永不过期）。 */
 interface PkgMeta extends WebBootRowFields {
   clientPath: string
 }
 
 /** Recovery instruction shared by grouped startup and steady-state bundle diagnostics. */
-/** 分组启动与稳态 bundle 诊断共享的恢复指引。 */
+/* 分组启动与稳态 bundle 诊断共享的恢复指引。 */
 const CLIENT_BUNDLE_BUILD_INSTRUCTION = 'run `pnpm run build` before launch'
 
 /** Missing built client export, retained as structured data for activation-error grouping. */
-/** 缺失的内置客户端导出，保留为结构化数据以支持激活错误分组。 */
+/* 缺失的内置客户端导出，保留为结构化数据以支持激活错误分组。 */
 class MissingClientBundleError extends Error {
   constructor(
     readonly packageName: string,
@@ -146,7 +146,7 @@ class MissingClientBundleError extends Error {
 }
 
 /** Activation failures grouped by actionable package-build errors and unrelated failures. */
-/** 激活失败按"可操作的包构建错误"与"无关失败"分组。 */
+/* 激活失败按"可操作的包构建错误"与"无关失败"分组。 */
 class ClientPackageCompositionError extends AggregateError {
   constructor(failures: Error[]) {
     const missingBundles = failures.filter((error): error is MissingClientBundleError => error instanceof MissingClientBundleError)
@@ -167,14 +167,14 @@ class ClientPackageCompositionError extends AggregateError {
 }
 
 /** One composed table row: the wire entry plus the resolved package metadata behind it. */
-/** 一条组合表行：线条目 + 其背后的已解析包元数据。 */
+/* 一条组合表行：线条目 + 其背后的已解析包元数据。 */
 interface WebPluginRecord {
   entry: WebBootEntry
   meta: PkgMeta
 }
 
 /** Narrow an unknown parsed JSON value to the `dsh.client` declaration, throwing on malformed fields. */
-/** 把未知解析 JSON 值收窄为 dsh.client 声明；畸形字段抛错。 */
+/* 把未知解析 JSON 值收窄为 dsh.client 声明；畸形字段抛错。 */
 function parseDshClient(pkgName: string, value: unknown): DshClientDeclaration | undefined {
   if (value === undefined) return undefined
   if (typeof value !== 'object' || value === null) {
@@ -198,7 +198,7 @@ function parseDshClient(pkgName: string, value: unknown): DshClientDeclaration |
 }
 
 /** Resolve `exports["./client"]` to a relative path, accepting the string and one-level conditional forms. */
-/** 把 exports["./client"] 解析为相对路径，接受字符串与一级条件形式。 */
+/* 把 exports["./client"] 解析为相对路径，接受字符串与一级条件形式。 */
 function clientExportOf(pkgName: string, exportsField: unknown): string | undefined {
   if (typeof exportsField !== 'object' || exportsField === null) return undefined
   const client = (exportsField as Record<string, unknown>)['./client']
@@ -212,13 +212,13 @@ function clientExportOf(pkgName: string, exportsField: unknown): string | undefi
 }
 
 /** sha1 content hash shortened to 12 hex chars (bundle rev / graph rev). */
-/** sha1 内容哈希截为 12 个十六进制字符（bundle rev / 图 rev）。 */
+/* sha1 内容哈希截为 12 个十六进制字符（bundle rev / 图 rev）。 */
 function shortHash(input: string | Buffer): string {
   return createHash('sha1').update(input).digest('hex').slice(0, 12)
 }
 
 /** Graph row for one bundle rev (url carries the rev as its cache-busting query). */
-/** 一个 bundle rev 的图行（url 以 rev 作为其缓存破坏查询）。 */
+/* 一个 bundle rev 的图行（url 以 rev 作为其缓存破坏查询）。 */
 function graphRow(id: string, rev: string, fields: WebBootRowFields): WebBootEntry {
   return {
     id,
@@ -240,7 +240,7 @@ function graphRow(id: string, rev: string, fields: WebBootRowFields): WebBootEnt
  * @throws {Error} when a row requests itself or when the module graph has a
  * cycle; the message lists the packages on it.
  */
-/**
+/*
  * 给组合行排序，使每个被请求的动态包先于其消费方。external 说明符要么是
  * 它命名的包行（<pkg>/client 别名为裸包），要么是不加图边的静态表名。
  * @param entries 扫描顺序的组合行。
@@ -282,15 +282,15 @@ export function orderByModuleGraph(entries: readonly WebBootEntry[]): WebBootEnt
 }
 
 /** Bootstrap package whose ordinary client bundle supplies the module-system implementation. */
-/** bootstrap 包：其普通客户端 bundle 提供模块系统实现。 */
+/* bootstrap 包：其普通客户端 bundle 提供模块系统实现。 */
 const CLIENT_MODULES_ID = '@deepseek-ai/dsh-client-modules'
 
 /** Dynamic package whose ordinary client bundle must be registered before plugin boot starts. */
-/** 动态包：其普通客户端 bundle 必须在插件启动开始前注册。 */
+/* 动态包：其普通客户端 bundle 必须在插件启动开始前注册。 */
 const CLIENT_RUNTIME_ID = '@deepseek-ai/dsh-client-runtime'
 
 /** Ordinary dynamic bundles the HTML parser executes before the Vite shell. */
-/** HTML 解析器在 Vite shell 前执行的普通动态 bundle。 */
+/* HTML 解析器在 Vite shell 前执行的普通动态 bundle。 */
 const PARSER_PRELOAD_IDS = [CLIENT_MODULES_ID, CLIENT_RUNTIME_ID] as const
 
 /**
@@ -303,7 +303,7 @@ const PARSER_PRELOAD_IDS = [CLIENT_MODULES_ID, CLIENT_RUNTIME_ID] as const
  * @param graph - the composed entry graph.
  * @returns head rows in execution order: queue script, preload scripts, graph global.
  */
-/**
+/*
  * 以 index 注入行表达的启动协议。内联注册队列先于 modules 与 runtime 的
  * 普通 lib/client.js 阻塞经典脚本。其 create() 方法物化 modules bundle、
  * 把构造委派给该 bundle，并让同一门面留在实时注册模式。图全局随后，在
@@ -352,7 +352,7 @@ window.__ModuleLoader__={
  * already-loaded entries aggregates into one loud throw (FAILED fiber; the
  * boot activation audit reports it).
  */
-/**
+/*
  * web 插件表服务：增量 dsh.client 扫描 + 线组合 + bundle 路由 + index 注入
  * 行。构造同步运行激活扫描——已加载条目中的畸形声明或缺失 bundle 聚合为
  * 一次响亮抛错（FAILED fiber；启动激活审计报告它）。

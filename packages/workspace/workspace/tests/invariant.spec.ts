@@ -14,7 +14,7 @@ import * as WorkspaceInvariant from '../src/invariant.ts'
 import { WorkspaceId } from '../src/index.ts'
 
 /** Boot the invariant service plus the companion over a stubbed registry knowing exactly `ids`. */
-/**
+/*
  * 启动不变量服务和工作区伴随检查器，并让桩注册表只识别给定编号。
  * @param ids 注册表当前持有的工作区编号。
  * @returns 已安装待测插件的 Cordis 上下文。

@@ -1,5 +1,5 @@
 /** Canonical packed-row and envelope projection helpers for repository session fixtures. */
-/**
+/*
  * 文件职责：实现 session-fixture-layout.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -16,7 +16,7 @@ import { packChunkRuns, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 
 /** One repository session fixture and its canonical projected representation. */
-/** 中文说明：interface SessionFixtureLayout 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface SessionFixtureLayout 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface SessionFixtureLayout {
   /** Repository-relative path with `/` separators. */
   path: string
@@ -66,7 +66,7 @@ function withoutEnvelope(events: readonly SessionEvent[]): Array<Omit<SessionEve
  * @param label - path-like diagnostic label.
  * @returns Canonical text for a session fixture, otherwise undefined.
  */
-/** 中文说明：函数 canonicalSessionFixture 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 canonicalSessionFixture 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function canonicalSessionFixture(content: string, label = '<session-fixture>'): string | undefined {
   /** 中文说明：函数值 headerLine 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const headerLine = content.split(/\r?\n/).find(line => line.trim().length > 0)
@@ -111,7 +111,7 @@ export function canonicalSessionFixture(content: string, label = '<session-fixtu
  * @param root - repository root.
  * @returns Stable repository-relative paths.
  */
-/** 中文说明：函数 discoverJsonlFiles 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 discoverJsonlFiles 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function discoverJsonlFiles(root: string): string[] {
   return execFileSync(
     'git',
@@ -128,7 +128,7 @@ function discoverJsonlFiles(root: string): string[] {
  * @param root - repository root.
  * @returns Session fixtures with current and canonical text.
  */
-/** 中文说明：函数 inspectSessionFixtureLayouts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 inspectSessionFixtureLayouts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function inspectSessionFixtureLayouts(root: string): SessionFixtureLayout[] {
   return discoverJsonlFiles(root).flatMap((path) => {
     /** 中文说明：变量 source 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

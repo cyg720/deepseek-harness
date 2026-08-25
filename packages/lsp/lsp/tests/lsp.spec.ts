@@ -21,7 +21,7 @@ import Lsp, {
 } from '@deepseek-ai/dsh-lsp'
 
 /** A scripted provider that records the queries it receives. */
-/** 中文说明：函数 makeProvider 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 makeProvider 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function makeProvider(
   id: string,
   extensionToLanguage: Record<string, string>,
@@ -45,7 +45,7 @@ function makeProvider(
 }
 
 /** Mount an Lsp service on a fresh root context. */
-/** 中文说明：函数 mountLsp 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 mountLsp 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountLsp(): Promise<{ ctx: Context; lsp: Lsp }> {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()

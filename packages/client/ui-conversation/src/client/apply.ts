@@ -136,7 +136,7 @@ function selectApproval({ interactions }: ComposerChainProps): ApprovalWait | nu
 /** Mounts the conversation plugin.
  * @param ctx - Client root context.
  */
-/**
+/*
  * 装载会话插件：注册节点 / 渲染器 / 字典，创建 store 与输入状态机，注册全部槽位组件，
  * 挂载 conversation 服务与停靠条目。
  * @param ctx - 客户端根上下文。

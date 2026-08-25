@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】可选的请求准备期 tmux 位置上下文插件：向合格步骤追加一条持久化、
  *             带来源归属的上下文，命名本 agent 进程所在的 tmux 会话/窗口/窗格
@@ -45,23 +45,23 @@ import type { ShellExecutor, ShellRunResult } from '@deepseek-ai/dsh-shell'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 
 /** Cordis plugin name used by loader diagnostics. */
-/** Cordis 插件名：加载器诊断与消息来源归属都用它。 */
+/* Cordis 插件名：加载器诊断与消息来源归属都用它。 */
 export const name = 'tmux-context'
 
 /** The agent registry that owns pre-step processing. */
-/** 依赖注入声明：需要 agents 服务（agent 生命周期与 pre-step 处理）。 */
+/* 依赖注入声明：需要 agents 服务（agent 生命周期与 pre-step 处理）。 */
 export const inject = ['agents']
 
 /** Per-turn tmux-location scheduling. Invalid values fail plugin load. */
-/** 每回合 tmux 位置注入的调度配置；非法值会导致插件加载失败。 */
+/* 每回合 tmux 位置注入的调度配置；非法值会导致插件加载失败。 */
 export interface Config {
   /** Minimum milliseconds between durable injections in one session. Omit or set to 0 to inject on every eligible change. */
-  /** 同一会话内两次持久化注入的最小间隔毫秒数；省略或 0 表示每次状态变化都注入。 */
+  /* 同一会话内两次持久化注入的最小间隔毫秒数；省略或 0 表示每次状态变化都注入。 */
   refreshIntervalMs?: number
 }
 
 /** Schemastery validation for {@link Config}. */
-/** Config 的 schemastery 校验模式。 */
+/* Config 的 schemastery 校验模式。 */
 export const Config: z<Config> = z.object({
   refreshIntervalMs: z.number(),
 })
@@ -71,7 +71,7 @@ export const Config: z<Config> = z.object({
  * is the pane-tree description; pane/window pixel sizes are intentionally
  * excluded (own location and layout only, per the package scope).
  */
-/**
+/*
  * 制表符分隔的 tmux 格式字段（查询顺序）。window_layout 是窗格树描述；
  * 窗格/窗口的像素尺寸被刻意排除（按包范围只关心自身位置与布局）。
  */
@@ -87,7 +87,7 @@ const TMUX_FIELDS = [
 ] as const
 
 /** Structured tmux location parsed from one `display-message` reading. */
-/** 从一次 display-message 读取解析出的结构化 tmux 位置。 */
+/* 从一次 display-message 读取解析出的结构化 tmux 位置。 */
 interface TmuxLocation {
   sessionName: string
   windowIndex: string
@@ -100,7 +100,7 @@ interface TmuxLocation {
 }
 
 /** Prefix marking the volatile turn/step preamble line of a rendered reading. */
-/** 渲染读取文本的易变"回合"前缀：tmux location (turn N):。 */
+/* 渲染读取文本的易变"回合"前缀：tmux location (turn N):。 */
 const READING_PREFIX = 'tmux location (turn '
 
 /**
@@ -108,7 +108,7 @@ const READING_PREFIX = 'tmux location (turn '
  * in a format, so the literal two-character sequence `\t` is emitted verbatim
  * and split back out here; this avoids embedding raw whitespace in the command.
  */
-/**
+/*
  * tmux 格式字段间的分隔符。tmux 不解释格式中的 C 转义，因此把字面的
  * 双字符序列 \t 原样放进命令，之后再按它切分；这样避免在命令里嵌入
  * 真实空白。
@@ -140,7 +140,7 @@ const FIELD_SEP = '\\t'
  * @param signal - abort signal forwarded to the executor.
  * @returns the parsed location, or `undefined` when not in a real pane or on any failure.
  */
-/**
+/*
  * 通过 bash 执行器读取本进程的 tmux 位置；不在真实 tmux 窗格内或查询失败时
  * 返回 undefined。单靠 $TMUX_PANE 不够：从 tmux shell 启动的终端（如 VS Code
  * 集成终端）会继承这两个变量，但进程并不在那个窗格里。因此脚本还会把窗格的
@@ -209,7 +209,7 @@ async function queryTmuxLocation(
  * change suppression. It excludes the turn preamble so re-injection is driven
  * only by tmux state, not by loop position.
  */
-/**
+/*
  * 渲染稳定的 tmux 状态块：这是读取文本中用于变更抑制比较的部分。
  * 刻意不含回合前缀，使"是否重新注入"只由 tmux 状态决定，与循环位置无关。
  */
@@ -222,7 +222,7 @@ function renderState(location: TmuxLocation): string {
 }
 
 /** Render the full durable reading, including the volatile turn preamble. */
-/** 渲染完整的持久化读取文本（含易变的回合前缀 + 稳定状态块）。 */
+/* 渲染完整的持久化读取文本（含易变的回合前缀 + 稳定状态块）。 */
 function renderReading(location: TmuxLocation, turn: number): string {
   return `${READING_PREFIX}${turn}):\n${renderState(location)}`
 }
@@ -233,7 +233,7 @@ function renderReading(location: TmuxLocation, turn: number): string {
  * schedule survives compaction and resumed processes without process-local
  * cache state.
  */
-/**
+/*
  * 本插件最近一次持久化注入的稳定状态块；会话里没有则为 undefined。
  * 扫描原始持久化事件，使节流判断在压缩与进程恢复后依然可靠，
  * 不依赖进程内的缓存状态。
@@ -255,7 +255,7 @@ function latestInjectedState(agent: Agent): { state: string; time: number } | un
 }
 
 /** Reject refresh intervals that cannot represent an exact elapsed-millisecond threshold. */
-/** 拒绝无法表示精确毫秒阈值的刷新间隔：必须是非负安全整数。 */
+/* 拒绝无法表示精确毫秒阈值的刷新间隔：必须是非负安全整数。 */
 function validateRefreshInterval(refreshIntervalMs: number | undefined): void {
   if (refreshIntervalMs !== undefined && (
     !Number.isSafeInteger(refreshIntervalMs)
@@ -273,7 +273,7 @@ function validateRefreshInterval(refreshIntervalMs: number | undefined): void {
  * @param config - durable refresh scheduling configuration.
  * @throws when the refresh interval is invalid.
  */
-/**
+/*
  * 注册一个 prepend 的 pre-step 监听（随 ctx 生命周期一起卸载）：
  * 每个回合的第一步查询一次 tmux 位置，状态变化时在消息开头注入读取。
  * @param ctx 插件上下文；监听随其一起销毁

@@ -3,7 +3,7 @@
  * Bump the launcher workspace root and packages/* to one version, refresh the
  * repository lockfile, and verify. Usage: `pnpm release:bump <major|minor|patch|x.y.z>`.
  */
-/**
+/*
  * 文件职责：统一提升 Landlock 启动器工作区及其发布包的版本，并刷新锁文件、执行发布校验。
  * 技术维度：使用 Node.js 文件系统、路径和同步子进程 API 修改 JSON 清单并调用 pnpm 与校验脚本。
  * 产品维度：保证同一发布批次中的平台包和入口包版本一致，降低漏改版本造成的安装失败风险。
@@ -81,7 +81,7 @@ function parseVersion(version) {
 }
 
 /** Explicit target versions accept full semver, prereleases included (test publishes). */
-/** 明确目标版本可包含预发布段，主要用于正式发布前的测试发布。 */
+/* 明确目标版本可包含预发布段，主要用于正式发布前的测试发布。 */
 const EXPLICIT_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/;
 
 /**

@@ -12,7 +12,7 @@
  * change an agent's tools but never its identity.
  * @module @deepseek-ai/dsh-persona
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的Agent Persona配置、注册与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验和系统资源管理。
  * 产品维度：为 Agent 提供可靠的Agent Persona能力。
@@ -33,15 +33,15 @@ import { PERSONA_ORDER, PERSONA_SECTION } from '@deepseek-ai/dsh-system-prompt'
 export { PERSONA_ORDER, PERSONA_SECTION }
 
 /** Cordis plugin name. */
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'persona'
 
 /** The prompt registry this row contributes to. */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['systemPrompt']
 
 /** Plugin config: the persona text this composition contributes. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达Agent Persona场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达Agent Persona场景。 */
 export interface Config {
   /**
    * Persona prose rendered as the `deployment:persona` section. A template:
@@ -56,7 +56,7 @@ export interface Config {
 }
 
 /** Runtime schema for the persona row. */
-/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   text: z.string().required(),
   complete: z.boolean().default(false),
@@ -69,7 +69,7 @@ export const Config: z<Config> = z.object({
  * prompt registry's own persona registration and rejects.
  * @param config - the persona text and complete-prompt policy.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   ctx.effect(() => ctx.systemPrompt.section({
     name: PERSONA_SECTION,

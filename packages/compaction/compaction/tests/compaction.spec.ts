@@ -26,7 +26,7 @@ import type { ManualCompactAgentContext } from '@deepseek-ai/dsh-compaction'
  * service registration, the abstract method shape, and the `compaction/*` event
  * declaration merge.
  */
-/** 中文说明：类型或类 StubCompactionEngine 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 StubCompactionEngine 约束上下文或压缩数据职责。 */
 class StubCompactionEngine extends CompactionEngine {
   /** Records the signal handed to the most recent call, to prove it threads through. */
   lastSignal: AbortSignal | undefined

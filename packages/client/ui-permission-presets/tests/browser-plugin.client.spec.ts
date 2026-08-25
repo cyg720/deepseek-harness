@@ -8,7 +8,7 @@
  * disposal removes the contribution (HMR safety). The same plugin registers
  * its Settings row and invalidates that row on host settings changes.
  */
-/**
+/*
  * 文件职责：验证权限预设的 browser-plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染和可控服务替身。
  * 产品维度：防止权限预设用户流程回归。

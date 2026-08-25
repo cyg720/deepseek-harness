@@ -4,7 +4,7 @@
  * treats an empty roster as "this deployment composes no presets" rather than
  * as a failure.
  */
-/**
+/*
  * 文件职责：验证代理预设界面的 settings-store 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -21,7 +21,7 @@ import {
 } from '../src/client/settings-store.ts'
 
 /** Controller over a real mirror derived from the same fake wire. */
-/** 中文说明：函数 derivedController 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 derivedController 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function derivedController(api: IApiClient) {
   return new AgentPresetSettingsController(api, new SettingsDescribeMirror(api))
 }
@@ -32,7 +32,7 @@ import type { SeatSessionSummary } from '../src/client/seat-store.ts'
 interface Recorded { ns: string; patch: unknown }
 
 /** A client whose roster and write outcome the test controls. */
-/** 中文说明：函数 fakeApi 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fakeApi 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fakeApi(
   presets: { id: string; trust: 'system' | 'user'; isDefault: boolean }[],
   options: {
@@ -274,7 +274,7 @@ describe('the agent-preset settings controller', () => {
 
 describe('the new-session chip controller', () => {
   /** A chip over a current session the test can move. */
-  /** 中文说明：函数 chip 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+  /* 中文说明：函数 chip 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function chip(
     presets: { id: string; trust: 'system' | 'user'; isDefault: boolean }[],
     current: { id: string; blank: boolean; agentPreset?: string } | undefined,

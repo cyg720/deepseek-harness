@@ -6,7 +6,7 @@
  * resolution against the source file. The checker never rewrites, and
  * symlinked instruction files are deduped.
  */
-/**
+/*
  * 文件职责：实现 verify-md-links.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -25,7 +25,7 @@ import { isArchivedAgentNotePath, uniqueRepoFiles } from './repo-files.ts'
 const root = resolve(import.meta.dirname, '..')
 
 /** Repo-authored Markdown checked for relative links. */
-/** 中文说明：常量 PATTERNS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PATTERNS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PATTERNS = [
   'README.md',
   'README.zh.md',
@@ -40,7 +40,7 @@ const PATTERNS = [
 ]
 
 /** A broken relative link: a missing target path or a missing anchor on it. */
-/** 中文说明：interface Violation 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface Violation 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface Violation {
   file: string
   /** 1-based line where the link/image/definition node starts. */
@@ -55,7 +55,7 @@ interface Violation {
  * `mailto:`, …), protocol-relative (`//host`), and root-absolute (`/path`).
  * Pure in-page anchors (`#frag`) ARE checked, against the source file itself.
  */
-/** 中文说明：函数 isExternal 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isExternal 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isExternal(url: string): boolean {
   if (url.startsWith('//')) return true
   if (url.startsWith('/')) return true
@@ -71,7 +71,7 @@ function isExternal(url: string): boolean {
  * path in that case so the link is reported as broken (a `%zz` target is not a
  * file anyone meant to link) rather than crashing the gate.
  */
-/** 中文说明：函数 pathPart 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 pathPart 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function pathPart(url: string): string {
   /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = url.replace(/[#?].*$/, '')
@@ -86,7 +86,7 @@ function pathPart(url: string): string {
 }
 
 /** The percent-decoded `#fragment` of a link target, or null when it has none. */
-/** 中文说明：函数 fragmentPart 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 fragmentPart 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function fragmentPart(url: string): string | null {
   /** 中文说明：变量 hash 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hash = url.indexOf('#')
@@ -112,7 +112,7 @@ function fragmentPart(url: string): string | null {
  * @param heading - the RENDERED heading text (Markdown syntax already gone).
  * @returns the anchor GitHub assigns the first occurrence of the heading.
  */
-/** 中文说明：函数 githubSlug 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 githubSlug 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function githubSlug(heading: string): string {
   return heading.toLowerCase().replace(/[^\p{L}\p{N}_ -]/gu, '').replaceAll(' ', '-')
 }
@@ -130,7 +130,7 @@ export function githubSlug(heading: string): string {
  * @param source - the document's full Markdown text.
  * @returns the set of valid fragments for links into this document.
  */
-/** 中文说明：函数 documentAnchors 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 documentAnchors 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function documentAnchors(source: string): Set<string> {
   /** 中文说明：变量 anchors 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const anchors = new Set<string>()
@@ -166,7 +166,7 @@ export function documentAnchors(source: string): Set<string> {
  * shared across all scanned sources so a target parses once.
  * @returns the memoized absolute-path → anchor-set lookup.
  */
-/** 中文说明：函数 anchorCache 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 anchorCache 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function anchorCache(): (absPath: string) => Set<string> {
   /** 中文说明：变量 cache 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cache = new Map<string, Set<string>>()
@@ -192,7 +192,7 @@ export function anchorCache(): (absPath: string) => Set<string> {
  * @param scanRoot - repository root violations are reported relative to.
  * @returns one entry per broken link, in document order.
  */
-/** 中文说明：函数 findViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 findViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function findViolations(
   absPath: string,
   anchorsOf: (abs: string) => Set<string>,

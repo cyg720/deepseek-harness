@@ -31,7 +31,7 @@ export interface TrajectoryRequestHeaderState {
 }
 
 /** One independently assembled contribution to the legacy Trajectory ledger. */
-/**
+/*
  * 一条独立组装的轨迹贡献（判别联合）：node / assistant / tool / request-header /
  * compaction / session-end / turn-end 七种，kind 是判别字段。
  */

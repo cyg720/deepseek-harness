@@ -29,7 +29,7 @@ import { toAssistantBlock } from './conversation.ts'
  * @param type - Stream chunk discriminant.
  * @returns Whether publishing the accumulated partial can change the visible snapshot.
  */
-/**
+/*
  * 一个流分块是否会改变 UI 展示的部分助手投影。
  * @param type 流分块的判别类型。
  * @returns 发布累加结果是否可能改变可见快照。
@@ -43,7 +43,7 @@ export function isVisibleAssistantChunk(type: string): boolean {
 }
 
 /** assistant/chunk accumulator: folds StreamChunks into AssistantBlock[] with block-level immutability. */
-/** assistant/chunk 累加器：把 StreamChunk 折叠成 AssistantBlock[]，块级不可变。 */
+/* assistant/chunk 累加器：把 StreamChunk 折叠成 AssistantBlock[]，块级不可变。 */
 export class PartialAccumulator {
   // Sparse on purpose: block-start may arrive out of order, leaving holes until compaction.
   // 有意稀疏：block-start 可能乱序到达，压实前会留下空洞。
@@ -56,7 +56,7 @@ export class PartialAccumulator {
    * @param step - Owning model step.
    * @param initialBlocks - Materialized prefix when accumulation begins after history replay.
    */
-  /**
+  /*
    * @param turn 属主 agent 轮次。
    * @param step 属主模型步骤。
    * @param initialBlocks 历史重放后才开始累加时已物化的前缀块。
@@ -75,7 +75,7 @@ export class PartialAccumulator {
    * @param chunk - the stream chunk.
    * @returns whether it caused a visible change (usage/finish return false, skipping notification).
    */
-  /**
+  /*
    * 折叠一个分块。
    * @param chunk 流分块。
    * @returns 是否造成可见变化（usage/finish 返回 false，跳过通知）。
@@ -129,7 +129,7 @@ export class PartialAccumulator {
    * Current partial projection.
    * @returns the cached snapshot (the blocks array reference only changes after a mutation).
    */
-  /**
+  /*
    * 当前的部分投影。
    * @returns 缓存快照（blocks 数组引用只在变更后变化）。
    */
@@ -149,7 +149,7 @@ export class PartialAccumulator {
  * @param blockType - wire block kind.
  * @returns empty projected block ready to receive deltas.
  */
-/**
+/*
  * 为一种流式助手块类型创建空的客户端投影。
  * @param blockType 线上的块类型。
  * @returns 准备好接收增量的空投影块。

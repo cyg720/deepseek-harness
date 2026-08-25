@@ -22,7 +22,7 @@ import { PermissionPresetSettingsController } from '../src/client/settings-store
 const schema = new SettingsSchemaService(new Context())
 
 /** Controller over a real mirror derived from the same fake wire. */
-/** 中文说明：函数 derivedController 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 derivedController 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function derivedController(api: { settings: object }) {
   /** 中文说明：测试局部值 wire，由紧邻初始化决定。 */
   const wire = api as never

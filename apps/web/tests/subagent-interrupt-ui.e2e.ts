@@ -56,7 +56,7 @@ const PARKED_ANSWER = 'parked follow-up answer'
 const WAKING_ANSWER = 'waking answer'
 
 /** Poll a synchronous condition (hook-safe; expect.poll is test-body only). */
-/** 轮询 predicate 直到成功；what 用于超时说明，timeoutMs 默认三十秒。 */
+/* 轮询 predicate 直到成功；what 用于超时说明，timeoutMs 默认三十秒。 */
 async function waitFor(predicate: () => boolean, what: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (!predicate()) {
@@ -66,7 +66,7 @@ async function waitFor(predicate: () => boolean, what: string, timeoutMs = 30_00
 }
 
 /** Resolve on one exact child's next aborted turn end. */
-/** 等待 childId 的下一条 aborted 回合结束事件，无返回值。 */
+/* 等待 childId 的下一条 aborted 回合结束事件，无返回值。 */
 function waitForAbortedTurn(scaffold: WebScaffold, childId: SessionId): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {

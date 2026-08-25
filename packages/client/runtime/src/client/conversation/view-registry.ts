@@ -21,7 +21,7 @@ import { ConversationDefinitionRegistry } from './definition-registry.ts'
 export class ConversationViewRegistry extends ConversationDefinitionRegistry<ConversationViewDefinition> {
 
   /** @param ctx - owning Client Runtime context. */
-  /** 构造函数：把注册表挂到给定上下文中，并声明注册表键名为 'conversationViews'。 */
+  /* 构造函数：把注册表挂到给定上下文中，并声明注册表键名为 'conversationViews'。 */
   constructor(ctx: Context) {
     super(ctx, 'conversationViews')
   }
@@ -31,7 +31,7 @@ export class ConversationViewRegistry extends ConversationDefinitionRegistry<Con
    * @param definition - target builder contribution.
    * @returns idempotent disposer.
    */
-  /**
+  /*
    * 注册一个视图构建器：以 definition.target 为唯一键保存，供投影层按目标查询；
    * 调用方（插件）生命周期结束时自动回收。重复注册同名 target 会立即抛错。
    * @param definition 要注册的目标快照构建器贡献（含 target 与构建函数）。

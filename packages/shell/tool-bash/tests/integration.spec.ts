@@ -31,7 +31,7 @@ import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent
  * (tool/call + tool/result session events, the generic `ctx.jobs` runtime,
  * agent.inject completion notices).
  */
-/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(adapter: MockAdapter, sessionRoot?: string, dshHome?: string) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -77,7 +77,7 @@ function events(agent: Agent): SessionEvent[] {
 }
 
 /** Find a session event by type, narrowed; throws when absent. */
-/** 中文说明：函数 findEvent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 findEvent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function findEvent<T extends SessionEvent['type']>(
   log: SessionEvent[],
   type: T,
@@ -101,7 +101,7 @@ function resultText(event: SessionEvent): string {
 }
 
 /** Poll until `predicate` holds (background settlement races turn end). */
-/** 中文说明：函数 pollUntil 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 pollUntil 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function pollUntil(predicate: () => boolean, timeoutMs = 5_000): Promise<void> {
   /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs

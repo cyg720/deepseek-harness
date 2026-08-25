@@ -21,11 +21,11 @@ import type { FocusEventHandler, MouseEventHandler, MutableRefObject, ReactEleme
 import css from './Tooltip.module.css'
 
 /** Bubble placement relative to the anchor. */
-/** 中文说明：类型或类 TooltipSide 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 TooltipSide 约束基础组件的数据或职责。 */
 export type TooltipSide = 'right' | 'bottom' | 'top'
 
 /** Props Tooltip injects into its anchor child; the child's own handlers are chained ahead of the tooltip's. */
-/** 中文说明：类型或类 AnchorProps 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 AnchorProps 约束基础组件的数据或职责。 */
 interface AnchorProps {
   ref?: Ref<HTMLElement> | undefined
   onMouseEnter?: MouseEventHandler | undefined
@@ -49,7 +49,7 @@ type TooltipLabel = string | (() => string)
  * @param props.children - a single anchor element; its own ref (callback or object) is forwarded alongside the tooltip's.
  * @returns the cloned anchor plus a fixed-position bubble while hovered/focused.
  */
-/** 中文说明：函数 Tooltip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 Tooltip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function Tooltip({ label, side = 'right', delayMs = 0, disabled = false, maxWidth, children }: { label: TooltipLabel; side?: TooltipSide; delayMs?: number; disabled?: boolean; maxWidth?: number; children: ReactElement<AnchorProps> }) {
   /** 中文说明：组件局部值 anchor，由紧邻初始化决定。 */
   const anchor = useRef<HTMLElement | null>(null)

@@ -240,7 +240,7 @@ function fallbackState(context: ConversationNodeContext<ToolState>): ToolState |
 }
 
 /** Trajectory-owned root Tool lifecycle with nested Code Dispatch calls. */
-/** 轨迹拥有的根工具调用生命周期状态机（含嵌套 code-dispatch 子调用）。 */
+/* 轨迹拥有的根工具调用生命周期状态机（含嵌套 code-dispatch 子调用）。 */
 const trajectoryToolDefinition: ConversationNodeDefinition<ToolState> = {
   kind: 'trajectory-tool-call',
   target: 'trajectory',
@@ -293,7 +293,7 @@ const trajectoryToolDefinition: ConversationNodeDefinition<ToolState> = {
  *
  * @param ctx - Plugin context receiving the Definition.
  */
-/**
+/*
  * 注册轨迹的工具调用生命周期状态机。
  * @param ctx - 接收该 Definition 的插件上下文。
  */

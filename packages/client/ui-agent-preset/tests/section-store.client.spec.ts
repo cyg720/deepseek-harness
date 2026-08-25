@@ -5,7 +5,7 @@
  * desktop, revealed as a path where the host has none. Every mutation
  * re-reads the roster because a copy changes more than the row it targeted.
  */
-/**
+/*
  * 文件职责：验证代理预设界面的 section-store 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -27,46 +27,46 @@ interface Recorded { method: string; payload: unknown }
 /** 中文说明：类型 FakeOptions 约束本文件数据字段及允许取值。 */
 interface FakeOptions {
   /** Every call the controller made, in order. */
-  /** 中文说明：成员 calls 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 calls 保存可编排测试状态，取值由声明类型限定。 */
   calls?: Recorded[]
   /** Reject `list` with this message. */
-  /** 中文说明：成员 failList 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 failList 保存可编排测试状态，取值由声明类型限定。 */
   failList?: string
   /** Reject `read` with this message. */
-  /** 中文说明：成员 failRead 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 failRead 保存可编排测试状态，取值由声明类型限定。 */
   failRead?: string
   /** Reject `copy` with this message. */
-  /** 中文说明：成员 failCopy 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 failCopy 保存可编排测试状态，取值由声明类型限定。 */
   failCopy?: string
   /** Reject `openDocument` with this message. */
-  /** 中文说明：成员 failOpen 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 failOpen 保存可编排测试状态，取值由声明类型限定。 */
   failOpen?: string
   /** Reject `remove` with this message. */
-  /** 中文说明：成员 failRemove 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 failRemove 保存可编排测试状态，取值由声明类型限定。 */
   failRemove?: string
   /** Reject `settings.update` with this message. */
-  /** 中文说明：成员 failSettings 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 failSettings 保存可编排测试状态，取值由声明类型限定。 */
   failSettings?: string
   /** Throw from `list` rather than answering, as a dead transport does. */
-  /** 中文说明：成员 throwList 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 throwList 保存可编排测试状态，取值由声明类型限定。 */
   throwList?: boolean
   /** Throw from `read`, as a dead transport does. */
-  /** 中文说明：成员 throwRead 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 throwRead 保存可编排测试状态，取值由声明类型限定。 */
   throwRead?: boolean
   /** Throw from `copy`, as a dead transport does. */
-  /** 中文说明：成员 throwCopy 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 throwCopy 保存可编排测试状态，取值由声明类型限定。 */
   throwCopy?: boolean
   /** Throw from `openDocument`, as a dead transport does. */
-  /** 中文说明：成员 throwOpen 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 throwOpen 保存可编排测试状态，取值由声明类型限定。 */
   throwOpen?: boolean
   /** Whether the deployment configures a writable root. */
-  /** 中文说明：成员 authorable 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 authorable 保存可编排测试状态，取值由声明类型限定。 */
   authorable?: boolean
   /** Whether the host can open a preset directory on a desktop. */
-  /** 中文说明：成员 hasDocument 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 hasDocument 保存可编排测试状态，取值由声明类型限定。 */
   hasDocument?: boolean
   /** Hold `remove` until this resolves, to observe the in-flight state. */
-  /** 中文说明：成员 holdRemove 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 holdRemove 保存可编排测试状态，取值由声明类型限定。 */
   holdRemove?: Promise<void>
 }
 
@@ -84,7 +84,7 @@ const fail = (message: string) =>
  * @param options - failure injection and call recording.
  * @returns the fake client.
  */
-/** 中文说明：函数 fakeApi 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fakeApi 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fakeApi(
   presets: Map<string, FakePreset>,
   defaultId: { id: string },

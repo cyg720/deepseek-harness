@@ -26,7 +26,7 @@ const KEY = credentialKey('llm-pi-ai', 'openai-codex')
 const OTHER = credentialKey('llm-pi-ai', 'anthropic')
 
 /** A context with the record store the seam confirms commits against. */
-/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(): Promise<Context> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -36,7 +36,7 @@ async function harness(): Promise<Context> {
 }
 
 /** An interaction that answers every prompt with the same string. */
-/** 中文说明：函数 surface 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 surface 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function surface(answer = 'typed'): AuthorizationInteraction & {
   notices: unknown[]
   prompts: unknown[]
@@ -57,7 +57,7 @@ function surface(answer = 'typed'): AuthorizationInteraction & {
 }
 
 /** A flow that commits `key` through the record store and then resolves. */
-/** 中文说明：函数 committingFlow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 committingFlow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function committingFlow(
   ctx: Context,
   key = KEY,

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】声明 Code Mode（代码模式）下 `run_code` 程序内每一次嵌套工具子调用
  *   （sub-dispatch）写入会话日志的两类事件的载荷类型，并通过声明合并把它们挂进
@@ -36,7 +36,7 @@ export interface CodeDispatchStartEventData {
 }
 
 /** Payload recorded when one nested Code Mode Tool dispatch settles. */
-/**
+/*
  * 【中文】一条 Code Mode 子调用"落定"（settle）事件的载荷：在开始载荷的全部字段之上，
  *   补充完整的模型侧结果（是否出错 + 内容块），UI 因此能用渲染原生调用的同一条
  *   代码路径来渲染子调用。
@@ -63,7 +63,7 @@ declare module '@deepseek-ai/dsh-session/types' {
      * with `tool/code-dispatch` by `subCallId` (timing = the two events'
      * `time` fields).
      */
-    /**
+    /*
      * 【中文】子调用开始事件：调度器真正启动该调用时才写入（提交时不算），
      *   因此它的出现意味着工具体流水线已进入；仅在队列里被放弃的调用不产生日志。
      *   仅入日志、不进入模型消息（deriveMessages 忽略它）；UI 用它展示逐子调用的
@@ -85,7 +85,7 @@ declare module '@deepseek-ai/dsh-session/types' {
      * before returning), so its execution-enclosure relation holds by
      * construction.
      */
-    /**
+    /*
      * 【中文】子调用落定事件：每个已开始的子调用恰好对应一条（中止亦然），按
      *   subCallId 与对应的开始事件配对。同样仅入日志——子调用结果不会重新进入
      *   模型上下文；它在父 `run_code` 执行内部被追加（桥接层在返回前排空所有在途

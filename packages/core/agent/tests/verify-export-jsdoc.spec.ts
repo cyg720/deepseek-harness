@@ -1,7 +1,7 @@
 /**
  * Negative-path tests for the exported-API JSDoc gate (`scripts/verify-export-jsdoc.ts`).
  */
-/**
+/*
  * 文件职责：验证Agent 服务的 verify-export-jsdoc.spec.ts 行为与不变量。
  * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
  * 产品维度：防止Agent 服务在取消、恢复、错误或并发场景中产生回归。
@@ -24,7 +24,7 @@ afterEach(() => {
 })
 
 /** Write fixture files under `packages/group/fix/src/` and return the scan root. */
-/** 中文说明：测试辅助函数 fixture 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 fixture 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function fixture(files: Record<string, string>): string {
   /** 中文说明：测试局部值 root，由紧邻初始化决定，仅在当前场景使用。 */
   const root = mkdtempSync(join(tmpdir(), 'export-jsdoc-'))
@@ -40,7 +40,7 @@ function fixture(files: Record<string, string>): string {
 }
 
 /** Single-file fixture shorthand: the content becomes `src/index.ts`. */
-/** 中文说明：测试局部值 make，由紧邻初始化决定，仅在当前场景使用。 */
+/* 中文说明：测试局部值 make，由紧邻初始化决定，仅在当前场景使用。 */
 const make = (content: string): string => fixture({ 'index.ts': content })
 
 describe('verify-export-jsdoc functions and consts', () => {

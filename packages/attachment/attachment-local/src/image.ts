@@ -1,5 +1,5 @@
 /** Raster inspection: full decode at admission, header-only probe on verified reads. */
-/**
+/*
  * 文件职责：识别受支持栅格图片的真实格式、尺寸、动画、元数据和像素特征。
  * 技术维度：使用 sharp/libvips 在准入时完整解码，在摘要验证后的读取路径只解析图片头。
  * 产品维度：阻止畸形、超大或伪装媒体类型的图片进入附件库，并为后续压缩提供可靠事实。
@@ -13,30 +13,30 @@ import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { ImageMediaType } from '@deepseek-ai/dsh-attachment'
 
 /** Decoded metadata from a supported image. */
-/** 从受支持图片解码得到、供准入和编码验证共用的事实。 */
+/* 从受支持图片解码得到、供准入和编码验证共用的事实。 */
 export interface DetectedImage {
   /** 图片字节真实对应的受支持 MIME 类型。 */
   mediaType: ImageMediaType
   /** Intrinsic width with EXIF orientation applied — the width a viewer perceives. */
-  /** 应用 EXIF 方向后用户实际看到的宽度。 */
+  /* 应用 EXIF 方向后用户实际看到的宽度。 */
   width: number
   /** Intrinsic height with EXIF orientation applied — the height a viewer perceives. */
-  /** 应用 EXIF 方向后用户实际看到的高度。 */
+  /* 应用 EXIF 方向后用户实际看到的高度。 */
   height: number
   /** Whether the container carries more than one frame. */
-  /** 容器是否包含多帧动画。 */
+  /* 容器是否包含多帧动画。 */
   animated: boolean
   /** Whether the bytes carry descriptive metadata, a color profile, or orientation. */
-  /** 字节是否携带描述、色彩配置或方向等会被保留的元数据。 */
+  /* 字节是否携带描述、色彩配置或方向等会被保留的元数据。 */
   carriesMetadata: boolean
   /** Sharp sample depth reported for the decoded channels. */
-  /** sharp 报告的像素通道采样深度。 */
+  /* sharp 报告的像素通道采样深度。 */
   depth: string
   /** Sharp colour space reported for the decoded pixels. */
-  /** sharp 报告的解码像素色彩空间。 */
+  /* sharp 报告的解码像素色彩空间。 */
   space: string
   /** Whether decoded pixels carry an alpha channel. */
-  /** 解码像素是否包含透明度通道。 */
+  /* 解码像素是否包含透明度通道。 */
   hasAlpha: boolean
 }
 
@@ -49,7 +49,12 @@ export interface DetectedImage {
  * @param output - decoded media type and alpha metadata from the encoded result.
  * @returns whether the output alpha metadata is compatible with the source.
  */
-/** 检查本包编码结果的透明通道事实是否与来源兼容，允许 WebP 去掉全不透明 alpha。 */
+/*
+ * 检查本包编码结果的透明通道事实是否与来源兼容，允许 WebP 去掉全不透明 alpha。
+ * @param sourceHasAlpha 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param output 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function encodedAlphaIsCompatible(
   sourceHasAlpha: boolean | undefined,
   output: Pick<DetectedImage, 'mediaType' | 'hasAlpha'>,
@@ -122,13 +127,13 @@ export async function probeImage(data: Uint8Array): Promise<DetectedImage> {
 }
 
 /** Admission limits applied to a decoded raster's intrinsic dimensions. */
-/** 对完整解码图片的固有尺寸执行的可选准入限制。 */
+/* 对完整解码图片的固有尺寸执行的可选准入限制。 */
 export interface DecodedImageLimits {
   /** Decoded-pixel (width times height) admission limit. */
-  /** 最大解码像素总数，即宽乘高。 */
+  /* 最大解码像素总数，即宽乘高。 */
   maxPixels?: number
   /** Per-side admission limit applied to width and height independently. */
-  /** 分别应用于宽和高的最大单边像素数。 */
+  /* 分别应用于宽和高的最大单边像素数。 */
   maxDimension?: number
 }
 

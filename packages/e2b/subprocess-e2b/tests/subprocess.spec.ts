@@ -353,7 +353,7 @@ async function flush(): Promise<void> {
 }
 
 /** Construct the handle under test with the config default the service would pass. */
-/** 中文说明：函数 testHandle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 testHandle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function testHandle(
   runtime: ConstructorParameters<typeof E2BSubprocessHandle>[0],
   spec: ConstructorParameters<typeof E2BSubprocessHandle>[1],

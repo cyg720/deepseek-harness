@@ -14,7 +14,7 @@
  * `version-mismatch` without a prior open.
  * @module
  */
-/**
+/*
  * 文件职责：验证 memory-backend.ts 覆盖的持久化存储行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的持久化存储能力稳定、安全且可诊断。
@@ -27,7 +27,7 @@ import { StorageError } from '@deepseek-ai/dsh-storage'
 import type { KvFacet, KvUnit, KvUnitDescriptor, StorageBackend } from '@deepseek-ai/dsh-storage'
 
 /** One unit's medium: tables of records plus the global slot (`null` = never written). */
-/** 中文说明：interface MemoryMedium 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
+/* 中文说明：interface MemoryMedium 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
 export interface MemoryMedium {
   tables: Map<string, Map<string, unknown>>
   global: unknown
@@ -40,7 +40,7 @@ export interface MemoryMedium {
  * writable by tests to inject a mismatching on-medium version, and
  * `failNextWrites` injects write-primitive failures.
  */
-/** 中文说明：class MemoryMediaPool 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
+/* 中文说明：class MemoryMediaPool 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
 export class MemoryMediaPool {
   /** Unit name → its records; a missing entry is a never-materialized unit. */
   readonly media = new Map<string, MemoryMedium>()
@@ -64,7 +64,7 @@ export class MemoryMediaPool {
 }
 
 /** In-memory KV unit over one pooled medium. */
-/** 中文说明：class MemoryKvUnit 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
+/* 中文说明：class MemoryKvUnit 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
 class MemoryKvUnit implements KvUnit {
   private closed = false
 
@@ -128,7 +128,7 @@ class MemoryKvUnit implements KvUnit {
  * {@link MemoryMediaPool} to let a second instance reopen the same media;
  * omit it for a throwaway isolated pool.
  */
-/** 中文说明：class MemoryStorageBackend 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
+/* 中文说明：class MemoryStorageBackend 定义本测试所需的数据或行为，用于表达持久化存储场景。 */
 export class MemoryStorageBackend implements StorageBackend {
   readonly kv: KvFacet
   private readonly openUnits = new Set<string>()

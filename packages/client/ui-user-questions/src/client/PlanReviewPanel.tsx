@@ -27,7 +27,7 @@ import type { PendingQuestion, PlanReview, QuestionComposerProps } from './contr
 import css from './PlanReviewPanel.module.css'
 
 /** The panel's own props: the question domain face, the narrowed review, and the locale seat. */
-/** 中文说明：类型或类 PlanReviewPanelProps 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 PlanReviewPanelProps 约束模块数据或组件职责。 */
 export type PlanReviewPanelProps =
   { pending: PendingQuestion; review: PlanReview } & Pick<QuestionComposerProps, 't'>
 
@@ -38,7 +38,7 @@ export type PlanReviewPanelProps =
  * @param description - the asker's option description, when it carries one.
  * @returns The `title` prop to spread, or nothing.
  */
-/** 中文说明：函数 tooltip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 tooltip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tooltip(description: string | undefined): { title?: string } {
   return description === undefined ? {} : { title: description }
 }
@@ -49,7 +49,7 @@ function tooltip(description: string | undefined): { title?: string } {
  * @param props - the question domain face, the narrowed plan review, and `t`.
  * @returns The plan-review takeover for this request.
  */
-/** 中文说明：函数 PlanReviewPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 PlanReviewPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function PlanReviewPanel({ pending, review, t }: PlanReviewPanelProps) {
   // One-shot latch shaped like the approval takeover's: the panel leaves only
   // when the host's resolved frame lands, so until then a second click must

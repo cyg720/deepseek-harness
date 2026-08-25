@@ -50,7 +50,7 @@ import { randomUuid } from './random-uuid.ts'
 import type { ClientConnectionRpc } from '../rpc.ts'
 
 /** The fake carrier mints like a real one (business code never mints). */
-/** 中文说明：函数 rpcRequest 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 rpcRequest 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function rpcRequest<P>(payload: P): RpcRequest<P> {
   return { rpcId: RpcId(randomUuid()), payload }
 }
@@ -109,7 +109,7 @@ const USER_MARKDOWN_LITERAL = '用户字面量：# 不渲染 `code` [link](https
  * @param body - the text the attribute applies to.
  * @returns the body wrapped in the attribute and a reset.
  */
-/** 中文说明：函数 sgr 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 sgr 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function sgr(code: number, body: string): string {
   return `\u001b[${code}m${body}\u001b[0m`
 }
@@ -126,7 +126,7 @@ function sgr(code: number, body: string): string {
  * terminal card shows the exit as its own pill and leaving the marker in would
  * render it twice (packages/shell/tool-bash/src/render.ts).
  */
-/** 中文说明：当前处理步骤的局部值 TERMINAL_OUTPUT_FIXTURE，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 TERMINAL_OUTPUT_FIXTURE，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const TERMINAL_OUTPUT_FIXTURE = [
   sgr(1, 'Running 4 checks'),
   `${sgr(32, '\u2713')} typecheck                                          1.82s`,
@@ -156,7 +156,7 @@ const TERMINAL_OUTPUT_FIXTURE = [
  * alongside the sample rather than parsed back out of its trailing marker,
  * which is the bash tool's own job and not something to reimplement here.
  */
-/** 中文说明：当前处理步骤的局部值 TERMINAL_EXIT_STATUS，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 TERMINAL_EXIT_STATUS，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const TERMINAL_EXIT_STATUS: Record<string, { exitCode: number } | { signal: string }> = {
   [TERMINAL_OUTPUT_FIXTURE]: { exitCode: 1 },
 }
@@ -168,7 +168,7 @@ const TERMINAL_EXIT_STATUS: Record<string, { exitCode: number } | { signal: stri
  * retained match count exercises the search card's capped indicator; the file
  * with more than CHAT_SEARCH_MAX_LINES rows exercises its head/tail height cap.
  */
-/** 中文说明：当前处理步骤的局部值 SEARCH_MATCHES_FIXTURE，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 SEARCH_MATCHES_FIXTURE，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SEARCH_MATCHES_FIXTURE: { path: string; matches: { lineNumber: number; line: string }[] }[] = [
   {
     path: 'packages/client/ui-primitives/src/SearchBlock.tsx',
@@ -203,7 +203,7 @@ const SEARCH_MATCHES_FIXTURE: { path: string; matches: { lineNumber: number; lin
  * `Found X of Y matches` header, the matches grouped under file headers with
  * `Line N:` rows, then a spill-recovery footer.
  */
-/** 中文说明：当前处理步骤的局部值 SEARCH_MATCHES_TEXT，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 SEARCH_MATCHES_TEXT，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SEARCH_MATCHES_TEXT = [
   'Found 9 of 42 matches',
   '',
@@ -217,7 +217,7 @@ const SEARCH_MATCHES_TEXT = [
  * Structured glob result for the search sample (turn 68): a flat path list,
  * truncated with a larger `total` so the path card shows its capped indicator.
  */
-/** 中文说明：当前处理步骤的局部值 SEARCH_PATHS_FIXTURE，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 SEARCH_PATHS_FIXTURE，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SEARCH_PATHS_FIXTURE = [
   'packages/client/ui-primitives/src/SearchBlock.tsx',
   'packages/client/ui-primitives/src/SearchBlock.module.css',
@@ -231,7 +231,7 @@ const SEARCH_PATHS_FIXTURE = [
  * spill-recovery footer, mirroring the real glob presenter's shape (see
  * formatGlobOutput in dsh-tool-fs-search).
  */
-/** 中文说明：当前处理步骤的局部值 SEARCH_PATHS_TEXT，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 SEARCH_PATHS_TEXT，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SEARCH_PATHS_TEXT = [
   ...SEARCH_PATHS_FIXTURE,
   '',
@@ -246,7 +246,7 @@ const SEARCH_PATHS_TEXT = [
  * window is authored inline exactly as the tool would project it through
  * `presentationMeta`. `lang` is a `ts` hint so the shiki path highlights it.
  */
-/** 中文说明：当前处理步骤的局部值 READ_SAMPLE_FIRST_LINE，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 READ_SAMPLE_FIRST_LINE，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const READ_SAMPLE_FIRST_LINE = 41
 /** 中文说明：当前处理步骤的局部值 READ_SAMPLE_SOURCE，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const READ_SAMPLE_SOURCE = [
@@ -280,7 +280,7 @@ const READ_SAMPLE_TEXT = READ_SAMPLE_SOURCE.map((text, index) => `${READ_SAMPLE_
  * `truncated` marks the capped indicator. The shape is the contract's own
  * search view minus its wire discriminants.
  */
-/** 中文说明：当前处理步骤的局部值 WEB_SEARCH_RESULT，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 WEB_SEARCH_RESULT，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const WEB_SEARCH_RESULT: Omit<Extract<ToolResultView, { card: 'web'; kind: 'search' }>, 'card' | 'kind'> = {
   answer: 'DeepSeek Harness is a plugin-based agent harness on vendored Cordis where **every capability is a plugin**.',
   sources: [
@@ -304,7 +304,7 @@ const WEB_SEARCH_RESULT: Omit<Extract<ToolResultView, { card: 'web'; kind: 'sear
 }
 
 /** The `web_fetch` result view for the web-fetch turn, authored inline for the same reason. */
-/** 中文说明：当前处理步骤的局部值 WEB_FETCH_RESULT，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 WEB_FETCH_RESULT，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const WEB_FETCH_RESULT: Omit<Extract<ToolResultView, { card: 'web'; kind: 'fetch' }>, 'card' | 'kind'> = {
   url: 'https://www.deepseek.com/blog/harness-architecture',
   statusCode: 200,
@@ -333,7 +333,7 @@ const OPENAI_REASONING = {
 }
 
 /** Catalog served by `session.models` and `llm.models` alike (fresh copies per call). */
-/** 中文说明：函数 fixtureModelGroups 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fixtureModelGroups 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fixtureModelGroups(): ModelProviderGroup[] {
   return [
     {
@@ -380,7 +380,7 @@ const FIXTURE_IMAGE_REF: ImageAttachmentRef = {
 }
 
 /** Deterministic provider billing attached to fixture assistant messages. */
-/** 中文说明：函数 fixtureUsage 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fixtureUsage 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fixtureUsage(turn: number, step: number): TokenUsage {
   return {
     inputTokens: 20 + turn % 5,
@@ -392,7 +392,7 @@ function fixtureUsage(turn: number, step: number): TokenUsage {
 
 /** fx-alpha history script: 75 turns (~150+ messages -> 4 pages at PAGE_MESSAGES=50),
  *  mixing reasoning blocks / tool call+result / context. */
-/** 中文说明：函数 buildAlphaLog 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 buildAlphaLog 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function buildAlphaLog(): SessionEvent[] {
   /** 中文说明：当前传输或投影数据 events，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const events: Record<string, unknown>[] = []
@@ -661,12 +661,12 @@ function buildAlphaLog(): SessionEvent[] {
 }
 
 /** Narrows a parsed-JSON field to string; fixture args are authored in-file, so non-strings only mean a typo here. */
-/** 中文说明：当前处理步骤的局部值 str，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 str，取值由紧邻初始化决定，仅在当前作用域使用。 */
 /* v8 ignore next -- the fallback arm is the same in-file-typo guard as the JSON.parse catch above. */
 const str = (value: unknown, fallback = ''): string => typeof value === 'string' ? value : fallback
 
 /** Fixture presenter registry (mirrors host viewFor): pure derivation, undefined = no view. */
-/** 中文说明：函数 presentCall 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 presentCall 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function presentCall(name: string, argsRaw: string): ToolCallView | undefined {
   /** 中文说明：当前处理步骤的局部值 args: Record<string, unknown>，取值由紧邻初始化决定，仅在当前作用域使用。 */
   let args: Record<string, unknown>
@@ -790,7 +790,7 @@ function presentResult(name: string, argsRaw: string, resultText: string): ToolR
 }
 
 /** Host-side viewFor mirror: tool/call presents from its own args; tool/result back-scans the log for the paired call. */
-/** 中文说明：函数 viewFor 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 viewFor 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function viewFor(event: SessionEvent, log: readonly SessionEvent[]): ToolEventView | undefined {
   if (event.type === 'tool/call') {
     /** 中文说明：当前处理步骤的局部值 view，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -825,7 +825,7 @@ function viewFor(event: SessionEvent, log: readonly SessionEvent[]): ToolEventVi
  * `plan/mode` commits one. `wanted` is exposed for the prompt boundary (the
  * fixture's step/start parallel).
  */
-/** 中文说明：函数 foldPlan 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 foldPlan 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function foldPlan(log: readonly SessionEvent[]): { active: boolean; pending: boolean; wanted: boolean | null } {
   /** 中文说明：当前处理步骤的局部值 active，取值由紧邻初始化决定，仅在当前作用域使用。 */
   let active = false
@@ -859,7 +859,7 @@ function foldPlan(log: readonly SessionEvent[]): { active: boolean; pending: boo
 }
 
 /** The plan projection's wire view over the full log. */
-/** 中文说明：函数 planViewOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 planViewOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function planViewOf(log: readonly SessionEvent[]): { active: boolean; pending: boolean } {
   /** 中文说明：当前处理步骤的局部值 plan，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const plan = foldPlan(log)
@@ -868,14 +868,14 @@ function planViewOf(log: readonly SessionEvent[]): { active: boolean; pending: b
 
 /** Fixture parallel of the host's projection units: whole current values per key over the full log. */
 /** Fixture preset table (the host PermissionPresetService defaults). */
-/** 中文说明：当前处理步骤的局部值 PERMISSION_PRESETS，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 PERMISSION_PRESETS，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const PERMISSION_PRESETS: Record<string, { sandbox: string; approval: string; description: string }> = {
   'workspace-write': { sandbox: 'workspace-write', approval: 'ask', description: 'Write inside the workspace and permitted temporary directories; wider retries require approval.' },
   'danger-full-access': { sandbox: 'danger-full-access', approval: 'never', description: 'Full file access without approval prompts.' },
 }
 
 /** Host permissions-unit parallel: fold the three knob events, derive the select over the fixture defaults. */
-/** 中文说明：函数 permissionSelectOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 permissionSelectOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function permissionSelectOf(
   log: readonly SessionEvent[],
 ): { options: { value: string; name: string; description?: string }[]; currentValue: string } {
@@ -939,7 +939,7 @@ interface FixtureUsageSample {
 }
 
 /** Read one provider usage sample from either durable carrier. */
-/** 中文说明：函数 usageSampleOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 usageSampleOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function usageSampleOf(event: SessionEvent): FixtureUsageSample | undefined {
   /** 中文说明：当前处理步骤的局部值 item，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const item = event as unknown as {
@@ -963,7 +963,7 @@ function usageSampleOf(event: SessionEvent): FixtureUsageSample | undefined {
 }
 
 /** Fixture parallel of token-meter's last-sample-replacing usage projection. */
-/** 中文说明：函数 tokenUsageOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 tokenUsageOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function tokenUsageOf(log: readonly SessionEvent[]): FixtureTokenUsageProjection {
   /** 中文说明：当前处理步骤的局部值 totals，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const totals: FixtureTokenUsageProjection = {
@@ -1004,7 +1004,7 @@ function tokenUsageOf(log: readonly SessionEvent[]): FixtureTokenUsageProjection
 }
 
 /** Fixture parallel of session-stats' whole-log counting and wall-time fold. */
-/** 中文说明：函数 sessionStatsOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 sessionStatsOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function sessionStatsOf(log: readonly SessionEvent[]): {
   turns: number
   steps: number
@@ -1103,7 +1103,7 @@ interface FixtureContextBreakdownProjection {
 }
 
 /** Fixed token-meter heuristic constants mirrored by this client-only fixture. */
-/** 中文说明：当前处理步骤的局部值 CHARS_PER_TOKEN，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：当前处理步骤的局部值 CHARS_PER_TOKEN，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const CHARS_PER_TOKEN = 4
 /** 中文说明：当前处理步骤的局部值 BLOCK_OVERHEAD，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const BLOCK_OVERHEAD = 4
@@ -1111,7 +1111,7 @@ const BLOCK_OVERHEAD = 4
 const ROLE_OVERHEAD = 4
 
 /** Price fixture content with token-meter's fixed-density heuristic. */
-/** 中文说明：函数 estimateFixtureContent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 estimateFixtureContent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function estimateFixtureContent(blocks: readonly ContentBlock[]): number {
   /** 中文说明：当前处理步骤的局部值 densityPrice，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const densityPrice = (value: string): number => Math.ceil(value.length / CHARS_PER_TOKEN)
@@ -1133,7 +1133,7 @@ function estimateFixtureContent(blocks: readonly ContentBlock[]): number {
 }
 
 /** Fixture parallel of token-meter's heuristic context-composition projection. */
-/** 中文说明：函数 contextBreakdownOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 contextBreakdownOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function contextBreakdownOf(log: readonly SessionEvent[]): FixtureContextBreakdownProjection {
   /** 中文说明：当前传输或投影数据 headerEvent，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const headerEvent = log.findLast(event => event.type === 'request/header')
@@ -1164,7 +1164,7 @@ function contextBreakdownOf(log: readonly SessionEvent[]): FixtureContextBreakdo
 }
 
 /** Latest log-only route context, or undefined before any request ran. */
-/** 中文说明：函数 lastRequestContext 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 lastRequestContext 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function lastRequestContext(
   log: readonly SessionEvent[],
 ): FixtureRequestContext | undefined {
@@ -1184,7 +1184,7 @@ function lastRequestContext(
  * the bare sample, so a fixture-driven view simply lags a compaction the way
  * the projection did before that field existed.
  */
-/** 中文说明：函数 contextPressureOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 contextPressureOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function contextPressureOf(
   log: readonly SessionEvent[],
 ): { pressureTokens?: number; contextWindow?: number } {
@@ -1249,7 +1249,7 @@ function projectionValuesOf(log: readonly SessionEvent[]): Record<string, unknow
 }
 
 /** Host push-frame parallel: emit one session/projection frame per key the given event advanced. */
-/** 中文说明：函数 projectionFramesOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 projectionFramesOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function projectionFramesOf(id: SessionId, log: readonly SessionEvent[], event: SessionEvent): Extract<MuxFrame, { type: 'session/projection' }>[] {
   /** 中文说明：当前处理步骤的局部值 type，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const type = (event as { type: string }).type
@@ -1349,7 +1349,7 @@ function projectionFramesOf(id: SessionId, log: readonly SessionEvent[], event: 
  *  backwards from end, cut at a turn/start boundary.
  Entries carry pagination-time views
  *  (the host analogue computes viewFor per entry at page time). */
-/** 中文说明：函数 pageOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 pageOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function pageOf(
   log: readonly SessionEvent[],
   beforeSeq: number | undefined,
@@ -1383,7 +1383,7 @@ function pageOf(
 }
 
 /** Fixture mirror of host session-scoped attachment authorization. */
-/** 中文说明：函数 logReferencesAttachment 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 logReferencesAttachment 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function logReferencesAttachment(log: readonly SessionEvent[], attachmentId: string): boolean {
   /** 中文说明：当前处理步骤的局部值 visit，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const visit = (value: unknown): boolean => {
@@ -1398,7 +1398,7 @@ function logReferencesAttachment(log: readonly SessionEvent[], attachmentId: str
 }
 
 /** Fixture mirror of first-party message extraction used by session-query. */
-/** 中文说明：函数 searchBlockText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 searchBlockText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function searchBlockText(block: ContentBlock): string[] {
   switch (block.type) {
     case 'text':
@@ -1415,7 +1415,7 @@ function searchBlockText(block: ContentBlock): string[] {
 }
 
 /** One current-surface user/assistant document, if searchable. */
-/** 中文说明：函数 searchEventText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 searchEventText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function searchEventText(event: SessionEvent): string {
   /** 中文说明：当前处理步骤的局部值 content，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const content = event.type === 'user/message'
@@ -1432,10 +1432,10 @@ interface FixtureSearchToken {
   /** 中文说明：成员 value 保存实例运行状态，取值由声明类型限定。 */
   value: string
   /** Inclusive code-point offset in the whitespace-normalized display text. */
-  /** 中文说明：成员 start 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 start 保存实例运行状态，取值由声明类型限定。 */
   start: number
   /** Exclusive code-point offset in the whitespace-normalized display text. */
-  /** 中文说明：成员 end 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 end 保存实例运行状态，取值由声明类型限定。 */
   end: number
 }
 
@@ -1444,7 +1444,7 @@ interface FixtureSearchToken {
  * Keeping phrase matching token-based prevents the development fixture from
  * promising arbitrary within-token substring behavior that production lacks.
  */
-/** 中文说明：函数 searchTokenSpans 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 searchTokenSpans 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function searchTokenSpans(value: string): { text: string; tokens: FixtureSearchToken[] } {
   /** 中文说明：当前处理步骤的局部值 text，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const text = value.replace(/\s+/gu, ' ').trim()
@@ -1498,7 +1498,7 @@ interface FixturePhraseMatch {
 }
 
 /** Count exact contiguous token-phrase occurrences and retain the first display span. */
-/** 中文说明：函数 phraseMatch 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 phraseMatch 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function phraseMatch(document: readonly FixtureSearchToken[], phrase: readonly string[]): FixturePhraseMatch {
   if (phrase.length === 0 || phrase.length > document.length) return { count: 0, start: 0, end: 0 }
   /** 中文说明：标识或顺序值 count，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -1520,7 +1520,7 @@ function phraseMatch(document: readonly FixtureSearchToken[], phrase: readonly s
 }
 
 /** Match-centered fixture excerpt, bounded by Unicode code points for the sidebar. */
-/** 中文说明：函数 searchSnippet 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 searchSnippet 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function searchSnippet(value: string, matchStart: number, matchEnd: number): string {
   /** 中文说明：当前处理步骤的局部值 characters，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const characters = Array.from(value)
@@ -1570,7 +1570,7 @@ interface FixtureSearchCandidate {
 }
 
 /** Mirrors `packages/session-query/session-query-sqlite/src/index.ts`; update both together. */
-/** 中文说明：函数 compareSearchCandidates 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 compareSearchCandidates 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function compareSearchCandidates(a: FixtureSearchCandidate, b: FixtureSearchCandidate): number {
   if (a.matchCount !== b.matchCount) return b.matchCount - a.matchCount
   if (a.documentLength !== b.documentLength) return a.documentLength - b.documentLength
@@ -1583,7 +1583,7 @@ function compareSearchCandidates(a: FixtureSearchCandidate, b: FixtureSearchCand
  * Current plan projection over the full log (host parallel: latest todo/write
  * with no later turn/start; a new turn retires the previous plan).
  */
-/** 中文说明：函数 backscanTodos 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 backscanTodos 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function backscanTodos(log: readonly SessionEvent[]): TodoItem[] | undefined {
   /** 中文说明：当前处理步骤的局部值 i，取值由紧邻初始化决定，仅在当前作用域使用。 */
   for (let i = log.length - 1; i >= 0; i--) {
@@ -1597,7 +1597,7 @@ function backscanTodos(log: readonly SessionEvent[]): TodoItem[] | undefined {
 }
 
 /** Fixture-local mirror of the goal projection value (dsh-goal's GoalProjection shape). */
-/** 中文说明：类型 FxGoalProjection 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 FxGoalProjection 约束本文件数据字段及允许取值。 */
 interface FxGoalProjection {
   /** 中文说明：成员 goal 保存实例运行状态，取值由声明类型限定。 */
   goal: {
@@ -1616,7 +1616,7 @@ interface FxGoalProjection {
 }
 
 /** One durable goal change. */
-/** 中文说明：类型 FxGoalChange 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 FxGoalChange 约束本文件数据字段及允许取值。 */
 type FxGoalChange =
   | { kind: 'goal/change'; version: 1; operation: 'clear'; cleared: { id: string; revision: number }; clearedAt: number }
   | {
@@ -1633,7 +1633,7 @@ type FxGoalChange =
  * Current goal projection over the full log (host parallel: the GoalService
  * unit's last-wins fold of goal/change whole values; clear returns null).
  */
-/** 中文说明：函数 backscanGoal 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 backscanGoal 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function backscanGoal(log: readonly SessionEvent[]): FxGoalProjection | null {
   /** 中文说明：当前处理步骤的局部值 i，取值由紧邻初始化决定，仅在当前作用域使用。 */
   for (let i = log.length - 1; i >= 0; i--) {
@@ -1676,22 +1676,22 @@ interface ReasoningChunkStormState {
 }
 
 /** Deterministic fixture branches used by keyless Web assembly tests. */
-/** 中文说明：类型 FixtureOptions 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 FixtureOptions 约束本文件数据字段及允许取值。 */
 export interface FixtureOptions {
   /** Start with no real Workspace or Session. */
-  /** 中文说明：成员 empty 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 empty 保存实例运行状态，取值由声明类型限定。 */
   empty?: boolean
   /** Reject every prompt before appending its user event. */
-  /** 中文说明：成员 rejectPrompt 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 rejectPrompt 保存实例运行状态，取值由声明类型限定。 */
   rejectPrompt?: boolean
   /** Publish the Session but fail its Workspace account write. */
-  /** 中文说明：成员 failWorkspaceAttach 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 failWorkspaceAttach 保存实例运行状态，取值由声明类型限定。 */
   failWorkspaceAttach?: boolean
   /** Publish and frame the Session, then throw instead of returning create. */
-  /** 中文说明：成员 dropSessionCreateResponse 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 dropSessionCreateResponse 保存实例运行状态，取值由声明类型限定。 */
   dropSessionCreateResponse?: boolean
   /** Order of the two successful create frames. */
-  /** 中文说明：成员 createFrameOrder 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 createFrameOrder 保存实例运行状态，取值由声明类型限定。 */
   createFrameOrder?: 'session-first' | 'workspace-first'
 }
 
@@ -1699,7 +1699,7 @@ export interface FixtureOptions {
  *  outside the loop — a per-iteration {once:true} listener never fires for non-final rounds and
  *  piles up for the stream's lifetime). breakNow force-ends the stream without the
  *  client's signal (timing hook: simulated connection loss). */
-/** 中文说明：类 FxInbox 封装核心状态与操作，实例按所属生命周期使用。 */
+/* 中文说明：类 FxInbox 封装核心状态与操作，实例按所属生命周期使用。 */
 class FxInbox<F> implements StreamConn<F> {
   /** 中文说明：成员 inbox 保存实例运行状态，取值由声明类型限定。 */
   private readonly inbox: RpcRequest<F>[] = []
@@ -1721,7 +1721,7 @@ class FxInbox<F> implements StreamConn<F> {
   }
 
   /** Read through a method: breakNow()/abort flip state across yields, so narrowing from the loop condition must not stick. */
-  /** 中文说明：方法 isLive 的参数见签名，返回值供调用方使用；示例见本文件调用处。 */
+  /* 中文说明：方法 isLive 的参数见签名，返回值供调用方使用；示例见本文件调用处。 */
   private isLive(signal: AbortSignal): boolean {
     return !signal.aborted && !this.broken
   }
@@ -1750,19 +1750,23 @@ class FxInbox<F> implements StreamConn<F> {
  * @param options - fixture branches for empty state and failure timing.
  * @returns an ApiProxy backed entirely by in-memory state — no host process, no network.
  */
-/** 中文说明：函数 createFixtureApi 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/*
+ * 中文说明：函数 createFixtureApi 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function createFixtureApi(options: FixtureOptions = {}): ApiProxy {
   return createFixtureWorld(options).api
 }
 
 /** Both fixture faces over one state graph. */
-/** 中文说明：类型 FixtureWorld 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 FixtureWorld 约束本文件数据字段及允许取值。 */
 export interface FixtureWorld {
   /** Legacy unary/stream API the fixture still answers. */
-  /** 中文说明：成员 api 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 api 保存实例运行状态，取值由声明类型限定。 */
   readonly api: ApiProxy
   /** Generic Remote caller for the endpoints business services own. */
-  /** 中文说明：成员 rpc 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 rpc 保存实例运行状态，取值由声明类型限定。 */
   readonly rpc: ClientConnectionRpc
 }
 
@@ -1772,13 +1776,17 @@ export interface FixtureWorld {
  * @param options - fixture branches for empty state and failure timing.
  * @returns the legacy API face and the Remote RPC face.
  */
-/** 中文说明：函数 createFixtureFaces 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/*
+ * 中文说明：函数 createFixtureFaces 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function createFixtureFaces(options: FixtureOptions = {}): FixtureWorld {
   return createFixtureWorld(options)
 }
 
 /** Build the fixture's legacy API and Remote RPC faces over one state graph. */
-/** 中文说明：函数 createFixtureWorld 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 createFixtureWorld 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   // The resident fixture sessions all carry history, so none of them is blank.
   /** 中文说明：当前处理步骤的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -1800,7 +1808,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     { attachment: FIXTURE_IMAGE_REF, data: FIXTURE_IMAGE_DATA },
   ]])
   /** Credential store double: set/unset flip the describe badge, values never read back. */
-  /** 中文说明：当前处理步骤的局部值 fixtureCredentials，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 fixtureCredentials，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const fixtureCredentials = new Map<string, true>([
     // The assembled fixture represents an already-configured shipped
     // DeepSeek route so unrelated GUI journeys do not enter first-run setup.
@@ -1811,7 +1819,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
    * constants so the settings editor's save and delete are exercisable: the
    * roster a GUI journey sees after writing is the text it wrote.
    */
-  /** 中文说明：当前处理步骤的局部值 fixturePresets，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 fixturePresets，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const fixturePresets = new Map<string, { trust: 'system' | 'user'; content: string }>([
     ['standard', { trust: 'system', content: "- id: tool-bash\n  name: '@deepseek-ai/dsh-tool-bash'\n" }],
     ['minimal', { trust: 'system', content: "- id: tool-web-search\n  name: '@deepseek-ai/dsh-tool-web-search'\n" }],
@@ -1899,12 +1907,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   /** 中文说明：当前处理步骤的局部值 mint，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const mint = (): ReturnType<typeof RpcId> => RpcId(`fx-rpc-${nextRpc++}`)
   /** Resident pending approval (stable rpcId: every mux open replays the same id while unanswered, matching host replay semantics). */
-  /** 中文说明：异步等待或同步门 pendingApprovalRpcId，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：异步等待或同步门 pendingApprovalRpcId，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const pendingApprovalRpcId = mint()
   /** 中文说明：异步等待或同步门 pendingApprovalId，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const pendingApprovalId = 'fx-approval-1' as Extract<MuxFrame, { type: 'approval/requested' }>['approvalId']
   /** Cleared once answered through respond; replay stops and approval/resolved is broadcast. */
-  /** 中文说明：异步等待或同步门 approvalPending，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：异步等待或同步门 approvalPending，取值由紧邻初始化决定，仅在当前作用域使用。 */
   let approvalPending = true
   /** 中文说明：异步等待或同步门 pendingQuestionRpcId，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const pendingQuestionRpcId = mint()
@@ -1961,7 +1969,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   }
 
   /** OK response echoing the caller's rpcId (contract: responses always backfill, never mint). */
-  /** 中文说明：函数 ok 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+  /* 中文说明：函数 ok 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function ok<P, T>(request: RpcRequest<P>, value: T): Promise<RpcResponse<T>> {
     return Promise.resolve({ rpcId: request.rpcId, result: { ok: true, value } })
   }
@@ -1974,7 +1982,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   const summaryOf = (id: SessionId): SessionSummary | undefined => sessions.find(s => s.sessionId === id)
   /** Shared session guard for sessionId-addressed catalog routes: the error
    *  response when the session is unknown, undefined when it exists. */
-  /** 中文说明：当前处理步骤的局部值 requireSession，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 requireSession，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const requireSession = (request: RpcRequest<{ sessionId: SessionId }>): Promise<RpcResponse<never>> | undefined => {
     if (summaryOf(request.payload.sessionId) !== undefined) return undefined
     return err<{ sessionId: SessionId }, never>(request, {
@@ -2023,7 +2031,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   }
 
   /** Append one durable goal/change (host GoalService parallel). */
-  /** 中文说明：当前处理步骤的局部值 appendGoalChange，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 appendGoalChange，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const appendGoalChange = (id: SessionId, change: FxGoalChange): FxGoalProjection => {
     /** 中文说明：当前处理步骤的局部值 log，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const log = logOf(id)
@@ -2058,7 +2066,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   )
 
   /** Canonical fixture implementation of the generated Commands Remote contract. */
-  /** 中文说明：当前处理步骤的局部值 commandRemotes，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 commandRemotes，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const commandRemotes = {
     list(id: SessionId): RpcResult<readonly CommandDescriptor[]> {
       /** 中文说明：当前处理步骤的局部值 missing，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -2210,7 +2218,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
 
   /** Canonical fixture implementation of the generated Goal Remote contract. */
   /** Canonical fixture implementation of the generated reference-discovery Remote contracts. */
-  /** 中文说明：当前处理步骤的局部值 referenceRemotes，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 referenceRemotes，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const referenceRemotes = {
     files(id: SessionId, query: string): RpcResult<{ path: string; kind: 'file' | 'directory' }[]> {
       /** 中文说明：当前处理步骤的局部值 missing，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -2335,7 +2343,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   }
 
   /** Resolve one current goal revision for a canonical Remote mutation. */
-  /** 中文说明：函数 resolveGoal 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+  /* 中文说明：函数 resolveGoal 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function resolveGoal(id: SessionId, ref: FxGoalRef): RpcResult<FxGoalProjection> {
     /** 中文说明：当前处理步骤的局部值 missing，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const missing = requireGoalSession(id)
@@ -2349,7 +2357,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   }
 
   /** Shared CAS mutation path behind the canonical Remote verbs. */
-  /** 中文说明：函数 mutateGoal 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+  /* 中文说明：函数 mutateGoal 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function mutateGoal(
     id: SessionId,
     ref: FxGoalRef,
@@ -2390,23 +2398,23 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   )
 
   /** At most one in-flight replay per session; cancel clears it. */
-  /** 中文说明：当前处理步骤的局部值 replays，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 replays，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const replays = new Map<SessionId, { timer: ReturnType<typeof setTimeout>; finish(aborted: boolean): void }>()
 
   /** history transit delay (timing hooks below); the page snapshot is taken at request time, like a real host. */
-  /** 中文说明：当前处理步骤的局部值 historyDelayMs，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 historyDelayMs，取值由紧邻初始化决定，仅在当前作用域使用。 */
   let historyDelayMs = 0
   /** One-shot history failure (timing hook: a pre-disconnect history request already doomed when reconnect lands). */
-  /** 中文说明：当前处理步骤的局部值 failNextHistory，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 failNextHistory，取值由紧邻初始化决定，仅在当前作用域使用。 */
   let failNextHistory = false
   /** Force-enders for currently open stream generators (timing hook: simulated connection loss). */
-  /** 中文说明：当前处理步骤的局部值 streamBreakers，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 streamBreakers，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const streamBreakers = new Set<() => void>()
   /** Retry scenarios opened by timing hooks and completed in a later browser assertion phase. */
-  /** 中文说明：当前处理步骤的局部值 retryScenarios，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 retryScenarios，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const retryScenarios = new Map<SessionId, { turn: number; stepStarted: boolean }>()
   /** The single opt-in browser stress producer; normal fixture journeys never start it. */
-  /** 中文说明：当前处理步骤的局部值 activeReasoningChunkStorm，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 activeReasoningChunkStorm，取值由紧邻初始化决定，仅在当前作用域使用。 */
   let activeReasoningChunkStorm: ReasoningChunkStormState | null = null
 
   // Timing-acceptance hooks (browser test backdoor): the in-memory fixture is
@@ -2631,7 +2639,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   ;(globalThis as Record<string, unknown>).__fxTiming = timingHooks
 
   /** Prompt replay: chunk typewriter (80ms/frame) -> assistant/message finalize -> turn/end + running flip. */
-  /** 中文说明：当前处理步骤的局部值 startReply，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  /* 中文说明：当前处理步骤的局部值 startReply，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const startReply = (id: SessionId, turn: number, replyText: string): void => {
     /** 中文说明：当前处理步骤的局部值 step，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const step = 0
@@ -3647,12 +3655,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
  * named full forms, and feeding the same tap as a real carrier. TODO: delete when the fixture
  * moves to the isomorphic pipeline (InProcessApiClient over toFetchHandler(fixtureImpl)).
  */
-/** 中文说明：类 FixtureApiClient 封装核心状态与操作，实例按所属生命周期使用。 */
+/* 中文说明：类 FixtureApiClient 封装核心状态与操作，实例按所属生命周期使用。 */
 export class FixtureApiClient extends AbstractApiClient {
   /** 中文说明：成员 api 保存实例运行状态，取值由声明类型限定。 */
   private readonly api: ApiProxy
   /** Generic Remote caller backed by the same in-memory state as the legacy fixture API. */
-  /** 中文说明：成员 rpc 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 rpc 保存实例运行状态，取值由声明类型限定。 */
   readonly rpc: ClientConnectionRpc
 
   /** 中文说明：方法 constructor 的参数见签名，返回值供调用方使用；示例见本文件调用处。 */
@@ -3692,7 +3700,7 @@ export class FixtureApiClient extends AbstractApiClient {
   }
 
   /** Method-key dispatch into the in-memory contract impl (a real carrier routes by URL path instead). */
-  /** 中文说明：方法 dispatch 的参数见签名，返回值供调用方使用；示例见本文件调用处。 */
+  /* 中文说明：方法 dispatch 的参数见签名，返回值供调用方使用；示例见本文件调用处。 */
   private dispatch(
     method: keyof RpcMethodMap,
     request: RpcRequest<never>,
@@ -3801,7 +3809,7 @@ export class FixtureApiClient extends AbstractApiClient {
 }
 
 /** Browser query mapping; direct unit callers pass FixtureOptions explicitly. */
-/** 中文说明：函数 fixtureOptionsFromLocation 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fixtureOptionsFromLocation 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fixtureOptionsFromLocation(): FixtureOptions {
   if (typeof location === 'undefined') return {}
   /** 中文说明：当前处理步骤的局部值 query，取值由紧邻初始化决定，仅在当前作用域使用。 */

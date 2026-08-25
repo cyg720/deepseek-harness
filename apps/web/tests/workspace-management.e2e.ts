@@ -65,7 +65,7 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
    * the path-edit affordance. Adding is the header button's only action, so
    * the click lands in the dialog with no menu in between.
    */
-  /** 中文说明：path 是要浏览到的目录，返回已定位该路径的选择对话框。示例：await browseTo(path)。 */
+  /* 中文说明：path 是要浏览到的目录，返回已定位该路径的选择对话框。示例：await browseTo(path)。 */
   async function browseTo(path: string): Promise<Locator> {
     await page.getByRole('button', { name: 'Add workspace' }).click()
     /** 工作区目录选择对话框。 */

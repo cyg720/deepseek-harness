@@ -94,7 +94,7 @@ function recordSources(
 }
 
 /** Session-view-local index that reparses Markdown only when one record's source changes. */
-/**
+/*
  * 会话视图局部的搜索索引：只有单条记录的来源变化时才重解析 Markdown。
  * 使用示例：const index = new TrajectorySearchIndex()；update(layouts) 后 search(query)。
  */
@@ -109,7 +109,7 @@ export class TrajectorySearchIndex {
    * @param layouts - Finalized and optional streaming layouts from the same view.
    * @returns Whether the indexed layout version changed.
    */
-  /**
+  /*
    * 增量同步一个或多个当前轨迹布局切片。
    * @param layouts - 同一视图的定稿布局与可选的流式布局。
    * @returns 索引的布局版本是否变化。
@@ -155,7 +155,7 @@ export class TrajectorySearchIndex {
    * @param query - Space-separated case-insensitive search terms.
    * @returns Matching stable record identities, or `null` without a query.
    */
-  /**
+  /*
    * 用查询串匹配最新提交的索引版本（空格分隔、大小写不敏感、多词 AND）。
    * @param query - 空格分隔的检索词。
    * @returns 命中的稳定记录身份集合；无查询时返回 null（区别于"无结果"）。

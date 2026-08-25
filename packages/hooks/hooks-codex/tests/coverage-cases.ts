@@ -64,7 +64,7 @@ function waitForIdle(_ctx: Context, agent: Agent): Promise<void> {
 function events(agent: Agent): SessionEvent[] { return [...agent.session.events] }
 /** Poll until `predicate` holds or the deadline passes — robust to detached
  * emit-listener hooks firing on a `.then` (a fixed sleep flakes under load). */
-/** 中文说明：函数 waitFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 waitFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function waitFor(predicate: () => boolean, timeout = 5000, interval = 10): Promise<void> {
   /** 中文说明：测试局部值 deadline，由紧邻初始化决定。 */
   const deadline = Date.now() + timeout
@@ -78,7 +78,7 @@ async function waitFor(predicate: () => boolean, timeout = 5000, interval = 10):
 export type CoverageGroup = 'prompt' | 'post-tool' | 'result-shape' | 'edge-paths' | 'payload'
 
 /** Register independently schedulable slices of the hooks-codex coverage matrix. */
-/** 中文说明：函数 defineCoverageCases 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 defineCoverageCases 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function defineCoverageCases(groups: CoverageGroup | readonly CoverageGroup[]): void {
   /** 中文说明：测试局部值 selected，由紧邻初始化决定。 */
   const selected = new Set(typeof groups === 'string' ? [groups] : groups)

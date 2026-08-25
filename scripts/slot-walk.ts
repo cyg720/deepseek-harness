@@ -6,7 +6,7 @@
  * own exhaustiveness backstop because it reads every source file rather than a
  * reachable-export closure.
  */
-/**
+/*
  * 文件职责：实现 slot-walk.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -20,19 +20,19 @@ import { dirname, join, resolve, sep } from 'node:path'
 import ts from 'typescript'
 
 /** The module whose `SlotMap` / standard-kit interfaces every slot owner merges into. */
-/** 中文说明：常量 SLOTS_MODULE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SLOTS_MODULE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SLOTS_MODULE = '@deepseek-ai/dsh-client-ui-slots'
 
 /** Cheap textual prefilter for a slot-contract merge, quote-style agnostic. */
-/** 中文说明：常量 MERGE_HEAD 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MERGE_HEAD 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MERGE_HEAD = /declare module ['"]@deepseek-ai\/dsh-client-ui-slots['"]/
 
 /** Cheap textual prefilter for a registration call site. */
-/** 中文说明：常量 REGISTER_HEAD 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 REGISTER_HEAD 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REGISTER_HEAD = /\.register\(/
 
 /** One `SlotMap` member: the slot's contract as its owning package declares it. */
-/** 中文说明：interface SlotDeclaration 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface SlotDeclaration 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface SlotDeclaration {
   /** SlotMap key, e.g. `settings.section`. */
   key: string
@@ -57,7 +57,7 @@ export interface SlotDeclaration {
 }
 
 /** One `slots.register({ name, … }, Component)` call site. */
-/** 中文说明：interface SlotRegistration 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface SlotRegistration 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface SlotRegistration {
   /** Target SlotMap key the entry contributes into. */
   key: string
@@ -76,7 +76,7 @@ export interface SlotRegistration {
 }
 
 /** One exported type declaration, retained with its JSDoc for catalog projection. */
-/** 中文说明：interface TypeDeclaration 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface TypeDeclaration 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface TypeDeclaration {
   /** Declared name. */
   name: string
@@ -87,7 +87,7 @@ export interface TypeDeclaration {
 }
 
 /** One scanned source file with the artifacts the catalog reads from it. */
-/** 中文说明：interface ScannedFile 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface ScannedFile 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface ScannedFile {
   /** Repo-relative, `/`-normalized path. */
   rel: string
@@ -105,7 +105,7 @@ export interface ScannedFile {
  * @param patterns - glob(s) selecting the TypeScript/TSX files to scan.
  * @returns one entry per interesting file, in path order.
  */
-/** 中文说明：函数 scanSlotFiles 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 scanSlotFiles 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function scanSlotFiles(scanRoot: string, patterns: readonly string[]): ScannedFile[] {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: ScannedFile[] = []
@@ -139,7 +139,7 @@ export function scanSlotFiles(scanRoot: string, patterns: readonly string[]): Sc
  * @param patterns - glob(s) selecting the TypeScript/TSX files to index.
  * @returns name → declaration, with names declared more than once dropped as ambiguous.
  */
-/** 中文说明：函数 indexExportedTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 indexExportedTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function indexExportedTypes(scanRoot: string, patterns: readonly string[]): Map<string, TypeDeclaration> {
   /** 中文说明：变量 index 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const index = new Map<string, TypeDeclaration>()
@@ -181,7 +181,7 @@ export function indexExportedTypes(scanRoot: string, patterns: readonly string[]
  * @param file - a file returned by {@link scanSlotFiles}.
  * @returns the declared slots, in source order.
  */
-/** 中文说明：函数 slotDeclarations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 slotDeclarations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function slotDeclarations(file: ScannedFile): SlotDeclaration[] {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: SlotDeclaration[] = []
@@ -234,7 +234,7 @@ export function slotDeclarations(file: ScannedFile): SlotDeclaration[] {
  * @param file - a file returned by {@link scanSlotFiles}.
  * @returns the registrations, in source order.
  */
-/** 中文说明：函数 slotRegistrations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 slotRegistrations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function slotRegistrations(file: ScannedFile): SlotRegistration[] {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: SlotRegistration[] = []
@@ -280,7 +280,7 @@ export function slotRegistrations(file: ScannedFile): SlotRegistration[] {
  * @param interfaceName - `GlobalStandardProps`, `SessionStandardProps`, or `SessionMaybeStandardProps`.
  * @returns `member: type` texts in declaration order, merged across declaring files.
  */
-/** 中文说明：函数 standardKitMembers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 standardKitMembers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function standardKitMembers(files: readonly ScannedFile[], interfaceName: string): string[] {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: string[] = []
@@ -315,7 +315,7 @@ export function standardKitMembers(files: readonly ScannedFile[], interfaceName:
  * @param index - the type index from {@link indexExportedTypes}.
  * @returns the mentioned names, sorted.
  */
-/** 中文说明：函数 referencedTypeNames 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 referencedTypeNames 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function referencedTypeNames(
   seeds: readonly string[],
   index: ReadonlyMap<string, TypeDeclaration>,
@@ -337,7 +337,7 @@ export function referencedTypeNames(
  * @param index - the type index from {@link indexExportedTypes}.
  * @returns the resolved declarations, sorted by name.
  */
-/** 中文说明：函数 declaredTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 declaredTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function declaredTypes(
   names: readonly string[],
   index: ReadonlyMap<string, TypeDeclaration>,
@@ -348,7 +348,7 @@ export function declaredTypes(
 }
 
 /** Every slot-contract module block in one file, in source order. */
-/** 中文说明：函数 slotModuleBodies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 slotModuleBodies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function slotModuleBodies(sf: ts.SourceFile): ts.ModuleBlock[] {
   /** 中文说明：变量 bodies 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bodies: ts.ModuleBlock[] = []
@@ -367,7 +367,7 @@ function slotModuleBodies(sf: ts.SourceFile): ts.ModuleBlock[] {
  * takes an options object with a `name`, so the receiver is what separates a
  * slot occupancy fact from an unrelated registration.
  */
-/** 中文说明：函数 isSlotsReceiver 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isSlotsReceiver 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isSlotsReceiver(receiver: ts.Expression, sf: ts.SourceFile): boolean {
   /** 中文说明：变量 text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const text = receiver.getText(sf)
@@ -375,7 +375,7 @@ function isSlotsReceiver(receiver: ts.Expression, sf: ts.SourceFile): boolean {
 }
 
 /** The workspace package name owning a repo-relative file, memoized per package root. */
-/** 中文说明：函数 packageNameOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 packageNameOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packageNameOf(scanRoot: string, rel: string, cache: Map<string, string>): string {
   /** 中文说明：变量 dir 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let dir = dirname(resolve(scanRoot, rel))
@@ -399,25 +399,25 @@ function packageNameOf(scanRoot: string, rel: string, cache: Map<string, string>
 }
 
 /** TSX must parse as TSX; a `.ts` file with JSX-looking generics must not. */
-/** 中文说明：函数 scriptKindOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 scriptKindOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function scriptKindOf(rel: string): ts.ScriptKind {
   return rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
 }
 
 /** 1-based line of a node's first character. */
-/** 中文说明：函数 lineOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 lineOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function lineOf(sf: ts.SourceFile, node: ts.Node): number {
   return sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
 }
 
 /** Declaration text including leading JSDoc, with container indentation removed. */
-/** 中文说明：函数 declarationText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 declarationText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function declarationText(statement: ts.Node, sf: ts.SourceFile): string {
   return dedent(sf.text.slice(statement.getStart(sf, true), statement.getEnd()))
 }
 
 /** One member's JSDoc comment text, '' when the member has none. */
-/** 中文说明：函数 jsDocOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 jsDocOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function jsDocOf(member: ts.Node, sf: ts.SourceFile): string {
   // getStart(includeJsDoc) brackets exactly the doc comment: with it the range
   // opens at `/**`, without it at the member itself.
@@ -430,7 +430,7 @@ function jsDocOf(member: ts.Node, sf: ts.SourceFile): string {
 }
 
 /** Strip the shared leading indentation of a multi-line source slice. */
-/** 中文说明：函数 dedent 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 dedent 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function dedent(text: string): string {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = text.split('\n')
@@ -443,13 +443,13 @@ function dedent(text: string): string {
 }
 
 /** Collapse a type text to one line so catalog rows stay one row. */
-/** 中文说明：函数 collapse 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collapse 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collapse(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
 /** A type-literal member's string-literal type text, '' when absent or computed. */
-/** 中文说明：函数 literalMember 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 literalMember 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function literalMember(entry: ts.TypeLiteralNode | undefined, name: string): string {
   /** 中文说明：变量 member 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const member = namedMember(entry, name)
@@ -460,7 +460,7 @@ function literalMember(entry: ts.TypeLiteralNode | undefined, name: string): str
 }
 
 /** A type-literal member's type text on one line, absent when the member is. */
-/** 中文说明：函数 memberTypeText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 memberTypeText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function memberTypeText(
   entry: ts.TypeLiteralNode | undefined,
   name: string,
@@ -472,7 +472,7 @@ function memberTypeText(
 }
 
 /** One named property signature of a type literal. */
-/** 中文说明：函数 namedMember 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 namedMember 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function namedMember(entry: ts.TypeLiteralNode | undefined, name: string): ts.PropertySignature | undefined {
   if (entry === undefined) return undefined
   /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
@@ -483,13 +483,13 @@ function namedMember(entry: ts.TypeLiteralNode | undefined, name: string): ts.Pr
 }
 
 /** A property name's text, quotes removed. */
-/** 中文说明：函数 memberName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 memberName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function memberName(name: ts.PropertyName): string {
   return ts.isStringLiteral(name) || ts.isIdentifier(name) ? name.text : name.getText()
 }
 
 /** One string-literal property of an options object literal. */
-/** 中文说明：函数 stringProperty 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 stringProperty 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function stringProperty(options: ts.ObjectLiteralExpression, name: string): string | undefined {
   /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const property of options.properties) {
@@ -501,7 +501,7 @@ function stringProperty(options: ts.ObjectLiteralExpression, name: string): stri
 }
 
 /** The SlotMap keys a registration's `children` table declares. */
-/** 中文说明：函数 childKeys 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 childKeys 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function childKeys(options: ts.ObjectLiteralExpression): string[] {
   /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const property of options.properties) {
@@ -515,7 +515,7 @@ function childKeys(options: ts.ObjectLiteralExpression): string[] {
 }
 
 /** The component argument as written; a non-identifier expression is collapsed. */
-/** 中文说明：函数 componentText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 componentText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function componentText(argument: ts.Expression | undefined, sf: ts.SourceFile): string {
   if (argument === undefined) return '(none)'
   /** 中文说明：变量 text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

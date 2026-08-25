@@ -6,7 +6,7 @@
  * 关键边界：声明不影响可重放状态折叠，也不检查真实类名。
  * 新手阅读建议：先看外层运行节点，再追踪嵌套成员组件的样式引用。
  */
-/** 使用方式：`import styles from './WorkflowRun.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './WorkflowRun.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码类名，值为构建产生的隔离类名。 */
   const classes: Record<string, string>

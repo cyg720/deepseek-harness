@@ -34,7 +34,7 @@ interface DraftAnswer {
  * runtime failure messages (finished strings from the wire) pass through
  * verbatim.
  */
-/** 中文说明：类型或类 Feedback 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 Feedback 约束模块数据或组件职责。 */
 type Feedback = { key: 'error.incomplete' | 'error.unanswered' } | { text: string }
 
 /**
@@ -42,7 +42,7 @@ type Feedback = { key: 'error.incomplete' | 'error.unanswered' } | { text: strin
  * @param label - Original option label returned if selected.
  * @returns Display label plus recommendation state.
  */
-/** 中文说明：函数 parseRecommendedLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 parseRecommendedLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function parseRecommendedLabel(label: string): { label: string; recommended: boolean } {
   /** 中文说明：组件局部值 suffix，由紧邻初始化决定。 */
   const suffix = /\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i
@@ -52,7 +52,7 @@ export function parseRecommendedLabel(label: string): { label: string; recommend
 }
 
 /** Return whether a text-field key event belongs to an active IME composition. */
-/** 中文说明：函数 isComposing 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 isComposing 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isComposing(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
   // keyCode 229 is the legacy IME-composition signal engines emit without isComposing.
   // oxlint-disable-next-line typescript/no-deprecated
@@ -60,7 +60,7 @@ function isComposing(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
 }
 
 /** The free-text answer field shared by both question shapes. */
-/** 中文说明：类型或类 AnswerFieldProps 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 AnswerFieldProps 约束模块数据或组件职责。 */
 interface AnswerFieldProps {
   /** Which shape the field takes: the custom row's inline column, or the optionless question's own framed block. */
   variant: 'inline' | 'block'
@@ -96,7 +96,7 @@ interface AnswerFieldProps {
  * @param props - field shape, draft text, and the field's event handlers.
  * @returns The mirrored auto-growing field.
  */
-/** 中文说明：函数 AnswerField 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 AnswerField 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function AnswerField(props: AnswerFieldProps) {
   return (
     <div className={clsx(css.field, props.variant === 'inline' ? css.customInline : css.customBlock)}>
@@ -129,7 +129,7 @@ function AnswerField(props: AnswerFieldProps) {
  * @param props - the selector-matched pending question carrier plus the framework standard kit.
  * @returns The question flow, or the intent's own surface, for this request.
  */
-/** 中文说明：函数 QuestionComposer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 QuestionComposer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function QuestionComposer(props: QuestionComposerProps) {
   // Domain-face mint rides the carrier's stable identity (never minted in a
   // select/render dispatch — per-dispatch minting would churn memo identity).

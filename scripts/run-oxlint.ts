@@ -32,7 +32,7 @@ function hasOutputFormat(args: readonly string[]): boolean {
 }
 
 /** Complete Oxlint child-process arguments and environment. */
-/** 中文说明：interface OxlintInvocation 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface OxlintInvocation 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface OxlintInvocation {
   readonly args: readonly string[]
   readonly env: NodeJS.ProcessEnv
@@ -44,7 +44,7 @@ export interface OxlintInvocation {
  * @param env - Environment inherited by the Oxlint process.
  * @returns the complete CLI arguments and child environment.
  */
-/** 中文说明：函数 resolveOxlintInvocation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 resolveOxlintInvocation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function resolveOxlintInvocation(args: readonly string[], env: NodeJS.ProcessEnv): OxlintInvocation {
   /** 中文说明：变量 resolvedArgs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolvedArgs = [...args]

@@ -5,7 +5,7 @@
  * turn round-trip, stop-reason mapping, cancellation, env scrubbing, and
  * quiescent disposal are all exercised end to end. No model, no key.
  */
-/**
+/*
  * 文件职责：验证 subagent-dsh-sdk.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -37,7 +37,7 @@ import {
 const fakeRuntime = fileURLToPath(new URL('../../../sdk/client/tests/fake-runtime.ts', import.meta.url))
 
 /** A parent Agent stub. The SDK backend reads exactly one thing off it: the session header's cwd (the workspace its child inherits). */
-/** 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeParent = { id: 'parent', session: { header: { cwd: process.cwd() } } } as unknown as Agent
 
 /** 中文说明：函数 request 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
@@ -46,7 +46,7 @@ function request(text = 'p', signal = new AbortController().signal) {
 }
 
 /** Mount the SDK backend pointed at the fake runtime, scripted by `fakeEnv`. */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(fakeEnv: Record<string, string> = {}, config: Partial<sdk.Config> = {}) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -76,7 +76,7 @@ function text(blocks: { type: string; text?: string }[]): string {
  * reached), so cancel tests wait on a CONDITION rather than an arbitrary
  * timeout. Fails loud if the child never signals readiness.
  */
-/** 中文说明：函数 waitForFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitForFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForFile(file: string, timeoutMs = 5000): Promise<void> {
   /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs

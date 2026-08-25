@@ -1,5 +1,5 @@
 /** Host registry and HTTP adapter for generic Connection RPC channels. */
-/**
+/*
  * 文件职责：实现宿主端 RPC 通道注册、共享通道拦截以及 HTTP 请求到业务处理器的适配。
  * 技术维度：使用 Cordis Service/effect、Fetch API、Schemastery 信封校验、正则路径约束和结构化 RPC 错误。
  * 产品维度：让插件在统一连接服务上安全暴露自己的远程能力，并随插件生命周期自动注销。
@@ -50,13 +50,13 @@ interface ConnectionRpcInterceptor {
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** Host Connection transport and RPC registrations. */
-    /** 中文说明：宿主连接服务，用于注册当前插件拥有的 RPC 通道。 */
+    /* 中文说明：宿主连接服务，用于注册当前插件拥有的 RPC 通道。 */
     connection: HostConnectionHandle
   }
 }
 
 /** Host Connection service whose channel registrations belong to the caller fiber. */
-/** 中文说明：宿主连接服务；将 RPC 注册归属到调用者 Context，以便插件卸载时自动清理。 */
+/* 中文说明：宿主连接服务；将 RPC 注册归属到调用者 Context，以便插件卸载时自动清理。 */
 export class HostConnectionService extends Service implements HostConnectionHandle {
   /** 中文说明：按共享通道保存当前拦截器；同一通道最多一个。 */
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
@@ -66,13 +66,13 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param ctx - owning Connection plugin context.
    * @param trustedHosts - deployment authorities accepted by trusted-host channels.
    */
-  /** 中文说明：创建宿主连接服务；`ctx` 是所属插件上下文，`trustedHosts` 是可信宿主通道允许的地址；例如 `new HostConnectionService(ctx, [])`。 */
+  /* 中文说明：创建宿主连接服务；`ctx` 是所属插件上下文，`trustedHosts` 是可信宿主通道允许的地址；例如 `new HostConnectionService(ctx, [])`。 */
   constructor(ctx: Context, private readonly trustedHosts: readonly string[]) {
     super(ctx, 'connection')
   }
 
   /** Generic channel registry scoped to the Context reading this service. */
-  /** 中文说明：返回绑定当前读取者 Context 的注册表；返回值可注册普通通道和共享通道拦截器，例如 `ctx.connection.rpc.handle(...)`。 */
+  /* 中文说明：返回绑定当前读取者 Context 的注册表；返回值可注册普通通道和共享通道拦截器，例如 `ctx.connection.rpc.handle(...)`。 */
   get rpc(): HostConnectionRpc {
     /** 中文说明：读取服务时的调用者 Context，后续 effect 和路由都归它所有。 */
     const owner = this.ctx
@@ -89,7 +89,12 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param fallback - handler for endpoints not claimed by the interceptor.
    * @returns Fetch handler that selects exactly one target for each request.
    */
-  /** 中文说明：组合共享通道拦截器和回退处理器；参数为 `/api` 及回退处理器；返回每次只选择一个目标的 Fetch 处理器。 */
+  /*
+   * 中文说明：组合共享通道拦截器和回退处理器；参数为 `/api` 及回退处理器；返回每次只选择一个目标的 Fetch 处理器。
+   * @param channel 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param fallback 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   createSharedFetchHandler(
     channel: '/api',
     fallback: FetchHandler,

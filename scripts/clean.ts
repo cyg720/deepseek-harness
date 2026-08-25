@@ -60,7 +60,7 @@ function parseConfig(configPath: string): ts.ParsedCommandLine {
 }
 
 /** Plans and removes repository-owned build output without crossing the repository boundary. */
-/** 中文说明：class RepositoryCleaner 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：class RepositoryCleaner 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export class RepositoryCleaner {
   private readonly root: string
 

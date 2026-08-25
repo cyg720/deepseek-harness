@@ -31,7 +31,7 @@ afterEach(() => {
 })
 
 /** Install the stable facade shape that the Host injects before AppWebEntry runs. */
-/** 中文说明：函数 installFacade 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 installFacade 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function installFacade(
   create?: (options: ClientModuleCreateOptions) => modulesClient.ClientModuleSystem,
 ): ClientModuleLoaderTarget {

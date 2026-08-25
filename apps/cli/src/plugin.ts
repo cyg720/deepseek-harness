@@ -9,7 +9,7 @@
  * gained its `dsh.bundle` declaration in a newer version.
  * @module @deepseek-ai/dsh/plugin
  */
-/**
+/*
  * 文件职责：实现 dsh plugin 命令，调用 pnpm 管理配置依赖并同步 bundle 层清单。
  * 技术维度：使用同步子进程、包清单解析、路径规格重写和安装后状态对账。
  * 产品维度：用户可为单个配置安装、移除或升级插件，bundle 插件会自动加入启动层。
@@ -42,7 +42,7 @@ const NAME = 'dsh'
  * @param profileDir - the profile directory (resolution anchor).
  * @returns true when the package manifest declares `dsh.bundle`.
  */
-/**
+/*
  * 判断已解析依赖是否在包清单中声明配置补丁。
  * @param packageName 依赖包名。
  * @param profileDir 作为模块解析锚点的配置目录。
@@ -75,7 +75,7 @@ function exportsPatch(packageName: string, profileDir: string): boolean {
  * per newly-added bundle-less dependency (a plain library is fine; the
  * warning is orientation).
  */
-/**
+/*
  * 按安装后的真实依赖状态同步配置的 bundle 层列表。
  * @param before pnpm 运行前的配置清单。
  * @param profileDir pnpm 已更新的配置目录。
@@ -137,7 +137,7 @@ function reconcilePlugins(before: ProfileManifest, profileDir: string): void {
  * @param cwd - the directory `dsh` was invoked from.
  * @returns the argument with a relative path spec anchored to `cwd`.
  */
-/**
+/*
  * 将相对文件依赖规格改写为相对于用户调用目录的绝对规格。
  * @param argument 原始 pnpm 参数。
  * @param cwd 用户执行 dsh 时的目录。
@@ -163,7 +163,7 @@ function anchorPathSpec(argument: string, cwd: string): string {
  * @param args - pnpm arguments with relative path specs anchored to the invoking directory.
  * @returns the pnpm exit code.
  */
-/**
+/*
  * 执行一次插件管理：必要时初始化配置，转发 pnpm，然后同步 bundle 列表。
  * @param profile 目标配置名称。
  * @param args 要传给 pnpm 的参数。

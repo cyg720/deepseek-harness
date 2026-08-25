@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】storage-sqlite 包的"不变式伴生插件"：登记一个空的自检安装器。
  * 【技术维度】Cordis 伴生插件形态：导出 name/inject/apply；install 为空函数。
@@ -16,7 +16,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-storage-sqlite`.
  * @module @deepseek-ai/dsh-storage-sqlite/invariant
  */
-/**
+/*
  * 模块总览：版本一致性是打开时的检查、持久性靠一致性测试套件，进程内无可观察
  * 关系，故 install 为空，仅做体系占位。
  */

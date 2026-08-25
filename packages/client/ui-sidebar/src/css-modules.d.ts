@@ -6,7 +6,7 @@
  * 关键边界：类型不验证层级布局或选择器拼写，需由界面测试补充。
  * 新手阅读建议：从侧栏树节点的样式引用逐层理解组件结构。
  */
-/** 使用方式：`import styles from './Sidebar.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Sidebar.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源选择器，值是构建后的隔离类名。 */
   const classes: Record<string, string>

@@ -5,7 +5,7 @@ import { defineConfig } from 'tsdown'
  * by file and must be CommonJS for pkg's VFS Worker hook. A multi-entry build emits an unlisted
  * shared chunk omitted by the package's exact `files` whitelist; separate builds inline it.
  */
-/**
+/*
  * 文件职责：分别构建 JavaScript 代码运行时 ESM 入口和文件加载的 CommonJS Worker。
  * 技术维度：使用 tsdown 单入口构建，兼容 pkg 虚拟文件系统并避免未发布的共享 chunk。
  * 产品维度：让模型生成的 JavaScript 可在隔离 Worker 中运行，包括打包后的可执行程序场景。

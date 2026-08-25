@@ -2,7 +2,7 @@
  * Human-facing `/compact` command over the backend-independent compaction seam.
  * @module @deepseek-ai/dsh-command-compact
  */
-/**
+/*
  * 文件职责：实现上下文压缩的 index 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供上下文压缩能力。
@@ -25,14 +25,14 @@ const USAGE = 'Usage: /compact (no arguments)'
 
 /** Fail loudly if a locally closed union gains an unhandled member. */
 /* v8 ignore start -- closed-union backstop is unreachable without violating the TypeScript contract */
-/** 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertNever(value: never): never {
   throw new TypeError(`unknown manual compaction error code: ${String(value)}`)
 }
 /* v8 ignore stop */
 
 /** Convert expected capability failures into concise human-only outcomes. */
-/** 中文说明：函数 expectedFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 expectedFailure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function expectedFailure(error: ManualCompactionError): CommandResult {
   switch (error.code) {
     case 'busy':
@@ -68,7 +68,7 @@ function expectedFailure(error: ManualCompactionError): CommandResult {
 }
 
 /** Execute one argument-free manual compaction request. */
-/** 中文说明：函数 executeCompact 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 executeCompact 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function executeCompact(
   ctx: Context,
   invocation: CommandInvocation,
@@ -96,7 +96,7 @@ async function executeCompact(
  * Register `/compact` for every composed human-command adapter.
  * @param ctx - context carrying the command registry and the compaction seam.
  */
-/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function apply(ctx: Context): void {
   /** 中文说明：运行时局部值 active，由紧邻初始化决定。 */
   const active = new Set<Promise<CommandResult>>()

@@ -57,7 +57,7 @@ import { linuxProcessGroupHasLiveMembers } from './process-inspector.ts'
  * @param extra - explicit caller entries and tombstones, merged after the scrub.
  * @returns the environment to hand to `spawn` for the child process.
  */
-/**
+/*
  * 构建子进程环境：显式调用方条目按目标平台的环境键语义覆盖擦除后的父环境基线。
  * 字符串刻意恢复或覆盖某条目；显式 undefined 墓碑删除某个普通环境条目。
  * @param extra 显式调用方条目与墓碑，在擦除后合并
@@ -77,19 +77,19 @@ export function childEnv(extra?: Readonly<NodeJS.ProcessEnv>): NodeJS.ProcessEnv
 }
 
 /** Injectable knobs so tests can exercise spill and platform behavior deterministically. */
-/** 可注入旋钮：让测试可以确定性地演练溢出与平台行为。 */
+/* 可注入旋钮：让测试可以确定性地演练溢出与平台行为。 */
 export interface SpawnInternals {
   /** Directory for spill files (defaults to the OS temp dir). */
-  /** 溢出文件目录（缺省为 OS 临时目录）。 */
+  /* 溢出文件目录（缺省为 OS 临时目录）。 */
   spillDir?: string
   /** Windows tree-termination runner (defaults to `taskkill /PID <pid> /T /F`). */
-  /** Windows 树终止运行器（缺省为 taskkill /PID <pid> /T /F）。 */
+  /* Windows 树终止运行器（缺省为 taskkill /PID <pid> /T /F）。 */
   taskkill?: (pid: number) => void
   /** Host platform override for signalling decisions. */
-  /** 信号决策用的宿主平台覆盖。 */
+  /* 信号决策用的宿主平台覆盖。 */
   platform?: NodeJS.Platform
   /** Linux process-group member probe (defaults to `/proc` inspection). */
-  /** Linux 进程组成员探测（缺省经 /proc 检查）。 */
+  /* Linux 进程组成员探测（缺省经 /proc 检查）。 */
   linuxProcessGroupHasLiveMembers?: (processGroupId: number) => boolean | undefined
 }
 
@@ -98,13 +98,13 @@ export interface SpawnInternals {
  * host exit and as the last fallback after failed normal disposal. It is
  * intentionally absent from the public subprocess seam.
  */
-/**
+/*
  * 仅本地使用的同步最终终止：宿主退出时由所属服务调用，也是正常拆解失败后的最后
  * 兜底。刻意不出现在公开子进程缝上。
  */
 export interface LocalSubprocessHandle extends SubprocessHandle {
   /** Force-terminate the current tree synchronously without starting timers or waits. */
-  /** 同步强杀当前树，不启动定时器也不等待。 */
+  /* 同步强杀当前树，不启动定时器也不等待。 */
   terminateForHostExit(): void
 }
 
@@ -114,7 +114,7 @@ export interface LocalSubprocessHandle extends SubprocessHandle {
  * exits, or the parent can exit while claiming quiescence and orphan the
  * survivors it promised to reap.
  */
-/**
+/*
  * 树退出等待的存活轮询节奏。定时器保持 ref：被等待的拆解必须让事件循环活到树真正
  * 退出，否则父进程可能一边声称静默一边退出，把承诺收割的幸存者变成孤儿。
  */
@@ -130,7 +130,7 @@ let defaultSpillDir: string | undefined
  * the OS tmpdir, created lazily. Predictable world-readable paths would let
  * other local users read command output or pre-create symlinks.
  */
-/**
+/*
  * 默认溢出位置：OS 临时目录下私密（0700）的按进程目录，惰性创建。可预测的全局
  * 可读路径会让本机其它用户读到命令输出或预创建符号链接。
  */
@@ -149,7 +149,7 @@ function privateSpillDir(): string {
  * Tail-keep rationale (pi/OpenCode): errors and final results cluster at the
  * end of command output; the spill file covers the head.
  */
-/**
+/*
  * 以有界内存尾部收集一个流。带 spill 上限时，首次溢出会创建溢出文件并把每个块
  * （含已收集的）追加进去，只要整流仍在预算内；不带 spill 时只保留内存尾部
  * （诊断尾部形状——如语言服务器的 stderr）。
@@ -164,7 +164,7 @@ export class OutputCollector {
   private spillFile: string | undefined
   private spillDisabled: boolean
   /** Total bytes ever pushed (not just retained). */
-  /** 累计推入的字节总数（不只保留的）。 */
+  /* 累计推入的字节总数（不只保留的）。 */
   private total = 0
 
   constructor(
@@ -184,7 +184,7 @@ export class OutputCollector {
    * head (or the head of a single over-cap chunk) until it fits the cap again.
    * @param chunk - the raw bytes from one stream 'data' event.
    */
-  /**
+  /*
    * 摄入一个流块，计入整流总量。内存上限首次溢出时（启用落盘时）打开溢出文件，
    * 此后每个块（含已收集的）都追加进去；内存尾部则从头部丢弃整块（或单个超限块的
    * 头部），直到重新适配上限。
@@ -218,7 +218,7 @@ export class OutputCollector {
   }
 
   /** Open the spill file lazily and append `chunk` (and any prior chunks once). */
-  /** 惰性打开溢出文件并追加 chunk（历史块只写一次）。 */
+  /* 惰性打开溢出文件并追加 chunk（历史块只写一次）。 */
   private spillAll(chunk: Buffer): void {
     if (this.maxSpillBytes !== undefined && this.total > this.maxSpillBytes) {
       this.discardSpill()
@@ -241,7 +241,7 @@ export class OutputCollector {
   }
 
   /** Stop spilling and remove the file once it can no longer hold the complete stream. */
-  /** 溢出文件无法再装下完整流时停止落盘并删除文件。 */
+  /* 溢出文件无法再装下完整流时停止落盘并删除文件。 */
   private discardSpill(): void {
     const fd = this.spillFd
     const file = this.spillFile
@@ -275,7 +275,7 @@ export class OutputCollector {
    * @param fromByte - whole-stream offset to resume from (a prior read's `nextOffset`; 0 for the first read).
    * @returns the delta text, the offset for the next read, the `lossy` flag, and the spill path when one was created.
    */
-  /**
+  /*
    * 以整流字节坐标增量读取：返回自 fromByte 以来推入的全部内容。fromByte 已滑出内存
    * 尾部窗口时读取是 lossy 的——返回整个保留尾部，缺口只能从溢出文件恢复。
    * @param fromByte 要续接的整流偏移（上次读取的 nextOffset；首次读取为 0）
@@ -301,7 +301,7 @@ export class OutputCollector {
    * the spawn path seals both collectors at settlement so reads after exit
    * never point at a still-open file.
    */
-  /**
+  /*
    * 流结束后关闭溢出文件。关闭失败（延迟写回故障）时停止宣传溢出路径——文件可能
    * 缺尾部——而内存读取不受影响。幂等；spawn 路径在落定时封存两个收集器，退出后的
    * 读取不会指向仍打开的文件。
@@ -323,7 +323,7 @@ export class OutputCollector {
    * Seal the spill file and return the final output.
    * @returns the final collected output: tail text, truncation flag, and the spill path when intact.
    */
-  /**
+  /*
    * 封存溢出文件并返回最终输出。
    * @returns 最终收集输出：尾部文本、截断标志与（完好时的）溢出文件路径
    */
@@ -344,7 +344,7 @@ export class OutputCollector {
  * @param pid - the group leader's pid; non-positive means the spawn failed and the call is a no-op.
  * @param sig - the signal to deliver to the whole group.
  */
-/**
+/*
  * 向分离的 POSIX 进程组发信号。永不抛错：投递与进程退出竞态且可能在定时器回调中
  * 运行，因此失败被收敛；非正 pid 为空操作。
  * @param pid 组首进程 pid；非正表示 spawn 失败，调用为空操作
@@ -367,7 +367,7 @@ export function killGroup(pid: number, sig: NodeJS.Signals): void {
  * teardown.
  * @param pid - root process id; non-positive is a no-op.
  */
-/**
+/*
  * 用 taskkill /T /F 终止一个 Windows 进程树。与 POSIX 组信号一样收敛错误——投递与
  * 树退出竞态，因此树不存在、非零状态或 taskkill 二进制缺失都不能破坏幂等拆解。
  * @param pid 根进程 id；非正为空操作
@@ -388,7 +388,7 @@ export function taskkillProcessTree(pid: number): void {
  * when the group is gone; Windows terminates the tree via taskkill (any
  * signal value force-terminates — Node maps signals to TerminateProcess).
  */
-/**
+/*
  * 以平台正确的语义给分离进程树发信号：POSIX 发负进程组 id、组消失时回退到直接子
  * 进程；Windows 经 taskkill 终止整树（任何信号值都强制终止——Node 把信号映射为
  * TerminateProcess）。
@@ -430,7 +430,7 @@ function signalTree(
  * @returns live subprocess handle.
  * @throws when `graceMs` cannot be represented by one Node timer.
  */
-/**
+/*
  * 按规格的逐流 stdio 配置 spawn 一个隔离的分离进程树。运行时退出以 SubprocessOutcome
  * 解析 done；只有 spawn 失败才 reject。
  * @param spec 完全解析的 argv、cwd、stdio、宽限期、取消与环境
@@ -494,7 +494,7 @@ export function spawnSubprocess(spec: SubprocessSpawnSpec, internals: SpawnInter
   const pid = child.pid ?? -1
 
   /** Whether the detached tree's root (or POSIX group) is still alive. */
-  /** 分离树的根（或 POSIX 组）是否仍然存活。 */
+  /* 分离树的根（或 POSIX 组）是否仍然存活。 */
   const treeAlive = (): boolean => {
     /* v8 ignore next -- only a timer callback already queued when the observer settles can enter here;
        the guard is the final defense against probing an id after its tree was confirmed absent. */
@@ -535,7 +535,7 @@ export function spawnSubprocess(spec: SubprocessSpawnSpec, internals: SpawnInter
    * confirmed absence is a permanent no-more-signals boundary: it cancels a
    * pending escalation before this process-group id can be reused.
    */
-  /**
+  /*
    * 启动或复用句柄的单一整树退出观察者。首次确认树消失是永久的"不再发信号"边界：
    * 它会取消挂起的升级，防止本进程组 id 被复用后继续被信号。
    */

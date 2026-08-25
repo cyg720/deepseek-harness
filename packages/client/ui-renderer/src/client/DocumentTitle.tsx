@@ -12,10 +12,10 @@ import { useEffect } from 'react'
 const DEFAULT_CLIENT_TITLE = 'DSH Local Build'
 
 /** Props for the browser title projection. */
-/** 浏览器标题投影属性，只包含当前选中会话的可选持久标题。 */
+/* 浏览器标题投影属性，只包含当前选中会话的可选持久标题。 */
 export interface DocumentTitleProps {
   /** Durable title of the selected session, or undefined for the product title. */
-  /** 当前会话持久标题；undefined 时仅显示产品标题。 */
+  /* 当前会话持久标题；undefined 时仅显示产品标题。 */
   title?: string
 }
 
@@ -25,7 +25,7 @@ export interface DocumentTitleProps {
  * @param props - Selected session title projection.
  * @returns No rendered content.
  */
-/**
+/*
  * 同步浏览器标题，并在组件卸载时恢复产品标题。
  * @param props - title 是当前选中会话的持久标题，未选择时为 undefined。
  * @returns null；组件不渲染可见 DOM。

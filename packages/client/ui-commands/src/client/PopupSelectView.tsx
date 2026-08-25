@@ -9,7 +9,7 @@
  * target takes focus). Closed state renders null; the overlay slot stays
  * mounted. The card height clamps to the space above the composer.
  */
-/**
+/*
  * 文件职责：实现命令弹层界面的 PopupSelectView 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：向用户展示并操作命令弹层相关状态。
@@ -27,18 +27,18 @@ import type { PopupSelectController } from './popup.ts'
 import css from './PopupSelectView.module.css'
 
 /** Design cap on the card height (same MenuDropdown family as the slash menu). */
-/** 中文说明：当前组件的局部值 MAX_HEIGHT，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 MAX_HEIGHT，由紧邻初始化决定。 */
 const MAX_HEIGHT = 320
 
 /** Injected business face of the popupSelect overlay entry. */
-/** 中文说明：类型或类 PopupSelectInjected 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 PopupSelectInjected 约束本文件的数据或组件职责。 */
 export interface PopupSelectInjected {
   /** The session's shell controller (state store + verbs; the view never touches the open-context type). */
   popup: PopupSelectController
 }
 
 /** Full shell props: injected face + the locale seat. */
-/** 中文说明：类型或类 PopupSelectViewProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 PopupSelectViewProps 约束本文件的数据或组件职责。 */
 export type PopupSelectViewProps = PopupSelectInjected & PropsLocale<'command'>
 
 /**
@@ -46,7 +46,7 @@ export type PopupSelectViewProps = PopupSelectInjected & PropsLocale<'command'>
  * @param props - injected face: the session's shell controller; `t` rides the standard locale seat.
  * @returns the select card while open; null while closed.
  */
-/** 中文说明：函数 PopupSelectView 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 PopupSelectView 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
   /** 中文说明：当前组件的局部值 state，由紧邻初始化决定。 */
   const state = useSyncExternalStore(

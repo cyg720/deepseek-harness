@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证插件配置的 fields.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止插件配置保存、发现和错误提示回归。

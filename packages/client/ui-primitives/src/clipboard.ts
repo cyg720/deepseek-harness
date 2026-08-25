@@ -25,7 +25,7 @@
  * @param text - the exact text to place on the clipboard.
  * @returns true only when the host accepted the write.
  */
-/**
+/*
  * 把文本写入宿主剪贴板：优先异步 Clipboard API，缺失时（jsdom、非安全上下文）
  * 回退到 execCommand('copy')。
  * 使用示例：const ok = await writeClipboard('hello')；ok 为 false 时不显示"已复制"。

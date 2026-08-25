@@ -25,13 +25,13 @@ import type {
 import css from './WorkflowRunPanel.module.css'
 
 /** Navigation action injected from the plugin's own SessionRuntime access. */
-/** 中文说明：类型或类 WorkflowRunInjected 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 WorkflowRunInjected 约束模块数据或组件职责。 */
 export interface WorkflowRunInjected {
   readonly openSession: (id: SessionId) => void
 }
 
 /** Complete keyed Chat renderer props. */
-/** 中文说明：类型或类 WorkflowRunPanelProps 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 WorkflowRunPanelProps 约束模块数据或组件职责。 */
 export type WorkflowRunPanelProps =
   PropsRuntime<'conversation.chat.node', 'workflow-run'>
   & PropsLocale<'workflowRun'>
@@ -387,7 +387,7 @@ function PhaseSection({
 }
 
 /** Render one durable workflow run with status-driven run and phase disclosure. */
-/** 中文说明：函数 WorkflowRunPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 WorkflowRunPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function WorkflowRunPanel({ node, sessionId, useSessions, openSession, t }: WorkflowRunPanelProps) {
   /** 中文说明：组件局部值 phaseFacts，由紧邻初始化决定。 */
   const phaseFacts = useMemo(() => node.data.phases.map(phase => (

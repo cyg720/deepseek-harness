@@ -3,7 +3,7 @@
  * are shared with `agent-note-tree.ts`; the closed classification rules live
  * in `.agents/notes/README.md`.
  */
-/**
+/*
  * 文件职责：校验 Agent Note 生命周期目录、分类路径和日期文件名符合封闭规则。
  * 技术维度：使用 Node.js 路径与存在检查、共享树遍历器和进程退出码实现仓库门禁。
  * 产品维度：让架构与过程决策保存在唯一可发现的位置，避免旧目录产生第二套事实来源。

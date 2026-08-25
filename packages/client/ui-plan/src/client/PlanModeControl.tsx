@@ -16,7 +16,7 @@ import type { PlanChipInjected } from './index.ts'
 import css from './PlanModeControl.module.css'
 
 /** Full plan-seat component props: runtime share (standard kit + locked owner prop) & injected share & the locale seat. */
-/** 中文说明：类型或类 PlanChipProps 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 PlanChipProps 约束本文件数据或组件职责。 */
 export type PlanChipProps =
   PropsRuntime<'conversation.input.plan'> & InjectFace<PlanChipInjected> & PropsLocale<'plan'>
 
@@ -25,7 +25,7 @@ export type PlanChipProps =
  * only while the effective target is plan mode (`pending ? !active : active`
  * — a folded host value, not client optimism) and executes /plan off.
  */
-/** 中文说明：函数 PlanChip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 PlanChip 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function PlanChip({ useProjection, locked, exitPlanMode, t }: PlanChipProps) {
   /** 中文说明：组件局部值 plan，由紧邻初始化决定。 */
   const plan = useProjection('plan')

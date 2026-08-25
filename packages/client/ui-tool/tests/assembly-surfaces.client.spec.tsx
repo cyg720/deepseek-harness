@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证工具调用的 assembly-surfaces.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
  * 产品维度：防止工具调用展示与展开交互回归。
@@ -26,7 +26,7 @@ usePinnedBrowserLanguages('zh-CN')
 const SID = 's1' as SessionId
 
 /** jsdom has no ResizeObserver; the composer seat publishes its height through one. */
-/** 中文说明：类型或类 ResizeObserverStub 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 ResizeObserverStub 约束工具或轨迹数据职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -69,7 +69,7 @@ const bashResult = (seq: number, callId: string, over?: Partial<ToolResultNode>)
 })
 
 /** Test-owned AppFrame role: declares and renders the resident conversation area. */
-/** 中文说明：类型或类 AppRootProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 AppRootProps 约束工具或轨迹数据职责。 */
 type AppRootProps = PropsRenderSlots<'conversation' | 'details'>
 /** 中文说明：函数 AppRoot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function AppRoot({ renderSlot }: AppRootProps) {

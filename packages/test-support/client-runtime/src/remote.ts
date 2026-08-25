@@ -1,5 +1,5 @@
 /** Test-owned Remote face: `$on` subscriptions driven by the internal forwarded-event plumbing. */
-/**
+/*
  * 文件职责：实现 remote.ts 覆盖的客户端运行时测试支持行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
@@ -28,7 +28,7 @@ import type { Context } from '@deepseek-ai/cordis'
  * this double for the containment guarantee `$on` documents — assert that
  * against the real service.
  */
-/** 中文说明：class TestRemote 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：class TestRemote 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestRemote {
   private readonly subscriptions = new Map<string, Set<(...args: never[]) => void>>()
 

@@ -4,7 +4,7 @@
  * exist but not whether a narrow row still fits on one line; these read the
  * declarations the layout depends on.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：直接读取 ToolRow CSS，验证摘要行在窄宽度下保持单行和正确截断职责。
  * - 技术维度：使用 Vitest、Node 文件读取、正则提取 CSS 声明和数组匹配。
@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest'
 /** ToolRow 样式表的完整 UTF-8 文本。 */
 const css = readFileSync(fileURLToPath(new URL('../src/client/tool/components/ToolRow.module.css', import.meta.url)), 'utf8')
 /** Declarations only: the sheet's prose names the properties it explains. */
-/** 中文：移除 CSS 注释后的声明文本，避免说明文字中的属性名影响匹配。 */
+/* 中文：移除 CSS 注释后的声明文本，避免说明文字中的属性名影响匹配。 */
 const declarationText = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
 
 /** 中文：提取 selector 基础规则的声明数组；找不到时抛错。示例：declarations('.summary')。 */

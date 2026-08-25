@@ -47,7 +47,7 @@ type ChatInstance = ReturnType<ReturnType<typeof createChatStore>['create']>
 type ChatActions = ChatInstance['actions']
 
 /** ISession verb mocks, typed against the production face (['prompt'] etc. keep vitest mock ergonomics). */
-/** 中文说明：函数 sessionFakeFor 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 sessionFakeFor 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function sessionFakeFor() {
   return {
     open: vi.fn(() => Promise.resolve()),
@@ -97,7 +97,7 @@ async function bench() {
   const entryOf = (key: 'conversation' | 'conversation.session' | 'conversation.session.header' | 'conversation.composer.bar' | 'conversation.view' | 'details') =>
     runtime.slots.entries(key)[0]!
   /** Resolve store instance + call the inject the way the outlet would. */
-  /** 中文说明：服务对象 conversationApi，取值由紧邻初始化决定。 */
+  /* 中文说明：服务对象 conversationApi，取值由紧邻初始化决定。 */
   const conversationApi = (id: SessionId) => {
     /** 中文说明：测试局部值 entry，取值由紧邻初始化决定。 */
     const entry = entryOf('conversation.session')
@@ -132,7 +132,7 @@ async function bench() {
     return (entry.inject as unknown as (sessionId: SessionId | undefined) => ComposerBarInjected)(id)
   }
   /** Same resolution for the chat entry riding the view ring. */
-  /** 中文说明：服务对象 chatViewApi，取值由紧邻初始化决定。 */
+  /* 中文说明：服务对象 chatViewApi，取值由紧邻初始化决定。 */
   const chatViewApi = (id: SessionId) => {
     /** 中文说明：测试局部值 entry，取值由紧邻初始化决定。 */
     const entry = entryOf('conversation.view')
@@ -144,7 +144,7 @@ async function bench() {
     return { instance, injected }
   }
   /** Materialize the input provide contribution the way the runtime does. */
-  /** 中文说明：服务对象 inputApi，取值由紧邻初始化决定。 */
+  /* 中文说明：服务对象 inputApi，取值由紧邻初始化决定。 */
   const inputApi = (id: SessionId) => {
     /** 中文说明：测试局部值 info，取值由紧邻初始化决定。 */
     const info = runtime.sessions.provideInfo(id)!

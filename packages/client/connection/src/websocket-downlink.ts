@@ -1,5 +1,5 @@
 /** Host-side WebSocket carrier for the two server-to-browser event streams. */
-/**
+/*
  * 文件职责：实现宿主端两条只下行 WebSocket 事件流的升级、帧发送、错误报告和统一关闭。
  * 技术维度：使用 ws 的 noServer 模式、Node 原始 Duplex、AbortController、异步迭代器和 UUID 关联编号。
  * 产品维度：让浏览器持续收到复用事件和主机事件，同时阻止客户端把 WebSocket 当作上行通道。
@@ -60,7 +60,7 @@ function failureFrame(error: unknown): RpcRequest<Frame> {
  * two downlinks. Client messages are a protocol violation: upstream traffic
  * remains on HTTP.
  */
-/** 中文说明：管理两条只下行 WebSocket 的升级与帧泵送；上行业务请求始终保留在 HTTP。 */
+/* 中文说明：管理两条只下行 WebSocket 的升级与帧泵送；上行业务请求始终保留在 HTTP。 */
 export class WebSocketDownlinks {
   /** 中文说明：不自行监听端口的 WebSocket 服务器，只接收现有 HTTP 服务器交付的升级。 */
   private readonly server = new WebSocketServer({ noServer: true })
@@ -68,7 +68,7 @@ export class WebSocketDownlinks {
   private readonly pumps = new Set<Promise<void>>()
 
   /** @param api - host API supplying the typed event streams. */
-  /** 中文说明：创建下行管理器；`api` 提供类型化事件流；例如 `new WebSocketDownlinks(apiProxy)`。 */
+  /* 中文说明：创建下行管理器；`api` 提供类型化事件流；例如 `new WebSocketDownlinks(apiProxy)`。 */
   constructor(private readonly api: ApiProxy) {}
 
   /**
@@ -77,7 +77,12 @@ export class WebSocketDownlinks {
    * @param socket - Raw socket transferred by the HTTP server.
    * @param head - Bytes already read after the upgrade headers.
    */
-  /** 中文说明：升级并泵送复用事件；参数是请求、原始套接字和已预读字节；无返回值，例如升级路由收到 MUX 路径时调用。 */
+  /*
+   * 中文说明：升级并泵送复用事件；参数是请求、原始套接字和已预读字节；无返回值，例如升级路由收到 MUX 路径时调用。
+   * @param req 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param socket 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param head 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   handleMux(req: IncomingMessage, socket: Duplex, head: Buffer): void {
     this.upgrade(req, socket, head, signal => this.api.events.mux({
       rpcId: RpcId(randomUUID()),
@@ -91,7 +96,12 @@ export class WebSocketDownlinks {
    * @param socket - Raw socket transferred by the HTTP server.
    * @param head - Bytes already read after the upgrade headers.
    */
-  /** 中文说明：升级并泵送主机事件；参数是请求、原始套接字和已预读字节；无返回值，例如升级路由收到 HOST 路径时调用。 */
+  /*
+   * 中文说明：升级并泵送主机事件；参数是请求、原始套接字和已预读字节；无返回值，例如升级路由收到 HOST 路径时调用。
+   * @param req 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param socket 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param head 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   */
   handleHost(req: IncomingMessage, socket: Duplex, head: Buffer): void {
     this.upgrade(req, socket, head, signal => this.api.events.host({
       rpcId: RpcId(randomUUID()),
@@ -103,7 +113,7 @@ export class WebSocketDownlinks {
    * Terminate owned sockets and await the no-server acceptor plus frame pumps.
    * @returns A promise resolving after every socket and source iterator stops.
    */
-  /** 中文说明：终止所有套接字并等待服务器和帧泵停止；无参数；返回清理 Promise，例如插件 effect 销毁时 `await downlinks.close()`。 */
+  /* 中文说明：终止所有套接字并等待服务器和帧泵停止；无参数；返回清理 Promise，例如插件 effect 销毁时 `await downlinks.close()`。 */
   async close(): Promise<void> {
     for (const socket of this.server.clients) socket.terminate()
     await new Promise<void>((resolve, reject) => {
@@ -165,7 +175,10 @@ export class WebSocketDownlinks {
  * Reject an untrusted upgrade before protocol negotiation.
  * @param socket - Raw HTTP socket that remains owned by the caller.
  */
-/** 中文说明：在协商协议前拒绝不可信升级；参数是调用方拥有的原始套接字；无返回值，例如来源检查失败时调用。 */
+/*
+ * 中文说明：在协商协议前拒绝不可信升级；参数是调用方拥有的原始套接字；无返回值，例如来源检查失败时调用。
+ * @param socket 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function rejectWebSocketUpgrade(socket: Duplex): void {
   socket.end([
     'HTTP/1.1 403 Forbidden',

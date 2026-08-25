@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现沙箱化的 bash 执行器 SandboxBashExecutor：在本地 bash 执行器基础上，
  * 把 `bash -c <command>` 的 argv 交给 ctx.sandbox 提供者做隔离包装，并上报沙箱模式、
@@ -52,7 +52,7 @@ import { classifyDenial, classifyRunnerFailure, isRunnerSpawnFailure, matchesSig
  * each calling session's mode and cwd for every enforcing capability. The runner
  * choice is likewise the `ctx.sandbox` provider's config, not this executor's.
  */
-/**
+/*
  * 插件配置：原样复用本地执行器的配置项。沙箱策略（默认模式与 workspace-write 回退根目录）
  * 不在这里，而是由 ctx.sandboxPolicy 按会话解析；运行器选择同样是 ctx.sandbox 提供者的配置。
  */
@@ -65,7 +65,7 @@ export type Config = LocalConfig
  * calls fall back to deployment policy. `result.sandbox` reports the mode and
  * enforcement actually used.
  */
-/**
+/*
  * 注册为 ctx.shell 以替代本地执行器，并要求 ctx.sandbox 提供者与 ctx.sandboxPolicy
  * 同时存在；工具层保持不变。工具调用传入调用会话已解析的策略，直接调用则回退到部署策略。
  * result.sandbox 上报实际使用的模式与执行完整度。
@@ -78,14 +78,14 @@ export class SandboxBashExecutor extends LocalBashExecutor {
   // verbatim (the config catalog walks the inherited static).
 
   private readonly mode: SandboxMode
-  /** 沙箱默认模式，作为能力事实供模式广告（schema advertisement）使用。 */
+  /* 沙箱默认模式，作为能力事实供模式广告（schema advertisement）使用。 */
   /**
    * Per-process confinement facts retained until settlement. Providers may
    * vary enforcement and diagnostic dialect between overlapping calls, so a
    * shared latest-wrap value would classify a process against the wrong facts.
    * Unconfined processes have no entry.
    */
-  /**
+  /*
    * 每个进程的隔离事实，保留到进程落定为止。提供者在重叠调用之间可能变化执行完整度与
    * 诊断方言，因此共享"最近一次包装"的值会把进程分类到错误的事实上；未隔离的进程无此条目。
    */
@@ -106,7 +106,7 @@ export class SandboxBashExecutor extends LocalBashExecutor {
   }
 
   /** The configured default mode — the capability fact the tool layer reads. */
-  /** 配置的默认模式——工具层读取的能力事实。 */
+  /* 配置的默认模式——工具层读取的能力事实。 */
   override get sandboxMode(): SandboxMode {
     return this.mode
   }
@@ -116,7 +116,7 @@ export class SandboxBashExecutor extends LocalBashExecutor {
    * calling session's resolved mode and root; lower-level callers fall back to
    * the deployment policy.
    */
-  /**
+  /*
    * 把完整的一次调用策略盖到规格上。工具调用携带调用会话已解析的模式与根目录；
    * 底层调用方回退到部署策略。
    */
@@ -202,7 +202,7 @@ export class SandboxBashExecutor extends LocalBashExecutor {
    * Stamp per-process sandbox facts before `done` settles. Full-access processes
    * have no facts; signal deaths are not denials.
    */
-  /**
+  /*
    * 在 done 落定前给进程盖印沙箱事实。完全放行（full-access）的进程没有事实；
    * 被信号杀死的进程不算拒绝。
    */
@@ -234,7 +234,7 @@ export class SandboxBashExecutor extends LocalBashExecutor {
    * @param policy - resolved confined execution policy.
    * @returns the provider's exact argv and settlement-classification facts.
    */
-  /**
+  /*
    * 通过 ctx.sandbox 提供者包装一条 shell 命令。提供者错误原样向上抛；返回的 argv
    * 直接交给本地执行器的子进程路径。
    * @param command 需要被隔离包装的 bash -c 内部 shell 源码

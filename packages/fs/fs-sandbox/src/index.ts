@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】SandboxedFileSystem：dsh-fs Service Definition 的"沙箱强制"实现。
  * 它继承 LocalFileSystem，所有文本存储机制（解析、stat、读写、列举、原子写、编辑
@@ -54,7 +54,7 @@
  *
  * @module @deepseek-ai/dsh-fs-sandbox
  */
-/**
+/*
  * 模块总览：本包是"带沙箱策略的 fs 后端"——继承本地后端 + 变更前策略围栏。
  * 读取不经围栏（所有模式都允许读）；拒绝时抛结构化 FS_SANDBOX_DENIED。
  */
@@ -75,7 +75,7 @@ import { isPathUnder } from './containment.ts'
  * (mode + `workspace-write` fallback root) is NOT here — `ctx.sandboxPolicy`
  * resolves each calling session for every enforcing capability.
  */
-/**
+/*
  * 插件配置：原样复用本地后端的旋钮（cwd 解析基准与 diffBasisMaxBytes 覆盖展示上限）。
  * 沙箱默认（模式 + workspace-write 回退根）不在这里——由 ctx.sandboxPolicy 按每个
  * 调用会话解析。
@@ -90,7 +90,7 @@ export type Config = LocalConfig
  * each session's mode and cwd into a policy for every mutation, while an
  * approved escalation may stamp a strictly wider mode for one call.
  */
-/**
+/*
  * 沙箱强制的文件系统后端。注册为 ctx.fs（用本包替代 dsh-fs-local，连同
  * ctx.sandboxPolicy，就是完整的切换——模型侧工具无需改动）。配置的默认模式是
  * sandboxMode 暴露的能力事实；dsh-tool-fs 把每个会话的模式与 cwd 解析成每次
@@ -108,7 +108,7 @@ export class SandboxedFileSystem extends LocalFileSystem {
   }
 
   /** The deployment default mode — the capability fact the tool layer reads to advertise escalation. */
-  /** 部署默认模式——工具层读取它来诚实宣传升级选项。 */
+  /* 部署默认模式——工具层读取它来诚实宣传升级选项。 */
   override get sandboxMode(): SandboxMode {
     return this.defaultMode
   }
@@ -124,7 +124,7 @@ export class SandboxedFileSystem extends LocalFileSystem {
    *   the deployment fallback.
    * @returns the write outcome from the inherited backend.
    */
-  /**
+  /*
    * 先用按调用策略围栏写入，再委托给继承的原子写（细节见 checkedTarget）。
    * @param target 要写入的已解析目标。
    * @param content 完整的新文件内容。
@@ -154,7 +154,7 @@ export class SandboxedFileSystem extends LocalFileSystem {
    *   the deployment fallback.
    * @returns the edit outcome from the inherited backend.
    */
-  /**
+  /*
    * 先用按调用策略围栏编辑，再委托给继承的原子编辑（细节见 checkedTarget）。
    * @param target 要编辑的已解析目标。
    * @param edit 字面查找/替换请求。
@@ -184,7 +184,7 @@ export class SandboxedFileSystem extends LocalFileSystem {
    * refusal — the tool layer maps it to the model-facing `[sandbox: …]` marker
    * and the escalation hint.
    */
-  /**
+  /*
    * 对 target 执行按调用策略检查，并返回"变更必须使用的确切目标"——被检查的身份
    * 就是被变更的身份（没有"这里检查、那里写入"的 TOCTOU）。read-only 拒绝；
    * workspace-write 此刻立即重新规范化（resolve 会 realpath 最深已存在祖先，反映

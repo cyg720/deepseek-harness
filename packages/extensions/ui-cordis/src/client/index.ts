@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】ui-cordis 的浏览器（Client）半部入口：把动态 Cordis 插件功能的所有
  *             用户界面挂到客户端 UI 槽位上——侧边栏"Cordis 面板"、cordis_define/
@@ -60,7 +60,7 @@ export const inject = [
 ]
 
 /** Mount every Cordis browser surface over the shared Host inventory. */
-/**
+/*
  * 浏览器侧插件入口：注册中英文词典、创建共享库存（inventory）、接入 Host 事件的
  * 刷新/重连处理，然后把面板与各工具卡片挂到对应 UI 槽位，并注册 @ 触发的插件
  * 引用来源。

@@ -5,7 +5,7 @@
  * toBe/not.toBe — it is the React.memo/uSES contract, equal-value output is not
  * enough.
  */
-/**
+/*
  * 文件职责：验证客户端会话运行时的 session 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。

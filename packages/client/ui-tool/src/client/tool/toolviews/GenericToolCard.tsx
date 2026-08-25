@@ -26,7 +26,7 @@ import { toolRowModel, type ToolRowVariant } from '../models/tool-call-model.ts'
 import { ToolRow } from '../components/ToolRow.tsx'
 
 /** Variant leading icons (figma table); all glyphs render at 14 inside the 16px leading box. */
-/** 中文说明：视图局部值 VARIANT_ICONS，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 VARIANT_ICONS，由紧邻初始化决定。 */
 const VARIANT_ICONS: Record<ToolRowVariant, ReactNode> = {
   search: <IconSearchOutline16 size={14} />,
   read: <IconBrowseOutline16 size={14} />,
@@ -38,7 +38,7 @@ const VARIANT_ICONS: Record<ToolRowVariant, ReactNode> = {
 }
 
 /** Card props: the owner payload plus the render site's locale seat (plain prop). */
-/** 中文说明：类型或类 GenericToolCardProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 GenericToolCardProps 约束工具或轨迹数据职责。 */
 export interface GenericToolCardProps extends ToolCallOwnerProps {
   t: ToolTreeProps['t']
 }

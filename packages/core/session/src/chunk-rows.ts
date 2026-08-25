@@ -17,7 +17,7 @@
  *
  * @module @deepseek-ai/dsh-session/chunk-rows
  */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】为 assistant/chunk 流增量（delta）串提供无损的存储打包：把连续同类同块的 delta
  *           chunk 事件串压成一行存储记录（text-chunks / reasoning-chunks / tool-call-chunks），
@@ -43,11 +43,11 @@ import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from './types.ts'
 
 /** The chunk kinds that may pack; block boundaries, usage, and finish chunks always stay one event per line. */
-/** 可打包的 delta 种类；块边界、usage、finish 等 chunk 永远保持一事件一行。 */
+/* 可打包的 delta 种类；块边界、usage、finish 等 chunk 永远保持一事件一行。 */
 type DeltaKind = 'text-delta' | 'reasoning-delta' | 'tool-call-delta'
 
 /** A run member: an `assistant/chunk` event whose exact shape the encoder whitelisted. */
-/** 串的一员：其完整形状已被编码器白名单确认的 assistant/chunk 事件。 */
+/* 串的一员：其完整形状已被编码器白名单确认的 assistant/chunk 事件。 */
 type DeltaEvent = SessionEvent<'assistant/chunk'>
 
 /**
@@ -56,7 +56,7 @@ type DeltaEvent = SessionEvent<'assistant/chunk'>
  * `time0` plus the first `k` gaps; a gap may be negative when the wall clock
  * stepped backwards between events.
  */
-/**
+/*
  * 每个打包串共享的字段：放置信息、块关联，以及以差值表示的成员时间戳。
  * 成员 k 还原为 seq0+k、time0 加上前 k 个差值；差值可为负（事件之间墙钟倒退）。
  */
@@ -73,14 +73,14 @@ interface RunDataBase {
 }
 
 /** Payload of a `text-chunks`/`reasoning-chunks` row: one entry per member, never joined — token boundaries are data. */
-/** text-chunks/reasoning-chunks 行的载荷：每成员一项，绝不拼接——token 边界本身就是数据。 */
+/* text-chunks/reasoning-chunks 行的载荷：每成员一项，绝不拼接——token 边界本身就是数据。 */
 interface TextRunData extends RunDataBase {
   // 每个成员的文本片段。
   texts: string[]
 }
 
 /** Payload of a `tool-call-chunks` row: the run-constant call identity plus each member's raw arguments fragment. */
-/** tool-call-chunks 行的载荷：整串恒定的调用身份，加每个成员的原始参数片段。 */
+/* tool-call-chunks 行的载荷：整串恒定的调用身份，加每个成员的原始参数片段。 */
 interface ToolCallRunData extends RunDataBase {
   // 工具调用 id（带 CallId 品牌）。
   id: CallId
@@ -96,7 +96,7 @@ interface ToolCallRunData extends RunDataBase {
  * `seq0`/`time0` anchor the first member; text and reasoning rows share the
  * {@link TextRunData} payload, tool-call rows carry {@link ToolCallRunData}.
  */
-/**
+/*
  * 一串打包的连续 delta chunk 事件，按 type 判别。
  * seq0/time0 锚定第一个成员；文本与推理行共用 {@link TextRunData} 载荷，
  * 工具调用行携带 {@link ToolCallRunData}。
@@ -107,7 +107,7 @@ export type ChunkRow =
   | { type: 'tool-call-chunks'; seq0: number; time0: number; data: ToolCallRunData }
 
 /** One durable log line's JSON value: a session event verbatim, or a packed chunk row. */
-/** 一条耐久日志行的 JSON 值：原样的会话事件，或打包的 chunk 行。 */
+/* 一条耐久日志行的 JSON 值：原样的会话事件，或打包的 chunk 行。 */
 export type StorageRecord = SessionEvent | ChunkRow
 
 /**
@@ -115,7 +115,7 @@ export type StorageRecord = SessionEvent | ChunkRow
  * event lines it replaces. A format constant, not a tunable: both layouts
  * decode identically, so changing it never invalidates stored logs.
  */
-/** 打包所需的最少成员数。低于它，行信封的体积就与它所替代的事件行相当。这是格式常量而非可调项：两种布局的解码结果一致，改动它不会使已存日志失效。 */
+/* 打包所需的最少成员数。低于它，行信封的体积就与它所替代的事件行相当。这是格式常量而非可调项：两种布局的解码结果一致，改动它不会使已存日志失效。 */
 const MIN_RUN = 3
 
 // 判断运行时值是否为对象记录（非 null 的对象）。
@@ -124,7 +124,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Exact-key check: `value` has every key in `keys` and nothing else. */
-/** 精确键检查：value 恰好拥有 keys 中的每一个键且别无其他。 */
+/* 精确键检查：value 恰好拥有 keys 中的每一个键且别无其他。 */
 function hasExactKeys(value: object, keys: readonly string[]): boolean {
   return Object.keys(value).length === keys.length && keys.every(k => Object.hasOwn(value, k))
 }
@@ -137,7 +137,7 @@ function hasExactKeys(value: object, keys: readonly string[]): boolean {
  * type-trusted. Integer times keep gap encoding exact: a fractional time would
  * reconstruct through float subtraction/addition, which need not round-trip.
  */
-/**
+/*
  * 为打包分类一个事件：完整形状（信封、data、chunk——精确键、原始类型、整数 seq/time）
  * 全部在白名单内时返回其 delta 种类，否则返回 undefined（按原样存储）。
  * 输入既来自实时的类型化追加，也来自解析出的夹具文件，因此检查是结构性的、不信类型。
@@ -176,19 +176,19 @@ function classify(event: SessionEvent): DeltaKind | undefined {
 }
 
 /** The tool-call fields of a whitelisted delta chunk (only after {@link classify} returned `'tool-call-delta'`). */
-/** 取白名单 delta chunk 的工具调用字段（仅在 classify 返回 'tool-call-delta' 之后调用）。 */
+/* 取白名单 delta chunk 的工具调用字段（仅在 classify 返回 'tool-call-delta' 之后调用）。 */
 function toolCallOf(event: DeltaEvent): { id: string; name?: string } {
   return event.data.chunk as { id: string; name?: string }
 }
 
 /** The block index of a whitelisted delta chunk (not every {@link StreamChunk} variant carries one). */
-/** 取白名单 delta chunk 的块下标（并非每个 StreamChunk 变体都携带）。 */
+/* 取白名单 delta chunk 的块下标（并非每个 StreamChunk 变体都携带）。 */
 function indexOf(event: DeltaEvent): number {
   return (event.data.chunk as { index: number }).index
 }
 
 /** Whether `next` extends a run ending in `prev` (same kind already checked by the caller). */
-/** 判断 next 是否延续以 prev 结尾的串（同种类已由调用者确认）。要求 seq 连续、时间差为安全整数、turn/step/块下标一致；工具调用串还要求 id 相同且 name 在有无与取值上都一致。 */
+/* 判断 next 是否延续以 prev 结尾的串（同种类已由调用者确认）。要求 seq 连续、时间差为安全整数、turn/step/块下标一致；工具调用串还要求 id 相同且 name 在有无与取值上都一致。 */
 function continues(prev: DeltaEvent, next: DeltaEvent, kind: DeltaKind): boolean {
   if (next.seq !== prev.seq + 1) return false
   // Two safe-integer times can sit further apart than a double subtracts
@@ -211,7 +211,7 @@ function continues(prev: DeltaEvent, next: DeltaEvent, kind: DeltaKind): boolean
 }
 
 /** Build the row for a completed run (`run.length >= MIN_RUN`, uniform per {@link continues}). */
-/** 为一个已完成的串（长度 ≥ MIN_RUN、经 continues 保证一致）构造存储行。 */
+/* 为一个已完成的串（长度 ≥ MIN_RUN、经 continues 保证一致）构造存储行。 */
 function buildRow(kind: DeltaKind, run: readonly DeltaEvent[]): ChunkRow {
   const first = run[0] as DeltaEvent
   // 串级公共字段：turn/step/块下标，以及相邻成员的时间差。
@@ -252,7 +252,7 @@ function buildRow(kind: DeltaKind, run: readonly DeltaEvent[]): ChunkRow {
  * @param events - the batch to encode, in log order.
  * @returns the storage records to write, one JSONL line each.
  */
-/**
+/*
  * 为存储打包一批事件：每段至少 {@link MIN_RUN} 个连续的、白名单确认的同种同块 delta chunk
  * 事件压成一个 {@link ChunkRow}；其余事件按原样按序通过。纯函数、无状态——对任何数组都安全，
  * 包括被 flush 边界切开串的批次（被切开的串按批各自打包）。
@@ -293,13 +293,13 @@ export function packChunkRuns(events: readonly SessionEvent[]): StorageRecord[] 
 }
 
 /** Throw the uniform malformed-row diagnostic. */
-/** 抛出统一格式的畸形行诊断错误。 */
+/* 抛出统一格式的畸形行诊断错误。 */
 function malformed(tag: string, why: string): never {
   throw new Error(`malformed ${tag} storage row: ${why}`)
 }
 
 /** Validate the shared run-data fields and the payload/dt arity; returns the member payload. */
-/** 校验串共享字段与载荷/时间差的元素个数关系；返回成员载荷数组。 */
+/* 校验串共享字段与载荷/时间差的元素个数关系；返回成员载荷数组。 */
 function validateRunData(tag: string, data: Record<string, unknown>, payloadKey: 'texts' | 'args'): string[] {
   if (typeof data.turn !== 'number' || typeof data.step !== 'number' || typeof data.index !== 'number') {
     malformed(tag, 'turn/step/index must be numbers')
@@ -319,7 +319,7 @@ function validateRunData(tag: string, data: Record<string, unknown>, payloadKey:
 }
 
 /** Validate a row-tagged parsed value's envelope and data, throwing on any malformation. */
-/** 校验带行标签的已解析值的信封与数据，发现任何畸形即抛错；通过后原值按 ChunkRow 返回。 */
+/* 校验带行标签的已解析值的信封与数据，发现任何畸形即抛错；通过后原值按 ChunkRow 返回。 */
 function validateRow(value: Record<string, unknown>, tag: ChunkRow['type']): ChunkRow {
   if (!hasExactKeys(value, ['type', 'seq0', 'time0', 'data'])) {
     malformed(tag, 'envelope must be exactly {type, seq0, time0, data}')
@@ -368,7 +368,7 @@ function validateRow(value: Record<string, unknown>, tag: ChunkRow['type']): Chu
 }
 
 /** Expand a validated row back into its exact original events, in order. */
-/** 把一个已校验的行按序精确展开回原始事件。 */
+/* 把一个已校验的行按序精确展开回原始事件。 */
 function expandRow(row: ChunkRow): SessionEvent[] {
   // 成员载荷、还原出的事件列表与游动的时间累加器。
   const members = row.type === 'tool-call-chunks' ? row.data.args : row.data.texts
@@ -416,7 +416,7 @@ function expandRow(row: ChunkRow): SessionEvent[] {
  * @param value - one line's `JSON.parse` result.
  * @returns the stored events, in log order.
  */
-/**
+/*
  * 把一条已解析的 JSONL 行值解码为它存储的会话事件。
  * 带行标签的值先校验再展开（畸形行直接抛错——那是损坏的存储，当作事件处理会静默丢掉整串）；
  * 其余值不经校验、作为单条事件原样通过。

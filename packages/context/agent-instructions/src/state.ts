@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-agent-instructions/state
  */
-/**
+/*
  * 文件职责：实现工作区指令上下文的 state.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的工作区指令上下文信息。
@@ -46,7 +46,7 @@ import {
 export const name = 'agent-instructions'
 
 /** Durable producer, file, and reconciliation facts for one workspace context. */
-/** 中文说明：类型或类 AgentInstructionSource 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 AgentInstructionSource 约束上下文或压缩数据职责。 */
 export interface AgentInstructionSource {
   kind: 'agent-instructions'
   /** Every workspace context carries instructions read out of a file (the `instructions` context form). */
@@ -66,7 +66,7 @@ declare module '@deepseek-ai/dsh-llm' {
 }
 
 /** Per-scope metadata cache; instruction prose is deliberately not retained. */
-/** 中文说明：类型或类 InstructionVersionState 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 InstructionVersionState 约束上下文或压缩数据职责。 */
 export interface InstructionVersionState {
   path: string
   version: FsVersion
@@ -79,18 +79,18 @@ export interface InstructionVersionState {
 }
 
 /** Session-isolated fast-path state keyed by logical instruction scope. */
-/** 中文说明：类型或类 InstructionVersionCache 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 InstructionVersionCache 约束上下文或压缩数据职责。 */
 export type InstructionVersionCache = WeakMap<Session, Map<string, InstructionVersionState>>
 
 /** A metadata-cache transition associated with one rendered instruction change. */
-/** 中文说明：类型或类 InstructionVersionUpdate 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 InstructionVersionUpdate 约束上下文或压缩数据职责。 */
 export interface InstructionVersionUpdate {
   change: AgentInstructionChange
   state?: InstructionVersionState
 }
 
 /** Rendered reconciliation plus its metadata-cache transitions. */
-/** 中文说明：类型或类 ReconciledInstructionContext 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ReconciledInstructionContext 约束上下文或压缩数据职责。 */
 export interface ReconciledInstructionContext {
   context: UserMessage
   versionUpdates: InstructionVersionUpdate[]
@@ -109,7 +109,11 @@ function workspaceContextHook(text: string, changes: AgentInstructionChange[]): 
  * @param text - complete plugin-owned system-reminder text.
  * @returns a user-role prefix message.
  */
-/** 中文说明：函数 workspaceContextMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 workspaceContextMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param text 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function workspaceContextMessage(text: string): Message {
   return createUserMessage({
     content: [{ type: 'text', text }],
@@ -194,7 +198,11 @@ function visibleInstructionChanges(
  * @param files - baseline files that survived rendering.
  * @returns latest baseline changes and provider versions keyed by logical scope.
  */
-/** 中文说明：函数 baselineInstructionState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 baselineInstructionState 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param files 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function baselineInstructionState(files: LoadedInstructionFile[]): {
   changes: Map<string, AgentInstructionChange>
   versions: Map<string, InstructionVersionState>
@@ -244,7 +252,12 @@ function versionStatesFor(session: Session, cache: InstructionVersionCache): Map
  * @param renderedChanges - transitions retained by the renderer.
  * @returns updates represented by an exact retained transition.
  */
-/** 中文说明：函数 retainedInstructionVersionUpdates 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 retainedInstructionVersionUpdates 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param updates 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param renderedChanges 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function retainedInstructionVersionUpdates(
   updates: readonly InstructionVersionUpdate[],
   renderedChanges: readonly AgentInstructionChange[],
@@ -258,7 +271,12 @@ export function retainedInstructionVersionUpdates(
  * @param updates - ordered set/delete transitions.
  * @param cache - session-isolated metadata cache.
  */
-/** 中文说明：函数 applyInstructionVersionUpdates 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 applyInstructionVersionUpdates 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param updates 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param cache 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function applyInstructionVersionUpdates(
   session: Session,
   updates: readonly InstructionVersionUpdate[],
@@ -291,7 +309,15 @@ function relativeScope(projectRoot: string, dir: string): string {
  * @param options - authoritative claimed context, pending scope hints, touched paths, and baseline participation.
  * @returns rendered context plus deferred cache updates, or undefined when unchanged/unavailable.
  */
-/** 中文说明：函数 reconcileInstructionContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 reconcileInstructionContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param resolved 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param versionCache 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fileSystem 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function reconcileInstructionContext(
   agent: Agent,
   resolved: ResolvedConfig,

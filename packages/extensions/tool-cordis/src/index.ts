@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】面向模型的 Cordis 运行时工具集入口：注册 cordis_inspect_list/query/
  *             self、cordis_define/run/stop/undefine 七个工具，注入 Cordis 动态插件
@@ -61,7 +61,7 @@ function requireAgent(exec: ToolExecution): Agent {
 }
 
 /** Register the Cordis tools and explicit `@pluginId` context injection. */
-/**
+/*
  * 插件入口：注入系统提示词段、注册第一方 inspect 提供者，然后注册七个模型工具，
  * 最后挂 agent/pre-step 水瀑布监听为用户显式引用的 @pluginId 注入修改上下文。
  */

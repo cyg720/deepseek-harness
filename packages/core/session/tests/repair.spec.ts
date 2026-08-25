@@ -20,7 +20,7 @@ import type { SessionEvent, SurfaceEvent } from '../src/index.ts'
  * rejects the transcript).
  */
 
-/** 中文说明：测试局部值 userTurnStart，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 userTurnStart，由紧邻初始化决定。 */
 const userTurnStart = (turn: number, seq: number): SessionEvent =>
   ({ type: 'turn/start', seq, time: seq, data: { turn } })
 

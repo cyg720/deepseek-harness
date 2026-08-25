@@ -618,7 +618,7 @@ describe('toPiContext', () => {
   const validReplay = { response: validResponse, blocks: [{ type: 'text' }] }
 
   /** Convert with the given state and assert the message degraded to foreign with the given reason. */
-  /** 中文说明：函数 expectDegraded 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+  /* 中文说明：函数 expectDegraded 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
   function expectDegraded(replayState: unknown, message: string): void {
     /** 中文说明：测试局部值 onDegrade，由紧邻初始化决定。 */
     const onDegrade = vi.fn()

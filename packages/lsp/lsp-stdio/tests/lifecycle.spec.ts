@@ -40,7 +40,7 @@ afterEach(async () => {
 })
 
 /** One fake stdio server entry with optional behavior and host-bound overrides. */
-/** 中文说明：函数 fakeServer 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeServer 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeServer(fakeEnv: Record<string, string> = {}, overrides: Partial<LspLocalServerConfig> = {}): LspLocalServerConfig {
   return {
     command: process.execPath,
@@ -52,7 +52,7 @@ function fakeServer(fakeEnv: Record<string, string> = {}, overrides: Partial<Lsp
 }
 
 /** Mount the real seam + lsp-stdio plugin driving one fake server. */
-/** 中文说明：函数 mount 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 mount 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mount(
   fakeEnv: Record<string, string> = {},
   overrides: Partial<LspLocalServerConfig> = {},
@@ -88,7 +88,7 @@ function query(operation: LspQueryRequest['operation'], filePath = 'a.ts'): LspQ
 }
 
 /** A single Location JSON pointing into the workspace. */
-/** 中文说明：函数 locationJson 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 locationJson 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function locationJson(line: number): unknown {
   return { uri: pathToFileURL(join(ws, 'a.ts')).href, range: { start: { line, character: 0 }, end: { line, character: 3 } } }
 }
@@ -562,7 +562,7 @@ describe('lsp-stdio end to end over a fake server', () => {
 })
 
 /** Read the fixture's JSON-lines didOpen marker, returning no entries before it exists. */
-/** 中文说明：函数 markerLines 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 markerLines 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function markerLines(path: string): Promise<string[]> {
   try {
     /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -575,7 +575,7 @@ async function markerLines(path: string): Promise<string[]> {
 }
 
 /** Poll an asynchronous condition until it succeeds or the test-local deadline expires. */
-/** 中文说明：函数 waitFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitFor(condition: () => Promise<boolean>, timeoutMs = 3000): Promise<void> {
   /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const started = Date.now()
@@ -586,7 +586,7 @@ async function waitFor(condition: () => Promise<boolean>, timeoutMs = 3000): Pro
 }
 
 /** Hold one fake provider operation until cancellation, optionally behind a cleanup gate. */
-/** 中文说明：函数 rejectWhenAborted 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 rejectWhenAborted 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function rejectWhenAborted<T>(signal: AbortSignal, release: Promise<unknown> = Promise.resolve()): Promise<T> {
   return new Promise((_resolve, reject) => {
     /** 中文说明：函数值 onAbort 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */

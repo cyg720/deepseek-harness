@@ -62,7 +62,7 @@ function send(agent: Agent, text: string): void {
 }
 
 /** Adapter that holds both drivers at the same awaited continuation. */
-/** 中文说明：测试类型或类 OverlapAdapter 约束夹具数据和行为。 */
+/* 中文说明：测试类型或类 OverlapAdapter 约束夹具数据和行为。 */
 class OverlapAdapter extends LlmAdapter {
   private readonly bothStarted = Promise.withResolvers<boolean>()
   private starts = 0
@@ -87,7 +87,7 @@ class OverlapAdapter extends LlmAdapter {
 }
 
 /** Test-only transport that materializes ambient identity at its request boundary. */
-/** 中文说明：测试类型或类 TestCapabilityTransport 约束夹具数据和行为。 */
+/* 中文说明：测试类型或类 TestCapabilityTransport 约束夹具数据和行为。 */
 class TestCapabilityTransport {
   readonly requests: { path: string; headers: Record<string, string> }[] = []
 
@@ -105,7 +105,7 @@ class TestCapabilityTransport {
 }
 
 /** Adapter whose first call waits for cancellation and whose later calls complete. */
-/** 中文说明：测试类型或类 ReloadAdapter 约束夹具数据和行为。 */
+/* 中文说明：测试类型或类 ReloadAdapter 约束夹具数据和行为。 */
 class ReloadAdapter extends LlmAdapter {
   readonly firstStarted = Promise.withResolvers<boolean>()
   firstAgentDuringAbort: Agent | undefined

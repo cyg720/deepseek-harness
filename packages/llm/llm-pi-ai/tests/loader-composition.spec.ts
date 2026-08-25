@@ -7,7 +7,7 @@
  * catch Loader export-shape failures, which is why the twin adapter has the
  * same guard.
  */
-/**
+/*
  * 文件职责：验证 loader-composition.spec.ts 覆盖的 LLM 配置、调用与事件处理行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
  * 产品维度：保障模型接入在配置变化、认证、重试与异常场景下仍能给 Agent 稳定反馈。
@@ -32,7 +32,7 @@ import { assemble } from './assemble.ts'
 import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
 
 /** One text block, then a tool call truncated by the output-token ceiling. */
-/** 中文说明：变量 truncatedToolCallEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 truncatedToolCallEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const truncatedToolCallEvents = [
   '{"choices":[{"delta":{"role":"assistant","content":""},"index":0,"finish_reason":null}]}',
   '{"choices":[{"delta":{"content":"partial"},"index":0,"finish_reason":null}]}',
@@ -56,7 +56,7 @@ afterEach(async () => {
 })
 
 /** Boot the dormant composition: a bare `llm-pi-ai` row with no config at all. */
-/** 中文说明：函数 loadComposition 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 loadComposition 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function loadComposition(): Promise<{ ctx: Context; settingsPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-pi-composition-'))
   /** 中文说明：变量 settingsPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

@@ -190,7 +190,7 @@ describe('preset discovery', () => {
 
 describe('composition health', () => {
   /** One directory under a fresh root holding `composition`, scanned. */
-  /** 中文说明：函数 scanned 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 scanned 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function scanned(composition: string): Promise<string | undefined> {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-health-'))

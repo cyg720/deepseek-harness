@@ -16,7 +16,7 @@ import css from './Input.module.css'
  * @param props.icon - optional 16px leading icon node.
  * @returns wrapper span containing the native input; input attributes pass through.
  */
-/**
+/*
  * 渲染一个可带 16 像素前置图标的单行文本输入框。
  * @param props - icon 是可选图标；className 扩展外壳样式；其余属性原样传给原生 input。
  * @returns 包含可选图标和原生输入控件的 span 外壳。

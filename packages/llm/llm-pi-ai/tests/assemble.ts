@@ -4,7 +4,7 @@
  * streaming path production uses (the loop), rather than a service-level
  * one-shot convenience method.
  */
-/**
+/*
  * 文件职责：把 Pi AI 提供者的流式片段装配成测试可直接断言的完整结果。
  * 技术维度：使用异步迭代、BlockAssembler 和共享 LLM 消息与用量类型复现生产循环路径。
  * 产品维度：让提供者测试同时验证正文、用量、结束原因和可选重放状态。

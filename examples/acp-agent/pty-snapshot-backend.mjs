@@ -1,5 +1,5 @@
 /** Deterministic in-memory PTY backend for transcript snapshots. */
-/**
+/*
  * 文件职责：为 ACP 转录快照提供确定性的内存伪终端后端。
  * 技术维度：使用 JavaScript 类和 Promise 模拟终端发送、增量读取、滚屏、信号、状态与关闭。
  * 产品维度：让终端交互快照无需真实 shell 也能稳定复现提示符、输出和等待原因。
@@ -8,7 +8,7 @@
  * 新手阅读建议：先看三个实例字段，再沿 startSend/read/status/close 阅读，最后看 apply 如何注册 spawn。
  */
 
-/** 模拟单个终端会话，保存确定性提示符、状态和滚屏文本。 */
+/* 模拟单个终端会话，保存确定性提示符、状态和滚屏文本。 */
 class SnapshotSession {
   // 固定欢迎提示符。
   motd = 'dsh> '
@@ -79,14 +79,14 @@ class SnapshotSession {
 }
 
 /** Cordis plugin name. */
-/** Cordis 配置引用的插件名称。 */
+/* Cordis 配置引用的插件名称。 */
 export const name = 'pty-snapshot-backend'
 /** Required PTY service. */
-/** 启动前必须注入的终端服务。 */
+/* 启动前必须注入的终端服务。 */
 export const inject = ['terminals']
 
 /** Register the deterministic snapshot backend. */
-/** 注册快照后端。@param ctx 提供 terminals 服务的 Cordis 上下文。@returns 无。@example apply(ctx)。 */
+/* 注册快照后端。@param ctx 提供 terminals 服务的 Cordis 上下文。@returns 无。@example apply(ctx)。 */
 export function apply(ctx) {
   ctx.terminals.registerBackend({
     type: 'shell',

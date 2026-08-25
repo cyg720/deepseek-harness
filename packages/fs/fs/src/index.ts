@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】文件系统 Service Definition（服务定义，ctx.fs）：面向一个"执行世界"的
  * 抽象文件系统。后端拥有稳定目标身份、进程路径与文件 URI、包含关系（containment）、
@@ -28,7 +28,7 @@
  * section.
  * @module @deepseek-ai/dsh-fs
  */
-/**
+/*
  * 模块总览：本文件是"文件系统能力"的抽象契约，不含任何实现。
  * 实现由 fs-local（本地磁盘）与 fs-sandbox（沙箱）提供；工具层（tool-fs）面向它编程。
  */
@@ -82,10 +82,14 @@ declare module '@deepseek-ai/cordis' {
      * @param actor - the opaque tool-execution context the decider keys off.
      * @mode waterfall
      */
-    /**
+    /*
+     * Single-slot decision for the next {@link FileSystem.writeText}.
      * 中文说明：writeText 的下一次"单槽决策"事件（waterfall 链式语义）。
      * 监听器可调用 next() 让权给裸提供者的无条件写；第一个返回意图的监听器
      * 拥有决策权（不与他人组合）。决策者依据不透明的工具执行上下文（actor）做判断。
+     * @param target 中文说明：即将写入的已解析目标。
+     * @param actor 中文说明：决策器据以识别调用方的工具执行上下文。
+     * @mode waterfall
      */
     'fs/write-intent'(target: FsTarget, actor: object | undefined, next: () => FsWriteIntent | undefined | Promise<FsWriteIntent | undefined>): Promise<FsWriteIntent | undefined>
     /**
@@ -95,9 +99,13 @@ declare module '@deepseek-ai/cordis' {
      * @param actor - the opaque tool-execution context the decider keys off.
      * @mode waterfall
      */
-    /**
+    /*
+     * Single-slot decision for the next {@link FileSystem.editText}.
      * 中文说明：editText 的下一次"单槽决策"事件（waterfall 语义）。
      * 调用 next() 得到无条件编辑；第一个返回守卫的监听器胜出。
+     * @param target 中文说明：即将编辑的已解析目标。
+     * @param actor 中文说明：决策器据以识别调用方的工具执行上下文。
+     * @mode waterfall
      */
     'fs/edit-intent'(target: FsTarget, actor: object | undefined, next: () => { version: FsVersion } | undefined | Promise<{ version: FsVersion } | undefined>): Promise<{ version: FsVersion } | undefined>
     /**
@@ -109,10 +117,15 @@ declare module '@deepseek-ai/cordis' {
      * @param actor - the observing tool-execution context; undefined records nothing useful.
      * @mode emit
      */
-    /**
+    /*
+     * Record an authoritative positive or negative observation.
      * 中文说明：记录一次权威的"存在/不存在"观察（emit 事件）。监听器必须是
      * 同步记录器：抛错会让工具调用失败，返回的 Promise 不会被 await。
      * actor 为 undefined 时观察无记录价值。
+     * @param target 中文说明：被观察的文件系统目标。
+     * @param observation 中文说明：目标存在及其版本，或确认不存在。
+     * @param actor 中文说明：发起观察的工具执行上下文。
+     * @mode emit
      */
     'fs/observed'(target: FsTarget, observation: FsObservation, actor: object | undefined): void
   }
@@ -124,7 +137,7 @@ declare module '@deepseek-ai/cordis' {
  * content-free, and mutations are atomic. Optional guards add stale protection
  * without changing the unguarded provider contract.
  */
-/**
+/*
  * 抽象文件系统提供者。目标身份必须在别名（符号链接等）下保持稳定；读取只暴露
  * 正则 UTF-8 文本或类型化错误；列举稳定且不含内容；变更原子。可选守卫（预期版本）
  * 增加过期保护，但不改变无守卫提供者的契约。
@@ -146,7 +159,7 @@ export abstract class FileSystem extends Service {
    * @returns the configured default mode of a sandboxing backend; `undefined`
    *   for a backend that never confines.
    */
-  /**
+  /*
    * 本后端在变更上"默认"强制执行的沙箱模式；完全不限制时返回 undefined。
    * 这是工具层读取的能力事实，用来诚实宣传升级字段（与 ShellExecutor.sandboxMode 对应）。
    * 基类与裸本地后端返回 undefined；沙箱后端（fs-sandbox）用部署默认值覆盖它。
@@ -167,7 +180,7 @@ export abstract class FileSystem extends Service {
    * @param opts - optional cwd override and cancellation signal.
    * @returns the stable target; the same file yields the same `targetKey`.
    */
-  /**
+  /*
    * 把模型/插件提供的路径解析成稳定的 FsTarget。可能执行 I/O（远程/沙箱后端也许要
    * 往返一次才能把路径映射成稳定身份），所以是异步的——本地后端通常只做归一化 +
    * realpath。相对路径以 opts.cwd 为基准。
@@ -185,7 +198,7 @@ export abstract class FileSystem extends Service {
    * @param target - the resolved target whose process path is required.
    * @returns an absolute path in the backend's execution world.
    */
-  /**
+  /*
    * 返回该文件系统执行世界里的子进程可打开的规范绝对路径。这条路径与 targetKey
    * 刻意分开：消费者可以把此值传给另一个 OS 能力，但必须继续把目标键视为不透明。
    * @param target 需要进程路径的已解析目标。
@@ -200,7 +213,7 @@ export abstract class FileSystem extends Service {
    * @param target - the resolved target to encode.
    * @returns the target's canonical file URI.
    */
-  /**
+  /*
    * 返回目标在该文件系统执行世界里的规范 file: URI。URI 编码由后端负责，
    * 因为宿主平台可能与执行平台不同。
    * @param target 要编码的已解析目标。
@@ -215,7 +228,7 @@ export abstract class FileSystem extends Service {
    * @param child - canonical candidate target.
    * @returns true when `child` is `parent` or a descendant of it.
    */
-  /**
+  /*
    * 测试规范包含关系（containment），不暴露也不解析后端目标键。两个目标都必须
    * 来自本提供者。
    * @param parent 规范目录目标。
@@ -230,7 +243,7 @@ export abstract class FileSystem extends Service {
    * @param signal - aborts the metadata round-trip.
    * @returns metadata only, never content; undefined for an absent target.
    */
-  /**
+  /*
    * 返回目标元数据；目标不存在时返回 undefined。
    * @param target 要 stat 的已解析目标。
    * @param signal 中止元数据往返。
@@ -252,7 +265,7 @@ export abstract class FileSystem extends Service {
    * @param signal - aborts the metadata round-trip.
    * @returns metadata only, never content; undefined for an absent path.
    */
-  /**
+  /*
    * 返回"路径级"元数据：末级是符号链接时不去跟随它。刻意做成路径形态而非目标形态：
    * resolve 会跟随符号链接产出稳定身份供常规读写使用，而 lstat 让消费者能在跟随
    * 发生之前就拒绝这条路径本身。opts.cwd 规则与 resolve 相同。
@@ -269,7 +282,7 @@ export abstract class FileSystem extends Service {
    * @param signal - aborts the read.
    * @returns the full decoded UTF-8 content.
    */
-  /**
+  /*
    * 把整个常规文本文件读成一个已解码字符串。
    * @param target 要读取的已解析目标。
    * @param signal 中止读取。
@@ -286,7 +299,7 @@ export abstract class FileSystem extends Service {
    * @param signal - aborts the stream, including between chunks.
    * @returns the chunk iterable, decoded and validated like {@link readText}.
    */
-  /**
+  /*
    * 以解码文本块的形式流式读取整个常规文本文件（与 readText 文本语义相同，
    * 面向大文件）。跨块 UTF-8 解码与二进制拒绝由后端负责，策略层永远不碰原始字节。
    * @param target 要读取的已解析目标。
@@ -305,7 +318,7 @@ export abstract class FileSystem extends Service {
    * @param maxBytes - inclusive byte cap on the complete content.
    * @returns the full raw content, at most `maxBytes` long.
    */
-  /**
+  /*
    * 以原始字节读取整个常规文件，不做解码也不拒绝二进制。上限就设在这个接缝处，
    * 使后端永远不会缓冲无界文件：已知或发现超过 maxBytes 的目标以 FS_TOO_LARGE 失败，
    * 而不是返回截断结果。
@@ -323,7 +336,7 @@ export abstract class FileSystem extends Service {
    * @param signal - aborts the listing.
    * @returns one entry per direct child, in stable name order.
    */
-  /**
+  /*
    * 以稳定的名字顺序列举目录的直接子项。只返回已解析的子目标与廉价元数据，
    * 绝不读文件内容。
    * @param target 已解析的目录目标。
@@ -344,7 +357,7 @@ export abstract class FileSystem extends Service {
    *   ignores it. Omit to leave the backend its own default.
    * @returns the outcome, including the version the write produced.
    */
-  /**
+  /*
    * 原子创建或替换 UTF-8 文本。expected（写意图）守卫意图与过期性；省略则允许
    * 无条件覆盖。sandboxPolicy 是该次调用的模式与工作区根：沙箱后端按它围栏这次写入，
    * 裸后端忽略；省略则用后端自己的默认。
@@ -376,7 +389,7 @@ export abstract class FileSystem extends Service {
    *   ignores it. Omit to leave the backend its own default.
    * @returns the outcome, including the version the edit produced.
    */
-  /**
+  /*
    * 原子编辑字面文本。提供版本守卫时，先检查版本再匹配，过期内容报 FS_STALE_VERSION；
    * 省略则编辑当前内容、无新鲜度前置条件。版本检查、字面匹配与重写共享同一临界区
    * （这正是 editText 留在 Service Definition 的原因）。

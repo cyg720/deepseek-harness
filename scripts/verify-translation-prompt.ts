@@ -1,5 +1,5 @@
 /** Verify that the committed translation prompt renders and parses as documented. */
-/**
+/*
  * 文件职责：实现 verify-translation-prompt.ts 覆盖的Agent 预设行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
  * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。

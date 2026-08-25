@@ -7,7 +7,7 @@
  * so these run on every platform; the real-FFI round-trip lives in
  * acl.spec.ts and runner.spec.ts (win32 only).
  */
-/**
+/*
  * 文件职责：验证 index-failure-paths.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -35,7 +35,7 @@ const PVOID = koffi.pointer('void')
 type MockFn = ReturnType<typeof vi.fn>
 
 /** The stub binding table plus the mocks the assertions inspect directly. */
-/** 中文说明：interface HappyStubs 定义本测试所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface HappyStubs 定义本测试所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 interface HappyStubs {
   api: Win32Bindings
   setNamedSecurityInfoW: MockFn
@@ -81,7 +81,7 @@ function scratch(): string {
  * default-DACL merge, piped/inherited spawns, drains, and exit waits all
  * succeed. Every test flips one call per branch.
  */
-/** 中文说明：函数 happyStubs 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 happyStubs 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function happyStubs(): HappyStubs {
   /** 中文说明：变量 next 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let next = 0n

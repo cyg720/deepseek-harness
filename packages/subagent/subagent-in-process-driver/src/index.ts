@@ -10,7 +10,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-in-process-driver
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -54,7 +54,7 @@ export {
 } from './structured.ts'
 
 /** Map a session turn outcome to the subagent seam's terminal vocabulary. */
-/** 中文说明：函数 toStopReason 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 toStopReason 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toStopReason(reason: TurnEndReason | undefined): SubagentStopReason {
   switch (reason?.kind) {
     case 'completed':
@@ -75,20 +75,20 @@ function toStopReason(reason: TurnEndReason | undefined): SubagentStopReason {
 }
 
 /** Extra inputs the spawn and fork providers supply to the shared driver. */
-/** 中文说明：interface InProcessRunOptions 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface InProcessRunOptions 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface InProcessRunOptions {
   /** Completed-turn seed for fork, or undefined for a fresh spawn. */
   readonly seed?: SessionEvent[]
 }
 
 /** Error used when cancellation wins before the child publication boundary. */
-/** 中文说明：函数 prePublicationAbort 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 prePublicationAbort 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function prePublicationAbort(): Error {
   return new Error('subagent request was aborted before child publication')
 }
 
 /** Append one one-shot descriptor inside the child's initial turn before its first request. */
-/** 中文说明：函数 attachDescriptorAppend 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 attachDescriptorAppend 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function attachDescriptorAppend(childCtx: Context, descriptor: SubagentDescriptorData): void {
   /** 中文说明：变量 appended 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let appended = false
@@ -114,7 +114,12 @@ function attachDescriptorAppend(childCtx: Context, descriptor: SubagentDescripto
  * @param options - the optional fork seed.
  * @returns a published holder-owned run.
  */
-/** 中文说明：函数 startInProcessRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 startInProcessRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function startInProcessRun(
   request: ResolvedSubagentStartRequest,
   options: InProcessRunOptions,
@@ -176,7 +181,7 @@ export async function startInProcessRun(
  * Wrap a published child in the single run lifecycle that owns signal handoff,
  * one turn, result settlement, and quiescent disposal.
  */
-/** 中文说明：函数 drivePublishedRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 drivePublishedRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function drivePublishedRun(
   handle: AgentHandle,
   signal: AbortSignal,
@@ -237,7 +242,7 @@ function drivePublishedRun(
 }
 
 /** Read one settled child's result from events after its activation boundary. */
-/** 中文说明：函数 readResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 readResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readResult(
   child: Agent,
   boundary: number,

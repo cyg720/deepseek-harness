@@ -2,7 +2,7 @@
  * Strict Schedule decoding, replay, time validation, and framing.
  * @module @deepseek-ai/dsh-schedule
  */
-/**
+/*
  * 文件职责：实现 domain.ts 承担的计划调度配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的计划调度能力。
@@ -26,11 +26,11 @@ import type {
 } from './types.ts'
 
 /** Durable Schedule protocol version implemented by this package. */
-/** 中文说明：常量 SCHEDULE_CHANGE_VERSION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SCHEDULE_CHANGE_VERSION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SCHEDULE_CHANGE_VERSION = 1 as const
 
 /** Fixed v1 lower bound for a fixed-rate reminder. */
-/** 中文说明：常量 MIN_EVERY_INTERVAL_SECONDS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MIN_EVERY_INTERVAL_SECONDS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MIN_EVERY_INTERVAL_SECONDS = 300
 
 /** 中文说明：常量 MIN_FOUR_DIGIT_YEAR_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
@@ -56,7 +56,7 @@ const IANA_ZONE = /^[A-Za-z][A-Za-z0-9_+.-]*(?:\/[A-Za-z0-9_+.-]+)+$/
 const OFFSET_NAME = /^GMT(?:(?<sign>[+-])(?<hour>\d{2}):(?<minute>\d{2})(?::(?<second>\d{2}))?)?$/
 
 /** Error from malformed or transition-invalid durable Schedule data. */
-/** 中文说明：class ScheduleLogError 定义本模块所需的数据或行为，用于表达计划调度场景。 */
+/* 中文说明：class ScheduleLogError 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 export class ScheduleLogError extends Error {
   /** Stable machine-readable error code. */
   readonly code = 'corrupt_schedule_log' as const
@@ -72,7 +72,7 @@ export class ScheduleLogError extends Error {
 }
 
 /** Error from a model-supplied Schedule rule that cannot become a record. */
-/** 中文说明：class ScheduleInputError 定义本模块所需的数据或行为，用于表达计划调度场景。 */
+/* 中文说明：class ScheduleInputError 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 export class ScheduleInputError extends Error {
   /** Stable public Schedule input code. */
   readonly code:
@@ -107,7 +107,7 @@ export class ScheduleInputError extends Error {
 }
 
 /** Pure replay result, retaining active create order and every used id. */
-/** 中文说明：interface FoldedSchedules 定义本模块所需的数据或行为，用于表达计划调度场景。 */
+/* 中文说明：interface FoldedSchedules 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 export interface FoldedSchedules {
   /** Active records in their original create order. */
   readonly active: readonly ScheduleRecord[]
@@ -116,7 +116,7 @@ export interface FoldedSchedules {
 }
 
 /** One latest-only fixed-rate decision derived without enumerating a backlog. */
-/** 中文说明：interface EveryOccurrence 定义本模块所需的数据或行为，用于表达计划调度场景。 */
+/* 中文说明：interface EveryOccurrence 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 export interface EveryOccurrence {
   /** Latest anchor-aligned occurrence due at the decision time. */
   readonly occurrenceAt: string
@@ -129,19 +129,23 @@ export interface EveryOccurrence {
  * @param value - Raw session-local id.
  * @returns The same string with the Schedule brand.
  */
-/** 中文说明：函数 ScheduleId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 ScheduleId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function ScheduleId(value: string): ScheduleIdType {
   return value as ScheduleIdType
 }
 
 /** Whether an unknown value is a non-array object. */
-/** 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** Require exactly the named durable object keys. */
-/** 中文说明：函数 hasExactKeys 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 hasExactKeys 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
   /** 中文说明：变量 keys 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const keys = Object.keys(value).sort()
@@ -151,7 +155,7 @@ function hasExactKeys(value: Record<string, unknown>, expected: readonly string[
 }
 
 /** Validate one stable session-local id at the durable boundary. */
-/** 中文说明：函数 decodeId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 decodeId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function decodeId(value: unknown): ScheduleIdType {
   if (typeof value !== 'string' || value.length === 0 || value.trim() !== value) {
     throw new ScheduleLogError('schedule id must be a non-empty string without surrounding whitespace')
@@ -160,7 +164,7 @@ function decodeId(value: unknown): ScheduleIdType {
 }
 
 /** Validate one canonical four-digit-year UTC instant. */
-/** 中文说明：函数 decodeInstant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 decodeInstant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function decodeInstant(value: unknown): string {
   if (typeof value !== 'string' || !UTC_INSTANT.test(value)) {
     throw new ScheduleLogError('scheduledAt must be a canonical four-digit-year RFC 3339 UTC instant')
@@ -185,7 +189,7 @@ interface CalendarParts {
 }
 
 /** Read one required named regular-expression group as a number. */
-/** 中文说明：函数 groupNumber 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 groupNumber 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function groupNumber(groups: Record<string, string | undefined>, name: string): number {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value = groups[name]
@@ -195,7 +199,7 @@ function groupNumber(groups: Record<string, string | undefined>, name: string): 
 }
 
 /** Convert exact calendar fields to a UTC-shaped epoch while rejecting normalization. */
-/** 中文说明：函数 calendarEpoch 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 calendarEpoch 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function calendarEpoch(parts: CalendarParts): number {
   /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value = new Date(0)
@@ -218,13 +222,13 @@ function calendarEpoch(parts: CalendarParts): number {
 }
 
 /** Normalize an optional one-to-three digit fractional second to milliseconds. */
-/** 中文说明：函数 milliseconds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 milliseconds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function milliseconds(value: string | undefined): number {
   return value === undefined ? 0 : Number(value.padEnd(3, '0'))
 }
 
 /** Require a safe, representable, strictly future UTC target. */
-/** 中文说明：函数 futureInstant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 futureInstant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function futureInstant(epoch: number, now: number): string {
   if (!Number.isSafeInteger(now) || !Number.isSafeInteger(epoch)
     || epoch < MIN_FOUR_DIGIT_YEAR_MS || epoch > MAX_FOUR_DIGIT_YEAR_MS) {
@@ -249,7 +253,7 @@ function futureInstant(epoch: number, now: number): string {
 }
 
 /** Parse a strict RFC 3339 instant whose numeric offset is part of the input. */
-/** 中文说明：函数 parseOffsetInstant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 parseOffsetInstant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function parseOffsetInstant(value: string): number {
   /** 中文说明：变量 match 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const match = OFFSET_INSTANT.exec(value)
@@ -295,7 +299,11 @@ function parseOffsetInstant(value: string): number {
  * @param value - Candidate `UTC` or IANA Area/Location name.
  * @returns The runtime's canonical IANA name.
  */
-/** 中文说明：函数 canonicalizeTimeZone 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 canonicalizeTimeZone 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function canonicalizeTimeZone(value: string): string {
   if (value.length === 0 || value.trim() !== value || (value !== 'UTC' && !IANA_ZONE.test(value))) {
     throw new ScheduleInputError('invalid_time_zone', 'time_zone must be UTC or a valid IANA Area/Location name.')
@@ -319,7 +327,7 @@ export function canonicalizeTimeZone(value: string): string {
 }
 
 /** Parse strict local calendar fields without consulting a process time zone. */
-/** 中文说明：函数 parseLocalAt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 parseLocalAt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function parseLocalAt(value: LocalAtInput): CalendarParts {
   /** 中文说明：变量 dateMatch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dateMatch = LOCAL_DATE.exec(value.date)
@@ -353,7 +361,7 @@ function parseLocalAt(value: LocalAtInput): CalendarParts {
 }
 
 /** Format one epoch into exact local fields and the zone offset that produced them. */
-/** 中文说明：函数 localProjection 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 localProjection 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function localProjection(formatter: Intl.DateTimeFormat, epoch: number): CalendarParts & { offset: number } {
   /** 中文说明：函数值 values 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const values = Object.fromEntries(formatter.formatToParts(epoch).map(part => [part.type, part.value]))
@@ -392,7 +400,7 @@ function localProjection(formatter: Intl.DateTimeFormat, epoch: number): Calenda
 }
 
 /** Resolve a local wall-clock value, choosing the first instant in an overlap and rejecting a gap. */
-/** 中文说明：函数 resolveLocalInstant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveLocalInstant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveLocalInstant(parts: CalendarParts, timeZone: string): number {
   /** 中文说明：变量 localEpoch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const localEpoch = calendarEpoch(parts)
@@ -456,7 +464,7 @@ function resolveLocalInstant(parts: CalendarParts, timeZone: string): number {
 }
 
 /** Decode the exact v1 after record shape. */
-/** 中文说明：函数 decodeAfterRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 decodeAfterRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function decodeAfterRecord(value: unknown): AfterScheduleRecord {
   if (!isRecord(value) || !hasExactKeys(value, ['id', 'kind', 'prompt', 'afterSeconds', 'scheduledAt'])) {
     throw new ScheduleLogError('after schedule must contain exactly id, kind, prompt, afterSeconds, and scheduledAt')
@@ -481,7 +489,7 @@ function decodeAfterRecord(value: unknown): AfterScheduleRecord {
 }
 
 /** Decode the exact v1 absolute one-shot record shape. */
-/** 中文说明：函数 decodeAtRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 decodeAtRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function decodeAtRecord(value: unknown): AtScheduleRecord {
   if (!isRecord(value) || !hasExactKeys(value, ['id', 'kind', 'prompt', 'scheduledAt'])) {
     throw new ScheduleLogError('at schedule must contain exactly id, kind, prompt, and scheduledAt')
@@ -500,7 +508,7 @@ function decodeAtRecord(value: unknown): AtScheduleRecord {
 }
 
 /** Decode the exact v1 fixed-rate record shape. */
-/** 中文说明：函数 decodeEveryRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 decodeEveryRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function decodeEveryRecord(value: unknown): EveryScheduleRecord {
   if (!isRecord(value)
     || !hasExactKeys(value, ['id', 'kind', 'prompt', 'everySeconds', 'scheduledAt'])) {
@@ -530,7 +538,7 @@ function decodeEveryRecord(value: unknown): EveryScheduleRecord {
 }
 
 /** Decode one current durable record variant by its exact discriminator. */
-/** 中文说明：函数 decodeScheduleRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 decodeScheduleRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function decodeScheduleRecord(value: unknown): ScheduleRecord {
   if (!isRecord(value)) throw new ScheduleLogError('schedule record must be an object')
   switch (value['kind']) {
@@ -546,7 +554,11 @@ function decodeScheduleRecord(value: unknown): ScheduleRecord {
  * @param value - Untrusted durable JSON value.
  * @returns Detached, frozen Schedule change.
  */
-/** 中文说明：函数 decodeScheduleChange 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeScheduleChange 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeScheduleChange(value: unknown): ScheduleChange {
   if (!isRecord(value)) throw new ScheduleLogError('schedule/change payload must be an object')
   if (value['version'] !== SCHEDULE_CHANGE_VERSION) {
@@ -601,7 +613,12 @@ export function decodeScheduleChange(value: unknown): ScheduleChange {
  * @param acceptedAt - Wall-clock decision time in epoch milliseconds.
  * @returns The latest due occurrence and first strictly future target, if representable.
  */
-/** 中文说明：函数 resolveEveryOccurrence 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 resolveEveryOccurrence 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param record 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param acceptedAt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveEveryOccurrence(
   record: EveryScheduleRecord,
   acceptedAt: number,
@@ -646,7 +663,7 @@ export function resolveEveryOccurrence(
 type DecodedDispatch = Extract<ScheduleChange, { operation: 'dispatch' }>
 
 /** Apply one decoded dispatch to its exact active record. */
-/** 中文说明：函数 dispatchedRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 dispatchedRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function dispatchedRecord(record: ScheduleRecord, change: DecodedDispatch): ScheduleRecord | undefined {
   /** 中文说明：变量 hasAcceptedAt 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hasAcceptedAt = 'acceptedAt' in change
@@ -668,7 +685,12 @@ function dispatchedRecord(record: ScheduleRecord, change: DecodedDispatch): Sche
  * @param seedLength - Inherited prefix length excluded from child ownership.
  * @returns Active records and all previously used ids.
  */
-/** 中文说明：函数 foldScheduleEvents 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 foldScheduleEvents 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param seedLength 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function foldScheduleEvents(
   events: readonly SessionEvent[],
   seedLength = 0,
@@ -729,7 +751,11 @@ export function foldScheduleEvents(
  * @param folded - Fold containing every previously created id.
  * @returns A fresh `schedule-N` identity.
  */
-/** 中文说明：函数 allocateScheduleId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 allocateScheduleId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param folded 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function allocateScheduleId(folded: FoldedSchedules): ScheduleIdType {
   /** 中文说明：变量 seen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seen = new Set(folded.seenIds)
@@ -752,7 +778,14 @@ export function allocateScheduleId(folded: FoldedSchedules): ScheduleIdType {
  * @param now - Single creation-time wall-clock sample in epoch milliseconds.
  * @returns Frozen durable after record.
  */
-/** 中文说明：函数 createAfterScheduleRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 createAfterScheduleRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param id 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param prompt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param afterSeconds 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param now 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function createAfterScheduleRecord(
   id: ScheduleIdType,
   prompt: string,
@@ -788,7 +821,14 @@ export function createAfterScheduleRecord(
  * @param now - Single creation-time wall-clock sample in epoch milliseconds.
  * @returns Frozen durable absolute one-shot record.
  */
-/** 中文说明：函数 createAtScheduleRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 createAtScheduleRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param id 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param prompt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param at 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param now 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function createAtScheduleRecord(
   id: ScheduleIdType,
   prompt: string,
@@ -844,7 +884,14 @@ export function createAtScheduleRecord(
  * @param now - Single creation-time wall-clock sample in epoch milliseconds.
  * @returns Frozen durable fixed-rate record.
  */
-/** 中文说明：函数 createEveryScheduleRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 createEveryScheduleRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param id 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param prompt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param everySeconds 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param now 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function createEveryScheduleRecord(
   id: ScheduleIdType,
   prompt: string,
@@ -884,7 +931,12 @@ export function createEveryScheduleRecord(
  * @param now - Wall-clock sample used for its timing state.
  * @returns Complete session-local view.
  */
-/** 中文说明：函数 scheduleView 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 scheduleView 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param record 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param now 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function scheduleView(record: ScheduleRecord, now: number): ScheduleView {
   return Object.freeze({
     ...record,
@@ -898,7 +950,11 @@ export function scheduleView(record: ScheduleRecord, now: number): ScheduleView 
  * @param record - Due active record.
  * @returns Stable model-visible text with JSON-escaped dynamic fields.
  */
-/** 中文说明：函数 renderReminderFraming 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 renderReminderFraming 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param record 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function renderReminderFraming(record: OneShotScheduleRecord): string {
   return [
     '[SCHEDULE REMINDER]',
@@ -914,7 +970,11 @@ export function renderReminderFraming(record: OneShotScheduleRecord): string {
  * @param reminders - Complete admitted batch with one latest occurrence per record.
  * @returns Stable model-visible text whose dynamic payload is canonical JSON.
  */
-/** 中文说明：函数 renderEveryReminderBatchFraming 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 renderEveryReminderBatchFraming 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param reminders 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function renderEveryReminderBatchFraming(
   reminders: readonly { readonly record: EveryScheduleRecord; readonly occurrenceAt: string }[],
 ): string {

@@ -6,7 +6,7 @@
  *
  * @module dsh-llm-pi-ai/login
  */
-/**
+/*
  * 文件职责：实现Pi AI LLM的 login.ts 模块。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
@@ -34,7 +34,7 @@ import type { PiAiAuthInjection } from './adapter.ts'
  * @param provider - the installed catalog provider, if pi-ai ships one.
  * @returns its methods, most preferred first; empty when it offers no login.
  */
-/** 中文说明：函数 loginMethods 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 loginMethods 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function loginMethods(provider: Provider | undefined): AuthorizationMethod[] {
   /** 中文说明：适配器局部值 methods，由紧邻初始化决定。 */
   const methods: AuthorizationMethod[] = []
@@ -56,7 +56,7 @@ function loginMethods(provider: Provider | undefined): AuthorizationMethod[] {
  * @param event - what pi-ai reported.
  * @param session - the attempt to report it to.
  */
-/** 中文说明：函数 relay 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 relay 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function relay(event: AuthEvent, session: AuthorizationSession): void {
   switch (event.type) {
     case 'info': {
@@ -100,7 +100,7 @@ function relay(event: AuthEvent, session: AuthorizationSession): void {
  * @param prompt - what pi-ai asked.
  * @returns the neutral prompt to put to the human.
  */
-/** 中文说明：函数 restate 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 restate 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function restate(prompt: AuthPrompt): AuthorizationPrompt {
   /** 中文说明：适配器局部值 signal，由紧邻初始化决定。 */
   const signal = prompt.signal === undefined ? {} : { signal: prompt.signal }
@@ -133,7 +133,11 @@ function restate(prompt: AuthPrompt): AuthorizationPrompt {
  * @param ctx - the plugin context carrying `ctx.authorization`.
  * @param auth - the injectables every collection here is built with.
  */
-/** 中文说明：函数 registerPiAiFlows 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 registerPiAiFlows 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param auth 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function registerPiAiFlows(ctx: Context, auth: PiAiAuthInjection): void {
   /** 中文说明：适配器局部值 providerId，由紧邻初始化决定。 */
   for (const providerId of catalogProviderIds()) {

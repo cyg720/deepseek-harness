@@ -12,7 +12,7 @@
  * Reconstruction reads {@link resolveSessionPreset}, never the header alone.
  * @module @deepseek-ai/dsh-agent-presets/session
  */
-/**
+/*
  * 文件职责：记录并解析会话实际采用的代理预设，支持空白会话在创建后切换预设。
  * 技术维度：通过 TypeScript 声明合并扩展会话事件，并逆序扫描事件日志重建状态。
  * 产品维度：保证恢复或分叉会话时继续使用历史真正采用的工具与提示词组合。
@@ -33,19 +33,19 @@ declare module '@deepseek-ai/dsh-session/types' {
      * under, so a resumed or forked session rebuilds the same one instead of
      * the header's creation-time value.
      */
-    /** 会话仍为空白时选择的新预设，用于之后恢复相同的代理组合。 */
+    /* 会话仍为空白时选择的新预设，用于之后恢复相同的代理组合。 */
     'agent-preset/selected': { agentPreset: string }
   }
 }
 
 /** The minimum a caller must supply to resolve a session's preset. */
-/** 调用方解析会话实际预设时必须提供的最小数据集合。 */
+/* 调用方解析会话实际预设时必须提供的最小数据集合。 */
 export interface PresetBearingSession {
   /** The session's creation header. */
-  /** 会话创建头，包含创建时选择的预设。 */
+  /* 会话创建头，包含创建时选择的预设。 */
   readonly header: SessionHeader
   /** The session's event log, oldest first. */
-  /** 按时间从旧到新排列的会话事件日志。 */
+  /* 按时间从旧到新排列的会话事件日志。 */
   readonly events: readonly SessionEvent[]
 }
 
@@ -59,7 +59,7 @@ export interface PresetBearingSession {
  * @param session - the session's header and event log.
  * @returns the preset id, or `undefined` when the deployment composes none.
  */
-/**
+/*
  * 解析会话实际运行的预设，优先采用日志中最后一次选择，否则使用创建头。
  * @param session 包含创建头和事件日志的最小会话对象。
  * @returns 预设编号；部署未组合预设时返回 undefined。

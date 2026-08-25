@@ -29,7 +29,7 @@ import { AppWebEntry } from '@deepseek-ai/dsh-client-web'
 /** 带构建产物绝对路径的 Web 启动插件记录。 */
 interface AssembledPlugin extends WebBootEntry {
   /** Absolute path to the built client artifact declared by this package. */
-  /** 包清单声明的构建客户端入口绝对路径。 */
+  /* 包清单声明的构建客户端入口绝对路径。 */
   bundlePath: string
 }
 
@@ -116,7 +116,7 @@ function resolveClientExport(packagePath: string, pkg: ClientPackageManifest): s
 }
 
 /** Derive the assembled browser graph from the same bundle patches and package declarations as `dsh web`. */
-/** 从与 dsh web 相同的补丁和包声明推导排序后的浏览器插件图。 */
+/* 从与 dsh web 相同的补丁和包声明推导排序后的浏览器插件图。 */
 function loadAssembledPlugins(): readonly AssembledPlugin[] {
   /** 两个真实 bundle 层组合后的有效配置行。 */
   const entries = appBoot.composeEntries(BUNDLE_LAYERS.map(layer =>
@@ -196,7 +196,7 @@ let unmount: (() => Promise<void>) | undefined
  * observers and frame callbacks jsdom lacks, and a full reset of the document,
  * the boot globals, and the injected plugin styles afterwards.
  */
-/** 安装装配启动测试共享的 jsdom 初始化与彻底清理钩子。 */
+/* 安装装配启动测试共享的 jsdom 初始化与彻底清理钩子。 */
 export function installAssembledBootEnv(): void {
   beforeEach(() => {
     localStorage.clear()
@@ -241,7 +241,7 @@ export function installAssembledBootEnv(): void {
  * registered by installAssembledBootEnv disposes it.
  * @param search - fixture query string used to select deterministic host behavior.
  */
-/**
+/*
  * 在 Fixture 传输上挂载真实装配应用。
  * @param search 选择确定性主机行为的查询字符串。
  * @returns 无返回值；释放由 installAssembledBootEnv 注册的钩子完成。
@@ -294,7 +294,7 @@ export function mountAssembledApp(search = '?fixture'): void {
  * @param name - logical (unhashed) module class name.
  * @returns whether the element carries that module class.
  */
-/** 判断元素是否携带指定逻辑 CSS Module 类名，兼容两种构建哈希格式。 */
+/* 判断元素是否携带指定逻辑 CSS Module 类名，兼容两种构建哈希格式。 */
 export function hasClass(el: Element, name: string): boolean {
   return [...el.classList].some(cls => cls === name || cls.endsWith(`_${name}`) || cls.startsWith(`_${name}_`) || cls.includes(`_${name}_`))
 }
@@ -304,5 +304,5 @@ export function hasClass(el: Element, name: string): boolean {
  * the snapshot gate's `DSH_SNAPSHOT` mode (`record` re-runs the scenarios from
  * scratch, `refresh` re-derives the expected text from the existing ones).
  */
-/** 当前运行是否会记录或刷新快照黄金文件。 */
+/* 当前运行是否会记录或刷新快照黄金文件。 */
 export const REFRESHING_GOLDEN = process.env.DSH_SNAPSHOT === 'record' || process.env.DSH_SNAPSHOT === 'refresh'

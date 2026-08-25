@@ -41,7 +41,7 @@ interface CompactionItemProps {
  * @param props - the marker node off the snapshot cache.
  * @returns the marker row, with the summary disclosure when one is available.
  */
-/** 中文说明：当前组件的局部值 CompactionItem，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 CompactionItem，由紧邻初始化决定。 */
 export const CompactionItem = memo(function CompactionItem({
   node,
   title,

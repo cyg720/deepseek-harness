@@ -1,5 +1,5 @@
 /** Unit coverage for unpublished Session preparation ownership and sharing. */
-/**
+/*
  * 文件职责：验证 preparations.spec.ts 覆盖的会话持久化行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。

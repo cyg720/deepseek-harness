@@ -22,7 +22,7 @@ const hit = (query = ''): TriggerHit => ({
 })
 
 /** Seed sources onto the closed state and open a first generation. */
-/** 中文说明：函数 open 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 open 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function open(sources: readonly string[], h: TriggerHit = hit()): MenuState {
   return menuReduce(seedGroups(MENU_CLOSED, sources.map(name => ({ name }))), { type: 'hit', hit: h })
 }
@@ -181,7 +181,7 @@ describe('menuReduce source-failed', () => {
 
 describe('menuReduce move', () => {
   /** Two ready groups: command [goal, model], skill [commit]. */
-  /** 中文说明：函数 ready 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 ready 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function ready(): MenuState {
     /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     let s = open(['command', 'skill'])

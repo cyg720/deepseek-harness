@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】时间上下文（time-context）时间戳的格式化：生产环境注入与
  *             回放校验共用同一套"ISO 外形 + 偏移 + IANA 时区"格式，
@@ -19,7 +19,7 @@
 
 /** ISO-shaped time-context timestamp formatting shared by production and replay validation. */
 
-/** 拼装时间戳所需的字段类型：年月日时分秒 + 时区名。 */
+/* 拼装时间戳所需的字段类型：年月日时分秒 + 时区名。 */
 type TimestampPart = 'day' | 'hour' | 'minute' | 'month' | 'second' | 'timeZoneName' | 'year'
 
 /**
@@ -27,7 +27,7 @@ type TimestampPart = 'day' | 'hour' | 'minute' | 'month' | 'second' | 'timeZoneN
  * @param timeZone - Explicit display zone, or `undefined` for the process fallback.
  * @returns A formatter with stable numeric local fields and long numeric offset.
  */
-/**
+/*
  * 创建持久化时间读取用的精确格式化器：数字型年月日时分秒、24 小时制、
  * 长数字偏移时区名（GMT+08:00 而非 CST）。
  * @param timeZone 显式展示时区；缺省则用进程默认时区
@@ -54,7 +54,7 @@ export function createTimestampFormatter(timeZone?: string): Intl.DateTimeFormat
  * @param timeZone - Canonical zone label carried in brackets.
  * @returns The durable timestamp text.
  */
-/**
+/*
  * 把纪元毫秒格式化为 ISO 外形时间戳：yyyy-MM-ddTHH:mm:ss±HH:MM[Zone]。
  * 偏移取 timeZoneName 去掉 GMT 前缀（GMT 本身归一化为 GMT+00:00）。
  * @param now 待展示的纪元毫秒时间

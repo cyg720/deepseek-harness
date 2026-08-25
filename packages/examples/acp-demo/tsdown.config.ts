@@ -7,7 +7,7 @@ import { defineConfig } from 'tsdown'
  * `lib/types/bin.js`. Declarations come from `tsc -b` (dts: false),
  * matching every package.
  */
-/**
+/*
  * 文件职责：配置 ACP 示例的插件入口、不变量入口和命令行入口构建。
  * 技术维度：使用 tsdown 将三个 tsc 产物合并到同一 Node.js ESM 输出目录。
  * 产品维度：产出既可作为 Cordis 插件装配、又可从命令行启动的 ACP 演示程序。

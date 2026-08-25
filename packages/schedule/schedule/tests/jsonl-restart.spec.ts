@@ -1,5 +1,5 @@
 /** Production JSONL restart evidence through the real Agent resume lifecycle. */
-/**
+/*
  * 文件职责：验证 jsonl-restart.spec.ts 覆盖的计划调度行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用计划调度时得到稳定且可诊断的结果。

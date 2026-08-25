@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现测量服务的"位置化表面折叠"：measure() 服务的、压缩规划
  * 依据的逐节点定价表面。
@@ -36,7 +36,7 @@ import type { TokenSurfaceNode } from './types.ts'
 import { estimateMessage } from './estimate.ts'
 
 /** One surface event's placement and cost against the surface preceding it. */
-/**
+/*
  * （中文）一个表面事件相对其前表面的一次放置与成本。
  */
 export interface SurfaceTokenFold {
@@ -51,7 +51,7 @@ export interface SurfaceTokenFold {
   readonly deltaTokens: number
 }
 
-/**
+/*
  * （中文）把一个表面事件折叠到已定价表面上。
  * 总量与分配都"新鲜"：调用方赋值结果而非就地修改，因此这里抛错会留下调用方
  * 状态原封不动，同一个畸形事件在每次重试中都以同样方式失败。

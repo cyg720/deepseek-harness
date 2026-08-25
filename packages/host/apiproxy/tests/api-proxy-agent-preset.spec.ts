@@ -4,7 +4,7 @@
  * one, because the session's history was produced under that preset's tools:
  * rebuilding it differently would replay tool calls the new agent cannot make.
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-agent-preset.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -39,7 +39,7 @@ function request<P>(payload: P): RpcRequest<P> {
 }
 
 /** Minimal live agent; the gateway only needs identity and its session. */
-/** 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(session: Session): Agent {
   return { id: session.id, session, status: 'idle' } as unknown as Agent
 }
@@ -50,7 +50,7 @@ function stubAgent(session: Session): Agent {
  * `apps/cli`. Ids listed in `userIds` present as locally authored; the rest
  * ship with the deployment.
  */
-/** 中文说明：函数 roster 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 roster 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function roster(ids: readonly string[], userIds: readonly string[] = []): unknown {
   /** 中文说明：测试局部值 trustOf，由紧邻初始化决定。 */
   const trustOf = (id: string): 'system' | 'user' => (userIds.includes(id) ? 'user' : 'system')
@@ -111,16 +111,16 @@ function roster(ids: readonly string[], userIds: readonly string[] = []): unknow
 }
 
 /** Standing keys the roster double minted, and the ids readers asked for. */
-/** 中文说明：测试局部值 standingKeys，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 standingKeys，由紧邻初始化决定。 */
 const standingKeys = new Map<string, object>()
 /** 中文说明：测试局部值 standingKeyRequests，由紧邻初始化决定。 */
 const standingKeyRequests: string[] = []
 /** Preset ids whose standing mount the double reports as unusable. */
-/** 中文说明：测试局部值 failingStandingKeys，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 failingStandingKeys，由紧邻初始化决定。 */
 const failingStandingKeys = new Set<string>()
 
 /** Per-agent service instances a mounted preset would own, keyed by session id. */
-/** 中文说明：测试局部值 services，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 services，由紧邻初始化决定。 */
 const services = new Map<string, Record<string, unknown>>()
 
 /** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */

@@ -37,7 +37,7 @@ const SEED_ID = 'markdown-inline-code-links-web-e2e'
 const DONE = 'INLINE_CODE_LINK_DONE'
 
 /** Build a settled assistant reply with linkable URL code and inert code controls. */
-/** 用 linkUrl 构造已完成回复并返回 JSONL；示例：markdownFixture('http://127.0.0.1:3000')。 */
+/* 用 linkUrl 构造已完成回复并返回 JSONL；示例：markdownFixture('http://127.0.0.1:3000')。 */
 function markdownFixture(linkUrl: string): string {
   /** 累积固定事件的内存会话。 */
   const session = Session.create(SessionId('markdown-inline-code-links-source'))

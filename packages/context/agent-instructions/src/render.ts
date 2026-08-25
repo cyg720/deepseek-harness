@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-agent-instructions/render
  */
-/**
+/*
  * 文件职责：实现工作区指令上下文的 render.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的工作区指令上下文信息。
@@ -33,7 +33,7 @@ const EMPTY_REPLACEMENT_WORKSPACE_CONTEXT_INTRO = 'This complete workspace instr
 const COMPACT_WORKSPACE_CONTEXT_INTRO = 'Workspace instructions were omitted or truncated to fit the configured byte budget.'
 
 /** Byte-accounting record for one truncated instruction file. */
-/** 中文说明：类型或类 TruncatedInstruction 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 TruncatedInstruction 约束上下文或压缩数据职责。 */
 export interface TruncatedInstruction {
   displayPath: string
   originalBytes: number
@@ -41,7 +41,7 @@ export interface TruncatedInstruction {
 }
 
 /** Model-facing text plus omitted and truncated source records. */
-/** 中文说明：类型或类 RenderedWorkspaceContext 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 RenderedWorkspaceContext 约束上下文或压缩数据职责。 */
 export interface RenderedWorkspaceContext {
   text: string
   omitted: InstructionFile[]
@@ -61,7 +61,7 @@ interface RenderedInstructionContext extends RenderedWorkspaceContext {
 }
 
 /** Structured dynamic state persisted outside model-visible prompt prose. */
-/** 中文说明：类型或类 AgentInstructionChange 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 AgentInstructionChange 约束上下文或压缩数据职责。 */
 export interface AgentInstructionChange {
   action: 'set' | 'replace' | 'remove'
   scope: string
@@ -70,7 +70,7 @@ export interface AgentInstructionChange {
 }
 
 /** One state transition paired with the content used to render it. */
-/** 中文说明：类型或类 ChangeRenderItem 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ChangeRenderItem 约束上下文或压缩数据职责。 */
 export interface ChangeRenderItem {
   change: AgentInstructionChange
   file: LoadedInstructionFile
@@ -113,7 +113,7 @@ function sectionText(file: LoadedInstructionFile): string {
 }
 
 /** Directory component that identifies the single user-global instruction scope. */
-/** 中文说明：上下文局部值 USER_GLOBAL_DIRECTORY，由紧邻初始化决定。 */
+/* 中文说明：上下文局部值 USER_GLOBAL_DIRECTORY，由紧邻初始化决定。 */
 export const USER_GLOBAL_DIRECTORY = 'user-global'
 
 /**
@@ -122,7 +122,7 @@ export const USER_GLOBAL_DIRECTORY = 'user-global'
  * candidate component) both key on this name, so it lives in one place: were the
  * two to disagree, the user-global instruction would load but never reconcile.
  */
-/** 中文说明：上下文局部值 USER_GLOBAL_FILE，由紧邻初始化决定。 */
+/* 中文说明：上下文局部值 USER_GLOBAL_FILE，由紧邻初始化决定。 */
 export const USER_GLOBAL_FILE = 'AGENTS.md'
 
 /**
@@ -130,7 +130,11 @@ export const USER_GLOBAL_FILE = 'AGENTS.md'
  * @param displayPath - project-relative or user-global instruction path.
  * @returns `user-global`, `.`, or the containing project-relative directory.
  */
-/** 中文说明：函数 scopeForDisplayPath 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 scopeForDisplayPath 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param displayPath 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function scopeForDisplayPath(displayPath: string): string {
   if (displayPath === '~/.dsh/AGENTS.md' || displayPath === '$DSH_HOME/AGENTS.md') return USER_GLOBAL_DIRECTORY
   return dirname(displayPath)
@@ -150,7 +154,12 @@ const SCOPE_SEPARATOR = '\u0000'
  * @param candidateName - instruction file name within that directory.
  * @returns the per-candidate logical scope key.
  */
-/** 中文说明：函数 candidateScopeKey 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 candidateScopeKey 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param directory 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param candidateName 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function candidateScopeKey(directory: string, candidateName: string): string {
   return `${directory}${SCOPE_SEPARATOR}${candidateName}`
 }
@@ -160,7 +169,11 @@ export function candidateScopeKey(directory: string, candidateName: string): str
  * @param displayPath - project-relative or user-global instruction path.
  * @returns the scope key pairing the file's directory with its name.
  */
-/** 中文说明：函数 instructionScopeKey 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 instructionScopeKey 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param displayPath 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function instructionScopeKey(displayPath: string): string {
   return candidateScopeKey(scopeForDisplayPath(displayPath), basename(displayPath))
 }
@@ -170,7 +183,11 @@ export function instructionScopeKey(displayPath: string): string {
  * @param scope - a per-candidate scope key.
  * @returns the directory scope and the candidate file name within it.
  */
-/** 中文说明：函数 decodeScopeKey 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 decodeScopeKey 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param scope 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeScopeKey(scope: string): { directory: string; candidateName: string } {
   /** 中文说明：上下文局部值 separator，由紧邻初始化决定。 */
   const separator = scope.indexOf(SCOPE_SEPARATOR)
@@ -229,7 +246,12 @@ function changedSectionText(item: ChangeRenderItem): string {
  * @param maxBytes - maximum UTF-8 bytes allowed in the rendered batch.
  * @returns bounded prompt text and the transitions actually represented by it.
  */
-/** 中文说明：函数 renderInstructionChanges 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 renderInstructionChanges 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param items 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param maxBytes 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function renderInstructionChanges(
   items: ChangeRenderItem[],
   maxBytes: number,
@@ -419,7 +441,12 @@ function renderInstructionContext(
  * @returns bounded public rendering plus files with surviving content, including genuinely empty files.
  * @internal
  */
-/** 中文说明：函数 renderWorkspaceInstructionSet 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 renderWorkspaceInstructionSet 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param files 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function renderWorkspaceInstructionSet(
   files: LoadedInstructionFile[],
   options: { maxBytes: number; replacePreviousBaseline?: boolean },
@@ -437,7 +464,12 @@ export function renderWorkspaceInstructionSet(
  * @param options - rendering byte budget and whether this baseline supersedes a visible predecessor.
  * @returns bounded baseline prompt text and budget diagnostics.
  */
-/** 中文说明：函数 renderWorkspaceContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 renderWorkspaceContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param files 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function renderWorkspaceContext(
   files: LoadedInstructionFile[],
   options: { maxBytes: number; replacePreviousBaseline?: boolean },

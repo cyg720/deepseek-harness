@@ -37,7 +37,7 @@ export const inject = ['invariants']
  * 'conversation.chat.node' business renderer seat) ride the slot system, whose ledger
  * invariants live with the runtime slots package.
  */
-/**
+/*
  * 安装函数为空实现：会话服务不发 Cordis 事件；本包拥有的两个"环"都走 slot 系统，
  * 其账本不变式由 runtime slots 包持有。
  */
@@ -48,7 +48,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 登记本包的 invariant 伴生插件。
  * @param ctx - 携带 invariant 服务的 Cordis 上下文。
  * @returns 登记成功后的释放函数（插件卸载时调用）。

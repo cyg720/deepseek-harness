@@ -11,7 +11,7 @@ import { defineConfig } from 'vitest/config'
 import { vitestExecArgv } from './vitest.shared.ts'
 
 /** Opt-in browser performance lane; no default Vitest config includes *.stress.ts. */
-/**
+/*
  * 导出压力测试配置；无参数，返回 Vitest 配置对象。
  * 使用示例：`pnpm exec vitest run --config vitest.web-stress.config.ts`。
  */

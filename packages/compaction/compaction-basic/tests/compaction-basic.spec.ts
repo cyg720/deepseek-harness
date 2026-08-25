@@ -101,7 +101,7 @@ function agent(session: Session, model?: string): Agent {
 }
 
 /** Flatten every text fragment the summarizer received, recursing tool-result blocks. */
-/** 中文说明：函数 summarizedText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 summarizedText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function summarizedText(input: SummarizationInput): string {
   /** 中文说明：测试局部值 collect，由紧邻初始化决定。 */
   const collect = (blocks: readonly ContentBlock[]): string =>
@@ -113,7 +113,7 @@ function summarizedText(input: SummarizationInput): string {
 }
 
 /** A minimal replayed prefix carrying one user message of the given text. */
-/** 中文说明：函数 promptInput 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 promptInput 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function promptInput(text: string): SummarizationInput {
   return { messages: [createUserMessage({
     content: [{ type: 'text', text }],
@@ -122,7 +122,7 @@ function promptInput(text: string): SummarizationInput {
 }
 
 /** Closed two-message turns followed by one open turn for durable compaction events. */
-/** 中文说明：函数 conversation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 conversation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function conversation(turns = 4, text = 'fixture '.repeat(40).trim()): Session {
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(SessionId(`conversation-${turns}`))
@@ -214,7 +214,7 @@ function toolConversation(): Session {
 }
 
 /** One closed routed tool step followed by an open turn for rewrite events. */
-/** 中文说明：函数 oversizedToolResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 oversizedToolResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function oversizedToolResult(chars = 3_000, withCompactablePrompt = false): Session {
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(SessionId(`oversized-tool-${chars}`))

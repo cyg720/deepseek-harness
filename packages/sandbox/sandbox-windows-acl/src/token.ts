@@ -6,7 +6,7 @@
  * all of these and silently ran children with the FULL, unrestricted token.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/token
  */
-/**
+/*
  * 文件职责：实现 token.ts 承担的沙箱安全与权限隔离配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的沙箱安全与权限隔离能力。
@@ -28,7 +28,11 @@ import * as abi from './win32-abi.ts'
  * @param api - the binding table.
  * @returns the opened token handle.
  */
-/** 中文说明：函数 openCurrentProcessToken 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 openCurrentProcessToken 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function openCurrentProcessToken(api: Win32Bindings): NativePtr {
   /** 中文说明：变量 processHandle 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const processHandle = api.openProcess(abi.PROCESS_QUERY_INFORMATION, 0, process.pid)
@@ -63,7 +67,12 @@ export function openCurrentProcessToken(api: Win32Bindings): NativePtr {
  * @param token - the token whose groups are scanned.
  * @returns a copied logon SID (thrown when the token carries none).
  */
-/** 中文说明：函数 findLogonSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 findLogonSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param token 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function findLogonSid(api: Win32Bindings, token: NativePtr): NativePtr {
   /** 中文说明：变量 neededSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const neededSlot = allocUint32()
@@ -107,7 +116,12 @@ export function findLogonSid(api: Win32Bindings, token: NativePtr): NativePtr {
  * @param type - the WELL_KNOWN_SID_TYPE to create.
  * @returns the created SID pointer.
  */
-/** 中文说明：函数 makeWellKnownSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 makeWellKnownSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param type 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function makeWellKnownSid(api: Win32Bindings, type: number): NativePtr {
   /** 中文说明：变量 sid 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sid = allocBytes(abi.SECURITY_MAX_SID_SIZE)
@@ -137,7 +151,12 @@ export function makeWellKnownSid(api: Win32Bindings, type: number): NativePtr {
  * @param token - the restricted token to adjust (requires TOKEN_ADJUST_DEFAULT).
  * @param sidPtr - the restricting SID whose full-access ACE joins the default DACL.
  */
-/** 中文说明：函数 setTokenDefaultDaclGrant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 setTokenDefaultDaclGrant 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param token 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param sidPtr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function setTokenDefaultDaclGrant(api: Win32Bindings, token: NativePtr, sidPtr: NativePtr): void {
   /** 中文说明：变量 neededSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const neededSlot = allocUint32()
@@ -183,7 +202,7 @@ export function setTokenDefaultDaclGrant(api: Win32Bindings, token: NativePtr, s
 }
 
 /** Pack `SID_AND_ATTRIBUTES[count]` (16-byte stride; Attributes stay 0). */
-/** 中文说明：函数 buildRestrictingSids 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 buildRestrictingSids 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function buildRestrictingSids(sids: readonly NativePtr[]): Buffer {
   /** 中文说明：变量 buffer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const buffer = Buffer.alloc(abi.SID_AND_ATTRIBUTES_SIZE * sids.length)
@@ -194,7 +213,7 @@ function buildRestrictingSids(sids: readonly NativePtr[]): Buffer {
 }
 
 /** The well-known SID packed into every restricted token's restricting list. */
-/** 中文说明：interface RestrictingSidSet 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface RestrictingSidSet 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface RestrictingSidSet {
   world: NativePtr
 }
@@ -233,7 +252,16 @@ export interface RestrictingSidSet {
  * @param mode - selects the restricting list (workspace-write adds the capability SIDs).
  * @returns the restricted token handle.
  */
-/** 中文说明：函数 createRestrictedToken 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 createRestrictedToken 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param currentToken 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param logonSid 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param writeSids 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param known 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param mode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function createRestrictedToken(
   api: Win32Bindings,
   currentToken: NativePtr,

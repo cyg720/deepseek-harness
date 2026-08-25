@@ -6,7 +6,7 @@
  * [compaction Agent Note](../../../../.agents/notes/implemented/feature/2026-06-18-compaction-capability-seam.md).
  * @module @deepseek-ai/dsh-compaction
  */
-/**
+/*
  * 文件职责：实现上下文压缩的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的上下文压缩信息。
@@ -30,11 +30,11 @@ export { compactCheckpointSource, isCompactCheckpointSource } from './checkpoint
 export type { CompactionCheckpointSource } from './checkpoint.ts'
 
 /** Why automatic policy is asking a backend to consider compaction. */
-/** 中文说明：类型或类 CompactionTrigger 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 CompactionTrigger 约束上下文或压缩数据职责。 */
 export type CompactionTrigger = 'pressure' | 'context-overflow'
 
 /** Expected failure classes for an explicit idle-session compaction request. */
-/** 中文说明：类型或类 ManualCompactionErrorCode 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ManualCompactionErrorCode 约束上下文或压缩数据职责。 */
 export type ManualCompactionErrorCode =
   | 'busy'
   | 'cancelled'
@@ -48,7 +48,7 @@ export type ManualCompactionErrorCode =
  * Shared durable-lock entry assertions may also throw the `busy` subtype from
  * automatic compaction paths.
  */
-/** 中文说明：类型或类 ManualCompactionError 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ManualCompactionError 约束上下文或压缩数据职责。 */
 export class ManualCompactionError extends Error {
   override readonly name = 'ManualCompactionError'
 
@@ -68,7 +68,7 @@ export class ManualCompactionError extends Error {
 }
 
 /** Minimal agent context compaction needs without depending on the agent package. */
-/** 中文说明：类型或类 CompactionAgentContext 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 CompactionAgentContext 约束上下文或压缩数据职责。 */
 export interface CompactionAgentContext {
   session: Session
   options: { provider?: string; model?: string }
@@ -79,7 +79,7 @@ export interface CompactionAgentContext {
  * against driver turns. The durable `compaction/start` marker separately excludes
  * other compaction transactions.
  */
-/** 中文说明：类型或类 ManualCompactAgentContext 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ManualCompactAgentContext 约束上下文或压缩数据职责。 */
 export interface ManualCompactAgentContext extends CompactionAgentContext {
   /**
    * Run a non-turn maintenance operation only while the agent is idle, withholding later

@@ -31,7 +31,7 @@ const t: ModelsSectionInjected['t'] = key => en[key]
 const PROTOCOLS = ['openai-completions', 'openai-responses', 'anthropic-messages']
 
 /** The pi-ai profile shape as the host serializes it, including the layer-1 fields. */
-/** 中文说明：测试局部值 PiAiConfig，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 PiAiConfig，由紧邻初始化决定。 */
 const PiAiConfig = Schema.object({
   providers: Schema.dict(Schema.object({
     apiKey: Schema.string().role('secret'),
@@ -142,7 +142,7 @@ function scriptedFace(options: {
 type WireFace = ConstructorParameters<typeof ModelsSettingsStore>[0]
 
 /** The settings write one card produced, as the scripted face recorded it. */
-/** 中文说明：类型或类 MutateCall 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 MutateCall 约束设置数据或组件职责。 */
 interface MutateCall {
   ns: string
   expectedRevision?: number
@@ -150,7 +150,7 @@ interface MutateCall {
 }
 
 /** The first interrogation payload; fails the case when nothing was asked. */
-/** 中文说明：函数 firstProbe 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 firstProbe 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function firstProbe(discover: ReturnType<typeof vi.fn>): unknown {
   /** 中文说明：测试局部值 call，由紧邻初始化决定。 */
   const call = (discover.mock.calls as unknown as [unknown][])[0]?.[0]
@@ -159,7 +159,7 @@ function firstProbe(discover: ReturnType<typeof vi.fn>): unknown {
 }
 
 /** The first recorded settings write; fails the case when nothing was written. */
-/** 中文说明：函数 firstMutate 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 firstMutate 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function firstMutate(mutate: ReturnType<typeof vi.fn>): MutateCall {
   /** 中文说明：测试局部值 call，由紧邻初始化决定。 */
   const call = mutate.mock.calls[0]?.[0] as MutateCall | undefined
@@ -188,7 +188,7 @@ async function mountSection(options: Parameters<typeof scriptedFace>[0] = {}) {
 }
 
 /** Open the editor of one configured row and expand its customized fold. */
-/** 中文说明：函数 openEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 openEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function openEditor(provider: string): void {
   /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
   const row = screen.getByText(provider).closest('li')
@@ -201,13 +201,13 @@ function openEditor(provider: string): void {
 }
 
 /** Open one model row's advanced fold, where the capacities live. */
-/** 中文说明：函数 expandModel 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 expandModel 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function expandModel(index: number): void {
   fireEvent.click(screen.getByLabelText(`${en.modelAdvanced} ${index}`))
 }
 
 /** The button carrying `label`, typed so its disabled/title state is readable. */
-/** 中文说明：函数 buttonNamed 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 buttonNamed 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function buttonNamed(label: string): HTMLButtonElement {
   /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
   const found = screen.getByText(label)
@@ -216,7 +216,7 @@ function buttonNamed(label: string): HTMLButtonElement {
 }
 
 /** Click the button with `label` inside `scope`. */
-/** 中文说明：函数 within_ 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 within_ 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function within_(scope: HTMLElement, label: string): HTMLElement {
   /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
   const found = [...scope.querySelectorAll('button')].find(button => button.textContent === label)

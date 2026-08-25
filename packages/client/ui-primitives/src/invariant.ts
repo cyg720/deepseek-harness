@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】ui-primitives 包对应的 Cordis 不变式（invariant）伴生插件：向 'invariants'
  *             服务登记本包"无运行时不变式"的声明。
@@ -17,7 +17,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-client-ui-primitives`.
  * @module @deepseek-ai/dsh-client-ui-primitives/invariant
  */
-/**
+/*
  * 本文件是 ui-primitives 包的 invariant 伴生插件：向 'invariants' 服务登记
  * "本包无运行时不变式"这一事实。纯 props 型 React 组件没有事件、服务与跨插件状态，
  * 因此安装函数为空实现。
@@ -42,7 +42,7 @@ export const inject = ['invariants']
  * no events, no services, no mutable cross-plugin state; rendering contracts
  * are asserted directly by this package's component specs.
  */
-/**
+/*
  * 安装函数为空实现：本包不声明任何运行时不变式（理由见英文注释与文件头说明）。
  */
 const install: InvariantInstaller = () => {}
@@ -52,7 +52,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 登记本包的 invariant 伴生插件。
  * @param ctx - 携带 invariant 服务的 Cordis 上下文。
  * @returns 登记成功后的释放函数（插件卸载时调用）。

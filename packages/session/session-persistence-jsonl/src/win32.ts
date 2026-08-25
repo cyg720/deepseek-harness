@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】JSONL 后端的 Windows 持久命名空间助手：在 Node 无法 fsync 父目录的
  *   平台上，用原生 MoveFileExW(MOVEFILE_WRITE_THROUGH) 实现"目录/文件的 durable
@@ -31,7 +31,7 @@
  *
  * @module dsh-session-persistence-jsonl/win32
  */
-/**
+/*
  * 【中文导读】上面英文说明：POSIX 靠"建目录项 + fsync 父目录"实现持久发布；
  * Windows 没有等价接口，这里改用原生写透移动原语完成同一目标。
  */
@@ -75,7 +75,7 @@ const ERROR_ALREADY_EXISTS = 183
 let bindings: Win32Bindings | undefined
 
 /** Load the small Win32 API lazily so non-Windows processes never load Koffi. */
-/**
+/*
  * 【中文】惰性加载 kernel32 绑定：只有 Windows 路径真正被走到时才 import Koffi，
  * 非 Windows 进程永远不加载它。
  * @returns 可用的 MoveFileExW / GetLastError 绑定。
@@ -167,7 +167,7 @@ async function assertDirectory(path: string): Promise<boolean> {
  * @param existing - the synced staging path to move.
  * @param replacement - the final path, which must not already exist.
  */
-/**
+/*
  * 【中文】以 Windows 写透移动语义把 existing 发布为 replacement：目标必须不存在
  *（未设置替换标志）、移动必须留在同一卷（未设置复制回退标志），完成后对崩溃
  * 持久。失败时按 GetLastError 构造带 errno 的错误。
@@ -188,7 +188,7 @@ export async function publishNewFileWin32(existing: string, replacement: string)
  * directory.
  * @param target - the absolute directory path to create durably when absent.
  */
-/**
+/*
  * 【中文】持久地创建 target 及其缺失的各级祖先目录：先探测盘根，再逐段下探，
  * 缺失的每层都经 createLeafDirectoryWin32 以"暂存 + 写透移动"方式发布。
  * @param target - 需要确保存在的绝对目录路径。

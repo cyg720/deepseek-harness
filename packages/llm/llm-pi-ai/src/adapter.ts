@@ -25,7 +25,7 @@
  *
  * @module dsh-llm-pi-ai/adapter
  */
-/**
+/*
  * 文件职责：实现Pi AI LLM的 adapter.ts 模块。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
@@ -70,7 +70,7 @@ import { toPiContext } from './context.ts'
 import { toStreamChunks } from './stream.ts'
 
 /** One resolution's frozen view: the profiles and the collection built from them. */
-/** 中文说明：类型或类 PiAiSnapshot 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 PiAiSnapshot 约束模型请求、认证或流事件职责。 */
 interface PiAiSnapshot {
   /** The resolved profiles this collection was built from, used as its identity. */
   profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>
@@ -79,7 +79,7 @@ interface PiAiSnapshot {
 }
 
 /** Constructor options for {@link PiAiAdapter}: the two resolution hooks the plugin owns. */
-/** 中文说明：类型或类 PiAiAdapterOptions 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 PiAiAdapterOptions 约束模型请求、认证或流事件职责。 */
 export interface PiAiAdapterOptions {
   /** Current validated profiles by provider route; called once per operation. */
   profiles: () => ReadonlyMap<string, ResolvedPiAiProviderProfile>
@@ -111,7 +111,7 @@ export interface PiAiAdapterOptions {
 }
 
 /** The two auth injectables a pi-ai collection is built with. */
-/** 中文说明：类型或类 PiAiAuthInjection 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 PiAiAuthInjection 约束模型请求、认证或流事件职责。 */
 export interface PiAiAuthInjection {
   /** Durable storage for credentials pi-ai itself writes: logins, and the refreshes it runs under its own lock. */
   credentials: CredentialStore
@@ -120,7 +120,7 @@ export interface PiAiAuthInjection {
 }
 
 /** Copy profile stream knobs into pi-ai's common option vocabulary. */
-/** 中文说明：函数 profileOptions 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 profileOptions 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function profileOptions(
   profile: ResolvedPiAiProviderProfile,
   reasoning: ModelThinkingLevel | undefined,
@@ -154,7 +154,7 @@ function profileOptions(
  * @param effort - the profile's configured level, if any.
  * @returns the level when this model supports it, otherwise undefined.
  */
-/** 中文说明：函数 describableReasoningLevel 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 describableReasoningLevel 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function describableReasoningLevel(
   model: Model<Api>,
   effort: ReasoningEffortIdType | ModelThinkingLevel | undefined,
@@ -166,7 +166,7 @@ function describableReasoningLevel(
 }
 
 /** Validate an explicit Harness/profile effort without invoking pi-ai's clamp. */
-/** 中文说明：函数 resolveReasoningLevel 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveReasoningLevel 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function resolveReasoningLevel(
   model: Model<Api>,
   effort: ReasoningEffortIdType | ModelThinkingLevel | undefined,
@@ -197,7 +197,7 @@ function resolveReasoningLevel(
  * @param defaultLevel - the profile's configured effort, already validated.
  * @returns the `reasoning` field, or an empty object when none can be offered.
  */
-/** 中文说明：函数 reasoningInfo 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 reasoningInfo 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function reasoningInfo(
   model: Model<Api>,
   defaultLevel: ModelThinkingLevel | undefined,
@@ -217,7 +217,7 @@ function reasoningInfo(
 }
 
 /** Merge deployment headers while removing case-insensitive attribution collisions. */
-/** 中文说明：函数 requestHeaders 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 requestHeaders 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function requestHeaders(headers: Readonly<Record<string, string>> | undefined): Record<string, string> {
   /** 中文说明：适配器局部值 attribution，由紧邻初始化决定。 */
   const attribution = attributionHeaders()
@@ -234,7 +234,7 @@ function requestHeaders(headers: Readonly<Record<string, string>> | undefined): 
  * profiles, so a configuration change reaches the next request without a
  * restart; model descriptors come from the collection those profiles built.
  */
-/** 中文说明：类型或类 PiAiAdapter 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 PiAiAdapter 约束模型请求、认证或流事件职责。 */
 export class PiAiAdapter extends LlmAdapter {
   private snapshot: PiAiSnapshot | undefined
 

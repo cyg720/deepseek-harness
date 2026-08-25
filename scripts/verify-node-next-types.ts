@@ -5,7 +5,7 @@
  * Run after `pnpm run build` has emitted declaration files under package
  * `lib/types` directories.
  */
-/**
+/*
  * 文件职责：实现 verify-node-next-types.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。

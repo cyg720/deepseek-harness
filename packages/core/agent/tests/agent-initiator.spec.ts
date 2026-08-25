@@ -36,7 +36,7 @@ async function harness(): Promise<{
 }
 
 /** Fail a lifecycle regression promptly instead of waiting for Vitest's suite timeout. */
-/** 中文说明：测试辅助函数 promptly 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 promptly 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function promptly<T>(task: Promise<T>): Promise<T> {
   /** 中文说明：测试局部值 timeout，由紧邻初始化决定，仅在当前场景使用。 */
   const timeout = Promise.withResolvers<never>()

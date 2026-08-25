@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-system-prompt
  */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】系统提示词装配注册表：集中管理有序的系统段落（sections）、动态上下文（contexts）、
  *           工具 schema（tools）与提示词变量（variables），并在每次模型步骤前把它们装配成
@@ -66,7 +66,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Merge-extensible context for one prompt assembly. */
-/** 一次提示词装配所用上下文；可合并扩展（插件可追加字段）。 */
+/* 一次提示词装配所用上下文；可合并扩展（插件可追加字段）。 */
 export interface AssembleContext {
   /**
    * Scope whose providers and waterfall listeners participate. When absent,
@@ -80,7 +80,7 @@ export interface AssembleContext {
 }
 
 /** One contributed section of the system prompt (registry input). */
-/** 系统提示的一个贡献段（注册表输入）。 */
+/* 系统提示的一个贡献段（注册表输入）。 */
 export interface PromptSection {
   /** Unique name — a duplicate registration throws (see {@link SystemPrompt.section}). */
   readonly name: string
@@ -106,7 +106,7 @@ export interface PromptSection {
 }
 
 /** Dynamic model context materialized as a durable user-role snapshot. */
-/** 物化为耐久 user 角色快照的动态模型上下文（随请求注入，而非写进系统提示）。 */
+/* 物化为耐久 user 角色快照的动态模型上下文（随请求注入，而非写进系统提示）。 */
 export interface PromptContext {
   /** Unique name — a duplicate registration throws (see {@link SystemPrompt.context}). */
   // 唯一名——同层重复注册会抛错（见 SystemPrompt.context）。
@@ -120,7 +120,7 @@ export interface PromptContext {
 }
 
 /** One section of an assembly: {@link PromptSection} with its text resolved. */
-/** 装配结果中的一个段：PromptSection 且文本已解析（函数提供方已求值）。 */
+/* 装配结果中的一个段：PromptSection 且文本已解析（函数提供方已求值）。 */
 export interface AssembledSection {
   /** The contributing section's unique name. */
   // 贡献段的唯一名。
@@ -131,7 +131,7 @@ export interface AssembledSection {
 }
 
 /** One resolved dynamic context contribution. */
-/** 一份已解析的动态上下文贡献。 */
+/* 一份已解析的动态上下文贡献。 */
 export interface AssembledContext {
   /** The contributing context's unique name. */
   // 贡献上下文的唯一名。
@@ -142,7 +142,7 @@ export interface AssembledContext {
 }
 
 /** Tool schemas visible in one assembly and their pre-restriction name set. */
-/** 一次装配可见的工具 schema 及其“限制前”的名字全集。 */
+/* 一次装配可见的工具 schema 及其“限制前”的名字全集。 */
 export interface ToolProviderResult {
   /** The schemas this provider contributes to THIS assembly. */
   // 本提供方向本次装配贡献的 schema。
@@ -156,7 +156,7 @@ export interface ToolProviderResult {
  * Merge-extensible assembled model input. Sections and contexts remain
  * uninterpolated until rendered; tools are already in canonical order.
  */
-/**
+/*
  * 可合并扩展的已装配模型输入。sections 与 contexts 保持未插值状态直到渲染；
  * tools 已处于规范顺序。
  */
@@ -177,7 +177,7 @@ export interface PromptAssembly {
  * deployment's persona with its own — and both sides naming the same section
  * is what makes the replacement work rather than duplicate.
  */
-/**
+/*
  * 部署人设（persona）的段名。之所以导出：组合可以用同名段替换这个槽位——agent preset 用自己的段
  * 遮蔽部署人设——两侧命名相同正是“替换”而非“重复”得以成立的原因。
  */
@@ -203,7 +203,7 @@ export const TOOL_ORDER_REST = '<unlisted-tools>'
  * Validate duplicate names and the required {@link TOOL_ORDER_REST} marker.
  * Registered names are checked later because plugins have not loaded yet.
  */
-/**
+/*
  * 校验重复名与必需的 {@link TOOL_ORDER_REST} 保留标记。
  * 已注册名留到装配时再查，因为此刻插件尚未加载。
  * @param toolOrder - 配置声明的工具顺序（可为 undefined）。
@@ -227,7 +227,7 @@ function validateToolOrder(toolOrder: string[] | undefined): string[] | undefine
  * {@link TOOL_ORDER_REST}. Unknown configured names fail; known but restricted
  * names may be absent.
  */
-/**
+/*
  * 应用配置的工具顺序：未列出的工具按字典序插到 TOOL_ORDER_REST 标记所在位置。
  * 配置了未知名直接失败；已知但被隐藏的名字允许缺席。
  * @param tools - 收集到的工具 schema 列表。
@@ -254,13 +254,13 @@ function orderTools(tools: ToolSchema[], toolOrder: string[] | undefined, knownN
 }
 
 /** Lexicographic (code-unit) name comparison — locale-independent, so the order is identical on every machine. */
-/** 按代码单元的字典序比较工具名——与地区设置无关，任何机器上顺序一致。 */
+/* 按代码单元的字典序比较工具名——与地区设置无关，任何机器上顺序一致。 */
 function compareToolNames(a: ToolSchema, b: ToolSchema): number {
   return a.name < b.name ? -1 : a.name > b.name ? 1 : 0
 }
 
 /** Plugin config: the deployment-authored fragment of the system prompt (see {@link Config.persona} for its contract). */
-/** 插件配置：部署方撰写的系统提示词片段（persona 契约见字段注释）。 */
+/* 插件配置：部署方撰写的系统提示词片段（persona 契约见字段注释）。 */
 export interface Config {
   /** Include the fixed DeepSeek Harness identity before the deployment persona (default true). */
   // 是否在部署人设之前附带固定的 DeepSeek Harness 身份段（默认 true）。
@@ -292,7 +292,7 @@ export interface Config {
  * @param assembly - the assembly whose sections and variables to render.
  * @returns the rendered prompt, or `''` when all sections are empty.
  */
-/**
+/*
  * 插值严格的 {{变量}} 引用、剔除空段落后用空行连接其余段落。
  * 畸形、未知或值为 undefined 的引用都抛错；孤立的 '{{'（其后再无 '}}'）按普通文字处理；
  * 替换进去的值不会再被扫描。
@@ -311,7 +311,7 @@ export function renderPrompt(assembly: PromptAssembly): string {
  * @param assembly - the assembly whose contexts and variables to render.
  * @returns the current full snapshot, or `''` when no context is active.
  */
-/**
+/*
  * 渲染完整的动态上下文快照。
  * @param assembly - 待渲染的装配（用其 contexts 与 variables）。
  * @returns 当前完整快照；无活跃上下文时为 ''。
@@ -328,7 +328,7 @@ export function renderContextSnapshot(assembly: PromptAssembly): string {
  * @param sections - sections from {@link renderContextSections}.
  * @returns the current full snapshot, or `''` when no context is active.
  */
-/**
+/*
  * 把已渲染的段落列表拼成面向模型的快照文本。
  * 同时需要段落的调用方只需渲染一次再在此拼接，避免一次请求里把每个上下文插值两遍。
  * @param sections - {@link renderContextSections} 的产物。
@@ -349,7 +349,7 @@ export function joinContextSections(sections: readonly ContextSnapshotSection[])
  * @param assembly - the assembly whose contexts and variables to render.
  * @returns one entry per contributing context that rendered to non-empty text.
  */
-/**
+/*
  * 同一份快照，但保留为“有名有姓”的贡献条目。
  * {@link renderContextSnapshot} 把它们拼接给模型；展示快照的消费方则用它把每部分归属到贡献它的
  * 子系统，无需再切分拼好的散文。
@@ -363,7 +363,7 @@ export function renderContextSections(assembly: PromptAssembly): ContextSnapshot
 }
 
 /** Interpolate one section or context and attribute diagnostics to its owning input. */
-/** 对一个段或上下文做插值，并把诊断信息归因到其所属输入（kind + 名字）。 */
+/* 对一个段或上下文做插值，并把诊断信息归因到其所属输入（kind + 名字）。 */
 function interpolate(
   input: AssembledSection | AssembledContext,
   variables: Record<string, string | undefined>,
@@ -416,7 +416,7 @@ type ToolProvider = (context: AssembleContext) => ToolProviderResult
 type VariableProvider = (context: AssembleContext) => string | undefined
 
 /** All prompt registrations owned by one global or scoped layer. */
-/** 一个全局或作用域层拥有的全部提示词注册。 */
+/* 一个全局或作用域层拥有的全部提示词注册。 */
 class PromptLayer implements ScopeLayer {
   // 具名段落注册表（重名报错文案按层归属定制）。
   readonly sections: NamedEntries<PromptSection>
@@ -433,7 +433,7 @@ class PromptLayer implements ScopeLayer {
    * Create one prompt layer with diagnostics specific to its ownership scope.
    * @param scope - the scoped owner, or `undefined` for global registrations.
    */
-  /**
+  /*
    * 创建一个提示词层，重复名报错文案按其归属作用域定制。
    * @param scope - 作用域属主；全局注册时为 undefined。
    */
@@ -450,7 +450,7 @@ class PromptLayer implements ScopeLayer {
   }
 
   /** @returns whether this layer owns no prompt registrations. */
-  /** @returns 本层是否没有任何提示词注册。 */
+  /* @returns 本层是否没有任何提示词注册。 */
   isEmpty(): boolean {
     return this.sections.isEmpty()
       && this.contexts.isEmpty()
@@ -461,7 +461,7 @@ class PromptLayer implements ScopeLayer {
 }
 
 /** Registry service for the prompt inputs assembled before each model step. */
-/** 在每次模型步骤前装配提示词输入的注册表服务。 */
+/* 在每次模型步骤前装配提示词输入的注册表服务。 */
 export class SystemPrompt extends Service {
   // 插件配置 schema：与 Config 接口对应，提供默认值。
   static Config: z<Config> = z.object({
@@ -515,7 +515,7 @@ export class SystemPrompt extends Service {
    * @param section - the section to register.
    * @returns the exact Cordis effect disposer.
    */
-  /**
+  /*
    * 在调用方上下文所属作用域注册一个有序提示段。scoped 同名段遮蔽全局段；
    * 同层重复与非有限 order 都抛错。注册与注销都会发射 system-prompt/change。
    * @param section - 待注册的段。
@@ -538,7 +538,7 @@ export class SystemPrompt extends Service {
    * @param context - the context contribution to register.
    * @returns the exact Cordis effect disposer.
    */
-  /**
+  /*
    * 在调用方作用域注册有序动态上下文。scoped 同名条目遮蔽全局条目。
    * @param context - 待注册的上下文贡献。
    * @returns 确切的 Cordis effect disposer。
@@ -560,7 +560,7 @@ export class SystemPrompt extends Service {
    * facts. Multiple suppressors remain independently disposable.
    * @returns the exact Cordis effect disposer.
    */
-  /**
+  /*
    * 在调用方作用域内抑制全部动态运行时上下文贡献，但不改动拥有或强制这些事实的服务。
    * 多个抑制器相互独立、各自可释放。
    * @returns 确切的 Cordis effect disposer。
@@ -580,7 +580,7 @@ export class SystemPrompt extends Service {
    * @param provider - evaluated for each assembly with its context.
    * @returns the exact Cordis effect disposer.
    */
-  /**
+  /*
    * 在调用方作用域注册一个工具 schema 提供方。全局与匹配作用域的提供方都会贡献；
    * 返回保留名 TOOL_ORDER_REST 会使装配失败。
    * @param provider - 每次装配时以该次上下文求值。

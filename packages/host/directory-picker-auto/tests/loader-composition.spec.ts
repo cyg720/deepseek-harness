@@ -6,7 +6,7 @@
  * serves, and that disposing the chooser removes both mounted entries again
  * (HMR safety), joining the backend's own teardown before the disposer settles.
  */
-/**
+/*
  * 文件职责：验证宿主目录选择的 loader-composition.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -77,7 +77,7 @@ const BROWSE_SURFACE = '@deepseek-ai/dsh-client-ui-directory-picker-browse'
  * @param name Surface package specifier the chooser mounts.
  * @returns A function-plugin module the Loader can mount under that specifier.
  */
-/** 中文说明：函数 surfaceModule 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 surfaceModule 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function surfaceModule(name: string): unknown {
   return { name, apply: () => undefined }
 }
@@ -108,7 +108,7 @@ afterEach(async () => {
 })
 
 /** Write a two-row cordis.yml (webserver + chooser), then boot it through the real Loader. */
-/** 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function loadComposition(
   bindHost: '127.0.0.1' | '0.0.0.0',
   options: { failSurface?: boolean } = {},
@@ -157,7 +157,7 @@ async function loadComposition(
 }
 
 /** Entry names currently present in the loader store (root tree plus subtrees). */
-/** 中文说明：函数 entryNames 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 entryNames 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function entryNames(ctx: Context): string[] {
   return [...ctx.loader.entries()].map(entry => entry.options.name)
 }
@@ -167,7 +167,7 @@ function entryNames(ctx: Context): string[] {
  * display, and a PATH holding one executable chooser binary so the real
  * probe resolves identically on hosts with and without zenity/kdialog.
  */
-/** 中文说明：函数 stubAttendedHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubAttendedHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAttendedHost(): void {
   fakeBin = mkdtempSync(join(tmpdir(), 'dsh-picker-bin-'))
   /** 中文说明：测试局部值 zenity，由紧邻初始化决定。 */

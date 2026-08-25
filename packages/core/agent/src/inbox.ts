@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】Inbox：agent 待处理消息队列的增量投影。把持久化的 agent/inbox/spliced 会话事件重放并增量应用到内存中 next-turn/next-step 两个列表。
  * 【技术维度】投影模式：构造时从 seedLength 之后的事件重放，运行中每次变更先写会话日志（durable）再改内存（live），并发布 inserted/discarded/claimed 通知。

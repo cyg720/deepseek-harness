@@ -11,7 +11,7 @@
  * The menu opens on the staged choice, which starts as the deployment default.
  * Picking stages; the choice reaches a session when one becomes current.
  */
-/**
+/*
  * 文件职责：实现预设界面的 AgentPresetSeat 组件及交互。
  * 技术维度：React、TypeScript、Cordis 插槽、响应式快照和 CSS Modules。
  * 产品维度：帮助用户查看、选择或管理会话使用的代理预设。
@@ -31,7 +31,7 @@ import { presetDisplayText } from './locales.ts'
 import css from './AgentPresetSeat.module.css'
 
 /** Registration-side business face for the hero chip. */
-/** 中文说明：类型 AgentPresetSeatInjected 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 AgentPresetSeatInjected 约束本文件数据字段及允许取值。 */
 export interface AgentPresetSeatInjected {
   /** 中文说明：成员 hooks 保存实例运行状态，取值由声明类型限定。 */
   hooks: {
@@ -39,13 +39,13 @@ export interface AgentPresetSeatInjected {
     agentPresetSeat: SnapshotStore<AgentPresetSeatState>
   }
   /** Read the roster when the chip first renders. */
-  /** 中文说明：成员 load 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 load 保存实例运行状态，取值由声明类型限定。 */
   load: () => Promise<void>
   /** Stage one preset for the next session. */
-  /** 中文说明：成员 select 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 select 保存实例运行状态，取值由声明类型限定。 */
   select: (id: string) => Promise<void>
   /** Clear the one-shot introduce cue once the chip has played it. */
-  /** 中文说明：成员 introduced 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 introduced 保存实例运行状态，取值由声明类型限定。 */
   introduced: () => void
 }
 
@@ -69,14 +69,14 @@ const INTRO_CHAR_FADE_MS = 400
  * @param count - character count of the shown preset name.
  * @returns milliseconds between successive character starts.
  */
-/** 中文说明：函数 introStaggerMs 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 introStaggerMs 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function introStaggerMs(count: number): number {
   if (count <= 1) return 0
   return Math.min(INTRO_CHAR_STAGGER_MS, INTRO_TEXT_REVEAL_MS / (count - 1))
 }
 
 /** Full component props. */
-/** 中文说明：类型 AgentPresetSeatProps 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 AgentPresetSeatProps 约束本文件数据字段及允许取值。 */
 export type AgentPresetSeatProps =
   PropsRuntime<'conversation.hero.agentPreset'>
   & PropsLocale<'settings.agentPreset'>
@@ -87,7 +87,7 @@ export type AgentPresetSeatProps =
  * @param props - composed slot props.
  * @returns the chip, or null when the deployment composes no presets.
  */
-/** 中文说明：函数 AgentPresetSeat 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 AgentPresetSeat 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function AgentPresetSeat({ load, select, introduced, useAgentPresetSeat, t }: AgentPresetSeatProps) {
   /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const state = useAgentPresetSeat(snapshot => snapshot)

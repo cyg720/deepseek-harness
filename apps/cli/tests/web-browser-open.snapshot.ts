@@ -1,5 +1,5 @@
 /** Assembled keyless snapshot for the default `dsh web` browser handoff. */
-/**
+/*
  * 文件职责：快照验证构建版 dsh web 在本地、打开失败、远程 SSH 和非法环境配置下的浏览器交接。
  * 技术维度：使用 Execa、Node import hook、临时目录和内联快照运行真实发布装配。
  * 产品维度：用户启动 Web 后可自动打开可访问页面，失败或远程环境则得到安全明确的手动地址。

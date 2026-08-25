@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-jsonrpc-demo/packaged-bin
  */
-/**
+/*
  * 文件职责：作为封闭运行时中的 JSON-RPC Agent 命令行入口。
  * 技术维度：使用 Node shebang、顶层 await，并以当前模块 URL 定位已安装运行闭包。
  * 产品维度：Python 等打包载体无需外部安装裸插件即可启动 JSON-RPC 服务。

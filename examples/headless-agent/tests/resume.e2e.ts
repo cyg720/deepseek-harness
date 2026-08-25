@@ -22,9 +22,9 @@ import { codingHarness, finalText, SYSTEM_PROMPT, waitForIdle } from './harness.
  * model to recall the fact. The recall can only come from the rehydrated event
  * log — a fresh session would have no idea. Key-gated like the other e2es.
  */
-/** 中文说明：第一进程写入事实，第二个全新 Context 从同一日志恢复；正确回忆只能来自重放历史。 */
+/* 中文说明：第一进程写入事实，第二个全新 Context 从同一日志恢复；正确回忆只能来自重放历史。 */
 
-/** 跨进程恢复后模型必须回忆出的唯一秘密。 */
+/* 跨进程恢复后模型必须回忆出的唯一秘密。 */
 const SECRET = 'plum-galaxy-1791'
 /** 两次独立 Harness 共享的稳定会话标识。 */
 const SESSION_ID = SessionId('resume-e2e-session')

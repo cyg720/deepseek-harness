@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-claude-code/run
  */
-/**
+/*
  * 文件职责：实现 run.ts 覆盖的子代理进程与协议行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
@@ -57,11 +57,11 @@ import {
 } from './process.ts'
 
 /** Default POSIX grace between subprocess termination tiers. */
-/** 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
 /** Claude Code permission modes that cannot wait for a human response. */
-/** 中文说明：常量 CLAUDE_CODE_PERMISSION_MODES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CLAUDE_CODE_PERMISSION_MODES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CLAUDE_CODE_PERMISSION_MODES = [
   'dontAsk',
   'acceptEdits',
@@ -71,11 +71,11 @@ export const CLAUDE_CODE_PERMISSION_MODES = [
 ] as const satisfies readonly NonNullable<Options['permissionMode']>[]
 
 /** Profile-selectable non-interactive Claude Code permission mode. */
-/** 中文说明：type ClaudeCodePermissionMode 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：type ClaudeCodePermissionMode 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export type ClaudeCodePermissionMode = typeof CLAUDE_CODE_PERMISSION_MODES[number]
 
 /** Safe default for unattended Claude Code runs. */
-/** 中文说明：常量 DEFAULT_CLAUDE_CODE_PERMISSION_MODE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_CLAUDE_CODE_PERMISSION_MODE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_CLAUDE_CODE_PERMISSION_MODE: ClaudeCodePermissionMode = 'dontAsk'
 
 /** 中文说明：常量 SUPPORTED_UNATTENDED_DIALOG_KINDS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
@@ -163,7 +163,11 @@ function sdkFailureCategory(
  * @param cause - original host-side failure retained only on the Error cause chain.
  * @returns a rejection safe to expose through the subagent start boundary.
  */
-/** 中文说明：函数 claudeCodeStartupFailure 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 claudeCodeStartupFailure 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param cause 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function claudeCodeStartupFailure(cause: unknown): Error {
   return new ClaudeCodeFailure({
     stage: 'query-start',
@@ -184,7 +188,7 @@ function unattendedDiagnostic(
 /* jscpd:ignore-start -- sibling providers intentionally keep product-private
  * run inputs and error normalization instead of adding a shared lifecycle owner. */
 /** Fully resolved inputs for one official Claude Agent SDK query. */
-/** 中文说明：interface ClaudeCodeRunSpec 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：interface ClaudeCodeRunSpec 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export interface ClaudeCodeRunSpec {
   /** Parent Session workspace supplied to the SDK and real CLI. */
   readonly cwd: string
@@ -207,7 +211,7 @@ function thrown(value: unknown): Error {
 }
 
 /** Read live request cancellation across awaited startup cleanup. */
-/** 中文说明：函数 isAborted 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isAborted 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isAborted(signal: AbortSignal): boolean {
   return signal.aborted
 }
@@ -219,7 +223,11 @@ function isAborted(signal: AbortSignal): boolean {
  * @param prompt - task content accepted from the shared subagent service.
  * @returns the exact text sequence as one SDK prompt.
  */
-/** 中文说明：函数 textTask 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 textTask 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param prompt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function textTask(prompt: readonly ContentBlock[]): string {
   if (prompt.length === 0) {
     throw new Error('subagent-claude-code: the one-shot task must contain only text blocks')
@@ -244,7 +252,11 @@ export function textTask(prompt: readonly ContentBlock[]): string {
  * @param message - an official discriminated result union.
  * @returns exact final text for a successful, non-error result.
  */
-/** 中文说明：函数 successfulResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 successfulResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param message 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function successfulResult(message: SDKResultMessage): string {
   if (message.subtype !== 'success') {
     /** 中文说明：变量 category 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -277,7 +289,13 @@ export function successfulResult(message: SDKResultMessage): string {
  * @param onResult - records that the SDK supplied a terminal result message.
  * @returns the completed shared result.
  */
-/** 中文说明：函数 consumeClaudeQuery 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 consumeClaudeQuery 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param query 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param onPermissionDenied 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param onResult 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function consumeClaudeQuery(
   query: AsyncIterable<SDKMessage>,
   onPermissionDenied?: () => void,
@@ -314,7 +332,11 @@ export async function consumeClaudeQuery(
  * @param child - live shared-service handle that owns the CLI process tree;
  * spawn-failed handles settle at the startup boundary instead.
  */
-/** 中文说明：函数 disposeClaudeCodeChild 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 disposeClaudeCodeChild 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param query 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param child 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export async function disposeClaudeCodeChild(
   query: Pick<Query, 'close'> | undefined,
   child: SubprocessHandle,
@@ -361,7 +383,14 @@ export async function disposeClaudeCodeChild(
  * @param captureDiagnostic - receives safe facts from unattended interaction callbacks.
  * @returns options that inherit native settings while disabling persistence and user questions.
  */
-/** 中文说明：函数 claudeQueryOptions 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 claudeQueryOptions 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param controller 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param capture 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param captureDiagnostic 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function claudeQueryOptions(
   spec: ClaudeCodeRunSpec,
   controller: AbortController,
@@ -432,7 +461,12 @@ export function claudeQueryOptions(
  * @param spec - Workspace, environment, process service, and diagnostic policy.
  * @returns the published run after both Query and real CLI handle exist.
  */
-/** 中文说明：函数 startClaudeCodeRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 startClaudeCodeRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function startClaudeCodeRun(
   request: SubagentStartRequest,
   spec: ClaudeCodeRunSpec,

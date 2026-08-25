@@ -21,7 +21,7 @@
  * Node-private synchronous Zstandard frame decoder optimization.
  * @module dsh-session-persistence-jsonl/zstd-private-decoder
  */
-/**
+/*
  * 【中文导读】上面英文说明：利用 Node 私有流句柄做的同步多帧解码优化。
  */
 
@@ -67,7 +67,7 @@ interface NodeZstdPrivateState {
 type NodeZstdPrivateStream = ReturnType<typeof createZstdDecompress> & NodeZstdPrivateState
 
 /** Return the stream with its observed private Node contract, or reject that optimization. */
-/**
+/*
  * 【中文】探测当前 Node 是否暴露预期的私有流契约：句柄存在且有 writeSync、写状态
  * 是长度足够的 Uint32Array、默认 flush 为数字、kError 符号槽存在且当前无错误；
  * 任一不符即返回 undefined 放弃优化。
@@ -102,7 +102,7 @@ function privateZstdStream(
  * the stream's private handle contract to reuse its native context and output
  * chunks across frames.
  */
-/**
+/*
  * 【中文】由单个 Node zstd 流句柄支撑的同步多帧解码器。Node 只把同步解码暴露为
  * 一次性 API，因此本适配器借助流的私有句柄契约跨帧复用原生上下文与输出缓冲。
  */
@@ -135,7 +135,7 @@ export class NodePrivateZstdFrameDecoder implements ZstdFrameDecoder {
    * private stream shape.
    * @returns a shared decoder, or `undefined` when callers must use the public fallback.
    */
-  /**
+  /*
    * 【中文】工厂：当前 Node 暴露预期私有流形状时创建优化解码器；
    * 否则关闭试探流并返回 undefined（调用方改用公开回退实现）。
    * @returns 优化解码器；不可用时 undefined。
@@ -154,7 +154,7 @@ export class NodePrivateZstdFrameDecoder implements ZstdFrameDecoder {
   }
 
   /** @inheritdoc */
-  /**
+  /*
    * 【中文】逐帧解码生成器：状态守卫 → 对每个帧区间调用 decodeFrame，失败统一
    * 包装为带偏移的损坏错误；迭代结束或中断时自动 close。
    * @param source - 拼接的帧字节。
@@ -181,7 +181,7 @@ export class NodePrivateZstdFrameDecoder implements ZstdFrameDecoder {
   }
 
   /** Decode one frame; its returned scratch view remains valid until the next call. */
-  /**
+  /*
    * 【中文】同步解码单帧：循环 writeSync 喂输入、收输出。输出缓冲写满（剩余空间
    * 为 0）就把整块拷入 fullChunks 继续喂；输出未满即输入耗尽——收尾分支处理
    * 单块/多块的返回拼装。每次调用都会覆盖复用缓冲，返回视图因此只在下一次
@@ -249,7 +249,7 @@ export class NodePrivateZstdFrameDecoder implements ZstdFrameDecoder {
   }
 
   /** @inheritdoc */
-  /**
+  /*
    * 【中文】关闭底层流并置位标记；重复调用无害。
    */
   close(): void {

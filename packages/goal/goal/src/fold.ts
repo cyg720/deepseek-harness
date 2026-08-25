@@ -1,5 +1,5 @@
 /** Pure replay fold and strict decoder for durable goal changes. */
-/**
+/*
  * 文件职责：实现目标管理的 fold.ts 模块。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
@@ -34,7 +34,7 @@ const SNAPSHOT_OPERATIONS: ReadonlySet<Exclude<GoalOperation, 'clear'>> = new Se
 const PHASES: ReadonlySet<GoalPhase> = new Set(['active', 'paused', 'blocked', 'complete'])
 
 /** Mutable accumulator kept private to the pure fold. */
-/** 中文说明：类型或类 GoalFoldState 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 GoalFoldState 约束文件或目标数据职责。 */
 export interface GoalFoldState {
   goal: GoalSnapshot | undefined
   roundsStarted: number
@@ -48,7 +48,10 @@ export interface GoalFoldState {
  * Build an empty replay accumulator.
  * @returns mutable state with no current goal or prior ref.
  */
-/** 中文说明：函数 emptyGoalFoldState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 emptyGoalFoldState 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function emptyGoalFoldState(): GoalFoldState {
   return {
     goal: undefined,
@@ -61,13 +64,13 @@ export function emptyGoalFoldState(): GoalFoldState {
 }
 
 /** Whether a value is a JSON record rather than an array. */
-/** 中文说明：函数 isRecord 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 isRecord 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** Require one positive safe integer. */
-/** 中文说明：函数 positiveInteger 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 positiveInteger 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function positiveInteger(value: unknown, field: string): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
     throw new Error(`goal change ${field} must be a positive safe integer`)
@@ -76,7 +79,7 @@ function positiveInteger(value: unknown, field: string): number {
 }
 
 /** Require one non-negative safe integer. */
-/** 中文说明：函数 nonNegativeInteger 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 nonNegativeInteger 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function nonNegativeInteger(value: unknown, field: string): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     throw new Error(`goal change ${field} must be a non-negative safe integer`)
@@ -85,7 +88,7 @@ function nonNegativeInteger(value: unknown, field: string): number {
 }
 
 /** Decode one canonical blocker explanation. */
-/** 中文说明：函数 decodeBlockReason 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 decodeBlockReason 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function decodeBlockReason(value: unknown): GoalBlockReason {
   if (!isRecord(value) || Object.keys(value).sort().join(',') !== 'code,message') {
     throw new Error('goal change goal.blockedReason must have exactly code and message fields')
@@ -101,7 +104,7 @@ function decodeBlockReason(value: unknown): GoalBlockReason {
 }
 
 /** Decode and validate one snapshot. */
-/** 中文说明：函数 decodeSnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 decodeSnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function decodeSnapshot(value: unknown): GoalSnapshot {
   if (!isRecord(value)) throw new Error('goal change goal must be a record')
   if (typeof value['id'] !== 'string' || value['id'].length === 0) {
@@ -134,7 +137,7 @@ function decodeSnapshot(value: unknown): GoalSnapshot {
 }
 
 /** Decode and validate one ref. */
-/** 中文说明：函数 decodeRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 decodeRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function decodeRef(value: unknown): GoalRef {
   if (!isRecord(value) || Object.keys(value).sort().join(',') !== 'id,revision') {
     throw new Error('goal clear tombstone must have exactly id and revision fields')
@@ -151,7 +154,11 @@ function decodeRef(value: unknown): GoalRef {
  * @param value - candidate source change.
  * @returns validated goal change or `undefined` for another value kind.
  */
-/** 中文说明：函数 decodeGoalChange 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 decodeGoalChange 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeGoalChange(value: unknown): GoalChangeMeta | undefined {
   if (!isRecord(value) || value['kind'] !== 'goal/change') return undefined
   if (value['version'] !== GOAL_CHANGE_VERSION) {
@@ -197,7 +204,7 @@ export function decodeGoalChange(value: unknown): GoalChangeMeta | undefined {
 }
 
 /** Narrow model attribution to a valid goal source. */
-/** 中文说明：函数 goalSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 goalSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalSource(source: MessageSource): GoalMessageSource | undefined {
   if (source.kind !== 'goal') return undefined
   if (typeof source.goalId !== 'string' || source.goalId.length === 0
@@ -209,7 +216,7 @@ function goalSource(source: MessageSource): GoalMessageSource | undefined {
 }
 
 /** Require two snapshots to retain fields that only `edit` may replace. */
-/** 中文说明：函数 requireSameDefinition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 requireSameDefinition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function requireSameDefinition(current: GoalSnapshot, next: GoalSnapshot, operation: GoalOperation): void {
   if (next.objective !== current.objective || next.maxGoalRounds !== current.maxGoalRounds) {
     throw new Error(`goal ${operation} cannot change objective or maxGoalRounds`)
@@ -217,7 +224,7 @@ function requireSameDefinition(current: GoalSnapshot, next: GoalSnapshot, operat
 }
 
 /** Require one exact next revision of the current goal. */
-/** 中文说明：函数 requireNextRevision 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 requireNextRevision 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function requireNextRevision(current: GoalSnapshot, next: GoalRef, operation: GoalOperation): void {
   if (next.id !== current.id || next.revision !== current.revision + 1) {
     throw new Error(`goal ${operation} must advance the current goal by one revision`)
@@ -225,7 +232,7 @@ function requireNextRevision(current: GoalSnapshot, next: GoalRef, operation: Go
 }
 
 /** Validate one non-create snapshot operation against the preceding projection. */
-/** 中文说明：函数 validateSnapshotTransition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateSnapshotTransition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateSnapshotTransition(
   state: GoalFoldState,
   change: GoalSnapshotChangeMeta,
@@ -288,7 +295,11 @@ function validateSnapshotTransition(
  * @param change - decoded goal mutation.
  * @returns stable identity used to reconcile a deferred change with its log event.
  */
-/** 中文说明：函数 goalChangeRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 goalChangeRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param change 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function goalChangeRef(change: GoalChangeMeta): GoalRef {
   return change.operation === 'clear'
     ? change.cleared
@@ -300,7 +311,11 @@ export function goalChangeRef(change: GoalChangeMeta): GoalRef {
  * @param state - preceding durable goal projection.
  * @param change - decoded full snapshot or clear tombstone.
  */
-/** 中文说明：函数 applyGoalChange 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 applyGoalChange 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param state 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param change 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function applyGoalChange(state: GoalFoldState, change: GoalChangeMeta): void {
   /** 中文说明：领域局部值 ref，由紧邻初始化决定。 */
   const ref = goalChangeRef(change)
@@ -346,7 +361,11 @@ export function applyGoalChange(state: GoalFoldState, change: GoalChangeMeta): v
  * @param state - mutable fold accumulator.
  * @param event - next event in sequence order.
  */
-/** 中文说明：函数 applyGoalEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 applyGoalEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param state 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param event 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function applyGoalEvent(state: GoalFoldState, event: SessionEvent): void {
   if (event.type === 'goal/change') {
     /** 中文说明：领域局部值 change，由紧邻初始化决定。 */
@@ -376,7 +395,11 @@ export function applyGoalEvent(state: GoalFoldState, event: SessionEvent): void 
  * @param events - session events in sequence order.
  * @returns a fresh durable projection; activation is deliberately absent.
  */
-/** 中文说明：函数 foldGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 foldGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function foldGoal(events: readonly SessionEvent[]): FoldedGoal {
   /** 中文说明：领域局部值 state，由紧邻初始化决定。 */
   const state = emptyGoalFoldState()

@@ -26,19 +26,19 @@ beforeEach(() => {
 })
 
 /** The rendered body rows, one string per visible line (CSS-module class prefix). */
-/** 中文说明：函数 bodyRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bodyRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bodyRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class*="_line_"]')].map(row => row.textContent ?? '')
 }
 
 /** Only the changed rows (add/del), excluding the path header and gap chrome. */
-/** 中文说明：函数 changeRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 changeRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function changeRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class*="_del_"], [class*="_add_"]')].map(row => row.textContent ?? '')
 }
 
 /** `count` numbered added lines as one hunk's newText. */
-/** 中文说明：函数 added 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 added 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function added(count: number): string {
   return Array.from({ length: count }, (_v, i) => `line ${i + 1}`).join('\n')
 }

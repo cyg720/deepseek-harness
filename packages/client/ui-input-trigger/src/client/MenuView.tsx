@@ -7,7 +7,7 @@
  * are mousedown-handled and the highlight is exposed via
  * aria-activedescendant on the listbox).
  */
-/**
+/*
  * 文件职责：实现输入触发菜单的 MenuView 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：支持用户查看或操作输入触发菜单。
@@ -24,15 +24,15 @@ import type { MenuViewInjected } from './slots.ts'
 import type { MenuKey } from './locales.ts'
 
 /** Full menu props: injected face + the locale seat. */
-/** 中文说明：类型或类 MenuViewProps 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 MenuViewProps 约束本文件数据或组件职责。 */
 export type MenuViewProps = MenuViewInjected & PropsLocale<'slash.menu'>
 
 /** Design cap on the list height (figma SLASH 39:26572 MenuDropdown). */
-/** 中文说明：组件局部值 MAX_HEIGHT，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 MAX_HEIGHT，由紧邻初始化决定。 */
 const MAX_HEIGHT = 320
 
 /** DOM id of one option row (the aria-activedescendant target). */
-/** 中文说明：函数 optionId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 optionId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function optionId(source: string, index: number): string {
   return `dsh-slash-option-${source}-${index}`
 }
@@ -42,7 +42,7 @@ function optionId(source: string, index: number): string {
  * @param props - injected face (the menu store and the pick route); `t` rides the standard locale seat.
  * @returns the dropdown while open; null while closed.
  */
-/** 中文说明：函数 MenuView 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 MenuView 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function MenuView({ menu, onPick, onDismiss, t }: MenuViewProps) {
   /** 中文说明：组件局部值 state，由紧邻初始化决定。 */
   const state = useSyncExternalStore(

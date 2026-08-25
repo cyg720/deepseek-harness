@@ -5,7 +5,7 @@
  * anything through the same fd; the Python bootstrap trusts host replies.
  * @module @deepseek-ai/dsh-code-runtime-python/src/protocol
  */
-/**
+/*
  * 文件职责：实现代码运行时的 protocol 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供代码运行时能力。
@@ -23,7 +23,7 @@
  * Python constant equals it, so a drift on either side breaks the boot channel
  * loudly rather than silently.
  */
-/** 中文说明：运行时局部值 PROTOCOL_FD，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 PROTOCOL_FD，由紧邻初始化决定。 */
 export const PROTOCOL_FD = 3
 
 /**
@@ -31,7 +31,7 @@ export const PROTOCOL_FD = 3
  * the program-visible name the namespace is materialized under; `errorClass`,
  * when present, asks the bootstrap to mint a program-visible exception class.
  */
-/** 中文说明：类型或类 Namespace 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 Namespace 约束协议数据或模块职责。 */
 interface Namespace {
   global: string
   names: string[]
@@ -42,7 +42,7 @@ interface Namespace {
  * A namespace's program-visible exception class: rejected calls raise its
  * instances carrying the failed member name on `memberNameProperty`.
  */
-/** 中文说明：类型或类 ErrorClass 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 ErrorClass 约束协议数据或模块职责。 */
 interface ErrorClass {
   name: string
   memberNameProperty: string
@@ -54,7 +54,7 @@ interface ErrorClass {
  * subsequent run frame. Separated from the run so the run message stays
  * pure model input.
  */
-/** 中文说明：类型或类 BootMessage 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 BootMessage 约束协议数据或模块职责。 */
 export interface BootMessage {
   type: 'boot'
   /** RLIMIT_CPU seconds; the Python bootstrap sets this on itself before executing model code. */
@@ -73,20 +73,20 @@ export interface BootMessage {
 }
 
 /** Host → Python: sent after `boot-ack`; carries only the model's program body. */
-/** 中文说明：类型或类 RunMessage 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 RunMessage 约束协议数据或模块职责。 */
 interface RunMessage {
   type: 'run'
   program: string
 }
 
 /** Python → host: acknowledges boot completed and resource limits are in place. */
-/** 中文说明：类型或类 BootAckMessage 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 BootAckMessage 约束协议数据或模块职责。 */
 interface BootAckMessage {
   type: 'boot-ack'
 }
 
 /** Python → host: one bridged binding call (`await tools.name(args)` inside the program). */
-/** 中文说明：类型或类 CallMessage 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 CallMessage 约束协议数据或模块职责。 */
 interface CallMessage {
   type: 'call'
   /** Python-issued correlation id; the host answers each id at most once and ignores duplicates. */
@@ -103,7 +103,7 @@ interface CallMessage {
  * Python → host: captured text, streamed eagerly so output survives a
  * mid-run termination (RLIMIT_CPU, SIGTERM/SIGKILL, host wall-timeout).
  */
-/** 中文说明：类型或类 LogMessage 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 LogMessage 约束协议数据或模块职责。 */
 interface LogMessage {
   type: 'log'
   text: string
@@ -121,7 +121,7 @@ interface LogMessage {
 }
 
 /** The failure carried on a {@link DoneMessage}: one of three kinds plus text. */
-/** 中文说明：类型或类 DoneErrorField 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 DoneErrorField 约束协议数据或模块职责。 */
 interface DoneErrorField {
   kind: 'exception' | 'invalid-output' | 'output-limit'
   message: string
@@ -138,7 +138,7 @@ interface DoneErrorField {
  * {@link validateChildFrame} preserves both rather than guessing which to drop,
  * so a consumer MUST check `error` first and ignore `value` when it is set.
  */
-/** 中文说明：类型或类 DoneMessage 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 DoneMessage 约束协议数据或模块职责。 */
 interface DoneMessage {
   type: 'done'
   value?: unknown
@@ -150,11 +150,11 @@ interface DoneMessage {
  * private: consumers match on the union's discriminant; the host sends the
  * boot and run frames as inline literals.
  */
-/** 中文说明：类型或类 ChildToHost 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 ChildToHost 约束协议数据或模块职责。 */
 export type ChildToHost = BootAckMessage | CallMessage | LogMessage | DoneMessage
 
 /** Host → Python: successful answer to one {@link CallMessage}. */
-/** 中文说明：类型或类 ReplyOk 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 ReplyOk 约束协议数据或模块职责。 */
 interface ReplyOk {
   type: 'reply'
   id: number
@@ -163,7 +163,7 @@ interface ReplyOk {
 }
 
 /** Host → Python: failed answer to one {@link CallMessage}. */
-/** 中文说明：类型或类 ReplyErr 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 ReplyErr 约束协议数据或模块职责。 */
 interface ReplyErr {
   type: 'reply'
   id: number
@@ -172,14 +172,14 @@ interface ReplyErr {
 }
 
 /** Host → Python: the answer to one {@link CallMessage}. */
-/** 中文说明：类型或类 ReplyMessage 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 ReplyMessage 约束协议数据或模块职责。 */
 export type ReplyMessage = ReplyOk | ReplyErr
 
 /** The required (non-optional) keys of `T`, as string literals. */
-/** 中文说明：类型或类 RequiredKeys 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 RequiredKeys 约束协议数据或模块职责。 */
 type RequiredKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? never : K }[keyof T] & string
 /** The optional keys of `T`, as string literals. */
-/** 中文说明：类型或类 OptionalKeys 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 OptionalKeys 约束协议数据或模块职责。 */
 type OptionalKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? K : never }[keyof T] & string
 
 /**
@@ -192,7 +192,7 @@ type OptionalKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? K : never
  * an optionality flip is caught too. This is the exhaustive counterpart the
  * array form could not express (a subset array satisfied it silently).
  */
-/** 中文说明：类型或类 FrameFieldRoles 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 FrameFieldRoles 约束协议数据或模块职责。 */
 type FrameFieldRoles<T> = Record<RequiredKeys<T>, 'required'> & Record<OptionalKeys<T>, 'optional'>
 
 /** 中文说明：类型或类 WireFrameShapes 约束协议数据或模块职责。 */
@@ -217,10 +217,10 @@ interface WireFrameShapes {
  * `DoneErrorField` are fields of other frames, not frames themselves, so they
  * are excluded here and covered only by the roles `satisfies` and the mirror e2e.
  */
-/** 中文说明：类型或类 MessageFrames 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 MessageFrames 约束协议数据或模块职责。 */
 type MessageFrames = ChildToHost | ReplyMessage | BootMessage | RunMessage
 /** The roster's value types minus the three nested (non-frame) shapes. */
-/** 中文说明：类型或类 RosterMessageFrames 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 RosterMessageFrames 约束协议数据或模块职责。 */
 type RosterMessageFrames = Exclude<WireFrameShapes[keyof WireFrameShapes], Namespace | ErrorClass | DoneErrorField>
 
 /**
@@ -233,7 +233,7 @@ type RosterMessageFrames = Exclude<WireFrameShapes[keyof WireFrameShapes], Names
  * `false`, failing the assignment below. Type-only; the `const`s emit nothing
  * meaningful at runtime.
  */
-/** 中文说明：类型或类 UnionSubsetOfRoster 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 UnionSubsetOfRoster 约束协议数据或模块职责。 */
 type UnionSubsetOfRoster = [MessageFrames] extends [RosterMessageFrames] ? true : false
 /** 中文说明：类型或类 RosterSubsetOfUnion 约束协议数据或模块职责。 */
 type RosterSubsetOfUnion = [RosterMessageFrames] extends [MessageFrames] ? true : false
@@ -253,7 +253,7 @@ void _rosterSubsetOfUnion
  * the JSON key {@link CallMessage} and {@link Namespace} send (a reserved word
  * the Python side carries via a functional `TypedDict`).
  */
-/** 中文说明：运行时局部值 WIRE_FRAME_FIELD_ROLES，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 WIRE_FRAME_FIELD_ROLES，由紧邻初始化决定。 */
 const WIRE_FRAME_FIELD_ROLES = {
   BootMessage: { type: 'required', cpuSeconds: 'required', addressSpaceBytes: 'required', maxLogBytes: 'required', maxValueBytes: 'required', namespaces: 'required' },
   Namespace: { global: 'required', names: 'required', errorClass: 'optional' },
@@ -277,7 +277,7 @@ const WIRE_FRAME_FIELD_ROLES = {
  * field add, remove, rename, or optionality flip fails typecheck at the roles
  * map, and a Python-side divergence fails the mirror test at runtime.
  */
-/** 中文说明：运行时局部值 WIRE_FRAME_FIELDS，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 WIRE_FRAME_FIELDS，由紧邻初始化决定。 */
 export const WIRE_FRAME_FIELDS =
   Object.fromEntries(
     Object.entries(WIRE_FRAME_FIELD_ROLES).map(([frame, roles]) => {
@@ -299,7 +299,11 @@ export const WIRE_FRAME_FIELDS =
  * @param maxBytes - the configured `maxLogBytes` the marker names.
  * @returns the marker line.
  */
-/** 中文说明：函数 logTruncationMarker 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 logTruncationMarker 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param maxBytes 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function logTruncationMarker(maxBytes: number): string {
   return `[dsh-code-runtime-python] log capture truncated at ${maxBytes} bytes`
 }
@@ -320,7 +324,11 @@ export function logTruncationMarker(maxBytes: number): string {
  * @param value - a JSON-plain value (e.g. straight from `JSON.parse`).
  * @returns the compact JSON encoding.
  */
-/** 中文说明：函数 encodeJsonPlain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 encodeJsonPlain 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function encodeJsonPlain(value: unknown): string {
   /** 中文说明：类型或类 Task 约束协议数据或模块职责。 */
   type Task = { text: string } | { value: unknown }
@@ -377,7 +385,7 @@ export function encodeJsonPlain(value: unknown): string {
  * @param current - a JSON-plain scalar (JSON.parse emits nothing else).
  * @returns its JSON encoding.
  */
-/** 中文说明：函数 scalarJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 scalarJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function scalarJson(current: unknown): string {
   if (typeof current === 'number' && Number.isInteger(current) && !Number.isSafeInteger(current)) {
     return BigInt(current).toString()
@@ -401,7 +409,7 @@ function scalarJson(current: unknown): string {
  * @param maxBytes - largest serialized size the caller can still admit.
  * @returns the exact serialized byte length, or `undefined` once it exceeds `maxBytes`.
  */
-/** 中文说明：函数 jsonStringBytesUpTo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 jsonStringBytesUpTo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function jsonStringBytesUpTo(text: string, maxBytes: number): number | undefined {
   /** 中文说明：运行时局部值 bytes，由紧邻初始化决定。 */
   let bytes = 2 // the two quotes
@@ -468,7 +476,12 @@ function jsonStringBytesUpTo(text: string, maxBytes: number): number | undefined
  * `{ ok: false, reason }` — `over-budget` once the size exceeds `maxBytes`,
  * `non-lossless` on a non-finite or negative-zero number.
  */
-/** 中文说明：函数 checkDoneValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 checkDoneValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param maxBytes 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function checkDoneValue(value: unknown, maxBytes: number): { ok: true; bytes: number } | { ok: false; reason: 'over-budget' | 'non-lossless' } {
   /** 中文说明：运行时局部值 bytes，由紧邻初始化决定。 */
   let bytes = 0
@@ -560,7 +573,11 @@ export function checkDoneValue(value: unknown, maxBytes: number): { ok: true; by
  * @param line - the raw UTF-8 text of one JSON-lines frame.
  * @returns true when an unsafe integer token is present outside strings.
  */
-/** 中文说明：函数 hasUnsafeIntegerToken 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 hasUnsafeIntegerToken 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param line 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function hasUnsafeIntegerToken(line: string): boolean {
   /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
   for (let index = 0; index < line.length; index++) {
@@ -616,7 +633,7 @@ export function hasUnsafeIntegerToken(line: string): boolean {
  * @param record - a JSON-parse-produced object.
  * @yields each own enumerable property value, in key order.
  */
-/** 中文说明：函数 ownValues 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ownValues 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function* ownValues(record: object): Generator {
   /** 中文说明：运行时局部值 key，由紧邻初始化决定。 */
   for (const key in record) {
@@ -644,7 +661,11 @@ function* ownValues(record: object): Generator {
  * @param value - a JSON-parse-produced value from an fd-3 frame.
  * @returns true when any contained number is non-finite or negative zero.
  */
-/** 中文说明：函数 hasNonLosslessNumber 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 hasNonLosslessNumber 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function hasNonLosslessNumber(value: unknown): boolean {
   /** 中文说明：运行时局部值 cursors，由紧邻初始化决定。 */
   const cursors: Iterator<unknown>[] = [[value].values()]
@@ -681,7 +702,11 @@ export function hasNonLosslessNumber(value: unknown): boolean {
  * @param raw - one JSON-parsed frame from fd 3.
  * @returns the rebuilt frame, or `undefined` to drop it silently.
  */
-/** 中文说明：函数 validateChildFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 validateChildFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param raw 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function validateChildFrame(raw: unknown): ChildToHost | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
   /** 中文说明：运行时局部值 m，由紧邻初始化决定。 */

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】host 域的 zod schema 集合（名字从地图键派生）：describe /
  * pickDirectory / listDirectory / createDirectory / openPath 的请求载荷与

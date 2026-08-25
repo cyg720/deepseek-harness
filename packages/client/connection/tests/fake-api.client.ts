@@ -24,7 +24,7 @@ export interface Deferred<T> {
 }
 
 /** Test-held settlement: the case decides when an RPC lands (history-pending injections etc.). */
-/** 中文说明：测试辅助函数 `deferred`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+/* 中文说明：测试辅助函数 `deferred`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 export function deferred<T>(): Deferred<T> {
   /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `resolve` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   let resolve!: (value: T) => void
@@ -58,7 +58,7 @@ interface StreamConn<F> {
 /** 中文说明：测试类 `FakeApiClient`，模拟连接层依赖并公开可控状态，供本文件场景实例化使用。 */
 export class FakeApiClient implements IApiClient {
   /** Chronological call record: [method, payload]. */
-  /** 中文说明：测试类成员 `calls`，保存可编排行为或观测状态；取值范围由声明类型限定，仅供连接层测试使用。 */
+  /* 中文说明：测试类成员 `calls`，保存可编排行为或观测状态；取值范围由声明类型限定，仅供连接层测试使用。 */
   readonly calls: { method: string; payload: unknown }[] = []
 
   // Programmable slots (defaults answer OK-empty); reassign per case.
@@ -277,12 +277,12 @@ export class FakeApiClient implements IApiClient {
   }
 
   /** When true, streams never fire onOpen (misbehaving-carrier material for the handshake timeout guard). */
-  /** 中文说明：测试类成员 `suppressStreamOpen`，保存可编排行为或观测状态；取值范围由声明类型限定，仅供连接层测试使用。 */
+  /* 中文说明：测试类成员 `suppressStreamOpen`，保存可编排行为或观测状态；取值范围由声明类型限定，仅供连接层测试使用。 */
   suppressStreamOpen = false
 
   /** When true, onOpen callbacks are parked instead of fired; releaseStreamOpens() fires them.
    *  Lets a case hold the readiness handshake open (describe done, streams not yet "established"). */
-  /** 中文说明：测试类成员 `holdStreamOpen`，保存可编排行为或观测状态；取值范围由声明类型限定，仅供连接层测试使用。 */
+  /* 中文说明：测试类成员 `holdStreamOpen`，保存可编排行为或观测状态；取值范围由声明类型限定，仅供连接层测试使用。 */
   holdStreamOpen = false
   /** 中文说明：测试类成员 `heldOpens`，保存可编排行为或观测状态；取值范围由声明类型限定，仅供连接层测试使用。 */
   private heldOpens: (() => void)[] = []
@@ -310,7 +310,7 @@ export class FakeApiClient implements IApiClient {
   }
 
   /** Push one mux frame to every open mux stream (rpcId minted unless pinned by the case). */
-  /** 中文说明：测试类方法 `pushMux`；参数含义见签名，返回值用于驱动或观察当前场景；例如按下方用例的调用方式使用。 */
+  /* 中文说明：测试类方法 `pushMux`；参数含义见签名，返回值用于驱动或观察当前场景；例如按下方用例的调用方式使用。 */
   pushMux(frame: MuxFrame, rpcId?: string): void {
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `conn` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const conn of [...this.muxConns]) conn.feed({ kind: 'frame', envelope: { rpcId: RpcId(rpcId ?? `push-${nextRpc++}`), payload: frame } })
@@ -323,7 +323,7 @@ export class FakeApiClient implements IApiClient {
   }
 
   /** End (clean close) or fail (throw) every open stream — reconnect-path material. */
-  /** 中文说明：测试类方法 `endStreams`；参数含义见签名，返回值用于驱动或观察当前场景；例如按下方用例的调用方式使用。 */
+  /* 中文说明：测试类方法 `endStreams`；参数含义见签名，返回值用于驱动或观察当前场景；例如按下方用例的调用方式使用。 */
   endStreams(): void {
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `conn` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const conn of [...this.muxConns, ...this.hostConns]) conn.feed({ kind: 'end' })

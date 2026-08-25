@@ -5,7 +5,7 @@
  * useNotices/useLexicon; layout-phase inputs (variant, placeholder,
  * region-slot content) ride the owner props. Session facts
  * (running/removed/promptError) are self-selected via useSession. */
-/**
+/*
  * 文件职责：实现会话骨架中的 InputBar 组件。
  * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
  * 产品维度：支持用户查看和操作会话骨架。
@@ -41,11 +41,11 @@ import { isSafariBrowser, repairSafariTextareaLayout } from './safari.ts'
 import css from './InputBar.module.css'
 
 /** Decoration product of the no-session state (no machine, empty draft). */
-/** 中文说明：组件局部值 INERT_DECORATIONS，取值由紧邻初始化决定。 */
+/* 中文说明：组件局部值 INERT_DECORATIONS，取值由紧邻初始化决定。 */
 const INERT_DECORATIONS: DraftDecorations = { token: null, chips: [], textRefs: [], hint: null }
 
 /** The selection and edit family a `beforeinput` recorded, with the draft length it applied to. */
-/** 中文说明：类型或类 PendingEdit 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 PendingEdit 约束本文件的数据或组件职责。 */
 interface PendingEdit {
   readonly start: number
   readonly end: number
@@ -65,7 +65,7 @@ interface PendingEdit {
  * @returns the exact range, or undefined when the record cannot describe this
  * edit and the machine's diff scan has to recover it.
  */
-/** 中文说明：函数 editRangeOf 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 editRangeOf 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function editRangeOf(pending: PendingEdit | null, prevLength: number, nextLength: number): EditRange | undefined {
   if (pending === null || pending.draftLength !== prevLength) return undefined
   /** 中文说明：组件局部值 { start, end, inputType }，取值由紧邻初始化决定。 */

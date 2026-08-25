@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证应用布局的 app-frame.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染和可控服务替身。
  * 产品维度：防止应用布局用户流程回归。
@@ -48,7 +48,7 @@ const SessionProviderStub: AppFrameProps['SessionProvider'] = ({ children, empty
 
 
 /** Observer stub: captures the callback so tests can fire resizes manually. */
-/** 中文说明：测试局部值 fireResize，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 fireResize，由紧邻初始化决定。 */
 let fireResize: (() => void) | null = null
 /** 中文说明：类型或类 ResizeObserverStub 约束本文件数据或组件职责。 */
 class ResizeObserverStub {
@@ -63,7 +63,7 @@ class ResizeObserverStub {
 let frameWidth = 1920
 
 /** Test-local selector hook over a framework-neutral store instance. */
-/** 中文说明：函数 hookOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 hookOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hookOf<T>(inst: { subscribe: (fn: () => void) => () => void; getSnapshot: () => T }) {
   return function useSelector<S>(sel: (s: T) => S): S { return sel(useSyncExternalStore(inst.subscribe, inst.getSnapshot)) }
 }

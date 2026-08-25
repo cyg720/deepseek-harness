@@ -19,7 +19,7 @@ import css from './ChatView.module.css'
 type CommandNodeViewProps = ChatNodeViewProps<'command'> & PropsRenderSlots<'conversation.chat.commandview'>
 
 /** Ordinary command lifecycle renderer with command-name keyed specialization. */
-/** 按命令名渲染普通命令生命周期，并允许键控插件覆盖。 */
+/* 按命令名渲染普通命令生命周期，并允许键控插件覆盖。 */
 export const CommandNodeView = memo(function CommandNodeView({ node, renderSlot, t }: CommandNodeViewProps) {
   // 当前命令生命周期数据。
   const command = node.data
@@ -36,7 +36,7 @@ export const CommandNodeView = memo(function CommandNodeView({ node, renderSlot,
 })
 
 /** One integrated `/compact` command and compaction transaction renderer. */
-/** 渲染集成的 /compact 命令和对应压缩事务。 */
+/* 渲染集成的 /compact 命令和对应压缩事务。 */
 export const ManualCompactionNodeView = memo(function ManualCompactionNodeView({
   node, t,
 }: ChatNodeViewProps<'manual-compaction'>) {

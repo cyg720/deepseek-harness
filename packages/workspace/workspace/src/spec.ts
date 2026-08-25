@@ -4,7 +4,7 @@
  * and the direct source of the RPC wire projection in a later phase.
  * @module @deepseek-ai/dsh-workspace/src/spec
  */
-/**
+/*
  * 文件职责：实现 spec.ts 覆盖的工作区实体与配置行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作区实体与配置能力稳定、可隔离且可诊断。
@@ -19,7 +19,7 @@ import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
 import type { WorkspaceId } from './types.ts'
 
 /** Workspace id schema at the durable boundary; branding has no runtime representation. */
-/** 中文说明：函数值 workspaceId 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+/* 中文说明：函数值 workspaceId 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const workspaceId = z.string().transform(value => value as WorkspaceId)
 
 /**
@@ -27,7 +27,7 @@ const workspaceId = z.string().transform(value => value as WorkspaceId)
  * stamped at create; `sessionIds` is the ordered ownership account (array
  * order is display order); timestamps are ISO-8601 strings.
  */
-/** 中文说明：变量 workspaceRecord 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 workspaceRecord 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const workspaceRecord = z.object({
   path: z.string(),
   title: z.string(),
@@ -37,7 +37,7 @@ export const workspaceRecord = z.object({
 })
 
 /** One stored workspace record, inferred from {@link workspaceRecord}. */
-/** 中文说明：type WorkspaceRecord 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
+/* 中文说明：type WorkspaceRecord 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export type WorkspaceRecord = z.infer<typeof workspaceRecord>
 
 /**
@@ -45,7 +45,7 @@ export type WorkspaceRecord = z.infer<typeof workspaceRecord>
  * record/order pair can diverge, so startup can distinguish an interrupted
  * registry operation from unexplained medium corruption.
  */
-/** 中文说明：变量 workspacePendingMutation 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 workspacePendingMutation 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const workspacePendingMutation = z.discriminatedUnion('operation', [
   z.object({ operation: z.literal('create'), workspaceId }),
   z.object({ operation: z.literal('delete'), workspaceId }),
@@ -60,7 +60,7 @@ const workspacePendingMutation = z.discriminatedUnion('operation', [
  * position), so the set never participates in the one-owner accounting
  * invariant. Defaulted so records written before the field parse unchanged.
  */
-/** 中文说明：变量 workspaceDomainState 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 workspaceDomainState 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const workspaceDomainState = z.object({
   initialized: z.boolean(),
   workspaceIds: z.array(workspaceId),
@@ -69,7 +69,7 @@ export const workspaceDomainState = z.object({
 })
 
 /** Durable registry state inferred from {@link workspaceDomainState}. */
-/** 中文说明：type WorkspaceDomainState 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
+/* 中文说明：type WorkspaceDomainState 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export type WorkspaceDomainState = z.infer<typeof workspaceDomainState>
 
 /**
@@ -78,7 +78,7 @@ export type WorkspaceDomainState = z.infer<typeof workspaceDomainState>
  * this through `ctx.storage.domain`; the spec object is the single source of
  * the domain's identity, version, and schemas.
  */
-/** 中文说明：变量 workspaceDomainSpec 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 workspaceDomainSpec 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const workspaceDomainSpec = defineDomain({
   name: 'workspace',
   version: 2,

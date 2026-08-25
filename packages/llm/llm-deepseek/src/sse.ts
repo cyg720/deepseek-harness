@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】把 SSE 字节流解码为事件 data 负载（供 translate 消费），是
  * DeepSeek 流式响应的"分帧"层。
@@ -37,7 +37,7 @@ import { LlmError } from '@deepseek-ai/dsh-llm'
 // 中文：DeepSeek（和 OpenAI）在最后一个块后发送的终结负载。
 export const DONE = '[DONE]'
 
-/**
+/*
  * （中文）把 SSE 字节流解析成 data 负载。最后产出 [DONE] 后返回；流在没有
  * 它的情况下结束（响应被截断——本次模型调用不可信）时抛
  * LlmError('STREAM_CLOSED')。

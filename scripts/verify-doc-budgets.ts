@@ -5,7 +5,7 @@
  * 5% headroom; raising one requires the justification defined in
  * `docs/AGENTS.md`.
  */
-/**
+/*
  * 文件职责：依据文档预算清单检查长期维护文档的词数上限，并提供当前用量列表。
  * 技术维度：使用 Node.js 文件系统、路径解析和命令行参数完成同步静态校验。
  * 产品维度：限制文档持续膨胀，使读者更容易找到重点并维持可维护的知识结构。
@@ -24,7 +24,7 @@ const root = resolve(import.meta.dirname, '..')
 const MANIFEST_PATH = resolve(root, 'scripts/doc-budgets.manifest.json')
 
 /** `wc -w` equivalent: count whitespace-delimited tokens. */
-/**
+/*
  * 按空白分隔统计文本中的非空词元，近似 wc -w。
  * @param text 待统计的完整文本。
  * @returns 非空白词元数量。

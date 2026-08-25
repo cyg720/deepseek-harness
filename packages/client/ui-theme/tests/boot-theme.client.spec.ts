@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证主题与设计系统的 boot-theme.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止主题与设计系统显示、导航或生命周期回归。

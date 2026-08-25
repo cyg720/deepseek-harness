@@ -1,5 +1,5 @@
 /** Map one workspace source alias target to its declaration-build target. */
-/**
+/*
  * 文件职责：把 TypeScript 工作区源码别名目标转换为文档类型检查使用的构建声明路径。
  * 技术维度：使用后缀判断、正则捕获和字符串切片覆盖包根、通配子路径、文件与目录入口。
  * 产品维度：让文档示例按发布后的 .d.ts 检查，避免依赖尚未公开的源码细节。

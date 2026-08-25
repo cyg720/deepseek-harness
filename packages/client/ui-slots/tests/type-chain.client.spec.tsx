@@ -40,13 +40,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Chain-currency fixture: the owner share carries a union the selectors narrow. */
-/** 中文说明：类型或类 Item 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 Item 约束模块数据或组件职责。 */
 interface Item { kind: 'q' | 'a'; id: string }
 
 declare const defineStore: DefineStore
 
 /** Factory form (exclusive seat): module-level export, never a handle. */
-/** 中文说明：函数 createPanelStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 createPanelStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function createPanelStore() {
   return defineStore({
     init: () => ({ sidebar: 280, details: 0 }),

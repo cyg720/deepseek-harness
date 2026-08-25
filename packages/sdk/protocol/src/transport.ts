@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-protocol/transport
  */
-/**
+/*
  * 文件职责：实现 transport.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -26,7 +26,7 @@ type RequestHandler = (method: string, params: Record<string, unknown>) => Promi
 type NotificationHandler = (method: string, params: Record<string, unknown>) => void
 
 /** A JSON-RPC error response, preserving the wire `code` and optional `data`. */
-/** 中文说明：class JsonRpcResponseError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class JsonRpcResponseError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class JsonRpcResponseError extends Error {
   /**
    * @param code - the wire error code, or `undefined` when the peer sent none.
@@ -43,7 +43,7 @@ export class JsonRpcResponseError extends Error {
  * Outbound request and notification surface used by the runtime server and
  * SDK clients.
  */
-/** 中文说明：interface JsonRpcTransportPeer 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface JsonRpcTransportPeer 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface JsonRpcTransportPeer {
   /**
    * Send a request and await its response.
@@ -73,7 +73,7 @@ interface PendingRequest {
  * destroying the streams. Missing request handlers return `-32601`; handler
  * failures return `-32603`. Notifications without a handler are dropped.
  */
-/** 中文说明：class JsonRpcLineTransport 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class JsonRpcLineTransport 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   private buffer = ''
   private readonly decoder = new StringDecoder('utf8')
@@ -301,13 +301,13 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
 }
 
 /** Normalize JSON-RPC `params` to a plain object (arrays and scalars collapse to `{}`). */
-/** 中文说明：函数 objectParams 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 objectParams 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function objectParams(params: unknown): Record<string, unknown> {
   return params && typeof params === 'object' && !Array.isArray(params) ? params as Record<string, unknown> : {}
 }
 
 /** Normalize an abort reason into the rejection Error (a non-Error reason is stringified). */
-/** 中文说明：函数 abortError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 abortError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function abortError(reason: unknown): Error {
   return reason instanceof Error ? reason : new Error(`JSON-RPC request aborted: ${String(reason)}`)
 }

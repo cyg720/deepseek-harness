@@ -4,7 +4,7 @@
  * registration follows the slot declaration, resolves the per-session controller from the slot's
  * sessionId, and unregisters on fiber teardown.
  */
-/**
+/*
  * 文件职责：验证输入触发菜单的 apply.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
  * 产品维度：防止输入触发菜单用户流程回归。

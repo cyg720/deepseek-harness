@@ -8,7 +8,7 @@
  * one control API.
  * @module @deepseek-ai/dsh-tool-subagent-control
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理工具行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
  * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
@@ -32,7 +32,7 @@ export const inject = ['tools', 'subagents']
  * Register the `send_message` and `interrupt_agent` tools.
  * @param ctx - context carrying the tool registry and subagent service.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'send_message',

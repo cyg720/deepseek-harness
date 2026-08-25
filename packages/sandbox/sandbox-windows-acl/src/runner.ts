@@ -43,7 +43,7 @@
  * signature. The child is NEVER spawned unrestricted.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/runner
  */
-/**
+/*
  * 文件职责：实现 runner.ts 承担的沙箱策略或 Windows ACL 隔离职责。
  * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
  * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
@@ -68,7 +68,7 @@ const RUNNER_FAILURE_EXIT = 127
 class RunnerFailure extends Error {}
 
 /** Print the runner-failure signature line and unwind. */
-/** 中文说明：函数 fail 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 fail 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function fail(detail: string): never {
   process.stderr.write(`${RUNNER_SIGNATURE}: ${detail}\n`)
   throw new RunnerFailure(detail)

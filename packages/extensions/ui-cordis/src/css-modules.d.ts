@@ -6,7 +6,7 @@
  * 关键边界：类型不控制动态插件执行，也不能验证按钮状态样式。
  * 新手阅读建议：从定义卡片的运行/停止分支反查对应类名。
  */
-/** 使用方式：`import styles from './CordisCard.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './CordisCard.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码选择器，值为构建后的隔离类名。 */
   const classes: Record<string, string>

@@ -2,7 +2,7 @@
  * SQLite schema ownership and durable-row validation.
  * @module @deepseek-ai/dsh-session-persistence-sqlite/schema
  */
-/**
+/*
  * 文件职责：实现 schema.ts 覆盖的会话持久化行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。
@@ -24,14 +24,14 @@ import {
 import { sql } from './sql.ts'
 
 /** Current physical-record schema with packed and compressed event rows. */
-/** 中文说明：常量 SCHEMA_VERSION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SCHEMA_VERSION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SCHEMA_VERSION = 17
 /** Application id reserved for DeepSeek Harness SQLite session databases. */
-/** 中文说明：常量 SESSION_PERSISTENCE_SQLITE_APPLICATION_ID 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SESSION_PERSISTENCE_SQLITE_APPLICATION_ID 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SESSION_PERSISTENCE_SQLITE_APPLICATION_ID = 0x44534850
 
 /** A materialized session's metadata and monotonic revision. */
-/** 中文说明：interface SessionRow 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface SessionRow 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export interface SessionRow {
   readonly id: string
   readonly version: number
@@ -47,7 +47,7 @@ export interface SessionRow {
 }
 
 /** One physical event row; packed rows may represent multiple logical events. */
-/** 中文说明：interface EventRow 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface EventRow 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export interface EventRow {
   readonly seq: number
   readonly type: string
@@ -59,7 +59,7 @@ export interface EventRow {
 }
 
 /** Durable journal modes accepted by the backend. */
-/** 中文说明：type JournalMode 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：type JournalMode 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 
 /** 中文说明：interface SchemaObjectRow 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
@@ -86,7 +86,14 @@ type DatabaseSyncConstructor = typeof import('node:sqlite')['DatabaseSync']
  * @returns the configured database handle.
  * @throws when connection settings, schema ownership, or SQLite setup cannot be validated.
  */
-/** 中文说明：函数 openDatabase 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 openDatabase 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param Database 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param journalMode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param busyTimeoutMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function openDatabase(
   Database: DatabaseSyncConstructor,
   path: string,
@@ -303,7 +310,12 @@ function validateRequiredSchema(
  * @param path - database location used in ownership diagnostics.
  * @throws when another writer changed the application identity, schema, or version.
  */
-/** 中文说明：函数 validateSchemaForMutation 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 validateSchemaForMutation 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param Database 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param db 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function validateSchemaForMutation(
   Database: DatabaseSyncConstructor,
   db: DatabaseSync,
@@ -329,7 +341,11 @@ export function validateSchemaForMutation(
  * @param value - value returned by SQLite.
  * @returns a validated session row.
  */
-/** 中文说明：函数 decodeSessionRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeSessionRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeSessionRow(value: unknown): SessionRow {
   /** 中文说明：变量 row 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const row = record(value, 'stored session metadata')
@@ -368,7 +384,11 @@ export function decodeSessionRow(value: unknown): SessionRow {
  * @param value - value returned by SQLite.
  * @returns a validated physical event row.
  */
-/** 中文说明：函数 decodeEventRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeEventRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeEventRow(value: unknown): EventRow {
   /** 中文说明：变量 row 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const row = record(value, 'stored event')
@@ -393,7 +413,11 @@ export function decodeEventRow(value: unknown): EventRow {
  * @param value - value returned by SQLite.
  * @returns the UUID store identity.
  */
-/** 中文说明：函数 decodeStoreIdentity 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeStoreIdentity 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeStoreIdentity(value: unknown): string {
   /** 中文说明：变量 identity 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const identity = nonemptyStringField(value, 'store_id')
@@ -406,7 +430,11 @@ export function decodeStoreIdentity(value: unknown): string {
  * @param row - validated stored metadata row.
  * @returns the session header.
  */
-/** 中文说明：函数 rowToMeta 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 rowToMeta 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param row 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function rowToMeta(row: SessionRow): SessionHeader {
   return {
     version: row.version,

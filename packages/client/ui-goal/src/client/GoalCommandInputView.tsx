@@ -18,7 +18,7 @@ type GoalCommandInputViewProps =
   & PropsLocale<'goal'>
 
 /** Right-aligned `/goal` input bubble without ordinary message actions. */
-/**
+/*
  * GoalCommandInputView：渲染无普通消息操作的右对齐 /goal 输入气泡，并用 memo 避免无关重渲染。
  * @param props - node 携带已验证的目标命令输入数据；t 提供 goal 领域本地化文本。
  * @returns 带可访问分组标签和原始命令文本的气泡元素树。

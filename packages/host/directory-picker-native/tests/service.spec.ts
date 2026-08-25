@@ -1,5 +1,5 @@
 /** Registration/capability behavior of the native backend (the seam's cordis half). */
-/**
+/*
  * 文件职责：验证原生目录选择后端注册稳定能力对象，并随插件纤程一起撤销服务。
  * 技术维度：使用 Vitest 和真实 Cordis 上下文覆盖服务提供、能力查询及生命周期释放。
  * 产品维度：保证宿主能可靠发现系统原生选择器，并在热卸载后不再暴露失效服务。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】声明 dsh-agent 的会话级事件词汇：把 inbox 变更事件注入 @deepseek-ai/dsh-session 的事件类型图，供类型消费者使用。
  * 【技术维度】类型声明合并（declaration merging）：通过 declare module 向 SessionEventMap 追加成员；本文件只含类型，无运行时代码。

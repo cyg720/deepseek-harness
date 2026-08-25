@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】无框架启动页的 fiber 状态投影词汇表：启动链订阅
  *   internal/status 并投影所属 loader 条目的当前状态。
@@ -19,7 +19,7 @@
  * entry's current state.
  * @module @deepseek-ai/dsh-client-web/src/loader-status
  */
-/**
+/*
  * 无框架启动页的 fiber 状态投影词汇表。启动链订阅 internal/status 并投影
  * 所属 loader 条目的当前状态。
  * @module @deepseek-ai/dsh-client-web/src/loader-status
@@ -32,7 +32,7 @@ import type { FiberState } from '@deepseek-ai/cordis'
  * across modules), so these values mirror the pinned vendored definition
  * while retaining its type (same rationale as dsh-tool-cordis's mirror).
  */
-/**
+/*
  * cordis FiberState const enum 的值镜像：const enum 没有可导入的运行时
  * 对象（esbuild 管线也无法跨模块内联它），因此这些值镜像钉住的 vendored
  * 定义，同时保留其类型（与 dsh-tool-cordis 的镜像同理）。
@@ -47,11 +47,11 @@ export const FIBER_STATE = {
 } as const
 
 /** One entry's projected state label (lower-case face of {@link FiberState}). */
-/** 一个条目的投影状态标签（FiberState 的小写面）。 */
+/* 一个条目的投影状态标签（FiberState 的小写面）。 */
 export type LoaderEntryState = 'pending' | 'loading' | 'active' | 'failed' | 'disposed' | 'unloading'
 
 /** Label for each fiber state, keyed by member (inlining-safe — no reverse mapping). */
-/** 每个 fiber 状态的标签，按成员键控（内联安全——无反向映射）。 */
+/* 每个 fiber 状态的标签，按成员键控（内联安全——无反向映射）。 */
 export const STATE_LABELS: Record<FiberState, LoaderEntryState> = {
   [FIBER_STATE.PENDING]: 'pending',
   [FIBER_STATE.LOADING]: 'loading',

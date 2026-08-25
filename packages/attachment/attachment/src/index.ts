@@ -1,5 +1,5 @@
 /** Durable attachment storage seam (`ctx.attachments`). @module @deepseek-ai/dsh-attachment */
-/**
+/*
  * 文件职责：定义ctx.attachments附件服务接口，以及图片批量准入、持久提交、读取和请求版本投影的抽象流程。
  * 技术维度：使用Cordis Service抽象类、TypeScript类型契约和模板方法统一不同存储后端行为。
  * 产品维度：让会话、协议和模型提供方通过同一能力安全使用持久图片，而不依赖具体文件或云存储实现。
@@ -42,7 +42,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Immutable binary attachment service. Implementations validate bytes before publishing a reference. */
-/** 不可变二进制附件服务；实现必须先验证字节，再向调用者发布引用。 */
+/* 不可变二进制附件服务；实现必须先验证字节，再向调用者发布引用。 */
 export abstract class AttachmentStore extends Service {
   /**
    * 把实现注册为Cordis attachments服务。
@@ -54,7 +54,7 @@ export abstract class AttachmentStore extends Service {
   }
 
   /** Deployment-resolved image policy used by authoritative and fast-path validation. */
-  /** 部署解析后的图片策略，权威与快速验证路径必须共用。 */
+  /* 部署解析后的图片策略，权威与快速验证路径必须共用。 */
   abstract readonly imageLimits: ImageAttachmentLimits
 
   /**

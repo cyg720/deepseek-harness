@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现 OpenAI 兼容 DeepSeek Files API 的传输客户端：上传、列出、
  * 检索、删除用户数据文件，并校验每个响应。
@@ -42,7 +42,7 @@ export const MAX_STORED_FILE_COUNT = 10_000
 export const MAX_STORED_FILE_BYTES = 25 * 1024 * 1024 * 1024
 
 /** Validated file object returned by the OpenAI-compatible endpoint. */
-/**
+/*
  * （中文）OpenAI 兼容端点返回的已校验文件对象。
  */
 export interface DeepSeekFileObject {
@@ -61,7 +61,7 @@ export interface DeepSeekFileObject {
 }
 
 /** One page returned by `GET /files`. */
-/**
+/*
  * （中文）GET /files 返回的一页。
  */
 export interface DeepSeekFilePage {
@@ -72,7 +72,7 @@ export interface DeepSeekFilePage {
 }
 
 /** Files API operation failure with its HTTP status retained for recovery policy. */
-/**
+/*
  * （中文）Files API 操作失败，保留 HTTP 状态码供恢复策略使用。
  */
 export class DeepSeekFilesError extends LlmError {
@@ -80,7 +80,7 @@ export class DeepSeekFilesError extends LlmError {
   // 中文：解析出的 provider 详情，仅供错误分类使用。
   readonly detail: string
 
-  /**
+  /*
    * （中文）构造：按状态码映射稳定 code（401/403 → AUTH、429 → RATE_LIMIT、
    * 5xx → SERVER、其余 → FILES_API）。
    * @param message 用户可读的 provider 失败信息。
@@ -105,7 +105,7 @@ export class DeepSeekFilesError extends LlmError {
   }
 }
 
-/**
+/*
  * （中文）判断一次上传失败是否报告 provider 的存储或文件数配额。
  * @param error Files API 操作失败。
  * @returns 是否可能通过"清理一次远端 + 重试上传"恢复。
@@ -184,7 +184,7 @@ function providerErrorDetail(value: unknown): { message?: string; detail: string
 }
 
 /** Direct client for the OpenAI-compatible `/files` endpoints. */
-/**
+/*
  * （中文）OpenAI 兼容 /files 端点的直接客户端。
  */
 export class DeepSeekFilesClient {
@@ -195,7 +195,7 @@ export class DeepSeekFilesClient {
   // 中文：传输实现。
   private readonly fetchImpl: typeof fetch
 
-  /**
+  /*
    * （中文）构造。
    * @param options 端点、API key 快照与可选测试传输。
    */
@@ -240,7 +240,7 @@ export class DeepSeekFilesClient {
     )
   }
 
-  /**
+  /*
    * （中文）上传一张带显式过期时间的图片。
    * @param input 确定性请求版本字节、媒体类型、文件名、存活期与取消。
    * @returns 已校验的 provider 文件对象（含 expires_at）。
@@ -279,7 +279,7 @@ export class DeepSeekFilesClient {
     return { ...file, expiresAt: file.expiresAt }
   }
 
-  /**
+  /*
    * （中文）列出一页升序或降序的 user-data 文件。
    * @param options 分页、排序与取消。
    * @returns 已校验的分页。
@@ -317,7 +317,7 @@ export class DeepSeekFilesClient {
     }
   }
 
-  /**
+  /*
    * （中文）检索一个文件对象。
    * @param fileId provider 文件标识。
    * @param signal 请求取消。
@@ -334,7 +334,7 @@ export class DeepSeekFilesClient {
     return parseFileObject(await response.json(), 'retrieve')
   }
 
-  /**
+  /*
    * （中文）删除一个 provider 文件。
    * @param fileId provider 文件标识。
    * @param signal 请求取消。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-api-remotes 的 Client 面装配：把各属主包（commands、goal、
  * cordis-host-runner、file-reference 等）生成的远程贡献集（remote 描述符

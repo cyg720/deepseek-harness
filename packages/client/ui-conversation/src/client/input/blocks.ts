@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】输入框"压缩器块"（ComposerBlock）：另一个插件停止某会话输入的唯一种方式。
  *             块携带本地化的失效原因；输入栏读取自己会话的 store 渲染为惰性占位符。
@@ -63,7 +63,7 @@ export interface ComposerBlocks {
 }
 
 /** The per-session composer-block registry (one instance per plugin fiber). */
-/** 每会话的输入框块注册表（每个插件纤维一个实例）。 */
+/* 每会话的输入框块注册表（每个插件纤维一个实例）。 */
 export class ComposerBlockRegistry implements ComposerBlocks {
   private readonly stores = new Map<SessionId, SnapshotStore<ComposerBlock | undefined>>()
 

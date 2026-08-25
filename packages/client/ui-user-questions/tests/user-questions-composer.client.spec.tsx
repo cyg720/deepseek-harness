@@ -28,14 +28,14 @@ afterEach(cleanup)
 const SID = 's1' as SessionId
 
 /** Seat stub over a dictionary pair mirroring the real lookup chain: package dictionary, then common vocabulary, then the key. */
-/** 中文说明：测试局部值 seatOver，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 seatOver，由紧邻初始化决定。 */
 const seatOver = (dict: Record<string, string>, common: Record<string, string>): QuestionComposerProps['t'] =>
   (key => dict[key] ?? common[key] ?? key)
 
 /** Framework standard-kit stubs: the composer consumes only the locale seat;
  *  the composed props type mandates delivery of the rest (framework hooks are
  *  plain stubs per the client testing discipline). */
-/** 中文说明：测试局部值 kit，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 kit，由紧邻初始化决定。 */
 const kit = {
   session: undefined,
   sessionId: SID,
@@ -69,7 +69,7 @@ const QUESTIONS = [
 ]
 
 /** Carrier fixture: a real PendingWait over a scripted respond carrier. */
-/** 中文说明：函数 wait 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 wait 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function wait(rpcId = 'question-1', respond = vi.fn(() => Promise.resolve<RpcReceipt>({ accepted: true }))) {
   /** 中文说明：测试局部值 carrier，由紧邻初始化决定。 */
   const carrier = new PendingWait(
@@ -78,7 +78,7 @@ function wait(rpcId = 'question-1', respond = vi.fn(() => Promise.resolve<RpcRec
 }
 
 /** The client-response envelope respond must have received for an answer batch. */
-/** 中文说明：函数 answeredEnvelope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 answeredEnvelope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function answeredEnvelope(rpcId: string, answers: object[]) {
   return {
     type: 'client-response', rpcId: RpcId(rpcId),

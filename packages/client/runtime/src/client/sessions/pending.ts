@@ -25,26 +25,26 @@ import type {
 } from '@deepseek-ai/dsh-api-remotes/client'
 
 /** Kind-keyed payload map: the requested frame's domain fields (envelope fields stripped). */
-/** 按键控的负载映射：被请求帧的域字段（去掉 type/sessionId 信封字段）。 */
+/* 按键控的负载映射：被请求帧的域字段（去掉 type/sessionId 信封字段）。 */
 export interface PendingPayloads {
   approval: Omit<Extract<MuxFrame, { type: 'approval/requested' }>, 'type' | 'sessionId'>
   question: Omit<Extract<MuxFrame, { type: 'question/requested' }>, 'type' | 'sessionId'>
 }
 
 /** Pending-interaction discriminant (the keys of PendingPayloads). */
-/** 待处理交互的判别键（即 PendingPayloads 的键）。 */
+/* 待处理交互的判别键（即 PendingPayloads 的键）。 */
 export type PendingKind = keyof PendingPayloads
 
 /** Session-list summary of the user action currently blocking progress. */
-/** 会话列表中"当前阻塞进展的用户动作"概要。 */
+/* 会话列表中"当前阻塞进展的用户动作"概要。 */
 export type PendingInteractionStatus = 'approval' | 'plan-review' | 'question'
 
 /** Kind-discriminated union of concrete waits: narrowing on `kind` types `payload`. */
-/** 具体等待的按 kind 判别联合：对 kind 收窄即可让 payload 类型随之收窄。 */
+/* 具体等待的按 kind 判别联合：对 kind 收窄即可让 payload 类型随之收窄。 */
 export type PendingInteraction = { [K in PendingKind]: PendingWait<K> }[PendingKind]
 
 /** Key prefixes, one per kind (the key doubles as the Session pending-map key). */
-/** 每种 kind 的键前缀（该键同时用作会话 pending 映射的键）。 */
+/* 每种 kind 的键前缀（该键同时用作会话 pending 映射的键）。 */
 const KEY_PREFIX: Record<PendingKind, string> = { approval: 'a', question: 'q' }
 
 /**
@@ -54,7 +54,7 @@ const KEY_PREFIX: Record<PendingKind, string> = { approval: 'a', question: 'q' }
  * ever sees the raw rpcId. Settlement is expressed only by pending-list
  * membership (the settled flag is a fail-loud guard, not a render input).
  */
-/**
+/*
  * 一次待处理的 Host 所属交互等待：不可变渲染面（kind/key/sessionId/payload）
  * 加响应载体。respond() 把被请求帧的 rpcId 回填进 client-response 信封——
  * 任何消费方都看不到原始 rpcId。结算只通过 pending 列表成员关系表达
@@ -62,16 +62,16 @@ const KEY_PREFIX: Record<PendingKind, string> = { approval: 'a', question: 'q' }
  */
 export class PendingWait<K extends PendingKind = PendingKind> {
   /** Interaction kind (union discriminant). */
-  /** 交互类型（联合判别键）。 */
+  /* 交互类型（联合判别键）。 */
   readonly kind: K
   /** Opaque render identity, `<prefix>:<rpcId>` — stable across baseline replay, usable as a React key. */
-  /** 不透明渲染身份 `<前缀>:<rpcId>`——跨基线重放稳定，可直接用作 React key。 */
+  /* 不透明渲染身份 `<前缀>:<rpcId>`——跨基线重放稳定，可直接用作 React key。 */
   readonly key: string
   /** Owning session. */
-  /** 属主会话。 */
+  /* 属主会话。 */
   readonly sessionId: SessionId
   /** The requested frame's domain fields, verbatim. */
-  /** 被请求帧的域字段原样保留。 */
+  /* 被请求帧的域字段原样保留。 */
   readonly payload: PendingPayloads[K]
   #settled = false
   readonly #rpcId: RpcId
@@ -85,7 +85,7 @@ export class PendingWait<K extends PendingKind = PendingKind> {
    * @param payload - the requested frame's domain fields.
    * @param respond - the client-response carrier (api.respond).
    */
-  /**
+  /*
    * 由 Session 在被请求帧上铸造（公开构造是测试夹具路径）。
    * @param kind 交互类型。
    * @param rpcId 被请求帧的稳定信封 id（保持私有；respond 回显它）。
@@ -111,7 +111,7 @@ export class PendingWait<K extends PendingKind = PendingKind> {
    * @param result - the result shell (ok value / error envelope), domain-encoded by the caller.
    * @returns the carrier receipt.
    */
-  /**
+  /*
    * 发送本等待的结果：把它包进回填了 rpcId 的 client-response 信封。
    * 已结算后再调用会同步抛错。
    * @param result 结果外壳（ok 值 / 错误信封），由调用方做域编码。
@@ -123,7 +123,7 @@ export class PendingWait<K extends PendingKind = PendingKind> {
   }
 
   /** Session-only settlement mark (the authoritative resolved frame arrived); respond() throws afterwards. */
-  /** 仅供 Session 调用的结算标记（权威的已解析帧已到达）；此后 respond() 会抛错。 */
+  /* 仅供 Session 调用的结算标记（权威的已解析帧已到达）；此后 respond() 会抛错。 */
   markSettled(): void {
     this.#settled = true
   }

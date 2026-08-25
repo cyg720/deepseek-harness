@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】把会话的瞬时收件箱行投影为队列的只读面（ObservableSnapshot）：供
  *             InputState.queue 使用，无第二份存储、无拷贝。
@@ -29,7 +29,7 @@ import type { QueuedMessage } from '../input/contract.ts'
  * @param session - the resident session face.
  * @returns the queue read face (snapshot reference stable while the queue is unchanged).
  */
-/**
+/*
  * 把会话的瞬时收件箱行投影成裸可观察对象（subscribe / getSnapshot）。
  * 使用示例：const queue = queueReadFaceOf(session)；叠到 InputState.queue 上。
  * @param session - 常驻会话面。

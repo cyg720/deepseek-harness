@@ -5,7 +5,7 @@
  * reconciles from the authoritative item carried by the reply, mutations
  * serialize per Session, and a disposed controller stops publishing.
  */
-/**
+/*
  * 文件职责：验证消息反馈的 controller.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染和可控服务替身。
  * 产品维度：防止消息反馈用户流程回归。
@@ -43,7 +43,7 @@ function item(overrides: Partial<MessageFeedbackItem> = {}): MessageFeedbackItem
 }
 
 /** A recording fake Remote whose per-method answers are scripted per call. */
-/** 中文说明：类型或类 Script 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 Script 约束本文件数据或组件职责。 */
 type Script = {
   list?: (request: unknown) => Promise<unknown>
   put?: (request: unknown) => Promise<unknown>
@@ -56,7 +56,7 @@ type Script = {
  * script may also return an already-enveloped `{ok:false,error:{code,message,
  * details}}` to exercise a carrier failure.
  */
-/** 中文说明：函数 fakeRemote 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fakeRemote 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeRemote(script: Script = {}) {
   /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
   const calls: { method: string; request: unknown }[] = []

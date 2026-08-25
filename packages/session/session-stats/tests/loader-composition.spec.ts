@@ -4,7 +4,7 @@
  * plugin's namespace survives (no default export), and a full logged turn
  * serves `{turns: 1, steps: 1}` through the composed registry.
  */
-/**
+/*
  * 文件职责：验证 loader-composition.spec.ts 覆盖的会话投影统计行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话投影统计状态稳定、可重放且可诊断。

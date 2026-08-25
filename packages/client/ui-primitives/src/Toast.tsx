@@ -13,10 +13,10 @@ import css from './Toast.module.css'
 
 /** Full-opacity hold before the fade starts. Must agree with the stylesheet's
  * toast-fade delay (Toast.module.css) or the banner unmounts mid-fade. */
-/** 中文说明：组件局部值 HOLD_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 HOLD_MS，由紧邻初始化决定。 */
 const HOLD_MS = 3000
 /** Fade duration. Must agree with the stylesheet's toast-fade duration. */
-/** 中文说明：组件局部值 FADE_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 FADE_MS，由紧邻初始化决定。 */
 const FADE_MS = 1000
 
 /**
@@ -35,7 +35,7 @@ const FADE_MS = 1000
  * @param props.onDone - called once the fade completes; unmount the toast here.
  * @returns the floating banner.
  */
-/** 中文说明：函数 Toast 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 Toast 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function Toast({ text, icon, anchor, onDone }: {
   text: string
   icon?: ReactNode

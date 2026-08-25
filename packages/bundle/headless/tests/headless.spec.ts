@@ -1,5 +1,5 @@
 /** Direct one-shot Agent driving, durable aggregation, flushing, and exit mapping. */
-/**
+/*
  * 文件职责：验证headless运行器的一次性代理驱动、持久事件汇总、会话刷新和退出码映射。
  * 技术维度：使用Vitest、真实代理/会话注册表和脚本化Agent工厂精确控制事件与空闲时机。
  * 产品维度：确保CLI只打印当前任务最终答案，先持久刷新再退出，并为中止或异常返回失败状态。
@@ -59,7 +59,7 @@ function appendTurn(
 }
 
 /** Mount the real registries around a small scripted Agent factory. */
-/** 在脚本化Agent工厂周围挂载真实注册表并返回可运行测试入口。 */
+/* 在脚本化Agent工厂周围挂载真实注册表并返回可运行测试入口。 */
 async function bench(script: Script): Promise<{
   ctx: Context
   run(): Promise<{ code: number; out: string; err: string; order: string[] }>

@@ -37,7 +37,7 @@ afterEach(() => {
 })
 
 /** Detached durable Team read: the service exposes views, so assertions fold the Lead log. */
-/** 中文说明：函数 durable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 durable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function durable(agent: Agent): {
   members: TeamMemberSnapshot[]
   tasks: TeamTaskSnapshot[]
@@ -105,7 +105,7 @@ interface TeamServiceInternals {
 }
 
 /** White-box access follows the runtime owners so coverage does not widen the service API. */
-/** 中文说明：函数 teamInternals 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 teamInternals 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function teamInternals(ctx: Context): TeamServiceInternals {
   return ctx.agentTeams as unknown as TeamServiceInternals
 }

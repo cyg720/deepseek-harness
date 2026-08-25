@@ -7,7 +7,7 @@
  * `Workspace` interface.
  * @module @deepseek-ai/dsh-workspace/src/entity
  */
-/**
+/*
  * 文件职责：实现 entity.ts 覆盖的工作区实体与配置行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作区实体与配置能力稳定、可隔离且可诊断。
@@ -24,7 +24,7 @@ import type { Workspace, WorkspaceId } from './types.ts'
 import { realpathNormalize } from './paths.ts'
 
 /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
-/** 中文说明：class WorkspaceMoveInvalidError 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
+/* 中文说明：class WorkspaceMoveInvalidError 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export class WorkspaceMoveInvalidError extends Error {
   /**
    * @param message - Which id was unaccounted and where.
@@ -40,7 +40,7 @@ export class WorkspaceMoveInvalidError extends Error {
  * the registry itself — only the open table, the canonical session-path
  * index backing the `sessionIds` projection, and attach-time header reads.
  */
-/** 中文说明：interface WorkspaceEntityHost 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
+/* 中文说明：interface WorkspaceEntityHost 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export interface WorkspaceEntityHost {
   /**
    * Resolve the open `workspaces` table.
@@ -73,11 +73,11 @@ export interface WorkspaceEntityHost {
 }
 
 /** Chain-slot abort sentinel thrown by the update fn when the record needs no change; only `mutate` observes it. */
-/** 中文说明：变量 unchangedSentinel 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 unchangedSentinel 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const unchangedSentinel = new Error('workspace record unchanged (internal sentinel)')
 
 /** The single {@link Workspace} implementation; constructed only by the registry. */
-/** 中文说明：class WorkspaceEntity 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
+/* 中文说明：class WorkspaceEntity 定义本模块所需的数据或行为，用于表达工作区实体与配置场景。 */
 export class WorkspaceEntity implements Workspace {
   private record: WorkspaceRecord
 

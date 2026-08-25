@@ -1,5 +1,5 @@
 /** Sidebar shell style contracts shared with its slot-owned controls. */
-/**
+/*
  * 文件职责：验证侧栏的 sidebar-styles.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止侧栏显示、导航或生命周期回归。
@@ -19,7 +19,7 @@ const css = readFileSync(fileURLToPath(new URL('../src/client/SidebarRoot.module
  * @param selector - exact selector text.
  * @returns the normalized declarations, or undefined when absent.
  */
-/** 中文说明：函数 declarations 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 declarations 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function declarations(selector: string): Map<string, string> | undefined {
   /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, ' ')

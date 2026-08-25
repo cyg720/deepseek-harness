@@ -48,28 +48,28 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/conversation-column-over
  * the viewport and the sidebar, and a golden carrying pixels would document the
  * platform instead of the behavior.
  */
-/** 记录各宽度溢出关系与横向输入结果的几何黄金文件。 */
+/* 记录各宽度溢出关系与横向输入结果的几何黄金文件。 */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 /** Narrow sweep stop where the mutation control retains overflow across scrollbar implementations. */
-/** 在不同滚动条实现下仍能保证对照溢出的窄视口宽度。 */
+/* 在不同滚动条实现下仍能保证对照溢出的窄视口宽度。 */
 const CONTROL_VIEWPORT = 600
 /**
  * Viewport widths bracketing the glow: the narrow stops retain the reported
  * bleed while the widest stop proves the relation can also be false.
  */
-/** 从无溢出的宽视口到产生光晕溢出的窄视口扫描点。 */
+/* 从无溢出的宽视口到产生光晕溢出的窄视口扫描点。 */
 const WIDTHS = [1680, 1200, 1000, 800, CONTROL_VIEWPORT]
 /** Element id of the mutation control's injected sheet, so the test can take it back out. */
-/** 强制横向 auto 的对照样式元素编号。 */
+/* 强制横向 auto 的对照样式元素编号。 */
 const CONTROL_STYLE_ID = 'dsh-column-overflow-control'
 /** Horizontal wheel delta per gesture; must exceed the widest bleed the sweep can produce. */
-/** 每次横向滚轮输入量，需大于扫描中最大溢出范围。 */
+/* 每次横向滚轮输入量，需大于扫描中最大溢出范围。 */
 const WHEEL_DELTA = 300
 
 /** One viewport stop: whether the glow bleeds past the column, and whether that bleed scrolls. */
-/** 一个视口宽度下的中心列溢出、滚动范围和纵向能力。 */
+/* 一个视口宽度下的中心列溢出、滚动范围和纵向能力。 */
 interface ColumnMetrics {
   /** Viewport width the stop was measured at. */
   width: number

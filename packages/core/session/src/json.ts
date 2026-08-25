@@ -1,5 +1,5 @@
 /** Lossless-JSON validation and detached snapshots for durable session data. @module @deepseek-ai/dsh-session/json */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】为耐久会话数据提供“无损 JSON”的运行时校验与分离快照（detached snapshot）：
  *           判定一个值能否经 JSON 往返而不丢失任何信息，并能一次性完成“校验 + 深拷贝”。
@@ -30,7 +30,7 @@
  * a payload that must survive session-log persistence and replay byte-identically
  * — e.g. a tool's private presentation `meta`.
  */
-/**
+/*
  * 能经 JSON 无损往返的值：null、布尔、除负零外的有限数字、字符串、这类值的数组、
  * 或值同样受限的普通对象。数组只包含稠密索引元素——额外的自有属性会被 JSON 丢弃。
  * TypeScript 无法区分 -0 与 number，所以 isJsonValue 与 snapshotJsonValue 在运行时强制这些细节。
@@ -39,7 +39,7 @@
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 
 /** Whether a realm-owned intrinsic prototype is backed by its native constructor. */
-/** 判断某个 realm（JS 执行环境，如 iframe/vm 沙箱）自有的内在原型是否确实由其原生构造函数支撑（防伪造原型）。 */
+/* 判断某个 realm（JS 执行环境，如 iframe/vm 沙箱）自有的内在原型是否确实由其原生构造函数支撑（防伪造原型）。 */
 function hasIntrinsicConstructor(prototype: object, name: 'Array' | 'Object'): boolean {
   const descriptor = Object.getOwnPropertyDescriptor(prototype, 'constructor')
   const constructor: unknown = descriptor?.value
@@ -54,13 +54,13 @@ function hasIntrinsicConstructor(prototype: object, name: 'Array' | 'Object'): b
 }
 
 /** Whether a candidate is one realm's intrinsic `Object.prototype`. */
-/** 判断一个对象是否是某个 realm 的内在 Object.prototype（原型链顶端且构造器匹配）。 */
+/* 判断一个对象是否是某个 realm 的内在 Object.prototype（原型链顶端且构造器匹配）。 */
 function isIntrinsicObjectPrototype(value: object): boolean {
   return Object.getPrototypeOf(value) === null && hasIntrinsicConstructor(value, 'Object')
 }
 
 /** Whether an array uses one realm's intrinsic `Array.prototype`, not a subclass or forged prototype. */
-/** 判断数组使用的是某 realm 的内在 Array.prototype，而非子类或伪造原型。 */
+/* 判断数组使用的是某 realm 的内在 Array.prototype，而非子类或伪造原型。 */
 function hasPlainArrayPrototype(value: unknown[]): boolean {
   const prototype: unknown = Object.getPrototypeOf(value)
   if (!Array.isArray(prototype) || !hasIntrinsicConstructor(prototype, 'Array')) return false
@@ -71,7 +71,7 @@ function hasPlainArrayPrototype(value: unknown[]): boolean {
 }
 
 /** Whether an object is a plain or null-prototype record from any JavaScript realm. */
-/** 判断对象是来自任意 JavaScript realm 的普通对象或 null 原型记录。 */
+/* 判断对象是来自任意 JavaScript realm 的普通对象或 null 原型记录。 */
 function hasPlainObjectPrototype(value: object): boolean {
   const prototype: unknown = Object.getPrototypeOf(value)
   return prototype === null
@@ -79,7 +79,7 @@ function hasPlainObjectPrototype(value: object): boolean {
 }
 
 /** Return every JSON-visible object key, or reject own data JSON would discard. */
-/** 返回 JSON 可见的全部自有键；存在符号键或不可枚举的自有属性（JSON 会丢掉它们）时返回 undefined。 */
+/* 返回 JSON 可见的全部自有键；存在符号键或不可枚举的自有属性（JSON 会丢掉它们）时返回 undefined。 */
 function enumerableStringKeys(value: object): string[] | undefined {
   const keys = Reflect.ownKeys(value)
   if (keys.some(key => typeof key !== 'string' || !Object.prototype.propertyIsEnumerable.call(value, key))) return undefined
@@ -100,7 +100,7 @@ type JsonWalkTask =
   | { kind: 'leave'; source: object }
 
 /** Validate lossless JSON iteratively, optionally materializing a detached snapshot. */
-/** 以迭代方式校验无损 JSON，可选地产出一份分离的快照副本。返回 true（仅校验）、快照值，非法时为 undefined。 */
+/* 以迭代方式校验无损 JSON，可选地产出一份分离的快照副本。返回 true（仅校验）、快照值，非法时为 undefined。 */
 function walkJsonValue(value: unknown, detach: boolean): JsonValue | true | undefined {
   // 正在容器栈中的祖先对象集合，用于检测循环引用。
   const ancestors = new Set<object>()
@@ -212,7 +212,7 @@ function walkJsonValue(value: unknown, detach: boolean): JsonValue | true | unde
  * @returns the detached snapshot, or `undefined` when the value is not
  *   losslessly JSON-serializable.
  */
-/**
+/*
  * 一次读取即完成校验与分离拷贝，确保有状态的 getter 无法在校验与复制之间给出不同的值。
  * 遍历是迭代的，因此合法嵌套深度只受内存限制而不受 JS 调用栈限制。接受普通数组、
  * 普通或 null 原型对象以及 JSON 标量；拒绝稀疏、循环、异构、负零与非有限值；getter 抛错会传播。
@@ -230,7 +230,7 @@ export function snapshotJsonValue<T>(value: T): T | undefined {
  * @param value - the candidate event data to test.
  * @returns whether `value` survives JSON round-trip losslessly.
  */
-/**
+/*
  * 与 snapshotJsonValue 相同的无损 JSON 判定，但只测试不拷贝。
  * 只有自己的可枚举字符串属性参与判定；toJSON 被忽略、getter 会被求值，
  * 因此持久化边界请改用快照函数。

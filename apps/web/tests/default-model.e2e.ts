@@ -31,16 +31,16 @@ import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts
 import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
 
 /** Points the shipped shared Agent default at this scenario's own route. */
-/** 把发布共享代理默认值指向本场景起始线路的覆盖配置。 */
+/* 把发布共享代理默认值指向本场景起始线路的覆盖配置。 */
 const OVERLAY = fileURLToPath(new URL('./default-model.overlay.yml', import.meta.url))
 
 /** The route this scenario starts on, patched over the shipped default. */
-/** 场景开始时的提供方线路编号。 */
+/* 场景开始时的提供方线路编号。 */
 const START_ROUTE = 'origin-gateway'
 /** 场景开始时的模型编号。 */
 const START_MODEL = 'origin-large'
 /** The route the switch lands on, which then becomes the saved default. */
-/** 用户切换后保存为默认值的提供方线路编号。 */
+/* 用户切换后保存为默认值的提供方线路编号。 */
 const ROUTE = 'acme-gateway'
 /** 用户切换后保存为默认值的模型编号。 */
 const MODEL = 'acme-large'
@@ -56,7 +56,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
   let tripwire: ReturnType<typeof watchConsole>
 
   /** Create one session and its agent through the same wire face the browser uses. */
-  /** 通过浏览器使用的同一 RPC 创建会话和代理，并返回会话编号。 */
+  /* 通过浏览器使用的同一 RPC 创建会话和代理，并返回会话编号。 */
   const createSession = async (sessionId: string): Promise<string> => {
     /** session.create RPC 响应。 */
     const response = await scaffold.ctx.apiProxy.sessions.create({
@@ -68,7 +68,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
   }
 
   /** The route the gateway reports for one session, through the real wire face. */
-  /** 通过真实 session.models RPC 读取一个会话当前解析出的模型线路。 */
+  /* 通过真实 session.models RPC 读取一个会话当前解析出的模型线路。 */
   const currentOf = async (sessionId: string): Promise<unknown> => {
     /** session.models RPC 响应。 */
     const response = await scaffold.ctx.apiProxy.sessions.models({

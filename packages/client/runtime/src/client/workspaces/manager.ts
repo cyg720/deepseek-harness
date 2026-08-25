@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】WorkspaceManager：工作区基线（list）、增量帧（changed）与
  *   一元动作（unary response）的属主，是工作区域的 wire 真值。
@@ -17,7 +17,7 @@
  * ==========================================================================
  */
 /** Workspace baseline, incremental-frame, and unary-action owner. */
-/** 工作区基线、增量帧与一元动作的属主。 */
+/* 工作区基线、增量帧与一元动作的属主。 */
 
 import type {
   HostFrame, IApiClient, RpcError, RpcRequest, RpcResult, SessionId, WorkspaceId, WorkspaceView,
@@ -27,11 +27,11 @@ import { Notifier } from '../sessions/notifier.ts'
 import { Workspace, type WorkspaceCreateInput } from './workspace.ts'
 
 /** Monotone workspace-list arrival lifecycle. */
-/** 单调的工作区列表到达生命周期。 */
+/* 单调的工作区列表到达生命周期。 */
 export type WorkspaceListPhase = 'pending' | 'ready'
 
 /** Immutable workspace-list snapshot. */
-/** 不可变的工作区列表快照。 */
+/* 不可变的工作区列表快照。 */
 export interface WorkspaceListSnapshot {
   items: readonly WorkspaceView[]
   /**
@@ -41,7 +41,7 @@ export interface WorkspaceListSnapshot {
    * (immer drafts reject Sets without the MapSet plugin); membership
    * lookups build their own transient Set where they need one.
    */
-  /**
+  /*
    * 注册表全局的归档集合（按 Host 顺序；对分组面隐藏；记账槽保留）。
    * 用普通数组而非 Set：公开快照状态保持在存储引擎的纯数据词汇内
    * （没有 MapSet 插件时 immer 草稿拒绝 Set）；成员查找在需要处自建
@@ -60,7 +60,7 @@ type WorkspaceDelta =
   | { type: 'order'; workspaceIds: readonly WorkspaceId[] }
 
 /** Workspace object cluster driven by one list baseline and changed-frame upserts. */
-/** 由一个列表基线与 changed 帧 upsert 驱动的工作区对象簇。 */
+/* 由一个列表基线与 changed 帧 upsert 驱动的工作区对象簇。 */
 export class WorkspaceManager {
   private items: Workspace[] = [] // 工作区对象的有序集合
   private itemViewsSource: readonly Workspace[] | null = null // itemViews 缓存的源引用
@@ -81,20 +81,20 @@ export class WorkspaceManager {
    * so the baseline's (older) set must not roll it back — the archive
    * mirror of replaying refreshFrames over the item baseline.
    */
-  /**
+  /*
    * 当帧或一元回显在 list 请求进行中安装了归档集时为 true：该安装比
    * 待处理基线更新，因此基线的（更旧）集合不得回滚它——这是对条目基线
    * 重放 refreshFrames 的归档镜像。
    */
   private archivedSupersedesRefresh = false
   /** Latest local reorder request; only its unary echo may install order. */
-  /** 最新本地重排请求；只有它的一元回显可以安装顺序。 */
+  /* 最新本地重排请求；只有它的一元回显可以安装顺序。 */
   private orderRequestGeneration = 0
   /** Increments on order frames so a later remote commit outranks an older unary echo. */
-  /** 顺序帧时递增，使更晚的远端提交压过更旧的一元回显。 */
+  /* 顺序帧时递增，使更晚的远端提交压过更旧的一元回显。 */
   private orderFrameGeneration = 0
   /** Last complete order accepted from a Host baseline, frame, or current unary echo. */
-  /** 最近一次从 Host 基线、帧或当前一元回显接受的完整顺序。 */
+  /* 最近一次从 Host 基线、帧或当前一元回显接受的完整顺序。 */
   private committedOrder: WorkspaceId[] = []
   /**
    * Ids this process has seen removed, kept for the connection's lifetime so
@@ -104,7 +104,7 @@ export class WorkspaceManager {
    * registered again) — a path-derived id scheme would turn these entries
    * into permanent blindfolds and must clear them instead.
    */
-  /**
+  /*
    * 本进程见过的已删除 id，在连接生命周期内保留，使迟到的 changed 帧或
    * 陈旧基线行无法复活已删除的行。正确性建立在 Host id 永不复用上
    * （注册表每条记录铸造新 randomUUID，包括同一目录再次注册时）——
@@ -117,7 +117,7 @@ export class WorkspaceManager {
   })
 
   /** @param api - shared wire client. */
-  /** @param api 共享的线上客户端。 */
+  /* @param api 共享的线上客户端。 */
   constructor(private readonly api: IApiClient) {
     this.snapshotCache = this.buildSnapshot()
   }
@@ -129,7 +129,7 @@ export class WorkspaceManager {
    * during the RPC are replayed over its response.
    * @returns the shared in-flight refresh.
    */
-  /**
+  /*
    * 从 workspace.list 刷新。首个成功响应确立 Host 顺序；后续响应重新确立
    * 持久顺序，使重连采纳本客户端离线期间提交的重排。RPC 期间到达的帧
    * 在其响应上重放。
@@ -178,7 +178,7 @@ export class WorkspaceManager {
    * @param input - the existing absolute path to adopt.
    * @returns the wire result.
    */
-  /**
+  /*
    * 创建或解析一个真实工作区，然后不等 changed 帧直接发布返回快照。
    * @param input 要采纳的已存在绝对路径。
    * @returns 线上结果。
@@ -199,7 +199,7 @@ export class WorkspaceManager {
    * @param title - new display title.
    * @returns the wire result.
    */
-  /**
+  /*
    * 重命名工作区，然后不等 changed 帧直接发布返回快照。
    * @param workspaceId 目标工作区。
    * @param title 新的展示标题。
@@ -217,7 +217,7 @@ export class WorkspaceManager {
    * @param workspaceId - target workspace.
    * @returns the wire result.
    */
-  /**
+  /*
    * 删除工作区注册，并依据一元响应不等 Host 帧直接移除本地投影。
    * @param workspaceId 目标工作区。
    * @returns 线上结果。
@@ -235,7 +235,7 @@ export class WorkspaceManager {
    * @param beforeWorkspaceId - Anchor workspace; omitted appends.
    * @returns the wire result.
    */
-  /**
+  /*
    * 在注册表展示顺序中移动工作区，并不等 Host 帧直接安装返回的完整顺序。
    * @param workspaceId 要移动的工作区。
    * @param beforeWorkspaceId 锚点工作区；省略则追加到末尾。
@@ -280,7 +280,7 @@ export class WorkspaceManager {
    * @param beforeSessionId - accounted anchor to insert before; omitted appends.
    * @returns the wire result.
    */
-  /**
+  /*
    * 在所属工作区的手动顺序中移动会话，然后不等 changed 帧直接发布返回快照。
    * @param workspaceId 属主工作区。
    * @param sessionId 要移动的已归属会话。
@@ -306,7 +306,7 @@ export class WorkspaceManager {
    * @param sessionId - session to archive.
    * @returns the wire result.
    */
-  /**
+  /*
    * 在注册表全局集合中归档一个会话，然后不等 changed 帧直接安装返回的
    * 完整集合。
    * @param sessionId 要归档的会话。
@@ -323,7 +323,7 @@ export class WorkspaceManager {
    * fan one host stream out to both object managers.
    * @param envelope - host stream envelope.
    */
-  /**
+  /*
    * Host 帧入口。非工作区帧被忽略，使运行时可以把一条 Host 流扇出给两个
    * 对象管理器。
    * @param envelope Host 流信封。
@@ -341,7 +341,7 @@ export class WorkspaceManager {
   }
 
   /** Re-pull the baseline after each connection generation. */
-  /** 每个连接世代后重新拉取基线。 */
+  /* 每个连接世代后重新拉取基线。 */
   handleConnected(): void {
     void this.refresh()
   }
@@ -351,7 +351,7 @@ export class WorkspaceManager {
    * @param listener - snapshot invalidation callback.
    * @returns unsubscribe function.
    */
-  /**
+  /*
    * 订阅工作区快照的失效通知。
    * @param listener 快照失效回调。
    * @returns 取消订阅函数。
@@ -364,7 +364,7 @@ export class WorkspaceManager {
    * Read the cached workspace snapshot after flushing pending notifications.
    * @returns the cached workspace snapshot.
    */
-  /**
+  /*
    * 先冲刷待处理的通知，再读取缓存的工作区快照。
    * @returns 缓存的工作区快照。
    */
@@ -389,7 +389,7 @@ export class WorkspaceManager {
    * backs Object.is short-circuits). Host snapshots are append-ordered, so
    * positional comparison is exact, not merely heuristic.
    */
-  /**
+  /*
    * 当成员确实变化时替换归档集（数组身份支撑 Object.is 短路）。Host 快照
    * 是追加顺序，因此位置比较是精确的，不只是启发式。
    */
@@ -402,7 +402,7 @@ export class WorkspaceManager {
   }
 
   /** Reorder known Workspace objects, optionally recording a Host-committed sequence. */
-  /** 重排已知的工作区对象，可选地记录 Host 已提交的序列。 */
+  /* 重排已知的工作区对象，可选地记录 Host 已提交的序列。 */
   private installOrder(workspaceIds: readonly WorkspaceId[], committed = false): void {
     if (committed) {
       this.refreshFrames?.push({ type: 'order', workspaceIds })
@@ -421,7 +421,7 @@ export class WorkspaceManager {
   }
 
   /** Upsert one Host view, optionally retaining the local object that materialized it. */
-  /** Upsert 一个 Host 视图，可选地保留物化它的本地对象。 */
+  /* Upsert 一个 Host 视图，可选地保留物化它的本地对象。 */
   private upsert(view: WorkspaceView, identity?: Workspace): void {
     if (this.removedIds.has(view.workspaceId)) return // 已删除的 id 不再接受
     this.refreshFrames?.push({ type: 'upsert', workspace: view })
@@ -450,7 +450,7 @@ export class WorkspaceManager {
   }
 
   /** Remove one id idempotently and retain a tombstone against late echoes. */
-  /** 幂等地移除一个 id，并保留墓碑以对抗迟到回显。 */
+  /* 幂等地移除一个 id，并保留墓碑以对抗迟到回显。 */
   private remove(workspaceId: WorkspaceId, direct = false): void {
     this.refreshFrames?.push({ type: 'remove', workspaceId })
     this.removedIds.add(workspaceId)
@@ -507,7 +507,7 @@ export class WorkspaceManager {
 }
 
 /** Known ids retain their position; a newly created Workspace enters first. */
-/** 已知 id 保持原位；新建工作区进入首位。 */
+/* 已知 id 保持原位；新建工作区进入首位。 */
 function upsertWorkspace(items: readonly WorkspaceView[], workspace: WorkspaceView): WorkspaceView[] {
   const index = items.findIndex(item => item.workspaceId === workspace.workspaceId)
   return index === -1
@@ -516,7 +516,7 @@ function upsertWorkspace(items: readonly WorkspaceView[], workspace: WorkspaceVi
 }
 
 /** Replay one ordered delta over a baseline: upsert in place, or drop the removed id. */
-/** 在基线上重放一个有序增量：原地 upsert，或丢弃已移除 id。 */
+/* 在基线上重放一个有序增量：原地 upsert，或丢弃已移除 id。 */
 function applyWorkspaceDelta(items: readonly WorkspaceView[], delta: WorkspaceDelta): WorkspaceView[] {
   if (delta.type === 'upsert') return upsertWorkspace(items, delta.workspace)
   if (delta.type === 'remove') {
@@ -529,7 +529,7 @@ function applyWorkspaceDelta(items: readonly WorkspaceView[], delta: WorkspaceDe
 }
 
 /** Move one known id before an optional anchor; unknown ids leave the order unchanged. */
-/** 把一个已知 id 移到可选锚点之前；未知 id 保持顺序不变。 */
+/* 把一个已知 id 移到可选锚点之前；未知 id 保持顺序不变。 */
 function insertIdBefore(
   ids: readonly WorkspaceId[],
   id: WorkspaceId,

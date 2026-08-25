@@ -1,5 +1,5 @@
 /** Attachment failure class. @module @deepseek-ai/dsh-attachment/error */
-/**
+/*
  * 文件职责：定义附件能力的稳定错误码、错误类和图片准入失败分类函数。
  * 技术维度：使用TypeScript字面量联合、只读Set和结构兼容检查跨包传递错误。
  * 产品维度：让协议层区分用户可修正的图片输入与存储内部故障，并返回稳定机器码。
@@ -22,11 +22,11 @@ const IMAGE_ADMISSION_ERROR_CODES = [
 ] as const
 
 /** Caller-correctable attachment failure codes raised while admitting image input. */
-/** 图片准入阶段由调用者修正输入即可解决的错误码。 */
+/* 图片准入阶段由调用者修正输入即可解决的错误码。 */
 export type ImageAdmissionErrorCode = typeof IMAGE_ADMISSION_ERROR_CODES[number]
 
 /** Stable attachment failure codes used for protocol error routing. */
-/** 协议错误路由使用的全部稳定附件错误码。 */
+/* 协议错误路由使用的全部稳定附件错误码。 */
 export type AttachmentErrorCode =
   | ImageAdmissionErrorCode
   | 'INVALID_ATTACHMENT_REF'
@@ -37,7 +37,7 @@ export type AttachmentErrorCode =
   | 'ATTACHMENT_PROJECTION_UNSUPPORTED'
 
 /** Runtime membership for structurally compatible errors crossing package boundaries. */
-/** 跨包结构兼容错误的图片准入码运行时集合。 */
+/* 跨包结构兼容错误的图片准入码运行时集合。 */
 const IMAGE_ADMISSION_ERROR_CODE_SET: ReadonlySet<string> = new Set(IMAGE_ADMISSION_ERROR_CODES)
 
 /**
@@ -49,10 +49,10 @@ const IMAGE_ADMISSION_ERROR_CODE_SET: ReadonlySet<string> = new Set(IMAGE_ADMISS
  * would create a dependency cycle. Consumers route on `code`, never on the
  * prototype chain, so the shapes stay interchangeable at the wire boundary.
  */
-/** 与HarnessError字段兼容但避免依赖循环的附件异常。 */
+/* 与HarnessError字段兼容但避免依赖循环的附件异常。 */
 export class AttachmentError extends Error {
   /** Stable machine-routing failure code. */
-  /** 供协议和宿主稳定路由的机器错误码。 */
+  /* 供协议和宿主稳定路由的机器错误码。 */
   readonly code: AttachmentErrorCode
 
   /**
@@ -60,7 +60,7 @@ export class AttachmentError extends Error {
    * @param code - stable machine-routing code.
    * @param options - optional chained cause.
    */
-  /**
+  /*
    * 创建带安全消息、稳定错误码和可选原因链的附件异常。
    * @param message 不含原始字节或主机路径的人类可读说明。
    * @param code 稳定机器路由码。

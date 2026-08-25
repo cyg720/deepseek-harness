@@ -1,5 +1,5 @@
 /** Assistant block classifier (moved here with sessions/conversation.ts). */
-/**
+/*
  * 文件职责：验证 API 内容块到客户端助手消息块的分类和字段转换。
  * 技术维度：使用 Vitest、品牌化 AttachmentId 和 ContentBlock 判别联合构造四类输入。
  * 产品维度：保证正文、推理、工具调用和图片在会话界面中进入正确渲染分支。

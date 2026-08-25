@@ -7,7 +7,7 @@
  * file created under one). The fence is exercised on a real filesystem: a
  * denied write leaves no file on disk.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 fs-sandbox.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -67,7 +67,7 @@ afterEach(async () => {
 })
 
 /** Resolve a path through the backend and return its target. */
-/** 中文说明：函数 target 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 target 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function target(path: string): Promise<FsTarget> {
   return fs.resolve(path)
 }

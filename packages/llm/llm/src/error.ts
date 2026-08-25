@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义 harness 统一错误基类 HarnessError 以及一批 provider 无关
  * 的规范错误码常量，并提供错误文本分类器（上下文超限、配额耗尽）与错误链
@@ -23,7 +23,7 @@
  * @module @deepseek-ai/dsh-llm/error
  */
 
-/**
+/*
  * （中文）整个 harness 所有错误类型的基类：除了人类可读的 message，还携带
  * 一个稳定的、程序可路由的 code（如 NO_ADAPTER、RATE_LIMIT、INVARIANT），
  * 上层按 code 分流处理，绝不解析 message 文本。支持通过标准 ErrorOptions
@@ -55,7 +55,7 @@ export const CONTEXT_WINDOW_EXCEEDED_CODE = 'CONTEXT_WINDOW_EXCEEDED'
 // 中文：账户配额或余额耗尽时的规范错误码（区别于瞬时的请求限流）。
 export const QUOTA_EXCEEDED_CODE = 'QUOTA'
 
-/**
+/*
  * （中文）响应正常结束但一个内容块都没有时的规范错误码：某些 provider 偶尔
  * 会返回"正常终止但零输出"的空完成，适配器把它归为此失败而不是产出空助手
  * 消息——空消息会让本轮在用户/循环面前无声地结束。由于这次尝试没有产出任何
@@ -72,7 +72,7 @@ export const QUOTA_EXCEEDED_CODE = 'QUOTA'
  */
 export const EMPTY_RESPONSE_CODE = 'EMPTY_RESPONSE'
 
-/**
+/*
  * （中文）"提供了凭据但无法使用"（格式错误而非缺失）的规范错误码。与
  * MISSING_CREDENTIAL 的区别在于修法不同：应纠正已存的值而非补一个值。
  * 刻意排除在默认可重试集合之外——格式错误的凭据每次尝试都会同样失败。
@@ -112,7 +112,7 @@ const EXCEEDS_MODEL_CONTEXT = new RegExp(
   'i',
 )
 
-/**
+/*
  * （中文）识别 OpenAI 兼容 provider 与库适配器使用的"上下文超限"措辞。适配器
  * 会把 provider 返回的 code、type、message 文本全部拼成字符串传进来，这样无论
  * 错误是抛出来的还是随流内联返回的，都能共用这一个分类器。
@@ -134,7 +134,7 @@ export function isContextWindowExceededError(detail: string): boolean {
     || EXCEEDS_MODEL_CONTEXT.test(detail)
 }
 
-/**
+/*
  * （中文）识别"账户配额/余额耗尽"这类终结性措辞，区别于瞬时请求限流。
  * @param detail 拼接后的 provider 错误文本。
  * @returns 仅当文本明确指向配额、余额、信用额度、预算或用量上限耗尽时返回 true。
@@ -153,7 +153,7 @@ export function isQuotaExceededError(detail: string): boolean {
     || /\bout[\s_-]+of[\s_-]+(?:credits?|budget)\b/i.test(detail)
 }
 
-/**
+/*
  * （中文）把捕获到的任意值渲染成带完整 cause 链（以及 AggregateError 成员）的
  * 文本，避免 undici 这类传输包装器的 "TypeError: fetch failed" 遮蔽底层根因。
  * 纯结构化失败则渲染其自带 message。只用于诊断展示（消息、通知、日志），
@@ -224,7 +224,7 @@ export function errorChain(value: unknown): string {
   return render(value)
 }
 
-/**
+/*
  * （中文）把任意抛出的值收窄（narrow）为 HarnessError，用于运行时边界的
  * instanceof 判断。
  * @param value catch 子句里捕获的值（类型为 unknown）。

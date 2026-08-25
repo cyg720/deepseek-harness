@@ -9,7 +9,7 @@
  * section rather than deployment persona prose.
  * @module @deepseek-ai/dsh-tool-workflow
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -40,7 +40,7 @@ export const name = 'tool-workflow'
 export const inject = ['tools', 'workflowEngine', 'systemPrompt']
 
 /** Config: the model-facing tool name plus result rendering caps. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface Config {
   /** The model-facing tool name to register (default `workflow`). */
   toolName?: string
@@ -73,7 +73,7 @@ interface ToolWorkflowRecordEventMap {
 }
 
 /** Render a contained recording failure without trusting the thrown value. */
-/** 中文说明：函数 renderRecordingError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderRecordingError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderRecordingError(error: unknown): string {
   try {
     return String(error)
@@ -86,7 +86,7 @@ function renderRecordingError(error: unknown): string {
  * Project active top-level workflow runs into their parent Sessions without
  * letting recording failure affect tool execution.
  */
-/** 中文说明：函数 createWorkflowRecorder 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 createWorkflowRecorder 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
   /** 中文说明：变量 active 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const active = new Map<WorkflowRunId, Session>()
@@ -160,7 +160,7 @@ function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
  * model-facing spec: the meta block, the hooks and their exact semantics, and
  * the supported schema subset.
  */
-/** 中文说明：常量 DESCRIPTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DESCRIPTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DESCRIPTION = `Run a JavaScript workflow script that orchestrates subagents at scale. Use this for work that fans out across many independent pieces — an audit over many files, a migration, multi-angle research, adversarial verification of findings — where you write the orchestration as a script instead of delegating turn by turn.
 
 The workflow's identity rides the \`meta\` parameter as JSON: required \`name\` (short kebab-case) and \`description\` strings, optional \`whenToUse\` string and \`phases\` array (\`{title, detail?, provider?, model?}\`). The \`script\` parameter is the plain JavaScript body ONLY (NOT TypeScript, and NO \`export const meta\` statement — meta is a parameter, not code), running with top-level await; end with \`return <value>\` — the value must be JSON-serializable and is this tool's result.
@@ -188,7 +188,7 @@ type WorkflowCallArgs = {
 }
 
 /** The pending-state card: a generic card titled by the workflow's meta name. */
-/** 中文说明：函数 presentWorkflowCall 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 presentWorkflowCall 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function presentWorkflowCall(args: WorkflowCallArgs): ToolCallView {
   return {
     card: 'generic',
@@ -198,7 +198,7 @@ function presentWorkflowCall(args: WorkflowCallArgs): ToolCallView {
 }
 
 /** The completed-state card: keep the pending title; render the result content as-is. */
-/** 中文说明：函数 presentWorkflowResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 presentWorkflowResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function presentWorkflowResult(args: WorkflowCallArgs, result: { content: ContentBlock[]; isError: boolean }): ToolResultView {
   void args
   void result
@@ -206,7 +206,7 @@ function presentWorkflowResult(args: WorkflowCallArgs, result: { content: Conten
 }
 
 /** A non-`completed` stop reason means the script did not finish cleanly. */
-/** 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stopReasonError(result: WorkflowResult): string | undefined {
   switch (result.stopReason) {
     case 'completed':
@@ -223,7 +223,7 @@ function stopReasonError(result: WorkflowResult): string | undefined {
 }
 
 /** Render the run's outcome text: the meta name, agent count, and the JSON value (capped). */
-/** 中文说明：函数 renderResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderResult(name: string, agentsStarted: number, value: JsonValue, maxChars: number): string {
   // The engine returns JSON data (null for a valueless script), so stringify never yields undefined.
   /** 中文说明：变量 rendered 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

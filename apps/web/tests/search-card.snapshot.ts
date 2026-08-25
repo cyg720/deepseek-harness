@@ -37,7 +37,7 @@ installAssembledBootEnv()
 /** Normalize a rendered search card to stable text fields: the kind, the banner
  *  summary, each file header (path + count), each visible match line, the expand
  *  control label, and the recovery footer. */
-/** 中文说明：root 是工具行根元素，返回类型、摘要、文件、命中行、展开标签和恢复提示的稳定文本。 */
+/* 中文说明：root 是工具行根元素，返回类型、摘要、文件、命中行、展开标签和恢复提示的稳定文本。 */
 function cardShape(root: Element): string {
   /** 当前工具行内的搜索卡片根节点。 */
   const card = root.querySelector('[data-search]')

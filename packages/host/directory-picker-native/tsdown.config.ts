@@ -5,7 +5,7 @@ import { defineConfig } from 'tsdown'
  * (mirroring dsh-workflow-worker-thread's worker): path-loaded by the driver,
  * inlining the dialog logic while koffi stays an external native require.
  */
-/**
+/*
  * 文件职责：分别构建原生目录选择后端 ESM 入口和 Windows 对话框 CommonJS Worker。
  * 技术维度：使用 tsdown 多配置、命名入口和外部原生依赖，兼容 pkg 虚拟文件系统加载。
  * 产品维度：让桌面宿主使用系统原生目录选择器，并能在打包可执行程序中正常弹窗。

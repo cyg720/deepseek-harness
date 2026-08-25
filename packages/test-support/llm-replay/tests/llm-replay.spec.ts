@@ -40,7 +40,7 @@ import {
  * derive/parse/load helpers that turn a recorded session JSONL into a script.
  */
 
-/** 中文说明：常量 TEXT_CHUNKS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TEXT_CHUNKS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TEXT_CHUNKS: StreamChunk[] = [
   { type: 'block-start', index: 0, blockType: 'text' },
   { type: 'text-delta', index: 0, text: 'hi' },
@@ -53,7 +53,7 @@ const TEXT_CHUNKS: StreamChunk[] = [
 const COMPACTION_ID = CompactionId('replay-compaction')
 
 /** Build a minimal session-JSONL string: a header line + the given events. */
-/** 中文说明：函数 sessionJsonl 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 sessionJsonl 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sessionJsonl(events: SessionEvent[], header?: { id?: string; createdAt?: number; seedLength?: number }): string {
   /** 中文说明：变量 headerLine 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const headerLine = JSON.stringify({
@@ -67,7 +67,7 @@ function sessionJsonl(events: SessionEvent[], header?: { id?: string; createdAt?
 }
 
 /** A SessionEvent of type assistant/chunk for (turn, step). */
-/** 中文说明：函数 chunkEvent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 chunkEvent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function chunkEvent(seq: number, turn: number, step: number, chunk: StreamChunk): SessionEvent {
   return { type: 'assistant/chunk', seq, time: 0, data: { turn, step, chunk } }
 }
@@ -78,7 +78,7 @@ let dir: string
 let file: string
 
 /** Write a session log file and return its path. */
-/** 中文说明：函数 writeSession 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 writeSession 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function writeSession(filename: string, header: { id: string; createdAt: number }, calls: StreamChunk[][]): string {
   /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let seq = 1

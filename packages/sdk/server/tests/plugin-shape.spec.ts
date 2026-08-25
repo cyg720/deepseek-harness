@@ -14,7 +14,7 @@ import * as jsonrpc from '../src/index.ts'
  * Run the real namespace export through `Loader.unwrapExports`; a stray
  * default would discard `name`, `inject`, `Config`, and `apply`.
  */
-/** 使用真实 Loader.unwrapExports 处理命名空间；多余 default 会导致关键插件槽位被丢弃。 */
+/* 使用真实 Loader.unwrapExports 处理命名空间；多余 default 会导致关键插件槽位被丢弃。 */
 // 测试组：覆盖 SDK JSON-RPC 服务器包的插件导出结构。
 describe('dsh-sdk-jsonrpc-server plugin export shape', () => {
   /**

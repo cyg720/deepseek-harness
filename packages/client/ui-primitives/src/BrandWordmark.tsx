@@ -14,7 +14,7 @@
 import type { IconProps } from './icons/props.ts'
 
 /** Display options for the official brand wordmark. */
-/** 中文说明：类型或类 BrandWordmarkProps 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 BrandWordmarkProps 约束基础组件的数据或职责。 */
 export interface BrandWordmarkProps extends IconProps {
   /** Whether to include the leading whale mark; defaults to true. */
   includeMark?: boolean | undefined
@@ -27,7 +27,7 @@ export interface BrandWordmarkProps extends IconProps {
  * @param props.includeMark - whether to include the leading whale mark.
  * @returns the wordmark svg (aria-hidden decorative brand art).
  */
-/** 中文说明：函数 BrandWordmark 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 BrandWordmark 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function BrandWordmark({ size = 24, className, includeMark = true }: BrandWordmarkProps) {
   /** 中文说明：组件局部值 width，由紧邻初始化决定。 */
   const width = includeMark ? 182 : 156

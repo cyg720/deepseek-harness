@@ -2,7 +2,7 @@
  * Delegation policy through child session events appended before publication:
  * the parent's sandbox override plus the pinned `approval/policy: never`.
  */
-/**
+/*
  * 文件职责：验证 inheritance.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。

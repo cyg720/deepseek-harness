@@ -32,13 +32,13 @@ function event<T extends SessionEventType>(type: T, data: SessionEventMap[T], se
 }
 
 /** Queued-minus-delivered mail, the recovery mailbox the fold is responsible for. */
-/** 中文说明：函数 pending 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 pending 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function pending(state: TeamFoldState): TeamMessageSnapshot[] {
   return [...state.messages.values()].filter(message => !state.delivered.has(message.id))
 }
 
 /** Whether one fold reached the end of its log without applying any Team record. */
-/** 中文说明：函数 isEmptyFold 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 isEmptyFold 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isEmptyFold(state: TeamFoldState): boolean {
   return state.members.size === 0 && state.tasks.size === 0
     && state.messages.size === 0 && state.delivered.size === 0

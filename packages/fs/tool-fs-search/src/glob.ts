@@ -35,7 +35,7 @@
  * environment scrubbing, output capture) stay behind `ctx.subprocess`.
  * @module @deepseek-ai/dsh-tool-fs-search/glob
  */
-/**
+/*
  * 模块总览：本文件是 glob 工具的定义与执行体。argv 构造与结果解析在这里，
  * spawn/终止/捕获在 search-core.ts 与 ctx.subprocess。
  */
@@ -54,7 +54,7 @@ import { acceptedDirectCallValue } from './direct-call.ts'
  * Default cap on paths retained inline by one `glob` call (the `globMaxResults`
  * config), matching Claude Code's default `GlobTool` result limit.
  */
-/**
+/*
  * 单次 glob 调用内联保留路径数的默认上限（globMaxResults 配置的默认值）：100，
  * 与 Claude Code 默认 GlobTool 的结果上限一致。
  */
@@ -70,7 +70,7 @@ export const GLOB_MAX_RESULTS = 100
  * directory (an explicit `path` of `.git` or `sub/.git`), where the prune glob
  * alone never matches.
  */
-/**
+/*
  * 发现列举中 ripgrep 绝不能下探的目录名：VCS 元数据存储。--no-ignore --hidden
  * 否则会在每个宽泛搜索里暴露它们。每个名字用两条取反 --glob 排除（见
  * buildGlobCommand）：一条任意深度目录 glob（遍历时匹配并剪枝该目录），一条内容
@@ -80,33 +80,33 @@ export const GLOB_MAX_RESULTS = 100
 export const GLOB_VCS_EXCLUDES: readonly string[] = ['.git', '.svn', '.hg', '.bzr', '.jj', '.sl']
 
 /** Resolved glob-tool caps — plugin config after defaulting (see `Config` in index.ts). */
-/** 已解析的 glob 工具上限——默认化后的插件配置（见 index.ts 的 Config）。 */
+/* 已解析的 glob 工具上限——默认化后的插件配置（见 index.ts 的 Config）。 */
 export interface GlobToolCaps {
   /** Whether over-cap pages are sampled across top-level entries instead of taking the modification-time head. */
-  /** 超限页是否跨顶级条目采样（而不是取修改时间头）。 */
+  /* 超限页是否跨顶级条目采样（而不是取修改时间头）。 */
   sampleOverCapGlobResults: boolean
   /** Max paths retained inline; later paths go to the formatted spill file. */
-  /** 内联保留的最大路径数；后面的路径进格式化 spill 文件。 */
+  /* 内联保留的最大路径数；后面的路径进格式化 spill 文件。 */
   maxResults: number
   /** Max bytes of serialized `presentationMeta`; trailing paths drop past it. */
-  /** 序列化 presentationMeta 的最大字节数；超出后尾部路径被丢弃。 */
+  /* 序列化 presentationMeta 的最大字节数；超出后尾部路径被丢弃。 */
   maxMetaBytes: number
   /** Cap on the complete raw `rg` stdout the tool will parse. */
-  /** 工具将解析的完整原始 rg stdout 上限。 */
+  /* 工具将解析的完整原始 rg stdout 上限。 */
   rawOutputMaxBytes: number
   /** Terminate-escalation grace period (ms) for the search process. */
-  /** 搜索进程的终止升级宽限期（毫秒）。 */
+  /* 搜索进程的终止升级宽限期（毫秒）。 */
   graceMs: number
   /** Cap on the retained stderr diagnostic tail. */
-  /** 保留 stderr 诊断尾部的上限。 */
+  /* 保留 stderr 诊断尾部的上限。 */
   stderrMaxBytes: number
   /** Cooperative tool-call budget (ms) attached as `ToolDefinition.timeoutMs`. */
-  /** 协作式工具调用预算（毫秒），作为 ToolDefinition.timeoutMs 附加。 */
+  /* 协作式工具调用预算（毫秒），作为 ToolDefinition.timeoutMs 附加。 */
   timeoutMs: number
 }
 
 /** Validated `glob` arguments. */
-/** 已校验的 glob 参数。 */
+/* 已校验的 glob 参数。 */
 export interface GlobInput {
   pattern: string
   path?: string
@@ -120,7 +120,7 @@ export interface GlobInput {
  * @param args - the schema-validated `glob` arguments.
  * @returns the accepted input, unchanged.
  */
-/**
+/*
  * 校验 schema DSL 表达不了的值约束：pattern 非空白；给出 path 时它也非空白。
  * 否则抛普通 Error（常规工具参数错误）。
  * @param args 已通过 schema 校验的 glob 参数。
@@ -144,7 +144,7 @@ export function parseGlobArgs(args: { pattern: string; path?: string }): GlobInp
  * @param input - the validated arguments.
  * @returns the complete ripgrep argument vector (excluding the binary itself).
  */
-/**
+/*
  * 为一次 glob 调用构造固定的 rg --files argv。每个模型控制值（pattern、path）都是
  * 普通 argv 元素——没有 shell 层，所以不存在引号问题；搜索根跟在 -- 后，前导横线
  * 路径绝不会被解析成旗标。--sort=modified 按修改时间排序，--no-ignore --hidden
@@ -178,23 +178,23 @@ export function buildGlobCommand(input: GlobInput): string[] {
  * The inline page of a capped `glob` result, plus how much of the complete
  * result's top level it reaches.
  */
-/**
+/*
  * 被上限约束的 glob 结果的内联页，加上它覆盖了完整结果顶级条目的多少。
  */
 export interface GlobSample {
   /** Paths to show inline: grouped by top-level entry, modification-time ordered within each group. */
-  /** 内联展示的路径：按顶级条目分组，组内按修改时间排序。 */
+  /* 内联展示的路径：按顶级条目分组，组内按修改时间排序。 */
   items: string[]
   /** Distinct top-level entries the shown paths reach. */
-  /** 展示路径触及的不同顶级条目数。 */
+  /* 展示路径触及的不同顶级条目数。 */
   shown: number
   /** Distinct top-level entries across the complete result. */
-  /** 完整结果里不同的顶级条目数。 */
+  /* 完整结果里不同的顶级条目数。 */
   total: number
 }
 
 /** Remove the displayed search-root prefix before choosing a top-level group. */
-/** 选择顶级分组前，去掉展示的搜索根前缀。 */
+/* 选择顶级分组前，去掉展示的搜索根前缀。 */
 function relativeToSearchRoot(path: string, root: string): string {
   if (root === '.') return path.startsWith(`.${sep}`) ? path.slice(2) : path
   let rootEnd = root.length
@@ -209,7 +209,7 @@ function relativeToSearchRoot(path: string, root: string): string {
 }
 
 /** Strip only separators recognized by the execution platform. */
-/** 只剥掉执行平台识别的分隔符。 */
+/* 只剥掉执行平台识别的分隔符。 */
 function stripLeadingSeparators(path: string): string {
   let start = 0
   while (path[start] === sep) start += 1
@@ -224,7 +224,7 @@ function stripLeadingSeparators(path: string): string {
  * groups by its first real name instead of collapsing every such path into one
  * empty group.
  */
-/**
+/*
  * 一条展示路径的首段——该路径所在的（相对搜索根的）顶级条目。无分隔符的路径就是
  * 自己的顶级条目。先剥前导分隔符，这样绝对路径（工作目录外、toWorkdirRelative
  * 原样保留的路径）按第一个真实名字分组，而不是把每条都塌进一个空组。
@@ -248,7 +248,7 @@ function topLevelSegment(path: string): string {
  * @param root - the search root in the same display-path space as `paths`.
  * @returns the page grouped by top-level entry, with the shown/total top-level spread.
  */
-/**
+/*
  * 超限结果的"轮询采样"内联页，而不是取头部：每个顶级条目先拿一个槽位，然后才是
  * 第二个；组耗尽即退出。组顺序与组内顺序跟随 paths，所以扁平结果复现修改时间头。
  * @param paths 完整结果（ripgrep 修改时间顺序）。
@@ -301,7 +301,7 @@ export function sampleAcrossTopLevel(paths: readonly string[], maxItems: number,
  * @param spillRef - the saved complete-result reference, or `undefined` when unsaved.
  * @returns the model-facing text.
  */
-/**
+/*
  * 格式化一个被上限约束的采样页与它的完整结果恢复路径。扁平结果保留普通脚注，
  * 因为它的采样就是修改时间头。
  * @param sample 内联页与顶级覆盖度。
@@ -318,7 +318,7 @@ export function formatGlobOutput(sample: GlobSample, seen: number, spillRef: Spi
 }
 
 /** Format one bounded page and the recovery path for its complete sorted result. */
-/** 格式化一个有界页及其完整排序结果的恢复路径。 */
+/* 格式化一个有界页及其完整排序结果的恢复路径。 */
 function formatGlobPage(items: readonly string[], seen: number, spillRef: SpillRef | undefined, basis: string): string {
   const body = items.join('\n')
   const recovery = spillRef !== undefined
@@ -328,7 +328,7 @@ function formatGlobPage(items: readonly string[], seen: number, spillRef: SpillR
 }
 
 /** Bound and format one canonical path list for the Native surface relative to its search root. */
-/** 为 Native 面相对其搜索根约束并格式化一条规范路径表。 */
+/* 为 Native 面相对其搜索根约束并格式化一条规范路径表。 */
 function renderGlobPaths(paths: string[], caps: GlobToolCaps, root: string, spillRef?: SpillRef): string {
   if (paths.length === 0) return 'No files found'
   // A result that fits is shown whole, untouched: modification-time order is the
@@ -354,7 +354,7 @@ function renderGlobPaths(paths: string[], caps: GlobToolCaps, root: string, spil
  * @param root - the search root in the same display-path space as `paths`.
  * @returns the inline page and whether the complete result was capped.
  */
-/**
+/*
  * 已完成 glob 卡片展示的内联路径页，用与 renderGlobPaths 相同的方式计算，保证卡片
  * 与文本对"哪些路径活过了上限"一致。上限内整表展示；超限结果是修改时间头或顶级
  * 采样，取决于部署的 sampleOverCapGlobResults。
@@ -375,7 +375,7 @@ function globCardPage(paths: string[], caps: GlobToolCaps, root: string): { item
  * @param args - the raw tool arguments; `pattern` and `path` feed the title.
  * @returns the generic card view (`kind: 'search'`) shown while the call runs.
  */
-/**
+/*
  * 挂起调用展示：以模式（与根）为标题的搜索卡片。
  * @param args 原始工具参数；pattern 与 path 进入标题。
  * @returns 调用运行期间展示的通用卡片视图（kind: 'search'）。
@@ -396,7 +396,7 @@ export function presentGlobCall(args: { pattern: string; path?: string }): Gener
  * @param result - the final model-facing tool result carrying the projected metadata.
  * @returns the search card view, or `undefined` for the generic fallback.
  */
-/**
+/*
  * 完成调用展示：从结果 presentationMeta（发现路径表 + 截断信号）投影搜索卡片。
  * 没有搜索卡片能力的 UI 回退到原始 tool/result 内容，所以视图自身不携带结果文本。
  * 畸形/缺失元数据（过时或手工编辑的重放日志）回退到通用卡片。
@@ -418,7 +418,7 @@ export function presentGlobResult(_args: { pattern: string; path?: string }, res
  *   execution uses its `subprocess` service.
  * @param caps - the deployment's resolved glob caps (plugin config after defaulting).
  */
-/**
+/*
  * 注册 glob 工具与其系统提示指南。
  * @param ctx 插件上下文；注册是作用域于它的副作用，执行使用其 subprocess 服务。
  * @param caps 部署的已解析 glob 上限（默认化后的插件配置）。

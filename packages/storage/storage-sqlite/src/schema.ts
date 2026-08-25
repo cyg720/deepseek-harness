@@ -26,7 +26,7 @@
  * created per descriptor in `unit.ts`.
  * @module @deepseek-ai/dsh-storage-sqlite/schema
  */
-/**
+/*
  * 模块总览：本文件负责"数据库文件怎么打开、怎么确认格式兼容、元数据表长什么样"；
  * 真正读写单元的类在 unit.ts，插件组装在 index.ts。
  */
@@ -42,7 +42,7 @@ import { StorageError } from '@deepseek-ai/dsh-storage'
  * row). Bumped only on a breaking change to the table layout; any other
  * stamped version rejects — this unreleased format has no migrations.
  */
-/**
+/*
  * 磁盘物理布局版本，存于 PRAGMA user_version。与每个单元自己的 version
  * （units 行里的戳）是两回事。只有表布局发生破坏性变更才递增；
  * 其它任何已盖章版本一律拒绝——本格式尚未发布，不做迁移。
@@ -56,7 +56,7 @@ export const STORAGE_SQLITE_SCHEMA_VERSION = 1
  * `memory`/`off` are excluded: dropping journal durability silently
  * contradicts the durability clause of the KV backend contract.
  */
-/**
+/*
  * 后端可用的 SQLite 日志模式（journal_mode pragma 的取值）。
  * wal 是默认值；回滚日志模式（delete/truncate/persist）用于 WAL 共享内存文件
  * 不可用的文件系统（网络挂载）。memory/off 被排除：静默放弃日志持久性
@@ -159,7 +159,7 @@ function configureDatabase(db: DatabaseSync, path: string, journalMode: JournalM
  * @param table - Validated table name.
  * @returns the `u_<unit>_<table>` identifier.
  */
-/**
+/*
  * 派生一张单元表的物理表名：u_<单元名>_<表名>。两个片段在到达这里之前都经过了
  * UNIT_NAME_RE 校验，所以结果可以安全地插进 DDL 与预编译语句文本（无注入风险）。
  * @param unit 已校验的单元名。

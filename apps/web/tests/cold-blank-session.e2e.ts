@@ -1,5 +1,5 @@
 /** Cold Session list visibility through the shipped compressed JSONL backend. */
-/**
+/*
  * 文件职责：验证压缩 JSONL 后端中的冷空白会话不会出现在 Web 侧栏列表。
  * 技术维度：使用真实会话持久化、Playwright、文件大小检查和 ARIA 快照。
  * 产品维度：避免从未产生有效内容的空白会话污染用户会话列表和工作区分组。

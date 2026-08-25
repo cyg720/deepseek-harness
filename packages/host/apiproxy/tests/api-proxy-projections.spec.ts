@@ -6,7 +6,7 @@
  * registration's key leaves subsequent responses; and every unit change is
  * pushed to mux consumers as a session/projection frame minted here.
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-projections.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -51,7 +51,7 @@ function request<P>(payload: P): RpcRequest<P> {
 }
 
 /** Whole-value unit folding the latest user/message text; null before the first. */
-/** 中文说明：类型或类 LastUserState 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 LastUserState 约束 API、Hook 或目录数据职责。 */
 type LastUserState = { text: string } | null
 /** 中文说明：测试局部值 lastUserUnit，由紧邻初始化决定。 */
 const lastUserUnit = () => ({
@@ -93,7 +93,7 @@ async function harness(withRegistry: boolean): Promise<{ ctx: Context; session: 
 }
 
 /** Append `count` user messages so the log has paginable message boundaries. */
-/** 中文说明：函数 seedMessages 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 seedMessages 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function seedMessages(session: Session, count: number): void {
   /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
   for (let i = 0; i < count; i++) {
@@ -394,7 +394,7 @@ describe('session.list projections column', () => {
 
 describe('session/projection push frame', () => {
   /** Drain frames until `count` session/projection frames arrived. */
-  /** 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function collect(iterable: AsyncIterable<RpcRequest<MuxFrame>>, count: number, abort: AbortController): Promise<MuxFrame[]> {
     /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
     const frames: MuxFrame[] = []

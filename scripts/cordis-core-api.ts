@@ -1,5 +1,5 @@
 /** Generate detailed Cordis core API pages from pinned vendor declarations. */
-/**
+/*
  * 文件职责：实现 cordis-core-api.ts 覆盖的仓库构建、校验或维护脚本职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
  * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
@@ -20,14 +20,14 @@ const root = resolve(import.meta.dirname, '..')
 const FENCE = 'ts cordis-catalog'
 
 /** One declaration group rendered on a Cordis core API page. */
-/** 中文说明：type CordisCoreApiSection 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：type CordisCoreApiSection 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 type CordisCoreApiSection =
   | { kind: 'class'; file: string; symbol: string; prefix?: string; heading?: string }
   | { kind: 'context-merge'; file: string; heading?: string }
   | { kind: 'decl'; file: string; symbol: string }
 
 /** One generated Cordis core API page. */
-/** 中文说明：interface CordisCoreApiPage 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：interface CordisCoreApiPage 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export interface CordisCoreApiPage {
   out: string
   title: string
@@ -36,7 +36,7 @@ export interface CordisCoreApiPage {
 }
 
 /** Explicit editorial grouping for the pinned Cordis core API. */
-/** 中文说明：常量 CORDIS_CORE_API_PAGES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CORDIS_CORE_API_PAGES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CORDIS_CORE_API_PAGES: CordisCoreApiPage[] = [
   {
     out: 'docs/cordis-api/context.md',
@@ -495,7 +495,7 @@ function renderMember(prefix: string, member: MemberDoc): string[] {
 }
 
 /** Render one detailed Cordis core API page and reject undocumented members. */
-/** 中文说明：函数 renderCordisCoreApiPage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderCordisCoreApiPage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function renderCordisCoreApiPage(
   page: CordisCoreApiPage,
   scanRoot: string = root,
@@ -545,7 +545,7 @@ export function renderCordisCoreApiPage(
 }
 
 /** Render every detailed Cordis core API page. */
-/** 中文说明：函数 renderCordisCoreApiPages 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderCordisCoreApiPages 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function renderCordisCoreApiPages(scanRoot: string = root): Map<string, string> {
   return new Map(CORDIS_CORE_API_PAGES.map(page => [page.out, renderCordisCoreApiPage(page, scanRoot)]))
 }

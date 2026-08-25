@@ -22,7 +22,7 @@
  *
  * @module @deepseek-ai/dsh-plan-mode
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的计划模式配置、装载与运行时协作职责。
  * 技术维度：使用 TypeScript、Cordis 插件、事件日志、配置解析和异步生命周期管理。
  * 产品维度：让 Agent 能按用户配置启用计划模式并保持会话行为一致。
@@ -74,26 +74,26 @@ declare module '@deepseek-ai/cordis' {
  * The model-facing exit tool's name. It stays registered while plan mode is
  * inactive so the request tool catalog is stable across transitions.
  */
-/** 中文说明：常量 EXIT_PLAN_MODE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 EXIT_PLAN_MODE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const EXIT_PLAN_MODE = 'exit_plan_mode'
 
 /** Deployment-owned plan guidance. */
-/** 中文说明：interface PlanModeConfig 定义本模块所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：interface PlanModeConfig 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export interface PlanModeConfig {
   /** Guidance rendered as the `plan:policy` prompt section while plan mode is active. */
   section: string
 }
 
 /** The review question's id, echoed in the answer this tool reads. */
-/** 中文说明：常量 REVIEW_ID 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 REVIEW_ID 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REVIEW_ID = 'plan-review'
 
 /** The review question's approve option label. */
-/** 中文说明：常量 APPROVE_LABEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 APPROVE_LABEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const APPROVE_LABEL = 'Approve'
 
 /** The review question's keep-planning option label. */
-/** 中文说明：常量 KEEP_PLANNING_LABEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 KEEP_PLANNING_LABEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const KEEP_PLANNING_LABEL = 'Keep planning'
 
 /** 中文说明：常量 EXIT_DESCRIPTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
@@ -104,7 +104,7 @@ const EXIT_DESCRIPTION
   + 'planning — their feedback comes back in the tool result; revise and present again.'
 
 /** The plan's first markdown heading (any level), or `undefined` when it has none. */
-/** 中文说明：函数 firstHeading 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 firstHeading 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function firstHeading(plan: string): string | undefined {
   /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const line of plan.split('\n')) {
@@ -122,7 +122,11 @@ function firstHeading(plan: string): string | undefined {
  * @param config Raw plugin config.
  * @returns A detached validated config.
  */
-/** 中文说明：函数 resolveConfig 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 resolveConfig 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveConfig(config: PlanModeConfig): PlanModeConfig {
   /** 中文说明：变量 section 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const section = (config as Partial<PlanModeConfig>).section
@@ -148,7 +152,12 @@ export function resolveConfig(config: PlanModeConfig): PlanModeConfig {
  * @param end Fold `events[0, end)`; defaults to the whole log.
  * @returns Whether plan mode is active.
  */
-/** 中文说明：函数 foldPlanMode 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 foldPlanMode 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param end 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function foldPlanMode(events: readonly SessionEvent[], end = events.length): boolean {
   /** 中文说明：变量 active 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let active = false
@@ -169,7 +178,7 @@ export function foldPlanMode(events: readonly SessionEvent[], end = events.lengt
  * paired `command/done` has not settled. Plain JSON (persisted-cache
  * precondition).
  */
-/** 中文说明：interface PlanUnitState 定义本模块所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：interface PlanUnitState 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 interface PlanUnitState {
   active: boolean
   /** The selection's target mode; null when no selection is outstanding. */
@@ -196,14 +205,14 @@ const planUnitStateSchema: ZodType<PlanUnitState> = zod.object({
 }).strict()
 
 /** Wire payload schema of the `plan` projection. */
-/** 中文说明：变量 planProjectionSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 planProjectionSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const planProjectionSchema: ZodType<PlanProjection> = zod.object({
   active: zod.boolean(),
   pending: zod.boolean(),
 })
 
 /** Whether the log holds an opened turn without its closing `turn/end`. */
-/** 中文说明：函数 hasOpenTurn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 hasOpenTurn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasOpenTurn(events: readonly SessionEvent[]): boolean {
   /** 中文说明：变量 open 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let open = false
@@ -216,7 +225,7 @@ function hasOpenTurn(events: readonly SessionEvent[]): boolean {
 }
 
 /** Plan state at the last logged request header, or `undefined` before the first header. */
-/** 中文说明：函数 planModeAtLastHeader 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 planModeAtLastHeader 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function planModeAtLastHeader(events: readonly SessionEvent[]): boolean | undefined {
   /** 中文说明：变量 lastHeader 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let lastHeader = -1
@@ -236,7 +245,7 @@ function planModeAtLastHeader(events: readonly SessionEvent[]): boolean | undefi
  * the `plan:policy` section, the `/plan` command, and the stable exit tool.
  * UIs observe committed flips through `session/event`; there is no live mirror.
  */
-/** 中文说明：class PlanModeController 定义本模块所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：class PlanModeController 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export class PlanModeController extends Service {
   static inject = ['tools', 'systemPrompt']
 

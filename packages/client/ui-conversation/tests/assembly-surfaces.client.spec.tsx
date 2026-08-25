@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证会话界面的 assembly-surfaces.client.spec.tsx 行为和边界。
  * 技术维度：Vitest、React 测试渲染、事件模拟与可控服务替身。
  * 产品维度：防止会话界面交互和展示在扩展后回归。
@@ -23,7 +23,7 @@ usePinnedBrowserLanguages('zh-CN')
 const SID = 's1' as SessionId
 
 /** jsdom has no ResizeObserver; the composer seat publishes its height through one. */
-/** 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}

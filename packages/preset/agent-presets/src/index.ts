@@ -20,7 +20,7 @@
  * unpublished, so a rejected composition rolls the whole creation back.
  * @module @deepseek-ai/dsh-agent-presets
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的Agent 预设配置、装载与运行时协作职责。
  * 技术维度：使用 TypeScript、Cordis 插件、事件日志、配置解析和异步生命周期管理。
  * 产品维度：让 Agent 能按用户配置启用Agent 预设并保持会话行为一致。
@@ -45,18 +45,18 @@ import { PresetMountError, UnknownPresetError, type AgentPreset, type Config, ty
 import type {} from './types.ts'
 
 /** Settings namespace carrying the user's chosen default preset. */
-/** 中文说明：常量 SETTINGS_NAMESPACE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SETTINGS_NAMESPACE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SETTINGS_NAMESPACE = 'agent-presets'
 
 /** The user-writable slice of this plugin's config. */
-/** 中文说明：interface AgentPresetSettings 定义本模块所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：interface AgentPresetSettings 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export interface AgentPresetSettings {
   /** Preset mounted when a session names none. */
   default?: string
 }
 
 /** Runtime schema for the user-writable slice. */
-/** 中文说明：变量 AgentPresetSettingsSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 AgentPresetSettingsSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const AgentPresetSettingsSchema: z<AgentPresetSettings> = z.object({
   default: z.string(),
 })
@@ -92,7 +92,7 @@ declare module '@deepseek-ai/cordis' {
  * call so a preset authored while the process runs is visible immediately,
  * and a preset deleted underneath a picker disappears from the next read.
  */
-/** 中文说明：class AgentPresets 定义本模块所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：class AgentPresets 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export class AgentPresets extends Service {
   static inject = ['loader']
 
@@ -571,7 +571,7 @@ export class AgentPresets extends Service {
 }
 
 /** The composition file identity one standing generation was mounted from. */
-/** 中文说明：interface CompositionStamp 定义本模块所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：interface CompositionStamp 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 interface CompositionStamp {
   /** Modification time in milliseconds, as `stat` reports it. */
   readonly mtimeMs: number
@@ -580,7 +580,7 @@ interface CompositionStamp {
 }
 
 /** Read one composition file's stamp, or undefined when it cannot be statted. */
-/** 中文说明：函数 compositionStamp 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 compositionStamp 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function compositionStamp(path: string): Promise<CompositionStamp | undefined> {
   try {
     const { mtimeMs, size } = await stat(path)
@@ -593,13 +593,13 @@ async function compositionStamp(path: string): Promise<CompositionStamp | undefi
 }
 
 /** Whether two stamps name the same file state. */
-/** 中文说明：函数 sameStamp 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 sameStamp 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function sameStamp(a: CompositionStamp, b: CompositionStamp): boolean {
   return a.mtimeMs === b.mtimeMs && a.size === b.size
 }
 
 /** One preset's standing composition. */
-/** 中文说明：interface StandingMount 定义本模块所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：interface StandingMount 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 interface StandingMount {
   /** Scope key agents are parented to; also the mount's registration scope. */
   readonly key: ScopeKey

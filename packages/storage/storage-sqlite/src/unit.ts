@@ -26,7 +26,7 @@
  * (write ordering is the caller's responsibility per the KV contract).
  * @module @deepseek-ai/dsh-storage-sqlite/unit
  */
-/**
+/*
  * 模块总览：本文件是 SQLite 后端的"单元运行时"。单语句 = 原子性来自 SQLite，
  * 应用层不需要事务，也没有写队列。
  */
@@ -37,7 +37,7 @@ import type { KvUnit, KvUnitDescriptor } from '@deepseek-ai/dsh-storage'
 import { recordTableName } from './schema.ts'
 
 /** Prepared statements for one declared table. */
-/**
+/*
  * 一张已声明表对应的三句预编译语句：写入（upsert）、删除、全量读取。
  */
 interface TableStatements {
@@ -51,7 +51,7 @@ interface TableStatements {
  * record tables exist; statements are prepared once here and reused for every
  * primitive. Values are stored as JSON text in the `value` column.
  */
-/**
+/*
  * SQLite 的 KvUnit 实现。由后端在"单元的记录表已存在之后"构造；
  * 语句在这里一次性预编译，之后每个原语复用。值以 JSON 文本存入 value 列。
  */
@@ -69,7 +69,7 @@ export class SqliteKvUnit implements KvUnit {
    * @param descriptor - Validated descriptor whose record tables already exist.
    * @param onClose - Backend callback releasing this unit's open-name slot.
    */
-  /**
+  /*
    * @param db 后端拥有的已打开数据库句柄（本类绝不关闭它）。
    * @param descriptor 已校验的描述符；其记录表此时已存在。
    * @param onClose 后端回调：单元关闭时释放其 open 槽位。
@@ -130,7 +130,7 @@ export class SqliteKvUnit implements KvUnit {
   }
 
   /** Parse one stored value column, mapping bad JSON to `malformed-medium`. */
-  /** 解析一个存储的 value 列；坏 JSON 映射为 malformed-medium 错误。 */
+  /* 解析一个存储的 value 列；坏 JSON 映射为 malformed-medium 错误。 */
   private parseValue(text: string, slot: string): unknown {
     try {
       return JSON.parse(text)
@@ -180,7 +180,7 @@ export class SqliteKvUnit implements KvUnit {
    * Run one synchronous primitive behind the closed guard, mapping a throw to
    * a rejection so the Promise-returning contract never throws synchronously.
    */
-  /**
+  /*
    * 在关闭守卫之后执行一个同步原语，并把同步抛错转成 rejection——
    * 这样"返回 Promise"的契约永远不会同步抛错（异步边界统一）。
    */

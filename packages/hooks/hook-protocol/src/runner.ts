@@ -5,7 +5,7 @@
  * captured outcome.
  * @module @deepseek-ai/dsh-hook-protocol/runner
  */
-/**
+/*
  * 文件职责：实现Hook 线协议的 runner.ts 模块。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
@@ -25,11 +25,11 @@ import type { CommandHook, HookOutput } from './types.ts'
  * config defaults to it, and a per-hook {@link CommandHook.timeoutSec} is the
  * override API.
  */
-/** 中文说明：协议局部值 DEFAULT_HOOK_TIMEOUT_MS，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 DEFAULT_HOOK_TIMEOUT_MS，由紧邻初始化决定。 */
 export const DEFAULT_HOOK_TIMEOUT_MS = 600_000
 
 /** Everything a single hook invocation needs beyond its command line. */
-/** 中文说明：类型或类 RunHookOptions 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 RunHookOptions 约束 Hook、守卫或目标数据职责。 */
 export interface RunHookOptions {
   /** The JSON payload object written to the hook's stdin (the bridge builds it). */
   payload: unknown
@@ -57,7 +57,7 @@ export interface RunHookOptions {
 }
 
 /** The {@link HookOutput} plus the wall-clock duration of the run (for `hook/result`). */
-/** 中文说明：类型或类 RunHookResult 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 RunHookResult 约束 Hook、守卫或目标数据职责。 */
 export interface RunHookResult {
   output: HookOutput
   /** Wall-clock duration of the run, from `now` — durable on the `hook/result` event. */
@@ -75,7 +75,14 @@ export interface RunHookResult {
  * @param now - millisecond clock used for the reported duration.
  * @returns the decoded output plus the run's wall-clock duration.
  */
-/** 中文说明：函数 runHook 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 runHook 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param bash 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param hook 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param now 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function runHook(
   bash: ShellExecutor,
   hook: CommandHook,

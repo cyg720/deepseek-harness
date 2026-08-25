@@ -1,5 +1,5 @@
 /** Keyless assembled-Web evidence for conversational Schedule delivery. */
-/** 无密钥验证组装 Web 中通过对话创建并投递定时提醒。 */
+/* 无密钥验证组装 Web 中通过对话创建并投递定时提醒。 */
 /**
  * 文件职责：验证 after、at 和 every 三类会话提醒从创建、触发到助手回复的完整 Web 流程。
  * 技术维度：使用 Playwright、Vitest、Schedule 事件折叠、自定义 LLM 适配器和真实会话上下文。
@@ -73,7 +73,7 @@ const EVERY_INTERVAL_SECONDS = 60 * 60
 const EVERY_FIXTURE_AGE_MS = 90 * 60 * 1_000
 
 /** Emit one complete assistant text response. */
-/** 将 text 包装为完整助手流片段数组。示例：textResponse('Reminder')。 */
+/* 将 text 包装为完整助手流片段数组。示例：textResponse('Reminder')。 */
 function textResponse(text: string): StreamChunk[] {
   return [
     { type: 'block-start', index: 0, blockType: 'text' },

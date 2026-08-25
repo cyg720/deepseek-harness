@@ -13,7 +13,7 @@
  * Run directly:
  *   pnpm exec tsx scripts/verify-client-domain-graph.ts
  */
-/**
+/*
  * 文件职责：实现 verify-client-domain-graph.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -31,17 +31,17 @@ const root = resolve(import.meta.dirname, '..')
 const CLIENT_DIR = join(root, 'packages/client')
 
 /** Directory names treated as the shared contract layer (importable by all). */
-/** 中文说明：常量 CONTRACT_DIRS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CONTRACT_DIRS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CONTRACT_DIRS = new Set(['contract'])
 /** Top-level client files allowed to import across domains (assembly layer). */
-/** 中文说明：常量 ASSEMBLY_FILES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ASSEMBLY_FILES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ASSEMBLY_FILES = new Set(['apply.ts', 'index.ts', 'index.tsx'])
 
 /** 中文说明：interface Violation 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface Violation { file: string; imported: string; reason: string }
 
 /** Recursively list .ts/.tsx files under dir (relative paths). */
-/** 中文说明：函数 listSources 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 listSources 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function listSources(dir: string): string[] {
   return globSync('**/*.{ts,tsx}', { cwd: dir })
     .map(rel => rel.split(sep).join('/'))
@@ -50,7 +50,7 @@ function listSources(dir: string): string[] {
 }
 
 /** First path segment of a client-relative file, or '' for top-level files. */
-/** 中文说明：函数 domainOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 domainOf 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function domainOf(rel: string): string {
   /** 中文说明：变量 ix 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ix = rel.indexOf('/')
@@ -63,7 +63,7 @@ function domainOf(rel: string): string {
  * @param specifier - Relative module specifier from that file.
  * @returns Normalized path, preserving leading `..` segments outside `src/client`.
  */
-/** 中文说明：函数 resolveClientImport 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 resolveClientImport 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function resolveClientImport(file: string, specifier: string): string {
   return posix.normalize(posix.join(posix.dirname(file), specifier))
 }

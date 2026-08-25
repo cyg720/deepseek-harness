@@ -6,7 +6,7 @@
  * a session log cannot reconstruct them alone.
  * @module @deepseek-ai/dsh-llm-replay
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的LLM 测试替身行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的LLM 测试替身能力保障 Agent 功能在集成层稳定。
@@ -43,7 +43,7 @@ const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool
  * streams and complete outputs of explicitly marked local compaction calls;
  * an override sidecar can supply any variant.
  */
-/** 中文说明：type ReplayEntry 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：type ReplayEntry 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type ReplayEntry =
   | { kind: 'chunks'; chunks: StreamChunk[] }
   | { kind: 'throw'; chunks: StreamChunk[]; message: string; code: string }
@@ -54,7 +54,7 @@ export type ReplayEntry =
   }
 
 /** One model exposed by a replay-only provider catalog. */
-/** 中文说明：interface ReplayModelConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface ReplayModelConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayModelConfig {
   /** Model id used for replay requests. */
   id: string
@@ -81,7 +81,7 @@ export interface ReplayModelConfig {
 }
 
 /** One provider route exposed by the replay adapter. */
-/** 中文说明：interface ReplayProviderConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface ReplayProviderConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayProviderConfig {
   /** Provider route used for replay requests. */
   id: string
@@ -94,7 +94,7 @@ export interface ReplayProviderConfig {
 }
 
 /** Resolved plugin configuration. */
-/** 中文说明：interface ReplayConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface ReplayConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayConfig {
   /**
    * Path to the PRIMARY (parent) `session.jsonl` fixture. For a single-session
@@ -140,7 +140,7 @@ export interface ReplayConfig {
  * issued fewer calls than recorded, or never bound a recorded child script)
  * into a crisp diagnostic at teardown.
  */
-/** 中文说明：interface ReplayHandle 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface ReplayHandle 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayHandle {
   /** Remove the registered adapter or waterfall listener (HMR safety). Freestanding closure — safe to destructure. */
   dispose(this: void): void
@@ -156,7 +156,7 @@ export interface ReplayHandle {
  * Recorded calls plus header facts used to order parent and child scripts.
  * Recorded ids are diagnostic; fresh live ids bind by ordered first use.
  */
-/** 中文说明：interface SessionScript 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface SessionScript 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface SessionScript {
   /** The recorded session id (diagnostics only — the live id differs). */
   recordedId: string
@@ -180,7 +180,11 @@ export interface SessionScript {
  * @param text - the raw `.jsonl` file contents.
  * @returns every event after the header, in log order.
  */
-/** 中文说明：函数 parseSessionLog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 parseSessionLog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param text 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function parseSessionLog(text: string): SessionEvent[] {
   /** 中文说明：变量 events 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events: SessionEvent[] = []
@@ -240,7 +244,11 @@ export function parseSessionLog(text: string): SessionEvent[] {
  * @param text - the raw `.jsonl` file contents (only the header line is read).
  * @returns the header's `id`, `createdAt`, and `seedLength`, defaulted when absent.
  */
-/** 中文说明：函数 parseSessionHeader 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 parseSessionHeader 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param text 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function parseSessionHeader(text: string): { id: string; createdAt: number; seedLength: number } {
   /** 中文说明：函数值 firstLine 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const firstLine = text.split('\n').find(line => line.trim().length > 0) ?? '{}'
@@ -266,7 +274,11 @@ export function parseSessionHeader(text: string): { id: string; createdAt: numbe
  * @param events - the recorded session's events.
  * @returns one `chunks` entry per recorded model call, in call order.
  */
-/** 中文说明：函数 deriveReplayScript 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 deriveReplayScript 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
   /** 中文说明：变量 script 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const script: ReplayEntry[] = []
@@ -341,7 +353,7 @@ export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
  * equals the derived length (an extra recorded-after-the-fact call, e.g. the
  * retry attempt following an injected transient throw).
  */
-/** 中文说明：interface ReplayOverridePatch 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface ReplayOverridePatch 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayOverridePatch {
   /** 0-based call index into the derived script; == length appends. */
   at: number
@@ -355,7 +367,7 @@ export interface ReplayOverridePatch {
  * the JSONL-derived script and swaps only the named call indexes — the shape
  * for "turn N errors, everything else replays as recorded".
  */
-/** 中文说明：type ReplayOverrideDoc 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：type ReplayOverrideDoc 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type ReplayOverrideDoc = ReplayEntry[] | { patches: ReplayOverridePatch[] }
 
 /** 中文说明：常量 REPLAY_CHUNK_TYPES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
@@ -375,7 +387,7 @@ const FROM_REQUEST_OPEN = '{{fromRequest:'
 const FROM_REQUEST_CLOSE = '}}'
 
 /** Collect every string leaf of one JSON-compatible value, in traversal order. */
-/** 中文说明：函数 collectStrings 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 collectStrings 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function collectStrings(value: unknown, out: string[]): void {
   if (typeof value === 'string') {
     out.push(value)
@@ -393,7 +405,7 @@ function collectStrings(value: unknown, out: string[]): void {
 }
 
 /** Resolve one placeholder pattern against the request corpus; the LAST match wins. */
-/** 中文说明：函数 resolveFromRequest 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 resolveFromRequest 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveFromRequest(pattern: string, corpus: string): string {
   /** 中文说明：变量 regex 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let regex: RegExp
@@ -414,7 +426,7 @@ function resolveFromRequest(pattern: string, corpus: string): string {
 }
 
 /** Replace every `{{fromRequest:<pattern>}}` occurrence in one scripted string. */
-/** 中文说明：函数 substituteString 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 substituteString 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function substituteString(text: string, corpus: string): string {
   /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let result = ''
@@ -440,7 +452,7 @@ function substituteString(text: string, corpus: string): string {
 }
 
 /** Deep-copy one JSON-compatible value with scripted placeholders resolved. */
-/** 中文说明：函数 substituteValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 substituteValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function substituteValue(value: unknown, corpus: string): unknown {
   if (typeof value === 'string') {
     return value.includes(FROM_REQUEST_OPEN) ? substituteString(value, corpus) : value
@@ -468,7 +480,12 @@ function substituteValue(value: unknown, corpus: string): unknown {
  * @param messages - the live request messages searched by the placeholders.
  * @returns the entry itself when no placeholder appears, else a resolved deep copy.
  */
-/** 中文说明：函数 resolveScriptedEntry 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 resolveScriptedEntry 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param entry 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param messages 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveScriptedEntry(entry: ReplayEntry, messages: GenerateOptions['messages']): ReplayEntry {
   if (!JSON.stringify(entry).includes(FROM_REQUEST_OPEN)) return entry
   /** 中文说明：变量 leaves 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -578,7 +595,11 @@ function readOverrideDoc(value: unknown, file: string): ReplayOverrideDoc {
  * @param config - the fixture paths; only `file` and `overrideFile` are consulted.
  * @returns the resolved primary-session script.
  */
-/** 中文说明：函数 loadReplayScript 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 loadReplayScript 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function loadReplayScript(config: ReplayConfig): ReplayEntry[] {
   if (config.overrideFile !== undefined && existsSync(config.overrideFile)) {
     /** 中文说明：变量 doc 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -610,7 +631,7 @@ export function loadReplayScript(config: ReplayConfig): ReplayEntry[] {
 }
 
 /** Derive the primary script from the session JSONL, failing loud on a missing fixture. */
-/** 中文说明：函数 deriveScriptFromFile 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 deriveScriptFromFile 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function deriveScriptFromFile(file: string): ReplayEntry[] {
   if (!existsSync(file)) {
     throw new Error(`llm-replay: fixture not found: ${file} — run \`pnpm run test:snapshot:record\` first`)
@@ -625,7 +646,11 @@ function deriveScriptFromFile(file: string): ReplayEntry[] {
  * @param config - the fixture paths: the primary log plus any recorded child logs.
  * @returns the primary script first, then the child scripts in bind order.
  */
-/** 中文说明：函数 loadSessionScripts 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 loadSessionScripts 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function loadSessionScripts(config: ReplayConfig): SessionScript[] {
   /** 中文说明：变量 primaryEntries 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const primaryEntries = loadReplayScript(config)
@@ -669,7 +694,7 @@ export function loadSessionScripts(config: ReplayConfig): SessionScript[] {
 }
 
 /** Replay adapter that makes a configured provider catalog discoverable without provider I/O. */
-/** 中文说明：class ReplayAdapter 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：class ReplayAdapter 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 class ReplayAdapter extends LlmAdapter {
   private readonly providers: ReadonlyMap<string, ReplayProviderConfig>
 
@@ -757,7 +782,7 @@ class ReplayAdapter extends LlmAdapter {
  * moment the signal fires — a paced replay must cancel as promptly as a burst
  * one.
  */
-/** 中文说明：函数 paceDelay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 paceDelay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function paceDelay(paceMs: number, signal: AbortSignal | undefined): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     /** 中文说明：函数值 timer 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
@@ -826,7 +851,12 @@ async function* replayEntry(entry: ReplayEntry, signal: AbortSignal | undefined,
  * @param config - the resolved fixture paths (env-var defaulting is `apply`'s job).
  * @returns the {@link ReplayHandle} carrying the disposer and the teardown consumption check.
  */
-/** 中文说明：函数 installLlmReplay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 installLlmReplay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHandle {
   /** 中文说明：变量 paceMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const paceMs = config.paceMs ?? 0
@@ -928,7 +958,7 @@ export const name = 'llm-replay'
 export const inject = ['llm']
 
 /** Plugin config: the {@link ReplayConfig} inputs, each defaulting to its `DSH_SNAPSHOT_*` env var in `apply`. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface Config {
   /** Override the fixture path; defaults to `$DSH_SNAPSHOT_FILE`. */
   file?: string

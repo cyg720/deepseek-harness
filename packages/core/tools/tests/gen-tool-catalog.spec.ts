@@ -1,7 +1,7 @@
 /**
  * Guarantee tests for the tool-schema catalog generator (`scripts/gen-tool-catalog.ts`).
  */
-/**
+/*
  * 文件职责：验证工具注册与执行的 gen-tool-catalog.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
  * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。
@@ -23,7 +23,7 @@ import {
 } from '../../../../scripts/gen-tool-catalog.ts'
 
 /** JSON Schema shape enough to reach the values AST extraction can't. */
-/** 中文说明：类型或类 JsonSchema 约束服务或测试数据职责。 */
+/* 中文说明：类型或类 JsonSchema 约束服务或测试数据职责。 */
 interface JsonSchema {
   type: string
   properties?: Record<string, JsonSchema>

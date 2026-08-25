@@ -3,7 +3,7 @@
  * carries no descriptor event is surfaced by `list_agents` as a
  * `[diagnostic: corrupt]` row instead of being silently dropped.
  */
-/**
+/*
  * 文件职责：验证缺少子代理描述符事件的冷子会话会以损坏诊断行出现在 list_agents，而非静默消失。
  * 技术维度：使用 Vitest、SessionStore、JSONL 持久化、Loader smoke、模型回放和会话快照归一化。
  * 产品维度：让用户与维护者能发现发布窗口中断造成的不完整子代理记录并进行排查。
@@ -40,7 +40,7 @@ const task = 'Call list_agents once and report what it shows.'
  * as a subagent (`origin`) but never appended its descriptor event — the
  * publication-window death the diagnostic row exists for.
  */
-/** 中文说明：写入已完成父回合和仅由 header 标识为子代理、但从未发布描述符事件的冷子会话。 */
+/* 中文说明：写入已完成父回合和仅由 header 标识为子代理、但从未发布描述符事件的冷子会话。 */
 async function seedDescriptorlessChild(root: string, cwd: string): Promise<void> {
   const ctx = new Context()
   await ctx.plugin(SessionStore)

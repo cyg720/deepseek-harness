@@ -15,7 +15,7 @@
  *
  * @module @deepseek-ai/dsh-anonymous-user-id
  */
-/**
+/*
  * 文件职责：实现匿名身份的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证匿名身份在授权、等待、失败和清理场景中可靠。
@@ -31,18 +31,18 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 
 /** A harness-home-scoped anonymous user id (random UUID v4). */
-/** 中文说明：类型或类 AnonymousUserId 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 AnonymousUserId 约束宿主、交互或任务数据职责。 */
 export type AnonymousUserId = Branded<'AnonymousUserId'>
 
 /** File inside the harness home storing the id: a bare UUID line, no wrapper format. */
-/** 中文说明：服务局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 解构结果，由紧邻初始化决定。 */
 export const ANONYMOUS_USER_ID_FILE_NAME = '.anonymous-user-id'
 
 /** 中文说明：服务局部值 UUID_PATTERN，由紧邻初始化决定。 */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Ambient hooks for locating and generating the id; every field has a default. */
-/** 中文说明：类型或类 AnonymousUserIdOptions 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 AnonymousUserIdOptions 约束宿主、交互或任务数据职责。 */
 export interface AnonymousUserIdOptions {
   /** Environment consulted for `DSH_HOME`; defaults to `process.env`. */
   env?: NodeJS.ProcessEnv
@@ -51,11 +51,11 @@ export interface AnonymousUserIdOptions {
 }
 
 /** Process-lifetime memo keyed by resolved file path, so distinct test homes never share an id. */
-/** 中文说明：服务局部值 memo，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 memo，由紧邻初始化决定。 */
 const memo = new Map<string, AnonymousUserId>()
 
 /** Read a valid persisted id from the file, or `undefined` when absent/corrupt. */
-/** 中文说明：函数 readPersistedId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 readPersistedId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function readPersistedId(file: string): AnonymousUserId | undefined {
   /** 中文说明：服务局部值 text: string，由紧邻初始化决定。 */
   let text: string
@@ -81,7 +81,11 @@ function readPersistedId(file: string): AnonymousUserId | undefined {
  * @param options - home-location and UUID-generation seams.
  * @returns the stable per-harness-home anonymous user id.
  */
-/** 中文说明：函数 getOrCreateAnonymousUserId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 getOrCreateAnonymousUserId 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function getOrCreateAnonymousUserId(options: AnonymousUserIdOptions = {}): AnonymousUserId {
   /** 中文说明：服务局部值 file，由紧邻初始化决定。 */
   const file = join(resolveDshHome(undefined, options.env ?? process.env), ANONYMOUS_USER_ID_FILE_NAME)

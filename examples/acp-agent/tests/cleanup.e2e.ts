@@ -1,5 +1,5 @@
 /** Regression coverage for ACP example teardown. */
-/**
+/*
  * 文件职责：验证 ACP 示例清理器即使进程关闭失败也会删除工作区，并能汇总双重失败。
  * 技术维度：使用 Vitest mock、临时目录和 AggregateError 检查异步清理路径。
  * 产品维度：避免自动化示例失败后泄漏临时文件，同时保留所有清理诊断。

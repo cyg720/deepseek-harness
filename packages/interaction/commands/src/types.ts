@@ -7,7 +7,7 @@
  * @module @deepseek-ai/dsh-commands/types
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-commands 的"持久化命令事件词汇 + 注册表事件声明"，供纯类型消费方共享：
  *   命令的不可变描述（CommandDescriptor）、执行结果（CommandResult）、输入描述等。

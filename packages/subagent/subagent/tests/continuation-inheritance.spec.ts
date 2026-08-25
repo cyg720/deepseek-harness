@@ -5,7 +5,7 @@
  * resume replays that persisted snapshot instead of re-capturing the parent
  * (the one-shot `subagent-inprocess/tests/inheritance.spec.ts` counterpart).
  */
-/**
+/*
  * 文件职责：验证 continuation-inheritance.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -48,7 +48,7 @@ afterEach(async () => {
 })
 
 /** Boot the continuable stack plus both policy services the manager consumes opportunistically. */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(script: Script) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -81,7 +81,7 @@ function startSpec(parent: Agent, provider = 'spawn') {
 }
 
 /** Wait until a child's Activation is gone, i.e. its handle finished disposal. */
-/** 中文说明：函数 waitNoActivation 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 waitNoActivation 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitNoActivation(ctx: Context, childId: SessionId): Promise<void> {
   await vi.waitFor(() => {
     expect(ctx.agents.get(childId)).toBeUndefined()

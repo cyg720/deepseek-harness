@@ -2,7 +2,7 @@
  * Human-facing `/goal` command over the persisted same-session goal domain.
  * @module @deepseek-ai/dsh-command-goal
  */
-/**
+/*
  * 文件职责：实现目标管理的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
@@ -37,14 +37,14 @@ type GoalCommand =
 
 /** Fail loudly if a locally closed union gains an unhandled member. */
 /* v8 ignore start -- closed-union backstop is unreachable without violating the TypeScript contract */
-/** 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertNever(value: never, label: string): never {
   throw new TypeError(`unknown ${label}: ${String(value)}`)
 }
 /* v8 ignore stop */
 
 /** Parse only the grammar owned by `/goal`; arbitrary other input is an objective. */
-/** 中文说明：函数 parseGoalCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 parseGoalCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function parseGoalCommand(rawInput: string): GoalCommand {
   /** 中文说明：领域局部值 input，由紧邻初始化决定。 */
   const input = rawInput.trim()
@@ -60,7 +60,7 @@ function parseGoalCommand(rawInput: string): GoalCommand {
 }
 
 /** Human label for one durable goal phase. */
-/** 中文说明：函数 phaseLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 phaseLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function phaseLabel(phase: GoalPhase): string {
   switch (phase) {
     case 'active': return 'active'
@@ -73,7 +73,7 @@ function phaseLabel(phase: GoalPhase): string {
 }
 
 /** Commands that are meaningful from one exact live state. */
-/** 中文说明：函数 commandHint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 commandHint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function commandHint(goal: GoalView): string {
   if (goal.phase === 'active') {
     return goal.activation === 'armed'
@@ -92,7 +92,7 @@ function commandHint(goal: GoalView): string {
 }
 
 /** Render direct UI output without exposing compare-and-set internals. */
-/** 中文说明：函数 renderGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderGoal(title: string, goal: GoalView): CommandResult {
   /** 中文说明：领域局部值 reason，由紧邻初始化决定。 */
   const reason = goal.phase === 'blocked' ? goal.blockedReason : undefined
@@ -116,13 +116,13 @@ function renderGoal(title: string, goal: GoalView): CommandResult {
 }
 
 /** Exact current compare-and-set ref. */
-/** 中文说明：函数 goalRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 goalRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalRef(goal: GoalView): GoalRef {
   return { id: goal.id, revision: goal.revision }
 }
 
 /** Direct error for an operation that requires a current goal. */
-/** 中文说明：函数 missingGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 missingGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function missingGoal(action: string): CommandResult {
   return {
     kind: 'error',
@@ -136,7 +136,7 @@ function missingGoal(action: string): CommandResult {
  * block naming their role, so a later goal round reads them from ordinary
  * session history without the goal domain storing attachment state.
  */
-/** 中文说明：函数 submitObjectiveAttachments 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 submitObjectiveAttachments 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function submitObjectiveAttachments(invocation: CommandInvocation): void {
   if (invocation.attachments.length === 0) return
   invocation.agent.followup(createUserMessage({
@@ -146,7 +146,7 @@ function submitObjectiveAttachments(invocation: CommandInvocation): void {
 }
 
 /** Execute one parsed human command through the domain that owns persistence. */
-/** 中文说明：函数 executeGoalCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 executeGoalCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function executeGoalCommand(ctx: Context, invocation: CommandInvocation): CommandResult {
   /** 中文说明：领域局部值 command，由紧邻初始化决定。 */
   const command = parseGoalCommand(invocation.rawInput)
@@ -216,7 +216,7 @@ function executeGoalCommand(ctx: Context, invocation: CommandInvocation): Comman
 }
 
 /** Register the Codex-shaped `/goal` command for every composed command adapter. */
-/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function apply(ctx: Context): void {
   ctx.commands.register({
     name: 'goal',

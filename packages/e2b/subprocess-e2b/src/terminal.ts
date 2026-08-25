@@ -1,5 +1,5 @@
 /** E2B PTY allocation and process-session ownership for the subprocess seam. */
-/**
+/*
  * 文件职责：实现E2B 远程沙箱的 terminal.ts 模块。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
@@ -318,7 +318,7 @@ async function rollbackUnpublishedTerminal(
 }
 
 /** One E2B PTY and all process groups in its remote process session. */
-/** 中文说明：类型或类 E2BTerminalHandle 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 E2BTerminalHandle 约束远程资源或测试数据职责。 */
 export class E2BTerminalHandle implements SubprocessTerminalHandle {
   readonly pid: number
   readonly done: Promise<SubprocessOutcome>
@@ -505,7 +505,14 @@ export class E2BTerminalHandle implements SubprocessTerminalHandle {
  * @param pollMs - Remote session liveness poll cadence.
  * @returns The live subprocess terminal handle.
  */
-/** 中文说明：函数 spawnE2BTerminal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 spawnE2BTerminal 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param runtime 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param stateDir 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param pollMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function spawnE2BTerminal(
   runtime: E2BRuntime,
   spec: SubprocessTerminalSpawnSpec,

@@ -5,7 +5,7 @@
  * what is under test is the round trip itself — the engine has its own account in
  * runner.spec.
  */
-/**
+/*
  * 文件职责：验证Cordis 客户端运行器的 orchestrator.client.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证Cordis 客户端运行器在配置、运行、失败和清理场景中可理解且可靠。
@@ -45,12 +45,12 @@ const HOST_OK: Extract<DynamicCordisHostHalfResult, { ok: true }> = {
   startedHere: true,
 }
 /** A user's own run of a two-half definition: the host half, then this page's half. */
-/** 中文说明：测试局部值 DUAL，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 DUAL，由紧邻初始化决定。 */
 const DUAL: CordisUserRunRequest = {
   agentId: AGENT, pluginId: PLUGIN, packageId: PACKAGE, mode: 'run', hasClientHalf: true,
 }
 /** A user's own run of a host-only definition: nothing for this page to load. */
-/** 中文说明：测试局部值 HOST_ONLY，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 HOST_ONLY，由紧邻初始化决定。 */
 const HOST_ONLY: CordisUserRunRequest = { ...DUAL, hasClientHalf: false }
 
 /** 中文说明：类型或类 Bench 约束扩展或反馈数据职责。 */
@@ -108,7 +108,7 @@ function boot(overrides: {
 }
 
 /** Register one request the way the `cordis/request-run` event does. */
-/** 中文说明：函数 ask 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ask 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function ask(bench: Bench, requestId: ApprovalRequestId = REQ): void {
   bench.orchestrator.open({
     requestId,

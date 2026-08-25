@@ -26,7 +26,7 @@ import css from './DiffBlock.module.css'
  * {@link DEFAULT_TERMINAL_MAX_LINES} so a diff card and a terminal card cut a
  * long body at the same place.
  */
-/** 中文说明：组件局部值 DEFAULT_DIFF_MAX_LINES，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 DEFAULT_DIFF_MAX_LINES，由紧邻初始化决定。 */
 export const DEFAULT_DIFF_MAX_LINES = 16
 
 /**
@@ -34,7 +34,7 @@ export const DEFAULT_DIFF_MAX_LINES = 16
  * render-intent contract's `FileDiff`, redeclared here so this primitive stays
  * free of the tool contract (the terminal card's decoupling, applied to diffs).
  */
-/** 中文说明：类型或类 DiffHunk 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 DiffHunk 约束基础组件的数据或职责。 */
 export interface DiffHunk {
   /** The changed file's path, drawn verbatim as the hunk's header (the tool's model-facing path). */
   path: string
@@ -55,21 +55,21 @@ export interface DiffBlockProps {
 }
 
 /** A single rendered body line and its role, so the height cap slices a flat list. */
-/** 中文说明：类型或类 DiffRow 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 DiffRow 约束基础组件的数据或职责。 */
 interface DiffRow {
   kind: 'path' | 'del' | 'add' | 'gap'
   text: string
 }
 
 /** Local exhaustiveness helper — this package does not depend on `dsh-llm`. */
-/** 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 /* v8 ignore next 3 -- closed-union backstop; only reached if a row kind is forged */
 function assertNever(value: never): never {
   throw new Error(`unreachable diff row kind: ${String(value)}`)
 }
 
 /** The dim class per row kind (path/gap chrome vs the diff's own +/- colors). */
-/** 中文说明：组件局部值 ROW_CLASS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 ROW_CLASS，由紧邻初始化决定。 */
 const ROW_CLASS: Record<DiffRow['kind'], string | undefined> = {
   path: css.path,
   del: css.del,
@@ -87,7 +87,7 @@ const ROW_CLASS: Record<DiffRow['kind'], string | undefined> = {
  * @param diffs - the hunks to render.
  * @returns the body rows, the +/- totals, and the distinct-file count.
  */
-/** 中文说明：函数 buildRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 buildRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function buildRows(diffs: DiffHunk[]): { rows: DiffRow[]; added: number; removed: number; files: number } {
   /** 中文说明：组件局部值 rows，由紧邻初始化决定。 */
   const rows: DiffRow[] = []
@@ -130,7 +130,7 @@ function buildRows(diffs: DiffHunk[]): { rows: DiffRow[]; added: number; removed
  * @param text - the removed or added side's text.
  * @returns the content lines, without the terminating newline.
  */
-/** 中文说明：函数 contentLines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 contentLines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function contentLines(text: string): string[] {
   if (text === '') return []
   /** 中文说明：组件局部值 body，由紧邻初始化决定。 */
@@ -145,7 +145,7 @@ function contentLines(text: string): string[] {
  * @param rows - the flattened body rows.
  * @returns the diff as plain text.
  */
-/** 中文说明：函数 copyText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 copyText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function copyText(rows: DiffRow[]): string {
   return rows.map((row) => {
     switch (row.kind) {
@@ -164,7 +164,7 @@ function copyText(rows: DiffRow[]): string {
  * @param props - see {@link DiffBlockProps}.
  * @returns the diff block element.
  */
-/** 中文说明：函数 DiffBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 DiffBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className }: DiffBlockProps) {
   /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const { rows, added, removed, files } = useMemo(() => buildRows(diffs), [diffs])

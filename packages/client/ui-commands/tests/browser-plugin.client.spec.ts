@@ -6,7 +6,7 @@
  * scope → popupFor; unknown id fails loud), both fold up on fiber disposal
  * (HMR safety), and the service satisfies the frozen CommandUiContract.
  */
-/**
+/*
  * 文件职责：验证命令弹层的 browser-plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 测试渲染和可控替身。
  * 产品维度：防止命令弹层用户流程发生回归。

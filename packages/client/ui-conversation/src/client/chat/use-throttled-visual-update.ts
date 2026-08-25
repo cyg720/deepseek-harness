@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】提供 useThrottledVisualUpdate：按帧间隔合并（coalesce）非关键的视觉对齐
  *             更新，返回稳定的调度函数。
@@ -23,7 +23,7 @@ const DEFAULT_INTERVAL_FRAMES = 3
  * @param intervalFrames - frames to wait before applying the latest alignment.
  * @returns a stable function that schedules the latest update.
  */
-/**
+/*
  * 返回一个稳定的调度器，按帧间隔合并视觉更新。
  * 使用示例：const schedule = useThrottledVisualUpdate(() => align(), 3)；事件里调 schedule()。
  * @param update - 节流间隔结束后要执行的 DOM 对齐。

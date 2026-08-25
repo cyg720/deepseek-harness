@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】把"最终 LLM 适配器边界抛出的任意值"规范化为可序列化的 LlmFailure
  * 事实对象，供终结性 finish 块使用；核心函数是 normalizeLlmFailure。
@@ -26,7 +26,7 @@
 import { HarnessError } from './error.ts'
 import type { LlmFailure } from './types.ts'
 
-/**
+/*
  * （中文）从适配器抛出的值中剥离出可序列化的 provider 失败事实。若传入的不是
  * Error 实例，先包装成 code 为 UNKNOWN 的 HarnessError；若它是跨包拷贝的
  * HarnessError（自带 failure 快照且 code 与自身属性一致），则信任并返回该快照，

@@ -1,5 +1,5 @@
 /** Tests for the generated Cordis core API reference. */
-/**
+/*
  * 中文说明：
  * - 文件职责：验证 Cordis 核心 API 文档生成器从固定 vendor 声明渲染完整页面并拒绝缺失 JSDoc。
  * - 技术维度：使用 Vitest、临时目录、同步文件 API、TypeScript 源码解析和 Markdown 字符串断言。

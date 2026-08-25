@@ -1,5 +1,5 @@
 /** JSON string-prefix accounting for the outer-output ledger. @module @deepseek-ai/dsh-code-runtime-worker-thread/output-json */
-/**
+/*
  * 文件职责：实现代码运行时的 output-json 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供代码运行时能力。
@@ -41,7 +41,7 @@ const intrinsicStringCodePointAt = Reflect.get(String.prototype, 'codePointAt') 
 const intrinsicStringSlice = Reflect.get(String.prototype, 'slice') as IntrinsicCallable
 
 /** Build a data descriptor that cannot inherit model-defined accessor fields. */
-/** 中文说明：函数 dataDescriptor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 dataDescriptor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function dataDescriptor(value: unknown): PropertyDescriptor {
   /** 中文说明：运行时局部值 descriptor，由紧邻初始化决定。 */
   const descriptor = intrinsicObjectCreate(null) as PropertyDescriptor
@@ -50,7 +50,7 @@ function dataDescriptor(value: unknown): PropertyDescriptor {
 }
 
 /** Define an ordinary enumerable data slot without a prototype-bearing descriptor. */
-/** 中文说明：函数 defineEnumerableDataProperty 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 defineEnumerableDataProperty 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function defineEnumerableDataProperty(target: object, key: PropertyKey, value: unknown): void {
   /** 中文说明：运行时局部值 descriptor，由紧邻初始化决定。 */
   const descriptor = dataDescriptor(value)
@@ -61,19 +61,19 @@ function defineEnumerableDataProperty(target: object, key: PropertyKey, value: u
 }
 
 /** UTF-8 byte length through the module-captured Node intrinsic. */
-/** 中文说明：函数 byteLength 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 byteLength 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function byteLength(text: string): number {
   return intrinsicReflectApply(intrinsicBufferByteLength, IntrinsicBuffer, [text, 'utf8']) as number
 }
 
 /** Append without consulting a model-mutated `Array.prototype`. */
-/** 中文说明：函数 append 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 append 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function append<T>(target: T[], value: T): void {
   defineEnumerableDataProperty(target, target.length, value)
 }
 
 /** Pop without consulting a model-mutated `Array.prototype`. */
-/** 中文说明：函数 takeLast 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 takeLast 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function takeLast<T>(target: T[]): T | undefined {
   if (target.length === 0) return undefined
   /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
@@ -85,7 +85,7 @@ function takeLast<T>(target: T[]): T | undefined {
 }
 
 /** One code-point-aligned character from a string. */
-/** 中文说明：函数 characterAt 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 characterAt 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function characterAt(text: string, index: number): string {
   /** 中文说明：运行时局部值 codePoint，由紧邻初始化决定。 */
   const codePoint = intrinsicReflectApply(intrinsicStringCodePointAt, text, [index]) as number
@@ -95,7 +95,7 @@ function characterAt(text: string, index: number): string {
 }
 
 /** Serialized bytes contributed by one complete Unicode code point inside JSON quotes. */
-/** 中文说明：函数 serializedCharacterBytes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 serializedCharacterBytes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function serializedCharacterBytes(character: string): number {
   if (character.length === 2) return 4
   if (character === '"' || character === '\\') return 2
@@ -112,7 +112,7 @@ function serializedCharacterBytes(character: string): number {
  * @param maxBytes - largest serialized size the caller can admit.
  * @returns Exact serialized bytes, or `undefined` as soon as the cap is crossed.
  */
-/** 中文说明：函数 jsonStringBytesUpTo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 jsonStringBytesUpTo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function jsonStringBytesUpTo(text: string, maxBytes: number): number | undefined {
   if (maxBytes < 2) return undefined
   /** 中文说明：运行时局部值 bytes，由紧邻初始化决定。 */
@@ -134,7 +134,7 @@ export function jsonStringBytesUpTo(text: string, maxBytes: number): number | un
  * @param maxBytes - largest serialized size the caller can admit.
  * @returns Exact serialized bytes, or `undefined` as soon as the cap is crossed.
  */
-/** 中文说明：函数 jsonValueBytesUpTo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 jsonValueBytesUpTo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function jsonValueBytesUpTo(value: CodeJsonValue, maxBytes: number): number | undefined {
   /** 中文说明：类型或类 Task 约束协议数据或模块职责。 */
   type Task =
@@ -214,7 +214,7 @@ export function jsonValueBytesUpTo(value: CodeJsonValue, maxBytes: number): numb
  * @param maxBytes - serialized JSON-string bytes available.
  * @returns the fitting prefix, or an empty string when even useful content cannot fit.
  */
-/** 中文说明：函数 truncateJsonStringBytes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 truncateJsonStringBytes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function truncateJsonStringBytes(text: string, maxBytes: number): string {
   if (maxBytes < 2) return ''
   /** 中文说明：运行时局部值 bytes，由紧邻初始化决定。 */

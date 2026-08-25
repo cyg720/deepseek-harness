@@ -1,5 +1,5 @@
 /** Verify package-owned invariant source and publication rules. */
-/**
+/*
  * 文件职责：执行包自有不变量伴生模块的源码与发布规则校验。
  * 技术维度：使用 Node.js ESM 脚本调用共享收集器，并以进程退出码向仓库门禁报告结果。
  * 产品维度：确保每个发布包的诊断伴生入口可发现、命名一致且不会遗漏发布文件。

@@ -52,7 +52,7 @@ interface WindowStats {
  * @param nodes - snapshot nodes.
  * @returns fallback counts and summed wall times.
  */
-/** 中文说明：函数 deriveStats 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 deriveStats 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function deriveStats(nodes: ConversationSnapshot['nodes']): WindowStats {
   /** 中文说明：当前组件的局部值 turns，由紧邻初始化决定。 */
   const turns = new Set<number>()
@@ -101,7 +101,7 @@ export function deriveStats(nodes: ConversationSnapshot['nodes']): WindowStats {
  * @param n - token count.
  * @returns display string.
  */
-/** 中文说明：函数 formatTokens 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 formatTokens 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function formatTokens(n: number): string {
   /** 中文说明：当前组件的局部值 scaled，由紧邻初始化决定。 */
   const scaled = (v: number): string =>
@@ -116,7 +116,7 @@ export function formatTokens(n: number): string {
  * @param ms - duration in milliseconds.
  * @returns display string.
  */
-/** 中文说明：函数 formatDuration 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 formatDuration 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function formatDuration(ms: number): string {
   /** 中文说明：当前组件的局部值 s，由紧邻初始化决定。 */
   const s = ms / 1_000
@@ -127,7 +127,7 @@ export function formatDuration(ms: number): string {
 }
 
 /** Round a cache-read ratio to an integer percentage, with positive ties rounded up. */
-/** 中文说明：函数 roundedIntegerPercent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 roundedIntegerPercent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function roundedIntegerPercent(cacheReadTokens: number, denominator: number): number {
   /** 中文说明：当前组件的局部值 denominatorQuotient，由紧邻初始化决定。 */
   const denominatorQuotient = Math.floor(denominator / 200)
@@ -161,7 +161,7 @@ function roundedIntegerPercent(cacheReadTokens: number, denominator: number): nu
  * minimum decimal precision that still rounds below 100; a full hit returns
  * 100, and no billed input returns null.
  */
-/** 中文说明：函数 cacheHitPercent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 cacheHitPercent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function cacheHitPercent(usage: TokenUsageProjection): string | null {
   /** 中文说明：当前组件的局部值 denominator，由紧邻初始化决定。 */
   const denominator = billedInputTokens(usage)
@@ -211,7 +211,7 @@ export function cacheHitPercent(usage: TokenUsageProjection): string | null {
  * @param usage - the session's token-usage projection value.
  * @returns billed input tokens.
  */
-/** 中文说明：函数 billedInputTokens 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 billedInputTokens 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function billedInputTokens(usage: TokenUsageProjection): number {
   return usage.uncachedInputTokens + usage.cacheReadTokens + usage.cacheWriteTokens
 }
@@ -235,7 +235,7 @@ interface ContextOccupancy {
  * @param pressure - the session's context-pressure projection value.
  * @returns occupancy with its numerator and denominator, or null until both values are known.
  */
-/** 中文说明：函数 contextOccupancy 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 contextOccupancy 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function contextOccupancy(
   pressure: ContextPressureProjection | undefined,
 ): ContextOccupancy | null {
@@ -250,7 +250,7 @@ export function contextOccupancy(
 }
 
 /** Props: the conversation-snapshot selector plus the projection read seat. */
-/** 中文说明：类型或类 StatsLineProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 StatsLineProps 约束本文件的数据或组件职责。 */
 export interface StatsLineProps {
   useSession: SnapshotSelectorHook<ConversationSnapshot>
   useProjection: UseProjection

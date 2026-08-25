@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】提供 micromark 语法扩展 mathCompatibility()：在官方 dollar 数学语法之外，
  *             兼容 TeX 定界符写法——\\(...\\) 行内数学、\\[...\\] 块级数学、以及同一行内的
@@ -390,7 +390,7 @@ const backslashMath: Extension = {
  * compile to standard math nodes.
  * @returns The micromark syntax extension.
  */
-/**
+/*
  * 生成"TeX 定界符兼容"micromark 语法扩展。复用 micromark-extension-math 的 token 词表；
  * 调用方必须在同一份解析上同时注册 math()，才能把发出的 token 编译成标准数学节点。
  * 使用示例：fromMarkdown(text, { extensions: [gfm(), cjkFriendlyStrong(), mathCompatibility(), math()] })。

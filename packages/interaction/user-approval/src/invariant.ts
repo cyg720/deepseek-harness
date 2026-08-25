@@ -1,5 +1,5 @@
 /** Package-owned approval audit-stream invariants. @module @deepseek-ai/dsh-user-approval/invariant */
-/**
+/*
  * 文件职责：实现交互与审批的 invariant.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
@@ -20,10 +20,10 @@ const PACKAGE_NAME = '@deepseek-ai/dsh-user-approval'
 const APPROVAL_OUTCOMES = ['allowed-once', 'rejected', 'cancelled', 'unavailable'] as const
 
 /** Cordis companion plugin name. */
-/** 中文说明：服务局部值 name，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 name，由紧邻初始化决定。 */
 export const name = 'user-approval-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文说明：服务局部值 inject，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 inject，由紧邻初始化决定。 */
 export const inject = ['invariants']
 
 /** 中文说明：类型或类 ApprovalTransition 约束宿主、交互或任务数据职责。 */
@@ -38,7 +38,7 @@ interface ApprovalTrace {
 }
 
 /** Validate one approval event against committed unmatched questions. */
-/** 中文说明：函数 validateApprovalEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateApprovalEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateApprovalEvent(
   trace: ApprovalTrace,
   event: SessionEvent,
@@ -65,7 +65,7 @@ function validateApprovalEvent(
 }
 
 /** Apply one accepted approval-pair transition. */
-/** 中文说明：函数 applyApprovalTransition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 applyApprovalTransition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function applyApprovalTransition(pending: Set<ApprovalRequestId>, transition: ApprovalTransition): void {
   if (transition.kind === 'asked') pending.add(transition.id)
   else pending.delete(transition.id)
@@ -74,7 +74,7 @@ function applyApprovalTransition(pending: Set<ApprovalRequestId>, transition: Ap
 /** Install audit pairing and closed-vocabulary checks. */
 // Event owners keep precommit staging local so their vocabularies never move into a central helper.
 /* jscpd:ignore-start */
-/** 中文说明：服务局部值 install，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 install，由紧邻初始化决定。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** 中文说明：服务局部值 traces，由紧邻初始化决定。 */
   const traces = new WeakMap<Session, ApprovalTrace>()
@@ -136,6 +136,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文说明：服务局部值 apply，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 apply，由紧邻初始化决定。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

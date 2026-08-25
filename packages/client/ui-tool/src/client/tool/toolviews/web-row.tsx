@@ -27,11 +27,11 @@ import { ToolRow } from '../components/ToolRow.tsx'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
 
 /** Full row props: the toolview runtime share plus the standard locale seat. */
-/** 中文说明：类型或类 WebRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 WebRowProps 约束工具或轨迹数据职责。 */
 type WebRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /** web_fetch reads one URL; web_search queries. Titles are figma literals. */
-/** 中文说明：视图局部值 WEB_TITLES，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 WEB_TITLES，由紧邻初始化决定。 */
 const WEB_TITLES: Record<string, string> = {
   web_search: 'Search',
   web_fetch: 'Fetch',
@@ -42,7 +42,7 @@ const WEB_TITLES: Record<string, string> = {
  * the completed retrieval's web card as the row's collapsed-by-default card
  * body. The row discriminates on `toolName` only to pick its icon and title.
  */
-/** 中文说明：函数 WebRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 WebRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function WebRow({ toolName, block, inspect, t }: WebRowProps) {
   /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
@@ -73,7 +73,7 @@ export function WebRow({ toolName, block, inspect, t }: WebRowProps) {
  * The web rows follow the atomic Tool-view declaration across activation and
  * reload. One WebRow component registers under both web tool names.
  */
-/** 中文说明：视图局部值 webToolview，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 webToolview，由紧邻初始化决定。 */
 export const webToolview = {
   name: 'web-toolview',
   inject: ['slots'],

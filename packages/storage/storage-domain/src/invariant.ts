@@ -23,7 +23,7 @@
  * emitted a stale value.
  * @module @deepseek-ai/dsh-storage-domain/invariant
  */
-/**
+/*
  * 模块总览：本文件是"不变式自检"插件。领域层约定"先改内存、再发事件"，本插件
  * 反向核对"事件值 == 当前内存值"，一旦不符就说明有写入路径绕过了规范流程。
  */
@@ -35,14 +35,14 @@ import type { DomainChanged } from './events.ts'
 const PACKAGE_NAME = '@deepseek-ai/dsh-storage-domain'
 
 /** Cordis companion plugin name. */
-/** 伴生插件在 Cordis 中的插件名。 */
+/* 伴生插件在 Cordis 中的插件名。 */
 export const name = 'storage-domain-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 依赖注入声明：必须先有 invariants 服务，本插件才能注册自检。 */
+/* 依赖注入声明：必须先有 invariants 服务，本插件才能注册自检。 */
 export const inject = ['invariants']
 
 /** Install the change-event ↔ memory-state agreement check. */
-/**
+/*
  * 安装"事件与内存态一致"自检：Object.assign 同时给函数挂上 inject 元信息，
  * 使 Cordis 注入 storage 服务后再执行。fail 由 dsh-invariants 框架注入，
  * 触发后由框架统一记录/上报。
@@ -92,7 +92,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 注册本包的不变式伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文。
  * @returns 注册成功后的注销函数。

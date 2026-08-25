@@ -3,7 +3,7 @@
  * reads, schema validation, revisions, repair, and lifecycle closure.
  * @module @deepseek-ai/dsh-session-persistence-sqlite/store
  */
-/**
+/*
  * 文件职责：实现 store.ts 覆盖的会话持久化行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。
@@ -66,7 +66,7 @@ import {
 import { sql } from './sql.ts'
 
 /** Storage options resolved by the service provider. */
-/** 中文说明：interface SqliteStoreOptions 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface SqliteStoreOptions 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export interface SqliteStoreOptions {
   readonly path: string
   readonly journalMode: JournalMode
@@ -74,7 +74,7 @@ export interface SqliteStoreOptions {
 }
 
 /** SQLite implementation of the coordinator's physical backend hooks. */
-/** 中文说明：class SqliteStore 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：class SqliteStore 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export class SqliteStore implements PersistenceBackend<number> {
   readonly name = 'session-persistence-sqlite'
   private db!: DatabaseSync
@@ -505,14 +505,14 @@ async function validateDatabaseFileIfPresent(path: string): Promise<void> {
 let nodeSqlite: Promise<typeof import('node:sqlite')> | undefined
 
 /** Load Node SQLite once so concurrent stores share one warning-filter lifetime. */
-/** 中文说明：函数 loadNodeSqlite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 loadNodeSqlite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function loadNodeSqlite(): Promise<typeof import('node:sqlite')> {
   nodeSqlite ??= importNodeSqlite()
   return nodeSqlite
 }
 
 /** Import Node 22's SQLite dependency without its process-wide experimental warning. */
-/** 中文说明：函数 importNodeSqlite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 importNodeSqlite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function importNodeSqlite(): Promise<typeof import('node:sqlite')> {
   /** 中文说明：变量 emitWarning 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const emitWarning = Reflect.get(process, 'emitWarning')

@@ -29,7 +29,7 @@ import { ToolRow } from '../components/ToolRow.tsx'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
 
 /** Full row props: the toolview runtime share plus the standard locale seat. */
-/** 中文说明：类型或类 SearchRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 SearchRowProps 约束工具或轨迹数据职责。 */
 type SearchRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /** 中文说明：视图局部值 SEARCH_TITLES，由紧邻初始化决定。 */
@@ -46,7 +46,7 @@ const SEARCH_TITLES: Record<string, string> = {
  * settled call with no search card surfaces its model-facing text through
  * ToolRow's Output section, since the keyed SearchRow owns this render slot.
  */
-/** 中文说明：函数 SearchRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 SearchRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function SearchRow({ toolName, block, inspect, t }: SearchRowProps) {
   /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
@@ -83,7 +83,7 @@ export function SearchRow({ toolName, block, inspect, t }: SearchRowProps) {
  * and reload. One component registers under both keys because `grep` and
  * `glob` are the same visual object discriminated by the result view's `kind`.
  */
-/** 中文说明：视图局部值 searchToolview，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 searchToolview，由紧邻初始化决定。 */
 export const searchToolview = {
   name: 'search-toolview',
   inject: ['slots'],

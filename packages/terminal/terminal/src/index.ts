@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】owner 级持久 PTY 注册表（TerminalSessionService）：后端拥有终端机制，
  * 本服务拥有 id 铸造、发布、授权（精确 Agent 所有权）与被等待的清理。
@@ -70,7 +70,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Machine-routable PTY service failures. */
-/** 可机器路由的 PTY 服务失败码（供上层稳定分类错误）。 */
+/* 可机器路由的 PTY 服务失败码（供上层稳定分类错误）。 */
 export type TerminalErrorCode =
   | 'DUPLICATE_BACKEND'
   | 'DUPLICATE_NAME'
@@ -82,7 +82,7 @@ export type TerminalErrorCode =
   | 'SERVICE_DISPOSING'
 
 /** Error carrying a stable {@link TerminalErrorCode}. */
-/** 携带稳定 TerminalErrorCode 的错误。 */
+/* 携带稳定 TerminalErrorCode 的错误。 */
 export class TerminalError extends Error {
   constructor(message: string, readonly code: TerminalErrorCode) {
     super(message)
@@ -95,7 +95,7 @@ export class TerminalError extends Error {
  * @param value - raw registry-issued id.
  * @returns Same string with the PTY session brand.
  */
-/**
+/*
  * 把一个注册表铸造的字符串打成 TerminalSessionId 品牌。
  * @param value 注册表原始下发的 id
  * @returns 带 PTY 会话品牌的同一字符串
@@ -130,7 +130,7 @@ interface SpawnReservation {
 }
 
 /** In-process registry for replaceable PTY backends and exact-Agent sessions. */
-/** 可替换 PTY 后端与精确 Agent 会话的进程内注册表。 */
+/* 可替换 PTY 后端与精确 Agent 会话的进程内注册表。 */
 export class TerminalSessionService extends Service {
   private readonly backends = new Map<string, TerminalBackend>()
   private readonly sessions = new Map<TerminalSessionId, SessionRecord>()
@@ -152,7 +152,7 @@ export class TerminalSessionService extends Service {
    * @param backend - provider with a non-empty unique type.
    * @returns disposer that removes exactly this contribution.
    */
-  /**
+  /*
    * 为当前 effect 作用域注册一种后端类型。
    * @param backend 类型非空且唯一的提供者
    * @returns 恰好移除该贡献的释放器
@@ -175,7 +175,10 @@ export class TerminalSessionService extends Service {
    * List registered backend types in registration order.
    * @returns fresh backend type names.
    */
-  /** 按注册顺序列出已注册后端类型。 */
+  /*
+   * 按注册顺序列出已注册后端类型。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   */
   listBackends(): string[] {
     return [...this.backends.keys()]
   }
@@ -187,7 +190,7 @@ export class TerminalSessionService extends Service {
    * @param signal - cancellation of unpublished setup.
    * @returns published identity, metadata, status, and MOTD.
    */
-  /**
+  /*
    * 后端设置成功后创建并发布一个 owner 级会话。名称与并发 spawn 都要预留
    * （防重复/竞态）；设置失败或回滚失败时聚合错误上抛。
    * @param owner 拥有访问与清理的精确已注册 Agent
@@ -273,7 +276,7 @@ export class TerminalSessionService extends Service {
    * @param owner - exact live owner to inspect.
    * @returns true across the entire spawn-to-close interval, with no publication gap.
    */
-  /**
+  /*
    * 测试一个精确 owner 是否有已发布会话或未发布 spawn。
    * @param owner 待检查的精确存活 owner
    * @returns 在整个 spawn 到 close 区间都为 true，无发布间隙
@@ -290,7 +293,7 @@ export class TerminalSessionService extends Service {
    * @param request - explicit text, submit behavior, and cancellation.
    * @returns live operation handle for foreground await or task registration.
    */
-  /**
+  /*
    * 启动一个排他交互式发送（会话已有活跃发送时抛 SEND_ACTIVE）。
    * @param owner 精确会话 owner
    * @param id 目标 PTY 身份
@@ -317,7 +320,7 @@ export class TerminalSessionService extends Service {
    * @param request - optional newest-relative offset and line count.
    * @returns bounded retained text and pagination metadata.
    */
-  /**
+  /*
    * 从某 owner 会话读一页有界滚动区。
    * @param owner 精确会话 owner
    * @param id 目标 PTY 身份
@@ -335,7 +338,7 @@ export class TerminalSessionService extends Service {
    * @param signal - allowed POSIX signal name.
    * @returns delivered foreground process-group identity.
    */
-  /**
+  /*
    * 经某 owner 后端会话投递允许的信号。
    * @param owner 精确会话 owner
    * @param id 目标 PTY 身份
@@ -353,7 +356,7 @@ export class TerminalSessionService extends Service {
    * @param reason - diagnostic cleanup reason.
    * @returns true for a newly closed session, false when the same close is already in flight.
    */
-  /**
+  /*
    * 关闭一个 owner 会话，后端清理静默后才移除。closing 围栏保证同一 close 幂等合并。
    * @param owner 精确会话 owner
    * @param id 目标 PTY 身份
@@ -383,7 +386,7 @@ export class TerminalSessionService extends Service {
    * @param owner - exact owner whose sessions are visible.
    * @returns owner-visible snapshots in publication order.
    */
-  /**
+  /*
    * 列出恰一个 owner 的新鲜快照。
    * @param owner 其会话可见的精确 owner
    * @returns 按发布顺序的 owner 可见快照

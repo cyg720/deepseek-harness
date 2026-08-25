@@ -4,7 +4,7 @@
  * source cannot infer, while curated graphs explain flow and ownership.
  * `--check` verifies the generated set.
  */
-/**
+/*
  * 文件职责：实现 gen-doc-graphs.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -64,7 +64,7 @@ interface EventRelation {
 }
 
 /** One scanned package source file and its owning package short name. */
-/** 中文说明：interface PackageSource 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface PackageSource 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface PackageSource {
   /** Repository-relative path. */
   rel: string
@@ -871,7 +871,7 @@ type CallSiteIndex = Map<ts.SignatureDeclaration | ts.JSDocSignature, ts.CallExp
  * must appear here — the prefilter drops non-members before any branch runs,
  * so a branch for an unlisted name is silently dead.
  */
-/** 中文说明：常量 EVENT_API_METHODS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 EVENT_API_METHODS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const EVENT_API_METHODS = new Set(['on', 'once', 'emit', 'parallel', 'serial', 'waterfall', 'dispatch'])
 
 /**
@@ -884,7 +884,7 @@ const EVENT_API_METHODS = new Set(['on', 'once', 'emit', 'parallel', 'serial', '
    * `connection/reset` omits `ui-skill`/`ui-agent-preset`. Closing it needs a
    * second Client program whose relations merge into these, not a wider seed.
  */
-/** 中文说明：class EventRelationCollector 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class EventRelationCollector 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export class EventRelationCollector {
   private readonly relations = new Map<string, EventRelation>()
   private readonly fileCallSites = new Map<ts.SourceFile, CallSiteIndex>()
@@ -1223,7 +1223,7 @@ export class EventRelationCollector {
 }
 
 /** Return whether an identifier is the callee of a call, seen through value-preserving wrappers. */
-/** 中文说明：函数 isDirectCallee 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isDirectCallee 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isDirectCallee(identifier: ts.Identifier): boolean {
   /** 中文说明：变量 current 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let current: ts.Node = identifier
@@ -1240,7 +1240,7 @@ function isDirectCallee(identifier: ts.Identifier): boolean {
 }
 
 /** Peel syntax-only wrappers that do not change an expression's runtime value. */
-/** 中文说明：函数 unwrapExpression 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 unwrapExpression 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function unwrapExpression(expression: ts.Expression): ts.Expression {
   /** 中文说明：变量 current 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let current = expression
@@ -1257,7 +1257,7 @@ function unwrapExpression(expression: ts.Expression): ts.Expression {
 }
 
 /** Return every value only when a type is a closed string-literal union. */
-/** 中文说明：函数 finiteStringTypeValues 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 finiteStringTypeValues 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function finiteStringTypeValues(type: ts.Type): Set<string> | undefined {
   if (type.flags & ts.TypeFlags.StringLiteral) {
     return new Set([(type as ts.StringLiteralType).value])
@@ -1277,13 +1277,13 @@ function finiteStringTypeValues(type: ts.Type): Set<string> | undefined {
 }
 
 /** Return whether a variable declaration belongs to a const declaration list. */
-/** 中文说明：函数 isConstDeclaration 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isConstDeclaration 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isConstDeclaration(declaration: ts.VariableDeclaration): boolean {
   return (declaration.parent.flags & ts.NodeFlags.Const) !== 0
 }
 
 /** Return whether a declaration is visible to callers outside its source module. */
-/** 中文说明：函数 hasExportModifier 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 hasExportModifier 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function hasExportModifier(node: ts.Node): boolean {
   return ts.canHaveModifiers(node) && (ts.getModifiers(node)?.some((modifier) => {
     return modifier.kind === ts.SyntaxKind.ExportKeyword || modifier.kind === ts.SyntaxKind.DefaultKeyword
@@ -1291,14 +1291,14 @@ function hasExportModifier(node: ts.Node): boolean {
 }
 
 /** Add every member of source to target. */
-/** 中文说明：函数 addAll 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 addAll 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function addAll<T>(target: Set<T>, source: ReadonlySet<T>): void {
   /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const value of source) target.add(value)
 }
 
 /** Return the union of two sets without mutating either input. */
-/** 中文说明：函数 unionSets 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 unionSets 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function unionSets<T>(left: ReadonlySet<T>, right: ReadonlySet<T>): Set<T> {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out = new Set(left)
@@ -1311,7 +1311,7 @@ function unionSets<T>(left: ReadonlySet<T>, right: ReadonlySet<T>): Set<T> {
  * @param project - the loaded repository TypeScript project.
  * @returns `packages/<group>/<pkg>/src` files tagged with their package name.
  */
-/** 中文说明：函数 collectPackageSources 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectPackageSources 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectPackageSources(project: TypeScriptProject): PackageSource[] {
   return project.sourceFiles().flatMap((sourceFile): PackageSource[] => {
     /** 中文说明：变量 rel 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

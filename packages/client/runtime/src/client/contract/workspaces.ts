@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】工作区服务（workspaces-service）的对外接口面：ctx.workspaces
  *   暴露给功能包与渲染宿主的能力清单，测试运行时的工作区替身（double）
@@ -24,7 +24,7 @@
  * the concrete class. Widening this interface is the explicit act of
  * widening what features may do to the workspaces domain.
  */
-/**
+/*
  * 工作区服务对外面：ctx.workspaces 暴露给功能包与渲染宿主的能力，因此也是
  * 测试运行时的 work区替身必须实现的全部。wire 泵入口（handleHostEnvelope/
  * handleConnected/refresh/startInitialSelection）留在具体类上。拓宽本接口
@@ -35,17 +35,17 @@ import type { WorkspaceListState } from '../workspaces/service.ts'
 import type { ObservableSnapshot } from './store.ts'
 
 /** The workspaces-service face injected as `ctx.workspaces`. */
-/** 以 ctx.workspaces 注入的工作区服务面。 */
+/* 以 ctx.workspaces 注入的工作区服务面。 */
 export interface IWorkspaces {
   /** The useWorkspaces standard feed (read face — writes stay inside the domain). */
-  /** useWorkspaces 的标准数据源（只读面——写操作留在域内部）。 */
+  /* useWorkspaces 的标准数据源（只读面——写操作留在域内部）。 */
   readonly list: ObservableSnapshot<WorkspaceListState>
   /**
    * Connect a Workspace to its reusable or freshly created blank session.
    * @param workspaceId - target workspace.
    * @returns the connected session id.
    */
-  /**
+  /*
    * 把工作区连接到其可复用的或新建的空白会话。
    * @param workspaceId 目标工作区。
    * @returns 连接后的会话 id。
@@ -58,7 +58,7 @@ export interface IWorkspaces {
    * @param workspaceId - explicit target; omitted inherits the current
    * Session's Workspace before falling back to the recency projection.
    */
-  /**
+  /*
    * New Session 流程：连接显式指定、当前会话所在或最近使用的工作区并打开
    * 结果会话；失败会反映到会话列表状态上。
    * @param workspaceId 显式目标；省略时先继承当前会话的工作区，
@@ -70,7 +70,7 @@ export interface IWorkspaces {
    * @param input - the Host create payload.
    * @returns the created or idempotently resolved Workspace.
    */
-  /**
+  /*
    * 把已存在的路径注册为工作区。
    * @param input Host 创建负载。
    * @returns 创建出的或幂等解析到的工作区。
@@ -80,7 +80,7 @@ export interface IWorkspaces {
    * Open the Host's native directory picker.
    * @returns the selected path, or null when the user cancelled.
    */
-  /**
+  /*
    * 打开 Host 的原生目录选择器。
    * @returns 选中的路径，用户取消时为 null。
    */
@@ -91,7 +91,7 @@ export interface IWorkspaces {
    * @param signal - aborts the wire request (and the Host's scan) when the caller supersedes it.
    * @returns the level's listing with breadcrumb ancestry.
    */
-  /**
+  /*
    * 通过 Host 的 browse 能力列出一层目录。
    * @param path 要列出的绝对目录；缺省列出 Host 主目录。
    * @param signal 调用方发起新请求时可中止本次 wire 请求（及 Host 的扫描）。
@@ -104,7 +104,7 @@ export interface IWorkspaces {
    * @param name - single non-blank path segment.
    * @returns the created directory's absolute path.
    */
-  /**
+  /*
    * 通过 Host 的 browse 能力创建一层子目录。
    * @param path 已存在的绝对父目录。
    * @param name 单个非空路径段。
@@ -115,7 +115,7 @@ export interface IWorkspaces {
    * Open a filesystem path with the Host operating system's default application.
    * @param path - absolute or host-resolvable path.
    */
-  /**
+  /*
    * 用 Host 操作系统的默认应用打开一个文件系统路径。
    * @param path 绝对路径或 Host 可解析的路径。
    */
@@ -126,7 +126,7 @@ export interface IWorkspaces {
    * @param title - the new display title.
    * @returns the updated Workspace view.
    */
-  /**
+  /*
    * 重命名工作区。
    * @param workspaceId 目标工作区。
    * @param title 新的展示标题。
@@ -137,7 +137,7 @@ export interface IWorkspaces {
    * Delete a Workspace (its sessions fall back to the unaccounted group).
    * @param workspaceId - target workspace.
    */
-  /**
+  /*
    * 删除工作区（其会话回退到"未归属"分组）。
    * @param workspaceId 目标工作区。
    */
@@ -147,7 +147,7 @@ export interface IWorkspaces {
    * @param workspaceId - Workspace to move.
    * @param beforeWorkspaceId - Anchor workspace; omitted appends.
    */
-  /**
+  /*
    * 在注册表的展示顺序中移动工作区。
    * @param workspaceId 要移动的工作区。
    * @param beforeWorkspaceId 锚点工作区；省略则追加到末尾。
@@ -160,7 +160,7 @@ export interface IWorkspaces {
    * @param beforeSessionId - accounted anchor to insert before; omitted appends.
    * @returns the updated Workspace view.
    */
-  /**
+  /*
    * 在/向一个工作区的有序列表中移动已归属会话。
    * @param workspaceId 目标工作区。
    * @param sessionId 要移动的已归属会话。
@@ -174,7 +174,7 @@ export interface IWorkspaces {
    * session clears the selection into the New Session view state.
    * @param sessionId - session to archive.
    */
-  /**
+  /*
    * 把会话归档进注册表全局集合（从分组面隐藏；会话日志与记账槽保留）。
    * 归档当前会话会把选中清除回 New Session 视图状态。
    * @param sessionId 要归档的会话。

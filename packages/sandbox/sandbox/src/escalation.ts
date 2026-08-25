@@ -15,7 +15,7 @@
  *
  * @module dsh-sandbox/escalation
  */
-/**
+/*
  * 文件职责：实现 escalation.ts 承担的沙箱安全与权限隔离配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的沙箱安全与权限隔离能力。
@@ -33,7 +33,7 @@ import type { SandboxMode } from './index.ts'
  * schema's enum is {@link ESCALATION_TARGETS}, because schemas are
  * registry-global while the effective mode is per-call truth.
  */
-/** 中文说明：常量 WIDER_MODES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 WIDER_MODES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const WIDER_MODES: Record<string, readonly SandboxMode[]> = {
   'read-only': ['workspace-write', 'danger-full-access'],
   'workspace-write': ['danger-full-access'],
@@ -47,7 +47,7 @@ export const WIDER_MODES: Record<string, readonly SandboxMode[]> = {
  * mode sits below it (a `danger-full-access` default would advertise nothing
  * while a narrower-switched session stays confined with no lever).
  */
-/** 中文说明：常量 ESCALATION_TARGETS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ESCALATION_TARGETS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const ESCALATION_TARGETS: readonly SandboxMode[] = ['workspace-write', 'danger-full-access']
 
 /**
@@ -58,7 +58,11 @@ export const ESCALATION_TARGETS: readonly SandboxMode[] = ['workspace-write', 'd
  * @param sandboxPermissions - the raw `sandbox_permissions` argument, if given.
  * @param justification - the raw `justification` argument, if given.
  */
-/** 中文说明：函数 validateEscalationArgs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 validateEscalationArgs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param sandboxPermissions 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param justification 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function validateEscalationArgs(sandboxPermissions: string | undefined, justification: string | undefined): void {
   if (sandboxPermissions !== undefined && justification === undefined) {
     throw new Error('invalid escalation: sandbox_permissions requires a justification')
@@ -79,7 +83,11 @@ export function validateEscalationArgs(sandboxPermissions: string | undefined, j
  * @param mode - the mode the denied call ran under.
  * @returns the marker line, exactly as the model sees it.
  */
-/** 中文说明：函数 sandboxDenialMarker 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 sandboxDenialMarker 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param mode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function sandboxDenialMarker(mode: SandboxMode): string {
   return `[sandbox: file access denied under ${mode} mode]`
 }
@@ -93,7 +101,11 @@ export function sandboxDenialMarker(mode: SandboxMode): string {
  *   bash, `operation` for a filesystem mutation).
  * @returns the hint line, exactly as the model sees it.
  */
-/** 中文说明：函数 escalationHintMarker 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 escalationHintMarker 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param subject 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function escalationHintMarker(subject: string): string {
   return `[sandbox: escalation available — retry this exact ${subject} once with sandbox_permissions (the narrowest wider mode that suffices) + justification; the approval prompt asks the user]`
 }
@@ -103,7 +115,7 @@ export function escalationHintMarker(subject: string): string {
  * to the approval seam's `ApprovalOutcome` so an `ApprovalService.request`
  * return is assignable without this package importing it.
  */
-/** 中文说明：type EscalationOutcome 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：type EscalationOutcome 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export type EscalationOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
 
 /**
@@ -113,7 +125,7 @@ export type EscalationOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'una
  * `ctx.approval` without importing the approval or agent packages (the tool
  * layer infers `A`/`C` as its own `Agent`/`CallId`).
  */
-/** 中文说明：interface EscalationApprover 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface EscalationApprover 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface EscalationApprover<A = object, C = string> {
   /**
    * Ask the human to approve one action, resolving to a closed outcome.
@@ -130,7 +142,7 @@ export interface EscalationApprover<A = object, C = string> {
  * and the call's identity. The tool layer holds all of these; this package
  * only judges them.
  */
-/** 中文说明：interface EscalationApproval 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface EscalationApproval 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface EscalationApproval<A = object, C = string> {
   /** The approval requester (`ctx.approval`), or `undefined` when none is composed. */
   approver: EscalationApprover<A, C> | undefined
@@ -145,7 +157,7 @@ export interface EscalationApproval<A = object, C = string> {
 }
 
 /** One escalation request, as {@link approveEscalation} judges it. */
-/** 中文说明：interface EscalationRequest 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface EscalationRequest 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface EscalationRequest {
   /** The requested target mode (schema-pinned to {@link ESCALATION_TARGETS} when advertised). */
   requestedMode: string
@@ -171,7 +183,12 @@ export interface EscalationRequest {
  * @param approval - the approval ingredients the tool holds (see {@link EscalationApproval}).
  * @returns the granted mode, consumed by the one call that asked.
  */
-/** 中文说明：函数 approveEscalation 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 approveEscalation 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param approval 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function approveEscalation<A, C>(request: EscalationRequest, approval: EscalationApproval<A, C>): Promise<SandboxMode> {
   const { requestedMode: mode, effectiveMode, justification, subject } = request
   // Strict widening is an EXECUTION check against the call's effective mode —

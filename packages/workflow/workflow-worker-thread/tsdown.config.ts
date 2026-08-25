@@ -5,7 +5,7 @@ import { defineConfig } from 'tsdown'
  * multi-entry build creates an unlisted chunk. The path-loaded worker is
  * CommonJS because pkg's VFS Worker hook compiles it in that format.
  */
-/**
+/*
  * 文件职责：分别构建工作流引擎 ESM 入口和通过文件加载的 CommonJS Worker。
  * 技术维度：使用 tsdown 单入口构建规避未列入发布清单的共享 chunk，并兼容 pkg 的虚拟文件系统 Worker 钩子。
  * 产品维度：让工作流既能在普通 Node 环境运行，也能在打包后的单文件可执行程序中启动工作线程。

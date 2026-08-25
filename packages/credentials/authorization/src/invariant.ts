@@ -3,7 +3,7 @@
  * @module @deepseek-ai/dsh-authorization/invariant
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】authorization 包的"不变量伴随插件"：校验 authorization/settled 事件发出时，
  *   该 key 的尝试槽位必须已经释放。

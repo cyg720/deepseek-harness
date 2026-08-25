@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-compaction-tool-result-pruner
  */
-/**
+/*
  * 文件职责：实现上下文压缩的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的上下文压缩信息。
@@ -51,7 +51,7 @@ interface SnapshotCandidate {
 }
 
 /** Deterministic head/middle/tail pruning for current tool-result surface nodes. */
-/** 中文说明：类型或类 ToolResultPruner 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ToolResultPruner 约束上下文或压缩数据职责。 */
 export class ToolResultPruner extends Service {
   // The token meter prices each shadowed node for its logged shadow-price
   // event, so pruning genuinely requires the pricing capability.

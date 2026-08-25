@@ -16,7 +16,7 @@ import SystemPrompt, { AssembleContext, PromptAssembly, renderContextSnapshot, r
  * registry MECHANICS strip them with {@link contributed} to stay focused on
  * their own sections; the built-ins' behavior is pinned by its own describe.
  */
-/** 中文说明：测试局部值 BUILT_IN，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 BUILT_IN，由紧邻初始化决定。 */
 const BUILT_IN = ['harness:identity', 'deployment:persona']
 /** 中文说明：测试局部值 IDENTITY，由紧邻初始化决定。 */
 const IDENTITY = 'You are an AI agent powered by DeepSeek Harness.'

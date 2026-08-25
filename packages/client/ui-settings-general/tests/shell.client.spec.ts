@@ -1,5 +1,5 @@
 /** Settings shell registration: slot declaration injection, the ledger projections, and HMR recovery. */
-/**
+/*
  * 文件职责：验证通用设置的 shell.client.spec.ts 行为。
  * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
  * 产品维度：防止通用设置的展示、作用域或交互回归。
@@ -53,7 +53,7 @@ function injectedOf(slots: SlotRegistry): SettingsRootInjected {
 }
 
 /** The shell's child declarations (chrome, actions, sections, and onboarding overlays). */
-/** 中文说明：测试局部值 CHILD_SPECS，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 CHILD_SPECS，由紧邻初始化决定。 */
 const CHILD_SPECS = {
   'settings.trigger': { kind: 'single', scope: 'root' },
   'settings.header': { kind: 'single', scope: 'root' },

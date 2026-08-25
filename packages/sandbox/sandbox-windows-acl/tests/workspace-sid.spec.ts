@@ -6,7 +6,7 @@
  * contract; an alias spelling derives a second identity, self-healing at
  * the cost of one extra tree propagation).
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：验证 Windows ACL 工作区和私有临时目录写权限 SID 的确定性、区分度与格式。
  * - 技术维度：使用 Vitest、路径字符串输入和正则表达式检查能力 SID 编码。

@@ -15,7 +15,7 @@
  * cwd to the package directory). Also callable directly with an explicit
  * package directory: `node scripts/verify-launcher-binary.mjs packages/<name>`.
  */
-/**
+/*
  * 文件职责：在打包平台包前验证启动器二进制存在且 ELF 架构与 package.json 的 cpu 声明一致。
  * 技术维度：使用 Node.js ESM、路径解析和共享 verifyPlatformBinaries 原生制品检查器。
  * 产品维度：阻止发布空平台包或架构错误的可执行文件，避免用户安装后才遇到启动失败。

@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-invariants
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的运行时不变量诊断配置、注册与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验和系统资源管理。
  * 产品维度：为 Agent 提供可靠的运行时不变量诊断能力。
@@ -20,7 +20,7 @@ import z from '@deepseek-ai/schemastery'
 import type Schema from '@deepseek-ai/schemastery'
 
 /** Runtime invariant selection configured on the service plugin. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export interface Config {
   /** Global switch; defaults to `true`. */
   readonly enabled?: boolean
@@ -35,11 +35,11 @@ export interface Config {
  * @param message - violated package contract without the standard prefix.
  * @returns never because reporting a violation throws.
  */
-/** 中文说明：type InvariantFailure 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
+/* 中文说明：type InvariantFailure 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export type InvariantFailure = (message: string) => never
 
 /** Install one package's checks into the registration's child context. */
-/** 中文说明：interface InvariantInstaller 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
+/* 中文说明：interface InvariantInstaller 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export interface InvariantInstaller {
   /**
    * Install the package contribution.
@@ -53,13 +53,13 @@ export interface InvariantInstaller {
 }
 
 /** Internal effect shape used to join child startup before a companion loads. */
-/** 中文说明：interface PendingInvariantRegistration 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
+/* 中文说明：interface PendingInvariantRegistration 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 interface PendingInvariantRegistration extends PromiseLike<() => void> {
   (): void | Promise<void>
 }
 
 /** Thrown when a package-owned runtime invariant is violated. */
-/** 中文说明：class InvariantError 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
+/* 中文说明：class InvariantError 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export class InvariantError extends Error {
   /** Stable machine-readable invariant failure code. */
   readonly code = 'INVARIANT' as const
@@ -86,7 +86,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Compile and validate one package-filter list. */
-/** 中文说明：函数 compilePatterns 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 compilePatterns 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function compilePatterns(field: 'package_allowlist' | 'package_blocklist', values: readonly string[]): RegExp[] {
   /** 中文说明：变量 seen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seen = new Set<string>()
@@ -107,7 +107,7 @@ function compilePatterns(field: 'package_allowlist' | 'package_blocklist', value
 }
 
 /** Package-owned invariant registry with global and regex-based selection. */
-/** 中文说明：class InvariantRegistry 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
+/* 中文说明：class InvariantRegistry 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export class InvariantRegistry extends Service {
   static Config: Schema<Config> = z.object({
     enabled: z.boolean().default(true),

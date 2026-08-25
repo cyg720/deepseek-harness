@@ -35,7 +35,7 @@ import { zh } from '../src/client/locales.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
 
 /** jsdom has no ResizeObserver; StatsLine watches its row for ellipsis truncation through one. */
-/** 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -65,7 +65,7 @@ interface MessageItemProps {
 }
 
 /** Legacy-node fixture adapter for the independently registered renderers. */
-/** 中文说明：函数 MessageItem 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 MessageItem 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function MessageItem({ node, t: translate, referenceLabels }: MessageItemProps) {
   /** 中文说明：测试局部值 kind，取值由紧邻初始化决定。 */
   const kind = node.kind === 'assistant' ? 'assistant-step' : node.kind

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】fs-local 包的"不变式伴生插件"：登记一个空的自检安装器。
  * 【技术维度】Cordis 伴生插件形态：导出 name/inject/apply；install 为空函数。
@@ -15,7 +15,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-fs-local`.
  * @module @deepseek-ai/dsh-fs-local/invariant
  */
-/**
+/*
  * 模块总览：本包的正确性由所属接缝处的契约强制保证，进程内无可观察关系，
  * 故 install 为空，仅做体系占位。
  */

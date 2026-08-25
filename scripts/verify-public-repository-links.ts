@@ -1,5 +1,5 @@
 /** Reject tracked files that reference an unavailable legacy repository. */
-/**
+/*
  * 文件职责：实现 verify-public-repository-links.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -31,7 +31,7 @@ const namedReferenceCharacters: Readonly<Record<string, string>> = {
 }
 
 /** Normalize source spellings that render or decode to repository separators. */
-/** 中文说明：函数 canonicalReferenceText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 canonicalReferenceText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function canonicalReferenceText(source: string): string {
   return source
     .replaceAll('\\/', '/')
@@ -48,7 +48,7 @@ function canonicalReferenceText(source: string): string {
 }
 
 /** One tracked reference to the unavailable repository. */
-/** 中文说明：interface UnavailableRepositoryReference 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface UnavailableRepositoryReference 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface UnavailableRepositoryReference {
   /** Repository-relative file path. */
   file: string
@@ -62,7 +62,7 @@ export interface UnavailableRepositoryReference {
  * @param source - Text to inspect.
  * @returns every matching source line, excluding frozen archived Agent Notes.
  */
-/** 中文说明：函数 findUnavailableRepositoryReferences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 findUnavailableRepositoryReferences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function findUnavailableRepositoryReferences(file: string, source: string): UnavailableRepositoryReference[] {
   if (file.startsWith(archivedAgentNotePrefix)) return []
 

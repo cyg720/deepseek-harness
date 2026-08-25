@@ -1,5 +1,5 @@
 /** ui-subagent browser half: catalog actions and read-only composer routing. */
-/**
+/*
  * 文件职责：验证子代理谱系的 browser-plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止子代理谱系显示、导航或生命周期回归。
@@ -39,7 +39,7 @@ function summary(partial: Partial<SessionSummary> & { id: SessionId }): SessionS
 const sid = (id: string) => id as SessionId
 
 /** Fake root sessions face for catalog actions. */
-/** 中文说明：函数 sessionsWith 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sessionsWith 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sessionsWith(sessions: SessionSummary[]) {
   /** 中文说明：测试局部值 byId，由紧邻初始化决定。 */
   const byId: Record<string, SessionSummary> = {}
@@ -81,7 +81,7 @@ async function provideSlotFaces(ctx: Context): Promise<void> {
 }
 
 /** Boot the plugin over fake sessions and slot faces. */
-/** 中文说明：函数 fullBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fullBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function fullBench(sessions: SessionSummary[]) {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】浏览器半部的"闭包求值"：包源码作为异步函数体运行，其形参就是符号
  *             表面——用同名形参遮蔽（setTimeout/fetch/require/…）把浏览器全局变成
@@ -72,7 +72,7 @@ export const DYNAMIC_CLIENT_REDIRECTS: Readonly<Record<string, string>> = {
 }
 
 /** Callable teaching traps shadowing the ambient globals the closure must not reach. */
-/**
+/*
  * 构造可调用的教学陷阱：覆盖闭包不应触碰的环境全局（调用即抛带重定向的错误）。
  */
 function closureTraps(): Record<string, () => never> {
@@ -86,7 +86,7 @@ function closureTraps(): Record<string, () => never> {
 }
 
 /** The `harness` seat exists only host-side; any touch teaches the split. */
-/**
+/*
  * harness 只存在于 Host 侧：任何触碰都报"两端分工"的教学错误。
  */
 function harnessTrap(): unknown {
@@ -138,7 +138,7 @@ export class DynamicCordisStyles {
 }
 
 /** Stringify one console argument for the error mirror. */
-/**
+/*
  * 把一条 console 参数转成文本供错误镜像；不可序列化的值给出占位文案。
  */
 function errorText(arg: unknown): string {
@@ -155,7 +155,7 @@ function errorText(arg: unknown): string {
 }
 
 /** Tagged write-through console; error lines additionally copy into the load report. */
-/**
+/*
  * 带包标签的直写 console；error 行额外镜像进加载报告（截断到 500 字符）。
  */
 function taggedConsole(pluginId: CordisDynamicPluginId, noteError: (message: string) => void): Console {
@@ -180,8 +180,10 @@ function taggedConsole(pluginId: CordisDynamicPluginId, noteError: (message: str
  * @param value - whatever the closure returned.
  * @returns whether the value is mountable.
  */
-/**
+/*
  * 收窄闭包返回值是否为可挂载插件（Host 守卫的镜像）：函数或带 apply 的对象。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function isDynamicCordisPlugin(value: unknown): value is DynamicCordisEvaluatedPlugin | ((ctx: unknown) => unknown) {
   if (typeof value === 'function') return true
@@ -198,9 +200,14 @@ export function isDynamicCordisPlugin(value: unknown): value is DynamicCordisEva
  * @returns the plugin the closure returned.
  * @throws teaching errors for syntax failures and non-plugin returns.
  */
-/**
+/*
  * 求值一个包的浏览器半部并返回（未守卫的）插件：以形参注入符号表面，校验返回值
  * 是插件；语法/非插件返回值抛教学错误。
+ * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param clientCode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param env 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param styles 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export async function evaluateClientHalf(
   pluginId: CordisDynamicPluginId,

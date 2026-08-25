@@ -13,7 +13,7 @@
  * with no readable listing) is not a dead end: the failure is shown next to the
  * rows the user can still fill in by hand.
  */
-/**
+/*
  * 文件职责：实现模型设置的 ModelListEditor 组件。
  * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看和调整模型设置。
@@ -38,11 +38,11 @@ import styles from './ModelsSection.module.css'
  * schema adds, or one hand-written in `settings.yaml` — has to survive being
  * edited here rather than being dropped by a rebuild.
  */
-/** 中文说明：类型或类 ModelDraft 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 ModelDraft 约束设置数据或组件职责。 */
 export type ModelDraft = DeepSeekModelDraft
 
 /** A row's text field, or the empty string when unset or not a string. */
-/** 中文说明：函数 textOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 textOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function textOf(model: ModelDraft, key: string): string {
   /** 中文说明：设置局部值 value，由紧邻初始化决定。 */
   const value = model[key]
@@ -50,7 +50,7 @@ function textOf(model: ModelDraft, key: string): string {
 }
 
 /** A row's numeric field, or `undefined` when unset or not a number. */
-/** 中文说明：函数 numberOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 numberOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function numberOf(model: ModelDraft, key: string): number | undefined {
   /** 中文说明：设置局部值 value，由紧邻初始化决定。 */
   const value = model[key]
@@ -58,7 +58,7 @@ function numberOf(model: ModelDraft, key: string): number | undefined {
 }
 
 /** What an interrogation needs, taken from the live form. */
-/** 中文说明：类型或类 ProbeTarget 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 ProbeTarget 约束设置数据或组件职责。 */
 export interface ProbeTarget {
   /** Settings namespace whose adapter family answers. */
   settingsNs: string
@@ -77,7 +77,7 @@ export interface ProbeTarget {
 }
 
 /** Props of {@link ModelListEditor}. */
-/** 中文说明：类型或类 ModelListEditorProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 ModelListEditorProps 约束设置数据或组件职责。 */
 export interface ModelListEditorProps {
   /** The rows as currently drafted. */
   models: readonly ModelDraft[]
@@ -105,7 +105,7 @@ export interface ModelListEditorProps {
 }
 
 /** Disclosure chevron; rotates to point down while its row is open. */
-/** 中文说明：函数 IconChevron 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 IconChevron 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function IconChevron({ open }: { open: boolean }): ReactNode {
   return (
     <svg
@@ -118,7 +118,7 @@ function IconChevron({ open }: { open: boolean }): ReactNode {
 }
 
 /** Removal glyph for one model row. */
-/** 中文说明：函数 IconTrash 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 IconTrash 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function IconTrash(): ReactNode {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -131,7 +131,7 @@ function IconTrash(): ReactNode {
 }
 
 /** The two token counts edited as K/M-suffixed text behind a row's disclosure. */
-/** 中文说明：类型或类 CapacityField 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 CapacityField 约束设置数据或组件职责。 */
 type CapacityField = 'contextWindow' | 'maxTokens'
 
 /**
@@ -145,7 +145,7 @@ type CapacityField = 'contextWindow' | 'maxTokens'
  * adapter's 262144. A deployment that overrides those defaults is not
  * reflected here — nothing on this page can read them.
  */
-/** 中文说明：设置局部值 CAPACITY_HINT，由紧邻初始化决定。 */
+/* 中文说明：设置局部值 CAPACITY_HINT，由紧邻初始化决定。 */
 const CAPACITY_HINT: Readonly<Record<CapacityField, string>> = {
   contextWindow: '256K',
   maxTokens: '32K',
@@ -158,13 +158,13 @@ const CAPACITY_HINT: Readonly<Record<CapacityField, string>> = {
  * @param value - stored capacity, or `undefined` for an unset field.
  * @returns the field text, empty when unset.
  */
-/** 中文说明：函数 capacitySpelling 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 capacitySpelling 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function capacitySpelling(value: number | undefined): string {
   return value === undefined ? '' : formatCapacity(value)
 }
 
 /** Adopt a candidate, keeping whatever capacities the provider disclosed. */
-/** 中文说明：函数 adopt 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 adopt 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function adopt(candidate: DiscoveredModelView): ModelDraft {
   return {
     id: candidate.id,
@@ -179,7 +179,7 @@ function adopt(candidate: DiscoveredModelView): ModelDraft {
  * @param props - the drafted rows, probe target, wire face, and copy.
  * @returns the model-list editor.
  */
-/** 中文说明：函数 ModelListEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 ModelListEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const { models, onChange, probe, api, t, disabled } = props
@@ -205,7 +205,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const [editing, setEditing] = useState<ReadonlyMap<string, string>>(new Map())
 
   /** Buffer key for one capacity field; the row half moves when rows do. */
-  /** 中文说明：设置局部值 bufferKey，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 bufferKey，由紧邻初始化决定。 */
   const bufferKey = (index: number, field: CapacityField): string => `${String(index)}:${field}`
 
   /** 中文说明：设置局部值 editCapacity，由紧邻初始化决定。 */
@@ -215,12 +215,12 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   }
 
   /** What a capacity field shows: the buffer while typing, else the stored count. */
-  /** 中文说明：设置局部值 capacityText，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 capacityText，由紧邻初始化决定。 */
   const capacityText = (model: ModelDraft, index: number, field: CapacityField): string =>
     editing.get(bufferKey(index, field)) ?? capacitySpelling(numberOf(model, field))
 
   /** Drop one row's entries and shift the rows after it down, in one pass. */
-  /** 中文说明：设置局部值 reindexOnRemove，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 reindexOnRemove，由紧邻初始化决定。 */
   const reindexOnRemove = (
     current: ReadonlyMap<string, string>,
     index: number,

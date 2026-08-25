@@ -1,5 +1,5 @@
 /** Published dsh web + pnpm dev:web → browser HMR, with no page reload. */
-/** 已发布的 dsh Web 与开发监听器之间应通过热更新刷新界面，而不重新加载页面。 */
+/* 已发布的 dsh Web 与开发监听器之间应通过热更新刷新界面，而不重新加载页面。 */
 /**
  * 文件职责：验证真实客户端源码修改能由开发构建链路热更新到已打开的浏览器页面。
  * 技术维度：使用 Vitest、Playwright、Cordis 子进程服务和文件系统临时目录驱动端到端场景。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】浏览器时区推导与模型可见的策略文本：从一个打开回合内的
  *             user-rpc 消息中提取客户端时区，决定"按哪个时区解读时间"。
@@ -27,14 +27,14 @@ import type { UserMessage } from '@deepseek-ai/dsh-llm'
 const IANA_TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+.-]*(?:\/[A-Za-z0-9_+.-]+)+$/
 
 /** Browser-zone facts derived from user-rpc messages in one open turn. */
-/** 从单个打开回合的 user-rpc 消息推导出的浏览器时区事实：三态联合。 */
+/* 从单个打开回合的 user-rpc 消息推导出的浏览器时区事实：三态联合。 */
 export type BrowserTimeZoneContext =
   | { readonly kind: 'resolved'; readonly timeZone: string }
   | { readonly kind: 'mixed'; readonly timeZones: readonly string[] }
   | { readonly kind: 'missing' }
 
 /** Read and validate a Host-canonicalized browser zone from one ordinary user-rpc message. */
-/** 从一条普通 user-rpc 消息中读取并校验宿主规范化的浏览器时区。 */
+/* 从一条普通 user-rpc 消息中读取并校验宿主规范化的浏览器时区。 */
 function browserTimeZone(message: UserMessage): string | undefined {
   // 只有带 rpcId 的 user 来源消息才可能携带 clientTimeZone 字段
   const source = message.source
@@ -71,7 +71,7 @@ function browserTimeZone(message: UserMessage): string | undefined {
  * @returns Sorted, duplicate-free browser-zone facts.
  * @throws TypeError when a user-rpc source carries an invalid or noncanonical zone.
  */
-/**
+/*
  * 推导一个打开回合的浏览器时区：唯一、混合或缺失。
  * 收集所有消息中的时区并去重排序，0 个为 missing，1 个为 resolved，
  * 多个为 mixed。
@@ -97,7 +97,7 @@ export function deriveBrowserTimeZoneContext(
  * @param context - Browser-zone facts for the open turn.
  * @returns One durable policy line.
  */
-/**
+/*
  * 把浏览器时区事实渲染成一条持久化的模型指令行：唯一时区直接告诉模型
  * 按此解读；混合/缺失则要求模型向用户澄清。
  * @param context 打开回合的浏览器时区事实

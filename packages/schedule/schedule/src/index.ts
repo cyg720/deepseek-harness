@@ -2,7 +2,7 @@
  * Agent-scoped durable one-shot and fixed-rate reminders over the session event log.
  * @module @deepseek-ai/dsh-schedule
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的计划调度配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的计划调度能力。
@@ -38,17 +38,17 @@ export {
 export { registerScheduleTools } from './tools.ts'
 
 /** Cordis function-plugin name. */
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'schedule'
 /** Services required before future root agents can receive Schedule. */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['agents', 'sessions', 'tools', 'sessionPersistence']
 
 /** 中文说明：type OwnerCleanup 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 type OwnerCleanup = () => void | Promise<void>
 
 /** Install Schedule only for root agents published after this plugin loads. */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context): void {
   /** 中文说明：变量 runtimes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const runtimes = new Map<Agent, OwnerCleanup>()

@@ -3,7 +3,7 @@
  * provider and sandbox bash executor exercise direct runner-spawn failures
  * and a POSIX fake Landlock launcher that prints its notice before exec.
  */
-/**
+/*
  * 文件职责：验证 partial-landlock.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
  * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
@@ -42,7 +42,7 @@ afterEach(async () => {
 })
 
 /** Write a fake native launcher that reports partial enforcement, then execs or fails. */
-/** 中文说明：函数 fakeLauncher 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeLauncher 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function fakeLauncher(fatalExit?: number): Promise<string> {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-partial-landlock-'))

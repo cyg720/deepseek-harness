@@ -4,7 +4,7 @@
  * user-visible HTTP surface of the running server (routing precedence, index
  * taps, fallback-seat semantics, per-request error containment, teardown).
  */
-/**
+/*
  * 文件职责：验证宿主服务的 webserver.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证宿主服务在授权、等待、失败和清理场景中可靠。
@@ -38,7 +38,7 @@ afterEach(async () => {
 })
 
 /** Write a cordis.yml with one webserver row, then boot it through the real Loader. */
-/** 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function loadComposition(port = 0): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-webserver-loader-'))
   /** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
@@ -75,7 +75,7 @@ async function loadComposition(port = 0): Promise<Context> {
 }
 
 /** GET (by default) one path against the running server; returns status plus a body prefix. */
-/** 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function request(port: number, path: string, init?: RequestInit): Promise<{ status: number; body: string }> {
   /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
   const response = await fetch(`http://127.0.0.1:${String(port)}${path}`, init)
@@ -83,7 +83,7 @@ async function request(port: number, path: string, init?: RequestInit): Promise<
 }
 
 /** Open one raw upgrade request and return after the handler writes its response. */
-/** 中文说明：函数 upgrade 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 upgrade 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function upgrade(port: number, path: string): Promise<ReturnType<typeof connect>> {
   /** 中文说明：测试局部值 socket，由紧邻初始化决定。 */
   const socket = connect(port, '127.0.0.1')

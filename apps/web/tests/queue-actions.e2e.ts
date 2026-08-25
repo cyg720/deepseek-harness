@@ -58,7 +58,7 @@ const TAIL = 'Queue item preserved after stop'
 const WAKE = 'Wake the preserved queue'
 
 /** Durable turn-end classifications observed by the scenario. */
-/** 从 events 提取持久化回合结束类型并返回数组。示例：turnEndReasons(sessionEvents)。 */
+/* 从 events 提取持久化回合结束类型并返回数组。示例：turnEndReasons(sessionEvents)。 */
 function turnEndReasons(events: readonly SessionEvent[]): string[] {
   return events.flatMap(event => event.type === 'turn/end' ? [event.data.reason.kind] : [])
 }

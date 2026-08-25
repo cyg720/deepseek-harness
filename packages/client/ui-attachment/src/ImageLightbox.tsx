@@ -12,13 +12,13 @@ import { IconCloseOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './ImageLightbox.module.css'
 
 /** Lightbox strings the owner resolves from its own locale namespace. */
-/** 图片预览所需的文案由调用方从自身的本地化命名空间解析。 */
+/* 图片预览所需的文案由调用方从自身的本地化命名空间解析。 */
 export interface ImageLightboxLabels {
   /** Accessible name of the preview dialog. */
-  /** 预览对话框供辅助技术读取的名称。 */
+  /* 预览对话框供辅助技术读取的名称。 */
   dialog: string
   /** Accessible label of the close control. */
-  /** 关闭按钮供辅助技术读取的标签。 */
+  /* 关闭按钮供辅助技术读取的标签。 */
   close: string
 }
 
@@ -35,7 +35,7 @@ export interface ImageLightboxLabels {
  * @param props.onClose - dismiss callback owned by the opener.
  * @returns the modal preview dialog.
  */
-/**
+/*
  * 在文档顶层显示原图预览，支持按 Escape、点击遮罩或关闭按钮退出，并在退出后恢复焦点。
  * @param props.src 原图地址。
  * @param props.alt 图片替代文本。

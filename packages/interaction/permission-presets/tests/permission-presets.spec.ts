@@ -19,7 +19,7 @@ import { SettingsProvider } from '@deepseek-ai/dsh-settings'
 import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 
 /** Writable memory provider for the permission/settings lifecycle specs. */
-/** 中文说明：类型或类 MemorySettings 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 MemorySettings 约束宿主、交互或任务数据职责。 */
 class MemorySettings extends SettingsProvider {
   readonly doc: Record<string, unknown> = {}
   readonly writable = true

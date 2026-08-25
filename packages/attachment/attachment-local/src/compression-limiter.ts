@@ -1,5 +1,5 @@
 /** Instance-owned concurrency bound for native image transformations. */
-/**
+/*
  * 文件职责：限制单个附件服务实例同时执行的原生图片压缩任务数量。
  * 技术维度：使用 Promise、FIFO 等待队列和显式计数实现轻量异步信号量。
  * 产品维度：避免批量图片处理耗尽 CPU 或原生资源，同时保持任务提交顺序。
@@ -9,7 +9,7 @@
  */
 
 /** FIFO limiter for asynchronous compression work. */
-/** 异步压缩工作的先进先出并发限制器；每个实例拥有独立计数和队列。 */
+/* 异步压缩工作的先进先出并发限制器；每个实例拥有独立计数和队列。 */
 export class CompressionLimiter {
   // 当前占用槽位的任务数；范围为 0 到 concurrency。
   private active = 0
@@ -19,7 +19,7 @@ export class CompressionLimiter {
   /**
    * @param concurrency - positive maximum number of active tasks.
    */
-  /** 构造限制器。@param concurrency 同时运行任务的正整数上限。@example new CompressionLimiter(2)。 */
+  /* 构造限制器。@param concurrency 同时运行任务的正整数上限。@example new CompressionLimiter(2)。 */
   constructor(readonly concurrency: number) {}
 
   /**
@@ -27,7 +27,7 @@ export class CompressionLimiter {
    * @param task - compression operation occupying one slot until settlement.
    * @returns the task result.
    */
-  /**
+  /*
    * 获得实例槽位后运行一个任务。
    * @param task 返回 Promise 的压缩操作，直到完成都占用一个槽位。
    * @returns 与 task 相同结果类型的 Promise。

@@ -15,7 +15,7 @@ import { contextBody } from './ContextBody.tsx'
 import css from './ContextInjectionRow.module.css'
 
 /** Props for the logged non-user message presentation. */
-/** 中文说明：类型或类 ContextInjectionRowProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ContextInjectionRowProps 约束本文件的数据或组件职责。 */
 export interface ContextInjectionRowProps {
   content: ContextMessageNode['content']
   source: ContextMessageNode['source']
@@ -38,7 +38,7 @@ export interface ContextInjectionRowProps {
  * @param props - Durable content, its projected producer role/name and form, and the locale seat.
  * @returns A collapsed context row with a bounded, form-specific body.
  */
-/** 中文说明：函数 ContextInjectionRow 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 ContextInjectionRow 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function ContextInjectionRow({ content, source, provenance, form, t }: ContextInjectionRowProps) {
   /** 中文说明：当前组件的局部值 [open, setOpen]，由紧邻初始化决定。 */
   const [open, setOpen] = useState(false)

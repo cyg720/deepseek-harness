@@ -25,7 +25,7 @@ export type {
 } from './trajectory-record.ts'
 
 /** Display label per kind (matches the design tags). */
-/** 中文说明：视图局部值 KIND_LABEL，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 KIND_LABEL，由紧邻初始化决定。 */
 const KIND_LABEL: Record<TrajectoryCellKind, string> = {
   system: 'System',
   user: 'User',
@@ -52,7 +52,7 @@ const TAG_CLASS: Record<TrajectoryCellKind, string | undefined> = {
  * @param props - index, kind, text, time, and optional Message metrics.
  * @returns the cell element.
  */
-/** 中文说明：函数 TrajectoryCell 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 TrajectoryCell 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function TrajectoryCell({
   index,
   kind,

@@ -1,5 +1,5 @@
 /** Agent-preset vocabulary shared by discovery, mounting, and consumers. */
-/**
+/*
  * 文件职责：实现 preset.ts 承担的 Agent 预设元数据、校验与装载职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置解析和运行时不变量检查。
  * 产品维度：让用户能通过预设组合 Agent 能力，并在启动时获得明确配置反馈。
@@ -13,7 +13,7 @@
  * deployment; a `user` preset was authored locally, by a person or by an
  * agent, and therefore carries the same trust as shell access.
  */
-/** 中文说明：type PresetTrust 定义本模块所需的数据或行为，用于表达预设场景。 */
+/* 中文说明：type PresetTrust 定义本模块所需的数据或行为，用于表达预设场景。 */
 export type PresetTrust = 'system' | 'user'
 
 /**
@@ -24,11 +24,11 @@ export type PresetTrust = 'system' | 'user'
  * composition outside the root the deployment authorised. Discovery shares it:
  * a directory whose name no copy could ever claim is not a preset slot.
  */
-/** 中文说明：常量 PRESET_ID 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PRESET_ID 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const PRESET_ID = /^[a-z0-9][a-z0-9-]*$/
 
 /** One preset directory that carries a mountable agent composition. */
-/** 中文说明：interface AgentPreset 定义本模块所需的数据或行为，用于表达预设场景。 */
+/* 中文说明：interface AgentPreset 定义本模块所需的数据或行为，用于表达预设场景。 */
 export interface AgentPreset {
   /** Stable identifier; the preset directory's name. */
   readonly id: string
@@ -52,7 +52,7 @@ export interface AgentPreset {
 }
 
 /** One directory scanned for preset subdirectories. */
-/** 中文说明：interface PresetRoot 定义本模块所需的数据或行为，用于表达预设场景。 */
+/* 中文说明：interface PresetRoot 定义本模块所需的数据或行为，用于表达预设场景。 */
 export interface PresetRoot {
   /** Directory holding one subdirectory per preset; a leading `~` expands. */
   path: string
@@ -61,7 +61,7 @@ export interface PresetRoot {
 }
 
 /** Plugin config: which preset is the default, and where presets live. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达预设场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达预设场景。 */
 export interface Config {
   /** Preset id mounted when a caller names none. Missing at mount time fails loud. */
   default: string
@@ -81,7 +81,7 @@ export interface Config {
  * caller: an unknown id is a bad request, while an unusable composition is a
  * broken preset the deployment must fix.
  */
-/** 中文说明：class UnknownPresetError 定义本模块所需的数据或行为，用于表达预设场景。 */
+/* 中文说明：class UnknownPresetError 定义本模块所需的数据或行为，用于表达预设场景。 */
 export class UnknownPresetError extends Error {
   constructor(
     /** The id that was requested. */
@@ -94,7 +94,7 @@ export class UnknownPresetError extends Error {
 }
 
 /** A preset exists but its composition cannot be installed. */
-/** 中文说明：class PresetMountError 定义本模块所需的数据或行为，用于表达预设场景。 */
+/* 中文说明：class PresetMountError 定义本模块所需的数据或行为，用于表达预设场景。 */
 export class PresetMountError extends Error {
   constructor(
     /** The preset whose composition failed. */

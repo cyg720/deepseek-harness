@@ -2,7 +2,7 @@
  * Shared JSDoc parsing and completeness checks for the Cordis, persistence,
  * and config catalogs and the exported-API gate.
  */
-/**
+/*
  * 文件职责：实现 jsdoc.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -14,14 +14,14 @@
 import ts from 'typescript'
 
 /** Repo-relative source pointer `file:line` for a node's first character. */
-/** 中文说明：函数 pointer 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 pointer 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function pointer(rel: string, sf: ts.SourceFile, node: ts.Node): string {
   const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
   return `${rel}:${line + 1}`
 }
 
 /** The raw `/** … *​/` JSDoc block immediately preceding a node, or '' if none. */
-/** 中文说明：函数 rawJsDoc 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 rawJsDoc 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function rawJsDoc(text: string, node: ts.Node): string {
   /** 中文说明：变量 ranges 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ranges = ts.getLeadingCommentRanges(text, node.getFullStart()) ?? []
@@ -31,7 +31,7 @@ export function rawJsDoc(text: string, node: ts.Node): string {
 }
 
 /** A dispatch mode, rendered as the badge after an event name in the catalog. */
-/** 中文说明：type Mode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type Mode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type Mode = 'emit' | 'waterfall' | 'parallel' | 'serial' | 'bail'
 
 /**
@@ -42,7 +42,7 @@ export type Mode = 'emit' | 'waterfall' | 'parallel' | 'serial' | 'bail'
  * @returns the collapsed description prose, parsed valid `@mode` (or null),
  *   and whether any `@mode` tag was present.
  */
-/** 中文说明：函数 parseJsDoc 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseJsDoc 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseJsDoc(raw: string): { doc: string; mode: Mode | null; hasMode: boolean } {
   /** 中文说明：变量 inner 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const inner = raw
@@ -118,7 +118,7 @@ export function parseJsDoc(raw: string): { doc: string; mode: Mode | null; hasMo
  * @returns the `@param` name→description map plus the `@returns` description
  * (null when the tag is absent, '' when present but empty).
  */
-/** 中文说明：函数 parseTags 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseTags 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseTags(raw: string): { params: Map<string, string>; returns: string | null } {
   /** 中文说明：变量 inner 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const inner = raw
@@ -172,7 +172,7 @@ export function parseTags(raw: string): { params: Map<string, string>; returns: 
  * @param isExempt - parameters whose tag is optional, such as `this` or waterfall `next`.
  * @param violations - the aggregate list violations append to.
  */
-/** 中文说明：函数 checkParams 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 checkParams 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function checkParams(
   where: string,
   apiKind: string,
@@ -213,7 +213,7 @@ export function checkParams(
  * @param sf - the source file (for rendering the annotation's text).
  * @param violations - the aggregate list violations append to.
  */
-/** 中文说明：函数 checkReturns 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 checkReturns 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function checkReturns(
   where: string,
   typeNode: ts.TypeNode | undefined,
@@ -239,7 +239,7 @@ export function checkReturns(
  * @param gate - the reporting gate's name, prefixed to the error message.
  * @param violations - the collected violation lines; no-op when empty.
  */
-/** 中文说明：函数 reportViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 reportViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function reportViolations(gate: string, violations: string[]): void {
   if (violations.length === 0) return
   throw new Error(

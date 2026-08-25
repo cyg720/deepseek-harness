@@ -4,7 +4,7 @@
  * it fills has been declared. A pushed settings change refreshes the surfaces
  * that are already showing, so a default set from one converges the other.
  */
-/**
+/*
  * 文件职责：验证代理预设界面的 apply 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -48,7 +48,7 @@ const ROSTER_ONE = {
 }
 
 /** The roster after this browser copied one preset of its own. */
-/** 中文说明：测试场景的局部值 ROSTER_AUTHORED，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：测试场景的局部值 ROSTER_AUTHORED，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const ROSTER_AUTHORED = {
   rpcId: 'r',
   result: {
@@ -65,7 +65,7 @@ const ROSTER_AUTHORED = {
 }
 
 /** The same roster with a second preset carrying the default. */
-/** 中文说明：测试场景的局部值 ROSTER_MOVED，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：测试场景的局部值 ROSTER_MOVED，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const ROSTER_MOVED = {
   rpcId: 'r',
   result: {
@@ -153,7 +153,7 @@ function declareRoot(slots: SlotRegistry): () => void {
 }
 
 /** The conversation's own declarations, which the chip and label wait for. */
-/** 中文说明：函数 declareConversation 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 declareConversation 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function declareConversation(slots: SlotRegistry): () => void {
   return slots.register({
     name: 'conversation',
@@ -165,7 +165,7 @@ function declareConversation(slots: SlotRegistry): () => void {
 }
 
 /** A workspaces double recording new-session starts. */
-/** 中文说明：函数 workspacesDouble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 workspacesDouble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function workspacesDouble() {
   /** 中文说明：测试场景的局部值 starts，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const starts: unknown[] = []
@@ -176,7 +176,7 @@ function workspacesDouble() {
 }
 
 /** A sessions double whose list can be moved and whose changes are pushed. */
-/** 中文说明：函数 sessionsDouble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 sessionsDouble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function sessionsDouble(state: {
   current?: string
   byId: Record<string, { id: string; blank: boolean; agentPreset?: string }>

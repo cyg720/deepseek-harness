@@ -81,7 +81,7 @@ async function composePrefix(ctx: Context, cwd: string): Promise<Message[]> {
  * Loader-path guard (export shape, `unwrapExports`) is the app packages' keyless
  * bin smokes; here we assert the composition + config forwarding.
  */
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(config: agentCore.Config, withBash = false): Promise<Context> {
   /** 中文说明：测试局部值 oldDshHome，由紧邻初始化决定。 */
   const oldDshHome = process.env.DSH_HOME

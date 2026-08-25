@@ -1,5 +1,5 @@
 /** Chrome-Network-style overview timeline for focusing the trajectory ledger. */
-/**
+/*
  * 文件职责：实现运行轨迹的 TrajectoryTimeline 组件。
  * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
  * 产品维度：支持用户查看或操作运行轨迹。
@@ -164,7 +164,7 @@ function timelineTooltipLabel(
 }
 
 /** Props for the fixed full-domain overview above the trajectory ledger. */
-/** 中文说明：类型或类 TrajectoryTimelineProps 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 TrajectoryTimelineProps 约束模块数据或组件职责。 */
 export interface TrajectoryTimelineProps {
   turns: readonly TrajectoryTurnModel[]
   mode: TrajectoryTimelineMode
@@ -278,7 +278,7 @@ function EarlierHistoryBoundary({
 }
 
 /** Overview renderer with drag ranges, click-sized focus, and Escape reset. */
-/** 中文说明：组件局部值 TrajectoryTimeline，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 TrajectoryTimeline，由紧邻初始化决定。 */
 export const TrajectoryTimeline = memo(function TrajectoryTimeline({
   turns,
   mode,

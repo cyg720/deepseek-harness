@@ -13,7 +13,7 @@ import { SettingsProvider, SettingsConflictError, deepEqualJson, installSettings
 import { MemorySettings } from './memory.ts'
 
 /** A provider implementing only the three primitives: the Service Definition owns initialization. */
-/** 中文说明：class BareProvider 定义本测试所需的数据或行为，用于表达设置存储场景。 */
+/* 中文说明：class BareProvider 定义本测试所需的数据或行为，用于表达设置存储场景。 */
 class BareProvider extends SettingsProvider {
   doc: Record<string, unknown>
 
@@ -84,7 +84,7 @@ describe('provider metadata', () => {
 })
 
 /** Record every settings/updated emission. */
-/** 中文说明：函数 recordUpdates 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 recordUpdates 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function recordUpdates(ctx: Context) {
   /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events: Array<{ ns: string; next: unknown; prev: unknown; source: SettingsUpdateSource }> = []

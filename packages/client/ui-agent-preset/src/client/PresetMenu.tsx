@@ -8,7 +8,7 @@
  * authored preset is exactly as privileged as the plugins it names, so the
  * label marks it rather than presenting every preset as shipped and vetted.
  */
-/**
+/*
  * 文件职责：实现预设界面的 PresetMenu 组件及交互。
  * 技术维度：React、TypeScript、Cordis 插槽、响应式快照和 CSS Modules。
  * 产品维度：帮助用户查看、选择或管理会话使用的代理预设。
@@ -22,37 +22,37 @@ import type { AgentPresetOption } from './settings-store.ts'
 import { presetDisplayText, type AgentPresetSettingsKey } from './locales.ts'
 
 /** What one surface passes to the shared picker. */
-/** 中文说明：类型 PresetMenuProps 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 PresetMenuProps 约束本文件数据字段及允许取值。 */
 export interface PresetMenuProps {
   /** Presets to offer, in roster order. */
-  /** 中文说明：成员 options 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 options 保存实例运行状态，取值由声明类型限定。 */
   options: readonly AgentPresetOption[]
   /** The preset the button names and the menu marks selected. */
-  /** 中文说明：成员 selectedId 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 selectedId 保存实例运行状态，取值由声明类型限定。 */
   selectedId: string
   /** Text on the button; the surfaces word a pending roster differently. */
-  /** 中文说明：成员 label 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 label 保存实例运行状态，取值由声明类型限定。 */
   label: string
   /** Active Web locale lookup. */
-  /** 中文说明：成员 t 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 t 保存实例运行状态，取值由声明类型限定。 */
   t: (key: AgentPresetSettingsKey) => string
   /** Class for the trigger button, owned by the calling surface. */
-  /** 中文说明：成员 buttonClassName 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 buttonClassName 保存实例运行状态，取值由声明类型限定。 */
   buttonClassName: string | undefined
   /** Class for the chevron, owned by the calling surface. */
-  /** 中文说明：成员 chevronClassName 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 chevronClassName 保存实例运行状态，取值由声明类型限定。 */
   chevronClassName: string | undefined
   /** Whether the trigger refuses interaction. */
-  /** 中文说明：成员 disabled 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 disabled 保存实例运行状态，取值由声明类型限定。 */
   disabled: boolean
   /** Whether the menu is open — the surface owns this so it can force it shut. */
-  /** 中文说明：成员 open 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 open 保存实例运行状态，取值由声明类型限定。 */
   open: boolean
   /** Report the menu's next open state. */
-  /** 中文说明：成员 onOpenChange 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 onOpenChange 保存实例运行状态，取值由声明类型限定。 */
   onOpenChange: (open: boolean) => void
   /** Called with the picked preset once the menu has closed. */
-  /** 中文说明：成员 onSelect 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 onSelect 保存实例运行状态，取值由声明类型限定。 */
   onSelect: (id: string) => void
 }
 
@@ -61,7 +61,7 @@ export interface PresetMenuProps {
  * @param props - the calling surface's copy, styling, and handlers.
  * @returns the menu and its trigger.
  */
-/** 中文说明：函数 PresetMenu 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 PresetMenu 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function PresetMenu({
   options, selectedId, label, t, buttonClassName, chevronClassName,
   disabled, open, onOpenChange, onSelect,

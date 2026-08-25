@@ -2,7 +2,7 @@
  * Verify client package modes, npm dependency sections, and the synchronous
  * browser module-request graph.
  */
-/**
+/*
  * 文件职责：实现 verify-client-packages.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -39,7 +39,7 @@ const DSH_PREFIX = '@deepseek-ai/dsh-'
 const CLIENT_WEB = '@deepseek-ai/dsh-client-web'
 
 /** One workspace package's browser-module declaration. */
-/** 中文说明：interface ClientDeclaration 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface ClientDeclaration 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface ClientDeclaration {
   /** npm package name. */
   readonly name: string
@@ -54,7 +54,7 @@ export interface ClientDeclaration {
 }
 
 /** One package directly under packages/client. */
-/** 中文说明：interface ClientPackage 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface ClientPackage 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface ClientPackage extends ClientDeclaration {
   /** Whether its build config uses the staticLinked preset. */
   readonly staticLinked: boolean
@@ -71,7 +71,7 @@ export interface ClientPackage extends ClientDeclaration {
 }
 
 /** Complete source-plane input to the client package verifier. */
-/** 中文说明：interface ClientPackageFacts 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface ClientPackageFacts 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface ClientPackageFacts {
   /** Packages directly under packages/client. */
   readonly packages: readonly ClientPackage[]
@@ -90,7 +90,7 @@ export interface ClientPackageFacts {
 }
 
 /** Result of reading every workspace browser-module declaration. */
-/** 中文说明：interface ClientDeclarations 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface ClientDeclarations 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface ClientDeclarations {
   /** One declaration record per named workspace manifest. */
   readonly declarations: ClientDeclaration[]
@@ -104,7 +104,7 @@ export interface ClientDeclarations {
  * @param source - Source text to inspect.
  * @returns Bare package names referenced by imports, declarations, or JSX.
  */
-/** 中文说明：函数 collectSourcePackageUses 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectSourcePackageUses 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectSourcePackageUses(path: string, source: string): Set<string> {
   /** 中文说明：变量 sourceFile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true)
@@ -117,7 +117,7 @@ export function collectSourcePackageUses(path: string, source: string): Set<stri
  * @param source - Source text to inspect.
  * @returns Bare package names retained by runtime imports, exports, requires, or JSX.
  */
-/** 中文说明：函数 collectRuntimeSourcePackageUses 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectRuntimeSourcePackageUses 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectRuntimeSourcePackageUses(path: string, source: string): Set<string> {
   /** 中文说明：变量 sourceFile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true)
@@ -189,7 +189,7 @@ function collectSourceFilePackageUses(sourceFile: ts.SourceFile, runtimeOnly: bo
  * @param root - Absolute repository root.
  * @returns Declarations and malformed dsh.client fields.
  */
-/** 中文说明：函数 readClientDeclarations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 readClientDeclarations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function readClientDeclarations(root: string): ClientDeclarations {
   /** 中文说明：变量 malformed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const malformed: string[] = []
@@ -206,7 +206,7 @@ export function readClientDeclarations(root: string): ClientDeclarations {
  * @param facts - Package modes, manifests, source uses, and platform module lists.
  * @returns Stable self-contained diagnostics.
  */
-/** 中文说明：函数 collectClientPackageViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectClientPackageViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectClientPackageViolations(facts: ClientPackageFacts): string[] {
   return [
     ...facts.malformed,
@@ -232,7 +232,7 @@ type DependencySection = 'dependencies' | 'peerDependencies' | 'devDependencies'
  * @param facts - Facts used by the verification pass.
  * @returns Repository-relative manifests written by the fixer.
  */
-/** 中文说明：函数 fixClientPackageManifests 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 fixClientPackageManifests 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function fixClientPackageManifests(root: string, facts: ClientPackageFacts): string[] {
   /** 中文说明：变量 documents 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const documents = new Map<string, ManifestDocument>()

@@ -5,7 +5,7 @@
  * worker timeout that exists to isolate model-written code.
  * @module @deepseek-ai/dsh-workflow-worker-thread/meta
  */
-/**
+/*
  * 文件职责：实现 meta.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -18,7 +18,7 @@ import { WorkflowError } from '@deepseek-ai/dsh-workflow'
 import type { WorkflowMeta, WorkflowPhase } from '@deepseek-ai/dsh-workflow'
 
 /** Collect shape violations for a meta value (plain JSON data by the seam contract). */
-/** 中文说明：函数 validateMetaShape 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 validateMetaShape 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function validateMetaShape(meta: unknown): { meta?: WorkflowMeta; violations: string[] } {
   /** 中文说明：变量 violations 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []
@@ -89,7 +89,11 @@ function validateMetaShape(meta: unknown): { meta?: WorkflowMeta; violations: st
  * @param value - the meta data from the start request (plain JSON by the seam contract).
  * @returns the validated, normalized meta block.
  */
-/** 中文说明：函数 validateMeta 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 validateMeta 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function validateMeta(value: unknown): WorkflowMeta {
   const { meta, violations } = validateMetaShape(value)
   if (meta === undefined) {

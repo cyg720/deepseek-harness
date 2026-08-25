@@ -4,7 +4,7 @@
  * optional plugins, and teardown.
  * @module @deepseek-ai/dsh-agent-loop-testkit
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：为 AgentLoop 测试按固定顺序装载其标准前置服务，但保留循环和适配器控制权给用例。
  * - 技术维度：使用 Cordis 异步插件装载、TypeScript 配置类型和上下文所有权生命周期。
@@ -24,13 +24,13 @@ import ToolRuntime from '@deepseek-ai/dsh-tools'
 import type { Config as ToolRuntimeConfig } from '@deepseek-ai/dsh-tools'
 
 /** Configuration forwarded to the prerequisite service plugins. */
-/** 中文：传递给 AgentLoop 前置服务的可选测试配置。 */
+/* 中文：传递给 AgentLoop 前置服务的可选测试配置。 */
 export interface AgentLoopTestDependenciesOptions {
   /** Configuration for the system-prompt registry. */
-  /** 中文：系统提示注册表配置；省略时传入空对象。 */
+  /* 中文：系统提示注册表配置；省略时传入空对象。 */
   readonly systemPrompt?: SystemPromptConfig
   /** Configuration for the tool registry. */
-  /** 中文：工具注册表配置；省略时传入空对象。 */
+  /* 中文：工具注册表配置；省略时传入空对象。 */
   readonly tools?: ToolRuntimeConfig
 }
 
@@ -46,7 +46,11 @@ export interface AgentLoopTestDependenciesOptions {
  * @param options - optional service configuration forwarded without mutation.
  * @returns after every prerequisite service has activated.
  */
-/** 中文：向 ctx 装载标准前置服务；options 原样转交相应插件，全部激活后 Promise 完成且无返回数据。 */
+/*
+ * 中文：向 ctx 装载标准前置服务；options 原样转交相应插件，全部激活后 Promise 完成且无返回数据。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export async function mountAgentLoopTestDependencies(
   ctx: Context,
   options: AgentLoopTestDependenciesOptions = {},

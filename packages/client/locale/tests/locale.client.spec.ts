@@ -33,7 +33,7 @@ const make = (host?: StubSettingsScope<LocaleSettings>): {
  * that helper deliberately cannot express — a missing `languages` list, a
  * list decoupled from `language`, and a non-browser run with no `window`.
  */
-/** 中文说明：测试场景的局部值 stubLanguages，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/* 中文说明：测试场景的局部值 stubLanguages，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const stubLanguages = (...tags: string[]): void => {
   vi.stubGlobal('navigator', { languages: tags, language: tags[0] ?? '' })
 }

@@ -3,7 +3,7 @@
  * handle, so filesystem and process operations inhabit one remote Linux world.
  * @module @deepseek-ai/dsh-e2b
  */
-/**
+/*
  * 文件职责：实现E2B 远程沙箱的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
@@ -32,7 +32,11 @@ export type { CommandHandle, CommandResult, EntryInfo } from 'e2b'
  * @param value - Exact argument value to preserve.
  * @returns A single shell word with no interpolation.
  */
-/** 中文说明：函数 quoteE2BShellArg 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 quoteE2BShellArg 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function quoteE2BShellArg(value: string): string {
   return `'${value.replaceAll('\'', "'\"'\"'")}'`
 }
@@ -42,7 +46,11 @@ export function quoteE2BShellArg(value: string): string {
  * @param overrides - Additional environment entries for the internal command.
  * @returns A fresh mutable map that the E2B SDK may extend.
  */
-/** 中文说明：函数 e2bControlEnvs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 e2bControlEnvs 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param overrides 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function e2bControlEnvs(
   overrides: Readonly<Record<string, string>> = {},
 ): Record<string, string> {
@@ -50,7 +58,7 @@ export function e2bControlEnvs(
 }
 
 /** Configuration for the shared E2B sandbox owner. */
-/** 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
 export interface Config {
   /** API key; omission reads `E2B_API_KEY`. It is never forwarded into the sandbox. */
   apiKey?: string
@@ -85,7 +93,7 @@ declare module '@deepseek-ai/cordis' {
  * timeout or disposal. Creation begins at plugin construction; adapters await
  * {@link getSandbox} before their first operation.
  */
-/** 中文说明：类型或类 E2BRuntime 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 E2BRuntime 约束远程资源或测试数据职责。 */
 export class E2BRuntime extends Service {
   static Config: z<Config> = z.object({
     apiKey: z.string(),

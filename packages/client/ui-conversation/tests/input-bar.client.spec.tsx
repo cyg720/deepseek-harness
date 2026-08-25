@@ -110,7 +110,7 @@ interface BenchOptions {
 }
 
 /** One pending queue row (the runtime snapshot shape, as the dock tests build it). */
-/** 中文说明：函数 row 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 row 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function row(id: string): ConversationSnapshot['queue'][number] {
   return {
     id: id as never, messageId: `message-${id}` as never, placement: 'queued',
@@ -119,7 +119,7 @@ function row(id: string): ConversationSnapshot['queue'][number] {
 }
 
 /** Real machine behind the bar entry: sink spy, no slash pipeline (plain text goes straight to the sink). */
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function bench(over?: BenchOptions) {
   /** 中文说明：测试局部值 sink，取值由紧邻初始化决定。 */
   const sink = vi.fn<(
@@ -255,7 +255,7 @@ function bench(over?: BenchOptions) {
  * The selection each gesture leaves is the engine-observed one: a delete over a
  * selection reports that selection, a caret delete reports the bare caret.
  */
-/** 中文说明：函数 beforeInput 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 beforeInput 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function beforeInput(el: HTMLTextAreaElement, inputType = 'insertText'): void {
   el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType }))
 }

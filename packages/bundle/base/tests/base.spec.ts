@@ -2,7 +2,7 @@
  * The bundle's substance is its patch file: the `dsh.bundle.patch` manifest
  * field must name a real, parseable patch list.
  */
-/**
+/*
  * 文件职责：验证dsh-base Bundle清单指向可解析补丁，并检查核心条目数量、遥测表达式和平台Shell对称门控。
  * 技术维度：使用Vitest、js-yaml、Include模式和Loader表达式求值读取真实Bundle产物。
  * 产品维度：确保基础Profile装配完整能力且每个平台只挂载可用Shell栈，不意外携带外部子代理提供方。

@@ -36,7 +36,7 @@ import {
  * the factory but not the model, so a dummy key is sufficient.
  */
 
-/** 中文说明：测试局部值 binScript，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 binScript，由紧邻初始化决定。 */
 const binScript = fileURLToPath(new URL('../src/bin.ts', import.meta.url))
 /** 中文说明：测试局部值 tsxLoader，由紧邻初始化决定。 */
 const tsxLoader = fileURLToPath(import.meta.resolve('tsx'))

@@ -32,12 +32,12 @@ afterEach(cleanup)
 const SID = 's1' as SessionId
 
 /** Seat stub over a dictionary pair mirroring the real lookup chain: package dictionary, then common vocabulary, then the key. */
-/** 中文说明：测试局部值 seatOver，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 seatOver，由紧邻初始化决定。 */
 const seatOver = (dict: Record<string, string>, common: Record<string, string>): QuestionComposerProps['t'] =>
   (key => dict[key] ?? common[key] ?? key)
 
 /** Framework standard-kit stubs: the panel consumes only the locale seat. */
-/** 中文说明：测试局部值 kit，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 kit，由紧邻初始化决定。 */
 const kit = {
   sessionId: SID,
   session: undefined,
@@ -54,7 +54,7 @@ const kit = {
 const PLAN = '# Ship the picker\n\n- read the store\n- render the rows\n'
 
 /** The plan-mode request shape: one question, the plan as detail, approve named. */
-/** 中文说明：测试局部值 questions，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 questions，由紧邻初始化决定。 */
 const questions = (): QuestionWait['payload']['questions'] => [{
   id: 'plan-review',
   header: 'Plan review',
@@ -68,7 +68,7 @@ const questions = (): QuestionWait['payload']['questions'] => [{
 }]
 
 /** Carrier fixture over a scripted respond carrier. */
-/** 中文说明：函数 wait 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 wait 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function wait(
   payload: QuestionWait['payload'] = { questions: questions() },
   respond = vi.fn(() => Promise.resolve<RpcReceipt>({ accepted: true })),
@@ -77,7 +77,7 @@ function wait(
 }
 
 /** The client-response envelope respond must have received for a decision. */
-/** 中文说明：函数 decidedEnvelope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 decidedEnvelope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function decidedEnvelope(label: string) {
   return {
     type: 'client-response', rpcId: RpcId('q-1'),

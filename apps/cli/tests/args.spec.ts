@@ -13,7 +13,7 @@ import { parseDshArgs } from '../src/args.ts'
 const parse = (argv: string[]) => parseDshArgs(argv, '1.2.3')
 
 /** Capture the process exit code while muting Commander's output. */
-/**
+/*
  * 静音 Commander 输出并捕获指定参数触发的进程退出码。
  * @param argv 预期会结束进程的参数。
  * @returns Commander 最后传给 process.exit 的退出码。

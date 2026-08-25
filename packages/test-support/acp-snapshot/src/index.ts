@@ -15,7 +15,7 @@
  *
  * @module @deepseek-ai/dsh-acp-snapshot
  */
-/**
+/*
  * 文件职责：集中导出无密钥 ACP 快照测试的启动器、场景运行器、规范化工具和套件工厂。
  * 技术维度：使用 TypeScript ESM 重导出把 harness、launcher、normalize、suite 四层组合为测试支持入口。
  * 产品维度：让每个示例只声明路径和场景表即可获得一致的 ACP 转录与会话日志快照。

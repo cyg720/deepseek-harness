@@ -37,7 +37,7 @@ const SCTX = {} as ClientContext
 const SID = 's1' as SessionId
 
 /** Standard-props InputBar mount over a real shell (the composer-bar entry shape). */
-/** 中文说明：函数 mountBar 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mountBar 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountBar(shell: SessionInputShell, over?: { running?: boolean; disabled?: boolean }) {
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = createSnapshotStore<ConversationSnapshot>({

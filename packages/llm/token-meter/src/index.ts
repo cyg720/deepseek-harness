@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现"单一、回放感知"的 token 计量服务 TokenMeter：测量请求
  * 压力与表面（surface）占用。
@@ -102,7 +102,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Replay owner for one service-wide estimator and isolated per-session folds. */
-/**
+/*
  * （中文）一个服务级估计器 + 各会话独立折叠的回放所有者。
  */
 export class TokenMeter extends Service {
@@ -138,7 +138,7 @@ export class TokenMeter extends Service {
     })
   }
 
-  /**
+  /*
    * （中文）测量当前请求压力与表面（读至当前持久尾巴）。
    * provider 用量只在"最新成功调用的规范请求包络匹配 requestHeader、且其总额
    * 不低于该调用完整启发式锚点"时复用；否则整份包络与表面重新启发式定价。
@@ -200,7 +200,7 @@ export class TokenMeter extends Service {
     }))
   }
 
-  /**
+  /*
    * （中文）启发式定价一条模型可见消息（estimate.ts 中纯函数 estimateMessage
    * 的实例面）。
    * @param message 要定价的消息（不改写）。
@@ -243,7 +243,7 @@ export class TokenMeter extends Service {
     return state
   }
 
-  /**
+  /*
    * （中文）在改动回放状态之前校验并预备每个"可能失败"的部分。畸形事件在
    * 每次重试时保持未读，而不是把同一改动部分应用多次。
    */
@@ -348,7 +348,7 @@ export class TokenMeter extends Service {
     state.anchor = nextAnchor
   }
 
-  /**
+  /*
    * （中文）从 assistant/message 精确引用的 chunk seq 重装 provider 输出，
    * 用于用量锚点。缺失旧版源 seq 时保守地把持久输出当作 provider 输出；显式
    * 空列表为已知空流定价 0。

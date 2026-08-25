@@ -1,5 +1,5 @@
 /** Deterministic provider-independent image normalization. */
-/**
+/*
  * 文件职责：把已准入图片转换为确定、无元数据、提供方无关的单帧8位sRGB持久版本。
  * 技术维度：使用 sharp 旋转方向、转换色彩空间、采样颜色复杂度，并按多个编码质量与尺寸逐级尝试。
  * 产品维度：让历史会话只保存体积受控且可重复使用的图片，避免每次模型请求重复处理原始大图。
@@ -16,18 +16,18 @@ import { detectImage, encodedAlphaIsCompatible } from './image.ts'
 import type { DetectedImage } from './image.ts'
 
 /** Deployment-resolved policy for the persisted normalized attachment. */
-/** 部署解析后的持久规范化策略。 */
+/* 部署解析后的持久规范化策略。 */
 export interface NormalizationPolicy {
   /** Long-edge cap in pixels; larger sources are downscaled proportionally. */
-  /** 长边像素上限，较大来源按比例缩小。 */
+  /* 长边像素上限，较大来源按比例缩小。 */
   maxDimension: number
   /** Independent safety cap for encoded normalized image bytes. */
-  /** 规范化图片编码字节的独立安全上限。 */
+  /* 规范化图片编码字节的独立安全上限。 */
   maxBytes: number
 }
 
 /** Normalized bytes beside the facts recorded by a durable reference. */
-/** 规范化字节及其将写入持久引用的真实格式和尺寸。 */
+/* 规范化字节及其将写入持久引用的真实格式和尺寸。 */
 export interface NormalizedImage {
   /** 最终编码图片字节。 */
   data: Uint8Array
@@ -49,7 +49,7 @@ const LOW_COLOUR_LIMIT = 256
 const MIN_SCALE_STEP = 0.9
 
 /** Encode one prepared pipeline and report exact output facts. */
-/** 按目标格式和质量编码已准备管线，并返回真实字节与尺寸。 */
+/* 按目标格式和质量编码已准备管线，并返回真实字节与尺寸。 */
 async function encode(
   pipeline: Sharp,
   mediaType: 'image/png' | 'image/jpeg' | 'image/webp',
@@ -121,7 +121,7 @@ export async function hasLowColourCount(pipeline: Sharp): Promise<boolean> {
 }
 
 /** Assert that a normalized output is an 8-bit sRGB/sRGBA single-frame image with matching facts. */
-/** 完整解码规范化结果，确认它是事实一致的单帧8位sRGB/sRGBA图片。 */
+/* 完整解码规范化结果，确认它是事实一致的单帧8位sRGB/sRGBA图片。 */
 async function verifyNormalizedImage(
   image: NormalizedImage,
   expectedAlpha: boolean | undefined,
@@ -145,7 +145,7 @@ async function verifyNormalizedImage(
 }
 
 /** Build one fixed-size, oriented, metadata-free sRGB pipeline from submitted bytes. */
-/** 从提交字节构建方向正确、无保留元数据、固定尺寸的sRGB管线。 */
+/* 从提交字节构建方向正确、无保留元数据、固定尺寸的sRGB管线。 */
 function preparedPipeline(data: Uint8Array, width: number, height: number): Sharp {
   return sharp(data, { failOn: 'error', limitInputPixels: false })
     .rotate()
@@ -154,7 +154,7 @@ function preparedPipeline(data: Uint8Array, width: number, height: number): Shar
 }
 
 /** Dimensions after the long edge is capped without changing aspect ratio. */
-/** 在不改变宽高比的前提下计算长边受限后的初始整数尺寸。 */
+/* 在不改变宽高比的前提下计算长边受限后的初始整数尺寸。 */
 function initialDimensions(detected: DetectedImage, maxDimension: number): { width: number; height: number } {
   // 不放大来源且让长边不超过策略上限的比例。
   const scale = Math.min(1, maxDimension / Math.max(detected.width, detected.height))
@@ -165,7 +165,7 @@ function initialDimensions(detected: DetectedImage, maxDimension: number): { wid
 }
 
 /** Lazy encoding order for one size, separated by sampled colour complexity and alpha. */
-/** 根据低色彩分类和透明度构造某一尺寸的惰性编码尝试顺序。 */
+/* 根据低色彩分类和透明度构造某一尺寸的惰性编码尝试顺序。 */
 function encodingAttemptsAtSize(
   data: Uint8Array,
   width: number,

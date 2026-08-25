@@ -25,7 +25,7 @@ import {
 import type {} from '@deepseek-ai/dsh-session-title'
 
 /** Options for one deterministic long-chat fixture. */
-/** 中文说明：interface ChatScrollFixtureOptions 定义本测试所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：interface ChatScrollFixtureOptions 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 export interface ChatScrollFixtureOptions {
   /** Marker namespace, used when two sessions share one browser world. */
   readonly markerPrefix: string
@@ -36,7 +36,7 @@ export interface ChatScrollFixtureOptions {
 }
 
 /** Semantic marker helpers returned with a generated fixture. */
-/** 中文说明：interface ChatScrollMarkers 定义本测试所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：interface ChatScrollMarkers 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 interface ChatScrollMarkers {
   /** Marker painted in the human message for a turn. */
   user(turn: number): string
@@ -47,7 +47,7 @@ interface ChatScrollMarkers {
 }
 
 /** Generated JSONL plus the stable facts browser scenarios assert. */
-/** 中文说明：interface ChatScrollFixture 定义本测试所需的数据或行为，用于表达当前功能场景。 */
+/* 中文说明：interface ChatScrollFixture 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 export interface ChatScrollFixture {
   readonly log: string
   readonly markers: ChatScrollMarkers
@@ -205,7 +205,7 @@ function fixtureLog(session: Session): string {
  * @param options - Fixture identity and optional turn count.
  * @returns Canonical JSONL and semantic marker helpers.
  */
-/** 中文说明：函数 createChatScrollFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 createChatScrollFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function createChatScrollFixture(options: ChatScrollFixtureOptions): ChatScrollFixture {
   /** 中文说明：变量 turns 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const turns = options.turns ?? DEFAULT_TURNS

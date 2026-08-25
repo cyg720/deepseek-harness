@@ -34,9 +34,13 @@ import type { SubagentDescriptorData } from './descriptor.ts'
  * @param descriptor - the snapshotted composition record to persist.
  * @returns the complete seed events, contiguous from sequence zero.
  */
-/**
+/*
  * 中文：通过暂存 Session 把"继承的父历史前缀 + 一条 subagent/descriptor 事件"拼成完整种子；
  * 返回从 seq 0 连续的事件数组，供后续冷恢复（cold resume）从子代理自己的日志重建其组成。
+ * @param childId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param seed 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param descriptor 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function seedDescriptorTurn(
   childId: SessionId,

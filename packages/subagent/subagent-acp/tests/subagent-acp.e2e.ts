@@ -48,7 +48,7 @@ const childLaunch = resolveExampleLaunch({
 })
 
 /** The ACP backend ignores the parent, but the seam requires one. */
-/** 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeParent = { id: 'parent', session: { header: {} } } as unknown as Agent
 
 /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

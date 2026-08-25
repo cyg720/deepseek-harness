@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-lsp 包的入口与运行时实现：定义 LSP 能力缝 ctx.lsp 的 Service 类（Lsp）、结构化错误 LspError、扩展名规范化工具，统一 re-export 类型与品牌，并把服务挂到 Cordis 的 Context 上。
  * 【技术维度】基于 vendored Cordis 的 Service 基类实现服务；注册采用"先校验后提交"的原子方式（ctx.effect 生命周期控制器管理注册与释放）；通过声明合并（declare module）把 lsp 服务挂到全局 Context 类型上。

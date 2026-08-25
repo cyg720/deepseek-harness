@@ -24,7 +24,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Mount a host plugin and mint a scope inside it. */
-/** 中文说明：测试辅助函数 mintScope 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 mintScope 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function mintScope(ctx: Context, key: object): Promise<Scope> {
   /** 中文说明：测试局部值 scope!: Scope，由紧邻初始化决定，仅在当前场景使用。 */
   let scope!: Scope

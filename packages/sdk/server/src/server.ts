@@ -4,7 +4,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-jsonrpc-server/server
  */
-/**
+/*
  * 文件职责：实现 server.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -39,13 +39,13 @@ interface SessionRecord {
 }
 
 /** Recover the delegating parent from the service-owned scoped carrier. */
-/** 中文说明：函数 subagentParentOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 subagentParentOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function subagentParentOf(carrier: Scoped<SubagentRuntime>): Agent {
   return carrierKeyOf(carrier) as Agent
 }
 
 /** Deployment-specific status mapping for SDK turn and subagent outcomes. */
-/** 中文说明：interface HarnessSdkJsonRpcServerOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface HarnessSdkJsonRpcServerOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface HarnessSdkJsonRpcServerOptions {
   /** Report max-token termination as an accepted result instead of an infrastructure error. */
   maxTokensAsSuccess?: boolean
@@ -62,7 +62,7 @@ function successStatus(reason: string, options: HarnessSdkJsonRpcServerOptions):
  * subscribes to session, agent, and subagent lifecycle events until shutdown;
  * reinitialization is unsupported.
  */
-/** 中文说明：class HarnessSdkJsonRpcServer 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class HarnessSdkJsonRpcServer 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class HarnessSdkJsonRpcServer {
   private cwd = process.cwd()
   private provider = 'deepseek-official'

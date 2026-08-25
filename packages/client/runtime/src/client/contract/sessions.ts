@@ -23,7 +23,7 @@
  * [SessionsPort](./sessions-port.ts). Widening this interface is the
  * explicit act of widening what features may do to the sessions domain.
  */
-/**
+/*
  * 会话服务对外面：ctx.sessions 暴露给功能包与渲染宿主的能力，因此也是
  * 测试运行时会话替身必须实现的全部。wire 泵入口（handleMuxEnvelope/
  * handleConnected/refresh）与运行时内部留在具体类上；跨域消费方使用更窄的
@@ -46,20 +46,20 @@ import type { ObservableSnapshot } from './store.ts'
 export type { AgentContext } from '../agents/scope.ts'
 
 /** The sessions-service face injected as `ctx.sessions`. */
-/** 以 ctx.sessions 注入的会话服务面。 */
+/* 以 ctx.sessions 注入的会话服务面。 */
 export interface ISessions {
   /** The useSessions standard feed (list rows + current selection; read face — writes stay inside the domain). */
-  /** useSessions 的标准数据源（列表行 + 当前选中；只读面——写操作留在域内部）。 */
+  /* useSessions 的标准数据源（列表行 + 当前选中；只读面——写操作留在域内部）。 */
   readonly list: ObservableSnapshot<SessionListState>
   /** Atomic current-session provide projection (the renderer host's `sessions.provideInfo` feed). */
-  /** 原子性的当前会话 provide 投影（渲染宿主的 sessions.provideInfo 数据源）。 */
+  /* 原子性的当前会话 provide 投影（渲染宿主的 sessions.provideInfo 数据源）。 */
   readonly currentProvideInfo: HostObservable<SessionMaybeProvideInfo>
   /**
    * The `session.search` result bound the wire schema fixes, exposed to
    * presentation as injected data. Not per-connection state: every transport
    * (fixture included) reports the same number.
    */
-  /**
+  /*
    * session.search 的结果条数上限由 wire schema 固定，以注入数据暴露给
    * 呈现层。不是按连接变化的状态：每种传输（含夹具）都报告同一数值。
    */
@@ -68,7 +68,7 @@ export interface ISessions {
    * Select a session as current.
    * @param id - session id (must exist in the list; unknown ids fail loud).
    */
-  /**
+  /*
    * 把某个会话设为当前会话。
    * @param id 会话 id（必须存在于列表中；未知 id 会 fail-loud）。
    */
@@ -77,7 +77,7 @@ export interface ISessions {
    * Open a healthy catalog child through its exact direct-parent address.
    * @param address - catalog-derived parent and child ids.
    */
-  /**
+  /*
    * 通过其精确的直接父地址打开一个健康的目录子会话。
    * @param address 由目录推导的父与子 id。
    */
@@ -87,7 +87,7 @@ export interface ISessions {
    * @param id - possible addressed child id.
    * @returns the retained address, when present.
    */
-  /**
+  /*
    * 解析一个已发现的直接父地址而不打开它。
    * @param id 可能的被寻址子 id。
    * @returns 保留的地址（若有）。
@@ -98,7 +98,7 @@ export interface ISessions {
    * @param parentSessionId - catalog owner.
    * @param open - current menu state.
    */
-  /**
+  /*
    * 标记某个目录菜单是否在消费实时的成员更新。
    * @param parentSessionId 目录属主。
    * @param open 当前菜单状态。
@@ -109,7 +109,7 @@ export interface ISessions {
    * @param parentSessionId - catalog owner.
    * @returns completion of the current or newly started refresh.
    */
-  /**
+  /*
    * 刷新一个直接子目录。
    * @param parentSessionId 目录属主。
    * @returns 当前或新发起的刷新的完成信号。
@@ -123,7 +123,7 @@ export interface ISessions {
    * @param sessionId - the switched session.
    * @param agentPreset - the preset id the host confirmed.
    */
-  /**
+  /*
    * 记录某个会话当前运行的组合（composition）。agent-preset 座位在空白
    * 会话切换成功后调用它，使头部标签随组合移动，而不必等下一次完整
    * 列表刷新。
@@ -132,7 +132,7 @@ export interface ISessions {
    */
   noteAgentPreset(sessionId: SessionId, agentPreset: string): void
   /** Clear the current selection into the no-session view state. */
-  /** 清除当前选中，回到"无会话"视图状态。 */
+  /* 清除当前选中，回到"无会话"视图状态。 */
   clear(): void
   /**
    * Search the Host's visible message-content index. Results stay
@@ -141,7 +141,7 @@ export interface ISessions {
    * @param signal - cancellation for a superseded search.
    * @returns bounded results, or a business/transport error.
    */
-  /**
+  /*
    * 搜索 Host 可见的消息内容索引。结果保持在请求本地；列表快照仍是
    * 元数据的权威来源。
    * @param query 非空白字面短语。
@@ -162,7 +162,7 @@ export interface ISessions {
    * @returns the child session id.
    * @throws when the fork fails, or when a requested child-title rename fails after creation.
    */
-  /**
+  /*
    * 从源会话的已完成轮次前缀 fork 出一个子会话；解析完成后子会话进入
    * 列表存储，open() 可指向它。
    * @param opts 源会话 id、可选的事件 seq 锚点（切割边界是该 seq 处或之后
@@ -178,7 +178,7 @@ export interface ISessions {
    * @param descriptor - static member roster plus per-session resolver.
    * @returns disposer removing the provider.
    */
-  /**
+  /*
    * 注册一个按会话的标准属性提供者（hooks 在渲染侧成为 use<Name> 选择器
    * 钩子；props 原样展开）。
    * @param descriptor 静态成员名册 + 按会话解析器。
@@ -190,7 +190,7 @@ export interface ISessions {
    * @param id - session id.
    * @returns scoped ctx, or undefined for a session neither listed nor already scoped.
    */
-  /**
+  /*
    * 解析一个 Agent 作用域化的上下文视图（即用即弃）。
    * @param id 会话 id。
    * @returns 作用域化 ctx；会话既未列出也未作用域化时为 undefined。
@@ -202,7 +202,7 @@ export interface ISessions {
    * @param ctx - any client context.
    * @returns the session id, or undefined on root contexts.
    */
-  /**
+  /*
    * 从上下文读取 Agent 作用域标签（服务方法边界：fetch 捆绑必须通过
    * ctx.sessions 到达作用域解析）。
    * @param ctx 任意客户端上下文。
@@ -214,7 +214,7 @@ export interface ISessions {
    * @param ctx - an Agent-scoped context.
    * @returns the session face, or undefined when the ctx is untagged or its scope was pruned.
    */
-  /**
+  /*
    * 解析 Agent 作用域化上下文背后的会话面。
    * @param ctx 一个 Agent 作用域化上下文。
    * @returns 会话面；ctx 未带标签或其作用域被裁剪时为 undefined。
@@ -225,7 +225,7 @@ export interface ISessions {
    * @param id - session id.
    * @returns binding, or undefined for a session neither listed nor already scoped.
    */
-  /**
+  /*
    * 解析稳定的会话绑定（作用域寻址的装配数据源）。
    * @param id 会话 id。
    * @returns 绑定；会话既未列出也未作用域化时为 undefined。

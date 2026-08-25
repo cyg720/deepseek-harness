@@ -43,7 +43,7 @@ import { clampTimeout, deadline, MAX_TIMER_DELAY_MS, timeoutOf } from '@deepseek
  * merged first into the spawn's explicit env, so a trusted caller's own entry
  * still wins; the subprocess service applies its credential scrub independently.
  */
-/**
+/*
  * 模型友好的环境覆盖：关闭颜色、分页器与交互式终端特性，防止工具输出被转义序列污染
  * （与 Codex 硬编码的集合相同；Claude Code 用 TERM=dumb 达到同样效果）。该映射最先
  * 合并进 spawn 的显式 env，所以可信调用方自己的条目仍然胜出；凭据擦除由子进程服务
@@ -57,45 +57,45 @@ export const ENV_OVERRIDES = {
 } as const
 
 /** Default SIGTERM→SIGKILL grace period (the `graceMs` config; matches OpenCode's 3s). */
-/** 默认的 SIGTERM→SIGKILL 宽限期（对应 graceMs 配置项，与 OpenCode 的 3 秒一致）。 */
+/* 默认的 SIGTERM→SIGKILL 宽限期（对应 graceMs 配置项，与 OpenCode 的 3 秒一致）。 */
 const DEFAULT_GRACE_MS = 3_000
 
 /** Default per-stream spill cap (the `maxSpillBytes` config). */
-/** 默认的每流溢出文件上限（对应 maxSpillBytes 配置项，64 MiB）。 */
+/* 默认的每流溢出文件上限（对应 maxSpillBytes 配置项，64 MiB）。 */
 const DEFAULT_MAX_SPILL_BYTES = 64 * 1024 * 1024
 
 /** Plugin config (all optional — `static Config` supplies the defaults). */
-/**
+/*
  * 插件配置（全部可选——static Config 提供默认值）。这些字段决定命令默认工作目录、
  * 超时与输出预算，可在 cordis.yml 中覆盖，也可经设置文档按会话调整。
  */
 export interface Config {
   /** Default working directory for commands (default: process.cwd()). */
-  /** 命令默认工作目录（缺省为 process.cwd()）。 */
+  /* 命令默认工作目录（缺省为 process.cwd()）。 */
   cwd?: string
   /** Default foreground timeout in milliseconds. */
-  /** 前台命令默认超时毫秒数。 */
+  /* 前台命令默认超时毫秒数。 */
   timeoutMs?: number
   /** Upper bound for per-call timeout overrides. */
-  /** 单次调用超时覆盖值的上限。 */
+  /* 单次调用超时覆盖值的上限。 */
   maxTimeoutMs?: number
   /** Per-stream in-memory output cap; overflow spills to a temp file. */
-  /** 每流内存输出上限；溢出部分落到临时文件。 */
+  /* 每流内存输出上限；溢出部分落到临时文件。 */
   maxOutputBytes?: number
   /** Per-stream spill-file cap; larger streams retain only their in-memory tail. */
-  /** 每流溢出文件上限；更大的流只保留内存中的尾部。 */
+  /* 每流溢出文件上限；更大的流只保留内存中的尾部。 */
   maxSpillBytes?: number
   /** Grace period for kill escalation and inherited pipes; at most `MAX_TIMER_DELAY_MS`. */
-  /** 终止升级与继承管道的宽限期；不能超过 MAX_TIMER_DELAY_MS。 */
+  /* 终止升级与继承管道的宽限期；不能超过 MAX_TIMER_DELAY_MS。 */
   graceMs?: number
 }
 
 /** The shape after schemastery applied the defaults (cwd has none). */
-/** schemastery 应用默认值之后的配置形状（cwd 无默认值）。 */
+/* schemastery 应用默认值之后的配置形状（cwd 无默认值）。 */
 type ResolvedConfig = Required<Omit<Config, 'cwd'>> & Pick<Config, 'cwd'>
 
 /** Project a settled collect-mode reader into the final CollectedOutput shape. */
-/**
+/*
  * 把一个已落定的收集模式读取器投影为最终的 CollectedOutput 形状：从偏移 0 全量读取，
  * 汇总文本、截断标志与溢出文件路径。
  */
@@ -123,7 +123,7 @@ function assertPositiveFinite(name: string, value: number): void {
  * @param config - the resolved section, schema-valid by construction.
  * @throws Error naming the field that cannot be used.
  */
-/**
+/*
  * 拒绝一份本执行器无法运行的已解析配置段。schema 表达不了"正有限数"和 graceMs 必须
  * 适配的定时器上限，因此在这里（写入处）拒绝存储值，而不是等到下次命令执行时才失败。
  * @param config 已解析的配置段（按构造必为 schema 合法）
@@ -148,7 +148,7 @@ export function assertServiceableBashConfig(config: Config): void {
  * still-running background process stays managed (killed and joined at
  * composition teardown) even across an executor reload.
  */
-/**
+/*
  * 基于 ctx.subprocess 的本地 bash 执行器。有界输出、溢出文件、进程组 SIGTERM→SIGKILL
  * 升级都是子进程服务的机制；本执行器每次 spawn 为它们提供配置好的预算，因此仍在运行的
  * 后台进程在组合体拆解时保持受管（被杀死并等待），甚至跨执行器重载也如此。
@@ -166,11 +166,11 @@ export class LocalBashExecutor extends ShellExecutor {
   })
 
   /** The currently authoritative config: the settings section, or the composition entry. */
-  /** 当前权威配置的来源：优先设置文档中的 section，否则是组合条目的静态配置。 */
+  /* 当前权威配置的来源：优先设置文档中的 section，否则是组合条目的静态配置。 */
   private source: () => ResolvedConfig
 
   /** Validated config (schemastery applied the defaults before construction). */
-  /** 已校验的配置（schemastery 在构造前已应用默认值）。 */
+  /* 已校验的配置（schemastery 在构造前已应用默认值）。 */
   get config(): ResolvedConfig {
     return this.source()
   }
@@ -201,7 +201,7 @@ export class LocalBashExecutor extends ShellExecutor {
    * this before {@link run}/{@link start}, so those methods receive explicit
    * values and never re-default.
    */
-  /**
+  /*
    * 把请求解析为完全指定的规格：workdir 取自 config.cwd（否则 process.cwd()），timeoutMs
    * 取自 config.timeoutMs 并按 config.maxTimeoutMs 封顶。工具层会在 run/start 之前调用本方法，
    * 因此这两个方法拿到的都是显式值，不会再做默认化。
@@ -237,7 +237,7 @@ export class LocalBashExecutor extends ShellExecutor {
   }
 
   /** Map one resolved bash spec and explicit argv onto a fully-specified subprocess spawn. */
-  /** 把一个已解析的 bash 规格与显式 argv 映射为完全指定的子进程 spawn 请求。 */
+  /* 把一个已解析的 bash 规格与显式 argv 映射为完全指定的子进程 spawn 请求。 */
   // XXX(stateful-shell): evaluate persistent cwd or PTY sessions when workflows require shell state.
   // XXX(stateful-shell): 当工作流需要 shell 状态时，评估持久 cwd 或 PTY 会话（遗留标记）。
   private spawnSpec(
@@ -269,7 +269,7 @@ export class LocalBashExecutor extends ShellExecutor {
   }
 
   /** The collect-mode readers the executor itself requested (present by construction). */
-  /** 执行器自己请求的收集模式读取器（按构造必然存在，防御性断言）。 */
+  /* 执行器自己请求的收集模式读取器（按构造必然存在，防御性断言）。 */
   private static collected(handle: SubprocessHandle): { stdout: SubprocessOutputReader; stderr: SubprocessOutputReader } {
     const { stdout, stderr } = handle.collected
     /* v8 ignore start -- collect dispositions expose both readers by the seam contract; defensive. */
@@ -293,7 +293,7 @@ export class LocalBashExecutor extends ShellExecutor {
    * @param argv - exact executable and arguments to hand to `ctx.subprocess`.
    * @returns the settled foreground result with collected output and cause facts.
    */
-  /**
+  /*
    * 以前台生命周期、环境、输出、超时与取消语义运行一个显式 argv。子类在替换了公开命令的
    * shell argv 后使用本方法（这是执行边界上的复用点）。
    * @param spec 已解析的执行设置与调用方持有的命令元数据
@@ -335,7 +335,7 @@ export class LocalBashExecutor extends ShellExecutor {
    * @param argv - exact executable and arguments to hand to `ctx.subprocess`.
    * @returns the live background handle; spawn rejection settles it as killed.
    */
-  /**
+  /*
    * 以后台生命周期、环境、输出、取消与进程树归属语义启动一个显式 argv。子类在替换了
    * 公开命令的 shell argv 后使用本方法（这是执行边界上的复用点）。
    * @param spec 已解析的执行设置与调用方持有的命令元数据
@@ -423,7 +423,7 @@ export class LocalBashExecutor extends ShellExecutor {
    * @param _spawnFailed - whether the subprocess promise rejected before a process started.
    * @param _spawnError - the original spawn rejection reason, which may itself be undefined.
    */
-  /**
+  /*
    * 供子类挂接"给进程附加执行事实"的落定钩子：在退出事实或 spawn 失败输出写好之后、
    * done resolve 之前调用。基类实现刻意为空（bash-sandbox 的沙箱子类消费同一钩子）。
    * @param _proc 已落定的进程句柄

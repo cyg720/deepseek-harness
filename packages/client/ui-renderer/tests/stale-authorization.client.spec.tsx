@@ -26,7 +26,7 @@ type RenderSlotFn = (key: string, owner: object, opts?: RenderOpts) => ReactNode
 type DeclaredSpec = SlotSpec<SlotEntryDef>
 
 /** Ledger-shaped fake: add/dispose maintain the live set the way the runtime ledger does. */
-/** 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeHost() {
   /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
   const entries = new Map<string, StoredEntry[]>()
@@ -95,7 +95,7 @@ const CHILD: DeclaredSpec = { kind: 'single', scope: 'root' }
  * scoped-slots suite); the retained-closure scenario under test here is a
  * dead entry whose binding outlives the tree.
  */
-/** 中文说明：函数 mountCapturing 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mountCapturing 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountCapturing(h: ReturnType<typeof makeHost>) {
   /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   let captured: RenderSlotFn | undefined

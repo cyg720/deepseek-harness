@@ -21,7 +21,7 @@ type Row = { id: string; order: number; label: string }
 type Step = { id: string; order: number }
 
 /** Slot-content stand-ins: the shell renders whatever the seats contribute. */
-/** 中文说明：测试局部值 SEAT_CONTENT，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 SEAT_CONTENT，由紧邻初始化决定。 */
 const SEAT_CONTENT: Record<string, string> = {
   'settings.trigger': 'Settings',
   'settings.header': 'Settings Title',

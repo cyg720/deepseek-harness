@@ -4,7 +4,7 @@
  * exercises `requireParentPort`'s failure path.
  * @module @deepseek-ai/dsh-workflow-worker-thread/worker
  */
-/**
+/*
  * 文件职责：作为工作流 Worker 的生成入口，把真实父端口和初始化数据交给会话运行器。
  * 技术维度：使用 Node worker_threads，并由 `requireParentPort` 统一校验端口存在性。
  * 产品维度：模型编写的编排脚本可离开主线程执行，并通过端口请求子代理能力。

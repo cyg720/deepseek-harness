@@ -6,7 +6,7 @@
  * probe-report parsing, per-rung denial signatures, and fail-closed behavior
  * are all exercised through the real `confine()` path.
  */
-/**
+/*
  * 文件职责：验证 local.spec.ts 覆盖的沙箱策略与本地隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障沙箱策略与本地隔离在真实使用路径中稳定且可诊断。
@@ -51,13 +51,13 @@ async function setup(config: Config = {}, internals: LocalSandboxProvider['inter
  * whether the checkout has run `build:lib:host`, which emits
  * `sandbox-windows-acl/lib/runner.js`.
  */
-/** 中文说明：函数 absentRunnerEntry 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 absentRunnerEntry 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function absentRunnerEntry(): string {
   return join(mkdtempSync(join(tmpdir(), 'dsh-absent-acl-entry-')), 'runner.js')
 }
 
 /** Write an executable fake `landlock-run` that answers `--probe` with `report`. */
-/** 中文说明：函数 fakeLauncher 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeLauncher 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeLauncher(report = 'landlock: fully enforced'): string {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-landlock-'))
@@ -68,7 +68,7 @@ function fakeLauncher(report = 'landlock: fully enforced'): string {
 }
 
 /** Write an executable fake `sandbox-exec` that exits `status` for any invocation. */
-/** 中文说明：函数 fakeSeatbeltExec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakeSeatbeltExec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeSeatbeltExec(status: number): string {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-seatbelt-'))
@@ -79,7 +79,7 @@ function fakeSeatbeltExec(status: number): string {
 }
 
 /** The seatbelt read-only profile — every seatbelt profile starts with these forms. */
-/** 中文说明：常量 SEATBELT_RO_PROFILE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SEATBELT_RO_PROFILE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SEATBELT_RO_PROFILE = '(version 1) (allow default) (deny file-write*) (allow file-write* (literal "/dev/null"))'
 
 describe('profile dialects', () => {

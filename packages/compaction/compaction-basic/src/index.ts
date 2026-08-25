@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-compaction-basic
  */
-/**
+/*
  * 文件职责：实现上下文压缩的 index 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供上下文压缩能力。
@@ -54,11 +54,11 @@ export type {
 } from './types.ts'
 
 /** The region transaction's view of this service's dynamically dispatched summarizer. */
-/** 中文说明：类型或类 RegionSummarize 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 RegionSummarize 约束协议数据或模块职责。 */
 type RegionSummarize = (input: SummarizationInput, agent: Agent, signal?: AbortSignal) => Promise<SummaryResult>
 
 /** Resolve the exact provider/model durably routed for the latest request. */
-/** 中文说明：函数 routedTarget 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 routedTarget 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function routedTarget(
   session: Session,
 ): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
@@ -71,7 +71,7 @@ function routedTarget(
 }
 
 /** Resolve the conversation target used to select an optional policy override. */
-/** 中文说明：函数 conversationTarget 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 conversationTarget 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function conversationTarget(
   agent: Agent,
 ): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
@@ -122,7 +122,7 @@ const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
  * mutation strategy stays fixed so every pricing decision uses the singleton
  * token meter.
  */
-/** 中文说明：类型或类 BasicCompactionEngine 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 BasicCompactionEngine 约束协议数据或模块职责。 */
 export class BasicCompactionEngine extends CompactionEngine {
   static inject = ['llm', 'tokenMeter', 'sessions']
 

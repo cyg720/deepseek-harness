@@ -5,7 +5,7 @@
  * not a plugin — no ctx, no state, no events.
  * @module @deepseek-ai/dsh-native-command
  */
-/**
+/*
  * 文件职责：提供不经过 shell 的宿主原生命令执行边界。
  * 技术维度：封装 Node execFile，统一 UTF-8 输出、AbortSignal 取消和 Windows 隐藏控制台行为。
  * 产品维度：支持目录选择器和默认应用打开等系统集成，同时避免 shell 注入与窗口闪烁。
@@ -17,7 +17,7 @@
 import { execFile } from 'node:child_process'
 
 /** Testable command boundary; native implementations never invoke a shell. */
-/** 可替换测试的命令运行器类型；参数依次为命令、只读 argv 和取消信号，返回标准输出与错误输出。 */
+/* 可替换测试的命令运行器类型；参数依次为命令、只读 argv 和取消信号，返回标准输出与错误输出。 */
 export type NativeCommandRunner = (
   command: string,
   args: readonly string[],
@@ -31,7 +31,7 @@ export type NativeCommandRunner = (
  * @param signal - caller/connection lifetime; abort terminates the child.
  * @returns captured stdout/stderr on exit 0.
  */
-/**
+/*
  * 执行宿主命令。
  * @param command 可执行路径或 PATH 名称。
  * @param args 原始参数数组。

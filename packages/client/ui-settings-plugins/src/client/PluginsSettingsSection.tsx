@@ -1,5 +1,5 @@
 /** Plugins settings section: localized tabs around feature-owned pages. */
-/**
+/*
  * 文件职责：实现插件配置的 PluginsSettingsSection 组件。
  * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看和调整插件配置。
@@ -16,7 +16,7 @@ import type { PluginsSettingsLocaleKey } from './locales.ts'
 import css from './PluginsSettingsSection.module.css'
 
 /** One tab projected from a `settings.plugins.tab` contribution. */
-/** 中文说明：类型或类 PluginsSettingsTabEntry 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 PluginsSettingsTabEntry 约束设置数据或组件职责。 */
 export interface PluginsSettingsTabEntry {
   id: string
   order: number
@@ -24,7 +24,7 @@ export interface PluginsSettingsTabEntry {
 }
 
 /** Registration-side business face for the section. */
-/** 中文说明：类型或类 PluginsSettingsSectionInjected 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 PluginsSettingsSectionInjected 约束设置数据或组件职责。 */
 export interface PluginsSettingsSectionInjected {
   hooks: {
     /** Ordered, locale-aware projection of the Plugins tab ledger. */
@@ -33,7 +33,7 @@ export interface PluginsSettingsSectionInjected {
 }
 
 /** Props the renderer binds for the section. */
-/** 中文说明：类型或类 PluginsSettingsSectionProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 PluginsSettingsSectionProps 约束设置数据或组件职责。 */
 export type PluginsSettingsSectionProps =
   PropsRuntime<'settings.section'>
   & PropsLocale<'settings.plugins'>
@@ -41,7 +41,7 @@ export type PluginsSettingsSectionProps =
   & InjectFace<PluginsSettingsSectionInjected>
 
 /** Render one Plugins page whose contents arrive from feature-owned tabs. */
-/** 中文说明：函数 PluginsSettingsSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 PluginsSettingsSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettingsSectionProps) {
   /** 中文说明：设置局部值 tabsId，由紧邻初始化决定。 */
   const tabsId = useId()

@@ -20,7 +20,7 @@ import type { CredentialKey, CredentialRecord } from '@deepseek-ai/dsh-credentia
 import { LocalCredentialProvider } from '../src/index.ts'
 
 /** Credential documents are seeded owner-only, exactly as the provider creates them. */
-/** 中文说明：函数 writeCredentials 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 writeCredentials 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function writeCredentials(file: string, text: string): Promise<void> {
   return writeFile(file, text, { mode: 0o600 })
 }
@@ -59,7 +59,7 @@ async function boot(config: ConstructorParameters<typeof LocalCredentialProvider
 }
 
 /** Store one record outright; the seam offers only the read-modify-write path. */
-/** 中文说明：函数 put 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 put 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function put(ctx: Context, key: CredentialKey, record: CredentialRecord): Promise<CredentialRecord | undefined> {
   return ctx.credentials.modifyRecord(key, () => Promise.resolve(record))
 }

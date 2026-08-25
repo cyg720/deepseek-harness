@@ -6,7 +6,7 @@
  * plain Node subprocess, disposes the child before settlement, and requires the
  * SDK completion notification to retain the delegating parent.
  */
-/**
+/*
  * 文件职责：验证 built-scope-carrier.e2e.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。

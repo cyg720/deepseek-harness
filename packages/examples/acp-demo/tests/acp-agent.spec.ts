@@ -29,7 +29,7 @@ import * as acpAgent from '../src/index.ts'
  * ACP operations end-to-end) is the keyless bin smoke in `load-path.e2e.ts`;
  * this spec asserts the composition and the persistenceRoot default branch.
  */
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(config: acpAgent.Config, withBash = false): Promise<Context> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

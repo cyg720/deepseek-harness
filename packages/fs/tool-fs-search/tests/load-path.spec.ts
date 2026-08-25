@@ -13,7 +13,7 @@
  * guard bites: add `export default apply` to `src/index.ts`, watch this go
  * red, revert.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 load-path.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。

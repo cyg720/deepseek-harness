@@ -39,7 +39,7 @@ const testToolSignal = new AbortController().signal
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-tool-bash-spec-'))
 
 /** Foreground-only harness: no job runtime (backgrounding fails loud here). */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup() {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -55,7 +55,7 @@ async function setup() {
 }
 
 /** Full harness: the generic job runtime + its controller, then the bash tool. */
-/** 中文说明：函数 setupWithTasks 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setupWithTasks 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setupWithTasks() {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -76,7 +76,7 @@ async function setupWithTasks() {
  * Build a fake {@link Agent} with the shared agent/session identity, give it a
  * dedicated lifecycle fiber for `Agent.ctx`, and register it in `ctx.agents`.
  */
-/** 中文说明：函数 registerFakeAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 registerFakeAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function registerFakeAgent(ctx: Context, sessionId: string, inject: (...args: unknown[]) => void = () => {}): Agent {
   /** 中文说明：函数值 scopeFiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const scopeFiber = ctx.plugin(() => {})
@@ -178,7 +178,7 @@ class RecordingSandboxExecutor extends ShellExecutor {
 }
 
 /** Test executor that records whether the background start boundary was crossed. */
-/** 中文说明：class CountingStartExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
+/* 中文说明：class CountingStartExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
 class CountingStartExecutor extends ShellExecutor {
   starts = 0
 
@@ -1234,7 +1234,7 @@ describe('the model-facing bash tool builds its request from named args only (no
    * bash-stdin-env Agent Note). Foreground `run()` returns a canned result; `start()`
    * hands back an already-settled fake handle so the task registration completes.
    */
-  /** 中文说明：class RecordingBashExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
+  /* 中文说明：class RecordingBashExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
   class RecordingBashExecutor extends ShellExecutor {
     readonly requests: ShellExecRequest[] = []
     resolve(request: ShellExecRequest): ShellExecSpec {

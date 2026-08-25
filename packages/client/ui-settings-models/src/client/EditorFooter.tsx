@@ -12,7 +12,7 @@
  *
  * @module dsh-client-ui-settings-models/client/EditorFooter
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：渲染模型提供者编辑卡片共用的取消与提交操作行。
  * - 技术维度：使用 React 函数组件、类型化本地化键和 CSS Modules。
@@ -27,31 +27,31 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Props of {@link EditorFooter}. */
-/** 中文：编辑器底部操作行的本地化、状态和动作属性。 */
+/* 中文：编辑器底部操作行的本地化、状态和动作属性。 */
 export interface EditorFooterProps {
   /** Localizer for the row's own labels. */
-  /** 中文：把本地化键转换成显示文字的函数。 */
+  /* 中文：把本地化键转换成显示文字的函数。 */
   t: (key: keyof typeof en) => string
   /** Whether a commit is in flight; holds Cancel and swaps the commit label. */
-  /** 中文：提交是否进行中；会禁用取消并切换提交按钮文案。 */
+  /* 中文：提交是否进行中；会禁用取消并切换提交按钮文案。 */
   busy: boolean
   /** Whether the commit is refused, as judged by the owning card. */
-  /** 中文：拥有卡片判定的提交禁用状态。 */
+  /* 中文：拥有卡片判定的提交禁用状态。 */
   submitDisabled: boolean
   /** Commit label while idle. */
-  /** 中文：空闲时的提交按钮本地化键。 */
+  /* 中文：空闲时的提交按钮本地化键。 */
   submitLabel: keyof typeof en
   /** Commit label while a commit is in flight. */
-  /** 中文：提交进行中显示的本地化键。 */
+  /* 中文：提交进行中显示的本地化键。 */
   submitBusyLabel: keyof typeof en
   /** Dismiss label; defaults to the settings editor copy. */
-  /** 中文：取消按钮本地化键；省略时使用 cancel。 */
+  /* 中文：取消按钮本地化键；省略时使用 cancel。 */
   cancelLabel?: keyof typeof en
   /** Dismiss the card without committing. */
-  /** 中文：不提交并关闭卡片的回调。 */
+  /* 中文：不提交并关闭卡片的回调。 */
   onCancel: () => void
   /** Run the card's commit. */
-  /** 中文：执行拥有卡片提交逻辑的回调。 */
+  /* 中文：执行拥有卡片提交逻辑的回调。 */
   onSubmit: () => void
 }
 
@@ -60,7 +60,7 @@ export interface EditorFooterProps {
  * @param props - the labels, commit gating, and handlers the owning card supplies.
  * @returns the cancel/commit row.
  */
-/** 中文：渲染取消/提交操作行；props 提供门控、文案和回调，返回 ReactNode。示例：<EditorFooter {...props} />。 */
+/* 中文：渲染取消/提交操作行；props 提供门控、文案和回调，返回 ReactNode。示例：<EditorFooter {...props} />。 */
 export function EditorFooter(props: EditorFooterProps): ReactNode {
   /** 当前本地化函数的便捷引用。 */
   const { t } = props

@@ -4,7 +4,7 @@
  * temp capability per live session/workspace pair. The Win32 grant surface
  * is mocked; native access checks live in sandbox-windows-acl's runner suite.
  */
-/**
+/*
  * 文件职责：验证 acl-grants.spec.ts 覆盖的沙箱策略与本地隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障沙箱策略与本地隔离在真实使用路径中稳定且可诊断。
@@ -23,7 +23,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
 
 /** Cross-file state shared with the vi.mock factory (hoisting contract). */
-/** 中文说明：函数值 mockState 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 mockState 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const mockState = vi.hoisted(() => ({
   grants: [] as Array<{ writeSid: string; added: Array<{ path: string; standing: boolean }>; disposed: boolean }>,
   addFailure: undefined as Error | undefined,

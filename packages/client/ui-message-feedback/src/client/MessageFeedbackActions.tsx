@@ -9,7 +9,7 @@
  * clip, so the panel cannot be cropped or detached from the message it annotates.
  * @module @deepseek-ai/dsh-client-ui-message-feedback/client/MessageFeedbackActions
  */
-/**
+/*
  * 文件职责：实现消息反馈的 MessageFeedbackActions 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：支持用户查看或调整消息反馈。
@@ -32,11 +32,11 @@ import type { MessageFeedbackActionProps } from './slots.ts'
 import css from './MessageFeedbackActions.module.css'
 
 /** Safe distance kept between the panel and the viewport edges (the Menu portal margin). */
-/** 中文说明：组件局部值 PANEL_MARGIN，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 PANEL_MARGIN，由紧邻初始化决定。 */
 const PANEL_MARGIN = 12
 
 /** Distance between the trigger's bottom edge and the panel's top. */
-/** 中文说明：组件局部值 PANEL_GAP，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 PANEL_GAP，由紧邻初始化决定。 */
 const PANEL_GAP = 4
 
 /**
@@ -45,7 +45,7 @@ const PANEL_GAP = 4
  * element with auto insets otherwise sits at its static position, a different
  * origin than the one the first placement measures from.
  */
-/** 中文说明：组件局部值 MEASURE_STYLE，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 MEASURE_STYLE，由紧邻初始化决定。 */
 const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 
 /**
@@ -55,7 +55,7 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * @returns the rating buttons and the note trigger, with the note editor
  * portal-open beneath the trigger while it is open.
  */
-/** 中文说明：函数 MessageFeedbackActions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 MessageFeedbackActions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearNote, useFeedback, t }: MessageFeedbackActionProps) {
   /** 中文说明：组件局部值 item，由紧邻初始化决定。 */
   const item = useFeedback(view => view.items.get(messageId))
@@ -99,11 +99,11 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
   useEffect(() => () => { alive.current = false }, [])
 
   /** Bumped whenever an editing session ends, so a late save can tell it is stale. */
-  /** 中文说明：组件局部值 noteGeneration，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 noteGeneration，由紧邻初始化决定。 */
   const noteGeneration = useRef(0)
 
   /** Current panel open-state, readable from a stale closure via a ref. */
-  /** 中文说明：组件局部值 noteOpenRef，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 noteOpenRef，由紧邻初始化决定。 */
   const noteOpenRef = useRef(false)
   useEffect(() => { noteOpenRef.current = noteOpen }, [noteOpen])
 

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现 dsh-llm-retry 插件：在 agent loop 的"请求失败恢复"扩展点
  * 上执行 provider 路由的模型请求重试策略（normal 有界 / always 无界）。
@@ -59,7 +59,7 @@ function validateConfig(config: Config): void {
 }
 
 /** Non-serializable hooks used to make timing policy deterministic in tests. */
-/**
+/*
  * （中文）不可序列化的钩子，用于让测试里的时间策略确定化。
  */
 export interface RetryInternals {
@@ -124,7 +124,7 @@ function cancellableDelay(delayMs: number, signal: AbortSignal): Promise<boolean
   })
 }
 
-/**
+/*
  * （中文）安装 provider 路由的 normal 或无界请求恢复。
  * @param ctx 拥有监听器与活跃等待的插件上下文。
  * @param config 空的执行器配置；策略由 provider 注册持有。

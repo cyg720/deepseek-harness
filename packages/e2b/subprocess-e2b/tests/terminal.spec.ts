@@ -286,7 +286,7 @@ function holdRequestUntilAbort(started: PromiseWithResolvers<AbortSignal>) {
 }
 
 /** Spawn the terminal under test with the config default the service would pass. */
-/** 中文说明：函数 testSpawn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 testSpawn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function testSpawn(
   runtime: Parameters<typeof spawnE2BTerminal>[0],
   spec: Parameters<typeof spawnE2BTerminal>[1],

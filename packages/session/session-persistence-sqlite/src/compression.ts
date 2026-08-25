@@ -4,7 +4,7 @@
  * observe them.
  * @module @deepseek-ai/dsh-session-persistence-sqlite/compression
  */
-/**
+/*
  * 文件职责：实现 compression.ts 覆盖的会话持久化行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。
@@ -27,7 +27,7 @@ import {
 import type { EventRow } from './schema.ts'
 
 /** One physical row ready for SQLite parameter binding. */
-/** 中文说明：interface BoundRecord 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface BoundRecord 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export interface BoundRecord {
   readonly seq: number
   readonly type: string
@@ -39,7 +39,7 @@ export interface BoundRecord {
 }
 
 /** Small values stay as SQLite text to avoid per-frame CPU and byte overhead. */
-/** 中文说明：常量 ZSTD_DATA_THRESHOLD_BYTES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ZSTD_DATA_THRESHOLD_BYTES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const ZSTD_DATA_THRESHOLD_BYTES = 4_096
 
 /** 中文说明：常量 MAX_SAFE_INTEGER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
@@ -68,7 +68,11 @@ function isChunkTag(value: string): value is ChunkTag {
  * @param row - detached SQLite event row.
  * @returns every logical event represented by the row.
  */
-/** 中文说明：函数 decodeRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param row 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeRow(row: EventRow): SessionEvent[] {
   if (row.ignorable !== PACKED_ROW_SENTINEL) return [decodeScalarRow(row)]
   if (!isChunkTag(row.type)) {
@@ -90,7 +94,11 @@ export function decodeRow(row: EventRow): SessionEvent[] {
  * @param record - scalar event or packed chunk record.
  * @returns column values for one physical insert.
  */
-/** 中文说明：函数 bindRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 bindRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param record 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function bindRecord(record: StorageRecord): BoundRecord {
   if (isChunkRow(record)) {
     return {
@@ -277,7 +285,12 @@ function decodeScalarRow(row: EventRow): SessionEvent {
  * @param base - logical sequence expected from the first selected row.
  * @returns the contiguous logical prefix and optional physical deletion base.
  */
-/** 中文说明：函数 scanRows 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 scanRows 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param rows 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param base 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function scanRows(
   rows: readonly EventRow[],
   base = 0,

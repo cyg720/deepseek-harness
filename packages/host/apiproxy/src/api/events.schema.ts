@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】events 域的 zod schema：MuxFrame / HostFrame 两个帧联合
  * （discriminatedUnion('type')）的运行时校验。帧是 ServerRequest 完整形式的

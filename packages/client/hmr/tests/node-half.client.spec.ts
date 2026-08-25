@@ -2,7 +2,7 @@
  * Node half of the HMR plugin: bundle watches follow the graph, stat changes
  * report through clientModuleHost.rebuilt, and everything dies with the fiber.
  */
-/**
+/*
  * 文件职责：验证客户端热模块替换节点的更新接收、模块重载和失败恢复行为。
  * 技术维度：Cordis、Vitest、模拟模块加载器与异步更新事件。
  * 产品维度：保证开发模式下界面代码更新后无需整页刷新即可可靠生效。
@@ -33,7 +33,7 @@ afterEach(() => { rmSync(dir, { recursive: true, force: true }) })
  * Structural (Pick+cast): the plugin only touches the read/notify surface;
  * the service class carries private scan state a literal need not reproduce.
  */
-/** 中文说明：类型 `FakeHost` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
+/* 中文说明：类型 `FakeHost` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 type FakeHost = ClientModuleRegistry & { rebuiltCalls: string[]; fireGraphChanged(): void }
 /** 中文说明：类型 `FakeHostOptions` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface FakeHostOptions {

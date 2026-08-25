@@ -1,5 +1,5 @@
 /** Git merge-driver and explicit conflict-resolver entrypoint for pairing records. */
-/**
+/*
  * 中文说明：
  * - 文件职责：作为翻译配对记录的 Git 合并驱动入口，并支持显式解析未合并索引冲突。
  * - 技术维度：使用 Node 子进程/文件 API、Git 索引、三方合并和进程退出码。

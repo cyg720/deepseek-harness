@@ -52,7 +52,7 @@ const SOURCE_SESSION_ID = 'reference-source-session'
 const TARGET_SESSION_ID = 'reference-order-target-session'
 
 /** Build one closed source session with a stable title for reference discovery. */
-/** 构造带稳定标题的已关闭源会话 JSONL。示例：sourceSessionFixture()。 */
+/* 构造带稳定标题的已关闭源会话 JSONL。示例：sourceSessionFixture()。 */
 function sourceSessionFixture(): string {
   /** 累积源会话事件的内存会话。 */
   const session = Session.create(SessionId(SOURCE_SESSION_ID))
@@ -84,7 +84,7 @@ function sourceSessionFixture(): string {
 }
 
 /** Build one target log with the direct message durably before its recalled context. */
-/** 构造直接消息先于回忆上下文持久化的目标会话 JSONL。示例：targetSessionFixture()。 */
+/* 构造直接消息先于回忆上下文持久化的目标会话 JSONL。示例：targetSessionFixture()。 */
 function targetSessionFixture(): string {
   /** 累积目标顺序事件的内存会话。 */
   const session = Session.create(SessionId(TARGET_SESSION_ID))
@@ -139,7 +139,7 @@ function targetSessionFixture(): string {
  * @param page - the assembled app page.
  * @returns the golden text for the composer's decoration layer.
  */
-/** 读取 page 编辑器背板的文本与引用分段并返回稳定字符串。示例：await composerSegments(page)。 */
+/* 读取 page 编辑器背板的文本与引用分段并返回稳定字符串。示例：await composerSegments(page)。 */
 async function composerSegments(page: Page): Promise<string> {
   return page.evaluate(() => {
     /** 与文本框同步绘制引用范围的输入背板。 */

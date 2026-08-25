@@ -46,7 +46,7 @@ interface HarnessOptions {
 }
 
 /** Boot the real storage/domain/registry composition over controllable header-only peers. */
-/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(options: HarnessOptions = {}) {
   /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pool = options.pool ?? new MemoryMediaPool()
@@ -103,7 +103,7 @@ async function harness(options: HarnessOptions = {}) {
 }
 
 /** Boot only the storage side, for dependency-pending and startup-failure cases. */
-/** 中文说明：函数 storageContext 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 storageContext 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function storageContext(pool: MemoryMediaPool, backend: StorageBackend = new MemoryStorageBackend(pool)) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -117,7 +117,7 @@ async function storageContext(pool: MemoryMediaPool, backend: StorageBackend = n
 }
 
 /** Backend wrapper that injects one selected bootstrap write failure. */
-/** 中文说明：函数 selectiveFailureBackend 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 selectiveFailureBackend 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function selectiveFailureBackend(
   pool: MemoryMediaPool,
   failure: { putAt?: number; deleteAt?: number; globalAt?: number | readonly number[] },
@@ -177,7 +177,7 @@ function record(path: string, sessionIds: string[], createdAt = '2026-07-24T00:0
  * Media written before archivedSessionIds existed omit the field; keeping the
  * fixtures in that shape continuously proves the schema default upgrades them.
  */
-/** 中文说明：type StoredDomainState 定义本测试所需的数据或行为，用于表达工作区类型与行为场景。 */
+/* 中文说明：type StoredDomainState 定义本测试所需的数据或行为，用于表达工作区类型与行为场景。 */
 type StoredDomainState = Omit<WorkspaceDomainState, 'archivedSessionIds'>
   & Partial<Pick<WorkspaceDomainState, 'archivedSessionIds'>>
 

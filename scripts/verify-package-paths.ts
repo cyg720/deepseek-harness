@@ -4,7 +4,7 @@
  * outside its own explaining group directory; globs, placeholders, hypothetical
  * packages, and unbuilt `lib/` output are outside the check.
  */
-/**
+/*
  * 文件职责：实现 verify-package-paths.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -27,7 +27,7 @@ import {
 const root = resolve(import.meta.dirname, '..')
 
 /** Markdown + repo-authored TypeScript that may cite package paths. */
-/** 中文说明：常量 PATTERNS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PATTERNS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PATTERNS = [
   'README.md',
   '.agents/notes/**/*.md',
@@ -41,7 +41,7 @@ const PATTERNS = [
 ]
 
 /** Paths excluded from the scan: built output and vendored upstream source. */
-/** 中文说明：函数值 isExcluded 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
+/* 中文说明：函数值 isExcluded 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
 const isExcluded = (p: string): boolean =>
   isArchivedAgentNotePath(p) || p.includes('/lib/') || p.endsWith('.d.ts') || p.startsWith('vendor/')
 
@@ -51,7 +51,7 @@ const isExcluded = (p: string): boolean =>
  * what scopes the gate to DRIFT (a moved real package) rather than typos or
  * not-yet-existing packages named in a proposal.
  */
-/** 中文说明：函数 realPackageNames 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 realPackageNames 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function realPackageNames(): Set<string> {
   /** 中文说明：变量 names 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const names = new Set<string>()
@@ -72,7 +72,7 @@ const packageNames = realPackageNames()
  * those are patterns, not real paths. A trailing `.`/`/` (e.g. a sentence-ending
  * period) is trimmed before the existence check.
  */
-/** 中文说明：常量 PKG_REF 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PKG_REF 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PKG_REF = /\bpackages\/[A-Za-z0-9._/-]+/g
 
 /** 中文说明：函数 isDriftedPackageReference 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
@@ -100,7 +100,7 @@ function isDriftedPackageReference(ref: string): boolean {
 }
 
 /** Find missing package references whose path names a live package; bare paths, typos, and illustrative skeletons do not count. */
-/** 中文说明：函数 findViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 findViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function findViolations(absPath: string): Violation[] {
   return findReferenceViolations(
     root,

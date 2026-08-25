@@ -110,7 +110,7 @@ const cjkFriendlyStrongExtension: Extension = {
  * prose, as a micromark syntax extension for `fromMarkdown`.
  * @returns The micromark syntax extension.
  */
-/**
+/*
  * 生成"CJK 友好加粗"micromark 语法扩展，供 fromMarkdown 的 extensions 数组使用。
  * 使用示例：fromMarkdown(text, { extensions: [gfm(), cjkFriendlyStrong()] })。
  * @returns micromark 语法扩展对象。

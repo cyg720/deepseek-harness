@@ -18,7 +18,7 @@ import css from './ConnectionBanner.module.css'
  * package is cordis-free, so copy arrives via props).
  * @returns the banner, or null when connected.
  */
-/**
+/*
  * 在连接退避重试期间渲染提示横幅。
  * @param props - reconnecting 表示是否正在重连；label 是可选本地化提示文本。
  * @returns 重连时返回横幅元素，连接正常时返回 null。

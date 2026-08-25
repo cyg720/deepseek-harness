@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】平台进程表检查：为终端就绪、信号与拆解提供"进程树/会话/存活/前台组/
  * stdin 等待"的事实来源，按平台分发（Linux 用 /proc，macOS 用 /bin/ps，Windows 委托
@@ -25,32 +25,32 @@ import type { SubprocessTerminalSignal } from '@deepseek-ai/dsh-subprocess'
 import { createWindowsProcessInspector } from './windows-inspector.ts'
 
 /** PID plus start identity, preventing teardown escalation after PID reuse. */
-/** PID 加启动身份：防止 PID 复用后终止升级误伤新进程。 */
+/* PID 加启动身份：防止 PID 复用后终止升级误伤新进程。 */
 export interface ProcessIdentity {
   pid: number
   started: string
 }
 
 /** Injectable OS process operations used by one local PTY session. */
-/** 一个本地 PTY 会话使用的可注入 OS 进程操作。 */
+/* 一个本地 PTY 会话使用的可注入 OS 进程操作。 */
 export interface ProcessInspector {
   foregroundPgid(shellPid: number): number | undefined
   isStdinWaiting(pgid: number): boolean
   /** Return the root and its current transitive descendants, children first. */
-  /** 返回根进程与其当前传递后代（子在前）。 */
+  /* 返回根进程与其当前传递后代（子在前）。 */
   processTree(rootPid: number): ProcessIdentity[]
   /** Return current members of one POSIX process session when the platform exposes them. */
-  /** 平台暴露时返回一个 POSIX 进程会话的当前成员。 */
+  /* 平台暴露时返回一个 POSIX 进程会话的当前成员。 */
   processSession(sessionId: number): ProcessIdentity[]
   /** Return whether the exact identity remains a non-quiescent process. */
-  /** 返回该精确身份是否仍是未静默（存活）的进程。 */
+  /* 返回该精确身份是否仍是未静默（存活）的进程。 */
   isAlive(identity: ProcessIdentity): boolean
   signalGroup(pgid: number, signal: SubprocessTerminalSignal): void
   signalProcess(identity: ProcessIdentity, signal: 'SIGTERM' | 'SIGKILL'): void
 }
 
 /** Testable boundary around filesystem, process-table, and signal syscalls. */
-/** 文件系统、进程表与信号系统调用的可测试边界（注入后可在任意宿主确定性测试）。 */
+/* 文件系统、进程表与信号系统调用的可测试边界（注入后可在任意宿主确定性测试）。 */
 export interface ProcessInspectorInternals {
   readFile(path: string): string
   readDir(path: string): string[]
@@ -89,7 +89,7 @@ interface ProcStat {
  * @param text - complete stat line.
  * @returns Parsed identity/group fields, or undefined for malformed input.
  */
-/**
+/*
  * 解析 Linux /proc/<pid>/stat 中使用的字段（comm 文本带括号，需特殊处理）。
  * @param text 完整 stat 行
  * @returns 解析出的身份/组字段；输入畸形时为 undefined
@@ -128,7 +128,7 @@ function readLinuxStat(internals: ProcessInspectorInternals, pid: number): ProcS
  * @param internals - injectable process-table operations.
  * @returns Live-member presence, or `undefined` when unavailable/absent.
  */
-/**
+/*
  * 报告一个 Linux 进程组是否有正在执行的成员。false 表示组内只有僵尸/死亡条目；
  * undefined 表示进程表无法证明任一结论。
  * @param processGroupId 待检查的 POSIX 进程组 id
@@ -422,7 +422,7 @@ class MacProcessInspector extends PosixProcessInspector {
  * @param internals - filesystem/process boundary, injectable for deterministic tests.
  * @returns Platform process inspector.
  */
-/**
+/*
  * 创建受支持平台的进程检查器，或在插件加载时响亮失败（不支持的平台直接抛错）。
  * @param platform 目标 Node 平台
  * @param arch Linux 系统调用号所需的 CPU 架构

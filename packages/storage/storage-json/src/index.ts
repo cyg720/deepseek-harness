@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】JSON 存储后端：在配置的根目录下，每个单元（unit）对应一个人类可读的
  * JSON 文件，通过"整文件原子重写"发布；以 backend 名 json 注册到存储枢纽上。
@@ -23,7 +23,7 @@
  * on the storage hub.
  * @module @deepseek-ai/dsh-storage-json
  */
-/**
+/*
  * 模块总览：本文件是后端插件的组装层；真正的文件读写逻辑在 unit.ts（打开单元、
  * 整文件发布）与 format.ts（序列化/解析）、atomic.ts（原子替换）中。
  */
@@ -37,10 +37,10 @@ import type { KvFacet, KvUnit, KvUnitDescriptor, StorageBackend } from '@deepsee
 import { openJsonUnit } from './unit.ts'
 
 /** Cordis plugin name. */
-/** 插件名：加载后枢纽上出现 json 后端。 */
+/* 插件名：加载后枢纽上出现 json 后端。 */
 export const name = 'storage-json'
 /** The hub must exist before the backend can register. */
-/** 依赖注入声明：必须先有 storage 枢纽服务，后端才能登记。 */
+/* 依赖注入声明：必须先有 storage 枢纽服务，后端才能登记。 */
 export const inject = ['storage']
 
 /**
@@ -49,24 +49,24 @@ export const inject = ['storage']
  * unit files wherever the process happens to start; assemblies state the
  * location explicitly.
  */
-/**
+/*
  * 插件配置。root 故意不设默认值：process.cwd() 兜底会把单元文件散落到进程启动目录；
  * 由组装方（cordis.yml）显式声明位置。
  */
 export interface Config {
   /** Directory holding one `<unit>.json` file per unit. */
-  /** 存放单元文件的目录：每个单元一个 <单元名>.json 文件。 */
+  /* 存放单元文件的目录：每个单元一个 <单元名>.json 文件。 */
   root: string
 }
 
 /** Config schema. */
-/** schemastery 配置校验器（插件加载时校验 root 必填）。 */
+/* schemastery 配置校验器（插件加载时校验 root 必填）。 */
 export const Config: z<Config> = z.object({
   root: z.string().required(),
 })
 
 /** JSON backend: owns the file-tree root and serves the `kv` facet. */
-/**
+/*
  * JSON 后端：拥有文件树根目录，提供 kv 能力（facet）。每个打开的同名单元同时只有
  * 一个活句柄（open 表 + opening 槽位双重防止并发打开）。
  */
@@ -151,7 +151,7 @@ function validateDescriptor(descriptor: KvUnitDescriptor): void {
  * @param ctx - Plugin context.
  * @param config - Validated configuration.
  */
-/**
+/*
  * 把 json 后端注册到存储枢纽：登记 backend 名，并提供同名生命周期服务键；
  * 卸载时先注销名字再关闭后端（关闭由本插件负责，符合注册表约定）。
  * @param ctx 插件上下文。

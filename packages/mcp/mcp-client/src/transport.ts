@@ -5,7 +5,7 @@
  *
  * @module
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：根据已解析的 MCP 插件配置创建标准输入输出或可流式 HTTP 传输实例。
  * - 技术维度：使用 MCP TypeScript SDK、判别联合、URL 和子进程环境变量清理。
@@ -27,7 +27,7 @@ import type { Config } from './index.ts'
  * actual spawn, so this transport shares the scrub definition rather than the
  * spawn path.
  */
-/** 中文：构建子进程环境；extra 是用户显式变量，返回清理后的父环境与 extra 合并结果，后者同名时优先。 */
+/* 中文：构建子进程环境；extra 是用户显式变量，返回清理后的父环境与 extra 合并结果，后者同名时优先。 */
 function buildChildEnv(extra: Record<string, string>): Record<string, string> {
   return { ...scrubbedParentEnv(), ...extra }
 }
@@ -38,7 +38,11 @@ function buildChildEnv(extra: Record<string, string>): Record<string, string> {
  * @param config - Resolved plugin config discriminated on `transport`.
  * @returns A connected-ready MCP Transport (stdio or Streamable HTTP).
  */
-/** 中文：从 config 创建可连接的 MCP 传输；返回 stdio 或流式 HTTP 实例。示例：createTransport(resolvedConfig)。 */
+/*
+ * 中文：从 config 创建可连接的 MCP 传输；返回 stdio 或流式 HTTP 实例。示例：createTransport(resolvedConfig)。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function createTransport(config: Config): Transport {
   switch (config.transport) {
     case 'stdio':

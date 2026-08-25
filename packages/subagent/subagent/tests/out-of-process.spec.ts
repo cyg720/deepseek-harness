@@ -3,7 +3,7 @@
  * resolution against the real filesystem, and the settlement/handle helpers
  * under their never-reject and idempotence contracts.
  */
-/**
+/*
  * 文件职责：验证 out-of-process.spec.ts 覆盖的子代理工具行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
  * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。

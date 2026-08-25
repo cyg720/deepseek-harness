@@ -26,7 +26,7 @@ import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
 /** WorkspaceBrowser's rail-search focus delay (EXPAND_SLIDE_MS) plus flush headroom. */
-/** 搜索展开动画和 React 刷新完成所需的最大聚焦等待毫秒数。 */
+/* 搜索展开动画和 React 刷新完成所需的最大聚焦等待毫秒数。 */
 const FOCUS_SETTLE_MS = 600
 
 describe('web e2e: rail search click survives its own document-level bubble', () => {

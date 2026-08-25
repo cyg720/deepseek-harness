@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证代理预设界面的 section 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -47,7 +47,7 @@ const READY: AgentPresetSectionState = {
  * @param state - the snapshot to render.
  * @returns the spies, so a test can assert what a click reached.
  */
-/** 中文说明：函数 renderSection 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 renderSection 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function renderSection(
   state: Partial<AgentPresetSectionState> = {},
   options: { creator?: boolean } = {},
@@ -83,7 +83,7 @@ function renderSection(
 }
 
 /** Locate a card by the id it prints, not by its display name. */
-/** 中文说明：函数 rowFor 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 rowFor 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function rowFor(id: string): HTMLElement {
   /** 中文说明：测试场景的局部值 key，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const key = screen.getAllByText(id).find(node => node.tagName === 'CODE')
@@ -508,7 +508,7 @@ describe('deleting a preset', () => {
 
 describe('a long card description', () => {
   /** jsdom has no ResizeObserver; the description watches its own box through one. */
-  /** 中文说明：类 ResizeObserverStub 封装可控测试行为，实例按所属生命周期使用。 */
+  /* 中文说明：类 ResizeObserverStub 封装可控测试行为，实例按所属生命周期使用。 */
   class ResizeObserverStub {
     observe(): void {}
     unobserve(): void {}
@@ -519,7 +519,7 @@ describe('a long card description', () => {
   const LONG = '始终用简体中文交流的友好通用助手，提供持久 bash 与文件编辑能力。'.repeat(8)
 
   /** Force the clamp to report an overflow: jsdom lays nothing out, so both heights are 0. */
-  /** 中文说明：函数 clamp 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+  /* 中文说明：函数 clamp 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
   function clamp(overflowing: boolean): void {
     vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(overflowing ? 400 : 80)
     vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(80)

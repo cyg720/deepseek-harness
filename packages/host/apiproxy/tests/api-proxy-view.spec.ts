@@ -6,7 +6,7 @@
  * works both through the live open-call table and the backscan fallback after
  * turn/end cleared it.
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-view.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -46,7 +46,7 @@ function tool(name: string, presenters: Pick<ToolDefinition, 'presentCall' | 'pr
 }
 
 /** Append a production-shaped human prompt to the session surface. */
-/** 中文说明：函数 appendUserText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 appendUserText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendUserText(session: Session, text: string): SessionEvent {
   return session.append('user/message', createUserMessage({
     content: [{ type: 'text', text }], source: { kind: 'user' },
@@ -54,7 +54,7 @@ function appendUserText(session: Session, text: string): SessionEvent {
 }
 
 /** Append a production-shaped assistant message to the session surface. */
-/** 中文说明：函数 appendAssistantText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 appendAssistantText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendAssistantText(session: Session, text: string, step: number): SessionEvent {
   return session.append('assistant/message', {
     turn: 1,
@@ -72,7 +72,7 @@ function appendAssistantText(session: Session, text: string, step: number): Sess
  * declares no compaction vocabulary; the cast writes the real event shape without
  * depending on the owning package.
  */
-/** 中文说明：函数 appendExtension 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 appendExtension 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendExtension(session: Session, type: string, data: unknown): SessionEvent {
   return (session.append as unknown as (type: string, data: unknown) => SessionEvent)(type, data)
 }
@@ -108,7 +108,7 @@ async function harness(): Promise<{ ctx: Context }> {
 }
 
 /** Drain frames from an open mux stream until `count` session/event frames arrived. */
-/** 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function collect(iterable: AsyncIterable<RpcRequest<MuxFrame>>, count: number, abort: AbortController): Promise<MuxFrame[]> {
   /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
   const frames: MuxFrame[] = []

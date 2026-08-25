@@ -5,7 +5,7 @@
  * the product's Chinese copy states the browser it assumes instead of
  * inheriting the machine's.
  */
-/**
+/*
  * 文件职责：为断言本地化文案的客户端测试固定浏览器语言环境。
  * 技术维度：使用 Vitest 生命周期钩子和 Object.defineProperty 临时覆盖只读 navigator 属性。
  * 产品维度：避免测试结果随开发机语言变化，使中文或其他语言界面断言稳定复现。
@@ -22,7 +22,7 @@ import { afterEach, beforeEach } from 'vitest'
  * @param primary - most preferred BCP 47 tag; also becomes `navigator.language`.
  * @param rest - further tags in preference order.
  */
-/**
+/*
  * 为调用处的每个测试固定浏览器语言。
  * @param primary 第一首选 BCP 47 标签，同时成为 navigator.language。
  * @param rest 其余按优先级排列的语言标签。

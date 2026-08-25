@@ -6,7 +6,7 @@
  * 关键边界：该类型不影响日志访问权限或导出内容，只处理样式导入。
  * 新手阅读建议：先看下载对话框组件，再对照命令入口的样式引用。
  */
-/** 使用方式：`import styles from './ExportDialog.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './ExportDialog.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码类名，值为构建阶段生成的实际类名。 */
   const classes: Record<string, string>

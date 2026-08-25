@@ -4,7 +4,7 @@
  * only the upstream endpoint with the package-owned keyless MCP fixture and
  * proves the real Cordis Loader discovers a tool through the generic bridge.
  */
-/**
+/*
  * 文件职责：验证三种第三方记忆 MCP 示例的配置字段、安全处理和真实 Loader 工具发现。
  * 技术维度：使用 Vitest、Cordis Loader、MCP 测试服务器与配置补丁解析执行集成测试。
  * 产品维度：保证用户可复制无密钥泄漏的记忆服务示例，并通过通用桥接获得可调用工具。

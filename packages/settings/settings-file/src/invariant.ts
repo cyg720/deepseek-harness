@@ -3,7 +3,7 @@
  * @module @deepseek-ai/dsh-settings-file/invariant
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】本包的"不变量伴随插件"（invariant companion）：向全局 invariants 服务注册本包名，
  *   声明本包没有需要在运行时验证的不变量。

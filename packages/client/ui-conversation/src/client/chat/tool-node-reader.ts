@@ -26,7 +26,7 @@ function toolNode(node: ReturnType<ConversationSnapshot['chat']['nodes']['get']>
  * @param rootCallId - root call identity and Tool Context identity.
  * @returns root lifecycle when it is materialized in the current window.
  */
-/**
+/*
  * 通过内部聊天节点索引读取一次根工具生命周期。
  * @param snapshot - 当前会话快照。
  * @param rootCallId - 根调用身份（同时是工具 Context 身份）。

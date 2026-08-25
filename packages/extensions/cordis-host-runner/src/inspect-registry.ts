@@ -34,7 +34,7 @@ import type {
 } from './types.ts'
 
 /** Context supplied to a Host inspect query. */
-/**
+/*
  * 提供给 Host inspect 查询的上下文：工具调用取消信号与发起查询的 agent（用于限定
  * 被检查的运行时作用域）。
  */
@@ -46,7 +46,7 @@ export interface HostCordisInspectQueryContext {
 }
 
 /** Local registration paired with its serializable manifest. */
-/**
+/*
  * 本地提供者注册项：可序列化的清单 + 执行指定方法的查询函数。
  */
 export interface HostCordisInspectProviderRegistration {
@@ -72,7 +72,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Registry and cross-page router behind the two model-facing inspect tools. */
-/**
+/*
  * 两个模型侧 inspect 工具背后的注册表与跨页面路由器：统一管理 Host/Client 提供者
  * 目录，把查询分发到对应平面并做输入/输出校验。
  */
@@ -87,7 +87,7 @@ export class CordisInspectRegistryService extends Service {
   private nextRequest = 1
 
   /** Register the process-global Host registry. */
-  /**
+  /*
    * 在 Host 组合下创建服务：注册为 cordisInspect 服务。
    */
   constructor(ctx: Context) {
@@ -99,9 +99,10 @@ export class CordisInspectRegistryService extends Service {
    * @param registration - manifest and local query handler.
    * @returns idempotent disposer.
    */
-  /**
+  /*
    * 注册一个 Host 本地提供者：校验清单后入库；重复注册同一 ID 报错。
    * @returns 幂等卸载函数（仅当自己仍是当前注册项时才删除）
+   * @param registration 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   register(registration: HostCordisInspectProviderRegistration): () => void {
     const manifest = validateManifest(registration.manifest)
@@ -117,8 +118,9 @@ export class CordisInspectRegistryService extends Service {
    * Replace the mirrored Client provider directory.
    * @param providers - complete Client manifest snapshot.
    */
-  /**
+  /*
    * 替换 Client 提供者目录镜像：整体校验（含重复 ID 检查）后冻结存储。
+   * @param providers 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   syncClientManifest(providers: readonly CordisInspectProviderManifest[]): void {
     const ids = new Set<string>()
@@ -135,8 +137,9 @@ export class CordisInspectRegistryService extends Service {
    * Return the complete known Host and Client provider directory.
    * @returns Host providers followed by the Client providers.
    */
-  /**
+  /*
    * 返回完整目录：Host 提供者在前、Client 镜像在后（每行都带运行平面标注）。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   list(): CordisInspectProviderView[] {
     return [
@@ -155,9 +158,16 @@ export class CordisInspectRegistryService extends Service {
    * @param signal - tool-call cancellation.
    * @returns provider JSON data.
    */
-  /**
+  /*
    * 在提供者所属平面执行查询：Host 路径直接调本地查询函数；Client 路径广播事件
    * 并等待页面应答。两端都在执行前后校验输入/输出 schema 与取消信号。
+   * @param platform 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param providerId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param methodName 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param input 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   async query(
     platform: CordisInspectPlatform,
@@ -187,9 +197,13 @@ export class CordisInspectRegistryService extends Service {
    * @param resolution - Client provider result or failure.
    * @returns whether this response settled the still-pending query.
    */
-  /**
+  /*
    * 认领并结算一次挂起的 Client 查询：校验请求属于该会话、应答成功且输出符合
    * schema，才删除挂起项并广播"已结算"事件；否则返回未接受。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param requestId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param resolution 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   resolveClientQuery(
     agent: Agent,

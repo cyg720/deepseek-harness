@@ -17,7 +17,7 @@
 import { Service } from '@deepseek-ai/cordis'
 
 /** Shared lifecycle and stable-entry storage for one Conversation Definition registry. */
-/** 会话定义注册表的共享生命周期与稳定条目存储基类。 */
+/* 会话定义注册表的共享生命周期与稳定条目存储基类。 */
 export abstract class ConversationDefinitionRegistry<Definition> extends Service {
   protected readonly definitions = new Map<string, Definition>() // 键 -> 定义的存储
   private listeners = new Set<() => void>() // 变更订阅者集合
@@ -27,7 +27,7 @@ export abstract class ConversationDefinitionRegistry<Definition> extends Service
    * Return reference-stable Definitions in registration order.
    * @returns current Definitions.
    */
-  /**
+  /*
    * 以注册顺序返回引用稳定的定义列表（注册/注销间引用不变化）。
    * @returns 当前定义列表。
    */
@@ -40,7 +40,7 @@ export abstract class ConversationDefinitionRegistry<Definition> extends Service
    * @param listener - synchronous invalidation callback.
    * @returns unsubscribe callback.
    */
-  /**
+  /*
    * 观察低频的注册表变更。
    * @param listener 同步失效回调。
    * @returns 取消订阅回调。
@@ -58,7 +58,7 @@ export abstract class ConversationDefinitionRegistry<Definition> extends Service
    * @param effectName - Cordis effect diagnostic label.
    * @returns idempotent disposer.
    */
-  /**
+  /*
    * 为调用方的生命周期注册一个键唯一的定义。
    * @param key 注册表内唯一的键。
    * @param definition 贡献的定义。
@@ -87,7 +87,7 @@ export abstract class ConversationDefinitionRegistry<Definition> extends Service
   }
 
   /** Refresh cached entries and synchronously invalidate subscribers. */
-  /** 重建缓存条目并同步失效所有订阅者。 */
+  /* 重建缓存条目并同步失效所有订阅者。 */
   protected refresh(): void {
     this.cached = [...this.definitions.values()]
     for (const listener of this.listeners) listener()

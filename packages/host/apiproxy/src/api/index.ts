@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】apiproxy 契约层的桶文件（barrel）：汇总各域名接口（sessions、
  * host、workspace、agentPresets、skills、subagents、events、goals、settings、

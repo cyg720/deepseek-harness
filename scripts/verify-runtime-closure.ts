@@ -4,7 +4,7 @@
  * graph. With auto peer installation disabled, either omission can otherwise
  * fail only when Cordis loads the packaged plugin.
  */
-/**
+/*
  * 文件职责：实现 verify-runtime-closure.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -58,7 +58,7 @@ export interface RuntimeClosureResult {
  * @param manifestPath runtime manifest path relative to {@link root}.
  * @returns the discovered preset count, reachable workspace package count, and violations.
  */
-/** 中文说明：函数 verifyRuntimeClosure 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 verifyRuntimeClosure 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function verifyRuntimeClosure(
   root: string,
   manifestPath = 'python/sdk-runtime/package.json',

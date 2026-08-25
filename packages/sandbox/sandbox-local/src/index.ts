@@ -19,7 +19,7 @@
  * restricting list and NTFS hard links alias one file object across paths.
  * @module @deepseek-ai/dsh-sandbox-local
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的沙箱策略与本地隔离配置、注册与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验和系统资源管理。
  * 产品维度：为 Agent 提供可靠的沙箱策略与本地隔离能力。
@@ -49,7 +49,7 @@ import { AclWriteGrant, assertTempRootOutsideWorkspace, tempWriteSid, workspaceW
 import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from './profiles.ts'
 
 /** Plugin config. All optional — `static Config` supplies the defaults. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 export interface Config {
   /**
    * Override the runner argv; bwrap-compatible profile arguments are appended. A
@@ -74,7 +74,7 @@ export interface Config {
 }
 
 /** Probe whether `bwrap` can create the profile; the provider caches the bounded result. */
-/** 中文说明：函数 defaultProbeBwrap 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 defaultProbeBwrap 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function defaultProbeBwrap(timeoutMs: number): boolean {
   /** 中文说明：变量 probe 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const probe = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
@@ -93,7 +93,7 @@ function defaultProbeBwrap(timeoutMs: number): boolean {
  * rungs' absent binaries. Apple marks the CLI deprecated but ships it on
  * every macOS; if it ever disappears, this probe is what fails closed.
  */
-/** 中文说明：函数 defaultProbeSeatbelt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 defaultProbeSeatbelt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function defaultProbeSeatbelt(seatbeltExec: string, timeoutMs: number): boolean {
   /** 中文说明：变量 probe 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const probe = spawnSync(seatbeltExec, [...seatbeltProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
@@ -110,7 +110,7 @@ function defaultProbeSeatbelt(seatbeltExec: string, timeoutMs: number): boolean 
  * sole candidate, so the product never probes; the probe exists for override
  * chains and mirrors the other rungs' shape.
  */
-/** 中文说明：函数 defaultProbeWindowsAcl 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 defaultProbeWindowsAcl 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function defaultProbeWindowsAcl(runnerInvocation: string[], timeoutMs: number): boolean {
   /** 中文说明：变量 program 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const program = runnerInvocation[0]
@@ -128,7 +128,7 @@ function defaultProbeWindowsAcl(runnerInvocation: string[], timeoutMs: number): 
 }
 
 /** Test hook: inject probe verdicts / a fake launcher / a platform without real runners. */
-/** 中文说明：interface SandboxInternals 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
+/* 中文说明：interface SandboxInternals 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 export interface SandboxInternals {
   /** Replaces `process.platform` for chain selection (exercise any platform's chain from any host). */
   platform?: string
@@ -155,11 +155,11 @@ export interface SandboxInternals {
 }
 
 /** The chain's verdict: which runner confines, and how completely it enforces. */
-/** 中文说明：type SelectedRunner 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
+/* 中文说明：type SelectedRunner 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 type SelectedRunner = { runner: 'bwrap' | 'landlock' | 'seatbelt' | 'windows-acl'; enforcement: SandboxEnforcement }
 
 /** One live session/workspace pair's private temp directory and capability. */
-/** 中文说明：interface AclTempCapability 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
+/* 中文说明：interface AclTempCapability 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 interface AclTempCapability {
   dir: string
   writeSid: string
@@ -175,7 +175,7 @@ interface AclTempCapability {
  * mode vocabulary) over the Landlock launcher; darwin has exactly one
  * candidate, selected without any probe.
  */
-/** 中文说明：常量 PLATFORM_CHAINS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PLATFORM_CHAINS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PLATFORM_CHAINS: Record<string, readonly SelectedRunner['runner'][]> = {
   linux: ['bwrap', 'landlock'],
   darwin: ['seatbelt'],
@@ -194,7 +194,7 @@ const PLATFORM_CHAINS: Record<string, readonly SelectedRunner['runner'][]> = {
  * what distinguishes full from per-ABI-partial — and the launcher additionally
  * self-reports partial enforcement on stderr at every confined run).
  */
-/** 中文说明：常量 STATIC_ENFORCEMENT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 STATIC_ENFORCEMENT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STATIC_ENFORCEMENT: Record<SelectedRunner['runner'], SandboxEnforcement> = {
   bwrap: 'full',
   landlock: 'full',
@@ -212,7 +212,7 @@ const STATIC_ENFORCEMENT: Record<SelectedRunner['runner'], SandboxEnforcement> =
  * `spawnSync({ timeout: 0 })` as NO timeout, so an unvalidated 0 would
  * silently mean "unbounded" — the opposite of what the field promises.
  */
-/** 中文说明：函数 assertPositiveFinite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 assertPositiveFinite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertPositiveFinite(name: string, value: number): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`sandbox-local: ${name} must be a positive finite number`)
@@ -224,7 +224,7 @@ function assertPositiveFinite(name: string, value: number): void {
  * denied file effect produces under it, carried on every wrap (the seam's
  * `ConfinedArgv.denialSignatures`).
  */
-/** 中文说明：常量 DENIAL_SIGNATURES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DENIAL_SIGNATURES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DENIAL_SIGNATURES = {
   bwrap: ['read-only file system'],
   landlock: ['permission denied'],
@@ -236,7 +236,7 @@ const DENIAL_SIGNATURES = {
 } as const satisfies Record<SelectedRunner['runner'] | 'runnerCommand', readonly string[]>
 
 /** The windows-acl runner's documented failure exit (its own RUNNER_FAILURE_EXIT contract, distinct from Landlock's 125). */
-/** 中文说明：常量 WINDOWS_ACL_RUNNER_FAILURE_EXIT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 WINDOWS_ACL_RUNNER_FAILURE_EXIT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WINDOWS_ACL_RUNNER_FAILURE_EXIT = 127
 
 /**
@@ -252,7 +252,7 @@ const WINDOWS_ACL_RUNNER_FAILURE_EXIT = 127
  * assembled snapshot fixture at
  * `examples/acp-agent/tests/fixtures/partial-landlock-sandbox.ts`.
  */
-/** 中文说明：常量 RUNNER_FAILURE_RULES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 RUNNER_FAILURE_RULES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RUNNER_FAILURE_RULES = {
   bwrap: [{ fatalSignatures: ['bwrap: '] }],
   landlock: [{
@@ -272,7 +272,7 @@ const RUNNER_FAILURE_RULES = {
  * latter revoked on provider dispose); the one-time probes spawn nothing
  * else.
  */
-/** 中文说明：class LocalSandboxProvider 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
+/* 中文说明：class LocalSandboxProvider 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 export class LocalSandboxProvider extends SandboxProvider {
   // Inline schema call: the config catalog walks `static Config` statically.
   static Config: z<Config> = z.object({

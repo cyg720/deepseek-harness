@@ -1,5 +1,5 @@
 /** Runnable keyless snapshot for the assembled translation request and consumed response. */
-/**
+/*
  * 文件职责：无密钥运行翻译提示装配器，并把请求与已记录响应和快照文件比较。
  * 技术维度：使用 Vitest、promisify(execFile)、文件系统 API 和文件快照断言启动真实脚本。
  * 产品维度：防止翻译示例、请求格式或响应消费逻辑意外漂移。

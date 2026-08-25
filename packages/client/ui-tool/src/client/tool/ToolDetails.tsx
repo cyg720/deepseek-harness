@@ -1,5 +1,5 @@
 /** Card-aware output body for the selected Tool call in details. */
-/**
+/*
  * 文件职责：实现工具调用的 ToolDetails 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：向用户展示工具调用参数、结果和状态。
@@ -23,7 +23,7 @@ import css from './ToolDetails.module.css'
  * @param props - selected call slice, workspace root, host home, and locale seat.
  * @returns the details output body.
  */
-/** 中文说明：函数 ToolDetails 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 ToolDetails 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function ToolDetails({
   block, cwd, useHostDescription, t,
 }: Pick<ToolDetailsProps, 'block' | 'cwd' | 'useHostDescription' | 't'>) {

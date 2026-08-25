@@ -3,7 +3,7 @@
  * persisted same-session goal domain.
  * @module @deepseek-ai/dsh-tool-goal
  */
-/**
+/*
  * 文件职责：实现目标工具与投影的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证目标工具与投影可预测地传递事件、限制循环或适配外部工具。
@@ -33,20 +33,20 @@ export const name = 'tool-goal'
 export const inject = ['agents', 'goals', 'tools', 'systemPrompt']
 
 /** Model policy and hard lower bounds for goal-state updates. */
-/** 中文说明：类型或类 Config 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 Config 约束 Hook、守卫或目标数据职责。 */
 export interface Config {
   /** Minimum admitted goal rounds before the model may self-report `blocked`. */
   blockedAfterConsecutiveRounds?: number
 }
 
 /** Schemastery config for the goal-tool policy. */
-/** 中文说明：协议局部值 Config，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 Config，由紧邻初始化决定。 */
 export const Config: z<Config> = z.object({
   blockedAfterConsecutiveRounds: z.number().step(1).min(1).default(3),
 })
 
 /** Fully materialized tool policy. */
-/** 中文说明：类型或类 ResolvedConfig 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 ResolvedConfig 约束 Hook、守卫或目标数据职责。 */
 interface ResolvedConfig {
   readonly blockedAfterConsecutiveRounds: number
 }
@@ -71,7 +71,7 @@ const GET_DESCRIPTION =
   + 'Call this before updating a goal.'
 
 /** Canonical goal-tool output, matching the existing compact Native JSON. */
-/** 中文说明：类型或类 GoalToolValue 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 GoalToolValue 约束 Hook、守卫或目标数据职责。 */
 type GoalToolValue =
   | { goal: null }
   | {
@@ -129,7 +129,7 @@ const GOAL_VALUE_SCHEMA = {
 } as const
 
 /** Render policy guidance with its deployment-selected blocked threshold. */
-/** 中文说明：函数 guidance 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 guidance 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function guidance(blockedAfter: number): string {
   return 'Use goal tools for one long-running completion objective in the current session. '
     + 'create_goal may infer goal intent from a direct human request in any language; do not '
@@ -143,7 +143,7 @@ function guidance(blockedAfter: number): string {
 }
 
 /** Validate config even when apply is called directly outside Loader normalization. */
-/** 中文说明：函数 resolveConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveConfig(config: Config): ResolvedConfig {
   /** 中文说明：协议局部值 blockedAfter，由紧邻初始化决定。 */
   const blockedAfter = config.blockedAfterConsecutiveRounds ?? 3
@@ -154,19 +154,19 @@ function resolveConfig(config: Config): ResolvedConfig {
 }
 
 /** Whether optional text is meaningful rather than a strict-schema empty filler. */
-/** 中文说明：函数 hasText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 hasText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasText(value: string | undefined): value is string {
   return value !== undefined && value !== ''
 }
 
 /** Whether an optional round cap is meaningful rather than a strict-schema zero filler. */
-/** 中文说明：函数 hasRoundCap 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 hasRoundCap 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasRoundCap(value: number | undefined): value is number {
   return value !== undefined && value !== 0
 }
 
 /** Build the exact compare-and-set ref from model arguments. */
-/** 中文说明：函数 goalRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 goalRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalRef(goalId: string, revision: number): GoalRef {
   if (goalId.length === 0 || goalId !== goalId.trim()
     || !Number.isSafeInteger(revision) || revision < 1) {
@@ -179,7 +179,7 @@ function goalRef(goalId: string, revision: number): GoalRef {
 }
 
 /** Stable compact model result; activation is an observation, not replay state. */
-/** 中文说明：函数 goalValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 goalValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalValue(goal: GoalView | undefined): GoalToolValue {
   if (goal === undefined) return { goal: null }
   return {
@@ -199,20 +199,20 @@ function goalValue(goal: GoalView | undefined): GoalToolValue {
 }
 
 /** Reusable canonical output declaration for all three goal controls. */
-/** 中文说明：协议局部值 GOAL_OUTPUT，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 GOAL_OUTPUT，由紧邻初始化决定。 */
 const GOAL_OUTPUT = {
   schema: GOAL_VALUE_SCHEMA,
   render: (_args: unknown, value: GoalToolValue) => [{ type: 'text' as const, text: JSON.stringify(value) }],
 }
 
 /** Generic, args-only pending presentation shared by the goal tools. */
-/** 中文说明：函数 present 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 present 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function present(title: string, kind: 'read' | 'other', rawInput?: unknown): GenericCallView {
   return { card: 'generic', title, kind, ...rawInput === undefined ? {} : { rawInput } }
 }
 
 /** Register the three Codex-shaped goal tools and their shared policy section. */
-/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function apply(ctx: Context, config: Config): void {
   /** 中文说明：协议局部值 resolved，由紧邻初始化决定。 */
   const resolved = resolveConfig(config)

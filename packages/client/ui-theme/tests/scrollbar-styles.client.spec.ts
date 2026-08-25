@@ -8,7 +8,7 @@
  * design-platform.css, so adding, renaming, or dropping a scrollbar token
  * moves these assertions with it.
  */
-/**
+/*
  * 文件职责：验证主题与设计系统的 scrollbar-styles.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止主题与设计系统显示、导航或生命周期回归。
@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 /** One flattened CSS rule: its comma-separated selector parts and its declarations in source order. */
-/** 中文说明：类型或类 CssRule 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 CssRule 约束模块数据或组件职责。 */
 interface CssRule {
   selectors: string[]
   declarations: [property: string, value: string][]
@@ -41,19 +41,19 @@ const platformCss = read('design-platform.css')
 const scrollbarCss = read('scrollbar.css')
 
 /** Body attribute selecting the dark palette; ui-layout's ThemePresenter sets it. */
-/** 中文说明：测试局部值 DARK_ATTRIBUTE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 DARK_ATTRIBUTE，由紧邻初始化决定。 */
 const DARK_ATTRIBUTE = '[data-ds-dark-theme]'
 /** Alias tokens under test: the prefix the elevation pairs share. */
-/** 中文说明：测试局部值 TOKEN_PREFIX，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 TOKEN_PREFIX，由紧邻初始化决定。 */
 const TOKEN_PREFIX = '--dsw-alias-scrollbar-'
 /** Prefix of the rebindable indirection scrollbar.css owns. */
-/** 中文说明：测试局部值 INDIRECTION_PREFIX，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 INDIRECTION_PREFIX，由紧邻初始化决定。 */
 const INDIRECTION_PREFIX = '--dsh-scrollbar-'
 /** The one non-token rebind value: a surface that draws no thumb at all. */
-/** 中文说明：测试局部值 HIDDEN_THUMB，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 HIDDEN_THUMB，由紧邻初始化决定。 */
 const HIDDEN_THUMB = 'transparent'
 /** The elevation rebind, spelled per property: value-wholeness, not token shape. */
-/** 中文说明：测试局部值 ELEVATED_REBIND，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 ELEVATED_REBIND，由紧邻初始化决定。 */
 const ELEVATED_REBIND = new Map([
   ['--dsh-scrollbar-thumb', '--dsw-alias-scrollbar-bg-l2'],
   ['--dsh-scrollbar-thumb-hover', '--dsw-alias-scrollbar-hover-l2'],
@@ -66,7 +66,7 @@ const ELEVATED_REBIND = new Map([
  * @param css - stylesheet text.
  * @returns one entry per rule, in source order.
  */
-/** 中文说明：函数 parseRules 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 parseRules 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function parseRules(css: string): CssRule[] {
   /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
@@ -97,7 +97,7 @@ function parseRules(css: string): CssRule[] {
  * @param prelude - exact at-rule prelude to locate, without the opening brace.
  * @returns the block's brace offsets, or undefined when the prelude is absent.
  */
-/** 中文说明：函数 atRuleBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 atRuleBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function atRuleBlock(css: string, prelude: string): { start: number; end: number } | undefined {
   /** 中文说明：测试局部值 opening，由紧邻初始化决定。 */
   const opening = css.indexOf(`${prelude} {`)
@@ -122,7 +122,7 @@ function atRuleBlock(css: string, prelude: string): { start: number; end: number
  * @param value - declaration value, possibly with nested var() calls.
  * @returns every referenced custom-property name, in source order.
  */
-/** 中文说明：函数 varReferences 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 varReferences 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function varReferences(value: string): string[] {
   return [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map(([, name = '']) => name)
 }
@@ -132,7 +132,7 @@ function varReferences(value: string): string[] {
  * installed dependencies.
  * @returns absolute paths of the stylesheets under packages/.
  */
-/** 中文说明：函数 packageStylesheets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 packageStylesheets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function packageStylesheets(): string[] {
   /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
   const found: string[] = []
@@ -159,7 +159,7 @@ function packageStylesheets(): string[] {
  * @param rules - parsed rules of one stylesheet.
  * @returns every `--dsw-*` token the sheet's rendering declarations depend on.
  */
-/** 中文说明：函数 tokensRendered 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 tokensRendered 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tokensRendered(rules: CssRule[]): Set<string> {
   /** 中文说明：测试局部值 definitions，由紧邻初始化决定。 */
   const definitions = new Map<string, string>()
@@ -204,7 +204,7 @@ const sorted = (names: Iterable<string>): string[] => [...names].sort()
  * @param dark - true to scan the dark blocks, false to scan the light blocks.
  * @returns the scrollbar token names defined there.
  */
-/** 中文说明：函数 definedTokens 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 definedTokens 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function definedTokens(dark: boolean): Set<string> {
   /** 中文说明：测试局部值 names，由紧邻初始化决定。 */
   const names = new Set<string>()
@@ -227,10 +227,10 @@ const darkTokens = definedTokens(true)
 const allTokens = new Set([...lightTokens, ...darkTokens])
 
 /** Every scrollbar token any package stylesheet references, mapped to the files referencing it. */
-/** 中文说明：测试局部值 referencedTokens，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 referencedTokens，由紧邻初始化决定。 */
 const referencedTokens = new Map<string, string[]>()
 /** Every indirection property any package stylesheet outside ui-theme declares, mapped to its declaring rules. */
-/** 中文说明：测试局部值 rebindRules，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 rebindRules，由紧邻初始化决定。 */
 const rebindRules: { file: string; rule: CssRule }[] = []
 /**
  * What one stylesheet contributes to the elevated-surface question: which
@@ -239,7 +239,7 @@ const rebindRules: { file: string; rule: CssRule }[] = []
  * descendant that actually scrolls are separate rules in the same sheet, and
  * CSS text does not express which contains which.
  */
-/** 中文说明：类型或类 SheetSurfaces 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 SheetSurfaces 约束模块数据或组件职责。 */
 interface SheetSurfaces {
   /** Elevated surface tokens this sheet paints anywhere. */
   elevated: Set<string>
@@ -257,10 +257,10 @@ interface SheetSurfaces {
 const sheetSurfaces = new Map<string, SheetSurfaces>()
 
 /** Properties whose `auto`/`scroll` value makes a rule a scroll container. */
-/** 中文说明：测试局部值 OVERFLOW_PROPERTIES，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 OVERFLOW_PROPERTIES，由紧邻初始化决定。 */
 const OVERFLOW_PROPERTIES = ['overflow', 'overflow-x', 'overflow-y']
 /** Properties that paint a surface, and so identify the elevation a rule sits on. */
-/** 中文说明：测试局部值 SURFACE_PROPERTIES，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 SURFACE_PROPERTIES，由紧邻初始化决定。 */
 const SURFACE_PROPERTIES = ['background', 'background-color']
 /**
  * Token families that name a SURFACE — a background an element is drawn on, and
@@ -271,7 +271,7 @@ const SURFACE_PROPERTIES = ['background', 'background-color']
  * CodeBlock's banner). Family, not geometry: a floating button legitimately
  * carries a radius, a shadow, and a fixed size, so shape cannot separate them.
  */
-/** 中文说明：测试局部值 SURFACE_TOKEN_PATTERN，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 SURFACE_TOKEN_PATTERN，由紧邻初始化决定。 */
 const SURFACE_TOKEN_PATTERN = /^--dsw-(?:alias-bg-|specific-)/
 
 /**
@@ -282,7 +282,7 @@ const SURFACE_TOKEN_PATTERN = /^--dsw-(?:alias-bg-|specific-)/
  * a surface NOBODY has rebound yet.
  * @returns surface tokens whose dark value sits on an elevated rung.
  */
-/** 中文说明：函数 elevatedRungs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 elevatedRungs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function elevatedRungs(): Set<string> {
   /** 中文说明：测试局部值 definitions，由紧邻初始化决定。 */
   const definitions = new Map<string, string>()
@@ -552,14 +552,14 @@ describe('scrollbar.css selectors', () => {
 
 describe('scrollbar.css rendering paths', () => {
   /** The gate prelude, spelled exactly as the sheet must spell it for the split to exist. */
-  /** 中文说明：测试局部值 GATE，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 GATE，由紧邻初始化决定。 */
   const GATE = '@supports not selector(::-webkit-scrollbar)'
   /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
   const withoutComments = scrollbarCss.replace(/\/\*[\s\S]*?\*\//g, ' ')
   /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
   const gate = atRuleBlock(withoutComments, GATE)
   /** Standard scrollbar properties, the ones whose non-`auto` values suppress the pseudo-elements. */
-  /** 中文说明：测试局部值 STANDARD_PROPERTIES，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 STANDARD_PROPERTIES，由紧邻初始化决定。 */
   const STANDARD_PROPERTIES = ['scrollbar-width', 'scrollbar-color']
 
   it('gates the standard properties behind the absence of the WebKit pseudo-element', () => {

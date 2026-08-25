@@ -26,7 +26,7 @@ import { ToolRow } from '../components/ToolRow.tsx'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
 
 /** Full row props: the toolview runtime share plus the standard locale seat. */
-/** 中文说明：类型或类 FileMutationRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 FileMutationRowProps 约束工具或轨迹数据职责。 */
 type FileMutationRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /**
@@ -38,7 +38,7 @@ type FileMutationRowProps = ToolCallViewProps & PropsLocale<'conversation'>
  * model-facing error text through its Output section and its first line in the
  * collapsed summary instead.
  */
-/** 中文说明：函数 FileMutationRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 FileMutationRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function FileMutationRow({ toolName, block, cwd, home, openFile, inspect, t }: FileMutationRowProps) {
   /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block, cwd, home)
@@ -68,7 +68,7 @@ export function FileMutationRow({ toolName, block, cwd, home, openFile, inspect,
  * The file-mutation rows as a plain registrant plugin following the chat
  * toolview declaration across independent activation and reload lifetimes.
  */
-/** 中文说明：视图局部值 fileMutationToolview，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 fileMutationToolview，由紧邻初始化决定。 */
 export const fileMutationToolview = {
   name: 'file-mutation-toolview',
   inject: ['slots'],

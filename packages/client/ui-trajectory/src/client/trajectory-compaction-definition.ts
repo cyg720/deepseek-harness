@@ -158,7 +158,7 @@ const trajectorySessionEndDefinition: ConversationNodeDefinition<SessionEndState
  *
  * @param ctx - Plugin context receiving the Definitions.
  */
-/**
+/*
  * 注册轨迹的压缩请求与会话边界状态机。
  * @param ctx - 接收这些 Definition 的插件上下文。
  */

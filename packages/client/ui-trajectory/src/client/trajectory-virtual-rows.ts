@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】从轨迹记录投影出"可测量"的虚拟行：把分隔符类（仅请求、零高）记录挂到
  *             下一内容行上，避免虚拟化器拥有零高度条目；并给出稳定的行 key。
@@ -40,7 +40,7 @@ export interface TrajectoryVirtualRowEntry<T extends VirtualizableTrajectoryReco
 }
 
 /** One virtualizer item, which may carry zero-height request boundaries. */
-/**
+/*
  * 一个虚拟化器条目：可能包含多条记录（内容行 + 它前面的纯请求分隔符）。
  */
 export interface TrajectoryVirtualRow<T extends VirtualizableTrajectoryRecord> {
@@ -55,7 +55,7 @@ export interface TrajectoryVirtualRow<T extends VirtualizableTrajectoryRecord> {
  * @param record - Display record whose identity is required.
  * @returns Stable record identity with a suffix for synthetic fold summaries.
  */
-/**
+/*
  * 推导 React、虚拟化器与浏览器滚动契约共享的 DOM 安全行身份。
  * @param record - 需要身份的展示记录。
  * @returns 稳定记录身份；折叠摘要（合成行）附加 \u0000summary 后缀。
@@ -76,7 +76,7 @@ export function trajectoryVirtualRecordKey(
  * @param records - Final search/fold projection in ledger order.
  * @returns Measurable virtual rows with original logical positions retained.
  */
-/**
+/*
  * 把纯分隔符记录挂到下一个内容行上，让虚拟化器永远不会拥有零高度条目；
  * 末尾残留的分隔符以"终端边界"高度单独成行。
  * 使用示例：const rows = groupTrajectoryVirtualRows(searchFilteredRecords)；

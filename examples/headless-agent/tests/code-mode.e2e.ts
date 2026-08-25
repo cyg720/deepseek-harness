@@ -39,9 +39,9 @@ import * as ToolCordis from '@deepseek-ai/dsh-tool-cordis'
  * sub-calls, writes a file, and returns curated output while the log records
  * each `tool/code-dispatch`. The keyless Loader smoke is in the sibling test.
  */
-/** 中文说明：真实模型只接收 run_code，组合两次子调用并写文件；日志需记录每次 tool/code-dispatch。 */
+/* 中文说明：真实模型只接收 run_code，组合两次子调用并写文件；日志需记录每次 tool/code-dispatch。 */
 
-/** 指导模型用 TypeScript 批量协调 run_code 子工具的系统角色文本。 */
+/* 指导模型用 TypeScript 批量协调 run_code 子工具的系统角色文本。 */
 const PERSONA = 'You are a coding agent. You work by writing TypeScript programs for run_code: '
   + 'batch related tool work into one program and print or return ONLY the findings that matter.'
 /** 用于证明工作区内容能进入代码模式上下文的唯一探针文本。 */

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】read 工具的"纯展示"层：把提供者解码的文本变成"有界、带行号"的窗口
  * 与模型可见信封。逐块扫描会截断当前行，所以即使一整行没有换行符的巨型行也不会
@@ -26,7 +26,7 @@
  * line cannot grow memory without bound.
  * @module @deepseek-ai/dsh-tool-fs/read-render
  */
-/**
+/*
  * 模块总览：本文件不含任何文件 I/O，是 read 的纯展示与窗口计算；上限常量也被
  * index.ts 用作配置默认值。
  */
@@ -34,69 +34,69 @@
 import { FsError } from '@deepseek-ai/dsh-fs'
 
 /** Default maximum characters returned for a single line (the `readMaxLineLength` config). */
-/** 单行默认最大返回字符数（readMaxLineLength 配置的默认值）：2000。 */
+/* 单行默认最大返回字符数（readMaxLineLength 配置的默认值）：2000。 */
 export const READ_MAX_LINE_LENGTH = 2000
 
 /** Default maximum bytes returned for selected file lines (the `readMaxBytes` config). */
-/** 选中行默认最大返回字节数（readMaxBytes 配置的默认值）：50 KiB。 */
+/* 选中行默认最大返回字节数（readMaxBytes 配置的默认值）：50 KiB。 */
 export const READ_MAX_BYTES = 50 * 1024
 
 /** Resolved read window. The consumer applies its defaults/caps before calling. */
-/** 已解析的读取窗口。调用方在调用前已套用默认值与上限。 */
+/* 已解析的读取窗口。调用方在调用前已套用默认值与上限。 */
 export interface ReadWindow {
   /** 1-based first line to return. */
-  /** 1 基的起始行。 */
+  /* 1 基的起始行。 */
   offset: number
   /** Maximum number of lines to return. */
-  /** 最大返回行数。 */
+  /* 最大返回行数。 */
   limit: number
   /** Maximum characters returned for a single line; overflow is truncated with a suffix. */
-  /** 单行最大返回字符数；超限截断并加后缀。 */
+  /* 单行最大返回字符数；超限截断并加后缀。 */
   maxLineLength: number
   /** Maximum bytes of selected output; overflow stops the scan and marks `truncatedByBytes`. */
-  /** 选中输出的最大字节数；超限停止扫描并置 truncatedByBytes。 */
+  /* 选中输出的最大字节数；超限停止扫描并置 truncatedByBytes。 */
   maxBytes: number
 }
 
 /** One line returned from a text file. */
-/** 从文本文件返回的一行。 */
+/* 从文本文件返回的一行。 */
 export interface FileTextLine {
   /** 1-based line number in the file. */
-  /** 文件内 1 基行号。 */
+  /* 文件内 1 基行号。 */
   number: number
   /** Line text without its trailing newline. */
-  /** 去掉尾换行的行文本。 */
+  /* 去掉尾换行的行文本。 */
   text: string
 }
 
 /** The windowed result {@link buildWindow} produces from a file's decoded text. */
-/** buildWindow 从文件解码文本产出的窗口结果。 */
+/* buildWindow 从文件解码文本产出的窗口结果。 */
 export interface WindowResult {
   /** Returned lines, already numbered. */
-  /** 已编号的返回行。 */
+  /* 已编号的返回行。 */
   lines: FileTextLine[]
   /** Exact total line count in the file. */
-  /** 文件里的精确总行数。 */
+  /* 文件里的精确总行数。 */
   totalLines: number
   /** Whether selected output hit the byte cap. */
-  /** 选中输出是否触达字节上限。 */
+  /* 选中输出是否触达字节上限。 */
   truncatedByBytes: boolean
 }
 
 /** Outcome of a bounded text read — what {@link formatReadOutput} renders. */
-/** 一次有界文本读取的结果——formatReadOutput 渲染它的输入。 */
+/* 一次有界文本读取的结果——formatReadOutput 渲染它的输入。 */
 export interface FileReadOutcome {
   /** 1-based first line requested. */
-  /** 请求的 1 基起始行。 */
+  /* 请求的 1 基起始行。 */
   offset: number
   /** Returned lines, already numbered. */
-  /** 已编号的返回行。 */
+  /* 已编号的返回行。 */
   lines: FileTextLine[]
   /** Exact total line count in the file. */
-  /** 文件里的精确总行数。 */
+  /* 文件里的精确总行数。 */
   totalLines: number
   /** Whether selected output hit the byte cap. */
-  /** 选中输出是否触达字节上限。 */
+  /* 选中输出是否触达字节上限。 */
   truncatedByBytes?: true
 }
 
@@ -160,7 +160,7 @@ function finish(acc: WindowAccumulator, request: ReadWindow, displayPath: string
  * @param displayPath - the caller-facing path used in the offset-out-of-range error.
  * @returns the numbered window lines, the total line count seen, and the byte-cap truncation flag.
  */
-/**
+/*
  * 从流式/整文件块构建一个窗口：在强制行与字节上限的同时仍扫描出精确总行数；
  * 请求的 offset 越过 EOF 时抛 FS_NOT_FOUND。
  * @param chunks 按文件顺序的解码文本块；块边界无含义。
@@ -213,7 +213,7 @@ export async function buildWindow(
  * @param outcome - the windowed read to render.
  * @returns the model-facing envelope: numbered lines plus a continuation or end-of-file footer.
  */
-/**
+/*
  * 把读结果格式化成 OpenCode 风格的带行号文本块主体。
  * @param displayPath 信封 <path> 元素里的后端解析路径。
  * @param outcome 要渲染的窗口读结果。
@@ -246,7 +246,7 @@ ${body}
  * intentionally small — common source, config, and markup extensions a
  * line-numbered code view benefits from highlighting — not an exhaustive registry.
  */
-/**
+/*
  * 小写文件扩展名 → 语法高亮语言提示。键是去掉点的扩展名；UI 把缺失的键当纯文本。
  * 映射刻意保持精简——只收录带行号代码视图值得高亮的常见源码/配置/标记扩展名，
  * 不是穷举注册表。
@@ -272,7 +272,7 @@ const LANG_BY_EXTENSION: Readonly<Record<string, string>> = {
  * @param path - the model-facing path the read reported.
  * @returns the language hint for {@link LANG_BY_EXTENSION}, or `undefined` when the extension maps to none.
  */
-/**
+/*
  * 从读取路径的文件扩展名推导语法高亮语言提示。对扩展名大小写不敏感；无扩展名的
  * 点文件（.gitignore）与未知扩展名都返回 undefined。
  * @param path 读取报告的模型侧路径。
@@ -303,7 +303,7 @@ export function langFromPath(path: string): string | undefined {
  * reproduces the read card on replay when the raw structured output is no longer
  * on the wire. The producing tool owns and narrows this opaque shape.
  */
-/**
+/*
  * read 工具私有的 tool/result meta 载荷：有能力的 UI 渲染成代码视图的结构化带行号
  * 窗口。以不透明 unknown 形式附在工具结果上并随会话日志持久化——必须可 JSON
  * 序列化（会话在 append 时校验），这样线上不再有原始结构化输出时，presentResult
@@ -311,19 +311,19 @@ export function langFromPath(path: string): string | undefined {
  */
 export interface FsReadMeta {
   /** The read file's model-facing path. */
-  /** 被读文件的模型侧路径。 */
+  /* 被读文件的模型侧路径。 */
   path: string
   /** The 1-based first line the window requested, kept even when `lines` is empty. */
-  /** 窗口请求的 1 基起始行；lines 为空时也保留。 */
+  /* 窗口请求的 1 基起始行；lines 为空时也保留。 */
   offset: number
   /** The returned window's lines, each keeping its file line number. */
-  /** 返回窗口的行，各自保留文件行号。 */
+  /* 返回窗口的行，各自保留文件行号。 */
   lines: FileTextLine[]
   /** Exact total line count in the file. */
-  /** 文件里的精确总行数。 */
+  /* 文件里的精确总行数。 */
   totalLines: number
   /** Syntax-highlighting language hint from the extension, or omitted for plain text. */
-  /** 从扩展名来的语法高亮语言提示；纯文本时省略。 */
+  /* 从扩展名来的语法高亮语言提示；纯文本时省略。 */
   lang?: string
 }
 
@@ -333,7 +333,7 @@ export interface FsReadMeta {
  * rendered from a zero, fractional, or non-finite line number would violate the
  * 1-based numbering contract the read window promises.
  */
-/**
+/*
  * value 是否为合法的 FileTextLine（从不透明 meta 做的防御性收窄）。number 必须是
  * 1 基整数行号——从 0/小数/非有限行号渲染卡片会违反读窗口承诺的 1 基编号契约。
  */
@@ -356,7 +356,7 @@ function isFileTextLine(value: unknown): value is FileTextLine {
  * @param meta - result metadata.
  * @returns the validated read window, or `undefined` for absent, malformed, or semantically invalid data.
  */
-/**
+/*
  * 把不透明的实时/重放结果 meta 收窄成结构化读窗口。畸形 meta 返回 undefined，让
  * 展示层回退到通用文本卡片而不是在重放时抛错。除了形状，还针对"类型正确但越界"
  * 的重放 JSON 强制读窗口的语义契约：offset 必须是 1 基整数、totalLines 必须是非负

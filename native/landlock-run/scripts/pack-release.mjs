@@ -11,7 +11,7 @@
  * per-architecture CI legs, where the other architecture's binary does not
  * exist (the exact refusal its prepack gate exists for).
  */
-/**
+/*
  * 文件职责：按发布顺序把 Landlock 平台包和入口包打成 npm tarball，并记录后续发布顺序。
  * 技术维度：使用 Node.js 同步文件 API、子进程 API，以及 npm/pnpm pack 生成与实际发布一致的压缩包。
  * 产品维度：在上传注册表前暴露缺少二进制、构建产物或可执行权限等发布问题。

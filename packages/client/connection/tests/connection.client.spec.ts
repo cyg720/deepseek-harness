@@ -1,4 +1,4 @@
-/**
+/*
  * 文件职责：验证 ConnectionController 的描述加载、双事件流连接、重试、超时和停止行为。
  * 技术维度：Vitest、可控 FakeApiClient、延迟 Promise、AbortSignal 与短重试计时配置。
  * 产品维度：确保客户端在网络波动和宿主描述失败时能报告正确状态并可靠恢复或停止。
@@ -13,7 +13,7 @@
  * isolation. Real (short) timers — the timeout and backoff are configurable,
  * so tests run them at millisecond scale.
  */
-/** 文件职责：验证连接控制器生命周期。技术维度：可控 API、取消信号与短计时器。产品维度：确保断线后正确恢复或停止。逻辑维度：安排响应后观察状态回调。关键边界：后台循环必须停止。新手阅读建议：从成功场景读到超时场景。 */
+/* 文件职责：验证连接控制器生命周期。技术维度：可控 API、取消信号与短计时器。产品维度：确保断线后正确恢复或停止。逻辑维度：安排响应后观察状态回调。关键边界：后台循环必须停止。新手阅读建议：从成功场景读到超时场景。 */
 
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '../src/client/api.ts'

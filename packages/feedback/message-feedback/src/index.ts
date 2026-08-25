@@ -2,7 +2,7 @@
  * Durable, lifecycle-bound feedback for finalized assistant messages.
  * @module @deepseek-ai/dsh-message-feedback
  */
-/**
+/*
  * 文件职责：实现反馈记录的 index.ts 模块。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证反馈记录在配置、运行、失败和清理场景中可理解且可靠。
@@ -54,7 +54,7 @@ export {
 export type { MessageFeedbackRow, MessageFeedbackSessionIdentity } from './spec.ts'
 
 /** Required deployment policy for optional notes. */
-/** 中文说明：类型或类 Config 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 Config 约束扩展或反馈数据职责。 */
 export interface Config {
   /** Maximum UTF-8 byte length accepted for one note. */
   readonly maxNoteBytes: number
@@ -68,11 +68,11 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Immutable empty list reused only as an input to caller-owned copying. */
-/** 中文说明：模块局部值 EMPTY_ITEMS，由紧邻初始化决定。 */
+/* 中文说明：模块局部值 EMPTY_ITEMS，由紧邻初始化决定。 */
 const EMPTY_ITEMS: readonly MessageFeedbackItem[] = Object.freeze([])
 
 /** Validate the one deployment-varying limit at the configuration boundary. */
-/** 中文说明：函数 resolveMaxNoteBytes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resolveMaxNoteBytes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveMaxNoteBytes(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new TypeError(
@@ -83,7 +83,7 @@ function resolveMaxNoteBytes(value: number): number {
 }
 
 /** Copy and freeze one item before it crosses the service boundary. */
-/** 中文说明：函数 snapshotItem 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 snapshotItem 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function snapshotItem(item: MessageFeedbackItem): MessageFeedbackItem {
   return Object.freeze({
     messageId: item.messageId,
@@ -96,25 +96,25 @@ function snapshotItem(item: MessageFeedbackItem): MessageFeedbackItem {
 }
 
 /** Copy and freeze a list response. */
-/** 中文说明：函数 snapshotList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 snapshotList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function snapshotList(items: readonly MessageFeedbackItem[]): MessageFeedbackListValue {
   return Object.freeze({ items: Object.freeze(items.map(snapshotItem)) })
 }
 
 /** Build a frozen success branch. */
-/** 中文说明：函数 success 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 success 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function success<T>(value: T): MessageFeedbackSuccess<T> {
   return Object.freeze({ ok: true, value })
 }
 
 /** Build a frozen business-failure branch. */
-/** 中文说明：函数 rejected 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rejected 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rejected<E extends MessageFeedbackFailure>(error: E): MessageFeedbackRejected<E> {
   return Object.freeze({ ok: false, error: Object.freeze(error) })
 }
 
 /** Project the Session fields that distinguish one persisted log lifecycle. */
-/** 中文说明：函数 identityOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 identityOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function identityOf(header: SessionHeader): MessageFeedbackSessionIdentity {
   return Object.freeze({
     createdAt: header.createdAt,
@@ -123,19 +123,19 @@ function identityOf(header: SessionHeader): MessageFeedbackSessionIdentity {
 }
 
 /** Whether a stored row belongs to the inspected Session lifecycle. */
-/** 中文说明：函数 sameIdentity 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sameIdentity 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sameIdentity(row: MessageFeedbackRow, header: SessionHeader): boolean {
   return row.session.createdAt === header.createdAt && row.session.cwd === header.cwd
 }
 
 /** Whether two observations name the same persisted Session lifecycle. */
-/** 中文说明：函数 sameHeaderIdentity 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sameHeaderIdentity 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sameHeaderIdentity(left: SessionHeader, right: SessionHeader): boolean {
   return left.id === right.id && left.createdAt === right.createdAt && left.cwd === right.cwd
 }
 
 /** Freeze the replacement row so storage-domain never exposes mutable aliases. */
-/** 中文说明：函数 rowSnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rowSnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowSnapshot(
   session: MessageFeedbackSessionIdentity,
   items: readonly MessageFeedbackItem[],
@@ -150,19 +150,19 @@ function rowSnapshot(
 }
 
 /** Generate an opaque equality token for one material mutation. */
-/** 中文说明：函数 nextVersion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 nextVersion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function nextVersion(): MessageFeedbackVersion {
   return randomUUID() as MessageFeedbackVersion
 }
 
 /** Session inspection result that keeps absence inside the business union. */
-/** 中文说明：类型或类 KnownSession 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 KnownSession 约束扩展或反馈数据职责。 */
 type KnownSession =
   | MessageFeedbackSuccess<SessionInspection>
   | MessageFeedbackRejected<MessageFeedbackSessionNotFound>
 
 /** Validated note or one explicit request failure. */
-/** 中文说明：类型或类 ResolvedNote 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 ResolvedNote 约束扩展或反馈数据职责。 */
 type ResolvedNote =
   | MessageFeedbackSuccess<string | undefined>
   | MessageFeedbackRejected<MessageFeedbackNoteBlank | MessageFeedbackNoteTooLarge>
@@ -171,7 +171,7 @@ type ResolvedNote =
  * Storage-domain sidecar service. It inspects persisted Session history and
  * never creates or resumes an Agent or Session.
  */
-/** 中文说明：类型或类 MessageFeedbackService 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 MessageFeedbackService 约束扩展或反馈数据职责。 */
 export class MessageFeedbackService extends TypertRemoteService {
   static inject = ['storageDomain', 'sessionPersistence', 'sessions']
 

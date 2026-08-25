@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证文档语言属性与客户端语言状态之间的初始化和同步。
  * 技术维度：JSDOM、Cordis、Vitest 与 document.documentElement.lang。
  * 产品维度：保证辅助技术、浏览器翻译和页面元数据能识别当前界面语言。
@@ -26,7 +26,7 @@ import type { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { LOCALE_SETTINGS_NAMESPACE, LocaleSettingsSchema } from '../src/locale-settings.ts'
 
 /** Boot the plugin over a stub Host settings document. */
-/** 中文说明：测试辅助函数 `bench`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `bench`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 async function bench(preference?: string) {
   /** 中文说明：当前操作所属的 Cordis 上下文；变量 `ctx` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const ctx = new Context()

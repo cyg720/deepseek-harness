@@ -13,7 +13,7 @@ import { PerplexitySearchProvider, PERPLEXITY_DEFAULT_BASE_URL, PERPLEXITY_DEFAU
  * Real-API smoke for the Perplexity search provider. Self-skips without
  * `$PERPLEXITY_API_KEY`, per the with-key e2e policy in docs/testing.md.
  */
-/** 真实接口测试所需密钥；未配置时不应把环境问题报告为产品失败。 */
+/* 真实接口测试所需密钥；未配置时不应把环境问题报告为产品失败。 */
 const apiKey = process.env.PERPLEXITY_API_KEY
 // 条件测试套件函数；有非空密钥时运行 describe，否则使用 describe.skip。
 const maybe = apiKey !== undefined && apiKey.length > 0 ? describe : describe.skip

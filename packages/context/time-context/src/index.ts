@@ -40,33 +40,33 @@ import type { BrowserTimeZoneContext } from './request-zone.ts'
 import { createTimestampFormatter, formatTimestamp } from './timestamp.ts'
 
 /** Cordis plugin name used by loader diagnostics. */
-/** Cordis 插件名：加载器诊断与消息来源归属都用它。 */
+/* Cordis 插件名：加载器诊断与消息来源归属都用它。 */
 export const name = 'time-context'
 
 /** The agent registry that owns pre-step processing. */
-/** 依赖注入声明：需要 agents 服务（agent 生命周期与 pre-step 处理）。 */
+/* 依赖注入声明：需要 agents 服务（agent 生命周期与 pre-step 处理）。 */
 export const inject = ['agents']
 
 /** Request-preparation clock formatting and append scheduling. Invalid values fail plugin load. */
-/** 请求准备期的时钟格式化与追加调度配置；非法值会导致插件加载失败。 */
+/* 请求准备期的时钟格式化与追加调度配置；非法值会导致插件加载失败。 */
 export interface Config {
   /** Fallback display zone when the open turn has no unique browser zone. Omit to use the process zone. */
-  /** 当回合没有唯一浏览器时区时使用的兜底展示时区；省略则用进程时区。 */
+  /* 当回合没有唯一浏览器时区时使用的兜底展示时区；省略则用进程时区。 */
   timeZone?: string
   /** Minimum milliseconds between durable injections in one session. Omit or set to 0 to inject at every eligible step. */
-  /** 同一会话内两次持久化注入的最小间隔毫秒数；省略或 0 表示每个合格步骤都注入。 */
+  /* 同一会话内两次持久化注入的最小间隔毫秒数；省略或 0 表示每个合格步骤都注入。 */
   refreshIntervalMs?: number
 }
 
 /** Schemastery validation for {@link Config}. */
-/** Config 的 schemastery 校验模式：配置类型声明（值仍为可选项）。 */
+/* Config 的 schemastery 校验模式：配置类型声明（值仍为可选项）。 */
 export const Config: z<Config> = z.object({
   timeZone: z.string(),
   refreshIntervalMs: z.number(),
 })
 
 /** Format a non-negative elapsed millisecond count as compact whole-second units. */
-/** 把非负流逝毫秒数格式化为紧凑的整秒单位：如 2d 3h 4m 5s。 */
+/* 把非负流逝毫秒数格式化为紧凑的整秒单位：如 2d 3h 4m 5s。 */
 function formatDuration(elapsedMs: number): string {
   let seconds = Math.floor(Math.max(0, elapsedMs) / 1000)
   const days = Math.floor(seconds / 86_400)
@@ -84,7 +84,7 @@ function formatDuration(elapsedMs: number): string {
 }
 
 /** Find the latest model-visible event, excluding this plugin's pending append. */
-/** 找最近一条模型可见事件的时间：用户/助手消息或工具结果，排除本插件待追加的读取。 */
+/* 找最近一条模型可见事件的时间：用户/助手消息或工具结果，排除本插件待追加的读取。 */
 function precedingMessageTime(agent: Agent): number | undefined {
   for (const event of [...agent.session.events].reverse()) {
     switch (event.type) {
@@ -102,7 +102,7 @@ function precedingMessageTime(agent: Agent): number | undefined {
 }
 
 /** Find the preceding time-context event within the open turn. */
-/** 在打开的回合内找上一条时间上下文事件（步骤 2+ 的流逝基线）。 */
+/* 在打开的回合内找上一条时间上下文事件（步骤 2+ 的流逝基线）。 */
 function precedingStepContextTime(agent: Agent, turn: number): number | undefined {
   for (const event of [...agent.session.events].reverse()) {
     if (event.type === 'turn/start' && event.data.turn === turn) return undefined
@@ -116,7 +116,7 @@ function precedingStepContextTime(agent: Agent, turn: number): number | undefine
 }
 
 /** Find this plugin's latest durable injection, including a shadowed surface event. */
-/** 找本插件最近一次持久化注入的时间（含被遮蔽的表面事件），用于节流判断。 */
+/* 找本插件最近一次持久化注入的时间（含被遮蔽的表面事件），用于节流判断。 */
 function latestInjectionTime(agent: Agent): number | undefined {
   for (const event of [...agent.session.events].reverse()) {
     if (event.type === 'user/message'
@@ -129,7 +129,7 @@ function latestInjectionTime(agent: Agent): number | undefined {
 }
 
 /** Collect already-entered and proposed user messages belonging to one open turn. */
-/** 收集属于某回合的已进入与拟进入用户消息（供浏览器时区推导）。 */
+/* 收集属于某回合的已进入与拟进入用户消息（供浏览器时区推导）。 */
 function requestMessages(agent: Agent, turn: number, proposed: readonly UserMessage[]): UserMessage[] {
   const start = agent.session.events.findLastIndex(
     event => event.type === 'turn/start' && event.data.turn === turn,
@@ -170,7 +170,7 @@ function renderText(
 }
 
 /** Reject refresh intervals that cannot represent an exact elapsed-millisecond threshold. */
-/** 拒绝无法表示精确毫秒阈值的刷新间隔：必须是非负安全整数。 */
+/* 拒绝无法表示精确毫秒阈值的刷新间隔：必须是非负安全整数。 */
 function validateRefreshInterval(refreshIntervalMs: number | undefined): void {
   if (refreshIntervalMs !== undefined && (
     !Number.isSafeInteger(refreshIntervalMs)
@@ -188,7 +188,7 @@ function validateRefreshInterval(refreshIntervalMs: number | undefined): void {
  * @param config - time zone and durable refresh scheduling configuration.
  * @throws when the refresh interval is invalid or the configured or process time zone cannot be resolved.
  */
-/**
+/*
  * 注册一个 prepend 的 pre-step 监听（随 ctx 生命周期一起卸载）：
  * 每个合格步骤在消息末尾追加一条持久化时间读取。
  * @param ctx 插件上下文；监听随其一起销毁
@@ -214,7 +214,7 @@ export function apply(ctx: Context, config: Config): void {
   const formatters = new Map<string, Intl.DateTimeFormat>([[fallbackTimeZone, fallbackFormatter]])
 
   /** Resolve and cache one request-local timestamp formatter. */
-  /** 解析并缓存一个请求局部的时区格式化器（首次使用才创建）。 */
+  /* 解析并缓存一个请求局部的时区格式化器（首次使用才创建）。 */
   const formatterFor = (selectedTimeZone: string): Intl.DateTimeFormat => {
     const existing = formatters.get(selectedTimeZone)
     if (existing !== undefined) return existing

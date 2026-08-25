@@ -26,7 +26,7 @@ interface Harness {
 }
 
 /** Build a live idle agent accepted by the exact-identity goal service. */
-/** 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(ctx: Context, id: string): { agent: Agent; session: Session } {
   // Store-created: the command executor durably logs lifecycle events on it.
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
@@ -55,7 +55,7 @@ function stubAgent(ctx: Context, id: string): { agent: Agent; session: Session }
 }
 
 /** Mount the real command registry, goal domain, and producer. */
-/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(): Promise<Harness> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -72,7 +72,7 @@ async function harness(): Promise<Harness> {
 }
 
 /** The log with executor-owned command lifecycle bookkeeping stripped (goal assertions target domain events). */
-/** 中文说明：函数 domainEvents 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 domainEvents 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function domainEvents(session: Session): readonly Session['events'][number][] {
   /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定。 */
   const lifecycle = new Set<number>()
@@ -92,7 +92,7 @@ function domainEvents(session: Session): readonly Session['events'][number][] {
 }
 
 /** Execute `/goal` through the same registry boundary as a UI adapter. */
-/** 中文说明：函数 run 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 run 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function run(test: Harness, suffix = ''): Promise<NonNullable<Awaited<ReturnType<CommandRuntime['execute']>>>['result']> {
   /** 中文说明：测试局部值 execution，由紧邻初始化决定。 */
   const execution = await test.ctx.commands.execute(
@@ -106,7 +106,7 @@ async function run(test: Harness, suffix = ''): Promise<NonNullable<Awaited<Retu
 }
 
 /** Current exact compare-and-set ref. */
-/** 中文说明：函数 ref 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ref 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function ref(goal: NonNullable<ReturnType<GoalService['get']>>): GoalRef {
   return { id: goal.id, revision: goal.revision }
 }
@@ -292,7 +292,7 @@ describe('/goal image attachments', () => {
   const PNG = 'AAAA'
 
   /** Wire the fake store the executor admits through (once per harness). */
-  /** 中文说明：函数 provideStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 provideStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function provideStore(test: Harness): void {
     /** 中文说明：测试局部值 saved，由紧邻初始化决定。 */
     let saved = 0
@@ -322,7 +322,7 @@ describe('/goal image attachments', () => {
   }
 
   /** Run /goal with `count` composer images through the executor boundary. */
-  /** 中文说明：函数 runWithImages 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 runWithImages 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function runWithImages(test: Harness, suffix: string, count: number) {
     /** 中文说明：测试局部值 images，由紧邻初始化决定。 */
     const images = Array.from({ length: count }, (_, index) => ({

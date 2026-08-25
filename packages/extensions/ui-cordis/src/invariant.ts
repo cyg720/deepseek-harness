@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】ui-cordis（@deepseek-ai/dsh-client-ui-cordis）的"运行时不变量"配套
  *             插件：向 invariants 服务注册本包检查项，当前为空实现——见英文论证。
@@ -25,10 +25,10 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-client-ui-cordis'
 
 /** Cordis companion plugin name. */
-/** 本不变量插件在 Cordis 中的注册名。 */
+/* 本不变量插件在 Cordis 中的注册名。 */
 export const name = 'client-ui-cordis-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 前置依赖：需要 invariants 服务存在才能登记本包的不变量。 */
+/* 前置依赖：需要 invariants 服务存在才能登记本包的不变量。 */
 export const inject = ['invariants']
 
 /**
@@ -48,7 +48,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 插件入口：把本包的不变量安装器注册进 invariants 服务，返回卸载函数。
  */
 export const apply = (ctx: Context): Promise<() => void> =>

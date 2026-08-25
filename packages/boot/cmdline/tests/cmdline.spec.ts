@@ -3,7 +3,7 @@
  * profile boot mounts it: Loader holds each row until its injections are
  * active, then resolves that row's config against its injection-ready context.
  */
-/**
+/*
  * 文件职责：验证启动器内部命令行通过真实Loader树到达应用action，并影响后续条目配置解析。
  * 技术维度：使用Vitest、Commander、临时ESM插件、Cordis Loader/Include和!!js表达式执行集成测试。
  * 产品维度：确保应用参数覆盖配置值，帮助和错误触发受控退出，且依赖服务未就绪时条目保持等待。
@@ -27,7 +27,7 @@ import { internals, parseCmdline, provideCmdline } from '../src/index.ts'
 /** Every value one boot of the fixture tree observed. */
 interface Observed {
   /** Config the reading row started with; absent means it never started. */
-  /** 读取条目启动时得到的配置；缺失表示该条目未启动。 */
+  /* 读取条目启动时得到的配置；缺失表示该条目未启动。 */
   started?: Record<string, unknown>
   /** 启动器收到的受控退出码序列。 */
   exits: number[]
@@ -53,13 +53,13 @@ afterEach(async () => {
 })
 
 /** The fixture app's flag family: one `--port` its rows read from the service. */
-/** 构造带--port选项且覆盖直接退出的示例Commander程序。 */
+/* 构造带--port选项且覆盖直接退出的示例Commander程序。 */
 function demoCommand(): Command {
   return new Command().name('demo').exitOverride().option('--port <port>', 'listen port')
 }
 
 /** The fixture app's action body: the resolved values its rows read. */
-/** 解析并验证示例--port值，返回供应用服务发布的数值。 */
+/* 解析并验证示例--port值，返回供应用服务发布的数值。 */
 const resolveDemo = (program: Command): { port?: number } => {
   // Commander解析出的可选端口字符串。
   const port = program.opts<{ port?: string }>().port
@@ -69,7 +69,7 @@ const resolveDemo = (program: Command): { port?: number } => {
 }
 
 /** A YAML `!!js` expression node, as the include parses one out of a patch file. */
-/** 构造Include从YAML !!js标签产生的表达式节点。 */
+/* 构造Include从YAML !!js标签产生的表达式节点。 */
 const expression = (source: string): unknown => ({ __jsExpr: source })
 
 /**

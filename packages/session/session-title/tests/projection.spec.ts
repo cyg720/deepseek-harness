@@ -8,7 +8,7 @@
  * is untouched by this unit (its retirement is the client value-store
  * migration's concern).
  */
-/**
+/*
  * 文件职责：验证 projection.spec.ts 覆盖的会话标题行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话标题状态稳定、可重放且可诊断。
@@ -38,7 +38,7 @@ async function harness(withTitleService: boolean): Promise<{ ctx: Context; sessi
 }
 
 /** Append one session/title event directly (the replay-plane shape the unit folds). */
-/** 中文说明：函数 appendTitle 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 appendTitle 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendTitle(session: Session, title: string): number {
   return session.append('session/title', { title, messageSeqs: [1], source: { kind: 'fallback' } }).seq
 }

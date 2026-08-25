@@ -43,7 +43,7 @@ function start(ctx: Context, provider: string, request: Omit<SubagentStartReques
  * and keeps working itself. This is the multi-provider coexistence the seam
  * exists for — the named registry lets one runtime hold both transports.
  */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(script: Script) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()

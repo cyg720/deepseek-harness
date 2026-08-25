@@ -2,7 +2,7 @@
  * Pure translation between the harness lifecycle and the automation-only ACP wire.
  * @module @deepseek-ai/dsh-acp/codec
  */
-/**
+/*
  * 文件职责：把 harness 的回合结束原因转换为 ACP 协议允许的停止原因。
  * 技术维度：使用 TypeScript 判别联合类型和 switch 显式映射两个协议的枚举词汇。
  * 产品维度：让自动化客户端收到稳定、合法的终止状态，正确区分自然结束、截断和用户中断。
@@ -19,7 +19,7 @@ import type { TurnEndReason } from '@deepseek-ai/dsh-session'
  * @param reason - harness turn outcome.
  * @returns the closest legal ACP stop reason.
  */
-/**
+/*
  * 将回合结果转换为 ACP 停止原因。
  * @param reason harness 记录的回合结果。
  * @returns 最接近且合法的 ACP 原因。

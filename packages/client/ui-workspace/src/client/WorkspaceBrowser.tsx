@@ -9,7 +9,7 @@
  * menu in between; the flow and its error dialog live in WorkspacePicker
  * (same package — direct composition, no slot between them).
  */
-/**
+/*
  * 文件职责：实现工作区浏览的 WorkspaceBrowser 组件。
  * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
  * 产品维度：支持用户查看或操作工作区浏览。
@@ -38,20 +38,20 @@ import css from './WorkspaceBrowser.module.css'
  * Column slide length (--ds-transition-duration-slow): rail-search focus waits it out —
  * focus() forces a synchronous layout and would jank the slide.
  */
-/** 中文说明：组件局部值 EXPAND_SLIDE_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 EXPAND_SLIDE_MS，由紧邻初始化决定。 */
 const EXPAND_SLIDE_MS = 300
 /** Pause between the latest keystroke and a Host content-search request. */
-/** 中文说明：组件局部值 SEARCH_DEBOUNCE_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 SEARCH_DEBOUNCE_MS，由紧邻初始化决定。 */
 const SEARCH_DEBOUNCE_MS = 250
 /** `session.search` wire bound, measured in JavaScript UTF-16 code units. */
-/** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
 const SEARCH_QUERY_MAX_CODE_UNITS = 500
 /** Session rows visible per Workspace before the local overflow control. */
-/** 中文说明：组件局部值 COLLAPSED_SESSION_LIMIT，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 COLLAPSED_SESSION_LIMIT，由紧邻初始化决定。 */
 const COLLAPSED_SESSION_LIMIT = 5
 
 /** Keep controlled input and RPC payload inside the session.search wire contract. */
-/** 中文说明：函数 sanitizeSearchQuery 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sanitizeSearchQuery 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sanitizeSearchQuery(value: string): string {
   /** 中文说明：组件局部值 withoutNul，由紧邻初始化决定。 */
   const withoutNul = value.replaceAll('\0', '')
@@ -67,7 +67,7 @@ function sanitizeSearchQuery(value: string): string {
 }
 
 /** Immutable membership toggle for the local expand-all array. */
-/** 中文说明：函数 toggled 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 toggled 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function toggled(list: readonly string[], key: string): string[] {
   return list.includes(key) ? list.filter(k => k !== key) : [...list, key]
 }
@@ -77,7 +77,7 @@ function toggled(list: readonly string[], key: string): string[] {
  * hover still owns the insertion marker, and releasing outside the list must
  * not be rendered as a rejected drop before dragend commits that last marker.
  */
-/** 中文说明：函数 useNativeDragAcceptance 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 useNativeDragAcceptance 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function useNativeDragAcceptance(active: boolean): void {
   useEffect(() => {
     if (!active) return
@@ -98,7 +98,7 @@ function useNativeDragAcceptance(active: boolean): void {
 }
 
 /** Reconcile a stored view order with the Workspace's current session account. */
-/** 中文说明：函数 reconciledSessionOrder 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 reconciledSessionOrder 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function reconciledSessionOrder(sessionIds: readonly SessionId[], stored: readonly string[] | undefined): SessionId[] {
   if (stored === undefined) return [...sessionIds]
   /** 中文说明：组件局部值 byId，由紧邻初始化决定。 */
@@ -124,7 +124,7 @@ function reconciledSessionOrder(sessionIds: readonly SessionId[], stored: readon
 }
 
 /** Newest update first with stable Session identity as the tie-break. */
-/** 中文说明：函数 compareSessionRecency 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 compareSessionRecency 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function compareSessionRecency(a: SessionId, b: SessionId, byId: SessionListState['byId']): number {
   /** 中文说明：组件局部值 aUpdatedAt，由紧邻初始化决定。 */
   const aUpdatedAt = byId[a]?.updatedAt ?? Number.NEGATIVE_INFINITY
@@ -135,7 +135,7 @@ function compareSessionRecency(a: SessionId, b: SessionId, byId: SessionListStat
 }
 
 /** Reconcile one editable order account and apply its activity-promotion policy. */
-/** 中文说明：函数 nextSessionOrderAccount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 nextSessionOrderAccount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function nextSessionOrderAccount({
   sessionIds, previousOrder, previousUpdatedAt, list, orderBy, sortByRecency,
 }: {
@@ -185,7 +185,7 @@ function nextSessionOrderAccount({
 }
 
 /** Grouping and ordering menu; own open state so it resets with the wide chrome. */
-/** 中文说明：函数 ViewOptionsMenu 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ViewOptionsMenu 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t }: {
   groupBy: 'workspace' | 'flat'
   orderBy: SessionOrderBy
@@ -236,7 +236,7 @@ function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t }: {
 }
 
 /** In-flight root-row drag: source identity plus the current insert marker. */
-/** 中文说明：类型或类 DragState 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 DragState 约束模块数据或组件职责。 */
 interface DragState {
   /** Workspace id, or {@link UNGROUPED_KEY} for the browser-local loose-session account. */
   accountKey: string
@@ -246,14 +246,14 @@ interface DragState {
 }
 
 /** In-flight Workspace-row drag: source identity plus the current marker. */
-/** 中文说明：类型或类 WorkspaceDragState 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 WorkspaceDragState 约束模块数据或组件职责。 */
 interface WorkspaceDragState {
   workspaceId: WorkspaceId
   over: { id: WorkspaceId; half: 'before' | 'after' } | null
 }
 
 /** Resolve an insertion side from the full rendered workspace group. */
-/** 中文说明：函数 workspaceGroupHalf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 workspaceGroupHalf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' | 'after' {
   /** 中文说明：组件局部值 rect，由紧邻初始化决定。 */
   const rect = e.currentTarget.getBoundingClientRect()
@@ -296,7 +296,7 @@ type SessionTreeProps = Pick<
 }
 
 /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
-/** 中文说明：函数 SessionTree 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SessionTree 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SessionTree({
   useSessions, startSession, open, forkSession, workspaces, archivedSessionIds,
   onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
@@ -642,7 +642,7 @@ function SessionTree({
 }
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
-/** 中文说明：函数 FlatList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 FlatList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function FlatList({
   useSessions, open, forkSession, onSessionRename, onSessionArchive, archivedSessionIds,
   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
@@ -793,7 +793,7 @@ interface RemoteSearchState {
 }
 
 /** Flat search body: local metadata matches plus the current Host result page. */
-/** 中文说明：函数 SearchResults 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SearchResults 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SearchResults({
   useSessions,
   open,
@@ -867,7 +867,7 @@ function SearchResults({
  * @param props - composed slot props (shell owner share + store + injected actions).
  * @returns the region element tree.
  */
-/** 中文说明：函数 WorkspaceBrowser 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 WorkspaceBrowser 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function WorkspaceBrowser({
   wide,
   expandSidebar,

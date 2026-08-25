@@ -23,7 +23,7 @@ import type {
 } from './events.ts'
 
 /** The three product-visible lifecycle readings. */
-/**
+/*
  * 三种产品可见的生命周期读数：idle（无活动运行/非该包）、client-pending（Host 已
  * 激活但本页 Client 半部未加载）、running（完全运行）。
  */
@@ -35,8 +35,11 @@ export type CordisVisibleStatus = 'idle' | 'client-pending' | 'running'
  * @param packageId - immutable Package identity to locate.
  * @returns the matching Package metadata, or `undefined` when absent.
  */
-/**
+/*
  * 在插件库存行内定位一个包版本；找不到时返回 undefined。
+ * @param row 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param packageId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function packageOf(
   row: DynamicCordisInventoryRow,
@@ -52,10 +55,14 @@ export function packageOf(
  * @param loaded - Client activations loaded in this page.
  * @returns idle, Host-running/Client-pending, or fully running.
  */
-/**
+/*
  * 推导某包版本的可见状态：先看该包是否就是活动运行的目标；纯 Host 包立即 running；
  * 含 Client 半部的包须本页已加载同一运行（插件/包/运行 ID 全匹配）才算 running，
  * 否则为 client-pending。
+ * @param row 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param packageId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param loaded 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function cordisVisibleStatus(
   row: DynamicCordisInventoryRow,

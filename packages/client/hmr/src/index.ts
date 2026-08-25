@@ -25,7 +25,7 @@
  * watcher rewriting client bundles, the poll observes no changes and the
  * chain stays idle.
  */
-/**
+/*
  * HMR 插件的节点半边：开发重载链的 Host 端。一个 interval 对每个图行的
  * 客户端 bundle 做 stat 轮询（刻意轮询：网络挂载不投递 inotify 事件），
  * 经 clientModuleHost.rebuilt(id) 报告内容变化，并服务 /plugins/events
@@ -48,18 +48,18 @@ export type { PluginsEventFrame } from './events.ts'
 export { EVENTS_ENDPOINT } from './events.ts'
 
 /** Cordis plugin name. */
-/** Cordis 插件名。 */
+/* Cordis 插件名。 */
 export const name = 'client-hmr'
 
 /** Required services: the web plugin table and the route registry. */
-/** 必需服务：web 插件表与路由注册表。 */
+/* 必需服务：web 插件表与路由注册表。 */
 export const inject = ['clientModules', 'webServer']
 
 /** Plugin config, validated by the same-named schemastery schema. */
-/** 插件配置，由同名 schemastery schema 校验。 */
+/* 插件配置，由同名 schemastery schema 校验。 */
 export interface Config {
   /** Bundle stat-poll interval in milliseconds (default 500, the build-side watcher's polling default). */
-  /** bundle stat 轮询间隔毫秒数（默认 500，构建侧监视器的轮询默认值）。 */
+  /* bundle stat 轮询间隔毫秒数（默认 500，构建侧监视器的轮询默认值）。 */
   pollIntervalMs?: number
 }
 
@@ -68,7 +68,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** Serialize one frame as an SSE data line. */
-/** 把一个帧序列化为 SSE data 行。 */
+/* 把一个帧序列化为 SSE data 行。 */
 function sseData(frame: PluginsEventFrame): string {
   return `data: ${JSON.stringify(frame)}\n\n`
 }
@@ -86,7 +86,7 @@ interface WatchedBundle {
  * @param ctx - host plugin context carrying clientModuleHost and webServer.
  * @param config - validated {@link Config}.
  */
-/**
+/*
  * 挂载开发链：bundle 监视、重建报告与 SSE 通道。
  * @param ctx 携带 clientModuleHost 与 webServer 的 Host 插件上下文。
  * @param config 已校验的 Config。

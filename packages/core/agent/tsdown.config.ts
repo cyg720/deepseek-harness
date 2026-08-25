@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and companions as independent bundles. */
-/**
+/*
  * 文件职责：配置核心 Agent 包根入口与不变量伴生入口的独立构建。
  * 技术维度：使用 tsdown 将 tsc 产物分别打包为面向 Node.js 2024 的 ESM。
  * 产品维度：为代理生命周期能力提供可发布运行时，同时让不变量检查按需加载。

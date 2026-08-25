@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】write/edit 的"结果时上下文 diff 展示"：存储返回 before/after 文本，
  * 本模型侧层为每个被应用的变更块（hunk）派生一张"每侧三行上下文"的 diff 卡片。
@@ -22,7 +22,7 @@
  * text; this model-facing layer derives one three-line-context card per applied hunk.
  * @module @deepseek-ai/dsh-tool-fs/src/diff
  */
-/**
+/*
  * 模块总览：本文件把"变更前后文本"转成面向展示的 diff 块，并负责结果 meta 的
  * 防御性解析（重放安全）。
  */
@@ -31,7 +31,7 @@ import { structuredPatch } from 'diff'
 import type { FileDiff } from '@deepseek-ai/dsh-tools'
 
 /** Context lines shown on each side of an applied hunk. */
-/** 每个被应用变更块两侧展示的上下文行数：3。 */
+/* 每个被应用变更块两侧展示的上下文行数：3。 */
 export const DIFF_CONTEXT = 3
 
 /**
@@ -41,7 +41,7 @@ export const DIFF_CONTEXT = 3
  * validates this at `append`), so `presentResult` reproduces the diff card on
  * replay. The producing tool owns and narrows this opaque shape.
  */
-/**
+/*
  * write/edit 工具私有的 tool/result meta 载荷：被应用的上下文 diff 块数组。
  * 以不透明 unknown 形式附在工具结果上并随会话日志持久化——必须可 JSON 序列化
  * （会话在 append 时校验），这样 presentResult 能在重放时复现 diff 卡片。
@@ -60,7 +60,7 @@ export type FsDiffMeta = { diffs: FileDiff[] }
  * @param after - the file text after the change, on the same basis.
  * @returns one diff per applied hunk, in file order; empty when the texts are identical.
  */
-/**
+/*
  * 在 before/after 之间为每个变更块计算一个 FileDiff，各携带被应用的改动加 3 行上下文。
  * 纯插入用 oldText: null；补丁专属的"无尾换行"标记被跳过；散布的替换保持为独立 hunk。
  * @param path 盖在每个产出 diff 上的路径（模型侧 file_path；桥接层会相对化它）。
@@ -98,7 +98,7 @@ export function computeHunkDiffs(path: string, before: string, after: string): F
 }
 
 /** Whether `value` is a valid {@link FileDiff} (defensive narrowing from opaque `meta`). */
-/** value 是否为合法的 FileDiff（从不透明 meta 做的防御性收窄）。 */
+/* value 是否为合法的 FileDiff（从不透明 meta 做的防御性收窄）。 */
 function isFileDiff(value: unknown): value is FileDiff {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const { path, oldText, newText } = value as Record<string, unknown>
@@ -113,7 +113,7 @@ function isFileDiff(value: unknown): value is FileDiff {
  * @param meta - result metadata.
  * @returns validated hunks, or `undefined` for absent or malformed data.
  */
-/**
+/*
  * 把不透明的实时/重放结果 meta 收窄成非空 diff 数组。畸形 meta 返回 undefined，
  * 让展示层回退而不是在重放时抛错。
  * @param meta 结果元数据。

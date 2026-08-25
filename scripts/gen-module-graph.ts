@@ -3,7 +3,7 @@
  * runtime edges. The deterministic output groups packages by directory and
  * renders both Mermaid and a dependency table; `--check` verifies freshness.
  */
-/**
+/*
  * 文件职责：实现 gen-module-graph.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -61,7 +61,7 @@ function packageLink(pkg: Pkg): string {
 }
 
 /** Render the full docs/module-graph.md content (pure, deterministic). */
-/** 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function render(pkgs: Pkg[]): string {
   /** 中文说明：变量 edges 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const edges: string[] = []

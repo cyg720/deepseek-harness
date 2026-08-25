@@ -15,22 +15,22 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import css from './JobListAction.module.css'
 
 /** Full props for the session-header background-job action. */
-/** 中文说明：类型或类 JobListActionProps 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 JobListActionProps 约束本文件数据或组件职责。 */
 export type JobListActionProps =
   PropsRuntime<'conversation.session.header.actions'> & PropsLocale<typeof NS>
 
 /** Stable empty list so a session with no jobs keeps one array identity. */
-/** 中文说明：组件局部值 NO_TASKS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 NO_TASKS，由紧邻初始化决定。 */
 const NO_TASKS: readonly JobView[] = []
 
 /** A job the registry still holds open, and whose duration therefore ticks. */
-/** 中文说明：函数 isLive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 isLive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isLive(job: JobView): boolean {
   return job.status === 'running' || job.status === 'stopping'
 }
 
 /** Closed-union exhaustiveness fence for the wire status set. */
-/** 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 /* v8 ignore next 3 -- closed-union backstop; only reached if a status is forged */
 function assertNever(value: never): never {
   throw new Error(`unhandled job status: ${JSON.stringify(value)}`)
@@ -40,7 +40,7 @@ function assertNever(value: never): never {
  * Status marker semantics. `stopping` and `killed` share the attention color:
  * both mean the work ended (or is ending) on request rather than on its own.
  */
-/** 中文说明：函数 dotState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 dotState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function dotState(status: JobView['status']): StateDotState {
   switch (status) {
     case 'running': return 'ongoing'
@@ -54,7 +54,7 @@ function dotState(status: JobView['status']): StateDotState {
 }
 
 /** Human status word for the row and its accessible name. */
-/** 中文说明：函数 statusLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 statusLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function statusLabel(status: JobView['status'], t: TranslateNS<typeof NS>): string {
   switch (status) {
     case 'running': return t('status.running')
@@ -73,7 +73,7 @@ function statusLabel(status: JobView['status'], t: TranslateNS<typeof NS>): stri
  * figure stays in hours rather than growing a day/month vocabulary no producer
  * currently reaches.
  */
-/** 中文说明：函数 formatDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 formatDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function formatDuration(elapsedMs: number, t: TranslateNS<typeof NS>): string {
   /** 中文说明：组件局部值 total，由紧邻初始化决定。 */
   const total = Math.max(0, Math.floor(elapsedMs / 1_000))
@@ -93,7 +93,7 @@ function formatDuration(elapsedMs: number, t: TranslateNS<typeof NS>): string {
  * that settled in the same millisecond fall back to start order, so the sort
  * never depends on the host's map iteration.
  */
-/** 中文说明：函数 ordered 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ordered 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function ordered(jobs: readonly JobView[]): JobView[] {
   return [...jobs].sort((left, right) => {
     /** 中文说明：组件局部值 liveLeft，由紧邻初始化决定。 */
@@ -113,7 +113,7 @@ function ordered(jobs: readonly JobView[]): JobView[] {
  * @param props - runtime slot currency plus the namespace translator.
  * @returns the trigger and its popover list, or null when there is nothing to show.
  */
-/** 中文说明：函数 JobListAction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 JobListAction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function JobListAction({ sessionId, useSessions, t }: JobListActionProps) {
   /** 中文说明：组件局部值 jobs，由紧邻初始化决定。 */
   const jobs = useSessions(state => state.jobsBySession[sessionId]) ?? NO_TASKS

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】以 Cordis 伴生插件（companion plugin）形式定义 dsh-llm 的流
  * 协议不变量：校验每个 provider 流的分块语法是否符合约定（块索引配对、用量
@@ -138,7 +138,7 @@ const install: InvariantInstaller = (ctx, fail) => {
   }, { global: true })
 }
 
-/**
+/*
  * （中文）注册 LLM 不变量伴生插件：把本包的校验安装函数交给 invariants 服务
  * 登记。插件系统在 setup 成功后返回 disposer 以撤销登记。
  * @param ctx 携带 invariants 服务的 Cordis 上下文。

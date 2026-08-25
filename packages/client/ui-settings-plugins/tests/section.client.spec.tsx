@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证插件配置的 section.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止插件配置保存、发现和错误提示回归。
@@ -40,7 +40,7 @@ afterEach(cleanup)
 const t = (key: keyof typeof en) => en[key]
 
 /** A settled form: nothing staged, everything served. */
-/** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 settled，由紧邻初始化决定。 */
 const settled: CardShell = {
   available: true,
   writable: true,
@@ -51,7 +51,7 @@ const settled: CardShell = {
 }
 
 /** One control's state, defaulting to an inherited value. */
-/** 中文说明：函数 field 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 field 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function field(text: string, rest: Partial<CardFieldState> = {}): CardFieldState {
   return { text, overridden: false, invalid: false, ...rest }
 }
@@ -79,7 +79,7 @@ function renderSection(rows: readonly PluginsSettingsTabEntry[]) {
  * standing in for the slot ledger: a key it names renders that text, and one
  * it does not renders nothing, exactly as an unclaimed key does.
  */
-/** 中文说明：函数 renderConfigurable 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 renderConfigurable 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function renderConfigurable(namespaces: string[], cards: Record<string, string> = {}, loaded = true) {
   /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<ConfigurablePluginsTabState>({ loaded, namespaces })

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】storage-domain 包的入口与"领域数据形态"（ctx.storage.domain）的挂载点：
  * 提供插件定义（name/inject/Config/apply）与 DomainFacility——按路由把声明好的领域
@@ -27,7 +27,7 @@
  * (see `src/spec.ts` for the split rationale).
  * @module @deepseek-ai/dsh-storage-domain
  */
-/**
+/*
  * 模块总览：本文件是领域层的门面与插件入口。消费者只依赖本包，绝不直接碰后端；
  * 类型化访问（ctx.storage.domain.open(spec)）与运行时实现（DomainImpl）在这里汇合。
  */
@@ -67,10 +67,10 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Cordis plugin name. */
-/** 插件名：加载本插件后，ctx.storageDomain 可用。 */
+/* 插件名：加载本插件后，ctx.storageDomain 可用。 */
 export const name = 'storage-domain'
 /** The storage hub must be present before the form can mount. */
-/** 依赖注入声明：必须已有 storage 枢纽（hub）服务，本形态才能挂载。 */
+/* 依赖注入声明：必须已有 storage 枢纽（hub）服务，本形态才能挂载。 */
 export const inject = ['storage']
 
 /**
@@ -79,17 +79,17 @@ export const inject = ['storage']
  * it per domain name. A route naming an unregistered backend fails loud at
  * `open` with `backend-not-found`.
  */
-/**
+/*
  * 插件配置：哪个后端服务哪个领域在这里决定，而不是在枢纽上全局决定。
  * backend 是默认路由，routes 按领域名覆盖；路由到未注册后端会在 open 时
  * 以 backend-not-found 立刻报错（fail loud）。
  */
 export interface Config {
   /** Default backend name for every domain without an explicit route. Required: there is no universally correct medium. */
-  /** 没有显式路由的领域使用的默认后端名。必填：因为不存在"放之四海皆准"的介质选择。 */
+  /* 没有显式路由的领域使用的默认后端名。必填：因为不存在"放之四海皆准"的介质选择。 */
   backend: string
   /** Per-domain overrides: domain name → backend name. */
-  /** 按领域的覆盖：域名 → 后端名。 */
+  /* 按领域的覆盖：域名 → 后端名。 */
   routes?: Record<string, string>
 }
 
@@ -104,7 +104,7 @@ export const Config: z<Config> = z.object({
  * one facility instance owns the open-domain table and enforces single-open
  * per domain name.
  */
-/**
+/*
  * 已挂载的领域门面：把声明好的领域打开到路由的后端上。一个 facility 实例拥有
  * 打开的领域表，并强制"每个领域名同时只打开一个"。
  */
@@ -112,7 +112,7 @@ export class DomainFacility {
   // 已打开的领域：域名 → 领域运行时。
   private readonly domains = new Map<string, DomainImpl>()
   /** Names reserved by an in-flight or completed open, so concurrent opens of one name fail loud. */
-  /** 被"进行中或已完成"的 open 占用的名字：同一名字并发 open 会立刻报错（fail loud）。 */
+  /* 被"进行中或已完成"的 open 占用的名字：同一名字并发 open 会立刻报错（fail loud）。 */
   private readonly reserved = new Set<string>()
 
   /**
@@ -120,7 +120,7 @@ export class DomainFacility {
    * events attach here.
    * @param config - Validated plugin config.
    */
-  /**
+  /*
    * @param ctx 领域插件的上下文：打开领域的副作用与变更事件都挂在这里。
    * @param config 已校验的插件配置（后端路由表）。
    */
@@ -145,7 +145,7 @@ export class DomainFacility {
    * @param spec - The domain declaration, typically from `defineDomain`.
    * @returns the opened domain handle, typed by the spec.
    */
-  /**
+  /*
    * 打开一个已声明的领域。每一步失败都会让整个调用失败（按序）：
    * 拒绝已打开的名字（already-open）→ 解析后端路由（backend-not-found 从枢纽穿透）→
    * 要求后端有 kv 能力（facet-unsupported）→ 用 spec 投影出的描述符打开单元
@@ -235,7 +235,7 @@ export class DomainFacility {
    * @param name - Domain name.
    * @returns the open domain runtime, or `undefined` when not open.
    */
-  /**
+  /*
    * 按名字查找已打开的领域（未类型化）。这是诊断面（不变式插件用它核对变更事件与
    * 领域实况）；类型化消费者应持有 open 返回的句柄。
    * @param name 领域名。
@@ -251,7 +251,7 @@ export class DomainFacility {
    * idempotent, so double-closing an already-closed domain is harmless.
    * @returns resolution after every unit is released.
    */
-  /**
+  /*
    * 关闭本 facility 上所有仍开着的领域。这是给"从未自己调用 Domain.close()"的
    * 消费者的卸载兜底；关闭幂等，重复关闭已关领域无害。
    * @returns 所有单元释放完成后解析。
@@ -262,7 +262,7 @@ export class DomainFacility {
 }
 
 /** Run one zod parse, translating failure to `invalid-record` with its location. */
-/**
+/*
  * 执行一次 zod 校验，把失败翻译成带定位信息的 invalid-record 错误：
  * 让调用方知道"哪个领域、哪张表、哪个键"的介质数据不合法。
  */
@@ -285,7 +285,7 @@ function parseRecord<T>(domain: string, table: string, key: string, parse: () =>
  * @param config - Validated plugin config.
  * @returns resolution after an already-available backend set activates the form.
  */
-/**
+/*
  * 把领域数据形态挂到存储枢纽上：收集配置里出现的所有后端名，转成生命周期服务键
  * （storageBackendServiceKey），等它们全部就绪后再创建 facility 并挂载。
  * @param ctx 插件上下文。

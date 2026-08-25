@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-client-hmr 包的运行时不变量（invariant）伴侣插件：
  *   审计"每个 bundle stat 监视器都必须随其 fiber 死亡"这一 owned 关系。
@@ -10,14 +10,14 @@
  *   apply 向 invariants 服务注册。
  * 【关键边界】只审计名为 client-hmr 的 fiber；SSE 连接与监听器拆除在
  *   同一 ctx.effect 销毁器中，故监视器计数是可观察的代理。
- * 【新手阅读建议】对照 packages/invariants 的 fail 语义理解。
+ * 【新手阅读建议】对照 packages/runtime-diagnostics/invariants 的 fail 语义理解。
  * ==========================================================================
  */
 /**
  * Package-owned invariant companion for `@deepseek-ai/dsh-client-hmr`.
  * @module @deepseek-ai/dsh-client-hmr/invariant
  */
-/**
+/*
  * 本包自有的不变量伴侣插件：审计 bundle stat 监视器随 fiber 死亡。
  */
 
@@ -27,14 +27,14 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-client-hmr' // 注册到 invariants 服务时使用的包名标识
 
 /** Cordis companion plugin name. */
-/** Cordis 伴侣插件的插件名。 */
+/* Cordis 伴侣插件的插件名。 */
 export const name = 'client-hmr-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 注册伴侣插件前必须先存在的服务。 */
+/* 注册伴侣插件前必须先存在的服务。 */
 export const inject = ['invariants']
 
 /** Live fs.watchFile pollers (this package is the composition's only stat-poll user). */
-/** 活跃的 fs.watchFile 轮询器（本包是组合中唯一的 stat 轮询用户）。 */
+/* 活跃的 fs.watchFile 轮询器（本包是组合中唯一的 stat 轮询用户）。 */
 function statWatchers(): number {
   return process.getActiveResourcesInfo().filter(kind => kind === 'StatWatcher').length
 }
@@ -49,7 +49,7 @@ function statWatchers(): number {
  * SSE-connection and listener teardown live inside the same ctx.effect
  * disposers, so the watcher count is the relation's observable proxy.
  */
-/**
+/*
  * owned 关系：节点半边启动的每个 bundle stat 监视器都必须随其 fiber 死亡
  * ——存活的轮询器会为已拆除的开发链永远重哈希 bundle。以基线差量检查：
  * fiber 创建时观察到的 StatWatcher 计数，在销毁已排空 fiber 的 effect 后
@@ -86,7 +86,7 @@ const install: InvariantInstaller = (ctx, fail) => {
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 注册本包的不变量伴侣。
  * @param ctx 携带 invariants 服务的 Cordis 上下文。
  * @returns 设置成功后已安装注册项的销毁函数。

@@ -32,7 +32,7 @@ import { Session, SessionId, type SessionEvent, type SurfaceEvent } from '@deeps
  * surface-position semantics rather than raw-log scanning.
  */
 
-/** 中文说明：类型或类 ReproCompactionEngine 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ReproCompactionEngine 约束上下文或压缩数据职责。 */
 class ReproCompactionEngine extends BasicCompactionEngine {
   override async summarize(): Promise<{ summary: ContentBlock[]; provider: string; model: string }> {
     return {
@@ -44,7 +44,7 @@ class ReproCompactionEngine extends BasicCompactionEngine {
 }
 
 /** Each call emits one tool-call until exhausted, then a final text answer. */
-/** 中文说明：类型或类 StepwiseToolAdapter 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 StepwiseToolAdapter 约束上下文或压缩数据职责。 */
 class StepwiseToolAdapter extends LlmAdapter {
   calls = 0
   constructor(private toolSteps: number) {
@@ -83,7 +83,7 @@ class StepwiseToolAdapter extends LlmAdapter {
 }
 
 /** First conversation request overflows, then the rebuilt retry succeeds. */
-/** 中文说明：类型或类 OverflowRecoveryAdapter 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 OverflowRecoveryAdapter 约束上下文或压缩数据职责。 */
 class OverflowRecoveryAdapter extends LlmAdapter {
   readonly conversationRequests: GenerateOptions[] = []
   readonly summaryRequests: GenerateOptions[] = []

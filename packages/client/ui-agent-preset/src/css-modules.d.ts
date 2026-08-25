@@ -6,7 +6,7 @@
  * 关键边界：该声明不校验具体类名是否存在，拼写错误仍需由构建或界面测试发现。
  * 新手阅读建议：先理解 CSS Modules 会改写类名，再查看组件如何读取 `styles.xxx`。
  */
-/** 使用方式：`import styles from './Preset.module.css'`，返回该样式表的类名映射。 */
+/* 使用方式：`import styles from './Preset.module.css'`，返回该样式表的类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源码类名，值是构建后的类名，导入方不应修改其中内容。 */
   const classes: Record<string, string>

@@ -34,7 +34,7 @@ const SEED_ID = 'produced-files-web-e2e'
 const DONE = 'PRODUCED_FILES_DONE'
 
 /** Short leading names plus a long third name make the narrow lane deterministically show two. */
-/** 十个生成文件按显示顺序排列，第三个长名称使窄布局稳定只显示前两个。 */
+/* 十个生成文件按显示顺序排列，第三个长名称使窄布局稳定只显示前两个。 */
 const PRODUCED = [
   '关于我.md',
   'index.html',
@@ -49,7 +49,7 @@ const PRODUCED = [
 ] as const
 
 /** Build one settled turn whose successful write calls carry ten locations. */
-/** 构造十次成功写入的已完成会话 JSONL。示例：producedFixture()。 */
+/* 构造十次成功写入的已完成会话 JSONL。示例：producedFixture()。 */
 function producedFixture(): string {
   /** 累积生成文件回合事件的内存会话。 */
   const session = Session.create(SessionId('produced-files-source'))

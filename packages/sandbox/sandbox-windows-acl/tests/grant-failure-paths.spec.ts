@@ -5,7 +5,7 @@
  * AggregateError. Pure stubs — no real Win32 calls, so these run on every
  * platform; the real-FFI round-trip lives in grant.spec.ts (win32 only).
  */
-/**
+/*
  * 文件职责：验证 grant-failure-paths.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -25,7 +25,7 @@ import { AclWriteGrant } from '../src/index.ts'
 const PVOID = koffi.pointer('void')
 
 /** The stub the grant-then-fail-revoke sequence needs: every call succeeds until the DACL read is flipped off. */
-/** 中文说明：函数 grantThenFailApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 grantThenFailApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function grantThenFailApi(): { api: Win32Bindings; failReads: () => void } {
   /** 中文说明：变量 state 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const state = { failReads: false }

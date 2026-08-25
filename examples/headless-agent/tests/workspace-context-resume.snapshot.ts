@@ -2,7 +2,7 @@
  * Assembled-app regression for persisted workspace-instruction resume state.
  * @module workspace-context-resume-snapshot
  */
-/**
+/*
  * 文件职责：验证会话恢复时能识别离线修改或优先级变化的工作区指令，并更新模型可见上下文。
  * 技术维度：使用 Vitest、加密哈希、SessionStore、JSONL 持久化、Loader smoke 和指令渲染配置。
  * 产品维度：确保 AGENTS.md 等项目规则在会话暂停期间变化后，恢复的智能体遵循最新有效说明。

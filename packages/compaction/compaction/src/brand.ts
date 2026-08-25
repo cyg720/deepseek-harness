@@ -9,7 +9,7 @@
 import type { Branded } from '@deepseek-ai/dsh-brand'
 
 /** Stable identity shared by one compact start/summary/checkpoint/end transaction. */
-/** 单次压缩事务共享的稳定身份类型；不能与其他领域的字符串 ID 混用。 */
+/* 单次压缩事务共享的稳定身份类型；不能与其他领域的字符串 ID 混用。 */
 export type CompactionId = Branded<'CompactionId'>
 
 /**
@@ -17,7 +17,7 @@ export type CompactionId = Branded<'CompactionId'>
  * @param id - opaque transaction identity.
  * @returns the same string, branded; no validation is performed.
  */
-/**
+/*
  * 把实现生成的字符串标记为压缩事务 ID。
  * @param id 不透明事务身份；格式不限，但调用方负责唯一性和来源可信。
  * @returns 原字符串的 CompactionId 品牌视图，不执行运行时校验。

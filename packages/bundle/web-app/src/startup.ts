@@ -5,7 +5,7 @@
  * Ordinary rows inject that service before reading it from lazy config.
  * @module @deepseek-ai/dsh-web-app/startup
  */
-/**
+/*
  * 文件职责：解析dsh --profile web专属命令行选项，并以普通Cordis服务发布不可变启动值。
  * 技术维度：使用Commander声明参数语法，并通过dsh-cmdline把帮助、错误和受控退出接入启动器。
  * 产品维度：让用户选择绑定主机、端口、信任authority和是否自动打开浏览器，同时保持部署默认值可覆盖。
@@ -19,36 +19,36 @@ import type { Context } from '@deepseek-ai/cordis'
 import { parseCmdline } from '@deepseek-ai/dsh-cmdline'
 
 /** Stable Cordis plugin name. */
-/** Cordis中注册的Web命令行提供者稳定名称。 */
+/* Cordis中注册的Web命令行提供者稳定名称。 */
 export const name = 'web-startup'
 
 /** Services required before the flags can be resolved. */
-/** 解析Web参数前必须存在的内部命令行服务。 */
+/* 解析Web参数前必须存在的内部命令行服务。 */
 export const inject = ['cmdlineArgs']
 
 /** Service provided by this ordinary plugin and injected by flag-configured rows. */
-/** 当前插件提供、由依赖参数的Web条目注入的服务名。 */
+/* 当前插件提供、由依赖参数的Web条目注入的服务名。 */
 export const WEB_STARTUP_SERVICE = 'webStartup'
 
 /** What the web rows read from {@link WEB_STARTUP_SERVICE}. */
-/** Web条目从webStartup服务读取的当前调用值。 */
+/* Web条目从webStartup服务读取的当前调用值。 */
 export interface WebStartupValues {
   /** Whether this invocation opens the default browser after startup. */
-  /** 当前调用是否在启动后打开默认浏览器。 */
+  /* 当前调用是否在启动后打开默认浏览器。 */
   openBrowser: boolean
   /** `--host`, absent when the invocation did not name one. */
-  /** 用户显式给出的--host；未提供时省略，让部署配置决定。 */
+  /* 用户显式给出的--host；未提供时省略，让部署配置决定。 */
   host?: string
   /** `--port`, absent when the invocation did not name one. */
-  /** 用户显式给出的数字--port；未提供时省略。 */
+  /* 用户显式给出的数字--port；未提供时省略。 */
   port?: number
   /** Explicit `--trusted-host` authorities, in argument order. */
-  /** 按参数顺序保留的全部显式--trusted-host authority。 */
+  /* 按参数顺序保留的全部显式--trusted-host authority。 */
   trustedHosts: string[]
 }
 
 /** The web flag family, as commander parsed it. */
-/** Commander解析Web参数后得到的原始字符串选项。 */
+/* Commander解析Web参数后得到的原始字符串选项。 */
 interface WebOptions {
   /** 可选绑定主机字符串。 */
   host?: string
@@ -64,7 +64,7 @@ interface WebOptions {
  * This app's command: its flags, its description, and its help text.
  * @returns a fresh program, so one process can parse more than once (tests).
  */
-/** 构造新的Web Commander程序，使测试和嵌入进程可重复解析。 */
+/* 构造新的Web Commander程序，使测试和嵌入进程可重复解析。 */
 function webCommand(): Command {
   return new Command()
     .name('dsh --profile web')

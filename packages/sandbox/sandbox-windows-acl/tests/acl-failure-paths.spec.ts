@@ -7,7 +7,7 @@
  * stubs — no real Win32 calls, so these run on every platform; the
  * real-FFI round-trip lives in acl.spec.ts (win32 only).
  */
-/**
+/*
  * 文件职责：验证 acl-failure-paths.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -30,7 +30,7 @@ import * as abi from '../src/win32-abi.ts'
 const PVOID = koffi.pointer('void')
 
 /** The stub the grant/revoke happy path needs; every call succeeds until a field is overridden per test. */
-/** 中文说明：函数 aclApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 aclApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function aclApi(overrides: Partial<Win32Bindings> = {}): Win32Bindings {
   return {
     getTempPathW: vi.fn((_length: number, buffer: Buffer) => {
@@ -64,7 +64,7 @@ function aclApi(overrides: Partial<Win32Bindings> = {}): Win32Bindings {
 }
 
 /** One SID allocation: revision@0, subAuthorityCount@1, identifierAuthority@2 (6 bytes), subauthorities@8. */
-/** 中文说明：函数 craftSid 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 craftSid 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function craftSid(revision: number, count: number, authority: number[] = [0, 0, 0, 0, 0, 5]): NativePtr {
   /** 中文说明：变量 sid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sid = allocBytes(8)
@@ -82,7 +82,7 @@ function craftSid(revision: number, count: number, authority: number[] = [0, 0, 
  * (AceType@0, AceFlags@1, AceSize@2, Mask@4, inline SID@8). `match` selects
  * whether the inline SID bytes equal `sid`.
  */
-/** 中文说明：函数 craftAclWithGrant 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 craftAclWithGrant 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function craftAclWithGrant(sid: NativePtr, match: boolean): NativePtr {
   /** 中文说明：变量 acl 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const acl = allocBytes(32)

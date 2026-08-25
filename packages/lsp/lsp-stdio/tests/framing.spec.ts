@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { encodeMessage, MessageDecoder } from '@deepseek-ai/dsh-lsp-stdio'
 
 /** Frame a message the way a server would, for decoder round-trips. */
-/** 中文说明：函数 frame 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 frame 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function frame(body: string): Buffer {
   return Buffer.concat([Buffer.from(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n`, 'ascii'), Buffer.from(body, 'utf8')])
 }

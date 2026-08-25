@@ -52,7 +52,7 @@ export interface MessageIconActionsProps {
  * @param props - Copy text, event time, clock side, branch callback, className.
  * @returns The actions row element.
  */
-/** 中文说明：函数 MessageIconActions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 MessageIconActions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function MessageIconActions({
   text, time, runMs, ttftMs, tokensPerSecond, clock, onBranch, branchUnavailable = false, className,
   extraActions, t,

@@ -99,7 +99,7 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 /** Result of a successful compaction operation. */
-/** 中文说明：类型或类 CompactionResult 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 CompactionResult 约束上下文或压缩数据职责。 */
 export interface CompactionResult {
   /** Stable identity shared by this compaction's complete durable lifecycle. */
   compactionId: CompactionId

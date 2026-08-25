@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证主题与设计系统的 appearance-row.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止主题与设计系统显示、导航或生命周期回归。
@@ -29,7 +29,7 @@ const COPY: Record<string, string> = {
 }
 
 /** Empty global standard-kit hooks (the row reads neither). */
-/** 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emptySessions() {
   /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<SessionListState>(

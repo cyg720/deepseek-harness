@@ -5,7 +5,7 @@
  * Also the one home of the generated-region grammar and the pair-record
  * primitives, shared by the pairing gate and the region-injecting generators.
  */
-/**
+/*
  * 文件职责：实现 translation-pairing.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -28,13 +28,13 @@ import {
 } from './translation-links.ts'
 
 /** Complete opening marker line: `<!-- BEGIN GENERATED <slug> … -->` (slug captured). */
-/** 中文说明：常量 GENERATED_REGION_BEGIN_LINE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 GENERATED_REGION_BEGIN_LINE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const GENERATED_REGION_BEGIN_LINE = /^<!-- BEGIN GENERATED (\S+)(?: [^>]*)? -->$/
 /** Complete closing marker line: `<!-- END GENERATED <slug> -->` (slug captured). */
-/** 中文说明：常量 GENERATED_REGION_END_LINE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 GENERATED_REGION_END_LINE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const GENERATED_REGION_END_LINE = /^<!-- END GENERATED (\S+) -->$/
 /** Loose marker detector: any line that LOOKS like a region marker must parse as one. */
-/** 中文说明：常量 GENERATED_REGION_MARKER_HINT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 GENERATED_REGION_MARKER_HINT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const GENERATED_REGION_MARKER_HINT = /^<!-- (?:BEGIN|END) GENERATED /
 
 /**
@@ -49,7 +49,7 @@ const GENERATED_REGION_MARKER_HINT = /^<!-- (?:BEGIN|END) GENERATED /
  * @throws Error on an unopened END, unclosed BEGIN, nested BEGIN, malformed
  *   marker line, or a closing slug that does not match its opener.
  */
-/** 中文说明：函数 partitionGeneratedRegions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 partitionGeneratedRegions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function partitionGeneratedRegions(content: string): { regions: string[]; stripped: string } {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = content.split('\n')
@@ -93,7 +93,7 @@ export function partitionGeneratedRegions(content: string): { regions: string[];
  * @param content - Exact file bytes.
  * @returns The 40-hex-digit SHA-1 blob hash.
  */
-/** 中文说明：函数 blobHash 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 blobHash 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function blobHash(content: Buffer): string {
   /** 中文说明：变量 hash 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const hash = createHash('sha1')
@@ -114,7 +114,7 @@ const PAIR_META_LINE = /^([^:#]+\.md): ([0-9a-f]{40})$/
  * @param content - Sidecar file text.
  * @returns The recorded map, or undefined for a malformed record.
  */
-/** 中文说明：函数 parsePairMeta 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parsePairMeta 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parsePairMeta(content: string): Map<string, string> | undefined {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out = new Map<string, string>()
@@ -138,7 +138,7 @@ export function parsePairMeta(content: string): Map<string, string> | undefined 
  * @param zhHash - Blob hash of the Chinese side.
  * @returns The exact sidecar file content.
  */
-/** 中文说明：函数 renderPairMeta 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderPairMeta 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function renderPairMeta(source: string, sourceHash: string, zh: string, zhHash: string): string {
   return [
     '# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each',
@@ -152,7 +152,7 @@ export function renderPairMeta(source: string, sourceHash: string, zh: string, z
 }
 
 /** Validated fields of `scripts/translation-pairing.manifest.json`. */
-/** 中文说明：interface TranslationPairingManifest 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface TranslationPairingManifest 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface TranslationPairingManifest {
   /** Source documents exempt from pairing because they are generated, instructional, or bilingual by construction. */
   excluded: string[]
@@ -182,7 +182,7 @@ const NON_SOURCE_DIRECTORIES = new Set([
 ])
 
 /** Glob traversal exclusions corresponding to the non-source path predicate. */
-/** 中文说明：常量 TRANSLATION_SCOPE_GLOB_EXCLUDES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TRANSLATION_SCOPE_GLOB_EXCLUDES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const TRANSLATION_SCOPE_GLOB_EXCLUDES = [
   '.agents/notes/archived/**',
   '**/node_modules/**',
@@ -206,7 +206,7 @@ export const TRANSLATION_SCOPE_GLOB_EXCLUDES = [
 ]
 
 /** Whether a repository-relative path belongs to a dependency or generated tree. */
-/** 中文说明：函数 isTranslationSourceExcluded 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isTranslationSourceExcluded 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isTranslationSourceExcluded(file: string): boolean {
   /** 中文说明：变量 segments 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const segments = file.split('/')
@@ -219,7 +219,7 @@ function isTranslationSourceExcluded(file: string): boolean {
 }
 
 /** Whether one discovered Markdown or sidecar path belongs to the bilingual source corpus. */
-/** 中文说明：函数 isTranslationScopeFile 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isTranslationScopeFile 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isTranslationScopeFile(file: string): boolean {
   return !file.startsWith('.agents/notes/archived/')
     && !isTranslationSourceExcluded(file) && (README_ARTIFACT.test(file)
@@ -231,7 +231,7 @@ export function isTranslationScopeFile(file: string): boolean {
 }
 
 /** Read the manifest exclusion list or fail before enforcement starts. */
-/** 中文说明：函数 excludedField 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 excludedField 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function excludedField(record: Record<string, unknown>): string[] {
   /** 中文说明：变量 value 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value = record.excluded
@@ -247,7 +247,7 @@ function excludedField(record: Record<string, unknown>): string[] {
 }
 
 /** Parse and validate the checked-in bilingual manifest. */
-/** 中文说明：函数 parseTranslationPairingManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseTranslationPairingManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseTranslationPairingManifest(content: string): TranslationPairingManifest {
   /** 中文说明：变量 value 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: unknown = JSON.parse(content)
@@ -265,7 +265,7 @@ export function parseTranslationPairingManifest(content: string): TranslationPai
 }
 
 /** Whether a manifest entry excludes one exact file or a directory subtree. */
-/** 中文说明：函数 isTranslationPairingManifestExcluded 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isTranslationPairingManifestExcluded 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isTranslationPairingManifestExcluded(
   file: string,
   manifest: TranslationPairingManifest,
@@ -274,7 +274,7 @@ export function isTranslationPairingManifestExcluded(
 }
 
 /** Build the active bilingual-source predicate shared by every link consumer. */
-/** 中文说明：函数 translationPairSourcePredicate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 translationPairSourcePredicate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function translationPairSourcePredicate(
   manifest: TranslationPairingManifest,
 ): (sourcePath: string) => boolean {
@@ -290,7 +290,7 @@ export function translationPairSourcePredicate(
  * @param argument - Repo-relative path as passed on a command line.
  * @returns The pair's `foo.md` anchor path with `/` separators.
  */
-/** 中文说明：函数 pairAnchorOfArgument 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 pairAnchorOfArgument 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function pairAnchorOfArgument(argument: string): string {
   /** 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const normalized = argument.split('\\').join('/').replace(/^\.\//, '')
@@ -301,7 +301,7 @@ export function pairAnchorOfArgument(argument: string): string {
 }
 
 /** A parsed `verify-translation-pairing` invocation. */
-/** 中文说明：interface TranslationPairingCliRequest 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface TranslationPairingCliRequest 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface TranslationPairingCliRequest {
   /** Content plane read by the check. Writes and corpus checks use the working tree. */
   input: 'worktree' | 'index'
@@ -324,7 +324,7 @@ export interface TranslationPairingCliRequest {
  * @returns The validated request.
  * @throws Error when flags or their combination are invalid.
  */
-/** 中文说明：函数 parseTranslationPairingCliArgs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseTranslationPairingCliArgs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseTranslationPairingCliArgs(argv: string[]): TranslationPairingCliRequest {
   /** 中文说明：函数值 flags 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const flags = argv.filter(argument => argument.startsWith('--'))
@@ -364,7 +364,7 @@ export function parseTranslationPairingCliArgs(argv: string[]): TranslationPairi
 }
 
 /** The structural signature compared between the two sides of a pair. */
-/** 中文说明：interface TranslationStructureSignature 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface TranslationStructureSignature 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface TranslationStructureSignature {
   /** Heading depths in document order (h2 -> 2). */
   headings: number[]
@@ -379,7 +379,7 @@ export interface TranslationStructureSignature {
 }
 
 /** Parse Markdown with the same GFM extensions used by the pairing gate. */
-/** 中文说明：函数 parseTranslationMarkdown 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseTranslationMarkdown 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseTranslationMarkdown(content: string): Nodes {
   return fromMarkdown(content, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] })
 }
@@ -388,13 +388,13 @@ export function parseTranslationMarkdown(content: string): Nodes {
 const PUBLIC_REPOSITORY_BLOB_ROOT = 'https://github.com/deepseek-ai/deepseek-harness/blob/master/'
 
 /** Return the accepted relative and public-repository links to one counterpart. */
-/** 中文说明：函数 languageSwitcherTargets 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 languageSwitcherTargets 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function languageSwitcherTargets(counterpart: string): string[] {
   return [basename(counterpart), `${PUBLIC_REPOSITORY_BLOB_ROOT}${counterpart}`]
 }
 
 /** Generated English sources cannot carry a switcher without making their generator stale. */
-/** 中文说明：函数 requiresSourceLanguageSwitcher 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 requiresSourceLanguageSwitcher 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function requiresSourceLanguageSwitcher(source: string): boolean {
   return ![
     'docs/agent-lifecycle.md',
@@ -417,7 +417,7 @@ export function requiresSourceLanguageSwitcher(source: string): boolean {
 }
 
 /** Collect the ordered structural signature, skipping accepted switcher targets. */
-/** 中文说明：函数 translationStructureSignature 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 translationStructureSignature 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function translationStructureSignature(
   tree: Nodes,
   switcherTargets: string | readonly string[],

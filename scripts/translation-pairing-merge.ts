@@ -1,5 +1,5 @@
 /** Fail-closed composition of bilingual pairing records during Git merges. */
-/**
+/*
  * 文件职责：实现 translation-pairing-merge.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -48,7 +48,7 @@ import {
 const UNMERGED_ENTRY = /^(\d+) ([0-9a-f]+) ([123])\t([\s\S]+)$/
 
 /** A mechanically composed record and the exact merged owner contents it names. */
-/** 中文说明：interface TranslationPairingMergeResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface TranslationPairingMergeResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface TranslationPairingMergeResult extends TranslationPairingRecord {
   /** Canonical generated sidecar text. */
   record: string
@@ -303,7 +303,7 @@ function normalizeMetaPath(root: string, meta: string): string {
  * @returns The canonical record and exact merged owner contents.
  * @throws Error when the input is not mechanically composable.
  */
-/** 中文说明：函数 mergeTranslationPairingRecords 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 mergeTranslationPairingRecords 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function mergeTranslationPairingRecords(
   root: string,
   metaPath: string,
@@ -348,7 +348,7 @@ export function mergeTranslationPairingRecords(
 }
 
 /** Read the repository manifest and return its active bilingual-source predicate. */
-/** 中文说明：函数 repositoryTranslationPairSource 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 repositoryTranslationPairSource 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function repositoryTranslationPairSource(root: string): (sourcePath: string) => boolean {
   /** 中文说明：变量 path 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = 'scripts/translation-pairing.manifest.json'
@@ -427,7 +427,7 @@ function assertUneditedSidecar(
  * @param root - Repository root with an in-progress merge-like operation.
  * @returns Repository-relative sidecar paths resolved and staged.
  */
-/** 中文说明：函数 resolveTranslationPairingConflicts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 resolveTranslationPairingConflicts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function resolveTranslationPairingConflicts(
   root: string,
   isTranslationPairSource: (sourcePath: string) => boolean,

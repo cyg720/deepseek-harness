@@ -11,7 +11,7 @@
 import type { CommonKey } from './zh.ts'
 
 /** en base dictionary for the common namespace, checked complete against the zh key set. */
-/** common 命名空间的英文基础字典，对照 zh 键集检查完整性。 */
+/* common 命名空间的英文基础字典，对照 zh 键集检查完整性。 */
 export const en = {
   'ok': 'OK',
   'cancel': 'Cancel',

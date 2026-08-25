@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】提供内容块的结构辅助：递归检测内容中是否含图片、把图片投射成
  * 确定性文本占位（纯文本模型或超限卸载）、以及按"数量/字节配额 + 量化步长"
@@ -25,14 +25,14 @@ import type { Message } from './message.ts'
 import type { ImageAttachmentRef, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
 
 /** Model-facing stand-in for an image removed to fit a provider request bound. */
-/**
+/*
  * （中文）因超出 provider 请求限制而被移除的图片的模型可见替身文本：说明图片
  * 因超出图片数量限制被省略、最早图片优先被省略，并提示模型在需要时如何补救。
  */
 export const OFFLOADED_IMAGE_TEXT
   = '[image omitted to keep the request within its image limit; older images are omitted first. If this image is still needed, read its file again when a path is available; otherwise ask the user to attach it again.]'
 
-/**
+/*
  * （中文）给"无法接受持久图片引用"的模型展示的稳定文本：带附件摘要（sha256
  * 前 8 位）便于识别是哪张图。
  * @param ref 未进入请求的持久主引用。
@@ -48,7 +48,7 @@ export function textOnlyImageText(ref: ImageAttachmentRef): string {
   return `[image omitted because this model accepts text only; attachment sha256:${digest}]`
 }
 
-/**
+/*
  * （中文）某个精确请求图片的稳定模型可见句柄：包含附件句柄与请求图片尺寸。
  * @param version 与文本一同展示的精确请求图片。
  * @returns 附件句柄与请求图片尺寸的描述文本。
@@ -62,7 +62,7 @@ export function requestImageHandleText(version: RequestImageAttachment): string 
   return `Image ${version.attachment.attachmentId}; request image ${version.width}x${version.height}px.`
 }
 
-/**
+/*
  * （中文）判断类型化模型内容里是否含图片块，会递归进入嵌套的 tool-result
  * 内容。这是所有图片策略（能力门控、纯文本序列化、压缩调查）共享的唯一递归
  * 遍历，消费方不会因嵌套深度不同而悄悄分叉。
@@ -89,7 +89,7 @@ function base64Length(bytes: number): number {
 }
 
 /** Byte accounting and quantized removal policy for one request representation. */
-/**
+/*
  * （中文）一次请求表示（representation）的字节核算与"量化移除"策略：限制图片
  * 数量/累计字节，超限时按 countQuantum/byteQuantum 整块移除，支持 raw（原始
  * 文件字节）或 base64（内联编码长度）两种核算口径。
@@ -186,7 +186,7 @@ function replaceImagesForTextModel(blocks: readonly ContentBlock[]): ContentBloc
   return next ?? blocks as ContentBlock[]
 }
 
-/**
+/*
  * （中文）把持久图片历史投射成某个纯文本模型的确定性文本：消息本身无图时
  * 原样返回；有图时逐条浅拷贝消息并替换内容树，占位文本稳定可复现。
  * @param messages 完整请求历史。
@@ -205,7 +205,7 @@ export function projectImagesForTextModel(messages: readonly Message[]): readonl
   })
 }
 
-/**
+/*
  * （中文）返回把最旧图片替换掉、直到累计 base64 载荷符合配置上限的临时请求
  * 消息。选择过程由持久消息顺序与附件元数据确定性决定；provider 可直接序列化
  * 返回的消息，无需读取被省略的字节。
@@ -233,7 +233,7 @@ export function offloadRequestImages(
   })
 }
 
-/**
+/*
  * （中文）返回确定性的临时投影：路由预算超限后，按"数量与字节量化步长"整体
  * 移除最旧图片。目标只依赖完整持久历史：128 MiB 上限、64 MiB 量化下，129 张
  * 1 MiB 图片会移除最旧的 65 张使剩余 64 MiB；该移除前缀固定不变，直到历史

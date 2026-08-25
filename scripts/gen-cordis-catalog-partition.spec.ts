@@ -5,7 +5,7 @@
  * exemption, an exemption must stay live in both directions, and the scan
  * itself must reach nested (`src/**`) and Events-only merge files.
  */
-/**
+/*
  * 文件职责：验证 gen-cordis-catalog-partition.spec.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -31,7 +31,7 @@ afterEach(() => {
 })
 
 /** A consistent baseline the red cases mutate one facet at a time. */
-/** 中文说明：函数 baseline 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 baseline 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function baseline(): { input: WalkPartitionInput; maps: WalkPartitionMaps } {
   return {
     input: {

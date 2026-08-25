@@ -3,7 +3,7 @@
  * (a profile's `cordis.patch.yml`) and `boot()` applying the user layer over
  * a real Loader tree, kept live through transactional HMR.
  */
-/**
+/*
  * 文件职责：验证用户补丁文件的可选加载、严格解析、启动叠加和事务式HMR更新。
  * 技术维度：使用Vitest、真实Loader/Include/HMR/Timer插件和临时ESM模块执行集成测试。
  * 产品维度：允许用户在官方Bundle之后安全自定义配置，并在编辑错误时保留上一份有效运行树。

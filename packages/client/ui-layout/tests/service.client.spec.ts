@@ -4,7 +4,7 @@
  * delegation contract: attachPanels wiring, the three actions forwarding, the
  * unwired fail-loud, and re-attach overwriting a stale action set.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：验证 LayoutController 对面板操作的挂接、转发、未接线报错和重新挂接行为。
  * - 技术维度：使用 Vitest 模拟函数和客户端服务类的真实方法调用。

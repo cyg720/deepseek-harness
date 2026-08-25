@@ -1,5 +1,5 @@
 /** CLI entry for partitioned Vitest coverage. */
-/**
+/*
  * 文件职责：解析分区覆盖率环境和透传参数，启动 CoveragePartitionCoordinator。
  * 技术维度：使用顶层 await、pnpm 生命周期入口和 Vitest 参数辅助函数协调多个子进程。
  * 产品维度：把大型覆盖率门禁拆分并行执行，缩短反馈时间同时保持汇总结果一致。

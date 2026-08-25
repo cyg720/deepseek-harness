@@ -4,7 +4,7 @@
  * that stops its work and translates timeout reasons into public outcomes.
  * @module @deepseek-ai/dsh-timeout
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的通用运行时工具行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的通用运行时工具能力稳定、可复现且可诊断。
@@ -17,7 +17,7 @@
  * Internal abort reason carrying a capability-owned code and elapsed deadline.
  * Providers translate it through {@link timeoutOf} before returning to callers.
  */
-/** 中文说明：class TimeoutReason 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：class TimeoutReason 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export class TimeoutReason extends Error {
   override name = 'TimeoutReason'
 
@@ -31,7 +31,7 @@ export class TimeoutReason extends Error {
 }
 
 /** Largest delay Node schedules without clamping it to one millisecond. */
-/** 中文说明：常量 MAX_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_TIMER_DELAY_MS = 2_147_483_647
 
 /** 中文说明：函数 assertTimerDelay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
@@ -53,7 +53,14 @@ function assertTimerDelay(timeoutMs: number, name: string): void {
  *   bad).
  * @returns The effective timeout in milliseconds: `min(requested ?? def, max)`.
  */
-/** 中文说明：函数 clampTimeout 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 clampTimeout 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param requested 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param def 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param max 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function clampTimeout(
   requested: number | undefined,
   def: number,
@@ -67,7 +74,7 @@ export function clampTimeout(
 }
 
 /** A deadline signal plus the cleanup that clears its timer (dispose-once). */
-/** 中文说明：interface Deadline 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：interface Deadline 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface Deadline {
   /** Aborts on upstream cancellation OR on timeout (the timeout carries a {@link TimeoutReason}). */
   readonly signal: AbortSignal
@@ -76,7 +83,7 @@ export interface Deadline {
 }
 
 /** Rearmable timeout around one outstanding async-iterator demand. */
-/** 中文说明：interface IdleWatchdog 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：interface IdleWatchdog 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface IdleWatchdog {
   /** Stable signal aborted by upstream cancellation or this watchdog's timeout. */
   readonly signal: AbortSignal
@@ -102,7 +109,13 @@ export interface IdleWatchdog {
  * @param code Capability-owned code stamped onto the timeout's {@link TimeoutReason}.
  * @returns The fused {@link Deadline} (signal + timer cleanup).
  */
-/** 中文说明：函数 deadline 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 deadline 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param upstream 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param timeoutMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param code 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function deadline(
   upstream: AbortSignal | undefined,
   timeoutMs: number,
@@ -140,7 +153,13 @@ export function deadline(
  * @param code - capability-owned code carried by the timeout reason.
  * @returns a stable signal, guarded next operation, and timer disposer.
  */
-/** 中文说明：函数 idleWatchdog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 idleWatchdog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param upstream 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param timeoutMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param code 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function idleWatchdog(
   upstream: AbortSignal | undefined,
   timeoutMs: number,
@@ -205,7 +224,12 @@ export function idleWatchdog(
  * @param code When provided, only a {@link TimeoutReason} with this exact `code` matches.
  * @returns The matching {@link TimeoutReason}, else `undefined`.
  */
-/** 中文说明：函数 timeoutOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 timeoutOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param x 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param code 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function timeoutOf(x: AbortSignal | { reason?: unknown }, code?: string): TimeoutReason | undefined {
   // AbortSignal.reason is typed `any`; pin it to `unknown` so no `any` leaks and
   // the instanceof narrows cleanly for both a signal and a bare reason carrier.

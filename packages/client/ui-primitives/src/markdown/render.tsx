@@ -15,7 +15,7 @@
  * nothing) rather than ending in assertNever: grammars registered elsewhere
  * may add node types this renderer has no mapping for.
  */
-/**
+/*
  * 文件职责：实现Markdown 与代码内容相关的 render 基础组件。
  * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
  * 产品维度：为上层产品界面提供一致的Markdown 与代码内容展示。
@@ -36,7 +36,7 @@ import type { PositionedBlock } from './incremental.ts'
 import css from './MarkdownText.module.css'
 
 /** Copy-button labels forwarded to fence CodeBlocks (this package is cordis-free, so copy arrives via props). */
-/** 中文说明：类型或类 MarkdownCodeLabels 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 MarkdownCodeLabels 约束基础组件的数据或职责。 */
 export interface MarkdownCodeLabels {
   /** Copy-button idle label. */
   copyLabel?: string | undefined
@@ -75,7 +75,7 @@ function remoteImageUrl(url: string): string | undefined {
 }
 
 /** Link/image reference targets collected from a document (first definition per identifier wins, as in CommonMark). */
-/** 中文说明：类型或类 ReferenceTargets 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 ReferenceTargets 约束基础组件的数据或职责。 */
 export interface ReferenceTargets {
   /** Link/image definitions keyed by upper-cased identifier. */
   definitions: Map<string, Md.Definition>
@@ -87,7 +87,7 @@ export interface ReferenceTargets {
  * Create an empty {@link ReferenceTargets}.
  * @returns Fresh empty maps.
  */
-/** 中文说明：函数 createReferenceTargets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 createReferenceTargets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function createReferenceTargets(): ReferenceTargets {
   return { definitions: new Map(), footnotes: new Map() }
 }
@@ -98,7 +98,7 @@ export function createReferenceTargets(): ReferenceTargets {
  * @param nodes - Subtrees to walk (top-level blocks or any nested children).
  * @param targets - Accumulator, typically shared across incremental segments.
  */
-/** 中文说明：函数 collectReferenceTargets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 collectReferenceTargets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function collectReferenceTargets(
   nodes: readonly Md.RootContent[],
   targets: ReferenceTargets,
@@ -123,7 +123,7 @@ export function collectReferenceTargets(
  * token to the file it names, using its own vocabulary of real files — the
  * renderer never guesses at what looks like a path.
  */
-/** 中文说明：类型或类 MarkdownFileMentions 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 MarkdownFileMentions 约束基础组件的数据或职责。 */
 export interface MarkdownFileMentions {
   /**
    * Resolve one inline-code token.
@@ -138,7 +138,7 @@ export interface MarkdownFileMentions {
  * One render pass's state: immutable options and targets plus the footnote
  * numbering accumulated in document order while references render.
  */
-/** 中文说明：类型或类 MarkdownRenderContext 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 MarkdownRenderContext 约束基础组件的数据或职责。 */
 export interface MarkdownRenderContext {
   /** Streaming arm: fences render plain and TeX stays literal. */
   readonly streaming: boolean
@@ -166,7 +166,7 @@ export interface MarkdownRenderContext {
  * @param context - The pass state; footnote numbering mutates in document order.
  * @returns One React node per rendered block.
  */
-/** 中文说明：函数 renderBlocks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderBlocks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function renderBlocks(
   blocks: readonly PositionedBlock[],
   context: MarkdownRenderContext,
@@ -185,7 +185,7 @@ export function renderBlocks(
  * @param edges - Also emit the leading and trailing newline (hast's loose wrap).
  * @returns The interleaved children.
  */
-/** 中文说明：函数 wrapBlockChildren 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 wrapBlockChildren 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function wrapBlockChildren(elements: readonly ReactNode[], edges: boolean): ReactNode[] {
   /** 中文说明：组件局部值 wrapped，由紧邻初始化决定。 */
   const wrapped: ReactNode[] = []
@@ -203,11 +203,11 @@ export function wrapBlockChildren(elements: readonly ReactNode[], edges: boolean
  * other blocks (list items unwrap them when tight; footnote bodies receive
  * their back-references inside the trailing paragraph).
  */
-/** 中文说明：类型或类 BlockEntry 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 BlockEntry 约束基础组件的数据或职责。 */
 type BlockEntry = { paragraph: ReactNode[] } | { element: ReactNode }
 
 /** Render container children into {@link BlockEntry} values, dropping empty renders. */
-/** 中文说明：函数 renderBlockEntries 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderBlockEntries 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderBlockEntries(
   blocks: readonly Md.RootContent[],
   context: MarkdownRenderContext,
@@ -373,7 +373,7 @@ function renderCode(node: Md.Code, key: Key, context: MarkdownRenderContext): Re
 }
 
 /** A list is loose when it or any of its items is spread; every item then keeps its paragraphs. */
-/** 中文说明：函数 listLoose 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 listLoose 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function listLoose(list: Md.List): boolean {
   return (list.spread ?? false) || list.children.some(listItemLoose)
 }
@@ -516,7 +516,7 @@ function renderTableRow(
 }
 
 /** Anchor over an already-authored href: allowlisted or unwrapped, external links get the safe attributes. */
-/** 中文说明：函数 renderSafeLink 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderSafeLink 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderSafeLink(href: string, children: ReactNode[], key: Key): ReactNode {
   /** 中文说明：组件局部值 safeHref，由紧邻初始化决定。 */
   const safeHref = sanitizeUrl(href)
@@ -535,7 +535,7 @@ function renderSafeLink(href: string, children: ReactNode[], key: Key): ReactNod
 }
 
 /** Anchor over a parsed markdown destination, which hast normalized before the allowlist saw it. */
-/** 中文说明：函数 renderAnchor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderAnchor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderAnchor(url: string, children: ReactNode[], key: Key): ReactNode {
   return renderSafeLink(normalizeUri(url), children, key)
 }
@@ -544,7 +544,7 @@ function renderAnchor(url: string, children: ReactNode[], key: Key): ReactNode {
  * The complete inline-code value when it is exactly an absolute HTTP(S) URL
  * (no surrounding whitespace); anything else stays inert code.
  */
-/** 中文说明：函数 inlineCodeHttpUrl 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 inlineCodeHttpUrl 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inlineCodeHttpUrl(value: string): string | undefined {
   if (value.trim() !== value) return undefined
   try {
@@ -578,7 +578,7 @@ function renderImage(url: string, alt: string, key: Key): ReactNode {
 }
 
 /** The bracketed source text a reference reverts to when its definition is missing. */
-/** 中文说明：函数 referenceSuffix 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 referenceSuffix 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function referenceSuffix(node: Md.LinkReference | Md.ImageReference): string {
   if (node.referenceType === 'collapsed') return '][]'
   if (node.referenceType === 'full') return `][${node.label ?? node.identifier}]`
@@ -639,7 +639,7 @@ function renderFootnoteReference(
  * @param context - The pass state after all blocks rendered.
  * @returns The section, or null when no referenced footnote has a definition.
  */
-/** 中文说明：函数 renderFootnoteSection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderFootnoteSection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function renderFootnoteSection(context: MarkdownRenderContext): ReactNode | null {
   /** 中文说明：组件局部值 items，由紧邻初始化决定。 */
   const items: ReactNode[] = []

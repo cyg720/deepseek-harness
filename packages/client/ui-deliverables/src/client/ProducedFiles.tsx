@@ -21,7 +21,7 @@ import type { NS } from './locales.ts'
 import css from './ProducedFiles.module.css'
 
 /** At most six chips compete for the one-line summary; every other path stays counted. */
-/** 中文说明：组件局部值 SHOWN_LIMIT，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 SHOWN_LIMIT，由紧邻初始化决定。 */
 const SHOWN_LIMIT = 6
 
 /**
@@ -32,7 +32,7 @@ const SHOWN_LIMIT = 6
  * @param moreWidthsByShown - exact localized remainder width for each shown count.
  * @returns Number of leading chips to render.
  */
-/** 中文说明：函数 fitProducedFiles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fitProducedFiles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function fitProducedFiles(
   available: number,
   gap: number,
@@ -65,7 +65,7 @@ export function fitProducedFiles(
 }
 
 /** Registration-side Host capability facts. */
-/** 中文说明：类型或类 ProducedFilesInjected 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 ProducedFilesInjected 约束本文件数据或组件职责。 */
 export interface ProducedFilesInjected {
   /** Whether the browser itself is connected over loopback. */
   isLoopback: boolean
@@ -76,7 +76,7 @@ export interface ProducedFilesInjected {
 }
 
 /** Matched paths plus the opener, locale, and injected Host capability. */
-/** 中文说明：类型或类 ProducedFilesProps 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 ProducedFilesProps 约束本文件数据或组件职责。 */
 export type ProducedFilesProps = Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: readonly string[]
 } & PropsLocale<typeof NS> & InjectFace<ProducedFilesInjected>
@@ -91,7 +91,7 @@ function moreLabel(t: ProducedFilesProps['t'], count: number): string {
  * @param props - selector-matched paths, the chat view's file opener, and the locale seat.
  * @returns The produced-files row.
  */
-/** 中文说明：函数 ProducedFiles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ProducedFiles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function ProducedFiles({
   matched: paths, openFile, isLoopback, useHostDescription, t,
 }: ProducedFilesProps) {

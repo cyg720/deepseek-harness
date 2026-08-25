@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】提供 useAnchoredMaxHeight Hook：把"底部对齐、向上生长"的浮层（斜杠菜单、
  *             popupSelect）的最大高度钳制在视口内，避免顶部被视口边缘裁掉。
@@ -19,7 +19,7 @@
  * grows upward and only the top edge can collide with the viewport — clamp
  * the design cap to the space between that edge and the viewport top.
  */
-/**
+/*
  * 本文件实现 useAnchoredMaxHeight：针对"底部对齐、向上生长"的浮层（斜杠菜单、popupSelect），
  * 把最大高度钳制在视口内——元素底边已固定，只有顶边可能与视口顶碰撞。
  */
@@ -38,7 +38,7 @@ const MARGIN = 12
  *   moves (composer growth) re-fit; resize/scroll re-fit while mounted.
  * @returns the max-height to apply inline, in px.
  */
-/**
+/*
  * 把底部对齐浮层的最大高度钳制到视口内。
  * 使用示例：const maxH = useAnchoredMaxHeight(menuRef, 320, open)；style={{ maxHeight: maxH }}。
  * @param ref - 浮层元素；current 为 null（浮层关闭）时跳过测量。

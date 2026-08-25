@@ -3,7 +3,7 @@
  * workspaceRoot) the service exposes, and the per-session `sandbox/mode`
  * override kit (fold + write path) every enforcing capability reads.
  */
-/**
+/*
  * 文件职责：验证 policy.spec.ts 覆盖的沙箱策略、平台隔离与失败行为。
  * 技术维度：使用 TypeScript、Vitest、平台进程接口和受控文件系统资源。
  * 产品维度：保障 Agent 执行命令时遵循预期权限并给出可诊断失败。

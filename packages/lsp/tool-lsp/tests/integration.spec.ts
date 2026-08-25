@@ -26,7 +26,7 @@ import * as ToolLsp from '@deepseek-ai/dsh-tool-lsp'
  * The `lsp-definition` ACP snapshot owns the shipped Loader/app entry path.
  */
 
-/** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let root: string
 /** 中文说明：变量 ws 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let ws: string
@@ -43,7 +43,7 @@ afterEach(async () => {
 })
 
 /** An inline stdio server that answers initialize + definition; `hang` makes textDocument/* stall. */
-/** 中文说明：函数 serverScript 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 serverScript 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function serverScript(hang: boolean): string {
   /** 中文说明：变量 definition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const definition = JSON.stringify({ uri: pathToFileURL(join(ws, 'a.ts')).href, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } })

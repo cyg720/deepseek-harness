@@ -27,36 +27,36 @@ import type { ToolEventView } from '@deepseek-ai/dsh-api-remotes/client'
  * 安装的业务包在消费客户端程序中提供具体键。*/
 
 /** One raw log event plus its optional envelope-level presentation view. */
-/** 一个原始日志事件 + 可选的信封级呈现视图。 */
+/* 一个原始日志事件 + 可选的信封级呈现视图。 */
 export interface ConversationEventInput {
   readonly event: SessionEvent
   readonly view: ToolEventView | undefined
 }
 
 /** Definition-local identity and lifecycle role extracted from one event. */
-/** 从一个事件提取的定义本地身份与生命周期角色。 */
+/* 从一个事件提取的定义本地身份与生命周期角色。 */
 export interface ConversationMatchResult {
   readonly id: string
   readonly role: 'start' | 'update'
 }
 
 /** Merge-extensible business values published against one Turn. */
-/** 针对一个轮次（Turn）发布的合并可扩展业务值。 */
+/* 针对一个轮次（Turn）发布的合并可扩展业务值。 */
 export interface ConversationTurnDataMap {}
 
 /** Merge-extensible business values published against one Step. */
-/** 针对一个步骤（Step）发布的合并可扩展业务值。 */
+/* 针对一个步骤（Step）发布的合并可扩展业务值。 */
 export interface ConversationStepDataMap {}
 
 /** Stable keyed reader for independently owned Location business values. */
-/** 独立拥有的位置业务值的稳定按键读取器。 */
+/* 独立拥有的位置业务值的稳定按键读取器。 */
 export interface ConversationLocationDataStore<DataMap extends object> {
   /**
    * Read one business value without exposing another owner's mutable State.
    * @param key - declaration-merged business key.
    * @returns latest immutable value, when its owning Context has published one.
    */
-  /**
+  /*
    * 读取一个业务值，不暴露其他属主的可变状态。
    * @param key 声明合并的业务键。
    * @returns 属主 Context 已发布时的最新不可变值。
@@ -95,7 +95,7 @@ type RegisteredStepData = {
 }[keyof ConversationStepDataMap & string]
 
 /** One Definition-owned value attached to an Engine-owned Turn or Step. */
-/**
+/*
  * 附着在引擎拥有的轮次或步骤上的、定义拥有的值。
  * 无注册键时退化为通用载体，有注册键时是类型化的判别联合。
  */
@@ -105,7 +105,7 @@ export type ConversationLocationData =
     : RegisteredTurnData | RegisteredStepData
 
 /** Immutable resolved boundary for one Agent step. */
-/** 单个 Agent 步骤的不可变已解析边界。 */
+/* 单个 Agent 步骤的不可变已解析边界。 */
 export interface StepLocation {
   readonly turn: number
   readonly step: number
@@ -113,12 +113,12 @@ export interface StepLocation {
   readonly end: SessionEvent<'step/end'> | undefined
   readonly status: 'open' | 'closed' | 'unknown'
   /** Stable reader for Step-scoped business values. */
-  /** 步骤作用域业务值的稳定读取器。 */
+  /* 步骤作用域业务值的稳定读取器。 */
   readonly data: ConversationLocationDataStore<ConversationStepDataMap>
 }
 
 /** Immutable resolved boundary for one Agent turn. */
-/** 单个 Agent 轮次的不可变已解析边界。 */
+/* 单个 Agent 轮次的不可变已解析边界。 */
 export interface TurnLocation {
   readonly turn: number
   readonly start: SessionEvent<'turn/start'> | undefined
@@ -126,12 +126,12 @@ export interface TurnLocation {
   readonly status: 'open' | 'closed' | 'unknown'
   readonly steps: readonly StepLocation[]
   /** Stable reader for Turn-scoped business values. */
-  /** 轮次作用域业务值的稳定读取器。 */
+  /* 轮次作用域业务值的稳定读取器。 */
   readonly data: ConversationLocationDataStore<ConversationTurnDataMap>
 }
 
 /** Engine-owned placement of one matched event in the Session hierarchy. */
-/** 一个已匹配事件在会话层级中由引擎拥有的放置位置。 */
+/* 一个已匹配事件在会话层级中由引擎拥有的放置位置。 */
 export type ConversationLocation =
   | { readonly kind: 'session' }
   | { readonly kind: 'turn'; readonly turn: TurnLocation }
@@ -139,14 +139,14 @@ export type ConversationLocation =
   | { readonly kind: 'unresolved' }
 
 /** One event accepted by a Definition, with its current resolved Location. */
-/** 一个被定义接受的事件及其当前已解析位置。 */
+/* 一个被定义接受的事件及其当前已解析位置。 */
 export interface ConversationMatch extends ConversationEventInput {
   readonly role: 'start' | 'update'
   readonly location: ConversationLocation
 }
 
 /** Target-neutral identity returned by a business Definition. */
-/** 业务定义返回的目标中立身份。 */
+/* 业务定义返回的目标中立身份。 */
 export interface ConversationViewNode {
   readonly key: string
   readonly kind: string
@@ -156,21 +156,21 @@ export interface ConversationViewNode {
 }
 
 /** Merge-extensible immutable snapshots published by registered view targets. */
-/** 由已注册视图目标发布的合并可扩展不可变快照。 */
+/* 由已注册视图目标发布的合并可扩展不可变快照。 */
 export interface ConversationViewSnapshotMap {}
 
 /** Stable reader over the latest snapshot of every registered view target. */
-/** 覆盖每个已注册视图目标最新快照的稳定读取器。 */
+/* 覆盖每个已注册视图目标最新快照的稳定读取器。 */
 export interface ConversationViewSnapshotStore {
   /** @param target - registered view target. @returns its current snapshot. */
-  /** @param target 已注册的视图目标。 @returns 其当前快照。 */
+  /* @param target 已注册的视图目标。 @returns 其当前快照。 */
   get<Target extends Extract<keyof ConversationViewSnapshotMap, string>>(
     target: Target,
   ): ConversationViewSnapshotMap[Target] | undefined
 }
 
 /** Final Chat render unit produced directly by a business Definition. */
-/** 由业务定义直接产出的最终 Chat 渲染单元。 */
+/* 由业务定义直接产出的最终 Chat 渲染单元。 */
 export interface ChatConversationViewNode extends ConversationViewNode {
   readonly target: 'chat'
   readonly anchorSeq: number
@@ -179,7 +179,7 @@ export interface ChatConversationViewNode extends ConversationViewNode {
 }
 
 /** Immutable public view of an assembled business Context. */
-/** 一个已装配业务上下文的不可变公开视图。 */
+/* 一个已装配业务上下文的不可变公开视图。 */
 export interface ConversationNodeContext<State = unknown> {
   readonly key: string
   readonly kind: string
@@ -191,7 +191,7 @@ export interface ConversationNodeContext<State = unknown> {
 }
 
 /** Read-only predecessor returned to a Definition's start function. */
-/** 返回给定义 start 函数的只读前驱上下文。 */
+/* 返回给定义 start 函数的只读前驱上下文。 */
 export interface ConversationPreviousContext<State = unknown> {
   readonly key: string
   readonly kind: string
@@ -202,7 +202,7 @@ export interface ConversationPreviousContext<State = unknown> {
 }
 
 /** Strictly-backward Context lookup available while a start is evaluated. */
-/** start 求值期间可用的严格向后上下文查找。 */
+/* start 求值期间可用的严格向后上下文查找。 */
 export interface ConversationContextReader {
   /**
    * Find the active Context of `kind` with the greatest start seq below the
@@ -210,7 +210,7 @@ export interface ConversationContextReader {
    * @param kind - Definition kind to query.
    * @returns the nearest predecessor, or undefined when absent in the current window.
    */
-  /**
+  /*
    * 查找 kind 中"start seq 小于当前 start 事件且最大"的活跃上下文。
    * @param kind 要查询的定义类型。
    * @returns 最近的前驱；当前窗口内不存在时为 undefined。
@@ -219,26 +219,26 @@ export interface ConversationContextReader {
 }
 
 /** Requested cadence for materializing updated business State into view Nodes. */
-/** 把更新的业务状态物化为视图节点时请求的节奏。 */
+/* 把更新的业务状态物化为视图节点时请求的节奏。 */
 export type ConversationPublication = 'none' | 'animation-frame' | 'immediate'
 
 /** Engine-owned Location data publication phase. */
-/** 引擎拥有的位置数据发布阶段。 */
+/* 引擎拥有的位置数据发布阶段。 */
 export type ConversationLocationDataScope = 'step' | 'turn'
 
 /** One independently registered business Event-to-Node state machine. */
-/** 一个独立注册的业务"事件 -> 节点"状态机。 */
+/* 一个独立注册的业务"事件 -> 节点"状态机。 */
 export interface ConversationNodeDefinition<State = unknown> {
   readonly kind: string
   /** Sole view target owned by this Definition; omitted for state-only Contexts. */
-  /** 本定义拥有的唯一视图目标；纯状态上下文省略该字段。 */
+  /* 本定义拥有的唯一视图目标；纯状态上下文省略该字段。 */
   readonly target?: string
   /**
    * Extract this Definition's stable business identity from one event.
    * @param event - raw Session event; no Context or history access is available.
    * @returns identity and lifecycle role, or null when unrelated.
    */
-  /**
+  /*
    * 从一个事件提取本定义的稳定业务身份。
    * @param event 原始会话事件；此时无上下文或历史访问可用。
    * @returns 身份与生命周期角色；无关事件返回 null。
@@ -251,7 +251,7 @@ export interface ConversationNodeDefinition<State = unknown> {
    * @param reader - strictly-backward read-only Context lookup.
    * @returns the State adopted by the engine.
    */
-  /**
+  /*
    * 从唯一的 start 匹配创建状态。
    * @param context 当前为该上下文收集的完整证据。
    * @param match start 匹配。
@@ -269,7 +269,7 @@ export interface ConversationNodeDefinition<State = unknown> {
    * @param match - update Match in ascending log order.
    * @returns the State adopted by the engine.
    */
-  /**
+  /*
    * 应用一次 start 之后的更新匹配。
    * @param context 带当前状态的上下文。
    * @param match 按日志升序的更新匹配。
@@ -284,7 +284,7 @@ export interface ConversationNodeDefinition<State = unknown> {
    * @param match - accepted Match.
    * @returns requested cadence; omission defaults to immediate.
    */
-  /**
+  /*
    * 为一个已接受的匹配选择发布节奏。
    * @param match 已接受的匹配。
    * @returns 请求的节奏；省略时默认立即发布。
@@ -299,7 +299,7 @@ export interface ConversationNodeDefinition<State = unknown> {
    * @param scope - Location hierarchy level currently being materialized.
    * @returns current Location value, or null while unavailable.
    */
-  /**
+  /*
    * 为某个位置阶段发布本定义的只读业务值。引擎先按 Step 后按 Turn 求值
    * 每个定义，拥有替换/移除权，并拒绝另一个上下文发布相同的位置键。
    * @param context 最新的完整上下文。
@@ -315,7 +315,7 @@ export interface ConversationNodeDefinition<State = unknown> {
    * @param context - latest complete Context.
    * @returns final Node, or null when this Context is not currently visible.
    */
-  /**
+  /*
    * 为本定义声明的视图目标物化一个最终节点。
    * @param context 最新的完整上下文。
    * @returns 最终节点；当前不可见时为 null。
@@ -324,14 +324,14 @@ export interface ConversationNodeDefinition<State = unknown> {
 }
 
 /** Reference-stable Turn/Step facts published beside view Nodes. */
-/** 与视图节点一同发布的引用稳定的轮次/步骤事实。 */
+/* 与视图节点一同发布的引用稳定的轮次/步骤事实。 */
 export interface ConversationTimelineSnapshot {
   readonly turnOrder: readonly number[]
   readonly turns: ReadonlyMap<number, TurnLocation>
 }
 
 /** Per-Session incremental builder for one view target. */
-/** 每个会话一个、面向某个视图目标的增量构建器。 */
+/* 每个会话一个、面向某个视图目标的增量构建器。 */
 export interface ConversationViewBuilder<Node extends ConversationViewNode = ConversationViewNode, Snapshot = unknown> {
   readonly empty: Snapshot
   /**
@@ -339,7 +339,7 @@ export interface ConversationViewBuilder<Node extends ConversationViewNode = Con
    * @param input - complete Nodes and current timeline.
    * @returns next view snapshot.
    */
-  /**
+  /*
    * 替换低频的完整物化节点集。
    * @param input 完整节点与当前时间线。
    * @returns 下一个视图快照。
@@ -353,7 +353,7 @@ export interface ConversationViewBuilder<Node extends ConversationViewNode = Con
    * @param input - changed Nodes and current timeline.
    * @returns next view snapshot.
    */
-  /**
+  /*
    * 只应用本次事务中物化值发生变化的节点。
    * @param input 变化的节点与当前时间线。
    * @returns 下一个视图快照。
@@ -365,11 +365,11 @@ export interface ConversationViewBuilder<Node extends ConversationViewNode = Con
 }
 
 /** Registry contribution that creates one isolated view builder per Session. */
-/** 每个会话创建一个隔离视图构建器的注册贡献。 */
+/* 每个会话创建一个隔离视图构建器的注册贡献。 */
 export interface ConversationViewDefinition<Node extends ConversationViewNode = ConversationViewNode, Snapshot = unknown> {
   readonly target: string
   /** @returns a new Session-owned incremental builder. */
-  /** @returns 一个新的会话属主增量构建器。 */
+  /* @returns 一个新的会话属主增量构建器。 */
   create(): ConversationViewBuilder<Node, Snapshot>
 }
 
@@ -379,7 +379,7 @@ export interface ConversationViewDefinition<Node extends ConversationViewNode = 
  * @param id - Definition-local business identity.
  * @returns engine-owned Context key.
  */
-/**
+/*
  * 为一个定义本地业务身份构造稳定无碰撞的键。
  * @param kind 定义类型。
  * @param id 定义本地业务身份。

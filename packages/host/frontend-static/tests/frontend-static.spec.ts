@@ -5,7 +5,7 @@
  * entry points with index taps, 404 misses, traversal rejection, 405 on non-
  * GET/HEAD, and seat release on fiber disposal (HMR safety).
  */
-/**
+/*
  * 文件职责：验证宿主服务的 frontend-static.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证宿主服务在授权、等待、失败和清理场景中可靠。
@@ -38,7 +38,7 @@ afterEach(async () => {
 })
 
 /** Write a dist fixture and a two-row cordis.yml, then boot it through the real Loader. */
-/** 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function loadComposition(): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-frontend-static-'))
   /** 中文说明：测试局部值 dist，由紧邻初始化决定。 */
@@ -90,7 +90,7 @@ async function loadComposition(): Promise<Context> {
 }
 
 /** GET (by default) one path against the running server; returns status, content-type, and a body prefix. */
-/** 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function request(port: number, path: string, init?: RequestInit): Promise<{ status: number; type: string | null; body: string }> {
   /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
   const response = await fetch(`http://127.0.0.1:${String(port)}${path}`, init)

@@ -6,7 +6,7 @@
  * still renders and only the dark theme looks wrong. Checking the names against
  * the sheet that declares them is what turns that into a test failure.
  */
-/**
+/*
  * 文件职责：验证模型设置的 styles.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止模型设置保存、发现和错误提示回归。
@@ -32,7 +32,7 @@ const tokens = readdirSync(fileURLToPath(new URL('../../ui-theme/src/styles/', i
   .join('\n')
 
 /** The declarations of one top-level rule, by selector. */
-/** 中文说明：函数 block 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 block 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function block(selector: string): string {
   /** 中文说明：测试局部值 match，由紧邻初始化决定。 */
   const match = new RegExp(`^\\${selector} \\{([^}]*)\\}`, 'm').exec(css)

@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-claude-code
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理进程与协议行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
@@ -51,7 +51,7 @@ const DEFAULT_PROVIDER_NAME = 'claude-code'
 /* jscpd:ignore-start -- sibling product providers intentionally expose
  * overlapping deployment-owned fields without adding a shared config owner. */
 /** Deployment-owned permission, environment, and process-release settings. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `claude-code`). */
   providerName?: string
@@ -150,7 +150,7 @@ class ClaudeCodeProvider implements SubagentProvider {
  * @param ctx - context carrying shared subagent and subprocess services.
  * @param config - registry name, permission mode, child environment, and disposal grace.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved: ResolvedConfig = {

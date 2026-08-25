@@ -10,7 +10,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-dsh-sdk/run
  */
-/**
+/*
  * 文件职责：实现 run.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -28,7 +28,7 @@ import { AssistantOutputFold, settleRunResult, subprocessRunHandle } from '@deep
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 
 /** Resolved spawn spec for an SDK runtime child process (no defaults — see Config). */
-/** 中文说明：interface SdkRunSpec 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface SdkRunSpec 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface SdkRunSpec {
   /** The executable to spawn (the child runtime — a `dsh-jsonrpc-agent` bin or packaged exe). */
   command: string
@@ -69,15 +69,15 @@ export interface SdkRunSpec {
 }
 
 /** EOF grace for child flush and nested-process teardown; wider than the signal grace below. */
-/** 中文说明：常量 DEFAULT_DISPOSE_EOF_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_DISPOSE_EOF_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_EOF_GRACE_MS = 6_000
 
 /** Default POSIX grace between SIGTERM and SIGKILL on dispose (the `disposeGraceMs` config). */
-/** 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
 /** Default bound on the protocol `shutdown` exchange during dispose. */
-/** 中文说明：常量 DEFAULT_SHUTDOWN_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_SHUTDOWN_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_SHUTDOWN_TIMEOUT_MS = 1_000
 
 /**
@@ -87,7 +87,11 @@ export const DEFAULT_SHUTDOWN_TIMEOUT_MS = 1_000
  * @returns the harness equivalent; an absent or unknown reason maps to
  * `error`, so an unclean stop is never reported as `completed`.
  */
-/** 中文说明：函数 sdkStopReason 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 sdkStopReason 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param reason 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function sdkStopReason(reason: TurnEndReason | undefined): SubagentStopReason {
   switch (reason?.kind) {
     case 'completed':
@@ -105,7 +109,7 @@ export function sdkStopReason(reason: TurnEndReason | undefined): SubagentStopRe
 }
 
 /** Normalize an unknown thrown value to an Error (the catch binding is `unknown`). */
-/** 中文说明：函数 toError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 toError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toError(value: unknown): Error {
   // The catch only sees rejections from the SDK client, which are always
   // `Error`s; the `String(value)` arm is a defensive fallback for a non-Error
@@ -123,7 +127,12 @@ function toError(value: unknown): Error {
  * provider/model route, env, timeouts, and the optional error sink.
  * @returns the ready run handle for the child subprocess.
  */
-/** 中文说明：函数 startSdkRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 startSdkRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function startSdkRun(request: SubagentStartRequest, spec: SdkRunSpec): Promise<SubagentRun> {
   if (request.signal.aborted) throw new Error('subagent request was aborted before the SDK child started')
   // The run id lives in the parent namespace; the child runtime's session id

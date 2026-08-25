@@ -1,5 +1,5 @@
 /** Web-localized copy for the four shipped presets and file copy for every other row. */
-/**
+/*
  * 文件职责：验证四个内置代理 preset 使用 Web 本地化文案，其他 preset 保留文件元数据。
  * 技术维度：使用 Vitest 参数化测试和轻量翻译函数覆盖中英文资源。
  * 产品维度：让内置选项在界面中正确翻译，同时尊重用户自定义名称和描述。

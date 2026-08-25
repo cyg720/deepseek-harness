@@ -1,5 +1,5 @@
 /** Host HTTP bridge for browser-client RPC. */
-/**
+/*
  * 文件职责：组装客户端连接插件，在宿主 Web 服务器上挂载 HTTP API、共享 RPC 和两条 WebSocket 下行路由。
  * 技术维度：使用 Cordis 插件生命周期、Schemastery 配置、Node HTTP 桥、Fetch 处理器及 WebSocket 升级路由。
  * 产品维度：为 Web 客户端提供统一连接入口，同时保护设置、凭据和宿主桌面等高权限能力。
@@ -33,11 +33,11 @@ export { HostConnectionService } from './rpc-host.ts'
 export { API_PATH, HOST_EVENTS_PATH, MUX_EVENTS_PATH } from './api-path.ts'
 
 /** Stable Cordis plugin name. */
-/** 中文说明：Cordis 中稳定的插件名称，用于识别和诊断该连接插件。 */
+/* 中文说明：Cordis 中稳定的插件名称，用于识别和诊断该连接插件。 */
 export const name = 'client-connection'
 
 /** Headroom for RPC JSON fields around aggregate base64 image payloads. */
-/** 中文说明：图片 Base64 数据之外为 RPC JSON 字段预留的 1 MiB 空间。 */
+/* 中文说明：图片 Base64 数据之外为 RPC JSON 字段预留的 1 MiB 空间。 */
 const REQUEST_ENVELOPE_HEADROOM_BYTES = 1024 * 1024
 
 /** 中文说明：校验请求体上限能容纳配置的图片总量；参数是 Context 和字节上限；满足时无返回值，否则抛错，例如插件加载时调用。 */
@@ -58,11 +58,11 @@ function assertImageBodyCapacity(ctx: Context, maxRequestBodyBytes: number): voi
 }
 
 /** Services required before providing Connection; API Proxy is an optional `/api` fallback. */
-/** 中文说明：插件启动前必须具备 Web 服务器；API Proxy 通过后续动态注入作为可选回退。 */
+/* 中文说明：插件启动前必须具备 Web 服务器；API Proxy 通过后续动态注入作为可选回退。 */
 export const inject = ['webServer']
 
 /** Plugin config: the deployment's non-loopback serving authorities. */
-/** 中文说明：连接插件配置，声明非回环服务地址和请求体内存上限。 */
+/* 中文说明：连接插件配置，声明非回环服务地址和请求体内存上限。 */
 export interface ConnectionConfig {
   /**
    * Authorities this deployment serves beyond loopback: exact `host:port`, or
@@ -72,11 +72,11 @@ export interface ConnectionConfig {
    * by (the dsh CLI derives the machine's LAN IP literals itself). An entry
    * that is not a bare, canonical authority fails the plugin load.
    */
-  /** 中文说明：允许的非回环规范 authority 列表；省略时只接受回环地址，每项必须是裸 `host` 或 `host:port`。 */
+  /* 中文说明：允许的非回环规范 authority 列表；省略时只接受回环地址，每项必须是裸 `host` 或 `host:port`。 */
   trustedHosts?: string[]
-  /** 中文说明：允许的非回环规范 authority 列表；省略时只接受回环地址。 */
+  /* 中文说明：允许的非回环规范 authority 列表；省略时只接受回环地址。 */
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
-  /** 中文说明：每个 `/api` 请求最多缓冲的 JSON 字节数，默认 300 MiB。 */
+  /* 中文说明：每个 `/api` 请求最多缓冲的 JSON 字节数，默认 300 MiB。 */
   maxRequestBodyBytes?: number
 }
 
@@ -106,7 +106,7 @@ export const Config: z<ConnectionConfig> = z.object({
  * it carries provider ids, display names, and model lists — no endpoints,
  * keys, or key state — and a LAN client's model picker legitimately needs it.
  */
-/** 中文说明：即使部署允许可信局域网宿主，也仍强制只在回环同源调用的方法集合。 */
+/* 中文说明：即使部署允许可信局域网宿主，也仍强制只在回环同源调用的方法集合。 */
 const PRIVILEGED_METHODS = new Set([
   // A preset composition names the plugins a session runs, so reading one is
   // reconnaissance; copy and remove rearrange what the deployment offers, and
@@ -149,7 +149,7 @@ const PRIVILEGED_METHODS = new Set([
  * @param ctx - Host plugin context.
  * @param config - resolved plugin config (schema defaults applied).
  */
-/**
+/*
  * 中文说明：加载连接插件并注册 HTTP、共享 RPC 和 WebSocket 路由。
  * @param ctx 宿主插件 Context。
  * @param config 已应用模式默认值的可选连接配置。

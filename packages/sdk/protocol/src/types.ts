@@ -7,7 +7,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-protocol/types
  */
-/**
+/*
  * 文件职责：实现 types.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -21,7 +21,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SubagentStopReason } from '@deepseek-ai/dsh-subagent'
 
 /** Parameters for the process-wide SDK handshake. */
-/** 中文说明：interface InitializeParams 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface InitializeParams 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface InitializeParams {
   /** Working directory recorded on every SDK-created session's header. */
   cwd: string
@@ -34,14 +34,14 @@ export interface InitializeParams {
 }
 
 /** Wire-stable server identity returned by initialization. */
-/** 中文说明：interface InitializeResult 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface InitializeResult 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface InitializeResult {
   /** Wire-stable server identity (`deepseek-harness-sdk-runtime`) and version. */
   serverInfo: { name: string; version: string }
 }
 
 /** One user turn on one SDK session. */
-/** 中文说明：interface SessionPromptParams 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface SessionPromptParams 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface SessionPromptParams {
   /** The SDK-side session id; an unknown id lazily creates the agent+session pair. */
   sessionId: string
@@ -50,18 +50,18 @@ export interface SessionPromptParams {
 }
 
 /** Durable enqueue receipt for one prompt. */
-/** 中文说明：interface SessionPromptResult 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface SessionPromptResult 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface SessionPromptResult {
   /** Identity of the queued user message. */
   messageId: string
 }
 
 /** Deployment-mapped SDK outcome: `ok` for an accepted result, `error` otherwise. */
-/** 中文说明：type SdkRunStatus 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：type SdkRunStatus 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export type SdkRunStatus = 'ok' | 'error'
 
 /** `session.event` payload: one session-log event, streamed as it is recorded. */
-/** 中文说明：interface SessionEventNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface SessionEventNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface SessionEventNotification {
   /** Session the event belongs to (every session in the runtime, not only SDK-created ones). */
   sessionId: string
@@ -70,7 +70,7 @@ export interface SessionEventNotification {
 }
 
 /** Whole-agent lifecycle state for one session. */
-/** 中文说明：interface SessionStatusNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface SessionStatusNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface SessionStatusNotification {
   /** Session whose live agent changed status. */
   sessionId: string
@@ -79,7 +79,7 @@ export interface SessionStatusNotification {
 }
 
 /** `subagent.started` payload: an in-runtime child session was created. */
-/** 中文说明：interface SubagentStartedNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface SubagentStartedNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface SubagentStartedNotification {
   /** The delegating session. */
   parentSessionId: string
@@ -88,7 +88,7 @@ export interface SubagentStartedNotification {
 }
 
 /** `subagent.finished` payload: an in-process subagent run ended (remote runs are not reported). */
-/** 中文说明：interface SubagentFinishedNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface SubagentFinishedNotification 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface SubagentFinishedNotification {
   /** Subagent provider name that ran the child. */
   provider: string
@@ -107,7 +107,7 @@ export interface SubagentFinishedNotification {
 }
 
 /** Server-to-client notifications by JSON-RPC method name. */
-/** 中文说明：interface HarnessSdkNotificationMap 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface HarnessSdkNotificationMap 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface HarnessSdkNotificationMap {
   'session.event': SessionEventNotification
   'session.status': SessionStatusNotification
@@ -116,7 +116,7 @@ export interface HarnessSdkNotificationMap {
 }
 
 /** Client-to-server request methods with their param and result shapes. */
-/** 中文说明：interface HarnessSdkRequestMap 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface HarnessSdkRequestMap 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface HarnessSdkRequestMap {
   'initialize': { params: InitializeParams; result: InitializeResult }
   'session/prompt': { params: SessionPromptParams; result: SessionPromptResult }

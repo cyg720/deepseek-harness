@@ -13,7 +13,7 @@
  *
  * @module dsh-llm-pi-ai/config
  */
-/**
+/*
  * 文件职责：实现Pi AI LLM的 config.ts 模块。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
@@ -48,7 +48,7 @@ import type {
 import { buildProvider, supportedProtocols } from './provider.ts'
 
 /** Default maximum idle interval while an adapter stream read is outstanding. */
-/** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
 export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000
 
 /**
@@ -60,21 +60,21 @@ export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000
  * system prompts, history, tools, and JSON.
  * Deployments behind stricter gateways lower it per route.
  */
-/** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
 export const DEFAULT_MAX_REQUEST_IMAGE_BYTES = 20 * 1024 * 1024
 /** Default total-pixel budget preserves the complete 2048px normalized attachment. */
-/** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
 export const DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET = 2048 * 2048
 /** Default raw encoded-byte cap before inline base64 expansion. */
-/** 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 解构结果，由紧邻初始化决定。 */
 export const DEFAULT_REQUEST_IMAGE_MAX_BYTES = 1024 * 1024
 
 /** Context capacity assumed for a model neither configuration nor the catalog sizes. */
-/** 中文说明：适配器局部值 DEFAULT_CONTEXT_WINDOW，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 DEFAULT_CONTEXT_WINDOW，由紧邻初始化决定。 */
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 
 /** Output capability assumed for a model neither configuration nor the catalog sizes. */
-/** 中文说明：适配器局部值 DEFAULT_MAX_TOKENS，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 DEFAULT_MAX_TOKENS，由紧邻初始化决定。 */
 export const DEFAULT_MAX_TOKENS = 32_768
 
 /**
@@ -87,7 +87,7 @@ export const DEFAULT_MAX_TOKENS = 32_768
  * rejects mid-turn, after the message is durable, leaving the session
  * repeating a request that cannot succeed.
  */
-/** 中文说明：适配器局部值 DEFAULT_INPUT，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 DEFAULT_INPUT，由紧邻初始化决定。 */
 export const DEFAULT_INPUT: readonly PiAiModality[] = ['text']
 
 export type {
@@ -100,7 +100,7 @@ export type {
 } from './catalog.ts'
 
 /** Configuration for one pi-ai provider route; the `providers` dict key IS the route. */
-/** 中文说明：类型或类 PiAiProviderProfile 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 PiAiProviderProfile 约束模型请求、认证或流事件职责。 */
 export interface PiAiProviderProfile {
   /** Credential reference (environment-variable name) resolved per request through `ctx.credentials`. */
   apiKeyEnv?: string
@@ -192,7 +192,7 @@ export interface PiAiProviderProfile {
 }
 
 /** Validated profile with its route stamped and every adapter-owned default resolved. */
-/** 中文说明：类型或类 ResolvedPiAiProviderProfile 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 ResolvedPiAiProviderProfile 约束模型请求、认证或流事件职责。 */
 export interface ResolvedPiAiProviderProfile
   extends Omit<PiAiProviderProfile, 'apiKeyEnv' | 'retryPolicy' | 'models' | 'displayName'> {
   /** Harness route key and the `Models` collection key (the configuration dict key). */
@@ -227,7 +227,7 @@ export interface ResolvedPiAiProviderProfile
 }
 
 /** Plugin configuration: the provider routes this instance owns. */
-/** 中文说明：类型或类 Config 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 Config 约束模型请求、认证或流事件职责。 */
 export interface Config {
   /**
    * pi-ai provider routes, keyed by provider. An empty (or omitted) dict is
@@ -250,7 +250,7 @@ const thinkingBudgets = z.object({
  * for a value dispatch fills from the request's thinking state, which is what
  * makes a chat-template gateway configurable without restating its template.
  */
-/** 中文说明：适配器局部值 chatTemplateKwarg，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 chatTemplateKwarg，由紧邻初始化决定。 */
 const chatTemplateKwarg: z<ChatTemplateKwargValue> = z.union([
   z.string(),
   z.number(),
@@ -296,14 +296,14 @@ const compatProfile: z<PiAiCompatProfile> = z.object({
  * schemastery's `Dict`, which types every literal key as required; dict
  * validation checks only present keys, so the runtime value is a partial record.
  */
-/** 中文说明：适配器局部值 reasoningEfforts，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 reasoningEfforts，由紧邻初始化决定。 */
 const reasoningEfforts = z.dict(
   z.union([z.string(), z.const(null)]),
   z.union(THINKING_LEVELS),
 ) as unknown as z<PiAiReasoningEfforts>
 
 /** The fields a `models` entry and a `modelOverrides` value share; only the id's home differs. */
-/** 中文说明：适配器局部值 modelFields，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 modelFields，由紧邻初始化决定。 */
 const modelFields = {
   name: z.string(),
   contextWindow: z.number().step(1).min(1),
@@ -326,7 +326,7 @@ const modelProfile: z<PiAiModelProfile> = z.object({
 })
 
 /** A {@link modelProfile} whose id lives in the `modelOverrides` dict key. */
-/** 中文说明：适配器局部值 modelOverride，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 modelOverride，由紧邻初始化决定。 */
 const modelOverride: z<PiAiModelOverride> = z.object(modelFields)
 
 /** 中文说明：适配器局部值 profile，由紧邻初始化决定。 */
@@ -356,7 +356,7 @@ const profile = z.object({
 })
 
 /** Runtime schema for {@link Config}. */
-/** 中文说明：适配器局部值 Config，由紧邻初始化决定。 */
+/* 中文说明：适配器局部值 Config，由紧邻初始化决定。 */
 export const Config: z<Config> = z.object({
   providers: z.dict(profile).default({}),
 })
@@ -373,13 +373,16 @@ export const Config: z<Config> = z.object({
  * @param config - the resolved section to check.
  * @throws Error naming the route and model that cannot be served.
  */
-/** 中文说明：函数 assertServiceable 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 assertServiceable 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function assertServiceable(config: Config): void {
   resolveProfiles(config.providers)
 }
 
 /** Reject removed pre-release profile fields and name their replacements. */
-/** 中文说明：函数 rejectRemovedFields 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 rejectRemovedFields 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function rejectRemovedFields(provider: string, source: PiAiProviderProfile): void {
   /** 中文说明：适配器局部值 legacy，由紧邻初始化决定。 */
   const legacy = source as PiAiProviderProfile & {
@@ -406,7 +409,11 @@ function rejectRemovedFields(provider: string, source: PiAiProviderProfile): voi
  * @param providers - configured provider profiles keyed by route.
  * @returns validated profiles in configuration order.
  */
-/** 中文说明：函数 resolveProfiles 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 resolveProfiles 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param providers 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveProfiles(
   providers: Readonly<Record<string, PiAiProviderProfile>> | undefined,
 ): Map<string, ResolvedPiAiProviderProfile> {

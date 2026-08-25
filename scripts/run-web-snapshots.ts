@@ -1,5 +1,5 @@
 /** Run serial browser owners before one bounded snapshot pool. */
-/**
+/*
  * 文件职责：先串行运行会修改共享浏览器状态的 Web 用例，再用受控 worker 池运行其余快照。
  * 技术维度：使用 Node spawn、顶层 await、pnpm 调用解析和严格环境变量校验。
  * 产品维度：提高 Web 快照 CI 吞吐量，同时避免 HMR 与 Cordis 生命周期测试互相干扰。

@@ -17,7 +17,7 @@ export const NS = 'cordis'
 // 字典命名空间：本包所有 UI 文案都以 NS 为前缀注册
 
 /** Simplified Chinese Cordis UI messages. */
-/** 简体中文文案表：Cordis UI 的每个展示字符串。 */
+/* 简体中文文案表：Cordis UI 的每个展示字符串。 */
 export const zh = {
   'row.defineTitle': '注册 Cordis 插件',
   'row.runTitle': '运行 Cordis 插件',
@@ -71,7 +71,7 @@ export const zh = {
 } satisfies Record<string, string>
 
 /** Translation keys owned by the Cordis UI namespace. */
-/** 本 UI 命名空间拥有的翻译键集合（以 zh 的键为准）。 */
+/* 本 UI 命名空间拥有的翻译键集合（以 zh 的键为准）。 */
 export type CordisKey = keyof typeof zh
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -83,7 +83,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** English Cordis UI messages. */
-/** 英文文案表：键与 zh 完全一致，满足类型约束。 */
+/* 英文文案表：键与 zh 完全一致，满足类型约束。 */
 export const en = {
   'row.defineTitle': 'Register Cordis Plugin',
   'row.runTitle': 'Run Cordis Plugin',

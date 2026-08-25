@@ -6,7 +6,7 @@
  * 关键边界：该类型不枚举可用类名，错误键只能由构建或界面测试发现。
  * 新手阅读建议：先看交付物组件怎样读取样式对象，再查看普通 CSS 的副作用。
  */
-/** 使用方式：`import styles from './Deliverables.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Deliverables.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码类名，值为构建阶段产生的隔离类名。 */
   const classes: Record<string, string>

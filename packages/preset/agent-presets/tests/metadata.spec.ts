@@ -5,7 +5,7 @@
  * — `id` is the directory and `trust` is the root, so neither is readable
  * from the file a user can write.
  */
-/**
+/*
  * 文件职责：验证 metadata.spec.ts 覆盖的Agent 预设行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
  * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest'
 import { METADATA_FILE, readPresetMetadata, renderPresetMetadata } from '../src/metadata.ts'
 
 /** A preset directory holding exactly the given metadata text. */
-/** 中文说明：函数 presetDir 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 presetDir 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function presetDir(content?: string): Promise<string> {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-preset-meta-'))

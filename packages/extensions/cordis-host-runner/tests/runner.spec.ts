@@ -21,7 +21,7 @@ import { AGENT_A, AGENT_B, CLIENT_CODE, setup, running } from './helpers.ts'
  */
 
 /** A host half that registers one invoke handler and provides a service. */
-/** 中文说明：测试局部值 HOST_CODE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 HOST_CODE，由紧邻初始化决定。 */
 const HOST_CODE = `
   harness.handle('double', async (args) => args.value * 2)
   return {

@@ -8,7 +8,7 @@
  *
  * @module @deepseek-ai/dsh-agent-instructions
  */
-/**
+/*
  * 文件职责：实现工作区指令上下文的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的工作区指令上下文信息。

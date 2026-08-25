@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义一次对话调用的配置（provider/model/推理强度/采样参数）及其
  * 相等比较、agent loop 请求标记，以及通用的深度冻结工具 deepFreeze。
@@ -37,7 +37,7 @@ const AGENT_LOOP_REQUESTS = new WeakSet<GenerateOptions>()
 // and where provider-specific request options belong.
 // 中文：TODO——重新审视哪些字段属于"epoch 级"（影响缓存复用）、provider 专属
 // 请求选项应该放在哪里。
-/**
+/*
  * （中文）一次对话请求的配置：provider、model、推理强度与采样标量。每个字段
  * 与 GenerateOptions 中同名的一对一映射；loop 从日志化的请求头重建请求，而
  * 不是每次调用时接受这些值。
@@ -63,7 +63,7 @@ export interface LlmCallConfig {
   stop?: string[]
 }
 
-/**
+/*
  * （中文）"由精确模型解析补充、而非调用方提议"的有效配置字段标记：值为 true
  * 表示该字段的最终值来自适配器默认而非请求提议。
  */
@@ -76,7 +76,7 @@ export interface LlmCallConfigAdapterDefaults {
   maxTokens?: true
 }
 
-/**
+/*
  * （中文）对 LlmCallConfig 做逐字段相等比较——调用方用它判断"新提议的配置"
  * 是否真的是变化（值得记录一次日志快照）还是旧配置的复述。
  * @param a 一份配置。
@@ -103,7 +103,7 @@ export function callConfigEquals(a: LlmCallConfig, b: LlmCallConfig): boolean {
   return a.stop.length === b.stop.length && a.stop.every((s, i) => s === b.stop?.[i])
 }
 
-/**
+/*
  * （中文）把某个精确请求对象标记为"由 dsh-agent-loop 组装"。带此标记的请求
  * 到达 llm/stream 瀑布流时是深冻结的（任何改写都会抛错），其内容只是会话日志
  * 的纯函数。
@@ -120,7 +120,7 @@ export function markAgentLoopRequest<T extends GenerateOptions>(request: T): T {
   return request
 }
 
-/**
+/*
  * （中文）判断某个精确请求对象是否由 dsh-agent-loop 组装（按对象身份判断）。
  * @param request 在 LLM 瀑布流处观察到的请求包络。
  * @returns 该对象是否被 markAgentLoopRequest 记录过。
@@ -134,7 +134,7 @@ export function isAgentLoopRequest(request: GenerateOptions): boolean {
   return AGENT_LOOP_REQUESTS.has(request)
 }
 
-/**
+/*
  * （中文）就地深冻结一个值：用迭代遍历（显式工作栈）替代递归，既防循环引用
  * 又不给 JS 调用栈设深度上限；后续任何改写都会在严格模式下抛错。刻意跳过
  * AbortSignal 对象——它们是请求的活跃取消通道，冻结会破坏取消能力。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】Host 半部 Fiber 生命周期助手：把沙箱产出的插件挂载为 cordis-dynamic
  *             组下的子 Fiber（失败的 Fiber 绝不残留），并报告"已挂载但仍在等待服务"
@@ -38,11 +38,14 @@ import { guardedPlugin } from './guard.ts'
  * @param reportGuardFailure - reports post-activation Host guard rejections to the owning Agent.
  * @returns the settled child fiber (possibly pending on unsatisfied `inject`).
  */
-/**
+/*
  * 等待组 Fiber 就绪后，把沙箱返回的插件以守卫包裹挂载为子 Fiber，并等待其启动；
  * 启动失败先 dispose（绝不残留失败 Fiber）再抛出。若错误是"名称已注册"（最常见
  * 的启动冲突：新版本与旧运行同名），附带"先 cordis_stop 再运行新版本"的教学文案。
  * @returns 已就绪的子 Fiber（可能因 inject 服务未满足而处于 pending）
+ * @param group 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param plugin 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param reportGuardFailure 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
  */
 export async function startHostHalf(
   group: Fiber,
@@ -77,9 +80,12 @@ export async function startHostHalf(
  * @param fiber - the host-half fiber whose `inject` declarations are checked.
  * @returns the missing service names, in declaration order.
  */
-/**
+/*
  * 计算一个已挂载但未激活的 Fiber 还缺哪些服务：遍历 fiber.inject 声明的服务名，
  * 凡 ctx.get 取不到的即记为缺失（Cordis 语义下服务出现时该 Fiber 会自动激活）。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fiber 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function missingServices(ctx: Context, fiber: Fiber): string[] {
   return Object.keys(fiber.inject).filter(service => ctx.get(service) === undefined)

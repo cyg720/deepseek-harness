@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义会话（Session）及其管理器通过远程层（Remote）调用的
  *   命名空间类型：客户端 Cordis 运行时与 Host 之间的调用面。
@@ -19,7 +19,7 @@
  *
  * @module @deepseek-ai/dsh-client-runtime/client/sessions/remotes
  */
-/**
+/*
  * 会话集群（Session 与它的管理器）调用的远程命名空间：每个参数只对应一个
  * 概念，即会话及其管理器到达 Host 时使用的生成式调用面。
  */
@@ -28,5 +28,5 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 
 /** The generated Remote namespaces a Session and its manager call. */
-/** 会话及其管理器调用的生成式远程命名空间：仅包含 'commands'（命令分发）。 */
+/* 会话及其管理器调用的生成式远程命名空间：仅包含 'commands'（命令分发）。 */
 export type SessionRemotes = Pick<Context['remote'], 'commands'>

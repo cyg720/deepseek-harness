@@ -15,7 +15,7 @@ import type {
 } from 'node:http'
 
 /** One request observed by the package-private Responses fixture. */
-/** 中文说明：interface RecordedResponsesRequest 定义本测试所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface RecordedResponsesRequest 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface RecordedResponsesRequest {
   readonly method: string | undefined
   readonly path: string | undefined
@@ -24,7 +24,7 @@ interface RecordedResponsesRequest {
 }
 
 /** Behavior consumed by one Responses request. */
-/** 中文说明：type ResponsesBehavior 定义本测试所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：type ResponsesBehavior 定义本测试所需的数据或行为，用于表达子代理场景。 */
 export type ResponsesBehavior =
   | { readonly kind: 'complete'; readonly text: string }
   | { readonly kind: 'error'; readonly status: number; readonly message: string }
@@ -43,7 +43,7 @@ export type ResponsesBehavior =
   | { readonly kind: 'hold' }
 
 /** Running package-private Responses fixture. */
-/** 中文说明：interface ResponsesFixture 定义本测试所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface ResponsesFixture 定义本测试所需的数据或行为，用于表达子代理场景。 */
 export interface ResponsesFixture {
   readonly baseUrl: string
   readonly requests: RecordedResponsesRequest[]
@@ -111,7 +111,7 @@ function responseObject(text: string): Record<string, unknown> {
  * @param text - exact assistant answer.
  * @returns ordered response lifecycle events.
  */
-/** 中文说明：函数 completeResponsesEvents 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 completeResponsesEvents 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function completeResponsesEvents(text: string): Record<string, unknown>[] {
   /** 中文说明：变量 completed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const completed = responseObject(text)
@@ -268,7 +268,7 @@ function advertisedFunctionNames(body: Record<string, unknown>): Set<string> {
  * @param script - one behavior per expected Responses request.
  * @returns the running fixture and its observed requests.
  */
-/** 中文说明：函数 startResponsesFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 startResponsesFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export async function startResponsesFixture(
   script: readonly ResponsesBehavior[],
 ): Promise<ResponsesFixture> {

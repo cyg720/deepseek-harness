@@ -20,7 +20,7 @@ import type { Config } from '@deepseek-ai/dsh-tmux-context'
 const SIGNAL = new AbortController().signal
 
 /** One `#{...}`-joined tmux reading line for the eight queried fields. */
-/** 中文说明：函数 tmuxLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 tmuxLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tmuxLine(fields: {
   sessionName?: string
   windowIndex?: string
@@ -58,7 +58,7 @@ function runResult(stdout: string, overrides: Partial<ShellRunResult> = {}): She
 }
 
 /** A scriptable fake `ctx.shell` recording the command it was asked to run. */
-/** 中文说明：类型或类 FakeBash 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 FakeBash 约束上下文或压缩数据职责。 */
 class FakeBash extends ShellExecutor {
   commands: string[] = []
   result: ShellRunResult = runResult(`${tmuxLine()}\n`)

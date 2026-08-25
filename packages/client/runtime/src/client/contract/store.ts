@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】快照存储引擎（zustand vanilla + immer + subscribeWithSelector
  *   + rafFlush 中间件 + 可选 persist + 开发期冻结）及其声明式外壳：
@@ -27,7 +27,7 @@
  * update/set, NO selector hook. Hook synthesis is ui-renderer's (the one
  * uSES bridge, cached per source at the binding site).
  */
-/**
+/*
  * 快照存储引擎（zustand vanilla + immer + subscribeWithSelector + rafFlush
  * 中间件 + 可选 persist + 开发期冻结）以及其上的声明式外壳：defineStore
  * 把 init/persist/actions 字面量烘焙成 StoreHandle——槽位端点的注册侧存储
@@ -53,17 +53,17 @@ export type {
 } from '@deepseek-ai/dsh-client-ui-slots'
 
 /** Minimal observable snapshot source: Session objects and snapshot stores both satisfy it. */
-/** 最小可观察快照源：Session 对象与快照存储都满足它。 */
+/* 最小可观察快照源：Session 对象与快照存储都满足它。 */
 export interface ObservableSnapshot<T> { getSnapshot(): T; subscribe(fn: () => void): () => void }
 
 /** Writable snapshot store (bare data face; React selector hooks are synthesized in ui-renderer). */
-/** 可写快照存储（裸数据面；React 选择器钩子在 ui-renderer 合成）。 */
+/* 可写快照存储（裸数据面；React 选择器钩子在 ui-renderer 合成）。 */
 export interface SnapshotStore<T> extends ObservableSnapshot<T> {
   /**
    * Mutate the state through an immer draft.
    * @param mutator - draft mutator.
    */
-  /**
+  /*
    * 通过 immer 草稿变更状态。
    * @param mutator 草稿变更函数。
    */
@@ -72,7 +72,7 @@ export interface SnapshotStore<T> extends ObservableSnapshot<T> {
    * Replace the state wholesale.
    * @param next - next state.
    */
-  /**
+  /*
    * 整体替换状态。
    * @param next 下一个状态。
    */
@@ -86,7 +86,7 @@ export interface SnapshotStore<T> extends ObservableSnapshot<T> {
  * @param b - right value.
  * @returns whether the values are shallowly equal.
  */
-/**
+/*
  * 选择器切片的浅比较（zustand/shallow 语义；随引擎提供，钩子消费方无需
  * 依赖 zustand）。
  * @param a 左侧值。
@@ -98,7 +98,7 @@ export function shallowEqual(a: unknown, b: unknown): boolean {
 }
 
 /** Batches subscriber notification into one flush per animation frame. */
-/** 把订阅者通知批处理为每动画帧一次冲刷。 */
+/* 把订阅者通知批处理为每动画帧一次冲刷。 */
 function rafBatch(notify: () => void): () => void {
   // Fall back to microtask batching where rAF is absent (node unit tests);
   // both preserve the N-changes=1-notification contract within a tick.
@@ -132,7 +132,7 @@ function rafBatch(notify: () => void): () => void {
  * @param opts - flush mode and opt-in persistence (localStorage, keyed by name).
  * @returns the store.
  */
-/**
+/*
  * 创建一个快照存储。
  *
  * 默认冲刷为 'sync'（受控输入需要同 tick 回显）；帧驱动的存储选择 'raf'，
@@ -189,7 +189,7 @@ export function createSnapshotStore<T>(
  * because the corruption happens before serialization. Storage failures
  * (quota, private mode) only disable persistence, never break the store.
  */
-/**
+/*
  * 整体值 JSON 持久化到 localStorage。手写实现而非 zustand persist 中间件：
  * 后者的写路径把状态展开成对象（partialize({ ...get() })），会把原始值
  * 状态炸开（持久化的字符串草稿变成 {0:'h',1:'e',...}）——无法通过
@@ -221,7 +221,7 @@ function attachPersistence<T>(api: StoreApi<T>, name: string): void {
 }
 
 /** Deep-freeze wholesale-set state outside production: set() bypasses immer's freeze. */
-/** 非生产环境对整体 set 的状态做深冻结：set() 绕过了 immer 的冻结。 */
+/* 非生产环境对整体 set 的状态做深冻结：set() 绕过了 immer 的冻结。 */
 function devFreeze<T>(value: T): T {
   if (process.env.NODE_ENV === 'production') return value
   deepFreeze(value)
@@ -241,15 +241,15 @@ function deepFreeze(value: unknown): void {
 // ui-slots 拥有契约；本模块提供引擎实现。
 
 /** A live engine instance: the contract instance plus the raw engine store. */
-/** 一个活跃的引擎实例：契约实例 + 原始引擎存储。 */
+/* 一个活跃的引擎实例：契约实例 + 原始引擎存储。 */
 export interface EngineStoreInstance<T, A extends ActionsDecl<T>> extends StoreInstance<T, A> {
   /** The underlying engine store (framework/test API; components never see it). */
-  /** 底层引擎存储（框架/测试 API；组件永远看不到它）。 */
+  /* 底层引擎存储（框架/测试 API；组件永远看不到它）。 */
   readonly store: SnapshotStore<T>
 }
 
 /** The engine-backed handle: create() narrowed to the engine instance. */
-/** 引擎支撑的句柄：create() 收窄为引擎实例。 */
+/* 引擎支撑的句柄：create() 收窄为引擎实例。 */
 export interface EngineStoreHandle<T, A extends ActionsDecl<T>> extends StoreHandle<T, A> {
   /**
    * Construct a live engine instance (see the contract JSDoc on
@@ -265,7 +265,7 @@ export interface EngineStoreHandle<T, A extends ActionsDecl<T>> extends StoreHan
    * @param scopeKey - session id for session-scope instances; omitted for root scope.
    * @returns the engine instance.
    */
-  /**
+  /*
    * 构造一个活跃的引擎实例（scopeKey/persist 语义见 StoreHandle.create 的
    * 契约 JSDoc）。
    *
@@ -296,7 +296,7 @@ export interface EngineStoreHandle<T, A extends ActionsDecl<T>> extends StoreHan
  * @param decl - init lambda (fresh state per instance), optional persist key, actions table.
  * @returns the store handle.
  */
-/**
+/*
  * 声明一个存储：初始状态、可选持久化，以及完整的写操作集（纯草稿变异）。
  * 返回的句柄是存储座位的注册货币——其身份键控实例共享。满足 ui-slots 的
  * DefineStore 契约（句柄/实例是引擎扩展的子类型）。

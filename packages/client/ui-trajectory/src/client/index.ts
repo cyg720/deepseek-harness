@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】浏览器端轨迹插件的装配点：注册本地化字典、各事件状态机定义（消息 / 请求头 /
  *             assistant / 工具 / 压缩）、轨迹视图快照构建器，并向会话视图槽位注入"轨迹"页签。
@@ -44,7 +44,7 @@ export const inject = ['slots', 'conversationEvents', 'conversationViews', 'sess
  * rides the slot service's effect wrapper, so plugin unload removes the tab.
  * @param ctx - client root context.
  */
-/**
+/*
  * 浏览器端插件主体：注册轨迹视图页签。注册挂在槽位服务的 effect 包装上，
  * 插件卸载时页签随之移除。
  * @param ctx - 客户端根上下文。

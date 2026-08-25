@@ -30,7 +30,7 @@ import * as tool from '../src/index.ts'
 const testSignal = new AbortController().signal
 
 /** Adapter that keeps selected Agent requests open until released. */
-/** 中文说明：class HeldAdapter 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
+/* 中文说明：class HeldAdapter 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
 class HeldAdapter extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
   private readonly gates = new Map<GenerateOptions['sessionId'], PromiseWithResolvers<undefined>>()
@@ -77,7 +77,7 @@ afterEach(async () => {
 })
 
 /** Boot the real continuation graph with optional report installation. */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(options: { load?: boolean; config?: tool.Config } = {}) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -106,7 +106,7 @@ async function setup(options: { load?: boolean; config?: tool.Config } = {}) {
 }
 
 /** Start and resolve one resident continuable child. */
-/** 中文说明：函数 startChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 startChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function startChild(ctx: Context, parent: Agent, prompt = 'child task') {
   /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const started = await ctx.subagents.startContinuable({
@@ -129,7 +129,7 @@ async function startChild(ctx: Context, parent: Agent, prompt = 'child task') {
 }
 
 /** Start one parent request that remains open in the held adapter. */
-/** 中文说明：函数 startHeldParentTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 startHeldParentTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function startHeldParentTurn(parent: Agent, adapter: HeldAdapter): Promise<void> {
   parent.followup(createUserMessage({
     content: [{ type: 'text', text: 'parent work' }],
@@ -154,7 +154,7 @@ function callReport(ctx: Context, child: Agent, output: string, signal = testSig
 }
 
 /** Occupy the child-local report name to force installation rollback. */
-/** 中文说明：函数 registerReportConflict 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 registerReportConflict 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function registerReportConflict(child: Agent): () => void {
   return child.ctx.tools.register({
     name: 'report',
@@ -166,7 +166,7 @@ function registerReportConflict(child: Agent): () => void {
 }
 
 /** Reports already visible or still pending in one Agent. */
-/** 中文说明：函数 reports 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 reports 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function reports(agent: Agent): { id: string; text: string; sender: string }[] {
   /** 中文说明：函数值 visible 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const visible = agent.session.events.flatMap(event => event.type === 'user/message' ? [event.data] : [])
@@ -186,7 +186,7 @@ function renderedText(result: { content: { type: string; text?: string }[] }): s
 }
 
 /** The prompt sections one agent's scope assembles, by name. */
-/** 中文说明：函数 sectionNames 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 sectionNames 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function sectionNames(ctx: Context, agent: Agent): Promise<string[]> {
   /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const assembly = await ctx.systemPrompt.assemble(assembleContextFor(agent))
@@ -659,7 +659,7 @@ describe('dsh-tool-subagent-report', () => {
 })
 
 /** Prove report delivery uses ordinary logged user messages (runtime-context snapshots excluded). */
-/** 中文说明：函数 userTexts 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 userTexts 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function userTexts(events: readonly SessionEvent[]): string[] {
   return events.flatMap(event => event.type === 'user/message' && event.data.source.kind !== 'plugin'
     ? event.data.content.flatMap(block => block.type === 'text' ? [block.text] : [])

@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-code-runtime/src/types
  */
-/**
+/*
  * 文件职责：实现代码运行时的 types 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供代码运行时能力。
@@ -23,11 +23,11 @@
  * of this function surfaces inside the program as a rejection of the
  * corresponding call.
  */
-/** 中文说明：类型或类 CodeBindingFunction 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 CodeBindingFunction 约束协议数据或模块职责。 */
 export type CodeBindingFunction = (args: unknown) => Promise<CodeJsonValue>
 
 /** A lossless JSON value transferable through the dependency-light Service Definition. */
-/** 中文说明：类型或类 CodeJsonValue 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 CodeJsonValue 约束协议数据或模块职责。 */
 export type CodeJsonValue = null | boolean | number | string | CodeJsonValue[] | { [key: string]: CodeJsonValue }
 
 /**
@@ -37,7 +37,7 @@ export type CodeJsonValue = null | boolean | number | string | CodeJsonValue[] |
  * `memberNameProperty`. Both strings are runtime data rather than knowledge
  * of a particular consumer such as Code Mode.
  */
-/** 中文说明：类型或类 CodeBindingErrorClass 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 CodeBindingErrorClass 约束协议数据或模块职责。 */
 export interface CodeBindingErrorClass {
   /** Constructor global and resulting `Error.name`; same portable identifier rule as {@link CodeBindingNamespace.global}. */
   name: string
@@ -57,7 +57,7 @@ export interface CodeBindingErrorClass {
  * ordinary own properties (null-prototype construction), never as prototype
  * collisions.
  */
-/** 中文说明：类型或类 CodeBindingNamespace 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 CodeBindingNamespace 约束协议数据或模块职责。 */
 export interface CodeBindingNamespace {
   /**
    * The global identifier the program sees. Must match the LANGUAGE-PORTABLE
@@ -71,7 +71,7 @@ export interface CodeBindingNamespace {
    */
   global: string
   /** The callable members, keyed by the exact name the program calls. */
-  /** 中文说明：函数 s 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 s 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   functions: Record<string, CodeBindingFunction>
   /** Optional program-visible typed rejection contract for this namespace. */
   errorClass?: CodeBindingErrorClass
@@ -83,7 +83,7 @@ export interface CodeBindingNamespace {
  * is the implementation's validated config — a request carries no optional
  * tuning knobs for a hidden `??` to fill in.
  */
-/** 中文说明：类型或类 CodeRunRequest 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 CodeRunRequest 约束协议数据或模块职责。 */
 export interface CodeRunRequest {
   /**
    * The program source, in the runtime's {@link ../index.ts | language}. It
@@ -114,7 +114,7 @@ export interface CodeRunRequest {
  * - `'invalid-output'` — the completion value was not lossless JSON.
  * - `'output-limit'` — the serialized outer logs/value/diagnostic exceeded the configured cap.
  */
-/** 中文说明：类型或类 CodeRunFailure 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 CodeRunFailure 约束协议数据或模块职责。 */
 export interface CodeRunFailure {
   /** The failure class (see the interface doc for each kind's meaning). */
   kind: 'exception' | 'timeout' | 'abort' | 'worker-exit' | 'invalid-output' | 'output-limit'
@@ -127,7 +127,7 @@ export interface CodeRunFailure {
  * rejection of `run()` — reporting a failed program is the caller's job, not
  * an exception path.
  */
-/** 中文说明：类型或类 CodeRunResult 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 CodeRunResult 约束协议数据或模块职责。 */
 export interface CodeRunResult {
   /**
    * The program's completion value (its top-level `return`), when it ran to

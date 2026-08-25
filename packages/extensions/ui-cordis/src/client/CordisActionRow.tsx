@@ -1,5 +1,5 @@
 /** Localized cards for `cordis_stop` and `cordis_undefine`. */
-/**
+/*
  * 文件职责：为 cordis_stop 和 cordis_undefine 工具调用渲染本地化操作卡片。
  * 技术维度：使用 React TSX、工具调用插槽属性、卡片模型和状态/操作图标。
  * 产品维度：让用户识别插件停止或移除结果、错误摘要、输出详情并可打开检查器。
@@ -17,11 +17,11 @@ import { cordisActionCard } from './card-model.ts'
 import css from './CordisRunRow.module.css'
 
 /** Full action-card props composed by the keyed Tool slot. */
-/** 键控工具插槽组合出的完整 Cordis 操作卡属性。 */
+/* 键控工具插槽组合出的完整 Cordis 操作卡属性。 */
 export type CordisActionRowProps = ToolCallViewProps & PropsLocale<'cordis'>
 
 /** Render one Stop or Remove call with Cordis-owned localized copy. */
-/**
+/*
  * 渲染停止或移除调用。
  * @param callId 调用 id。
  * @param toolName 工具名。

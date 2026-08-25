@@ -39,7 +39,7 @@ import { mathCompatibility } from './mathCompatibility.ts'
  * @param text - Markdown source.
  * @returns The mdast root.
  */
-/**
+/*
  * 解析 GFM markdown（流式臂语法：不含数学，未完成的 TeX 不会在流中触发 KaTeX 报错）。
  * 使用示例：const root = parseGfm(chunkText)；供增量解析器与纯文本投影共用。
  * @param text - Markdown 源码。
@@ -58,7 +58,7 @@ export function parseGfm(text: string): Root {
  * @param text - Markdown source.
  * @returns The mdast root.
  */
-/**
+/*
  * 解析"GFM + TeX 数学 + 兼容定界符"（定格臂语法，定界符细节见 mathCompatibility.ts）。
  * @param text - Markdown 源码。
  * @returns mdast 根节点。

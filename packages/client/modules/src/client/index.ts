@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-client-modules 的浏览器半边（标准 ./client 导出）：模块
  *   系统类、线契约，以及注册插件面（把内核预建的实例登记为 ctx.modules）。
@@ -26,7 +26,7 @@
  * pre-existing instance by providing it as `ctx.modules`.
  * @module @deepseek-ai/dsh-client-modules/client
  */
-/**
+/*
  * 浏览器半边（标准 ./client 导出）：模块系统类与线契约，加注册插件面。
  * 模块系统本身在 Cordis 存在之前由 shell 内核构建（bootstrap 例外——加载
  * 插件的机制不能经由自己到达）。Host 解析器把本普通客户端 bundle 预载进
@@ -60,7 +60,7 @@ let moduleSystem: ClientModuleSystem | undefined // 进程级单例：bootstrap 
  * @param options - Raw boot graph, platform seed, and optional bundle transport.
  * @returns The created module system, also published for this package's Cordis plugin face.
  */
-/**
+/*
  * 从 HTML 门面的已物化 modules bundle 构建实时模块系统。
  * @param target 其待处理队列成为实时汇的稳定注册门面。
  * @param bootstrapModule 本 bundle 的 id 与已物化导出。
@@ -86,7 +86,7 @@ export function createClientModuleSystem(
  * Enroll the kernel-built module system as `ctx.modules`.
  * @param ctx - client root context.
  */
-/**
+/*
  * 把内核构建的模块系统登记为 ctx.modules。
  * @param ctx 客户端根上下文。
  */

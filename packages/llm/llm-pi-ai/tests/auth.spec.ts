@@ -22,7 +22,7 @@ const CODEX = recordKeyFor('openai-codex')
 const dirs: string[] = []
 
 /** A context whose credential records live in a throwaway `$DSH_HOME`. */
-/** 中文说明：函数 stored 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 stored 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function stored(): Promise<Context> {
   /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-pi-auth-'))

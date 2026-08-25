@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】模型面、工作区授权的会话历史搜索与读取工具：注册五个工具
  *   （session_search/session_event_search/session_trace/session_event_trace/

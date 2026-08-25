@@ -19,7 +19,7 @@ import type { IconProps } from './icons/props.ts'
  * @param props.className - extra class for layout placement.
  * @returns the logo svg (aria-hidden; pair with the wordmark for accessibility).
  */
-/** 中文说明：函数 FishLogo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 FishLogo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function FishLogo({ size = 24, className }: IconProps) {
   return (
     <svg

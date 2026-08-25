@@ -6,7 +6,7 @@
  * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
  * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
  */
-/** 中文说明：类型或类 ExecFileCallback 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 ExecFileCallback 约束 API、Hook 或目录数据职责。 */
 type ExecFileCallback = (
   error: (Error & { code?: string | number }) | null,
   stdout: string,

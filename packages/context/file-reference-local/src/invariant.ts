@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】file-reference-local 包自有的不变式伴生插件：向 dsh-invariants
  *             服务登记本包，声明"本包负责哪些运行时不变量"。
@@ -24,17 +24,17 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-file-reference-local'
 
 /** Cordis companion plugin name. */
-/** 该伴生插件的注册名。 */
+/* 该伴生插件的注册名。 */
 export const name = 'file-reference-local-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
+/* 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: per-agent indexes are private advisory caches whose
  * invalidation and disposal are observed directly through service tests.
  */
-/**
+/*
  * 空安装函数：每个 agent 的索引是私有建议性缓存，其失效与销毁行为
  * 已由服务测试直接观察覆盖，无需额外注册运行时检查。
  */
@@ -45,7 +45,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 登记本包的 invariant 伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文
  * @returns 登记成功后的注销函数

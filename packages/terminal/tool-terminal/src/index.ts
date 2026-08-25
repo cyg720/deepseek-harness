@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】六个模型可见的持久化终端工具（terminal_open / terminal_send /
  * terminal_read / terminal_signal / terminal_close / terminal_list）：把模型参数翻译成
@@ -44,32 +44,32 @@ declare module '@deepseek-ai/dsh-jobs' {
 }
 
 /** Cordis plugin name. */
-/** Cordis 插件名。 */
+/* Cordis 插件名。 */
 export const name = 'tool-terminal'
 /** Required capability, registry, and prompt services. */
-/** 必需的能力、注册表与提示词服务。 */
+/* 必需的能力、注册表与提示词服务。 */
 export const inject = ['terminals', 'tools', 'systemPrompt']
 
 /** Default cap for one complete model-facing terminal result. */
-/** 单条完整模型可见终端结果的默认上限。 */
+/* 单条完整模型可见终端结果的默认上限。 */
 export const DEFAULT_MAX_RESULT_BYTES = 256 * 1024
 /** Smallest cap that preserves every counter-backed PTY and job id in its creation acknowledgement. */
-/** 能在创建确认中保留全部计数器型 PTY 与 job id 的最小上限。 */
+/* 能在创建确认中保留全部计数器型 PTY 与 job id 的最小上限。 */
 export const MIN_MAX_RESULT_BYTES = 64
 
 /** Model-facing terminal tool configuration. */
-/** 模型可见终端工具的配置。 */
+/* 模型可见终端工具的配置。 */
 export interface Config {
   /** Expose `run_in_background` and accept background sends (default true). */
-  /** 是否暴露 run_in_background 并接受后台发送（默认 true）。 */
+  /* 是否暴露 run_in_background 并接受后台发送（默认 true）。 */
   enableRunInBackground?: boolean
   /** Maximum UTF-8 bytes in one complete terminal or task-output result. */
-  /** 单条完整终端或任务输出结果的 UTF-8 字节上限。 */
+  /* 单条完整终端或任务输出结果的 UTF-8 字节上限。 */
   maxResultBytes?: number
 }
 
 /** Schemastery configuration for the terminal tool consumer. */
-/** 终端工具消费者的 Schemastery 配置。 */
+/* 终端工具消费者的 Schemastery 配置。 */
 export const Config: z<Config> = z.object({
   enableRunInBackground: z.boolean().default(true),
   maxResultBytes: z.number().step(1).min(MIN_MAX_RESULT_BYTES).max(Number.MAX_SAFE_INTEGER).default(DEFAULT_MAX_RESULT_BYTES),
@@ -173,7 +173,7 @@ function sendDetail(result: TerminalSendResult): string {
 }
 
 /** Register all terminal tools and the minimal usage guidance. */
-/** 注册全部终端工具与最小使用指引：装配配置、finalizeContent 与系统提示词段落。 */
+/* 注册全部终端工具与最小使用指引：装配配置、finalizeContent 与系统提示词段落。 */
 export function apply(ctx: Context, config: Config = {}): void {
   const enableRunInBackground = config.enableRunInBackground ?? true
   const maxResultBytes = config.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES

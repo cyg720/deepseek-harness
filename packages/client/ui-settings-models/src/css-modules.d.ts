@@ -6,7 +6,7 @@
  * 关键边界：声明不接触凭据数据，也不验证具体类名是否存在。
  * 新手阅读建议：先看设置表单，再看引导弹窗如何复用样式类型。
  */
-/** 使用方式：`import styles from './Models.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Models.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源类名，值是构建后的隔离类名。 */
   const classes: Record<string, string>

@@ -3,7 +3,7 @@
  * compatibility matrix runs this WHOLE file, so renaming or removing its test
  * cannot turn the runtime proof into a successful zero-match filter.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：验证源码模式下的工作流 Worker 能在真实工作线程中编译并执行默认配置。
  * - 技术维度：使用 Vitest、Cordis 插件上下文、Worker Thread 引擎和异步资源释放。

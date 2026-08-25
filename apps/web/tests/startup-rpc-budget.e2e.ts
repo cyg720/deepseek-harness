@@ -27,7 +27,7 @@ import { newEnglishPage } from './support.ts'
  * document commit lands between the eager read and the SSE subscription and
  * its invalidation is lost. Every settings consumer derives from these two.
  */
-/** 中文：设置镜像允许的 describe 调用数：绑定时一次，首次连接重置再一次。 */
+/* 中文：设置镜像允许的 describe 调用数：绑定时一次，首次连接重置再一次。 */
 const DESCRIBE_BUDGET = 2
 
 /** 当前 E2E 的本地 Web 服务夹具。 */

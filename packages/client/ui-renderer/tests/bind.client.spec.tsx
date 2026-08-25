@@ -23,7 +23,7 @@ const shallowEqual = (a: Record<string, unknown>, b: Record<string, unknown>): b
 interface Snap { a: number; b: number }
 
 /** Hand-rolled observable source so subscription counting is exact. */
-/** 中文说明：函数 makeSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeSource(initial: Snap) {
   /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
   let state = initial

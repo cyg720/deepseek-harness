@@ -22,7 +22,7 @@ import type { WebSourceView } from '../src/index.ts'
 afterEach(cleanup)
 
 /** `count` sources with sequential hostnames, so each row reads distinctly. */
-/** 中文说明：函数 sources 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sources 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sources(count: number): WebSourceView[] {
   return Array.from({ length: count }, (_value, index) => ({
     url: `https://site-${index}.example.com/page`,

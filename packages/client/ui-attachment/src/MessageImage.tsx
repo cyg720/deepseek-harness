@@ -13,11 +13,11 @@ import type { ImageLightboxLabels } from './ImageLightbox.tsx'
 import css from './MessageImage.module.css'
 
 /** Loads a session-authorized durable image URL. */
-/** 中文说明：类型或类 ImageLoader 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ImageLoader 约束本文件的数据或组件职责。 */
 export type ImageLoader = (attachment: ImageAttachmentRef) => Promise<string>
 
 /** Message-image strings the owner resolves from its own locale namespace. */
-/** 中文说明：类型或类 MessageImageLabels 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 MessageImageLabels 约束本文件的数据或组件职责。 */
 export interface MessageImageLabels {
   /** Fallback display name for an unnamed image. */
   image: string
@@ -38,7 +38,7 @@ export interface MessageImageLabels {
  * `object-fit: cover` — and never upscaled past the image's natural size. The
  * crop anchor keeps the top of very tall images and the left of very wide
  * ones, where the informative content usually starts. */
-/** 中文说明：函数 singleFit 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 singleFit 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function singleFit(attachment: ImageAttachmentRef): { width: number; height: number; objectPosition: string } {
   /** 中文说明：当前组件的局部值 natural，由紧邻初始化决定。 */
   const natural = attachment.width / attachment.height
@@ -66,7 +66,7 @@ function singleFit(attachment: ImageAttachmentRef): { width: number; height: num
  * @param props.labels - resolved strings (tooltip, loading, retry, lightbox).
  * @returns the bounded thumbnail button, or the retry control on failure.
  */
-/** 中文说明：函数 MessageImage 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 MessageImage 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function MessageImage({ attachment, load, variant, labels }: {
   attachment: ImageAttachmentRef
   load: ImageLoader
@@ -127,7 +127,7 @@ export function MessageImage({ attachment, load, variant, labels }: {
 
 /** Wrapping image group shared by user and assistant history: a lone image
  * renders large, several render as 64px square tiles (DeepSeek Chat rule). */
-/** 中文说明：函数 ImageGallery 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 ImageGallery 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function ImageGallery({ images, load, align, labels }: {
   images: readonly { attachment: ImageAttachmentRef }[]
   load: ImageLoader

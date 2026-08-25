@@ -3,7 +3,7 @@
  * performed on their unsuffixed English siblings. The bilingual pairing gate
  * owns cross-language identity; source-oriented gates consume one copy.
  */
-/**
+/*
  * 文件职责：实现 paired-markdown-derivatives.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -13,7 +13,7 @@
  */
 
 /** The result of separating canonical blocks from paired Chinese derivatives. */
-/** 中文说明：interface MarkdownDerivativePartition 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface MarkdownDerivativePartition 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownDerivativePartition<T> {
   /** Blocks that still require the caller's owning check. */
   primary: T[]
@@ -22,7 +22,7 @@ export interface MarkdownDerivativePartition<T> {
 }
 
 /** Return the unsuffixed sibling of a Chinese Markdown path. */
-/** 中文说明：函数 unsuffixedSibling 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 unsuffixedSibling 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function unsuffixedSibling(doc: string): string | null {
   return doc.endsWith('.zh.md') ? `${doc.slice(0, -'.zh.md'.length)}.md` : null
 }
@@ -37,7 +37,7 @@ function unsuffixedSibling(doc: string): string | null {
  * @param fingerprintOf - Block kind/info string plus byte-exact body.
  * @returns Primary blocks and paired Chinese derivatives, preserving order.
  */
-/** 中文说明：函数 partitionPairedMarkdownDerivatives 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 partitionPairedMarkdownDerivatives 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function partitionPairedMarkdownDerivatives<T>(
   blocks: readonly T[],
   docOf: (block: T) => string,

@@ -29,7 +29,7 @@
  *
  * @module dsh-session-persistence-jsonl/format
  */
-/**
+/*
  * 【中文导读】上面英文概括：本模块是 JSONL 后端的磁盘格式助手——路径净化、目录
  * 布局、头行编解码与截断修复偏移计算。
  */
@@ -40,7 +40,7 @@ import type { SessionEvent, SessionHeader, SessionId, StorageRecord } from '@dee
 import { SessionFormatUnsupportedError, sessionFormatVersionRefusal } from '@deepseek-ai/dsh-session-persistence'
 
 /** Physical encoding selected for JSONL session artifacts. */
-/** 【中文】JSONL 会话工件的物理编码：zstd 压缩帧或明文。 */
+/* 【中文】JSONL 会话工件的物理编码：zstd 压缩帧或明文。 */
 export type JsonlCompression = 'zstd' | 'none'
 
 /**
@@ -48,7 +48,7 @@ export type JsonlCompression = 'zstd' | 'none'
  * @param compression - configured JSONL artifact encoding.
  * @returns `.jsonl.zstd` for Zstandard or `.jsonl` for plaintext.
  */
-/**
+/*
  * 【中文】按物理编码返回工件文件后缀。
  * @param compression - 配置的编码。
  * @returns zstd 返回 .jsonl.zstd；明文返回 .jsonl。
@@ -62,7 +62,7 @@ export function logSuffix(compression: JsonlCompression): '.jsonl.zstd' | '.json
  * {@link SessionHeader} tagged as a `session` record so a reader can tell it
  * apart from an event line.
  */
-/**
+/*
  * 【中文】会话工件的首行 JSON 结构：不可变 SessionHeader 加上 type:'session'
  * 标签——读取方据此把头行与事件行区分开。可选字段缺省时直接省略（不写 null）。
  */
@@ -94,7 +94,7 @@ export interface HeaderLine {
  * @param header - the immutable session metadata to serialize.
  * @returns the `type: 'session'`-tagged line object, absent optional fields omitted (never null).
  */
-/**
+/*
  * 【中文】把 SessionHeader 序列化为首行对象：可选字段缺失时省略键而非写 null；
  * delegationDepth 缺省补 0，保证行结构稳定。
  * @param header - 要序列化的不可变会话头。
@@ -120,7 +120,7 @@ export function toHeaderLine(header: SessionHeader): HeaderLine {
  * @param line - the shape-checked first line of a log (see the `isHeaderLine` guard).
  * @returns the header, absent optional fields omitted.
  */
-/**
+/*
  * 【中文】把首行对象还原为 SessionHeader。若发现已退役的策略基线字段
  * （sandboxMode/approvalPolicy）则直接报错——旧策略体系不再被解读。
  * @param line - 已通过形状检查的首行对象（见 isHeaderLine 守卫）。
@@ -144,7 +144,7 @@ export function fromHeaderLine(line: HeaderLine): SessionHeader {
 }
 
 /** Type guard: a parsed first line is a well-formed session header. */
-/**
+/*
  * 【中文】类型守卫：逐字段校验解析出的首行——type 必须是 'session'，version/id/
  * createdAt/delegationDepth 类型正确且数值为非负安全整数（并排除 -0），
  * origin/agentPreset 取值受限。这是"文件边界"上少有的运行时校验点。
@@ -183,7 +183,7 @@ function isHeaderLine(value: unknown): value is HeaderLine {
  * @param raw - the string to encode; must be non-empty (throws on `''`).
  * @returns the escaped single path segment, decodable back to `raw`.
  */
-/**
+/*
  * 【中文】把任意字符串编码成单个安全路径段：安全字符（字母数字下划点连字符）
  * 原样保留，其余每个 UTF-16 码元（含 `~`、分隔符、NUL、孤立代理项）转义为
  * `~XXXX` 十六进制；整段恰为 "." / ".." 时也转义，杜绝目录穿越。编码是单射，
@@ -218,7 +218,7 @@ export function encodeSegment(raw: string): string {
  * @param cwd - the session's project directory.
  * @returns a single filesystem-safe project directory name.
  */
-/**
+/*
  * 【中文】把项目路径转成"人类可读"的目录名：文件/盘符分隔符折叠为单个 '-'，
  * 其余不安全码元用 `~XXXX` 转义。与 encodeSegment 不同，这里有意有损：
  * 分隔符合并 + 截断到 251 字符（适配文件系统组件长度限制），只作分组展示键。
@@ -256,7 +256,7 @@ export function projectKey(cwd: string): string {
  * @param cwd - the session's project directory; `undefined` selects `_no-cwd`.
  * @returns the project directory path under `root`.
  */
-/**
+/*
  * 【中文】取 root 下某项目对应的目录：cwd 未定义时归入特殊目录 `_no-cwd`，
  * 否则用 projectKey 生成的可读目录名。
  * @param root - 后端的会话根目录。
@@ -276,7 +276,7 @@ export function projectDir(root: string, cwd: string | undefined): string {
  * @param id - the session id, encoded to one safe path segment.
  * @returns the session directory beneath its project directory.
  */
-/**
+/*
  * 【中文】某会话专属的目录（未来可容纳会话级其他工件）：项目目录 + 编码后的 id。
  * @param root - 会话根目录。
  * @param cwd - 项目目录。
@@ -295,7 +295,7 @@ export function sessionDir(root: string, cwd: string | undefined, id: SessionId)
  * @param compression - physical artifact encoding and filename suffix.
  * @returns the session's configured JSONL artifact path.
  */
-/**
+/*
  * 【中文】会话的追加式事件日志文件完整路径：会话目录 + `session<后缀>`。
  * @param root - 会话根目录。
  * @param cwd - 项目目录（undefined → _no-cwd）。
@@ -323,7 +323,7 @@ export function logPath(
  * @param packChunks - whether to pack delta runs into storage rows.
  * @returns the batch's JSONL text; the writer adds the final newline.
  */
-/**
+/*
  * 【中文】把事件批序列化为 JSONL 文本（不含末尾换行，由写方补）。packChunks 开启
  * 时把连续的 delta 块事件打包成存储行；关闭则逐事件一行。两种布局的读取方式
  * 完全相同（scanLog 总是解行），开关只影响新写入的字节。
@@ -352,7 +352,7 @@ interface SessionLogScan {
  * see "upgrade the harness", never "corrupt session log".
  * @param parsed - the JSON-parsed first line of a session artifact.
  */
-/**
+/*
  * 【中文】版本前置守卫：在按当前结构校验头、解码任何事件行之前，先检查首行的
  * version 字段——未来格式完全可能不满足今天的结构检查，用户必须看到
  * "请升级 harness"而不是"日志损坏"。version 等于当前值则放行。
@@ -394,7 +394,7 @@ function parseHeaderRecord(record: Buffer): SessionHeader {
  * only complete records are decoded to UTF-8. A fragment crossing writes is
  * copied because a decoder may reuse its output buffer after `write()` returns.
  */
-/**
+/*
  * 【中文】增量式 JSONL 事件扫描器：在独立供给的头记录之后，逐块消费明文、只把
  * "完整行"解码为事件。换行查找与字节偏移始终基于原始 Buffer；跨块残片会被拷贝
  * 缓存（因为解码器可能在 write 返回后复用其输出缓冲）。同时维护"已提交字节
@@ -424,7 +424,7 @@ export class SessionLogScanner {
    * Create an event scanner from exactly one newline-terminated header record.
    * @param headerRecord - the complete first JSONL record, including its newline.
    */
-  /**
+  /*
    * 【中文】用"恰好一个换行结尾的头记录"创建扫描器；头在此处完成全部校验。
    * @param headerRecord - 完整的首条 JSONL 记录（含换行符）。
    */
@@ -439,7 +439,7 @@ export class SessionLogScanner {
    * Consume the next raw plaintext chunk, retaining only an incomplete final record.
    * @param chunk - bytes immediately following all previously supplied bytes.
    */
-  /**
+  /*
    * 【中文】消费下一段明文：按换行切分，完整行走事件解析，最后一段不完整残片
    * 留待下一块拼接。若之前已有残片，先把新片段并入再解析。
    * @param chunk - 紧接此前所有字节之后的明文块。
@@ -477,7 +477,7 @@ export class SessionLogScanner {
    * Snapshot progress before appending a recoverable torn-frame prefix.
    * @returns byte, committed-prefix, and expanded-event cursors.
    */
-  /**
+  /*
    * 【中文】快照当前进度：总输入字节、已提交字节、已展开的事件数。zstd 读路径在
    * 追加"残帧抢救明文"之前先记下这个检查点，之后新增的事件即抢救事件。
    * @returns 三个游标组成的对象。
@@ -494,7 +494,7 @@ export class SessionLogScanner {
    * Finish scanning, ignoring a final record without a newline as a torn tail.
    * @returns the header, contiguous event prefix, and safe truncation offset.
    */
-  /**
+  /*
    * 【中文】结束扫描：没有换行结尾的最后一行按残尾忽略（不进入事件列表）。
    * @returns 头信息、连续事件前缀与安全截断偏移。
    */
@@ -504,7 +504,7 @@ export class SessionLogScanner {
   }
 
   /** Decode one complete event row and update the contiguous prefix. */
-  /**
+  /*
    * 【中文】解析一行完整事件记录并推进连续前缀。关键语义：
    * - 解析/解码失败：记下首个 issue；只有当后续行里出现 turn/end（回合收尾）
    *   时才抛出——否则把损坏行当作新的"残尾起点"，尽量保住之前的前缀；
@@ -556,7 +556,7 @@ export class SessionLogScanner {
  * @param buffer - the raw bytes of the log file (header line first).
  * @returns the header, preserved event prefix, and byte offset safe to append at.
  */
-/**
+/*
  * 【中文】一次性解析完整（或残缺）的 JSONL 缓冲：先切出首行作为头记录，
  * 其余事件行交给 {@link SessionLogScanner}。兼容性包装，便于非流式场景使用。
  * @param buffer - 日志文件的原始字节（首行为头记录）。
@@ -579,7 +579,7 @@ export function scanLog(buffer: Buffer): SessionLogScan {
  * @param firstLine - the first line of a log file (without its trailing newline).
  * @returns the parsed header, or `undefined` when the line is not a well-formed session header.
  */
-/**
+/*
  * 【中文】只解析日志头行：JSON 解析或形状校验失败一律返回 undefined（而非抛错），
  * 供 list 等场景把"不是会话日志的文件"静默跳过。
  * @param firstLine - 日志文件首行（不含末尾换行）。

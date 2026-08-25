@@ -157,7 +157,7 @@ function applyTurnErrors(
 }
 
 /** Simple keyed adapter retaining the old Trajectory snapshot and stage layout. */
-/**
+/*
  * 简单的按键适配器：维护旧式轨迹快照与阶段布局。按 key 缓存贡献节点，按 anchorSeq
  * 排序后合成快照；replace 全量替换，apply 增量 upsert。
  */
@@ -311,7 +311,7 @@ export const trajectoryViewDefinition: ConversationViewDefinition<
  *
  * @param ctx - Plugin context receiving the view Definition.
  */
-/**
+/*
  * 注册阶段式轨迹目标构建器。
  * @param ctx - 接收该视图 Definition 的插件上下文。
  */

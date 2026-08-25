@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { assertServiceable, Config } from '../src/config.ts'
 
 /** Validate one hand-declared route, with the caller's fields layered onto it. */
-/** 中文说明：测试局部值 routeWith，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 routeWith，由紧邻初始化决定。 */
 const routeWith = (profile: Record<string, unknown>): (() => unknown) =>
   () => Config({
     providers: {
@@ -24,7 +24,7 @@ const routeWith = (profile: Record<string, unknown>): (() => unknown) =>
   })
 
 /** Validate that route with the caller's fields on its single model entry. */
-/** 中文说明：测试局部值 configWith，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 configWith，由紧邻初始化决定。 */
 const configWith = (model: Record<string, unknown>): (() => unknown) =>
   routeWith({ models: [{ id: 'm', ...model }] })
 

@@ -1,5 +1,5 @@
 /** Models section registration: slot declaration injection, the locale-following label thunk, and HMR recovery. */
-/**
+/*
  * 文件职责：验证模型设置的 apply.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止模型设置保存、发现和错误提示回归。

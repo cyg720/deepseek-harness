@@ -8,7 +8,7 @@
  *
  * Usage: `node scripts/assemble-prebuilds.mjs <artifact-root>`.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：把发布工作流下载的原生二进制产物装配进各平台包并验证结果。
  * - 技术维度：使用 Node.js 同步文件系统 API、路径处理、可执行权限和 ELF 架构校验。

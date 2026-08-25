@@ -19,7 +19,7 @@
  * lstrlenW (winbase.h line ~1506); the argv block is freed with LocalFree
  * (winbase.h line ~1127) — CommandLineToArgvW's documented contract.
  */
-/**
+/*
  * 文件职责：验证 quote.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -41,7 +41,7 @@ const isWin32 = process.platform === 'win32'
  * quote must be preceded by DOUBLED backslashes, or the parser reads them as
  * escaping the closing quote.
  */
-/** 中文说明：变量 cases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 cases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const cases: Array<[input: string, quoted: string]> = [
   ['', '""'],
   ['a', 'a'],

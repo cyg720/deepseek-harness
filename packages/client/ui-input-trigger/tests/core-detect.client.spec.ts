@@ -23,7 +23,7 @@ const claimed: TriggerGuard = { tier: 'claimed' }
 const frozen: TriggerGuard = { tier: 'frozen' }
 
 /** Hit at the end of the draft under the plain tier. */
-/** 中文说明：测试局部值 atEnd，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 atEnd，由紧邻初始化决定。 */
 const atEnd = (draft: string, guard: TriggerGuard = plain) => detectTrigger(draft, draft.length, guard)
 
 describe('detectTrigger word boundaries', () => {

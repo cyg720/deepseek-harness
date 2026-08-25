@@ -4,7 +4,7 @@
  * releases the service. The storage behavior is the implementation's concern
  * (`@deepseek-ai/dsh-spill-local`); here we only pin the seam contract.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：验证溢出存储服务定义的注册、保存转发、重复实现拒绝和释放生命周期。
  * - 技术维度：使用 Vitest、Cordis Service、品牌标识、Buffer 字节计算和最小具体子类。
@@ -22,7 +22,7 @@ import { SpillLocator, SpillStore } from '@deepseek-ai/dsh-spill'
 import type { SaveTextSpill, SpillRef } from '@deepseek-ai/dsh-spill'
 
 /** Minimal concrete backend: records the last request, returns a fixed ref. */
-/** 中文：最小溢出后端，保存最后一次请求并返回可预测引用，供服务定义测试使用。 */
+/* 中文：最小溢出后端，保存最后一次请求并返回可预测引用，供服务定义测试使用。 */
 class StubStore extends SpillStore {
   /** 最近一次 saveText 输入；尚未调用时为 undefined。 */
   last: SaveTextSpill | undefined

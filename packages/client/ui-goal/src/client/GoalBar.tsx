@@ -7,7 +7,7 @@
  * nothing. Live state arrives as the projected whole snapshot; the verbs are
  * the injected face.
  */
-/**
+/*
  * 文件职责：实现目标进度的 GoalBar 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：支持用户查看或操作目标进度。
@@ -34,7 +34,7 @@ export interface GoalBarProps extends GoalBarActions {
 }
 
 /** Strip label keys per visible phase; complete goals render nothing. */
-/** 中文说明：组件局部值 PHASE_LABELS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 PHASE_LABELS，由紧邻初始化决定。 */
 const PHASE_LABELS = {
   active: 'phase.active',
   paused: 'phase.paused',
@@ -195,11 +195,11 @@ export function GoalBar({ goal, onEdit, onPause, onResume, onClear, t }: GoalBar
 }
 
 /** Full props of the dock entry: InputZone owner share + session standard kit + injected verbs + the locale seat. */
-/** 中文说明：类型或类 GoalDockProps 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 GoalDockProps 约束本文件数据或组件职责。 */
 export type GoalDockProps = import('@deepseek-ai/dsh-client-ui-slots').PropsRuntime<'conversation.input.dock'> & GoalBarActions & PropsLocale<'goal'>
 
 /** Dock adapter: reads the host-computed 'goal' projection (whole value; absent or null renders nothing). */
-/** 中文说明：函数 GoalDock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 GoalDock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function GoalDock({ useProjection, onEdit, onPause, onResume, onClear, t }: GoalDockProps) {
   /** 中文说明：组件局部值 projection，由紧邻初始化决定。 */
   const projection = useProjection('goal')

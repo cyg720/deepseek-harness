@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】声明"每会话聊天状态"共享 store（ChatStore）：选中目标、草稿文本、活动视图
  *             与详情检查目标，以及四个写操作。
@@ -30,7 +30,7 @@ type ChatActions = {
  * Declares the per-session chat state and write surface.
  * @returns the store handle.
  */
-/**
+/*
  * 声明每会话的聊天状态与写操作面。
  * 使用示例：apply 里 const chatStore = createChatStore()；再经 slots.register 的 store 字段共享。
  * @returns store 句柄。

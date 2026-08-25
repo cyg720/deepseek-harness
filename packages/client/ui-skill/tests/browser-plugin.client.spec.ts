@@ -13,7 +13,7 @@
  * projections. Direct driving is deliberate: this spec owns only the
  * source's own contract.
  */
-/**
+/*
  * 文件职责：验证技能入口的 browser-plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止技能入口显示、导航或生命周期回归。
@@ -54,7 +54,7 @@ interface PresentationCapture {
 }
 
 /** Provide the presentation registries and capture the plugin's registrations. */
-/** 中文说明：函数 providePresentation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 providePresentation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function providePresentation(ctx: Context): PresentationCapture {
   /** 中文说明：测试局部值 slots，由紧邻初始化决定。 */
   const slots = new SlotRegistry(ctx)
@@ -80,7 +80,7 @@ function providePresentation(ctx: Context): PresentationCapture {
 }
 
 /** Boot the plugin over fake slash/connection faces; returns the captured source and its ctx. */
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(list: ListFn, addressed?: SessionId, invoke?: InvokeFn) {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -112,7 +112,7 @@ const CATALOG: SkillRow[] = [
 const listOk = (skills: SkillRow[]): ListFn => () => Promise.resolve({ result: { ok: true as const, value: { skills } } })
 
 /** Counting fake: records payloads, resolves the shared catalog. */
-/** 中文说明：函数 countingList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 countingList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function countingList(skills: SkillRow[] = CATALOG) {
   /** 中文说明：测试局部值 payloads，由紧邻初始化决定。 */
   const payloads: object[] = []

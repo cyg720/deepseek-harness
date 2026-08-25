@@ -4,7 +4,7 @@
  * api-gateway's own coverage); each established connection generation emits
  * `connection/reset` for generation-scoped cache invalidation.
  */
-/**
+/*
  * 文件职责：验证客户端会话运行时的 wire-events 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。
@@ -30,7 +30,7 @@ import { FakeApiClient, fakeRemote } from './fake-api.client.ts'
  * declaration (so a brand cannot be flattened on the way to a consumer).
  * @param ctx - any client Context carrying the Remote service.
  */
-/** 中文说明：函数 forwardedEventContracts 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 forwardedEventContracts 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function forwardedEventContracts(ctx: Context): void {
   ctx.remote.$on('settings/document-updated', (namespace, source) => {
     // @ts-expect-error -- the brand survives the wire: a bare string is not a SettingsNamespace
@@ -58,7 +58,7 @@ interface Bench {
   /** 中文说明：成员 sinks 保存可编排测试状态，取值由声明类型限定。 */
   sinks: ConnectionSinks | undefined
   /** Every `$dispatch` the runtime made, as `[event, ...args]`. */
-  /** 中文说明：成员 dispatched 保存可编排测试状态，取值由声明类型限定。 */
+  /* 中文说明：成员 dispatched 保存可编排测试状态，取值由声明类型限定。 */
   dispatched: unknown[][]
 }
 

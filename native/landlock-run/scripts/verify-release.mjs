@@ -6,7 +6,7 @@
  * binaries exist with the right ELF architecture (run after
  * `assemble-prebuilds.mjs` or a local `build:native`).
  */
-/**
+/*
  * 文件职责：验证 landlock-run 发布包版本一致、Git 标签匹配，并可选检查全部平台二进制架构。
  * 技术维度：使用 Node.js ESM、package.json 读取、Set 去重和共享 ELF 平台验证函数。
  * 产品维度：阻止版本不一致、错误标签或缺失/错架构原生制品进入发布流程。

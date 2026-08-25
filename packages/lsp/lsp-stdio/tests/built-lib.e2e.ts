@@ -22,7 +22,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  * is absent; CI runs it after the build.
  */
 
-/** 中文说明：变量 pkgDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 pkgDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const pkgDir = fileURLToPath(new URL('..', import.meta.url))
 /** 中文说明：变量 seamLib 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const seamLib = join(pkgDir, '../lsp/lib/index.js')

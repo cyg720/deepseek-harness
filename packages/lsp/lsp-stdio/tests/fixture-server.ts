@@ -25,7 +25,7 @@
  *
  * Run: node fixture-server.ts (Node's erasable TypeScript syntax support).
  */
-/**
+/*
  * 文件职责：验证 fixture-server.ts 覆盖的 LSP 标准输入输出连接、消息分帧与进程协作行为。
  * 技术维度：使用 TypeScript、Vitest、JSON-RPC/LSP 帧协议、Node.js 流和可控子进程测试。
  * 产品维度：保障语言服务器能够稳定启动、收发消息，并为 Agent 提供代码理解能力。
@@ -214,13 +214,13 @@ function handle(message: { id?: number; method?: string; params?: unknown; resul
 }
 
 /** Append one teardown event when the fixture is configured to expose process ordering. */
-/** 中文说明：函数 markExit 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 markExit 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function markExit(event: string): void {
   if (exitMarker !== undefined) appendFileSync(exitMarker, `${event}\n`)
 }
 
 /** Emit a server→client request and log the client's reply to stderr for the test to assert. */
-/** 中文说明：函数 emitServerRequest 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 emitServerRequest 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function emitServerRequest(kind: string): void {
   if (kind === 'notification') {
     send({ method: 'window/logMessage', params: { type: 3, message: 'hello' } })

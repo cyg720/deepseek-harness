@@ -1,5 +1,5 @@
 /** Package-owned prompt-assembly invariants. @module @deepseek-ai/dsh-system-prompt/invariant */
-/**
+/*
  * 文件职责：实现系统提示词的 invariant.ts 不变量。
  * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
  * 产品维度：保证系统提示词在配置、错误、恢复和生命周期场景中可靠。
@@ -18,14 +18,14 @@ const PACKAGE_NAME = '@deepseek-ai/dsh-system-prompt'
 const VARIABLE_NAME = /^[a-z][a-z0-9_]*$/
 
 /** Cordis companion plugin name. */
-/** 中文说明：服务局部值 name，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 name，由紧邻初始化决定。 */
 export const name = 'system-prompt-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文说明：服务局部值 inject，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 inject，由紧邻初始化决定。 */
 export const inject = ['invariants']
 
 /** Validate the authoritative assembly returned by the waterfall. */
-/** 中文说明：函数 validateAssembly 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateAssembly 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateAssembly(assembly: PromptAssembly, fail: InvariantFailure): void {
   /** 中文说明：服务局部值 sectionNames，由紧邻初始化决定。 */
   const sectionNames = new Set<string>()
@@ -62,7 +62,7 @@ function validateAssembly(assembly: PromptAssembly, fail: InvariantFailure): voi
 }
 
 /** Install validation around the authoritative assembly waterfall result. */
-/** 中文说明：服务局部值 install，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 install，由紧邻初始化决定。 */
 const install: InvariantInstaller = (ctx, fail) => {
   ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     /** 中文说明：服务局部值 assembled，由紧邻初始化决定。 */
@@ -77,6 +77,6 @@ const install: InvariantInstaller = (ctx, fail) => {
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文说明：服务局部值 apply，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 apply，由紧邻初始化决定。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

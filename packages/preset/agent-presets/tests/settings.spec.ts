@@ -3,7 +3,7 @@
  * engineering default; the settings document overrides it and is hot-reloaded,
  * so a person can change which preset new sessions get without a restart.
  */
-/**
+/*
  * 文件职责：验证 settings.spec.ts 覆盖的 Agent 预设发现、装载与会话行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和临时配置目录。
  * 产品维度：保障用户选择的 Agent 预设能稳定生效并保持会话一致。
@@ -41,7 +41,7 @@ const NS = settingsNamespace(SETTINGS_NAMESPACE)
  * A composition with a real file-backed settings provider. `settingsFiber` is
  * the provider's own handle, so a test can take it away the way a reload does.
  */
-/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(
   extraRoots: readonly { path: string; trust: 'system' | 'user' }[] = [],
 ): Promise<{ ctx: Context; settingsFile: string; settingsFiber: { dispose: () => unknown } }> {

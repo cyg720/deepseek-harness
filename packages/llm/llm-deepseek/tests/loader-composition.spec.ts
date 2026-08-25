@@ -7,7 +7,7 @@
  * composition without settings or credentials entries keeps entry-config
  * behavior — the documented optional-inject fallback.
  */
-/**
+/*
  * 文件职责：验证DeepSeek LLM的 loader-composition.spec.ts 行为与网络边界。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。

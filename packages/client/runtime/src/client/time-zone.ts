@@ -12,14 +12,14 @@
  * ==========================================================================
  */
 /** Browser-owned time-zone sampling for prompt RPC provenance. */
-/** 浏览器侧时区采样：为 prompt 的 RPC 溯源提供 IANA 时区。 */
+/* 浏览器侧时区采样：为 prompt 的 RPC 溯源提供 IANA 时区。 */
 
 /**
  * Resolve the current browser IANA zone for one outbound operation.
  * @returns The browser-provided canonical zone.
  * @throws when the runtime cannot provide a non-empty zone.
  */
-/**
+/*
  * 解析当前浏览器的 IANA 时区（如 'Asia/Shanghai'），供一次出站操作使用。
  * @returns 浏览器提供的规范时区字符串。
  * @throws 运行时无法提供非空时区时抛出。

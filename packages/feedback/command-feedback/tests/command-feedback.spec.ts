@@ -38,7 +38,7 @@ interface Harness {
 }
 
 /** Minimal mounted backend disclosing one sharing policy. */
-/** 中文说明：类型或类 FakeTelemetry 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 FakeTelemetry 约束扩展或反馈数据职责。 */
 class FakeTelemetry extends SessionTelemetryBackend {
   override readonly sharing: SessionTelemetrySharingStatus
 
@@ -53,7 +53,7 @@ class FakeTelemetry extends SessionTelemetryBackend {
 }
 
 /** Build a live idle agent over a store-owned session, as an app's spine does. */
-/** 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(ctx: Context, id: string): { agent: Agent; session: Session } {
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = ctx.sessions.create(SessionId(id))
@@ -85,7 +85,7 @@ function stubAgent(ctx: Context, id: string): { agent: Agent; session: Session }
  * backend disclosing one sharing policy. Without `sharing`, no telemetry
  * service exists and the acknowledgement reports "not configured".
  */
-/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(sharing?: SessionTelemetrySharingStatus): Promise<Harness> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -102,7 +102,7 @@ async function harness(sharing?: SessionTelemetrySharingStatus): Promise<Harness
 }
 
 /** Execute `/feedback` through the same registry boundary as a UI adapter. */
-/** 中文说明：函数 run 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 run 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function run(test: Harness, suffix = ''): Promise<{ kind: string; text?: string }> {
   /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
   const settled = await test.ctx.commands.execute(
@@ -116,7 +116,7 @@ async function run(test: Harness, suffix = ''): Promise<{ kind: string; text?: s
 }
 
 /** Authoritative feedback payloads in log order. */
-/** 中文说明：函数 feedbackTexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 feedbackTexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function feedbackTexts(session: Session): string[] {
   return session.events
     .filter(event => event.type === 'feedback/record')

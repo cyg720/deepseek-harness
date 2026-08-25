@@ -1,5 +1,5 @@
 /** Read-only `cordis_define` card with Host and Client source tabs. */
-/**
+/*
  * 文件职责：实现Cordis 扩展界面的 CordisDefineRow.tsx 模块。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
@@ -21,7 +21,7 @@ import type { CordisKey } from './locales.ts'
 import css from './CordisDefineRow.module.css'
 
 /** Full card props composed by the keyed Tool slot. */
-/** 中文说明：类型或类 CordisDefineRowProps 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 CordisDefineRowProps 约束扩展或反馈数据职责。 */
 export type CordisDefineRowProps = ToolCallViewProps & InjectFace<CordisCardFace> & PropsLocale<'cordis'>
 
 /** 中文说明：类型或类 CardReading 约束扩展或反馈数据职责。 */
@@ -57,7 +57,7 @@ function leadingFor(state: CordisToolState): ReactNode {
 }
 
 /** Render one immutable Package definition. */
-/** 中文说明：函数 CordisDefineRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 CordisDefineRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function CordisDefineRow({
   callId, block, inspect, useInventory, useLoaded, t,
 }: CordisDefineRowProps) {

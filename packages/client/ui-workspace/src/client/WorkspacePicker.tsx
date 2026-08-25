@@ -8,7 +8,7 @@
  * exactly one route — pick a host directory, new or existing — because the
  * occupant's own create-folder affordance already covers creating one.
  */
-/**
+/*
  * 文件职责：实现工作区浏览的 WorkspacePicker 组件。
  * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
  * 产品维度：支持用户查看或操作工作区浏览。
@@ -32,7 +32,7 @@ import css from './WorkspacePicker.module.css'
 const ADD_WORKSPACE = '::add-workspace'
 
 /** Core flow props: the owner supplies popover control and pick semantics. */
-/** 中文说明：类型或类 WorkspacePickFlowProps 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 WorkspacePickFlowProps 约束模块数据或组件职责。 */
 export interface WorkspacePickFlowProps {
   /** The standard locale seat, forwarded by whichever slot entry hosts the flow. */
   t: WorkspacePickerProps['t']
@@ -65,7 +65,7 @@ export interface WorkspacePickFlowProps {
  * @param props - owner-controlled flow props.
  * @returns menu + dialog elements.
  */
-/** 中文说明：函数 WorkspacePickFlow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 WorkspacePickFlow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function WorkspacePickFlow({
   t,
   open,
@@ -148,7 +148,7 @@ export function WorkspacePickFlow({
   }
 
   /** Adopt a picked directory; failures land in the folder-error dialog (Choose again reopens the flow). */
-  /** 中文说明：组件局部值 adoptDirectory，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 adoptDirectory，由紧邻初始化决定。 */
   const adoptDirectory = (path: string): Promise<void> =>
     createWorkspace({ path }).then((workspace) => {
       setFlowOpen(false)
@@ -186,7 +186,7 @@ export function WorkspacePickFlow({
   }, [open, addIsTheOnlyEntry, flowBusy, openDirectoryFlow])
 
   /** Owner side of the flow conversation: adopt keeps the flow open (busy) until the Host answers. */
-  /** 中文说明：组件局部值 flowOwner，由紧邻初始化决定。 */
+  /* 中文说明：组件局部值 flowOwner，由紧邻初始化决定。 */
   const flowOwner: DirectoryFlowOwnerProps = {
     open: flowOpen,
     busy: pickingFolder,
@@ -253,7 +253,7 @@ export function WorkspacePickFlow({
  * @param props - empty-state slot props (owner share + injected creation callback).
  * @returns the flow element.
  */
-/** 中文说明：函数 WorkspacePicker 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 WorkspacePicker 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function WorkspacePicker({
   open,
   anchorRef,

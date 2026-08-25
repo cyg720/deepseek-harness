@@ -29,7 +29,7 @@ afterEach(cleanup)
  * documented deviation). Keep definitions adjacent to their references when
  * extending this corpus.
  */
-/** 中文说明：测试局部值 STREAM_DOC，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 STREAM_DOC，由紧邻初始化决定。 */
 const STREAM_DOC = [
   '# Title',
   '',

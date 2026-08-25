@@ -9,7 +9,7 @@
  * resolve named plugins from their owning workspace manifests. Local example
  * packages must also be in the root TypeScript project graph.
  */
-/**
+/*
  * 文件职责：实现 verify-cordis-config.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -53,7 +53,7 @@ const appOverlayFiles = new Set([
 const metadataFields = ['id', 'name', 'group', 'inject', 'intercept', 'isolate'] as const
 
 /** The adaptive directory-picker chooser package (mounts a backend row at boot). */
-/** 中文说明：常量 CHOOSER_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CHOOSER_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CHOOSER_PACKAGE = '@deepseek-ai/dsh-host-directory-picker-auto'
 
 /**
@@ -63,7 +63,7 @@ const CHOOSER_PACKAGE = '@deepseek-ai/dsh-host-directory-picker-auto'
  * (which only ever resolves `browse`) hides a dropped `-native` dependency
  * until a macOS boot.
  */
-/** 中文说明：常量 CHOOSER_BACKEND_PACKAGES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CHOOSER_BACKEND_PACKAGES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CHOOSER_BACKEND_PACKAGES = [
   '@deepseek-ai/dsh-host-directory-picker-native',
   '@deepseek-ai/dsh-host-directory-picker-browse',
@@ -123,7 +123,7 @@ if (import.meta.main) {
  * @returns one violation per client package whose `./client` export and
  * `dsh.client` declaration disagree.
  */
-/** 中文说明：函数 validateClientHalvesDeclared 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 validateClientHalvesDeclared 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateClientHalvesDeclared(): string[] {
   return globSync('packages/client/*/package.json', { cwd: root }).flatMap((manifestPath) => {
     /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -159,7 +159,7 @@ function validateClientHalvesDeclared(): string[] {
  * of each other, so a fix applied to three of four is the normal failure.
  * @returns one diagnostic per preset row that is also active on the host plane.
  */
-/** 中文说明：函数 validatePresetPlaneSeparation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 validatePresetPlaneSeparation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validatePresetPlaneSeparation(): string[] {
   /** 中文说明：变量 problems 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const problems: string[] = []
@@ -197,7 +197,7 @@ function validatePresetPlaneSeparation(): string[] {
 }
 
 /** Every entry of one config file, or an empty list when it is not an entry array. */
-/** 中文说明：函数 loadEntries 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 loadEntries 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadEntries(file: string): unknown[] {
   /** 中文说明：变量 document 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const document = loadCordisYaml(readFileSync(resolve(root, file), 'utf8'))
@@ -210,7 +210,7 @@ function loadEntries(file: string): unknown[] {
  * @param file - repository-relative config path.
  * @returns the declared ids.
  */
-/** 中文说明：函数 rowIds 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 rowIds 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function rowIds(file: string): Set<string> {
   /** 中文说明：变量 ids 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ids = new Set<string>()
@@ -360,7 +360,7 @@ function validateAppResolution(): string[] {
  * @param repoRoot Repository root to scan.
  * @returns Sorted slash-normalized repository-relative package manifest paths.
  */
-/** 中文说明：函数 bundleManifestPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 bundleManifestPaths 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function bundleManifestPaths(repoRoot: string = root): string[] {
   return globSync('packages/*/*/package.json', { cwd: repoRoot })
     .filter(path => typeof readManifest(path, repoRoot).dsh?.bundle?.patch === 'string')
@@ -375,7 +375,7 @@ export function bundleManifestPaths(repoRoot: string = root): string[] {
  * @param references Plugin rows read from the Bundle package directory.
  * @returns Missing production dependency diagnostics.
  */
-/** 中文说明：函数 bundlePluginDependencyErrors 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 bundlePluginDependencyErrors 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function bundlePluginDependencyErrors(
   manifestPath: string,
   manifest: PackageManifest,
@@ -398,7 +398,7 @@ export function bundlePluginDependencyErrors(
  * yet breaks every clean checkout. Anything but a `.ts`/`.tsx` hit (a `.d.ts`
  * or `.js` under built `lib/`) is that artifact-plane fallback, not source.
  */
-/** 中文说明：函数 validateSourcePlaneResolution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 validateSourcePlaneResolution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateSourcePlaneResolution(): string[] {
   /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []
@@ -568,7 +568,7 @@ function validateMetadata(entry: Record<string, unknown>, file: string, path: st
  * @param path - the entry's diagnostic path prefix.
  * @returns one diagnostic per offending expression.
  */
-/** 中文说明：函数 metadataExpressionErrors 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 metadataExpressionErrors 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function metadataExpressionErrors(entry: Record<string, unknown>, path: string): string[] {
   /** 中文说明：变量 problems 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const problems: string[] = []
@@ -608,7 +608,7 @@ export function metadataExpressionErrors(entry: Record<string, unknown>, path: s
  * @param expression - the `!!js` expression text.
  * @returns the diagnostic suffix, or `undefined` when the expression parses.
  */
-/** 中文说明：函数 disabledExpressionProblem 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 disabledExpressionProblem 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function disabledExpressionProblem(expression: string): string | undefined {
   try {
     // Compilation only — constructing a Script does not execute its source.

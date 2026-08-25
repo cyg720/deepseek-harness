@@ -12,7 +12,7 @@
  *   `tsx scripts/gen-scoped-events.ts`          -> write the generated source
  *   `tsx scripts/gen-scoped-events.ts --check`  -> exit 1 when it is stale
  */
-/**
+/*
  * 文件职责：实现 gen-scoped-events.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -62,7 +62,7 @@ interface ScopeTag {
 }
 
 /** Program-backed analyzer and renderer for the generated scoped-event resolvers. */
-/** 中文说明：class ScopedEventGenerator 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class ScopedEventGenerator 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class ScopedEventGenerator {
   private readonly checker: ts.TypeChecker
   private readonly packageSources: ts.SourceFile[]
@@ -367,7 +367,7 @@ class ScopedEventGenerator {
 }
 
 /** Return whether an Events interface is inside declare module '@deepseek-ai/cordis'. */
-/** 中文说明：函数 isCordisModuleInterface 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isCordisModuleInterface 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isCordisModuleInterface(node: ts.InterfaceDeclaration): boolean {
   /** 中文说明：变量 block 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const block = node.parent
@@ -380,13 +380,13 @@ function isCordisModuleInterface(node: ts.InterfaceDeclaration): boolean {
 }
 
 /** Return whether a parameter is the explicit TypeScript this receiver. */
-/** 中文说明：函数 isThisParameter 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isThisParameter 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isThisParameter(parameter: ts.ParameterDeclaration): boolean {
   return ts.isIdentifier(parameter.name) && parameter.name.text === 'this'
 }
 
 /** Parse and validate the optional @dshScopeScan unsupported tag. */
-/** 中文说明：函数 parseScopeTag 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseScopeTag 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parseScopeTag(raw: string, where: string, violations: string[]): ScopeTag {
   /** 中文说明：变量 tags 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const tags = raw
@@ -408,7 +408,7 @@ function parseScopeTag(raw: string, where: string, violations: string[]): ScopeT
 }
 
 /** Return whether a property has a private or protected declaration. */
-/** 中文说明：函数 hasNonPublicDeclaration 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 hasNonPublicDeclaration 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function hasNonPublicDeclaration(symbol: ts.Symbol): boolean {
   return (symbol.declarations ?? []).some((declaration) => {
     if (!ts.canHaveModifiers(declaration)) return false
@@ -419,7 +419,7 @@ function hasNonPublicDeclaration(symbol: ts.Symbol): boolean {
 }
 
 /** Deduplicate candidate paths contributed by merged/intersection types. */
-/** 中文说明：函数 dedupeCandidates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 dedupeCandidates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function dedupeCandidates(candidates: readonly SubjectCandidate[]): SubjectCandidate[] {
   /** 中文说明：变量 seen 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seen = new Set<string>()
@@ -431,7 +431,7 @@ function dedupeCandidates(candidates: readonly SubjectCandidate[]): SubjectCandi
 }
 
 /** Quote a generated property key as a single-quoted TypeScript string. */
-/** 中文说明：函数 quote 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 quote 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function quote(value: string): string {
   return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`
 }
@@ -441,13 +441,13 @@ function quote(value: string): string {
  * @param projectRoot - repository root carrying tsconfig.host.json.
  * @returns complete generated TypeScript source.
  */
-/** 中文说明：函数 renderScopedEvents 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderScopedEvents 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function renderScopedEvents(projectRoot: string = root): string {
   return new ScopedEventGenerator(new TypeScriptProject(projectRoot)).render()
 }
 
 /** Generate or freshness-check the fixed dsh-scope source file. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   /** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const content = renderScopedEvents()

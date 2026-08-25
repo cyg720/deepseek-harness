@@ -1,5 +1,5 @@
 /** Agent-scoped serialization for Schedule reads and durable mutations. */
-/**
+/*
  * 文件职责：按精确 Agent 串行执行计划任务读取和持久变更的完整事务。
  * 技术维度：使用 WeakMap 保存每个 Agent 的 Promise 尾链，并在 finally 中安全回收。
  * 产品维度：避免同一代理的提醒创建、读取或删除相互穿插而产生陈旧决定。
@@ -19,7 +19,7 @@ const tails = new WeakMap<Agent, Promise<void>>()
  * @param operation - Complete preflight, fold, mutation, and postflight operation.
  * @returns The operation result after exclusive execution.
  */
-/**
+/*
  * 在同一 Agent 的前序计划事务完成后独占执行一个完整事务。
  * @param agent - 精确的计划任务所有者，也是串行队列键。
  * @param operation - 返回 Promise 的完整事务操作，成功值会原样返回。

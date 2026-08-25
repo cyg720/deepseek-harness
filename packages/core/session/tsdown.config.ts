@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and optional invariant companion as independent bundles. */
-/**
+/*
  * 文件职责：配置核心会话包和可选不变量伴生模块的独立构建。
  * 技术维度：使用 tsdown 从 TypeScript 构建产物生成两个 Node.js ESM bundle。
  * 产品维度：提供会话生命周期与事件接口，并允许应用按需装配关系检查。

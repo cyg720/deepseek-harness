@@ -41,7 +41,7 @@ import { MockAdapter, textResponse, toolCallResponse } from './mock-adapter.ts'
  * external protocol — a native plugin uses the typed decisions directly.
  */
 
-/** 中文说明：测试辅助函数 harness 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 harness 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function harness(adapter: MockAdapter) {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
   const ctx = new Context()

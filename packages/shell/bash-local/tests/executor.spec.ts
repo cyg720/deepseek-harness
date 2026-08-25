@@ -37,7 +37,7 @@ async function setup(config: ConstructorParameters<typeof LocalBashExecutor>[1] 
  * `expected`; returns the accumulation (reads never re-deliver, so the caller
  * gets everything produced up to the match).
  */
-/** 中文说明：函数 readUntil 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 readUntil 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function readUntil(proc: ShellProcess, expected: string, timeoutMs = 5_000): Promise<string> {
   /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs

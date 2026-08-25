@@ -19,18 +19,18 @@ import type { ChatViewSlotProps } from '../contract/slots.ts'
 import css from './ContextBody.module.css'
 
 /** Model-facing text stays bounded at the disclosure, not at the producer. */
-/** 中文说明：当前组件的局部值 MAX_CHARS，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 MAX_CHARS，由紧邻初始化决定。 */
 const MAX_CHARS = 20_000
 
 /** Rows a list body materializes before summarizing the remainder. */
-/** 中文说明：当前组件的局部值 MAX_ENTRIES，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 MAX_ENTRIES，由紧邻初始化决定。 */
 const MAX_ENTRIES = 200
 
 /** 中文说明：类型或类 Translate 约束本文件的数据或组件职责。 */
 type Translate = ChatViewSlotProps['t']
 
 /** One durable source narrowed to the readable-record shape; null for anything else. */
-/** 中文说明：函数 asRecord 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 asRecord 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -38,7 +38,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 /** One run of the model-facing content: adjacent text, or one unknown block. */
-/** 中文说明：类型或类 ContentRun 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ContentRun 约束本文件的数据或组件职责。 */
 type ContentRun = { text: string } | { block: unknown }
 
 /**
@@ -51,7 +51,7 @@ type ContentRun = { text: string } | { block: unknown }
  * merge-extensible, so a foreign log may interleave shapes this build does not
  * know.
  */
-/** 中文说明：函数 contentRuns 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 contentRuns 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function contentRuns(content: ContextMessageNode['content']): ContentRun[] {
   /** 中文说明：当前组件的局部值 runs，由紧邻初始化决定。 */
   const runs: ContentRun[] = []
@@ -70,13 +70,13 @@ function contentRuns(content: ContextMessageNode['content']): ContentRun[] {
 }
 
 /** Only the blocks this UI version does not know, for bodies that replace the text. */
-/** 中文说明：函数 unknownBlocks 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 unknownBlocks 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function unknownBlocks(content: ContextMessageNode['content']): unknown[] {
   return contentRuns(content).flatMap(run => 'block' in run ? [run.block] : [])
 }
 
 /** The model-facing text, truncated to the display bound. */
-/** 中文说明：函数 boundedText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 boundedText 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function boundedText(text: string, t: Translate): string {
   return text.length > MAX_CHARS
     ? `${text.slice(0, MAX_CHARS)}\n${t('json.truncated', { total: text.length })}`
@@ -88,7 +88,7 @@ function boundedText(text: string, t: Translate): string {
  * Bounded on its own, because source fields are as unbounded as the text: an unknown
  * producer may record an arbitrarily large string or array.
  */
-/** 中文说明：函数 fieldValue 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 fieldValue 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function fieldValue(value: unknown, t: Translate): string {
   /** 中文说明：当前组件的局部值 text，由紧邻初始化决定。 */
   const text = typeof value === 'string'
@@ -105,7 +105,7 @@ function fieldValue(value: unknown, t: Translate): string {
  * that is the one place a form this version cannot present would otherwise
  * disappear from the UI entirely.
  */
-/** 中文说明：函数 SourceFields 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 SourceFields 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function SourceFields({ source, formRendered, t }: {
   source: unknown
   formRendered: boolean
@@ -138,7 +138,7 @@ function SourceFields({ source, formRendered, t }: {
  * @param props - The unrecognized blocks and the locale seat.
  * @returns One generic JSON block per unknown entry.
  */
-/** 中文说明：函数 UnknownBlocks 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 UnknownBlocks 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function UnknownBlocks({ blocks, t }: { blocks: readonly unknown[]; t: Translate }): ReactNode {
   return (
     <>
@@ -161,7 +161,7 @@ function UnknownBlocks({ blocks, t }: { blocks: readonly unknown[]; t: Translate
  * @param props - Durable content and the locale seat.
  * @returns The content blocks as the model received them.
  */
-/** 中文说明：函数 ModelFacingContent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 ModelFacingContent 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function ModelFacingContent({ content, t }: {
   content: ContextMessageNode['content']
   t: Translate
@@ -191,7 +191,7 @@ function ModelFacingContent({ content, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The opaque context body.
  */
-/** 中文说明：函数 OpaqueBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 OpaqueBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function OpaqueBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -206,7 +206,7 @@ export function OpaqueBody({ content, source, t }: {
 }
 
 /** One reconciled instruction file, as the durable source records it. */
-/** 中文说明：类型或类 InstructionChange 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 InstructionChange 约束本文件的数据或组件职责。 */
 interface InstructionChange {
   action: 'set' | 'replace' | 'remove'
   path: string
@@ -222,7 +222,7 @@ interface InstructionChange {
  * Paths are deduplicated in first-seen order, matching how the header label is
  * derived from the same array.
  */
-/** 中文说明：函数 instructionChanges 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 instructionChanges 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function instructionChanges(source: unknown): InstructionChange[] | null {
   /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
@@ -263,7 +263,7 @@ function instructionChanges(source: unknown): InstructionChange[] | null {
  * @param baseline - whether this context is the startup/resume baseline.
  * @returns the key naming what happened to that file.
  */
-/** 中文说明：函数 instructionAction 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 instructionAction 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function instructionAction(
   action: InstructionChange['action'],
   baseline: boolean,
@@ -283,7 +283,7 @@ function instructionAction(
  * @returns The instructions context body, or the opaque body when the change
  * list is unreadable.
  */
-/** 中文说明：函数 InstructionsBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 InstructionsBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function InstructionsBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -312,7 +312,7 @@ export function InstructionsBody({ content, source, t }: {
 }
 
 /** One catalog entry, as the durable source records it. */
-/** 中文说明：类型或类 CatalogEntry 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 CatalogEntry 约束本文件的数据或组件职责。 */
 interface CatalogEntry {
   name: string
   description: string
@@ -324,7 +324,7 @@ interface CatalogEntry {
  * replaces the model-facing text, so a partial list would hide the only complete
  * account of what the model read.
  */
-/** 中文说明：函数 catalogEntries 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 catalogEntries 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function catalogEntries(source: unknown): CatalogEntry[] | null {
   /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
@@ -360,7 +360,7 @@ function catalogEntries(source: unknown): CatalogEntry[] | null {
  * @returns The catalog context body, or the opaque body when the entry list is
  * unreadable.
  */
-/** 中文说明：函数 CatalogBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 CatalogBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function CatalogBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -403,14 +403,14 @@ export function CatalogBody({ content, source, t }: {
 }
 
 /** One named contribution to a runtime snapshot, as the durable source records it. */
-/** 中文说明：类型或类 SnapshotSection 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 SnapshotSection 约束本文件的数据或组件职责。 */
 interface SnapshotSection {
   name: string
   text: string
 }
 
 /** Snapshot sections read off the source, or null when the record is unusable. */
-/** 中文说明：函数 snapshotSections 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 snapshotSections 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function snapshotSections(source: unknown): SnapshotSection[] | null {
   /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
@@ -450,7 +450,7 @@ function snapshotSections(source: unknown): SnapshotSection[] | null {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The snapshot context body, or the opaque body when unreadable.
  */
-/** 中文说明：函数 SnapshotBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 SnapshotBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function SnapshotBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -485,7 +485,7 @@ export function SnapshotBody({ content, source, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The notice context body.
  */
-/** 中文说明：函数 NoticeBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 NoticeBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function NoticeBody({ content, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -502,7 +502,7 @@ export function NoticeBody({ content, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The relay context body.
  */
-/** 中文说明：函数 RelayBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 RelayBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function RelayBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -523,7 +523,7 @@ export function RelayBody({ content, source, t }: {
 }
 
 /** The sending agent's session id, or null when the record does not name one. */
-/** 中文说明：函数 relaySender 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 relaySender 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function relaySender(source: unknown): string | null {
   /** 中文说明：当前组件的局部值 sender，由紧邻初始化决定。 */
   const sender = asRecord(source)?.['senderSessionId']
@@ -531,7 +531,7 @@ function relaySender(source: unknown): string | null {
 }
 
 /** One recalled session, as the durable source records it. */
-/** 中文说明：类型或类 RecalledSession 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 RecalledSession 约束本文件的数据或组件职责。 */
 interface RecalledSession {
   label: string
   retained: number
@@ -540,7 +540,7 @@ interface RecalledSession {
 }
 
 /** Recalled sessions read off the source, or null when the record is unusable. */
-/** 中文说明：函数 recalledSessions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 recalledSessions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function recalledSessions(source: unknown): RecalledSession[] | null {
   /** 中文说明：当前组件的局部值 record，由紧邻初始化决定。 */
   const record = asRecord(source)
@@ -583,7 +583,7 @@ function recalledSessions(source: unknown): RecalledSession[] | null {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The recall context body, or the opaque body when unreadable.
  */
-/** 中文说明：函数 RecallBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 RecallBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function RecallBody({ content, source, t }: {
   content: ContextMessageNode['content']
   source: unknown
@@ -616,7 +616,7 @@ export function RecallBody({ content, source, t }: {
 }
 
 /** The one-line account a `notice` puts on its collapsed row, when it records one. */
-/** 中文说明：函数 noticeSummary 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 noticeSummary 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function noticeSummary(source: unknown): string | null {
   /** 中文说明：当前组件的局部值 summary，由紧邻初始化决定。 */
   const summary = asRecord(source)?.['summary']
@@ -635,7 +635,7 @@ function noticeSummary(source: unknown): string | null {
  * @param props - durable content, its source, and the locale seat.
  * @returns the rendered form (null for opaque), its collapsed summary, and its body.
  */
-/** 中文说明：函数 contextBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 contextBody 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function contextBody(
   form: ContextMessageNode['form'],
   props: { content: ContextMessageNode['content']; source: unknown; t: Translate },

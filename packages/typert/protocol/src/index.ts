@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】typert 协议包的运行时入口：提供 Remote 方法装饰器（@Remote / @RemoteScope）、
  *             显式的服务到网关绑定（bindTypertRemote / TypertRemoteService），以及

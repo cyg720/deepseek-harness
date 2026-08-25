@@ -7,7 +7,7 @@
  *
  * @module @deepseek-ai/dsh-spill-local
  */
-/**
+/*
  * 文件职责：实现将过大工具文本安全写入本机文件系统的 SpillStore 提供方。
  * 技术维度：使用 Cordis 服务、Schemastery 配置、路径解析和安全文件写入辅助函数。
  * 产品维度：模型上下文放不下完整工具输出时，用户仍可通过文件路径分段读取或搜索内容。
@@ -27,14 +27,14 @@ export { encodeSegment, privateRoot, saveTextFile, sessionDir } from './store.ts
 export type { SavedText, SaveTextOptions } from './store.ts'
 
 /** Plugin config (all optional — `static Config` supplies the defaults). */
-/** 插件配置；字段均可省略，静态 Config 负责声明默认解析规则。 */
+/* 插件配置；字段均可省略，静态 Config 负责声明默认解析规则。 */
 export interface Config {
   /**
    * Root directory for spill files. Omitted uses a lazily-created private
    * (0700) per-process directory under the OS temp dir — the safe default for
    * a local deployment. Set it to keep spill files under a known location.
    */
-  /** 溢出文件根目录；省略时使用进程专属、权限受限的临时目录。 */
+  /* 溢出文件根目录；省略时使用进程专属、权限受限的临时目录。 */
   root?: string
 }
 
@@ -44,7 +44,7 @@ export interface Config {
  * (0700) root — a spilled tool result must not be readable by other local users
  * or redirectable via a planted symlink.
  */
-/**
+/*
  * 本地文件系统 SpillStore，将文本保存到会话隔离目录并返回本地路径。
  * 适用于单机部署中需要保存过大工具结果的场景。
  */
@@ -55,7 +55,7 @@ export class LocalSpillStore extends SpillStore {
   })
 
   /** Resolved absolute spill root (config `root`, else the private default), fixed at construction. */
-  /** 构造时确定的绝对存储根目录，之后保持不变。 */
+  /* 构造时确定的绝对存储根目录，之后保持不变。 */
   readonly root: string
 
   /**

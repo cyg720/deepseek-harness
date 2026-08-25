@@ -15,12 +15,17 @@
 
 ```ts persistence-catalog
 /** The appendable event-type keys of {@link SessionEventMap}, plugin-merged extensions included. */
+/* {@link SessionEventMap} 全部可追加的事件类型键（含插件声明合并进来的扩展）。 */
 export type SessionEventType = keyof SessionEventMap
 
 /**
  * The subset of {@link SessionEventType} values whose events produce LLM
  * messages and are eligible to appear on the ordered surface. Only these
  * event types may carry {@link SurfaceOp} and {@link SessionEvent.sourceEventSeqs}.
+ */
+/*
+ * {@link SessionEventType} 中“会产生 LLM 消息、因而有资格进入有序表面”的那部分事件类型。
+ * 也只有它们可以携带 {@link SurfaceOp} 与 {@link SessionEvent.sourceEventSeqs}。
  */
 export type SurfaceEventType =
   | 'user/message'
@@ -40,6 +45,14 @@ export type SurfaceEventType =
  *   shadowed surface node. Used by compaction; any surface-replacing producer
  *   may use it.
  */
+/*
+ * 一个会话事件如何进入有序表面（仅对表面事件类型合法）：
+ * - 'append'：追加到尾部——用户/助手/工具消息的正常路径；
+ * - { op:'replace', start, end }：用本节点替换表面上 [start, end]（闭区间）内的既有节点，
+ *   start 与 end 都必须已是当前表面上的节点；start === end 即替换单个节点；
+ *   本事件的 {@link SessionEvent.sourceEventSeqs} 必须涵盖全部被遮蔽的表面节点。
+ * compaction（历史压缩）使用它；任何产生表面替换的生产者也可使用。
+ */
 export type SurfaceOp =
   | 'append'
   | { op: 'replace'; start: number; end: number }
@@ -57,13 +70,24 @@ export type SurfaceOp =
  * surface metadata — the compiler enforces this at `Session.append()`
  * call sites.
  */
+/*
+ * 会话日志中的一条不可变条目。
+ * 这是按 type 划分的正规判别联合（而非独立的 type/data 两个联合），
+ * 因此 switch (event.type) 无需类型断言即可收窄 event.data。
+ * {@link sourceEventSeqs} 与 {@link surfaceOp} 是条件字段：只存在于三类表面事件变体上；
+ * 非表面事件（边界标记、chunk、usage、错误）永不携带表面元数据——编译器在
+ * Session.append() 调用点强制这一点。
+ */
 export type SessionEvent<T extends SessionEventType = SessionEventType> = {
   [K in SessionEventType]: {
     type: K
     /** Monotonic sequence number within the session. */
+    // 会话内单调递增的序号；恒等于追加时日志的长度。
     seq: number
     /** Unix epoch milliseconds. */
+    // Unix 纪元毫秒时间戳（事件写入时刻）。
     time: number
+    // 事件载荷，形状由 SessionEventMap 中该类型的成员决定。
     data: SessionEventMap[K]
     /**
      * Marks an event a reader may safely skip when it does not recognize
@@ -75,6 +99,12 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * defaulting to required means a forgotten marker over-refuses (an
      * inconvenience) rather than silently resuming a gutted session.
      */
+    /*
+     * 标记“读者不认识该 type 时可以安全跳过”。缺省即必需：读到不认识的必需事件必须拒绝重建会话，
+     * 而不是悄悄丢弃——因为不认识的必需事件可能改变日志其余部分的解读方式。写方只在纯资讯性记录上
+     * 设 true（丢失它不可能影响重建）。默认必需意味着漏写标记只会导致“过度拒绝”（麻烦一点），
+     * 而不是静默地续读一个被掏空的会话。
+     */
     ignorable?: true
   } & (K extends SurfaceEventType ? {
     /**
@@ -85,8 +115,14 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * provider stream; when the field is absent, the event does not record which
      * earlier events produced the message.
      */
+    /*
+     * 本事件引用为来源的更早事件的 seq 集合（例如拼出 assistant/message 的那些
+     * assistant/chunk 的 seq，或被 compaction 替换节点遮蔽的表面节点）。
+     * assistant/message 可用显式空数组表示已知为空的提供方流；缺省则不记录来源。
+     */
     sourceEventSeqs?: number[]
     /** How this event entered the surface; absent for non-surface events. */
+    /* 本事件进入表面的方式；非表面事件缺省。 */
     surfaceOp?: SurfaceOp
   } : object)
 }[T]
@@ -132,6 +168,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * under, so a resumed or forked session rebuilds the same one instead of
  * the header's creation-time value.
  */
+/* 会话仍为空白时选择的新预设，用于之后恢复相同的代理组合。 */
 'agent-preset/selected': { agentPreset: string }
 ```
 
@@ -212,6 +249,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 ```ts persistence-catalog
 /** Raw stream chunk — token-level replay fidelity. */
+/* 原始流块——保证 token 级重放保真的数据。 */
 'assistant/chunk': { turn: number; step: number; chunk: StreamChunk }
 ```
 
@@ -233,6 +271,13 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * event with `interrupted: true`; undispatched tool calls are absent. The
  * marker distinguishes that prefix without re-deriving interruption from turn
  * boundaries. An aborted turn with no such event streamed no visible content.
+ */
+/*
+ * 一步组装完成的 assistant 消息（派生历史使用它）。适配器报告了 token 统计
+ * 就随事件携带 usage（没有单独的用量记录，输出与账目同行）。中途取消的轮次
+ * 会把已送达的文本/推理前缀以此事件落盘并标 interrupted: true，未派发的
+ * 工具调用不会出现——该标记无需从轮次边界重新推断中断。被中止的轮次若没有
+ * 此事件，说明没有流出任何可见内容。
  */
 'assistant/message': { turn: number; step: number; message: AssistantMessage; usage?: TokenUsage; interrupted?: true }
 ```
@@ -484,6 +529,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 ```ts persistence-catalog
 /** Durable, non-surface record of one provider-routed retry scheduled after a failed request attempt. */
+// 中文：一次请求尝试失败后、按 provider 路由调度重试的持久（非展示面）记录。
 'llm/retry': LlmRetryEventData
 ```
 
@@ -495,6 +541,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 ```ts persistence-catalog
 /** Durable transition written after a retry wait succeeds and before the next request attempt starts. */
+// 中文：重试等待成功、下一次请求尝试开始之前写入的持久转换记录。
 'llm/retry-started': LlmRetryStartedEventData
 ```
 
@@ -546,6 +593,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * Route metadata for the next request, logged only when the route or capacity
  * changes. It does not participate in request reconstruction or header equality.
  */
+/* 下一次请求的路由元数据；仅在路由或容量变化时记录。不参与请求重建，也不参与头部相等性比较。 */
 'request/context': RequestContext
 ```
 
@@ -560,6 +608,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * Full header for the next request, appended inside its step before dispatch.
  * It is log-only; the latest snapshot reconstructs the request header.
  */
+/* 下一次请求的完整头部，在其 step 内、派发之前追加。仅供日志使用；最新一份快照即重建结果。 */
 'request/header': { header: EpochHeader; reason: RequestHeaderReason }
 ```
 
@@ -635,6 +684,13 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * writers — a concurrently live session holds its own boundary elsewhere,
  * so tolerating concurrent writers needs a signal beyond the log.
  */
+/*
+ * 标记构造种子的终点：它之前（seq 更小）的事件都来自种子（resume/fork/replay），
+ * 本生命周期从未产生过它们。这是 Session.firstLiveSeq 在日志中的持久化投影，
+ * 载荷为空——位置和时间本身就是含义。读取存储历史时应定位“最后一条”该事件：
+ * 种子若已以其结尾则不再重复标注，避免每次打开未动过的会话都让日志增长。
+ * 只有 Session 的构造函数有权写入此事件。
+ */
 'session/end-seed': Record<string, never>
 ```
 
@@ -677,6 +733,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 ```ts persistence-catalog
 /** Closes step `step` of turn `turn`. */
+/* 关闭第 turn 轮的第 step 步。 */
 'step/end': { turn: number; step: number }
 ```
 
@@ -688,6 +745,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 ```ts persistence-catalog
 /** Opens step `step` of turn `turn` — one model call plus the tool executions it requested. */
+/* 打开第 turn 轮的第 step 步——一次模型调用加上它要求的全部工具执行。 */
 'step/start': { turn: number; step: number }
 ```
 
@@ -779,6 +837,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 ```ts persistence-catalog
 /** Whole-list snapshot; latest write wins on replay. Log-only UI state; never derived history. */
+/* 整张待办清单的快照；重放时最新一次写入生效。只用于日志/UI 状态，绝不进入派生历史。 */
 'todo/write': { todos: TodoItem[] }
 ```
 
@@ -798,6 +857,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * JSON string exactly as the model produced it (unparsed). `callId` pairs the
  * call with its `tool/result`.
  */
+/* 模型请求一次工具调用：name 加上模型原始产出的 arguments JSON 字符串（不解析）；callId 用于与对应的 tool/result 配对。 */
 'tool/call': { turn: number; step: number; callId: CallId; name: string; arguments: string }
 ```
 
@@ -825,6 +885,12 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * before returning), so its execution-enclosure relation holds by
  * construction.
  */
+/*
+ * 【中文】子调用落定事件：每个已开始的子调用恰好对应一条（中止亦然），按
+ *   subCallId 与对应的开始事件配对。同样仅入日志——子调用结果不会重新进入
+ *   模型上下文；它在父 `run_code` 执行内部被追加（桥接层在返回前排空所有在途
+ *   分派），因此"落定发生在父调用执行区间内"这一封闭关系由构造保证。
+ */
 'tool/code-dispatch': CodeDispatchEventData
 ```
 
@@ -848,6 +914,12 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * with `tool/code-dispatch` by `subCallId` (timing = the two events'
  * `time` fields).
  */
+/*
+ * 【中文】子调用开始事件：调度器真正启动该调用时才写入（提交时不算），
+ *   因此它的出现意味着工具体流水线已进入；仅在队列里被放弃的调用不产生日志。
+ *   仅入日志、不进入模型消息（deriveMessages 忽略它）；UI 用它展示逐子调用的
+ *   运行中状态，并按 subCallId 与落定事件配对。
+ */
 'tool/code-dispatch-start': CodeDispatchStartEventData
 ```
 
@@ -868,6 +940,13 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * identical card on replay. Absent
  * unless the tool attaches one (e.g. `dsh-tool-fs` carries its result-time
  * contextual diff here).
+ */
+/*
+ * 已完成工具调用的模型侧结果 message、可选的内部失败标识 error、可选的
+ * 工具私有展示载荷 meta。meta 对核心不透明（由产生它的工具定义形状并在
+ * presentResult 读回），但必须可 JSON 序列化——Session.append 会用
+ * isJsonValue 校验，不可序列化的 meta 在源头就被拒绝，耐久日志重放时能
+ * 还原出完全相同的卡片。
  */
 'tool/result': {
   turn: number
@@ -891,6 +970,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * Records one member settlement.
  * @param data - run identity, paired member sequence, and outcome.
  */
+/* 中文：记录成员结算；data 包含运行标识、配对序号和结果。 */
 'tool-workflow/agent-end': ToolWorkflowAgentEndData
 ```
 
@@ -905,6 +985,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * Records one published workflow member.
  * @param data - run identity, member sequence, display identity, and child Session.
  */
+/* 中文：记录已发布成员；data 包含运行、序号、显示信息和子会话。 */
 'tool-workflow/agent-start': ToolWorkflowAgentStartData
 ```
 
@@ -919,6 +1000,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * Closes one workflow record after cleanup.
  * @param data - stable run identity and terminal reason.
  */
+/* 中文：关闭工作流记录；data 包含运行标识和终止原因。 */
 'tool-workflow/run-end': ToolWorkflowRunEndData
 ```
 
@@ -933,6 +1015,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * Opens one top-level workflow record.
  * @param data - stable run identity and display name.
  */
+/* 中文：打开工作流记录；data 包含运行标识和显示名称。 */
 'tool-workflow/run-start': ToolWorkflowRunStartData
 ```
 
@@ -953,6 +1036,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * `whenIdle()` flush themselves. Success commits the turn; rejection is
  * reported live and does not prevent later work.
  */
+/* 以结束原因关闭第 turn 个轮次；没有进入过 step 的轮次就没有 step/start 与 step/end。轮边界处循环不等待落盘：由 checkpoint-policy 插件负责每请求的持久化检查点，读完存储的消费者自行冲刷。 */
 'turn/end': { turn: number; reason: TurnEndReason }
 ```
 
@@ -971,6 +1055,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * step; otherwise the following identified `user/message` event or batch
  * records the messages entering the step.
  */
+/* 在循环认领排队输入或执行前置步骤之前，打开第 turn 个轮次；被拒绝、空输入、取消或失败都可能让该轮没有任何 step 就关闭。 */
 'turn/start': { turn: number }
 ```
 
@@ -990,6 +1075,12 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * notifications, …), or an entered goal continuation round. All three
  * project their `content` verbatim; `source` tells them apart.
  */
+/*
+ * 模型可见表面上的一条 user 角色消息：可能是人类直接输入（本轮认领的排队
+ * 消息）、agent.inject() 注入的合成上下文（文件变更通知、子目录 AGENTS.md、
+ * 技能内容、定时通知等）、或目标延续回合。三者都原样投影 content，用
+ * source 区分来源。
+ */
 'user/message': UserMessage
 ```
 
@@ -1003,6 +1094,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 ```ts persistence-catalog
 /** Secret-free auxiliary DeepSeek search request recorded before dispatch. */
+// 派发前记录的、去密钥的 DeepSeek 辅助搜索请求。
 'web/deepseek-search-llm-request': DeepSeekSearchLlmRequest
 ```
 

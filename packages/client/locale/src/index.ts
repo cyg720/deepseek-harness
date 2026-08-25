@@ -13,7 +13,7 @@
  * ==========================================================================
  */
 /** Host registration for the browser locale preference. */
-/** 浏览器语言偏好的 Host 注册。 */
+/* 浏览器语言偏好的 Host 注册。 */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
@@ -28,7 +28,7 @@ export {
  * Register the durable locale section when a settings provider exists.
  * @param ctx - Host context whose optional settings service owns the section.
  */
-/**
+/*
  * 当存在设置提供者时注册持久化语言段。
  * @param ctx 其可选 settings 服务拥有该段的 Host 上下文。
  */

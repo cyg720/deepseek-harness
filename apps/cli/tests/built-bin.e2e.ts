@@ -15,7 +15,7 @@ import { execa } from 'execa'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 /** Published-entry acceptance for argument errors, profile lifecycle, and boot-free config dumps. */
-/** 发布入口的参数错误、配置生命周期和免启动配置导出验收测试。 */
+/* 发布入口的参数错误、配置生命周期和免启动配置导出验收测试。 */
 /** 仓库根目录。 */
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 // The release version, including a prerelease such as 0.0.1-rc.1: `--version`
@@ -91,7 +91,7 @@ interface ProfileLifecycleFixture {
  * dsh.profile.bundles, no dsh-base — proving out-of-box composition machinery without
  * booting the entire product tree.
  */
-/**
+/*
  * 创建只含生命周期标记 bundle 的最小临时配置。
  * @returns 配置主目录及就绪、稳定、释放和中断标记路径。
  * @example `const fixture = createProfileLifecycleFixture()`
@@ -266,7 +266,7 @@ interface StartupFixture {
   echo: string
   interrupt: string
   /** An always-running row's echo, used to observe that a user patch reload landed. */
-  /** 常驻行写入的回显文件，用于确认用户补丁重载已经生效。 */
+  /* 常驻行写入的回显文件，用于确认用户补丁重载已经生效。 */
   witness: string
 }
 
@@ -277,7 +277,7 @@ interface StartupFixture {
  * `@deepseek-ai/dsh-cmdline` and `commander` through the profile module
  * fallback, exactly as an installed out-of-tree bundle does.
  */
-/**
+/*
  * 创建验证应用参数延迟注入和用户补丁热重载的临时配置。
  * @returns 主目录及就绪、配置回显、中断和监听回显路径。
  * @example `const fixture = createStartupFixture()`

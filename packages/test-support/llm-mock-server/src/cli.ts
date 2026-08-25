@@ -2,7 +2,7 @@
  * Dependency-free CLI parsing for the standalone mock LLM server.
  * @module @deepseek-ai/dsh-llm-mock-server/cli
  */
-/**
+/*
  * 文件职责：实现 cli.ts 覆盖的LLM 测试替身行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的LLM 测试替身能力保障 Agent 功能在集成层稳定。
@@ -21,11 +21,11 @@ import type {
 } from './index.ts'
 
 /** Listener lifecycle behavior understood only by the standalone CLI. */
-/** 中文说明：常量 CONNECTION_REFUSED_BEHAVIOR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CONNECTION_REFUSED_BEHAVIOR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CONNECTION_REFUSED_BEHAVIOR = 'connection_refused'
 
 /** Parsed CLI configuration, including a pre-listen unavailable interval. */
-/** 中文说明：interface MockLlmCliConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：interface MockLlmCliConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface MockLlmCliConfig {
   /** Server options after removing the lifecycle-only `connection_refused` entry. */
   readonly server: MockLlmServerOptions
@@ -36,7 +36,7 @@ export interface MockLlmCliConfig {
 }
 
 /** Result of parsing `dsh-llm-mock-server` arguments. */
-/** 中文说明：type MockLlmCliParseResult 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
+/* 中文说明：type MockLlmCliParseResult 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmCliParseResult =
   | { readonly kind: 'help' }
   | { readonly kind: 'run'; readonly config: MockLlmCliConfig }
@@ -47,7 +47,7 @@ const BEHAVIORS = new Set<string>(MOCK_LLM_BEHAVIORS)
 const DEFAULT_LISTEN_DELAY_MS = 750
 
 /** Command usage written for `--help` and invalid arguments. */
-/** 中文说明：常量 MOCK_LLM_CLI_USAGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MOCK_LLM_CLI_USAGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MOCK_LLM_CLI_USAGE = `Usage: dsh-llm-mock-server [options]
 
 Required:
@@ -142,7 +142,7 @@ function parseRandomWeights(raw: string): MockLlmRandomWeights {
 }
 
 /** parseArgs vocabulary: every documented flag; only `--repeat-last` and `--help` are boolean. */
-/** 中文说明：常量 CLI_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CLI_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLI_OPTIONS = {
   'sequence': { type: 'string' },
   'host': { type: 'string' },
@@ -171,7 +171,11 @@ const CLI_OPTIONS = {
  * @param argv - arguments after the executable name.
  * @returns help or validated run configuration.
  */
-/** 中文说明：函数 parseMockLlmCliArgs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 parseMockLlmCliArgs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param argv 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function parseMockLlmCliArgs(argv: readonly string[]): MockLlmCliParseResult {
   if (argv.includes('--help')) return { kind: 'help' }
 

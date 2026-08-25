@@ -24,7 +24,7 @@ import { installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 installAssembledBootEnv()
 
 /** Open a fresh fixture session and return its composer textarea. */
-/** 打开新的 fixture 会话并返回编辑器 textarea。 */
+/* 打开新的 fixture 会话并返回编辑器 textarea。 */
 async function freshComposer(): Promise<HTMLTextAreaElement> {
   /** 已装配应用的会话树。 */
   const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
@@ -36,7 +36,7 @@ async function freshComposer(): Promise<HTMLTextAreaElement> {
 }
 
 /** Paste one tiny PNG into the composer and wait for its rail thumbnail. */
-/** 向编辑器粘贴最小 PNG，并在附件缩略图出现后完成。 */
+/* 向编辑器粘贴最小 PNG，并在附件缩略图出现后完成。 */
 async function pasteImage(textarea: HTMLTextAreaElement, name: string): Promise<void> {
   /** 模拟剪贴板图片的最小 PNG 文件。 */
   const image = new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })

@@ -17,7 +17,7 @@ beforeEach(() => { vi.useFakeTimers() })
 afterEach(() => { vi.useRealTimers() })
 
 /** Anchor wrapper rect: the card positions from this (jsdom rects are all-zero by default). */
-/** 中文说明：函数 stubAnchorRect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubAnchorRect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAnchorRect(anchor: HTMLElement, rect: { top: number; right: number }): void {
   /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
   const wrapper = anchor.parentElement as HTMLElement
@@ -46,7 +46,7 @@ function mount(props: {
 }
 
 /** Install the async browser clipboard and restore its prior host shape. */
-/** 中文说明：函数 installClipboard 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 installClipboard 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function installClipboard(writeText: (text: string) => Promise<void>): () => void {
   /** 中文说明：测试局部值 prior，由紧邻初始化决定。 */
   const prior = Object.getOwnPropertyDescriptor(navigator, 'clipboard')

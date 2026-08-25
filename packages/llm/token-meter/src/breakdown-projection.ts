@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现"启发式上下文构成"投影单元：系统提示与工具 schema 取最新
  * 请求包络，对话部分取实时表面；用与 meter 服务相同的共享估计器定价，因此
@@ -62,7 +62,7 @@ const breakdownSchema = z.object({
   messageTokens: tokenCount,
 }).strict()
 
-/**
+/*
  * （中文）token-meter 的上下文构成投影单元。
  * 包络数字按 request/header last-wins；消息数字复用 foldSurfaceProjection——
  * 与占用投影相同的 O(1) 折叠——因此完整计量的日志在任意事件边界都等于

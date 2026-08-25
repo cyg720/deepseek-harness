@@ -6,7 +6,7 @@
  *
  * @module @deepseek-ai/dsh-plan-mode/client
  */
-/**
+/*
  * 文件职责：把计划模式共享类型投影到浏览器客户端命名空间。
  * 技术维度：通过 `export type *` 保持类型单一来源且不产生 JavaScript。
  * 产品维度：计划控件与命令界面可使用一致的模式和事件类型。

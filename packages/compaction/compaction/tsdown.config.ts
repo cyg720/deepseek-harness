@@ -9,7 +9,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Builds each published entry as a self-contained file admitted by the package whitelist. */
-/**
+/*
  * 为两个发布入口生成自包含构建配置；参数是配置数组，返回 tsdown 可消费的默认配置。
  * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-compaction bundle` 时自动加载。
  */

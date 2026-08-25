@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build both public entries separately so each inlines shared internal helpers. */
-/**
+/*
  * 文件职责：配置时间上下文包的主入口和不变量入口独立构建。
  * 技术维度：使用 tsdown 分别打包两个 ESM 入口，使共享内部辅助代码进入各自产物。
  * 产品维度：为模型请求提供当前时间信息，并让相关运行时关系可以独立检查。

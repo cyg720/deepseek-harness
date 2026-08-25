@@ -24,7 +24,7 @@
  * version; no policy means an unconditional atomic edit.
  * @module @deepseek-ai/dsh-tool-fs/src/edit
  */
-/**
+/*
  * 模块总览：本文件是 edit 工具的定义与执行体。观察态策略加载后，"编辑未读文件"
  * 会被意图槽以 FS_NOT_OBSERVED 拒绝。
  */
@@ -40,7 +40,7 @@ import { sessionResolveOptions } from './session-cwd.ts'
 import type { FsSandboxController } from './sandbox.ts'
 
 /** Validated `edit` arguments after defaulting. */
-/** 默认化后的已校验 edit 参数。 */
+/* 默认化后的已校验 edit 参数。 */
 interface EditInput {
   filePath: string
   oldString: string
@@ -53,7 +53,7 @@ interface EditInput {
  * escalation fields, advertised only under a confining `ctx.fs` (absent from
  * the schema otherwise, so the validator rejects them before `execute`).
  */
-/**
+/*
  * edit 工具的已校验参数：基础参数加两个升级字段（只在有围栏 ctx.fs 下被广告；
  * 否则 schema 里没有它们，校验器在 execute 之前就拒绝）。
  */
@@ -73,7 +73,7 @@ interface EditToolArgs {
  * @param args - the schema-validated raw tool arguments.
  * @returns the camelCased input with `replace_all` defaulted to false.
  */
-/**
+/*
  * 校验 schema DSL 表达不了的值约束：file_path 非空白、old_string 非空、
  * old_string 与 new_string 不同（相等 = 必然的空操作编辑）。
  * @param args 已通过 schema 校验的原始工具参数。
@@ -97,7 +97,7 @@ export function parseEditArgs(args: { file_path: string; old_string: string; new
  * @param replaceAll - selects the all-occurrences wording over the single-replacement one.
  * @returns the confirmation sentence the model sees as the tool result.
  */
-/**
+/*
  * 把编辑成功（单匹配或全替换）格式化成 Claude 风格、模型可见的消息。
  * @param displayPath 展示给模型的后端解析路径。
  * @param replaceAll 选择"全部替换"措辞还是"单次替换"措辞。
@@ -114,7 +114,7 @@ export function formatEditOutput(displayPath: string, replaceAll: boolean): stri
  * @param ctx - the plugin context; registrations are effects scoped to it, and execution uses its `fs` service.
  * @param sandbox - the shared sandbox-escalation API (advertisement, mode stamping, denial mapping).
  */
-/**
+/*
  * 注册 edit 工具与其系统提示指南。
  * @param ctx 插件上下文；注册是作用域于它的副作用，执行使用其 fs 服务。
  * @param sandbox 共享的沙箱升级 API（广告、模式盖章、拒绝映射）。

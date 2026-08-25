@@ -1,5 +1,5 @@
 /** Deterministic cached image versions for model requests. */
-/**
+/*
  * 文件职责：按模型路由的像素和字节预算生成确定性请求图片，并在本地缓存验证后的变体。
  * 技术维度：使用SHA-256变体标识、sharp多格式编码、内容校验和原子临时文件替换实现可复用缓存。
  * 产品维度：让同一持久附件适配不同模型限制，减少重复压缩，同时不信任损坏或过期缓存。
@@ -25,10 +25,10 @@ import { encodeFirstWithinLimit, isExhaustedEncoding } from './encoding.ts'
 import { detectImage, encodedAlphaIsCompatible, probeImage } from './image.ts'
 
 /** Transform version included in every cache and upload-index identity. */
-/** 写入每个缓存和上传索引身份的转换算法版本，算法变化时必须更新。 */
+/* 写入每个缓存和上传索引身份的转换算法版本，算法变化时必须更新。 */
 export const REQUEST_IMAGE_TRANSFORM_VERSION = 'request-image-v4'
 /** DeepSeek request versions normally fit at these two preferred qualities. */
-/** 请求图片有损格式从高到低尝试的两个首选质量。 */
+/* 请求图片有损格式从高到低尝试的两个首选质量。 */
 export const REQUEST_IMAGE_QUALITIES = [85, 80] as const
 
 /** 尚未重新解码验证的请求图片编码结果。 */

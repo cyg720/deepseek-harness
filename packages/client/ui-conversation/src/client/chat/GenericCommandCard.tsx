@@ -22,7 +22,7 @@ import css from './GenericCommandCard.module.css'
 type CommandRowState = 'running' | 'ok' | 'error'
 
 /** Node state → row state semantic (running while unsettled; outcome kind after). */
-/** 中文说明：函数 stateOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 stateOf 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function stateOf(outcome: CommandRowOwnerProps['node']['outcome']): CommandRowState {
   if (outcome === null) return 'running'
   return outcome.kind === 'error' ? 'error' : 'ok'
@@ -34,7 +34,7 @@ function leadingFor(state: CommandRowState): ReactNode {
 }
 
 /** Card props: the owner payload plus the render site's locale seat (plain prop). */
-/** 中文说明：类型或类 GenericCommandCardProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 GenericCommandCardProps 约束本文件的数据或组件职责。 */
 export interface GenericCommandCardProps extends CommandRowOwnerProps {
   t: ChatViewSlotProps['t']
   /** Command-specific running copy; absent uses the generic command label. */

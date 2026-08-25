@@ -5,7 +5,7 @@
  * validates the audit correlation, and the ask's abort signal withdraws the
  * question with a broadcast `cancelled`.
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-approval.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -43,7 +43,7 @@ async function harness(): Promise<{ ctx: Context; api: ApiProxy }> {
 }
 
 /** A minimal agent stand-in inside an open turn (the service only reaches `.session`). */
-/** 中文说明：函数 agentOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 agentOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function agentOf(ctx: Context): Agent {
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = ctx.sessions.create()
@@ -52,7 +52,7 @@ function agentOf(ctx: Context): Agent {
 }
 
 /** Open a mux stream and capture frames into an array (returns an on-demand waiter). */
-/** 中文说明：函数 openMux 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 openMux 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function openMux(api: ApiProxy, abort: AbortController): { frames: MuxFrame[]; envelopes: RpcRequest<MuxFrame>[]; waitFor(type: MuxFrame['type']): Promise<MuxFrame> } {
   /** 中文说明：测试局部值 frames，由紧邻初始化决定。 */
   const frames: MuxFrame[] = []
@@ -95,7 +95,7 @@ function requestedOf(frame: MuxFrame): Extract<MuxFrame, { type: 'approval/reque
 }
 
 /** Wait until the stream delivered `count` frames of `type` (bounded poll; waitFor only covers the first). */
-/** 中文说明：函数 waitForCount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 waitForCount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function waitForCount(mux: { frames: MuxFrame[] }, type: MuxFrame['type'], count: number): Promise<void> {
   /** 中文说明：测试局部值 i，由紧邻初始化决定。 */
   for (let i = 0; i < 200 && mux.frames.filter(frame => frame.type === type).length < count; i += 1) {

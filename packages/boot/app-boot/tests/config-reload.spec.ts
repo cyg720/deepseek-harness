@@ -3,7 +3,7 @@
  * HMR contains rejected refreshes; direct callers receive the error after the
  * previous generation has been retained or restored.
  */
-/**
+/*
  * 文件职责：验证启动后Include与Loader树对配置替换执行事务式热重载。
  * 技术维度：使用Vitest、真实Cordis Loader/Include和临时插件模块制造成功与失败配置代际。
  * 产品维度：保证错误配置不会破坏仍在服务的上一代插件树，修正后可继续刷新。

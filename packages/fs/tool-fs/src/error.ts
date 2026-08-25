@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】对"带守卫变更失败"的模型侧补救（remediation）：提供者的 FS_STALE_VERSION
  * 与 FS_NOT_OBSERVED 消息只说清了条件、没说唯一正确的恢复方式（重读/先读），
@@ -22,7 +22,7 @@
  * machine-oriented and unchanged.
  * @module @deepseek-ai/dsh-tool-fs/src/error
  */
-/**
+/*
  * 模块总览：这是"错误消息装饰器"——只改消息文本，不动错误码与分类。
  */
 
@@ -30,7 +30,7 @@ import { FsError } from '@deepseek-ai/dsh-fs'
 import type { FsErrorCode } from '@deepseek-ai/dsh-fs'
 
 /** The remedy appended to each remediable failure code's message. */
-/**
+/*
  * 每个可补救错误码对应的补救文本：
  * FS_STALE_VERSION（文件自上次观察后已变化，包括目标已消失）→ 重读后重试；
  * FS_NOT_OBSERVED（本会话还没读过）→ 先读再重试。
@@ -50,7 +50,7 @@ const REMEDIES: Partial<Record<FsErrorCode, string>> = {
  * @param error - the caught value from a write/edit execution.
  * @returns a remediated `FsError` for the two guarded-mutation codes, else the original value.
  */
-/**
+/*
  * 给带守卫变更失败的报错追加正确恢复指引。两个可补救码各补一句（见 REMEDIES），
  * 保留原 FsError code（重试/权限/UI 层继续按它路由），原错误以 cause 链接；
  * 其它错误原样返回。

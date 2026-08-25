@@ -15,7 +15,7 @@ import type { AssistantBlock } from '@deepseek-ai/dsh-client-runtime/client'
  * @param blocks - Assistant content blocks.
  * @returns concatenated text blocks.
  */
-/**
+/*
  * 从一次 Assistant 生命周期收集可见正文。
  * @param blocks - assistant 内容块。
  * @returns 拼接后的文本块。

@@ -2,7 +2,7 @@
  * Tests for the mcp-client plugin's `apply` lifecycle entry point.
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
-/**
+/*
  * 文件职责：验证 apply.spec.ts 覆盖的MCP 客户端行为与异常场景。
  * 技术维度：使用 TypeScript、Vitest、异步协议连接和可控测试替身。
  * 产品维度：保障 Agent 能稳定使用MCP 客户端提供的外部能力。

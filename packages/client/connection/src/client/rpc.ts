@@ -1,5 +1,5 @@
 /** Browser caller for generic Connection unary RPC channels. */
-/**
+/*
  * 文件职责：实现浏览器端通用Connection一元RPC调用器，构造请求信封、发送HTTP并校验响应关联。
  * 技术维度：使用Fetch API、Zod响应模式、品牌RpcId和URL目标规范化执行传输层调用。
  * 产品维度：为Typert等逻辑频道提供统一可靠的一元调用，并在HTTP失败、畸形响应或串线时快速报错。
@@ -24,7 +24,7 @@ const CHANNEL_PATTERN = /^\/[A-Za-z0-9._~-]+$/
 const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
 
 /** Transport this caller posts through; same signature as the global `fetch`. */
-/** 调用器使用的fetch兼容POST传输签名。 */
+/* 调用器使用的fetch兼容POST传输签名。 */
 export type RpcFetch = (input: URL, init: RequestInit) => Promise<Response>
 
 /**

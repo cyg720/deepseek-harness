@@ -42,9 +42,11 @@ const HOST_EVENTS = EVENT_API.filter(event => !event.name.startsWith('cordis/'))
  * @param ctx - Host context used for Agent-scoped live Tool queries.
  * @returns registrations for static catalogs and live Host capabilities.
  */
-/**
+/*
  * 组装四个 Host 提供者：Service（渐进式服务目录）、Event（渐进式事件目录）、
  * Builtin（沙箱内置符号清单）、Tool（当前 agent 可调用的工具 schema）。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function hostInspectProviders(ctx: Context): HostCordisInspectProviderRegistration[] {
   return [

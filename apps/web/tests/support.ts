@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 
 /** The built page under test; `pnpm run test:web` rebuilds it before running. */
-/** 被测试的已构建 Web 首页；test:web 会在运行前重新构建。 */
+/* 被测试的已构建 Web 首页；test:web 会在运行前重新构建。 */
 export const DIST_INDEX = fileURLToPath(new URL('../dist/index.html', import.meta.url))
 
 /** 当前仓库根目录的绝对路径。 */
@@ -26,7 +26,7 @@ export const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
  * surface: with no stored preference the client derives its initial locale
  * from the browser, and Playwright's default browser asks for English.
  */
-/** 中文说明：需要验证中文产品界面时，页面应在客户端启动前声明此浏览器语言。 */
+/* 中文说明：需要验证中文产品界面时，页面应在客户端启动前声明此浏览器语言。 */
 export const ZH_BROWSER_LOCALE = 'zh-CN'
 
 /**
@@ -39,13 +39,13 @@ export const ZH_BROWSER_LOCALE = 'zh-CN'
  * @param height - Viewport height; width is fixed to the lane baseline.
  * @returns the initialized page.
  */
-/** 中文说明：browser 拥有页面，height 控制高度且宽度固定，返回初始化的英文页面。 */
+/* 中文说明：browser 拥有页面，height 控制高度且宽度固定，返回初始化的英文页面。 */
 export async function newEnglishPage(browser: Browser, height = 1000): Promise<Page> {
   return await browser.newPage({ viewport: { width: 1680, height }, locale: 'en-US' })
 }
 
 /** Fail loud on a stale checkout instead of testing yesterday's bundle. */
-/** 检查 dist 首页存在，否则抛出构建提示；无参数、无返回值。 */
+/* 检查 dist 首页存在，否则抛出构建提示；无参数、无返回值。 */
 export function requireDist(): void {
   if (!existsSync(DIST_INDEX)) {
     throw new Error('web app dist not built — run `pnpm run build` from the repository root (`pnpm run test:web` does this first)')
@@ -53,7 +53,7 @@ export function requireDist(): void {
 }
 
 /** OS-assigned free port, released before use (the spawned `dsh web` needs a concrete --port). */
-/** 请求操作系统分配空闲端口，关闭探针后返回端口号。示例：await probeFreePort()。 */
+/* 请求操作系统分配空闲端口，关闭探针后返回端口号。示例：await probeFreePort()。 */
 export function probeFreePort(): Promise<number> {
   return new Promise((resolvePort, reject) => {
     const probe = createServer()

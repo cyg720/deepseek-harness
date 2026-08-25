@@ -6,7 +6,7 @@
  * 关键边界：类型不授予目录权限，也不能检查样式类名是否存在。
  * 新手阅读建议：比较选择器在两个插槽中的样式与外层布局差异。
  */
-/** 使用方式：`import styles from './Workspace.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Workspace.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源码选择器，值是构建后的类名。 */
   const classes: Record<string, string>

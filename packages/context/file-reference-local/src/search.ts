@@ -34,26 +34,26 @@ import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference'
 export { activeAtToken, formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
 
 /** Default maximum file and directory candidates rendered for one query. */
-/** 单次查询默认最多返回 20 个候选（避免补全面板过长）。 */
+/* 单次查询默认最多返回 20 个候选（避免补全面板过长）。 */
 export const DEFAULT_FILE_SEARCH_MAX_RESULTS = 20
 /** Default maximum entries retained in one workspace search index. */
-/** 单个工作区索引默认最多保留 1 万个条目（大仓库的扫盘上限）。 */
+/* 单个工作区索引默认最多保留 1 万个条目（大仓库的扫盘上限）。 */
 export const DEFAULT_FILE_SEARCH_MAX_ENTRIES = 10_000
 /** Directory basenames omitted from traversal unless the deployment overrides them. */
-/** 默认跳过这些目录名：遍历与候选展示都忽略，部署方可在配置中覆盖。 */
+/* 默认跳过这些目录名：遍历与候选展示都忽略，部署方可在配置中覆盖。 */
 export const DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES = ['.git', 'node_modules'] as const
 
 /** Resolved limits and exclusions for one workspace index. */
-/** 单个工作区索引生效的解析后配置（已合并默认值）。 */
+/* 单个工作区索引生效的解析后配置（已合并默认值）。 */
 export interface FileSearchConfig {
   /** Maximum ranked candidates returned for one query. */
-  /** 单次查询返回的候选数上限。 */
+  /* 单次查询返回的候选数上限。 */
   maxResults: number
   /** Maximum indexed files and directories. */
-  /** 索引条目总数上限。 */
+  /* 索引条目总数上限。 */
   maxEntries: number
   /** Directory basenames never traversed or offered. */
-  /** 永不遍历/永不展示的目录 basename 列表。 */
+  /* 永不遍历/永不展示的目录 basename 列表。 */
   excludedDirectories: readonly string[]
 }
 
@@ -77,7 +77,7 @@ interface IndexGeneration {
  * Directory-scoped queries list live state; bare fuzzy queries share one
  * bounded traversal until the `@` interaction ends or a tool result invalidates it.
  */
-/**
+/*
  * 以某个 agent 工作目录为根的、可取消可复用的模糊索引。
  * 目录级查询直接读实时目录；裸关键字查询共享一次有界遍历的索引，
  * 直到 @ 交互结束或被工具结果事件失效。
@@ -113,7 +113,7 @@ export class WorkspaceFileSearch {
    * @param signal - cancels this caller's wait without killing an index shared by a newer query.
    * @returns at most `maxResults` deterministic candidates.
    */
-  /**
+  /*
    * 返回当前输入 token 对应的排序候选。空查询或含 / 的查询视为目录级
    * （实时列出），否则视为裸关键字（走共享索引做模糊匹配）。
    * @param rawQuery @ 或 @" 之后的原始路径文本
@@ -142,14 +142,14 @@ export class WorkspaceFileSearch {
   }
 
   /** Discard the current index so the next bare query observes a fresh tree. */
-  /** 丢弃当前索引：下一次裸查询会重新扫描文件树，反映最新状态。 */
+  /* 丢弃当前索引：下一次裸查询会重新扫描文件树，反映最新状态。 */
   invalidate(): void {
     this.generation?.controller.abort(new Error('file search index invalidated'))
     this.generation = undefined
   }
 
   /** Abort traversal and make later queries return no candidates. */
-  /** 终止遍历并让之后的查询返回空列表（服务/agent 销毁时调用）。 */
+  /* 终止遍历并让之后的查询返回空列表（服务/agent 销毁时调用）。 */
   dispose(): void {
     if (this.disposed) return
     this.disposed = true

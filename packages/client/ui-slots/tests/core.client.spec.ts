@@ -34,7 +34,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 const Comp: SlotComponent<object> = () => null
 
 /** A minimal structurally-valid store handle (identity is what the ledger tracks). */
-/** 中文说明：函数 fakeHandle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fakeHandle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeHandle(): StoreHandle<{ n: number }, Record<string, (d: { n: number }) => void>> {
   return {
     spec: { init: () => ({ n: 0 }), actions: {} },
@@ -43,7 +43,7 @@ function fakeHandle(): StoreHandle<{ n: number }, Record<string, (d: { n: number
 }
 
 /** Register a root-frame entry declaring the four test child slots. */
-/** 中文说明：函数 mountFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mountFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountFrame(core: SlotCore) {
   return core.register({
     name: 'root',

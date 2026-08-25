@@ -29,7 +29,7 @@
  * failure after filesystem and attachment work.
  * @module @deepseek-ai/dsh-tool-fs/src/read-image
  */
-/**
+/*
  * 模块总览：本文件是 read_image 工具的定义与执行体。它依赖附件服务（attachments）
  * 持久提交图片字节，因此只在有附件存储的组装里注册。
  */
@@ -45,7 +45,7 @@ import type {} from '@deepseek-ai/dsh-fs'
 import { resolveRegularReadTarget } from './read-target.ts'
 
 /** Extensions `read_image` accepts; magic-byte validation at the attachment service stays authoritative. */
-/**
+/*
  * read_image 接受的扩展名 → 媒体类型表；附件服务里的魔数（magic byte）校验仍是
  * 权威判定（扩展名只是声明）。
  */
@@ -81,7 +81,7 @@ const IMAGE_VALUE_SCHEMA = {
 } as const
 
 /** The structured outcome declared by the `read_image` output schema. */
-/** read_image 输出 schema 声明的结构化结果。 */
+/* read_image 输出 schema 声明的结构化结果。 */
 export interface ImageReadValue {
   path: string
   image: {
@@ -92,7 +92,7 @@ export interface ImageReadValue {
     height: number
     name?: string
     /** Orientation-applied file dimensions before normalization; present only when storage reduced it. */
-    /** 归一化前的"已应用朝向"文件尺寸；仅当存储层降采样过才存在。 */
+    /* 归一化前的"已应用朝向"文件尺寸；仅当存储层降采样过才存在。 */
     originalDimensions?: {
       width: number
       height: number
@@ -105,7 +105,7 @@ export interface ImageReadValue {
  * @param filePath - the raw `file_path` argument (not yet resolved).
  * @returns the declared media type, or undefined when the path does not claim an image.
  */
-/**
+/*
  * 按扩展名把模型提供的路径映射成声明的图片媒体类型。
  * @param filePath 原始 file_path 参数（尚未解析）。
  * @returns 声明的媒体类型；路径不声称是图片时为 undefined。
@@ -122,7 +122,7 @@ export function imageMediaTypeForPath(filePath: string): ImageMediaType | undefi
  * @param exec - the tool-execution context supplying the calling agent.
  * @param requestedPath - the raw, not-yet-resolved path rendered in refusal messages.
  */
-/**
+/*
  * 对调用路由强制执行"图像能力门"：解析会话的最新路由 provider/model（请求头配置，
  * 然后 agent 选项），要求确切解析出的路由显式声明支持 image 输入。
  * @param ctx 用于解析可选 llm 服务的插件上下文。
@@ -149,7 +149,7 @@ export async function assertImageCapableRoute(ctx: Context, exec: ToolExecution,
  * @param image - the image metadata from the output schema.
  * @returns the branded attachment reference.
  */
-/**
+/*
  * 把结构化图像结果重新标记成 ImageBlock 携带的持久 attachment 引用。
  * @param image 输出 schema 里的图像元数据。
  * @returns 带品牌类型的 attachment 引用。
@@ -176,7 +176,7 @@ export function imageRefFromValue(image: ImageReadValue['image']): ImageAttachme
  * @param image - the image metadata to summarize.
  * @returns the model-facing envelope; the image itself rides the adjacent image block.
  */
-/**
+/*
  * 把图像读结果格式化成图片块旁边的模型可见信封。降采样过的读取会点名磁盘尺寸与
  * 把"在附图上量到的坐标"映射回原文件的倍数。
  * @param displayPath 信封 <path> 元素里的后端解析路径。
@@ -209,7 +209,7 @@ ${image.mediaType} image, ${image.width}x${image.height} px, ${image.bytes} byte
  * @param value - the image-read outcome.
  * @returns the two content blocks used by native and nested dispatches.
  */
-/**
+/*
  * 把一个结构化图像读结果投影成"模型可见信封 + 图片"两块内容。
  * @param value 图像读结果。
  * @returns 原生与嵌套分发共用的两个内容块。
@@ -230,7 +230,7 @@ function imageReadContent(value: ImageReadValue): ContentBlock[] {
  * @param ctx - the registration scope; execution uses its `fs` service plus
  *   the optional `attachments`/`llm` services.
  */
-/**
+/*
  * 在给定上下文里注册 read_image 工具。组合插件拥有附件门：src/index.ts 在
  * ctx.inject(['attachments'], …) 里调用本函数，因此工具只在持久存储挂载期间存在。
  * 执行仍对直接调用者复查 ctx.get('attachments')，并按调用路由声明的图像输入做门控。

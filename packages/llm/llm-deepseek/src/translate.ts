@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】把 DeepSeek 的 SSE 负载翻译成 harness 的 StreamChunk 流协议：
  * 每个 content/reasoning/tool-call 索引对应一个有状态的 harness 块。
@@ -43,7 +43,7 @@ interface OpenBlock {
   name?: string
 }
 
-/**
+/*
  * （中文）把线上 finish_reason 词汇表映射到 harness 的 FinishReason。
  * @param reason 线上的 finish_reason 字符串。
  * @returns 映射后的原因；未识别值（content_filter 等）变为 code 为大写值的
@@ -69,7 +69,7 @@ export function mapFinishReason(reason: string): FinishReason {
   }
 }
 
-/**
+/*
  * （中文）映射线上用量字段。DeepSeek 的 prompt_tokens 包含缓存命中
  * （prompt_tokens = prompt_cache_hit_tokens + prompt_cache_miss_tokens）；
  * harness 的 TokenUsage 约定是互斥计数，因此缓存读取从 inputTokens 中扣除。
@@ -111,7 +111,7 @@ function closeBlock(block: OpenBlock): ContentBlock {
   }
 }
 
-/**
+/*
  * （中文）消费 SSE data 负载（以 [DONE] 结束）并产出 StreamChunk。
  * 畸形 JSON 负载以 MALFORMED_RESPONSE 中止流。
  * @param payloads parseSse 产出的 SSE data 负载，[DONE] 终止。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义消息的值类型（Message 及其角色特化）、消息来源（source）
  * 与上下文形态（ContextForm）词汇表，以及不可变消息的构造/冻结辅助函数。
@@ -23,7 +23,7 @@ import { deepFreeze } from './call-config.ts'
 import type { ContentBlock, StreamChunk, ToolResultBlock } from './types.ts'
 
 /** Provider/model identity and adapter-private replay data for an assistant message. */
-/**
+/*
  * （中文）助手消息的出处：哪个 provider、哪个模型产出了它，以及适配器私有
  * 的、用于回放（replay）的无损 JSON 数据。
  */
@@ -45,7 +45,7 @@ export interface AssistantProvenance {
 }
 
 /** Required source of an assistant message produced by a routed model. */
-/**
+/*
  * （中文）由路由模型产生的助手消息的必填来源：kind 固定为 'model'。
  */
 export interface ModelMessageSource extends AssistantProvenance {
@@ -53,7 +53,7 @@ export interface ModelMessageSource extends AssistantProvenance {
 }
 
 /** Required source of a user-role message carrying one tool result. */
-/**
+/*
  * （中文）携带某次工具结果的 user 角色消息的必填来源：kind 为 'tool'，并带
  * 对应的 callId 用于关联。
  */
@@ -62,7 +62,7 @@ export interface ToolMessageSource {
   callId: CallId
 }
 
-/**
+/*
  * （中文）生产者声明的上下文形态（form）：回答"这是什么类型的东西"。
  * source.kind 回答"谁产生的"；form 回答"它是哪种东西"，两个维度刻意独立——
  * 多个生产者可共享一种 form，一个生产者也可能在会话中发出多种 form。
@@ -108,7 +108,7 @@ export type ContextForm =
   | 'recall'
 
 /** One named contribution to a `snapshot`-form context, in assembly order. */
-/**
+/*
  * （中文）snapshot 形态上下文中的一个具名贡献片段，按组装顺序排列。
  */
 export interface ContextSnapshotSection {
@@ -129,7 +129,7 @@ export interface ContextSnapshotSection {
  * account, a `snapshot` its sections. Omitting `form` stays valid — an
  * undeclared context is the documented default.
  */
-/**
+/*
  * （中文）生产者声明的 ContextForm 及其形态所要求的字段，混入携带它的来源
  * 类型。以 form 作判别字段：生产者选了某种 form 就必须带上展示它所需的字段
  * （notice 必须记录一行记述、snapshot 必须带 sections）；省略 form 仍然合法，
@@ -154,7 +154,7 @@ export type ContextFormed =
   | { readonly form: 'relay' }
   | { readonly form: 'recall' }
 
-/**
+/*
  * （中文）消息（或注入内容）的来源。可扩展联合——插件可以增加自己的 kind。
  */
 /**
@@ -177,13 +177,13 @@ export interface MessageSourceMap {
  * and is committed to the durable log, while its inputs — task labels, goal
  * objectives, tool arguments — are caller text with no length of their own.
  */
-/**
+/*
  * （中文）notice 一行记述的长度上限：该记述会随折叠的转录行展示并写入持久
  * 日志，而其输入（任务标签、目标、工具参数）是调用方文本、本身没有长度限制。
  */
 export const CONTEXT_SUMMARY_MAX_CHARS = 120
 
-/**
+/*
  * （中文）把 notice 的一行记述裁剪到 CONTEXT_SUMMARY_MAX_CHARS 以内。
  * @param summary 生产者的一行记述，任意长度。
  * @returns 裁剪（超出部分以省略号结尾）后的记述。
@@ -200,14 +200,14 @@ export function boundContextSummary(summary: string): string {
 }
 
 /** Any known message source, derived from {@link MessageSourceMap}; switch on `kind` and fall through unknowns (merge-extensible). */
-/**
+/*
  * （中文）所有已知消息来源的并集；按 kind 分支处理，未知 kind 要显式放行
  * （可扩展联合）。
  */
 export type MessageSource = MessageSourceMap[keyof MessageSourceMap]
 
 /** One immutable message representation shared by delivery, durable history, and model requests. */
-/**
+/*
  * （中文）唯一的不可变消息表示，跨交付、持久历史、模型请求三个边界共享。
  */
 export interface Message {
@@ -226,7 +226,7 @@ export interface Message {
 }
 
 /** A user-role specialization of the one shared message representation. */
-/**
+/*
  * （中文）user 角色特化：role 收窄为 'user'。
  */
 export interface UserMessage extends Message {
@@ -234,7 +234,7 @@ export interface UserMessage extends Message {
 }
 
 /** A model-produced assistant specialization of the shared message representation. */
-/**
+/*
  * （中文）模型产出的助手消息特化：role 为 'assistant'，source 必须是模型来源。
  */
 export interface AssistantMessage extends Message {
@@ -243,7 +243,7 @@ export interface AssistantMessage extends Message {
 }
 
 /** A tool-result specialization whose model-facing block retains call correlation. */
-/**
+/*
  * （中文）工具结果特化：user 角色，content 固定为单个 tool-result 块，source
  * 带 callId 保持调用关联。
  */
@@ -260,7 +260,7 @@ type NewAssistantMessage = Omit<AssistantMessage, 'id' | 'role' | 'source'> & {
   readonly source: Omit<ModelMessageSource, 'kind'> & { readonly kind?: never }
 }
 
-/**
+/*
  * （中文）剥离并深冻结一条身份已存在的消息：保留其稳定身份，返回不可变快照。
  * @param message 完整消息（含稳定身份）。
  * @returns 保留身份的不可变快照。
@@ -274,7 +274,7 @@ export function freezeMessage<T extends Message>(message: T): T {
   return deepFreeze(structuredClone(message))
 }
 
-/**
+/*
  * （中文）创建一条带新身份的消息并在发布前冻结。
  * @param input 新消息的完整 role、content 与 source。
  * @returns 带全新稳定身份的不可变消息。
@@ -293,7 +293,7 @@ export function createMessage<T extends NewMessage>(
   })
 }
 
-/**
+/*
  * （中文）创建一条带新身份的 user 角色消息并冻结。
  * @param input 新用户消息的完整 content 与 source。
  * @returns 带全新稳定身份与固定 role 的不可变用户消息。
@@ -312,7 +312,7 @@ export function createUserMessage<T extends NewUserMessage>(
   })
 }
 
-/**
+/*
  * （中文）创建一条带新身份的助手消息并冻结：补上固定的 role 与 kind='model'
  * 来源标签。
  * @param input 完整内容以及新助手消息的 provider、model 与可选回放状态。
@@ -337,7 +337,7 @@ export function createAssistantMessage(
 }
 
 /** Input whose acceptance creates one tool-result message. */
-/**
+/*
  * （中文）创建工具结果消息所需的输入：调用关联、结果块与成败标记。
  */
 export interface ToolResultMessageInput {
@@ -346,7 +346,7 @@ export interface ToolResultMessageInput {
   readonly isError: boolean
 }
 
-/**
+/*
  * （中文）创建并冻结一条带新身份的工具结果消息（user 角色、单个 tool-result
  * 块、tool 来源）。
  * @param input 调用身份、原始结果块与结果成败。
@@ -369,7 +369,7 @@ export function createToolResultMessage(input: ToolResultMessageInput): ToolResu
   })
 }
 
-/**
+/*
  * （中文）判断一个流块是否携带可见的模型输出（客户端步骤计时与整份日志的
  * sessionStats 投影共享的"首个 token"边界）。空 delta（心跳、空工具调用帧）
  * 不视为首个 token。

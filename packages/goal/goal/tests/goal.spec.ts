@@ -27,19 +27,19 @@ interface StubAgent {
 }
 
 /** Number the next balanced test-fixture turn. */
-/** 中文说明：函数 nextTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 nextTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function nextTurn(session: Session): number {
   return session.events.reduce((max, event) => event.type === 'turn/start' ? Math.max(max, event.data.turn) : max, 0) + 1
 }
 
 /** Mirror the public Agent.inject contract for domain tests. */
-/** 中文说明：函数 appendInjection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 appendInjection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendInjection(session: Session, input: UserMessage): void {
   new Inbox(session, { inserted: () => {}, discarded: () => {}, claimed: () => {} }).append('next-step', input)
 }
 
 /** Build a registry-compatible agent around one concrete session. */
-/** 中文说明：函数 stubAgentForSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubAgentForSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgentForSession(session: Session): StubAgent {
   /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
   const id = session.id
@@ -68,7 +68,7 @@ function stubAgentForSession(session: Session): StubAgent {
 }
 
 /** Build a registry-compatible agent around a fresh session. */
-/** 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(rawId: string, seed?: readonly import('@deepseek-ai/dsh-session').SessionEvent[]): StubAgent {
   return stubAgentForSession(Session.create(SessionId(rawId), seed))
 }
@@ -86,7 +86,7 @@ async function harness(config: { defaultMaxGoalRounds?: number } = {}) {
 }
 
 /** Append one admitted goal round as a balanced user-message turn. */
-/** 中文说明：函数 appendRound 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 appendRound 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendRound(session: Session, ref: GoalRef, round: number): void {
   /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
   const source = { kind: 'goal', goalId: ref.id, revision: ref.revision, round } as const

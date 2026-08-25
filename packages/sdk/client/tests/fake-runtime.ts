@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/**
+/*
  * 文件职责：验证 fake-runtime.ts 覆盖的 SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的 SDK 通信能力稳定、可追踪且可恢复。

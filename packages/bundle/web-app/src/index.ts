@@ -10,7 +10,7 @@
  * patch.
  * @module @deepseek-ai/dsh-web-app
  */
-/**
+/*
  * 文件职责：实现Web Bundle的运行时胶水，挂载前端静态文件、信任信息、模型可见表面说明、URL公告和浏览器交接。
  * 技术维度：使用Cordis注入、WebServer、系统提示与Shell环境贡献，并以隔离子进程调用操作系统默认浏览器。
  * 产品维度：启动可交互Web GUI，向用户显示本地/LAN地址，并让模型知道当前页面和可用Web URL。
@@ -35,29 +35,29 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-shell-env'
 
 /** Stable Cordis plugin name. */
-/** Cordis中注册的Web应用胶水稳定插件名。 */
+/* Cordis中注册的Web应用胶水稳定插件名。 */
 export const name = 'web-app'
 
 /** This dsh installation's root, from either this package's source or built entry. */
-/** 从源码或构建入口均可解析到的当前dsh安装根目录。 */
+/* 从源码或构建入口均可解析到的当前dsh安装根目录。 */
 const SOURCE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
 
 /** Runtime service that releases Web rows after bind-dependent values resolve. */
-/** 服务器绑定相关值解析后用于释放其他Web条目的运行时服务名。 */
+/* 服务器绑定相关值解析后用于释放其他Web条目的运行时服务名。 */
 const WEB_RUNTIME_SERVICE = 'webRuntime'
 
 /** Services required before the web runtime can mount. */
-/** Web运行时挂载前必须就绪的WebServer服务。 */
+/* Web运行时挂载前必须就绪的WebServer服务。 */
 export const inject = ['webServer']
 
 /** Plugin config: composed deployment settings plus per-invocation command-line values. */
-/** 部署配置与当前调用命令行值组合后的Web应用配置。 */
+/* 部署配置与当前调用命令行值组合后的Web应用配置。 */
 export interface Config {
   /** Permit default-browser handoff after the Loader tree settles; an SSH launch suppresses it. */
-  /** Loader树稳定后是否允许打开默认浏览器；SSH启动仍会抑制。 */
+  /* Loader树稳定后是否允许打开默认浏览器；SSH启动仍会抑制。 */
   openBrowser: boolean
   /** Print the URL line on activation; a non-interactive layer can turn it off. */
-  /** 激活时是否打印URL；非交互层可关闭。 */
+  /* 激活时是否打印URL；非交互层可关闭。 */
   printUrl: boolean
   /**
    * Register the model-visible surface context (the `app:web-surface` prompt
@@ -65,10 +65,10 @@ export interface Config {
    * layer can turn it off when its user is not in the GUI, so the
    * orientation text would be false.
    */
-  /** 是否注册模型可见Web表面说明和DSH_WEB_URL Shell变量。 */
+  /* 是否注册模型可见Web表面说明和DSH_WEB_URL Shell变量。 */
   surfaceContext: boolean
   /** Explicit `--trusted-host` authorities from this invocation. */
-  /** 当前调用通过--trusted-host显式给出的附加authority。 */
+  /* 当前调用通过--trusted-host显式给出的附加authority。 */
   trustedHosts: string[]
 }
 
@@ -81,18 +81,18 @@ export const Config: z<Config> = z.object({
 })
 
 /** Bind-dependent Web values shared by the trust fence and URL display. */
-/** API信任围栏与URL显示共享的服务器绑定快照。 */
+/* API信任围栏与URL显示共享的服务器绑定快照。 */
 export interface WebRuntimeValues {
   /** LAN IPv4 literals sampled once when the server binds all interfaces. */
-  /** 绑定所有接口时一次性采样的LAN IPv4字面量。 */
+  /* 绑定所有接口时一次性采样的LAN IPv4字面量。 */
   lanAddresses: string[]
   /** LAN literals followed by explicit invocation authorities. */
-  /** LAN地址之后追加当前调用显式authority的信任列表。 */
+  /* LAN地址之后追加当前调用显式authority的信任列表。 */
   trustedHosts: string[]
 }
 
 /** Environment variable naming the canonical local URL of this Web GUI. */
-/** 暴露当前Web GUI规范本地URL的Shell环境变量名。 */
+/* 暴露当前Web GUI规范本地URL的Shell环境变量名。 */
 const DSH_WEB_URL = 'DSH_WEB_URL' as const
 
 // Display-only mirror of the webserver schema's loopback host: the address the
@@ -100,11 +100,11 @@ const DSH_WEB_URL = 'DSH_WEB_URL' as const
 // 只用于显示的回环地址镜像，权威值仍由WebServer配置模式拥有。
 const LOOPBACK_HOST = '127.0.0.1'
 /** The webserver schema's all-interfaces bind literal. */
-/** WebServer模式表示绑定全部接口的固定字面量。 */
+/* WebServer模式表示绑定全部接口的固定字面量。 */
 const ALL_INTERFACES_HOST = '0.0.0.0'
 
 /** Whether this process was launched through SSH, including a forwarded-port session. */
-/** 判断进程环境是否由SSH启动，包括端口转发会话。 */
+/* 判断进程环境是否由SSH启动，包括端口转发会话。 */
 function launchedThroughSsh(ctx: Context): boolean {
   // 只信任进程启动层的环境快照，不读取项目.env中的陈旧SSH变量。
   const environment = launchEnvironmentOf(ctx)
@@ -168,7 +168,7 @@ export function resolveLanTrust(bindHost: string, extra: readonly string[]): Web
 }
 
 /** Model-visible orientation and acceptance boundary for sessions created through `dsh web`. */
-/** 生成dsh web会话的模型可见页面定位和更新限制说明。 */
+/* 生成dsh web会话的模型可见页面定位和更新限制说明。 */
 function webSurfacePrompt(webUrl: string): string {
   // 说明客户端插件热更新需要同一检出目录中开发构建器配合的文本。
   const updateContract = 'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while '
@@ -184,7 +184,7 @@ function webSurfacePrompt(webUrl: string): string {
 }
 
 /** Resolve the canonical loopback URL from the active Web server. */
-/** 从当前WebServer端口构造规范回环URL。 */
+/* 从当前WebServer端口构造规范回环URL。 */
 function localWebUrl(ctx: Context): string {
   // 已绑定WebServer公布的实际端口，包括操作系统分配的随机端口。
   const port = ctx.get('webServer')?.port
@@ -193,7 +193,7 @@ function localWebUrl(ctx: Context): string {
 }
 
 /** Dist location is workspace knowledge of this bundle: resolved through the frontend package exports, not configured. */
-/** 通过前端包导出解析构建后的index.html，不允许用户配置任意静态目录。 */
+/* 通过前端包导出解析构建后的index.html，不允许用户配置任意静态目录。 */
 function resolveDistIndex(): string {
   // 以当前Bundle模块为锚点的Node解析器。
   const require = createRequire(import.meta.url)
@@ -206,7 +206,7 @@ function resolveDistIndex(): string {
 }
 
 /** Start the maintained platform opener without forwarding Harness credentials. */
-/** 使用清理后的父环境启动维护的浏览器交接子进程。 */
+/* 使用清理后的父环境启动维护的浏览器交接子进程。 */
 function spawnBrowserLauncher(url: string): ChildProcess {
   return spawn(process.execPath, [
     '--input-type=module',
@@ -219,7 +219,7 @@ function spawnBrowserLauncher(url: string): ChildProcess {
 }
 
 /** Hand one URL to the operating system's default browser. */
-/** 将URL交给操作系统默认浏览器，并把启动失败转换为可读Error。 */
+/* 将URL交给操作系统默认浏览器，并把启动失败转换为可读Error。 */
 async function openBrowser(url: string): Promise<void> {
   // 运行隔离浏览器交接程序的子进程。
   const launcher = spawnBrowserLauncher(url)
@@ -251,7 +251,7 @@ async function openBrowser(url: string): Promise<void> {
 }
 
 /** Test hooks for the built dist and native browser handoff; production never mutates them. */
-/** 构建产物解析和原生浏览器交接的测试替换点，生产不会修改。 */
+/* 构建产物解析和原生浏览器交接的测试替换点，生产不会修改。 */
 export const internals: {
   resolveDistIndex: () => string
   openBrowser: (url: string) => Promise<void>

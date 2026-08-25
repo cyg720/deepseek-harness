@@ -30,25 +30,25 @@ import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 import { assertSupportedJsonSchema } from './json-schema.ts'
 import type { JsonSchemaNode, JsonSchemaScalar } from './json-schema.ts'
 /** Internal Code Mode projection: the model-facing schema plus the canonical output schema. */
-/**
+/*
  * 【中文】Code Mode 内部使用的投影类型：在模型可见 schema 之上追加该工具的
  *   "规范输出 schema"（工具绑定返回的、已验证的规范值形状），供生成返回类型。
  */
 export interface ToolSdkSchema extends ToolSchema {
   /** Validated canonical value returned by the tool binding. */
-  /** 【中文】工具绑定返回的已验证规范值 schema。 */
+  /* 【中文】工具绑定返回的已验证规范值 schema。 */
   output: JsonSchemaNode
 }
 
 /** Property names that are valid bare TS identifiers; anything else is quoted. */
-/**
+/*
  * 【中文】合法的裸 TypeScript 标识符模式（字母/下标/$ 开头）；不匹配的名字一律
  *   加引号输出，保证任何字段名都可达且不产生别名歧义。
  */
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 
 /** Render an object key: bare when it is a valid identifier, quoted otherwise (every name stays reachable, no aliasing). */
-/**
+/*
  * 【中文】渲染对象键：合法标识符直接裸写（如 `foo`），否则 JSON 引号包裹
  *   （如 `"my-tool"`）。
  */
@@ -57,7 +57,7 @@ function renderKey(name: string): string {
 }
 
 /** One `indent`-deep line prefix (two spaces per level). */
-/**
+/*
  * 【中文】按层级缩进的前缀（每层两个空格）。
  */
 function pad(indent: number): string {
@@ -65,7 +65,7 @@ function pad(indent: number): string {
 }
 
 /** A one-line JSDoc block for a schema `description`, or no lines when there is none. */
-/**
+/*
  * 【中文】把 schema 的 description 折叠成单行 JSDoc；没有描述则不产生任何行。
  * @param description - 节点描述（任意值，非字符串按无处理）。
  * @param indent - 缩进层级。
@@ -81,7 +81,7 @@ function docLines(description: unknown, indent: number): string[] {
 }
 
 /** Render one scalar already validated by the unified schema boundary. */
-/**
+/*
  * 【中文】渲染一个已通过统一校验的标量字面量：直接 JSON 序列化（字符串带引号）。
  */
 function renderScalar(value: JsonSchemaScalar): string {
@@ -89,7 +89,7 @@ function renderScalar(value: JsonSchemaScalar): string {
 }
 
 /** Render a validated scalar `const`/`enum`, falling back to the broad type. */
-/**
+/*
  * 【中文】渲染标量的字面量约束：const → 单一字面量；enum → `A | B | C`；
  *   都没有则回退宽类型（integer 映射为 number）。
  */
@@ -103,7 +103,7 @@ function renderConstrainedScalar(node: Record<string, unknown>, type: string): s
 }
 
 /** A composable type document that can be flattened without recursive string concatenation. */
-/**
+/*
  * 【中文】可组合的"类型文档"：parts 是字符串与子文档的树，flatten 时才拼成最终文本。
  *   containsUnionOrIntersection 记录是否含 `|`/`&`，供数组项决定要不要加括号——
  *   `(A | B)[]` 与 `A & B[]` 的区别全靠它。用文档树替代递归字符串拼接，避免深
@@ -115,7 +115,7 @@ interface TypeDocument {
 }
 
 /** Build one document from captured parts while retaining the legacy array-parenthesization test. */
-/**
+/*
  * 【中文】由已捕获的部分构建文档，同时计算联合/交叉标记（含对子文档递归检查）。
  * @param parts - 字符串片段或子文档的有序列表。
  * @returns 组装好的文档节点。
@@ -130,7 +130,7 @@ function typeDocumentFrom(parts: readonly (string | TypeDocument)[]): TypeDocume
 }
 
 /** Build a small document without an intermediate array at each call site. */
-/**
+/*
  * 【中文】便捷构造：可变参数版 typeDocumentFrom，省去调用点的临时数组。
  */
 function typeDocument(...parts: (string | TypeDocument)[]): TypeDocument {
@@ -138,7 +138,7 @@ function typeDocument(...parts: (string | TypeDocument)[]): TypeDocument {
 }
 
 /** Flatten a nested document with an explicit work stack. */
-/**
+/*
  * 【中文】用显式工作栈展平嵌套文档为最终字符串：子文档逆序压栈保证顺序，
  *   字符串直接入 chunks，最后拼接。全程无递归。
  */
@@ -161,7 +161,7 @@ function flattenTypeDocument(document: TypeDocument): string {
 }
 
 /** One explicit call frame for stack-safe schema-to-TypeScript rendering. */
-/**
+/*
  * 【中文】schema→TS 渲染的显式调用帧：替代递归调用栈。phase='start' 时按节点类型
  *   分派（oneOf/array/object 各自调度子帧），phase='children' 时聚合子文档——
  *   oneOf 用 ` | ` 连接、数组按需加括号、对象逐属性装配并处理开放性。
@@ -178,7 +178,7 @@ interface SchemaRenderFrame {
 }
 
 /** Initialize one schema-render frame with empty aggregation state. */
-/**
+/*
  * 【中文】构造一个空白渲染帧（聚合状态全部归零）。
  */
 function schemaRenderFrame(node: JsonSchemaNode, indent: number): SchemaRenderFrame {
@@ -186,7 +186,7 @@ function schemaRenderFrame(node: JsonSchemaNode, indent: number): SchemaRenderFr
 }
 
 /** Render an already asserted schema to a composable document. */
-/**
+/*
  * 【中文】帧式渲染内核：输入已通过 assertSupportedJsonSchema 的 schema，输出可展平
  *   的类型文档。oneOf → `A | B`；数组 → `T[]`（联合/交叉加括号）；对象 → 多行
  *   字面量（必填无 `?`），additionalProperties 非 false 时追加
@@ -321,7 +321,7 @@ function renderSupportedSchema(schema: JsonSchemaNode, indent: number): TypeDocu
  * @param indent - the indentation level for nested object members.
  * @returns the TS type text (multi-line for objects with properties).
  */
-/**
+/*
  * 【中文】导出入口：把一个 JSON-Schema 节点映射为 TypeScript 类型字面量。支持统一
  *   schema 的全部构造；任何畸形/不支持的输入都降级为 `unknown` 而不抛错——生成
  *   的是提示词文本，宁可宽不可崩。
@@ -339,7 +339,7 @@ export function jsonSchemaToTs(schema: unknown, indent = 0): string {
 }
 
 /** The fixed model-facing usage contract rendered above the declarations (see the Code Mode Agent Note's "What the model sees"). */
-/**
+/*
  * 【中文】固定不变的模型侧使用说明，渲染在类型声明之前：run_code 的两个必填参数、
  *   tools.name(args) 调用方式、ToolCallError 的 try/catch、Promise.all 的并发规则、
  *   以及"只有 print/return 的内容才算程序输出"的策展要求。文本逐字固定（模型可见

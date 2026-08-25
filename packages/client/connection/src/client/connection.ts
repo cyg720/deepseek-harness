@@ -12,19 +12,19 @@ import type { HostDescription, IApiClient, HostFrame, MuxFrame, RpcRequest } fro
  *  future `ctx.connection` plugin's Config). All fields optional; defaults below. */
 export interface ConnectionConfig {
   /** First-retry backoff cap in ms (jittered: actual delay is cap/2..cap). */
-  /** 第一次重试的退避上限毫秒数，实际随机延迟为一半至全部。 */
+  /* 第一次重试的退避上限毫秒数，实际随机延迟为一半至全部。 */
   backoffBaseMs?: number
   /** Exponential growth factor per consecutive failed attempt. */
-  /** 连续失败次数每增加一次时退避上限的指数倍率。 */
+  /* 连续失败次数每增加一次时退避上限的指数倍率。 */
   backoffFactor?: number
   /** Upper bound for the backoff cap in ms. */
-  /** 所有重试退避上限的最大毫秒数。 */
+  /* 所有重试退避上限的最大毫秒数。 */
   backoffMaxMs?: number
   /** Cap on waiting for both streams' onOpen before onConnected, in ms. The strict handshake
    *  waits for mux+host stream establishment plus describe; a carrier that never
    *  fires onOpen (misbehaving proxy) must not wedge the connection forever — on timeout the
    *  generation proceeds as connected and the live-gap repair path covers stragglers. */
-  /** 等待mux和host两条流onOpen的最大毫秒数，防止异常代理永久卡住握手。 */
+  /* 等待mux和host两条流onOpen的最大毫秒数，防止异常代理永久卡住握手。 */
   streamOpenTimeoutMs?: number
 }
 
@@ -52,7 +52,7 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 /** Coarse connection state for the UI: 'connected' after each generation's handshake,
  *  'reconnecting' the moment the generation fails (covers the whole backoff+retry span). */
-/** UI观察的粗粒度连接状态：握手完成或整个退避重试区间。 */
+/* UI观察的粗粒度连接状态：握手完成或整个退避重试区间。 */
 export type ConnectionState = 'connected' | 'reconnecting'
 
 /** Frame sink callbacks: the Controller owns the physical streams; business dispatch belongs to
@@ -63,11 +63,11 @@ export interface ConnectionSinks {
   /** host流每个业务帧的可选接收回调。 */
   onHostEnvelope?: (envelope: RpcRequest<HostFrame>) => void
   /** After each connection generation is established (both streams open + describe succeeded), first connect included. */
-  /** 每个连接代际完成两流和describe握手后的回调。 */
+  /* 每个连接代际完成两流和describe握手后的回调。 */
   onConnected?: (description: HostDescription) => void
   /** Coarse state transitions (deduplicated: fires only on change). The initial pre-connect
    *  span reports nothing — the UI treats "no state yet" as connecting, not as an outage. */
-  /** 去重后的粗粒度状态变化回调，初始连接阶段不调用。 */
+  /* 去重后的粗粒度状态变化回调，初始连接阶段不调用。 */
   onStateChange?: (state: ConnectionState) => void
 }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】沙箱 Host 半部与真实运行时的"注册边界"：把沙箱里 defineTool/registerTool/
  *             handle 的入参规范化为宿主侧可信对象，提供运行插件所见的安全 ctx 门面
@@ -93,7 +93,7 @@ function hasIntrinsicConstructor(prototype: object, name: 'Array' | 'Object'): b
 }
 
 /** Whether an array uses one realm's intrinsic Array prototype rather than a subclass. */
-/**
+/*
  * 校验数组用的是某个 realm 的原生 Array 原型链而非子类：数组原型 → Object 原型
  * 两层都要通过内在构造器校验。
  */
@@ -109,7 +109,7 @@ function hasPlainArrayPrototype(value: unknown[]): boolean {
 /* jscpd:ignore-end */
 
 /** Whether a schema list is a dense intrinsic array with no JSON-invisible decorations. */
-/**
+/*
  * 校验 schema 列表是"稠密的原生数组"：无空洞、无不可枚举/符号附加键，
  * 保证 JSON 往返不会丢失或伪造数据。
  */
@@ -124,7 +124,7 @@ function isDensePlainArray(value: unknown): value is unknown[] {
 }
 
 /** Reject schema records whose declarations would disappear from object enumeration. */
-/**
+/*
  * 拒绝带有"对象枚举时会消失的键"的 schema 记录：只允许自有可枚举字符串键，
  * 防止符号键/不可枚举键在 JSON 化后悄悄丢失声明。
  */
@@ -147,7 +147,7 @@ type CloneTask =
   | { kind: 'leave'; source: object }
 
 /** Materialize realm-foreign lossless JSON without allowing JSON.stringify coercions; `path` carries the caller's own error prefix. */
-/**
+/*
  * 把沙箱 realm 的 JSON 数据克隆为宿主 realm 的"无损 JSON"：拒绝类实例/函数/
  * Map/Set/Date/undefined/循环引用等一切无法无损往返的值，报错携带调用方的 path
  * 前缀（如 "harness.defineTool execute result"）。显式栈实现，防深对象栈溢出。
@@ -246,7 +246,7 @@ function cloneJson(value: unknown, path: string): unknown {
 }
 
 /** Copy and realm-materialize the shared annotation vocabulary. */
-/**
+/*
  * 复制注解词汇（description/title/default/examples）到规范化输出；
  * default/examples 需经过跨 realm 克隆。
  */
@@ -258,7 +258,7 @@ function copyAnnotations(value: Record<string, unknown>, output: Record<string, 
 }
 
 /** Reject sandbox schema keys that the unified DSL would otherwise ignore. */
-/**
+/*
  * 拒绝统一 DSL 不认识的多余键：宁可报错，也不让模型以为某个键生效了却悄悄忽略。
  * @param allowed - 该节点上下文允许的键集合
  */
@@ -274,7 +274,7 @@ function assertSchemaKeys(value: Record<string, unknown>, path: string, allowed:
  * ParameterSchemaSpec. A raw JSON-Schema object wrapper retains its open root
  * default, while the direct DSL is already an implicit open property map.
  */
-/**
+/*
  * 把沙箱提供的 parameters 规范化为宿主 realm 的新 ParameterSchemaSpec：裸 JSON-Schema
  * 对象包装保留其开放根默认值，而直接 DSL 本身已是隐式开放属性表。
  */
@@ -308,7 +308,7 @@ function normalizeParameterSchemaSpec(value: unknown, path = 'parameters'): {
 }
 
 /** Validate raw required names and return their lookup set. */
-/**
+/*
  * 校验裸 required 名称数组：必须为稠密字符串数组，且每个名字都声明于 properties。
  */
 function normalizeRequiredNames(value: unknown, properties: Record<string, unknown>, path: string): Set<string> {
@@ -329,7 +329,7 @@ function normalizeRequiredNames(value: unknown, properties: Record<string, unkno
 }
 
 /** Mutable holder used only while one normalized property-map root is unresolved. */
-/**
+/*
  * 仅用于"规范化属性表的根尚未就绪"期间的占位容器：任务栈先安装到 holder.value，
  * 根完成后再统一取出。
  */
@@ -338,7 +338,7 @@ interface NormalizeRoot {
 }
 
 /** Where a normalized value node is installed. */
-/**
+/*
  * 规范化值节点的安装位置：对象属性、array items 或 oneOf 数组下标。
  */
 type NormalizeValueDestination =
@@ -347,7 +347,7 @@ type NormalizeValueDestination =
   | { kind: 'one-of'; target: Record<string, unknown>[]; index: number }
 
 /** Where a normalized property map is installed. */
-/**
+/*
  * 规范化属性表的安装位置：schema 根或某对象的 properties 字段。
  */
 type NormalizeMapDestination =
@@ -355,7 +355,7 @@ type NormalizeMapDestination =
   | { kind: 'properties'; target: Record<string, unknown> }
 
 /** Deferred work for stack-safe sandbox schema normalization. */
-/**
+/*
  * 沙箱 schema 规范化的延迟工作帧（显式栈防递归溢出）：map 帧处理整张属性表，
  * value 帧处理单个 schema 节点。
  */
@@ -396,7 +396,7 @@ function assignNormalizedValue(destination: NormalizeValueDestination, value: Re
 }
 
 /** Install one normalized property map at its root or containing object. */
-/**
+/*
  * 安装规范化属性表：根容器或外层对象的 properties 字段。
  */
 function assignNormalizedMap(destination: NormalizeMapDestination, value: Record<string, unknown>): void {
@@ -405,7 +405,7 @@ function assignNormalizedMap(destination: NormalizeMapDestination, value: Record
 }
 
 /** Normalize one implicit property map and all descendants with explicit work frames. */
-/**
+/*
  * 用显式工作帧规范化一张隐式属性表及其全部后代：处理循环引用、非法键、
  * required 标记、oneOf、raw/DSL 两种写法的差异，输出宿主 realm 的可信 schema。
  */
@@ -617,7 +617,7 @@ const RETURN_PREVIEW_LIMIT = 120
  * (`String(…)` for the un-stringifiable undefined case), truncated to
  * {@link RETURN_PREVIEW_LIMIT}.
  */
-/**
+/*
  * 生成无效 execute 返回的紧凑 JSON 预览（undefined 场景用 String 兜底），
  * 截断到 RETURN_PREVIEW_LIMIT 长度，供教学错误回显。
  */
@@ -631,7 +631,7 @@ function describeReturn(value: JsonValue): string {
 /**
  * Validate and host-materialize a sandbox renderer's content blocks.
  */
-/**
+/*
  * 校验并宿主化沙箱渲染器返回的内容块：必须是一个"内容块形状"的数组
  * （plain 对象 + 字符串 type 标签），否则报教学错误并回显返回预览。
  */
@@ -654,11 +654,12 @@ function assertRenderedContent(value: JsonValue): ContentBlock[] {
  * @param options - the standard `defineTool` options; `parameters` may be the ParameterSchemaSpec DSL or a JSON-Schema-style wrapper.
  * @returns the marker-tagged definition `harness.registerTool` (and the guarded `ctx.tools.register`) accepts.
  */
-/**
+/*
  * 沙箱里的 harness.defineTool 实现：真正的 DSL——parameters 被规范化为宿主 realm 的
  * ParameterSchemaSpec，execute/render/presentationMeta 的返回值经 JSON 往返宿主化，
  * 输出/参数不合规时当场报教学错误，杜绝脏值污染会话日志。
  * @returns 打上动态标记、可被 registerTool 与守卫版 ctx.tools.register 接受的定义
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
  */
 export function sandboxDefineTool(options: unknown): ToolDefinition {
   if (!isPlainRecord(options)) throw new Error('harness.defineTool options must be an object')
@@ -713,10 +714,13 @@ export function sandboxDefineTool(options: unknown): ToolDefinition {
  * @param fn - sandbox handler receiving the wire-decoded JSON arguments.
  * @returns the validated name and the clone-wrapped handler.
  */
-/**
+/*
  * 规范化 harness.handle(method, fn) 注册：方法名必须是非空字符串、处理器必须是函数，
  * 且处理器的返回值与工具 execute 一样经跨 realm JSON 克隆宿主化（否则 VM realm 对象
  * 会破坏线缆的纯对象契约）。
+ * @param method 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fn 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function normalizeHandler(method: unknown, fn: unknown): { method: string; handler: (args: unknown) => Promise<unknown> } {
   if (typeof method !== 'string' || method.length === 0) {
@@ -740,9 +744,12 @@ export function normalizeHandler(method: unknown, fn: unknown): { method: string
  * @param tool - a definition produced by {@link sandboxDefineTool}; anything else is rejected.
  * @returns the registry disposer for the registration.
  */
-/**
+/*
  * 沙箱里的 harness.registerTool：只接受带标记的动态工具定义，注册到指定 ctx 的
  * tools 服务并返回卸载函数。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param tool 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function sandboxRegisterTool(ctx: Context, tool: unknown): () => void {
   assertDynamicTool(tool)
@@ -809,7 +816,7 @@ function denyContext(value: unknown, service: string, reportFailure: (error: Err
  * their return values pass through {@link denyContext}. Non-function members
  * (plain data) pass through as-is; a returned Promise is guarded on resolve.
  */
-/**
+/*
  * 用 Proxy 包裹注入服务：方法转发到真实实例，但返回值统一过 denyContext；
  * 普通数据成员原样通过，返回的 Promise 在 resolve 时守卫。
  */
@@ -848,7 +855,7 @@ function declaredInjects(ctx: Context): Set<string> {
  * tools, optional `ctx.get()` lookup, and declared-service property access.
  * Framework plumbing is denied, and service methods cannot return a Context.
  */
-/**
+/*
  * 构造运行中 Host 半部所见的安全 ctx 门面：白名单动词、守卫工具、
  * 可选 ctx.get 查找与已声明服务的属性访问；框架内部件被拒，服务方法不得返回 Context。
  */
@@ -924,9 +931,11 @@ function sandboxContext(ctx: Context, reportFailure: (error: Error) => void): Co
  * @param value - whatever the host half returned.
  * @returns whether the value can be started via `ctx.plugin`.
  */
-/**
+/*
  * 收窄沙箱返回值是否为可运行的插件：函数，或带 apply 函数的对象。
  * （裸函数先命中第一分支，因此对象分支不会误判 Function.prototype.apply。）
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function isPlugin(value: unknown): value is Plugin {
   if (typeof value === 'function') return true
@@ -940,9 +949,12 @@ export function isPlugin(value: unknown): value is Plugin {
  * @param reportFailure - reports a guard rejection to the owning Agent.
  * @returns an equivalent plugin whose `apply` sees the sandbox context façade.
  */
-/**
+/*
  * 包裹插件：使其 apply 收到的是沙箱 ctx 门面而非真实 ctx，同时保留注入元数据。
  * 函数式插件与对象式插件分别处理，门面构建在守卫 ctx 之上。
+ * @param plugin 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param reportFailure 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function guardedPlugin(plugin: Plugin, reportFailure: (error: Error) => void): Plugin {
   if (typeof plugin === 'function') {
@@ -975,8 +987,10 @@ function rejectGuard(reportFailure: (error: Error) => void, message: string): ne
  * @param plugin - the plugin the host half returned.
  * @returns the human-readable name used in run results and inspect output.
  */
-/**
+/*
  * 取运行插件的展示名：有 name 属性用之，否则返回 `<anonymous>`。
+ * @param plugin 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function pluginName(plugin: Plugin): string {
   const named = (plugin as { name?: unknown }).name

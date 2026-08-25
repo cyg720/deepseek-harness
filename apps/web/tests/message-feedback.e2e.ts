@@ -65,7 +65,7 @@ describe('web e2e: durable per-message feedback', () => {
    * expanded on a fresh load, so clicking it unconditionally would collapse it
    * and hide the session row.
    */
-  /** 中文说明：仅在工作区未展开时点击它，再打开其下方固定会话；完成后无返回值。 */
+  /* 中文说明：仅在工作区未展开时点击它，再打开其下方固定会话；完成后无返回值。 */
   async function openSeededSession(): Promise<void> {
     /** 会话侧栏的工作区树项。 */
     const groupRow = page.locator('[role="treeitem"]').first()

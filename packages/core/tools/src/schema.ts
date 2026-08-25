@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义工具作者使用的"统一 JSON 值模式 DSL"（ValueSchemaSpec 系列）：
  *   提供编译到 json-schema.ts 受控子集的投影、编译期 TypeScript 类型推断，以及
@@ -31,27 +31,27 @@ import type { JsonSchemaNode, JsonSchemaScalar, ObjectJsonSchema } from './json-
 import type { ToolCallView, ToolResultView } from './presentation.ts'
 
 /** Annotation keywords shared by every author-facing schema node. */
-/**
+/*
  * 【中文】所有作者侧 schema 节点共享的"注解"字段：不参与校验，但会投影进 JSON
  *   Schema 与 Code Mode 生成的类型文档，供模型与 UI 阅读。
  */
 export interface ValueSchemaAnnotations {
   /** Human-readable description projected into JSON Schema and generated types. */
-  /** 【中文】人类可读描述；模型主要靠它理解参数含义。 */
+  /* 【中文】人类可读描述；模型主要靠它理解参数含义。 */
   description?: string
   /** Human-readable title projected into JSON Schema. */
-  /** 【中文】人类可读标题。 */
+  /* 【中文】人类可读标题。 */
   title?: string
   /** Non-validating default annotation; it must be lossless JSON data. */
-  /** 【中文】默认值注解（不参与校验）；必须是无损 JSON 数据。 */
+  /* 【中文】默认值注解（不参与校验）；必须是无损 JSON 数据。 */
   default?: JsonValue
   /** Non-validating examples annotation; it must be lossless JSON data. */
-  /** 【中文】示例注解（不参与校验）；必须是无损 JSON 数据。 */
+  /* 【中文】示例注解（不参与校验）；必须是无损 JSON 数据。 */
   examples?: JsonValue
 }
 
 /** String value schema with type-correct literal constraints. */
-/**
+/*
  * 【中文】字符串值模式：enum/const 的元素类型被约束为 string，写错在编译期即报错。
  */
 export interface StringValueSchemaSpec extends ValueSchemaAnnotations {
@@ -61,7 +61,7 @@ export interface StringValueSchemaSpec extends ValueSchemaAnnotations {
 }
 
 /** Finite JSON-number schema with type-correct literal constraints. */
-/**
+/*
  * 【中文】数字值模式（有限 JSON 数）；字面量约束类型为 number。
  */
 export interface NumberValueSchemaSpec extends ValueSchemaAnnotations {
@@ -71,7 +71,7 @@ export interface NumberValueSchemaSpec extends ValueSchemaAnnotations {
 }
 
 /** Integer schema with type-correct literal constraints. */
-/**
+/*
  * 【中文】整数值模式；校验时额外要求值为整数。
  */
 export interface IntegerValueSchemaSpec extends ValueSchemaAnnotations {
@@ -81,7 +81,7 @@ export interface IntegerValueSchemaSpec extends ValueSchemaAnnotations {
 }
 
 /** Boolean value schema with type-correct literal constraints. */
-/**
+/*
  * 【中文】布尔值模式。
  */
 export interface BooleanValueSchemaSpec extends ValueSchemaAnnotations {
@@ -91,7 +91,7 @@ export interface BooleanValueSchemaSpec extends ValueSchemaAnnotations {
 }
 
 /** Null value schema with type-correct literal constraints. */
-/**
+/*
  * 【中文】null 值模式：只接受 null。
  */
 export interface NullValueSchemaSpec extends ValueSchemaAnnotations {
@@ -101,7 +101,7 @@ export interface NullValueSchemaSpec extends ValueSchemaAnnotations {
 }
 
 /** Array value schema; omitted `items` accepts any lossless JSON item. */
-/**
+/*
  * 【中文】数组值模式；省略 items 表示接受任意无损 JSON 元素。
  */
 export interface ArrayValueSchemaSpec extends ValueSchemaAnnotations {
@@ -113,7 +113,7 @@ export interface ArrayValueSchemaSpec extends ValueSchemaAnnotations {
  * Explicit object value schema. Openness is mandatory so a nested or output
  * object never acquires an accidental JSON Schema default.
  */
-/**
+/*
  * 【中文】显式对象值模式。additionalProperties 必填——强制作者想清楚开放/封闭，
  *   避免嵌套对象或输出对象意外继承 JSON Schema 的"默认开放"。
  */
@@ -126,7 +126,7 @@ export interface ObjectValueSchemaSpec extends ValueSchemaAnnotations {
 }
 
 /** Author-only unconstrained lossless JSON node. */
-/**
+/*
  * 【中文】`type: 'json'`：作者专用的"任意无损 JSON 值"。编译时变成只带注解的
  *   节点（即 json-schema 子集里的无约束形式），不会出现在作者 DSL 之外。
  */
@@ -135,7 +135,7 @@ export interface JsonValueSchemaSpec extends ValueSchemaAnnotations {
 }
 
 /** Exact-one union schema; at least two branches are required. */
-/**
+/*
  * 【中文】"恰好一个分支通过"的联合模式；元组类型保证至少两个分支。
  */
 export interface OneOfValueSchemaSpec extends ValueSchemaAnnotations {
@@ -143,7 +143,7 @@ export interface OneOfValueSchemaSpec extends ValueSchemaAnnotations {
 }
 
 /** One author-facing schema for any lossless JSON value root. */
-/**
+/*
  * 【中文】作者侧值模式的总联合：任何无损 JSON 值根都从这九种里选一种表达。
  */
 export type ValueSchemaSpec =
@@ -158,7 +158,7 @@ export type ValueSchemaSpec =
   | OneOfValueSchemaSpec
 
 /** One implicit parameter-root property, optionally required. */
-/**
+/*
  * 【中文】参数映射里的单个属性：在值模式之上追加 `required?: true` 注解——这是
  *   DSL 表达"必填"的唯一方式（参数根自身是隐式对象，没有独立 required 列表）。
  */
@@ -168,7 +168,7 @@ export type ParameterPropertySpec = ValueSchemaSpec & { required?: true }
  * Tool parameter schema. The map itself is an implicit open object root;
  * requiredness remains a per-property `required: true` annotation.
  */
-/**
+/*
  * 【中文】工具参数 schema：整个映射就是一个"隐式的开放对象根"——作者直接写
  *   属性名即可，不必再包一层 `{ type: 'object', properties: … }`。必填性仍由每个
  *   属性自己的 `required: true` 表达。symbol 键被类型层直接排除。
@@ -179,7 +179,7 @@ export type ParameterSchemaSpec = {
 }
 
 /** Raw JSON Schema projection of the implicit parameter object. */
-/**
+/*
  * 【中文】隐式参数对象编译后的原始 JSON Schema：保证是对象根且 properties 必在。
  */
 export interface ParameterJsonSchema extends ObjectJsonSchema {
@@ -187,19 +187,19 @@ export interface ParameterJsonSchema extends ObjectJsonSchema {
 }
 
 /** Flatten an intersection into one object type for readable hovers. */
-/**
+/*
  * 【中文】把交叉类型摊平成单一对象类型——纯为了 IDE 悬停提示可读，不影响行为。
  */
 type Simplify<T> = { [K in keyof T]: T[K] } & {}
 
 /** String keys of one property map; runtime compilation rejects symbol keys. */
-/**
+/*
  * 【中文】取属性映射的字符串键；symbol 键在运行时编译中会被拒绝。
  */
 type StringKeyOf<S> = Extract<keyof S, string>
 
 /** Keys of a property map marked `required: true`. */
-/**
+/*
  * 【中文】筛出标记了 `required: true` 的属性键集合（映射类型 + 索引访问的惯用法）。
  */
 type RequiredKeys<S> = {
@@ -207,13 +207,13 @@ type RequiredKeys<S> = {
 }[StringKeyOf<S>]
 
 /** Infer the declared value of one parameter property without key optionality. */
-/**
+/*
  * 【中文】推断单个属性声明的值类型（键的可选性由上层处理）；Depth 用于限制递归深度。
  */
 type InferProperty<P, Depth extends unknown[]> = InferValueAt<P, Depth>
 
 /** Infer an implicit property map into required and optional object keys. */
-/**
+/*
  * 【中文】把隐式属性映射推断为 TypeScript 对象类型：required: true 的键必有值，
  *   其余键可选。
  */
@@ -223,7 +223,7 @@ type InferProperties<S, Depth extends unknown[]> = Simplify<
 >
 
 /** Infer an explicit object node, including its declared openness. */
-/**
+/*
  * 【中文】推断显式对象节点：有 properties 时按属性映射推断；additionalProperties:
  *   true 额外并入 `Record<string, JsonValue>` 表示开放；封闭且无属性则得到
  *   `Record<string, never>`（不接受任何键）。
@@ -238,7 +238,7 @@ type InferObject<S extends { additionalProperties: boolean }, Depth extends unkn
       : Record<string, never>
 
 /** Infer a scalar node's literal constraint before its broad primitive type. */
-/**
+/*
  * 【中文】标量推断优先取字面量约束：const 精确到单值，enum 取其联合，否则回退到
  *   宽泛的基本类型。
  */
@@ -248,7 +248,7 @@ type InferScalar<S, Fallback> =
       Fallback
 
 /** Add one schema-container level to bounded compile-time inference. */
-/**
+/*
  * 【中文】递归深度 +1：用元组长度计数容器层级，是 TypeScript 里给递归加界的惯用法。
  */
 type NextInferenceDepth<Depth extends unknown[]> = [unknown, ...Depth]
@@ -273,14 +273,14 @@ type InferValueAt<S, Depth extends unknown[]> =
  * Infer the TypeScript value accepted by an author-facing value schema. Exact
  * inference is bounded to 16 container levels, then falls back to `JsonValue`.
  */
-/**
+/*
  * 【中文】对外导出：推断某个值模式对应的 TypeScript 值类型。精确推断最多下钻
  *   16 层容器，之后整体回退为 JsonValue，防止编译器递归爆炸。
  */
 export type InferValue<S> = InferValueAt<S, []>
 
 /** Infer the TypeScript argument object for an implicit parameter schema. */
-/**
+/*
  * 【中文】对外导出：推断隐式参数 schema 对应的实参对象类型（defineTool 的 execute
  *   等回调据此获得类型化参数）。
  */
@@ -290,7 +290,7 @@ export type InferArgs<S> = InferProperties<S, []>
 const ANNOTATION_KEYS = ['description', 'title', 'default', 'examples'] as const
 
 /** Throw one author-schema violation through the shared schema error type. */
-/**
+/*
  * 【中文】抛出一条作者 schema 违规（复用 JsonSchemaError，错误码统一）。
  */
 function authorError(message: string): never {
@@ -298,7 +298,7 @@ function authorError(message: string): never {
 }
 
 /** Copy own annotation fields for validation by the raw-schema boundary. */
-/**
+/*
  * 【中文】把节点上实际存在的注解字段拷到编译产物上；随后由原始 schema 边界
  *   （assertSupportedJsonSchema）校验它们的值合法性。
  */
@@ -310,7 +310,7 @@ function copyAnnotations(source: Record<string, unknown>, target: JsonSchemaNode
 }
 
 /** Reject author-only keys outside one node's declared vocabulary. */
-/**
+/*
  * 【中文】DSL 关键字白名单检查：节点上出现任何不在 allowed 列表里的键立即报错。
  *   这是"误配置大声失败"原则的体现——拼错的字段不会被静默忽略。
  */
@@ -321,7 +321,7 @@ function assertAuthorKeys(source: Record<string, unknown>, path: string, allowed
 }
 
 /** Compiled form of one implicit property map. */
-/**
+/*
  * 【中文】隐式属性映射的编译产物：属性 schema 表 + 可选的必填名列表。
  */
 interface CompiledPropertyMap {
@@ -330,7 +330,7 @@ interface CompiledPropertyMap {
 }
 
 /** Mutable holder used only while an iterative compilation root is unresolved. */
-/**
+/*
  * 【中文】迭代编译时的"根占位符"：栈式任务先拿到 destination 再异步写入结果，
  *   用一个可变单字段对象把"尚未确定的根"传下去。
  */
@@ -339,7 +339,7 @@ interface CompileRoot<T> {
 }
 
 /** Where one compiled value node is installed. */
-/**
+/*
  * 【中文】一个编译好的值节点的落点：根占位、父对象的某个属性、数组的 items 槽位，
  *   或 oneOf 分支数组的某个下标。
  */
@@ -350,7 +350,7 @@ type NodeDestination =
   | { kind: 'one-of'; target: JsonSchemaNode[]; index: number }
 
 /** Where one compiled property map is installed. */
-/**
+/*
  * 【中文】一个编译好的属性映射的落点：要么是编译根，要么挂进某个对象节点的
  *   properties。
  */
@@ -359,7 +359,7 @@ type PropertyMapDestination =
   | { kind: 'object'; target: JsonSchemaNode }
 
 /** Deferred work for stack-safe author-schema compilation. */
-/**
+/*
  * 【中文】编译器任务类型：value（编译单个值节点）、property-map / property /
  *   property-map-tail（处理隐式属性映射及其属性、收尾装配 required）、leave
  *   （退出并解除环检测标记）。全部走显式栈，深 schema 不会递归溢出。
@@ -384,7 +384,7 @@ type CompileTask =
   | { kind: 'leave'; input: object }
 
 /** Install a compiled node without giving `__proto__` assignment semantics. */
-/**
+/*
  * 【中文】把编译好的节点安装到目标位置。属性落点刻意用 Object.defineProperty 而非
  *   普通赋值：属性名若叫 `__proto__`，普通赋值会触发原型 setter 把整个对象改掉，
  *   defineProperty 则把它当普通自有键处理。
@@ -412,7 +412,7 @@ function assignCompiledNode(destination: NodeDestination, node: JsonSchemaNode):
 }
 
 /** Install a compiled property map at its root or containing object node. */
-/**
+/*
  * 【中文】把编译好的属性映射安装到根占位符或所属对象节点的 properties 上。
  */
 function assignCompiledPropertyMap(destination: PropertyMapDestination, compiled: CompiledPropertyMap): void {
@@ -424,7 +424,7 @@ function assignCompiledPropertyMap(destination: PropertyMapDestination, compiled
 }
 
 /** Execute an author-schema compilation task graph without recursive descent. */
-/**
+/*
  * 【中文】编译器主循环：弹出任务、按 kind 分派——property-map 建立映射并压入各属性
  *   任务，property 校验 required 注解后转成 value 任务，value 按 oneOf/json/object/
  *   array/标量分别装配节点并下推子任务，property-map-tail 收尾写入 required，
@@ -575,7 +575,7 @@ function runSchemaCompiler(initial: CompileTask): void {
 }
 
 /** Compile one implicit property map, collecting per-property requiredness. */
-/**
+/*
  * 【中文】编译一个隐式属性映射（参数根）：逐属性收集 `required: true`，产出
  *   { properties, required? }。
  */
@@ -587,7 +587,7 @@ function compilePropertyMap(input: unknown, path: string): CompiledPropertyMap {
 }
 
 /** Compile one author node without applying any consumer root restriction. */
-/**
+/*
  * 【中文】编译单个作者值节点，不附加任何"根必须是什么类型"的消费方限制
  *   （那种限制由调用方按需追加）。
  */
@@ -604,7 +604,7 @@ function compileValueSchema(input: unknown, path: string): JsonSchemaNode {
  * @param spec - schema for any JSON-value root.
  * @returns The asserted raw schema projection.
  */
-/**
+/*
  * 【中文】把作者值模式编译为受控子集的原始 JSON Schema（编译后再断言一次子集
  *   合法，双保险）。`type: 'json'` 在此退化为仅注解的无约束节点。
  * @param spec - 任意 JSON 值根的作者模式。
@@ -621,7 +621,7 @@ export function valueSchemaSpecToJsonSchema(spec: ValueSchemaSpec): JsonSchemaNo
  * @param spec - per-property parameter definitions.
  * @returns An object-rooted raw schema with no implicit-root openness override.
  */
-/**
+/*
  * 【中文】把隐式参数映射编译为对象根的原始 JSON Schema。根的开放性不加任何
  *   隐式改写（保持 JSON Schema 缺省开放）；必填列表仅在非空时写入。
  * @param spec - 逐属性的参数定义。
@@ -639,13 +639,13 @@ export function parameterSchemaSpecToJsonSchema(spec: ParameterSchemaSpec): Para
 }
 
 /** Invalid model-generated arguments for a typed tool. */
-/**
+/*
  * 【中文】模型生成的参数未通过 schema 校验时抛出的错误（错误码 INVALID_ARGS），
  *   由 defineTool 包装出的 execute 在执行用户函数之前抛出。
  */
 export class ToolArgsError extends HarnessError {
   /** Individual violations in schema-walk order. */
-  /** 【中文】按遍历顺序排列的逐条违规描述。 */
+  /* 【中文】按遍历顺序排列的逐条违规描述。 */
   readonly violations: string[]
 
   constructor(violations: string[]) {
@@ -666,7 +666,7 @@ export function validateArgs(spec: ParameterSchemaSpec, args: unknown): string[]
 }
 
 /** Options for {@link defineTool}. */
-/**
+/*
  * 【中文】defineTool 的选项：名称、描述、参数 DSL、输出契约（schema + 纯渲染函数）、
  *   可选的超时预算、并发安全分类器、执行体与两个纯呈现回调。泛型 S/O 让 execute
  *   的参数与返回值都获得精确类型。
@@ -733,7 +733,7 @@ export interface DefineToolOptions<S extends ParameterSchemaSpec, O extends Valu
  * @param options - typed definition and optional finalizer and presenters.
  * @returns A registry-ready definition.
  */
-/**
+/*
  * 【中文】定义一个首方工具：编译参数与输出 schema、生成带运行时校验的 execute
  *   （违规抛 ToolArgsError），并按需挂上 finalizeContent / presentCall /
  *   presentResult / isConcurrencySafe。关键设计：呈现回调面向"日志回放"——旧日志里

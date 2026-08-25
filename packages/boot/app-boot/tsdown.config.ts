@@ -4,7 +4,7 @@ import { defineConfig } from 'tsdown'
  * Embed Include while keeping Loader external so the built include tree and
  * app host bind to one Loader peer.
  */
-/**
+/*
  * 文件职责：配置 app-boot 包的运行时入口和不变量伴生入口构建。
  * 技术维度：使用 tsdown 输出 Node.js ESM，并只内联 Cordis Include 插件、保留 Loader 对等依赖。
  * 产品维度：保证应用启动树与宿主共享同一个 Loader 实例，避免插件装配状态分裂。

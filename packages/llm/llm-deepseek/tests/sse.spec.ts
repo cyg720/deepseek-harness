@@ -17,7 +17,7 @@ import { DONE, parseSse } from '../src/sse.ts'
  */
 
 /** Build an SSE byte stream from string fragments (fragments = network reads). */
-/** 中文说明：函数 bytes 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 bytes 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function bytes(...fragments: string[]): ReadableStream<Uint8Array<ArrayBuffer>> {
   /** 中文说明：测试局部值 encoder，由紧邻初始化决定。 */
   const encoder = new TextEncoder()

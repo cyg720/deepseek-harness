@@ -23,7 +23,7 @@ import ApprovalService, { ApprovalOutcome, ApprovalRequest, effectiveApprovalPol
  * turn-enclosure precondition); pass `seed` to stage idle/closed logs.
  * Returns the recorded audit appends alongside the fake.
  */
-/** 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeAgent(seed: Array<{ type: string }> = [{ type: 'turn/start' }, { type: 'user/message' }]): { agent: Agent; appended: Array<{ type: string; data: Record<string, unknown> }> } {
   /** 中文说明：测试局部值 appended，由紧邻初始化决定。 */
   const appended: Array<{ type: string; data: Record<string, unknown> }> = []
@@ -451,7 +451,7 @@ describe('approval policy (the approval/policy fold)', () => {
    * An agent stand-in over a REAL Session — gate and context fold real events;
    * the opened turn satisfies request()'s enclosure precondition.
    */
-  /** 中文说明：函数 sessionAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 sessionAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function sessionAgent(id: string): { agent: Agent; session: Session } {
     /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId(id))

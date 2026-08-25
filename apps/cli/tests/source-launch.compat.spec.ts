@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
  * breaks this gate instead of every developer's `pnpm dsh`; the built-bin
  * suite covers the published `lib/` entry, not this source chain.
  */
-/**
+/*
  * 文件职责：无构建运行 dsh 源码入口，守护生产使用的 node --import tsx/esm 启动链。
  * 技术维度：使用 Vitest、execa、真实 package.json 和 Node 模块导入钩子启动 CLI。
  * 产品维度：在 Node 版本改变模块钩子或 TypeScript 处理时尽早发现，而不是让开发者本地命令普遍失败。

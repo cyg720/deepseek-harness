@@ -50,7 +50,7 @@ const SEARCH_CREDENTIAL = 'snapshot-search-key'
  * scroll container are both exercised. Each row carries a title, a snippet,
  * and a date, so 8 kept rows exceed the `.sources` 320px max-height.
  */
-/** 中文说明：每个查询返回六项，使合并结果超过正式上限并触发轮询截断和卡片滚动。 */
+/* 中文说明：每个查询返回六项，使合并结果超过正式上限并触发轮询截断和卡片滚动。 */
 /** 本地提供方为每个查询生成的结果数量。 */
 const PROVIDER_RESULT_COUNT = 6
 

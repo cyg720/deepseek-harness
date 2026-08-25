@@ -1,5 +1,5 @@
 /** Content-addressed, owner-private local attachment storage. */
-/**
+/*
  * 文件职责：以SHA-256内容寻址方式在本地私有目录中准备、持久提交、读取并校验规范化图片。
  * 技术维度：使用Node.js文件句柄、硬链接、fsync、权限位和原子临时文件实现崩溃安全的去重发布。
  * 产品维度：保证会话日志中的附件引用在进程或机器重启后仍指向完整、不可被静默替换的图片字节。
@@ -94,13 +94,13 @@ export async function validateImageFile(
 }
 
 /** Fully prepared normalized object, verified before any batch member is persisted. */
-/** 在整批任何成员落盘前完成验证的规范化对象。 */
+/* 在整批任何成员落盘前完成验证的规范化对象。 */
 export interface PreparedImageFile {
   /** Deterministic normalized bytes whose digest is {@link ref.attachmentId}. */
-  /** 摘要与ref.attachmentId一致的确定性规范化字节。 */
+  /* 摘要与ref.attachmentId一致的确定性规范化字节。 */
   data: Uint8Array
   /** Durable reference describing {@link data}. */
-  /** 准确描述data格式、尺寸和字节数的持久引用。 */
+  /* 准确描述data格式、尺寸和字节数的持久引用。 */
   ref: ImageAttachmentRef
 }
 

@@ -46,7 +46,7 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 }
 
 /** A response with one result block plus a text block carrying the snippet. */
-/** 中文说明：函数 searchResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 searchResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function searchResponse(): AnthropicResponse {
   return {
     content: [

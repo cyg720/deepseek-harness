@@ -55,11 +55,11 @@ const LAYOUT_EXPECTED = join(SNAPSHOT_DIR, 'layout.expected.md')
 const MODE = webSnapshotMode()
 
 /** The reported viewport: 800×720, where the composer card is 448px wide at 0.0.1. */
-/** 外部问题报告对应的固定视口，宽 800、高 720。 */
+/* 外部问题报告对应的固定视口，宽 800、高 720。 */
 const VIEWPORT = { width: 800, height: 720 } as const
 
 /** Chip aria-label on the English page; the seat renders only while plan is the effective target. */
-/** 英文界面中计划模式开启按钮的无障碍名称。 */
+/* 英文界面中计划模式开启按钮的无障碍名称。 */
 const CHIP_ARIA = 'Plan mode on, press to turn off'
 
 describe('web e2e: plan chip click area at the narrow viewport', () => {

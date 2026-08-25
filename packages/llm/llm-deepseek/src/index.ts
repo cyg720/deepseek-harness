@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-llm-deepseek 包的入口插件：把 DeepSeekAdapter 注册到
  * ctx.llm 的 deepseek-official 路由上，负责把插件配置/用户设置/凭据解析成
@@ -121,7 +121,7 @@ const DEFAULT_MODELS: DeepSeekCatalogModel[] = [
 // 中文：本 provider 支持的输入模态词汇表（text、image），用于 schema 校验。
 const MODEL_MODALITIES = ['text', 'image'] as const satisfies readonly ModelModality[]
 
-/**
+/*
  * （中文）插件配置：由同名 schemastery schema 校验，并兼作 llm-deepseek
  * 设置段的结构。yml 中每个字段都可选：key 缺失时按 Config.apiKeyEnv 在每次
  * 请求时解析（完全没有 key 的请求抛 MISSING_CREDENTIAL，而不是在插件加载时
@@ -239,7 +239,7 @@ export const PUBLIC_BASE_URL = 'https://api.deepseek.com'
 // 中文：命名本 provider 端点的环境变量；只从可信环境层读取。
 const BASE_URL_ENV = 'DEEPSEEK_BASE_URL'
 
-/**
+/*
  * （中文）一次解析的完整请求事实。连接与凭据事实刻意做成同一个值：被拒绝的
  * 解析快照会整体保留上一世代，因此请求永远不可能把过期端点与新 key 配对。
  */
@@ -323,7 +323,7 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
   })
 }
 
-/**
+/*
  * （中文）从原始配置到已验证连接事实的唯一显式解析步骤。编程式构造可能绕过
  * Schemastery 规范化，因此每个默认值与边界都在这里重新判定——加载时（fail
  * loud）与每个设置快照首次使用时都会走这里。

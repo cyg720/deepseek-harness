@@ -29,7 +29,7 @@ import {
 const workspaceRoot = resolve(import.meta.dirname, '../../../..')
 
 /** One workspace projection shared by both cases: analyzing it twice doubles a multi-minute run. */
-/** 中文说明：变量 cached 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 cached 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let cached: ReturnType<typeof projectCordisCatalog> | undefined
 /** 中文说明：函数值 projection 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const projection = (): ReturnType<typeof projectCordisCatalog> =>

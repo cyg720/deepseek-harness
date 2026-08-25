@@ -24,7 +24,7 @@ import * as goalSession from '../src/index.ts'
 type ScriptEntry = StreamChunk[] | Error | 'hang' | ((options: GenerateOptions) => StreamChunk[])
 
 /** Small request-recording adapter with controllable failure and cancellation. */
-/** 中文说明：类型或类 ScriptedAdapter 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 ScriptedAdapter 约束文件或目标数据职责。 */
 class ScriptedAdapter extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
 
@@ -58,7 +58,7 @@ class ScriptedAdapter extends LlmAdapter {
 }
 
 /** One successful text response. */
-/** 中文说明：函数 textResponse 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 textResponse 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function textResponse(text: string): StreamChunk[] {
   return [
     { type: 'block-start', index: 0, blockType: 'text' },
@@ -68,7 +68,7 @@ function textResponse(text: string): StreamChunk[] {
 }
 
 /** One successful response cut off at the model output limit. */
-/** 中文说明：函数 maxTokensResponse 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 maxTokensResponse 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function maxTokensResponse(text: string): StreamChunk[] {
   return [
     { type: 'block-start', index: 0, blockType: 'text' },
@@ -78,7 +78,7 @@ function maxTokensResponse(text: string): StreamChunk[] {
 }
 
 /** Complete request history as a single string for ordering assertions. */
-/** 中文说明：函数 requestText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 requestText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function requestText(request: GenerateOptions): string {
   return request.messages
     .flatMap(message => message.content)
@@ -103,7 +103,7 @@ afterEach(async () => {
 })
 
 /** Mount a real loop with only its model scripted. */
-/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(script: ScriptEntry[]): Promise<Harness> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -125,7 +125,7 @@ async function harness(script: ScriptEntry[]): Promise<Harness> {
 }
 
 /** Observe inserted inbox messages after the live projection accepts them. */
-/** 中文说明：函数 onInboxMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 onInboxMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function onInboxMessage(
   ctx: Context,
   agent: Agent,
@@ -137,7 +137,7 @@ function onInboxMessage(
 }
 
 /** Observe one claimed message at its exclusive pre-step ownership transfer. */
-/** 中文说明：函数 onClaimedMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 onClaimedMessage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function onClaimedMessage(
   ctx: Context,
   agent: Agent,
@@ -149,7 +149,7 @@ function onClaimedMessage(
 }
 
 /** Await a stable goal projection selected by the caller. */
-/** 中文说明：函数 waitForGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 waitForGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function waitForGoal(
   ctx: Context,
   agent: Agent,
@@ -162,7 +162,7 @@ async function waitForGoal(
 }
 
 /** Await a specific number of dispatched model requests. */
-/** 中文说明：函数 waitForRequests 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 waitForRequests 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function waitForRequests(adapter: ScriptedAdapter, count: number): Promise<void> {
   await vi.waitFor(() => {
     expect(adapter.requests).toHaveLength(count)

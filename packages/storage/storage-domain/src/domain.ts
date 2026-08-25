@@ -27,7 +27,7 @@
  * emission, in write order.
  * @module @deepseek-ai/dsh-storage-domain/src/domain
  */
-/**
+/*
  * 模块总览：领域层的"运行时"全部在本文件。上层的 DomainFacility（见 index.ts）
  * 负责打开领域并做类型擦除，真正的读写、关闭、事件发出逻辑都在这里。
  */
@@ -39,7 +39,7 @@ import type { DomainSpec, DomainGlobalSpec, TableKeyOf, TableValueOf } from './s
 import type { DomainChanged } from './events.ts'
 
 /** Handle on a domain's global singleton. */
-/**
+/*
  * 全局单例的对外句柄：get 同步返回当前值，set 排入写链持久化写入。
  */
 export interface DomainGlobal<G> {
@@ -48,7 +48,7 @@ export interface DomainGlobal<G> {
    * Before the first `set` this is the spec's `initial`.
    * @returns the current global value.
    */
-  /**
+  /*
    * 同步返回当前全局值（来自权威内存态）。第一次 set 之前返回 spec 的 initial。
    * @returns 当前全局值。
    */
@@ -61,7 +61,7 @@ export interface DomainGlobal<G> {
    * here — validation happens at the durable read boundary).
    * @returns resolution after durability and event emission.
    */
-  /**
+  /*
    * 持久化替换全局值。排入领域写链；第一次 set 才会真正把 global 写到介质上。
    * 注意：本方法不重新校验 schema（校验发生在持久化读边界，即打开介质时）。
    * @param value 新值；必须满足 spec 的 schema。
@@ -75,7 +75,7 @@ export interface DomainGlobal<G> {
  * values are the stored objects themselves (no defensive copies) and must not
  * be mutated in place — replace via `put`/`update`.
  */
-/**
+/*
  * 单张已声明表的对外句柄。记录是不可变数据：get 返回的是存储对象本身（无防御性拷贝），
  * 调用方绝不能就地修改，必须用 put/update 整体替换。
  */
@@ -85,7 +85,7 @@ export interface KvTable<K extends string, V> {
    * @param key - Record key.
    * @returns the record, or `undefined` when absent.
    */
-  /**
+  /*
    * 同步读一条记录（来自内存）。
    * @param key 记录键。
    * @returns 记录值；不存在时返回 undefined。
@@ -97,7 +97,7 @@ export interface KvTable<K extends string, V> {
    * view: iteration stays stable while queued writes land.
    * @returns the pair iterator.
    */
-  /**
+  /*
    * 遍历 [键, 记录] 对的快照迭代器。是"快照"而非"实时视图"：迭代过程中即使有
    * 排队的写入落地，本次迭代内容也保持稳定。
    * @returns 键值对迭代器。
@@ -108,14 +108,14 @@ export interface KvTable<K extends string, V> {
    * Snapshot iterator over keys.
    * @returns the key iterator.
    */
-  /**
+  /*
    * 遍历键的快照迭代器。
    * @returns 键迭代器。
    */
   keys(): IterableIterator<K>
 
   /** Current record count. */
-  /** 当前记录条数。 */
+  /* 当前记录条数。 */
   readonly size: number
 
   /**
@@ -124,7 +124,7 @@ export interface KvTable<K extends string, V> {
    * @param value - The full new record (no partial merge).
    * @returns resolution after durability and event emission.
    */
-  /**
+  /*
    * 持久化插入或覆盖一条记录。
    * @param key 记录键。
    * @param value 完整的新记录（不做部分合并）。
@@ -138,7 +138,7 @@ export interface KvTable<K extends string, V> {
    * @returns `true` when the record existed, `false` when it was already
    * absent (no write and no event in that case).
    */
-  /**
+  /*
    * 持久化删除一条记录。
    * @param key 记录键。
    * @returns 记录原本存在返回 true；本来就不存在返回 false（此时无写入、无事件）。
@@ -152,7 +152,7 @@ export interface KvTable<K extends string, V> {
    * @param fn - Synchronous pure transform from current to next record.
    * @returns the stored next record.
    */
-  /**
+  /*
    * 在领域写链上做"原子读-改-写"：fn 看到的是它排队位置上的最新值，
    * 因此并发更新不会互相交错。键不存在时以 missing-key 拒绝。
    * @param key 记录键。
@@ -163,7 +163,7 @@ export interface KvTable<K extends string, V> {
 }
 
 /** Global handle of a spec: typed when declared, `never` (inaccessible) when not. */
-/**
+/*
  * 按 spec 推导出的全局句柄类型：声明了 global 才有可用句柄，否则为 never（不可访问，
  * 编译期就能拦住错误用法）。
  */
@@ -171,15 +171,15 @@ export type DomainGlobalHandleOf<S extends DomainSpec> =
   S extends { readonly global: DomainGlobalSpec<infer G> } ? DomainGlobal<G> : never
 
 /** One open domain, typed by its spec. */
-/**
+/*
  * 一个已打开领域对外的接口，由 spec 提供完整类型。
  */
 export interface Domain<S extends DomainSpec> {
   /** Domain name from the spec. */
-  /** 领域名（来自 spec）。 */
+  /* 领域名（来自 spec）。 */
   readonly name: string
   /** Global singleton handle; a spec without `global` has no usable handle (`never`). */
-  /** 全局单例句柄；spec 没有 global 时不可用（类型为 never）。 */
+  /* 全局单例句柄；spec 没有 global 时不可用（类型为 never）。 */
   readonly global: DomainGlobalHandleOf<S>
   /**
    * Resolve one declared table handle. Handles are stable — repeated calls
@@ -187,7 +187,7 @@ export interface Domain<S extends DomainSpec> {
    * @param name - Declared table name.
    * @returns the typed table handle.
    */
-  /**
+  /*
    * 解析一张已声明表的句柄。句柄稳定：重复调用返回同一个实例。
    * @param name 已声明的表名。
    * @returns 带类型的表句柄。
@@ -202,7 +202,7 @@ export interface Domain<S extends DomainSpec> {
    * disposer); the facility closes any domain left open when it unmounts.
    * @returns resolution after the unit is released.
    */
-  /**
+  /*
    * 关闭领域：立刻拒绝新写入，排空已排队的写入（其事件仍照常发出），释放后端单元，
    * 然后释放领域名供日后重新打开。幂等——重复调用共享同一次拆卸。
    * 关闭由调用方负责（通常作为自己 ctx.effect 的注销函数）；facility 卸载时会关闭
@@ -213,20 +213,20 @@ export interface Domain<S extends DomainSpec> {
 }
 
 /** Internal boundary handing table handles their domain-owned write machinery. */
-/**
+/*
  * 表句柄与"领域持有的写机制"之间的内部桥接接口：把表操作翻译成对领域写链的调用。
  */
 interface TableHost {
   readonly domainName: string
   readonly unit: KvUnit
   /** Queue one job on the domain's single write chain. */
-  /** 把一个任务排到领域的唯一写链上。 */
+  /* 把一个任务排到领域的唯一写链上。 */
   enqueue<T>(job: () => Promise<T>): Promise<T>
   /** Throw `closed` once the domain has fully closed (reads stay valid while draining). */
-  /** 领域完全关闭后抛 closed（排空期间读仍有效）。 */
+  /* 领域完全关闭后抛 closed（排空期间读仍有效）。 */
   assertReadable(): void
   /** Emit `domain/changed` for one durably landed write. */
-  /** 为一次已持久化的写入发出 domain/changed 事件。 */
+  /* 为一次已持久化的写入发出 domain/changed 事件。 */
   emitChanged(change: DomainChanged): void
 }
 
@@ -238,13 +238,13 @@ const noop = () => {}
  * facility constructs it from a validated `loadAll` snapshot and erases it to
  * `Domain<S>`; nothing outside this package constructs one.
  */
-/**
+/*
  * Domain 接口背后的唯一实现。facility（index.ts 的 DomainFacility）从已校验的
  * loadAll 快照构造它，再擦除成 Domain<S> 类型交给外部；本包之外不会有人直接构造它。
  */
 export class DomainImpl {
   /** Domain name from the spec. */
-  /** 领域名（来自 spec）。 */
+  /* 领域名（来自 spec）。 */
   readonly name: string
 
   // 表名 → 表实现句柄 的映射；open 时按 spec 的每张表各建一个。
@@ -255,13 +255,13 @@ export class DomainImpl {
   private readonly globalHandle?: DomainGlobal<unknown>
 
   /** Tail of the write chain; every link settles (rejections are observed by the caller's slice). */
-  /** 写链的尾部：每个链环节都会 settle（拒绝由调用方那段链观察），不会让整条链悬空。 */
+  /* 写链的尾部：每个链环节都会 settle（拒绝由调用方那段链观察），不会让整条链悬空。 */
   private chain: Promise<void> = Promise.resolve()
   /** Set when close begins: new writes reject while already-queued writes drain. */
-  /** 关闭开始后置位：新写入立即被拒，已排队的写入继续排空。 */
+  /* 关闭开始后置位：新写入立即被拒，已排队的写入继续排空。 */
   private disposing = false
   /** Set when close finishes (chain drained, unit closed): reads reject from here on. */
-  /** 关闭完成后置位（链已排空、单元已关闭）：此后连读也会被拒。 */
+  /* 关闭完成后置位（链已排空、单元已关闭）：此后连读也会被拒。 */
   private closed = false
   // 关闭过程的 Promise 缓存：close() 幂等就靠它——只执行一次 runClose。
   private disposal?: Promise<void>
@@ -278,7 +278,7 @@ export class DomainImpl {
    * @param onClosed - Facility hook run once after teardown completes; frees
    * the domain name for a later open.
    */
-  /**
+  /*
    * 构造领域运行时：把每张表的记录快照装进内存，并组装"表句柄 → 写链"的桥接。
    * @param ctx 承载 domain/changed 事件发出的上下文。
    * @param spec 领域声明。
@@ -325,7 +325,7 @@ export class DomainImpl {
   }
 
   /** Global singleton handle; accessing it on a spec that declares no global is a caller bug and throws. */
-  /** 全局单例句柄：对未声明 global 的 spec 访问它是调用方 bug，会抛错。 */
+  /* 全局单例句柄：对未声明 global 的 spec 访问它是调用方 bug，会抛错。 */
   get global(): DomainGlobal<unknown> {
     if (this.globalHandle === undefined) {
       throw new Error(`domain '${this.name}' declares no global`)
@@ -339,7 +339,7 @@ export class DomainImpl {
    * @param name - Declared table name.
    * @returns the stable table handle.
    */
-  /**
+  /*
    * 解析一张已声明表的句柄；未声明的表名是调用方 bug，会抛错。
    * @param name 表名。
    * @returns 稳定的表句柄。
@@ -358,7 +358,7 @@ export class DomainImpl {
    * the facility hook. Idempotent — repeated calls share one teardown.
    * @returns resolution after the unit is released.
    */
-  /**
+  /*
    * 关闭领域：立即拒新写、排空已排队写入（事件照常发出）、关闭单元，最后经钩子释放名字。
    * 幂等——重复调用共享同一次拆卸（disposal 缓存了 runClose 的 Promise）。
    * @returns 单元释放完成后解析。
@@ -385,7 +385,7 @@ export class DomainImpl {
    * failures: the write is already committed (medium and memory both hold
    * the new state), so a throwing listener must not retroactively reject it.
    */
-  /**
+  /*
    * 分发一次"已持久化"的变更通知，并隔离观察者异常：写入此时已提交（介质与内存
    * 都已是新状态），监听器抛错不能反过来让这次写入失败。
    */
@@ -420,7 +420,7 @@ export class DomainImpl {
 }
 
 /** Table handle bound to one in-memory record map and its domain's write chain. */
-/**
+/*
  * 绑定到一张内存记录表与领域写链上的表句柄实现。所有写操作先落后端再改内存，
  * 删除/更新按"自己排队位置上的最新内存态"判断，保证与写链语义一致。
  */

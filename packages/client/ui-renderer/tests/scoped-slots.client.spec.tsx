@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证客户端渲染器的 scoped-slots.client.spec.tsx 行为。
  * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
  * 产品维度：防止客户端渲染器的展示、作用域或交互回归。
@@ -40,7 +40,7 @@ type RenderSlotChainFn = (key: string, owner: object, opts?: { fallback?: ReactN
 /** 中文说明：类型或类 DeclaredSpec 约束模块数据或职责。 */
 type DeclaredSpec = SlotSpec<SlotEntryDef>
 /** Entry literal helper: fake entries default the mandatory options bag. */
-/** 中文说明：测试局部值 entryOf，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 entryOf，由紧邻初始化决定。 */
 const entryOf = (partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry['options'] }): StoredEntry =>
   ({ options: {}, ...partial })
 
@@ -51,7 +51,7 @@ const entryOf = (partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry
  * but entry.store is typed to the full contract — the real defineStore lives
  * in runtime, which UI-renderer tests must not import (dependency direction).
  */
-/** 中文说明：函数 miniStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 miniStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function miniStore<T extends object>(
   init: () => T,
   mutators: Record<string, (state: T, ...params: never[]) => T>,
@@ -103,7 +103,7 @@ function observable<T>(initial: T) {
  * the entry's real handle, cached per (entry x scope key) like the real
  * ledger; session cells are identity-stable per id.
  */
-/** 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeHost() {
   /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
   const entries = new Map<string, StoredEntry[]>()
@@ -270,7 +270,7 @@ function makeHost() {
 type Fake = ReturnType<typeof makeHost>
 
 /** Mount a root entry whose component renders `body` with its kit renderSlot. */
-/** 中文说明：函数 mountRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mountRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountRoot(h: Fake, children: Record<string, DeclaredSpec>, body: (renderSlot: RenderSlotFn) => ReactNode) {
   /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
   const dispose = h.add('root', {
@@ -292,7 +292,7 @@ const SINGLE_SESSION: DeclaredSpec = { kind: 'single', scope: 'session' }
 const CHAIN_ROOT: DeclaredSpec = { kind: 'chain', scope: 'root' }
 
 /** Chain entry literal: top-level select, priority in the options bag (the StoredEntry chain shape). */
-/** 中文说明：测试局部值 chainEntryOf，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 chainEntryOf，由紧邻初始化决定。 */
 const chainEntryOf = (partial: {
   component: unknown
   select: (owner: object) => unknown
@@ -304,7 +304,7 @@ const chainEntryOf = (partial: {
 })
 
 /** Mount a root entry whose component renders `body` with its kit renderSlotChain. */
-/** 中文说明：函数 mountChainRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mountChainRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountChainRoot(h: Fake, children: Record<string, DeclaredSpec>, body: (renderSlotChain: RenderSlotChainFn) => ReactNode) {
   /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
   const dispose = h.add('root', {
@@ -640,7 +640,7 @@ describe('chain outlets and the renderSlotChain binding', () => {
 describe('overlay chains (ChainRenderOpts.overlay)', () => {
   /** Fallback probe: counts mounts and holds uncontrolled DOM state (the
    *  composer-draft stand-in an unmount would wipe). */
-  /** 中文说明：函数 fallbackProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 fallbackProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function fallbackProbe(onMount: () => void) {
     return function Probe() {
       useEffect(onMount, [])
@@ -1158,7 +1158,7 @@ describe('session-maybe adoption identity', () => {
   const SINGLE_MAYBE: DeclaredSpec = { kind: 'single', scope: 'session-maybe' }
 
   /** Mount a maybe entry that records its mount count and local state. */
-  /** 中文说明：函数 mountMaybeCounter 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 mountMaybeCounter 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function mountMaybeCounter(h: Fake) {
     /** 中文说明：测试局部值 mounts，由紧邻初始化决定。 */
     let mounts = 0

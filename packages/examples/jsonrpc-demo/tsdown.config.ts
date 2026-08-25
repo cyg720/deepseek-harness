@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Builds each published entry as a self-contained file admitted by the package whitelist. */
-/**
+/*
  * 文件职责：把 JSON-RPC 示例的四个发布入口分别构建为包白名单允许的自包含文件。
  * 技术维度：使用 tsdown 多配置 ESM 构建，并关闭 code splitting 防止额外共享 chunk。
  * 产品维度：同时提供插件、诊断、源码 CLI 和打包 CLI 演示入口，确保安装后都能直接运行。

@@ -6,7 +6,7 @@
  * 关键边界：此声明不限制可用键集合，错误类名不会由该类型单独发现。
  * 新手阅读建议：先从设置组件的 `styles` 用法反查实际 CSS 选择器。
  */
-/** 使用方式：`import styles from './PluginCard.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './PluginCard.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源码类名，值是 CSS Modules 生成的隔离类名。 */
   const classes: Record<string, string>

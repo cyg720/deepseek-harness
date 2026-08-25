@@ -25,7 +25,7 @@
  * `process.cwd()` at the tool boundary.
  * @module @deepseek-ai/dsh-tool-fs/session-cwd
  */
-/**
+/*
  * 模块总览：本文件解决"工具以哪个目录为相对路径基准"——每个会话自己的工作区。
  */
 
@@ -42,7 +42,7 @@ const PARENT_PATH_SEGMENT = /(?:^|[\\/])\.\.(?:[\\/]|$)/
  *   makes a symlinked cwd's filesystem identity observable.
  * @returns the calling agent's session cwd, or undefined for a non-agent caller (the backend then applies its own default).
  */
-/**
+/*
  * 本次调用的会话工作区 cwd；不适用时为 undefined。
  * 当 cwd 或请求路径含父级遍历段（..）时做 canonicalPath 规范化——否则符号链接 cwd
  * 的文件系统身份会被 .. 暴露。
@@ -63,7 +63,7 @@ export function sessionCwd(exec: ToolExecution, requestedPath: string): string |
  * @param policyWorkspaceRoot - resolved per-call root, when a mutation carries sandbox policy.
  * @returns provider resolution options for the current tool call.
  */
-/**
+/*
  * 所有模型侧文件系统工具共享的解析选项。优先级：策略工作区根 > 会话 cwd；
  * 取消信号始终携带。
  * @param exec 提供会话 cwd 与取消信号的工具执行上下文。

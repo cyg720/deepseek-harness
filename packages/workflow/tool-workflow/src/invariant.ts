@@ -1,5 +1,5 @@
 /** Package-owned durable workflow-record invariants. @module @deepseek-ai/dsh-tool-workflow/invariant */
-/**
+/*
  * 文件职责：实现 invariant.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -17,10 +17,10 @@ import type {} from './types.ts'
 const PACKAGE_NAME = '@deepseek-ai/dsh-tool-workflow'
 
 /** Cordis companion plugin name. */
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'tool-workflow-invariant'
 /** Services required to validate existing and newly appended Session logs. */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['invariants']
 
 /** 中文说明：interface RunTrace 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
@@ -33,20 +33,20 @@ interface RunTrace {
 type WorkflowTrace = Map<string, RunTrace>
 
 /** Whether this package owns the candidate Session event. */
-/** 中文说明：函数 isWorkflowRecordEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isWorkflowRecordEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isWorkflowRecordEvent(event: SessionEvent): boolean {
   return event.type.startsWith('tool-workflow/')
 }
 
 /** Require a durable opaque identity to be a non-empty string. */
-/** 中文说明：函数 stringId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 stringId 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stringId(value: unknown, label: string, fail: InvariantFailure): string {
   if (typeof value !== 'string' || value.length === 0) fail(`${label} must be a non-empty string`)
   return value
 }
 
 /** Require one workflow member's 1-based sequence identity. */
-/** 中文说明：函数 memberSeq 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 memberSeq 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function memberSeq(value: unknown, fail: InvariantFailure): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1) {
     fail('tool-workflow member seq must be a positive safe integer')
@@ -55,7 +55,7 @@ function memberSeq(value: unknown, fail: InvariantFailure): number {
 }
 
 /** Read one plain payload field without trusting restored plugin data. */
-/** 中文说明：函数 recordOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 recordOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function recordOf(event: SessionEvent, fail: InvariantFailure): Record<string, unknown> {
   /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const data: unknown = event.data
@@ -66,7 +66,7 @@ function recordOf(event: SessionEvent, fail: InvariantFailure): Record<string, u
 }
 
 /** Copy only the run one candidate can mutate; other committed states stay shared. */
-/** 中文说明：函数 cloneTraceForEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 cloneTraceForEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function cloneTraceForEvent(
   source: WorkflowTrace,
   event: SessionEvent,
@@ -88,7 +88,7 @@ function cloneTraceForEvent(
 }
 
 /** Require the named run to exist and remain open. */
-/** 中文说明：函数 openRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 openRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function openRun(trace: WorkflowTrace, runId: string, eventType: string, fail: InvariantFailure): RunTrace {
   /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const run = trace.get(runId)
@@ -98,7 +98,7 @@ function openRun(trace: WorkflowTrace, runId: string, eventType: string, fail: I
 }
 
 /** Advance the workflow-record fold with one relevant Session event. */
-/** 中文说明：函数 applyEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 applyEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function applyEvent(trace: WorkflowTrace, event: SessionEvent, fail: InvariantFailure): void {
   /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const data = recordOf(event, fail)
@@ -164,7 +164,7 @@ function applyEvent(trace: WorkflowTrace, event: SessionEvent, fail: InvariantFa
 }
 
 /** Install an independent incremental fold over every attached Session. */
-/** 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+/* 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** 中文说明：变量 traces 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const traces = new WeakMap<Session, WorkflowTrace>()
@@ -206,6 +206,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
 }, { inject: ['sessions'] })
 
 /** Register this package's invariant companion. */
-/** 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+/* 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

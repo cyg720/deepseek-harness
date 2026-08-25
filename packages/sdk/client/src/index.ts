@@ -8,7 +8,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-client
  */
-/**
+/*
  * 文件职责：汇总 TypeScript SDK 的高级 Harness API、底层客户端、错误和公共类型。
  * 技术维度：使用 ESM 重导出和类型专用导出，驱动独立 JSON-RPC 运行时子进程。
  * 产品维度：让 Node.js 用户既可用简洁会话 API，也可直接控制协议请求和通知订阅。

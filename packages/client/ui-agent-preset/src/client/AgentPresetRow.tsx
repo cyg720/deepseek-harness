@@ -3,7 +3,7 @@
  * A running session keeps the composition it began with, so this row never
  * disturbs work in progress.
  */
-/**
+/*
  * 文件职责：实现预设界面的 AgentPresetRow 组件及交互。
  * 技术维度：React、TypeScript、Cordis 插槽、响应式快照和 CSS Modules。
  * 产品维度：帮助用户查看、选择或管理会话使用的代理预设。
@@ -21,7 +21,7 @@ import { PresetMenu } from './PresetMenu.tsx'
 import css from './AgentPresetRow.module.css'
 
 /** Registration-side business face for the host-backed preference. */
-/** 中文说明：类型 AgentPresetRowInjected 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 AgentPresetRowInjected 约束本文件数据字段及允许取值。 */
 export interface AgentPresetRowInjected {
   /** 中文说明：成员 hooks 保存实例运行状态，取值由声明类型限定。 */
   hooks: {
@@ -29,15 +29,15 @@ export interface AgentPresetRowInjected {
     agentPreset: SnapshotStore<AgentPresetSettingsState>
   }
   /** Load the roster when the row first renders. */
-  /** 中文说明：成员 load 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 load 保存实例运行状态，取值由声明类型限定。 */
   load: () => Promise<void>
   /** Persist one preset as the default for later sessions. */
-  /** 中文说明：成员 select 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 select 保存实例运行状态，取值由声明类型限定。 */
   select: (id: string) => Promise<void>
 }
 
 /** Full component props. */
-/** 中文说明：类型 AgentPresetRowProps 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 AgentPresetRowProps 约束本文件数据字段及允许取值。 */
 export type AgentPresetRowProps =
   PropsRuntime<'settings.general.item'>
   & PropsLocale<'settings.agentPreset'>
@@ -48,7 +48,7 @@ export type AgentPresetRowProps =
  * @param props - composed slot props.
  * @returns the row, or null when the deployment composes no presets.
  */
-/** 中文说明：函数 AgentPresetRow 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 AgentPresetRow 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function AgentPresetRow({ load, select, useAgentPreset, t }: AgentPresetRowProps) {
   /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const state = useAgentPreset(snapshot => snapshot)

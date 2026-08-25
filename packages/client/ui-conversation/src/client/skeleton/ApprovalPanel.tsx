@@ -28,7 +28,7 @@ import { rootToolCall } from '../chat/tool-node-reader.ts'
 import css from './ApprovalPanel.module.css'
 
 /** Extract the shell command from an approval's paired running call (bash-family args carry `command`); undefined hides the line. */
-/** 中文说明：函数 commandOf 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 commandOf 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function commandOf(call: RunningToolCall | undefined): string | undefined {
   if (call === undefined) return undefined
   try {
@@ -48,7 +48,7 @@ export function commandOf(call: RunningToolCall | undefined): string | undefined
  * @param props - the selector-matched pending approval carrier plus the framework standard kit.
  * @returns The approval prompt for this request.
  */
-/** 中文说明：函数 ApprovalPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 ApprovalPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function ApprovalPanel(props: ApprovalComposerProps) {
   /** 中文说明：组件局部值 approval，取值由紧邻初始化决定。 */
   const approval = useMemo(() => new PendingApproval(props.matched), [props.matched])

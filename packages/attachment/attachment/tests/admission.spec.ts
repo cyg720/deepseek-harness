@@ -15,7 +15,7 @@ import type { ImageAttachmentRef, SaveImageAttachment } from '@deepseek-ai/dsh-a
 const PNG = 'AAAA' // canonical base64, 3 bytes
 
 /** Delegation double: records the exact saveImages batch and answers ordered refs. */
-/**
+/*
  * 创建记录精确saveImages批次并返回有序引用的委托替身。
  * @returns 类型化存储接口及可断言的模拟对象。
  * @example storeOf()

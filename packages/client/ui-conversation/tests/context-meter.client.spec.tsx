@@ -34,7 +34,7 @@ const segmentClass = css.segment
 if (segmentClass === undefined) throw new Error('segment class missing from ContextMeter.module.css')
 
 /** Stub the projection seat: a key-addressed table of whole values. */
-/** 中文说明：函数 projections 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 projections 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function projections(values: Record<string, unknown>): ContextMeterProps['useProjection'] {
   return (key: string) => values[key]
 }

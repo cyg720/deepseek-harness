@@ -34,7 +34,7 @@ async function mount(): Promise<Context> {
 }
 
 /** Mint a scope whose key is a live agent (real session: the executor logs lifecycle events on it). */
-/** 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mintAgentScope(ctx: Context, name: string): Promise<{ scope: Scope; agent: Agent }> {
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = ctx.sessions.create(SessionId(name))
@@ -47,7 +47,7 @@ async function mintAgentScope(ctx: Context, name: string): Promise<{ scope: Scop
 }
 
 /** The lifecycle slice of one agent's log (boundary markers stripped). */
-/** 中文说明：函数 lifecycleOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 lifecycleOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lifecycleOf(agent: Agent): Array<{ type: string; data: unknown }> {
   return agent.session.events
     .filter(event => event.type === 'command/run' || event.type === 'command/done')

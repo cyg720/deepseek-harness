@@ -6,7 +6,7 @@
  * 关键边界：类型不验证文件与选择器是否存在，最终结果取决于构建器。
  * 新手阅读建议：先看模块化导入怎样返回对象，再看普通 CSS 为何没有返回值。
  */
-/** 使用方式：`import styles from './Attachment.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Attachment.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键是源码类名，值是构建后的隔离类名。 */
   const classes: Record<string, string>

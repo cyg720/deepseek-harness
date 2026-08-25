@@ -1,5 +1,5 @@
 /** Covers fail-closed per-call classification and model-schema isolation. */
-/**
+/*
  * 文件职责：验证工具注册与执行的 execution-mode.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
  * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。

@@ -7,7 +7,7 @@
  * vocabulary.
  * @module @deepseek-ai/dsh-code-runtime-python
  */
-/**
+/*
  * 文件职责：作为 CPython 子进程代码运行时包的公共入口，统一重导出 fd 3 线协议类型与校验工具。
  * 技术维度：使用 TypeScript 类型导出和 ESM 命名导出，共享无版本 JSON Lines 协议实现。
  * 产品维度：让宿主安全执行模型生成的 Python 代码，并用同一套协议词汇处理结果、日志和工具调用。

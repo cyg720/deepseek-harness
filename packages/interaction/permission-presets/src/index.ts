@@ -9,7 +9,7 @@
  *
  * @module dsh-permission-presets
  */
-/**
+/*
  * 文件职责：实现交互与审批的 index.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
@@ -62,7 +62,7 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 /** One preset's sandbox/approval bundle and optional client presentation. */
-/** 中文说明：类型或类 PresetSpec 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 PresetSpec 约束宿主、交互或任务数据职责。 */
 export interface PresetSpec {
   /** The `sandbox/mode` value the preset writes through. */
   sandbox: SandboxMode
@@ -78,11 +78,11 @@ export interface PresetSpec {
  * Returned when effective knob values match no table entry. Clients may show
  * it as the current value, but it is never a switch target or event payload.
  */
-/** 中文说明：服务局部值 CUSTOM_PRESET，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 CUSTOM_PRESET，由紧邻初始化决定。 */
 export const CUSTOM_PRESET = 'custom'
 
 /** Settings namespace carrying the default for future sessions. */
-/** 中文说明：服务局部值 解构结果，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 解构结果，由紧邻初始化决定。 */
 export const PERMISSION_SETTINGS_NAMESPACE = settingsNamespace('permission')
 
 /**
@@ -91,7 +91,11 @@ export const PERMISSION_SETTINGS_NAMESPACE = settingsNamespace('permission')
  * @param events - session events in log order; other event types are ignored.
  * @returns the last selected preset, or undefined when none was recorded.
  */
-/** 中文说明：函数 effectivePermissionPreset 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 effectivePermissionPreset 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function effectivePermissionPreset(events: readonly SessionEvent[]): string | undefined {
   /** 中文说明：服务局部值 index，由紧邻初始化决定。 */
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -107,7 +111,7 @@ export function effectivePermissionPreset(events: readonly SessionEvent[]): stri
  * before an override (composition defaults apply at view time). Plain JSON
  * (persisted-cache precondition).
  */
-/** 中文说明：类型或类 KnobState 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 KnobState 约束宿主、交互或任务数据职责。 */
 export interface KnobState {
   /** Last `permission/preset` payload, or null. */
   preset: string | null
@@ -136,7 +140,7 @@ const knobStateSchema: zod.ZodType<KnobState> = zod.object({
 }).strict()
 
 /** State for the empty log: every knob at its composition default. */
-/** 中文说明：服务局部值 EMPTY_KNOBS，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 EMPTY_KNOBS，由紧邻初始化决定。 */
 const EMPTY_KNOBS: KnobState = { preset: null, sandbox: null, approval: null }
 
 /**
@@ -146,7 +150,12 @@ const EMPTY_KNOBS: KnobState = { preset: null, sandbox: null, approval: null }
  * @param event - one committed session event.
  * @returns the next state; the same reference when the event is not a knob.
  */
-/** 中文说明：函数 applyKnobEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 applyKnobEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param state 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param event 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function applyKnobEvent(state: KnobState, event: SessionEvent): KnobState {
   switch (event.type) {
     case 'permission/preset':
@@ -161,7 +170,7 @@ export function applyKnobEvent(state: KnobState, event: SessionEvent): KnobState
 }
 
 /** Whole-log knob fold (the cold-read parallel of {@link applyKnobEvent}). */
-/** 中文说明：函数 foldKnobs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 foldKnobs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function foldKnobs(events: readonly SessionEvent[]): KnobState {
   /** 中文说明：服务局部值 state，由紧邻初始化决定。 */
   let state = EMPTY_KNOBS
@@ -171,14 +180,14 @@ function foldKnobs(events: readonly SessionEvent[]): KnobState {
 }
 
 /** User setting resolved when a new session receives its initial permission. */
-/** 中文说明：类型或类 PermissionSettings 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 PermissionSettings 约束宿主、交互或任务数据职责。 */
 export interface PermissionSettings {
   /** Preset pinned into a newly created session. */
   defaultPreset: string
 }
 
 /** The {@link PermissionPresetService} config: preset table and composition default. */
-/** 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
 export interface Config {
   /**
    * The preset table: name → knob bundle. Defaults to `workspace-write`
@@ -198,7 +207,7 @@ export interface Config {
  * confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are
  * reported as {@link CUSTOM_PRESET}, not an error.
  */
-/** 中文说明：类型或类 PermissionPresetService 约束宿主、交互或任务数据职责。 */
+/* 中文说明：类型或类 PermissionPresetService 约束宿主、交互或任务数据职责。 */
 export class PermissionPresetService extends Service {
   // Inline schema call: the config catalog walks `static Config` statically.
   static Config: z<Config> = z.object({

@@ -3,7 +3,7 @@
  * Standalone process wrapper for the scriptable mock LLM server.
  * @module @deepseek-ai/dsh-llm-mock-server/src/bin
  */
-/**
+/*
  * 文件职责：把可脚本化模拟 LLM 服务器包装成独立命令行进程和 JSON 行事件协议。
  * 技术维度：使用 Node 顶层 await、延时 Promise、信号处理和 stdout JSONL 状态事件。
  * 产品维度：供集成测试启动可预测的模型端点，包括先不可用再就绪等启动场景。

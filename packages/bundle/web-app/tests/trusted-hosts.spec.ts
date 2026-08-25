@@ -1,5 +1,5 @@
 /** Single-sample LAN-trust resolution for the /api browser-trust fence (`resolveLanTrust`). */
-/**
+/*
  * 文件职责：验证 Web API 浏览器信任围栏从一次网卡快照解析局域网地址和可信主机。
  * 技术维度：使用 Vitest 模块模拟 node:os.networkInterfaces，覆盖 IPv4、IPv6、回环和缺失接口。
  * 产品维度：让局域网部署可展示并信任正确地址，同时避免回环绑定意外扩展信任范围。

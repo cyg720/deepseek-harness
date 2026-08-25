@@ -7,7 +7,7 @@
  * with-key coverage drives the real ACP example.
  * @module @deepseek-ai/dsh-subagent-acp/run
  */
-/**
+/*
  * 文件职责：实现 run.ts 覆盖的子代理进程与协议行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
@@ -44,11 +44,11 @@ import type { SubagentResult, SubagentRun, SubagentStartRequest, SubagentStopRea
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 
 /** Fixed response to child permission requests: reject by default, or select the first allow option. */
-/** 中文说明：type PermissionPolicy 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：type PermissionPolicy 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export type PermissionPolicy = 'allow' | 'reject'
 
 /** Resolved spawn spec for an ACP child process (no defaults — see Config). */
-/** 中文说明：interface AcpRunSpec 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
+/* 中文说明：interface AcpRunSpec 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export interface AcpRunSpec {
   /** The executable to spawn (the child ACP agent). */
   command: string
@@ -103,15 +103,15 @@ export interface AcpRunSpec {
 }
 
 /** EOF grace for child flush and nested-process teardown; wider than the signal grace below. */
-/** 中文说明：常量 DEFAULT_DISPOSE_EOF_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_DISPOSE_EOF_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_EOF_GRACE_MS = 6_000
 
 /** Default POSIX grace between SIGTERM and SIGKILL on dispose (the `disposeGraceMs` config). */
-/** 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
 /** Bounded whole-tree exit wait: polls the handle's tree liveness until it exits or `ms` elapses. */
-/** 中文说明：函数 treeExitsWithin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 treeExitsWithin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function treeExitsWithin(child: SubprocessHandle, ms: number): Promise<boolean> {
   /** 中文说明：变量 controller 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const controller = new AbortController()
@@ -133,7 +133,11 @@ async function treeExitsWithin(child: SubprocessHandle, ms: number): Promise<boo
  * @param child - the spawned ACP child's handle.
  * @param eofGraceMs - tier-1 window after stdin EOF.
  */
-/** 中文说明：函数 disposeAcpChild 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 disposeAcpChild 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param child 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param eofGraceMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export async function disposeAcpChild(child: SubprocessHandle, eofGraceMs: number): Promise<void> {
   // A spawn failure has no process to tear down; observe the rejection so
   // disposal in a finally block cannot surface it as unhandled.
@@ -155,7 +159,11 @@ export async function disposeAcpChild(child: SubprocessHandle, eofGraceMs: numbe
  * @returns the harness equivalent; `max_turn_requests` and any unknown future
  * variant map to `error`, so an unclean stop is never reported as `completed`.
  */
-/** 中文说明：函数 acpStopReason 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 acpStopReason 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param reason 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function acpStopReason(reason: StopReason): SubagentStopReason {
   switch (reason) {
     case 'end_turn':
@@ -185,7 +193,11 @@ export function acpStopReason(reason: StopReason): SubagentStopReason {
  * @param content - the content block off a streamed `agent_message_chunk`.
  * @returns the block's text, or `''` for a non-text block.
  */
-/** 中文说明：函数 acpContentText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 acpContentText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param content 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function acpContentText(content: AcpContentBlock): string {
   return content.type === 'text' ? content.text : ''
 }
@@ -195,7 +207,11 @@ export function acpContentText(content: AcpContentBlock): string {
  * @param prompt - the harness prompt; non-text blocks are dropped.
  * @returns the ACP text blocks, in order.
  */
-/** 中文说明：函数 toAcpPrompt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 toAcpPrompt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param prompt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function toAcpPrompt(prompt: ContentBlock[]): AcpContentBlock[] {
   /** 中文说明：变量 blocks 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const blocks: AcpContentBlock[] = []
@@ -207,7 +223,7 @@ export function toAcpPrompt(prompt: ContentBlock[]): AcpContentBlock[] {
 }
 
 /** Normalize an unknown thrown value to an Error (the catch binding is `unknown`). */
-/** 中文说明：函数 toError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 toError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toError(value: unknown): Error {
   // The catch only sees rejections from the ACP SDK RPCs and the spawn `error`
   // event, which are always `Error`s; the `String(value)` arm is a defensive
@@ -225,7 +241,12 @@ function toError(value: unknown): Error {
  * policy, dispose graces, and the optional error sink.
  * @returns the ready run handle for the child subprocess.
  */
-/** 中文说明：函数 startAcpRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 startAcpRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpec): Promise<SubagentRun> {
   if (request.signal.aborted) throw new Error('subagent request was aborted before the ACP child started')
   // ACP session ids are unique only within the child server. The lifecycle id

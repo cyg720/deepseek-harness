@@ -1,5 +1,5 @@
 /** Sidebar shell slot registration and its plain runtime/layout callbacks. */
-/**
+/*
  * 文件职责：验证侧栏的 apply.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
  * 产品维度：防止侧栏显示、导航或生命周期回归。

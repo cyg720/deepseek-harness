@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and invariant companion as independent bundles. */
-/**
+/*
  * 文件职责：配置沙箱策略包和不变量伴生模块的独立构建。
  * 技术维度：使用 tsdown 将两个 tsc 中间入口输出为 Node.js ESM。
  * 产品维度：为代码执行提供可组合的权限策略，并允许部署检查策略装配是否完整。

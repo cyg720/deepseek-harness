@@ -6,7 +6,7 @@
  * indices, stragglers after block-end, missing block-start, delta-only). The
  * invariants below are the contract the agent loop relies on.
  */
-/**
+/*
  * 文件职责：验证 properties.spec.ts 覆盖的 LLM 配置、调用与事件处理行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
  * 产品维度：保障模型接入在配置变化、认证、重试与异常场景下仍能给 Agent 稳定反馈。
@@ -39,7 +39,7 @@ const blockEndArb = (index: number): fc.Arbitrary<StreamChunk> => fc.oneof(
 )
 
 /** One arbitrary chunk over the small index pool — valid and malformed mixes. */
-/** 中文说明：函数值 chunkArb 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 chunkArb 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const chunkArb: fc.Arbitrary<StreamChunk> = indexArb.chain(index => fc.oneof(
   fc.constant<StreamChunk>({ type: 'block-start', index, blockType: 'text' }),
   fc.constant<StreamChunk>({ type: 'block-start', index, blockType: 'reasoning' }),
@@ -59,11 +59,11 @@ const chunkArb: fc.Arbitrary<StreamChunk> = indexArb.chain(index => fc.oneof(
 ))
 
 /** A stream is an arbitrary list of chunks (we do NOT force a terminal finish). */
-/** 中文说明：变量 streamArb 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 streamArb 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const streamArb = fc.array(chunkArb, { maxLength: 30 })
 
 /** Feed a fresh assembler, return it. */
-/** 中文说明：函数 feed 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 feed 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function feed(chunks: StreamChunk[]): BlockAssembler {
   /** 中文说明：变量 a 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const a = new BlockAssembler()

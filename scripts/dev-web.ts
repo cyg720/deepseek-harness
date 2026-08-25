@@ -28,7 +28,7 @@
  * `watch` through API-level inline config (tsdown workspace mode fills inline
  * keys under each package's file config, and no package config defines it).
  */
-/**
+/*
  * 文件职责：实现 dev-web.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -47,18 +47,18 @@ import type { TsdownBundle } from 'tsdown'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 /** Client-face type emit feeding every tsdown lib entry in the watch set. */
-/** 中文说明：常量 CLIENT_TYPE_PROGRAM 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CLIENT_TYPE_PROGRAM 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLIENT_TYPE_PROGRAM = 'tsconfig.client.json'
 
 /** Compile-shell workspace whose dist `dsh web` serves. */
-/** 中文说明：常量 SHELL_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SHELL_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SHELL_PACKAGE = '@deepseek-ai/dsh-web-frontend'
 
 /**
  * Test infrastructure builds through the client preset but never enters the
  * shell's module graph, so it is not a dev-loop artifact.
  */
-/** 中文说明：常量 TEST_INFRASTRUCTURE_PREFIX 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TEST_INFRASTRUCTURE_PREFIX 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TEST_INFRASTRUCTURE_PREFIX = 'packages/test-support/'
 
 /**
@@ -69,7 +69,7 @@ const TEST_INFRASTRUCTURE_PREFIX = 'packages/test-support/'
  * @param root - repository root containing the grouped package directories.
  * @returns workspace-relative plugin package directories.
  */
-/** 中文说明：函数 discoverPluginDirs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 discoverPluginDirs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function discoverPluginDirs(root = repoRoot): string[] {
   /** 中文说明：变量 dirs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dirs: string[] = []
@@ -96,7 +96,7 @@ export function discoverPluginDirs(root = repoRoot): string[] {
  * @param root - repository root containing the grouped package directories.
  * @returns workspace-relative library package directories.
  */
-/** 中文说明：函数 discoverLibraryDirs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 discoverLibraryDirs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function discoverLibraryDirs(root = repoRoot): string[] {
   /** 中文说明：变量 dirs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dirs: string[] = []
@@ -122,7 +122,7 @@ export function discoverLibraryDirs(root = repoRoot): string[] {
  * @param pollInterval - optional source-watcher polling interval in milliseconds.
  * @returns live bundles after every watcher has completed its initial build.
  */
-/** 中文说明：函数 watchClientPlugins 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 watchClientPlugins 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function watchClientPlugins(
   root: string,
   pluginDirs: readonly string[],
@@ -168,7 +168,7 @@ export async function watchClientPlugins(
  * spawn: an interrupt during a later stage's startup still tears down the
  * earlier ones instead of orphaning them.
  */
-/** 中文说明：变量 stages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 stages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const stages: StageHandle[] = []
 
 /**
@@ -181,7 +181,7 @@ const stages: StageHandle[] = []
  * @param args - command arguments.
  * @param local - whether to resolve `command` from the workspace's installed bins.
  */
-/** 中文说明：函数 spawnStage 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 spawnStage 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function spawnStage(stage: string, command: string, args: readonly string[], local: boolean): void {
   /** 中文说明：变量 child 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const child = execa(command, [...args], {
@@ -198,7 +198,7 @@ function spawnStage(stage: string, command: string, args: readonly string[], loc
 }
 
 /** The only capability this script needs from a live watcher process. */
-/** 中文说明：interface StageHandle 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface StageHandle 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface StageHandle {
   readonly kill: () => void
 }

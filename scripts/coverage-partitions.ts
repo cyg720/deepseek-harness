@@ -1,5 +1,5 @@
 /** Coordinate single-worker Vitest coverage partitions and one merged report. */
-/**
+/*
  * 文件职责：实现 coverage-partitions.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -13,19 +13,19 @@ import { join, relative, sep } from 'node:path'
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
 /** Environment variable selecting the number of instrumented coverage processes. */
-/** 中文说明：常量 COVERAGE_PARTITIONS_ENV 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 COVERAGE_PARTITIONS_ENV 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const COVERAGE_PARTITIONS_ENV = 'DSH_COVERAGE_PARTITIONS'
 
 /** Internal marker that suppresses reports and thresholds inside a partition process. */
-/** 中文说明：常量 COVERAGE_PARTITION_MODE_ENV 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 COVERAGE_PARTITION_MODE_ENV 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const COVERAGE_PARTITION_MODE_ENV = 'DSH_COVERAGE_PARTITION_MODE'
 
 /** Environment variable overriding instrumented test and polling timeouts. */
-/** 中文说明：常量 COVERAGE_TEST_TIMEOUT_ENV 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 COVERAGE_TEST_TIMEOUT_ENV 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const COVERAGE_TEST_TIMEOUT_ENV = 'DSH_COVERAGE_TEST_TIMEOUT_MS'
 
 /** One child command owned by the coverage coordinator. */
-/** 中文说明：interface CoverageCommand 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface CoverageCommand 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface CoverageCommand {
   /** Diagnostic identity. */
   label: string
@@ -42,7 +42,7 @@ export interface CoverageCommand {
 }
 
 /** Observable child-process completion. */
-/** 中文说明：interface CoverageCommandResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface CoverageCommandResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface CoverageCommandResult {
   /** Numeric process status, or `null` when a signal ended the child. */
   exitCode: number | null
@@ -55,11 +55,11 @@ export interface CoverageCommandResult {
 }
 
 /** Execute one coordinator command with inherited output. */
-/** 中文说明：type CoverageCommandRunner 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type CoverageCommandRunner 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type CoverageCommandRunner = (command: CoverageCommand) => Promise<CoverageCommandResult>
 
 /** Construction inputs for {@link CoveragePartitionCoordinator}. */
-/** 中文说明：interface CoveragePartitionCoordinatorOptions 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface CoveragePartitionCoordinatorOptions 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface CoveragePartitionCoordinatorOptions {
   /** Repository root that owns coverage output. */
   root: string
@@ -74,7 +74,7 @@ export interface CoveragePartitionCoordinatorOptions {
 }
 
 /** Parse an optional coverage partition count. */
-/** 中文说明：函数 parseCoveragePartitionCount 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseCoveragePartitionCount 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseCoveragePartitionCount(raw: string | undefined): number | undefined {
   if (raw === undefined || raw === '') return undefined
   /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -86,7 +86,7 @@ export function parseCoveragePartitionCount(raw: string | undefined): number | u
 }
 
 /** Resolve the paired Vitest timeout arguments used by coverage partitions. */
-/** 中文说明：函数 coverageTestTimeoutArgs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 coverageTestTimeoutArgs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function coverageTestTimeoutArgs(raw: string | undefined): string[] {
   if (raw === undefined || raw === '') return []
   /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -98,13 +98,13 @@ export function coverageTestTimeoutArgs(raw: string | undefined): string[] {
 }
 
 /** Remove pnpm's package-script separator before forwarding Vitest arguments. */
-/** 中文说明：函数 forwardedCoverageArgs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 forwardedCoverageArgs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function forwardedCoverageArgs(args: readonly string[]): string[] {
   return [...args.slice(args[0] === '--' ? 1 : 0)]
 }
 
 /** Run instrumented partitions, validate their blobs, and merge once. */
-/** 中文说明：class CoveragePartitionCoordinator 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class CoveragePartitionCoordinator 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export class CoveragePartitionCoordinator {
   private readonly root: string
   private readonly partitions: number
@@ -240,7 +240,7 @@ export class CoveragePartitionCoordinator {
 }
 
 /** Spawn one pnpm-backed command without a platform shell. */
-/** 中文说明：函数 runCoverageCommand 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 runCoverageCommand 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function runCoverageCommand(command: CoverageCommand): Promise<CoverageCommandResult> {
   return new Promise((resolveCommand) => {
     /** 中文说明：变量 outputTail 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

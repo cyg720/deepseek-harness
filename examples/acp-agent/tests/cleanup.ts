@@ -1,5 +1,5 @@
 /** Shared teardown for ACP example tests. */
-/**
+/*
  * 文件职责：为 ACP 示例测试统一关闭代理进程并删除临时工作区，同时汇总所有清理失败。
  * 技术维度：使用 Promise.allSettled、递归强制删除和 AggregateError 实现尽力清理。
  * 产品维度：保持示例测试相互隔离，不因一次清理失败掩盖另一个资源泄漏。
@@ -16,7 +16,7 @@ import type { LaunchedAcpTestAgent } from '@deepseek-ai/dsh-acp-snapshot'
  * and reporting every failure instead of allowing the later one to mask the
  * earlier one.
  */
-/**
+/*
  * 关闭 ACP 测试代理并删除其工作区，两个操作都会被尝试。
  * @param spawned - 可选的已启动测试代理，只需提供 close 方法。
  * @param workdir - 可选临时工作区路径。

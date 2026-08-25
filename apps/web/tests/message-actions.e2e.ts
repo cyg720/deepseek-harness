@@ -54,7 +54,7 @@ const SECOND_PROMPT = 'Now give the final answer.'
  * @param raw - Recorded seeded-history JSONL.
  * @returns A contiguous, closed two-turn fixture.
  */
-/** 中文说明：raw 是借用的 JSONL，返回连续闭合的两回合 fixture。示例：completedTailFixture(raw)。 */
+/* 中文说明：raw 是借用的 JSONL，返回连续闭合的两回合 fixture。示例：completedTailFixture(raw)。 */
 function completedTailFixture(raw: string): string {
   /** 解析后的会话头和事件。 */
   const decoded = parseSeedFixture(raw)

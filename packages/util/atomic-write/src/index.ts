@@ -9,7 +9,7 @@
  * replaced; readers stay lock-free because the rename commit is atomic.
  * @module @deepseek-ai/dsh-atomic-write
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的通用运行时工具行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的通用运行时工具能力稳定、可复现且可诊断。
@@ -26,7 +26,7 @@ import { dirname } from 'node:path'
  * Filesystem options for {@link writeFileAtomic}; `mode` is required so the
  * permission decision stays visible at every call site.
  */
-/** 中文说明：interface WriteFileAtomicOptions 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：interface WriteFileAtomicOptions 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface WriteFileAtomicOptions {
   /**
    * Permission bits stamped on the fresh temp inode and carried through the
@@ -55,7 +55,12 @@ export interface WriteFileAtomicOptions {
  * @param content - complete next file content.
  * @param options - permission bits for the replacement inode.
  */
-/** 中文说明：函数 writeFileAtomic 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 writeFileAtomic 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param filename 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param content 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export async function writeFileAtomic(filename: string, content: string, options: WriteFileAtomicOptions): Promise<void> {
   await mkdir(dirname(filename), {
     recursive: true,
@@ -75,7 +80,7 @@ export async function writeFileAtomic(filename: string, content: string, options
 }
 
 /** Whether an exclusive create found an existing lock. */
-/** 中文说明：函数 isLockContention 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isLockContention 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function isLockContention(error: unknown, lockPath: string): Promise<boolean> {
   /** 中文说明：变量 code 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const code = (error as NodeJS.ErrnoException | null)?.code
@@ -95,7 +100,7 @@ async function isLockContention(error: unknown, lockPath: string): Promise<boole
  * cross-process write protocol rather than deployment tunables: they govern how
  * often a contender asks, which no caller has a reason to vary.
  */
-/** 中文说明：常量 LOCK_RETRY_INITIAL_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 LOCK_RETRY_INITIAL_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LOCK_RETRY_INITIAL_MS = 20
 /** 中文说明：常量 LOCK_RETRY_MAX_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LOCK_RETRY_MAX_MS = 200
@@ -109,11 +114,11 @@ const LOCK_RETRY_MAX_MS = 200
  * exists; the value here is the floor for an operation that does file work
  * alone.
  */
-/** 中文说明：常量 DEFAULT_LOCK_WAIT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_LOCK_WAIT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_LOCK_WAIT_MS = 2_000
 
 /** Options for one {@link withFileLock} acquisition. */
-/** 中文说明：interface FileLockOptions 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：interface FileLockOptions 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface FileLockOptions {
   /**
    * Maximum time to wait for the lock, in milliseconds. State one when the
@@ -142,7 +147,13 @@ export interface FileLockOptions {
  * @param options - acquisition options; omitted waits {@link DEFAULT_LOCK_WAIT_MS}.
  * @returns the operation's result; the lock releases on both outcomes.
  */
-/** 中文说明：函数 withFileLock 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 withFileLock 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param filename 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param operation 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function withFileLock<T>(
   filename: string,
   operation: () => Promise<T>,

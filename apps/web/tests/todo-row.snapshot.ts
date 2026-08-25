@@ -33,7 +33,7 @@ installAssembledBootEnv()
 /** Normalize the todo row and the plan strip to stable text fields: the row's
  *  title, its truncatable summary, its non-shrinking suffix, then the panel's
  *  per-status header and every list item with its status. */
-/** 中文说明：row 是工具行，panel 是计划条，返回标题、摘要、后缀、进度和每项状态的稳定文本。 */
+/* 中文说明：row 是工具行，panel 是计划条，返回标题、摘要、后缀、进度和每项状态的稳定文本。 */
 function todoShape(row: Element, panel: Element): string {
   /** 从 from 中筛选带指定 CSS 模块类名的全部后代。 */
   const pick = (from: Element, name: string): Element[] =>

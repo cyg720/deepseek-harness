@@ -1,5 +1,5 @@
 /** Configuration resolution for deterministic tool-result pruning. */
-/**
+/*
  * 文件职责：实现上下文压缩的 config.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的上下文压缩信息。
@@ -12,11 +12,11 @@ import { deepFreeze } from '@deepseek-ai/dsh-llm'
 import type { ResolvedConfig, ToolResultPruneConfig } from './types.ts'
 
 /** Fixed marker substituted for every removed middle span. */
-/** 中文说明：上下文局部值 PRUNE_MARKER，由紧邻初始化决定。 */
+/* 中文说明：上下文局部值 PRUNE_MARKER，由紧邻初始化决定。 */
 export const PRUNE_MARKER = '\n\n[... tool result middle pruned ...]\n\n'
 
 /** Low-friction defaults for coding-agent tool output. */
-/** 中文说明：上下文局部值 DEFAULTS，由紧邻初始化决定。 */
+/* 中文说明：上下文局部值 DEFAULTS，由紧邻初始化决定。 */
 export const DEFAULTS: ResolvedConfig = deepFreeze({
   thresholdChars: 8192,
   headChars: 4096,
@@ -35,7 +35,11 @@ const CONFIG_KEYS: ReadonlySet<string> = new Set([
  * @param text - text to measure.
  * @returns the Unicode code-point count.
  */
-/** 中文说明：函数 codePointLength 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 codePointLength 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param text 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function codePointLength(text: string): number {
   return Array.from(text).length
 }
@@ -45,7 +49,11 @@ export function codePointLength(text: string): number {
  * @param config - raw plugin configuration.
  * @returns a detached deeply immutable configuration.
  */
-/** 中文说明：函数 resolveConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 resolveConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function resolveConfig(config: ToolResultPruneConfig = {}): ResolvedConfig {
   /** 中文说明：上下文局部值 key，由紧邻初始化决定。 */
   for (const key of Object.keys(config)) {

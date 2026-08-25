@@ -3,7 +3,7 @@
  *
  * @module dsh-llm-pi-ai/context
  */
-/**
+/*
  * 文件职责：实现Pi AI LLM的 context.ts 模块。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
@@ -26,7 +26,7 @@ import { toPiAssistant } from './replay.ts'
 import { DEFAULT_REQUEST_IMAGE_MAX_BYTES, DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET } from './config.ts'
 
 /** Join the text blocks of a harness message. */
-/** 中文说明：函数 flattenText 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 flattenText 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function flattenText(message: Message): string {
   return message.content
     .filter(block => block.type === 'text')
@@ -36,7 +36,7 @@ function flattenText(message: Message): string {
 
 
 /** Flatten text recursively inside one tool result. */
-/** 中文说明：函数 toolResultText 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 toolResultText 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function toolResultText(blocks: readonly ContentBlock[]): string {
   return blocks.map(block => block.type === 'text'
     ? block.text
@@ -44,7 +44,7 @@ function toolResultText(blocks: readonly ContentBlock[]): string {
 }
 
 /** Reject image roles that pi-ai cannot replay before request-size offloading can replace them. */
-/** 中文说明：函数 assertSupportedImageRoles 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 assertSupportedImageRoles 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function assertSupportedImageRoles(messages: readonly Message[]): void {
   /** 中文说明：适配器局部值 message，由紧邻初始化决定。 */
   for (const message of messages) {
@@ -151,7 +151,7 @@ function toolsOf(options: GenerateOptions): PiTool[] | undefined {
 }
 
 /** Assemble the request-level pi-ai context envelope shared by both conversion paths. */
-/** 中文说明：函数 piContext 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 piContext 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function piContext(options: GenerateOptions, messages: PiMessage[]): PiContext {
   /** 中文说明：适配器局部值 tools，由紧邻初始化决定。 */
   const tools = toolsOf(options)
@@ -216,7 +216,13 @@ function textOnlyContext(options: GenerateOptions, onReplayDegrade?: (reason: st
  * @param onReplayDegrade - forwarded to {@link toPiAssistant} for each assistant message.
  * @returns the pi-ai context; `tools` is omitted when the request declares none.
  */
-/** 中文说明：函数 toPiContext 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 toPiContext 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param attachments 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param onReplayDegrade 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function toPiContext(
   options: GenerateOptions,
   attachments?: undefined,
@@ -235,7 +241,15 @@ export function toPiContext(
  * @param requestImagePolicy - route pixel and raw encoded-byte budgets.
  * @returns the asynchronously resolved pi-ai context.
  */
-/** 中文说明：函数 toPiContext 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 toPiContext 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param attachments 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param onReplayDegrade 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param maxRequestImageBytes 中文说明：允许的请求图片总字节上限；省略时不按该值裁剪。
+ * @param requestImagePolicy 中文说明：当前模型路由采用的图片像素与编码字节策略。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function toPiContext(
   options: GenerateOptions,
   attachments: AttachmentStore,

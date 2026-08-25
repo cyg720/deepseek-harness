@@ -43,7 +43,7 @@ describe('THIRD_PARTY_NOTICES.md', () => {
 })
 
 /** Build the (manifests, names) pair `tierExternalDeps` consumes. */
-/** 中文说明：函数 workspace 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 workspace 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function workspace(entries: Record<string, Manifest>): { manifests: Map<string, Manifest>; names: Set<string> } {
   /** 中文说明：变量 manifests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests = new Map(Object.entries(entries))

@@ -5,7 +5,7 @@
  * The staged closure is symlink-free, and whole-tree assets cover Cordis's
  * runtime imports that pkg cannot discover statically.
  */
-/**
+/*
  * 文件职责：实现 build-exe-for-python-sdk.ts 覆盖的仓库构建、校验或维护脚本职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
  * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
@@ -25,32 +25,32 @@ import { resolveLinuxNodePtyAddon } from './build-exe-for-python-sdk-native-pty.
 const root = resolve(import.meta.dirname, '..')
 
 /** The closure manifest whose dependencies define the executable. */
-/** 中文说明：常量 DEPLOY_ROOT_PACKAGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEPLOY_ROOT_PACKAGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEPLOY_ROOT_PACKAGE = 'dsh-jsonrpc-agent-pkg'
 /** The closed-runtime app entry inside the deployed closure. */
-/** 中文说明：常量 ENTRY_BIN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ENTRY_BIN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ENTRY_BIN = 'node_modules/@deepseek-ai/dsh-sdk-jsonrpc-demo/lib/packaged-bin.js'
 /** 中文说明：常量 OUTPUT_BASENAME 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUTPUT_BASENAME = 'dsh-jsonrpc-agent-pkg'
 /** Default Node major; SEA mode requires at least Node 22. */
-/** 中文说明：常量 DEFAULT_NODE_RANGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_NODE_RANGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_NODE_RANGE = 'node24'
 /** Pinned for reproducible builds. */
-/** 中文说明：常量 PKG_SPEC 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PKG_SPEC 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PKG_SPEC = '@yao-pkg/pkg@6.21.0'
 /** 中文说明：常量 OUT_DIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUT_DIR = 'dist-exe'
 /** Python package destination; created when absent. */
-/** 中文说明：常量 PYTHON_RUNTIME_DIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PYTHON_RUNTIME_DIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PYTHON_RUNTIME_DIR = 'python/sdk-runtime/src/deepseek_harness_runtime/runtime'
 /** The deployed closure doubles as the node-mode carrier. */
-/** 中文说明：常量 PYTHON_NODE_SUBDIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PYTHON_NODE_SUBDIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PYTHON_NODE_SUBDIR = 'node'
 /** Legacy deploy may hoist peer-specialized workspace packages back here. */
-/** 中文说明：常量 DEPLOY_SOURCE_NODE_MODULES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEPLOY_SOURCE_NODE_MODULES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEPLOY_SOURCE_NODE_MODULES = 'python/sdk-runtime/node_modules'
 /** Documentation excluded from the generated runtime directory. */
-/** 中文说明：常量 DEPLOY_ONLY_DOCS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEPLOY_ONLY_DOCS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEPLOY_ONLY_DOCS = ['README.md', 'README.zh.md', 'README.i18n.yaml']
 
 /**
@@ -58,7 +58,7 @@ const DEPLOY_ONLY_DOCS = ['README.md', 'README.zh.md', 'README.i18n.yaml']
  * static analysis cannot see. Package manifests are explicit because bare-name
  * resolution depends on them.
  */
-/** 中文说明：常量 ASSET_GLOBS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 ASSET_GLOBS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ASSET_GLOBS = [
   'package.json',
   'node_modules/**/*.js',
@@ -92,7 +92,7 @@ function isArch(value: string): value is Arch {
 /**
  * A parsed pkg target triple, constructed from `--targets` or the host.
  */
-/** 中文说明：class Target 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：class Target 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 class Target {
   private constructor(
     /** pkg Node range (`node<major>`). */
@@ -157,7 +157,7 @@ class Target {
 /**
  * Validated CLI configuration; construction owns help and parse-error exits.
  */
-/** 中文说明：class BuildCli 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：class BuildCli 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 class BuildCli {
   private constructor(
     /** Build targets; defaults to the host platform only. */
@@ -246,7 +246,7 @@ function pnpmBin(): string {
  * @param args - its arguments.
  * @returns the printable command line.
  */
-/** 中文说明：函数 formatCommand 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 formatCommand 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function formatCommand(command: string, args: string[]): string {
   return [command, ...args].map(part => (part.includes(' ') ? JSON.stringify(part) : part)).join(' ')
 }
@@ -255,7 +255,7 @@ function formatCommand(command: string, args: string[]): string {
  * Sequential build pipeline. Subprocesses inherit stdio and errors include
  * the command; dry runs print commands and filesystem changes.
  */
-/** 中文说明：class SingleExeBuild 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+/* 中文说明：class SingleExeBuild 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 class SingleExeBuild {
   /**
    * The cleared deploy target, pkg input, and Python node-mode carrier. The

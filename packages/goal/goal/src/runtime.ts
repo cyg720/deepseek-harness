@@ -1,5 +1,5 @@
 /** Runtime constructors and protocol constants for the goal domain. */
-/**
+/*
  * 文件职责：提供目标领域的品牌化 ID 构造器、协议版本常量和稳定错误类型。
  * 技术维度：使用 TypeScript 品牌转换、HarnessError 继承和受限错误码联合。
  * 产品维度：让目标创建与推进结果可被可靠路由，并为轮次零消息保留明确版本。
@@ -13,7 +13,7 @@ import type { GoalId as GoalIdType } from './types.ts'
 import type { GoalErrorCode } from './domain.ts'
 
 /** Version of the goal change embedded in a round-zero message source. */
-/** GOAL_CHANGE_VERSION：轮次零消息源中目标变更记录的协议版本，当前固定为 1。 */
+/* GOAL_CHANGE_VERSION：轮次零消息源中目标变更记录的协议版本，当前固定为 1。 */
 export const GOAL_CHANGE_VERSION = 1
 
 /**
@@ -21,7 +21,7 @@ export const GOAL_CHANGE_VERSION = 1
  * @param id - raw goal identifier.
  * @returns the same string with the compile-time brand.
  */
-/**
+/*
  * 把原始字符串标记为目标 ID。
  * @param id - 已由目标领域产生或验证的原始标识。
  * @returns 运行时不变、仅带 GoalId 编译期品牌的字符串。
@@ -32,13 +32,13 @@ export function GoalId(id: string): GoalIdType {
 }
 
 /** Error returned by the goal domain boundary. */
-/** GoalError：目标领域边界返回的错误，携带稳定可路由的 GoalErrorCode。 */
+/* GoalError：目标领域边界返回的错误，携带稳定可路由的 GoalErrorCode。 */
 export class GoalError extends HarnessError {
   /**
    * @param message - human-readable rejection reason.
    * @param code - stable machine-routable classification.
    */
-  /**
+  /*
    * 功能描述：创建目标领域错误并把受限错误码传给 HarnessError。
    * 参数说明：message 是可读拒绝原因；code 是稳定 GoalErrorCode。
    * 返回值解释：构造新的 GoalError 实例。

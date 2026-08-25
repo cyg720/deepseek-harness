@@ -1,5 +1,5 @@
 /** Strict per-session header/body content inserted into the resident conversation layout. */
-/**
+/*
  * 文件职责：实现会话骨架中的 ConversationSession 组件。
  * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
  * 产品维度：支持用户查看和操作会话骨架。
@@ -18,11 +18,11 @@ import type { ViewTab } from '../contract/views.ts'
 import css from './ConversationRoot.module.css'
 
 /** Full props composed from the strict session body contract. */
-/** 中文说明：类型或类 ConversationSessionProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ConversationSessionProps 约束本文件的数据或组件职责。 */
 export type ConversationSessionProps = ConversationSessionSlotProps
 
 /** Full props composed from the strict session header contract. */
-/** 中文说明：类型或类 ConversationSessionHeaderProps 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 ConversationSessionHeaderProps 约束本文件的数据或组件职责。 */
 export type ConversationSessionHeaderProps = ConversationSessionHeaderSlotProps
 
 /** 中文说明：类型或类 Breadcrumb 约束本文件的数据或组件职责。 */
@@ -36,7 +36,7 @@ interface Breadcrumb {
 const DEFAULT_VIEW_ID = 'chat'
 
 /** Resolve by id and keep stale persisted selections on the stable Chat fallback. */
-/** 中文说明：函数 resolveActiveView 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 resolveActiveView 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function resolveActiveView(tabs: readonly ViewTab[], selectedId: string | null): ViewTab | undefined {
   /** 中文说明：组件局部值 requestedId，取值由紧邻初始化决定。 */
   const requestedId = selectedId ?? DEFAULT_VIEW_ID
@@ -84,7 +84,7 @@ function equalBreadcrumbs(left: readonly Breadcrumb[], right: readonly Breadcrum
  * @param props - Strict Session store, view ledger, navigation, render, and locale shares.
  * @returns the hidden blank-session header or visible title and tabs.
  */
-/** 中文说明：函数 ConversationSessionHeader 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 ConversationSessionHeader 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function ConversationSessionHeader({
   sessionId, useSession, useSessions, useStore, actions,
   renderSlot, views, open, t,
@@ -203,7 +203,7 @@ export function ConversationSessionHeader({
  * @param props - Strict Session input/store, view ledger, and render shares.
  * @returns the active view area, or null while the Session remains blank.
  */
-/** 中文说明：函数 ConversationSession 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 ConversationSession 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function ConversationSession({
   sessionId, useSession, useInput, inputActions, useStore, actions,
   renderSlot, views, bindDraftMirror, releaseSessionImages,

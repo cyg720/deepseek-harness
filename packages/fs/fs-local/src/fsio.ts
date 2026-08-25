@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】fs-local 的"无 Cordis 依赖的本地文件系统机制"：路径解析、元数据探测、
  * 整文件/流式文本读取、二进制拒绝、原子写入与字面编辑的底层实现。
@@ -26,7 +26,7 @@
  * stage an exclusive owner-only file in a private sibling directory and atomically publish it.
  * @module @deepseek-ai/dsh-fs-local/fsio
  */
-/**
+/*
  * 模块总览：本文件不含 Cordis 依赖，是纯文件系统机制层；LocalFileSystem（index.ts）
  * 负责服务接线（ctx.fs）与按目标键加锁，真正的读写原子性都在这里。
  */
@@ -62,7 +62,7 @@ function isEEXIST(error: unknown): boolean {
  * cannot exist — so the resolution/probe paths treat it as "absent" rather than
  * letting a raw Node error escape without the structured `FsError` taxonomy.
  */
-/**
+/*
  * 判断"路径中的目录段实际是文件"（ENOTDIR），例如 afile 是文件时解析 afile/child.txt。
  * 与 ENOENT 一样意味着目标不可能存在——解析/探测路径把它当"不存在"处理，
  * 而不是让裸 Node 错误逃出结构化 FsError 分类。
@@ -100,7 +100,7 @@ function throwIfAborted(signal: AbortSignal | undefined, verb: string): void {
  * `readFile` with a bare `AbortError`, which would otherwise escape the seam's
  * error taxonomy — the streaming/write paths translate it the same way).
  */
-/**
+/*
  * 带信号的可中止 readFile：把读中途的 AbortError 翻译成接缝的结构化
  * FsError(FS_ABORTED)。原因：Node 对已中止的 readFile 会拒绝一个裸 AbortError，
  * 若不加翻译它就会逃出接缝的错误分类体系（流式/写入路径也做同样的翻译）。
@@ -116,7 +116,7 @@ async function readFileAbortable(absolutePath: string, verb: 'read' | 'edit', si
 }
 
 /** Opaque version token from high-resolution identity and freshness metadata. */
-/** 从高精度身份与新鲜度元数据派生的不透明版本令牌：设备号+inode+大小+两个纳秒时间戳。 */
+/* 从高精度身份与新鲜度元数据派生的不透明版本令牌：设备号+inode+大小+两个纳秒时间戳。 */
 function versionOf(info: BigIntStats): FsVersion {
   return FsVersion(`${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`)
 }
@@ -125,58 +125,58 @@ function versionOf(info: BigIntStats): FsVersion {
  * Test hook: lets specs pin the atomic-write temp names (to prove exclusive-open behavior without
  * a name race), override native boundaries, and observe the staged temp file before publication.
  */
-/**
+/*
  * 测试接缝：让测试能固定原子写的临时名字（在无名字竞争的情况下证明独占打开行为）、
  * 覆盖原生边界、并在发布前观察暂存文件。
  */
 export interface FsIoInternals {
   /** Override the host platform for native-publication unit coverage. */
-  /** 覆盖宿主平台，用于原生发布逻辑的单测覆盖。 */
+  /* 覆盖宿主平台，用于原生发布逻辑的单测覆盖。 */
   platform?: NodeJS.Platform
   /** Override the generated private staging-dir name (relative to the target dir). */
-  /** 覆盖生成的私有暂存目录名（相对目标目录）。 */
+  /* 覆盖生成的私有暂存目录名（相对目标目录）。 */
   tempDirName?: (writePath: string) => string
   /** Override the generated temp-file name (relative to the private staging dir). */
-  /** 覆盖生成的临时文件名（相对私有暂存目录）。 */
+  /* 覆盖生成的临时文件名（相对私有暂存目录）。 */
   tempName?: (writePath: string) => string
   /** Override the Win32 DACL copy boundary. */
-  /** 覆盖 Win32 DACL 拷贝边界。 */
+  /* 覆盖 Win32 DACL 拷贝边界。 */
   copyFileDacl?: (source: string, destination: string) => Promise<void>
   /** Override the Win32 security-preserving replacement boundary. */
-  /** 覆盖 Win32 保安全替换边界。 */
+  /* 覆盖 Win32 保安全替换边界。 */
   replaceFile?: (replaced: string, replacement: string) => Promise<void>
   /** Override the hard-link no-replace publication boundary. */
-  /** 覆盖硬链接"不覆盖"发布边界。 */
+  /* 覆盖硬链接"不覆盖"发布边界。 */
   linkFile?: (existingPath: string, newPath: string) => Promise<void>
   /** Override target inspection after guarded publication fails. */
-  /** 覆盖守卫发布失败后的目标检查。 */
+  /* 覆盖守卫发布失败后的目标检查。 */
   inspectPublicationTarget?: (path: string) => Promise<BigIntStats>
   /** Override staging-directory removal for commit-point failure coverage. */
-  /** 覆盖暂存目录删除（用于提交点失败覆盖）。 */
+  /* 覆盖暂存目录删除（用于提交点失败覆盖）。 */
   removeStagingDir?: (stagingDir: string) => Promise<void>
   /** Test hook after the temp file is written/synced but before final chmod+publication. */
-  /** 测试钩子：临时文件写完并 sync 后、最终 chmod+发布前触发。 */
+  /* 测试钩子：临时文件写完并 sync 后、最终 chmod+发布前触发。 */
   inspectTemp?: (paths: { stagingDir: string; tempPath: string }) => void | Promise<void>
   /** Test hook after raw-read stat preflight and before bounded content I/O. */
-  /** 测试钩子：原始读取的 stat 预检之后、有界内容 I/O 之前触发。 */
+  /* 测试钩子：原始读取的 stat 预检之后、有界内容 I/O 之前触发。 */
   inspectReadBytesAfterStat?: (target: LocalTarget) => void | Promise<void>
 }
 
 /** A resolved local path: the absolute path shown to callers and its realpath identity. */
-/**
+/*
  * 一个已解析的本地路径：展示给调用方的绝对路径 + 用作稳定身份的 realpath。
  */
 export interface LocalTarget {
   /** Absolute path (symlinks not resolved) — used for display. */
-  /** 绝对路径（不解析符号链接）——用于展示。 */
+  /* 绝对路径（不解析符号链接）——用于展示。 */
   displayPath: string
   /** Realpath identity — used as the stable target key and the I/O path. */
-  /** realpath 身份——用作稳定目标键与 I/O 路径。 */
+  /* realpath 身份——用作稳定目标键与 I/O 路径。 */
   targetKey: FsTargetKey
 }
 
 /** Result of probing a path: null when it does not exist. */
-/** 探测一条路径的结果：不存在时为 null。 */
+/* 探测一条路径的结果：不存在时为 null。 */
 export interface PathInfo {
   version: FsVersion
   mode: number
@@ -185,7 +185,7 @@ export interface PathInfo {
 }
 
 /** Result of probing a path without following the final symlink component. */
-/** 不跟随末级符号链接探测一条路径的结果（多一个 symlink 类型）。 */
+/* 不跟随末级符号链接探测一条路径的结果（多一个 symlink 类型）。 */
 export interface PathLinkInfo {
   version: FsVersion
   mode: number
@@ -194,7 +194,7 @@ export interface PathLinkInfo {
 }
 
 /** One local directory child with a resolved target and cheap metadata. */
-/** 一个本地目录子项：已解析目标 + 廉价元数据。 */
+/* 一个本地目录子项：已解析目标 + 廉价元数据。 */
 export interface LocalDirEntry {
   name: string
   type: 'file' | 'directory' | 'other'
@@ -211,7 +211,7 @@ export interface LocalDirEntry {
  * @param path - absolute or relative path; empty/whitespace-only throws `FS_NOT_FOUND`.
  * @returns the absolute display path plus the realpath-derived stable target key.
  */
-/**
+/*
  * 把路径解析成"绝对展示路径 + realpath 身份"。目标不存在时：对最近的已存在祖先做
  * realpath，再补上缺失后缀——这样在创建缺失目录前后，目标键保持稳定（身份跨符号链接
  * 祖先保持）。空/纯空白路径抛 FS_NOT_FOUND。
@@ -316,7 +316,7 @@ async function probeStats<T extends Stats | BigIntStats>(
  * @param absolutePath - the path to stat (typically a target key; symlinks are followed).
  * @returns the metadata, or null when the path — or a parent segment — does not exist.
  */
-/**
+/*
  * 探测一条路径的版本/模式/类型/大小；不存在时返回 null。跟随符号链接。
  * @param absolutePath 要 stat 的路径（通常是目标键）。
  * @returns 元数据；路径或其父段不存在时为 null。
@@ -337,7 +337,7 @@ export async function probe(absolutePath: string): Promise<PathInfo | null> {
  * @param absolutePath - the path entry to inspect with `lstat` semantics.
  * @returns path-entry metadata, or null when the entry is absent.
  */
-/**
+/*
  * 不跟随末级符号链接探测路径（lstat 语义）。
  * @param absolutePath 要检查的路径条目。
  * @returns 路径条目元数据；条目不存在时为 null。
@@ -380,7 +380,7 @@ async function resolveListedChildTarget(parent: LocalTarget, name: string): Prom
  * @param signal - aborts the listing, checked between children (`FS_ABORTED`).
  * @returns one entry per direct child, sorted by name.
  */
-/**
+/*
  * 以稳定名字顺序列举目录的直接子项。每个子项包含已解析目标与（仍可取得时的）
  * stat 元数据；绝不读文件内容。目标缺失或不是目录会抛错；信号在子项之间检查。
  * @param target 要列举的已解析目录；缺失或非目录会抛错。
@@ -485,7 +485,7 @@ async function statRegularFile(target: LocalTarget, verb: 'read', signal?: Abort
  * @param signal - aborts the read (`FS_ABORTED`).
  * @returns the full decoded text, byte-for-byte (no normalization).
  */
-/**
+/*
  * 把整个常规 UTF-8 文本文件读成一个已解码字符串。拒绝非普通文件、非法 UTF-8、
  * 以及含 NUL 字节的二进制样本。
  * @param target 要读取的已解析文件。
@@ -514,7 +514,7 @@ export async function readWholeText(target: LocalTarget, signal?: AbortSignal): 
  * @param internals - test seam for a deterministic post-stat growth race.
  * @returns the full raw content, at most `maxBytes` long.
  */
-/**
+/*
  * 以原始字节读取整个常规文件，不做解码也不拒绝二进制。maxBytes 约束完整内容：
  * stat 大小先短路掉超限文件（在任何内容 I/O 之前），流最多读到上限多 1 字节，
  * 因此 stat 之后文件再增长也不会造成无界缓冲。
@@ -566,7 +566,7 @@ export async function readWholeBytes(
  * @param signal - aborts the stream, including between chunks (`FS_ABORTED`).
  * @returns decoded text chunks in file order; chunk boundaries carry no meaning.
  */
-/**
+/*
  * 以解码文本块流式读取整个常规 UTF-8 文本文件。文本语义与 readWholeText 相同
  * （普通文件检查、二进制/NUL 拒绝、跨块 UTF-8 解码），但从不把整个文件放内存。
  * @param target 要流式读取的已解析文件。
@@ -675,7 +675,7 @@ async function throwGuardedCreateFailure(
  * primitive; a concurrent creator's file is preserved and this write is
  * rejected with `FS_NOT_OBSERVED` using the supplied display path.
  */
-/**
+/*
  * 通过同目录下的私有、已 sync 的暂存文件原子替换目标文件。POSIX 上暂存目录与文件
  * 分别用 0700/0600 保护。Windows 上新文件继承目标目录的 DACL；替换则先把既有目标的
  * DACL 拷到空暂存文件上，再在发布时保留目标描述符。
@@ -784,7 +784,7 @@ export async function writeFileAtomic(
 // --- Editing ---
 
 /** Line ending style detected before LF normalization. */
-/** LF 归一化前检测到的行尾风格：LF（Unix）或 CRLF（Windows）。 */
+/* LF 归一化前检测到的行尾风格：LF（Unix）或 CRLF（Windows）。 */
 export type LineEndings = 'LF' | 'CRLF'
 
 /**
@@ -793,7 +793,7 @@ export type LineEndings = 'LF' | 'CRLF'
  * @param content - decoded text in whatever line-ending style the file had.
  * @returns the text with every `\r\n` pair replaced by `\n`.
  */
-/**
+/*
  * 把 CRLF 折叠成 LF——所有编辑/diff 基准使用的规范内存形式。孤立的 \r（后不跟 \n）
  * 保持原样。
  * @param content 任意行尾风格的已解码文本。
@@ -819,7 +819,7 @@ function detectLineEndings(raw: string): LineEndings {
  * @param lineEndings - the original file's style, as detected by {@link readForEdit}.
  * @returns the text in the original file's line-ending style.
  */
-/**
+/*
  * 把 LF 归一化内容还原成读取时检测到的行尾风格，用于写回。LF 原样返回；
  * CRLF 先归一化再转换，避免已存在的 CRLF 序列被加倍成 \r\r\n。
  * @param content 已编辑的 LF 归一化文本。
@@ -850,7 +850,7 @@ function countOccurrences(content: string, needle: string): number {
  * @param signal - aborts the read (`FS_ABORTED`).
  * @returns the LF-normalized content and the detected style to restore on write-back.
  */
-/**
+/*
  * 读取并解码文件用于编辑：拒绝二进制，返回 LF 归一化内容 + 写回所需的原行尾风格。
  * @param absolutePath 要读取的文件（通常是目标键）。
  * @param displayPath 报错时使用的展示路径。
@@ -883,7 +883,7 @@ export async function readForEdit(
  * @returns the LF-normalized text, or null for a non-regular, at/above-limit, binary, non-UTF-8,
  * descriptor-size-changed, or unreadable file.
  */
-/**
+/*
  * "尽力而为"的覆盖写 diff 基础（写前旧内容快照）。二进制、非法 UTF-8、达到/超过
  * 字节上限、或调用方预检后被删除/不可读的文件都返回 null——写入照常成功，
  * 展示层退化为整文件 diff。上限在"已打开的描述符"上强制而非先前的路径 stat，
@@ -963,7 +963,7 @@ export async function readTextForDiff(
  * @param displayPath - the caller-facing path used in error messages.
  * @returns the edited LF-normalized content plus how many occurrences were replaced.
  */
-/**
+/*
  * 在 LF 归一化内容上应用字面替换。空搜索文本或未找到抛 FS_EDIT_NOT_FOUND；
  * 多处匹配且 replaceAll 为 false 时抛 FS_AMBIGUOUS_EDIT。
  * @param content 当前文件内容（已 LF 归一化）。

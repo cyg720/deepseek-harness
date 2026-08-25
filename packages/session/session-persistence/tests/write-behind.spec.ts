@@ -11,7 +11,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { SessionWriteBehind } from '../src/write-behind.ts'
 
 /** Minimal ordered event fixture; batching does not interpret event vocabulary. */
-/** 中文说明：函数 event 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 event 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function event(seq: number): SessionEvent<'turn/start'> {
   return {
     type: 'turn/start',

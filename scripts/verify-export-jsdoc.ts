@@ -6,7 +6,7 @@
  * framework slots, constructors, inherited contracts, augmentations, and source
  * re-exports keep their docs at the declaring contract. Unknown forms fail closed.
  */
-/**
+/*
  * 文件职责：实现 verify-export-jsdoc.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -24,15 +24,15 @@ import { checkParams, checkReturns, parseJsDoc, parseTags, pointer, rawJsDoc } f
 const root = resolve(import.meta.dirname, '..')
 
 /** Plugin-protocol slot names exempt as statics on an exported class. */
-/** 中文说明：常量 PROTOCOL_STATICS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PROTOCOL_STATICS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PROTOCOL_STATICS = new Set(['Config', 'inject', 'name', 'reusable'])
 
 /** Plugin-protocol slot names exempt as top-level exports (const or function). */
-/** 中文说明：常量 PROTOCOL_EXPORTS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PROTOCOL_EXPORTS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PROTOCOL_EXPORTS = new Set(['Config', 'inject', 'name', 'reusable', 'apply'])
 
 /** Per-file walk state threaded through the scope recursion. */
-/** 中文说明：interface Walk 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：interface Walk 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface Walk {
   /** Repo-relative path of the file being walked. */
   rel: string
@@ -47,13 +47,13 @@ interface Walk {
 }
 
 /** True when a statement carries the `export` modifier. */
-/** 中文说明：函数 isExported 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isExported 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isExported(stmt: ts.Statement): boolean {
   return ts.canHaveModifiers(stmt) && (ts.getModifiers(stmt)?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false)
 }
 
 /** True for a class member a consumer cannot reach: `private`/`protected`/`#name`. */
-/** 中文说明：函数 isNonPublic 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isNonPublic 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isNonPublic(member: ts.ClassElement): boolean {
   /** 中文说明：变量 mods 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mods = ts.canHaveModifiers(member) ? ts.getModifiers(member) : undefined
@@ -62,7 +62,7 @@ function isNonPublic(member: ts.ClassElement): boolean {
 }
 
 /** True when a class member carries the `static` modifier. */
-/** 中文说明：函数 isStatic 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isStatic 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isStatic(member: ts.ClassElement): boolean {
   /** 中文说明：变量 mods 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mods = ts.canHaveModifiers(member) ? ts.getModifiers(member) : undefined
@@ -70,7 +70,7 @@ function isStatic(member: ts.ClassElement): boolean {
 }
 
 /** The `this`-receiver exemption every function-like check shares. */
-/** 中文说明：函数 thisReceiver 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 thisReceiver 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function thisReceiver(p: ts.ParameterDeclaration): boolean {
   return ts.isIdentifier(p.name) && p.name.text === 'this'
 }
@@ -82,7 +82,7 @@ function thisReceiver(p: ts.ParameterDeclaration): boolean {
  * @param e - the expression to unwrap.
  * @returns the innermost non-wrapper expression.
  */
-/** 中文说明：函数 unwrapExpression 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 unwrapExpression 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function unwrapExpression(e: ts.Expression): ts.Expression {
   /** 中文说明：变量 inner 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let inner = e
@@ -99,7 +99,7 @@ function unwrapExpression(e: ts.Expression): ts.Expression {
  * @param type - the declarator's type annotation.
  * @returns the signature to check, 'refuse' for an unclassifiable callable literal, or null for a non-callable type.
  */
-/** 中文说明：函数 callableAnnotation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 callableAnnotation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function callableAnnotation(type: ts.TypeNode): ts.SignatureDeclarationBase | 'refuse' | null {
   if (ts.isFunctionTypeNode(type)) return type
   if (!ts.isTypeLiteralNode(type)) return null
@@ -120,7 +120,7 @@ function callableAnnotation(type: ts.TypeNode): ts.SignatureDeclarationBase | 'r
  * @param checker - the program's type checker.
  * @returns inherited parameter and return coverage, or `null` when none applies.
  */
-/** 中文说明：函数 heritageExemption 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 heritageExemption 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function heritageExemption(
   cls: ts.ClassDeclaration,
   name: string,
@@ -186,7 +186,7 @@ function heritageExemption(
  * @param checker - the program's type checker.
  * @returns true when the inferred result carries nothing to document.
  */
-/** 中文说明：函数 inferredReturnIsVoidish 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 inferredReturnIsVoidish 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function inferredReturnIsVoidish(m: ts.MethodDeclaration, checker: ts.TypeChecker): boolean {
   /** 中文说明：变量 sig 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sig = checker.getSignatureFromDeclaration(m)
@@ -205,7 +205,7 @@ function inferredReturnIsVoidish(m: ts.MethodDeclaration, checker: ts.TypeChecke
  * @param raw - the declaration's raw JSDoc block ('' if none).
  * @param w - the walk state violations append to.
  */
-/** 中文说明：函数 checkDescribed 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 checkDescribed 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function checkDescribed(where: string, raw: string, w: Walk): void {
   if (!raw) w.violations.push(`${where} has no JSDoc.`)
   else if (!parseJsDoc(raw).doc) w.violations.push(`${where} has no description prose above its block tags.`)
@@ -222,7 +222,7 @@ function checkDescribed(where: string, raw: string, w: Walk): void {
  * declarator-annotated const defers its return contract to the named type).
  * @param w - the walk state violations append to.
  */
-/** 中文说明：函数 checkFunctionLike 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 checkFunctionLike 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function checkFunctionLike(
   where: string,
   raw: string,
@@ -250,7 +250,7 @@ function checkFunctionLike(
  * @param name - the class's exported name (namespace-qualified).
  * @param w - the walk state violations append to.
  */
-/** 中文说明：函数 checkClass 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 checkClass 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function checkClass(cls: ts.ClassDeclaration, name: string, w: Walk): void {
   checkDescribed(`exported class '${name}' (${pointer(w.rel, w.sf, cls)})`, rawJsDoc(w.text, cls), w)
   /** 中文说明：变量 overloadSigs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -326,7 +326,7 @@ function checkClass(cls: ts.ClassDeclaration, name: string, w: Walk): void {
  * @param w - walk state.
  * @param only - selected declarators, or all.
  */
-/** 中文说明：函数 checkDecl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 checkDecl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function checkDecl(
   stmt: ts.Statement,
   prefix: string,
@@ -462,7 +462,7 @@ function checkDecl(
  * @param w - the walk state violations append to.
  * @param ambient - whether this scope is ambient (`declare` namespace or a declaration file), where members export implicitly.
  */
-/** 中文说明：函数 checkScope 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 checkScope 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function checkScope(
   statements: readonly ts.Statement[],
   prefix: string,
@@ -664,7 +664,7 @@ function restrictedPublicNames(
  * @param scanRoot - the root being scanned.
  * @returns compiler options for ts.createProgram.
  */
-/** 中文说明：函数 loadCompilerOptions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 loadCompilerOptions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadCompilerOptions(scanRoot: string): ts.CompilerOptions {
   /** 中文说明：变量 cfgPath 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cfgPath = resolve(scanRoot, 'tsconfig.base.json')
@@ -692,7 +692,7 @@ function loadCompilerOptions(scanRoot: string): ts.CompilerOptions {
  * @param scanRoot - the repo root to scan; tests pass a fixture dir.
  * @returns every violation, in file order, one human-readable line each.
  */
-/** 中文说明：函数 collectExportJsdocViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectExportJsdocViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectExportJsdocViolations(scanRoot: string = root): string[] {
   /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []
@@ -728,7 +728,7 @@ export function collectExportJsdocViolations(scanRoot: string = root): string[] 
 }
 
 /** CLI entry: list every violation and exit 1, or confirm a documented API. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations = collectExportJsdocViolations()

@@ -2,7 +2,7 @@
  * Unit tests for the model-facing error remediation: the remedy appended to
  * guarded-mutation failures, code preservation, and passthrough behavior.
  */
-/**
+/*
  * 文件职责：验证面向模型的文件系统错误会补充可操作修复建议，同时保留错误代码和无关值。
  * 技术维度：使用 Vitest 和 FsError 类型覆盖错误包装、cause 链与引用透传。
  * 产品维度：帮助模型在版本过期或未观察文件时采取正确的重新读取步骤。

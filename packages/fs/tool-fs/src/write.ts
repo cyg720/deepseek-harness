@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】面向模型的"整文件写"工具。它从单策略槽取可选意图，调用
  * ctx.fs.writeText（不做 stat），然后记录结果版本；没有策略时是无条件原子
@@ -25,7 +25,7 @@
  * unconditional atomic create-or-overwrite.
  * @module @deepseek-ai/dsh-tool-fs/src/write
  */
-/**
+/*
  * 模块总览：本文件是 write 工具的定义与执行体。观察态策略插件加载后，
  * "未读先写"会被意图槽挡住（createIfAbsent 防止盲目覆盖）。
  */
@@ -47,7 +47,7 @@ import type { FsSandboxController } from './sandbox.ts'
  * @param args - the schema-validated raw tool arguments.
  * @returns the camelCased input; `content` passes through untouched.
  */
-/**
+/*
  * 校验 schema DSL 表达不了的值约束：只有 file_path 必须非空白——空 content 是合法的
  * （写空文件）。
  * @param args 已通过 schema 校验的原始工具参数。
@@ -64,7 +64,7 @@ export function parseWriteArgs(args: { file_path: string; content: string }): { 
  * @param outcome - the write outcome; its `operation` selects the Created/Updated wording.
  * @returns the model-facing confirmation envelope (no file content is echoed back).
  */
-/**
+/*
  * 把写结果格式化成一段模型可见的文本块主体。
  * @param displayPath 信封 <path> 元素里的后端解析路径。
  * @param outcome 写结果；其 operation 选择 Created/Updated 措辞。
@@ -84,7 +84,7 @@ ${verb} file
  * two escalation fields, advertised only under a confining `ctx.fs` (absent
  * from the schema otherwise, so the validator rejects them before `execute`).
  */
-/**
+/*
  * write 工具的已校验参数：基础参数加两个升级字段（只在有围栏 ctx.fs 下被广告；
  * 否则 schema 里没有它们，校验器在 execute 之前就拒绝）。
  */
@@ -100,7 +100,7 @@ interface WriteToolArgs {
  * @param ctx - the plugin context; registrations are effects scoped to it, and execution uses its `fs` service.
  * @param sandbox - the shared sandbox-escalation API (advertisement, mode stamping, denial mapping).
  */
-/**
+/*
  * 注册 write 工具与其系统提示指南。
  * @param ctx 插件上下文；注册是作用域于它的副作用，执行使用其 fs 服务。
  * @param sandbox 共享的沙箱升级 API（广告、模式盖章、拒绝映射）。

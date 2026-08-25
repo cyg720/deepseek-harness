@@ -64,7 +64,7 @@ describe('web e2e: plugin configuration section', () => {
    * dialog a previous scenario opened closed first — its mask would otherwise
    * swallow the trigger click.
    */
-  /** 中文说明：关闭旧设置框后打开插件分区，返回当前设置对话框。示例：await openPlugins()。 */
+  /* 中文说明：关闭旧设置框后打开插件分区，返回当前设置对话框。示例：await openPlugins()。 */
   async function openPlugins() {
     if (await page.getByRole('dialog', { name: '设置' }).count() > 0) {
       await page.keyboard.press('Escape')
@@ -85,7 +85,7 @@ describe('web e2e: plugin configuration section', () => {
   }
 
   /** The settings document as the Host has written it so far. */
-  /** 读取主机当前 settings.yaml；文件尚未创建时返回空字符串。示例：await settingsDocument()。 */
+  /* 读取主机当前 settings.yaml；文件尚未创建时返回空字符串。示例：await settingsDocument()。 */
   async function settingsDocument(): Promise<string> {
     return readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8').catch(() => '')
   }

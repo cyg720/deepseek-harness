@@ -1,5 +1,5 @@
 /** Validate compiler-face isolation across workspace Project Reference graphs. */
-/**
+/*
  * 文件职责：实现 project-reference-faces.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -38,7 +38,7 @@ const WORKSPACE_MANIFESTS = [
  * @param root - Repository root containing both aggregate tsconfigs.
  * @returns Repo-relative diagnostics for every mismatched reference edge.
  */
-/** 中文说明：函数 collectProjectReferenceFaceViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectProjectReferenceFaceViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectProjectReferenceFaceViolations(root: string): string[] {
   /** 中文说明：变量 splitRoots 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const splitRoots = splitProjectRoots(root)

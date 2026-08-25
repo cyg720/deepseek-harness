@@ -2,7 +2,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-agent-presets`.
  * @module @deepseek-ai/dsh-agent-presets/invariant
  */
-/**
+/*
  * 文件职责：实现 invariant.ts 承担的 Agent 预设元数据、校验与装载职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置解析和运行时不变量检查。
  * 产品维度：让用户能通过预设组合 Agent 能力，并在启动时获得明确配置反馈。
@@ -26,10 +26,10 @@ import { leakedServices, livePresetMounts } from '@deepseek-ai/dsh-agent-presets
 const PACKAGE_NAME = '@deepseek-ai/dsh-agent-presets'
 
 /** Cordis companion plugin name. */
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'agent-presets-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['invariants']
 
 /**
@@ -41,7 +41,7 @@ export const inject = ['invariants']
  * plugin returned — would escape that one-shot audit, so re-check every live
  * mount whenever a service registration changes.
  */
-/** 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+/* 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const install: InvariantInstaller = (ctx, fail) => {
   ctx.on('internal/service', function (this: Context, name) {
     /** 中文说明：该循环依次处理预设数据；循环变量仅在当前循环中有效。 */
@@ -92,6 +92,6 @@ const install: InvariantInstaller = (ctx, fail) => {
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+/* 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

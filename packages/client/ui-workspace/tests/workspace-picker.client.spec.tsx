@@ -64,7 +64,7 @@ function anchor(): { current: HTMLElement } {
  * conversation so tests drive onPicked/onCancel/onError like a composed flow
  * package would, and renders a marker element while the flow is open.
  */
-/** 中文说明：函数 flowProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 flowProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function flowProbe() {
   /** 中文说明：测试局部值 probe，由紧邻初始化决定。 */
   const probe: { owner: DirectoryFlowOwnerProps | undefined } = { owner: undefined }
@@ -77,7 +77,7 @@ function flowProbe() {
 }
 
 /** Manual occupancy source bound like the renderer would: flip() drives the hook like a real registration change. */
-/** 中文说明：函数 occupancySource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 occupancySource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function occupancySource(initial = true) {
   /** 中文说明：测试局部值 occupied，由紧邻初始化决定。 */
   let occupied = initial

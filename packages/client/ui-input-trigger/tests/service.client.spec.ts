@@ -7,7 +7,7 @@
  * scope-birth roster warm — is InputTriggerController behavior, tested on a real
  * session scope (createScope).
  */
-/**
+/*
  * 文件职责：验证输入触发菜单的 service.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染和可控服务替身。
  * 产品维度：防止输入触发菜单用户流程回归。
@@ -38,7 +38,7 @@ interface PendingFetch {
 }
 
 /** Deferred-candidates source: settle each fetch by hand; warm is a spy. */
-/** 中文说明：函数 deferredSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 deferredSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function deferredSource(trigger: TriggerChar, name: string, over: Partial<InputTriggerSource> = {}) {
   /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
   const pending: PendingFetch[] = []
@@ -59,7 +59,7 @@ function deferredSource(trigger: TriggerChar, name: string, over: Partial<InputT
 }
 
 /** Source whose candidates resolve immediately; picks are recorded. */
-/** 中文说明：函数 readySource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 readySource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function readySource(
   trigger: TriggerChar, name: string, items: readonly InputTriggerCandidate[], onPick?: (pick: InputTriggerPick) => PickOutcome,
 ) {
@@ -83,11 +83,11 @@ const claimOf = (token: string): CommandClaim =>
   ({ token, submit: () => Promise.resolve({ kind: 'success' }) })
 
 /** One microtask hop: lets settled candidate promises flow into the store. */
-/** 中文说明：测试局部值 tick，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 tick，由紧邻初始化决定。 */
 const tick = () => Promise.resolve()
 
 /** Direct controller bench: real scope tag + live roster array. */
-/** 中文说明：函数 controllerBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 controllerBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function controllerBench(sources: InputTriggerSource[] = [], key = 'a') {
   /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = new Context()
@@ -104,7 +104,7 @@ function controllerBench(sources: InputTriggerSource[] = [], key = 'a') {
 }
 
 /** Real-service bench: a sessions face resolving scope tags to session ids. */
-/** 中文说明：函数 serviceBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 serviceBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function serviceBench() {
   /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = new Context()

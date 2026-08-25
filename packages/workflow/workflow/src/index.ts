@@ -3,7 +3,7 @@
  * observe-only lifecycle events never expose run control.
  * @module @deepseek-ai/dsh-workflow
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -101,7 +101,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** The full set of `workflow/*` event names {@link WorkflowEngine.emitWorkflowEvent} dispatches. */
-/** 中文说明：type WorkflowEventName 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：type WorkflowEventName 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export type WorkflowEventName =
   | 'workflow/start'
   | 'workflow/phase'
@@ -116,7 +116,7 @@ export type WorkflowEventName =
  * values, and cancellation. An ordinary child failure resolves its item to
  * `null` and is not one of these fatal codes.
  */
-/** 中文说明：type WorkflowErrorCode 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：type WorkflowErrorCode 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export type WorkflowErrorCode =
   | 'SCRIPT_PARSE'
   | 'META_INVALID'
@@ -139,7 +139,7 @@ export type WorkflowErrorCode =
  * Every {@link WorkflowErrorCode} is fatal; the flag exists so the
  * distinction is explicit at every catch site rather than implied.
  */
-/** 中文说明：class WorkflowError 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class WorkflowError 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export class WorkflowError extends HarnessError {
   /** Whether combinators must propagate this error instead of nulling the item. */
   readonly fatal: boolean
@@ -156,7 +156,11 @@ export class WorkflowError extends HarnessError {
  * @param error - any thrown value; fatality is host `instanceof` (unforgeable from a script realm).
  * @returns true iff `error` is a {@link WorkflowError} whose `fatal` flag is set.
  */
-/** 中文说明：函数 isFatalWorkflowError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 isFatalWorkflowError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param error 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function isFatalWorkflowError(error: unknown): boolean {
   return error instanceof WorkflowError && error.fatal
 }
@@ -207,7 +211,7 @@ export abstract class WorkflowEngine extends Service {
  * @param error - any thrown value.
  * @returns `String(error)`, or a fixed label when even coercion throws.
  */
-/** 中文说明：函数 renderListenerError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 renderListenerError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderListenerError(error: unknown): string {
   try {
     return String(error)

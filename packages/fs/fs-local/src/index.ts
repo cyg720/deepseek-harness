@@ -25,7 +25,7 @@
  * share stale guards, and writes through a symlink update its target without replacing the link.
  * @module @deepseek-ai/dsh-fs-local
  */
-/**
+/*
  * 模块总览：本文件是"本地磁盘后端"的服务层；路径解析、原子写、编辑等机制
  * 都在 fsio.ts，本文件负责接线、加锁与守卫检查。
  */
@@ -64,18 +64,18 @@ import {
 import type { FsIoInternals } from './fsio.ts'
 
 /** Configuration for the local filesystem backend. */
-/**
+/*
  * 本地文件系统后端配置。
  */
 export interface Config {
   /** Base directory for relative paths. Defaults to `process.cwd()`. */
-  /** 相对路径的基准目录；默认 process.cwd()。 */
+  /* 相对路径的基准目录；默认 process.cwd()。 */
   cwd?: string
   /**
    * Exclusive UTF-8 byte limit on each overwrite-diff side, capped by the
    * runtime's safe allocation/decode maximum. Defaults to 10 MiB.
    */
-  /**
+  /*
    * 覆盖写 diff 每一侧的 UTF-8 字节独占上限，再被运行时安全分配/解码上限封顶。
    * 默认 10 MiB。
    */
@@ -97,7 +97,7 @@ const MAX_DIFF_BASIS_BYTES = Math.min(
  * capability-seam Agent Note); enforce
  * containment with a stricter backend or a `tools/execute` permission plugin.
  */
-/**
+/*
  * 宿主文件系统后端。相对路径从 Config.cwd 解析（这只是"解析基准"，不是包含边界
  *  containment——参见文件系统能力接缝的 Agent Note）；需要包含限制时用更严格的后端
  * 或 tools/execute 权限插件。
@@ -110,15 +110,15 @@ export class LocalFileSystem extends FileSystem {
   })
 
   /** Validated config (schemastery applied the defaults before construction). */
-  /** 已校验配置（schemastery 在构造前已套用默认值）。 */
+  /* 已校验配置（schemastery 在构造前已套用默认值）。 */
   readonly config: ResolvedConfig
   /** Test hook forwarded to fsio for atomic-publication boundaries. */
-  /** 测试钩子：转发给 fsio 用于原子发布边界（临时名固定、原生边界覆盖等）。 */
+  /* 测试钩子：转发给 fsio 用于原子发布边界（临时名固定、原生边界覆盖等）。 */
   internals: FsIoInternals = {}
   /** Per-targetKey tail promise: serializes mutating ops so the read→guard→write
    * window can't interleave, making concurrent writes/edits deterministically
    * ordered (one wins, the rest see the new version and reject as stale). */
-  /** 每个 targetKey 一条"尾部 Promise"：串行化变更操作，使"读→守卫→写"窗口不会
+  /* 每个 targetKey 一条"尾部 Promise"：串行化变更操作，使"读→守卫→写"窗口不会
    * 交错——并发写/编辑被确定性排序（一个赢，其余看到新版本并按过期拒绝）。 */
   private locks = new Map<string, Promise<unknown>>()
 
@@ -135,7 +135,7 @@ export class LocalFileSystem extends FileSystem {
   }
 
   /** Run `op` with exclusive access to `targetKey` (FIFO per key). */
-  /** 以 targetKey 的独占访问执行 op（每键 FIFO 排队）。 */
+  /* 以 targetKey 的独占访问执行 op（每键 FIFO 排队）。 */
   private async withLock<T>(targetKey: string, op: () => Promise<T>): Promise<T> {
     // 取当前尾部（或已解析 Promise），把自己的执行串在其后。
     const prior = this.locks.get(targetKey) ?? Promise.resolve()

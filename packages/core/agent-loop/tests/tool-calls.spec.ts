@@ -2,7 +2,7 @@
  * Exercises scheduler ordering and cancellation with deterministic gated tools.
  * ACP expected outputs own transcript-facing coverage.
  */
-/**
+/*
  * 文件职责：验证Agent Loop的 tool-calls.spec.ts 行为与不变量。
  * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
  * 产品维度：防止Agent Loop在取消、恢复、错误或并发场景中产生回归。
@@ -57,7 +57,7 @@ function events(agent: Agent): SessionEvent[] {
 }
 
 /** Build one assistant response containing the supplied tool calls. */
-/** 中文说明：测试辅助函数 multiCall 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 multiCall 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function multiCall(calls: { id: string; name: string; args: object }[]): StreamChunk[] {
   /** 中文说明：测试局部值 chunks，由紧邻初始化决定，仅在当前场景使用。 */
   const chunks: StreamChunk[] = []
@@ -75,7 +75,7 @@ function multiCall(calls: { id: string; name: string; args: object }[]): StreamC
 }
 
 /** A tool whose calls block until the test releases them by callId. */
-/** 中文说明：测试辅助函数 gatedTool 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 gatedTool 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function gatedTool(name: string, parallel: boolean) {
   /** 中文说明：测试局部值 gates，由紧邻初始化决定，仅在当前场景使用。 */
   const gates = new Map<string, () => void>()
@@ -112,7 +112,7 @@ function gatedExclusiveTool(name: string) {
 }
 
 /** Poll until `predicate` holds, letting microtasks/timers drain between checks. */
-/** 中文说明：测试辅助函数 until 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 until 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function until(predicate: () => boolean): Promise<void> {
   /** 中文说明：测试局部值 i，由紧邻初始化决定，仅在当前场景使用。 */
   for (let i = 0; i < 1000 && !predicate(); i++) await new Promise(r => setTimeout(r, 0))
@@ -818,7 +818,7 @@ describe('tool-call scheduler: failure quiescence', () => {
 
 describe('code-mode native-tool denial through the agent loop', () => {
   /** A minimal in-process code runtime for test purposes — never actually runs. */
-  /** 中文说明：测试类型或类 FakeCodeRuntime 约束夹具数据和行为。 */
+  /* 中文说明：测试类型或类 FakeCodeRuntime 约束夹具数据和行为。 */
   class FakeCodeRuntime extends CodeRuntime {
     readonly language = 'typescript'
     readonly isolation = 'fake' as const

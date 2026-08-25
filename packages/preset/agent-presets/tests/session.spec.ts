@@ -6,7 +6,7 @@
  * alone would rebuild a switched session under a composition its own history
  * contradicts.
  */
-/**
+/*
  * 文件职责：验证 session.spec.ts 覆盖的 Agent 预设发现、装载与会话行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和临时配置目录。
  * 产品维度：保障用户选择的 Agent 预设能稳定生效并保持会话一致。
@@ -21,7 +21,7 @@ import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { resolveSessionPreset } from '../src/session.ts'
 
 /** A header carrying the creation-time preset, if any. */
-/** 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function header(agentPreset?: string): SessionHeader {
   return {
     version: 0,
@@ -33,7 +33,7 @@ function header(agentPreset?: string): SessionHeader {
 }
 
 /** One logged selection, as `agentPreset.select` appends it. */
-/** 中文说明：函数 selected 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 selected 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function selected(agentPreset: string, seq: number): SessionEvent {
   return { type: 'agent-preset/selected', seq, time: seq, data: { agentPreset } }
 }

@@ -1,5 +1,5 @@
 /** `cordis_run` card and the host seat for Package-owned interactive UI. */
-/**
+/*
  * 文件职责：实现Cordis 扩展界面的 CordisRunRow.tsx 模块。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
@@ -22,7 +22,7 @@ import type { CordisKey } from './locales.ts'
 import css from './CordisRunRow.module.css'
 
 /** Full Run-card props including its declared Package business-view child slot. */
-/** 中文说明：类型或类 CordisRunRowProps 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 CordisRunRowProps 约束扩展或反馈数据职责。 */
 export type CordisRunRowProps = ToolCallViewProps
   & InjectFace<CordisRunCardFace>
   & PropsRenderSlots<'tool.view.cordis'>
@@ -43,7 +43,7 @@ const READING_LABELS = {
 } as const satisfies Record<RunReading, CordisKey>
 
 /** Render one activation result and, when eligible, its Package-owned view. */
-/** 中文说明：函数 CordisRunRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 CordisRunRow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function CordisRunRow({
   callId, block, inspect, renderSlot, useInventory, useLoaded, useRunCards, useActiveRuns,
   onObserveRunCard, t,

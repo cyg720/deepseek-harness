@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】cordis-client-runner 的 Host（Node）半部：纯浏览器侧能力的占位入口。
  *             空 apply 只是为了让它在宿主 cordis.yml / Loader 中出现，真正的浏览器
@@ -20,5 +20,5 @@
  */
 
 /** Host plugin body — this package contributes nothing host-side. */
-/** Host 插件体：本包在 Host 侧不贡献任何行为。 */
+/* Host 插件体：本包在 Host 侧不贡献任何行为。 */
 export function apply(): void {}

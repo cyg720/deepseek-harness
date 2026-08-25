@@ -4,7 +4,7 @@
  * The vendored core API projector consumes the merge body; the per-subsystem
  * region generator's exhaustiveness backstop consumes the key scan.
  */
-/**
+/*
  * 文件职责：实现 cordis-walk.ts 覆盖的仓库构建、校验或维护脚本职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
  * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
@@ -19,7 +19,7 @@ import ts from 'typescript'
 
 /** Cheap textual prefilter for a cordis module merge, quote-style agnostic
  * (the AST match below reads `stmt.name.text` and never sees the quotes). */
-/** 中文说明：常量 MERGE_HEAD 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MERGE_HEAD 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MERGE_HEAD = /declare module ['"](?:@deepseek-ai\/cordis|\.\/context\.ts)['"]/
 
 /**
@@ -32,7 +32,7 @@ const MERGE_HEAD = /declare module ['"](?:@deepseek-ai\/cordis|\.\/context\.ts)[
  * @param patterns - Glob(s) selecting the TypeScript files to scan.
  * @returns One entry per cordis module block, in path then source order.
  */
-/** 中文说明：函数 contextMergeFiles 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 contextMergeFiles 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function contextMergeFiles(
   scanRoot: string,
   patterns: string | readonly string[],
@@ -59,7 +59,7 @@ export function contextMergeFiles(
 /** Every cordis module-merge body in `sf`: `declare module '@deepseek-ai/cordis'` (harness
  * packages) or `declare module './context.ts'` (vendor core), in source order.
  * Module-local: consumers walk blocks through {@link contextMergeFiles}. */
-/** 中文说明：函数 cordisModuleBodies 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 cordisModuleBodies 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function cordisModuleBodies(sf: ts.SourceFile): ts.ModuleBlock[] {
   /** 中文说明：变量 bodies 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bodies: ts.ModuleBlock[] = []
@@ -75,7 +75,7 @@ function cordisModuleBodies(sf: ts.SourceFile): ts.ModuleBlock[] {
 /** The FIRST cordis module-merge body in `sf`, or null without one — for the
  * vendor core-API renderer whose input files carry exactly one merge; the
  * exhaustiveness scan uses {@link cordisModuleBodies} to read them all. */
-/** 中文说明：函数 cordisModuleBody 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 cordisModuleBody 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function cordisModuleBody(sf: ts.SourceFile): ts.ModuleBlock | null {
   return cordisModuleBodies(sf)[0] ?? null
 }
@@ -87,7 +87,7 @@ export function cordisModuleBody(sf: ts.SourceFile): ts.ModuleBlock | null {
  * @param sf - Owning source file (for text extraction).
  * @returns key → declared type-name text, in declaration order.
  */
-/** 中文说明：函数 contextKeyMap 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 contextKeyMap 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function contextKeyMap(body: ts.ModuleBlock, sf: ts.SourceFile): Map<string, string> {
   /** 中文说明：变量 keyToType 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const keyToType = new Map<string, string>()
@@ -112,7 +112,7 @@ export function contextKeyMap(body: ts.ModuleBlock, sf: ts.SourceFile): Map<stri
  * @param sf - Owning source file (for computed-name text extraction).
  * @returns Declared event names, in declaration order.
  */
-/** 中文说明：函数 eventNameList 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 eventNameList 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function eventNameList(body: ts.ModuleBlock, sf: ts.SourceFile): string[] {
   /** 中文说明：变量 names 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const names: string[] = []

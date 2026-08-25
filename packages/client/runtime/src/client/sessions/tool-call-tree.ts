@@ -28,7 +28,7 @@ interface ProjectedBlock {
 }
 
 /** Fixed wire-safety ceiling for every recursive Tool call consumer. */
-/** 所有递归工具调用消费方的固定线上安全上限（防栈溢出/爆炸）。 */
+/* 所有递归工具调用消费方的固定线上安全上限（防栈溢出/爆炸）。 */
 export const MAX_TOOL_CALL_TREE_DEPTH = 256
 
 /** 逐元素引用比较两个只读数组是否完全相同（引用相等）。 */
@@ -44,7 +44,7 @@ function sameReferences<T>(
  * Owns Code Dispatch pairing and projects its private parent index into the
  * recursive Tool call contract exposed by conversation snapshots.
  */
-/**
+/*
  * 拥有 Code Dispatch 配对逻辑，并把私有父索引投影成会话快照暴露的
  * 递归工具调用契约。
  */
@@ -65,7 +65,7 @@ export class ToolCallTree {
   } | null = null // 运行中调用列表投影缓存
 
   /** Forget all event-derived child calls before replaying a new window. */
-  /** 重放新窗口前忘记所有由事件推导的子调用。 */
+  /* 重放新窗口前忘记所有由事件推导的子调用。 */
   reset(): void {
     this.childrenByParent.clear()
     this.depthByCall.clear()
@@ -78,7 +78,7 @@ export class ToolCallTree {
    * @param event - Session event from the current live or history window.
    * @returns Whether the event was consumed as a child-call lifecycle event.
    */
-  /**
+  /*
    * 当事件属于 Code Dispatch 生命周期时折叠它。
    * @param event 来自当前实时或历史窗口的会话事件。
    * @returns 该事件是否被作为子调用生命周期事件消费。
@@ -136,7 +136,7 @@ export class ToolCallTree {
    * @param nodes - Cache-stable base conversation nodes.
    * @returns The original list when no root changed, otherwise a structurally shared list.
    */
-  /**
+  /*
    * 把递归投影的子调用挂到节点列表中所有已结算的根上。
    * @param nodes 缓存稳定的基础会话节点。
    * @returns 没有根变化时返回原列表，否则返回结构共享的新列表。
@@ -159,7 +159,7 @@ export class ToolCallTree {
    * @param calls - Cache-stable base running calls.
    * @returns The original list when no root changed, otherwise a structurally shared list.
    */
-  /**
+  /*
    * 把递归投影的子调用挂到所有运行中的根调用上。
    * @param calls 缓存稳定的基础运行调用。
    * @returns 没有根变化时返回原列表，否则返回结构共享的新列表。
@@ -201,7 +201,7 @@ export class ToolCallTree {
    * Host-minted ids exclude cycles and current bindings emit one level; a
    * malformed wire/history edge is consumed without hiding the rest of the session.
    */
-  /**
+  /*
    * 仅当所有递归消费方都能安全遍历该边时才接受它。Host 铸的 id 排除了环，
    * 当前绑定只发一层；畸形 wire/历史边会被消费但不会隐藏会话其余部分。
    */

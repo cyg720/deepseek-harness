@@ -1,5 +1,5 @@
 /** Package-owned durable plan-mode invariants. @module @deepseek-ai/dsh-plan-mode/invariant */
-/**
+/*
  * 中文说明：
  * - 文件职责：为 plan/mode 持久事件校验 active 字段并注册历史与实时不变量。
  * - 技术维度：使用 Cordis 伴生插件、会话回放、全局事件监听和运行时类型检查。
@@ -17,10 +17,10 @@ import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-inva
 const PACKAGE_NAME = '@deepseek-ai/dsh-plan-mode'
 
 /** Cordis companion plugin name. */
-/** 中文：Cordis 伴生插件的稳定名称。 */
+/* 中文：Cordis 伴生插件的稳定名称。 */
 export const name = 'plan-mode-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文：注册本规则前必须存在的不变量服务。 */
+/* 中文：注册本规则前必须存在的不变量服务。 */
 export const inject = ['invariants']
 
 /**
@@ -29,7 +29,7 @@ export const inject = ['invariants']
  * between turns and a mid-turn selection commits at the step boundary, so
  * no turn-enclosure relation exists — only the payload shape is checkable.
  */
-/** 中文：校验一条事件；非 plan/mode 忽略，active 不是布尔值时调用 fail，无返回值。 */
+/* 中文：校验一条事件；非 plan/mode 忽略，active 不是布尔值时调用 fail，无返回值。 */
 function validateEvent(event: SessionEvent, fail: InvariantFailure): void {
   if (event.type !== 'plan/mode') return
   /** 从事件载荷读取的 active 候选值，外部持久边界上可能为任意类型。 */
@@ -40,7 +40,7 @@ function validateEvent(event: SessionEvent, fail: InvariantFailure): void {
 }
 
 /** Install validation for loaded and newly appended plan-mode state. */
-/** 中文：安装历史回放、新会话播种与实时追加监听的规则。 */
+/* 中文：安装历史回放、新会话播种与实时追加监听的规则。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** 中文：回放一个 session 的已有事件；无返回值。 */
   const seed = (session: Session): void => {
@@ -63,6 +63,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文：向 ctx.invariants 注册计划模式规则；返回安装完成后的释放函数 Promise。 */
+/* 中文：向 ctx.invariants 注册计划模式规则；返回安装完成后的释放函数 Promise。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

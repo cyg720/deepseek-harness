@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】会话标准属性（standard-props）的 provide 通道：提供者名册、
  *   捆绑（bundle）物化（未声明/缺失/重复成员均 fail-loud）、静态无会话投影
@@ -24,7 +24,7 @@
  * the materialization rules and the projection semantics cannot drift
  * between production and the test bench.
  */
-/**
+/*
  * 会话标准属性 provide 通道：提供者名册、捆绑物化（未声明/缺失/重复成员
  * fail-loud）、静态无会话投影、以及原子性的当前会话投影可观察对象。
  * 只有一个实现——SessionRuntime 用 wire 真值驱动它，测试运行时的会话替身
@@ -34,21 +34,21 @@ import type { HostObservable, SessionMaybeProvideInfo, SessionProvideInfo } from
 import type { SessionBinding, SessionProvideDescriptor } from './service.ts'
 
 /** The owner-side hooks: how the channel reaches the owner's live bundles and current selection. */
-/** 属主侧钩子：通道如何触达属主的活跃捆绑与当前选中。 */
+/* 属主侧钩子：通道如何触达属主的活跃捆绑与当前选中。 */
 export interface SessionProvideChannelHost {
   /**
    * Re-materialize every already-materialized bundle against the new roster
    * (call {@link SessionProvideChannel.materializeInfo} per live binding).
    * Lazily-materialized sessions pick the new roster up on first resolve.
    */
-  /**
+  /*
    * 按新名册重新物化每个已物化的捆绑（对每个活跃 binding 调用
    * SessionProvideChannel.materializeInfo）。懒物化的会话在首次解析时
    * 拾取新名册。
    */
   rebuildBundles(): void
   /** Resolve the current selection's bundle (the owner's maybe-provide lookup). */
-  /** 解析当前选中的捆绑（属主的 maybe-provide 查找）。 */
+  /* 解析当前选中的捆绑（属主的 maybe-provide 查找）。 */
   resolveCurrent(): SessionMaybeProvideInfo
 }
 
@@ -57,7 +57,7 @@ export interface SessionProvideChannelHost {
  * every rule a provider contribution must satisfy; owners keep only their
  * per-session bundle storage and the definition of "current".
  */
-/**
+/*
  * 提供者名册 + 物化 + 当前投影。通道拥有提供者贡献必须满足的一切规则；
  * 属主只保留每个会话的捆绑存储与"当前"的定义。
  */
@@ -65,10 +65,10 @@ export class SessionProvideChannel {
   private readonly providers: SessionProvideDescriptor[] = [] // 提供者名册（按注册顺序）
   private maybeInfoCache: SessionMaybeProvideInfo // 静态无会话投影缓存
   /** Latest published current bundle (identity comparison dedupes republish). */
-  /** 最新发布的当前捆绑（身份比较去重，避免重复发布）。 */
+  /* 最新发布的当前捆绑（身份比较去重，避免重复发布）。 */
   private currentSnapshot: SessionMaybeProvideInfo
   /** Projection subscribers (plain cell: bundles hold live session sources, so no store freeze may touch them). */
-  /** 投影订阅者（普通 cell：捆绑持有活跃会话源，因此任何 store 冻结都不得触碰它们）。 */
+  /* 投影订阅者（普通 cell：捆绑持有活跃会话源，因此任何 store 冻结都不得触碰它们）。 */
   private readonly listeners = new Set<() => void>()
 
   /**
@@ -77,7 +77,7 @@ export class SessionProvideChannel {
    * change under a stable current id republishes the bundle instead of
    * stranding mounted entries.
    */
-  /**
+  /*
    * 原子性的当前会话 provide 投影：选中变化与提供者名册变化都经这一个
    * 源发布，因此当前 id 稳定时的名册变化会重新发布捆绑，而不是让已挂载
    * 的条目搁浅。
@@ -87,7 +87,7 @@ export class SessionProvideChannel {
   /**
    * @param host - owner-side bundle storage and current-selection resolution.
    */
-  /**
+  /*
    * @param host 属主侧的捆绑存储与当前选中解析。
    */
   constructor(private readonly host: SessionProvideChannelHost) {
@@ -111,7 +111,7 @@ export class SessionProvideChannel {
   }
 
   /** The static no-session projection under the current roster (declared names present, values undefined). */
-  /** 当前名册下的静态无会话投影（声明过的名字都在，值为 undefined）。 */
+  /* 当前名册下的静态无会话投影（声明过的名字都在，值为 undefined）。 */
   get maybeInfo(): SessionMaybeProvideInfo {
     return this.maybeInfoCache
   }
@@ -125,7 +125,7 @@ export class SessionProvideChannel {
    * @param descriptor - static member roster plus per-session resolver.
    * @returns disposer removing the provider.
    */
-  /**
+  /*
    * 注册一个按会话的标准属性提供者（产品契约见 SessionRuntime.provide）。
    * 活跃捆绑立即重建；声明错误的提供者在注册边界 fail-loud，注册回滚——
    * 通道绝不停留在无法物化的名册上。
@@ -158,7 +158,7 @@ export class SessionProvideChannel {
    * list subscription, provide()) already sit behind their own batching or
    * registration edges.
    */
-  /**
+  /*
    * 重新推导当前选中的捆绑，并在变化时发布。捆绑按（作用域, 名册）物化
    * 身份稳定，因此身份比较是精确的；同步通知——调用点（属主的列表订阅、
    * provide()）已处于各自的批处理或注册边界之后。
@@ -187,7 +187,7 @@ export class SessionProvideChannel {
    * @param binding - session assembly handle fed to every resolver.
    * @returns the materialized bundle (identity-stable until the next materialization).
    */
-  /**
+  /*
    * 为一个会话物化标准属性捆绑（未声明、缺失、重复成员名都 fail-loud）。
    * @param binding 喂给每个解析器的会话装配句柄。
    * @returns 物化出的捆绑（直到下次物化前身份稳定）。
@@ -234,7 +234,7 @@ export class SessionProvideChannel {
   }
 
   /** Rebuild the static projection and the owner's live bundles, then republish the current one. */
-  /** 重建静态投影与属主的活跃捆绑，然后重新发布当前捆绑。 */
+  /* 重建静态投影与属主的活跃捆绑，然后重新发布当前捆绑。 */
   private applyRosterChange(): void {
     this.maybeInfoCache = this.materializeMaybeInfo()
     this.host.rebuildBundles()
@@ -242,7 +242,7 @@ export class SessionProvideChannel {
   }
 
   /** Build the static no-session kit and reject duplicate declared names. */
-  /** 构建静态无会话套件并拒绝重复的声明名。 */
+  /* 构建静态无会话套件并拒绝重复的声明名。 */
   private materializeMaybeInfo(): SessionMaybeProvideInfo {
     const hooks: Record<string, undefined> = {}
     const props: Record<string, undefined> = {}

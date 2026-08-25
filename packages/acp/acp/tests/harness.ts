@@ -1,5 +1,5 @@
 /** In-memory ACP transport fixture over the real agent factory and loop. */
-/**
+/*
  * 文件职责：为 ACP 测试装配真实代理循环、脚本化模型、内存附件库和交叉连接的协议字节流。
  * 技术维度：使用 Cordis 测试插件、Web Streams、ACP SDK 连接和 Vitest 可控状态构造集成测试环境。
  * 产品维度：无需网络、密钥或真实模型即可重现自动化客户端的会话、富内容、权限和断开流程。
@@ -29,7 +29,7 @@ import * as AcpPlugin from '../src/index.ts'
 import type { AcpConfig } from '../src/index.ts'
 
 /** Scripted adapter for protocol tests. */
-/** 按预设流片段返回模型输出的确定性测试适配器。 */
+/* 按预设流片段返回模型输出的确定性测试适配器。 */
 class MockAdapter extends LlmAdapter {
   /** 已收到的全部模型请求，供测试检查最终消息和系统提示。 */
   readonly requests: GenerateOptions[] = []
@@ -105,7 +105,7 @@ const IMAGE_LIMITS: ImageAttachmentLimits = {
 }
 
 /** In-memory durable store for ACP wire-order and lifecycle tests. */
-/** 在进程内模拟持久图片存储，并提供可控验证与读取暂停点。 */
+/* 在进程内模拟持久图片存储，并提供可控验证与读取暂停点。 */
 class MemoryAttachmentStore extends AttachmentStore {
   /** 对外公布的固定图片准入限制。 */
   readonly imageLimits = IMAGE_LIMITS
@@ -152,7 +152,7 @@ class MemoryAttachmentStore extends AttachmentStore {
 }
 
 /** Scripted text response ending in a clean stop. */
-/**
+/*
  * 构造逐字符输出并正常停止的脚本响应。
  * @param text 要提交的完整助手文本。
  * @returns 可由 MockAdapter 依次发送的流片段。
@@ -169,7 +169,7 @@ export function textResponse(text: string): StreamChunk[] {
 }
 
 /** Scripted response ending at the output-token ceiling. */
-/**
+/*
  * 构造在输出令牌上限结束但仍提交文本的脚本响应。
  * @param text 截止前提交的助手文本。
  * @returns 以 max-tokens 原因结束的流片段。
@@ -185,7 +185,7 @@ export function maxTokensResponse(text: string): StreamChunk[] {
 }
 
 /** Scripted response that fails after publishing an uncommitted partial chunk. */
-/**
+/*
  * 构造发送未提交片段后以提供方错误结束的响应。
  * @param message 错误结束原因中的安全说明。
  * @returns 不包含 block-end 的失败流片段。
@@ -229,7 +229,7 @@ export interface BridgeHarness {
   /** ACP 测试插件的 Cordis fiber。 */
   acpFiber: Awaited<ReturnType<Context['plugin']>>
   /** The AgentLoop fiber, so a test can reload the loop out from under the bridge. */
-  /** 代理循环 fiber，允许测试在桥接仍存活时重载循环。 */
+  /* 代理循环 fiber，允许测试在桥接仍存活时重载循环。 */
   loopFiber: Awaited<ReturnType<Context['plugin']>>
   /** 释放整个测试上下文及其所有插件。 */
   dispose: () => Promise<void>
@@ -239,7 +239,7 @@ export interface BridgeHarness {
 type AcpConfigOverrides = { [K in keyof AcpConfig]?: AcpConfig[K] | undefined }
 
 /** Build the bridge and a connected SDK client over cross-wired byte streams. */
-/**
+/*
  * 构建通过交叉字节流连接的 ACP 桥接层和 SDK 客户端。
  * @param options 模型脚本、配置、人格、图片能力和附件服务开关。
  * @returns 已挂载并可直接发起协议调用的测试装配。

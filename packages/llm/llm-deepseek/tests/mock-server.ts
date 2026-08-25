@@ -10,7 +10,7 @@ import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 
 /** One scripted behavior for the next request the mock server receives. */
-/** 中文说明：类型或类 Behavior 约束模型请求、认证或流事件职责。 */
+/* 中文说明：类型或类 Behavior 约束模型请求、认证或流事件职责。 */
 export type Behavior =
   | { kind: 'sse'; events: string[]; delayMs?: number }
   | { kind: 'http-error'; status: number; body: string; contentType?: string; headers?: Record<string, string> }
@@ -33,13 +33,13 @@ export interface MockServer {
 const servers: Server[] = []
 
 /** Close every server opened since the last call; run from each spec's afterEach. */
-/** 中文说明：函数 closeMockServers 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 closeMockServers 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export async function closeMockServers(): Promise<void> {
   await Promise.all(servers.splice(0).map(server => new Promise(resolve => server.close(resolve))))
 }
 
 /** A minimal complete text generation, reused by request-shape assertions. */
-/** 中文说明：测试局部值 textEvents，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 textEvents，由紧邻初始化决定。 */
 export const textEvents = [
   '{"choices":[{"delta":{"role":"assistant","content":null,"reasoning_content":""}}]}',
   '{"choices":[{"delta":{"content":"hello"}}]}',
@@ -48,7 +48,7 @@ export const textEvents = [
 ]
 
 /** Local chat-completions stand-in: replays scripted behaviors per request. */
-/** 中文说明：函数 mockServer 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 mockServer 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export async function mockServer(script: Behavior[]): Promise<MockServer> {
   /** 中文说明：测试局部值 requests，由紧邻初始化决定。 */
   const requests: unknown[] = []

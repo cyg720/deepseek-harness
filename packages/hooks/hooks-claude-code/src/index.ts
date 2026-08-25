@@ -8,7 +8,7 @@
  * [hook-bridges Agent Note](../../../../.agents/notes/implemented/feature/2026-06-30-hook-bridges.md).
  * @module @deepseek-ai/dsh-hooks-claude-code
  */
-/**
+/*
  * 文件职责：实现Claude Code Hook 桥的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证Claude Code Hook 桥可预测地传递事件、限制循环或适配外部工具。
@@ -55,7 +55,7 @@ export const name = 'hooks-claude-code'
 export const inject = ['shell']
 
 /** Plugin config: where the CC hook config lives + substitution roots. */
-/** 中文说明：类型或类 Config 约束 Hook、守卫或目标数据职责。 */
+/* 中文说明：类型或类 Config 约束 Hook、守卫或目标数据职责。 */
 export interface Config {
   /**
    * Path to a `hooks.json` or a settings file whose `hooks` key holds the config.
@@ -93,7 +93,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** A stable per-handler id so an invoked/result pair correlates in the log. */
-/** 中文说明：协议局部值 handlerCounter，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 handlerCounter，由紧邻初始化决定。 */
 let handlerCounter = 0
 /** 中文说明：函数 nextHandlerId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function nextHandlerId(point: string): string {
@@ -101,11 +101,11 @@ function nextHandlerId(point: string): string {
 }
 
 /** The `{kind:'plugin'}` source stamped on every context this bridge injects. */
-/** 中文说明：协议局部值 PLUGIN_SOURCE，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 PLUGIN_SOURCE，由紧邻初始化决定。 */
 const PLUGIN_SOURCE: MessageSource = { kind: 'plugin', plugin: 'hooks-claude-code' }
 
 /** The summary cap bounds a persisted event field — a positive integer or the slice misbehaves silently. */
-/** 中文说明：函数 assertPositiveInteger 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertPositiveInteger 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertPositiveInteger(name: string, value: number): void {
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`hooks-claude-code: ${name} must be a positive integer`)
@@ -162,7 +162,7 @@ export function apply(ctx: Context, config: Config): void {
    * decision. `matchQuery` is the event's matcher subject (tool name, session
    * source, …); `''` for events that ignore matchers.
    */
-  /** 中文说明：函数 runPoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 runPoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function runPoint(
     point: string,
     matchQuery: string,
@@ -228,7 +228,7 @@ export function apply(ctx: Context, config: Config): void {
   // TODO(hook-continue-false): `merged.stop` is logged but needs a run-level halt mechanism.
 
   /** Build additional model context from hook output, or return undefined when empty. */
-  /** 中文说明：函数 contextFrom 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 contextFrom 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function contextFrom(merged: MergedHookOutcome): UserMessage | undefined {
     if (merged.additionalContext.length === 0) return undefined
     /** 中文说明：协议局部值 content，由紧邻初始化决定。 */
@@ -237,7 +237,7 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   /** Prepend one context without flattening source fields or other downstream metadata. */
-  /** 中文说明：函数 prependContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 prependContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): UserMessage[] {
     return [ours, ...theirs ?? []]
   }
@@ -359,14 +359,14 @@ export function apply(ctx: Context, config: Config): void {
  * Task-tool default — a hooks.json with a default/`*`/empty `agent_type` matcher
  * fires; a config matching a specific kind (e.g. `code-reviewer`) does not.
  */
-/** 中文说明：协议局部值 SUBAGENT_TYPE，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 SUBAGENT_TYPE，由紧邻初始化决定。 */
 const SUBAGENT_TYPE = 'general-purpose'
 
 // --- Per-event stdin payloads (the CC DIALECT shape). Field names match CC's
 // hook input schema; this is the part a bridge owns. ---
 
 /** The last open turn number in the agent's log, or 0 without an agent. */
-/** 中文说明：函数 lastTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 lastTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lastTurn(agent: Agent | undefined): number {
   if (!agent) return 0
   /** 中文说明：协议局部值 last，由紧邻初始化决定。 */
@@ -376,7 +376,7 @@ function lastTurn(agent: Agent | undefined): number {
 }
 
 /** Flatten content blocks to the text a hook payload carries (the common case). */
-/** 中文说明：函数 blocksToText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 blocksToText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function blocksToText(content: ContentBlock[]): string {
   return content.filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('')
 }
@@ -419,7 +419,7 @@ function stopPayload(ctx: Context, agent: Agent): Record<string, unknown> {
  * fields. `agent_type` is the CC-default {@link SUBAGENT_TYPE}; `stop_hook_active`
  * is present on SubagentStop only (the loop-guard flag, always false).
  */
-/** 中文说明：函数 subagentPayload 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 subagentPayload 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function subagentPayload(ctx: Context, event: 'SubagentStart' | 'SubagentStop', info: { id: string }, child: Agent | undefined): Record<string, unknown> {
   return {
     ...base(ctx, child, event),

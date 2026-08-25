@@ -18,7 +18,7 @@ import { RpcId } from '@deepseek-ai/dsh-client-connection/client'
 import type { SessionRemotes } from '../src/client/sessions/remotes.ts'
 
 /** Programmable-default workspace row (branded id, ISO-ish times). */
-/** 中文说明：测试辅助函数 `fakeWorkspace`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `fakeWorkspace`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function fakeWorkspace(id: string, over: Partial<WorkspaceView> = {}): WorkspaceView {
   return {
     workspaceId: id as WorkspaceId,
@@ -39,7 +39,7 @@ export interface Deferred<T> {
 }
 
 /** Test-held settlement: the case decides when an RPC lands (history-pending injections etc.). */
-/** 中文说明：测试辅助函数 `deferred`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `deferred`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 export function deferred<T>(): Deferred<T> {
   /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `resolve` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
   let resolve!: (value: T) => void
@@ -79,7 +79,7 @@ interface StreamConn<F> {
  * a test that programs nothing sees an empty catalog and an unmatched line.
  * @returns the Remote namespaces the session cluster calls.
  */
-/** 中文说明：测试辅助函数 `fakeRemote`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `fakeRemote`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 export function fakeRemote(): SessionRemotes {
   return {
     commands: {
@@ -92,7 +92,7 @@ export function fakeRemote(): SessionRemotes {
 /** 中文说明：类 `FakeApiClient` 负责提供可控测试场景，实例由调用方创建并按生命周期释放。 */
 export class FakeApiClient implements IApiClient {
   /** Chronological call record: [method, payload]. */
-  /** 中文说明：类成员 `calls` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
+  /* 中文说明：类成员 `calls` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   readonly calls: { method: string; payload: unknown }[] = []
 
   // Programmable slots (defaults answer OK-empty); reassign per case.
@@ -344,12 +344,12 @@ export class FakeApiClient implements IApiClient {
   }
 
   /** When true, streams never fire onOpen (misbehaving-carrier material for the handshake timeout guard). */
-  /** 中文说明：类成员 `suppressStreamOpen` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
+  /* 中文说明：类成员 `suppressStreamOpen` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   suppressStreamOpen = false
 
   /** When true, onOpen callbacks are parked instead of fired; releaseStreamOpens() fires them.
    *  Lets a case hold the readiness handshake open (describe done, streams not yet "established"). */
-  /** 中文说明：类成员 `holdStreamOpen` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
+  /* 中文说明：类成员 `holdStreamOpen` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   holdStreamOpen = false
   /** 中文说明：类成员 `heldOpens` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private heldOpens: (() => void)[] = []
@@ -378,7 +378,7 @@ export class FakeApiClient implements IApiClient {
   }
 
   /** Push one mux frame to every open mux stream (rpcId minted unless pinned by the case). */
-  /** 中文说明：测试类方法 `pushMux`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：测试类方法 `pushMux`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
   pushMux(frame: MuxFrame, rpcId?: string): void {
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `conn` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const conn of [...this.muxConns]) conn.feed({ kind: 'frame', envelope: { rpcId: RpcId(rpcId ?? `push-${nextRpc++}`), payload: frame } })
@@ -391,7 +391,7 @@ export class FakeApiClient implements IApiClient {
   }
 
   /** End (clean close) or fail (throw) every open stream — reconnect-path material. */
-  /** 中文说明：测试类方法 `endStreams`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
+  /* 中文说明：测试类方法 `endStreams`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
   endStreams(): void {
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `conn` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const conn of [...this.muxConns, ...this.hostConns]) conn.feed({ kind: 'end' })

@@ -25,7 +25,7 @@ import { CONVERSATION_NS as NS } from '../../locale.ts'
 import { planSummary, type PlanItemLike } from './plan-summary.ts'
 
 /** Todo row props: the toolview runtime share plus the standard locale seat. */
-/** 中文说明：类型或类 TodoRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 TodoRowProps 约束工具或轨迹数据职责。 */
 type TodoRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /** 中文说明：函数 isItem 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
@@ -38,7 +38,7 @@ function isItem(value: unknown): value is PlanItemLike {
  * is the parallel-active count that must not, so a narrow row never clips the
  * one part that says several tasks are running.
  */
-/** 中文说明：类型或类 RowSummary 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 RowSummary 约束工具或轨迹数据职责。 */
 interface RowSummary {
   text: string
   extra: number
@@ -74,7 +74,7 @@ function summarize(argsRaw: string, t: TodoRowProps['t']): RowSummary | null {
  *  sections, ToolRow's unified expand). Non-ok execution states keep the
  *  shared row's dot semantics — a cancelled call wrote no todo/write, so it
  *  must not read as a completed update. */
-/** 中文说明：函数 TodoRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 TodoRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function TodoRow({ toolName, block, inspect, t }: TodoRowProps) {
   /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
@@ -104,7 +104,7 @@ export function TodoRow({ toolName, block, inspect, t }: TodoRowProps) {
  * The todo row as a plain registrant plugin following the atomic Tool-view
  * declaration across independent activation and reload lifetimes.
  */
-/** 中文说明：视图局部值 todoToolview，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 todoToolview，由紧邻初始化决定。 */
 export const todoToolview = {
   name: 'todo-toolview',
   inject: ['slots'],

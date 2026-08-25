@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Dynamic ui-theme entry owns the global styles in dependency order. */
-/**
+/*
  * 文件职责：验证客户端主题插件按依赖顺序挂载全局样式，并在释放时全部移除。
  * 技术维度：使用 jsdom、Vitest、Cordis fiber 和带 data-plugin 属性的动态 style 元素。
  * 产品维度：保证主题基础、设计平台、滚动条、渐变文字和代码高亮按正确层叠顺序生效。

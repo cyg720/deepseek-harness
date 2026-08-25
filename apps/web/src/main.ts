@@ -3,7 +3,7 @@
  * module-table seeding, the boot page, and the UI-renderer handoff — lives
  * in @deepseek-ai/dsh-client-web; this file only finds the mount point.
  */
-/**
+/*
  * 文件职责：定位 Web 页面根节点，并启动客户端 Web 外壳。
  * 技术维度：使用浏览器 DOM API 与 `AppWebEntry` 异步启动流程。
  * 产品维度：把静态 HTML 根节点连接到完整的 DeepSeek Harness Web 应用。

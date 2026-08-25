@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-compaction-basic/summarizer
  */
-/**
+/*
  * 文件职责：实现上下文压缩的 summarizer 模块。
  * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
  * 产品维度：为产品提供上下文压缩能力。
@@ -27,7 +27,7 @@ interface SummaryConfig {
 }
 
 /** Tags wrapping the structured summary inside the landed checkpoint node. */
-/** 中文说明：运行时局部值 SUMMARY_OPEN_TAG，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 SUMMARY_OPEN_TAG，由紧邻初始化决定。 */
 const SUMMARY_OPEN_TAG = '<compacted-summary>'
 /** 中文说明：运行时局部值 SUMMARY_CLOSE_TAG，由紧邻初始化决定。 */
 const SUMMARY_CLOSE_TAG = '</compacted-summary>'
@@ -39,7 +39,7 @@ const SUMMARY_CLOSE_TAG = '</compacted-summary>'
  * front of it makes the auxiliary call a genuine prefix of the last routed
  * request, so the provider's KV cache is reused instead of invalidated.
  */
-/** 中文说明：运行时局部值 COMPACTION_INSTRUCTION，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 COMPACTION_INSTRUCTION，由紧邻初始化决定。 */
 const COMPACTION_INSTRUCTION = [
   'You are now acting as a compaction engine for this AI coding assistant. Condense the conversation ABOVE into a structured checkpoint that lets another model resume the work with no loss of essential context.',
   '',
@@ -78,7 +78,7 @@ const COMPACTION_INSTRUCTION = [
 ].join('\n')
 
 /** Framing that makes the replacement user message established context. */
-/** 中文说明：运行时局部值 CHECKPOINT_PREAMBLE，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 CHECKPOINT_PREAMBLE，由紧邻初始化决定。 */
 const CHECKPOINT_PREAMBLE =
   'This is an automatically generated checkpoint condensing an earlier span of the conversation to free up context. Treat the captured context as established background and build on it without restating it. Continue the task directly from the messages that follow, without acknowledging this checkpoint.'
 
@@ -88,7 +88,7 @@ const CHECKPOINT_PREAMBLE =
  * lets the auxiliary call reuse the provider's warm prefix cache; the trailing
  * compaction instruction is then the only novel input.
  */
-/** 中文说明：类型或类 SummarizationInput 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 SummarizationInput 约束协议数据或模块职责。 */
 export interface SummarizationInput {
   /** The conversation's own system prompt, reused for prefix-cache alignment; absent for a system-less request. */
   readonly system?: string
@@ -99,7 +99,7 @@ export interface SummarizationInput {
 }
 
 /** Safe summary content plus the exact auxiliary call envelope recorded with it. */
-/** 中文说明：类型或类 SummaryResult 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 SummaryResult 约束协议数据或模块职责。 */
 export type SummaryResult = {
   summary: ContentBlock[]
   provider: string
@@ -133,7 +133,15 @@ export type SummaryResult = {
  * @param signal - optional cancellation forwarded to the adapter.
  * @returns safe text-only summary blocks and the exact call envelope and output.
  */
-/** 中文说明：函数 summarizeWithLlm 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 summarizeWithLlm 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param input 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function summarizeWithLlm(
   ctx: Context,
   config: SummaryConfig,
@@ -213,7 +221,11 @@ export async function summarizeWithLlm(
  * @param summary - safe text-only model output.
  * @returns content for the synthesized replacement user message.
  */
-/** 中文说明：函数 frameSummary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 frameSummary 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param summary 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function frameSummary(summary: readonly ContentBlock[]): ContentBlock[] {
   return [
     { type: 'text', text: `${CHECKPOINT_PREAMBLE}\n\n${SUMMARY_OPEN_TAG}` },
@@ -223,7 +235,7 @@ export function frameSummary(summary: readonly ContentBlock[]): ContentBlock[] {
 }
 
 /** Map a terminal summarization finish to its fail-closed error. */
-/** 中文说明：函数 finishError 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 finishError 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function finishError(finish: FinishReason): Error | undefined {
   switch (finish.kind) {
     case 'error':
@@ -245,7 +257,7 @@ function finishError(finish: FinishReason): Error | undefined {
 }
 
 /** Reject visual output and keep only text before synthesizing a user message. */
-/** 中文说明：函数 summaryText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 summaryText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function summaryText(
   blocks: readonly ContentBlock[],
 ): Array<Extract<ContentBlock, { type: 'text' }>> {

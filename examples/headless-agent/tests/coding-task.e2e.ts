@@ -21,9 +21,9 @@ import { SessionId } from '@deepseek-ai/dsh-session'
  * directory using only the bash tool, and the fix is verified OUTSIDE the
  * agent by re-running the test script. Key-gated.
  */
-/** 中文说明：真实模型在临时目录修复真实错误，最终由智能体之外重新运行测试脚本验证。 */
+/* 中文说明：真实模型在临时目录修复真实错误，最终由智能体之外重新运行测试脚本验证。 */
 
-/** 用于验证 add 函数正确性的不可修改测试文件内容。 */
+/* 用于验证 add 函数正确性的不可修改测试文件内容。 */
 const TEST_FILE = [
   "const assert = require('node:assert');",
   "const { add } = require('./add.js');",

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证会话界面的 chat-store.client.spec.ts 行为和边界。
  * 技术维度：Vitest、React 测试渲染、事件模拟与可控服务替身。
  * 产品维度：防止会话界面交互和展示在扩展后回归。

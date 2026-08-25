@@ -19,7 +19,7 @@ import * as StorageSqlite from '../src/index.ts'
 import { Config, SqliteStorageBackend, STORAGE_SQLITE_SCHEMA_VERSION } from '../src/index.ts'
 
 /** Mirror the loader: resolve schemastery defaults before construction. */
-/** 中文说明：函数 backendAt 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 backendAt 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function backendAt(path: string): SqliteStorageBackend {
   return new SqliteStorageBackend(new Config({ path }))
 }

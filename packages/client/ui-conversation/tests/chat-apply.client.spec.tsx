@@ -60,7 +60,7 @@ async function bench() {
 }
 
 /** First stored entry for a key (inject/store live directly on StoredEntry). */
-/** 中文说明：函数 renderEntryOf 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 renderEntryOf 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function renderEntryOf(slots: Awaited<ReturnType<typeof bench>>['slots'], key: 'conversation' | 'conversation.session' | 'conversation.session.header' | 'conversation.view' | 'details') {
   return slots.entries(key)[0] as undefined | { inject?: unknown; store?: unknown }
 }

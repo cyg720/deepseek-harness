@@ -1,5 +1,5 @@
 /** Restore the executable bit stripped from node-pty's prebuilt helper. */
-/**
+/*
  * 文件职责：安装后恢复 node-pty 预编译 spawn-helper 的可执行权限位。
  * 技术维度：使用 ESM 模块解析定位依赖，并通过同步文件 API 检查与 chmod。
  * 产品维度：本地终端和子进程在 Unix 主机上可正常启动 node-pty 辅助程序。

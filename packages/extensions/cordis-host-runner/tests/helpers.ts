@@ -27,7 +27,7 @@ import type { Config } from '../src/index.ts'
  */
 
 /** One recorded broadcast plus how the fake browser answers a run request. */
-/** 中文说明：类型或类 Gateway 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 Gateway 约束扩展或反馈数据职责。 */
 interface Gateway {
   /** Every forwarded event the runner emitted, in order, as `[name, payload]`. */
   events: [name: string, payload: unknown][]
@@ -44,14 +44,14 @@ interface Gateway {
 }
 
 /** The session that owns every definition these suites define. */
-/** 中文说明：测试局部值 AGENT_A，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 AGENT_A，由紧邻初始化决定。 */
 export const AGENT_A = { id: 'S-a' as SessionId, steer() {}, inject() {} } as unknown as Agent
 /** A second session, for the authority-scoping cases. */
-/** 中文说明：测试局部值 AGENT_B，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 AGENT_B，由紧邻初始化决定。 */
 export const AGENT_B = { id: 'S-b' as SessionId, steer() {}, inject() {} } as unknown as Agent
 
 /** One live tree: the context, the runner, and the recording gateway. */
-/** 中文说明：类型或类 Harness 约束扩展或反馈数据职责。 */
+/* 中文说明：类型或类 Harness 约束扩展或反馈数据职责。 */
 interface Harness {
   ctx: Context
   runner: DynamicCordisRunnerService
@@ -63,7 +63,7 @@ interface Harness {
  * @param config - runner config overrides (the vm bound).
  * @returns the context, the runner service, and the gateway recorder.
  */
-/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function setup(config?: Config): Promise<Harness> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -132,7 +132,7 @@ export async function setup(config?: Config): Promise<Harness> {
  * @param agent - the session to project.
  * @returns id/running pairs in define order.
  */
-/** 中文说明：函数 running 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 running 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function running(runner: DynamicCordisRunnerService, agent: Agent): { id: string; running: boolean }[] {
   return runner.inventory()
     .filter(row => row.agentId === agent.id)
@@ -151,7 +151,7 @@ let definitionCounter = 0
  * @returns the definition id of the running package.
  * @throws the runner's refusal message when define prechecks or the run fails.
  */
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function mount(harness: Harness, code: string): Promise<CordisDynamicPluginId> {
   /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
   const { pluginId, packageId } = harness.runner.define({
@@ -171,7 +171,7 @@ export async function mount(harness: Harness, code: string): Promise<CordisDynam
 let callCounter = 0
 
 /** Execute a registered tool through the real registry pipeline. */
-/** 中文说明：函数 call 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 call 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function call(ctx: Context, name: string, args: unknown): Promise<ToolExecutionResult> {
   return ctx.tools.execute({
     signal: new AbortController().signal,
@@ -182,13 +182,13 @@ export function call(ctx: Context, name: string, args: unknown): Promise<ToolExe
 }
 
 /** Concatenated text blocks of one tool result. */
-/** 中文说明：函数 text 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 text 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function text(result: ToolExecutionResult): string {
   return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
 }
 
 /** Explicit content-array output declaration for dynamic-tool behavior fixtures. */
-/** 中文说明：测试局部值 CONTENT_OUTPUT_CODE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 CONTENT_OUTPUT_CODE，由紧邻初始化决定。 */
 export const CONTENT_OUTPUT_CODE = `
               output: {
                 schema: { type: 'array', items: { type: 'json' } },
@@ -196,11 +196,11 @@ export const CONTENT_OUTPUT_CODE = `
               },`
 
 /** Browser-half source the fake browser "loads"; its content never runs in these suites. */
-/** 中文说明：测试局部值 CLIENT_CODE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 CLIENT_CODE，由紧邻初始化决定。 */
 export const CLIENT_CODE = 'return () => {}'
 
 /** Host-half source for a listener package: logs on every `tools/change`. */
-/** 中文说明：测试局部值 LISTENER_CODE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 LISTENER_CODE，由紧邻初始化决定。 */
 export const LISTENER_CODE = `
   return {
     name: 'change-logger',
@@ -211,7 +211,7 @@ export const LISTENER_CODE = `
 `
 
 /** Host-half source registering a self-made tool through the sandbox harness helpers. */
-/** 中文说明：测试局部值 REVERSE_TOOL_CODE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 REVERSE_TOOL_CODE，由紧邻初始化决定。 */
 export const REVERSE_TOOL_CODE = `
   return {
     name: 'reverse-text',
@@ -236,7 +236,7 @@ export const REVERSE_TOOL_CODE = `
 `
 
 /** Host-half source providing a `greeter` service other packages can inject. */
-/** 中文说明：测试局部值 PROVIDER_CODE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 PROVIDER_CODE，由紧邻初始化决定。 */
 export const PROVIDER_CODE = `
   return {
     name: 'greeter-provider',
@@ -247,7 +247,7 @@ export const PROVIDER_CODE = `
 `
 
 /** Host-half source consuming the `greeter` service through inject, exposing it as a tool. */
-/** 中文说明：测试局部值 CONSUMER_CODE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 CONSUMER_CODE，由紧邻初始化决定。 */
 export const CONSUMER_CODE = `
   return {
     name: 'greeter-consumer',
@@ -272,7 +272,7 @@ export const CONSUMER_CODE = `
 `
 
 /** A registrable no-op tool the tests use as a schema-view target. */
-/** 中文说明：函数 dummyTool 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 dummyTool 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function dummyTool(name: string): ToolDefinition {
   return {
     name,

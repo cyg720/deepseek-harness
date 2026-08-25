@@ -4,7 +4,7 @@
  * two-level parse, rpcId discipline, and SSE framing with no network and no
  * browser. Each case scripts its own minimal ApiProxy.
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 client-handler.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -27,7 +27,7 @@ function ok<T>(request: RpcRequest<unknown>, value: T): Promise<RpcResponse<T>> 
 }
 
 /** Scripted impl: every method resolves an empty-ish OK unless a case overrides it. */
-/** 中文说明：函数 scriptedApi 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 scriptedApi 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function scriptedApi(overrides: {
   sessions?: Partial<ApiProxy['sessions']>
   subagents?: Partial<ApiProxy['subagents']>
@@ -153,7 +153,7 @@ function client(api: ApiProxy, timeoutMs?: number): InProcessApiClient {
 }
 
 /** Wrap one scripted method to record its invocation into `seen` before responding. */
-/** 中文说明：函数 recorderInto 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 recorderInto 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function recorderInto(seen: { method: string; payload: unknown }[]) {
   return <P, V>(method: string, respond: (r: RpcRequest<P>) => Promise<RpcResponse<V>>) =>
     (r: RpcRequest<P>): Promise<RpcResponse<V>> => {
@@ -724,7 +724,7 @@ describe('goals unary surface', () => {
   /** 中文说明：测试局部值 ref，由紧邻初始化决定。 */
   const ref: GoalRef = { id: 'goal-1' as GoalRef['id'], revision: 1 }
   /** The `{ ref }` acknowledgement every non-clear mutation answers (state travels on the projection). */
-  /** 中文说明：测试局部值 ack，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 ack，由紧邻初始化决定。 */
   const ack = { ref: { id: 'goal-1' as GoalRef['id'], revision: 2 } }
 
   it('round-trips every goal method with its own payload and value shape', async () => {

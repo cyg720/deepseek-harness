@@ -18,7 +18,7 @@ import { call, CONTENT_OUTPUT_CODE, dummyTool, mount, setup, text } from './help
  */
 
 /** Run a host half whose `apply` touches one framework member, and report the error text. */
-/** 中文说明：函数 runTouching 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 runTouching 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function runTouching(harness: Awaited<ReturnType<typeof setup>>, expr: string): Promise<string> {
   try {
     await mount(harness, `return { name: 'probe', inject: ['tools'], apply(ctx) { ${expr} } }`)

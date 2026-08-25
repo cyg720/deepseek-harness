@@ -1,5 +1,5 @@
 /** Root/subcall Tool composition with one keyed atomic dispatch path. */
-/**
+/*
  * 文件职责：实现工具调用的 ToolCallTree 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：向用户展示工具调用参数、结果和状态。
@@ -14,13 +14,13 @@ import { GenericToolCard } from './toolviews/GenericToolCard.tsx'
 import css from './ToolCallTree.module.css'
 
 /** Resolve a Tool call's wire name from either lifecycle form. */
-/** 中文说明：函数 callName 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 callName 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function callName(node: ToolCallBlock): string {
   return 'kind' in node ? node.call?.name ?? '' : node.name
 }
 
 /** One atomic call dispatched through the Tool-owned keyed slot. */
-/** 中文说明：视图局部值 ToolCall，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 ToolCall，由紧邻初始化决定。 */
 const ToolCall = memo(function ToolCall({
   renderSlot, callId, toolName, block, openFile, selected, cwd, home, inspectCall, t, children,
 }: Pick<ToolTreeProps, 'renderSlot' | 'openFile' | 'cwd' | 'inspectCall' | 't'> & {
@@ -104,7 +104,7 @@ const ToolCallBranch = memo(function ToolCallBranch({
  * @param props - whole-Tool owner data and the Tool-owned child-slot share.
  * @returns the Tool call tree.
  */
-/** 中文说明：函数 ToolCallTree 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 ToolCallTree 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function ToolCallTree({
   renderSlot, node, selectedCallId, cwd, openFile, inspectCall, useHostDescription, t,
 }: ToolTreeProps) {

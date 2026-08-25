@@ -16,7 +16,7 @@
  * escaping coverage.
  * @module @deepseek-ai/dsh-acp-snapshot/suite
  */
-/**
+/*
  * 文件职责：实现 suite.ts 覆盖的快照与装载测试支持行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的快照与装载测试支持能力保障 Agent 功能在集成层稳定。
@@ -47,42 +47,42 @@ import {
 } from './normalize.ts'
 
 /** The readable system-prompt snapshot beside its owning header pin. */
-/** 中文说明：常量 SYSTEM_PROMPT_SNAPSHOT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SYSTEM_PROMPT_SNAPSHOT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SYSTEM_PROMPT_SNAPSHOT = 'system-prompt.expected.md'
 
 /** The structured tool-schema snapshot beside its owning header pin. */
-/** 中文说明：常量 TOOL_SCHEMAS_SNAPSHOT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TOOL_SCHEMAS_SNAPSHOT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TOOL_SCHEMAS_SNAPSHOT = 'tool-schemas.expected.json'
 
 /** Return the dedicated tool-schema sidecar for one child fixture index. */
-/** 中文说明：函数 childToolSchemasSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 childToolSchemasSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function childToolSchemasSnapshot(index: number): string {
   return `tool-schemas.${index}.expected.json`
 }
 
 /** Return the dedicated system-prompt sidecar for one child fixture index. */
-/** 中文说明：函数 childSystemPromptSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 childSystemPromptSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function childSystemPromptSnapshot(index: number): string {
   return `system-prompt.${index}.expected.md`
 }
 
 /** The optional full Windows-native stdout transcript. */
-/** 中文说明：常量 WINDOWS_STDOUT_SNAPSHOT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 WINDOWS_STDOUT_SNAPSHOT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WINDOWS_STDOUT_SNAPSHOT = 'stdout.expected.windows.jsonl'
 
 /** Stable session-log token standing in for the sidecar's initial schemas. */
-/** 中文说明：常量 TOOLS_TOKEN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 TOOLS_TOKEN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TOOLS_TOKEN = '{{tools}}'
 
 /** 中文说明：常量 PACKED_CHUNK_ROW_TYPES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool-call-chunks'])
 
 /** Canonical UUID spelling minted for ordinary message identities. */
-/** 中文说明：常量 UUID_RE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 UUID_RE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** A snapshot scenario and how its fixtures are produced. */
-/** 中文说明：interface Scenario 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface Scenario 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface Scenario {
   name: string
   /** Deployment environment for this scenario's subprocess. */
@@ -219,7 +219,14 @@ export interface Scenario {
  *   skip unless it is true.
  * @returns True when the scenario's run test must not execute.
  */
-/** 中文说明：函数 scenarioSkipped 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 scenarioSkipped 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param scenario 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param recording 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param platform 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param hasPwsh 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function scenarioSkipped(
   scenario: Scenario,
   recording: boolean,
@@ -232,7 +239,7 @@ export function scenarioSkipped(
 }
 
 /** One stdout expected output selected for a platform run. */
-/** 中文说明：interface StdoutExpectedVariant 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface StdoutExpectedVariant 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 interface StdoutExpectedVariant {
   file: string
   cwdPathMode: CwdPathMode
@@ -245,7 +252,12 @@ interface StdoutExpectedVariant {
  * @param platform The running Node platform, injectable for unit coverage.
  * @returns The ordered expected-output variants: shared canonical first, then optional Windows native.
  */
-/** 中文说明：函数 stdoutExpectedVariants 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 stdoutExpectedVariants 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param scenario 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param platform 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function stdoutExpectedVariants(
   scenario: Scenario,
   platform: NodeJS.Platform = process.platform,
@@ -257,7 +269,7 @@ export function stdoutExpectedVariants(
 }
 
 /** One suite's inputs: the agent to boot, where its fixtures live, and its scenario table. */
-/** 中文说明：interface SnapshotSuiteOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface SnapshotSuiteOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface SnapshotSuiteOptions {
   /** The agent composition every scenario boots. */
   agent: AgentUnderTest
@@ -281,7 +293,7 @@ export interface SnapshotSuiteOptions {
 }
 
 /** One scenario's generated claim on a shared snapshot file. */
-/** 中文说明：interface SharedSnapshotClaim 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface SharedSnapshotClaim 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface SharedSnapshotClaim {
   /** Scenario that first generated the snapshot in this suite run. */
   scenario: string
@@ -290,7 +302,7 @@ export interface SharedSnapshotClaim {
 }
 
 /** One committed snapshot file and its complete content. */
-/** 中文说明：interface NamedSnapshotContent 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface NamedSnapshotContent 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface NamedSnapshotContent {
   /** Diagnostic path of the committed file. */
   path: string
@@ -309,7 +321,13 @@ export interface NamedSnapshotContent {
  * @param content The complete content the scenario generated.
  * @returns Nothing.
  */
-/** 中文说明：函数 claimSharedSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 claimSharedSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param claims 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param source 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param scenario 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param content 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function claimSharedSnapshot(
   claims: Map<string, SharedSnapshotClaim>,
   source: string,
@@ -333,7 +351,11 @@ export function claimSharedSnapshot(
  * @param snapshots The committed files to compare.
  * @returns Nothing.
  */
-/** 中文说明：函数 assertUniqueSnapshotContents 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 assertUniqueSnapshotContents 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param kind 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param snapshots 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function assertUniqueSnapshotContents(
   kind: string,
   snapshots: readonly NamedSnapshotContent[],
@@ -364,7 +386,11 @@ export function assertUniqueSnapshotContents(
  * @param names File names in one scenario directory.
  * @returns The primary and child fixture names in replay/harvest order.
  */
-/** 中文说明：函数 sessionFixtureNames 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 sessionFixtureNames 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param names 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function sessionFixtureNames(names: readonly string[]): string[] {
   if (!names.includes('session.jsonl')) throw new Error('missing session.jsonl')
   /** 中文说明：变量 children 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -391,7 +417,7 @@ export function sessionFixtureNames(names: readonly string[]): string[] {
 }
 
 /** Read one scenario directory's validated session-fixture inventory. */
-/** 中文说明：函数 sessionFixtures 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 sessionFixtures 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function sessionFixtures(dir: string): Promise<string[]> {
   /** 中文说明：变量 entries 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entries = await readdir(dir, { withFileTypes: true })
@@ -406,7 +432,11 @@ async function sessionFixtures(dir: string): Promise<string[]> {
  * @param fixture The committed `session.jsonl` content.
  * @returns The fixture's own volatile values, ready for {@link normalizeSessionLog}.
  */
-/** 中文说明：函数 fixtureContext 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 fixtureContext 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param fixture 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function fixtureContext(fixture: string): NormalizeContext {
   /** 中文说明：函数值 firstLine 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const firstLine = fixture.split('\n').find(line => line.trim().length > 0) ?? '{}'
@@ -429,7 +459,12 @@ export function fixtureContext(fixture: string): NormalizeContext {
  * @param ctx The volatile values of the run that produced it.
  * @returns The normalized `data.header` payloads, in log order.
  */
-/** 中文说明：函数 normalizedHeaders 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 normalizedHeaders 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param rawLog 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function normalizedHeaders(rawLog: string, ctx: NormalizeContext): unknown[] {
   return normalizeSessionLog(rawLog, ctx)
     .split('\n')
@@ -448,7 +483,12 @@ export function normalizedHeaders(rawLog: string, ctx: NormalizeContext): unknow
  * @param ctx The volatile values of the run that produced it.
  * @returns The normalized system prompts, in header order.
  */
-/** 中文说明：函数 normalizedSystemPrompts 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 normalizedSystemPrompts 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param rawLog 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function normalizedSystemPrompts(rawLog: string, ctx: NormalizeContext): string[] {
   return normalizedHeaders(rawLog, ctx).flatMap((header) => {
     if (header === null || typeof header !== 'object') return []
@@ -467,7 +507,12 @@ export function normalizedSystemPrompts(rawLog: string, ctx: NormalizeContext): 
  * @param ctx The volatile values of the run that produced it.
  * @returns The normalized initial tool-schema arrays, in header order.
  */
-/** 中文说明：函数 normalizedToolSchemas 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 normalizedToolSchemas 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param rawLog 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function normalizedToolSchemas(rawLog: string, ctx: NormalizeContext): unknown[][] {
   return normalizedHeaders(rawLog, ctx).flatMap((header) => {
     if (header === null || typeof header !== 'object') return []
@@ -478,7 +523,7 @@ export function normalizedToolSchemas(rawLog: string, ctx: NormalizeContext): un
 }
 
 /** The structured contents of a tool-schema sidecar. */
-/** 中文说明：interface ToolSchemasSnapshot 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface ToolSchemasSnapshot 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface ToolSchemasSnapshot {
   /** The complete tool schemas from the pinned request header. */
   initial: unknown[]
@@ -493,7 +538,12 @@ export interface ToolSchemasSnapshot {
  * @param changes Complete tool schemas from later changed headers.
  * @returns A pretty-printed JSON snapshot ending in one newline.
  */
-/** 中文说明：函数 formatToolSchemasSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 formatToolSchemasSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param initial 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param changes 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function formatToolSchemasSnapshot(initial: readonly unknown[], changes: readonly unknown[][] = []): string {
   return `${JSON.stringify({ initial, changes }, null, 2)}\n`
 }
@@ -504,7 +554,11 @@ export function formatToolSchemasSnapshot(initial: readonly unknown[], changes: 
  * @param snapshot The JSON sidecar text.
  * @returns Its initial and changed-header schema sets.
  */
-/** 中文说明：函数 parseToolSchemasSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 parseToolSchemasSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param snapshot 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function parseToolSchemasSnapshot(snapshot: string): ToolSchemasSnapshot {
   /** 中文说明：变量 parsed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = JSON.parse(snapshot) as unknown
@@ -525,7 +579,12 @@ export function parseToolSchemasSnapshot(snapshot: string): ToolSchemasSnapshot 
  * @param schemas The complete schemas for this full header snapshot.
  * @returns A copy of the header with its complete schemas restored.
  */
-/** 中文说明：函数 restorePinnedToolSchemas 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 restorePinnedToolSchemas 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param header 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param schemas 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function restorePinnedToolSchemas(header: unknown, schemas: readonly unknown[]): unknown {
   if (header === null || typeof header !== 'object' || Array.isArray(header)) {
     throw new Error('acp-snapshot: pinned request header must be an object')
@@ -545,7 +604,12 @@ export function restorePinnedToolSchemas(header: unknown, schemas: readonly unkn
  * @param changes Full normalized prompts from later changed-header snapshots.
  * @returns Markdown snapshot text ending in a newline.
  */
-/** 中文说明：函数 formatSystemPromptSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 formatSystemPromptSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param prompt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param changes 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function formatSystemPromptSnapshot(
   prompt: string,
   changes: readonly string[] = [],
@@ -566,7 +630,12 @@ export function formatSystemPromptSnapshot(
  * @param classPin - initial prompt snapshot owned by the scenario's header class.
  * @param label - repository-relative fixture label for diagnostics.
  */
-/** 中文说明：函数 assertChildSystemPromptSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 assertChildSystemPromptSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param sidecar 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param classPin 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param label 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function assertChildSystemPromptSnapshot(sidecar: string, classPin: string, label: string): void {
   if (sidecar.trim().length === 0) throw new Error(`${label} must pin a non-empty prompt`)
   if (!sidecar.endsWith('\n')) throw new Error(`${label} must end in a newline`)
@@ -574,7 +643,7 @@ export function assertChildSystemPromptSnapshot(sidecar: string, classPin: strin
 }
 
 /** Return the initial-prompt portion of a possibly multi-header snapshot. */
-/** 中文说明：函数 initialSystemPromptSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 initialSystemPromptSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function initialSystemPromptSnapshot(snapshot: string): string {
   /** 中文说明：变量 marker 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const marker = snapshot.indexOf('\n<!-- request/header change ')
@@ -587,7 +656,11 @@ function initialSystemPromptSnapshot(snapshot: string): string {
  * @param rawLog The session `.jsonl` content.
  * @returns How many headers carry reason `change`.
  */
-/** 中文说明：函数 headerChangeCount 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 headerChangeCount 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param rawLog 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function headerChangeCount(rawLog: string): number {
   return rawLog.split('\n')
     .filter(line => line.trim().length > 0)
@@ -600,7 +673,7 @@ export function headerChangeCount(rawLog: string): number {
 }
 
 /** A literal replacement from a fresh replay-run volatile to its existing fixture value. */
-/** 中文说明：interface FixtureReplacement 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
+/* 中文说明：interface FixtureReplacement 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface FixtureReplacement {
   /** The fresh replay run's volatile value. */
   from: string
@@ -616,7 +689,7 @@ function parseJsonlRecords(text: string): Record<string, unknown>[] {
 }
 
 /** Narrow one parsed value to the complete identified-message shape retained by fixtures. */
-/** 中文说明：函数 completeMessage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 completeMessage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function completeMessage(value: unknown): Record<string, unknown> | undefined {
   if (
     !isRecord(value)
@@ -630,7 +703,7 @@ function completeMessage(value: unknown): Record<string, unknown> | undefined {
 }
 
 /** Return the complete identified message carried by one surface event. */
-/** 中文说明：函数 surfaceEventMessage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 surfaceEventMessage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function surfaceEventMessage(record: Record<string, unknown>): Record<string, unknown> | undefined {
   /** 中文说明：变量 type 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const type = record.type
@@ -655,7 +728,7 @@ function surfaceEventMessage(record: Record<string, unknown>): Record<string, un
 }
 
 /** Return complete message identities structurally owned by one durable record. */
-/** 中文说明：函数 recordMessages 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 recordMessages 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function recordMessages(record: Record<string, unknown>): Record<string, unknown>[] {
   /** 中文说明：变量 surfaceMessage 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const surfaceMessage = surfaceEventMessage(record)
@@ -671,7 +744,7 @@ function recordMessages(record: Record<string, unknown>): Record<string, unknown
 }
 
 /** Serialize parsed JSON by value rather than insertion order. */
-/** 中文说明：函数 canonicalJson 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 canonicalJson 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
   if (isRecord(value)) {
@@ -681,7 +754,7 @@ function canonicalJson(value: unknown): string {
 }
 
 /** Index identity-free message values whose ID and fingerprint are mutually unique. */
-/** 中文说明：函数 uniqueMessageIds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 uniqueMessageIds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function uniqueMessageIds(logs: readonly string[]): Map<string, string> {
   /** 中文说明：变量 fingerprintsById 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fingerprintsById = new Map<string, Set<string>>()
@@ -727,7 +800,7 @@ function uniqueMessageIds(logs: readonly string[]): Map<string, string> {
  * Match unchanged complete messages across a scenario's fresh and existing logs.
  * New, changed, duplicate-content, or otherwise ambiguous messages keep their fresh ids.
  */
-/** 中文说明：函数 fixtureMessageIdReplacements 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 fixtureMessageIdReplacements 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function fixtureMessageIdReplacements(logs: readonly string[], fixtures: readonly string[]): Map<string, string> {
   /** 中文说明：变量 freshIds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const freshIds = uniqueMessageIds(logs)
@@ -746,7 +819,7 @@ function fixtureMessageIdReplacements(logs: readonly string[], fixtures: readonl
 }
 
 /** Apply literal fixture replacements without changing any other fresh value. */
-/** 中文说明：函数 applyFixtureReplacements 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 applyFixtureReplacements 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function applyFixtureReplacements(content: string, replacements: readonly FixtureReplacement[]): string {
   /** 中文说明：变量 stable 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let stable = content
@@ -756,7 +829,7 @@ function applyFixtureReplacements(content: string, replacements: readonly Fixtur
 }
 
 /** Rewrite only validated durable-message ID fields, leaving every other occurrence untouched. */
-/** 中文说明：函数 applyFixtureMessageIds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 applyFixtureMessageIds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function applyFixtureMessageIds(content: string, replacements: ReadonlyMap<string, string>): string {
   return content.split('\n').map((line) => {
     if (line.trim().length === 0) return line
@@ -783,7 +856,12 @@ function applyFixtureMessageIds(content: string, replacements: ReadonlyMap<strin
  * @param fixtures Existing fixture contents in matching order; missing fixtures may be empty strings.
  * @returns The fresh contents with only reusable message UUIDs replaced.
  */
-/** 中文说明：函数 stabilizeFixtureMessageIds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 stabilizeFixtureMessageIds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param logs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fixtures 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function stabilizeFixtureMessageIds(logs: readonly string[], fixtures: readonly string[]): string[] {
   /** 中文说明：变量 replacements 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const replacements = fixtureMessageIdReplacements(logs, fixtures)
@@ -791,7 +869,7 @@ export function stabilizeFixtureMessageIds(logs: readonly string[], fixtures: re
 }
 
 /** One packed row's member times, or `undefined` for an ordinary record. */
-/** 中文说明：函数 packedTimes 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 packedTimes 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function packedTimes(record: Record<string, unknown>): number[] | undefined {
   if (!PACKED_CHUNK_ROW_TYPES.has(record.type as string)) return undefined
   /** 中文说明：变量 row 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -804,7 +882,7 @@ function packedTimes(record: Record<string, unknown>): number[] | undefined {
 }
 
 /** Expand packed timing envelopes so refresh alignment follows logical events, not physical lines. */
-/** 中文说明：函数 logicalRecords 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 logicalRecords 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function logicalRecords(records: Record<string, unknown>[]): Record<string, unknown>[] {
   return records.flatMap((record) => {
     /** 中文说明：变量 times 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -822,7 +900,11 @@ function logicalRecords(records: Record<string, unknown>[]): Record<string, unkn
  * @param rawLog The session JSONL to inspect.
  * @returns The failing call ids in log order, using a diagnostic placeholder when absent.
  */
-/** 中文说明：函数 unknownToolCallIds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 unknownToolCallIds 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param rawLog 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function unknownToolCallIds(rawLog: string): string[] {
   return parseJsonlRecords(rawLog).flatMap((record) => {
     if (record.type !== 'tool/result') return []
@@ -852,7 +934,12 @@ export function unknownToolCallIds(rawLog: string): string[] {
  * @param fixtures The existing fixture contents, in matching order.
  * @returns Literal replacements from fresh values to the fixture's existing values.
  */
-/** 中文说明：函数 refreshFixtureReplacements 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 refreshFixtureReplacements 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param logs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fixtures 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function refreshFixtureReplacements(logs: HarvestedLog[], fixtures: string[]): FixtureReplacement[] {
   /** 中文说明：变量 replacements 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const replacements: FixtureReplacement[] = []
@@ -916,7 +1003,7 @@ function preserveFixtureVolatiles(record: Record<string, unknown>, existing: Rec
 }
 
 /** Carry logical member times into a fresh packed row while leaving its fragment arrays untouched. */
-/** 中文说明：函数 preservePackedMemberTimes 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 preservePackedMemberTimes 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function preservePackedMemberTimes(
   record: Record<string, unknown>,
   existingMembers: Record<string, unknown>[],
@@ -941,7 +1028,7 @@ function preservePackedMemberTimes(
 }
 
 /** Whether a parsed JSON value is a non-array object. */
-/** 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -950,7 +1037,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * Reuse existing leaves whose normalized values equal the fresh values.
  * Objects merge by key; arrays merge only when their positions still align.
  */
-/** 中文说明：函数 preserveNormalizedVolatiles 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 preserveNormalizedVolatiles 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function preserveNormalizedVolatiles(
   fresh: unknown,
   existing: unknown,
@@ -1012,7 +1099,7 @@ function preserveNormalizedVolatiles(
 }
 
 /** Normalize one aligned record with the same contract used by fixture comparison. */
-/** 中文说明：函数 normalizedRefreshRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 normalizedRefreshRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function normalizedRefreshRecord(
   record: Record<string, unknown>,
   context: NormalizeContext,
@@ -1024,7 +1111,7 @@ function normalizedRefreshRecord(
  * Add normalized-equivalent string replacements to a bijection.
  * Structural differences are fresh-owned and therefore contribute no mapping.
  */
-/** 中文说明：函数 collectNormalizedStringMappings 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 collectNormalizedStringMappings 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function collectNormalizedStringMappings(
   fresh: unknown,
   existing: unknown,
@@ -1105,7 +1192,7 @@ function collectNormalizedStringMappings(
  * Build a log-wide bijection for normalized-equivalent strings.
  * Any unexplained record mismatch or conflicting replacement disables reuse.
  */
-/** 中文说明：函数 normalizedStringMappings 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 normalizedStringMappings 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function normalizedStringMappings(
   records: Record<string, unknown>[],
   freshRecords: Record<string, unknown>[],
@@ -1177,7 +1264,14 @@ function normalizedStringMappings(
  * @param freshContext The harvested run's ids, cwd, and every cwd alias.
  * @returns The stabilized JSONL content to write back.
  */
-/** 中文说明：函数 stabilizeRefreshLog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 stabilizeRefreshLog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param fresh 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param existing 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param replacements 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param freshContext 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function stabilizeRefreshLog(
   fresh: string,
   existing: string,
@@ -1257,7 +1351,10 @@ export function stabilizeRefreshLog(
  *
  * @param options The agent, snapshots directory, scenario table, and mode.
  */
-/** 中文说明：函数 defineAcpSnapshotSuite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 defineAcpSnapshotSuite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
   const { agent, snapshotsDir, scenarios, mode } = options
   /** 中文说明：常量 RECORDING 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
@@ -1270,7 +1367,7 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
   const scenarioSuite = mode === 'replay' ? describe.concurrent : describe
 
   /** The class a scenario's header composition belongs to (see {@link Scenario.headerClass}). */
-  /** 中文说明：函数值 classOf 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+  /* 中文说明：函数值 classOf 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const classOf = (scenario: Scenario): string => scenario.headerClass ?? 'default'
 
   /** 中文说明：变量 scenariosByName 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -1290,7 +1387,7 @@ export function defineAcpSnapshotSuite(options: SnapshotSuiteOptions): void {
   }
 
   /** Each header class's single pinning scenario. Guarded here (and by meta-tests) so a pin cannot silently vanish or split. */
-  /** 中文说明：变量 pinningByClass 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  /* 中文说明：变量 pinningByClass 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pinningByClass = new Map<string, Scenario>()
   /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const scenario of scenarios) {

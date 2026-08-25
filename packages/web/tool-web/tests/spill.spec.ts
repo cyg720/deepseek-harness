@@ -6,7 +6,7 @@
  * tool-specific spill code, and the model-facing text changes ONLY by the
  * deliberate spill notice (the full formatted result lands in the spill file).
  */
-/**
+/*
  * 文件职责：验证 spill.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。
@@ -80,7 +80,7 @@ afterEach(async () => {
 })
 
 /** A web_fetch call carrying a session owner (so the policy can scope the spill). */
-/** 中文说明：函数 fetchCall 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fetchCall 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fetchCall(): Promise<{ isError: boolean; content: { type: string; text?: string }[] }> {
   /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = { session: { header: { id: SessionId('web-sess') } } }

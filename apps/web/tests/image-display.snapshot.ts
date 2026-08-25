@@ -22,7 +22,7 @@ import { installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 installAssembledBootEnv()
 
 /** Open the fixture history session (the alpha log carrying the turn-72 image pair) and wait for its gallery. */
-/** 打开带有成对图片的固定历史会话并等待图片列表完成渲染。 */
+/* 打开带有成对图片的固定历史会话并等待图片列表完成渲染。 */
 async function openFixtureSession(): Promise<void> {
   /** 会话侧栏的无障碍树根节点。 */
   const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })

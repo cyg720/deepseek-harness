@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】全框架 Cordis 面板直接使用的 Host 操作类型定义：停止、删除、读库存
  *             三个动词的签名与结果，以及库存行类型。
@@ -21,7 +21,7 @@ import type {
 } from './events.ts'
 
 /** Result of a panel lifecycle gesture. */
-/**
+/*
  * 面板生命周期操作的结果：成功，或失败附带可展示的消息。
  */
 export type CordisActionResult =
@@ -29,7 +29,7 @@ export type CordisActionResult =
   | { readonly ok: false; readonly message: string }
 
 /** RPC seam kept outside the React surface. */
-/**
+/*
  * 面板用的 RPC 接缝：与 React 组件解耦，便于测试注入与错误折叠。
  */
 export interface CordisDynamicPort {

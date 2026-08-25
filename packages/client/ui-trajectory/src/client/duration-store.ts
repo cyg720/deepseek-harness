@@ -16,7 +16,7 @@ import {
  * Create the browser-wide trajectory duration preference source.
  * @returns a persisted source shared by every session view in one plugin lifecycle.
  */
-/**
+/*
  * 创建浏览器级"轨迹显示实际时长"偏好源。
  * 使用示例：apply 里创建一次，通过 inject 的 hooks 共享给所有会话视图。
  * @returns 一个带持久化的布尔快照存储，插件生命周期内所有会话视图共享。

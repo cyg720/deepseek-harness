@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】pwsh 工具的模型可见结果渲染：把结构化结果（前台结果 / 后台增量读取）
  * 整理成模型看到的纯文本——stdout、带标记的 stderr 分区、沙箱拒绝/运行器失败标记
@@ -36,14 +36,14 @@ import { escalationHintMarker, sandboxDenialMarker } from '@deepseek-ai/dsh-sand
 /* jscpd:ignore-start -- deliberate twin of dsh-tool-bash/render.ts (Agent Note). */
 
 /** Append the truncation notice (with the full-output spill path) to a stream's text. */
-/** 给流文本追加截断通知（含完整输出的 spill 文件路径）；未截断时原样返回。 */
+/* 给流文本追加截断通知（含完整输出的 spill 文件路径）；未截断时原样返回。 */
 function streamText(output: CollectedOutput): string {
   if (!output.truncated) return output.text
   return `${output.text}\n[output truncated; full output: ${output.spillPath ?? '(unavailable)'}]`
 }
 
 /** The renderable foreground result shape (the schema-derived value, no `kind`). */
-/** 可渲染的前台结果形状（来自输出 schema 的值，不含 kind 字段）。 */
+/* 可渲染的前台结果形状（来自输出 schema 的值，不含 kind 字段）。 */
 export interface RenderablePwshResult {
   exitCode: number | null
   signal: string | null
@@ -64,7 +64,7 @@ export interface RenderablePwshResult {
  *   (default `[]`: no hint).
  * @returns the model-facing text: output body (or `(no output)`), then any timeout/signal/exit markers, each on its own line.
  */
-/**
+/*
  * 把一次已完成的运行整理成模型看到的文本：stdout、带标记的 stderr 分区、退出状态标记，
  * 与 bash 工具的故事一致——干净退出（0 且无信号）不产生任何标记。
  * @param result 执行器返回的已完成前台运行
@@ -122,7 +122,7 @@ export function renderPwshResult(
  * @param escalationModes - escalation targets advertised by this composition.
  * @returns the delta text with any loss or sandbox notice appended.
  */
-/**
+/*
  * 把一次后台进程读取整理成模型看到的 job_output 增量：增量 delta 之外，若内存截断丢过
  * 未读字节，追加"丢失读取"通知（含完整流 spill 路径）。
  * @param read 从进程句柄取回的一次增量读取

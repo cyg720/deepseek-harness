@@ -6,7 +6,7 @@
  * prompt's turn/start clears it. The host/session-added frame shares the
  * same predicate function (covered by the workspace spec's frame assertion).
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-blank.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -55,7 +55,7 @@ async function harness(): Promise<{ ctx: Context; api: ApiProxy; attach: (sessio
 }
 
 /** Append the standalone (non-conversation) event family a fresh session can accumulate. */
-/** 中文说明：函数 appendStandalone 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 appendStandalone 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendStandalone(session: Session): void {
   session.append('command/run', {
     commandId: CommandId('blank-cmd-1'), name: 'plan', args: '', source: { kind: 'user' },

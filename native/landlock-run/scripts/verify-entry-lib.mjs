@@ -9,7 +9,7 @@
  * Runs from each entry package's `prepack` hook (pnpm sets the script cwd
  * to the package directory).
  */
-/**
+/*
  * 文件职责：在原生入口包打包前确认必需的 JavaScript 与声明产物真实存在。
  * 技术维度：使用 Node.js 同步文件 API、包清单解析和进程退出码实现 prepack 门禁。
  * 产品维度：防止 files 通配符无匹配时仍生成缺少运行时代码的静默损坏 tarball。

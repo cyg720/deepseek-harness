@@ -41,7 +41,7 @@ export interface AssistantMarkdownProps {
 }
 
 /** Reasoning block as the Think variant summary row (figma 39:28304). */
-/** 中文说明：当前组件的局部值 AssistantMarkdown，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 AssistantMarkdown，由紧邻初始化决定。 */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
   blocks, streaming, interrupted, renderMessageImages, mentions, t,
 }: AssistantMarkdownProps) {

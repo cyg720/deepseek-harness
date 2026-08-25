@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】基于保留的会话列表镜像做纯函数式的子代理（subagent）谱系
  *   聚合：统计每个可能父会话下的子代理后代数量。
@@ -19,7 +19,7 @@
  * uninterrupted subagent subtree.
  * @module @deepseek-ai/dsh-client-runtime/client/sessions/subagent-lineage
  */
-/**
+/*
  * 在保留的会话列表镜像上做纯函数式子代理谱系聚合：普通 fork 会终止传播，
  * 使每个可见会话只拥有自己连续（无中断）的 subagent 子树。
  */
@@ -27,13 +27,13 @@ import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionSummary } from './service.ts'
 
 /** Descendant counts projected for one possible parent session. */
-/** 为某一个可能的父会话投影的后代计数。 */
+/* 为某一个可能的父会话投影的后代计数。 */
 export interface SubagentDescendantSummary {
   /** All descendants connected through uninterrupted subagent-origin lineage. */
-  /** 通过不间断的 subagent 来源谱系连接的全部后代数。 */
+  /* 通过不间断的 subagent 来源谱系连接的全部后代数。 */
   readonly count: number
   /** Descendants whose exact session summary is currently running. */
-  /** 其中概要显示"正在运行"的后代数。 */
+  /* 其中概要显示"正在运行"的后代数。 */
   readonly runningCount: number
 }
 
@@ -44,7 +44,7 @@ export interface SubagentDescendantSummary {
  * @param summaries - retained session summaries keyed by id.
  * @returns descendant totals and running totals keyed by possible parent id.
  */
-/**
+/*
  * 把每个 subagent 后代索引到它通过不间断 subagent 来源链可达的每个祖先
  * 之下。环会软失败；孤儿 owner 在它们的概要到达前只是无害的 Map 键。
  * @param summaries 按 id 键控的保留会话概要。

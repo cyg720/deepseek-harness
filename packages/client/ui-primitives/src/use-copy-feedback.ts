@@ -29,7 +29,7 @@ import { writeClipboard } from './clipboard.ts'
 const COPIED_FEEDBACK_MS = 1000
 
 /** The copy-feedback hook's return: the transient flag and the copy handler. */
-/**
+/*
  * useCopyFeedback 的返回值：瞬时标志 copied 与复制处理器 onCopy。
  */
 export interface CopyFeedback {
@@ -46,7 +46,7 @@ export interface CopyFeedback {
  * @param text - the text to write on copy.
  * @returns the `copied` flag and the `onCopy` handler.
  */
-/**
+/*
  * 将 text 写入剪贴板并附带一秒成功反馈。
  * 使用示例：const { copied, onCopy } = useCopyFeedback(logText)；<button onClick={onCopy}>。
  * @param text - 点击复制时写入剪贴板的文本。

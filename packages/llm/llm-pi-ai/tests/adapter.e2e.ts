@@ -22,7 +22,7 @@ import { assemble, type AssembledResult } from './assemble.ts'
  * Key-gated.
  */
 
-/** 中文说明：测试局部值 FLASH，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 FLASH，由紧邻初始化决定。 */
 const FLASH = 'deepseek-v4-flash'
 /** 中文说明：测试局部值 PRO，由紧邻初始化决定。 */
 const PRO = 'deepseek-v4-pro'

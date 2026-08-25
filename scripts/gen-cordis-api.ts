@@ -3,7 +3,7 @@
  * projection. The generated API module retains this command in its banner,
  * while all extraction, validation, and rendering live in one implementation.
  */
-/**
+/*
  * 文件职责：保留旧命令名，并把 Cordis API 生成请求转交统一目录生成器。
  * 技术维度：使用 ESM 导入复用 `gen-cordis-catalog.ts` 的主函数。
  * 产品维度：贡献者可继续使用稳定命令，同时所有文档生成逻辑只有一个实现。

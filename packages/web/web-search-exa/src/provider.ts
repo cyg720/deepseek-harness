@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】本文件实现 Exa 搜索提供者：把 Exa 搜索 API（POST /search + highlight contents）
  *             适配为 ctx.web 的 WebSearchProvider。

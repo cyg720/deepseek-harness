@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest'
  * Host and Browser bundle handoffs, then crosses the shared `/api` HTTP route.
  */
 
-/** 中文说明：变量 packageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 packageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const packageDir = fileURLToPath(new URL('..', import.meta.url))
 /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(packageDir, '../../..')
@@ -222,7 +222,7 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
 })
 
 /** Execute one ESM script without tsx or a TypeScript loader. */
-/** 中文说明：函数 runPlainNode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 runPlainNode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runPlainNode(script: string): Promise<{
   readonly exitCode: number | null
   readonly stdout: string

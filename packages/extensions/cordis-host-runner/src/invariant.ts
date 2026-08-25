@@ -26,10 +26,10 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-cordis-host-runner'
 
 /** Cordis companion plugin name. */
-/** 本不变量插件在 Cordis 中的注册名。 */
+/* 本不变量插件在 Cordis 中的注册名。 */
 export const name = 'cordis-host-runner-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 前置依赖：需要 invariants 服务存在才能登记本包的不变量。 */
+/* 前置依赖：需要 invariants 服务存在才能登记本包的不变量。 */
 export const inject = ['invariants']
 
 /**
@@ -47,7 +47,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 插件入口：把本包的不变量安装器注册进 invariants 服务，返回卸载函数。
  */
 export const apply = (ctx: Context): Promise<() => void> =>

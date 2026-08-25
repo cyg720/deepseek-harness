@@ -9,7 +9,7 @@
  * the service's in-memory intent. Composition without plan-mode has no `plan`
  * key; unloading the fiber removes it (HMR safety).
  */
-/**
+/*
  * 文件职责：验证 projection.spec.ts 覆盖的计划模式行为、持久化与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身。
  * 产品维度：保障 Agent 使用计划模式时得到稳定且可重放的结果。
@@ -60,7 +60,7 @@ async function harness(withPlanMode: boolean): Promise<Bench> {
 }
 
 /** Append one logged /plan selection record (the executor's command/run shape). */
-/** 中文说明：函数 runPlanCommand 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 runPlanCommand 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runPlanCommand(session: Session, args: string, index: number): CommandId {
   /** 中文说明：变量 commandId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const commandId = CommandId(`plan-proj-${String(index)}`)
@@ -74,13 +74,13 @@ function runPlanCommand(session: Session, args: string, index: number): CommandI
 }
 
 /** Append the paired settlement for one projected plan command. */
-/** 中文说明：函数 settlePlanCommand 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 settlePlanCommand 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function settlePlanCommand(session: Session, commandId: CommandId, kind: 'success' | 'error'): void {
   session.append('command/done', { commandId, kind })
 }
 
 /** Commit one plan/mode flip inside an open turn (the invariant's turn-enclosure rule). */
-/** 中文说明：函数 commitPlanMode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 commitPlanMode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function commitPlanMode(session: Session, active: boolean, turn: number): void {
   session.append('turn/start', { turn })
   session.append('plan/mode', { active })

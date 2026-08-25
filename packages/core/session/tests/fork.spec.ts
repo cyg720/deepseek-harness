@@ -70,7 +70,7 @@ function lastSeq(session: Session): number {
 }
 
 /** A seeded child's constructor seed: its log minus the end-seed marker. */
-/** 中文说明：函数 inherited 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 inherited 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inherited(session: Session): readonly SessionEvent[] {
   /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
   const events = session.events

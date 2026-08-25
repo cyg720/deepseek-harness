@@ -6,7 +6,7 @@
  *
  * @module dsh-session/request-header
  */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】基于完整的 request/header 会话事件做“请求头重建”：任何持有会话日志的人都能取最近一份
  *           规范快照，还原任一请求当时使用的 EpochHeader（调用配置 + 系统提示 + 工具集）；
@@ -36,7 +36,7 @@ import type { EpochHeader, SessionEvent } from './types.ts'
  * @param header - the header to normalize (not mutated).
  * @returns the canonical header.
  */
-/**
+/*
  * 把头部规范化为规范形态：空系统提示与空工具列表变成“字段缺席”，与请求的实际构建方式一致。
  * 写日志、折叠与比较都使用这一种表示。
  * @param header - 待规范化的头部（不会被修改）。
@@ -56,7 +56,7 @@ export function canonicalHeader(header: EpochHeader): EpochHeader {
 }
 
 /** Canonical JSON equality for tool schemas assembled through the same path. */
-/** 对经同一路径组装的工具 schema 做 JSON 字符串相等比较（键顺序一致时可靠）。 */
+/* 对经同一路径组装的工具 schema 做 JSON 字符串相等比较（键顺序一致时可靠）。 */
 function sameSchema(a: ToolSchema, b: ToolSchema): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
@@ -67,7 +67,7 @@ function sameSchema(a: ToolSchema, b: ToolSchema): boolean {
  * @param b - the other.
  * @returns whether config, system, and tools all match.
  */
-/**
+/*
  * 规范化头部之间的逐字段相等比较；工具 schema 按顺序一一比较。
  * @param a - 其中一个规范化头部。
  * @param b - 另一个规范化头部。
@@ -95,7 +95,7 @@ export function headerEquals(a: EpochHeader, b: EpochHeader): boolean {
  * @param from - a previously folded state to continue from.
  * @returns the latest canonical header, or undefined when none exists yet.
  */
-/**
+/*
  * 把一段日志（或任意前缀）中的 request/header 事件折叠为“最后一份快照之后生效”的
  * {@link EpochHeader}；非 header 事件一律跳过。这是纯离线重建路径；
  * 在线会话内部以增量方式维护同样的折叠（见 Session.requestHeader）。

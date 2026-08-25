@@ -71,7 +71,7 @@ async function bench() {
 type HoleName = 'sidebar.workspaces' | 'conversation.hero.workspace' | 'conversation.empty.workspace'
 
 /** Declare any subset of the holes with a single root registration ('root' is a single slot). */
-/** 中文说明：函数 declare 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 declare 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function declare(slots: SlotRegistry, ...names: HoleName[]): () => void {
   /** 中文说明：测试局部值 children，由紧邻初始化决定。 */
   const children = Object.fromEntries(names.map(name => [name, { kind: 'single', scope: 'root' }]))

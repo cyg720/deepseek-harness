@@ -19,7 +19,7 @@ import { decodeWorkerJson, encodeWorkerJson } from '../src/worker-json.ts'
  * every line of worker-side logic runs under coverage without spawning an
  * isolate (real-worker behavior is pinned by runtime.spec.ts).
  */
-/** 中文说明：类型或类 FakePort 约束协议数据或模块职责。 */
+/* 中文说明：类型或类 FakePort 约束协议数据或模块职责。 */
 class FakePort implements BootstrapPort {
   sent: WorkerToHost[] = []
   private readonly emitter = new EventEmitter()
@@ -62,7 +62,7 @@ function fakeStreams(): { stdout: PatchableStream; stderr: PatchableStream } {
 }
 
 /** Capture one promise rejection without Vitest's intentionally `any` matcher channel. */
-/** 中文说明：函数 rejectionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rejectionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
   try {
     await promise
@@ -78,7 +78,7 @@ const BOOT = { maxOutputBytes: 65_536 }
 const TOOL_ERROR_CLASS = { name: 'ToolCallError', memberNameProperty: 'toolName' } as const
 
 /** One worker declaration for the Code Mode tools namespace. */
-/** 中文说明：函数 toolNamespace 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 toolNamespace 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function toolNamespace(names: string[]) {
   return { global: 'tools', names, errorClass: TOOL_ERROR_CLASS }
 }

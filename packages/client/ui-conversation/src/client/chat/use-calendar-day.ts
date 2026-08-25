@@ -22,7 +22,7 @@ import { msUntilNextLocalMidnight, startOfLocalDay } from './message-chrome.ts'
  * Local calendar-day epoch that advances at each local midnight.
  * @returns Midnight ms for the current local day; updates after the boundary.
  */
-/**
+/*
  * 返回当前本地日零点毫秒值，并在每次本地午夜自动前进一步。
  * @returns 当前本地日的零点毫秒；跨过午夜边界后自动更新。
  */

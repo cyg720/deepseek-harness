@@ -4,7 +4,7 @@
  * pass validateArgs, and targeted corruptions must be rejected. This closes the
  * validator/InferArgs drift risk noted in the arg-validation Agent Note.
  */
-/**
+/*
  * 文件职责：验证当前模块的关键行为与边界场景（properties.spec.ts）。
  * 技术维度：TypeScript、Vitest、属性测试或可控测试替身。
  * 产品维度：防止用户可见流程在重构后发生回归。
@@ -20,7 +20,7 @@ import { parameterSchemaSpecToJsonSchema, validateArgs } from '@deepseek-ai/dsh-
 import type { ParameterPropertySpec, ParameterSchemaSpec, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 
 /** Remove parameter-only requiredness before nesting a schema as an array item. */
-/** 中文说明：函数 asValueSchema 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 asValueSchema 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function asValueSchema(prop: ParameterPropertySpec): ValueSchemaSpec {
   const { required: _required, ...schema } = prop
   return schema
@@ -49,7 +49,7 @@ function leafPropArb(): fc.Arbitrary<ParameterPropertySpec> {
 }
 
 /** A prop arbitrary up to `depth` levels of nesting (objects and arrays). */
-/** 中文说明：函数 propArb 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 propArb 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function propArb(depth: number): fc.Arbitrary<ParameterPropertySpec> {
   if (depth <= 0) return leafPropArb()
   return fc.oneof(
@@ -82,7 +82,7 @@ function specArb(depth: number): fc.Arbitrary<ParameterSchemaSpec> {
 }
 
 /** Generate a value that satisfies a prop (used to build valid args). */
-/** 中文说明：函数 valueForProp 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 valueForProp 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function valueForProp(prop: ParameterPropertySpec): fc.Arbitrary<unknown> {
   if ('oneOf' in prop) return fc.oneof(...prop.oneOf.map(valueForProp))
   if ('const' in prop) return fc.constant(prop.const)
@@ -99,7 +99,7 @@ function valueForProp(prop: ParameterPropertySpec): fc.Arbitrary<unknown> {
 }
 
 /** Generate args satisfying every required key of a spec (optionals included randomly). */
-/** 中文说明：函数 validArgsForSpec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 validArgsForSpec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function validArgsForSpec(spec: ParameterSchemaSpec): fc.Arbitrary<Record<string, unknown>> {
   /** 中文说明：变量 entries 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entries = Object.entries(spec)
@@ -124,7 +124,7 @@ function validArgsForSpec(spec: ParameterSchemaSpec): fc.Arbitrary<Record<string
 }
 
 /** Collect the `required: true` keys at the top level of a spec. */
-/** 中文说明：函数 requiredKeys 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 requiredKeys 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function requiredKeys(spec: ParameterSchemaSpec): string[] {
   return Object.entries(spec).filter(([, p]) => p.required === true).map(([k]) => k)
 }

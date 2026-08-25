@@ -1,5 +1,5 @@
 /** Schedule-owned use of the shared session durability barrier. */
-/**
+/*
  * 文件职责：为定时任务提供会话持久化屏障，并把底层失败包装成领域错误。
  * 技术维度：使用 Cordis 会话服务、异步 flush 和带 cause 的自定义 Error。
  * 产品维度：确保定时任务状态在继续执行前至少被一个持久化监听器确认写入。
@@ -12,13 +12,13 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Session } from '@deepseek-ai/dsh-session'
 
 /** Failure to prove that the current live prefix reached a persistence listener. */
-/** 无法证明当前会话前缀已到达持久化监听器时抛出的定时任务领域错误。 */
+/* 无法证明当前会话前缀已到达持久化监听器时抛出的定时任务领域错误。 */
 export class SchedulePersistenceError extends Error {
   /**
    * Construct a contained persistence failure.
    * @param cause - Rejection returned by the shared barrier, when present.
    */
-  /** 构造持久化失败。@param cause 共享屏障返回的可选原始错误。@example new SchedulePersistenceError(error)。 */
+  /* 构造持久化失败。@param cause 共享屏障返回的可选原始错误。@example new SchedulePersistenceError(error)。 */
   constructor(cause?: unknown) {
     super('Schedule persistence did not complete.', cause === undefined ? undefined : { cause })
     this.name = 'SchedulePersistenceError'
@@ -31,7 +31,7 @@ export class SchedulePersistenceError extends Error {
  * @param session - Exact live session to checkpoint.
  * @returns After at least one listener explicitly acknowledges completed durability work.
  */
-/**
+/*
  * 等待一次成功的共享持久化检查点。
  * @param ctx 提供实时会话存储的 Cordis 上下文。
  * @param session 必须持久化的当前会话实例。

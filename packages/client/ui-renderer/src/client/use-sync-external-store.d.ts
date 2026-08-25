@@ -3,7 +3,7 @@
  * and the DefinitelyTyped package is unavailable offline. Mirrors the shim's
  * with-selector build (the only entry this package consumes).
  */
-/**
+/*
  * 文件职责：为离线缺少类型的外部 store selector shim 补充精确声明。
  * 技术维度：使用泛型环境模块声明描述订阅、快照、选择器和相等比较函数。
  * 产品维度：React 界面只在选中状态真实变化时重渲染，保持外部 store 响应性。

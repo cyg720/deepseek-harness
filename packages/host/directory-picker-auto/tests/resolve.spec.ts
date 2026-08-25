@@ -15,7 +15,7 @@ import { resolveDirectoryPickerBackend } from '../src/resolve.ts'
 import type { DirectoryPickerHostFacts } from '../src/resolve.ts'
 
 /** Baseline facts that resolve to `native`; each case overrides one signal (darwin never consults `linuxChooser`). */
-/** 中文说明：测试局部值 attended，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 attended，由紧邻初始化决定。 */
 const attended: DirectoryPickerHostFacts = {
   bindHost: '127.0.0.1',
   platform: 'darwin',

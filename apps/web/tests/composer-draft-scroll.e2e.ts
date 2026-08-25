@@ -59,18 +59,18 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-draft-scroll', 
  * makes a shift in the cap or in the layer coupling a reviewable diff rather
  * than an assertion someone has to reconstruct.
  */
-/** 记录编辑器两层滚动关系而非可访问文本的几何黄金文件。 */
+/* 记录编辑器两层滚动关系而非可访问文本的几何黄金文件。 */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 
 /** Marks the first and last line so a Range can find them in the backdrop's text. */
-/** 第一行标记，供 Range 在装饰文本中定位。 */
+/* 第一行标记，供 Range 在装饰文本中定位。 */
 const FIRST_MARKER = 'FIRST-LINE-MARKER'
 /** 最后一行标记，供 Range 在装饰文本中定位。 */
 const LAST_MARKER = 'LAST-LINE-MARKER'
 /** Comfortably past the 14-line cap, so the draft overflows however the lines wrap. */
-/** 明显超过 14 行上限的草稿行数。 */
+/* 明显超过 14 行上限的草稿行数。 */
 const DRAFT_LINES = 40
 /** 带首尾标记的 40 行标准长草稿。 */
 const DRAFT = Array.from({ length: DRAFT_LINES }, (_unused, index) => {
@@ -87,11 +87,11 @@ const DRAFT = Array.from({ length: DRAFT_LINES }, (_unused, index) => {
  * and so decides the height for both, which is why the backdrop needs no
  * padding of its own — but only a draft with a trailing newline can show it.
  */
-/** 末尾带换行的长草稿，用于验证光标保留的最终空行。 */
+/* 末尾带换行的长草稿，用于验证光标保留的最终空行。 */
 const DRAFT_TRAILING_NEWLINE = `${DRAFT}\n`
 
 /** The composer's text layers as the browser lays them out. */
-/** 浏览器实际布局出的编辑器滚动、宽度和光标文字对齐指标。 */
+/* 浏览器实际布局出的编辑器滚动、宽度和光标文字对齐指标。 */
 interface ComposerMetrics {
   /** True when the draft is taller than the capped box — the situation under test. */
   overflows: boolean
@@ -143,7 +143,7 @@ interface ComposerMetrics {
  * @param page - the page under test.
  * @returns the offset, the caret-to-glyph gap, and where the draft's first and last lines sit.
  */
-/**
+/*
  * 在光标坐标系内测量编辑器三层布局。
  * @param page 当前真实浏览器页面。
  * @returns 滚动范围、换行宽度、光标文字间距和首尾行位置。
@@ -176,7 +176,7 @@ function measureComposer(page: Page): Promise<ComposerMetrics> {
     /** textarea 计算后的单行高度。 */
     const lineHeight = Number.parseFloat(getComputedStyle(input).lineHeight)
     /** Where the backdrop paints the line holding `marker`, in viewport coordinates. */
-    /** 返回 backdrop 中目标标记所在文字框的视口顶部坐标。 */
+    /* 返回 backdrop 中目标标记所在文字框的视口顶部坐标。 */
     const glyphTop = (marker: string): number => {
       /** 标记在完整装饰文本中的字符偏移。 */
       const at = text.data.indexOf(marker)
@@ -244,7 +244,7 @@ function measureComposer(page: Page): Promise<ComposerMetrics> {
  * @param pasted - metrics right after a long block was pasted at the draft's end.
  * @returns the golden body, without a trailing newline.
  */
-/** 把四种编辑器状态转换为只包含跨平台关系的 Markdown 黄金正文。 */
+/* 把四种编辑器状态转换为只包含跨平台关系的 Markdown 黄金正文。 */
 function renderGeometry(
   top: ComposerMetrics, bottom: ComposerMetrics, trailingNewline: ComposerMetrics, pasted: ComposerMetrics,
 ): string {

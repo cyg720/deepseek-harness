@@ -36,23 +36,23 @@ import { SearchRow, searchToolview } from '../src/client/tool/toolviews/search-r
 import { renderToolDetails, SessionProviderStub, toolChatSnapshot } from './tool-details-render.client.tsx'
 
 /** SearchRow now composes ToolRow, so its props include the locale `t` seat. */
-/** 中文说明：类型或类 SearchRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 SearchRowProps 约束工具或轨迹数据职责。 */
 type SearchRowProps = Parameters<typeof SearchRow>[0]
 
 afterEach(cleanup)
 
 /** Conversation-locale translate stub for the render sites' `t` seat. */
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: GenericToolCardProps['t'] = makeTranslate(zh, commonZh)
 
 /** The rendered search card's kind attribute, so a render site cannot silently drop it. */
-/** 中文说明：函数 searchKindOf 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 searchKindOf 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function searchKindOf(container: HTMLElement): string | null {
   return container.querySelector('[data-search]')?.getAttribute('data-search') ?? null
 }
 
 /** The rendered result rows of the search card, one string per visible row. */
-/** 中文说明：函数 searchRows 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 searchRows 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function searchRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[data-search] [class^="_line_"]')].map(row => row.textContent ?? '')
 }
@@ -66,7 +66,7 @@ const GREP_ARGS = '{"pattern":"foo","path":"src"}'
 const GLOB_ARGS = '{"pattern":"**/*.ts","path":"src"}'
 
 /** A grep result view: matches grouped by file. */
-/** 中文说明：测试局部值 resultMatches，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 resultMatches，由紧邻初始化决定。 */
 const resultMatches = (over?: Partial<Extract<ToolResultView, { card: 'search'; shape: 'matches' }>>): ToolResultView => ({
   card: 'search', shape: 'matches',
   files: [
@@ -77,7 +77,7 @@ const resultMatches = (over?: Partial<Extract<ToolResultView, { card: 'search'; 
 })
 
 /** A glob result view: a flat path list. */
-/** 中文说明：测试局部值 resultPaths，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 resultPaths，由紧邻初始化决定。 */
 const resultPaths = (over?: Partial<Extract<ToolResultView, { card: 'search'; shape: 'paths' }>>): ToolResultView => ({
   card: 'search', shape: 'paths', paths: ['src/a.ts', 'src/b.ts'], truncated: false, total: 2, ...over,
 })
@@ -220,7 +220,7 @@ describe('chat row search body (GenericToolCard fallback)', () => {
     callId: 'c1', toolName, block, openFile: vi.fn(), t,
   })
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
-  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }
@@ -278,7 +278,7 @@ describe('SearchRow keyed card', () => {
   } as unknown as SearchRowProps)
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
-  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }

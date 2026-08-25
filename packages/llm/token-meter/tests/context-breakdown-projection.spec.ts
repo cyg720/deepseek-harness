@@ -69,7 +69,7 @@ function appendUser(session: Session, text: string): number {
  * replaced span from the measurement service's own nodes and log the
  * shadow-price event directly before the replace.
  */
-/** 中文说明：函数 appendSummaryMeter 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 appendSummaryMeter 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function appendSummaryMeter(ctx: Context, session: Session, start: number, end: number): void {
   /** 中文说明：变量 nodes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const nodes = ctx.tokenMeter.measure(session).nodes

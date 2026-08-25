@@ -1,5 +1,5 @@
 /** Package-owned background-job snapshot invariants. @module @deepseek-ai/dsh-jobs/invariant */
-/**
+/*
  * 文件职责：实现后台任务的 invariant.ts 模块。
  * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
  * 产品维度：保证后台任务在授权、等待、失败和清理场景中可靠。
@@ -19,14 +19,14 @@ const PACKAGE_NAME = '@deepseek-ai/dsh-jobs'
 const TERMINAL_STATUSES = new Set(['completed', 'killed', 'failed'])
 
 /** Cordis companion plugin name. */
-/** 中文说明：服务局部值 name，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 name，由紧邻初始化决定。 */
 export const name = 'jobs-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文说明：服务局部值 inject，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 inject，由紧邻初始化决定。 */
 export const inject = ['invariants']
 
 /** Validate the cross-field relationships in one registry snapshot. */
-/** 中文说明：函数 validateSnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 validateSnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateSnapshot(snapshot: JobSnapshot, owner: Agent | undefined, fail: InvariantFailure): void {
   /** 中文说明：服务局部值 id，由紧邻初始化决定。 */
   const id = String(snapshot.id)
@@ -61,7 +61,7 @@ function validateSnapshot(snapshot: JobSnapshot, owner: Agent | undefined, fail:
 }
 
 /** Install checks over current unowned records and every terminal snapshot. */
-/** 中文说明：服务局部值 install，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 install，由紧邻初始化决定。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** 中文说明：服务局部值 snapshot，由紧邻初始化决定。 */
   for (const snapshot of ctx.jobs.list()) validateSnapshot(snapshot, undefined, fail)
@@ -73,6 +73,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文说明：服务局部值 apply，由紧邻初始化决定。 */
+/* 中文说明：服务局部值 apply，由紧邻初始化决定。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

@@ -3,7 +3,7 @@
  * a fired key must already carry a bumped version (emission follows the
  * applied mutation), bogus payloads fail loud, foreign events pass.
  */
-/**
+/*
  * 文件职责：验证插槽变更事件只能在对应插槽版本完成递增后发出。
  * 技术维度：使用 Vitest、Cordis 插件上下文和真实 SlotRegistry 检查事件顺序。
  * 产品维度：避免界面监听方收到尚未应用的插槽状态，从而减少渲染不同步问题。

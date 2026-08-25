@@ -11,7 +11,7 @@ import { ImageGallery } from '../MessageImage.tsx'
 import { messageImageLabels } from './labels.ts'
 
 /** Historical message-image slot entry. */
-/**
+/*
  * 历史消息图片插槽入口。
  * @param images 要展示的图片描述列表；为空时画廊按自身规则渲染。
  * @param loadImage 根据图片描述异步取得可显示内容的加载函数。

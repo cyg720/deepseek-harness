@@ -97,7 +97,7 @@ const EMPTY_LEXICON: ReadonlyMap<'/' | '@', readonly string[]> = new Map()
  * The per-session input facade: scoped-event application verbs +
  * setDraft/submit + the published InputState store.
  */
-/**
+/*
  * 每会话输入门面：作用域事件动词 + setDraft/submit + 发布的 InputState store。
  */
 export class SessionInputShell implements SessionInput {

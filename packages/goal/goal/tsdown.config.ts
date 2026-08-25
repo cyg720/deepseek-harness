@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and invariant companion as independent bundles. */
-/**
+/*
  * 文件职责：配置目标能力主包及其不变量伴生模块的独立构建。
  * 技术维度：使用 tsdown 输出面向 Node.js 2024 的 ESM，并复用 tsc 生成的中间入口。
  * 产品维度：提供目标创建、更新等核心能力的可装配运行时和一致性检查入口。

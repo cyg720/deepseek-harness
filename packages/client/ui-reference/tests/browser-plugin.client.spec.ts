@@ -3,7 +3,7 @@
  * deterministic ordering and labels, quoted-path suppression, pick projections, codec
  * round-trip, and registration lifecycle.
  */
-/**
+/*
  * 文件职责：验证引用插件的 browser-plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
  * 产品维度：防止引用插件的展示、作用域或交互回归。

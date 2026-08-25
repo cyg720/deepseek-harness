@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】把服务端权威顺序（baseline）合并进客户端已有顺序：不移动
  *   客户端已可见实体的位置，插入 baseline 新增实体，移除 baseline 缺失实体。
@@ -23,7 +23,7 @@
  * @param keyOf - stable identity selector.
  * @returns baseline-valued rows with the established relative order retained.
  */
-/**
+/*
  * 合并权威基线：不移动客户端已可见实体的身份。仅基线中的实体按"最近的后继
  * 已知实体"插入；基线缺失的实体被移除。
  * @param current 客户端已建立的顺序（旧列表）。

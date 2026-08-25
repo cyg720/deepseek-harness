@@ -25,7 +25,7 @@ import { usePointerGrace } from './pointer-grace.ts'
 import css from './Menu.module.css'
 
 /** Selectable row (optionally with a nested submenu). */
-/** 中文说明：类型或类 MenuItem 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 MenuItem 约束基础组件的数据或职责。 */
 export interface MenuItem {
   id: string
   label: ReactNode
@@ -39,14 +39,14 @@ export interface MenuItem {
 }
 
 /** Hairline between item groups (not selectable). */
-/** 中文说明：类型或类 MenuSeparator 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 MenuSeparator 约束基础组件的数据或职责。 */
 export interface MenuSeparator {
   type: 'separator'
   id: string
 }
 
 /** Non-interactive heading row above a group of items. */
-/** 中文说明：类型或类 MenuLabel 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 MenuLabel 约束基础组件的数据或职责。 */
 export interface MenuLabel {
   type: 'label'
   id: string
@@ -54,7 +54,7 @@ export interface MenuLabel {
 }
 
 /** One primary-menu entry: a row, a separator, or a heading label. */
-/** 中文说明：类型或类 MenuEntry 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 MenuEntry 约束基础组件的数据或职责。 */
 export type MenuEntry = MenuItem | MenuSeparator | MenuLabel
 
 /** 中文说明：函数 isSeparator 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
@@ -68,7 +68,7 @@ function isLabel(entry: MenuEntry): entry is MenuLabel {
 }
 
 /** Unplaced portal list: hidden but laid out at a fixed origin so offsetWidth/offsetHeight are real. */
-/** 中文说明：组件局部值 MEASURE_STYLE，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 MEASURE_STYLE，由紧邻初始化决定。 */
 const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 
 /**
@@ -102,7 +102,7 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * by a hairline; they stay visible while the items above scroll.
  * @returns anchor wrapper with the conditional list.
  */
-/** 中文说明：函数 Menu 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 Menu 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, getAnchorRect, footer, className }: {
   open: boolean
   anchor: ReactNode

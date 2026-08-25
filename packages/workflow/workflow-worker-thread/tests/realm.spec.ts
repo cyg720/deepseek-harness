@@ -11,13 +11,13 @@ import * as vm from 'node:vm'
 import { materializeFromRealm, MaterializeError, renderThrown } from '../src/realm.ts'
 
 /** Evaluate an expression inside a fresh vm realm and hand back the raw realm value. */
-/** 中文说明：函数 inRealm 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 inRealm 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function inRealm(expression: string): unknown {
   return vm.runInNewContext(`(${expression})`)
 }
 
 /** The MaterializeError message for a value that must be rejected (throws if accepted). */
-/** 中文说明：函数 rejection 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 rejection 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function rejection(value: unknown): string {
   try {
     materializeFromRealm(value)

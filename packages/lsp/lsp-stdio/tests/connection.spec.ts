@@ -17,7 +17,7 @@ import { spawnSubprocess } from '@deepseek-ai/dsh-subprocess-local/src/spawn.ts'
 const fixtureServer = fileURLToPath(new URL('./fixture-server.ts', import.meta.url))
 
 /** A recorded server→client request the test's handler saw. */
-/** 中文说明：interface SeenRequest 定义本测试所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface SeenRequest 定义本测试所需的数据或行为，用于表达当前协议场景。 */
 interface SeenRequest { method: string; params: unknown }
 
 /** 中文说明：变量 open 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -33,7 +33,7 @@ afterEach(async () => {
 })
 
 /** Spawn the fixture as a raw connection, with a scripted server-request handler. */
-/** 中文说明：函数 connect 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 connect 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function connect(
   env: Record<string, string>,
   onServerRequest: (method: string, params: unknown) => Promise<unknown> = () => Promise.resolve(null),
@@ -173,7 +173,7 @@ describe('LspConnection', () => {
 })
 
 /** Spawn a raw connection running an inline node script as the "server". */
-/** 中文说明：函数 connectScript 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 connectScript 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function connectScript(script: string, maxStderrBytes = 100_000, writer?: ConnectionWriter): LspConnection {
   /** 中文说明：变量 conn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const conn = new LspConnection({
@@ -299,7 +299,7 @@ describe('LspConnection edge behavior', () => {
 })
 
 /** Poll a predicate until it holds or a deadline elapses. */
-/** 中文说明：函数 waitFor 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 waitFor 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function waitFor(predicate: () => boolean, timeoutMs = 3000): Promise<void> {
   /** 中文说明：变量 start 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const start = Date.now()

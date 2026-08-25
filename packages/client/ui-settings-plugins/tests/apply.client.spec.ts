@@ -1,5 +1,5 @@
 /** What the browser half registers, and that it all leaves with the fiber. */
-/**
+/*
  * 文件职责：验证插件配置的 apply.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止插件配置保存、发现和错误提示回归。
@@ -28,7 +28,7 @@ import type {
  * @param served - namespaces the Host describes; omitted answers a failed read,
  * which is what most of these specs want (no card has anything to render).
  */
-/** 中文说明：函数 bench 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 async function bench(served?: string[]) {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

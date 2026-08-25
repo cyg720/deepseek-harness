@@ -4,7 +4,7 @@
  * removal — HMR safety), the inert node entry, and the invariant companion's
  * ownership reservation.
  */
-/**
+/*
  * 文件职责：验证任务列表的 browser-plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染和可控服务替身。
  * 产品维度：防止任务列表用户流程回归。
@@ -24,7 +24,7 @@ import * as JobInvariant from '../src/invariant.ts'
 import { en, NS, zh } from '../src/client/locales.ts'
 
 /** Slot ledger reader: entry ids currently registered in the header list. */
-/** 中文说明：函数 headerEntryIds 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 headerEntryIds 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function headerEntryIds(ctx: Context): (string | undefined)[] {
   return ctx.slots
     .entries('conversation.session.header.actions')
@@ -32,7 +32,7 @@ function headerEntryIds(ctx: Context): (string | undefined)[] {
 }
 
 /** Boot the browser half over a real slot tree that declares the header list. */
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']> }> {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()

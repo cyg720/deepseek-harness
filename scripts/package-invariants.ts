@@ -3,7 +3,7 @@
  * The runtime registry stays product-independent; this gate makes ownership
  * exhaustive across packages without centralizing package checks.
  */
-/**
+/*
  * 文件职责：实现 package-invariants.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -17,7 +17,7 @@ import { dirname, relative, resolve, sep } from 'node:path'
 import ts from 'typescript'
 
 /** Required explanation marker for an intentionally empty installer. */
-/** 中文说明：常量 NO_RUNTIME_INVARIANT_MARKER 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 NO_RUNTIME_INVARIANT_MARKER 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const NO_RUNTIME_INVARIANT_MARKER = 'No runtime invariant:'
 
 /** 中文说明：interface PackageManifest 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
@@ -30,7 +30,7 @@ interface PackageManifest {
 }
 
 /** One package and the files participating in its invariant publication rules. */
-/** 中文说明：interface PackageInvariantOwner 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface PackageInvariantOwner 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface PackageInvariantOwner {
   readonly dir: string
   readonly manifestPath: string
@@ -39,14 +39,14 @@ export interface PackageInvariantOwner {
 }
 
 /** One gate violation with a repo-relative owner path. */
-/** 中文说明：interface PackageInvariantViolation 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface PackageInvariantViolation 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface PackageInvariantViolation {
   readonly path: string
   readonly message: string
 }
 
 /** Discover every package under the repository package tree. */
-/** 中文说明：函数 packageInvariantOwners 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 packageInvariantOwners 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function packageInvariantOwners(root: string): PackageInvariantOwner[] {
   return globSync('packages/*/*/package.json', { cwd: root })
     .map(path => path.split(sep).join('/'))
@@ -69,7 +69,7 @@ export function packageInvariantOwners(root: string): PackageInvariantOwner[] {
 }
 
 /** Return all violations of the package-invariant companion rules. */
-/** 中文说明：函数 collectPackageInvariantViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectPackageInvariantViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectPackageInvariantViolations(root: string): PackageInvariantViolation[] {
   /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: PackageInvariantViolation[] = []
@@ -427,7 +427,7 @@ function hasDefaultExport(sourceFile: ts.SourceFile): boolean {
 }
 
 /** Format violations for the command-line gate. */
-/** 中文说明：函数 formatPackageInvariantViolation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 formatPackageInvariantViolation 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function formatPackageInvariantViolation(
   root: string,
   violation: PackageInvariantViolation,

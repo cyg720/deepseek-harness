@@ -7,7 +7,7 @@
  * @module @deepseek-ai/dsh-settings-file
  */
 
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现"文件型设置提供者"（FileSettingsProvider）：把用户设置以单个 YAML/JSON 文档存
  *   在 harness 主目录下，充当 dsh-settings 能力缝的 Provider 角色，负责读取、持久化与热更新。

@@ -27,7 +27,7 @@ import { memoryAuth } from './auth-double.ts'
 afterEach(() => { streamSimple.mockReset() })
 
 /** A hand-declared OpenAI-compatible route with one fully described model. */
-/** 中文说明：函数 gatewayAdapter 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
+/* 中文说明：函数 gatewayAdapter 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function gatewayAdapter(): PiAiAdapter {
   return new PiAiAdapter({
     profiles: () => resolveProfiles({

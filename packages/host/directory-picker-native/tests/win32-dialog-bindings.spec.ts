@@ -7,7 +7,7 @@
  * boundary (env title + `process.send`). Real-COM behavior is pinned by the
  * win32-only smoke in win32-dialog.spec.ts.
  */
-/**
+/*
  * 文件职责：验证宿主目录选择的 win32-dialog-bindings.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -28,7 +28,7 @@ const WM_CLOSE = 0x10
  * sizes from koffi.sizeof('void *'), and a hardcoded 8 anywhere fails against
  * this width (the win32-ia32 bug class).
  */
-/** 中文说明：测试局部值 FAKE_POINTER_SIZE，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 FAKE_POINTER_SIZE，由紧邻初始化决定。 */
 const FAKE_POINTER_SIZE = 4
 
 /** 中文说明：类型或类 ComWorld 约束 API、Hook 或目录数据职责。 */
@@ -67,7 +67,7 @@ function comWorld(overrides: Partial<ComWorld> = {}): ComWorld {
 }
 
 /** Sentinel pointer objects standing in for native addresses. */
-/** 中文说明：类型或类 FakePtr 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 FakePtr 约束 API、Hook 或目录数据职责。 */
 interface FakePtr { kind: string; [key: string]: unknown }
 
 /** 中文说明：函数 installFakeKoffi 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */

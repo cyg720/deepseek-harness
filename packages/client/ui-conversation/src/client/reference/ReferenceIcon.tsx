@@ -4,11 +4,11 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Reference domains with distinct composer and transcript glyphs. */
-/** 中文：具有不同输入区和对话图标的三种引用领域。 */
+/* 中文：具有不同输入区和对话图标的三种引用领域。 */
 export type ReferenceIconKind = 'session' | 'file' | 'folder'
 
 /** Props shared by inline reference glyphs. */
-/** 中文：行内引用图标的公共属性。 */
+/* 中文：行内引用图标的公共属性。 */
 export interface ReferenceIconProps {
   /** 引用对象类型，决定选择哪个图标。 */
   kind: ReferenceIconKind
@@ -23,7 +23,7 @@ export interface ReferenceIconProps {
  * @param props - Reference kind, optional size, and optional CSS class.
  * @returns The corresponding current-color SVG glyph.
  */
-/** 中文：渲染 kind 对应的 currentColor SVG；size 默认 16，返回 ReactNode。示例：<ReferenceIcon kind="file" />。 */
+/* 中文：渲染 kind 对应的 currentColor SVG；size 默认 16，返回 ReactNode。示例：<ReferenceIcon kind="file" />。 */
 export function ReferenceIcon({ kind, size = 16, className }: ReferenceIconProps): ReactNode {
   switch (kind) {
     case 'session':

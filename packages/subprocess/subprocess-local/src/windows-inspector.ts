@@ -35,34 +35,34 @@ import type { SubprocessTerminalSignal } from '@deepseek-ai/dsh-subprocess'
 import type { ProcessIdentity, ProcessInspector } from './process-inspector.ts'
 
 /** One Toolhelp32 process-table row. */
-/** 一行 Toolhelp32 进程表记录。 */
+/* 一行 Toolhelp32 进程表记录。 */
 export interface ProcessEntry {
   pid: number
   parentPid: number
 }
 
 /** Creation identity plus the process object's current wait state. */
-/** 创建时间身份加进程对象的当前等待态。 */
+/* 创建时间身份加进程对象的当前等待态。 */
 export interface WindowsProcessState {
   /** GetProcessTimes creation identity used to fence PID reuse. */
-  /** 用于围栏 PID 复用的 GetProcessTimes 创建时间身份。 */
+  /* 用于围栏 PID 复用的 GetProcessTimes 创建时间身份。 */
   started: string
   /** Whether a zero-time process-handle wait reports the process still running. */
-  /** 零时长进程句柄等待是否报告进程仍在运行。 */
+  /* 零时长进程句柄等待是否报告进程仍在运行。 */
   active: boolean
 }
 
 /** Injectable Windows process operations used by one local PTY session. */
-/** 一个本地 PTY 会话使用的可注入 Windows 进程操作。 */
+/* 一个本地 PTY 会话使用的可注入 Windows 进程操作。 */
 export interface WindowsProcessInspectorInternals {
   /** Enumerate the current process table (pid/parent pairs). */
-  /** 枚举当前进程表（pid/父 pid 对）。 */
+  /* 枚举当前进程表（pid/父 pid 对）。 */
   snapshot(): ProcessEntry[]
   /** Return one process's creation identity and wait state, or undefined when unreadable. */
-  /** 返回一个进程的创建身份与等待态；不可读时为 undefined。 */
+  /* 返回一个进程的创建身份与等待态；不可读时为 undefined。 */
   processState(pid: number): WindowsProcessState | undefined
   /** Terminate one process tree; `force` maps to taskkill `/F`. */
-  /** 终止一个进程树；force 映射为 taskkill /F。 */
+  /* 终止一个进程树；force 映射为 taskkill /F。 */
   taskkill(pid: number, force: boolean): void
 }
 
@@ -75,7 +75,7 @@ export interface WindowsProcessInspectorInternals {
  * @param started - creation-time identity resolver for one member.
  * @returns the root and its current transitive descendants, children first.
  */
-/**
+/*
  * 从根开始按子先序走进程表，只保留启动身份可读的成员（不可读成员是探测漏检，
  * 与 Linux 上不可读的 /proc 条目一致）。
  * @param entries 进程表快照
@@ -120,7 +120,7 @@ export function windowsProcessTree(
  * targets the console-wide tree through taskkill (SIGINT is delivered by the
  * terminal handle as a `\x03` input write and never reaches this layer).
  */
-/**
+/*
  * Windows 版 ProcessInspector。shell pid 充当前台进程组：它是稳定的伪组，让
  * 提示符标记就绪路径可以比较前台身份；而实际信号全部经 taskkill 瞄准整个控制台树
  * （SIGINT 由终端句柄以 \x03 输入投递，永不抵达本层）。
@@ -166,7 +166,7 @@ export class WindowsProcessInspector implements ProcessInspector {
  * @param internals - injectable process operations; defaults to the koffi-backed table.
  * @returns the Windows inspector.
  */
-/**
+/*
  * 创建 Windows 进程检查器。
  * @param internals 可注入的进程操作；缺省用 koffi 支撑的表
  * @returns Windows 检查器
@@ -178,7 +178,7 @@ export function createWindowsProcessInspector(
 }
 
 /** Terminate one Windows process tree with taskkill, contained like POSIX group signalling. */
-/** 用 taskkill 终止一个 Windows 进程树，与 POSIX 组信号一样做错误收敛。 */
+/* 用 taskkill 终止一个 Windows 进程树，与 POSIX 组信号一样做错误收敛。 */
 function taskkillTree(pid: number, force: boolean): void {
   if (pid <= 0) return
   // Outcome deliberately unchecked: an already-absent tree, exit races, and a
@@ -189,7 +189,7 @@ function taskkillTree(pid: number, force: boolean): void {
 
 declare const nativePtr: unique symbol
 /** Koffi 3 native pointer (a BigInt address), branded so it cannot silently enter numeric contexts. */
-/** Koffi 3 原生指针（BigInt 地址），带品牌标记，防止静默进入数值上下文。 */
+/* Koffi 3 原生指针（BigInt 地址），带品牌标记，防止静默进入数值上下文。 */
 export type NativePtr = bigint & { readonly [nativePtr]: true }
 
 /**
@@ -197,7 +197,7 @@ export type NativePtr = bigint & { readonly [nativePtr]: true }
  * @param value - a handle as koffi may hand it back (pointer, null, or 0n).
  * @returns whether the value signals an invalid handle.
  */
-/**
+/*
  * Win32 句柄 API 返回 NULL 或 INVALID_HANDLE_VALUE 时为 true。
  * @param value koffi 可能返回的句柄（指针、null 或 0n）
  * @returns 该值是否表示无效句柄
@@ -209,7 +209,7 @@ export function isInvalidHandle(value: NativePtr | null | undefined): boolean {
 }
 
 /** The lazy koffi binding table: every Win32 call the Windows inspector uses. */
-/** 惰性 koffi 绑定表：Windows 检查器用到的全部 Win32 调用。 */
+/* 惰性 koffi 绑定表：Windows 检查器用到的全部 Win32 调用。 */
 interface Win32Bindings {
   createToolhelp32Snapshot(flags: number, processId: number): NativePtr
   process32FirstW(snapshot: NativePtr, entry: NativePtr): number
@@ -234,7 +234,7 @@ const PVOID: ReturnType<typeof koffi.pointer> = koffi.pointer('void')
  * re-evaluate this module (a hoisted `vi.mock` re-imports the graph) must not
  * re-register the names.
  */
-/**
+/*
  * 解析 koffi 的 Win32 结构体类型（只注册一次）。注册惰性且缓存，因为 koffi 类型注册表
  * 是进程级全局的：会重新求值本模块的测试运行器（vi.mock 重新导入图）不得重注册这些名字。
  */
@@ -283,7 +283,7 @@ let cachedBindings: Win32Bindings | undefined
  * Resolve the lazy Win32 bindings (throws the first binding failure, fail-closed).
  * @returns the cached binding table.
  */
-/**
+/*
  * 解析惰性 Win32 绑定（首次绑定失败即抛错，失败即关闭）。
  * @returns 缓存的绑定表
  */
@@ -321,7 +321,7 @@ function win32Bindings(): Win32Bindings {
  * @param count - element count.
  * @returns the branded allocation pointer.
  */
-/**
+/*
  * 分配 koffi 内存并打成品牌 NativePtr；koffi 的 TS 类型是 any，经 unknown 转型
  * 以收窄不安全面。
  * @param type 要分配的 koffi 类型
@@ -334,7 +334,7 @@ function allocNative(type: Parameters<typeof koffi.alloc>[0], count: number): Na
 }
 
 /** Enumerate the current process table through Toolhelp32. */
-/** 经 Toolhelp32 枚举当前进程表。 */
+/* 经 Toolhelp32 枚举当前进程表。 */
 function snapshotWindowsProcesses(bindings: Win32Bindings): ProcessEntry[] {
   const { PROCESSENTRY32W } = win32Structs()
   const snapshot = bindings.createToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
@@ -361,7 +361,7 @@ function snapshotWindowsProcesses(bindings: Win32Bindings): ProcessEntry[] {
 }
 
 /** Read one process's creation identity and current wait state. */
-/** 读取一个进程的创建时间身份与当前等待态。 */
+/* 读取一个进程的创建时间身份与当前等待态。 */
 function windowsProcessState(bindings: Win32Bindings, pid: number): WindowsProcessState | undefined {
   const { FILETIME } = win32Structs()
   const handle = bindings.openProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, 0, pid)
@@ -391,7 +391,7 @@ function windowsProcessState(bindings: Win32Bindings, pid: number): WindowsProce
 }
 
 /** The koffi-backed default internals; bindings resolve lazily on first use. */
-/** koffi 支撑的默认内部实现；绑定在首次使用时惰性解析。 */
+/* koffi 支撑的默认内部实现；绑定在首次使用时惰性解析。 */
 function defaultWindowsProcessInternals(): WindowsProcessInspectorInternals {
   return {
     snapshot: () => snapshotWindowsProcesses(win32Bindings()),

@@ -4,7 +4,7 @@
  * the degenerate compositions fail loudly (missing services → 500, missing
  * root → 404, missing descendant → errored stream).
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 session-export.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -54,7 +54,7 @@ function node(id: string, ...descendants: SessionLineageNode[]): SessionLineageN
 }
 
 /** One durable image object served by the fake attachment store. */
-/** 中文说明：函数 storedImage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 storedImage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function storedImage(id: string, mediaType: ImageAttachmentRef['mediaType'] = 'image/png') {
   return {
     ref: { attachmentId: sid(id), mediaType, bytes: 4, width: 2, height: 2 } as unknown as ImageAttachmentRef,
@@ -63,7 +63,7 @@ function storedImage(id: string, mediaType: ImageAttachmentRef['mediaType'] = 'i
 }
 
 /** A user/message event line carrying one image reference. */
-/** 中文说明：函数 imageEventLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 imageEventLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function imageEventLine(id: string, mediaType: ImageAttachmentRef['mediaType'] = 'image/png'): string {
   return `{"type":"user/message","seq":1,"time":1000,"data":{"content":[{"type":"image","attachment":{"attachmentId":"${id}","mediaType":"${mediaType}","bytes":4,"width":2,"height":2}}]}}`
 }

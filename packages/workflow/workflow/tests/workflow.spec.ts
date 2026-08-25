@@ -17,7 +17,7 @@ import WorkflowEngineDefault, {
 import type { WorkflowRun, WorkflowRunInfo, WorkflowStartRequest } from '../src/index.ts'
 
 /** A minimal concrete subclass exposing the protected emit helper for tests. */
-/** 中文说明：class StubEngine 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class StubEngine 定义本测试所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 class StubEngine extends WorkflowEngine {
   start(request: WorkflowStartRequest): WorkflowRun {
     void request

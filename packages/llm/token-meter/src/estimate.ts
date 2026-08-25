@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】提供"固定密度"的启发式 token 定价，供 meter 服务与纯上下文
  * 构成投影共享——两条展示面把相同内容定价为相同数字。
@@ -39,7 +39,7 @@ const BLOCK_OVERHEAD = 4
 // 中文：每条被定价消息追加的角色字段框架开销（导出供外部核对）。
 export const ROLE_OVERHEAD = 4
 
-/**
+/*
  * （中文）在固定密度启发式下递归定价内容块。
  * @param blocks 要定价的内容块（不改写）。
  * @returns 启发式 token 数（含每块结构开销）。
@@ -76,7 +76,7 @@ export function estimateContent(blocks: readonly ContentBlock[]): number {
   return tokens
 }
 
-/**
+/*
  * （中文）启发式定价一条模型可见消息。
  * @param message 要定价的消息（不改写）。
  * @returns 固定启发式下的内容 + 角色框架 token 数。
@@ -90,7 +90,7 @@ export function estimateMessage(message: Message): number {
   return estimateContent(message.content) + ROLE_OVERHEAD
 }
 
-/**
+/*
  * （中文）定价规范请求包络的"系统提示"部分。
  * @param header 规范包络，或任何请求之前为 undefined。
  * @returns 启发式系统提示 token 数；缺席时为 0。
@@ -105,7 +105,7 @@ export function estimateSystemTokens(header: EpochHeader | undefined): number {
   return Math.ceil(header.system.length / CHARS_PER_TOKEN) + ROLE_OVERHEAD
 }
 
-/**
+/*
  * （中文）定价规范请求包络的"工具 schema"部分。
  * @param header 规范包络，或任何请求之前为 undefined。
  * @returns 启发式工具 schema token 数；缺席或为空时为 0。
@@ -120,7 +120,7 @@ export function estimateToolsTokens(header: EpochHeader | undefined): number {
   return Math.ceil(JSON.stringify(header.tools).length / CHARS_PER_TOKEN) + BLOCK_OVERHEAD
 }
 
-/**
+/*
  * （中文）定价完整的"非表面"请求包络。
  * @param header 规范包络，或任何请求之前为 undefined。
  * @returns 启发式的系统 + 工具 token 数。

@@ -7,7 +7,7 @@
  * real Win32 calls, so these run on every platform; the real-FFI round-trip
  * lives in acl.spec.ts (win32 only).
  */
-/**
+/*
  * 文件职责：验证 token-failure-paths.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -122,7 +122,7 @@ describe('openCurrentProcessToken failure paths', () => {
  * attributes@16) with the state's one group. The CopySid mock comes back
  * beside the table for the one test that asserts on its arguments.
  */
-/** 中文说明：函数 logonApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 logonApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function logonApi(state: {
   needed: number
   groupCount: number
@@ -290,7 +290,7 @@ describe('makeWellKnownSid failure paths', () => {
  * second call fills the DACL pointer slot, and the merge/apply calls follow
  * the state's results.
  */
-/** 中文说明：函数 daclApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 daclApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function daclApi(state: {
   needed: number
   currentDacl: bigint

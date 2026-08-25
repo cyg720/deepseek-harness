@@ -25,7 +25,7 @@ import { ToolRow } from '../components/ToolRow.tsx'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
 
 /** Full row props: the toolview runtime share plus the standard locale seat. */
-/** 中文说明：类型或类 ReadRowProps 约束工具或轨迹数据职责。 */
+/* 中文说明：类型或类 ReadRowProps 约束工具或轨迹数据职责。 */
 type ReadRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /**
@@ -33,7 +33,7 @@ type ReadRowProps = ToolCallViewProps & PropsLocale<'conversation'>
  * read card as the row's collapsed-by-default card body. The summary path is an
  * openable host link when the row names a single file.
  */
-/** 中文说明：函数 ReadRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 ReadRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function ReadRow({ toolName, block, cwd, home, openFile, inspect, t }: ReadRowProps) {
   /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block, cwd, home)
@@ -63,7 +63,7 @@ export function ReadRow({ toolName, block, cwd, home, openFile, inspect, t }: Re
  * The read row as a plain registrant plugin following the atomic Tool-view
  * declaration across independent activation and reload lifetimes.
  */
-/** 中文说明：视图局部值 readToolview，由紧邻初始化决定。 */
+/* 中文说明：视图局部值 readToolview，由紧邻初始化决定。 */
 export const readToolview = {
   name: 'read-toolview',
   inject: ['slots'],

@@ -5,7 +5,7 @@
  *
  * @module @deepseek-ai/dsh-session
  */
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-session 包的主入口：定义事件溯源（event-sourced）的会话对象 Session（只追加事件
  *           日志 + 表面视图 + 派生消息历史）、内存会话仓库 SessionStore（ctx.sessions 服务）、fork
@@ -127,7 +127,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 }
 
 /** Validate and freeze one detached creation header in place. */
-/** 就地校验并冻结一份分离的创建头部：版本必须匹配、id 必须一致、各标量字段类型合规、cwd 必须为绝对路径。 */
+/* 就地校验并冻结一份分离的创建头部：版本必须匹配、id 必须一致、各标量字段类型合规、cwd 必须为绝对路径。 */
 function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('session header is not a plain JSON record')
@@ -171,7 +171,7 @@ function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
 }
 
 /** Validate and freeze one exclusively owned persistence header in place. */
-/** 就地校验并冻结一份独占所有的持久化头部：额外要求它是普通 JSON 原型的记录（非类实例）。 */
+/* 就地校验并冻结一份独占所有的持久化头部：额外要求它是普通 JSON 原型的记录（非类实例）。 */
 function validateRestoredSessionHeader(id: SessionId, input: unknown): SessionHeader {
   if (input !== null && typeof input === 'object' && !Array.isArray(input)) {
     const prototype = Reflect.getPrototypeOf(input)
@@ -183,7 +183,7 @@ function validateRestoredSessionHeader(id: SessionId, input: unknown): SessionHe
 }
 
 /** Detach, validate, and freeze the creation metadata published by a session. */
-/** 对会话发布时使用的创建元数据做分离、校验并冻结；未提供时按当前时间与格式版本合成最小头部。 */
+/* 对会话发布时使用的创建元数据做分离、校验并冻结；未提供时按当前时间与格式版本合成最小头部。 */
 function snapshotSessionHeader(id: SessionId, source?: SessionHeader): SessionHeader {
   // 未提供头部时合成最小形态（版本 + id + 当前时间）。
   const input: unknown = source === undefined
@@ -202,7 +202,7 @@ function snapshotSessionHeader(id: SessionId, source?: SessionHeader): SessionHe
  * @param event - exclusively owned event imported across a trusted boundary.
  * @returns the same event object with a validated, deeply frozen message.
  */
-/**
+/*
  * 校验一个独占所有的会话事件并对其中的“已识别消息”深度冻结，不拷贝事件本身。
  * 调用方保证传入的对象图不再被生产者持有、也不与其他事件共享可变子对象。
  * 无法保证独占时请改用 {@link snapshotSessionEvent}。
@@ -235,7 +235,7 @@ export function adoptSessionEvent<T extends SessionEvent>(event: T): T {
  * @param event - event imported across a query or persistence boundary.
  * @returns a detached event snapshot with a validated, deeply frozen message.
  */
-/**
+/*
  * 分离一个事件的同时保持其“已识别消息”的深度不可变性。
  * @param event - 经查询或持久化边界导入的事件。
  * @returns 分离的事件快照，其消息已校验并深度冻结。
@@ -245,7 +245,7 @@ export function snapshotSessionEvent<T extends SessionEvent>(event: T): T {
 }
 
 /** Deep-freeze one acyclic JSON tree without consuming the JavaScript call stack. */
-/** 对一棵无环 JSON 树做深度冻结，且不耗尽 JS 调用栈（显式栈迭代）。 */
+/* 对一棵无环 JSON 树做深度冻结，且不耗尽 JS 调用栈（显式栈迭代）。 */
 function freezeRestoredObject<T extends object>(value: T): T {
   // 待访问栈：弹出即冻结，并把对象子节点压栈。
   const pending: object[] = [value]
@@ -263,7 +263,7 @@ function freezeRestoredObject<T extends object>(value: T): T {
 }
 
 /** Validate the fixed event envelope after one-pass JSON materialization. */
-/** 在一次性 JSON 物化之后校验固定的事件信封：键集合封闭、type/seq/time 形状正确，并拒绝遗留的 request/header-delta 格式。 */
+/* 在一次性 JSON 物化之后校验固定的事件信封：键集合封闭、type/seq/time 形状正确，并拒绝遗留的 request/header-delta 格式。 */
 function assertSessionEventEnvelope(value: Record<string, unknown>, index: number): asserts value is SessionEvent {
   const event = value
   if (event['type'] === 'request/header-delta') {
@@ -304,7 +304,7 @@ function assertSessionEventEnvelope(value: Record<string, unknown>, index: numbe
 }
 
 /** Reject obsolete request headers and malformed messages at the seed/load boundary. */
-/** 在种子/加载边界拒绝过期版本的请求头与畸形消息（provider/model 必须存在等）。 */
+/* 在种子/加载边界拒绝过期版本的请求头与畸形消息（provider/model 必须存在等）。 */
 function assertCurrentLlmShape(event: Record<string, unknown>, index: number): void {
   const data = event['data']
   const record = typeof data === 'object' && data !== null
@@ -335,7 +335,7 @@ function assertCurrentLlmShape(event: Record<string, unknown>, index: number): v
 const allowedAdapterKeys = new Set(['reasoningEffort', 'maxTokens'])
 
 /** Validate adapter-default markers imported from a durable request header. */
-/** 校验从耐久请求头导入的适配器默认标记：只许白名单键、值必须为 true、且被标记的字段必须在 config 中真的存在。 */
+/* 校验从耐久请求头导入的适配器默认标记：只许白名单键、值必须为 true、且被标记的字段必须在 config 中真的存在。 */
 function assertAdapterDefaults(
   value: unknown,
   config: Record<string, unknown>,
@@ -355,7 +355,7 @@ function assertAdapterDefaults(
 }
 
 /** Validate only the event-specific invariants needed to safely replay a message. */
-/** 只校验“安全重放一条消息”所需的事件级不变量：角色、来源 kind、content 结构；assistant 必须是 model 来源，tool/result 的 callId 与工具结果块必须配对。 */
+/* 只校验“安全重放一条消息”所需的事件级不变量：角色、来源 kind、content 结构；assistant 必须是 model 来源，tool/result 的 callId 与工具结果块必须配对。 */
 function assertMessageEventShape(event: Record<string, unknown>, subject: string): void {
   const type = event['type']
   if (type !== 'user/message' && type !== 'assistant/message'
@@ -410,7 +410,7 @@ function assertMessageEventShape(event: Record<string, unknown>, subject: string
 }
 
 /** Whether an unknown value carries the current provider/model pair. */
-/** 判断未知值是否带有非空的 provider/model 字符串对。 */
+/* 判断未知值是否带有非空的 provider/model 字符串对。 */
 function hasProviderModel(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
   const pair = value as Record<string, unknown>
@@ -419,7 +419,7 @@ function hasProviderModel(value: unknown): boolean {
 }
 
 /** Reject request-header vocabulary removed with the legacy delta codec. */
-/** 拒绝随遗留 delta 编解码器一起删除的请求头词汇（request/header-delta 类型与 reason:"fallback"）。 */
+/* 拒绝随遗留 delta 编解码器一起删除的请求头词汇（request/header-delta 类型与 reason:"fallback"）。 */
 function assertSupportedRequestHeader(type: string, data: unknown, location: string): void {
   if (type === 'request/header-delta') {
     throw new Error(`${location} uses unsupported legacy request/header-delta format`)
@@ -435,13 +435,13 @@ function assertSupportedRequestHeader(type: string, data: unknown, location: str
 type SessionCallback = (...args: unknown[]) => unknown
 
 /** Resolve one listener snapshot, including Cordis's internal dispatch checks. */
-/** 解析一次监听器快照，包含 Cordis 内部的分发检查（如 scope 过滤）。 */
+/* 解析一次监听器快照，包含 Cordis 内部的分发检查（如 scope 过滤）。 */
 function collectSessionCallbacks(ctx: Context, args: unknown[]): SessionCallback[] {
   return [...ctx.events.dispatch('emit', args)] as SessionCallback[]
 }
 
 /** Invoke one resolved observe-only listener snapshot with per-listener containment. */
-/** 逐一调用已解析的观察型监听器快照，并做逐监听器故障隔离：抛错或 Promise 拒绝只记警告，不影响其他监听者。 */
+/* 逐一调用已解析的观察型监听器快照，并做逐监听器故障隔离：抛错或 Promise 拒绝只记警告，不影响其他监听者。 */
 function invokeContainedSessionObservers(
   ctx: Context,
   name: 'session/event' | 'session/disposed',
@@ -462,7 +462,7 @@ function invokeContainedSessionObservers(
 }
 
 /** All mutable lifecycle state for one exact store entry. */
-/** 一个确切 store 条目的全部可变生命周期状态。 */
+/* 一个确切 store 条目的全部可变生命周期状态。 */
 interface SessionEntry {
   // 会话 id。
   readonly id: SessionId
@@ -496,7 +496,7 @@ const attachments = new WeakMap<Session, SessionEntry>()
  * Seeding with an existing event log replays/forks a session.
  * @typert object
  */
-/**
+/*
  * 事件溯源的会话：一个只追加的 {@link SessionEvent} 日志。
  * 它是普通类（不是 Cordis Service）——通过 ctx.sessions.create() 创建受管实例，
  * 或用静态 create 创建分离（detached）实例。用已有事件日志做种子即实现重放/fork。
@@ -509,7 +509,7 @@ export class Session {
   private readonly surfaceManager = new SurfaceManager(this.log)
 
   /** The ordered surface over this session's event log. */
-  /** 本会话事件日志之上的有序表面视图。 */
+  /* 本会话事件日志之上的有序表面视图。 */
   get surface(): SessionSurface {
     return this.surfaceManager
   }
@@ -522,7 +522,7 @@ export class Session {
    * `session.header` is always present. Kept out of the event log — it is a
    * storage concern, not replayable conversation state.
    */
-  /**
+  /*
    * 深度冻结的创建元数据快照（格式版本、cwd、谱系、种子边界）。
    * 由 store 经 ctx.sessions.create() 提供；不带 store 头部创建的 Session 会合成一份最小头部
    * （盖当前 SESSION_FORMAT_VERSION），因此 session.header 始终存在。
@@ -531,7 +531,7 @@ export class Session {
   readonly header: SessionHeader
 
   /** The session identity, derived from its durable header's single copy. */
-  /** 会话身份，直接取自耐久头部的唯一副本。 */
+  /* 会话身份，直接取自耐久头部的唯一副本。 */
   get id(): SessionId {
     return this.header.id
   }
@@ -558,7 +558,7 @@ export class Session {
    * store attaches and therefore does not publish either. Otherwise this seq
    * holds an ordinary published write.
    */
-  /**
+  /*
    * 本进程内第一次追加事件的 seq：等于构造种子的长度（无种子则为 0）。
    * seq 更小的事件都是经构造进入的（replay/fork/resume），从不经 session/event 火警广播发布，
    * 因此以日志代替发布的消费者（如 telemetry 采纳）应从这里开始。它与 header.seedLength
@@ -578,7 +578,7 @@ export class Session {
    * @param header - optional borrowed storage metadata.
    * @returns a detached session.
    */
-  /**
+  /*
    * 通过校验并对“借来的”种子事件与存储元数据做快照，创建一个分离（不受 store 管理）的会话。
    * @param id - 会话身份。
    * @param seed - 可选的借入重放/fork 事件。
@@ -598,7 +598,7 @@ export class Session {
    * @param header - fresh detached metadata whose ownership is transferred.
    * @returns a restored detached session.
    */
-  /**
+  /*
    * 通过接管新鲜持久化值的所有权来恢复一个分离会话。存储格式、事件信封、seq 连续性、
    * 表面过渡与头部字段都会先校验，再冻结恢复对象。
    * @param id - 恢复的会话身份。
@@ -673,7 +673,7 @@ export class Session {
   }
 
   /** Cached immutable public snapshot of the private append-only log. */
-  /** 私有只追加日志的缓存式不可变公开快照。 */
+  /* 私有只追加日志的缓存式不可变公开快照。 */
   private eventsSnapshot: readonly SessionEvent[] | undefined
 
   /**
@@ -682,7 +682,7 @@ export class Session {
    * Events and their nested data are deep-frozen at acceptance, so neither a
    * cast nor ordinary JavaScript can rewrite durable history.
    */
-  /**
+  /*
    * 事件日志的不可变快照。在下一次追加之前复用同一数组；已返回的数组之后不会增长。
    * 事件与其嵌套数据在接受时即被深度冻结，因此无论类型断言还是普通 JavaScript 都无法改写耐久历史。
    */
@@ -692,7 +692,7 @@ export class Session {
   }
 
   /** The next event's sequence number — always the log length (the `seq = log.length` contiguity contract). */
-  /** 下一个事件的序号——恒等于日志长度（全系统依赖的 seq=log.length 连续性契约）。 */
+  /* 下一个事件的序号——恒等于日志长度（全系统依赖的 seq=log.length 连续性契约）。 */
   get seq(): number {
     return this.log.length
   }
@@ -732,7 +732,7 @@ export class Session {
    *   append reentered while this acceptance/publication boundary is open also
    *   rejects before the log changes.
    */
-  /**
+  /*
    * 向日志追加一个类型化事件，并经 store 拥有的模块私有发布钩子同步通知观察者。
    * 热路径绝不阻塞在 I/O 上——持久化插件异步缓冲。事件一旦入日志即视为已提交：
    * 观察者失败按监听器隔离（记警告），既不改变返回值也不阻止后续监听者观察同一事件。
@@ -809,7 +809,7 @@ export class Session {
   }
 
   /** Cached fold of the request-header events — see {@link requestHeader}. */
-  /** request/header 事件的缓存折叠结果——见 {@link requestHeader}。 */
+  /* request/header 事件的缓存折叠结果——见 {@link requestHeader}。 */
   private headerFold: EpochHeader | undefined
   /** Log position (events consumed) the header fold has reached. */
   // 折叠已消费到的事件位置。
@@ -823,7 +823,7 @@ export class Session {
    * once, when first seen, so a per-step read costs O(new events).
    * @returns the folded header, or undefined when no header event exists yet.
    */
-  /**
+  /*
    * 返回日志中最后一条 request/header 之后生效的 {@link EpochHeader}——也就是下一次请求
    * 将与之比较的头部；还没有任何头部事件时为 undefined。它是 foldRequestHeader(session.events)
    * 的在线增量形态：每个头部事件只在首次见到时折叠一次，逐步读取的开销是 O(新增事件数)。
@@ -844,7 +844,7 @@ export class Session {
   }
 
   /** Cached fold of `request/context` events. */
-  /** request/context 事件的缓存折叠。 */
+  /* request/context 事件的缓存折叠。 */
   private contextFold: RequestContext | undefined
   // 折叠已消费到的事件位置。
   private contextFoldSeq = 0
@@ -854,7 +854,7 @@ export class Session {
    * `request/context` event. Each event is folded once.
    * @returns the latest immutable route metadata.
    */
-  /**
+  /*
    * 返回最新解析出的路由元数据；还没有 request/context 事件时为 undefined。
    * 每个事件只折叠一次。
    * @returns 最新的不可变路由元数据。
@@ -897,7 +897,7 @@ export class Session {
    * needs no second deep clone and consumers still cannot mutate the log.
    * @returns a fresh array of the shared, frozen derived history.
    */
-  /**
+  /*
    * 沿 surfaceOp 标记维护的有序序列遍历，派生出 LLM 消息历史。表面是派生历史的唯一来源：
    * 每个产生消息的追加都记录了自己的 surfaceOp，于是没有标记的原始事件（chunk、轮边界）
    * 自然缺席，compaction 的 replace 会把被遮蔽节点从派生中删除。单节点投影规则是
@@ -942,7 +942,7 @@ export class Session {
    * @param event - the event to project.
    * @returns the derived message, or null when the event produces none.
    */
-  /**
+  /*
    * 纯函数 deriveEventMessage 导出的实例门面。
    * @param event - 要投影的事件。
    * @returns 派生的消息；不产生消息时为 null。
@@ -953,7 +953,7 @@ export class Session {
 }
 
 /** A fork source: either the live session object or its live store id. */
-/** fork 来源：活的会话对象，或其在 store 中的活会话 id。 */
+/* fork 来源：活的会话对象，或其在 store 中的活会话 id。 */
 export type SessionForkSource = Session | SessionId
 
 /**
@@ -964,7 +964,7 @@ export type SessionForkSource = Session | SessionId
  * existing seq (`INVALID_BOUNDARY`); or the selected prefix ends inside an
  * open turn (`OPEN_TURN`).
  */
-/**
+/*
  * 会话 fork 被拒绝的错误码：来源 id 不在活 store 中（SESSION_NOT_FOUND）；
  * id 对应的不是 store 的活实例（SESSION_NOT_LIVE）；目标子 id 已被占用
  * （SESSION_ALREADY_EXISTS）；边界不是已存在的连续 seq（INVALID_BOUNDARY）；
@@ -978,7 +978,7 @@ export type SessionForkErrorCode =
   | 'OPEN_TURN'
 
 /** Typed error for session fork rejections. */
-/** 会话 fork 被拒时抛出的带码类型化错误。 */
+/* 会话 fork 被拒时抛出的带码类型化错误。 */
 export class SessionForkError extends Error {
   /**
    * @param message - 人读的错误描述。
@@ -996,7 +996,7 @@ export class SessionForkError extends Error {
  * Persistence is intentionally not implemented here — persistence plugins
  * subscribe to `session/event` and flush on `session/flush` / dispose.
  */
-/**
+/*
  * 内存态会话仓库（即 ctx.sessions 服务）。
  * 这里有意不实现持久化——持久化插件订阅 session/event，并在 session/flush 或销毁时冲刷。
  */
@@ -1044,7 +1044,7 @@ export class SessionStore extends Service {
    *   lossless-JSON record with valid scalar fields, or `meta.cwd` is a
    *   non-absolute path (storage backends key directories off it).
    */
-  /**
+  /*
    * 创建一个归调用 fiber 所有的会话：销毁该 fiber 即停止事件通知并把会话移出 store。
    * options.seed 用那些事件的副本填充会话（重放/fork）；options.meta 把创建元数据
    * （校验过的绝对 cwd、种子与亲缘谱系、委派深度）固化为不可变的 {@link SessionHeader}
@@ -1094,7 +1094,7 @@ export class SessionStore extends Service {
    *   lossless-JSON record with valid scalar fields, or `meta.cwd` is a
    *   non-absolute path.
    */
-  /**
+  /*
    * 构建“尚未进入 store”的会话：校验 id/cwd 并构造 {@link Session}（含不可变
    * {@link SessionHeader}）。与 {@link enter} + {@link announce} 配对：拥有复合 ctx.effect 的
    * 调用方（agent 工厂）把会话生命周期折叠进这一个 effect，fiber 卸载时按单一有序链条拆除
@@ -1158,7 +1158,7 @@ export class SessionStore extends Service {
    *   that creation dispatch unwinds.
    * @throws if a session with this id is already in the store.
    */
-  /**
+  /*
    * 把 {@link prepare} 好的会话接入 store：安装模块私有的追加发布钩子并加入映射。
    * 返回 DETACH disposer（摘钩子 + 移出 store）。不发射 session/created——调用方应先把本
    * disposer yield 进自己的 effect，然后再调 {@link announce}，这样 creation 监听器抛错时能回滚
@@ -1213,7 +1213,7 @@ export class SessionStore extends Service {
   }
 
   /** Remove one exact entered session and emit its paired disposal when announced. */
-  /** 移除一个确切的已接入会话，并在其已公告时发射配对的销毁通知。 */
+  /* 移除一个确切的已接入会话，并在其已公告时发射配对的销毁通知。 */
   private detachEntered(entry: SessionEntry): void {
     entry.detachRequested = false
     // A stale capability cannot remove observers or storage belonging to a
@@ -1233,7 +1233,7 @@ export class SessionStore extends Service {
    * @param session - the entered session to announce to listeners.
    * @throws if the session is not live or its announcement already began,
    *   including a reentrant call from a creation listener. */
-  /**
+  /*
    * 为一个已 {@link enter} 的会话恰好发射一次 session/created（携带 enter 时捕获的载体）。
    * 与 enter 分离是为了让调用方能先 yield detach disposer（回滚安全性——见 {@link enter}）。
    * @param session - 要向监听者公告的已接入会话。
@@ -1275,7 +1275,7 @@ export class SessionStore extends Service {
   }
 
   /** Emit the paired teardown notification with per-listener containment. */
-  /** 以逐监听器隔离的方式发射配对的拆除通知（session/disposed）。 */
+  /* 以逐监听器隔离的方式发射配对的拆除通知（session/disposed）。 */
   private emitDisposed(entry: SessionEntry): void {
     const callbackArgs: unknown[] = [entry.session]
     try {
@@ -1299,7 +1299,7 @@ export class SessionStore extends Service {
    *   listener has settled successfully.
    * @throws the first registered listener failure after every listener settles.
    */
-  /**
+  /*
    * 为会话分发“被 await 的” session/flush 持久化检查点，载体取自 {@link enter} 时捕获的那个。
    * 这是唯一的 flush 入口：store 拥有载体，因此各方（检查点策略的每请求屏障、goal 轮驱动的空闲
    * 检查点、拆除冲刷、以及读存储前自行冲刷的消费者）都必须经由此处，而不是自行派发原始的
@@ -1329,7 +1329,7 @@ export class SessionStore extends Service {
   }
 
   /** Return the exact live entry; detached/prepared objects reject. */
-  /** 返回确切的存活条目；已分离/仅预备的对象会抛错。 */
+  /* 返回确切的存活条目；已分离/仅预备的对象会抛错。 */
   private liveEntryFor(session: Session): SessionEntry {
     const entry = attachments.get(session)
     if (entry === undefined || this.store.get(entry.id) !== entry) {
@@ -1369,7 +1369,7 @@ export class SessionStore extends Service {
    *   `SessionStore`'s id policy.
    * @returns The created live child session.
    */
-  /**
+  /*
    * 从一个存活来源的稳定前缀创建活的子会话。boundary 是含端点的来源事件 seq；
    * 缺省取来源当前最后一个事件。所选切片可以止于轮次之间的事件，但不能停在未闭合的轮次内。
    * @param source - 存活的来源会话对象或 id。

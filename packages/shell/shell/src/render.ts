@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】为 shell 工具族（tool-bash、tool-pwsh）提供共享的渲染/解析辅助：
  * 定义"退出状态标记"的文本契约——渲染端写入、展示层读回，是本包对外导出的纯函数模块。
@@ -26,7 +26,7 @@
  * The exit status recovered from a rendered result, with the output body that
  * status was split off from.
  */
-/**
+/*
  * 退出状态解析结果：body 是剥离掉退出标记后的纯输出正文；exitCode 表示以退出码结束，
  * signal 表示被信号杀死。二者通过联合类型互斥，一次解析只会落到其中一种情况。
  */
@@ -54,7 +54,7 @@ export type ParsedExitStatus =
  * @param text - rendered model-facing shell-tool result.
  * @returns the marker-free body plus the recovered terminal exit code or signal.
  */
-/**
+/*
  * 把渲染好的 shell 工具结果字符串拆成"输出正文 + 结构化退出状态"，是渲染端
  * `[exit code: N]` / `[killed by signal: X]` 标记的逆操作。终端展示层会把退出状态画成独立
  * 小徽章，因此匹配到的标记必须从正文中切除，否则退出信息会显示两遍；超时、沙箱拒绝等

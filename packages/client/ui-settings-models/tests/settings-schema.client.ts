@@ -11,7 +11,7 @@ import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/c
 import { createSettingsSchemaOperations } from '../src/client/schema-operations.ts'
 
 /** Stateless schema operations used by settings-model component fixtures. */
-/**
+/*
  * 模型设置夹具共享的无状态操作常量；值只暴露模式操作，不包含持久状态。
  * 使用示例：测试组件把 `settingsSchema` 作为对应 props 传入；无需手动释放。
  */

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-shell 包入口：声明 ctx.shell 能力缝（capability seam）的抽象 Service 与
  * 设置命名空间，并统一再导出全部请求/结果类型与渲染辅助函数，是消费者唯一的导入根。
@@ -84,7 +84,7 @@ declare module '@deepseek-ai/cordis' {
  *   boundary is `ctx.subprocess` disposal, so a background process survives
  *   an executor-only reload.
  */
-/**
+/*
  * 抽象的 bash 执行服务。子类实现抽象方法后作为插件加载，即注册为 ctx.shell
  * （每个上下文只能有一个实现，加载第二个会抛错——这是 Cordis 标准的重复服务行为）。
  *
@@ -106,7 +106,7 @@ export abstract class ShellExecutor extends Service {
    * does not sandbox commands.
    * @returns the configured default sandbox mode, when supported.
    */
-  /** 该执行器默认应用的沙箱模式；不支持沙箱的执行器返回 undefined。 */
+  /* 该执行器默认应用的沙箱模式；不支持沙箱的执行器返回 undefined。 */
   get sandboxMode(): SandboxMode | undefined {
     return undefined
   }
@@ -117,7 +117,7 @@ export abstract class ShellExecutor extends Service {
    *   implementation's defaults, capped fields are clamped.
    * @returns the fully-specified spec to hand to {@link run}/{@link start}.
    */
-  /**
+  /*
    * 在真正执行前，给请求补上实现自有的默认值并对超时等字段设上限，产出"完全指定"的规格。
    * @param request 调用方传入的请求；缺省字段取该实现的默认值，超出上限的字段被钳制
    * @returns 交给 run/start 的完整规格，调用方不应直接传原始请求
@@ -130,7 +130,7 @@ export abstract class ShellExecutor extends Service {
    * @returns the outcome; nonzero exits, timeout kills, and abort kills
    *   resolve with a descriptive result rather than reject.
    */
-  /**
+  /*
    * 前台执行一条命令，命令结束时 resolve。
    * @param spec 由 resolve 产出的完整规格，绝不可直接传原始请求
    * @returns 执行结果；非零退出、超时终止、abort 终止都以带描述的结果正常返回而非 reject
@@ -142,7 +142,7 @@ export abstract class ShellExecutor extends Service {
    * @param spec - a resolved spec from {@link resolve}, never a raw request.
    * @returns the live process handle (reads, kill, quiescence promise).
    */
-  /**
+  /*
    * 启动一个后台进程并立即返回句柄。
    * @param spec 由 resolve 产出的完整规格，绝不可直接传原始请求
    * @returns 存活进程句柄（可读取输出、kill、等待结束）

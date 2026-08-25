@@ -8,7 +8,7 @@
  * re-records against the live API; `DSH_SNAPSHOT=refresh` replays committed
  * fixtures and rewrites expected outputs.
  */
-/**
+/*
  * 文件职责：验证 TypeScript SDK 通过真实 JSON-RPC 运行时执行单回合，并固定结果、通知与持久日志。
  * 技术维度：使用 DeepSeekHarness SDK、Vitest、真实/回放子进程、会话归一化和文件快照。
  * 产品维度：保障 SDK 用户获得稳定 RunResult、完整通知流、工具定义和跨场景文件产物。

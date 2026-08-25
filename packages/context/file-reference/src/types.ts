@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义文件引用发现（file-reference）能力的公开数据记录。本模块只含
  *             类型定义、没有任何运行时代码，因此生成的 Remote 客户端（如 Web 端）
@@ -22,12 +22,12 @@
  */
 
 /** One path-only completion candidate inside the target session cwd. */
-/** 一个路径补全候选：只包含路径本身，不带文件内容或任何元数据。 */
+/* 一个路径补全候选：只包含路径本身，不带文件内容或任何元数据。 */
 export interface FileReferenceCandidate {
   /** User-facing path accepted by normal prompts and filesystem tools. */
-  /** 用户可见的路径，可直接用于提示词或文件系统工具（如 read 工具）。 */
+  /* 用户可见的路径，可直接用于提示词或文件系统工具（如 read 工具）。 */
   path: string
   /** Directories keep completion open; files finish the mention. */
-  /** 目录会保持补全继续展开（其后可再输入子路径），文件则结束本次提及。 */
+  /* 目录会保持补全继续展开（其后可再输入子路径），文件则结束本次提及。 */
   kind: 'file' | 'directory'
 }

@@ -18,7 +18,7 @@ import { decodeWorkerJson } from '../src/worker-json.ts'
  * of the workspace makes any package runtime import fail even when local
  * `lib/` artifacts happen to exist.
  */
-/** 证明复制到工作区外的源码 Worker 无需任何包运行时导入即可启动。 */
+/* 证明复制到工作区外的源码 Worker 无需任何包运行时导入即可启动。 */
 // 源码 Worker 兼容性用例；异步返回 Promise<void>。
 it('boots the source worker without workspace package outputs', async () => {
   // 随机临时目录，模拟脱离工作区的源码闭包。

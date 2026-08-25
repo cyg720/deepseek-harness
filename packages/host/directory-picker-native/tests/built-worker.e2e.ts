@@ -6,7 +6,7 @@
  * open), where the win32-only smoke in win32-dialog.spec.ts covers the
  * source plane instead. Skips until a build produces the artifact.
  */
-/**
+/*
  * 文件职责：验证原生目录选择器构建后的 CommonJS Worker 能由普通 Node 加载并报告原生表面错误。
  * 技术维度：使用 Vitest 条件跳过、Node child_process IPC 和构建产物消息类型。
  * 产品维度：防止发布 Worker bundle 遗漏 koffi 等真实依赖，导致安装后无法打开目录对话框。

@@ -17,7 +17,7 @@ import type { CodeBindingFunction, CodeBindingNamespace, CodeRunResult } from '@
  * and local, per docs/testing.md's real-over-mock policy). Each test builds
  * a fresh context so budgets can be tuned per case.
  */
-/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(config: Config = {}) {
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
@@ -28,7 +28,7 @@ async function setup(config: Config = {}) {
 }
 
 /** Convenience: one namespace `tools` with the given functions. */
-/** 中文说明：函数 tools 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 tools 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tools(functions: Record<string, (args: unknown) => Promise<unknown>>): CodeBindingNamespace[] {
   return [{
     global: 'tools',

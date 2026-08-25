@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】tmux-context 包自有的不变式伴生插件：向 dsh-invariants 服务
  *             登记本包，声明本包的运行时不变量归属。
@@ -24,17 +24,17 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-tmux-context'
 
 /** Cordis companion plugin name. */
-/** 该伴生插件的注册名。 */
+/* 该伴生插件的注册名。 */
 export const name = 'tmux-context-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
+/* 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: a reading is a per-turn snapshot of external tmux state, so the session
  * holds no cross-event relation to check; scheduling and format are owned by pipeline tests.
  */
-/**
+/*
  * 空安装函数：一次读取是对外部 tmux 状态的每回合快照，会话内没有跨事件
  * 关系可校验；注入调度与文本格式由流水线测试覆盖，故无需额外检查。
  */
@@ -45,7 +45,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 登记本包的 invariant 伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文
  * @returns 登记成功后的注销函数

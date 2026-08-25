@@ -2,7 +2,7 @@
  * Shared TypeScript Program construction for repository gates that need real
  * cross-file symbols and types instead of isolated syntax trees.
  */
-/**
+/*
  * 文件职责：实现 ts-project.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -24,11 +24,11 @@ interface ProjectGraph {
  * A compiler face: the two aggregates a repository-wide program may seed from.
  * The root solution is never one of them.
  */
-/** 中文说明：type CompilerFace 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：type CompilerFace 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export type CompilerFace = 'host' | 'client'
 
 /** TypeScript config host shared by repository scripts. */
-/** 中文说明：变量 repositoryConfigHost 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 repositoryConfigHost 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const repositoryConfigHost: ts.ParseConfigFileHost = {
   useCaseSensitiveFileNames: ts.sys.useCaseSensitiveFileNames,
   readDirectory: (...args) => ts.sys.readDirectory(...args),
@@ -45,7 +45,7 @@ export const repositoryConfigHost: ts.ParseConfigFileHost = {
  * semantic graph. Never seed the root solution: flattening host+client into one
  * program collides the cordis Context merges.
  */
-/** 中文说明：函数 loadProjectGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 loadProjectGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadProjectGraph(projectRoot: string, face: CompilerFace): ProjectGraph {
   /** 中文说明：变量 rootConfigPath 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rootConfigPath = resolve(projectRoot, `tsconfig.${face}.json`)
@@ -78,7 +78,7 @@ function loadProjectGraph(projectRoot: string, face: CompilerFace): ProjectGraph
 }
 
 /** Parse one config file and fail loud on any config diagnostic. */
-/** 中文说明：函数 parseConfig 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseConfig 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parseConfig(configPath: string): ts.ParsedCommandLine {
   /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = ts.getParsedCommandLineOfConfigFile(configPath, {}, repositoryConfigHost)
@@ -90,7 +90,7 @@ function parseConfig(configPath: string): ts.ParsedCommandLine {
 }
 
 /** Disable emit-only options after loading the root solution config. */
-/** 中文说明：函数 semanticCompilerOptions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 semanticCompilerOptions 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function semanticCompilerOptions(options: ts.CompilerOptions): ts.CompilerOptions {
   return {
     ...options,
@@ -104,7 +104,7 @@ function semanticCompilerOptions(options: ts.CompilerOptions): ts.CompilerOption
 }
 
 /** A repository-scoped TypeScript Program and its shared TypeChecker. */
-/** 中文说明：class TypeScriptProject 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
+/* 中文说明：class TypeScriptProject 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export class TypeScriptProject {
   /** The bound cross-file TypeScript program. */
   readonly program: ts.Program

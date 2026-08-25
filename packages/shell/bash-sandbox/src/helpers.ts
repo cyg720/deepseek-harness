@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】沙箱执行器内部的"运行结果分类"辅助函数：把一次失败的运行归类为
  * "运行器启动失败（spawn 失败）""运行器自身故障""策略拒绝"等可区分结局，供
@@ -28,11 +28,11 @@ import type { ShellRunResult } from '@deepseek-ai/dsh-shell'
 import type { RunnerFailureRule } from '@deepseek-ai/dsh-sandbox'
 
 /** Node-local spawn codes proven to identify executable resolution or permission failure. */
-/** 已知能标识"可执行文件解析或权限失败"的 Node 本地 spawn 错误码集合。 */
+/* 已知能标识"可执行文件解析或权限失败"的 Node 本地 spawn 错误码集合。 */
 const EXECUTABLE_SPAWN_CODES = new Set(['EACCES', 'ENOENT'])
 
 /** Whether the caller-owned spawn cwd can be entered. */
-/**
+/*
  * 判断调用方给定的 spawn 工作目录是否可进入（存在、是目录且有执行权限）。
  * @param path 调用方拥有的 spawn cwd 路径
  * @returns 目录存在且可进入时为 true，否则 false
@@ -61,7 +61,7 @@ function isUsableWorkdir(path: string): boolean {
  * @param workdir - the caller-owned spawn cwd, checked independently for usability.
  * @returns whether the rejection has executable-specific runner evidence.
  */
-/**
+/*
  * 仅在独立排除调用方 cwd 之后，把 Node 的 ENOENT/EACCES 失败归因于带正向 argv[0] 证据
  * 的错误。提供错误路径时必须精确标识运行器；没有路径时则由 syscall 判定。cwd 可用时，
  * 这些错误码描述的是 argv[0] 或其 shebang 解释器的解析/执行权限问题。
@@ -90,10 +90,10 @@ export function isRunnerSpawnFailure(
 }
 
 /** Fatal runner evidence retained for infrastructure-error detail. */
-/** 保留用于基础设施错误详情的致命运行器证据。 */
+/* 保留用于基础设施错误详情的致命运行器证据。 */
 interface RunnerFailureMatch {
   /** The original stderr line that matched a fatal signature. */
-  /** 与致命签名匹配的原始 stderr 行。 */
+  /* 与致命签名匹配的原始 stderr 行。 */
   detail: string
 }
 
@@ -103,7 +103,7 @@ interface RunnerFailureMatch {
  * @param signatures - case-insensitive denial substrings from the active wrap.
  * @returns whether the failed run matches that denial dialect.
  */
-/**
+/*
  * 依据所选后端的"拒绝方言"对一次失败的运行分类。
  * @param result 已落定的前台运行
  * @param signatures 当前包装给出的大小写不敏感拒绝子串
@@ -123,7 +123,7 @@ export function classifyDenial(result: ShellRunResult, signatures: readonly stri
  * @param rules - structured runner-failure rules from the active wrap.
  * @returns the first matching fatal line, or undefined when evidence is insufficient.
  */
-/**
+/*
  * 依据所选后端的结构化运行器失败规则对一次已落定的进程分类。每条规则要求非零退出、
  * 可选的退出码门槛，以及排除精确信息行后某一 stderr 行上的致命签名。
  * @param exitCode 进程退出码；null 表示信号终止
@@ -168,7 +168,7 @@ export function classifyRunnerFailure(
  * @param signatures - substrings identifying the selected backend's dialect.
  * @returns whether this is a non-zero exit whose stderr matches a signature.
  */
-/**
+/*
  * 用大小写不敏感的 stderr 签名匹配非零退出。
  * @param exitCode 进程退出码；null 表示信号终止
  * @param stderr 收集到的 stderr 文本

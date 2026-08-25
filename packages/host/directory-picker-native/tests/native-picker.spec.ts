@@ -3,7 +3,7 @@
  * primary (failures surface as-is, no fallback tier), the abort rule, and
  * the POSIX command tiers (osascript, Zenity → KDialog).
  */
-/**
+/*
  * 文件职责：验证宿主目录选择的 native-picker.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -12,7 +12,7 @@
  * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
  */
 
-/** 中文说明：类型或类 ExecFileCallback 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 ExecFileCallback 约束 API、Hook 或目录数据职责。 */
 type ExecFileCallback = (
   error: (Error & { code?: string | number }) | null,
   stdout: string,
@@ -43,7 +43,7 @@ function failure(code: string | number, stderr = ''): Error {
 const signal = () => new AbortController().signal
 
 /** A Win32 dialog that always fails — the no-fallback case. */
-/** 中文说明：测试局部值 noDialog，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 noDialog，由紧邻初始化决定。 */
 const noDialog = async (): Promise<string | null> => { throw new Error('dialog unavailable') }
 
 describe('native directory picker', () => {

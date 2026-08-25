@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】ui-cordis 的 Host（Node）半部：一个"纯 UI 插件"的占位入口。
  *             空 apply 只是为了让它出现在宿主 cordis.yml / Loader 中；
@@ -22,5 +22,5 @@
  */
 
 /** Host plugin body — no host-side behavior for this surface plugin. */
-/** Host 插件体：本表面插件无宿主侧行为。 */
+/* Host 插件体：本表面插件无宿主侧行为。 */
 export function apply(): void {}

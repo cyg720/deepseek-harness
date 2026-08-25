@@ -6,7 +6,7 @@
  * schema, prompt section, and rendered results. Self-skips when no `pwsh`
  * executable exists (a CI accommodation for hosts without PowerShell).
  */
-/**
+/*
  * 文件职责：验证 loader.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
  * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。

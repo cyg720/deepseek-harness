@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】glob/grep 两个搜索工具共享的执行管道：包私有的 SEARCH_* 错误词汇、
  * 一个用普通 argv 向量运行打包 ripgrep 二进制（@vscode/ripgrep）并返回完整原始
@@ -44,7 +44,7 @@
  *
  * @module @deepseek-ai/dsh-tool-fs-search/search-core
  */
-/**
+/*
  * 模块总览：本文件是 glob/grep 的"执行管道"——spawn、错误分类、结果保留与 spill
  * 保存；argv 构造与结果解析在 glob.ts / grep.ts。
  */
@@ -63,7 +63,7 @@ import type { ToolExecution } from '@deepseek-ai/dsh-tools'
  * Default cap on the complete raw `rg` stdout the tools will parse (the
  * `rawOutputMaxBytes` config), matching Claude Code's ripgrep raw buffer.
  */
-/**
+/*
  * 工具将解析的完整原始 rg stdout 默认上限（rawOutputMaxBytes 配置的默认值）：
  * 20 MB，与 Claude Code 的 ripgrep 原始缓冲一致。
  */
@@ -74,7 +74,7 @@ export const RAW_OUTPUT_MAX_BYTES = 20_000_000
  * config), attached to both tool definitions for
  * `@deepseek-ai/dsh-tool-call-timeout-policy` to enforce through `exec.signal`.
  */
-/**
+/*
  * 默认协作式工具调用超时预算（毫秒，timeoutMs 配置的默认值）：30 秒。附到两个工具
  * 定义上，由 dsh-tool-call-timeout-policy 经 exec.signal 强制。
  */
@@ -85,14 +85,14 @@ export const SEARCH_TIMEOUT_MS = 30_000
  * diagnostic excerpt only (the tool never reads a stderr spill path, and the
  * collect disposition requests none).
  */
-/**
+/*
  * 单次搜索保留 stderr 尾部的默认字节上限（64 KiB）——仅作诊断摘录（工具从不读
  * stderr spill 路径，collect 处置也不请求它）。
  */
 export const SEARCH_STDERR_MAX_BYTES = 64 * 1024
 
 /** Default terminate grace period for a search process (ms). */
-/** 搜索进程默认的终止宽限期（毫秒）：3 秒。 */
+/* 搜索进程默认的终止宽限期（毫秒）：3 秒。 */
 export const SEARCH_GRACE_MS = 3_000
 
 /**
@@ -105,7 +105,7 @@ export const SEARCH_GRACE_MS = 3_000
  * projection owns this cap. 64 KiB holds the full default-capped result of a
  * typical search while bounding the pathological one.
  */
-/**
+/*
  * 单次搜索序列化 presentationMeta 的默认字节上限（searchMetaMaxBytes 配置的默认值）：
  * 64 KiB。内联匹配/路径上限已约束条目数量，但宽泛搜索保留的匹配（很多长行）仍可能
  * 序列化成几百 KB，且 meta 随会话日志持久化并在每个请求重发。部署的最终输出预算
@@ -125,7 +125,7 @@ export const SEARCH_META_MAX_BYTES = 65_536
  * `SEARCH_ABORTED` — the cooperative tool timeout or caller cancellation cut
  * the search short.
  */
-/**
+/*
  * 搜索失败的稳定、可机器路由错误码。包私有（不是 FsErrorCode），因为这些工具是
  * spawn 支持的文件发现，不是 ctx.fs 提供者操作：SEARCH_INVALID_PATTERN——ripgrep
  * 拒绝了正则或 glob；SEARCH_FAILED——搜索无法运行或输出无法解析（rg 启动失败、
@@ -145,7 +145,7 @@ export type SearchErrorCode =
  * `{ name, code }` on `isError` results so retry/permission/UI layers can
  * branch without parsing messages.
  */
-/**
+/*
  * 类型化搜索失败。继承 HarnessError，携带稳定 SearchErrorCode 并链上 cause；
  * 工具注册表在 isError 结果里暴露 { name, code }，让重试/权限/UI 层无需解析消息
  * 即可分支。
@@ -160,16 +160,16 @@ export class SearchError extends HarnessError {
 }
 
 /** The completed acquisition of one `rg` run: complete stdout plus the resolved workdir. */
-/** 一次 rg 运行的完整结果：完整 stdout + 解析出的工作目录。 */
+/* 一次 rg 运行的完整结果：完整 stdout + 解析出的工作目录。 */
 export interface RipgrepRun {
   /** Complete raw stdout retained by the subprocess seam within the requested cap. */
-  /** 子进程接缝在请求上限内保留的完整原始 stdout。 */
+  /* 子进程接缝在请求上限内保留的完整原始 stdout。 */
   stdout: string
   /** True when ripgrep exited 1: a successful search with zero results. */
-  /** ripgrep 以 1 退出时为 true：成功搜索但零结果。 */
+  /* ripgrep 以 1 退出时为 true：成功搜索但零结果。 */
   noMatches: boolean
   /** The resolved working directory the command ran in (the display-relativization base). */
-  /** 命令运行所在的工作目录（展示相对化的基准）。 */
+  /* 命令运行所在的工作目录（展示相对化的基准）。 */
   workdir: string
 }
 
@@ -177,7 +177,7 @@ export interface RipgrepRun {
  * The retained stderr tail as a diagnostic excerpt, with a truncation note when
  * the subprocess seam dropped bytes.
  */
-/**
+/*
  * 把保留的 stderr 尾部整理成诊断摘录；接缝丢弃过字节时附截断说明。
  */
 function stderrExcerpt(stderrText: string, truncated: boolean): string {
@@ -191,7 +191,7 @@ function stderrExcerpt(stderrText: string, truncated: boolean): string {
  * no shell layer, so an exit 127 or shell "command not found" text cannot
  * occur — a launch failure rejects at spawn (see {@link runRipgrep}).
  */
-/**
+/*
  * 把非零退出的 rg 运行分类进搜索错误词汇。没有 shell 层，所以 exit 127 或 shell 的
  * "command not found" 文本不可能出现——启动失败在 spawn 处就拒绝（见 runRipgrep）。
  */
@@ -210,7 +210,7 @@ function classifyRunFailure(toolName: string, exitCode: number, stderrText: stri
  * budget, so the tool fails clearly instead of parsing a silently-partial
  * stream.
  */
-/**
+/*
  * 获取已完成运行的"完整原始 stdout"，在内存传输上强制 rawOutputMaxBytes。
  * 截断结果意味着子进程接缝无法在请求预算内保留完整 stdout，所以工具明确失败，
  * 而不是解析一个悄悄不完整的流。
@@ -248,7 +248,7 @@ let rgPathPromise: Promise<string> | undefined
  * @returns the packaged binary's absolute path; the memoized promise rejects
  *   when the platform package cannot be resolved.
  */
-/**
+/*
  * 打包 ripgrep 二进制路径，每进程懒解析一次并记忆化。
  * 单文件运行时用可执行文件的 -rg 伴生文件（原生助手无法从 pkg 的虚拟文件系统
  * spawn）；Node 模式构建回退到 @vscode/ripgrep 选择的平台包。在调用边界解析，
@@ -299,7 +299,7 @@ export function resolveRgPath(): Promise<string> {
  * @param stderrMaxBytes - cap on the retained stderr diagnostic tail.
  * @returns the complete stdout, the zero-result flag, and the resolved workdir.
  */
-/**
+/*
  * 用普通 argv 向量运行打包 ripgrep 二进制并返回其完整原始 stdout。工作目录为调用
  * 代理的会话 cwd（exec.agent.session.header.cwd，有则用之），否则 process.cwd()。
  * 转发 exec.signal，让协作式工具超时与调用方取消终止进程树。
@@ -407,7 +407,7 @@ export async function runRipgrep(
  * @param workdir - the resolved workdir the command ran in.
  * @returns the workdir-relative display path when possible, else `path` unchanged.
  */
-/**
+/*
  * 把 rg 输出路径映射成展示形式：工作目录内的绝对路径变成工作目录相对路径；
  * 其它（相对输出、工作目录外的路径）原样通过。仅展示用途——返回的路径在"工作目录
  * 与文件系统读根解析同一工作区"的共址部署里可继续读取（文档化的 v1 部署要求）。
@@ -424,7 +424,7 @@ export function toWorkdirRelative(path: string, workdir: string): string {
 }
 
 /** One parsed match: the file, the 1-based line number, and the (possibly previewed) line text. */
-/** 一条解析出的匹配：文件、1 基行号、（可能已预览的）行文本。 */
+/* 一条解析出的匹配：文件、1 基行号、（可能已预览的）行文本。 */
 export interface GrepMatch {
   path: string
   lineNumber: number
@@ -440,7 +440,7 @@ export interface GrepMatch {
  * @param maxBytes - the preview budget in bytes.
  * @returns the preview, suffixed with ` (line truncated)` when bytes were cut.
  */
-/**
+/*
  * 把一行匹配预览约束到 maxBytes（保留 UTF-8 边界）并标记截断。上限是每行的预算
  * 事实；完整行仍留在被搜文件里供 read 读取。
  * @param line 匹配行文本（尾换行已剥掉）。
@@ -467,7 +467,7 @@ export function previewLine(line: string, maxBytes: number): string {
  * @param maxLineBytes - the per-matched-line preview budget in bytes.
  * @returns the retention outcome over the previewed matches.
  */
-/**
+/*
  * 对规范的 grep 匹配表应用共享内联上限：把每条保留行预览到 maxLineBytes 并保留
  * 前 maxMatches 条。这单次保留过程同时被模型侧渲染（grep 的 formatGrepOutput）与
  * 搜索卡片投影（presentation 的 grepSearchMeta）消费，文本与卡片对"哪些匹配存活"
@@ -492,7 +492,7 @@ export function retainGrepMatches(matches: GrepMatch[], maxMatches: number, maxL
  * @param maxResults - the inline path cap (the `globMaxResults` config).
  * @returns the retention outcome over the paths.
  */
-/**
+/*
  * 对规范的 glob 路径表应用共享内联上限：保留前 maxResults 条。这单次保留过程同时
  * 被模型侧渲染与搜索卡片投影消费。
  * @param paths 搜索发现的每条路径（规范值的 paths）。
@@ -522,7 +522,7 @@ export function retainGlobPaths(paths: string[], maxResults: number): RetainedIt
  * @param content - the complete formatted result to persist.
  * @returns the saved spill reference, or `undefined` when the result could not be saved.
  */
-/**
+/*
  * 通过 ctx.spillStore.saveText() "尽力而为"地保存一份完整格式化搜索结果——封顶结果
  * 的模型侧恢复路径。spillStore 用 ctx.get()（而非静态 inject）读取，因为格式化结果
  * spill 是可选的；spill 拥有者是调用代理的会话头 id，来源是工具执行身份。后端缺失、

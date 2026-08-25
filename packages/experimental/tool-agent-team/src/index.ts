@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】opt-in Agent Teams 运行时的"作用域模型面工具"：把团队能力以工具
  *   （spawn_teammate/send_message/followup_task/list_agents/wait_agent/

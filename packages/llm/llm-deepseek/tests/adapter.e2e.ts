@@ -36,7 +36,7 @@ import { assemble, type AssembledResult } from './assemble.ts'
  * requires $DEEPSEEK_VISION_E2E=1 (see vitest.e2e.config.ts).
  */
 
-/** 中文说明：测试局部值 FLASH，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 FLASH，由紧邻初始化决定。 */
 const FLASH = 'deepseek-v4-flash'
 /** 中文说明：测试局部值 PRO，由紧邻初始化决定。 */
 const PRO = 'deepseek-v4-pro'

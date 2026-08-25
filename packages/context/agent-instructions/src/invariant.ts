@@ -24,17 +24,17 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-agent-instructions'
 
 /** Cordis companion plugin name. */
-/** 该伴生插件的注册名。 */
+/* 该伴生插件的注册名。 */
 export const name = 'workspace-context-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
+/* 依赖注入声明：invariants 服务就绪后本插件才会被装载。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: replay intentionally tolerates unknown or malformed workspace sources,
  * while focused pipeline tests own its private pending/cache state transitions.
  */
-/**
+/*
  * 空安装函数：回放对未知/畸形的工作区来源刻意宽容，本包的私有
  * pending/缓存状态迁移由聚焦的流水线测试负责，故无需额外检查。
  */
@@ -45,7 +45,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 登记本包的 invariant 伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文
  * @returns 登记成功后的注销函数

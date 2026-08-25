@@ -9,7 +9,7 @@
  * `docs/postmortem/0001-acp-default-export-drops-inject.md`).
  * @module @deepseek-ai/dsh-subagent-dsh-sdk
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -37,7 +37,7 @@ export const name = 'subagent-dsh-sdk'
 export const inject = ['subagents']
 
 /** Config: how to spawn and drive the child SDK runtime process. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `dsh-sdk`). */
   providerName: string
@@ -96,7 +96,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** The shape after schemastery applied the defaults (`cwd` and `maxTokens` have none). */
-/** 中文说明：type ResolvedConfig 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：type ResolvedConfig 定义本模块所需的数据或行为，用于表达子代理场景。 */
 type ResolvedConfig = Required<Omit<Config, 'cwd' | 'maxTokens'>> & Pick<Config, 'cwd' | 'maxTokens'>
 
 /**
@@ -104,7 +104,7 @@ type ResolvedConfig = Required<Omit<Config, 'cwd' | 'maxTokens'>> & Pick<Config,
  * child cannot honor `outputSchema`/`maxDepth`/`toolFilter`/`persona` (the
  * service rejects a request needing any of them before `start` runs).
  */
-/** 中文说明：class SdkSubagentProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：class SdkSubagentProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
 class SdkSubagentProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = NO_START_CAPABILITIES
   // Context contract: an out-of-process SDK child starts fresh — no parent conversation crosses the process boundary.

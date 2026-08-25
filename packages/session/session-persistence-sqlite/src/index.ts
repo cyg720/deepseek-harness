@@ -3,7 +3,7 @@
  * the physical backend packs eligible chunk runs into schema-17 rows.
  * @module @deepseek-ai/dsh-session-persistence-sqlite
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的会话持久化行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。
@@ -39,14 +39,14 @@ import { SqliteStore } from './store.ts'
 export { SCHEMA_VERSION } from './schema.ts'
 
 /** Default wait for another SQLite connection's write reservation. */
-/** 中文说明：常量 DEFAULT_BUSY_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_BUSY_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_BUSY_TIMEOUT_MS = 5_000
 /** Largest busy timeout accepted by SQLite's signed millisecond interface. */
-/** 中文说明：常量 MAX_BUSY_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_BUSY_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_BUSY_TIMEOUT_MS = 2_147_483_647
 
 /** Plugin configuration. */
-/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export interface Config {
   /** SQLite database path, or `:memory:` for an in-process database. */
   path: string
@@ -63,7 +63,7 @@ export interface Config {
 /**
  * SQLite `SessionPersistence` provider with a schema-owned physical codec.
  */
-/** 中文说明：class SqliteSessionPersistence 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：class SqliteSessionPersistence 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export class SqliteSessionPersistence extends SessionPersistence {
   override readonly supportsRawArtifacts = false
   override readonly name = 'session-persistence-sqlite'

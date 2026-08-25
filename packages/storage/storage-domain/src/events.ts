@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义领域数据"变更事件"（domain/changed）的词汇表：每次持久化写入在
  * 后端确认落盘后发出一个事件，携带新快照与操作判别符。
@@ -23,7 +23,7 @@
  * change push (RPC frames) in a later phase.
  * @module @deepseek-ai/dsh-storage-domain/src/events
  */
-/**
+/*
  * 模块总览：本文件只声明事件的类型，实际发出事件的代码在 domain.ts 的 DomainImpl 中。
  * 事件作为"通知"而非事务参与者：即使监听器抛错，写入也早已提交。
  */
@@ -64,10 +64,13 @@ declare module '@deepseek-ai/cordis' {
      * operation discriminant, and on `put` the new snapshot.
      * @mode emit
      */
-    /**
+    /*
+     * A domain record or the global singleton changed, emitted once per write strictly after the backend acknowledged durability.
      * 中文说明：这是 Cordis 的事件声明（声明合并）。声明后 ctx.emit('domain/changed', ...)
      * 与 ctx.on('domain/changed', ...) 就有了类型检查。事件在写入被后端确认持久化后发出，
      * 同一领域的事件按写入顺序到达。
+     * @param change 中文说明：领域、表、键、操作类型和新快照。
+     * @mode emit
      */
     'domain/changed'(change: DomainChanged): void
   }

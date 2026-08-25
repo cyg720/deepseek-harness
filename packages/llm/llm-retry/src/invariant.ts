@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】以 Cordis 伴生插件形式校验 dsh-llm-retry 的持久重试事件：
  * llm/retry 与 llm/retry-started 必须满足字段、上下文与链式关系约束。
@@ -204,7 +204,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   }, { global: true })
 }, { inject: ['sessions'] })
 
-/**
+/*
  * （中文）注册 LLM 重试不变量伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文。
  * @returns 安装成功后返回可撤销登记的 disposer。

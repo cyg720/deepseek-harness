@@ -19,7 +19,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
  * Key-gated smoke for mid-session compaction. It verifies the compact event
  * pair, replacement of older surface nodes, and a final answer after compaction.
  */
-/** 中文说明：该有密钥冒烟验证压缩事件对、旧表面节点替换以及压缩后的最终回答。 */
+/* 中文说明：该有密钥冒烟验证压缩事件对、旧表面节点替换以及压缩后的最终回答。 */
 // The keyless headless snapshot pins deterministic overflow recovery; this test
 // remains the independent live-provider smoke for organic pressure and summary quality.
 // 中文说明：无密钥快照负责确定性溢出恢复，本测试独立验证真实压力和总结质量。

@@ -4,7 +4,7 @@
  * surrounding capability seam instead; this service shares the host kernel and filesystem.
  * @module @deepseek-ai/dsh-sandbox
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的沙箱安全与权限隔离配置、协议与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
  * 产品维度：为 Agent 提供可靠的沙箱安全与权限隔离能力。
@@ -34,11 +34,11 @@ export { canonicalPath, writableRoots } from './roots.ts'
  * backend-defined temp area; `danger-full-access` bypasses confinement. Network
  * and process visibility are outside this vocabulary.
  */
-/** 中文说明：type SandboxMode 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：type SandboxMode 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
 
 /** A confining (non-`danger-full-access`) mode — the modes a {@link SandboxPolicy} can carry. */
-/** 中文说明：type ConfinedSandboxMode 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：type ConfinedSandboxMode 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export type ConfinedSandboxMode = Exclude<SandboxMode, 'danger-full-access'>
 
 /**
@@ -46,7 +46,7 @@ export type ConfinedSandboxMode = Exclude<SandboxMode, 'danger-full-access'>
  * is carried even under modes that do not consume it so callers can resolve
  * policy once before choosing the enforcement path.
  */
-/** 中文说明：interface SandboxExecutionPolicy 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface SandboxExecutionPolicy 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface SandboxExecutionPolicy {
   /** The file-effect mode this execution runs under. */
   mode: SandboxMode
@@ -67,7 +67,7 @@ export interface SandboxExecutionPolicy {
  * older kernel ABI cannot govern every promised file effect; callers requiring
  * an absolute boundary must not treat it as `full`.
  */
-/** 中文说明：type SandboxEnforcement 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：type SandboxEnforcement 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export type SandboxEnforcement = 'full' | 'partial'
 
 /**
@@ -78,7 +78,7 @@ export type SandboxEnforcement = 'full' | 'partial'
  * new call with a wider policy. Defaulting/resolution is an explicit step at
  * the consumer boundary; the provider treats the policy as fully specified.
  */
-/** 中文说明：interface SandboxPolicy 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface SandboxPolicy 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface SandboxPolicy extends SandboxExecutionPolicy {
   /** The file-effect mode this execution runs under. */
   mode: ConfinedSandboxMode
@@ -91,7 +91,7 @@ export interface SandboxPolicy extends SandboxExecutionPolicy {
  * equality, then matches {@link fatalSignatures} case-insensitively within
  * each remaining stderr line. Exit status alone never proves runner failure.
  */
-/** 中文说明：interface RunnerFailureRule 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface RunnerFailureRule 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface RunnerFailureRule {
   /** Nonzero process exit codes on which this rule may match; omitted permits any nonzero exit. */
   allowedExitCodes?: readonly number[]
@@ -106,7 +106,7 @@ export interface RunnerFailureRule {
  * the caller's own, plus the enforcement completeness the selected backend
  * achieves for it.
  */
-/** 中文说明：interface ConfinedArgv 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface ConfinedArgv 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export interface ConfinedArgv {
   /** The wrapped argv (runner, profile, separator, then the caller's argv). */
   argv: string[]
@@ -136,7 +136,7 @@ export interface ConfinedArgv {
  * `tool/result` so callers can distinguish missing confinement from command
  * failure.
  */
-/** 中文说明：常量 SANDBOX_UNAVAILABLE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SANDBOX_UNAVAILABLE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SANDBOX_UNAVAILABLE = 'SANDBOX_UNAVAILABLE'
 
 /**
@@ -144,7 +144,7 @@ export const SANDBOX_UNAVAILABLE = 'SANDBOX_UNAVAILABLE'
  * mode. Carries {@link SANDBOX_UNAVAILABLE} through the structured error
  * channel.
  */
-/** 中文说明：class SandboxUnavailableError 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：class SandboxUnavailableError 定义本模块所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 export class SandboxUnavailableError extends HarnessError {
   constructor(mode: ConfinedSandboxMode, detail?: string) {
     super(

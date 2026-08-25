@@ -15,7 +15,7 @@
  * published dependency ranges resolve. A workspace link or a stale `lib/` in the
  * checkout cannot stand in for a missing file here.
  */
-/**
+/*
  * 文件职责：实现 verify-packed-install.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -39,7 +39,7 @@ import { packedIdentity } from './tarball.ts'
  * @param consumerRoot - the throwaway consumer directory.
  * @returns The child environment.
  */
-/** 中文说明：函数 consumerEnvironment 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 consumerEnvironment 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function consumerEnvironment(consumerRoot: string): NodeJS.ProcessEnv {
   /** 中文说明：变量 environment 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const environment = { ...process.env }
@@ -62,7 +62,7 @@ function consumerEnvironment(consumerRoot: string): NodeJS.ProcessEnv {
  * @param directories - absolute directories holding packed tarballs.
  * @returns Package name to tarball file URL, and the version each carries.
  */
-/** 中文说明：函数 packedDependencies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 packedDependencies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packedDependencies(directories: readonly string[]): Map<string, { url: string; version: string }> {
   /** 中文说明：变量 dependencies 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dependencies = new Map<string, { url: string; version: string }>()
@@ -83,7 +83,7 @@ function packedDependencies(directories: readonly string[]): Map<string, { url: 
 }
 
 /** Install every tarball under `--from` and drive the `--family` entry. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   const { values } = parseArgs({
     options: { family: { type: 'string' }, from: { type: 'string', multiple: true } },

@@ -53,23 +53,23 @@ import { LocalTerminalHandle } from './terminal.ts'
  * SIGTERM→grace→SIGKILL escalation, plus synchronous final termination during
  * JavaScript-observable host exit.
  */
-/**
+/*
  * 本地子进程服务：分离进程树、Node 形状 stdio 配置（原始管道/继承/带溢出文件的有界
  * 尾部收集）、凭据擦除环境、SIGTERM→grace→SIGKILL 升级的树范围信号，以及 JavaScript
  * 可观察宿主退出期间的同步最终终止。
  */
 export class LocalSubprocessRuntime extends SubprocessRuntime {
   /** Live handles retained for normal disposal and synchronous host-exit finalization. */
-  /** 存活句柄集合：供正常拆解与同步宿主退出兜底使用。 */
+  /* 存活句柄集合：供正常拆解与同步宿主退出兜底使用。 */
   private live = new Set<LocalSubprocessHandle>()
   /** Live terminals retained through normal quiescence or host-exit finalization. */
-  /** 存活终端集合：保留到正常静默或宿主退出兜底。 */
+  /* 存活终端集合：保留到正常静默或宿主退出兜底。 */
   private terminals = new Set<LocalTerminalHandle>()
   /** Test hook: spill and platform knobs forwarded to spawnSubprocess. */
-  /** 测试钩子：透传给 spawnSubprocess 的溢出/平台旋钮。 */
+  /* 测试钩子：透传给 spawnSubprocess 的溢出/平台旋钮。 */
   internals: SpawnInternals = {}
   /** Test hook for platform process inspection; production resolves lazily on terminal spawn. */
-  /** 测试钩子：平台进程检查器；生产环境在终端 spawn 时惰性解析。 */
+  /* 测试钩子：平台进程检查器；生产环境在终端 spawn 时惰性解析。 */
   terminalInspector: ProcessInspector | undefined
 
   constructor(ctx: Context) {
@@ -245,7 +245,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
 }
 
 /** Read a Windows environment key using the platform's case-insensitive semantics. */
-/** 读取 Windows 环境键（平台大小写不敏感语义）：精确命中优先，否则按大写比较查找。 */
+/* 读取 Windows 环境键（平台大小写不敏感语义）：精确命中优先，否则按大写比较查找。 */
 function environmentValue(env: NodeJS.ProcessEnv, name: 'PATH' | 'PATHEXT'): string | undefined {
   const exact = env[name]
   if (exact !== undefined || process.platform !== 'win32') return exact

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】把轨迹布局（turns）投影成概览用的时间线模型：sequence（等宽序列）、
  *             duration（记录时长）、time（压缩空闲的完整时间）、actual（实际时间）
@@ -34,7 +34,7 @@ export interface TrajectoryTimeRange {
 }
 
 /** One ledger record projected into the active timeline domain. */
-/**
+/*
  * 一条账本记录投影进当前时间线域后的片段：带起止、车道、标签与错误标记。
  */
 export interface TrajectoryTimelineSpan extends TrajectoryTimeRange {
@@ -64,7 +64,7 @@ export interface TrajectoryTimelineModel extends TrajectoryTimeRange {
  * @param milliseconds - Non-negative duration in milliseconds.
  * @returns Millisecond label with thousands separators.
  */
-/**
+/*
  * 把时间线时长格式化成整数毫秒标签（带千分位），复用于偏移显示。
  * @param milliseconds - 非负毫秒时长。
  * @returns 带千分位的毫秒标签。
@@ -100,7 +100,7 @@ function cellRange(cell: TrajectoryCellProps): TrajectoryTimeRange | null {
  * @param mode - Independent equal/recorded duration and compressed/complete time projection.
  * @returns Timeline model, or `null` when no record is visible.
  */
-/**
+/*
  * 把每条可见记录投影成稳定的三车道时间线。
  * 使用示例：const model = deriveTrajectoryTimeline(turns, toolbarMode)；model === null 时隐藏概览。
  * @param turns - 未过滤的轨迹布局。
@@ -233,7 +233,7 @@ function deriveTimedTimeline(
  * @param mode - Independent equal/recorded duration and compressed/complete time projection.
  * @returns Record indexes inside the focus interval.
  */
-/**
+/*
  * 找出与选中闭区间相交的所有记录索引（用于聚焦 / 高亮）。
  * @param turns - 未过滤的轨迹布局。
  * @param range - 当前投影中的选中区间。

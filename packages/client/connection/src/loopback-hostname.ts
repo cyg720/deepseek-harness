@@ -3,7 +3,7 @@
  * Host fence and the package's `ctx.connection` state. The predicate stays
  * package-internal; client plugins consume the derived state through Cordis.
  */
-/**
+/*
  * 文件职责：提供浏览器安全、零依赖的回环主机名判断，供 API 宿主围栏和连接状态共享。
  * 技术维度：使用字符串精确比较、IPv4 分段和正则数值校验处理 WHATWG URL hostname。
  * 产品维度：只在真实本机地址启用本地连接能力，防止相似远端域名被误判为可信主机。
@@ -17,7 +17,7 @@
  * @param hostname - WHATWG URL hostname (IPv6 literals retain brackets).
  * @returns true for localhost, IPv6 loopback, or any IPv4 address in 127/8.
  */
-/**
+/*
  * 判断规范化 URL 主机名是否指向本机回环地址。
  * @param hostname - WHATWG URL 的 hostname；IPv6 字面量保留方括号。
  * @returns localhost、[::1] 或合法 127/8 IPv4 返回 true，其余返回 false。

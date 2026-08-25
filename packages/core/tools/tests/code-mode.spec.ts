@@ -32,7 +32,7 @@ const testToolSignal = new AbortController().signal
  */
 
 /** A scriptable in-repo CodeRuntime: each test sets `behavior` to drive the bindings however it needs. */
-/** 中文说明：类型或类 FakeRuntime 约束服务或测试数据职责。 */
+/* 中文说明：类型或类 FakeRuntime 约束服务或测试数据职责。 */
 class FakeRuntime extends CodeRuntime {
   readonly language: string
   readonly isolation = 'fake'
@@ -74,7 +74,7 @@ async function setup(options: SetupOptions = {}) {
 }
 
 /** Mint an agent scope configured like production that can register scoped tool policy. */
-/** 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mintAgentScope(ctx: Context, name = 'scoped'): Promise<{ scope: Scope; agent: Agent }> {
   /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = { id: SessionId(name) } as Agent
@@ -86,7 +86,7 @@ async function mintAgentScope(ctx: Context, name = 'scoped'): Promise<{ scope: S
 }
 
 /** Register a trivial echo tool; returns the calls it received. */
-/** 中文说明：函数 registerEcho 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 registerEcho 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function registerEcho(ctx: Context, name = 'echo'): unknown[] {
   /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
   const calls: unknown[] = []
@@ -107,7 +107,7 @@ function registerEcho(ctx: Context, name = 'echo'): unknown[] {
 }
 
 /** A structural fake of the owning agent: captures session appends. */
-/** 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeAgent(): { agent: Agent; events: { type: string; data: unknown }[] } {
   /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
   const events: { type: string; data: unknown }[] = []
@@ -122,7 +122,7 @@ function fakeAgent(): { agent: Agent; events: { type: string; data: unknown }[] 
 }
 
 /** Dispatch run_code through the registry pipeline, as the loop would. */
-/** 中文说明：函数 runCode 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 runCode 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function runCode(
   ctx: Context,
   code: string,
@@ -573,7 +573,7 @@ describe('mode-aware wire contribution', () => {
 
 describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   /** Register a tool whose calls resolve only when the test releases them; returns live-call telemetry. */
-  /** 中文说明：函数 registerGated 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 registerGated 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function registerGated(ctx: Context, name: string, concurrencySafe: boolean) {
     /** 中文说明：测试局部值 gates，由紧邻初始化决定。 */
     const gates: (() => void)[] = []

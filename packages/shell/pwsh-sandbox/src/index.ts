@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现沙箱化的 PowerShell 执行器 SandboxPwshExecutor：把 pwsh-local 生成的
  * 精确 argv 交给 ctx.sandbox 提供者做隔离包装（Windows 上解析为 ACL 受限令牌运行器链），
@@ -57,7 +57,7 @@ import { classifyDenial, classifyRunnerFailure, isRunnerSpawnFailure, matchesSig
  * runner choice is likewise the `ctx.sandbox` provider's config, not this
  * executor's.
  */
-/**
+/*
  * 插件配置：原样复用本地 pwsh 执行器的配置项。沙箱策略（默认模式与 workspace-write
  * 回退根目录）不在这里，而是由 ctx.sandboxPolicy 按会话解析；运行器选择同样是
  * ctx.sandbox 提供者的配置，而非本执行器的。
@@ -73,7 +73,7 @@ export type Config = LocalConfig
  * `result.sandbox` reports the mode, enforcement, and denial facts the tool
  * renders.
  */
-/**
+/*
  * 注册为 ctx.shell 以替代本地 pwsh 执行器，并要求 ctx.sandbox 提供者与 ctx.sandboxPolicy
  * 同时存在；工具层承载拒绝渲染与升级面。工具调用传入调用会话已解析的策略，
  * 直接调用回退到部署策略；result.sandbox 上报工具渲染所需的模式/完整度/拒绝事实。
@@ -87,14 +87,14 @@ export class SandboxPwshExecutor extends PwshLocalExecutor {
   // verbatim (the config catalog walks the inherited static).
 
   private readonly mode: SandboxMode
-  /** 沙箱默认模式，作为能力事实供模式广告（schema advertisement）使用。 */
+  /* 沙箱默认模式，作为能力事实供模式广告（schema advertisement）使用。 */
   /**
    * Per-process confinement facts retained until settlement. Providers may
    * vary enforcement and diagnostic dialect between overlapping calls, so a
    * shared latest-wrap value would classify a process against the wrong facts.
    * Unconfined processes have no entry.
    */
-  /**
+  /*
    * 每个进程的隔离事实，保留到进程落定为止。提供者在重叠调用之间可能变化执行完整度与
    * 诊断方言，因此共享"最近一次包装"的值会把进程分类到错误的事实上；未隔离的进程无此条目。
    */
@@ -115,7 +115,7 @@ export class SandboxPwshExecutor extends PwshLocalExecutor {
   }
 
   /** The configured default mode — the capability fact the tool layer reads. */
-  /** 配置的默认模式——工具层读取的能力事实。 */
+  /* 配置的默认模式——工具层读取的能力事实。 */
   override get sandboxMode(): SandboxMode {
     return this.mode
   }
@@ -125,7 +125,7 @@ export class SandboxPwshExecutor extends PwshLocalExecutor {
    * calling session's resolved mode and root; lower-level callers fall back to
    * the deployment policy.
    */
-  /**
+  /*
    * 把完整的一次调用策略盖到规格上。工具调用携带调用会话已解析的模式与根目录；
    * 底层调用方回退到部署策略。
    */
@@ -208,7 +208,7 @@ export class SandboxPwshExecutor extends PwshLocalExecutor {
    * Stamp per-process sandbox facts before `done` settles. Full-access
    * processes have no facts; signal deaths are not denials.
    */
-  /**
+  /*
    * 在 done 落定前给进程盖印沙箱事实。完全放行（full-access）的进程没有事实；
    * 被信号杀死的进程不算拒绝。
    */
@@ -240,7 +240,7 @@ export class SandboxPwshExecutor extends PwshLocalExecutor {
    * @param policy - resolved confined execution policy.
    * @returns the provider's exact argv and settlement-classification facts.
    */
-  /**
+  /*
    * 通过 ctx.sandbox 提供者包装一次 pwsh 调用。提供者错误原样向上抛；返回的 argv
    * 直接交给本地执行器的子进程路径。
    * @param spec 已解析的执行规格，其 pwsh argv 将被隔离包装

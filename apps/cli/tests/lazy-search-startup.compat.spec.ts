@@ -8,7 +8,7 @@
  * Its URL line follows the settled profile boot; SIGTERM then exercises the
  * shipped quiescent disposer.
  */
-/**
+/*
  * 文件职责：在构建产物上验证 Web CLI 默认关闭全文搜索并可通过 SIGTERM 平静退出。
  * 技术维度：使用 Node 子进程、YAML 自定义类型、临时目录和构建产物兼容测试开关。
  * 产品维度：确保发布版在 Node 22 下按安全默认值启动，不意外开启 SQLite 搜索或泄漏警告。
@@ -63,7 +63,7 @@ const jsExprType = new yaml.Type('tag:yaml.org,2002:js', {
 const configSchema = yaml.JSON_SCHEMA.extend(jsExprType)
 
 /** Boot the built Web CLI, wait for its settled URL, then dispose through SIGTERM. */
-/**
+/*
  * 启动构建版 Web CLI，等待 URL 表示稳定后发送 SIGTERM。
  * @param cwd 隔离的启动工作目录。
  * @returns 进程标准输出、标准错误和退出码。

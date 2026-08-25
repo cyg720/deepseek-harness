@@ -2,7 +2,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-workspace`.
  * @module @deepseek-ai/dsh-workspace/invariant
  */
-/**
+/*
  * 文件职责：实现 invariant.ts 覆盖的工作区实体与配置行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作区实体与配置能力稳定、可隔离且可诊断。
@@ -20,10 +20,10 @@ import { WorkspaceId } from '@deepseek-ai/dsh-workspace'
 const PACKAGE_NAME = '@deepseek-ai/dsh-workspace'
 
 /** Cordis companion plugin name. */
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'workspace-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['invariants']
 
 /**
@@ -35,7 +35,7 @@ export const inject = ['invariants']
  * cache, whether for create rollback or an explicit registration deletion;
  * deleting while the cache still publishes the entity proves a bypass.
  */
-/** 中文说明：变量 install 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 install 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const install: InvariantInstaller = Object.assign(
   (ctx: Context, fail: (message: string) => never) => {
     ctx.on('domain/changed', (change: DomainChanged) => {
@@ -65,6 +65,6 @@ const install: InvariantInstaller = Object.assign(
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+/* 中文说明：函数值 apply 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

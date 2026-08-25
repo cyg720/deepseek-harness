@@ -69,7 +69,7 @@ function props(jobs: readonly JobView[] | undefined): JobListActionProps {
  * carry no whitespace between them, so the cells are read one element at a
  * time rather than split out of a flattened string.
  */
-/** 中文说明：函数 rowCells 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rowCells 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowCells(): string[][] {
   return within(screen.getByRole('list', { name: zh['list.aria'] }))
     .getAllByRole('listitem')

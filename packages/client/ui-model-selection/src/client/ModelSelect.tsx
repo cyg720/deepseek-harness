@@ -11,7 +11,7 @@
  * announces through the shared transient Toast anchored to the composer
  * card; the in-menu strip with Retry remains the catalog-load surface.
  */
-/**
+/*
  * 文件职责：实现模型选择的 ModelSelect 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：支持用户查看或调整模型选择。
@@ -35,11 +35,11 @@ import type { ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
 
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
-/** 中文说明：类型或类 Pane 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 Pane 约束本文件数据或组件职责。 */
 type Pane = 'root' | 'model' | 'effort'
 
 /** One dynamic effort row; undefined means preserve the provider default. */
-/** 中文说明：类型或类 EffortChoice 约束本文件数据或组件职责。 */
+/* 中文说明：类型或类 EffortChoice 约束本文件数据或组件职责。 */
 interface EffortChoice {
   key: string
   effort: string | undefined
@@ -53,7 +53,7 @@ interface EffortChoice {
  * store/verbs) + the standard locale seat.
  * @returns the trigger and, while open, the two-level menu.
  */
-/** 中文说明：函数 ModelSelect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 ModelSelect 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function ModelSelect(
   { locked, available, directory, load, select, t }:
   ModelSelectInjected & { locked: boolean } & PropsLocale<'model'>,

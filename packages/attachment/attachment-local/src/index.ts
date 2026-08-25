@@ -1,5 +1,5 @@
 /** Local durable attachment backend rooted below `DSH_HOME`. @module @deepseek-ai/dsh-attachment-local */
-/**
+/*
  * 文件职责：实现以 DSH_HOME 为根的本地持久附件服务，并协调图片准入、规范化、缓存和并发限制。
  * 技术维度：使用 Cordis 服务、Schemastery 配置、内容寻址文件存储、AbortSignal 和共享 Promise 合并重复请求。
  * 产品维度：让会话图片可跨进程重放，并为不同模型路由生成受字节与像素预算约束的请求版本。
@@ -33,66 +33,66 @@ export type { PreparedImageFile } from './store.ts'
 export { readRequestImageFile, requestImageDimensions, requestImageVariantId } from './request-image.ts'
 
 /** Default maximum encoded bytes for one submitted image; oversized sources are refused, not shrunk. */
-/** 单张来源图片默认最大编码字节数，超过20 MiB会在规范化前拒绝。 */
+/* 单张来源图片默认最大编码字节数，超过20 MiB会在规范化前拒绝。 */
 export const DEFAULT_MAX_IMAGE_BYTES = 20 * 1024 * 1024
 /** Default maximum images in one prompt. */
-/** 单条提示默认最多包含20张图片。 */
+/* 单条提示默认最多包含20张图片。 */
 export const DEFAULT_MAX_IMAGES_PER_MESSAGE = 20
 /** Default maximum aggregate image bytes in one prompt. */
-/** 单条提示全部来源图片默认最大合计字节数，为200 MiB。 */
+/* 单条提示全部来源图片默认最大合计字节数，为200 MiB。 */
 export const DEFAULT_MAX_MESSAGE_IMAGE_BYTES = 200 * 1024 * 1024
 /** Default maximum intrinsic pixels for one submitted image. */
-/** 单张来源图片默认最大固有像素总数。 */
+/* 单张来源图片默认最大固有像素总数。 */
 export const DEFAULT_MAX_IMAGE_PIXELS = 64_000_000
 /** Default per-side pixel cap for one submitted image. */
-/** 单张来源图片宽或高的默认最大像素数。 */
+/* 单张来源图片宽或高的默认最大像素数。 */
 export const DEFAULT_MAX_IMAGE_DIMENSION = 8192
 /**
  * Default long-edge target of the stored normalized image. A larger source
  * is admitted and downscaled to this edge, so admission bounds what rides
  * every later model request without refusing ordinary large sources.
  */
-/** 持久规范化图片的默认长边目标，较大来源会等比缩小至2048像素。 */
+/* 持久规范化图片的默认长边目标，较大来源会等比缩小至2048像素。 */
 export const DEFAULT_NORMALIZED_IMAGE_MAX_DIMENSION = 2048
 /** Default independent safety cap for one stored normalized image. */
-/** 单个持久规范化图片的独立默认编码字节上限，为4 MiB。 */
+/* 单个持久规范化图片的独立默认编码字节上限，为4 MiB。 */
 export const DEFAULT_NORMALIZED_IMAGE_MAX_BYTES = 4 * 1024 * 1024
 /** Conservative default number of simultaneous native image transformations per store. */
-/** 每个存储实例默认同时执行两个原生图片转换任务。 */
+/* 每个存储实例默认同时执行两个原生图片转换任务。 */
 export const DEFAULT_IMAGE_COMPRESSION_CONCURRENCY = 2
 /** Maximum configurable native image transformations per store. */
-/** 每个存储实例允许配置的最大原生图片转换并发数。 */
+/* 每个存储实例允许配置的最大原生图片转换并发数。 */
 export const MAX_IMAGE_COMPRESSION_CONCURRENCY = 8
 
 /** Local attachment backend configuration. */
-/** 本地附件后端的部署配置，所有数值均在服务创建时解析。 */
+/* 本地附件后端的部署配置，所有数值均在服务创建时解析。 */
 export interface Config {
   /** Explicit harness home; omitted follows `DSH_HOME`, then `~/.dsh`. */
-  /** 显式 Harness 主目录；省略时依次使用 DSH_HOME 和 ~/.dsh。 */
+  /* 显式 Harness 主目录；省略时依次使用 DSH_HOME 和 ~/.dsh。 */
   dshHome?: string
   /** Maximum encoded bytes accepted for one submitted image. Default: 20 MiB. */
-  /** 单张提交图片允许的最大编码字节数。 */
+  /* 单张提交图片允许的最大编码字节数。 */
   maxImageBytes?: number
   /** Maximum image count accepted in one submitted message. Default: 20. */
-  /** 单条消息允许的最大图片数量。 */
+  /* 单条消息允许的最大图片数量。 */
   maxImagesPerMessage?: number
   /** Maximum aggregate encoded image bytes accepted in one submitted message. Default: 200 MiB. */
-  /** 单条消息全部图片允许的最大合计字节数。 */
+  /* 单条消息全部图片允许的最大合计字节数。 */
   maxMessageImageBytes?: number
   /** Maximum intrinsic width multiplied by height accepted for one submitted image. Default: 64,000,000. */
-  /** 单张图片允许的最大固有宽高乘积。 */
+  /* 单张图片允许的最大固有宽高乘积。 */
   maxImagePixels?: number
   /** Maximum intrinsic width and maximum intrinsic height accepted for one submitted image. Default: 8192px. */
-  /** 单张图片宽和高分别允许的最大像素数。 */
+  /* 单张图片宽和高分别允许的最大像素数。 */
   maxImageDimension?: number
   /** Long-edge pixel cap of the stored provider-independent normalized image. */
-  /** 持久规范化图片的长边像素上限。 */
+  /* 持久规范化图片的长边像素上限。 */
   normalizedImageMaxDimension?: number
   /** Encoded-byte safety cap of the stored provider-independent normalized image. */
-  /** 持久规范化图片的编码字节安全上限。 */
+  /* 持久规范化图片的编码字节安全上限。 */
   normalizedImageMaxBytes?: number
   /** Maximum simultaneous normalization or request-image transformations in this service instance. */
-  /** 当前服务实例同时执行规范化或请求图片转换的最大数量。 */
+  /* 当前服务实例同时执行规范化或请求图片转换的最大数量。 */
   imageCompressionConcurrency?: number
 }
 
@@ -185,7 +185,7 @@ class SharedRequest<T> {
 }
 
 /** Persistent content-addressed local attachment store. */
-/** 持久、内容寻址的本地附件服务，供会话和模型请求共享规范化图片。 */
+/* 持久、内容寻址的本地附件服务，供会话和模型请求共享规范化图片。 */
 export class LocalAttachmentStore extends AttachmentStore {
   /** Cordis 用于校验和填充本地附件部署配置的模式。 */
   static Config: z<Config> = z.object({
@@ -202,15 +202,15 @@ export class LocalAttachmentStore extends AttachmentStore {
   })
 
   /** Absolute versioned storage root. */
-  /** 版本化附件存储的绝对根目录。 */
+  /* 版本化附件存储的绝对根目录。 */
   readonly root: string
   /** 已解析并冻结的来源图片准入限制。 */
   readonly imageLimits: ImageAttachmentLimits
   /** Resolved provider-independent normalization policy. */
-  /** 已解析并冻结的提供方无关规范化策略。 */
+  /* 已解析并冻结的提供方无关规范化策略。 */
   readonly normalizationPolicy: Readonly<NormalizationPolicy>
   /** Resolved instance-level compression limit. */
-  /** 当前实例最终采用的图片转换并发数。 */
+  /* 当前实例最终采用的图片转换并发数。 */
   readonly imageCompressionConcurrency: number
   /** 对所有规范化和请求图片转换实施并发限制的调度器。 */
   private readonly compression: CompressionLimiter

@@ -18,7 +18,7 @@ import type { RunHookOptions } from '@deepseek-ai/dsh-hook-protocol'
  * executor (dsh-bash-local) is exercised end-to-end by the hook-bridge plugins
  * that consume this library, not here.
  */
-/** 中文说明：函数 recordingBash 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 recordingBash 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function recordingBash(run: (spec: ShellExecSpec) => Promise<ShellRunResult>): {
   bash: ShellExecutor
   specs: ShellExecSpec[]

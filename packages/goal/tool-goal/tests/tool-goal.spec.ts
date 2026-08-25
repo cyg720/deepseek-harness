@@ -32,7 +32,7 @@ interface StubAgent {
 }
 
 /** Build one registry-compatible live agent whose injections enter the durable inbox. */
-/** 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(rawId: string, supplied?: Session): StubAgent {
   /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = supplied ?? Session.create(SessionId(rawId))
@@ -60,7 +60,7 @@ function stubAgent(rawId: string, supplied?: Session): StubAgent {
 }
 
 /** Open one message-triggered turn with its accepted model-visible input. */
-/** 中文说明：函数 openTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 openTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function openTurn(stub: StubAgent, source: MessageSource, text = 'prompt'): number {
   /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
   const turn = stub.session.events
@@ -84,7 +84,7 @@ function openTurn(stub: StubAgent, source: MessageSource, text = 'prompt'): numb
 }
 
 /** Close the currently open test turn. */
-/** 中文说明：函数 closeTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 closeTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function closeTurn(stub: StubAgent, turn: number): void {
   stub.session.append('turn/end', { turn, reason: { kind: 'completed' } })
 }
@@ -106,7 +106,7 @@ async function harness(config: toolGoal.Config = {}) {
 }
 
 /** Execute one registered tool under an optional driver initiator. */
-/** 中文说明：函数 execute 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 execute 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function execute(
   ctx: Context,
   name: string,
@@ -126,7 +126,7 @@ async function execute(
 }
 
 /** Parse the compact JSON returned by a successful goal tool. */
-/** 中文说明：函数 resultJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resultJson 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resultJson(result: ToolExecutionResult): Record<string, unknown> {
   expect(result.isError).toBe(false)
   if (result.isError) throw new Error('expected goal tool success')
@@ -140,7 +140,7 @@ function resultJson(result: ToolExecutionResult): Record<string, unknown> {
 }
 
 /** Read the returned goal sub-object. */
-/** 中文说明：函数 resultGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 resultGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resultGoal(result: ToolExecutionResult): Record<string, unknown> {
   /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
   const goal = resultJson(result)['goal']

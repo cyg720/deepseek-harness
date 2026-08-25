@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】Cordis 定时器服务（timer）的浏览器实现：与 Host TimerService 相同
  *             的公开 API，为 ctx 混入生命周期安全的定时器助手，所有定时器都是
@@ -48,14 +48,14 @@ type WithDispose<T> = T & { dispose: () => void }
 // return/rejection values must pass through without narrowing them to one caller's invocation.
 
 /** Browser timer Service with the same public API as the Host Cordis TimerService. */
-/**
+/*
  * 浏览器侧定时器服务：公开 API 与 Host 的 Cordis TimerService 一致，为 ctx 混入
  * timeout/interval/throttle/debounce/setTimeout/setInterval；所有定时器都是 Fiber
  * 效果，插件停止时自动清理。
  */
 export class ClientTimerService extends Service {
   /** Register the Service and mix its lifecycle-safe helpers onto Context. */
-  /**
+  /*
    * 注册 timer 服务并把生命周期安全的助手混入 Context。
    */
   constructor(ctx: Context) {
@@ -184,7 +184,7 @@ export class ClientTimerService extends Service {
   }
 
   /** Build a delayed wrapper whose pending callback belongs to the calling Fiber. */
-  /**
+  /*
    * 构造延迟包装器：待执行的回调挂到调用 Fiber 上（dispose 随 Fiber 清理）。
    */
   private schedule(label: string, trigger: (args: any[], disposed: boolean) => number | undefined, disposed = false): any {
@@ -243,8 +243,9 @@ export class ClientTimerService extends Service {
  * @param ctx - Client context that owns the Service and mixed-in helpers.
  * @returns Nothing after registering the Service.
  */
-/**
+/*
  * 在客户端组合上安装浏览器定时器服务（构造即注册 + 混入）。
+ * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
  */
 export function provideClientTimer(ctx: Context): void {
   new ClientTimerService(ctx)

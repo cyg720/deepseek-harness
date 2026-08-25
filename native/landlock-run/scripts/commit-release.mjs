@@ -4,7 +4,7 @@
  * `pnpm release:commit <major|minor|patch|x.y.z>`. The namespaced tag stays
  * manual — create it from the merged release commit.
  */
-/**
+/*
  * 文件职责：一次完成 landlock-run 版本提升、文件暂存和发布提交。
  * 技术维度：使用 Node.js ESM、spawnSync 和仓库辅助函数执行受控的 Git 与版本脚本命令。
  * 产品维度：减少原生沙箱发布时漏改版本或漏暂存锁文件的风险。

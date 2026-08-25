@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】浏览器会话偏好的宿主注册入口：当设置服务存在时，把会话设置的命名空间与
  *             schema 登记进用户设置文档，并转发 submission-settings.ts 的公共导出。
@@ -24,7 +24,7 @@ export {
  * Register the durable conversation section when a settings provider exists.
  * @param ctx - Host context whose optional settings service owns the section.
  */
-/**
+/*
  * 当存在设置提供方时，登记持久化的会话设置段。
  * @param ctx - 宿主上下文；其可选 settings 服务拥有该设置段。
  */

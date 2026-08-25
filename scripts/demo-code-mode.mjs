@@ -1,5 +1,5 @@
 /** Boot the ACP Code Mode overlay. Requires a DeepSeek API key. */
-/**
+/*
  * 文件职责：启动使用 Code Mode 覆盖配置的 ACP 演示子进程。
  * 技术维度：通过 Node child_process.spawn 运行 tsx 源码入口并继承终端流。
  * 产品维度：开发者可用真实 DeepSeek 密钥体验模型自修改运行时的代码模式。

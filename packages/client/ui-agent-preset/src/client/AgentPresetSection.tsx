@@ -9,7 +9,7 @@
  * to. Deleting a preset leaves running sessions alone: a composition is
  * mounted once at session creation and nothing re-reads the file.
  */
-/**
+/*
  * 文件职责：实现预设界面的 AgentPresetSection 组件及交互。
  * 技术维度：React、TypeScript、Cordis 插槽、响应式快照和 CSS Modules。
  * 产品维度：帮助用户查看、选择或管理会话使用的代理预设。
@@ -30,7 +30,7 @@ import { presetDisplayText, type AgentPresetSettingsKey } from './locales.ts'
 import css from './AgentPresetSection.module.css'
 
 /** Registration-side business face for the management section. */
-/** 中文说明：类型 AgentPresetSectionInjected 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 AgentPresetSectionInjected 约束本文件数据字段及允许取值。 */
 export interface AgentPresetSectionInjected {
   /** 中文说明：成员 hooks 保存实例运行状态，取值由声明类型限定。 */
   hooks: {
@@ -38,59 +38,59 @@ export interface AgentPresetSectionInjected {
     agentPresetSection: SnapshotStore<AgentPresetSectionState>
   }
   /** Read the roster; called once when the section first renders. */
-  /** 中文说明：成员 load 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 load 保存实例运行状态，取值由声明类型限定。 */
   load: () => Promise<void>
   /** Open one shipped preset's composition in the read-only viewer. */
-  /** 中文说明：成员 view 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 view 保存实例运行状态，取值由声明类型限定。 */
   view: (id: string) => Promise<void>
   /** Close the read-only viewer. */
-  /** 中文说明：成员 closeView 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 closeView 保存实例运行状态，取值由声明类型限定。 */
   closeView: () => void
   /** Open the copy dialog over one preset. */
-  /** 中文说明：成员 beginCopy 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 beginCopy 保存实例运行状态，取值由声明类型限定。 */
   beginCopy: (from: string) => void
   /** Close the copy dialog, discarding the draft. */
-  /** 中文说明：成员 cancelCopy 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 cancelCopy 保存实例运行状态，取值由声明类型限定。 */
   cancelCopy: () => void
   /** Name the preset the copy creates. */
-  /** 中文说明：成员 setCopyId 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 setCopyId 保存实例运行状态，取值由声明类型限定。 */
   setCopyId: (id: string) => void
   /** Name the copy's display name. */
-  /** 中文说明：成员 setCopyName 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 setCopyName 保存实例运行状态，取值由声明类型限定。 */
   setCopyName: (name: string) => void
   /** Submit the copy. */
-  /** 中文说明：成员 confirmCopy 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 confirmCopy 保存实例运行状态，取值由声明类型限定。 */
   confirmCopy: () => Promise<void>
   /** Open one preset's directory, or reveal its path where there is no desktop. */
-  /** 中文说明：成员 openLocation 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 openLocation 保存实例运行状态，取值由声明类型限定。 */
   openLocation: (id: string) => Promise<void>
   /**
    * Stage the self-referential preset and start a new session on it — the
    * guided way to author a preset, beside copying. Absent when the surface
    * is composed without the conversation flow to land the session in.
    */
-  /** 中文说明：成员 startCreatorDraft 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 startCreatorDraft 保存实例运行状态，取值由声明类型限定。 */
   startCreatorDraft?: () => void
   /** Ask for delete confirmation, or dismiss it with null. */
-  /** 中文说明：成员 confirmDelete 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 confirmDelete 保存实例运行状态，取值由声明类型限定。 */
   confirmDelete: (id: string | null) => void
   /** Delete the preset awaiting confirmation. */
-  /** 中文说明：成员 remove 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 remove 保存实例运行状态，取值由声明类型限定。 */
   remove: () => Promise<void>
   /** Make one preset the default for sessions created later. */
-  /** 中文说明：成员 makeDefault 保存实例运行状态，取值由声明类型限定。 */
+  /* 中文说明：成员 makeDefault 保存实例运行状态，取值由声明类型限定。 */
   makeDefault: (id: string) => Promise<void>
 }
 
 /** Full component props. */
-/** 中文说明：类型 AgentPresetSectionProps 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 AgentPresetSectionProps 约束本文件数据字段及允许取值。 */
 export type AgentPresetSectionProps =
   PropsRuntime<'settings.section'>
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetSectionInjected>
 
 /** Copy-dialog sub-view props: the draft plus the actions that mutate it. */
-/** 中文说明：类型 CopyDialogProps 约束本文件数据字段及允许取值。 */
+/* 中文说明：类型 CopyDialogProps 约束本文件数据字段及允许取值。 */
 interface CopyDialogProps {
   /** 中文说明：成员 state 保存实例运行状态，取值由声明类型限定。 */
   state: AgentPresetSectionState
@@ -178,7 +178,7 @@ function CopyDialog({ state, t, actions }: CopyDialogProps): ReactNode {
  * @param props.text - the description as rendered, already localized.
  * @returns the description element, tooltip-anchored while it overflows.
  */
-/** 中文说明：函数 CardDescription 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 CardDescription 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function CardDescription({ text }: { text: string }): ReactNode {
   /** 中文说明：当前处理步骤的局部值 ref，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const ref = useRef<HTMLSpanElement | null>(null)
@@ -215,7 +215,7 @@ function CardDescription({ text }: { text: string }): ReactNode {
  * @param props - composed slot props.
  * @returns the section, or null when the deployment composes no presets.
  */
-/** 中文说明：函数 AgentPresetSection 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 AgentPresetSection 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
   /** 中文说明：当前处理步骤的局部值 解构结果，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const { useAgentPresetSection, t, load } = props

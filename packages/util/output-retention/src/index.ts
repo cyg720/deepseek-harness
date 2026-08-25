@@ -29,7 +29,7 @@
  *
  * @module @deepseek-ai/dsh-output-retention
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的通用运行时工具行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
  * 产品维度：保障 Agent 的通用运行时工具能力稳定、可复现且可诊断。
@@ -45,7 +45,7 @@
  * omitted count is precise. `unknown` is reserved for a caller that omits
  * without a count; the retainers themselves never return it.
  */
-/** 中文说明：type Omitted 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：type Omitted 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export type Omitted =
   | { kind: 'none' }
   | { kind: 'exact'; count: number }
@@ -54,7 +54,7 @@ export type Omitted =
 /**
  * The caller receives this after each `push()`.
  */
-/** 中文说明：interface PushDecision 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：interface PushDecision 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface PushDecision {
   /** Was this whole unit / all of this chunk's bytes retained (nothing dropped)? */
   kept: boolean
@@ -69,7 +69,7 @@ export interface PushDecision {
  * upstream source. `kept` is `items.length`, surfaced explicitly so a notice
  * formatter need not re-count.
  */
-/** 中文说明：interface RetainedItems 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：interface RetainedItems 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface RetainedItems<T> {
   items: T[]
   truncated: boolean
@@ -88,7 +88,7 @@ export interface RetainedItems<T> {
  * preserved, so `text` never carries a replacement char introduced by the cut
  * itself.
  */
-/** 中文说明：interface RetainedText 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：interface RetainedText 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface RetainedText {
   text: string
   truncated: boolean
@@ -96,7 +96,7 @@ export interface RetainedText {
 }
 
 /** Item retention strategy. Only `head` in v1; windows/grouped budgets wait for a second consumer. */
-/** 中文说明：type ItemRetentionStrategy 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：type ItemRetentionStrategy 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export type ItemRetentionStrategy = {
   /** Keep the first `maxItems` units. Use for `glob`, `grep`, and web sources. */
   kind: 'head'
@@ -104,7 +104,7 @@ export type ItemRetentionStrategy = {
 }
 
 /** Text retention strategy: keep a prefix, a suffix, or both, counted in bytes. */
-/** 中文说明：type TextRetentionStrategy 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：type TextRetentionStrategy 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export type TextRetentionStrategy =
   | {
     /** Keep the first `maxBytes` bytes. */
@@ -130,7 +130,7 @@ export type TextRetentionStrategy =
  * words, because only the tool knows the recovery action ("narrow the pattern",
  * "fetch a more specific URL", "read the spill file").
  */
-/** 中文说明：interface RetentionNotice 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：interface RetentionNotice 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export interface RetentionNotice {
   /** Tool/scope label, e.g. `grep`, `web_fetch`, `bash stdout`. */
   scope: string
@@ -142,7 +142,7 @@ export interface RetentionNotice {
 }
 
 /** Assert a budget field is a non-negative integer (the retainer request contract). */
-/** 中文说明：函数 assertBudget 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 assertBudget 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertBudget(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(`${name} must be a non-negative integer`)
@@ -159,7 +159,7 @@ function assertBudget(value: number, name: string): void {
  * more. The caller pushes prepared logical units and, after {@link finish},
  * groups/sorts the retained subset itself.
  */
-/** 中文说明：class ItemRetainer 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：class ItemRetainer 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export class ItemRetainer<T> {
   private readonly maxItems: number
   private readonly items: T[] = []
@@ -228,7 +228,7 @@ const decoder = new TextDecoder() // utf-8, non-fatal: internal malformed bytes 
  * or a run too long/short to be a valid lead, is returned untouched (any
  * genuinely malformed interior is left for the decoder to replace).
  */
-/** 中文说明：函数 trimTrailingPartialUtf8 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 trimTrailingPartialUtf8 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function trimTrailingPartialUtf8(bytes: Uint8Array): Uint8Array {
   /** 中文说明：变量 i 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let i = bytes.length - 1
@@ -249,7 +249,7 @@ function trimTrailingPartialUtf8(bytes: Uint8Array): Uint8Array {
  * Drop leading continuation bytes (`10xxxxxx`) so a suffix cut starts on a
  * lead/ASCII byte instead of mid-codepoint.
  */
-/** 中文说明：函数 trimLeadingContinuationUtf8 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 trimLeadingContinuationUtf8 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function trimLeadingContinuationUtf8(bytes: Uint8Array): Uint8Array {
   /** 中文说明：变量 i 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let i = 0
@@ -270,7 +270,7 @@ function trimLeadingContinuationUtf8(bytes: Uint8Array): Uint8Array {
  * `prefixCap + tailBytes + one chunk` in memory (old suffix chunks are dropped
  * as they slide out), so a large stream does not accumulate unbounded.
  */
-/** 中文说明：class TextRetainer 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
+/* 中文说明：class TextRetainer 定义本模块所需的数据或行为，用于表达通用运行时工具场景。 */
 export class TextRetainer {
   private readonly prefixCap: number
   private readonly suffixCap: number
@@ -431,7 +431,7 @@ export class TextRetainer {
 }
 
 /** Concatenate chunks into one contiguous buffer (their exact total length). */
-/** 中文说明：函数 concat 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 concat 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function concat(chunks: readonly Uint8Array[]): Uint8Array {
   /** 中文说明：变量 length 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let length = 0
@@ -459,7 +459,12 @@ function concat(chunks: readonly Uint8Array[]): Uint8Array {
  * @param unit The noun for the omitted quantity (`items`, `bytes`, `chars`, `lines`).
  * @returns A neutral clause (no trailing space), or `''` when nothing was omitted.
  */
-/** 中文说明：函数 describeOmitted 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 describeOmitted 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param omitted 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param unit 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function describeOmitted(omitted: Omitted, unit: RetentionNotice['unit']): string {
   switch (omitted.kind) {
     case 'none':
@@ -484,7 +489,12 @@ export function describeOmitted(omitted: Omitted, unit: RetentionNotice['unit'])
  * @param recovery Tool-supplied guidance builder; receives the notice, returns a sentence (or `''`).
  * @returns The combined footer line.
  */
-/** 中文说明：函数 formatRetentionNotice 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 formatRetentionNotice 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param notice 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param recovery 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function formatRetentionNotice(
   notice: RetentionNotice,
   recovery: (notice: RetentionNotice) => string,

@@ -6,7 +6,7 @@
  * without external network. The port is fixed because the fetched URL is part
  * of the recorded model transcript.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：为 web-fetch 快照场景提供固定端口、确定内容的本地 HTTP 服务器。
  * - 技术维度：使用 Node HTTP Server、Cordis effect 生命周期、HTML 实体和异步监听/关闭。
@@ -18,7 +18,7 @@
 import { createServer } from 'node:http'
 
 /** Fixed loopback port the scenario prompt points `web_fetch` at. */
-/** 中文：快照提示中 web_fetch 指向的固定回环端口。 */
+/* 中文：快照提示中 web_fetch 指向的固定回环端口。 */
 const PORT = 43117
 
 /** 包含标题、实体、嵌套格式、列表、表格和链接的固定 HTML 页面。 */
@@ -34,14 +34,14 @@ const PAGE = `<!doctype html>
 `
 
 /** Cordis plugin name. */
-/** 中文：夹具服务器的稳定 Cordis 插件名。 */
+/* 中文：夹具服务器的稳定 Cordis 插件名。 */
 export const name = 'web-fetch-fixture-server'
 
 /**
  * Start the fixture server on 127.0.0.1 and register its shutdown.
  * @param ctx - Cordis context; the effect disposes the server with the fiber.
  */
-/** 中文：在 127.0.0.1 启动夹具服务器并登记关闭；ctx 拥有生命周期，监听成功后 Promise 完成。 */
+/* 中文：在 127.0.0.1 启动夹具服务器并登记关闭；ctx 拥有生命周期，监听成功后 Promise 完成。 */
 export async function apply(ctx) {
   /** 当前插件拥有的 HTTP 服务器。 */
   const server = createServer((req, res) => {

@@ -3,7 +3,7 @@
  * internal plumbing event, the silent drop for an unsubscribed name, and the
  * `$mount` refusal that sends a spec to the real Client Remote service.
  */
-/**
+/*
  * 文件职责：验证客户端 TestRemote 的订阅、分发、注销、无人订阅丢弃和禁止挂载约定。
  * 技术维度：使用 Vitest、Cordis 内部 remote plumbing 和内存订阅列表。
  * 产品维度：让客户端插件测试可靠模拟宿主事件，而不会误用真实远程挂载能力。

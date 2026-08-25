@@ -29,7 +29,7 @@ import type { ToolDefinition, ToolRunContext } from './index.ts'
 const CONTENT_VALUE_SCHEMA = { type: 'array', items: { type: 'json' } } as const
 
 /** Options for a fixture whose canonical value is its rendered content array. */
-/**
+/*
  * 【中文】"以内容块数组充当规范输出值"的夹具选项类型：继承 DefineToolOptions 但
  *   剔除 output 与 execute——前者被固定为 CONTENT_VALUE_SCHEMA，后者在本类型中
  *   重新声明为直接返回 ContentBlock[] 的简化形态。
@@ -39,7 +39,7 @@ export type ContentToolFixtureOptions<S extends ParameterSchemaSpec> = Omit<
   'output' | 'execute'
 > & {
   /** Produce the fixture's content blocks as its canonical test value. */
-  /** 【中文】夹具函数体：返回的内容块数组会原样成为该工具的规范输出值。 */
+  /* 【中文】夹具函数体：返回的内容块数组会原样成为该工具的规范输出值。 */
   execute(args: import('./schema.ts').InferArgs<S>, exec: ToolRunContext): Promise<ContentBlock[]>
 }
 
@@ -50,7 +50,7 @@ export type ContentToolFixtureOptions<S extends ParameterSchemaSpec> = Omit<
  * @returns a registry-ready tool with an explicit JSON-array output contract.
  * @internal
  */
-/**
+/*
  * 【中文】定义一个"内容即输出"的测试夹具工具。做法：展开调用方的 options，注入
  *   固定的 output.schema（CONTENT_VALUE_SCHEMA）与恒等 render（内容块数组直接透传），
  *   再包装 execute 使其返回值被断言为规范 JSON 值数组。仅供仓库测试使用；

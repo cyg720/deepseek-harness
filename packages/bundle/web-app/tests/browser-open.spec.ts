@@ -1,5 +1,5 @@
 /** Default-browser startup over a real Loader tree and listening Web server. */
-/**
+/*
  * 文件职责：验证Web应用仅在真实Loader树稳定且页面可访问后才把规范URL交给默认浏览器。
  * 技术维度：使用Vitest、真实WebServer/Loader/Include、临时dist和可控浏览器钩子执行端到端启动测试。
  * 产品维度：避免用户看到未就绪或已失败的页面，并确保自动打开地址使用实际操作系统分配端口。

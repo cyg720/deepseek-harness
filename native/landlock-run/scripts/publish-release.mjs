@@ -14,7 +14,7 @@
  *
  * Usage: `node scripts/publish-release.mjs [packed dir]`.
  */
-/**
+/*
  * 文件职责：按照打包顺序把 Landlock 包发布到 npm，并安全处理重复执行和注册表短暂故障。
  * 技术维度：使用 npm CLI 查询与发布，使用 SHA-512 完整性值比对内容，并通过指数退避重试暂时性失败。
  * 产品维度：让部分发布后的重跑保持安全，同时阻止相同版本号对应不同内容的不可恢复发布错误。
@@ -37,12 +37,12 @@ import { root } from './repo.mjs';
  * to back can outrun the registry's own processing. A rejected payload (`E403`
  * over an existing version, a malformed manifest) never clears on a retry.
  */
-/** 以下错误码表示注册表写入可能尚未稳定，适合先复查结果再有限重试。 */
+/* 以下错误码表示注册表写入可能尚未稳定，适合先复查结果再有限重试。 */
 const TRANSIENT_PUBLISH_CODES = ['E409', 'E429', 'E500', 'E502', 'E503', 'E504', 'ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN'];
 // 上述错误码表示注册表写入可能尚未稳定，适合先复查再有限重试。
 
 /** How many times one tarball's publish is attempted before the run fails. */
-/** 单个 tarball 的最大发布尝试次数，限制持续故障下的等待时间。 */
+/* 单个 tarball 的最大发布尝试次数，限制持续故障下的等待时间。 */
 const PUBLISH_ATTEMPTS = 4;
 // 单个 tarball 最多尝试四次，避免注册表持续异常时无限等待。
 
@@ -51,7 +51,7 @@ const PUBLISH_ATTEMPTS = 4;
  * needs a moment to commit a packument before the next write; back to back
  * publishes are what produce `E409`.
  */
-/** 连续真实发布之间的最短间隔，同时也是指数退避的初始等待时间。 */
+/* 连续真实发布之间的最短间隔，同时也是指数退避的初始等待时间。 */
 const PUBLISH_SPACING_MS = 2_000;
 // 连续发布和首次重试之间至少间隔两秒，后续重试按倍数增长。
 

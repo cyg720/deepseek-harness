@@ -7,7 +7,7 @@
  *
  * @module dsh-llm-pi-ai/stream
  */
-/**
+/*
  * 文件职责：实现Pi AI LLM的 stream.ts 模块。
  * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
  * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
@@ -27,7 +27,11 @@ import { toPiReplayState } from './replay.ts'
  * @param usage - cumulative usage from the terminal pi-ai event.
  * @returns harness counts; cache fields appear only when non-zero (pi-ai reports zeros, not absence).
  */
-/** 中文说明：函数 mapUsage 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 mapUsage 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param usage 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function mapUsage(usage: PiUsage): TokenUsage {
   return {
     inputTokens: usage.input,
@@ -83,7 +87,12 @@ function classifyPiAiError(message: string): string {
  *   to `CONTEXT_WINDOW_EXCEEDED`; a `stop` with no content blocks maps to an
  *   `EMPTY_RESPONSE` error.
  */
-/** 中文说明：函数 mapStopReason 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 mapStopReason 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param message 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param contextWindow 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function mapStopReason(message: AssistantMessage, contextWindow?: number): FinishReason {
   /** 中文说明：适配器局部值 piAiOverflow，由紧邻初始化决定。 */
   const piAiOverflow = isContextOverflow(message, contextWindow)
@@ -138,7 +147,12 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
  * @returns the harness chunks, ending with `usage` then `finish`; throws
  *   `LlmError` (`STREAM_CLOSED`) if the source ends without a terminal event.
  */
-/** 中文说明：函数 toStreamChunks 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 toStreamChunks 的参数见签名，返回结果供模型流程使用；示例见本文件。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param contextWindow 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function* toStreamChunks(
   events: AsyncIterable<AssistantMessageEvent>,
   contextWindow?: number,

@@ -5,7 +5,7 @@
  * documented, inheritance-free, and free of Cordis-only `@mode` tags; every
  * surface-union member must resolve to one. `--check` verifies the artifact.
  */
-/**
+/*
  * 文件职责：实现 gen-persistence-catalog.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -29,19 +29,19 @@ const OUT_RUNTIME_TYPES = 'packages/core/session/src/known-event-types.ts'
 
 /** The fenced-block info string for generated declaration blocks (skipped by
  * doc-typecheck, since their imported types are not standalone-compilable). */
-/** 中文说明：常量 FENCE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 FENCE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FENCE = 'ts persistence-catalog'
 
 /** The package that owns the durable event vocabulary. */
-/** 中文说明：常量 SESSION_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SESSION_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SESSION_PACKAGE = '@deepseek-ai/dsh-session'
 
 /** The type-only module that plugin declaration merges augment. */
-/** 中文说明：常量 SESSION_TYPES_MODULE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SESSION_TYPES_MODULE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SESSION_TYPES_MODULE = '@deepseek-ai/dsh-session/types'
 
 /** Event-envelope declarations rendered before the per-event vocabulary. */
-/** 中文说明：常量 EVENT_ENVELOPE_TYPE_NAMES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 EVENT_ENVELOPE_TYPE_NAMES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const EVENT_ENVELOPE_TYPE_NAMES = [
   'SessionEventType',
   'SurfaceEventType',
@@ -53,7 +53,7 @@ const EVENT_ENVELOPE_TYPE_NAMES = [
 type EventEnvelopeTypeName = typeof EVENT_ENVELOPE_TYPE_NAMES[number]
 
 /** Primary subsystems page for linked payload types. */
-/** 中文说明：常量 LINK_MAP 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 LINK_MAP 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LINK_MAP: Record<string, string> = {
   CallId: 'core.md',
   ContentBlock: 'core.md',
@@ -77,7 +77,7 @@ const LINK_MAP: Record<string, string> = {
 }
 
 /** One log event, extracted from a `SessionEventMap` declaration. */
-/** 中文说明：interface LogEventEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface LogEventEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface LogEventEntry {
   /** Scoped name, e.g. `turn/start`. */
   name: string
@@ -94,14 +94,14 @@ export interface LogEventEntry {
 }
 
 /** A {@link LogEventEntry} plus its surface-eligibility badge. */
-/** 中文说明：interface AnnotatedLogEventEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface AnnotatedLogEventEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface AnnotatedLogEventEntry extends LogEventEntry {
   /** Whether the type is a `SurfaceEventType` member (may carry `surfaceOp`). */
   surface: boolean
 }
 
 /** One owning event-envelope declaration pasted into the generated catalog. */
-/** 中文说明：interface EventEnvelopeTypeEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface EventEnvelopeTypeEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface EventEnvelopeTypeEntry {
   /** Exported declaration name. */
   name: EventEnvelopeTypeName
@@ -119,7 +119,7 @@ const printer = ts.createPrinter({ removeComments: true })
  * semicolon separators. Drop its trailing semicolon before `}` to match the
  * repository's inline-literal style.
  */
-/** 中文说明：函数 payloadText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 payloadText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function payloadText(type: ts.TypeNode, sf: ts.SourceFile): string {
   return printer.printNode(ts.EmitHint.Unspecified, type, sf)
     .replace(/\s+/g, ' ')
@@ -131,7 +131,7 @@ function payloadText(type: ts.TypeNode, sf: ts.SourceFile): string {
  * Copy a declaration from its leading JSDoc through its closing token while
  * removing only the indentation imposed by its containing interface/module.
  */
-/** 中文说明：函数 declarationText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 declarationText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function declarationText(text: string, sf: ts.SourceFile, node: ts.Node): string {
   /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = rawJsDoc(text, node)
@@ -160,7 +160,7 @@ function declarationText(text: string, sf: ts.SourceFile, node: ts.Node): string
  * it actually lives in the owning package — an unrelated local interface that
  * happens to share the name must not be catalogued as the on-disk vocabulary.
  */
-/** 中文说明：函数 sessionEventMapDecls 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 sessionEventMapDecls 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function sessionEventMapDecls(sf: ts.SourceFile): { decl: ts.InterfaceDeclaration; topLevel: boolean }[] {
   /** 中文说明：变量 decls 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const decls: { decl: ts.InterfaceDeclaration; topLevel: boolean }[] = []
@@ -183,7 +183,7 @@ function sessionEventMapDecls(sf: ts.SourceFile): { decl: ts.InterfaceDeclaratio
  * from that package's manifest — or null when the manifest is missing or
  * unparseable (the caller treats null as "ownership unverifiable").
  */
-/** 中文说明：函数 packageNameFor 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 packageNameFor 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packageNameFor(rel: string, scanRoot: string): string | null {
   /** 中文说明：变量 dir 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = rel.split('/').slice(0, 3).join('/')
@@ -203,7 +203,7 @@ function packageNameFor(rel: string, scanRoot: string): string | null {
  * Collect every `SessionEventMap` merge, rejecting inherited, non-literal,
  * untyped, undocumented, duplicate, or incorrectly owned members in one report.
  */
-/** 中文说明：函数 collectLogEvents 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectLogEvents 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectLogEvents(scanRoot: string = root): LogEventEntry[] {
   /** 中文说明：变量 entries 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entries: LogEventEntry[] = []
@@ -302,7 +302,7 @@ export function collectLogEvents(scanRoot: string = root): LogEventEntry[] {
  * Collect the exported declarations that compose the persisted event envelope,
  * preserving their source JSDoc and declaration text.
  */
-/** 中文说明：函数 collectEventEnvelopeTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectEventEnvelopeTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectEventEnvelopeTypes(scanRoot: string = root): EventEnvelopeTypeEntry[] {
   /** 中文说明：变量 found 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const found = new Map<EventEnvelopeTypeName, EventEnvelopeTypeEntry>()
@@ -365,7 +365,7 @@ export function collectEventEnvelopeTypes(scanRoot: string = root): EventEnvelop
  * relies on the union being a closed set of literal event names.
  * `scanRoot` defaults to the repo root; tests pass a fixture dir.
  */
-/** 中文说明：函数 collectSurfaceEventTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectSurfaceEventTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectSurfaceEventTypes(scanRoot: string = root): string[] {
   /** 中文说明：变量 found 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const found: { names: string[]; source: string }[] = []
@@ -407,7 +407,7 @@ export function collectSurfaceEventTypes(scanRoot: string = root): string[] {
  * `SurfaceEventType` union member names no collected event — a stale union
  * member would otherwise silently badge nothing.
  */
-/** 中文说明：函数 annotateSurface 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 annotateSurface 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function annotateSurface(events: LogEventEntry[], surfaceTypes: string[]): AnnotatedLogEventEntry[] {
   /** 中文说明：函数值 names 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const names = new Set(events.map(e => e.name))
@@ -422,7 +422,7 @@ export function annotateSurface(events: LogEventEntry[], surfaceTypes: string[])
 }
 
 /** Render the cross-link "Types:" line for a payload, or '' if none apply. */
-/** 中文说明：函数 typeLinks 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 typeLinks 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function typeLinks(payload: string): string {
   /** 中文说明：变量 seen 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seen = new Set<string>()
@@ -437,7 +437,7 @@ function typeLinks(payload: string): string {
 }
 
 /** Render one log event entry. */
-/** 中文说明：函数 renderEvent 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderEvent 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderEvent(e: AnnotatedLogEventEntry): string[] {
   /** 中文说明：变量 heading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const heading = `${e.name} — ${e.surface ? 'surface' : 'log-only'}`
@@ -452,7 +452,7 @@ function renderEvent(e: AnnotatedLogEventEntry): string[] {
 }
 
 /** Render the full catalog (pure, deterministic given the collected inputs). */
-/** 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function render(events: AnnotatedLogEventEntry[], envelopeTypes: EventEnvelopeTypeEntry[]): string {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines: string[] = [
@@ -496,7 +496,7 @@ export function render(events: AnnotatedLogEventEntry[], envelopeTypes: EventEnv
  * this repo can write, as a generated `ReadonlySet` the read path checks
  * unknown-type refusal against (`SessionEvent.ignorable` contract).
  */
-/** 中文说明：函数 renderKnownEventTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderKnownEventTypes 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function renderKnownEventTypes(events: AnnotatedLogEventEntry[]): string {
   /** 中文说明：函数值 names 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const names = [...new Set(events.map(e => e.name))].sort()
@@ -527,7 +527,7 @@ export function renderKnownEventTypes(events: AnnotatedLogEventEntry[]): string 
 }
 
 /** One generated artifact: repo-relative target and its freshly-rendered content. */
-/** 中文说明：interface GeneratedArtifact 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface GeneratedArtifact 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface GeneratedArtifact {
   readonly out: string
   readonly content: string
@@ -536,7 +536,7 @@ interface GeneratedArtifact {
 /** CLI entry: default writes the artifacts, `--check` fails if a committed copy
  * is stale. Guarded behind an entry-point check so importing this module for
  * tests neither regenerates the committed files nor calls process.exit. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   /** 中文说明：变量 events 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events = annotateSurface(collectLogEvents(), collectSurfaceEventTypes())

@@ -10,7 +10,7 @@
  * other side of the freeze boundary renders literally until the settled
  * full parse self-heals it.
  */
-/**
+/*
  * 文件职责：实现Markdown 与代码内容相关的 MarkdownText 基础组件。
  * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
  * 产品维度：为上层产品界面提供一致的Markdown 与代码内容展示。
@@ -34,7 +34,7 @@ import css from './MarkdownText.module.css'
 export type { MarkdownCodeLabels, MarkdownFileMentions } from './render.tsx'
 
 /** One settled full render: parse with math, resolve references, append the footnote section. */
-/** 中文说明：函数 renderSettled 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderSettled 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderSettled(
   text: string,
   codeLabels: MarkdownCodeLabels | undefined,
@@ -70,7 +70,7 @@ function renderSettled(
  * rendering consumed (footnote numbering assigned to frozen references is
  * final, so the tail continues from a copy of it each frame).
  */
-/** 中文说明：类型或类 StreamingRenderer 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 StreamingRenderer 约束基础组件的数据或职责。 */
 class StreamingRenderer {
   private readonly parser = new IncrementalMarkdownParser(parseGfm)
   private generation = -1
@@ -178,7 +178,7 @@ class StreamingRenderer {
  * relative links, and unsafe protocols are disabled, while absolute HTTP(S)
  * images render directly.
  */
-/** 中文说明：组件局部值 MarkdownText，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 MarkdownText，由紧邻初始化决定。 */
 export const MarkdownText = memo(function MarkdownText({ text, streaming = false, codeLabels, fileMentions }: {
   text: string
   streaming?: boolean

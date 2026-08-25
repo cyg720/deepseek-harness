@@ -13,10 +13,10 @@ import css from './TrajectoryTurn.module.css'
 /** 单轮轨迹组件属性，包含从 1 开始的轮次号和可选正文节点。 */
 export interface TrajectoryTurnProps {
   /** 1-based turn index for the sticky header. */
-  /** 从 1 开始的轮次序号，用于粘性标题和 data-turn 属性。 */
+  /* 从 1 开始的轮次序号，用于粘性标题和 data-turn 属性。 */
   turn: number
   /** Message / Step headers and TrajectoryCell rows. */
-  /** 可选的消息组、步骤组标题和 TrajectoryCell 行。 */
+  /* 可选的消息组、步骤组标题和 TrajectoryCell 行。 */
   children?: ReactNode
 }
 
@@ -25,7 +25,7 @@ export interface TrajectoryTurnProps {
  * @param props - turn index and body children.
  * @returns the turn section element.
  */
-/**
+/*
  * 渲染一轮轨迹的粘性标题与正文。
  * @param props - turn 是从 1 开始的轮次号；children 是该轮消息或步骤内容。
  * @returns 带 data-turn 标记的 section 元素树。

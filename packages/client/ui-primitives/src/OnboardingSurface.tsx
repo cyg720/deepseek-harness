@@ -23,7 +23,7 @@ import css from './OnboardingSurface.module.css'
  * @param props.children - the step's page content, centered on the stage.
  * @returns the body-portaled overlay tree.
  */
-/** 渲染引导接管界面。@param children 居中显示的步骤内容。@returns portal 到 body 的遮罩树。@example <OnboardingSurface>步骤</OnboardingSurface>。 */
+/* 渲染引导接管界面。@param children 居中显示的步骤内容。@returns portal 到 body 的遮罩树。@example <OnboardingSurface>步骤</OnboardingSurface>。 */
 export function OnboardingSurface({ children }: { children: ReactNode }) {
   // 挂载与卸载副作用；只控制当前文档的主应用根节点 inert 状态。
   useEffect(() => {

@@ -1,6 +1,6 @@
 /** Draft-attachment thumbnail rail: scrollbar-less horizontal overflow paged
  * by edge arrows, hover-revealed per-item remove, single-click open. */
-/**
+/*
  * 文件职责：实现附件界面的 AttachmentRail 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：向用户展示并操作附件相关状态。
@@ -17,7 +17,7 @@ import {
 import css from './AttachmentRail.module.css'
 
 /** One rail thumbnail; strings arrive resolved (zero-cordis atom). */
-/** 中文说明：类型或类 AttachmentRailItem 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 AttachmentRailItem 约束本文件的数据或组件职责。 */
 export interface AttachmentRailItem {
   /** Stable identity for the React key. */
   id: string
@@ -30,7 +30,7 @@ export interface AttachmentRailItem {
 }
 
 /** Rail-level strings the owner resolves from its own locale namespace. */
-/** 中文说明：类型或类 AttachmentRailLabels 约束本文件的数据或组件职责。 */
+/* 中文说明：类型或类 AttachmentRailLabels 约束本文件的数据或组件职责。 */
 export interface AttachmentRailLabels {
   /** Accessible name of the rail group. */
   group: string
@@ -44,11 +44,11 @@ export interface AttachmentRailLabels {
 
 /** Approximate pixels per wheel step for `deltaMode` LINE deltas (Firefox
  * notch wheels report lines, not pixels). */
-/** 中文说明：当前组件的局部值 WHEEL_LINE_PX，由紧邻初始化决定。 */
+/* 中文说明：当前组件的局部值 WHEEL_LINE_PX，由紧邻初始化决定。 */
 const WHEEL_LINE_PX = 16
 
 /** Smooth paging unless the user asked for reduced motion. */
-/** 中文说明：函数 pageBehavior 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 pageBehavior 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function pageBehavior(): ScrollBehavior {
   // jsdom (the unit lane) implements no matchMedia despite lib.dom's
   // non-optional typing; the optional call keeps that lane on the default.
@@ -76,7 +76,7 @@ function pageBehavior(): ScrollBehavior {
  * @param props.onRemove - remove one item from the draft.
  * @returns the rail group with its paging arrows.
  */
-/** 中文说明：函数 AttachmentRail 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 AttachmentRail 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, onOpen, onRemove }: {
   items: readonly T[]
   labels: AttachmentRailLabels

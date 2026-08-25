@@ -2,7 +2,7 @@
  * SessionManager orchestration: lazy resident instances, list lifecycle, host
  * frame routing, and the pending-frame buffer for uninstantiated sessions.
  */
-/**
+/*
  * 文件职责：验证客户端会话运行时的 manager 行为与边界。
  * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
  * 产品维度：防止用户可见行为在重构或扩展后发生回归。

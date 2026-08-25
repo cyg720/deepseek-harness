@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】sessions 域的 zod schema 集合（名字从地图键派生）：session.list /
  * search / create / rename / fork / history / models / selectModel / prompt /

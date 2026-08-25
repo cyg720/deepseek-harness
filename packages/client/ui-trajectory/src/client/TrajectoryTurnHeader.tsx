@@ -14,7 +14,7 @@ const COLUMN_LABELS = ['Input', 'Output', 'Think', 'Time'] as const
 /** 每轮粘性标题栏属性，只包含从 1 开始的轮次序号。 */
 export interface TrajectoryTurnHeaderProps {
   /** 1-based turn index shown as `Turn N`. */
-  /** 从 1 开始并显示为 Turn N 的轮次序号。 */
+  /* 从 1 开始并显示为 Turn N 的轮次序号。 */
   turn: number
 }
 
@@ -23,7 +23,7 @@ export interface TrajectoryTurnHeaderProps {
  * @param props.turn - turn index.
  * @returns the sticky header element.
  */
-/**
+/*
  * 渲染当前轮次的粘性标题行。
  * @param props.turn - 从 1 开始的轮次序号。
  * @returns 包含 Turn 标题和四个指标标签的粘性栏元素。

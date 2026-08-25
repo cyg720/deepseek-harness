@@ -77,7 +77,7 @@ function deferred<T>() {
 }
 
 /** A host-mode mirror plus a controller derived from it, over one fake wire. */
-/** 中文说明：函数 derivedScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 derivedScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function derivedScope(
   api: { describe?: ReturnType<typeof vi.fn>; mutate?: ReturnType<typeof vi.fn> },
   spec: { namespace: string; decode?: (section: unknown) => UiTestSettings | undefined } = { namespace: 'ui-test' },
@@ -92,7 +92,7 @@ function derivedScope(
 }
 
 /** Record each distinct published section, starting from the current one. */
-/** 中文说明：函数 trackValues 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 trackValues 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function trackValues(scope: SettingsScope<UiTestSettings>): Array<UiTestSettings | undefined> {
   /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
   const seen: Array<UiTestSettings | undefined> = [scope.getSnapshot().value]

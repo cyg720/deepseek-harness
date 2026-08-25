@@ -4,7 +4,7 @@
  * exit is a non-blocking error. Bridges decide which recognized fields apply.
  * @module @deepseek-ai/dsh-hook-protocol/codec
  */
-/**
+/*
  * 文件职责：实现Hook 线协议的 codec.ts 模块。
  * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
  * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
@@ -16,11 +16,11 @@
 import type { HookOutput } from './types.ts'
 
 /** The exit code a hook uses to signal a blocking error (stderr → model). */
-/** 中文说明：协议局部值 BLOCKING_EXIT_CODE，由紧邻初始化决定。 */
+/* 中文说明：协议局部值 BLOCKING_EXIT_CODE，由紧邻初始化决定。 */
 const BLOCKING_EXIT_CODE = 2
 
 /** Read a string field from a parsed object, or `undefined` if absent/wrong type. */
-/** 中文说明：函数 str 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 str 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function str(obj: Record<string, unknown>, key: string): string | undefined {
   /** 中文说明：协议局部值 v，由紧邻初始化决定。 */
   const v = obj[key]
@@ -28,7 +28,7 @@ function str(obj: Record<string, unknown>, key: string): string | undefined {
 }
 
 /** Read a boolean field, or `undefined` if absent/wrong type. */
-/** 中文说明：函数 bool 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bool 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bool(obj: Record<string, unknown>, key: string): boolean | undefined {
   /** 中文说明：协议局部值 v，由紧邻初始化决定。 */
   const v = obj[key]
@@ -36,7 +36,7 @@ function bool(obj: Record<string, unknown>, key: string): boolean | undefined {
 }
 
 /** A plain (non-null, non-array) object, or `undefined`. */
-/** 中文说明：函数 obj 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 obj 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function obj(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -49,13 +49,13 @@ function obj(value: unknown): Record<string, unknown> | undefined {
  * permissionDecision`. So an out-of-band `{"decision":"deny"}` is invalid and
  * ignored here (it must not become a real blocking decision).
  */
-/** 中文说明：函数 topLevelDecisionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 topLevelDecisionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function topLevelDecisionOf(value: string | undefined): HookOutput['decision'] {
   return value === 'approve' || value === 'block' ? value : undefined
 }
 
 /** A `hookSpecificOutput.permissionDecision` is `allow`/`deny`/`ask` only. */
-/** 中文说明：函数 permissionDecisionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 permissionDecisionOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function permissionDecisionOf(value: string | undefined): HookOutput['decision'] {
   return value === 'allow' || value === 'deny' || value === 'ask' ? value : undefined
 }
@@ -72,7 +72,14 @@ function permissionDecisionOf(value: string | undefined): HookOutput['decision']
  * @param expectedEventName - firing event used to guard hook-specific fields; omit to disable the guard.
  * @returns the dialect-neutral decoded outcome.
  */
-/** 中文说明：函数 parseHookOutput 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 parseHookOutput 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param exitCode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param stdout 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param stderr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param expectedEventName 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function parseHookOutput(exitCode: number | undefined, stdout: string, stderr: string, expectedEventName?: string): HookOutput {
   /** 中文说明：协议局部值 trimmedErr，由紧邻初始化决定。 */
   const trimmedErr = stderr.trim()
@@ -115,7 +122,7 @@ export function parseHookOutput(exitCode: number | undefined, stdout: string, st
  * block: a block whose `hookEventName` names a different event — OR omits it — has
  * its event-scoped fields discarded (any present `hookEventName` is still recorded).
  */
-/** 中文说明：函数 applyStructured 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 applyStructured 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function applyStructured(output: HookOutput, parsed: Record<string, unknown>, expectedEventName?: string): void {
   /** 中文说明：协议局部值 cont，由紧邻初始化决定。 */
   const cont = bool(parsed, 'continue')

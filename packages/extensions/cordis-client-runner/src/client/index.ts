@@ -84,7 +84,7 @@ export type {
  * "a run is in flight", so an affordance never keeps its own copy — that is what
  * makes it survive a remount.
  */
-/**
+/*
  * 运行表面（面板/卡片）读取与调用的服务面。活动表是"某次运行在进行中"的唯一
  * 事实来源，UI 从不自存副本，因此重挂载也不会丢失状态。
  */
@@ -127,7 +127,7 @@ export interface CordisRunnerFace {
    * @param request - the definition to run, its session, and whether it has a browser half.
    * @returns after the orchestration settled.
    */
-  /**
+  /*
    * 面板直接运行一个定义（用户手势本身即授权）：含浏览器半部的包同时加载到本页；
    * 纯 Host 包只在 Host 进程内启动。
    */
@@ -161,7 +161,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Teaching text for a routing failure the infrastructure itself reports. */
-/**
+/*
  * 为"基础设施自身报告的转发失败"生成教学文案：区分插件未运行/运行已过期/方法未
  * 注册/处理器抛错四类原因，分别给出可执行的修复提示。
  */
@@ -180,7 +180,7 @@ function invokeFailure(pluginId: CordisDynamicPluginId, method: string, result: 
 }
 
 /** Preserve a Host handler's stack while adding the Client call site diagnosis. */
-/**
+/*
  * 组装 host.call 失败错误：附加调用点诊断，同时保留 Host 侧堆栈。
  */
 function invokeError(
@@ -200,7 +200,7 @@ function invokeError(
  * not the call it belonged to, and the model authored both halves — so this adds
  * the call and the contract it has to satisfy.
  */
-/**
+/*
  * 为"线缆层拒绝的 host.call"生成教学文案：生成的编解码器在发送前拒绝了参数、
  * 返回途中拒绝了结果，或传输本身中断。基础设施的消息只点名被拒字段，不知道属于
  * 哪次调用——而模型同时写了两端，所以这里补上调用与它必须满足的契约。
@@ -213,7 +213,7 @@ function wireFailure(id: CordisDynamicPluginId, method: string, error: unknown):
 }
 
 /** Stable Cordis plugin name. */
-/** 本插件在 Cordis 中的注册名。 */
+/* 本插件在 Cordis 中的注册名。 */
 export const name = 'cordis-client-runner'
 
 /**
@@ -231,7 +231,7 @@ export const inject = ['loader', 'modules', 'slots', 'remote', 'remote.dynamicCo
  * Client plugin body: build the runner and subscribe the dispatch family.
  * @param ctx - client root context.
  */
-/**
+/*
  * 浏览器侧插件入口：提供客户端定时器服务、创建并发布 Client inspect 注册表、
  * 构造包运行引擎（runner）与运行编排器（orchestrator），把它们合成为
  * dynamicCordisRunner 服务面，并订阅 Host 转发来的事件驱动加载/结算/查询。

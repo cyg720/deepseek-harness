@@ -14,7 +14,7 @@
  * span tree; the MathML arm serves assistive technology, which reads it by
  * tag name regardless of namespace.
  */
-/**
+/*
  * 文件职责：实现Markdown 与代码内容相关的 katex 基础组件。
  * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
  * 产品维度：为上层产品界面提供一致的Markdown 与代码内容展示。
@@ -32,7 +32,7 @@ import katex from 'katex'
  * KaTeX emits only plain kebab-case declarations (no custom properties and no
  * nameless declarations), so camel-casing the property is the whole mapping.
  */
-/** 中文说明：函数 styleObject 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 styleObject 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function styleObject(css: string): CSSProperties {
   /** 中文说明：组件局部值 style，由紧邻初始化决定。 */
   const style: Record<string, string> = {}
@@ -51,7 +51,7 @@ function styleObject(css: string): CSSProperties {
 }
 
 /** Map one parsed DOM node onto a React element (text nodes pass through). */
-/** 中文说明：函数 domToReact 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 domToReact 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function domToReact(node: ChildNode, key: number): ReactNode {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent
   /* v8 ignore next 2 -- KaTeX output holds only elements and text; other
@@ -82,7 +82,7 @@ function domToReact(node: ChildNode, key: number): ReactNode {
  * @returns KaTeX's element tree, or the error span when the source does not
  * parse (colored with KaTeX's stock `errorColor`, matching rehype-katex).
  */
-/** 中文说明：函数 renderTexToReact 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderTexToReact 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function renderTexToReact(value: string, displayMode: boolean): ReactNode {
   /** 中文说明：组件局部值 html: string，由紧邻初始化决定。 */
   let html: string

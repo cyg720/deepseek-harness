@@ -1,5 +1,5 @@
 /** Node-half composition diagnostics for package metadata and built client bundles. */
-/**
+/*
  * 文件职责：验证客户端模块节点与宿主描述、连接状态和加载器之间的组装行为。
  * 技术维度：Cordis、Vitest、连接服务替身、响应式状态和模块加载器。
  * 产品维度：确保浏览器连接宿主后加载正确扩展模块，断线或配置变化时及时清理。
@@ -35,7 +35,7 @@ afterEach(() => {
 })
 
 /** Create a resolvable package whose client export points at the returned path. */
-/** 中文说明：测试辅助函数 `writePackage`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `writePackage`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function writePackage(
   packageName: string,
   metadata: Record<string, unknown> = { dsh: { client: { platform: 'web' } } },
@@ -58,7 +58,7 @@ function writePackage(
 }
 
 /** Create a built package with the supplied client declaration. */
-/** 中文说明：测试辅助函数 `writeBuiltPackage`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `writeBuiltPackage`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function writeBuiltPackage(packageName: string, client: Record<string, unknown>): void {
   /** 中文说明：当前流程调用的客户端服务或测试替身；变量 `clientPath` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const clientPath = writePackage(packageName, { dsh: { client: { platform: 'web', ...client } } })
@@ -67,7 +67,7 @@ function writeBuiltPackage(packageName: string, client: Record<string, unknown>)
 }
 
 /** Construct the node-half service and capture its plugin-bundle route. */
-/** 中文说明：测试辅助函数 `constructWithRoute`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `constructWithRoute`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function constructWithRoute(packageNames: string[]): { service: ClientModuleRegistry; route: WebRoute } {
   /** 中文说明：当前操作所属的 Cordis 上下文；变量 `ctx` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const ctx = new Context()
@@ -99,13 +99,13 @@ function constructWithRoute(packageNames: string[]): { service: ClientModuleRegi
 }
 
 /** Construct the node-half service over the enabled fixture entries. */
-/** 中文说明：测试辅助函数 `construct`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `construct`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function construct(packageNames: string[]): ClientModuleRegistry {
   return constructWithRoute(packageNames).service
 }
 
 /** Execute the exact first inline script emitted by the Host boot rows. */
-/** 中文说明：测试辅助函数 `injectedFacade`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `injectedFacade`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function injectedFacade(graph: WebBootGraph): { html: string; target: ClientModuleLoaderTarget } {
   /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `html` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const html = renderIndexInjections(

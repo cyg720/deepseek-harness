@@ -11,14 +11,14 @@ import { NS } from './locales.ts'
 import css from './SubagentReadOnlyComposer.module.css'
 
 /** Why a catalog-addressed conversation cannot accept human input. */
-/** 说明目录寻址的子会话为何不能接收人工输入。 */
+/* 说明目录寻址的子会话为何不能接收人工输入。 */
 export interface SubagentReadOnlyMatch {
   // 只读原因；one-shot 表示一次性执行，parent-unavailable 表示父会话不可继续访问。
   reason: 'one-shot' | 'parent-unavailable'
 }
 
 /** Full chain props after the read-only subagent selector accepts the owner currency. */
-/** 选择器命中只读子代理后传给组件的完整插槽、匹配结果和本地化属性。 */
+/* 选择器命中只读子代理后传给组件的完整插槽、匹配结果和本地化属性。 */
 export type SubagentReadOnlyComposerProps =
   PropsRuntime<'conversation.composer'> & { matched: SubagentReadOnlyMatch } & PropsLocale<typeof NS>
 
@@ -27,7 +27,7 @@ export type SubagentReadOnlyComposerProps =
  * @param props - selector-owned read-only reason plus standard slot props.
  * @returns A read-only composer replacement.
  */
-/**
+/*
  * 渲染只读输入区说明。
  * @param matched 选择器提供的只读原因。
  * @param t 当前命名空间的翻译函数。

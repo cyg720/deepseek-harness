@@ -17,7 +17,7 @@ import {
 } from '@deepseek-ai/dsh-web-search-deepseek'
 
 /** Construct the provider over a fixed options value; production passes a live thunk. */
-/** 用固定选项构造测试提供者；生产代码传入实时读取选项的 thunk。 */
+/* 用固定选项构造测试提供者；生产代码传入实时读取选项的 thunk。 */
 import type { DeepSeekSearchProviderOptions } from '@deepseek-ai/dsh-web-search-deepseek'
 
 // 固定选项提供者工厂；options 是完整搜索配置，返回新的 DeepSeekSearchProvider。
@@ -29,7 +29,7 @@ const searchProvider = (options: DeepSeekSearchProviderOptions): DeepSeekSearchP
  * can complete without structured source blocks, so this is not a reliable
  * merge signal. Its body remains because mocks cannot confirm the wire shape.
  */
-/** 当前环境 API 密钥；只决定套件是否有资格运行，不会解除 it.skip。 */
+/* 当前环境 API 密钥；只决定套件是否有资格运行，不会解除 it.skip。 */
 const apiKey = process.env.DEEPSEEK_API_KEY
 // 有非空密钥时使用 describe，否则整个套件标记跳过。
 const maybe = apiKey !== undefined && apiKey.length > 0 ? describe : describe.skip

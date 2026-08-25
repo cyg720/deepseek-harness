@@ -157,7 +157,7 @@ function settledNode(
 }
 
 /** Build the canonical Chat fixture corresponding to one legacy test slice. */
-/** 中文说明：函数 chatSnapshotFixture 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/* 中文说明：函数 chatSnapshotFixture 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function chatSnapshotFixture(input: {
   readonly nodes?: readonly ConversationNode[]
   readonly partial?: PartialAssistant | null

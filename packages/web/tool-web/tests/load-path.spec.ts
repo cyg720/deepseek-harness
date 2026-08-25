@@ -4,7 +4,7 @@
  * Hand-built mounting bypasses that path, so this test unwraps through the real Loader first; see
  * postmortem 0001.
  */
-/**
+/*
  * 文件职责：守护 tool-web 命名空间经过真实 Cordis Loader 解包后仍保留 inject，并验证可正常装配。
  * 技术维度：使用 Vitest、真实 Loader.prototype.unwrapExports 和 Cordis 工具/Web/提示词服务。
  * 产品维度：防止默认导出折叠丢失依赖声明，导致 Web 搜索与抓取工具启动失败。

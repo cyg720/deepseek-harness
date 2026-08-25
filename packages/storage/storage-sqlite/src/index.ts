@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】SQLite 存储后端插件：一个数据库文件托管所有路由单元，文档一行一条
  * （key TEXT / value TEXT JSON）。以 backend 名 sqlite 注册；注销函数先注销名字、
@@ -24,7 +24,7 @@
  * as backend `sqlite`; the disposer unregisters first, then closes the medium.
  * @module @deepseek-ai/dsh-storage-sqlite
  */
-/**
+/*
  * 模块总览：本文件是后端插件的组装层；数据库打开/建表在 schema.ts，
  * 单元读写原语在 unit.ts。
  */
@@ -41,14 +41,14 @@ import { SqliteKvUnit } from './unit.ts'
 export { STORAGE_SQLITE_SCHEMA_VERSION, type JournalMode } from './schema.ts'
 
 /** Cordis plugin name. */
-/** 插件名：加载后枢纽上出现 sqlite 后端。 */
+/* 插件名：加载后枢纽上出现 sqlite 后端。 */
 export const name = 'storage-sqlite'
 /** The backend registers on the storage hub. */
-/** 依赖注入声明：必须先有 storage 枢纽服务，后端才能登记。 */
+/* 依赖注入声明：必须先有 storage 枢纽服务，后端才能登记。 */
 export const inject = ['storage']
 
 /** Plugin configuration. */
-/**
+/*
  * 插件配置。
  */
 export interface Config {
@@ -61,7 +61,7 @@ export interface Config {
    * integrity when another principal can replace the database entry in its
    * parent directory.
    */
-  /**
+  /*
    * SQLite 数据库文件的文件系统路径。特殊值 :memory: 打开进程内数据库（测试用）。
    * 在支持 POSIX 权限的文件系统上，缺失的目录与数据库按 owner-only 创建，已有路径
    * 的权限保留。文件系统设置错误（已存在数据库除外）会使 open 失败。
@@ -74,7 +74,7 @@ export interface Config {
    * where WAL's shared-memory files do not work (network mounts). See
    * {@link JournalMode}.
    */
-  /**
+  /*
    * SQLite 的 journal_mode pragma。wal（默认值）适合本地磁盘；
    * 在 WAL 共享内存文件不可用的文件系统（网络挂载）上选回滚日志模式
    * （delete/truncate/persist）。
@@ -83,7 +83,7 @@ export interface Config {
 }
 
 /** Schemastery validator for {@link Config}. */
-/** schemastery 配置校验器：path 必填，journalMode 默认 wal。 */
+/* schemastery 配置校验器：path 必填，journalMode 默认 wal。 */
 export const Config: z<Config> = z.object({
   path: z.string().required(),
   journalMode: z.union(['wal', 'delete', 'truncate', 'persist'] as const).default('wal'),
@@ -94,19 +94,19 @@ export const Config: z<Config> = z.object({
  * the open-unit table; `kv.open` validates names, enforces the per-unit
  * version stamp in `units`, and ensures the unit's record tables.
  */
-/**
+/*
  * SQLite 后端实现。拥有单个 DatabaseSync 连接与打开单元表；kv.open 校验名字、
  * 在 units 表施加单元版本戳/拒绝、并确保单元的记录表存在。
  */
 export class SqliteStorageBackend implements StorageBackend {
   /** The key-value facet; the only shape this backend serves. */
-  /** kv 能力：本后端唯一提供的形态（facet）。 */
+  /* kv 能力：本后端唯一提供的形态（facet）。 */
   readonly kv: KvFacet = { open: descriptor => this.openUnit(descriptor) }
 
   // 数据库打开完成的 Promise：所有原语都先 await 它（打开失败会传导给每个调用方）。
   private readonly ready: Promise<DatabaseSync>
   /** Open (or still-opening) units by name; presence is the double-open guard. */
-  /** 按名字记录"已打开或正在打开"的单元；其存在本身就是双开守卫。 */
+  /* 按名字记录"已打开或正在打开"的单元；其存在本身就是双开守卫。 */
   private readonly units = new Map<string, Promise<SqliteKvUnit>>()
   // 关闭过程的 Promise 缓存：close() 幂等就靠它——只执行一次 doClose。
   private closing: Promise<void> | undefined
@@ -114,7 +114,7 @@ export class SqliteStorageBackend implements StorageBackend {
   /**
    * @param config - Validated plugin configuration.
    */
-  /**
+  /*
    * @param config 已校验的插件配置。
    */
   constructor(config: Config) {
@@ -191,7 +191,7 @@ export class SqliteStorageBackend implements StorageBackend {
    * and repeated calls resolve once teardown finishes.
    * @returns resolution after the medium is released.
    */
-  /**
+  /*
    * 关闭所有打开的单元并释放数据库。幂等：并发与重复调用都在拆卸完成后解析。
    * @returns 介质释放完成后解析。
    */
@@ -226,7 +226,7 @@ export class SqliteStorageBackend implements StorageBackend {
  * @param ctx - Plugin context (must inject `storage`).
  * @param config - Validated plugin configuration.
  */
-/**
+/*
  * 把 SQLite 后端以 sqlite 名字注册到存储枢纽。注销函数先注销名字、再关闭后端。
  * @param ctx 插件上下文（必须注入 storage）。
  * @param config 已校验的插件配置。

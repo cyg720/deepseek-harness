@@ -38,7 +38,7 @@ afterEach(cleanup)
 beforeEach(() => { localStorage.clear() })
 
 /** Runtime with the locale face installed (the browser entry declares `locale:` — zh default backs the t seat). */
-/** 中文说明：函数 createRuntime 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 createRuntime 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function createRuntime(): Promise<SlotTestRuntime> {
   /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()
@@ -53,7 +53,7 @@ async function createRuntime(): Promise<SlotTestRuntime> {
 }
 
 /** Test-owned sidebar shell role: declares and renders the browsing region. */
-/** 中文说明：类型或类 FrameProps 约束模块数据或组件职责。 */
+/* 中文说明：类型或类 FrameProps 约束模块数据或组件职责。 */
 type FrameProps = PropsRenderSlots<'sidebar.workspaces'>
 /** 中文说明：函数 SidebarFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SidebarFrame({ renderSlot }: FrameProps) {

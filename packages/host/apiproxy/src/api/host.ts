@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】host 域契约：宿主级一元方法（describe / pickDirectory /
  * listDirectory / createDirectory / openPath）与目录条目/列表类型。

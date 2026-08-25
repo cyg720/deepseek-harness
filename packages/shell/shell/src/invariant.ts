@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】注册 dsh-shell 包在 invariants 服务中的"包属主"（package ownership）声明：
  * 本包只定义请求/结果类型契约，没有需要运行时观测的不变式，因此安装函数为空实现，仅作占位。
@@ -21,17 +21,17 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 
 const PACKAGE_NAME = '@deepseek-ai/dsh-shell'
-/** 本包的 npm 完整名称，作为 invariants 服务中包属主登记的键。 */
+/* 本包的 npm 完整名称，作为 invariants 服务中包属主登记的键。 */
 
 /** Cordis companion plugin name. */
-/** 伴生插件的注册名，出现在 Cordis 日志与依赖图中。 */
+/* 伴生插件的注册名，出现在 Cordis 日志与依赖图中。 */
 export const name = 'shell-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 插件启动前必须已加载的服务列表：invariants 服务就绪后本伴生插件才能完成注册。 */
+/* 插件启动前必须已加载的服务列表：invariants 服务就绪后本伴生插件才能完成注册。 */
 export const inject = ['invariants']
 
 /** No runtime invariant: this stateless Service Definition owns request/result types, while executors and policy own observations. */
-/** 安装函数体：本包为纯类型契约包，无运行时不变式，故为空实现（显式声明而非遗漏）。 */
+/* 安装函数体：本包为纯类型契约包，无运行时不变式，故为空实现（显式声明而非遗漏）。 */
 const install: InvariantInstaller = () => {}
 
 /**
@@ -39,7 +39,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 注册本包的 invariants 伴生插件。
  * @param ctx 携带 invariants 服务的 Cordis 上下文
  * @returns 注册完成后得到的释放器，插件卸载时由 Cordis 自动调用

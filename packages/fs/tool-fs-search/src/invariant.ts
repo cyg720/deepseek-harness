@@ -15,7 +15,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-tool-fs-search`.
  * @module @deepseek-ai/dsh-tool-fs-search/invariant
  */
-/**
+/*
  * 模块总览：工具层是薄适配器，执行关系由能力接缝（dsh-subprocess 等）拥有，
  * 故 install 为空，仅做体系占位。
  */

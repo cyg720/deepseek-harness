@@ -7,7 +7,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-client/dispose
  */
-/**
+/*
  * 文件职责：实现 dispose.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -23,7 +23,7 @@ import type { ChildProcess } from 'node:child_process'
  * behind on the child: the exit listener is removed on timeout and the timer
  * is cleared on exit, so the ladder's tiers never accumulate listeners.
  */
-/** 中文说明：函数 exitsWithin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 exitsWithin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function exitsWithin(child: ChildProcess, ms: number): Promise<boolean> {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true)
   return new Promise<boolean>((resolve) => {
@@ -43,7 +43,7 @@ function exitsWithin(child: ChildProcess, ms: number): Promise<boolean> {
 }
 
 /** Force-terminate the runtime and reject if no exit edge arrives within the grace. */
-/** 中文说明：函数 forceTerminateWithin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 forceTerminateWithin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function forceTerminateWithin(child: ChildProcess, ms: number): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve()
   return new Promise<void>((resolve, reject) => {
@@ -99,7 +99,7 @@ function forceTerminateWithin(child: ChildProcess, ms: number): Promise<void> {
  * @throws When forced termination errors or the child does not report exit
  * within `disposeGraceMs`.
  */
-/** 中文说明：函数 disposeRuntimeProcess 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 disposeRuntimeProcess 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function disposeRuntimeProcess(
   child: ChildProcess,
   graces: { disposeEofGraceMs: number; disposeGraceMs: number },

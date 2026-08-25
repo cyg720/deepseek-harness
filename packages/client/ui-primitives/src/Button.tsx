@@ -12,7 +12,7 @@ import clsx from 'clsx'
 import css from './Button.module.css'
 
 /** Visual variant, each backed by its --dsw-alias-button-* token family. */
-/** 按钮视觉变体；每个值都对应一组 --dsw-alias-button-* 主题令牌。 */
+/* 按钮视觉变体；每个值都对应一组 --dsw-alias-button-* 主题令牌。 */
 export type ButtonVariant = 'primary' | 'ghost' | 'outline' | 'toolbar'
 
 /**
@@ -22,7 +22,7 @@ export type ButtonVariant = 'primary' | 'ghost' | 'outline' | 'toolbar'
  * @param props.icon - optional leading 16px icon node.
  * @returns the button element; native button attributes pass through.
  */
-/**
+/*
  * 渲染基础按钮。
  * @param variant 视觉变体，默认 ghost。
  * @param size 尺寸，md 为 36px，sm 为 28px。

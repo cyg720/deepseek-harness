@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】agent-loop 插件本体：AgentLoop 服务负责创建/恢复 ReactLoopAgent、把它们发布进 agents/sessions 注册表，并统一管理有序拆除（teardown）。
  * 【技术维度】Cordis Service 实现 AgentFactory 接口；用 ctx.effect 注册生命周期；配置经 schemastery schema 校验；支持 settings 动态修改并行上限；launcher 可预置会话身份。

@@ -36,7 +36,7 @@ async function mintScope(ctx: Context, name: string): Promise<Scope> {
 const schema = (name: string) => ({ name, description: `tool ${name}`, parameters: {} })
 
 /** The key a test scope was minted with (scopeOf over the scope's own ctx). */
-/** 中文说明：函数 scopeKeyOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 scopeKeyOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function scopeKeyOf(scope: Scope): ScopeKey {
   // scopeOf never answers undefined for a context the scope itself minted.
 

@@ -11,7 +11,7 @@
  * cannot clobber each other's ACEs.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/acl
  */
-/**
+/*
  * 文件职责：实现 acl.ts 承担的沙箱策略或 Windows ACL 隔离职责。
  * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
  * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
@@ -39,7 +39,13 @@ import * as abi from './win32-abi.ts'
  * @param permissions - the access mask to grant (0 for REVOKE_ACCESS).
  * @returns the packed entry buffer.
  */
-/** 中文说明：函数 buildExplicitAccess 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 buildExplicitAccess 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param sidPtr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param mode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param permissions 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function buildExplicitAccess(sidPtr: NativePtr, mode: number, permissions: number): Buffer {
   /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entry = Buffer.alloc(abi.EXPLICIT_ACCESS_W_SIZE)
@@ -62,7 +68,12 @@ export function buildExplicitAccess(sidPtr: NativePtr, mode: number, permissions
  * @param path - the protected directory (absolute).
  * @returns the lock file path for that directory.
  */
-/** 中文说明：函数 lockFilePath 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 lockFilePath 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function lockFilePath(api: Win32Bindings, path: string): string {
   /** 中文说明：变量 digest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const digest = createHash('sha256').update(path.toLowerCase()).digest('hex').slice(0, 16)
@@ -84,7 +95,13 @@ export function lockFilePath(api: Win32Bindings, path: string): string {
  * @param action - the get-merge-set sequence to serialize.
  * @returns the action's result.
  */
-/** 中文说明：函数 withPathLock 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 withPathLock 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param action 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function withPathLock<T>(api: Win32Bindings, path: string, action: () => T): T {
   /** 中文说明：变量 lockPath 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lockPath = lockFilePath(api, path)
@@ -138,7 +155,7 @@ export function withPathLock<T>(api: Win32Bindings, path: string, action: () => 
  * @param path - the directory whose DACL is read.
  * @returns the current explicit DACL (null when the directory carries none) and its owning descriptor.
  */
-/** 中文说明：函数 readCurrentDacl 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 readCurrentDacl 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readCurrentDacl(api: Win32Bindings, path: string): { oldAcl: NativePtr | null; descriptor: NativePtr | null } {
   /** 中文说明：变量 ownerSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ownerSlot = allocPtrSlot()
@@ -171,7 +188,7 @@ function readCurrentDacl(api: Win32Bindings, path: string): { oldAcl: NativePtr 
  * @param descriptor - the descriptor allocation owning `oldAcl`.
  * @param label - the caller's name for error details.
  */
-/** 中文说明：函数 mergeAndApply 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 mergeAndApply 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function mergeAndApply(
   api: Win32Bindings,
   path: string,
@@ -226,7 +243,7 @@ function mergeAndApply(
  * @param sidPtr - the capability SID to match.
  * @returns whether the exact grant ACE is already present.
  */
-/** 中文说明：函数 hasExactGrant 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 hasExactGrant 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasExactGrant(oldAcl: NativePtr, sidPtr: NativePtr): boolean {
   /** 中文说明：变量 aclSize 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const aclSize = decodeUint16At(oldAcl, 2)
@@ -268,7 +285,12 @@ function hasExactGrant(oldAcl: NativePtr, sidPtr: NativePtr): boolean {
  * @param path - the directory whose DACL gains the grant (the workspace or temp root).
  * @param sidPtr - the capability SID the ACE names.
  */
-/** 中文说明：函数 grantWrite 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 grantWrite 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param sidPtr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function grantWrite(api: Win32Bindings, path: string, sidPtr: NativePtr): void {
   withPathLock(api, path, () => {
     const { oldAcl, descriptor } = readCurrentDacl(api, path)
@@ -297,7 +319,13 @@ export function grantWrite(api: Win32Bindings, path: string, sidPtr: NativePtr):
  * @param sidPtr - the capability SID whose ACEs are removed.
  * @returns whether an ACE removal was attempted (false when the directory carries no DACL at all).
  */
-/** 中文说明：函数 revokeWrite 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 revokeWrite 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param api 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param sidPtr 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function revokeWrite(api: Win32Bindings, path: string, sidPtr: NativePtr): boolean {
   return withPathLock(api, path, () => {
     const { oldAcl, descriptor } = readCurrentDacl(api, path)

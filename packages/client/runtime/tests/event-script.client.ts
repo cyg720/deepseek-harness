@@ -13,7 +13,7 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 
 /** One text content block (local helper). */
-/** 中文说明：当前测试场景使用的局部状态或中间值；变量 `text` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
+/* 中文说明：当前测试场景使用的局部状态或中间值；变量 `text` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
 const text = (t: string): ContentBlock[] => [{ type: 'text', text: t }]
 
 /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `at` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
@@ -140,7 +140,7 @@ export const ev = {
 }
 
 /** One complete plain turn (turn/start → user → step → assistant → turn/end), 6 events from startSeq. */
-/** 中文说明：测试辅助函数 `plainTurn`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `plainTurn`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 export function plainTurn(startSeq: number, turn: number, ask: string, answer: string): SessionEvent[] {
   return [
     ev.turnStart(startSeq, turn),
@@ -153,7 +153,7 @@ export function plainTurn(startSeq: number, turn: number, ask: string, answer: s
 }
 
 /** Wrap raw events as view-less history entries (the wire shape history returns). */
-/** 中文说明：测试辅助函数 `entries`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+/* 中文说明：测试辅助函数 `entries`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 export function entries(events: readonly SessionEvent[]): { event: SessionEvent }[] {
   return events.map(event => ({ event }))
 }

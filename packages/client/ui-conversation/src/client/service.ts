@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】面向作用域（scope）的会话对话编排服务 ConversationController：发送提示词、
  *             更新排队队列、取消在途回合、加载更早历史；并管理草稿图片与历史图片 URL
@@ -60,7 +60,7 @@ export interface IConversation {
    * @param text - prompt text, sent verbatim as one text block.
    * @returns completion; business failures reject (and land in promptError).
    */
-  /**
+  /*
    * 向调用方作用域的会话发送一条提示词（排队回合）。
    * @param text - 提示词文本，作为一个文本块原样发送。
    * @returns 完成；业务失败会 reject（并写入 promptError）。
@@ -72,7 +72,7 @@ export interface IConversation {
    * @param action - requested queue operation.
    * @returns completion; converged strict-steer races resolve, while other failures reject.
    */
-  /**
+  /*
    * 对一条待处理的队列消息执行编辑 / 删除 / 严格插话。
    * @param itemId - 智能体拥有的收件箱条目身份。
    * @param action - 请求的队列操作。
@@ -83,7 +83,7 @@ export interface IConversation {
    * Cancel the scoped session's in-flight turn while preserving its pending Queue.
    * @returns completion; failures reject as in send.
    */
-  /**
+  /*
    * 取消作用域会话的在途回合，同时保留其待处理队列。
    * @returns 完成；失败与 send 一样 reject。
    */
@@ -92,7 +92,7 @@ export interface IConversation {
    * Pull one older history page for the scoped session.
    * @returns completion of the page pull.
    */
-  /**
+  /*
    * 为作用域会话拉取一页更早的历史。
    * @returns 拉取完成的信号。
    */
@@ -129,7 +129,7 @@ export class UnsupportedImageMediaTypeError extends Error {
 }
 
 /** Scope-addressed conversation service (root singleton, provided as `conversation`). */
-/** 作用域寻址的会话服务（根单例，以 'conversation' 提供）。 */
+/* 作用域寻址的会话服务（根单例，以 'conversation' 提供）。 */
 export class ConversationController extends Service implements IConversation {
   /** The per-session input machine registry (SessionInputResolver face). */
   readonly input: SessionInputResolver

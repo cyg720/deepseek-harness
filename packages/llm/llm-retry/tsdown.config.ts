@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Build the package root and invariant companion as independent bundles. */
-/**
+/*
  * 文件职责：配置大模型重试包和不变量伴生模块的独立构建。
  * 技术维度：使用 tsdown 把 tsc 产物打包为 Node.js ESM，目标语法为 ES2024。
  * 产品维度：让模型调用具备可配置的重试能力，并能在装配时检查相关关系。

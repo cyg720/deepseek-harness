@@ -1,5 +1,5 @@
 /** The package's node half: an empty host body and an explained empty invariant companion. */
-/**
+/*
  * 文件职责：验证代理预设 UI 包的空 Node 主体和不变量伴生插件入口。
  * 技术维度：使用 Vitest、Cordis 上下文、静态伴生导入与动态包根导入覆盖双端装配。
  * 产品维度：保证代理预设界面只在浏览器运行，同时宿主配置可稳定保留插件席位。

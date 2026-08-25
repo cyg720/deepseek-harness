@@ -3,7 +3,7 @@
  * validation, and row-size limits independently from other persistence formats.
  * @module @deepseek-ai/dsh-session-persistence-sqlite/codec
  */
-/**
+/*
  * 文件职责：实现 codec.ts 覆盖的会话持久化行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。
@@ -43,24 +43,24 @@ interface ToolCallRunData extends RunDataBase {
 }
 
 /** One schema-17 packed physical record. */
-/** 中文说明：type ChunkRow 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：type ChunkRow 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export type ChunkRow =
   | { readonly type: 'text-chunks'; readonly seq0: number; readonly time0: number; readonly data: TextRunData }
   | { readonly type: 'reasoning-chunks'; readonly seq0: number; readonly time0: number; readonly data: TextRunData }
   | { readonly type: 'tool-call-chunks'; readonly seq0: number; readonly time0: number; readonly data: ToolCallRunData }
 
 /** One scalar event or schema-17 packed physical record. */
-/** 中文说明：type StorageRecord 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：type StorageRecord 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 export type StorageRecord = SessionEvent | ChunkRow
 
 /** Minimum eligible members in a packed physical record. */
-/** 中文说明：常量 MIN_PACKED_ROW_MEMBERS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MIN_PACKED_ROW_MEMBERS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MIN_PACKED_ROW_MEMBERS = 3
 /** Maximum logical members represented by one packed physical record. */
-/** 中文说明：常量 MAX_PACKED_ROW_MEMBERS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_PACKED_ROW_MEMBERS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_PACKED_ROW_MEMBERS = 1_024
 /** Maximum UTF-8 bytes in one packed physical record's data column. */
-/** 中文说明：常量 MAX_PACKED_DATA_BYTES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 MAX_PACKED_DATA_BYTES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_PACKED_DATA_BYTES = 1_048_576
 
 /** 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
@@ -223,7 +223,11 @@ function emitBoundedRun(out: StorageRecord[], kind: DeltaKind, completeRun: read
  * @param events - logical events in sequence order.
  * @returns scalar and packed physical records in equivalent order.
  */
-/** 中文说明：函数 packChunkRuns 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 packChunkRuns 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function packChunkRuns(events: readonly SessionEvent[]): StorageRecord[] {
   /** 中文说明：变量 out 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: StorageRecord[] = []
@@ -382,7 +386,11 @@ function expandRow(row: ChunkRow): SessionEvent[] {
  * @param value - parsed physical-record value.
  * @returns the represented logical events.
  */
-/** 中文说明：函数 decodeStorageRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeStorageRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param value 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeStorageRecord(value: unknown): SessionEvent[] {
   if (!isRecord(value)) return [value as SessionEvent]
   /** 中文说明：变量 tag 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -402,7 +410,14 @@ export function decodeStorageRecord(value: unknown): SessionEvent[] {
  * @param serializedData - decoded SQLite data-column text.
  * @returns the represented logical events.
  */
-/** 中文说明：函数 decodeSerializedChunkRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 decodeSerializedChunkRow 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param tag 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param seq0 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param time0 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param serializedData 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function decodeSerializedChunkRow(
   tag: ChunkRow['type'],
   seq0: number,

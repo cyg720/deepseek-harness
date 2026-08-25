@@ -6,7 +6,7 @@
  * 关键边界：类型只描述导入结果，不定义设置插槽或命名空间行为。
  * 新手阅读建议：先区分设置基础组件与功能设置页，再查看样式引用。
  */
-/** 使用方式：`import styles from './Settings.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Settings.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键和值均为字符串，值由构建阶段生成。 */
   const classes: Record<string, string>

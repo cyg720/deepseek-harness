@@ -1,5 +1,5 @@
 /** Product-wide, versioned internal-testing notice. */
-/**
+/*
  * 文件职责：实现模型设置的 WelcomeNotice 组件。
  * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看和调整模型设置。
@@ -19,7 +19,7 @@ import { OnboardingModal } from './OnboardingModal.tsx'
 import css from './WelcomeNotice.module.css'
 
 /** Registration-side dependencies of {@link WelcomeNotice}. */
-/** 中文说明：类型或类 WelcomeNoticeInjected 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 WelcomeNoticeInjected 约束设置数据或组件职责。 */
 export interface WelcomeNoticeInjected {
   hooks: {
     /** Durable or process-local acknowledgement state. */
@@ -32,7 +32,7 @@ export interface WelcomeNoticeInjected {
 }
 
 /** Coordinator owner props plus this step's injected face. */
-/** 中文说明：类型或类 WelcomeNoticeProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 WelcomeNoticeProps 约束设置数据或组件职责。 */
 export type WelcomeNoticeProps =
   PropsRuntime<'settings.onboarding'> & InjectFace<WelcomeNoticeInjected>
 
@@ -41,7 +41,7 @@ export type WelcomeNoticeProps =
  * @param props - settings-shell owner state and welcome dependencies.
  * @returns the welcome modal or null while the step decides not to show.
  */
-/** 中文说明：函数 WelcomeNotice 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 WelcomeNotice 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function WelcomeNotice(props: WelcomeNoticeProps): ReactNode {
   /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const { complete, controller, useWelcome, t } = props

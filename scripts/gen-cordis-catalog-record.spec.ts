@@ -5,7 +5,7 @@
  * previously-consistent record — every other state is left for the pairing
  * gate to report.
  */
-/**
+/*
  * 文件职责：验证 gen-cordis-catalog-record.spec.ts 覆盖的Agent 预设行为与边界场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
  * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
@@ -47,7 +47,7 @@ afterEach(() => {
 })
 
 /** Lay out a pair on disk and return { root, before } for a regeneration that already wrote `current`. */
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function setup(options: {
   beforeEn: string
   beforeZh: string

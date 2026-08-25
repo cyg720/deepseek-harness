@@ -1,5 +1,5 @@
 /** Cordis Loader configuration file discovery. */
-/**
+/*
  * 文件职责：集中提供仓库内 Cordis Loader YAML 配置文件的发现规则。
  * 技术维度：使用 Node.js globSync 按通配模式同步扫描，并返回排序后的仓库相对路径。
  * 产品维度：让配置校验、生成器和维护脚本共享同一份输入清单，避免遗漏可运行配置。
@@ -18,7 +18,7 @@ import { globSync } from 'node:fs'
  * @param root Repository root to scan.
  * @returns Sorted repository-relative Loader configuration paths.
  */
-/**
+/*
  * 返回 root 下按字典序排列的 Cordis Loader YAML 仓库相对路径。
  * 翻译一致性 YAML 是旁车记录，不能作为 Loader 配置返回。
  * @param root - 要扫描的仓库根目录，可以是相对路径或绝对路径。

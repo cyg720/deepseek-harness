@@ -2,7 +2,7 @@
  * Same-session goal-round driver over public agent, session, and goal services.
  * @module @deepseek-ai/dsh-goal-round-driver
  */
-/**
+/*
  * 文件职责：实现目标管理的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
@@ -29,7 +29,7 @@ export const name = 'goal-round-driver'
 export const inject = ['agents', 'goals', 'sessions']
 
 /** Identity reserved before a goal continuation enters the agent inbox. */
-/** 中文说明：类型或类 RoundIdentity 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 RoundIdentity 约束文件或目标数据职责。 */
 interface RoundIdentity {
   readonly goalId: GoalRef['id']
   readonly revision: number
@@ -37,7 +37,7 @@ interface RoundIdentity {
 }
 
 /** One queued, claimed, or admitted goal message retained until whole-agent quiescence. */
-/** 中文说明：类型或类 RoundAttempt 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 RoundAttempt 约束文件或目标数据职责。 */
 interface RoundAttempt extends RoundIdentity {
   readonly messageId: MessageId
   readonly content: ContentBlock[]
@@ -47,7 +47,7 @@ interface RoundAttempt extends RoundIdentity {
 }
 
 /** Serialized process-local scheduling state for one exact Agent lifecycle. */
-/** 中文说明：类型或类 DriverState 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 DriverState 约束文件或目标数据职责。 */
 interface DriverState {
   readonly agent: Agent
   attempt: RoundAttempt | undefined
@@ -59,13 +59,13 @@ interface DriverState {
 }
 
 /** Whether a source identifies an automatic, positive-numbered goal round. */
-/** 中文说明：函数 isGoalRoundSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 isGoalRoundSource 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function isGoalRoundSource(source: MessageSource): source is GoalMessageSource {
   return source.kind === 'goal' && source.round > 0
 }
 
 /** Compare a source to one reserved identity. */
-/** 中文说明：函数 sameRound 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sameRound 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sameRound(source: GoalMessageSource, round: RoundIdentity): boolean {
   return source.goalId === round.goalId
     && source.revision === round.revision
@@ -73,31 +73,31 @@ function sameRound(source: GoalMessageSource, round: RoundIdentity): boolean {
 }
 
 /** Compare the complete queued record to the driver's reservation. */
-/** 中文说明：函数 sameQueued 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sameQueued 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sameQueued(content: ContentBlock[], source: MessageSource, attempt: RoundAttempt): boolean {
   return isGoalRoundSource(source) && sameRound(source, attempt) && isDeepStrictEqual(content, attempt.content)
 }
 
 /** Exact current ref for a view. */
-/** 中文说明：函数 goalRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 goalRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalRef(goal: GoalView): GoalRef {
   return { id: goal.id, revision: goal.revision }
 }
 
 /** Human-readable unexpected values for logs. */
-/** 中文说明：函数 renderThrown 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 renderThrown 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderThrown(value: unknown): string {
   return value instanceof Error ? value.message : String(value)
 }
 
 /** Install automatic same-session continuation and its race fences. */
-/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function apply(ctx: Context): void {
   /** 中文说明：领域局部值 states，由紧邻初始化决定。 */
   const states = new Map<Agent, DriverState>()
 
   /** Create state for an exact currently live agent. */
-  /** 中文说明：函数 stateFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 stateFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function stateFor(agent: Agent): DriverState {
     /** 中文说明：领域局部值 existing，由紧邻初始化决定。 */
     const existing = states.get(agent)
@@ -117,14 +117,14 @@ export function apply(ctx: Context): void {
   }
 
   /** Read only when the exact Agent remains live. */
-  /** 中文说明：函数 currentGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 currentGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function currentGoal(state: DriverState): GoalView | undefined {
     if (ctx.agents.get(state.agent.id) !== state.agent) return undefined
     return ctx.goals.get(state.agent)
   }
 
   /** Whether this exact lifecycle is quiescent with no competing prompt. */
-  /** 中文说明：函数 readyToDrive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 readyToDrive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function readyToDrive(state: DriverState): boolean {
     return ctx.fiber.state === FiberState.ACTIVE
       && !state.stopping
@@ -134,13 +134,13 @@ export function apply(ctx: Context): void {
   }
 
   /** Recheck every condition that an awaited checkpoint may have changed. */
-  /** 中文说明：函数 readyAfterCheckpoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 readyAfterCheckpoint 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function readyAfterCheckpoint(state: DriverState): boolean {
     return readyToDrive(state) && !state.needsCheckpoint
   }
 
   /** Remove automatic authority while preserving the durable phase. */
-  /** 中文说明：函数 disarm 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 disarm 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function disarm(state: DriverState): void {
     try {
       /** 中文说明：领域局部值 goal，由紧邻初始化决定。 */
@@ -152,7 +152,7 @@ export function apply(ctx: Context): void {
   }
 
   /** Preserve claimed step context when this driver drops only its own round. */
-  /** 中文说明：函数 restoreOtherClaimed 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 restoreOtherClaimed 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function restoreOtherClaimed(agent: Agent, messages: UserMessage[], messageId: MessageId): void {
     /** 中文说明：领域局部值 retained，由紧邻初始化决定。 */
     const retained = messages.filter(message => message.id !== messageId
@@ -166,7 +166,7 @@ export function apply(ctx: Context): void {
   }
 
   /** Process admitted work at quiescence, then reserve at most one next round. */
-  /** 中文说明：函数 drive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 drive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function drive(state: DriverState): Promise<void> {
     /** 中文说明：领域局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = state
@@ -245,7 +245,7 @@ export function apply(ctx: Context): void {
   }
 
   /** Coalesce triggers onto one agent-local serialized driver. */
-  /** 中文说明：函数 requestDrive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  /* 中文说明：函数 requestDrive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function requestDrive(state: DriverState): void {
     /* v8 ignore next -- teardown may race a final trigger after synchronously closing the step fence */
     if (state.stopping) return
@@ -388,7 +388,7 @@ export function apply(ctx: Context): void {
     })
 
     /** Fail closed unless the queued prompt still owns the exact live revision. */
-    /** 中文说明：函数 validReservation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+    /* 中文说明：函数 validReservation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
     function validReservation(
       state: DriverState,
       content: ContentBlock[],

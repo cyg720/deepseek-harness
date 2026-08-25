@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】OpenTelemetry 遥测后端（能力缝的 Service Provider）：把 OTel JS SDK
  *   原样组合（LoggerProvider + BatchLogRecordProcessor + OTLP/HTTP 导出器），

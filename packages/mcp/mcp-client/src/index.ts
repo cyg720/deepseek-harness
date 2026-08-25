@@ -12,7 +12,7 @@
  *
  * @module @deepseek-ai/dsh-mcp-client
  */
-/**
+/*
  * 文件职责：实现 index.ts 承担的MCP 客户端连接、工具映射与生命周期职责。
  * 技术维度：使用 TypeScript、Cordis 插件、MCP/JSON-RPC 协议和异步资源管理。
  * 产品维度：让 Agent 能发现并调用外部 MCP 服务器提供的工具。
@@ -33,19 +33,19 @@ export type { McpResult } from './tools.ts'
 export type { ReconnectConfig, ResolvedReconnectPolicy } from './connection.ts'
 
 /** Cordis plugin name used by loader diagnostics. */
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'mcp-client'
 
 /** Services required by this plugin. */
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['tools']
 
 /** Default timeout for individual MCP tool calls (ms). */
-/** 中文说明：常量 DEFAULT_TOOL_CALL_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_TOOL_CALL_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_TOOL_CALL_TIMEOUT_MS = 60_000
 
 /** Valid `serverName`, kept below the public tool-name budget. */
-/** 中文说明：常量 SERVER_NAME_PATTERN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SERVER_NAME_PATTERN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/
 
 /**
@@ -54,13 +54,13 @@ const SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/
  * namespace is a configuration error surfaced at plugin load, never silent
  * shadowing.
  */
-/** 中文说明：变量 activeServerNames 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 activeServerNames 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const activeServerNames = new WeakMap<Context, Set<string>>()
 
 // ---- Config ----
 
 /** Config for connecting to an MCP server via a spawned child process over stdio. */
-/** 中文说明：interface StdioConfig 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface StdioConfig 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface StdioConfig {
   /** Selects child-process stdio transport. */
   transport: 'stdio'
@@ -87,7 +87,7 @@ export interface StdioConfig {
 }
 
 /** Config for connecting to an MCP server over Streamable HTTP (SSE). */
-/** 中文说明：interface StreamableHttpConfig 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：interface StreamableHttpConfig 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface StreamableHttpConfig {
   /** Selects Streamable HTTP transport. */
   transport: 'streamable-http'
@@ -110,7 +110,7 @@ export interface StreamableHttpConfig {
 }
 
 /** Configuration for one stdio or Streamable HTTP MCP server. */
-/** 中文说明：type Config 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/* 中文说明：type Config 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export type Config = StdioConfig | StreamableHttpConfig
 
 /** 中文说明：变量 Reconnect 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -155,7 +155,7 @@ export const Config = z.union([
  * @param config - resolved transport and server namespace configuration.
  * @returns startup readiness after connection and initial tool discovery settle.
  */
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function apply(ctx: Context, config: Config): Promise<void> {
   // Fail loud at load: reconnect misconfiguration (including programmatic
   // construction that bypassed Schemastery) rejects THIS instance before any

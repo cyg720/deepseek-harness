@@ -252,7 +252,7 @@ function renderShellExitStatus(
  * @param status - the exited session status (exit code and signal).
  * @returns the complete model-facing result.
  */
-/**
+/*
  * 渲染"会话已退出"的结果：取回快照 → 重置该 owner 的 shell → 拼装部分输出、
  * 会话退出标记与重置提示。
  * @param shells 待重置的 owner 级注册表
@@ -479,7 +479,7 @@ async function executeCommand(
  * @param ctx - plugin context carrying tools and the owner-scoped PTY service.
  * @param config - selected PTY backend and command deadline.
  */
-/**
+/*
  * 注册模型可见的持久化 `bash` 工具：维护 owner 级串行队列（同一 agent 的命令排队执行，
  * 避免并发写同一 PTY），工具参数只有 command 一个。
  * @param ctx 携带 tools 与 owner 级 PTY 服务的插件上下文
@@ -533,24 +533,24 @@ export const name = 'tool-bash-persistent'
 export const inject = ['tools', 'terminals']
 
 /** Configuration for the persistent Bash tool. */
-/** 持久化 bash 工具的配置。 */
+/* 持久化 bash 工具的配置。 */
 export interface Config {
   /** PTY backend used for each owner-isolated persistent shell (default `shell`). */
-  /** 每个 owner 隔离的持久 shell 使用的 PTY 后端（默认 shell）。 */
+  /* 每个 owner 隔离的持久 shell 使用的 PTY 后端（默认 shell）。 */
   backendType?: string
   /** Wall-clock limit for one command (default 300000). */
-  /** 单命令的墙上时钟上限（默认 300000 毫秒）。 */
+  /* 单命令的墙上时钟上限（默认 300000 毫秒）。 */
   timeoutMs?: number
   /** Maximum returned command-output characters before clipping (default 16000). */
-  /** 返回命令输出的字符上限，超出裁剪（默认 16000）。 */
+  /* 返回命令输出的字符上限，超出裁剪（默认 16000）。 */
   maxOutputChars?: number
   /** Model-facing tool description; deployments may describe their environment. */
-  /** 模型可见的工具描述；部署方可描述其环境。 */
+  /* 模型可见的工具描述；部署方可描述其环境。 */
   description?: string
 }
 
 /** Runtime configuration schema for the persistent Bash tool. */
-/** 持久化 bash 工具的运行时配置 schema。 */
+/* 持久化 bash 工具的运行时配置 schema。 */
 export const Config: z<Config> = z.object({
   backendType: z.string().default('shell'),
   timeoutMs: z.number().default(300_000),
@@ -559,7 +559,7 @@ export const Config: z<Config> = z.object({
 })
 
 /** Register one owner-scoped persistent `bash` tool. */
-/** 注册一个 owner 级持久化 `bash` 工具：校验配置并装配默认值后交给 registerPersistentBash。 */
+/* 注册一个 owner 级持久化 `bash` 工具：校验配置并装配默认值后交给 registerPersistentBash。 */
 export function apply(ctx: Context, config: Config): void {
   const resolved: ResolvedConfig = {
     backendType: config.backendType ?? 'shell',

@@ -11,7 +11,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-client/client
  */
-/**
+/*
  * 文件职责：实现 client.ts 覆盖的SDK 通信行为与生命周期。
  * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
  * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
@@ -36,11 +36,11 @@ import { disposeRuntimeProcess } from './dispose.ts'
 import type { HarnessClientOptions, HarnessNotification, NotificationFilter } from './types.ts'
 
 /** Retained stderr lines used to diagnose an unexpected runtime death. */
-/** 中文说明：常量 STDERR_TAIL_LIMIT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 STDERR_TAIL_LIMIT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STDERR_TAIL_LIMIT = 400
 
 /** Grace for the runtime's stdio streams to settle after its exit edge. */
-/** 中文说明：常量 STREAM_SETTLE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 STREAM_SETTLE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STREAM_SETTLE_MS = 100
 
 /**
@@ -48,7 +48,7 @@ const STREAM_SETTLE_MS = 100
  * it was never launchable. The message carries the exit code and a stderr
  * tail when available.
  */
-/** 中文说明：class TransportClosedError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class TransportClosedError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class TransportClosedError extends Error {
   /** @param message - the failure description, including any stderr tail. */
   constructor(message: string) {
@@ -58,7 +58,7 @@ export class TransportClosedError extends Error {
 }
 
 /** A request exceeded {@link HarnessClientOptions.requestTimeoutMs}. */
-/** 中文说明：class RequestTimeoutError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class RequestTimeoutError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class RequestTimeoutError extends Error {
   /** @param message - which method timed out. */
   constructor(message: string) {
@@ -71,7 +71,7 @@ export class RequestTimeoutError extends Error {
  * The runtime answered outside its documented protocol (for example a
  * `session/prompt` response without `accepted: true`).
  */
-/** 中文说明：class SdkProtocolError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class SdkProtocolError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class SdkProtocolError extends Error {
   /** @param message - the protocol violation description. */
   constructor(message: string) {
@@ -89,7 +89,7 @@ interface SubscriptionState {
 }
 
 /** One client-side notification stream returned by {@link HarnessClient.subscribe}. */
-/** 中文说明：interface NotificationSubscription 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：interface NotificationSubscription 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface NotificationSubscription extends AsyncIterable<HarnessNotification> {
   /**
    * Await the next matching notification.
@@ -110,7 +110,7 @@ export interface NotificationSubscription extends AsyncIterable<HarnessNotificat
 }
 
 /** Internal producer side of a public notification subscription. */
-/** 中文说明：class NotificationSubscriptionImpl 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class NotificationSubscriptionImpl 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 class NotificationSubscriptionImpl implements NotificationSubscription {
   constructor(
     private readonly state: SubscriptionState,
@@ -205,7 +205,7 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
  * wire-level cancel: a timed-out request stays running server-side until the
  * runtime is closed.
  */
-/** 中文说明：class HarnessClient 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
+/* 中文说明：class HarnessClient 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class HarnessClient {
   private child: ChildProcess | undefined
   private transport: JsonRpcLineTransport | undefined
@@ -517,13 +517,13 @@ export class HarnessClient {
  * @param value - the wire value to probe.
  * @returns `true` iff `value` is a non-null, non-array object.
  */
-/** 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** The message of a thrown value (the transport only throws `Error`s; `String` covers the rest). */
-/** 中文说明：函数 errorMessage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 errorMessage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function errorMessage(error: unknown): string {
   /* v8 ignore next -- the transport and dispose ladder reject only with Errors */
   return error instanceof Error ? error.message : String(error)

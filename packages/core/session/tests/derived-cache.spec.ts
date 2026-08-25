@@ -24,7 +24,7 @@ function userText(session: Session, text: string): void {
 }
 
 /** From-scratch oracle: replay the log into a fresh session and derive. */
-/** 中文说明：测试辅助函数 scratch 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
+/* 中文说明：测试辅助函数 scratch 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function scratch(session: Session): unknown {
   return Session.create(SessionId(`${session.id}-scratch-${session.seq}`), [...session.events]).deriveMessages()
 }

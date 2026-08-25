@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】本包（dsh-client-runtime）的运行时不变量（invariant）伴侣
  *   插件：向 invariants 服务注册"slots/changed 事件必须发生在版本号更新
@@ -11,14 +11,14 @@
  *   版本号）；apply 向 invariants 服务注册该安装器。
  * 【关键边界】只针对 'slots/changed' 事件；key 必须是非空字符串；
  *   版本号为 0 视为"变更尚未发生"。
- * 【新手阅读建议】先读 packages/invariants 理解 fail 的语义。
+ * 【新手阅读建议】先读 packages/runtime-diagnostics/invariants 理解 fail 的语义。
  * ==========================================================================
  */
 /**
  * Package-owned invariant companion for `@deepseek-ai/dsh-client-runtime`.
  * @module @deepseek-ai/dsh-client-runtime/invariant
  */
-/**
+/*
  * 本包自有的不变量伴侣插件：注册"slots/changed 必须先于其变更的版本号
  * 更新"这条 owned 关系检查。
  */
@@ -35,10 +35,10 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-client-runtime' // 注册到 invariants 服务时使用的包名标识
 
 /** Cordis companion plugin name. */
-/** Cordis 伴侣插件的插件名。 */
+/* Cordis 伴侣插件的插件名。 */
 export const name = 'client-runtime-invariant'
 /** Service required before the companion can register. */
-/** 注册伴侣插件前必须先存在的服务。 */
+/* 注册伴侣插件前必须先存在的服务。 */
 export const inject = ['invariants']
 
 /**
@@ -47,7 +47,7 @@ export const inject = ['invariants']
  * before the service re-emits, so a zero version at dispatch time means the
  * event fired without (or ahead of) its mutation.
  */
-/**
+/*
  * owned 关系：每次 'slots/changed'(key) 分发都必须能观察到变更已应用——
  * SlotCore 在服务重发事件前会同步提升该键的版本号，因此分发时版本为 0
  * 意味着事件在没有（或先于）对应变更的情况下触发。
@@ -76,7 +76,7 @@ const install: InvariantInstaller = (ctx, fail) => {
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/**
+/*
  * 注册本包的不变量伴侣。
  * @param ctx 携带 invariants 服务的 Cordis 上下文。
  * @returns 设置成功后已安装注册项的销毁函数。

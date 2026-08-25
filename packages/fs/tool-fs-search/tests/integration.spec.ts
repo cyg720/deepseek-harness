@@ -8,7 +8,7 @@
  * suite runs on every platform without a system `rg` install; the
  * fake-service suite (tools.spec.ts) carries the coverage gate.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 integration.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -56,7 +56,7 @@ function text(result: { content: { type: string; text?: string }[] }): string {
 }
 
 /** The fixture workspace as a session cwd, so relative paths resolve inside `dir`. */
-/** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 agent，由紧邻初始化决定。 */
 const agent = () => ({ session: { header: { id: 'session-int', cwd: dir } } })
 
 describe('search tools over the real subprocess service + the packaged rg', () => {

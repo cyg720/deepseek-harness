@@ -2,7 +2,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-brand`.
  * @module @deepseek-ai/dsh-brand/invariant
  */
-/**
+/*
  * 文件职责：为品牌类型纯工具包注册说明充分的空不变量伴生插件。
  * 技术维度：使用 Cordis 与不变量注册协议声明包所有权，不引入额外运行时状态。
  * 产品维度：让诊断系统看见基础类型工具，同时保持其零状态、零副作用特性。
@@ -19,17 +19,17 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-brand'
 
 /** Cordis companion plugin name. */
-/** name：伴生插件的稳定 Cordis 名称。 */
+/* name：伴生插件的稳定 Cordis 名称。 */
 export const name = 'brand-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** inject：注册所需的不变量服务依赖。 */
+/* inject：注册所需的不变量服务依赖。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: this pure utility owns no event stream or mutable runtime data; its value
  * algebra is enforced by unit tests.
  */
-/** install：空安装器；纯值代数由单元测试验证，没有运行时关系。 */
+/* install：空安装器；纯值代数由单元测试验证，没有运行时关系。 */
 const install: InvariantInstaller = () => {}
 
 /**
@@ -37,7 +37,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 注册品牌工具包伴生插件。@param ctx 含注册表的上下文。@returns 注销函数。@example await apply(ctx)。 */
+/* 注册品牌工具包伴生插件。@param ctx 含注册表的上下文。@returns 注销函数。@example await apply(ctx)。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))
 /* jscpd:ignore-end */

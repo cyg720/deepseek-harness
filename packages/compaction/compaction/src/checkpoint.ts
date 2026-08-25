@@ -11,7 +11,7 @@
  *
  * @module @deepseek-ai/dsh-compaction/checkpoint
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：定义压缩检查点消息的统一来源标记、关联类型、构造函数和识别谓词。
  * - 技术维度：使用 TypeScript 交叉类型、品牌标识、条件对象展开和 Object.freeze 不可变值。
@@ -29,7 +29,7 @@ import type { CompactionId } from './brand.ts'
 const COMPACT_CHECKPOINT_MARKER = Object.freeze({ kind: 'plugin', plugin: 'compact' } as const)
 
 /** Message provenance carried by a concrete compaction checkpoint. */
-/** 中文：具体压缩检查点携带的消息来源，包含固定标记、事务标识和可选的手动命令标识。 */
+/* 中文：具体压缩检查点携带的消息来源，包含固定标记、事务标识和可选的手动命令标识。 */
 export type CompactionCheckpointSource = typeof COMPACT_CHECKPOINT_MARKER & {
   /** 拥有该检查点的压缩事务品牌标识。 */
   readonly compactionId: CompactionId
@@ -43,7 +43,12 @@ export type CompactionCheckpointSource = typeof COMPACT_CHECKPOINT_MARKER & {
  * @param sourceCommandId - initiating manual command, when present.
  * @returns immutable checkpoint source.
  */
-/** 中文：创建冻结的检查点来源；compactionId 必填，sourceCommandId 仅手动命令存在时传入，返回不可变来源对象。 */
+/*
+ * 中文：创建冻结的检查点来源；compactionId 必填，sourceCommandId 仅手动命令存在时传入，返回不可变来源对象。
+ * @param compactionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param sourceCommandId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function compactCheckpointSource(
   compactionId: CompactionId,
   sourceCommandId?: CommandId,
@@ -60,7 +65,11 @@ export function compactCheckpointSource(
  * @param source - source restored from a surface user message.
  * @returns whether the source carries the backend-independent checkpoint marker.
  */
-/** 中文：判断持久消息来源是否带有统一 compact 插件标记；参数为 MessageSource，返回布尔值。示例：isCompactCheckpointSource(message.source)。 */
+/*
+ * 中文：判断持久消息来源是否带有统一 compact 插件标记；参数为 MessageSource，返回布尔值。示例：isCompactCheckpointSource(message.source)。
+ * @param source 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function isCompactCheckpointSource(source: MessageSource): boolean {
   return source.kind === 'plugin' && source.plugin === COMPACT_CHECKPOINT_MARKER.plugin
 }

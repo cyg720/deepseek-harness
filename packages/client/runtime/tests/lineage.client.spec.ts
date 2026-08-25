@@ -2,7 +2,7 @@
  * flattenLineage: root ordering, DFS child expansion, orphan degradation, and
  * cycle fail-soft (every entry always emitted, no infinite walk).
  */
-/**
+/*
  * 文件职责：验证会话分叉和父子关系在客户端状态中的投影与更新。
  * 技术维度：Vitest、品牌会话标识、事件脚本和会话管理状态。
  * 产品维度：让用户能辨认当前会话来源并在分叉后保持正确导航关系。

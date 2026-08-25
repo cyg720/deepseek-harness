@@ -32,7 +32,7 @@ export { DEFAULT_BUSY_ENTER_BEHAVIOR } from '../../submission-settings.ts'
  * Direct `steer` is intentionally best-effort: AgentLoop turns a closed-window
  * submission into the next waking Queue item.
  */
-/**
+/*
  * 输入框注入面与设置行共用的"繁忙时 Enter"策略。直接 steer 刻意是尽力而为：
  * AgentLoop 会把窗口已关的提交变成下一个醒来的队列项。
  */

@@ -4,7 +4,7 @@
  * value-free credential views, the directory/live-route merge, and the three
  * invalidation frames (settings/credentials/models changed).
  */
-/**
+/*
  * 文件职责：验证Host API Proxy的 api-proxy-config.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
  * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
@@ -66,7 +66,7 @@ function expectErr<T>(response: RpcResponse<T>): { code: string; message: string
 }
 
 /** In-memory settings provider: the Service Definition base class owns all tested behavior. */
-/** 中文说明：类型或类 MemorySettings 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 MemorySettings 约束 API、Hook 或目录数据职责。 */
 class MemorySettings extends SettingsProvider {
   doc: Record<string, unknown>
 
@@ -110,7 +110,7 @@ class MemorySettings extends SettingsProvider {
 }
 
 /** In-memory credential provider with an env-shadow double for the rejection path. */
-/** 中文说明：类型或类 MemoryCredentials 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 MemoryCredentials 约束 API、Hook 或目录数据职责。 */
 class MemoryCredentials extends CredentialProvider {
   private readonly values = new Map<string, string>()
 
@@ -180,7 +180,7 @@ class MemoryCredentials extends CredentialProvider {
 }
 
 /** Catalog-serving adapter stub for the llm.models path. */
-/** 中文说明：类型或类 CatalogAdapter 约束 API、Hook 或目录数据职责。 */
+/* 中文说明：类型或类 CatalogAdapter 约束 API、Hook 或目录数据职责。 */
 class CatalogAdapter extends LlmAdapter {
   constructor(private readonly name: string, private readonly models: readonly string[]) {
     super()
@@ -253,7 +253,7 @@ async function harness(options?: {
 }
 
 /** Drain `count` host frames matching `types`, then abort the stream. */
-/** 中文说明：函数 collectHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 collectHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function collectHost(
   api: ReturnType<typeof createApiProxy>,
   types: string[],
@@ -287,7 +287,7 @@ async function collectHost(
  * @param ns - the namespace whose stored section changed.
  * @returns the expected wrapper frame.
  */
-/** 中文说明：函数 forwardedSettings 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 forwardedSettings 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function forwardedSettings(ns: string): HostFrame {
   return {
     type: 'host/remote-event',

@@ -1,5 +1,5 @@
 /** Release family discovery, publish order, tag naming, and the bump judgements. */
-/**
+/*
  * 文件职责：验证 families.spec.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -23,7 +23,7 @@ import { compareVersions, nextVendorVersion, planShared, reachesPayload } from '
  * @param manifest - manifest fields the subject reads.
  * @returns The member.
  */
-/** 中文说明：函数 member 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 member 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function member(directory: string, name: string, manifest: Record<string, unknown> = {}): ReleaseMember {
   return { directory, name, version: '0.0.1', manifest }
 }

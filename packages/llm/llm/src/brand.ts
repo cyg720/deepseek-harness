@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】定义 dsh-llm 包自己拥有的一批"品牌化 id"（branded id）类型及
  * 其同名构造函数：MessageId（消息标识）、CallId（工具调用关联标识）、
@@ -30,7 +30,7 @@
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
 
-/**
+/*
  * （中文）消息标识符类型：把普通 string 打上 "MessageId" 名义标签，使其在
  * 类型层面与其他字符串区分开，防止把消息 id 误当成别的字符串使用。该 id 是
  * 单条消息的稳定身份，跨收件箱、会话日志、模型请求等多个边界保持一致。
@@ -38,7 +38,7 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 /** Stable identity carried by one message across inbox, log, and model-request boundaries. */
 export type MessageId = Branded<'MessageId'>
 
-/**
+/*
  * （中文）给任意字符串打上 MessageId 标签的构造辅助函数；不做任何校验，只是
  * 在类型层面做标记，运行时返回原字符串。
  * @param id 不透明的消息标识符。
@@ -53,7 +53,7 @@ export function MessageId(id: string): MessageId {
   return id as MessageId
 }
 
-/**
+/*
  * （中文）工具调用关联标识：把模型发起的一次工具调用（tool call）与其结果
  * 消息关联起来。真实适配器由 provider 颁发，mock 或组装器兜底时合成。
  */
@@ -63,7 +63,7 @@ export function MessageId(id: string): MessageId {
  */
 export type CallId = Branded<'CallId'>
 
-/**
+/*
  * （中文）给字符串打上 CallId 标签；运行时无校验，纯类型标记。
  * @param id provider 颁发（或合成）的调用 id。
  * @returns 同一个字符串，类型标记为 CallId。
@@ -77,14 +77,14 @@ export function CallId(id: string): CallId {
   return id as CallId
 }
 
-/**
+/*
  * （中文）provider 请求标识：provider 在响应/报错里给出的请求级标识，跨包
  * 边界保留用于诊断（例如排查一次失败请求）。
  */
 /** Provider-issued request identifier retained for diagnostics across package boundaries. */
 export type ProviderRequestId = Branded<'ProviderRequestId'>
 
-/**
+/*
  * （中文）给字符串打上 ProviderRequestId 标签；运行时无校验。
  * @param id 不透明的 provider 颁发的请求标识。
  * @returns 同一个字符串，类型标记为 ProviderRequestId。
@@ -98,14 +98,14 @@ export function ProviderRequestId(id: string): ProviderRequestId {
   return id as ProviderRequestId
 }
 
-/**
+/*
  * （中文）推理强度标识：适配器为某个模型暴露的可选推理强度（reasoning
  * effort）级别的 id，例如 low / medium / high。
  */
 /** Adapter-owned identifier for one model's selectable reasoning effort. */
 export type ReasoningEffortId = Branded<'ReasoningEffortId'>
 
-/**
+/*
  * （中文）给字符串打上 ReasoningEffortId 标签；运行时无校验。
  * @param id 某个模型能力暴露的推理强度标识。
  * @returns 同一个字符串，类型标记为 ReasoningEffortId。

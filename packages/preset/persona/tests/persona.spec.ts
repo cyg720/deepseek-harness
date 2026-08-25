@@ -22,7 +22,7 @@ async function harness(deploymentPersona: string): Promise<Context> {
 }
 
 /** The rendered text of the persona slot as one scope sees it. */
-/** 中文说明：函数 personaText 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 personaText 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function personaText(ctx: Context, scope?: ScopeKey): Promise<string | undefined> {
   /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const assembly = await ctx.systemPrompt.assemble(scope === undefined ? {} : { scope })

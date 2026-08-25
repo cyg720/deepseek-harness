@@ -23,7 +23,7 @@ afterEach(cleanup)
 const OPTIONS = [{ id: 'zh', label: '中文' }, { id: 'en', label: 'English' }]
 
 /** Empty global standard-kit hooks (the row reads neither). */
-/** 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/* 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function emptySessions() {
   /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const store = createSnapshotStore<SessionListState>(

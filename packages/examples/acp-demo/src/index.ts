@@ -10,7 +10,7 @@
  * docs/postmortem/0001).
  * @module @deepseek-ai/dsh-acp-demo
  */
-/**
+/*
  * 文件职责：实现ACP 示例的 index.ts 模块。
  * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
  * 产品维度：保证ACP 示例在真实组装、失败和清理场景中可靠。
@@ -47,7 +47,7 @@ const DEFAULT_PERSISTENCE_ROOT = './.sessions'
  * `tools` is the tool registry's config (its presentation `mode`, forwarded
  * through agent-spine-demo); `persistenceRoot` is the JSONL backend's directory.
  */
-/** 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
+/* 中文说明：类型或类 Config 约束远程资源或测试数据职责。 */
 export interface Config {
   /** Provider route for ACP-created agents. */
   provider: string
@@ -88,7 +88,7 @@ export interface Config {
 // Each entry point owns a complete, directly readable config schema; extracting
 // the common fields would make two small app contracts depend on a new facade.
 /* jscpd:ignore-start */
-/** 中文说明：运行时局部值 Config，由紧邻初始化决定。 */
+/* 中文说明：运行时局部值 Config，由紧邻初始化决定。 */
 export const Config: z<Config> = z.object({
   provider: z.string().required(),
   model: z.string().required(),
@@ -123,7 +123,7 @@ export const Config: z<Config> = z.object({
  * attached until ACP agents have flushed their closing events. No logger, no
  * `hmr` — stdout stays pure.
  */
-/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function apply(ctx: Context, config: Config): Promise<void> {
   /** 中文说明：运行时局部值 goals，由紧邻初始化决定。 */
   const goals = config.goals ?? {}

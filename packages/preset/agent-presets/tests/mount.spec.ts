@@ -49,7 +49,7 @@ const ROOTS = [
  * @param roster - roster config, defaulting to the fixture roots.
  * @returns the booted context.
  */
-/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(roster: Config = { default: 'standard', roots: ROOTS, includeUserRoot: false }): Promise<Context> {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -67,7 +67,7 @@ async function harness(roster: Config = { default: 'standard', roots: ROOTS, inc
 }
 
 /** Create one agent composed from `presetId`, exactly as a factory `setup` would. */
-/** 中文说明：函数 agentOn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 agentOn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function agentOn(ctx: Context, id: string, presetId?: string): Promise<Agent> {
   /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle = await ctx.agents.create({
@@ -82,7 +82,7 @@ const toolNames = (ctx: Context, agent?: Agent): string[] =>
   ctx.tools.schemas(agent).map(schema => schema.name).sort()
 
 /** Every service registration in the runtime, regardless of which realm holds it. */
-/** 中文说明：函数 providedServiceNames 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 providedServiceNames 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function providedServiceNames(ctx: Context): string[] {
   /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const store = ctx.reflect.store
@@ -92,7 +92,7 @@ function providedServiceNames(ctx: Context): string[] {
 }
 
 /** Whether the root realm maps `name` to a live registration. */
-/** 中文说明：函数 rootResolves 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 rootResolves 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function rootResolves(ctx: Context, name: string): boolean {
   /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const key = ctx.root[Context.isolate][name]
@@ -193,7 +193,7 @@ describe('composing an agent from a preset', () => {
 
 describe('composing a child agent from its parent', () => {
   /** Create one agent joined to `parent`'s composition, as a child creation window does. */
-  /** 中文说明：函数 childOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 childOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function childOf(ctx: Context, id: string, parent: Agent): Promise<Agent> {
     /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({
@@ -404,7 +404,7 @@ describe('the preset roster', () => {
 
 describe('composing from a broken preset', () => {
   /** A roster whose only user preset carries `composition`. */
-  /** 中文说明：函数 rosterWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 rosterWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function rosterWith(composition: string): Promise<Context> {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-broken-'))
@@ -701,7 +701,7 @@ describe('replacing a composition', () => {
 
 describe('editing a composition file', () => {
   /** One-row composition whose single tool is named `tool`. */
-  /** 中文说明：函数值 rowFor 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+  /* 中文说明：函数值 rowFor 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const rowFor = (tool: string): string =>
     `- id: only\n  name: ${join(FIXTURES, 'plugins', 'contribute.js')}\n  config:\n    tool: ${tool}\n`
 
@@ -709,7 +709,7 @@ describe('editing a composition file', () => {
    * A context over a temp root holding one editable preset. The id is
    * per-test because `livePresetMounts()` is a process-global registry.
    */
-  /** 中文说明：函数 editable 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 editable 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function editable(id: string): Promise<{ scoped: Context; path: string }> {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-edit-'))

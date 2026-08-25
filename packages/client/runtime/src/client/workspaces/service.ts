@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】WorkspaceRuntime：为 UI 消费方投影工作区对象管理器，并实现
  *   IWorkspaces 对外面的全部行为（创建/连接会话/目录/重命名/删除/排序）。
@@ -16,7 +16,7 @@
  * ==========================================================================
  */
 /** WorkspaceRuntime projects the Workspace object manager for UI consumers. */
-/** WorkspaceRuntime：为 UI 消费方投影工作区对象管理器。 */
+/* WorkspaceRuntime：为 UI 消费方投影工作区对象管理器。 */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {
@@ -30,7 +30,7 @@ import type { IWorkspaces } from '../contract/workspaces.ts'
 import { WorkspaceManager, type WorkspaceListPhase } from './manager.ts'
 
 /** Workspace list plus the two-baseline readiness and default-target projection. */
-/** 工作区列表 + 双基线就绪状态 + 默认目标投影。 */
+/* 工作区列表 + 双基线就绪状态 + 默认目标投影。 */
 export interface WorkspaceListState {
   items: readonly WorkspaceView[]
   /**
@@ -40,7 +40,7 @@ export interface WorkspaceListState {
    * (store-engine vocabulary; immer drafts reject Sets) — membership lookups
    * build their own transient Set.
    */
-  /**
+  /*
    * 注册表全局的归档集合（按 Host 顺序）：分组面处处隐藏这些会话
    * （工作区分组与未分组桶），但它们的会话日志与工作区记账槽保留。
    * 用普通数组（存储引擎词汇；immer 草稿拒绝 Set）——成员查找时自行
@@ -51,15 +51,15 @@ export interface WorkspaceListState {
   phase: WorkspaceListPhase
   error: RpcError | null
   /** True only after both workspace.list and session.list have succeeded. */
-  /** 仅当 workspace.list 与 session.list 都成功后为 true。 */
+  /* 仅当 workspace.list 与 session.list 都成功后为 true。 */
   baselinesReady: boolean
   /** Most recently active Workspace, derived without changing `items` order. */
-  /** 最近活跃的工作区，推导时不改变 items 顺序。 */
+  /* 最近活跃的工作区，推导时不改变 items 顺序。 */
   recentWorkspaceId: WorkspaceId | undefined
 }
 
 /** Structured create failure for UI flows that distinguish Host business errors. */
-/** 面向区分 Host 业务错误的 UI 流程的结构化创建失败。 */
+/* 面向区分 Host 业务错误的 UI 流程的结构化创建失败。 */
 export class WorkspaceCreateError extends Error {
   constructor(readonly rpcError: RpcError) {
     super(`workspace create failed: ${rpcError.code}: ${rpcError.message}`)
@@ -68,7 +68,7 @@ export class WorkspaceCreateError extends Error {
 }
 
 /** Structured browse failure so the directory browser can branch on Host business codes. */
-/** 结构化浏览失败，使目录浏览器可按 Host 业务码分支。 */
+/* 结构化浏览失败，使目录浏览器可按 Host 业务码分支。 */
 export class DirectoryBrowseError extends Error {
   constructor(readonly rpcError: RpcError) {
     super(`directory browse failed: ${rpcError.code}: ${rpcError.message}`)
@@ -77,19 +77,19 @@ export class DirectoryBrowseError extends Error {
 }
 
 /** Real Workspace object layer and Host actions. */
-/** 真实的工作区对象层与 Host 动作。 */
+/* 真实的工作区对象层与 Host 动作。 */
 export class WorkspaceRuntime implements IWorkspaces {
   /** UI-facing immutable projection; the manager remains wire truth. */
-  /** 面向 UI 的不可变投影；管理器仍是 wire 真值。 */
+  /* 面向 UI 的不可变投影；管理器仍是 wire 真值。 */
   readonly list: SnapshotStore<WorkspaceListState>
   /** Workspace baseline and frame owner. */
-  /** 工作区基线与帧的属主。 */
+  /* 工作区基线与帧的属主。 */
   private readonly manager: WorkspaceManager
   /** In-flight blank-session creates keyed by workspace (connectWorkspace coalescing). */
-  /** 进行中的空白会话创建，按工作区键控（connectWorkspace 并发合并）。 */
+  /* 进行中的空白会话创建，按工作区键控（connectWorkspace 并发合并）。 */
   private readonly connecting = new Map<WorkspaceId, Promise<SessionId>>()
   /** Guards the runtime-owned one-shot initial-selection subscription. */
-  /** 守护运行时自有的单次初始选择订阅。 */
+  /* 守护运行时自有的单次初始选择订阅。 */
   private initialSelectionStarted = false
 
   /**
@@ -97,7 +97,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * @param api - shared wire client.
    * @param sessions - cross-domain sessions face used for recency and blank-session reuse.
    */
-  /**
+  /*
    * @param ctx 客户端根上下文。
    * @param api 共享的线上客户端。
    * @param sessions 用于最近活跃与空白会话复用的跨域会话面。
@@ -125,7 +125,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * @param workspaceId - chosen Workspace (must be in the workspace list).
    * @returns the reused or newly created session id.
    */
-  /**
+  /*
    * 解析 New Session 流程在选定工作区后落地的会话：列表镜像中有该工作区
    * 的既有空白会话则复用，否则在 Host 上新建（session.create 直接诞生
    * 完整的 Session+Agent——客户端不持有中间状态）。导航归调用方：把返回
@@ -179,7 +179,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * policy. A failed connect may retry on the next baseline projection.
    * @returns disposer for the baseline subscription; late work cannot navigate after disposal.
    */
-  /**
+  /*
    * 跟随首个完整的工作区/会话基线，恰好一次地选择默认会话。恢复的当前
    * 会话优先；否则连接最近工作区（复用或创建其空白会话）。此后的显式
    * 清除保持清除，不会重新触发本启动策略。连接失败可在下次基线投影时
@@ -237,7 +237,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * stays usable).
    * @param workspaceId - explicit target Workspace for scoped actions.
    */
-  /**
+  /*
    * shell 入口点（侧边栏按钮、工作区浏览器）背后的共享 New Session 动作：
    * 解析目标工作区——显式优先，其次当前会话的工作区，再其次最近工作区
    * 投影——连接其空白会话并导航过去；完全没有工作区时，清除选中进入
@@ -267,7 +267,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * @param input - the Host create payload.
    * @returns the created or idempotently resolved Workspace.
    */
-  /**
+  /*
    * 把已存在的路径注册为工作区。
    * @param input Host 创建负载。
    * @returns 创建出的或幂等解析到的工作区。
@@ -282,7 +282,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * Open the Host's native directory picker (the `native` capability).
    * @returns the selected path, or null when the user cancelled.
    */
-  /**
+  /*
    * 打开 Host 的原生目录选择器（native 能力）。
    * @returns 选中的路径，用户取消时为 null。
    */
@@ -300,7 +300,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * @param signal - aborts the wire request (and the Host's scan) when the caller supersedes it.
    * @returns the level's listing with breadcrumb ancestry.
    */
-  /**
+  /*
    * 通过 Host 的 browse 能力列出一层目录。
    * @param path 要列出的绝对目录；缺省列出 Host 主目录。
    * @param signal 调用方发起新请求时可中止本次 wire 请求（及 Host 的扫描）。
@@ -318,7 +318,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * @param name - single non-blank path segment.
    * @returns the created directory's absolute path.
    */
-  /**
+  /*
    * 通过 Host 的 browse 能力创建一层子目录。
    * @param path 已存在的绝对父目录。
    * @param name 单个非空路径段。
@@ -334,7 +334,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * Open a filesystem path with the Host operating system's default application.
    * @param path - absolute or host-resolvable path.
    */
-  /**
+  /*
    * 用 Host 操作系统的默认应用打开一个文件系统路径。
    * @param path 绝对路径或 Host 可解析的路径。
    */
@@ -351,7 +351,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * @param title - new display title (trimmed non-empty by the Host).
    * @returns the renamed Workspace view.
    */
-  /**
+  /*
    * 重命名工作区。
    * @param workspaceId 目标工作区。
    * @param title 新的展示标题（由 Host 修剪为非空）。
@@ -368,7 +368,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * directory remain Host-owned outside this operation.
    * @param workspaceId - target workspace.
    */
-  /**
+  /*
    * 删除一个工作区注册。会话、会话日志与目录仍归 Host 所有，不在此操作内。
    * @param workspaceId 目标工作区。
    */
@@ -382,7 +382,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * @param workspaceId - Workspace to move.
    * @param beforeWorkspaceId - Anchor workspace; omitted appends.
    */
-  /**
+  /*
    * 在持久化注册表的展示顺序中移动工作区。
    * @param workspaceId 要移动的工作区。
    * @param beforeWorkspaceId 锚点工作区；省略则追加到末尾。
@@ -398,7 +398,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * echo and a remote tab's frame alike).
    * @param sessionId - session to archive.
    */
-  /**
+  /*
    * 把会话归档进注册表全局集合。清除被归档的当前选中是投影清扫的职责
    * （对本地回显与远程标签页的帧用同一条规则）。
    * @param sessionId 要归档的会话。
@@ -415,7 +415,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * @param beforeSessionId - accounted anchor to insert before; omitted appends.
    * @returns the updated Workspace view.
    */
-  /**
+  /*
    * 在所属工作区的手动顺序中移动会话（类 DOM insertBefore）。
    * @param workspaceId 属主工作区。
    * @param sessionId 要移动的已归属会话。
@@ -436,7 +436,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * Refresh the workspace baseline, reusing an in-flight pull.
    * @returns completion of the current or newly started workspace baseline pull.
    */
-  /**
+  /*
    * 刷新工作区基线，复用进行中的拉取。
    * @returns 当前或新发起的工作区基线拉取的完成信号。
    */
@@ -448,7 +448,7 @@ export class WorkspaceRuntime implements IWorkspaces {
    * Route a Host stream envelope into the Workspace object layer.
    * @param envelope - validated Host stream envelope.
    */
-  /**
+  /*
    * 把 Host 流信封路由进工作区对象层。
    * @param envelope 已验证的 Host 流信封。
    */
@@ -457,7 +457,7 @@ export class WorkspaceRuntime implements IWorkspaces {
   }
 
   /** Rebuild the Workspace baseline after connection. */
-  /** 连接后重建工作区基线。 */
+  /* 连接后重建工作区基线。 */
   handleConnected(): void {
     this.manager.handleConnected()
   }
@@ -492,7 +492,7 @@ export class WorkspaceRuntime implements IWorkspaces {
 }
 
 /** Stable tie-breaking follows Host Workspace order. */
-/**
+/*
  * 推导最近活跃工作区：稳定平局裁决遵循 Host 工作区顺序。
  * @param workspaces 工作区视图列表。
  * @param sessions 会话概要映射（用于取 updatedAt）。

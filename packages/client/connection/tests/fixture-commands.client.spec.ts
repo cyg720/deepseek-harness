@@ -1,4 +1,4 @@
-/**
+/*
  * 文件职责：验证快照夹具提供的远程命令、目标操作和技能列表接口可由连接客户端调用。
  * 技术维度：Fixture API、类型化 RPC 辅助函数、Vitest 和内存态会话标识。
  * 产品维度：保证无密钥回放环境中的常用客户端命令与真实组装接口保持一致。
@@ -12,7 +12,7 @@
  * and the FixtureApiClient dispatch rows. Commands answer on the Remote face
  * and skills on the legacy API face, so both are driven here.
  */
-/** 文件职责：验证夹具命令、目标和技能调用。技术维度：类型化 RPC 与固定夹具。产品维度：保持回放接口可用。逻辑维度：调用端点并核对结果。关键边界：预置数据变化需同步期望。新手阅读建议：按 goals、skills、commands 阅读。 */
+/* 文件职责：验证夹具命令、目标和技能调用。技术维度：类型化 RPC 与固定夹具。产品维度：保持回放接口可用。逻辑维度：调用端点并核对结果。关键边界：预置数据变化需同步期望。新手阅读建议：按 goals、skills、commands 阅读。 */
 import { describe, expect, it } from 'vitest'
 import type { SessionId } from '../src/client/api.ts'
 import { RpcId } from '../src/client/api.ts'
@@ -20,7 +20,7 @@ import type { RpcRequest } from '../src/client/api.ts'
 import { FixtureApiClient, createFixtureApi, createFixtureFaces } from '../src/client/fixture.ts'
 
 /** Drive one commands Remote endpoint against the fixture state graph. */
-/** 中文说明：测试辅助函数 `callRemote`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
+/* 中文说明：测试辅助函数 `callRemote`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 async function callRemote<T>(
   rpc: ReturnType<typeof createFixtureFaces>['rpc'],
   endpoint: string,

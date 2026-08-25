@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证模型设置的 components.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
  * 产品维度：防止模型设置保存、发现和错误提示回归。
@@ -42,13 +42,13 @@ const DEEPSEEK_TARGET = { provider: 'deepseek-official', displayName: 'DeepSeek'
 const deepSeekCopy = (template: string): string => providerCopy(template, DEEPSEEK_TARGET)
 
 /** Open one row's capacity disclosure (1-based, as the labels read). */
-/** 中文说明：函数 expandRow 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 expandRow 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function expandRow(position: number): void {
   fireEvent.click(screen.getByLabelText(`${en.modelAdvanced} ${String(position)}`))
 }
 
 /** The capacity inputs of every open row, in row order. */
-/** 中文说明：函数 capacityInputs 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 capacityInputs 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function capacityInputs(label: string): HTMLInputElement[] {
   return screen.getAllByLabelText<HTMLInputElement>(new RegExp(label))
 }
@@ -246,7 +246,7 @@ async function mountSection(overrides: Parameters<typeof scriptedFace>[0] = {}) 
  * Mount for a user who cannot reach any provider yet: no credential is stored
  * anywhere, so the whole-section DeepSeek route owns the first-run setup card.
  */
-/** 中文说明：函数 mountFirstRun 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 mountFirstRun 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 async function mountFirstRun(overrides: Parameters<typeof scriptedFace>[0] = {}) {
   /** 中文说明：测试局部值 scripted，由紧邻初始化决定。 */
   const scripted = scriptedFace(overrides)
@@ -262,7 +262,7 @@ async function mountFirstRun(overrides: Parameters<typeof scriptedFace>[0] = {})
  * openai route, so DeepSeek is an ordinary row whose card opens through Edit
  * rather than by itself.
  */
-/** 中文说明：函数 mountDeepSeekCard 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 mountDeepSeekCard 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] = {}) {
   /** 中文说明：测试局部值 mounted，由紧邻初始化决定。 */
   const mounted = await mountSection(overrides)

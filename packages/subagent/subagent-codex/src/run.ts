@@ -6,7 +6,7 @@
  *
  * @module @deepseek-ai/dsh-subagent-codex/run
  */
-/**
+/*
  * 文件职责：实现 run.ts 覆盖的子代理启动、协议、继承与生命周期行为。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
  * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
@@ -45,7 +45,7 @@ import {
 } from './wire.ts'
 
 /** Default POSIX grace between subprocess termination tiers. */
-/** 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
 /** 中文说明：interface CodexPackageManifest 定义本模块所需的数据或行为，用于表达子代理场景。 */
@@ -63,21 +63,21 @@ const codexPackageManifest = JSON.parse(
 ) as CodexPackageManifest
 
 /** Absolute package-local JavaScript wrapper selected by the package manifest. */
-/** 中文说明：常量 CODEX_PACKAGE_BIN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CODEX_PACKAGE_BIN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CODEX_PACKAGE_BIN = resolve(
   dirname(codexPackageJsonPath),
   codexPackageManifest.bin.codex,
 )
 
 /** Profile-selectable non-interactive Codex permission mode. */
-/** 中文说明：type CodexPermissionMode 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：type CodexPermissionMode 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export type CodexPermissionMode =
   | 'never'
   | 'approve-for-me'
   | 'dangerously-bypass-approvals-and-sandbox'
 
 /** Native non-interactive Codex modes mapped to official `thread/start` fields. */
-/** 中文说明：常量 CODEX_PERMISSION_MODES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 CODEX_PERMISSION_MODES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CODEX_PERMISSION_MODES = [
   'never',
   'approve-for-me',
@@ -85,7 +85,7 @@ export const CODEX_PERMISSION_MODES = [
 ] as const satisfies readonly CodexPermissionMode[]
 
 /** Safe default for unattended Codex runs. */
-/** 中文说明：常量 DEFAULT_CODEX_PERMISSION_MODE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFAULT_CODEX_PERMISSION_MODE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_CODEX_PERMISSION_MODE: CodexPermissionMode = 'never'
 
 /** 中文说明：type CodexFailureStage 定义本模块所需的数据或行为，用于表达子代理场景。 */
@@ -146,7 +146,11 @@ class CodexRunFailure extends Error {
  * @param cause Original Host failure retained for internal diagnostics.
  * @returns A startup failure whose message contains only fixed safe facts.
  */
-/** 中文说明：函数 codexStartupFailure 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 codexStartupFailure 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param cause 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function codexStartupFailure(cause: unknown): Error {
   return new CodexRunFailure({
     stage: 'initialize',
@@ -158,13 +162,16 @@ export function codexStartupFailure(cause: unknown): Error {
  * Fixed package-local app-server command, independent of the host `PATH`.
  * @returns Node, the official wrapper, and the fixed app-server arguments.
  */
-/** 中文说明：函数 codexAppServerArgv 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 codexAppServerArgv 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function codexAppServerArgv(): string[] {
   return [process.execPath, CODEX_PACKAGE_BIN, 'app-server', '--stdio']
 }
 
 /** Fully resolved inputs for one Codex app-server run. */
-/** 中文说明：interface CodexRunSpec 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/* 中文说明：interface CodexRunSpec 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface CodexRunSpec {
   /** Parent Session workspace, also supplied to `thread/start`. */
   readonly cwd: string
@@ -191,7 +198,11 @@ function thrown(value: unknown): Error {
  * @param prompt - task content accepted from the shared subagent service.
  * @returns the exact non-empty text block sequence.
  */
-/** 中文说明：函数 textTask 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 textTask 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param prompt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function textTask(prompt: readonly ContentBlock[]): string[] {
   if (prompt.length === 0) {
     throw new Error('subagent-codex: the one-shot task must contain only text blocks')
@@ -217,7 +228,11 @@ export function textTask(prompt: readonly ContentBlock[]): string[] {
  * @param wire - private app-server protocol connection.
  * @param child - shared-service handle that owns the process tree.
  */
-/** 中文说明：函数 disposeCodexChild 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 disposeCodexChild 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param wire 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param child 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export async function disposeCodexChild(
   wire: CodexAppServerWire,
   child: SubprocessHandle,
@@ -259,7 +274,12 @@ export async function disposeCodexChild(
  * @param spec - Workspace, environment, process service, and diagnostic policy.
  * @returns the published run after initialization and ephemeral thread creation.
  */
-/** 中文说明：函数 startCodexRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 startCodexRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function startCodexRun(
   request: SubagentStartRequest,
   spec: CodexRunSpec,

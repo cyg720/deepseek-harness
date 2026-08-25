@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】Agent Teams 的定型失败类型与通用的抛错值渲染。
  * 【技术维度】TeamError 继承 HarnessError；errorMessage 对非 Error 抛值用 node:util

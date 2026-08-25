@@ -62,7 +62,7 @@ const TOKENS = Array.from({ length: 220 }, (_, index) => `tok${((index + 1) * 79
 const PROMPT = `Write a file named notes.txt in the workspace containing exactly this text on one line: ${TOKENS}. Use one bash command with the literal text inline. Then reply with the single word DONE and stop.`
 
 /** Draft used to measure the composer's own text cap: enough lines to pass it. */
-/** 用于测量普通编辑器文本上限的多行草稿。 */
+/* 用于测量普通编辑器文本上限的多行草稿。 */
 const CAP_PROBE = Array.from({ length: 40 }, (_, index) => `line ${index}`).join('\n')
 
 describe('web e2e: approval takeover keeps its actions reachable', () => {

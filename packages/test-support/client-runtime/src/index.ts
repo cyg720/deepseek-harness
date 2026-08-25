@@ -10,7 +10,7 @@
  * machinery — everything mounts the production implementations.
  * @module @deepseek-ai/dsh-client-test-runtime
  */
-/**
+/*
  * 文件职责：实现 index.ts 覆盖的客户端运行时测试支持行为与测试协作。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
  * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
@@ -61,7 +61,11 @@ export { usePinnedBrowserLanguages } from './locale-env.ts'
  * @param source - Observable snapshot source.
  * @returns Typed React selector hook.
  */
-/** 中文说明：函数 bindSnapshotSelector 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 bindSnapshotSelector 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param source 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function bindSnapshotSelector<T>(source: HostObservable<T>): SnapshotSelectorHook<T> {
   return bindRendererSnapshotSelector(source)
 }
@@ -70,13 +74,16 @@ export function bindSnapshotSelector<T>(source: HostObservable<T>): SnapshotSele
  * Create the production slot renderer used by client feature tests.
  * @returns Slot renderer instance.
  */
-/** 中文说明：函数 createSlotRenderer 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 createSlotRenderer 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function createSlotRenderer(): SlotRenderer {
   return createRenderer()
 }
 
 /** Erased register face for the internal root call (the public declaration contract holds the typing). */
-/** 中文说明：type ErasedRegister 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：type ErasedRegister 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 type ErasedRegister = (options: object, component: unknown) => () => void
 
 /**
@@ -86,7 +93,7 @@ type ErasedRegister = (options: object, component: unknown) => () => void
  * output), Testing Library queries are bound inside it, and `update`
  * re-renders with new owner props.
  */
-/** 中文说明：interface SlotView 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：interface SlotView 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export interface SlotView<K extends keyof SlotMap & string> {
   /** The renderer's `<div data-slot="<key>">` anchor around the slot's rendered output. */
   readonly container: HTMLElement
@@ -105,7 +112,7 @@ export interface SlotView<K extends keyof SlotMap & string> {
  * idempotent dispose (unload cascade: entries, declared child slots, store
  * instances, and provided services all fall together).
  */
-/** 中文说明：interface FeatureHandle 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：interface FeatureHandle 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export interface FeatureHandle {
   /** The plugin's live Cordis fiber (state assertions, escape hatch). */
   readonly fiber: Fiber
@@ -121,7 +128,7 @@ export interface FeatureHandle {
  * subscribes to, so {@link SlotTestRuntime.renderSlot} and
  * {@link SlotView.update} drive React through the standard uSES boundary.
  */
-/** 中文说明：class OwnerPropsCell 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：class OwnerPropsCell 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 class OwnerPropsCell {
   private readonly owners = new Map<string, object>()
   private readonly listeners = new Set<() => void>()
@@ -164,7 +171,7 @@ class OwnerPropsCell {
  * through the REAL `slots.register`, with a caller-supplied minimal frame —
  * the runtime never guesses a feature's page structure.
  */
-/** 中文说明：class TestRoot 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：class TestRoot 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestRoot {
   private disposeEntry: (() => void) | undefined
 
@@ -206,7 +213,7 @@ export class TestRoot {
  * are act-wrapped throughout — tests never handle SlotCore microtask
  * batching or React act themselves.
  */
-/** 中文说明：class SlotTestRuntime 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
+/* 中文说明：class SlotTestRuntime 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class SlotTestRuntime {
   /** The runtime's Cordis root (escape hatch: extra services via `ctx.provide`, raw `ctx.plugin` mounts). */
   readonly ctx: Context

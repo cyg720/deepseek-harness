@@ -17,7 +17,7 @@ import type {
 } from '@deepseek-ai/dsh-session-query'
 
 /** Test-only concrete query service for backend-independent behavior. */
-/** TestSessionQueryEngine：用于后端无关测试的最小具体查询服务，所有命中列表为空。 */
+/* TestSessionQueryEngine：用于后端无关测试的最小具体查询服务，所有命中列表为空。 */
 export class TestSessionQueryEngine extends SessionQueryEngine {
   /**
    * 功能描述：返回不含任何会话命中的已完成分页结果。

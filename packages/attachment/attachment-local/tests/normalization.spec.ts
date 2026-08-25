@@ -16,7 +16,7 @@ import { detectImage } from '../src/image.ts'
 const POLICY: NormalizationPolicy = { maxDimension: 2048, maxBytes: 4 * 1024 * 1024 }
 
 /** Deterministic pseudo-random RGB noise; PNG cannot compress it below raw size. */
-/**
+/*
  * 生成确定性伪随机RGB噪声，PNG无法把它明显压缩到原始尺寸以下。
  * @param width 像素宽度。
  * @param height 像素高度。

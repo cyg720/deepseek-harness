@@ -114,7 +114,7 @@ interface Harness {
  * flowing through the in-process write path, which is deterministic; external
  * file watching is the providers' own covered concern.
  */
-/** 中文说明：函数 boot 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+/* 中文说明：函数 boot 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function boot(dir: string, config: object): Promise<Harness> {
   vi.stubEnv('DSH_HOME', dir)
   /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */

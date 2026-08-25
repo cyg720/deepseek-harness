@@ -36,13 +36,13 @@ import type { CodeDispatchLog, ToolDefinition, ToolExecutionResult, ToolRuntime,
 import type {} from './types.ts'
 
 /** The model-facing name of the Code Mode tool. */
-/**
+/*
  * 【中文】Code Mode 传输工具的模型可见名字，全局保留：任何代理都不能注册或遮蔽它。
  */
 export const RUN_CODE_NAME = 'run_code'
 
 /** The `tools:sdk` section order: inside the 100–199 tool-guidance band, after per-tool guidance sections. */
-/**
+/*
  * 【中文】`tools:sdk` 提示段的位置序号：落在 100–199 的"逐工具引导"区间内、
  *   排在各工具自己的引导段之后。
  */
@@ -58,10 +58,10 @@ export const SDK_SECTION_ORDER = 150
  */
 interface RunCodeFlavor {
   /** The tool `description` the model sees for this language. */
-  /** 【中文】该语言下模型看到的 run_code 工具描述。 */
+  /* 【中文】该语言下模型看到的 run_code 工具描述。 */
   readonly description: string
   /** The `code` parameter's description for this language. */
-  /** 【中文】该语言下 code 参数的描述文本。 */
+  /* 【中文】该语言下 code 参数的描述文本。 */
   readonly codeDescription: string
 }
 
@@ -107,7 +107,7 @@ const PYTHON_FLAVOR: RunCodeFlavor = {
  * is an unconstrained `string`: this union pins what the harness ships, while the
  * `Object.hasOwn` guards reject what a mounted runtime may report.
  */
-/**
+/*
  * 【中文】Code Mode 目前支持的语言联合。两张按语言索引的表（本文件的
  *   RUN_CODE_FLAVORS 与 index.ts 的 SDK_RENDERERS）都用 satisfies 对齐这个联合，
  *   新增语言漏掉任何一张表都会在 typecheck 阶段报错。表本身声明为
@@ -117,7 +117,7 @@ const PYTHON_FLAVOR: RunCodeFlavor = {
 export type CodeSdkLanguage = 'typescript' | 'python'
 
 /** Per-language `run_code` schema flavors (see {@link RunCodeFlavor}); one entry per {@link CodeSdkLanguage}. */
-/**
+/*
  * 【中文】按语言索引的 run_code 模式文本表；satisfies 保证每种支持语言都有条目。
  */
 const RUN_CODE_FLAVORS: Record<string, RunCodeFlavor> = {
@@ -150,7 +150,7 @@ const RUN_CODE_DESCRIPTION_PARAM_DESCRIPTION
  * guard owns is the runtime-supplied language neither table knows, which never
  * yields a wrong-language schema for a real runtime.
  */
-/**
+/*
  * 【中文】按已加载运行时的语言解析 run_code 的模式文本。无运行时挂载 → 降级为
  *   TypeScript 缺省（只有文档目录采集等不喂模型的读取路径会走到）；语言未知 →
  *   大声报错，绝不给真实运行时输出错误语言的 schema。
@@ -195,7 +195,7 @@ export class CodeRunFailedError extends HarnessError {
  * detached value again so dispatch and logging stay independent without
  * reintroducing structured-clone's platform-specific nesting limit.
  */
-/**
+/*
  * 【中文】把绑定调用的一次参数做两次快照：先归一化为无损 JSON（作为真正下发执行的
  *   值），再对快照再快照一份（作为日志记录的独立副本）。两次分离保证执行与日志互不
  *   影响——工具若原地改参数，也不会让日志与实际收到的值脱节；同时绕开了
@@ -223,7 +223,7 @@ function jsonNormalizeArgs(value: unknown): { dispatched: unknown; logged: unkno
 }
 
 /** Two-space JSON presentation, matching the existing shallow `run_code` text contract. */
-/**
+/*
  * 【中文】JSON 展示的缩进单位：两个空格，与既有 run_code 文本契约保持一致。
  */
 const JSON_INDENT = '  '
@@ -236,7 +236,7 @@ const JSON_INDENT = '  '
 const MAX_JSON_INDENT_CHARS = 10
 
 /** A pending fragment in the iterative JSON presentation traversal. */
-/**
+/*
  * 【中文】JSON 展示遍历的栈任务：text 直接输出；value 是待渲染值，depth 记层级、
  *   compact 标记"已超缩进上限，此后紧凑输出"。
  */
@@ -245,7 +245,7 @@ type JsonRenderTask =
   | { kind: 'value'; value: JsonValue; depth: number; compact: boolean }
 
 /** Render one non-string JSON root without recursive traversal or unbounded indentation growth. */
-/**
+/*
  * 【中文】把非字符串 JSON 值渲染为模型可读文本：显式栈遍历（无递归）；缩进总量封顶
  *   10 空格——更深的子树自动转紧凑模式，保证格式化输出对规范 JSON 大小保持线性。
  */
@@ -320,7 +320,7 @@ function renderJsonValue(value: Exclude<JsonValue, string>): string {
 }
 
 /** Render one present program completion value for the model-facing result text. */
-/**
+/*
  * 【中文】渲染程序完成值：字符串原样输出，其余走格式化 JSON 渲染器。
  */
 function renderValue(value: JsonValue): string {
@@ -328,7 +328,7 @@ function renderValue(value: JsonValue): string {
 }
 
 /** Canonical value returned by the outer Code Mode transport. */
-/**
+/*
  * 【中文】run_code 外层工具的规范输出：捕获的程序日志 + 可选的返回值。
  */
 type RunCodeOutput = { logs: string[]; result?: JsonValue }
@@ -340,7 +340,7 @@ type RunCodeOutput = { logs: string[]; result?: JsonValue }
  */
 export interface RunCodeBridgeOptions {
   /** Resolves `ctx.codeRuntime` or throws the loud misconfiguration error (shared with the registry's assembly-time checks). */
-  /** 【中文】解析代码运行时，缺失时抛出可操作的误配置错误（与装配期检查共用）。 */
+  /* 【中文】解析代码运行时，缺失时抛出可操作的误配置错误（与装配期检查共用）。 */
   requireRuntime: () => CodeRuntime
   /**
    * Reads `ctx.codeRuntime` without throwing: `undefined` when none is mounted.
@@ -539,7 +539,7 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
         return driverRun
       }
       /** Every dispatch settled AND committed; nothing can start (the run is aborted at call time). */
-      /**
+      /*
        * 【中文】排空所有子分派：驱动循环会放弃未启动的排队项、等完在飞池、按序跑完
        *   提交车道（含程序返回时已在进行的 commit）；随后排空全部日志附属工作，
        *   保证每个落定事件都写在开放的回合内。

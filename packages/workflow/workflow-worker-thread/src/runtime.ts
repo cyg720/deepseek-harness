@@ -11,7 +11,7 @@
  * run within grace and terminates the thread.
  * @module @deepseek-ai/dsh-workflow-worker-thread/runtime
  */
-/**
+/*
  * 文件职责：实现 runtime.ts 覆盖的工作流与 Worker Thread行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
  * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
@@ -36,7 +36,7 @@ import { materializeFromRealm, MaterializeError, renderThrown } from './realm.ts
 import type { ChildHandle, ChildPort, WorkerLimits } from './types.ts'
 
 /** The observers the execution reports progress through (the session posts them to the host). */
-/** 中文说明：interface ExecutionObserver 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：interface ExecutionObserver 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface ExecutionObserver {
   phase(title: string): void
   log(message: string): void
@@ -45,14 +45,14 @@ export interface ExecutionObserver {
 }
 
 /** The `agent()` options the script may pass; everything else rejects loud. */
-/** 中文说明：常量 SUPPORTED_AGENT_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SUPPORTED_AGENT_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SUPPORTED_AGENT_OPTIONS = new Set(['label', 'phase', 'schema', 'provider', 'model'])
 /** Deferred Claude Code options we name explicitly in the rejection message. */
-/** 中文说明：常量 DEFERRED_AGENT_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 DEFERRED_AGENT_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFERRED_AGENT_OPTIONS = new Set(['effort', 'isolation', 'agentType'])
 
 /** Flatten a child's final output blocks to text (the non-schema `agent()` result). */
-/** 中文说明：函数 outputText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 outputText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function outputText(blocks: ContentBlock[]): string {
   return blocks
     .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
@@ -61,7 +61,7 @@ function outputText(blocks: ContentBlock[]): string {
 }
 
 /** A short display label derived from the prompt when the script passes none. */
-/** 中文说明：函数 defaultLabel 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 defaultLabel 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function defaultLabel(prompt: string): string {
   /** 中文说明：变量 newline 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const newline = prompt.indexOf('\n')
@@ -76,7 +76,7 @@ function defaultLabel(prompt: string): string {
  * becomes a {@link WorkflowResult} with a non-`completed` stop reason. The
  * host owns cancellation and cleanup of any dropped child work.
  */
-/** 中文说明：class WorkflowExecution 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
+/* 中文说明：class WorkflowExecution 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export class WorkflowExecution {
   /** 1-based count of `agent()` calls started (the `agentsStarted` result field). */
   private started = 0

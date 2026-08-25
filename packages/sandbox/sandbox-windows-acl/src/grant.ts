@@ -10,7 +10,7 @@
  * standing grant and reports every cleanup failure.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/grant
  */
-/**
+/*
  * 文件职责：实现 grant.ts 承担的沙箱策略或 Windows ACL 隔离职责。
  * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
  * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
@@ -33,7 +33,7 @@ import type { NativePtr, Win32Bindings } from './ffi.ts'
  * session's temp directory). Create with {@link AclWriteGrant.create};
  * dispose revokes the revocable paths and frees the SID.
  */
-/** 中文说明：class AclWriteGrant 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
+/* 中文说明：class AclWriteGrant 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export class AclWriteGrant {
   /** The write SID in SDDL string form. */
   readonly writeSid: string

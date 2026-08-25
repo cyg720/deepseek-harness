@@ -15,7 +15,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-fs-sandbox`.
  * @module @deepseek-ai/dsh-fs-sandbox/invariant
  */
-/**
+/*
  * 模块总览：沙箱后端只加"按调用策略围栏"，策略与文件系统关系都在各自接缝，
  * 故 install 为空，仅做体系占位。
  */

@@ -4,7 +4,7 @@
  * OTLP/HTTP JSON), config fail-loud cases, and the real-Loader-path guard
  * for the default-exported Service class.
  */
-/**
+/*
  * 文件职责：验证 otel.spec.ts 覆盖的会话遥测行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话遥测状态稳定、可重放且可诊断。
@@ -34,7 +34,7 @@ interface Capture {
 }
 
 /** Just the slice of ExportLogsServiceRequest JSON these assertions touch. */
-/** 中文说明：interface OtlpLogsRequest 定义本测试所需的数据或行为，用于表达会话遥测场景。 */
+/* 中文说明：interface OtlpLogsRequest 定义本测试所需的数据或行为，用于表达会话遥测场景。 */
 interface OtlpLogsRequest {
   resourceLogs: {
     resource: { attributes: { key: string; value: { stringValue?: string } }[] }

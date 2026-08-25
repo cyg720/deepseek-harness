@@ -36,7 +36,7 @@ import css from './WebBlock.module.css'
  * `WebSource`, with the optional fields kept optional so a provider that
  * returned only a URL still renders (its hostname becomes the label).
  */
-/** 中文说明：类型或类 WebSourceView 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 WebSourceView 约束基础组件的数据或职责。 */
 export interface WebSourceView {
   /** The source URL; becomes a safe external link when it is http(s). */
   url: string
@@ -49,7 +49,7 @@ export interface WebSourceView {
 }
 
 /** A `web_search` card: an optional answer over a capped citation list. */
-/** 中文说明：类型或类 WebSearchBlockProps 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 WebSearchBlockProps 约束基础组件的数据或职责。 */
 export interface WebSearchBlockProps {
   kind: 'search'
   /** The provider-generated answer, rendered as markdown above the sources. */
@@ -63,7 +63,7 @@ export interface WebSearchBlockProps {
 }
 
 /** A `web_fetch` card: the retrieval summary for one fetched URL. */
-/** 中文说明：类型或类 WebFetchBlockProps 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 WebFetchBlockProps 约束基础组件的数据或职责。 */
 export interface WebFetchBlockProps {
   kind: 'fetch'
   /** The final URL after allowed redirects; becomes a safe external link when http(s). */
@@ -77,7 +77,7 @@ export interface WebFetchBlockProps {
 }
 
 /** A completed web retrieval card, discriminated by `kind`. */
-/** 中文说明：类型或类 WebBlockProps 约束基础组件的数据或职责。 */
+/* 中文说明：类型或类 WebBlockProps 约束基础组件的数据或职责。 */
 export type WebBlockProps = WebSearchBlockProps | WebFetchBlockProps
 
 /**
@@ -90,7 +90,7 @@ export type WebBlockProps = WebSearchBlockProps | WebFetchBlockProps
  * @param url - the source or fetch URL, from tool result content.
  * @returns the href to use, or undefined for plain text.
  */
-/** 中文说明：函数 safeHref 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 safeHref 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function safeHref(url: string): string | undefined {
   try {
     /** 中文说明：组件局部值 { protocol }，由紧邻初始化决定。 */
@@ -110,7 +110,7 @@ function safeHref(url: string): string | undefined {
  * @param title - the provider title, if any.
  * @returns the label text.
  */
-/** 中文说明：函数 linkLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 linkLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function linkLabel(url: string, title: string | undefined): string {
   if (title !== undefined && title !== '') return title
   try {
@@ -130,7 +130,7 @@ function linkLabel(url: string, title: string | undefined): string {
  * @param props.className - class for the anchor or the plain span.
  * @returns the anchor or span element.
  */
-/** 中文说明：函数 SafeLink 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SafeLink 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SafeLink({ url, label, className }: { url: string; label: string; className?: string | undefined }) {
   /** 中文说明：组件局部值 href，由紧邻初始化决定。 */
   const href = safeHref(url)
@@ -151,7 +151,7 @@ function SafeLink({ url, label, className }: { url: string; label: string; class
  * @param props.ordinal - the source's 1-based position in the full list.
  * @returns the source list item.
  */
-/** 中文说明：函数 SourceItem 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SourceItem 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SourceItem({ source, ordinal }: { source: WebSourceView; ordinal: number }) {
   return (
     <li className={css.source} value={ordinal}>
@@ -172,7 +172,7 @@ function SourceItem({ source, ordinal }: { source: WebSourceView; ordinal: numbe
  * @param props - see {@link WebSearchBlockProps}.
  * @returns the search card element.
  */
-/** 中文说明：函数 WebSearchBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 WebSearchBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function WebSearchBlock({ answer, sources, truncated, className }: WebSearchBlockProps) {
   // A provider may legitimately return no answer and no sources; the chat WebRow
   // does not show the raw result content, so without this the user would see an
@@ -201,7 +201,7 @@ function WebSearchBlock({ answer, sources, truncated, className }: WebSearchBloc
  * @param props - see {@link WebFetchBlockProps}.
  * @returns the fetch card element.
  */
-/** 中文说明：函数 WebFetchBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 WebFetchBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function WebFetchBlock({ url, statusCode, truncated, className }: WebFetchBlockProps) {
   return (
     <div className={clsx(css.block, css.fetch, className)} data-web="fetch">
@@ -219,7 +219,7 @@ function WebFetchBlock({ url, statusCode, truncated, className }: WebFetchBlockP
  * @param props - see {@link WebBlockProps}; `kind` selects the search or fetch body.
  * @returns the web card element.
  */
-/** 中文说明：函数 WebBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 WebBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function WebBlock(props: WebBlockProps) {
   return props.kind === 'search' ? <WebSearchBlock {...props} /> : <WebFetchBlock {...props} />
 }

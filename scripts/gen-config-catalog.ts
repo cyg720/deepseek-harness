@@ -6,7 +6,7 @@
  * declared runtime-only fields need not appear in the schema. `--check` verifies
  * the committed artifact.
  */
-/**
+/*
  * 文件职责：实现 gen-config-catalog.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -30,14 +30,14 @@ const OUT = 'docs/config-catalog.md'
 /** The fenced-block info string for pasted config declarations (skipped by
  * doc-typecheck, since a lone declaration referencing imports is not
  * standalone-compilable). */
-/** 中文说明：常量 FENCE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 FENCE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FENCE = 'ts config-catalog'
 
 /** TypeScript/Node global type names a config declaration may reference
  * without importing; never treated as unresolved. Extend when a new global
  * legitimately appears — the generator hard-errors on unknown names, so an
  * omission is loud, not silent. */
-/** 中文说明：常量 GLOBAL_TYPES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 GLOBAL_TYPES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const GLOBAL_TYPES = new Set([
   'Array', 'ReadonlyArray', 'Record', 'Partial', 'Required', 'Readonly', 'Pick', 'Omit',
   'Promise', 'Map', 'Set', 'Date', 'Error', 'RegExp', 'Exclude', 'Extract', 'NonNullable',
@@ -45,11 +45,11 @@ const GLOBAL_TYPES = new Set([
 ])
 
 /** How a package classifies for the catalog. */
-/** 中文说明：type Kind 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type Kind 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type Kind = 'config' | 'no-config' | 'seam' | 'library'
 
 /** One name a pasted declaration references but the paste does not contain. */
-/** 中文说明：interface TypeRef 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface TypeRef 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface TypeRef {
   /** The name as it appears in the pasted text (the local import alias). */
   alias: string
@@ -60,7 +60,7 @@ interface TypeRef {
 }
 
 /** One verbatim declaration paste. */
-/** 中文说明：interface Paste 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface Paste 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface Paste {
   /** Full source text: leading JSDoc (when present) through the closing token. */
   text: string
@@ -69,7 +69,7 @@ interface Paste {
 }
 
 /** One package's catalog entry. */
-/** 中文说明：interface CatalogEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface CatalogEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface CatalogEntry {
   /** npm package name, e.g. `@deepseek-ai/dsh-agent-loop`. */
   pkg: string
@@ -96,7 +96,7 @@ export interface CatalogEntry {
 }
 
 /** A parsed source file plus its import map (local name → origin). */
-/** 中文说明：interface FileCtx 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface FileCtx 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface FileCtx {
   abs: string
   rel: string
@@ -108,7 +108,7 @@ interface FileCtx {
 }
 
 /** Throw one aggregate error for every violation the walk collected. */
-/** 中文说明：函数 report 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 report 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function report(violations: string[]): void {
   if (violations.length === 0) return
   throw new Error(
@@ -118,7 +118,7 @@ function report(violations: string[]): void {
 }
 
 /** Parse a source file and index its import declarations. */
-/** 中文说明：函数 loadFile 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 loadFile 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadFile(abs: string, rel: string, cache: Map<string, FileCtx>): FileCtx {
   /** 中文说明：变量 cached 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cached = cache.get(abs)
@@ -155,11 +155,11 @@ function loadFile(abs: string, rel: string, cache: Map<string, FileCtx>): FileCt
 }
 
 /** A type declaration a paste can contain. */
-/** 中文说明：type TypeDecl 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type TypeDecl 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type TypeDecl = ts.InterfaceDeclaration | ts.TypeAliasDeclaration | ts.EnumDeclaration
 
 /** Find a pasteable type declaration by name in a file, or null. */
-/** 中文说明：函数 findTypeDecl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 findTypeDecl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function findTypeDecl(ctx: FileCtx, name: string): TypeDecl | null {
   /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const stmt of ctx.sf.statements) {
@@ -174,7 +174,7 @@ function findTypeDecl(ctx: FileCtx, name: string): TypeDecl | null {
  * relative imports transitively) or to the import that brings it in. Returns
  * `null` when the name is neither declared, imported, nor a known global.
  */
-/** 中文说明：函数 resolveTypeName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 resolveTypeName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function resolveTypeName(
   ctx: FileCtx,
   name: string,
@@ -208,7 +208,7 @@ function resolveTypeName(
 }
 
 /** Collect every type NAME referenced in type positions under a node. */
-/** 中文说明：函数 collectTypeNames 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectTypeNames 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectTypeNames(node: ts.Node, out: Set<string>): void {
   /** 中文说明：函数值 visit 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const visit = (n: ts.Node): void => {
@@ -226,7 +226,7 @@ function collectTypeNames(node: ts.Node, out: Set<string>): void {
 }
 
 /** The verbatim paste text of a declaration: leading JSDoc through the end. */
-/** 中文说明：函数 pasteText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 pasteText 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function pasteText(ctx: FileCtx, decl: TypeDecl): string {
   /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = rawJsDoc(ctx.text, decl)
@@ -237,7 +237,7 @@ function pasteText(ctx: FileCtx, decl: TypeDecl): string {
 
 /** Enforce non-empty JSDoc prose on every property of a pasted declaration,
  * recursing into nested type literals (e.g. an array-of-objects field). */
-/** 中文说明：函数 checkMemberDocs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 checkMemberDocs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function checkMemberDocs(ctx: FileCtx, decl: TypeDecl, violations: string[]): void {
   /** 中文说明：函数值 walkMembers 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const walkMembers = (members: ts.NodeArray<ts.TypeElement>, path: string): void => {
@@ -262,7 +262,7 @@ function checkMemberDocs(ctx: FileCtx, decl: TypeDecl, violations: string[]): vo
 }
 
 /** Cross-file resolution context for the schema-path check. */
-/** 中文说明：interface World 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface World 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface World {
   scanRoot: string
   cache: Map<string, FileCtx>
@@ -273,15 +273,15 @@ interface World {
 /** How a schema key path fared against the declared config type: definitely
  * present, definitely absent, or crossing a type the walk cannot enumerate
  * (only `missing` is a violation — `unknown` must never mis-report). */
-/** 中文说明：type PathLookup 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type PathLookup 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type PathLookup = 'found' | 'missing' | 'unknown'
 
 /** One step of a schema key path: a named member, or an array-element hop. */
-/** 中文说明：type PathStep 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type PathStep 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type PathStep = { member: string } | { array: true }
 
 /** Parse a schema key path (`agents[].id`) into member/array steps. */
-/** 中文说明：函数 parsePath 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parsePath 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parsePath(path: string): PathStep[] {
   /** 中文说明：变量 steps 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const steps: PathStep[] = []
@@ -303,7 +303,7 @@ function parsePath(path: string): PathStep[] {
 }
 
 /** Load a package-relative import target as a FileCtx. */
-/** 中文说明：函数 loadRelative 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 loadRelative 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadRelative(world: World, from: FileCtx, specifier: string): FileCtx {
   /** 中文说明：变量 abs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const abs = resolve(dirname(from.abs), specifier)
@@ -314,7 +314,7 @@ function loadRelative(world: World, from: FileCtx, specifier: string): FileCtx {
 
 /** Find a type declaration EXPORTED (directly or via re-export chains) from a
  * file, following `export … from './x.ts'` and `export * from './x.ts'`. */
-/** 中文说明：函数 findExportedTypeDecl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 findExportedTypeDecl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function findExportedTypeDecl(world: World, ctx: FileCtx, name: string, seen = new Set<string>()): { decl: TypeDecl; ctx: FileCtx } | null {
   /** 中文说明：变量 key 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const key = `${ctx.abs}#${name}`
@@ -349,7 +349,7 @@ function findExportedTypeDecl(world: World, ctx: FileCtx, name: string, seen = n
 /** Resolve a referenced type NAME to its declaration: declared locally, via a
  * package-relative import, or via a workspace-package import (entry file +
  * re-export chains). `'unknown'` = external or otherwise out of reach. */
-/** 中文说明：函数 declForTypeName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 declForTypeName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function declForTypeName(world: World, ctx: FileCtx, name: string): { decl: TypeDecl; ctx: FileCtx } | 'unknown' {
   /** 中文说明：变量 local 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const local = findTypeDecl(ctx, name)
@@ -379,7 +379,7 @@ function declForTypeName(world: World, ctx: FileCtx, name: string): { decl: Type
 }
 
 /** Utility wrappers that pass a member lookup through to their type argument. */
-/** 中文说明：常量 PASSTHROUGH_WRAPPERS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PASSTHROUGH_WRAPPERS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PASSTHROUGH_WRAPPERS = new Set(['Partial', 'Required', 'Readonly', 'NonNullable'])
 
 /**
@@ -390,7 +390,7 @@ const PASSTHROUGH_WRAPPERS = new Set(['Partial', 'Required', 'Readonly', 'NonNul
  * wrappers, and type references across package-local and workspace imports.
  * Anything it cannot see through resolves `'unknown'`, never `'missing'`.
  */
-/** 中文说明：函数 lookupPath 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 lookupPath 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function lookupPath(world: World, ctx: FileCtx, node: ts.Node, steps: PathStep[], seen: Set<string>): PathLookup {
   if (steps.length === 0) return 'found'
   // Guard only named declarations, where recursive types can loop. Structural
@@ -495,7 +495,7 @@ function lookupPath(world: World, ctx: FileCtx, node: ts.Node, steps: PathStep[]
 }
 
 /** Unwrap `as` / `satisfies` / parenthesized wrappers around an expression. */
-/** 中文说明：函数 unwrapExpr 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 unwrapExpr 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function unwrapExpr(expr: ts.Expression): ts.Expression {
   /** 中文说明：变量 e 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let e = expr
@@ -513,7 +513,7 @@ function unwrapExpr(expr: ts.Expression): ts.Expression {
  * silently thinning it. Nested values that are neither `object` nor `array`
  * compositions (primitives, unions, dynamic-key dicts) contribute no paths.
  */
-/** 中文说明：函数 walkSchemaExpr 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 walkSchemaExpr 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function walkSchemaExpr(
   ctx: FileCtx,
   expr: ts.Expression,
@@ -615,7 +615,7 @@ function walkSchemaExpr(
 
 /** Find a plugin's schemastery schema expression: an exported `const Config`
  * in the entry file, else a `static Config` on the plugin class. */
-/** 中文说明：函数 findSchemaExpr 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 findSchemaExpr 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function findSchemaExpr(ctx: FileCtx, pluginClass: ts.ClassDeclaration | null): ts.Expression | null {
   /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const stmt of ctx.sf.statements) {
@@ -637,7 +637,7 @@ function findSchemaExpr(ctx: FileCtx, pluginClass: ts.ClassDeclaration | null): 
 
 /** Read an `inject` service-key list: `export const inject = […]` in the entry
  * file, else `static inject = […]` on the plugin class. */
-/** 中文说明：函数 findInject 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 findInject 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function findInject(ctx: FileCtx, pluginClass: ts.ClassDeclaration | null, violations: string[]): string[] {
   /** 中文说明：函数值 fromArray 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const fromArray = (expr: ts.Expression, where: string): string[] => {
@@ -668,7 +668,7 @@ function findInject(ctx: FileCtx, pluginClass: ts.ClassDeclaration | null, viola
 
 /** Resolve the entry file's default export to its class/function declaration
  * (mirroring the Loader's `unwrapExports`), or null when there is none. */
-/** 中文说明：函数 defaultExport 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 defaultExport 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function defaultExport(ctx: FileCtx): ts.ClassDeclaration | ts.FunctionDeclaration | null {
   /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const stmt of ctx.sf.statements) {
@@ -688,7 +688,7 @@ function defaultExport(ctx: FileCtx): ts.ClassDeclaration | ts.FunctionDeclarati
 }
 
 /** Find the exported `apply` function declaration in the entry file, or null. */
-/** 中文说明：函数 applyExport 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 applyExport 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function applyExport(ctx: FileCtx): ts.FunctionDeclaration | null {
   /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const stmt of ctx.sf.statements) {
@@ -703,7 +703,7 @@ function applyExport(ctx: FileCtx): ts.FunctionDeclaration | null {
  * Hard-errors (aggregated) on any violation listed in the module doc.
  * `scanRoot` defaults to the repo root; tests pass a fixture dir.
  */
-/** 中文说明：函数 collectConfigCatalog 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectConfigCatalog 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
   /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []
@@ -945,7 +945,7 @@ export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
 }
 
 /** Render the `Requires:` service-key line, or '' when the plugin injects nothing. */
-/** 中文说明：函数 requiresLine 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 requiresLine 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function requiresLine(inject: string[]): string {
   return inject.length ? `Requires: ${inject.map(k => `\`${k}\``).join(' · ')}` : ''
 }
@@ -953,7 +953,7 @@ function requiresLine(inject: string[]): string {
 /** Render one reference as a link: another plugin's config type → its section,
  * a curated subsystems name → its page, any other workspace type →
  * its source file, an external type → named with its module, unlinked. */
-/** 中文说明：函数 refLink 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 refLink 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function refLink(ref: TypeRef, byName: Map<string, CatalogEntry>): string {
   /** 中文说明：变量 target 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const target = byName.get(ref.specifier)
@@ -968,7 +968,7 @@ function refLink(ref: TypeRef, byName: Map<string, CatalogEntry>): string {
 }
 
 /** Render one configurable plugin's section. */
-/** 中文说明：函数 renderConfigEntry 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderConfigEntry 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderConfigEntry(entry: CatalogEntry, byName: Map<string, CatalogEntry>): string[] {
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out = [`<a id="${githubSlug(entry.pkg)}"></a>`, '', `## \`${entry.pkg}\``, '']
@@ -986,7 +986,7 @@ function renderConfigEntry(entry: CatalogEntry, byName: Map<string, CatalogEntry
 }
 
 /** Render one terse list line (the no-config / seam / library sections). */
-/** 中文说明：函数 renderTerse 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 renderTerse 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderTerse(entry: CatalogEntry, detail: string): string {
   /** 中文说明：函数值 requires 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const requires = entry.inject.length ? ` — requires ${entry.inject.map(k => `\`${k}\``).join(' · ')}` : ''
@@ -994,7 +994,7 @@ function renderTerse(entry: CatalogEntry, detail: string): string {
 }
 
 /** Render the full catalog (pure, deterministic given sorted entries). */
-/** 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function render(entries: CatalogEntry[]): string {
   /** 中文说明：函数值 byName 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const byName = new Map(entries.map(e => [e.pkg, e]))
@@ -1042,7 +1042,7 @@ export function render(entries: CatalogEntry[]): string {
 /** CLI entry: default writes the catalog, `--check` fails if the committed
  * copy is stale. Guarded behind an entry-point check so importing this module
  * for tests neither regenerates the committed file nor calls process.exit. */
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   /** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const content = render(collectConfigCatalog())

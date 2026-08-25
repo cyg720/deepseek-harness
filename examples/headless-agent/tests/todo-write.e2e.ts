@@ -20,9 +20,9 @@ import { SessionId } from '@deepseek-ai/dsh-session'
  * log gains a todo/write event whose snapshot the model actually produced), not
  * the agent's self-report. Key-gated (see vitest.e2e.config.ts).
  */
-/** 中文说明：真实模型必须实际调用工具，成功依据会话中的 todo/write 事件而不是回复自述。 */
+/* 中文说明：真实模型必须实际调用工具，成功依据会话中的 todo/write 事件而不是回复自述。 */
 
-/** 当前测试拥有的 Headless Harness 上下文。 */
+/* 当前测试拥有的 Headless Harness 上下文。 */
 let ctx: Context | undefined
 /** 当前测试的临时工作目录。 */
 let workdir: string | undefined

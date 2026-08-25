@@ -42,7 +42,7 @@ afterEach(cleanup)
 const SID = 's1' as SessionId
 
 /** The chat-view locale seat: this package's namespace over the common fallback. */
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: GenericToolCardProps['t'] = makeTranslate(zh, commonZh)
 
 // The read tool's real schema key is `file_path`; the top-level read samples
@@ -55,13 +55,13 @@ const WEB_FETCH_ARGS = '{"path":"src/a.ts","offset":41}'
 
 /** The read block's rendered content cells, one string per row (highlighting
  *  breaks a line across token spans, so match on the row's textContent). */
-/** 中文说明：函数 contentTexts 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/* 中文说明：函数 contentTexts 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function contentTexts(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[data-read] [class^="_content_"]')].map(cell => cell.textContent ?? '')
 }
 
 /** Three windowed lines starting at file line 41 (a read past an offset). */
-/** 中文说明：测试局部值 sampleLines，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 sampleLines，由紧邻初始化决定。 */
 const sampleLines = [
   { number: 41, text: 'export const a = 1' },
   { number: 42, text: 'export const b = 2' },
@@ -69,7 +69,7 @@ const sampleLines = [
 ]
 
 /** The read tool's own result view for a settled file read. */
-/** 中文说明：测试局部值 resultRead，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 resultRead，由紧邻初始化决定。 */
 const resultRead = (over?: Partial<Extract<ToolResultView, { card: 'read' }>>): ToolResultView => ({
   card: 'read', path: 'src/a.ts', offset: 41, lines: sampleLines, totalLines: 180, lang: 'ts', ...over,
 })
@@ -163,7 +163,7 @@ describe('GenericToolCard read body', () => {
   })
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
-  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }
@@ -220,7 +220,7 @@ describe('ReadRow keyed toolview', () => {
   } as unknown as Parameters<typeof ReadRow>[0])
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
-  /** 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
+  /* 中文说明：测试局部值 toggleRow，由紧邻初始化决定。 */
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
   }

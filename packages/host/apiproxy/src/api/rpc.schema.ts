@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】消息层的 zod 运行时校验 schema：四种线上完整形式（client-request、
  * server-response、server-request、client-response）、错误体与载体回执。

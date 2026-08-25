@@ -30,7 +30,7 @@ type RoutedChatNodeOwner = {
 }[ChatNode['kind']]
 
 /** Subscribe and dispatch one stable Context key without observing sibling Nodes. */
-/**
+/*
  * 只订阅一个稳定节点键，并将该节点分发给对应类型的渲染插槽。
  * @param props 节点键、会话能力以及节点可执行操作。
  * @returns 节点渲染结果；节点不存在时返回 null。

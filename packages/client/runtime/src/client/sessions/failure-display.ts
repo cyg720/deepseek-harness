@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】把会话事件中保存的失败信息（failure）转换成可安全展示在
  *   客户端 GUI 上的字符串，避免把敏感诊断原样暴露给用户界面。
@@ -18,7 +18,7 @@
  * @param failure - Failure value preserved by the session event.
  * @returns Display-safe copy for client projections.
  */
-/**
+/*
  * 将持久化的失败值转换为可安全展示在 GUI 上的副本。
  * @param failure 会话事件中保存的失败值（类型未知，运行时才收窄）。
  * @returns 适合客户端投影层展示的字符串；鉴权类错误返回固定提示。

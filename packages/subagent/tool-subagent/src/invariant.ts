@@ -2,7 +2,7 @@
  * Package-owned invariant companion for `@deepseek-ai/dsh-tool-subagent`.
  * @module @deepseek-ai/dsh-tool-subagent/invariant
  */
-/**
+/*
  * 文件职责：为模型可见子代理工具适配器注册空不变量伴生插件。
  * 技术维度：使用 Cordis 所有权注册协议。
  * 产品维度：让子代理委派工具可被诊断发现。
@@ -19,17 +19,17 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-tool-subagent'
 
 /** Cordis companion plugin name. */
-/** name：稳定伴生名称。 */
+/* name：稳定伴生名称。 */
 export const name = 'tool-subagent-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** inject：注册所需服务。 */
+/* inject：注册所需服务。 */
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: this model-facing adapter has no independent lifecycle stream; execution
  * relations are owned by the capability seam it calls.
  */
-/** install：空安装器；执行关系由子代理能力接缝拥有。 */
+/* install：空安装器；执行关系由子代理能力接缝拥有。 */
 const install: InvariantInstaller = () => {}
 
 /**
@@ -37,7 +37,7 @@ const install: InvariantInstaller = () => {}
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 注册伴生插件。@param ctx 上下文。@returns 注销函数。@example await apply(ctx)。 */
+/* 注册伴生插件。@param ctx 上下文。@returns 注销函数。@example await apply(ctx)。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))
 /* jscpd:ignore-end */

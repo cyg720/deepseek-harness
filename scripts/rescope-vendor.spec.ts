@@ -3,7 +3,7 @@
  * duplicated insertion — what a non-idempotent apply produces — must be
  * rejected rather than applied again.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：验证 vendored 源码重定域 codemod 能准确分类待应用、已应用和无效编辑状态。
  * - 技术维度：使用 Vitest 和纯字符串精确计数分类函数。

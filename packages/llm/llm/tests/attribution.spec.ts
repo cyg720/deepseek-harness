@@ -15,7 +15,7 @@ import type { AppIdentity } from '@deepseek-ai/dsh-llm'
 const manifest = createRequire(import.meta.url)('../package.json') as { version: string }
 
 /** A white-label identity exercising every override hook. */
-/** 覆盖所有身份字段的白标测试样本。 */
+/* 覆盖所有身份字段的白标测试样本。 */
 const forkIdentity: AppIdentity = {
   product: 'fork-agent',
   version: '9.9.9',

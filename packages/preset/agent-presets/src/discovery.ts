@@ -13,7 +13,7 @@
  * first session fails to mount it.
  * @module @deepseek-ai/dsh-agent-presets/discovery
  */
-/**
+/*
  * 文件职责：实现 discovery.ts 承担的Agent 预设配置、装载与运行时协作职责。
  * 技术维度：使用 TypeScript、Cordis 插件、事件日志、配置解析和异步生命周期管理。
  * 产品维度：让 Agent 能按用户配置启用Agent 预设并保持会话行为一致。
@@ -31,7 +31,7 @@ import { readPresetMetadata } from './metadata.ts'
 import { PRESET_ID, type AgentPreset, type PresetRoot } from './preset.ts'
 
 /** The composition file that makes a directory a preset. */
-/** 中文说明：常量 COMPOSITION_FILE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 COMPOSITION_FILE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const COMPOSITION_FILE = 'agent.cordis.yml'
 
 /**
@@ -47,7 +47,7 @@ export const COMPOSITION_FILE = 'agent.cordis.yml'
  * directory by name, and a test that imported it could not catch this value
  * being wrong — the expected segment is spelled out where it is asserted.
  */
-/** 中文说明：常量 USER_PRESET_DIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 USER_PRESET_DIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const USER_PRESET_DIR = '.agent-presets'
 
 /**
@@ -62,7 +62,7 @@ export const USER_PRESET_DIR = '.agent-presets'
  * @param at - row-path prefix for nested diagnostics, empty at the top level.
  * @returns one human-readable reason, or undefined when the shape holds.
  */
-/** 中文说明：函数 entryListProblem 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 entryListProblem 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function entryListProblem(rows: unknown, at = ''): string | undefined {
   if (!Array.isArray(rows)) {
     return at === ''
@@ -97,7 +97,7 @@ function entryListProblem(rows: unknown, at = ''): string | undefined {
  * @param path - absolute path of the composition file.
  * @returns one human-readable reason, or undefined when the file is loadable.
  */
-/** 中文说明：函数 compositionProblem 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 compositionProblem 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function compositionProblem(path: string): Promise<string | undefined> {
   /** 中文说明：变量 content 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let content: string
@@ -128,7 +128,7 @@ async function compositionProblem(path: string): Promise<string | undefined> {
  * @param path - absolute path to test.
  * @returns true when the path resolves to a file.
  */
-/** 中文说明：函数 isFile 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isFile 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function isFile(path: string): Promise<boolean> {
   try {
     return (await stat(path)).isFile()
@@ -155,7 +155,11 @@ async function isFile(path: string): Promise<boolean> {
  * @param root - the directory and the trust its presets inherit.
  * @returns the root's presets ordered by id.
  */
-/** 中文说明：函数 scanRoot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 scanRoot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param root 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function scanRoot(root: PresetRoot): Promise<AgentPreset[]> {
   /** 中文说明：变量 dir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = resolve(expandHomePath(root.path))
@@ -203,7 +207,11 @@ export async function scanRoot(root: PresetRoot): Promise<AgentPreset[]> {
  * @param roots - roots in precedence order; an earlier root wins a duplicate id.
  * @returns every discovered preset, first-root-wins per id.
  */
-/** 中文说明：函数 discoverPresets 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 discoverPresets 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param roots 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function discoverPresets(roots: readonly PresetRoot[]): Promise<AgentPreset[]> {
   /** 中文说明：变量 byId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const byId = new Map<string, AgentPreset>()

@@ -5,7 +5,7 @@
  * cold-read ladder (cached row + readFrom tail + registry restore +
  * write-back; version bump and shrunk-log rows degrade to a full re-read).
  */
-/**
+/*
  * 文件职责：验证 cache.spec.ts 覆盖的会话投影统计行为、持久化与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
  * 产品维度：保障 Agent 的会话投影统计状态稳定、可重放且可诊断。
@@ -66,7 +66,7 @@ const marksUnit = (stateVersion = 1) => ({
 }) satisfies ProjectionDefinition<'cache-test/marks', MarksState>
 
 /** A persistence double serving readFrom over a fixed per-id stored log (headers stamp createdAt 0). */
-/** 中文说明：函数 fakePersistence 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 fakePersistence 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakePersistence(logs: Map<string, SessionEvent[]>) {
   /** 中文说明：函数值 readFrom 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const readFrom = vi.fn(async (id: SessionId, fromSeq: number) => {
@@ -82,7 +82,7 @@ function fakePersistence(logs: Map<string, SessionEvent[]>) {
 }
 
 /** Header shape for cachedSnapshot calls (fake logs stamp createdAt 0, no cwd). */
-/** 中文说明：函数值 headerOf 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 headerOf 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const headerOf = (id: SessionId, createdAt = 0, cwd?: string) =>
   ({ version: 0, id, createdAt, ...cwd === undefined ? {} : { cwd } })
 
@@ -132,7 +132,7 @@ const endTurn = (session: Session): SessionEvent =>
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
 /** The stored medium record for one session id (undefined = never written). */
-/** 中文说明：函数 storedRecord 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 storedRecord 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function storedRecord(pool: MemoryMediaPool, id: Session['id']) {
   return pool.media.get('session_projcache')?.tables.get('sessions')?.get(String(id)) as
     {
@@ -142,13 +142,13 @@ function storedRecord(pool: MemoryMediaPool, id: Session['id']) {
 }
 
 /** The stored medium rows for one session id (undefined = never written). */
-/** 中文说明：函数 storedRows 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 storedRows 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function storedRows(pool: MemoryMediaPool, id: Session['id']) {
   return storedRecord(pool, id)?.rows
 }
 
 /** Wait until queued fail-soft writes (event-listener fire-and-forget) drain. */
-/** 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const settle = () => new Promise(resolve => setTimeout(resolve, 0))
 
 afterEach(async () => {
@@ -284,7 +284,7 @@ describe('SessionProjectionCache cold read', () => {
   }
 
   /** Pre-seed the medium with one stored checkpoint record (before the domain opens). */
-  /** 中文说明：函数 seedRow 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 seedRow 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function seedRow(
     pool: MemoryMediaPool,
     id: string,

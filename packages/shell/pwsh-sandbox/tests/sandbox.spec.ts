@@ -5,7 +5,7 @@
  * Requires pwsh for the integration block (skips without it — same gate as
  * pwsh-local's suites); the helpers block is pure and always runs.
  */
-/**
+/*
  * 文件职责：验证 sandbox.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
  * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
@@ -40,19 +40,19 @@ function pwshAvailable(): boolean {
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-pwsh-sandbox-spec-'))
 
 /** One recorded provider call: the argv handed over and the policy it rode with. */
-/** 中文说明：interface ConfineCall 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
+/* 中文说明：interface ConfineCall 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
 interface ConfineCall {
   argv: string[]
   policy: SandboxPolicy
 }
 
 /** A passthrough wrap: the caller's argv unchanged, asserted full — commands run unconfined, deterministically. */
-/** 中文说明：函数值 passthrough 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/* 中文说明：函数值 passthrough 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const passthrough = (argv: readonly string[]): ConfinedArgv =>
   ({ argv: [...argv], enforcement: 'full', denialSignatures: ['access is denied', 'access to the path'], runnerFailureRules: [] })
 
 /** A subprocess service whose spawn() throws SYNCHRONOUSLY — the paths the async service never produces. */
-/** 中文说明：函数 throwingSubprocessRuntime 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 throwingSubprocessRuntime 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function throwingSubprocessRuntime(error: unknown): new (ctx: Context) => Service {
   return class extends Service {
     constructor(ctx: Context) {

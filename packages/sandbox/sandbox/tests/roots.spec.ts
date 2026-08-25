@@ -3,7 +3,7 @@
  * allow-list. Pinned here so the fs fence and the Seatbelt profile — both
  * deriving from `writableRoots` — cannot drift.
  */
-/**
+/*
  * 文件职责：验证沙箱规范路径解析和不同模式的可写根目录白名单推导。
  * 技术维度：使用 Vitest、真实文件系统临时目录和平台 realpath 比较规范路径。
  * 产品维度：确保只读模式不授予写权限，工作区写模式只开放工作区与平台临时区。

@@ -5,7 +5,7 @@
  * default when omitted), and a storage failure rejects. The Cordis-free
  * `store.ts` helpers are exercised directly for the naming/encoding edge cases.
  */
-/**
+/*
  * 文件职责：验证 spill-local.spec.ts 覆盖的大结果落盘行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
  * 产品维度：保障 Agent 的大结果落盘能力稳定、安全且可诊断。

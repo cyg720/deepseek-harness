@@ -6,7 +6,7 @@
  * 关键边界：声明不验证实际样式内容，视觉结果仍需界面测试确认。
  * 新手阅读建议：先看任务列表组件引用哪些类，再对照模块化 CSS。
  */
-/** 使用方式：`import styles from './Jobs.module.css'`，得到类名映射。 */
+/* 使用方式：`import styles from './Jobs.module.css'`，得到类名映射。 */
 declare module '*.module.css' {
   /** 类名映射；键为源码类名，值为构建后的实际类名。 */
   const classes: Record<string, string>

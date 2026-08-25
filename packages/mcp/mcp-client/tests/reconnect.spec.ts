@@ -4,7 +4,7 @@
  * cap, the stability-window budget reset, and disposal stopping reconnection.
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
-/**
+/*
  * 文件职责：验证 reconnect.spec.ts 覆盖的MCP 客户端行为、持久化与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身。
  * 产品维度：保障 Agent 使用MCP 客户端时得到稳定且可重放的结果。
@@ -103,7 +103,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** Capture the supervisor's logger lines by level on one context. */
-/** 中文说明：函数 captureLogs 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 captureLogs 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function captureLogs(ctx: Context): { warns: string[]; errors: string[]; infos: string[] } {
   /** 中文说明：变量 warns 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const warns: string[] = []
@@ -133,7 +133,7 @@ function stdioConfig(reconnect?: Config['reconnect']): Config {
 }
 
 /** The tool list the mock server advertises after a successful (re)connect. */
-/** 中文说明：函数 listing 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 listing 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function listing(...names: string[]): { tools: { name: string; inputSchema: { type: string } }[]; nextCursor: undefined } {
   return {
     tools: names.map(name => ({ name, inputSchema: { type: 'object' } })),

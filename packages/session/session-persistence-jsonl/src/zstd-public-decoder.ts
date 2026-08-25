@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】基于 Node 公开 API（zstdDecompressSync）的多帧同步解码器回退实现：
  *   当私有句柄优化不可用时，保证多帧解码仍然正确。
@@ -18,7 +18,7 @@
  * Public-API synchronous Zstandard frame decoder fallback.
  * @module dsh-session-persistence-jsonl/zstd-public-decoder
  */
-/**
+/*
  * 【中文导读】上面英文说明：这是公开 API 版的同步多帧解码器回退实现。
  */
 
@@ -26,7 +26,7 @@ import { zstdDecompressSync } from 'node:zlib'
 import type { ZstdFrameDecoder, ZstdFrameRange } from './zstd.ts'
 
 /** Multi-frame adapter built exclusively from Node's supported one-shot API. */
-/**
+/*
  * 【中文】完全构建于 Node 受支持的一次性 API 之上的多帧适配器。
  */
 export class PublicZstdFrameDecoder implements ZstdFrameDecoder {
@@ -36,7 +36,7 @@ export class PublicZstdFrameDecoder implements ZstdFrameDecoder {
   private closed = false
 
   /** @inheritdoc */
-  /**
+  /*
    * 【中文】逐帧调用 zstdDecompressSync 并按序产出明文；单帧失败统一包装为
    * 带字节偏移的"日志损坏"错误（原始错误挂 cause）。
    * @param source - 拼接的 zstd 帧字节。
@@ -65,7 +65,7 @@ export class PublicZstdFrameDecoder implements ZstdFrameDecoder {
   }
 
   /** @inheritdoc */
-  /**
+  /*
    * 【中文】关闭解码器：仅置位标记；一次性 API 没有需要释放的原生资源。
    */
   close(): void {

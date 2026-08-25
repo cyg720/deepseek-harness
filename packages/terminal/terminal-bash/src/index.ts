@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】terminal-bash 插件：注册一个本地 PTY 后端（BashTerminalBackend），把
  * 子进程终端原语（ctx.subprocess.spawnTerminal）包装为可注册的 TerminalBackend，

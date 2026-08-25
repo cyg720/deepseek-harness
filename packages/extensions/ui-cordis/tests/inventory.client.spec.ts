@@ -19,7 +19,7 @@ const ROW = {
 } as unknown as CordisInventoryRow
 
 /** A port whose inventory answer the test controls. */
-/** 中文说明：函数 port 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 port 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function port(answer: () => Promise<readonly CordisInventoryRow[]>): { port: CordisDynamicPort; reads: () => number } {
   /** 中文说明：测试局部值 reads，由紧邻初始化决定。 */
   let reads = 0

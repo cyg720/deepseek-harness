@@ -98,7 +98,7 @@ interface RenderedSource {
 }
 
 /** Exact-read consumer that prepares immutable cross-session message context. */
-/** 精确读取消费者：负责准备不可变的跨会话消息上下文。 */
+/* 精确读取消费者：负责准备不可变的跨会话消息上下文。 */
 export class SessionReferenceResolver extends TypertRemoteService {
   /** Cordis 依赖注入：需要 sessionQuery 服务（读会话表面/标题）。 */
   static inject = ['sessionQuery']
@@ -153,7 +153,7 @@ export class SessionReferenceResolver extends TypertRemoteService {
    * @param signal - active turn cancellation.
    * @returns direct messages followed by their session-reference context in citation order.
    */
-  /**
+  /*
    * 替换直接用户消息中的规范提及，并把每份准备好的快照紧跟在引用它的
    * 消息之后返回（引用顺序）。
    * @param agent 正在进入模型步的 agent
@@ -198,7 +198,7 @@ export class SessionReferenceResolver extends TypertRemoteService {
    * @param signal - optional cancellation boundary for host autocomplete teardown.
    * @returns candidates labeled by latest title or, when absent, session id.
    */
-  /**
+  /*
    * 列出引用候选，按"工作目录亲和度"排序：与自己 cwd 相同的会话最靠前。
    * 自己会被排除；标题读取失败的会话回退为会话 id 标签。
    * @param agent 目标 agent；自身被排除，其 cwd 驱动排序
@@ -270,7 +270,7 @@ export class SessionReferenceResolver extends TypertRemoteService {
    * @param signal - caller cancellation.
    * @returns mention-carrying candidates in rank order.
    */
-  /**
+  /*
    * listCandidates 的远程暴露面：应用配置的候选上限，且每个候选都附带
    * 宿主可直接插入提示词草稿的规范提及文本。
    * @param agent 目标 agent；自身被排除，其 cwd 驱动排序
@@ -299,7 +299,7 @@ export class SessionReferenceResolver extends TypertRemoteService {
    * @param signal - optional cancellation boundary for the active turn.
    * @returns detached content and optional referenced-session context.
    */
-  /**
+  /*
    * 为一条已接受的直接消息快照全部引用，返回一份聚合的持久化上下文。
    * 多个来源会话并行读取、逐个字节预算裁剪，最后渲染成一条用户消息。
    * @param agent 目标 agent；对它的引用会被拒绝（自引用）

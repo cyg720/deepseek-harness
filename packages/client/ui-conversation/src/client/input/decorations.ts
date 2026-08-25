@@ -83,7 +83,7 @@ const FOLDER_REF_RE = /(^|\s)(@(?:"[^"\n]*\/|[^\s"]+\/))/g
  * @param lexicon - per-trigger name lists (a missing trigger scans nothing).
  * @returns matched ranges in draft order.
  */
-/**
+/*
  * 按热词典扫描草稿中的纯文本引用令牌。词边界纪律：触发器必须位于草稿开头或空白之后
  * （'x/name' 永不匹配）；名字必须是词典的精确成员。
  * @param draft - 草稿文本。

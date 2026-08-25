@@ -64,7 +64,7 @@ export interface CordisObservable<T> {
 }
 
 /** Which stage of a load failed, as the page classified it. */
-/**
+/*
  * 一次加载失败所处的阶段（页面视角的分类）：闭包求值 / 模块导入 / 插件激活。
  */
 export type DynamicCordisLoadErrorCause = 'evaluate' | 'module-import' | 'activate'
@@ -78,7 +78,7 @@ export interface CordisErrorDetails {
 }
 
 /** One package's browser half as the host handed it over. */
-/**
+/*
  * Host 交给本页的一个浏览器半部：插件/包/运行 ID、所属会话、名称与源码。
  */
 export interface DynamicCordisClientHalf {
@@ -102,7 +102,7 @@ export interface DynamicCordisClientHalf {
  * (a package that crashes while rendering loaded successfully), so this never
  * reaches a run resolution.
  */
-/**
+/*
  * 本页上报的一次"渲染期崩溃"：仅作为结算后的诊断——所属运行早已应答（渲染时崩溃
  * 说明加载本身成功），因此它永远不会进入运行结算流程。
  */
@@ -121,7 +121,7 @@ export interface DynamicCordisRenderFailure {
  * What this page ended up with. A parked package is a success — the browser half
  * settled and waits on declared services this page has not got.
  */
-/**
+/*
  * 本页最终得到的结果：parked（因声明的服务本页暂缺而挂起）也算成功——浏览器半部
  * 已就绪，只是在等这些服务。
  */
@@ -147,7 +147,7 @@ interface LivePackage {
 }
 
 /** Runner dependencies, resolved by the plugin entry at activation. */
-/**
+/*
  * 运行引擎的依赖，由插件入口在激活时提供：根上下文、loader/模块表/槽位，
  * 以及 host.call 路由与两条失败上报通道。
  */
@@ -192,7 +192,7 @@ export interface DynamicCordisRunnerEnv {
 }
 
 /** Module-table id of one package (also its loader entry name and fiber name). */
-/**
+/*
  * 一个包的模块表 ID：同时用作 loader 条目名与 Fiber 名（dyn/前缀隔离命名空间）。
  */
 function moduleIdOf(id: CordisDynamicPluginId): string {
@@ -200,7 +200,7 @@ function moduleIdOf(id: CordisDynamicPluginId): string {
 }
 
 /** One live package's contribution summary in this page. */
-/**
+/*
  * 本页"一个存活包"的贡献摘要：身份、名称、注册的槽位与活动样式标签数。
  */
 export interface DynamicCordisLivePackage {
@@ -219,7 +219,7 @@ export interface DynamicCordisLivePackage {
 }
 
 /** The browser-side load engine for dynamic packages. */
-/**
+/*
  * 动态包的浏览器侧加载引擎：把闭包求值结果以守卫包裹后座入模块表、创建 loader 条目，
  * 使动态包走与静态插件完全相同的机制（inject 激活门控、Fiber 效果清理、状态投影）；
  * 卸载 = 移除 loader 条目 + 工厂失效 + 样式清理。
@@ -293,8 +293,10 @@ export class DynamicCordisPackageRunner {
    * @param fn - notified after every converged load or unload.
    * @returns unsubscribe.
    */
-  /**
+  /*
    * 订阅"本页已加载集合"的变化（运行状态表面的重渲染接缝）。
+   * @param fn 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   subscribe(fn: () => void): () => void {
     this.changeListeners.add(fn)
@@ -316,8 +318,9 @@ export class DynamicCordisPackageRunner {
    * it can back a snapshot selector).
    * @returns one row per live package.
    */
-  /**
+  /*
    * 本页当前已加载的包（变更之间引用稳定，可支撑快照选择器）。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   getSnapshot(): readonly DynamicCordisLivePackage[] {
     return this.snapshotCache ??= [...this.live.values()].map(({ pkg, ledger, styles }) => ({
@@ -336,8 +339,10 @@ export class DynamicCordisPackageRunner {
    * @param pluginId - stable Plugin identity.
    * @returns true while one activation of the Plugin is live here.
    */
-  /**
+  /*
    * 本页是否已加载该插件的浏览器半部：页面本地事实，绝不等于 Host 的"正在运行"。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   isLoaded(pluginId: CordisDynamicPluginId): boolean {
     return this.live.has(pluginId)
@@ -348,9 +353,11 @@ export class DynamicCordisPackageRunner {
    * @param half - source for one exact Host activation.
    * @returns the outcome the run orchestration reports to the host.
    */
-  /**
+  /*
    * 把一个浏览器半部加载进本页并回报结果：已运行同一激活则幂等应答；换激活则先
    * 卸载旧的再挂载新的；同一插件串行排队。
+   * @param half 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   load(half: DynamicCordisClientHalf): Promise<DynamicCordisLoadResult> {
     return this.enqueue(half.pluginId, async () => {
@@ -373,9 +380,11 @@ export class DynamicCordisPackageRunner {
    * @param pluginId - stable Plugin identity.
    * @param pluginRunId - exact activation being retracted; a newer run survives.
    */
-  /**
+  /*
    * 卸载一个包（cordis/dynamic-retract：停止，或先停后删的 undefine）；
    * 仅当运行 ID 仍匹配时才卸载——更新的运行不受影响。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginRunId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
    */
   retract(pluginId: CordisDynamicPluginId, pluginRunId: CordisDynamicPluginRunId): void {
     void this.enqueue(pluginId, async () => {
@@ -387,7 +396,7 @@ export class DynamicCordisPackageRunner {
   }
 
   /** Unload everything (plugin disposal path). */
-  /**
+  /*
    * 全部卸载（插件回收路径）。
    */
   async dispose(): Promise<void> {
@@ -405,7 +414,7 @@ export class DynamicCordisPackageRunner {
   }
 
   /** Queue one package operation behind that package's previous ones. */
-  /**
+  /*
    * 把一次包操作排到该包前一个操作之后；队列尾吞掉失败，避免一次拒绝卡死后续操作。
    */
   private enqueue<T>(id: CordisDynamicPluginId, op: () => Promise<T>): Promise<T> {
@@ -483,7 +492,7 @@ export class DynamicCordisPackageRunner {
    * sandbox reading `ctx.fiber.inject`); the function form has no declaration
    * site and therefore reaches no service.
    */
-  /**
+  /*
    * 把求值出的插件包上守卫门面：apply 收到的是门面 ctx；插件自带的 inject 保留
    * （对象形式的声明即门面的服务闸门，镜像 Host 沙箱读 ctx.fiber.inject；函数
    * 形式没有声明位，因此访问不到任何服务）。
@@ -522,7 +531,7 @@ export class DynamicCordisPackageRunner {
    * Unload one package's contributions. Takes the pieces rather than the record
    * because a load can fail before any record is seated.
    */
-  /**
+  /*
    * 卸载一个包的贡献：按部件而非记录接收，因为加载可能在记账前失败。
    */
   private async teardown(
@@ -545,7 +554,7 @@ export class DynamicCordisPackageRunner {
 /**
  * The success answer for a package that is live here, parked or active.
  */
-/**
+/*
  * 一个"已在本页存活"的包的成功应答：运行 ID + 等待中的服务（有则附上）。
  */
 function settled(record: { pkg: DynamicCordisPackage; waitingFor: string[] }): DynamicCordisLoadResult {
@@ -563,7 +572,7 @@ function settled(record: { pkg: DynamicCordisPackage; waitingFor: string[] }): D
  * @param component - whatever a package passed as its component.
  * @returns true when the value can be indexed by identity.
  */
-/**
+/*
  * 组件能否作为所有权索引的键：身份即键，只有对象与函数够格（包可能注册任意值，
  * 崩溃报告带回来的正是它注册的那个值）。
  */
@@ -576,10 +585,11 @@ function indexable(component: unknown): component is object {
  * @param error - original thrown value.
  * @returns its message and original string stack, when present.
  */
-/**
+/*
  * 保留错误字段到加载结果：不编造堆栈，只有原值确实携带时才带。
+ * @param error 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
-/* jscpd:ignore-start */
 export function errorDetails(error: unknown): CordisErrorDetails {
   if (typeof error !== 'object' || error === null) return { message: String(error) }
   const message = 'message' in error && typeof error.message === 'string'
@@ -596,7 +606,7 @@ export function errorDetails(error: unknown): CordisErrorDetails {
  * text pulls in its redirect — a package that reached `window.setInterval` around
  * the closure trap crashes with the engine's bare message, which teaches nothing.
  */
-/**
+/*
  * 组装渲染崩溃的展示文案：槽位 + 崩溃消息；若消息点名了被扣留的全局符号
  * （如绕过关闭包陷阱使用 window.setInterval），追加对应的重定向教学。
  */

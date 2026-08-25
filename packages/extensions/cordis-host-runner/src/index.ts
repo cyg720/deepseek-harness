@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】Dynamic Cordis Plugin 运行时服务（`dynamicCordisRunner`）的实现：
  *             管理由模型在会话中现场编写、可反复升级的 Cordis 插件——定义/删除包
@@ -74,9 +74,11 @@ export { HOST_BUILTIN_INSPECTION } from './sandbox.ts'
  * @param id - opaque identifier minted by the Host registry.
  * @returns the branded Plugin identifier.
  */
-/**
+/*
  * 给 Host 注册表铸造的插件 ID 打上品牌标记（Branded）：这只是编译期类型标记，
  * 运行时就是原字符串，用来防止把普通字符串误当成插件 ID 使用。
+ * @param id 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function CordisDynamicPluginId(id: string): CordisDynamicPluginId {
   return id as CordisDynamicPluginId
@@ -87,8 +89,10 @@ export function CordisDynamicPluginId(id: string): CordisDynamicPluginId {
  * @param id - opaque identifier minted by the Host registry.
  * @returns the branded Package identifier.
  */
-/**
+/*
  * 品牌化"包版本 ID"：每个包版本是一次不可变定义（含 Host/Client 代码），ID 全局唯一。
+ * @param id 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function CordisDynamicPackageId(id: string): CordisDynamicPackageId {
   return id as CordisDynamicPackageId
@@ -108,9 +112,11 @@ export function CordisDynamicPluginRunId(id: string): CordisDynamicPluginRunId {
  * @param id - opaque identifier minted by the Host registry.
  * @returns the branded approval request identifier.
  */
-/**
+/*
  * 品牌化"审批请求 ID"：模型驱动的 Client 激活在等待用户确认时，用该 ID 在
  * 注册表与事件之间关联请求。
+ * @param id 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function ApprovalRequestId(id: string): ApprovalRequestId {
   return id as ApprovalRequestId
@@ -164,7 +170,7 @@ interface ActivationPlan {
 }
 
 /** Dynamic Plugin registry and Host-half lifecycle. */
-/**
+/*
  * 动态 Cordis 插件注册表与 Host 半部生命周期服务。以 `dynamicCordisRunner` 身份
  * 注入 Cordis 上下文，同时是 Typert 远程服务（带 @Remote 的方法可被浏览器页面
  * 跨进程调用）。职责：定义/删除包版本、启动/更新/停止激活、转发 Client 对 Host
@@ -193,7 +199,7 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
   private group: Fiber | undefined
 
   /** Create the service under the Host composition. */
-  /**
+  /*
    * 在 Host 组合下创建服务：记录根上下文、固化配置、初始化 inspect 注册表。
    */
   constructor(ctx: Context, config: Config) {
@@ -208,10 +214,12 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param request - Session ownership, Plugin selection, metadata, and source code.
    * @returns Host-minted Plugin and Package identities with declared-half metadata.
    */
-  /**
+  /*
    * 定义一个插件的新包版本（或为既有插件追加版本）。校验名称/用途非空、至少提供
    * host 或 client 一端代码、代码通过静态预检；新建插件还要求 idPrefix 符合
    * "3–6 个小写英文字母"的规则。定义只入库，不启动。
+   * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   define(request: DynamicCordisDefineRequest): DynamicCordisDefineReceipt {
     const name = request.name.trim()
@@ -272,9 +280,12 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param pluginId - Stable Plugin identity to remove.
    * @returns Whether removal succeeded and whether it stopped an active run.
    */
-  /**
+  /*
    * 删除插件及其全部包版本：先取消待审批请求，若正在运行则先回收（retract），
    * 最后从注册表移除。供模型工具调用。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   async undefine(agent: Agent, pluginId: CordisDynamicPluginId): Promise<DynamicCordisUndefineReceipt> {
     const plugin = this.owned(agent, pluginId)
@@ -292,9 +303,12 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param pluginId - Stable Plugin identity to remove.
    * @returns Whether removal succeeded and whether it stopped an active run.
    */
-  /**
+  /*
    * 面板触发的删除：复用 undefine 逻辑，成功后把"用户已移除该插件"注入 agent 上下文，
    * 让模型在下一步感知到状态变化。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('undefineFromPanel')
   async undefineFromPanel(agent: Agent, pluginId: CordisDynamicPluginId): Promise<DynamicCordisUndefineReceipt> {
@@ -318,11 +332,17 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param signal - Tool-call cancellation signal while the activation request is being created.
    * @returns The successful activation identity or an actionable refusal.
    */
-  /**
+  /*
    * 模型工具调用入口（cordis_run）。解析激活计划后：若目标包只有 Host 代码则直接
    * 激活；含 Client 代码的包先登记审批请求（requiresApproval 决定是否必须等用户
    * 确认），广播 `cordis/request-run` 事件等待页面响应，本函数立即返回"等待中"状态，
    * 真正的激活由页面回调 runHostHalf 完成。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param packageId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param mode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   async run(
     agent: Agent,
@@ -400,10 +420,17 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param approveFutureVersions - Whether this approval covers later Packages of the same Plugin.
    * @returns The exact Host activation or a failure message.
    */
-  /**
+  /*
    * 审批通过后（requestId 非空）或面板直连（requestId 为 null）启动 Host 半部：
    * 校验请求 ID 与最新尝试匹配，记录"已批准此包版本"（可顺带批准未来所有版本），
    * 随后激活。面板直连时若目标包已在运行则复用现有激活（attach），避免重复启动。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param packageId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param mode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param requestId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param approveFutureVersions 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('runHostHalf')
   async runHostHalf(
@@ -464,9 +491,13 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param pluginRunId - Exact active run authorized to receive source.
    * @returns Client source and its Plugin, Package, and run identities.
    */
-  /**
+  /*
    * 向浏览器页面提供当前激活运行对应的 Client 源码。只有持有该插件的会话可读取，
    * 且运行必须仍处于激活状态——旧运行的拉取会被拒绝，防止过期页面继续执行。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginRunId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('getClientCode')
   getClientCode(
@@ -497,10 +528,13 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param resolution - Browser refusal or exact Client activation result.
    * @returns Whether the still-pending request accepted this resolution.
    */
-  /**
+  /*
    * 结算一次模型驱动的激活请求：先验证请求仍可应答且与当前运行一致，再认领
    * （claimRequest 保证"先到先得"、防止重复结算），把浏览器端的成功/失败结果写入
    * attempt 状态，广播结果事件，并把结论注入发起 agent 的下一条消息。
+   * @param requestId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param resolution 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('resolveRequestRun')
   async resolveRequestRun(
@@ -527,9 +561,13 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param resolution - Exact Client activation result from the acting page.
    * @returns The committed activation or its failure.
    */
-  /**
+  /*
    * 结算面板直连的激活：页面加载/渲染 Client 半部后回报结果，成功则提交激活，
    * 失败则记录诊断；结果同样注入 agent 上下文。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param resolution 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('settleUserRun')
   async settleUserRun(
@@ -550,9 +588,12 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param pluginId - Stable Plugin identity to stop.
    * @returns Success or the reason no run was stopped.
    */
-  /**
+  /*
    * 停止当前激活但保留所有包版本：取消待审批请求、回收运行中的 Fiber、
    * 把最近一次尝试标记为 stopped。停止是幂等的，未在运行时返回 not-running。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   async stop(agent: Agent, pluginId: CordisDynamicPluginId): Promise<DynamicCordisStopResponse> {
     const plugin = this.owned(agent, pluginId)
@@ -577,8 +618,11 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param pluginId - Stable Plugin identity to stop.
    * @returns Success or the reason no run was stopped.
    */
-  /**
+  /*
    * 面板触发的停止：复用 stop 后，把"用户已停止该插件、包版本仍保留"注入 agent 上下文。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('stopFromPanel')
   async stopFromPanel(agent: Agent, pluginId: CordisDynamicPluginId): Promise<DynamicCordisStopResponse> {
@@ -598,9 +642,11 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param providers - complete Client provider manifest.
    * @returns null after accepting the manifest.
    */
-  /**
+  /*
    * 接收 Client 侧 inspect 提供者目录的完整镜像并同步到 Host 注册表，使 Host 侧
    * 的 cordis_inspect_list 能同时列出两端提供者。
+   * @param providers 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('syncInspectManifest')
   syncInspectManifest(providers: readonly CordisInspectProviderManifest[]): null {
@@ -615,8 +661,12 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param resolution - provider result or structured refusal.
    * @returns whether this answer won the query.
    */
-  /**
+  /*
    * Client 侧回报 inspect 查询结果：转发给 inspect 注册表认领并结算。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param requestId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param resolution 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('resolveInspectQuery')
   resolveInspectQuery(
@@ -631,11 +681,11 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * Frame-wide inventory, grouped as one row per stable Plugin.
    * @returns Source-free metadata for every process-local Plugin.
    */
-  /**
+  /*
    * 返回整个进程内所有插件的只读清单（不含源码），供浏览器面板绘制库存视图；
    * 每行数据都做了浅拷贝/克隆，避免把内部可变引用暴露给调用方。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
-  /* jscpd:ignore-start */
   @Remote('inventory')
   inventory(): DynamicCordisInventoryRow[] {
     return this.registry.all().map(plugin => ({
@@ -663,9 +713,11 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param agent - Agent whose Session selects visible Plugins.
    * @returns Plugin versions, active runs, Host fibers, and render failures.
    */
-  /**
+  /*
    * 返回当前会话的 Host 富状态快照：除清单信息外还包含运行中的 Fiber 对象与已注册
    * 的 Host 方法名。仅限 Host 进程内使用（inspect 工具、结果渲染），不可跨进程传输。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   snapshot(agent: Agent): DynamicCordisSnapshotRow[] {
     return this.registry.ofSession(agent.id).map(plugin => ({
@@ -698,10 +750,13 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param pluginId - Stable Plugin identity referenced by the user.
    * @returns The preferred modification base, or undefined when unavailable.
    */
-  /**
+  /*
    * 返回"修改基准"：当用户显式提及某插件时，取其 next（进行中的迁移目标）/ current
    * （当前成功版本）/ 最新包版本中最合适的一个作为上下文，让模型知道接下来应基于
    * 哪个版本操作。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   reference(agent: Agent, pluginId: CordisDynamicPluginId): DynamicCordisReference | undefined {
     const plugin = this.owned(agent, pluginId)
@@ -731,8 +786,10 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param agent - Agent whose Session selects visible Plugins.
    * @returns one summary per Plugin in creation order.
    */
-  /**
+  /*
    * 列出当前会话拥有的插件摘要（无源码），按创建顺序排列。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   listPlugins(agent: Agent): DynamicCordisPluginInspection[] {
     return this.registry.ofSession(agent.id).map(plugin => this.inspectPlugin(agent, plugin.pluginId))
@@ -744,8 +801,11 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param pluginId - stable Plugin identity.
    * @returns version pointers, latest run, and all Package summaries.
    */
-  /**
+  /*
    * 查看单个插件的版本指针、最近运行与全部包版本摘要（不返回源码）。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   inspectPlugin(agent: Agent, pluginId: CordisDynamicPluginId): DynamicCordisPluginInspection {
     const plugin = this.owned(agent, pluginId)
@@ -771,9 +831,13 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param packageId - Exact immutable Package identity to inspect.
    * @returns Package metadata, source, and the Plugin's lifecycle pointers.
    */
-  /**
+  /*
    * 读取某个确切包版本，包括其 Host 与 Client 源码（仅限持有会话），
    * 供模型查看/修改后再定义新版本。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param packageId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   inspectPackage(
     agent: Agent,
@@ -815,10 +879,15 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param failure - Slot, message, and entry-retirement result.
    * @returns Null after recording or ignoring a stale report.
    */
-  /**
+  /*
    * 记录 Client 渲染失败：把失败写入当前运行的 renderFailure 并标记 attempt 失败；
    * 若这是该次激活首次渲染失败，还通过 steerRenderFailure 通知 agent 指导修复。
    * 过期运行的上报会被静默忽略。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginRunId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param failure 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('reportRenderFailure')
   async reportRenderFailure(
@@ -854,9 +923,14 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param failure - Original guard message and stack.
    * @returns Null after reporting or ignoring a stale/startup failure.
    */
-  /**
+  /*
    * 记录激活完成后 Client 代码触发的守卫拒绝：交给 steerGuardFailure 去重后上报
    * agent（守卫错误不影响运行本身，插件保持 running）。
+   * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginRunId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param failure 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('reportClientGuardFailure')
   async reportClientGuardFailure(
@@ -881,9 +955,14 @@ export class DynamicCordisRunnerService extends TypertRemoteService {
    * @param args - JSON argument delivered to the handler.
    * @returns The JSON result or a typed invocation failure.
    */
-  /**
+  /*
    * Client 调用 Host 方法：校验插件在运行且运行 ID 未过期，查找已注册的 handler 并
    * 执行；handler 抛错时先向 agent 上报一次，再返回结构化错误给 Client。
+   * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param pluginRunId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param method 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @param args 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   @Remote('invoke')
   async invoke(

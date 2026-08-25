@@ -5,7 +5,7 @@
  * consumer booted WITHOUT a settings entry keeps its entry-config resolution —
  * the documented optional-inject fallback.
  */
-/**
+/*
  * 文件职责：验证 loader-composition.spec.ts 覆盖的设置存储行为、并发与异常场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
  * 产品维度：保障 Agent 的设置存储能力稳定、安全且可诊断。

@@ -22,7 +22,7 @@
  * istanbul-reports' own directory.
  */
 
-/** 中文说明：变量 path 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 path 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const path = require('node:path');
 const { ReportBase } = require('istanbul-lib-report');
 
@@ -30,13 +30,13 @@ const { ReportBase } = require('istanbul-lib-report');
  * Editor-convention `line:column` of an istanbul location start (istanbul
  * columns are 0-based; editors and terminal link handlers expect 1-based).
  */
-/** 中文说明：函数 pos 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 pos 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function pos(loc) {
   return `${loc.start.line}:${loc.start.column + 1}`;
 }
 
 /** Whether a location carries a usable 1-based start line. */
-/** 中文说明：函数 usable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 usable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function usable(loc) {
   return Boolean(loc && loc.start && Number.isFinite(loc.start.line) && loc.start.line >= 1);
 }
@@ -46,7 +46,7 @@ function usable(loc) {
  * start. v8-remapped whole-line statements carry end.column = Infinity; those
  * degrade to a line-only suffix, or to nothing on a single line.
  */
-/** 中文说明：函数 endSuffix 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 endSuffix 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function endSuffix(loc) {
   /** 中文说明：变量 end 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const end = loc.end;

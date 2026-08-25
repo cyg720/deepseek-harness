@@ -26,7 +26,7 @@ import {
 import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
 
 /** Starts the shipped default on this scenario's declared reasoning model. */
-/** 将发布默认模型指向本场景自定义推理模型的覆盖配置。 */
+/* 将发布默认模型指向本场景自定义推理模型的覆盖配置。 */
 const OVERLAY = fileURLToPath(new URL('./declared-reasoning.overlay.yml', import.meta.url))
 /** 本场景黄金文件目录。 */
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/declared-reasoning', import.meta.url))

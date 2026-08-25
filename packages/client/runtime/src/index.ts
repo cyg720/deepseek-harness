@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】dsh-client-runtime 包的 Host 加载器入口：浏览器运行时主体
  *   从 ./client 与 ./loader 导出，本文件仅提供 Host 插件壳。
@@ -11,8 +11,8 @@
  * ==========================================================================
  */
 /** Host loader entry for the browser runtime exported from `./client` and `./loader`. */
-/** Host 加载器入口：浏览器运行时主体从 ./client 与 ./loader 导出。 */
+/* Host 加载器入口：浏览器运行时主体从 ./client 与 ./loader 导出。 */
 
 /** Host plugin body — no host-side behavior for the runtime plugin. */
-/** Host 插件主体——runtime 插件在 Host 侧没有任何行为。 */
+/* Host 插件主体——runtime 插件在 Host 侧没有任何行为。 */
 export function apply(_ctx: unknown): void {}

@@ -1,5 +1,5 @@
 /** Resolve shell-free child-process invocations for the pnpm process that launched a package script. */
-/**
+/*
  * 文件职责：从包生命周期环境解析可直接交给子进程 API 的 pnpm 命令与参数。
  * 技术维度：读取 npm_execpath，区分 JavaScript 入口和原生可执行文件，避免经过命令行 shell。
  * 产品维度：让仓库脚本在不同 pnpm 安装方式和操作系统上稳定启动嵌套命令。
@@ -14,7 +14,7 @@
  * @param environment - Lifecycle environment containing `npm_execpath`.
  * @returns A command and argument array suitable for `spawn` or `spawnSync` without a shell.
  */
-/**
+/*
  * 解析当前 pnpm 生命周期的无 shell 子进程调用。
  * @param args - 传给 pnpm 的只读参数列表。
  * @param environment - 含 npm_execpath 的生命周期环境，默认使用 process.env。

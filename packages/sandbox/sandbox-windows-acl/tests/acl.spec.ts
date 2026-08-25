@@ -8,7 +8,7 @@
  * is the mandated lock infrastructure under <GetTempPathW()>\dsh-acl-locks,
  * whose per-test lock file is removed in cleanup.
  */
-/**
+/*
  * 文件职责：验证 acl.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -34,11 +34,11 @@ import * as abi from '../src/win32-abi.ts'
 const isWin32 = process.platform === 'win32'
 
 /** FILE_READ_DATA (winnt.h line ~5895): the harmless mask the explicit test ACE grants. */
-/** 中文说明：常量 FILE_READ_DATA 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 FILE_READ_DATA 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FILE_READ_DATA = 0x0001
 
 /** koffi SID layout: revision@0, subAuthorityCount@1, identifierAuthority@2 (6 bytes, big-endian), subAuthority@8. */
-/** 中文说明：常量 SID_STRUCT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SID_STRUCT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SID_STRUCT = koffi.struct('DSH_ACL_SPEC_SID', {
   revision: 'uint8',
   subAuthorityCount: 'uint8',
@@ -55,14 +55,14 @@ interface SidLayout {
 }
 
 /** One direct (explicit, non-inherited) allow ACE of a directory DACL. */
-/** 中文说明：interface DirectAce 定义本测试所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
+/* 中文说明：interface DirectAce 定义本测试所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 interface DirectAce {
   sid: string
   mask: number
 }
 
 /** Convert one SID string to a LocalAlloc'd SID pointer (caller frees). */
-/** 中文说明：函数 sidFromString 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 sidFromString 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sidFromString(api: Win32Bindings, sid: string): NativePtr {
   /** 中文说明：变量 slot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const slot = allocPtrSlot()
@@ -74,7 +74,7 @@ function sidFromString(api: Win32Bindings, sid: string): NativePtr {
 }
 
 /** Stringify a decoded SID layout (identifierAuthority bytes 2..5 are the big-endian value). */
-/** 中文说明：函数 sidString 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 sidString 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sidString(sid: SidLayout): string {
   /** 中文说明：变量 authority 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const authority = ((sid.identifierAuthority[2] ?? 0) << 24)
@@ -92,7 +92,7 @@ function sidString(sid: SidLayout): string {
  * ACCESS_ALLOWED_ACE stores Mask@4 and the inline SID@8. The ACL pointer sits
  * inside the descriptor allocation — only the descriptor is LocalFree'd.
  */
-/** 中文说明：函数 readDirectAces 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 readDirectAces 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function readDirectAces(api: Win32Bindings, path: string): DirectAce[] {
   /** 中文说明：变量 ownerSlot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ownerSlot = allocPtrSlot()

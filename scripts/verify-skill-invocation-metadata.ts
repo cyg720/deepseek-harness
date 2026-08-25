@@ -2,7 +2,7 @@
  * Keep Claude Code and Codex invocation metadata aligned for repository skills.
  * @module scripts/verify-skill-invocation-metadata
  */
-/**
+/*
  * 文件职责：实现 verify-skill-invocation-metadata.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
  * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
@@ -19,7 +19,7 @@ import { load } from 'js-yaml'
 const ROOT = resolve(import.meta.dirname, '..')
 
 /** Return an object-shaped YAML value, or undefined for every other shape. */
-/** 中文说明：函数 asRecord 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 asRecord 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -27,7 +27,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 /** Parse a skill's YAML frontmatter as an object. */
-/** 中文说明：函数 parseSkillFrontmatter 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseSkillFrontmatter 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parseSkillFrontmatter(source: string): Record<string, unknown> {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = source.split('\n')
@@ -42,7 +42,7 @@ function parseSkillFrontmatter(source: string): Record<string, unknown> {
 }
 
 /** Find repository skill directories that carry Codex product metadata. */
-/** 中文说明：函数 skillDirectories 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 skillDirectories 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function skillDirectories(root: string): string[] {
   /** 中文说明：变量 skillsRoot 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const skillsRoot = resolve(root, '.agents/skills')
@@ -58,7 +58,7 @@ function skillDirectories(root: string): string[] {
  * @param root - Repository root containing `.agents/skills`.
  * @returns diagnostics for malformed metadata or policies that expose a skill differently.
  */
-/** 中文说明：函数 collectSkillInvocationMetadataViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 collectSkillInvocationMetadataViolations 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectSkillInvocationMetadataViolations(root: string): string[] {
   /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []

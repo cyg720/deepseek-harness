@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】实现两个纯投影单元：tokenUsage（跨整份日志累计 provider 报告
  * 用量）与 contextPressure（最近请求压力 + 最新已知路由容量的占用视图）。
@@ -71,7 +71,7 @@ const projectionSchema = z.object({
   cacheWriteTokens: z.number().int().nonnegative(),
 }).strict()
 
-/**
+/*
  * （中文）token-usage 单元的状态 schema——状态形状的唯一权威定义；状态类型
  * 由它推导。
  */
@@ -140,7 +140,7 @@ const contextPressureStateSchema = z.object({
 
 type ContextPressureState = z.infer<typeof contextPressureStateSchema>
 
-/**
+/*
  * （中文）token-meter 的用量投影单元。
  * 用量块提供早期采样（可挺过随后的请求失败）；assistant/message 为同一
  * turn/step 提供最终采样。重复采样替换该步骤的旧值而非重复累计。单 last 槽
@@ -193,7 +193,7 @@ export const tokenUsageProjectionDefinition = {
   wire: { viewSchema: projectionSchema, view: state => state.totals },
 } satisfies ProjectionDefinition<'tokenUsage', TokenUsageState>
 
-/**
+/*
  * （中文）token-meter 的上下文占用投影单元。
  * 独立的 last-wins 槽：最新用量采样提供 provider 分子，最新 request/context
  * 记录提供分母。两者都是完整值，因此结果只由回放顺序决定，不声明跨字段一致

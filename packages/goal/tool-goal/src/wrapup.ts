@@ -1,5 +1,5 @@
 /** Model-visible wrap-up instruction for a terminal autonomous goal update. */
-/**
+/*
  * 中文说明：
  * - 文件职责：生成自治目标完成或阻塞后注入模型的最终回复指令。
  * - 技术维度：使用 TypeScript 字符串模板、条件分支、JSON 转义和 LLM ContentBlock。
@@ -24,7 +24,12 @@ const GROUNDING =
  * @param blockedReason - the validated report for `blocked`; omitted for `complete`.
  * @returns a fresh one-block context for `ToolRunContext.deferContext()`.
  */
-/** 中文：生成结束上下文；objective 必填，blockedReason 存在时生成阻塞分支，返回新的单文本块数组。 */
+/*
+ * 中文：生成结束上下文；objective 必填，blockedReason 存在时生成阻塞分支，返回新的单文本块数组。
+ * @param objective 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param blockedReason 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function renderWrapupContext(objective: string, blockedReason?: string): ContentBlock[] {
   /** JSON 转义后的目标标题行，防止目标文本破坏标签结构。 */
   const heading = `Objective: ${JSON.stringify(objective)}\n`

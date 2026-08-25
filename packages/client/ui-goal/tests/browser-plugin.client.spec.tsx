@@ -56,7 +56,7 @@ function makeProjection(revision = 3): GoalProjection {
 }
 
 /** Boot the plugin over fake faces; Goal Remote methods record arguments and answer per the script. */
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(options: {
   projection?: GoalProjection | null | undefined
   failWith?: { code: string; message: string; details: object }

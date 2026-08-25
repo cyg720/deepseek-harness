@@ -1,5 +1,5 @@
 /** Contract behavior the seam itself owns: registration identity and typed failures. */
-/**
+/*
  * 文件职责：验证目录选择能力接口拥有的服务注册身份和类型化错误字段。
  * 技术维度：使用 Vitest、Cordis 服务插件和最小 DirectoryPicker 子类测试抽象能力接口。
  * 产品维度：确保宿主目录选择器可被插件发现、随生命周期释放，并提供可处理的业务错误。
@@ -14,7 +14,7 @@ import { DirectoryPicker, DirectoryPickerError } from '../src/index.ts'
 import type { DirectoryPickerCapability } from '../src/index.ts'
 
 /** Minimal concrete backend: all a subclass owes the abstract class is capability(). */
-/** 最小具体后端；演示子类只需实现 capability 即可成为 Cordis 目录选择服务。 */
+/* 最小具体后端；演示子类只需实现 capability 即可成为 Cordis 目录选择服务。 */
 class StubPicker extends DirectoryPicker {
   // 固定原生能力对象；pick 异步返回 null 表示用户未选择目录。
   private readonly stub: DirectoryPickerCapability = { kind: 'native', pick: async () => null }

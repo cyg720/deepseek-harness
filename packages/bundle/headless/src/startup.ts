@@ -4,7 +4,7 @@
  * ordinary consumer whose lazy config waits for that service.
  * @module @deepseek-ai/dsh-headless/startup
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：解析 headless 一次性运行的任务参数，并把任务作为 Cordis 服务提供给 Runner。
  * - 技术维度：使用 Commander、共享 cmdline 解析器、Cordis provide 和延迟服务注入。
@@ -19,22 +19,22 @@ import type { Context } from '@deepseek-ai/cordis'
 import { parseCmdline } from '@deepseek-ai/dsh-cmdline'
 
 /** Stable Cordis plugin name. */
-/** 中文：headless 启动插件的稳定 Cordis 名称。 */
+/* 中文：headless 启动插件的稳定 Cordis 名称。 */
 export const name = 'headless-startup'
 
 /** Services required before the task can be resolved. */
-/** 中文：解析任务前必须由宿主提供命令行参数服务。 */
+/* 中文：解析任务前必须由宿主提供命令行参数服务。 */
 export const inject = ['cmdlineArgs']
 
 /** Service provided by this plugin and injected by the one-shot runner. */
-/** 中文：本插件提供、一次性 Runner 注入的服务名称。 */
+/* 中文：本插件提供、一次性 Runner 注入的服务名称。 */
 export const HEADLESS_STARTUP_SERVICE = 'headlessStartup'
 
 /** What the runner row reads from {@link HEADLESS_STARTUP_SERVICE}. */
-/** 中文：一次性 Runner 从启动服务读取的数据。 */
+/* 中文：一次性 Runner 从启动服务读取的数据。 */
 export interface HeadlessStartupValues {
   /** The task text this invocation asked for. */
-  /** 中文：本次命令请求执行的完整任务文本。 */
+  /* 中文：本次命令请求执行的完整任务文本。 */
   task: string
 }
 
@@ -42,7 +42,7 @@ export interface HeadlessStartupValues {
  * This app's command: the task positional, its description, and its help text.
  * @returns a fresh program, so one process can parse more than once (tests).
  */
-/** 中文：创建新的 headless Commander 程序；无参数，返回可独立解析的 Command。 */
+/* 中文：创建新的 headless Commander 程序；无参数，返回可独立解析的 Command。 */
 function headlessCommand(): Command {
   return new Command()
     .name('dsh --profile headless')
@@ -61,7 +61,7 @@ Examples:
  * usage error, so on rejection (and on `--help`) nothing is provided.
  * @param ctx - plugin context carrying the command line.
  */
-/** 中文：解析 ctx 中的命令行并在有效时提供任务服务；无返回值。示例：apply(ctx)。 */
+/* 中文：解析 ctx 中的命令行并在有效时提供任务服务；无返回值。示例：apply(ctx)。 */
 export function apply(ctx: Context): void {
   /** 本次解析使用的新 Commander 程序。 */
   const program = headlessCommand()

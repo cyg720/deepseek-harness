@@ -5,7 +5,7 @@
  * logged, not that it reached disk.
  * @module @deepseek-ai/dsh-command-feedback
  */
-/**
+/*
  * 文件职责：实现反馈记录的 index.ts 模块。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证反馈记录在配置、运行、失败和清理场景中可理解且可靠。
@@ -29,14 +29,14 @@ export const inject = ['commands']
 const USAGE = 'Usage: /feedback <text>'
 
 /** Fail closed when a future sharing status reaches the sentence switch. */
-/** 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 /* v8 ignore next 3 -- only the ignored default arm calls this; the closed union cannot reach it via the public API. */
 function assertNever(value: never): never {
   throw new Error(`command-feedback: unsupported sharing status ${JSON.stringify(value)}`)
 }
 
 /** The acknowledgement's sharing sentence for a disclosed policy. */
-/** 中文说明：函数 sharingSentence 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sharingSentence 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sharingSentence(sharing: SessionTelemetrySharingStatus): string {
   switch (sharing) {
     case 'full':
@@ -59,7 +59,7 @@ function sharingSentence(sharing: SessionTelemetrySharingStatus): string {
  * @param telemetry - the mounted telemetry service, or undefined.
  * @returns one sentence describing this session's sharing policy.
  */
-/** 中文说明：函数 sharingDisclosure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 sharingDisclosure 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sharingDisclosure(telemetry: SessionTelemetryBackend | undefined): string {
   if (telemetry === undefined) {
     return 'Session sharing is not configured.'
@@ -84,7 +84,11 @@ declare module '@deepseek-ai/dsh-session/types' {
  * @param text - human-authored feedback; surrounding whitespace is discarded.
  * @throws {TypeError} when the normalized text is empty.
  */
-/** 中文说明：函数 recordFeedback 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 recordFeedback 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param text 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function recordFeedback(session: Session, text: string): void {
   /** 中文说明：模块局部值 normalized，由紧邻初始化决定。 */
   const normalized = text.trim()
@@ -101,7 +105,7 @@ export function recordFeedback(session: Session, text: string): void {
  * user ids plus the session-sharing disclosure, or a usage error when no
  * feedback text was supplied.
  */
-/** 中文说明：函数 executeFeedbackCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 executeFeedbackCommand 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function executeFeedbackCommand(invocation: CommandInvocation, ctx: Context): CommandResult {
   if (invocation.rawInput.trim().length === 0) {
     return { kind: 'error', text: `Feedback text is required. ${USAGE}` }
@@ -116,7 +120,7 @@ function executeFeedbackCommand(invocation: CommandInvocation, ctx: Context): Co
 }
 
 /** Register the global `/feedback` command for every composed command adapter. */
-/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function apply(ctx: Context): void {
   ctx.commands.register({
     name: 'feedback',

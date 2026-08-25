@@ -1,5 +1,5 @@
 /** Shared modal chrome for every step registered by this onboarding plugin. */
-/**
+/*
  * 文件职责：为模型设置引导步骤提供共享的阻塞式模态框外壳。
  * 技术维度：使用 React useEffect/useRef、Modal 组件、HTML inert 和可编程标题焦点。
  * 产品维度：引导用户完成模型配置时阻止背景操作，并把焦点放到合适位置。
@@ -23,7 +23,7 @@ const ignoreImplicitDismiss = (): void => {}
  * @param props.children - step-owned body and actions.
  * @returns the body-portaled modal.
  */
-/**
+/*
  * 渲染阻塞式引导对话框。
  * @param title 标题。
  * @param focusTitle 是否聚焦标题。

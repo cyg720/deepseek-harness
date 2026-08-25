@@ -6,7 +6,7 @@
  *
  * @module @deepseek-ai/dsh-acp-snapshot/launcher
  */
-/**
+/*
  * 文件职责：实现 launcher.ts 覆盖的ACP 快照测试支持行为与生命周期。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
  * 产品维度：保障 Agent 的ACP 快照测试支持能力稳定、可复现且可诊断。
@@ -38,7 +38,7 @@ import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
 const EXIT_MARKER_GRACE_MS = 250
 
 /** The source/built agent entry, leaf config, and workspace tsconfig an ACP test boots. */
-/** 中文说明：interface AgentUnderTest 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
+/* 中文说明：interface AgentUnderTest 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface AgentUnderTest {
   /** The agent source bin entry (for example `packages/examples/acp-demo/src/bin.ts`). */
   binScript: string
@@ -51,7 +51,7 @@ export interface AgentUnderTest {
 }
 
 /** Options for one ACP test subprocess. */
-/** 中文说明：interface AcpTestLaunchOptions 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
+/* 中文说明：interface AcpTestLaunchOptions 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface AcpTestLaunchOptions {
   /** The agent composition to boot. */
   agent: AgentUnderTest
@@ -66,7 +66,7 @@ export interface AcpTestLaunchOptions {
 }
 
 /** A running ACP test process and its captured client-side outputs. */
-/** 中文说明：interface LaunchedAcpTestAgent 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
+/* 中文说明：interface LaunchedAcpTestAgent 定义本模块所需的数据或行为，用于表达ACP 快照测试支持场景。 */
 export interface LaunchedAcpTestAgent {
   /** The child process, exposed for process-level assertions. */
   child: ChildProcessWithoutNullStreams
@@ -92,7 +92,11 @@ export interface LaunchedAcpTestAgent {
  * @param options Agent paths, cwd, environment, and optional permission handler.
  * @returns The running process, connected client, captures, and shutdown handle.
  */
-/** 中文说明：函数 launchAcpTestAgent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 launchAcpTestAgent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTestAgent {
   const { agent, cwd } = options
   /** 中文说明：变量 launch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -328,13 +332,13 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
 }
 
 /** Resolve once a running child exits. */
-/** 中文说明：函数 waitForExit 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 waitForExit 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function waitForExit(child: ChildProcessWithoutNullStreams): Promise<void> {
   return new Promise<void>(resolve => child.once('exit', () => { resolve() }))
 }
 
 /** Give an accepted Windows termination request a bounded window to publish its exit marker. */
-/** 中文说明：函数 exitMarkerWithinGrace 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 exitMarkerWithinGrace 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function exitMarkerWithinGrace(exited: Promise<void>): Promise<boolean> {
   return Promise.race([
     exited.then(() => true),
@@ -347,7 +351,7 @@ function exitMarkerWithinGrace(exited: Promise<void>): Promise<boolean> {
 }
 
 /** Whether the child still lacks either OS termination marker. */
-/** 中文说明：函数 isRunning 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/* 中文说明：函数 isRunning 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isRunning(child: ChildProcessWithoutNullStreams): boolean {
   return child.exitCode === null && child.signalCode === null
 }

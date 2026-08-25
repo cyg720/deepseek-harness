@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest'
  * and CI runs it after the build.
  */
 
-/** 中文说明：测试局部值 pkgDir，由紧邻初始化决定。 */
+/* 中文说明：测试局部值 pkgDir，由紧邻初始化决定。 */
 const pkgDir = fileURLToPath(new URL('..', import.meta.url))
 /** 中文说明：测试局部值 built，由紧邻初始化决定。 */
 const built = ['lib/index.js', 'lib/worker.cjs'].every(file => existsSync(join(pkgDir, file)))

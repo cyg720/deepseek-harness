@@ -4,7 +4,7 @@
  * repository's spec inventory, so a renamed suite cannot silently fall out of
  * the uninstrumented gate while its exclude goes stale.
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：机械校验覆盖率豁免清单的过滤前缀与排除 glob 始终命中同一非空测试集合。
  * - 技术维度：使用 Vitest、Node globSync、Set/Map 和标准化 POSIX 路径。
@@ -23,7 +23,7 @@ import { coverageExemptHeavySuites } from './coverage-exempt.ts'
 const root = resolve(import.meta.dirname, '..')
 
 /** The spec inventory mirrored from vitest.config.ts testIncludes. */
-/** 中文：与 vitest.config.ts testIncludes 对齐的全部测试文件集合，路径统一使用正斜杠。 */
+/* 中文：与 vitest.config.ts testIncludes 对齐的全部测试文件集合，路径统一使用正斜杠。 */
 const allSpecs = new Set([
   ...globSync('packages/*/*/tests/**/*.spec.ts', { cwd: root }),
   ...globSync('packages/*/*/tests/**/*.spec.tsx', { cwd: root }),

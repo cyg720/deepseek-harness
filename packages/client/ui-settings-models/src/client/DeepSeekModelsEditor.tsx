@@ -4,7 +4,7 @@
  * the effective inherited rows until the first edit materializes a user
  * override; reset removes that override instead of copying defaults into it.
  */
-/**
+/*
  * 文件职责：实现模型设置的 DeepSeekModelsEditor 组件。
  * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看和调整模型设置。
@@ -22,29 +22,29 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** One catalog entry kept structurally open so hidden or future fields survive an edit. */
-/** 中文说明：类型或类 DeepSeekModelDraft 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 DeepSeekModelDraft 约束设置数据或组件职责。 */
 export type DeepSeekModelDraft = Record<string, unknown>
 
 /** The catalog fields this editor writes. */
-/** 中文说明：类型或类 CatalogField 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 CatalogField 约束设置数据或组件职责。 */
 type CatalogField = 'id' | 'name' | 'contextWindow' | 'maxTokens'
 
 /** The two token counts edited as K/M-suffixed text behind a row's disclosure. */
-/** 中文说明：类型或类 CapacityField 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 CapacityField 约束设置数据或组件职责。 */
 type CapacityField = 'contextWindow' | 'maxTokens'
 
 /** Row index encoded in an editing-buffer key. */
-/** 中文说明：函数 rowOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 rowOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function rowOf(key: string): number {
   return Number(key.slice(0, key.indexOf(':')))
 }
 
 /** Accepted capacity spellings: a decimal count with an optional K/M suffix. */
-/** 中文说明：设置局部值 CAPACITY_PATTERN，由紧邻初始化决定。 */
+/* 中文说明：设置局部值 CAPACITY_PATTERN，由紧邻初始化决定。 */
 const CAPACITY_PATTERN = /^(\d+(?:\.\d+)?)([km])?$/i
 
 /** Decimal suffix scales — `1M` is 1000K, matching how model capacities are quoted. */
-/** 中文说明：设置局部值 CAPACITY_SCALE，由紧邻初始化决定。 */
+/* 中文说明：设置局部值 CAPACITY_SCALE，由紧邻初始化决定。 */
 const CAPACITY_SCALE = { k: 1_000, m: 1_000_000 } as const
 
 /**
@@ -54,7 +54,7 @@ const CAPACITY_SCALE = { k: 1_000, m: 1_000_000 } as const
  * @returns the count; `undefined` when blank (inherit), `NaN` when unreadable
  * (rejected by {@link validateDeepSeekModels} before any write).
  */
-/** 中文说明：函数 parseCapacity 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 parseCapacity 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function parseCapacity(text: string): number | undefined {
   /** 中文说明：设置局部值 trimmed，由紧邻初始化决定。 */
   const trimmed = text.trim()
@@ -82,7 +82,7 @@ export function parseCapacity(text: string): number | undefined {
  * @param value - stored capacity.
  * @returns the field text.
  */
-/** 中文说明：函数 formatCapacity 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 formatCapacity 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function formatCapacity(value: number): string {
   if (!Number.isInteger(value) || value <= 0) return String(value)
   if (value % CAPACITY_SCALE.m === 0) return `${String(value / CAPACITY_SCALE.m)}M`
@@ -91,7 +91,7 @@ export function formatCapacity(value: number): string {
 }
 
 /** A localized validation failure for one user-owned model array. */
-/** 中文说明：类型或类 DeepSeekModelsValidationFailure 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 DeepSeekModelsValidationFailure 约束设置数据或组件职责。 */
 export interface DeepSeekModelsValidationFailure {
   /** Zero-based model position. */
   index: number
@@ -101,7 +101,7 @@ export interface DeepSeekModelsValidationFailure {
 }
 
 /** Convert a schema-validated catalog value into records without dropping hidden fields. */
-/** 中文说明：函数 modelDrafts 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 modelDrafts 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function modelDrafts(value: unknown): DeepSeekModelDraft[] {
   if (!Array.isArray(value)) return []
   return value.map(entry =>
@@ -115,7 +115,7 @@ export function modelDrafts(value: unknown): DeepSeekModelDraft[] {
  * @param value - user-owned `models` value, or undefined while inherited.
  * @returns the first invalid row, or undefined when the adapter will accept it.
  */
-/** 中文说明：函数 validateDeepSeekModels 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 validateDeepSeekModels 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidationFailure | undefined {
   if (value === undefined) return undefined
   /** 中文说明：设置局部值 models，由紧邻初始化决定。 */
@@ -156,7 +156,7 @@ export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidation
 }
 
 /** Props of {@link DeepSeekModelsEditor}. */
-/** 中文说明：类型或类 DeepSeekModelsEditorProps 约束设置数据或组件职责。 */
+/* 中文说明：类型或类 DeepSeekModelsEditorProps 约束设置数据或组件职责。 */
 export interface DeepSeekModelsEditorProps {
   /** Effective rows: inherited until the parent materializes an override. */
   models: readonly DeepSeekModelDraft[]
@@ -182,7 +182,7 @@ export interface DeepSeekModelsEditorProps {
  * @param props - effective rows plus the array-level override actions.
  * @returns the catalog editor.
  */
-/** 中文说明：函数 DeepSeekModelsEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/* 中文说明：函数 DeepSeekModelsEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNode {
   // Capacities are edited as text, so a field's keystrokes are held here
   // rather than re-derived from the parsed count on every change, which would
@@ -260,7 +260,7 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
   }
 
   /** The field's text: its live keystrokes, else the stored count spelled short. */
-  /** 中文说明：设置局部值 capacityText，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 capacityText，由紧邻初始化决定。 */
   const capacityText = (model: DeepSeekModelDraft, index: number, field: CapacityField): string => {
     /** 中文说明：设置局部值 typed，由紧邻初始化决定。 */
     const typed = editing.get(`${String(index)}:${field}`)
@@ -291,7 +291,7 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
   }
 
   /** One capacity field of one row, rendered inside the row's disclosure. */
-  /** 中文说明：设置局部值 capacityField，由紧邻初始化决定。 */
+  /* 中文说明：设置局部值 capacityField，由紧邻初始化决定。 */
   const capacityField = (
     model: DeepSeekModelDraft,
     index: number,

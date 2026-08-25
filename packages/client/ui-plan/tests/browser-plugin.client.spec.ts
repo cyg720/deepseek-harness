@@ -5,7 +5,7 @@
  * outcomes into null (admitted) or a user-visible failure line; teardown
  * empties the seat (HMR safety).
  */
-/**
+/*
  * 文件职责：验证计划模式的 browser-plugin.client.spec.ts 行为。
  * 技术维度：Vitest、React 渲染和可控服务替身。
  * 产品维度：防止计划模式用户流程回归。

@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】write/edit 两个工具共享的"沙箱升级 API"：按调用策略解析、升级字段的
  * 广告、拒绝标记映射——词汇与"失败即关闭"的批准序列全部委托给 dsh-sandbox
@@ -31,7 +31,7 @@
  *
  * @module @deepseek-ai/dsh-tool-fs/sandbox
  */
-/**
+/*
  * 模块总览：本文件是 write/edit 与沙箱策略之间的"升级桥"。它复用 dsh-sandbox 的
  * 词汇与批准序列，保证文件操作与 bash 命令的沙箱体验一致。
  */
@@ -44,7 +44,7 @@ import type { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
 import { FsError } from '@deepseek-ai/dsh-fs'
 
 /** The two escalation arguments a mutating tool may carry (advertised only under a confining backend). */
-/**
+/*
  * 变更工具可能携带的两个升级参数（只在有围栏后端时才被广告给模型）。
  */
 export interface FsEscalationArgs {
@@ -53,7 +53,7 @@ export interface FsEscalationArgs {
 }
 
 /** The schema fields for the escalation arguments, spread into a tool's `parameters` when a confining backend is mounted. */
-/**
+/*
  * 升级参数的 schema 字段：有围栏后端时展开进工具的 parameters。
  */
 export interface EscalationSchemaFields {
@@ -66,16 +66,16 @@ export interface EscalationSchemaFields {
  * resolution, the one-approved wider retry, and denial-marker mapping. A pure
  * product of `ctx` at plugin apply time.
  */
-/**
+/*
  * 文件系统升级 API：广告门控、按调用策略解析、一次"经批准的更宽重试"、拒绝标记
  * 映射。是插件 apply 时刻 ctx 的纯函数产物。
  */
 export class FsSandboxController {
   /** The escalation targets this composition advertises (`[]` when no confining backend is mounted). */
-  /** 本组装广告的升级目标（未挂限制性后端时为空数组）。 */
+  /* 本组装广告的升级目标（未挂限制性后端时为空数组）。 */
   readonly escalationModes: readonly SandboxMode[]
   /** Shared per-session policy resolver, required by a confining backend. */
-  /** 共享的按会话策略解析器（限制性后端必需）。 */
+  /* 共享的按会话策略解析器（限制性后端必需）。 */
   private readonly policy: SandboxPolicyService | undefined
 
   constructor(private readonly ctx: Context) {
@@ -96,7 +96,7 @@ export class FsSandboxController {
    * call at execution.
    * @returns the two escalation parameter specs.
    */
-  /**
+  /*
    * 变更工具 parameters 里的升级 schema 字段。只在有围栏后端时调用（用
    * escalationModes 守卫）；enum 钉住闭合的目标词汇，"严格更宽"的检查在执行的
    * 每个调用时进行。
@@ -130,7 +130,7 @@ export class FsSandboxController {
    * @returns the policy to pass to the mutation, or undefined for an
    *   unsandboxed backend.
    */
-  /**
+  /*
    * 要盖到本次变更上的策略：经批准的升级授权（严格更宽的重试，在一切执行之前经
    * ctx.approval 解析），否则是会话的常驻模式。调用会话的 cwd 始终作为工作区根
    * 携带。先校验升级参数的配对。
@@ -178,7 +178,7 @@ export class FsSandboxController {
    * @param policy - the policy stamped onto the call (names the mode in the marker).
    * @returns the error to throw — the marker `FsError` for a sandbox denial, else the original.
    */
-  /**
+  /*
    * 为模型映射提供者抛出的错误：FS_SANDBOX_DENIED 变成文本为共享 [sandbox: …] 拒绝
    * 标记 + 同轮升级提示的 FsError——策略拒绝读起来与 bash 完全一致，同时保留结构化
    * FS_SANDBOX_DENIED code。原因：ToolRuntime 只对 HarnessError 实例填充

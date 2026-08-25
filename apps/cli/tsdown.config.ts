@@ -6,7 +6,7 @@ import { defineConfig } from 'tsdown'
  * `lib/types/bin.js` instead; its reachable mode modules bundle with it.
  * Declarations come from `tsc -b` (dts: false), matching every package.
  */
-/**
+/*
  * 文件职责：配置 dsh 命令行应用的可执行 bin 入口构建。
  * 技术维度：使用 tsdown 把 tsc 生成的 bin.js 及其可达模式模块打包为 Node.js ESM。
  * 产品维度：产出用户可直接运行的 dsh 命令，承载交互式、无头等命令行模式。

@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-sdk-jsonrpc-demo/runner
  */
-/**
+/*
  * 中文说明：
  * - 文件职责：为通用和封闭运行时 JSON-RPC 示例统一启动、配置选择、信号处理与退出清理。
  * - 技术维度：使用 Node 进程事件、Cordis boot、环境变量、argv 和异步纤程释放。
@@ -28,7 +28,10 @@ const NAME = 'dsh-jsonrpc-agent'
  * @returns after process handlers are installed; process lifetime then belongs
  * to stdin and signal events.
  */
-/** 中文：启动 JSON-RPC 代理；bareModuleBaseUrl 可指定已安装插件基址，完成处理器安装后无返回数据。 */
+/*
+ * 中文：启动 JSON-RPC 代理；bareModuleBaseUrl 可指定已安装插件基址，完成处理器安装后无返回数据。
+ * @param bareModuleBaseUrl 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export async function runJsonrpcAgent(bareModuleBaseUrl?: string): Promise<void> {
   installFailLoud(NAME)
   loadEnv(NAME)

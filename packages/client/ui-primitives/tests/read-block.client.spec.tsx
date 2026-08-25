@@ -27,19 +27,19 @@ beforeEach(() => {
 })
 
 /** `count` lines starting at `first`, each with distinct text. */
-/** 中文说明：函数 lines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 lines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lines(count: number, first = 1): ReadBlockLine[] {
   return Array.from({ length: count }, (_value, index) => ({ number: first + index, text: `line ${first + index}` }))
 }
 
 /** The rendered rows as `<gutter><content>` strings (CSS-module class prefix). */
-/** 中文说明：函数 rowTexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 rowTexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowTexts(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
 }
 
 /** The gutter numbers of the rendered rows, in order. */
-/** 中文说明：函数 gutters 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 gutters 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function gutters(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_gutter_"]')].map(cell => cell.textContent ?? '')
 }

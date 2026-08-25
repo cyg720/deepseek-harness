@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/**
+/*
  * 文件职责：验证工具调用的 todo-row.client.spec.tsx 行为。
  * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
  * 产品维度：防止工具调用展示与展开交互回归。

@@ -4,7 +4,7 @@
  * getTempPath must refuse to decode a buffer GetTempPathW never wrote.
  * Pure stubs — no real Win32 calls, so these run on every platform.
  */
-/**
+/*
  * 文件职责：验证 failure-paths.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
  * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
  * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
@@ -26,7 +26,7 @@ import * as abi from '../src/win32-abi.ts'
 const PVOID = koffi.pointer('void')
 
 /** The stub the CreateProcessAsUserW failure branch needs: pipes "succeed", the spawn fails with Win32 5. */
-/** 中文说明：函数 pipeFailureApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 pipeFailureApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function pipeFailureApi(): { api: Win32Bindings; closed: bigint[]; closeHandle: ReturnType<typeof vi.fn> } {
   /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const closed: bigint[] = []
@@ -54,7 +54,7 @@ function pipeFailureApi(): { api: Win32Bindings; closed: bigint[]; closeHandle: 
 }
 
 /** The stub the ResumeThread failure branch needs: everything succeeds until ResumeThread returns 0xFFFFFFFF. */
-/** 中文说明：函数 resumeFailureApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 resumeFailureApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function resumeFailureApi(): { api: Win32Bindings; closed: bigint[]; closeHandle: ReturnType<typeof vi.fn> } {
   /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const closed: bigint[] = []
@@ -165,7 +165,7 @@ describe('getTempPath buffer defense', () => {
 })
 
 /** The stub the pipe-happy path needs: CreatePipe fills both out slots with fresh handles. */
-/** 中文说明：函数 pipeOkApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 pipeOkApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function pipeOkApi(overrides: Partial<Win32Bindings> = {}): {
   api: Win32Bindings
   closed: bigint[]
@@ -268,7 +268,7 @@ describe('spawnSandboxedInherited failure paths', () => {
   const token = 1n as NativePtr
 
   /** The stub the inherited-happy path needs; overrides flip one call per test. */
-  /** 中文说明：函数 inheritedApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /* 中文说明：函数 inheritedApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function inheritedApi(overrides: Partial<Win32Bindings> = {}): {
     api: Win32Bindings
     closed: bigint[]

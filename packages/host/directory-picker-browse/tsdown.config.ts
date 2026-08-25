@@ -9,7 +9,7 @@
 import { defineConfig } from 'tsdown'
 
 /** Node-only backend: listing and creation primitives over the host filesystem. */
-/**
+/*
  * 生成仅 Node 使用的目录浏览后端配置；返回单项 tsdown 配置数组。
  * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-host-directory-picker-browse bundle`。
  */

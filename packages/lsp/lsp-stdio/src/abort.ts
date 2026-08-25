@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】lsp-stdio 共享的取消（abort）辅助：把 AbortSignal 的中止原因转成保留超时分类的错误（abortError）、快速抛出已触发的中止（throwIfAborted）、以及让一次等待可被信号放弃（abortable）。
  * 【技术维度】基于 @deepseek-ai/dsh-timeout 的 timeoutOf 保留超时分类；abortable 用 Promise.race 把"工作 Promise"与"取消 Promise"赛跑，finally 中移除监听避免泄漏。

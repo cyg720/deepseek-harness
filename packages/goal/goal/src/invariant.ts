@@ -1,5 +1,5 @@
 /** Package-owned durable goal-stream invariants. @module @deepseek-ai/dsh-goal/invariant */
-/**
+/*
  * 文件职责：实现目标管理的 invariant.ts 模块。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
@@ -18,14 +18,14 @@ import type { GoalFoldState } from './fold.ts'
 const PACKAGE_NAME = '@deepseek-ai/dsh-goal'
 
 /** Cordis companion plugin name. */
-/** 中文说明：领域局部值 name，由紧邻初始化决定。 */
+/* 中文说明：领域局部值 name，由紧邻初始化决定。 */
 export const name = 'goal-invariant'
 /** Service required before the companion can reserve package ownership. */
-/** 中文说明：领域局部值 inject，由紧邻初始化决定。 */
+/* 中文说明：领域局部值 inject，由紧邻初始化决定。 */
 export const inject = ['invariants']
 
 /** Copy the independent fold before validating one candidate event. */
-/** 中文说明：函数 cloneState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 cloneState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function cloneState(state: GoalFoldState): GoalFoldState {
   return {
     goal: state.goal,
@@ -38,7 +38,7 @@ function cloneState(state: GoalFoldState): GoalFoldState {
 }
 
 /** Apply one event through the strict goal decoder and attribute failures. */
-/** 中文说明：函数 applyChecked 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 applyChecked 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function applyChecked(state: GoalFoldState, event: SessionEvent, fail: InvariantFailure): void {
   try {
     applyGoalEvent(state, event)
@@ -51,7 +51,7 @@ function applyChecked(state: GoalFoldState, event: SessionEvent, fail: Invariant
 }
 
 /** Install an independent incremental fold over every attached session. */
-/** 中文说明：领域局部值 install，由紧邻初始化决定。 */
+/* 中文说明：领域局部值 install，由紧邻初始化决定。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** 中文说明：领域局部值 states，由紧邻初始化决定。 */
   const states = new WeakMap<Session, GoalFoldState>()
@@ -100,6 +100,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
-/** 中文说明：领域局部值 apply，由紧邻初始化决定。 */
+/* 中文说明：领域局部值 apply，由紧邻初始化决定。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

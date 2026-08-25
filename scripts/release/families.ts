@@ -8,7 +8,7 @@
  * The family dimension lives here only. A new sequence adds a subclass and a
  * `releaseFamilies()` entry; nothing else in the release scripts branches on it.
  */
-/**
+/*
  * 文件职责：实现 families.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
  * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
  * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
@@ -30,7 +30,7 @@ import { validateTarballPayload } from '../publication-payload.ts'
  * when the package is installed: publishing a consumer first would leave a
  * window where its own tree cannot be assembled.
  */
-/** 中文说明：常量 INSTALL_SECTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 INSTALL_SECTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const INSTALL_SECTIONS = ['dependencies', 'optionalDependencies'] as const
 
 /**
@@ -40,15 +40,15 @@ const INSTALL_SECTIONS = ['dependencies', 'optionalDependencies'] as const
  * each other as peers, which makes these edges the ones that close cycles. They
  * order what they can and are dropped where they would deadlock.
  */
-/** 中文说明：常量 PEER_SECTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 PEER_SECTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PEER_SECTIONS = ['peerDependencies'] as const
 
 /** The workspace root manifest, which is never a release member. */
-/** 中文说明：常量 WORKSPACE_ROOT_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 WORKSPACE_ROOT_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WORKSPACE_ROOT_PACKAGE = '@deepseek-ai/dsh-root'
 
 /** One peer declaration the publish order leaves unordered. */
-/** 中文说明：interface DroppedPeerEdge 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface DroppedPeerEdge 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface DroppedPeerEdge {
   /** Package declaring the peer. */
   readonly consumer: string
@@ -63,7 +63,7 @@ interface DroppedPeerEdge {
  * a release drops real ordering constraints, and the operator reading the pack
  * log is the only one who can judge whether a newly dropped edge is expected.
  */
-/** 中文说明：interface PublishPlan 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface PublishPlan 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface PublishPlan {
   /** Members in publish order. */
   readonly order: readonly ReleaseMember[]
@@ -72,7 +72,7 @@ export interface PublishPlan {
 }
 
 /** One publishable package of a release family. */
-/** 中文说明：interface ReleaseMember 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface ReleaseMember 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface ReleaseMember {
   /** Repository-relative package directory, for example `packages/core/session`. */
   readonly directory: string
@@ -89,7 +89,7 @@ export interface ReleaseMember {
  * @param path - absolute file path.
  * @returns The parsed object.
  */
-/** 中文说明：函数 readManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 readManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function readManifest(path: string): Record<string, unknown> {
   /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
@@ -106,7 +106,7 @@ function readManifest(path: string): Record<string, unknown> {
  * @param context - manifest path for the error message.
  * @returns The field value.
  */
-/** 中文说明：函数 requireString 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 requireString 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function requireString(manifest: Record<string, unknown>, field: string, context: string): string {
   /** 中文说明：变量 value 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value = manifest[field]
@@ -115,7 +115,7 @@ function requireString(manifest: Record<string, unknown>, field: string, context
 }
 
 /** The executable a family's installed artifacts are driven through. */
-/** 中文说明：interface InstalledEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface InstalledEntry 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface InstalledEntry {
   /** Package that carries the executable. */
   readonly packageName: string
@@ -373,7 +373,7 @@ export abstract class ReleaseFamily {
 }
 
 /** Release packages and apps: one shared version across the whole family. */
-/** 中文说明：class DshFamily 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class DshFamily 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class DshFamily extends ReleaseFamily {
   readonly id = 'dsh'
   readonly patterns = ['packages/!(experimental)/*/package.json', 'apps/*/package.json'] as const
@@ -419,7 +419,7 @@ class DshFamily extends ReleaseFamily {
 }
 
 /** `vendor/*`: every package keeps its own version line, so every package has its own tag. */
-/** 中文说明：class VendorFamily 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：class VendorFamily 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class VendorFamily extends ReleaseFamily {
   readonly id = 'vendor'
   readonly patterns = ['vendor/*/package.json'] as const
@@ -468,7 +468,7 @@ class VendorFamily extends ReleaseFamily {
 }
 
 /** Every release family this module owns, in workflow order. */
-/** 中文说明：函数 releaseFamilies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 releaseFamilies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function releaseFamilies(): readonly ReleaseFamily[] {
   return [new DshFamily(), new VendorFamily()]
 }
@@ -478,7 +478,7 @@ function releaseFamilies(): readonly ReleaseFamily[] {
  * @param id - family identifier.
  * @returns The family.
  */
-/** 中文说明：函数 releaseFamily 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 releaseFamily 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function releaseFamily(id: string): ReleaseFamily {
   /** 中文说明：函数值 family 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const family = releaseFamilies().find(candidate => candidate.id === id)
@@ -495,7 +495,7 @@ export function releaseFamily(id: string): ReleaseFamily {
  * @param member - the packed member.
  * @returns The tarball filename.
  */
-/** 中文说明：函数 tarballName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 tarballName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function tarballName(member: ReleaseMember): string {
   /** 中文说明：变量 unscoped 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const unscoped = member.name.startsWith('@') ? member.name.slice(1).replace('/', '-') : member.name

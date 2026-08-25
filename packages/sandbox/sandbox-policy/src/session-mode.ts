@@ -48,7 +48,7 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 /** Every {@link SandboxMode}, for option advertisement and runtime validation of untrusted mode strings. */
-/** 中文说明：常量 SANDBOX_MODES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/* 中文说明：常量 SANDBOX_MODES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SANDBOX_MODES: readonly SandboxMode[] = ['read-only', 'workspace-write', 'danger-full-access']
 
 /**
@@ -59,7 +59,11 @@ export const SANDBOX_MODES: readonly SandboxMode[] = ['read-only', 'workspace-wr
  * @param events - session events in log order (other event types are skipped).
  * @returns the mode of the last switch event, or undefined without one.
  */
-/** 中文说明：函数 effectiveSandboxMode 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 effectiveSandboxMode 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function effectiveSandboxMode(events: readonly SessionEvent[]): SandboxMode | undefined {
   /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -79,7 +83,11 @@ export function effectiveSandboxMode(events: readonly SessionEvent[]): SandboxMo
  * @param mode - the mode every subsequent confined call in this session runs
  *   under (until the next switch).
  */
-/** 中文说明：函数 setSandboxMode 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+/*
+ * 中文说明：函数 setSandboxMode 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
+ * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param mode 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ */
 export function setSandboxMode(session: Session, mode: SandboxMode): void {
   session.append('sandbox/mode', { mode })
 }

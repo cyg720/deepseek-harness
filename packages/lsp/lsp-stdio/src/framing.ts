@@ -1,4 +1,4 @@
-/**
+/*
  * ================================ 文件注释 ================================
  * 【文件职责】LSP 基础协议的帧（framing）编解码：把 JSON-RPC 消息编码为 Content-Length 定界的字节流，并把服务器 stdout 的字节流解码回完整消息。
  * 【技术维度】LSP 基础协议采用"Content-Length: N\r\n\r\n + UTF-8 JSON 体"的帧格式；MessageDecoder

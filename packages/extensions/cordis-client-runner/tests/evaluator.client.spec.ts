@@ -5,7 +5,7 @@
  * teaching traps shadowing ambient globals, the parse/return diagnostics, and
  * the style bookkeeping whose disposal the runner owns.
  */
-/**
+/*
  * 文件职责：验证Cordis 客户端运行器的 evaluator.client.spec.ts 行为与边界。
  * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
  * 产品维度：保证Cordis 客户端运行器在配置、运行、失败和清理场景中可理解且可靠。
@@ -37,7 +37,7 @@ function env(overrides: Partial<DynamicCordisClosureEnv> = {}): DynamicCordisClo
 }
 
 /** Evaluate one source with fresh style bookkeeping. */
-/** 中文说明：函数 run 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 run 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function run(source: string, closure: DynamicCordisClosureEnv = env()): Promise<{
   plugin: DynamicCordisEvaluatedPlugin | ((ctx: unknown) => unknown)
   styles: DynamicCordisStyles

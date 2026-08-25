@@ -4,7 +4,7 @@
  * ui-theme's gate checks the rebinding contract's shape without knowing which
  * sheet states which half.
  */
-/**
+/*
  * 文件职责：以 CSS 文本验证侧栏静默滚动条状态同时重绑定默认和悬停拇指颜色。
  * 技术维度：使用 Vitest、正则提取 CSS 规则并规范化声明列表。
  * 产品维度：隐藏滚动条时避免鼠标经过突然显色，同时保持列表宽度不跳动。
@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest'
 // SidebarRoot CSS 原始文本。
 const css = readFileSync(fileURLToPath(new URL('../src/client/SidebarRoot.module.css', import.meta.url)), 'utf8')
 /** Declarations only: the sheet's prose names the properties it explains. */
-/** 去除块注释后的纯声明文本，避免说明文字中的属性名影响正则断言。 */
+/* 去除块注释后的纯声明文本，避免说明文字中的属性名影响正则断言。 */
 const declarationText = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
 
 // 静默侧栏 CSS 规则测试套件。

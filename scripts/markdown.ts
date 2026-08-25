@@ -1,5 +1,5 @@
 /** Shared Markdown parsing and depth-first traversal for documentation gates. */
-/**
+/*
  * 文件职责：实现 markdown.ts 覆盖的仓库生成、校验或维护职责。
  * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
  * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
@@ -14,7 +14,7 @@ import { gfm } from 'micromark-extension-gfm'
 import type { Nodes } from 'mdast'
 
 /** One authored Markdown line outside fenced code and rendered-away HTML comments. */
-/** 中文说明：interface MarkdownProseLine 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface MarkdownProseLine 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownProseLine {
   /** 1-based source line number. */
   index: number
@@ -23,7 +23,7 @@ export interface MarkdownProseLine {
 }
 
 /** One parsed Markdown heading, retaining its authored first line and rendered text. */
-/** 中文说明：interface MarkdownHeadingLine 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface MarkdownHeadingLine 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownHeadingLine extends MarkdownProseLine {
   /** Parsed ATX or Setext heading depth. */
   depth: 1 | 2 | 3 | 4 | 5 | 6
@@ -32,7 +32,7 @@ export interface MarkdownHeadingLine extends MarkdownProseLine {
 }
 
 /** One code block from a parsed Markdown source. */
-/** 中文说明：interface MarkdownFence 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface MarkdownFence 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownFence {
   /** 1-based source line of the opening fence. */
   line: number
@@ -51,7 +51,7 @@ export interface MarkdownFence {
 }
 
 /** Parse GitHub-flavored Markdown with the repository's standard extensions. */
-/** 中文说明：函数 parseMarkdown 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 parseMarkdown 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseMarkdown(source: string): Nodes {
   return fromMarkdown(source, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] })
 }
@@ -61,7 +61,7 @@ export function parseMarkdown(source: string): Nodes {
  * @param node - current tree node.
  * @param visitor - callback invoked before each node's children.
  */
-/** 中文说明：函数 visitMarkdown 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 visitMarkdown 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function visitMarkdown(node: Nodes, visitor: (node: Nodes) => boolean | void): void {
   if (visitor(node) === false) return
   if ('children' in node) {
@@ -71,11 +71,11 @@ export function visitMarkdown(node: Nodes, visitor: (node: Nodes) => boolean | v
 }
 
 /** Markdown nodes whose authored destination occupies a replaceable source range. */
-/** 中文说明：type MarkdownDestinationNode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：type MarkdownDestinationNode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type MarkdownDestinationNode = Extract<Nodes, { type: 'link' | 'image' | 'definition' }>
 
 /** One authored Markdown destination and its absolute source offsets. */
-/** 中文说明：interface MarkdownDestination 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+/* 中文说明：interface MarkdownDestination 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface MarkdownDestination {
   start: number
   end: number
@@ -83,7 +83,7 @@ export interface MarkdownDestination {
 }
 
 /** Whether a Markdown URL is external, repository-root absolute, or purely in-page. */
-/** 中文说明：函数 isExternalOrAbsoluteMarkdownUrl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 isExternalOrAbsoluteMarkdownUrl 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isExternalOrAbsoluteMarkdownUrl(url: string): boolean {
   return url.startsWith('#')
     || url.startsWith('//')
@@ -92,7 +92,7 @@ export function isExternalOrAbsoluteMarkdownUrl(url: string): boolean {
 }
 
 /** Split one Markdown URL without normalizing its query or fragment suffix. */
-/** 中文说明：函数 splitMarkdownUrlTarget 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 splitMarkdownUrlTarget 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function splitMarkdownUrlTarget(url: string): { path: string; suffix: string } {
   /** 中文说明：变量 boundary 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const boundary = url.search(/[?#]/)
@@ -174,7 +174,7 @@ function destinationRange(rawNode: string, type: MarkdownDestinationNode['type']
 }
 
 /** Locate one parsed destination in the original Markdown without reserializing it. */
-/** 中文说明：函数 markdownDestination 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 markdownDestination 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function markdownDestination(source: string, node: MarkdownDestinationNode): MarkdownDestination {
   /** 中文说明：变量 start 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const start = node.position?.start.offset
@@ -195,7 +195,7 @@ export function markdownDestination(source: string, node: MarkdownDestinationNod
  * @param source - Markdown source to scan.
  * @returns each block's opening line, language, info string, and body.
  */
-/** 中文说明：函数 markdownFences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/* 中文说明：函数 markdownFences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function markdownFences(source: string): MarkdownFence[] {
   /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = source.split('\n')

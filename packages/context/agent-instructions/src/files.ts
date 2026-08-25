@@ -3,7 +3,7 @@
  *
  * @module @deepseek-ai/dsh-agent-instructions/files
  */
-/**
+/*
  * 文件职责：实现工作区指令上下文的 files.ts 模块。
  * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
  * 产品维度：控制模型请求中的工作区指令上下文信息。
@@ -30,14 +30,14 @@ import {
 } from './render.ts'
 
 /** An instruction candidate identified by absolute and model-facing paths. */
-/** 中文说明：类型或类 InstructionFile 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 InstructionFile 约束上下文或压缩数据职责。 */
 export interface InstructionFile {
   absolutePath: string
   displayPath: string
 }
 
 /** An instruction file whose UTF-8 content was read successfully. */
-/** 中文说明：类型或类 LoadedInstructionFile 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 LoadedInstructionFile 约束上下文或压缩数据职责。 */
 export interface LoadedInstructionFile extends InstructionFile {
   content: string
   /** Provider freshness token when the file was loaded through `ctx.fs`. */
@@ -52,7 +52,7 @@ interface DiscoveredInstructionFile extends InstructionFile {
 }
 
 /** Provider metadata for a probed scope candidate before its content is read. */
-/** 中文说明：类型或类 ProbedInstructionFile 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ProbedInstructionFile 约束上下文或压缩数据职责。 */
 export interface ProbedInstructionFile extends InstructionFile {
   target: FsTarget
   version: FsVersion
@@ -78,7 +78,7 @@ interface LoadOptions extends DiscoverOptions {
 }
 
 /** Rendered baseline plus the successfully read and byte-budget-retained files. */
-/** 中文说明：类型或类 RenderedInstructionSet 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 RenderedInstructionSet 约束上下文或压缩数据职责。 */
 export interface RenderedInstructionSet {
   rendered: RenderedWorkspaceContext
   /** Successfully read candidates before content deduplication and byte budgeting. */
@@ -87,7 +87,7 @@ export interface RenderedInstructionSet {
   included: LoadedInstructionFile[]
 }
 /** Tri-state scope probe that distinguishes confirmed absence from provider failure. */
-/** 中文说明：类型或类 ScopeInstructionProbe 约束上下文或压缩数据职责。 */
+/* 中文说明：类型或类 ScopeInstructionProbe 约束上下文或压缩数据职责。 */
 export type ScopeInstructionProbe =
   | { kind: 'present'; file: ProbedInstructionFile }
   | { kind: 'absent' }
@@ -202,7 +202,14 @@ async function existsAsMarker(path: string, fileSystem?: FileSystem, signal?: Ab
  * @param signal - cancellation for provider and host probes.
  * @returns the discovered project root, or `cwd` when no marker exists.
  */
-/** 中文说明：函数 findProjectRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 findProjectRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param cwd 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param markers 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fileSystem 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function findProjectRoot(
   cwd: string,
   markers: readonly string[],
@@ -229,7 +236,12 @@ export async function findProjectRoot(
  * @param cwd - most-specific directory in the chain.
  * @returns directories ordered from broadest to most specific.
  */
-/** 中文说明：函数 ancestorChain 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 ancestorChain 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param root 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param cwd 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function ancestorChain(root: string, cwd: string): string[] {
   /** 中文说明：上下文局部值 chain，由紧邻初始化决定。 */
   const chain: string[] = []
@@ -255,7 +267,12 @@ export function ancestorChain(root: string, cwd: string): string[] {
  * @param touchedPath - absolute path or path relative to `root`.
  * @returns descendant directories from shallowest through the touched file's parent.
  */
-/** 中文说明：函数 descendantDirsBetween 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 descendantDirsBetween 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param root 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param touchedPath 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function descendantDirsBetween(root: string, touchedPath: string): string[] {
   /** 中文说明：上下文局部值 resolvedRoot，由紧邻初始化决定。 */
   const resolvedRoot = resolve(root)
@@ -275,7 +292,12 @@ export function descendantDirsBetween(root: string, touchedPath: string): string
  * @param path - absolute path to display.
  * @returns the root-relative path.
  */
-/** 中文说明：函数 relativeDisplay 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 relativeDisplay 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param root 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param path 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function relativeDisplay(root: string, path: string): string {
   return relative(root, path)
 }
@@ -376,7 +398,11 @@ async function discoverInstructionFiles(
  * @param options - cwd, home, root marker, and candidate configuration.
  * @returns path-deduplicated instruction candidates in model precedence order.
  */
-/** 中文说明：函数 discoverBaselineInstructionFiles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 discoverBaselineInstructionFiles 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function discoverBaselineInstructionFiles(options: DiscoverOptions): Promise<InstructionFile[]> {
   return (await discoverInstructionFiles(options)).map(({ absolutePath, displayPath }) => ({ absolutePath, displayPath }))
 }
@@ -435,7 +461,11 @@ async function readBounded(
  * @param files - loaded files in discovery order.
  * @returns the retained files in the same order.
  */
-/** 中文说明：函数 dedupInstructionFilesByDirectory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 dedupInstructionFilesByDirectory 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param files 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export function dedupInstructionFilesByDirectory(files: LoadedInstructionFile[]): LoadedInstructionFile[] {
   /** 中文说明：上下文局部值 keptDigestsByDir，由紧邻初始化决定。 */
   const keptDigestsByDir = new Map<string, Set<string>>()
@@ -466,7 +496,12 @@ export function dedupInstructionFilesByDirectory(files: LoadedInstructionFile[])
  * @param fileSystem - optional provider used instead of host filesystem reads.
  * @returns rendered baseline context, or undefined when nothing can be loaded.
  */
-/** 中文说明：函数 loadBaselineInstructions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 loadBaselineInstructions 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fileSystem 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function loadBaselineInstructions(
   options: LoadOptions,
   fileSystem?: FileSystem,
@@ -480,7 +515,12 @@ export async function loadBaselineInstructions(
  * @param fileSystem - optional provider used instead of host filesystem reads.
  * @returns rendered context and retained files, an explicit empty replacement set, or undefined when empty or disabled.
  */
-/** 中文说明：函数 loadBaselineInstructionSet 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 loadBaselineInstructionSet 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param options 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fileSystem 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function loadBaselineInstructionSet(
   options: LoadOptions,
   fileSystem?: FileSystem,
@@ -544,7 +584,15 @@ export async function loadBaselineInstructionSet(
  * @param signal - cancellation for provider probes.
  * @returns present metadata, confirmed absence, or temporary unavailability.
  */
-/** 中文说明：函数 probeScopeInstruction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 probeScopeInstruction 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param scope 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param projectRoot 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param resolved 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fileSystem 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function probeScopeInstruction(
   scope: string,
   projectRoot: string,
@@ -594,7 +642,14 @@ export async function probeScopeInstruction(
  * @param signal - cancellation for provider streaming.
  * @returns loaded content with the probed version, or undefined when unavailable.
  */
-/** 中文说明：函数 readScopeInstruction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/*
+ * 中文说明：函数 readScopeInstruction 的参数见签名，返回结果供相邻流程使用；示例见本文件。
+ * @param file 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param maxSourceBytes 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param fileSystem 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @param signal 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
+ * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+ */
 export async function readScopeInstruction(
   file: ProbedInstructionFile,
   maxSourceBytes: number,

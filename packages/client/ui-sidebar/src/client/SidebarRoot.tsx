@@ -15,7 +15,7 @@
  * scrollbar indirection away while it is elsewhere, so a list the user is not
  * pointing at carries no bar.
  */
-/**
+/*
  * 文件职责：实现侧栏的 SidebarRoot 组件。
  * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
  * 产品维度：帮助用户查看或调整侧栏。
@@ -32,7 +32,7 @@ import type { SidebarRootComponentProps } from './contract/slots.ts'
 import css from './SidebarRoot.module.css'
 
 /** Wide-content unmount delay; matches the 150ms wide-content fade-out. */
-/** 中文说明：组件局部值 COLLAPSE_SETTLE_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 COLLAPSE_SETTLE_MS，由紧邻初始化决定。 */
 const COLLAPSE_SETTLE_MS = 150
 
 /**
@@ -41,7 +41,7 @@ const COLLAPSE_SETTLE_MS = 150
  * itself makes it blink out while the pointer is only crossing the column's
  * edge — on the way to the conversation, or around a portalled menu.
  */
-/** 中文说明：组件局部值 SCROLLBAR_LINGER_MS，由紧邻初始化决定。 */
+/* 中文说明：组件局部值 SCROLLBAR_LINGER_MS，由紧邻初始化决定。 */
 const SCROLLBAR_LINGER_MS = 2000
 
 /**
@@ -49,7 +49,7 @@ const SCROLLBAR_LINGER_MS = 2000
  * @param props - composed slot props (runtime share + injected callbacks, contract/slots.ts).
  * @returns the sidebar element tree.
  */
-/** 中文说明：函数 SidebarRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/* 中文说明：函数 SidebarRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function SidebarRoot({
   collapsed,
   width,

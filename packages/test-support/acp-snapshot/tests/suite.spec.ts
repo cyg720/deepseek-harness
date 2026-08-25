@@ -55,7 +55,7 @@ import {
  * spec once with `ACP_SNAPSHOT_SPEC_BOOTSTRAP=1`, then review and commit the resulting tree.
  */
 
-/** 中文说明：变量 fakeAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/* 中文说明：变量 fakeAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeAgent = fileURLToPath(new URL('./fixtures/fake-acp-agent.ts', import.meta.url))
 /** 中文说明：常量 AGENT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const AGENT = {

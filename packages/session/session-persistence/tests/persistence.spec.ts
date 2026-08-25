@@ -20,17 +20,17 @@ import { runPersistenceContract, meta, oneTurnLog } from './contract.ts'
 import { runCoordinatorContract, type CoordinatorFixture } from './coordinator-contract.ts'
 
 /** The durable store shape: materialized sessions only (no lazy entries). */
-/** 中文说明：type MemoryStore 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：type MemoryStore 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
 type MemoryStore = Map<string, { meta: SessionHeader; events: SessionEvent[] }>
 
 /** Test-store revision that changes for any metadata or event mutation. */
-/** 中文说明：函数 memoryRevision 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 memoryRevision 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function memoryRevision(entry: { meta: SessionHeader; events: SessionEvent[] }): SessionPersistenceRevision {
   return SessionPersistenceRevision(JSON.stringify(entry))
 }
 
 /** An obsolete event fixture that emulates an untyped pre-change producer. */
-/** 中文说明：函数 legacyHeaderDelta 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 legacyHeaderDelta 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function legacyHeaderDelta(seq = 0): SessionEvent {
   return {
     type: 'request/header-delta',
@@ -41,7 +41,7 @@ function legacyHeaderDelta(seq = 0): SessionEvent {
 }
 
 /** An unsupported named-mode fixture emulating an untyped producer. */
-/** 中文说明：函数 legacyModeSet 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 legacyModeSet 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function legacyModeSet(seq = 0): SessionEvent {
   return {
     type: 'mode/set',
@@ -52,7 +52,7 @@ function legacyModeSet(seq = 0): SessionEvent {
 }
 
 /** An obsolete full-header reason fixture from the removed delta codec. */
-/** 中文说明：函数 legacyFallbackHeader 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/* 中文说明：函数 legacyFallbackHeader 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function legacyFallbackHeader(seq = 0): SessionEvent {
   return {
     type: 'request/header',
@@ -63,11 +63,11 @@ function legacyFallbackHeader(seq = 0): SessionEvent {
 }
 
 /** Optional plugin config: an EXTERNAL store shared across backend instances. */
-/** 中文说明：interface MemoryConfig 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface MemoryConfig 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
 interface MemoryConfig { store?: MemoryStore }
 
 /** Test-only view of the coordinator containers whose retirement is the contract under test. */
-/** 中文说明：interface CoordinatorInternals 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：interface CoordinatorInternals 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
 interface CoordinatorInternals {
   states: Map<unknown, unknown>
   live: Map<unknown, {
@@ -83,7 +83,7 @@ interface CoordinatorInternals {
  * instances share materialized sessions, the in-memory analogue of reload over one file/database;
  * durable behavior is covered by the JSONL and SQLite backends.
  */
-/** 中文说明：class MemoryPersistence 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：class MemoryPersistence 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
 class MemoryPersistence extends SessionPersistence implements PersistenceBackend<never> {
   override readonly supportsRawArtifacts = false
 
@@ -198,7 +198,7 @@ class MemoryPersistence extends SessionPersistence implements PersistenceBackend
 }
 
 /** Controllable storage primitive for serialization and retirement failure tests. */
-/** 中文说明：class ControlledBackend 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
+/* 中文说明：class ControlledBackend 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
 class ControlledBackend implements PersistenceBackend<never> {
   readonly name = 'session-persistence-controlled'
   readonly store: MemoryStore = new Map()

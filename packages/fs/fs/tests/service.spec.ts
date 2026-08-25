@@ -4,7 +4,7 @@
  * policy live in `dsh-fs-local` and `dsh-fs-observation-policy`; this seam owns only the
  * abstract service contract, so a minimal fake backend exercises it.
  */
-/**
+/*
  * 文件职责：验证文件系统与工具的 service.spec.ts 行为与安全边界。
  * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
  * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
@@ -28,7 +28,7 @@ import type {
 } from '@deepseek-ai/dsh-fs'
 
 /** A minimal in-memory fake implementing the provider primitives. */
-/** 中文说明：类型或类 FakeFileSystem 约束文件或目标数据职责。 */
+/* 中文说明：类型或类 FakeFileSystem 约束文件或目标数据职责。 */
 class FakeFileSystem extends FileSystem {
   files = new Map<string, string>()
 
