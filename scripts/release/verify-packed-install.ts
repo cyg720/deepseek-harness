@@ -15,6 +15,14 @@
  * published dependency ranges resolve. A workspace link or a stale `lib/` in the
  * checkout cannot stand in for a missing file here.
  */
+/**
+ * 文件职责：实现 verify-packed-install.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
+ * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
+ * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
+ * 逻辑维度：解析参数与仓库状态，执行检查或发布步骤，再输出诊断和退出状态。
+ * 关键边界：发布与 Git 操作会改变外部状态；失败必须显式停止；路径和命令输出不可信。
+ * 新手阅读建议：先看入口参数和只读检查，再读状态变更步骤，最后关注回滚、错误码和平台差异。
+ */
 
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -31,7 +39,9 @@ import { packedIdentity } from './tarball.ts'
  * @param consumerRoot - the throwaway consumer directory.
  * @returns The child environment.
  */
+/** 中文说明：函数 consumerEnvironment 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function consumerEnvironment(consumerRoot: string): NodeJS.ProcessEnv {
+  /** 中文说明：变量 environment 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const environment = { ...process.env }
   delete environment.npm_config_user_agent
   delete environment.NPM_CONFIG_USER_AGENT
@@ -52,12 +62,18 @@ function consumerEnvironment(consumerRoot: string): NodeJS.ProcessEnv {
  * @param directories - absolute directories holding packed tarballs.
  * @returns Package name to tarball file URL, and the version each carries.
  */
+/** 中文说明：函数 packedDependencies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packedDependencies(directories: readonly string[]): Map<string, { url: string; version: string }> {
+  /** 中文说明：变量 dependencies 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dependencies = new Map<string, { url: string; version: string }>()
+  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const directory of directories) {
+    /** 中文说明：函数值 tarballs 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
     const tarballs = readdirSync(directory).filter(name => name.endsWith('.tgz')).sort()
     if (tarballs.length === 0) throw new Error(`${directory} holds no packed tarball`)
+    /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const filename of tarballs) {
+      /** 中文说明：变量 tarball 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const tarball = join(directory, filename)
       const { name, version } = packedIdentity(tarball)
       dependencies.set(name, { url: pathToFileURL(tarball).href, version })
@@ -67,6 +83,7 @@ function packedDependencies(directories: readonly string[]): Map<string, { url: 
 }
 
 /** Install every tarball under `--from` and drive the `--family` entry. */
+/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   const { values } = parseArgs({
     options: { family: { type: 'string' }, from: { type: 'string', multiple: true } },
@@ -76,18 +93,24 @@ function main(): void {
     throw new Error('usage: verify-packed-install.ts --family <dsh|vendor> --from <packed directory> [--from ...]')
   }
 
+  /** 中文说明：变量 family 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const family = releaseFamily(values.family)
+  /** 中文说明：变量 entry 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entry = family.installedEntry
   if (entry === undefined) {
     console.log(`release verify-packed-install: family ${family.id} publishes no executable, nothing to drive`)
     return
   }
 
+  /** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = process.cwd()
+  /** 中文说明：函数值 packed 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const packed = packedDependencies(values.from.map(directory => resolve(root, directory)))
+  /** 中文说明：变量 expected 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const expected = packed.get(entry.packageName)
   if (expected === undefined) throw new Error(`${entry.packageName} is not among the packed tarballs`)
 
+  /** 中文说明：变量 consumerRoot 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const consumerRoot = mkdtempSync(join(tmpdir(), `dsh-packed-${family.id}-`))
   try {
     writeFileSync(join(consumerRoot, 'package.json'), `${JSON.stringify({
@@ -97,6 +120,7 @@ function main(): void {
       dependencies: Object.fromEntries([...packed].map(([name, entryPacked]) => [name, entryPacked.url])),
     }, null, 2)}\n`)
 
+    /** 中文说明：变量 environment 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const environment = consumerEnvironment(consumerRoot)
     console.log(`release verify-packed-install: installing ${String(packed.size)} tarball(s) into ${consumerRoot}`)
     // Optional dependencies are omitted: the Landlock platform packages behind
@@ -107,7 +131,9 @@ function main(): void {
     capture('npm', ['install', '--no-audit', '--no-fund', '--package-lock=false', '--omit=optional'],
       { cwd: consumerRoot, env: environment })
 
+    /** 中文说明：变量 bin 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bin = join(consumerRoot, 'node_modules', ...entry.packageName.split('/'), entry.binPath)
+    /** 中文说明：变量 version 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const version = capture(process.execPath, [bin, '--version'], { cwd: consumerRoot, env: environment })
     if (version !== expected.version) {
       throw new Error(`installed ${entry.packageName} --version reported ${JSON.stringify(version)}, expected ${expected.version}`)

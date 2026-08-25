@@ -21,33 +21,60 @@ if TYPE_CHECKING:
     from deepseek_harness import RunResult
 
 
+# 中文说明：变量 EXPECTED_TEXT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 EXPECTED_TEXT = "runtime smoke ok"
+# 中文说明：变量 CODE_PROMPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 CODE_PROMPT = "Use run_code to compute the packaged worker smoke value."
+# 中文说明：变量 CODE_WORKER_TEXT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 CODE_WORKER_TEXT = "code worker smoke ok"
+# 中文说明：变量 WORKFLOW_PROMPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 WORKFLOW_PROMPT = "Use workflow to compute the packaged worker smoke value without agents."
+# 中文说明：变量 WORKFLOW_WORKER_TEXT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 WORKFLOW_WORKER_TEXT = "workflow worker smoke ok"
+# 中文说明：变量 MINIMAL_PROMPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MINIMAL_PROMPT = "Exercise the packaged minimal agent's persistent Bash and string-replacement editor."
+# 中文说明：变量 MINIMAL_TEXT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MINIMAL_TEXT = "minimal agent smoke ok"
+# 中文说明：变量 MINIMAL_EDITOR_PATH_PREFIX 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MINIMAL_EDITOR_PATH_PREFIX = "Editor path: "
+# 中文说明：变量 FS_SEARCH_PROMPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 FS_SEARCH_PROMPT = "Exercise the packaged filesystem search tools."
+# 中文说明：变量 FS_SEARCH_TEXT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 FS_SEARCH_TEXT = "filesystem search smoke ok"
+# 中文说明：变量 FS_SEARCH_MARKER 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 FS_SEARCH_MARKER = "PACKAGED_FS_SEARCH_OK"
+# 中文说明：变量 MCP_PROMPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MCP_PROMPT = "Exercise the packaged MCP client with one external stdio server."
+# 中文说明：变量 MCP_TEXT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MCP_TEXT = "MCP client smoke ok"
+# 中文说明：变量 MINIMAL_CORDIS 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MINIMAL_CORDIS = (
     Path(__file__).resolve().parent.parent / "examples" / "jsonrpc-agent" / "minimal.cordis.yml"
 )
+# 中文说明：变量 MINIMAL_BASH_COMMAND 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MINIMAL_BASH_COMMAND = (
     "counter=$(( ${counter:-0} + 1 )); export counter; "
     "printf 'COUNT=%s CWD=%s\\n' \"$counter\" \"$PWD\"; "
     "if [ \"$counter\" -eq 1 ]; then cd /tmp; fi"
 )
+# 中文说明：变量 SNAPSHOT_PROMPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 SNAPSHOT_PROMPT = "Run the advanced packaged-runtime snapshot scenario."
+# 中文说明：变量 SNAPSHOT_SESSION_ID 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 SNAPSHOT_SESSION_ID = "advanced-executable"
+# 中文说明：变量 SNAPSHOT_DIRECT_CHILD_PROMPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 SNAPSHOT_DIRECT_CHILD_PROMPT = "Reply with exactly DIRECT_CHILD_OK and nothing else."
+# 中文说明：变量 SNAPSHOT_WORKFLOW_CHILD_PROMPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 SNAPSHOT_WORKFLOW_CHILD_PROMPT = "Reply with exactly WORKFLOW_CHILD_OK and nothing else."
+# 中文说明：变量 SNAPSHOT_FINAL_TEXT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 SNAPSHOT_FINAL_TEXT = "ADVANCED_EXECUTABLE_OK"
+# 中文说明：变量 SNAPSHOT_PLUGIN_CODE 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 SNAPSHOT_PLUGIN_CODE = """\
+# 文件职责：实现 smoke-python-runtime.py 覆盖的 Python Runtime 冒烟校验职责。
+# 技术维度：使用 Python、子进程、JSON-RPC 与标准输入输出通信。
+# 产品维度：保障发布前 Python SDK 能启动捆绑运行时并完成最小协议往返。
+# 逻辑维度：定位运行时，启动进程，发送测试请求，再核对响应和退出状态。
+# 关键边界：运行时产物可能缺失；进程输出不可信；超时或协议错误必须显式失败。
+# 新手阅读建议：先看启动参数，再读请求与响应处理，最后关注超时、退出和清理。
 return (ctx) => {
   harness.registerTool(ctx, harness.defineTool({
     name: 'snapshot_double',
@@ -65,23 +92,30 @@ return (ctx) => {
   }))
 }
 """
+# 中文说明：变量 SNAPSHOT_WORKFLOW_SCRIPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 SNAPSHOT_WORKFLOW_SCRIPT = (
     "phase('Delegate')\n"
     f"const reply = await agent('{SNAPSHOT_WORKFLOW_CHILD_PROMPT}', {{ label: 'workflow-child' }})\n"
     "return { reply }"
 )
+# 中文说明：变量 ADVANCED_SNAPSHOT_DIRECTORY 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 ADVANCED_SNAPSHOT_DIRECTORY = (
     Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "advanced"
 )
+# 中文说明：变量 ADVANCED_SNAPSHOT_FILENAMES 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 ADVANCED_SNAPSHOT_FILENAMES = ("result.json", "session.jsonl", "session.1.jsonl", "session.2.jsonl")
+# 中文说明：变量 MINIMAL_SNAPSHOT_DIRECTORY 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MINIMAL_SNAPSHOT_DIRECTORY = (
     Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "minimal"
 )
+# 中文说明：变量 MINIMAL_SNAPSHOT_FILENAMES 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MINIMAL_SNAPSHOT_FILENAMES = ("model-visible.json",)
 # The agent loop's dynamic runtime-context snapshot is the one model-visible message this
 # expected output cannot carry: the same composition emits it on macOS and not on Linux
 # (deepseek-harness#2488), and the file must replay on both. Everything else is compared.
+# 中文说明：变量 RUNTIME_CONTEXT_PREFIX 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 RUNTIME_CONTEXT_PREFIX = "Current runtime context"
+# 中文说明：变量 CUSTOM_CORDIS 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 CUSTOM_CORDIS = """\
 - id: sdk-jsonrpc-server
   name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
@@ -122,6 +156,7 @@ CUSTOM_CORDIS = """\
 - id: cordis-tool
   name: '@deepseek-ai/dsh-tool-cordis'
 """
+# 中文说明：变量 FS_SEARCH_CORDIS 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 FS_SEARCH_CORDIS = """\
 - id: sdk-jsonrpc-server
   name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
@@ -145,6 +180,7 @@ FS_SEARCH_CORDIS = """\
   config:
     sampleOverCapGlobResults: false
 """
+# 中文说明：变量 MCP_SERVER_SCRIPT 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
 MCP_SERVER_SCRIPT = """\
 import json
 import os
@@ -223,6 +259,7 @@ for line in sys.stdin:
 """
 
 
+# 中文说明：函数 mcp_cordis 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def mcp_cordis(server_script: Path) -> str:
     """Build an external config that mounts the packaged MCP client."""
     return json.dumps([
@@ -263,46 +300,61 @@ def mcp_cordis(server_script: Path) -> str:
 class MockModelHandler(BaseHTTPRequestHandler):
     """Return deterministic text, worker, and orchestration completions."""
 
+    # 中文说明：变量 requests 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     requests: list[dict[str, object]] = []
 
+    # 中文说明：函数 do_POST 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def do_POST(self) -> None:
+        # 中文说明：变量 content_length 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         content_length = int(self.headers.get("content-length", "0"))
+        # 中文说明：变量 body 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         body = json.loads(self.rfile.read(content_length))
         self.requests.append(body)
         self.send_response(200)
         self.send_header("content-type", "text/event-stream")
         self.end_headers()
+        # 中文说明：变量 chunks 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         chunks = completion_chunks(body)
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for chunk in chunks:
             self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
         self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()
 
+    # 中文说明：函数 log_message 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def log_message(self, _format: str, *_args: object) -> None:
         return
 
 
+# 中文说明：函数 completion_chunks 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
     """Choose the next deterministic model response from request history."""
+    # 中文说明：变量 messages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     messages = body.get("messages")
     if not isinstance(messages, list) or not messages:
         raise AssertionError(f"model request has no messages: {body}")
+    # 中文说明：变量 latest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     latest = messages[-1]
     if not isinstance(latest, dict):
         raise AssertionError(f"model request has an invalid latest message: {body}")
 
     if latest.get("role") == "tool":
         call_id, tool_name = latest_tool_call(messages)
+        # 中文说明：变量 tool_text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         tool_text = message_text(latest.get("content"))
+        # 中文说明：变量 mcp 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         mcp = mcp_tool_followup(call_id, tool_name, tool_text)
         if mcp is not None:
             return mcp
+        # 中文说明：变量 fs_search 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         fs_search = fs_search_tool_followup(call_id, tool_name, tool_text)
         if fs_search is not None:
             return fs_search
+        # 中文说明：变量 minimal 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         minimal = minimal_tool_followup(body, call_id, tool_name, tool_text)
         if minimal is not None:
             return minimal
+        # 中文说明：变量 advanced 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         advanced = advanced_tool_followup(body, call_id, tool_name, tool_text)
         if advanced is not None:
             return advanced
@@ -314,14 +366,18 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
             return text_chunks(WORKFLOW_WORKER_TEXT)
         raise AssertionError(f"unexpected tool follow-up: {tool_name}")
 
+    # 中文说明：变量 user_prompts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     user_prompts = [
         message_text(message.get("content"))
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for message in reversed(messages)
         if isinstance(message, dict) and message.get("role") == "user"
     ]
+    # 中文说明：变量 minimal_prompt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     minimal_prompt = next(
         (
             prompt
+            # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
             for prompt in user_prompts
             if prompt.startswith(f"{MINIMAL_PROMPT}\n{MINIMAL_EDITOR_PATH_PREFIX}")
         ),
@@ -335,6 +391,7 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
             "bash",
             {"command": MINIMAL_BASH_COMMAND},
         )
+    # 中文说明：变量 scenario_prompts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     scenario_prompts = {
         SNAPSHOT_DIRECT_CHILD_PROMPT,
         SNAPSHOT_WORKFLOW_CHILD_PROMPT,
@@ -344,6 +401,7 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         FS_SEARCH_PROMPT,
         MCP_PROMPT,
     }
+    # 中文说明：变量 prompt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     prompt = next(
         (candidate for candidate in user_prompts if candidate in scenario_prompts),
         message_text(latest.get("content")),
@@ -402,6 +460,7 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
     return text_chunks(EXPECTED_TEXT)
 
 
+# 中文说明：函数 mcp_tool_followup 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def mcp_tool_followup(
     call_id: str,
     tool_name: str,
@@ -415,6 +474,7 @@ def mcp_tool_followup(
     return text_chunks(MCP_TEXT)
 
 
+# 中文说明：函数 fs_search_tool_followup 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def fs_search_tool_followup(
     call_id: str,
     tool_name: str,
@@ -438,6 +498,7 @@ def fs_search_tool_followup(
     raise AssertionError(f"unexpected filesystem-search follow-up: {call_id} {tool_name}: {tool_text}")
 
 
+# 中文说明：函数 minimal_tool_followup 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def minimal_tool_followup(
     body: dict[str, object],
     call_id: str,
@@ -458,14 +519,18 @@ def minimal_tool_followup(
     if call_id == "minimal-bash-2" and tool_name == "bash":
         if "COUNT=2 CWD=/tmp" not in tool_text:
             raise AssertionError(f"persistent bash did not retain state: {tool_text}")
+        # 中文说明：变量 messages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         messages = body.get("messages")
         if not isinstance(messages, list):
             raise AssertionError("persistent editor smoke request has no messages")
+        # 中文说明：变量 editor_path 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         editor_path = next(
             (
                 text.split(MINIMAL_EDITOR_PATH_PREFIX, 1)[1].strip()
+                # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
                 for message in messages
                 if isinstance(message, dict) and message.get("role") == "user"
+                # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
                 for text in [message_text(message.get("content"))]
                 if MINIMAL_EDITOR_PATH_PREFIX in text
             ),
@@ -489,6 +554,7 @@ def minimal_tool_followup(
     raise AssertionError(f"unexpected minimal-agent follow-up: {call_id} {tool_name}: {tool_text}")
 
 
+# 中文说明：函数 advanced_tool_followup 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def advanced_tool_followup(
     body: dict[str, object],
     call_id: str,
@@ -567,6 +633,7 @@ def advanced_tool_followup(
     raise AssertionError(f"unexpected advanced tool follow-up: {call_id} {tool_name}: {tool_text}")
 
 
+# 中文说明：函数 text_chunks 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def text_chunks(text: str) -> list[dict[str, object]]:
     """Build a complete streaming text response."""
     return [
@@ -579,6 +646,7 @@ def text_chunks(text: str) -> list[dict[str, object]]:
     ]
 
 
+# 中文说明：函数 tool_call_chunks 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def tool_call_chunks(call_id: str, name: str, arguments: dict[str, object]) -> list[dict[str, object]]:
     """Build a complete streaming function-call response."""
     return [
@@ -602,18 +670,24 @@ def tool_call_chunks(call_id: str, name: str, arguments: dict[str, object]) -> l
     ]
 
 
+# 中文说明：函数 latest_tool_call 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def latest_tool_call(messages: list[object]) -> tuple[str, str]:
     """Find the assistant call id and name paired with the latest tool result."""
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for message in reversed(messages[:-1]):
         if not isinstance(message, dict):
             continue
+        # 中文说明：变量 calls 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         calls = message.get("tool_calls")
         if not isinstance(calls, list):
             continue
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for call in reversed(calls):
             if not isinstance(call, dict):
                 continue
+            # 中文说明：变量 function 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             function = call.get("function")
+            # 中文说明：变量 call_id 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             call_id = call.get("id")
             if (
                 isinstance(call_id, str)
@@ -624,6 +698,7 @@ def latest_tool_call(messages: list[object]) -> tuple[str, str]:
     raise AssertionError(f"tool result has no preceding assistant tool call: {messages}")
 
 
+# 中文说明：函数 message_text 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def message_text(content: object) -> str:
     """Read OpenAI text content in either string or block-list form."""
     if isinstance(content, str):
@@ -631,35 +706,44 @@ def message_text(content: object) -> str:
     if isinstance(content, list):
         return "".join(
             block.get("text", "")
+            # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
             for block in content
             if isinstance(block, dict) and isinstance(block.get("text"), str)
         )
     return ""
 
 
+# 中文说明：函数 advertised_tool_names 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def advertised_tool_names(body: dict[str, object]) -> set[str]:
     """Return the model-facing tool names advertised on one request."""
+    # 中文说明：变量 tools 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     tools = body.get("tools")
     if not isinstance(tools, list):
         raise AssertionError(f"model request advertised no tools: {body}")
+    # 中文说明：变量 names 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     names: set[str] = set()
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for tool in tools:
         if not isinstance(tool, dict):
             continue
+        # 中文说明：变量 function 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         function = tool.get("function")
         if isinstance(function, dict) and isinstance(function.get("name"), str):
             names.add(function["name"])
     return names
 
 
+# 中文说明：函数 assert_advertised_tool 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def assert_advertised_tool(body: dict[str, object], expected: str) -> None:
     """Require the packaged deployment to expose the requested tool."""
+    # 中文说明：变量 names 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     names = advertised_tool_names(body)
     if expected not in names:
         raise AssertionError(f"model request did not advertise {expected}: {names}")
 
 
 class MockModel:
+    # 中文说明：函数 __enter__ 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def __enter__(self) -> "MockModel":
         MockModelHandler.requests.clear()
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MockModelHandler)
@@ -669,21 +753,27 @@ class MockModel:
         self.url = f"http://{host}:{port}"
         return self
 
+    # 中文说明：函数 __exit__ 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def __exit__(self, _exc_type: object, _exc: object, _tb: object) -> None:
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=5)
 
 
+# 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def main() -> None:
+    # 中文说明：变量 parser 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--scenario",
+        # 中文说明：变量 choices 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         choices=("all", "sdk-default", "sdk-custom", "sdk-minimal", "sdk-fs-search", "sdk-mcp", "sdk-snapshot", "direct"),
+        # 中文说明：变量 default 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         default="all",
     )
     parser.add_argument("--exe", type=Path)
     parser.add_argument("--update-snapshots", action="store_true")
+    # 中文说明：变量 args 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     args = parser.parse_args()
     if args.scenario in {"all", "sdk-custom", "sdk-minimal", "sdk-fs-search", "sdk-snapshot", "direct"} and args.exe is None:
         parser.error("--exe is required for custom, minimal, snapshot, and direct scenarios")
@@ -717,47 +807,74 @@ def main() -> None:
     print(f"smoke-python-runtime: {args.scenario} passed")
 
 
+# 中文说明：函数 smoke_sdk_default 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def smoke_sdk_default(base_url: str) -> None:
     from deepseek_harness import DeepSeekHarness
 
     with tempfile.TemporaryDirectory(prefix="dsh-sdk-default-") as temporary:
+        # 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         root = Path(temporary).resolve()
+        # 中文说明：变量 sessions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         sessions = root / "sessions"
         with DeepSeekHarness(
+            # 中文说明：变量 provider 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             provider="deepseek-official",
+            # 中文说明：变量 model 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             model="smoke-model",
+            # 中文说明：变量 cwd 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cwd=str(root),
+            # 中文说明：变量 session_root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             session_root=str(sessions),
+            # 中文说明：变量 api_key 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             api_key="sk-keyless-smoke",
+            # 中文说明：变量 base_url 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             base_url=base_url,
+            # 中文说明：变量 request_timeout_seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             request_timeout_seconds=60,
         ) as harness:
+            # 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             result = harness.run("reply with the smoke text", session_id="default-smoke")
         assert result.final_response == EXPECTED_TEXT, result.final_response
         assert_zstd_session_log(sessions)
 
 
+# 中文说明：函数 smoke_sdk_custom 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def smoke_sdk_custom(base_url: str, executable: Path) -> None:
     from deepseek_harness import DeepSeekHarness
 
     with tempfile.TemporaryDirectory(prefix="dsh-sdk-custom-") as temporary:
+        # 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         root = Path(temporary).resolve()
+        # 中文说明：变量 sessions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         sessions = root / "sessions"
+        # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cordis = root / "cordis.yml"
         cordis.write_text(CUSTOM_CORDIS)
         with DeepSeekHarness(
+            # 中文说明：变量 provider 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             provider="deepseek-official",
+            # 中文说明：变量 model 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             model="smoke-model",
+            # 中文说明：变量 cwd 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cwd=str(root),
+            # 中文说明：变量 session_root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             session_root=str(sessions),
+            # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cordis=str(cordis),
+            # 中文说明：变量 runtime_bin 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             runtime_bin=str(executable),
+            # 中文说明：变量 api_key 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             api_key="sk-keyless-smoke",
+            # 中文说明：变量 base_url 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             base_url=base_url,
+            # 中文说明：变量 request_timeout_seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             request_timeout_seconds=60,
         ) as harness:
+            # 中文说明：变量 text_result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             text_result = harness.run("reply with the smoke text", session_id="custom-smoke")
+            # 中文说明：变量 code_result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             code_result = harness.run(CODE_PROMPT, session_id="custom-smoke")
+            # 中文说明：变量 workflow_result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             workflow_result = harness.run(WORKFLOW_PROMPT, session_id="custom-smoke")
         assert text_result.final_response == EXPECTED_TEXT, text_result.final_response
         assert code_result.final_response == CODE_WORKER_TEXT, code_result.final_response
@@ -765,30 +882,47 @@ def smoke_sdk_custom(base_url: str, executable: Path) -> None:
         assert_session_log(sessions, root, EXPECTED_TEXT, CODE_WORKER_TEXT, WORKFLOW_WORKER_TEXT)
 
 
+# 中文说明：函数 smoke_sdk_minimal 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def smoke_sdk_minimal(base_url: str, executable: Path, update_snapshots: bool) -> None:
     """Exercise the checked-in minimal composition through the packaged executable."""
     from deepseek_harness import DeepSeekHarness
 
     # One mock model serves every scenario of a run, so the snapshot takes this turn's slice.
+    # 中文说明：变量 first_request 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     first_request = len(MockModelHandler.requests)
     with tempfile.TemporaryDirectory(prefix="dsh-sdk-minimal-") as temporary:
+        # 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         root = Path(temporary).resolve()
+        # 中文说明：变量 editor_path 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         editor_path = root / "created.txt"
+        # 中文说明：变量 prompt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         prompt = f"{MINIMAL_PROMPT}\n{MINIMAL_EDITOR_PATH_PREFIX}{editor_path}"
+        # 中文说明：变量 sessions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         sessions = root / "sessions"
         with DeepSeekHarness(
+            # 中文说明：变量 provider 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             provider="deepseek-official",
+            # 中文说明：变量 model 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             model="smoke-model",
+            # 中文说明：变量 cwd 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cwd=str(root),
+            # 中文说明：变量 session_root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             session_root=str(sessions),
+            # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cordis=str(MINIMAL_CORDIS),
+            # 中文说明：变量 runtime_bin 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             runtime_bin=str(executable),
+            # 中文说明：变量 api_key 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             api_key="sk-keyless-smoke",
+            # 中文说明：变量 base_url 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             base_url=base_url,
+            # 中文说明：变量 request_timeout_seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             request_timeout_seconds=60,
         ) as harness:
+            # 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             result = harness.run(prompt, session_id="minimal-agent-smoke")
 
+        # 中文说明：变量 event_text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         event_text = json.dumps(result.events)
         if MINIMAL_TEXT not in event_text:
             raise AssertionError(f"minimal agent run emitted no final response: {result.events}")
@@ -796,62 +930,93 @@ def smoke_sdk_minimal(base_url: str, executable: Path, update_snapshots: bool) -
             raise AssertionError(f"packaged editor wrote unexpected content: {editor_path.read_text()!r}")
         assert_session_log(sessions, root, MINIMAL_TEXT, "COUNT=1", "COUNT=2 CWD=/tmp")
 
+        # 中文说明：变量 files 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         files = build_minimal_snapshot_files(MockModelHandler.requests[first_request:], root)
         compare_snapshot_files(
             files, update_snapshots, MINIMAL_SNAPSHOT_DIRECTORY, MINIMAL_SNAPSHOT_FILENAMES,
         )
 
 
+# 中文说明：函数 smoke_sdk_fs_search 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def smoke_sdk_fs_search(base_url: str, executable: Path) -> None:
     """Exercise real grep and glob spawns through the packaged executable."""
     from deepseek_harness import DeepSeekHarness
 
     with tempfile.TemporaryDirectory(prefix="dsh-sdk-fs-search-") as temporary:
+        # 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         root = Path(temporary).resolve()
         (root / "needle.txt").write_text(f"{FS_SEARCH_MARKER}\n")
+        # 中文说明：变量 sessions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         sessions = root / "sessions"
+        # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cordis = root / "cordis.yml"
         cordis.write_text(FS_SEARCH_CORDIS)
         with DeepSeekHarness(
+            # 中文说明：变量 provider 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             provider="deepseek-official",
+            # 中文说明：变量 model 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             model="smoke-model",
+            # 中文说明：变量 cwd 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cwd=str(root),
+            # 中文说明：变量 session_root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             session_root=str(sessions),
+            # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cordis=str(cordis),
+            # 中文说明：变量 runtime_bin 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             runtime_bin=str(executable),
+            # 中文说明：变量 api_key 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             api_key="sk-keyless-smoke",
+            # 中文说明：变量 base_url 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             base_url=base_url,
+            # 中文说明：变量 request_timeout_seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             request_timeout_seconds=60,
         ) as harness:
+            # 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             result = harness.run(FS_SEARCH_PROMPT, session_id="fs-search-smoke")
 
         assert result.final_response == FS_SEARCH_TEXT, result.final_response
         assert_session_log(sessions, root, FS_SEARCH_TEXT, FS_SEARCH_MARKER, "needle.txt")
 
 
+# 中文说明：函数 smoke_sdk_mcp 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def smoke_sdk_mcp(base_url: str, executable: Path | None) -> None:
     """Discover and call an external stdio MCP tool through the packaged client."""
     from deepseek_harness import DeepSeekHarness
 
     with tempfile.TemporaryDirectory(prefix="dsh-sdk-mcp-") as temporary:
+        # 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         root = Path(temporary).resolve()
+        # 中文说明：变量 sessions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         sessions = root / "sessions"
+        # 中文说明：变量 server_script 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         server_script = root / "mcp_server.py"
         server_script.write_text(MCP_SERVER_SCRIPT)
+        # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cordis = root / "cordis.yml"
         cordis.write_text(mcp_cordis(server_script))
+        # 中文说明：变量 discovery_log 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         discovery_log = server_script.with_suffix(".log")
         with DeepSeekHarness(
+            # 中文说明：变量 provider 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             provider="deepseek-official",
+            # 中文说明：变量 model 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             model="smoke-model",
+            # 中文说明：变量 cwd 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cwd=str(root),
+            # 中文说明：变量 session_root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             session_root=str(sessions),
+            # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cordis=str(cordis),
+            # 中文说明：变量 runtime_bin 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             runtime_bin=None if executable is None else str(executable),
+            # 中文说明：变量 api_key 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             api_key="sk-keyless-smoke",
+            # 中文说明：变量 base_url 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             base_url=base_url,
+            # 中文说明：变量 request_timeout_seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             request_timeout_seconds=60,
         ) as harness:
+            # 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             result = harness.run(MCP_PROMPT, session_id="mcp-smoke")
 
         assert result.final_response == MCP_TEXT, result.final_response
@@ -864,37 +1029,55 @@ def smoke_sdk_mcp(base_url: str, executable: Path | None) -> None:
         assert_session_log(sessions, root, MCP_TEXT, "mcp__fixture__add", "42")
 
 
+# 中文说明：函数 smoke_sdk_snapshot 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) -> None:
     """Drive and compare the advanced SDK/executable behavioral snapshot."""
     from deepseek_harness import DeepSeekHarness
 
     with tempfile.TemporaryDirectory(prefix="dsh-sdk-snapshot-") as temporary:
+        # 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         root = Path(temporary).resolve()
+        # 中文说明：变量 sessions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         sessions = root / "sessions"
+        # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cordis = root / "cordis.yml"
         cordis.write_text(CUSTOM_CORDIS)
         with DeepSeekHarness(
+            # 中文说明：变量 provider 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             provider="deepseek-official",
+            # 中文说明：变量 model 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             model="smoke-model",
+            # 中文说明：变量 cwd 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cwd=str(root),
+            # 中文说明：变量 session_root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             session_root=str(sessions),
+            # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cordis=str(cordis),
+            # 中文说明：变量 runtime_bin 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             runtime_bin=str(executable),
+            # 中文说明：变量 api_key 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             api_key="sk-keyless-smoke",
+            # 中文说明：变量 base_url 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             base_url=base_url,
+            # 中文说明：变量 request_timeout_seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             request_timeout_seconds=60,
         ) as harness:
+            # 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             result = harness.run(SNAPSHOT_PROMPT, session_id=SNAPSHOT_SESSION_ID)
 
         assert result.final_response == SNAPSHOT_FINAL_TEXT, result.final_response
+        # 中文说明：变量 methods 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         methods = [notification.method for notification in result.notifications]
         if methods.count("subagent.started") != 2 or methods.count("subagent.finished") != 2:
             raise AssertionError(f"advanced snapshot emitted unexpected subagent lifecycle: {methods}")
         if not any(event.get("type") == "tool/code-dispatch" for event in result.events):
             raise AssertionError("advanced snapshot emitted no tool/code-dispatch event")
 
+        # 中文说明：变量 logs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         logs = read_session_logs(sessions)
+        # 中文说明：变量 child_ids 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         child_ids = snapshot_child_ids(result)
+        # 中文说明：变量 expected_ids 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         expected_ids = {SNAPSHOT_SESSION_ID, *child_ids}
         if set(logs) != expected_ids:
             raise AssertionError(f"advanced snapshot expected parent plus two child logs: {sorted(logs)}")
@@ -903,18 +1086,24 @@ def smoke_sdk_snapshot(base_url: str, executable: Path, update_snapshots: bool) 
         if "WORKFLOW_CHILD_OK" not in render_jsonl(logs[child_ids[1]]):
             raise AssertionError("second advanced child log has no workflow-subagent result")
 
+        # 中文说明：变量 files 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         files = build_snapshot_files(result, logs, child_ids, root)
         compare_snapshot_files(
             files, update_snapshots, ADVANCED_SNAPSHOT_DIRECTORY, ADVANCED_SNAPSHOT_FILENAMES,
         )
 
 
+# 中文说明：函数 smoke_direct 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def smoke_direct(base_url: str, executable: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="dsh-direct-") as temporary:
+        # 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         root = Path(temporary).resolve()
+        # 中文说明：变量 sessions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         sessions = root / "sessions"
+        # 中文说明：变量 cordis 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cordis = root / "cordis.yml"
         cordis.write_text(CUSTOM_CORDIS)
+        # 中文说明：变量 environment 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         environment = {
             **os.environ,
             "DSH_CORDIS_CONFIG": str(cordis),
@@ -923,6 +1112,7 @@ def smoke_direct(base_url: str, executable: Path) -> None:
             "DEEPSEEK_API_KEY": "sk-keyless-smoke",
             "DEEPSEEK_BASE_URL": base_url,
         }
+        # 中文说明：变量 peer 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         peer = RuntimePeer([str(executable)], root, environment)
         try:
             peer.send({"jsonrpc": "2.0", "id": "initialize", "method": "initialize", "params": {"cwd": str(root), "provider": "deepseek-official", "model": "smoke-model"}})
@@ -933,9 +1123,11 @@ def smoke_direct(base_url: str, executable: Path) -> None:
                 "method": "session/prompt",
                 "params": {"sessionId": "direct-smoke", "contentBlocks": [{"type": "text", "text": "reply with the smoke text"}]},
             })
+            # 中文说明：变量 messages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             messages = peer.read_until(lambda message: message.get("id") == "prompt")
             if not any(is_idle_notification(message) for message in messages):
                 messages.extend(peer.read_until(is_idle_notification))
+            # 中文说明：变量 event_text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             event_text = json.dumps(messages)
             if EXPECTED_TEXT not in event_text:
                 raise AssertionError(f"direct runtime emitted no final response: {messages}")
@@ -946,8 +1138,10 @@ def smoke_direct(base_url: str, executable: Path) -> None:
         assert_session_log(sessions, root, EXPECTED_TEXT)
 
 
+# 中文说明：函数 is_idle_notification 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def is_idle_notification(message: dict[str, object]) -> bool:
     """Return whether a JSON-RPC notification marks a session idle."""
+    # 中文说明：变量 params 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     params = message.get("params")
     return (
         message.get("method") == "session.status"
@@ -957,16 +1151,25 @@ def is_idle_notification(message: dict[str, object]) -> bool:
 
 
 class RuntimePeer:
+    # 中文说明：函数 __init__ 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def __init__(self, argv: list[str], cwd: Path, environment: dict[str, str]) -> None:
         self.process = subprocess.Popen(
             argv,
+            # 中文说明：变量 cwd 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             cwd=cwd,
+            # 中文说明：变量 env 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             env=environment,
+            # 中文说明：变量 stdin 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             stdin=subprocess.PIPE,
+            # 中文说明：变量 stdout 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             stdout=subprocess.PIPE,
+            # 中文说明：变量 stderr 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             stderr=subprocess.PIPE,
+            # 中文说明：变量 text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             text=True,
+            # 中文说明：变量 encoding 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             encoding="utf-8",
+            # 中文说明：变量 bufsize 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             bufsize=1,
         )
         self.stdout: queue.Queue[str | None] = queue.Queue()
@@ -974,23 +1177,29 @@ class RuntimePeer:
         threading.Thread(target=self._read_stdout, daemon=True).start()
         threading.Thread(target=self._read_stderr, daemon=True).start()
 
+    # 中文说明：函数 send 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def send(self, message: dict[str, object]) -> None:
         if self.process.stdin is None:
             raise RuntimeError("runtime stdin is unavailable")
         self.process.stdin.write(json.dumps(message) + "\n")
         self.process.stdin.flush()
 
+    # 中文说明：函数 read_until 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def read_until(self, predicate: Callable[[dict[str, object]], bool]) -> list[dict[str, object]]:
+        # 中文说明：变量 deadline 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         deadline = time.monotonic() + 60
+        # 中文说明：变量 messages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         messages: list[dict[str, object]] = []
         while time.monotonic() < deadline:
             try:
+                # 中文说明：变量 line 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
                 line = self.stdout.get(timeout=min(0.25, deadline - time.monotonic()))
             except queue.Empty:
                 continue
             if line is None:
                 raise RuntimeError(f"runtime exited before expected message; stderr: {''.join(self.stderr)}")
             try:
+                # 中文说明：变量 message 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
                 message = json.loads(line)
             except json.JSONDecodeError:
                 continue
@@ -999,6 +1208,7 @@ class RuntimePeer:
                 return messages
         raise TimeoutError(f"runtime timed out; messages={messages}; stderr={''.join(self.stderr)}")
 
+    # 中文说明：函数 close 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def close(self) -> None:
         if self.process.stdin is not None and not self.process.stdin.closed:
             self.process.stdin.close()
@@ -1010,32 +1220,43 @@ class RuntimePeer:
         if self.process.returncode not in {0, -15}:
             raise RuntimeError(f"runtime exited {self.process.returncode}; stderr: {''.join(self.stderr)}")
 
+    # 中文说明：函数 _read_stdout 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def _read_stdout(self) -> None:
         assert self.process.stdout is not None
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for line in self.process.stdout:
             self.stdout.put(line)
         self.stdout.put(None)
 
+    # 中文说明：函数 _read_stderr 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def _read_stderr(self) -> None:
         assert self.process.stderr is not None
         self.stderr.extend(self.process.stderr)
 
 
+# 中文说明：函数 assert_session_log 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def assert_session_log(sessions: Path, cwd: Path, *expected_texts: str) -> None:
+    # 中文说明：变量 logs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     logs = list(sessions.rglob("*.jsonl"))
     if len(logs) != 1:
         raise AssertionError(f"expected one JSONL session log under {sessions}, found {logs}")
+    # 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     lines = logs[0].read_text().splitlines()
+    # 中文说明：变量 header 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     header = json.loads(lines[0])
     if header.get("cwd") != str(cwd):
         raise AssertionError(f"session header cwd is not absolute/canonical: {header}")
+    # 中文说明：变量 rendered 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     rendered = "\n".join(lines)
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for expected in expected_texts:
         if expected not in rendered:
             raise AssertionError(f"session log has no {expected!r} response: {logs[0]}")
 
 
+# 中文说明：函数 assert_zstd_session_log 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def assert_zstd_session_log(sessions: Path) -> None:
+    # 中文说明：变量 logs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     logs = list(sessions.rglob("*.jsonl.zstd"))
     if len(logs) != 1:
         raise AssertionError(f"expected one Zstandard JSONL session log under {sessions}, found {logs}")
@@ -1043,17 +1264,23 @@ def assert_zstd_session_log(sessions: Path) -> None:
         raise AssertionError(f"session log has no Zstandard magic: {logs[0]}")
 
 
+# 中文说明：函数 read_session_logs 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def read_session_logs(sessions: Path) -> dict[str, list[dict[str, object]]]:
     """Parse every persisted JSONL session into a map keyed by header id."""
+    # 中文说明：变量 logs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     logs: dict[str, list[dict[str, object]]] = {}
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for path in sorted(sessions.rglob("*.jsonl")):
+        # 中文说明：变量 records 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         records = [
             json.loads(line)
+            # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
             for line in path.read_text(encoding="utf-8").splitlines()
             if line
         ]
         if not records or records[0].get("type") != "session":
             raise AssertionError(f"session log has no header: {path}")
+        # 中文说明：变量 session_id 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         session_id = records[0].get("id")
         if not isinstance(session_id, str):
             raise AssertionError(f"session log header has no string id: {path}")
@@ -1063,15 +1290,20 @@ def read_session_logs(sessions: Path) -> dict[str, list[dict[str, object]]]:
     return logs
 
 
+# 中文说明：函数 snapshot_child_ids 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def snapshot_child_ids(result: "RunResult") -> list[str]:
     """Return the two child session ids in their SDK notification order."""
+    # 中文说明：变量 child_ids 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     child_ids: list[str] = []
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for notification in result.notifications:
         if notification.method != "subagent.started":
             continue
+        # 中文说明：变量 payload 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         payload = notification.payload
         if payload.get("parentSessionId") != SNAPSHOT_SESSION_ID:
             continue
+        # 中文说明：变量 child_id 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         child_id = payload.get("childSessionId")
         if isinstance(child_id, str) and child_id not in child_ids:
             child_ids.append(child_id)
@@ -1080,6 +1312,7 @@ def snapshot_child_ids(result: "RunResult") -> list[str]:
     return child_ids
 
 
+# 中文说明：函数 build_minimal_snapshot_files 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def build_minimal_snapshot_files(
     requests: list[dict[str, object]],
     cwd: Path,
@@ -1093,8 +1326,11 @@ def build_minimal_snapshot_files(
     runtime-context snapshot is dropped, because their text differs across the platforms
     this expected output must replay on.
     """
+    # 中文说明：变量 snapshot 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     snapshot = []
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for body in requests:
+        # 中文说明：变量 messages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         messages = body.get("messages")
         if not isinstance(messages, list):
             raise AssertionError(f"minimal model request has no messages: {body}")
@@ -1102,6 +1338,7 @@ def build_minimal_snapshot_files(
             "tools": minimal_snapshot_text(body.get("tools"), cwd),
             "messages": [
                 minimal_snapshot_message(message, cwd)
+                # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
                 for message in messages
                 if not is_runtime_context_message(message)
             ],
@@ -1109,6 +1346,7 @@ def build_minimal_snapshot_files(
     return {"model-visible.json": json.dumps(snapshot, indent=2, ensure_ascii=False) + "\n"}
 
 
+# 中文说明：函数 is_runtime_context_message 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def is_runtime_context_message(message: object) -> bool:
     """Identify the agent loop's dynamic runtime-context snapshot, current or cleared."""
     return (
@@ -1118,14 +1356,17 @@ def is_runtime_context_message(message: object) -> bool:
     )
 
 
+# 中文说明：函数 minimal_snapshot_message 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def minimal_snapshot_message(message: object, cwd: Path) -> dict[str, object]:
     """Reduce one model-visible message to its stable, behavior-carrying parts."""
     if not isinstance(message, dict):
         raise AssertionError(f"minimal model request has an invalid message: {message}")
+    # 中文说明：变量 role 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     role = message.get("role")
     if role in ("system", "user"):
         return {"role": role, "text": minimal_snapshot_text(message_text(message.get("content")), cwd)}
     if role == "assistant":
+        # 中文说明：变量 calls 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         calls = message.get("tool_calls")
         if not isinstance(calls, list):
             raise AssertionError(f"minimal assistant message has no tool calls: {message}")
@@ -1133,6 +1374,7 @@ def minimal_snapshot_message(message: object, cwd: Path) -> dict[str, object]:
             "role": role,
             "toolCalls": [
                 {"id": call.get("id"), "name": (call.get("function") or {}).get("name")}
+                # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
                 for call in calls
                 if isinstance(call, dict)
             ],
@@ -1142,6 +1384,7 @@ def minimal_snapshot_message(message: object, cwd: Path) -> dict[str, object]:
     raise AssertionError(f"minimal model request has an unexpected message role: {message}")
 
 
+# 中文说明：函数 minimal_snapshot_text 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def minimal_snapshot_text(value: object, cwd: Path) -> object:
     """Replace the scenario's temporary working directory everywhere it appears."""
     if isinstance(value, str):
@@ -1153,6 +1396,7 @@ def minimal_snapshot_text(value: object, cwd: Path) -> object:
     return value
 
 
+# 中文说明：函数 build_snapshot_files 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def build_snapshot_files(
     result: "RunResult",
     logs: dict[str, list[dict[str, object]]],
@@ -1160,25 +1404,32 @@ def build_snapshot_files(
     cwd: Path,
 ) -> dict[str, str]:
     """Render the SDK result and three persisted logs into stable expected outputs."""
+    # 中文说明：变量 replacements 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     replacements = [(str(cwd), "{{cwd}}"), (SNAPSHOT_SESSION_ID, "{{parent}}")]
     replacements.append((snapshot_workflow_run_id(result), "{{workflow-run}}"))
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for index, child_id in enumerate(child_ids, start=1):
         replacements.append((child_id, f"{{{{child-{index}}}}}"))
+        # 中文说明：变量 agent_id 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         agent_id = snapshot_agent_id(result, child_id)
         replacements.append((agent_id, f"{{{{agent-{index}}}}}"))
     replacements.sort(key=lambda pair: len(pair[0]), reverse=True)
 
+    # 中文说明：变量 result_value 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     result_value = {
         "session_id": result.session_id,
         "final_response": result.final_response,
         "events": result.events,
         "notifications": [
             {"method": notification.method, "payload": notification.payload}
+            # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
             for notification in result.notifications
         ],
         "session_root": result.session_root,
     }
+    # 中文说明：变量 normalized_result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     normalized_result = normalize_snapshot_value(result_value, replacements)
+    # 中文说明：变量 files 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     files = {
         "result.json": json.dumps(normalized_result, indent=2, ensure_ascii=False) + "\n",
         "session.jsonl": render_jsonl(
@@ -1187,6 +1438,7 @@ def build_snapshot_files(
             ])
         ),
     }
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for index, child_id in enumerate(child_ids, start=1):
         files[f"session.{index}.jsonl"] = render_jsonl(
             project_session_snapshot([
@@ -1196,11 +1448,16 @@ def build_snapshot_files(
     return files
 
 
+# 中文说明：函数 snapshot_workflow_run_id 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def snapshot_workflow_run_id(result: "RunResult") -> str:
     """Return the one workflow run id emitted by the advanced scenario."""
+    # 中文说明：变量 run_ids 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     run_ids: set[str] = set()
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for event in result.events:
+        # 中文说明：变量 event_type 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         event_type = event.get("type")
+        # 中文说明：变量 data 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         data = event.get("data")
         if not isinstance(event_type, str) or not event_type.startswith("tool-workflow/"):
             continue
@@ -1211,30 +1468,38 @@ def snapshot_workflow_run_id(result: "RunResult") -> str:
     return next(iter(run_ids))
 
 
+# 中文说明：函数 snapshot_agent_id 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def snapshot_agent_id(result: "RunResult", child_id: str) -> str:
     """Find the successful subagent id paired with one child session."""
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for notification in result.notifications:
         if notification.method != "subagent.finished":
             continue
+        # 中文说明：变量 payload 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         payload = notification.payload
         if payload.get("childSessionId") != child_id:
             continue
         if payload.get("provider") != "spawn" or payload.get("status") != "ok":
             raise AssertionError(f"advanced child did not finish successfully: {payload}")
+        # 中文说明：变量 agent_id 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         agent_id = payload.get("agentId")
         if isinstance(agent_id, str):
             return agent_id
     raise AssertionError(f"advanced snapshot has no finished agent for child {child_id}")
 
 
+# 中文说明：函数 normalize_snapshot_value 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def normalize_snapshot_value(
     value: object,
     replacements: list[tuple[str, str]],
 ) -> object:
     """Scrub volatile values and bulky request headers without losing behavior."""
     if isinstance(value, str):
+        # 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         normalized = value
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for actual, token in replacements:
+            # 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             normalized = normalized.replace(actual, token)
         return normalized
     if isinstance(value, list):
@@ -1242,8 +1507,10 @@ def normalize_snapshot_value(
     if not isinstance(value, dict):
         return value
 
+    # 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     normalized = {
         key: normalize_snapshot_value(item, replacements)
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for key, item in value.items()
     }
     if normalized.get("type") == "session" and "createdAt" in normalized:
@@ -1256,42 +1523,54 @@ def normalize_snapshot_value(
     return normalized
 
 
+# 中文说明：函数 scrub_snapshot_header 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def scrub_snapshot_header(value: dict[object, object]) -> None:
     """Tokenize full request-header bulk while retaining tool names."""
+    # 中文说明：变量 data 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     data = value.get("data")
     if not isinstance(data, dict):
         return
     if value.get("type") == "request/header":
+        # 中文说明：变量 header 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         header = data.get("header")
         if not isinstance(header, dict):
             return
         if "system" in header:
             header["system"] = "{{system}}"
+        # 中文说明：变量 tools 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         tools = header.get("tools")
         if isinstance(tools, list):
             header["tools"] = [
                 tool.get("name") if isinstance(tool, dict) else "{{tools}}"
+                # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
                 for tool in tools
             ]
 
 
+# 中文说明：函数 render_jsonl 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def render_jsonl(records: list[object]) -> str:
     """Render parsed JSON values as compact, newline-terminated JSONL."""
     return "".join(
         json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n"
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for record in records
     )
 
 
+# 中文说明：函数 project_session_snapshot 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def project_session_snapshot(records: list[dict[str, object]]) -> list[dict[str, object]]:
     """Omit storage sequence/time envelopes from snapshot body records."""
+    # 中文说明：变量 projected 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     projected = [dict(record) for record in records]
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for record in projected[1:]:
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for key in ("seq", "time", "seq0", "time0"):
             record.pop(key, None)
     return projected
 
 
+# 中文说明：函数 compare_snapshot_files 承担本脚本的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def compare_snapshot_files(
     files: dict[str, str],
     update: bool,
@@ -1299,34 +1578,44 @@ def compare_snapshot_files(
     filenames: tuple[str, ...],
 ) -> None:
     """Write or exactly compare one scenario's expected snapshot files."""
+    # 中文说明：变量 scenario 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     scenario = directory.name
     if tuple(files) != filenames:
         raise AssertionError(f"{scenario} snapshot builder produced {tuple(files)}, expected {filenames}")
     if update:
         directory.mkdir(parents=True, exist_ok=True)
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for name, content in files.items():
             (directory / name).write_text(content, encoding="utf-8")
         print(f"smoke-python-runtime: updated snapshots in {directory}")
 
+    # 中文说明：变量 existing 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     existing = {
         path.name
+        # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
         for path in directory.iterdir()
         if path.is_file()
     } if directory.is_dir() else set()
+    # 中文说明：变量 expected 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     expected = set(filenames)
     if existing != expected:
         raise AssertionError(
             f"{scenario} snapshot files differ: "
             f"missing={sorted(expected - existing)}, unexpected={sorted(existing - expected)}"
         )
+    # 中文说明：该循环依次处理协议数据；循环变量仅在当前循环中有效。
     for name, actual in files.items():
+        # 中文说明：变量 expected_text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         expected_text = (directory / name).read_text(encoding="utf-8")
         if actual == expected_text:
             continue
+        # 中文说明：变量 diff 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         diff = "".join(difflib.unified_diff(
             expected_text.splitlines(keepends=True),
             actual.splitlines(keepends=True),
+            # 中文说明：变量 fromfile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             fromfile=f"expected/{name}",
+            # 中文说明：变量 tofile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             tofile=f"actual/{name}",
         ))
         raise AssertionError(

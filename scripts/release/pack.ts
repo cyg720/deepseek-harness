@@ -6,6 +6,14 @@
  * every tarball from one commit, and hands the publish step exactly those bytes
  * ([rationale](../../.agents/notes/implemented/process/2026-08-10-npm-release-sequences.md)).
  */
+/**
+ * 文件职责：实现 pack.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
+ * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
+ * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
+ * 逻辑维度：解析参数与仓库状态，执行检查或发布步骤，再输出诊断和退出状态。
+ * 关键边界：发布与 Git 操作会改变外部状态；失败必须显式停止；路径和命令输出不可信。
+ * 新手阅读建议：先看入口参数和只读检查，再读状态变更步骤，最后关注回滚、错误码和平台差异。
+ */
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -15,6 +23,7 @@ import { isEntry, run } from './process.ts'
 import { PUBLISH_ORDER_FILE, tarballFiles } from './tarball.ts'
 
 /** Where pack output lands when `--out` is omitted. */
+/** 中文说明：常量 DEFAULT_OUTPUT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_OUTPUT = 'dist/npm'
 
 /**
@@ -24,10 +33,13 @@ const DEFAULT_OUTPUT = 'dist/npm'
  * @param destination - absolute output directory.
  * @returns The tarball filename.
  */
+/** 中文说明：函数 packMember 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packMember(family: ReleaseFamily, member: ReleaseMember, destination: string): string {
   run('pnpm', ['--dir', member.directory, 'pack', '--pack-destination', destination])
 
+  /** 中文说明：变量 filename 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const filename = tarballName(member)
+  /** 中文说明：变量 tarball 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const tarball = join(destination, filename)
   if (!existsSync(tarball)) throw new Error(`${member.name} produced no tarball at ${tarball}`)
   family.validatePayload(member, tarballFiles(tarball))
@@ -35,6 +47,7 @@ function packMember(family: ReleaseFamily, member: ReleaseMember, destination: s
 }
 
 /** Pack the family named by `--family` into `--out`. */
+/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
   const { values } = parseArgs({
     options: { family: { type: 'string' }, out: { type: 'string' } },
@@ -42,9 +55,13 @@ function main(): void {
   })
   if (values.family === undefined) throw new Error('usage: pack.ts --family <dsh|vendor> [--out dist/npm]')
 
+  /** 中文说明：变量 family 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const family = releaseFamily(values.family)
+  /** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = process.cwd()
+  /** 中文说明：变量 destination 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const destination = resolve(root, values.out ?? DEFAULT_OUTPUT)
+  /** 中文说明：变量 members 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const members = family.publishOrder(family.members(root)).order
   family.verifyBuildArtifacts(root)
   family.verifyVersions(members)
@@ -52,7 +69,9 @@ function main(): void {
   rmSync(destination, { recursive: true, force: true })
   mkdirSync(destination, { recursive: true })
 
+  /** 中文说明：变量 order 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const order: string[] = []
+  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const member of members) order.push(packMember(family, member, destination))
   writeFileSync(join(destination, PUBLISH_ORDER_FILE), `${order.join('\n')}\n`)
 

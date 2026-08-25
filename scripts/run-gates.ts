@@ -5,6 +5,14 @@
  * dependency graphs, scheduler environment, and process diagnostics.
  * @see ../.agents/notes/implemented/process/2026-07-06-parallel-pre-push-gates.md
  */
+/**
+ * 文件职责：实现 run-gates.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
+ * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
+ * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
+ * 逻辑维度：解析参数与仓库状态，执行检查或发布步骤，再输出诊断和退出状态。
+ * 关键边界：发布与 Git 操作会改变外部状态；失败必须显式停止；路径和命令输出不可信。
+ * 新手阅读建议：先看入口参数和只读检查，再读状态变更步骤，最后关注回滚、错误码和平台差异。
+ */
 import { spawn } from 'node:child_process'
 import { availableParallelism } from 'node:os'
 import { resolve } from 'node:path'
@@ -20,6 +28,7 @@ import {
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
 /** A named aggregate exposed by the gate runner. */
+/** 中文说明：type Mode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type Mode =
   | 'ci-primary'
   | 'ci-linux-primary'
@@ -37,10 +46,13 @@ export type Mode =
   | 'hygiene'
   | 'doc-sync'
 
+/** 中文说明：type GateResultStatus 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type GateResultStatus = 'passed' | 'failed' | 'skipped'
+/** 中文说明：type GateState 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type GateState = 'pending' | 'running' | GateResultStatus
 
 /** A command and its dependency metadata inside one aggregate. */
+/** 中文说明：interface Gate 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface Gate {
   id: string
   label: string
@@ -58,6 +70,7 @@ export interface Gate {
 }
 
 /** The observed outcome of one gate process. */
+/** 中文说明：interface GateResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface GateResult {
   gate: Gate
   status: GateResultStatus
@@ -68,41 +81,56 @@ export interface GateResult {
   error?: string
 }
 
+/** 中文说明：interface GateOutputChunk 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface GateOutputChunk {
   stream: 'stdout' | 'stderr'
   text: string
 }
 
+/** 中文说明：interface RunningGate 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface RunningGate {
   gate: Gate
   promise: Promise<GateResult>
 }
 
+/** 中文说明：interface ConcurrencyDefault 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface ConcurrencyDefault {
   workers: number
   source: string
 }
 
+/** 中文说明：type GateExecutor 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type GateExecutor = (gate: Gate) => Promise<GateResult>
+/** 中文说明：type ResultObserver 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type ResultObserver = (result: GateResult) => void
 
+/** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
 if (import.meta.main) {
   process.exitCode = await main(process.argv.slice(2))
 }
 
+/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function main(args: string[]): Promise<number> {
+  /** 中文说明：变量 mode 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mode = parseMode(args[0])
+  /** 中文说明：变量 gates 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const gates = gatesForMode(mode)
+  /** 中文说明：变量 concurrencyDefault 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const concurrencyDefault = defaultConcurrency(mode, gates.length)
+  /** 中文说明：变量 concurrencyOverride 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const concurrencyOverride = process.env.DSH_GATE_CONCURRENCY
+  /** 中文说明：变量 maxConcurrency 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const maxConcurrency = concurrencyFromEnv('DSH_GATE_CONCURRENCY', concurrencyDefault.workers)
+  /** 中文说明：变量 concurrencySource 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const concurrencySource = concurrencyOverride === undefined || concurrencyOverride === ''
     ? concurrencyDefault.source
     : '$DSH_GATE_CONCURRENCY'
+  /** 中文说明：变量 startedAt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const startedAt = performance.now()
   console.log(`run-gates: ${mode} running ${gates.length} gate(s) with ${maxConcurrency} worker(s) from ${concurrencySource}.`)
 
+  /** 中文说明：变量 results 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const results = await runGates(gates, maxConcurrency, runGate, printResult)
   printSummary(results, performance.now() - startedAt)
   return results.some(result => result.gate.allowFailure !== true && (result.status === 'failed' || result.status === 'skipped'))
@@ -110,6 +138,7 @@ async function main(args: string[]): Promise<number> {
     : 0
 }
 
+/** 中文说明：函数 parseMode 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parseMode(raw: string | undefined): Mode {
   switch (raw) {
     case 'ci-primary':
@@ -142,6 +171,7 @@ function parseMode(raw: string | undefined): Mode {
  * @param available - host CPU availability for ordinary modes.
  * @returns the default worker count and its diagnostic source.
  */
+/** 中文说明：函数 defaultConcurrency 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function defaultConcurrency(
   selectedMode: Mode,
   total: number,
@@ -150,7 +180,9 @@ export function defaultConcurrency(
   if (selectedMode === 'ci-consumers') return { workers: total, source: 'ci-consumers gate count' }
   // Local modes cap workers: several doc gates each build a full ts.Program,
   // so an uncapped default on a large host trades wall clock for memory blowups.
+  /** 中文说明：变量 localCap 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const localCap = selectedMode === 'check-all' || selectedMode === 'hygiene' || selectedMode === 'doc-sync'
+  /** 中文说明：变量 modeLimit 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const modeLimit = localCap ? Math.min(4, available) : available
   return {
     workers: Math.min(total, modeLimit),
@@ -160,9 +192,12 @@ export function defaultConcurrency(
   }
 }
 
+/** 中文说明：函数 concurrencyFromEnv 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function concurrencyFromEnv(name: string, fallback: number): number {
+  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = process.env[name]
   if (raw === undefined || raw === '') return fallback
+  /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = Number.parseInt(raw, 10)
   if (!Number.isSafeInteger(parsed) || parsed < 1) {
     throw new Error(`run-gates: ${name} must be a positive integer, got ${JSON.stringify(raw)}.`)
@@ -170,6 +205,7 @@ function concurrencyFromEnv(name: string, fallback: number): number {
   return parsed
 }
 
+/** 中文说明：函数 pnpmScript 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function pnpmScript(id: string, script: string, options: Partial<Gate> = {}): Gate {
   return {
     id,
@@ -181,6 +217,7 @@ function pnpmScript(id: string, script: string, options: Partial<Gate> = {}): Ga
 }
 
 /** Build official client artifacts inside a CI aggregate without changing sibling gate environments. */
+/** 中文说明：函数 ciBuildGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciBuildGate(id = 'build', options: Partial<Gate> = {}): Gate {
   return pnpmScript(id, 'build', {
     ...options,
@@ -188,6 +225,7 @@ function ciBuildGate(id = 'build', options: Partial<Gate> = {}): Gate {
   })
 }
 
+/** 中文说明：函数 pnpmExec 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function pnpmExec(id: string, args: string[], options: Partial<Gate> = {}): Gate {
   return {
     id,
@@ -203,6 +241,7 @@ function pnpmExec(id: string, args: string[], options: Partial<Gate> = {}): Gate
  * @param selected - aggregate mode to construct.
  * @returns the aggregate's gate graph.
  */
+/** 中文说明：函数 gatesForMode 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function gatesForMode(selected: Mode): Gate[] {
   switch (selected) {
     case 'ci-primary':
@@ -263,6 +302,7 @@ export function gatesForMode(selected: Mode): Gate[] {
   }
 }
 
+/** 中文说明：函数 ciSharedStaticGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciSharedStaticGates(): Gate[] {
   return [
     pnpmScript('runtime-closure', 'verify-runtime-closure', { label: 'runtime closure' }),
@@ -278,6 +318,7 @@ function ciSharedStaticGates(): Gate[] {
   ]
 }
 
+/** 中文说明：函数 ciPrimaryGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciPrimaryGates(): Gate[] {
   return [
     ...ciSharedStaticGates(),
@@ -308,7 +349,9 @@ function ciPrimaryGates(): Gate[] {
   ]
 }
 
+/** 中文说明：函数 nodeCompatGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function nodeCompatGates(): Gate[] {
+  /** 中文说明：变量 typecheck 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const typecheck = flagEnabled('DSH_NODE_COMPAT_SKIP_TYPECHECK')
     ? []
     : [pnpmScript('typecheck', 'typecheck')]
@@ -328,7 +371,9 @@ function nodeCompatGates(): Gate[] {
   ]
 }
 
+/** 中文说明：函数 nodeCompatSmokeGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
+  /** 中文说明：变量 gates 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const gates: Gate[] = [
     pnpmExec('source-worker-smoke', [
       'vitest',
@@ -368,7 +413,9 @@ function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
 }
 
 /** Active Node major used to select version-specific compatibility checks. */
+/** 中文说明：函数 runningNodeMajor 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function runningNodeMajor(): number {
+  /** 中文说明：变量 major 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const major = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10)
   if (!Number.isSafeInteger(major)) {
     throw new Error(`run-gates: cannot parse Node version ${JSON.stringify(process.versions.node)}.`)
@@ -376,6 +423,7 @@ function runningNodeMajor(): number {
   return major
 }
 
+/** 中文说明：函数 ciStaticGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciStaticGates(options: { ownsBuild: boolean }): Gate[] {
   return [
     ...ciSharedStaticGates(),
@@ -396,6 +444,7 @@ function ciStaticGates(options: { ownsBuild: boolean }): Gate[] {
   ]
 }
 
+/** 中文说明：函数 ciArtifactGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciArtifactGates(): Gate[] {
   return [
     ciBuildGate(),
@@ -409,8 +458,11 @@ function ciArtifactGates(): Gate[] {
   ]
 }
 
+/** 中文说明：函数 ciConsumerGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciConsumerGates(): Gate[] {
+  /** 中文说明：变量 builtTree 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const builtTree = ['build']
+  /** 中文说明：变量 validatedBuild 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const validatedBuild = ['built-package-invariants']
   return [
     ciBuildGate(),
@@ -438,9 +490,12 @@ function ciConsumerGates(): Gate[] {
   ]
 }
 
+/** 中文说明：函数 webSnapshotGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function webSnapshotGate(needs: string[]): Gate {
+  /** 中文说明：变量 workerRaw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workerRaw = process.env.DSH_WEB_SNAPSHOT_WORKERS
   if (workerRaw !== undefined && workerRaw !== '') {
+    /** 中文说明：变量 workers 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workers = Number.parseInt(workerRaw, 10)
     if (!Number.isSafeInteger(workers) || workers < 2 || String(workers) !== workerRaw) {
       throw new Error(`run-gates: DSH_WEB_SNAPSHOT_WORKERS must be an integer greater than 1, got ${JSON.stringify(workerRaw)}.`)
@@ -461,6 +516,7 @@ function webSnapshotGate(needs: string[]): Gate {
   })
 }
 
+/** 中文说明：函数 ciWindowsBlockingGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciWindowsBlockingGates(): Gate[] {
   return [
     ciBuildGate('windows-build', { label: 'build' }),
@@ -468,11 +524,15 @@ function ciWindowsBlockingGates(): Gate[] {
   ]
 }
 
+/** 中文说明：函数 ciWindowsCompleteGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciWindowsCompleteGates(): Gate[] {
+  /** 中文说明：函数值 coverage 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const coverage = coverageGates().map(gate => gate.id === 'coverage-exempt-heavy'
     ? { ...gate, needs: [...new Set(['build', ...(gate.needs ?? [])])] }
     : gate)
+  /** 中文说明：函数值 coverageAfter 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const coverageAfter = coverage.map(gate => gate.id)
+  /** 中文说明：变量 observational 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const observational = ciWindowsObservationalGates()
     // The required production site replaces the observational MPA build; both
     // VitePress modes write the same output directory and cannot overlap.
@@ -490,6 +550,7 @@ function ciWindowsCompleteGates(): Gate[] {
   ]
 }
 
+/** 中文说明：函数 ciWindowsObservationalGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciWindowsObservationalGates(): Gate[] {
   return [
     ...ciStaticGates({ ownsBuild: true }),
@@ -505,12 +566,16 @@ function ciWindowsObservationalGates(): Gate[] {
   ]
 }
 
+/** 中文说明：函数 typertContractsGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function typertContractsGate(): Gate {
   return pnpmScript('typert-contracts', 'build:lib:host', { label: 'Typert contracts' })
 }
 
+/** 中文说明：函数 lintGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function lintGate(options: { needs?: string[] } = {}): Gate {
+  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = process.env.DSH_OXLINT_THREADS
+  /** 中文说明：变量 script 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const script = 'lint:contracts-ready'
   return pnpmScript('lint', script, {
     ...raw === undefined || raw === ''
@@ -536,11 +601,15 @@ function lintGate(options: { needs?: string[] } = {}): Gate {
 // DSH_COVERAGE_TEST_TIMEOUT_MS raises Vitest's per-test and expect.poll
 // defaults together for instrumented lanes whose scheduling overhead exceeds
 // those defaults. Explicit fixture timeouts remain authoritative.
+/** 中文说明：函数 coverageWorkerArgs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function coverageWorkerArgs(): { instrumented: string[]; exempt: string[] } {
   const [flag] = positiveIntArg('DSH_COVERAGE_MAX_WORKERS', '--maxWorkers')
   if (flag === undefined) return { instrumented: [], exempt: [] }
+  /** 中文说明：变量 total 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const total = Number.parseInt(flag.split('=')[1] ?? '', 10)
+  /** 中文说明：变量 exempt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const exempt = Math.max(1, Math.floor(total / 3))
+  /** 中文说明：变量 instrumented 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const instrumented = Math.max(1, total - exempt)
   return {
     instrumented: [`--maxWorkers=${String(instrumented)}`],
@@ -548,10 +617,15 @@ function coverageWorkerArgs(): { instrumented: string[]; exempt: string[] } {
   }
 }
 
+/** 中文说明：函数 coverageGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function coverageGates(): Gate[] {
+  /** 中文说明：变量 workers 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workers = coverageWorkerArgs()
+  /** 中文说明：变量 timeouts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const timeouts = coverageTestTimeoutArgs(process.env[COVERAGE_TEST_TIMEOUT_ENV])
+  /** 中文说明：变量 partitions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const partitions = parseCoveragePartitionCount(process.env[COVERAGE_PARTITIONS_ENV])
+  /** 中文说明：变量 instrumented 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const instrumented = partitions === undefined
     ? pnpmExec('coverage', [
       'vitest',
@@ -586,6 +660,7 @@ function coverageGates(): Gate[] {
 // Example and package snapshots boot their bins in `lib` mode (built artifacts under plain Node,
 // plugins via real exports); script snapshots execute their real source entry path.
 // Callers wait either on `build` or on a validation gate that transitively owns that build.
+/** 中文说明：函数 snapshotGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function snapshotGate(needs: string[] = ['build']): Gate {
   return pnpmScript('snapshot', 'test:snapshot', {
     env: { DSH_EXAMPLE_MODE: 'lib' },
@@ -593,6 +668,7 @@ function snapshotGate(needs: string[] = ['build']): Gate {
   })
 }
 
+/** 中文说明：函数 builtPackageInvariantsGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function builtPackageInvariantsGate(needs?: string[]): Gate {
   return pnpmScript('built-package-invariants', 'verify-built-package-invariants', {
     label: 'built package invariants',
@@ -600,9 +676,12 @@ function builtPackageInvariantsGate(needs?: string[]): Gate {
   })
 }
 
+/** 中文说明：函数 positiveIntArg 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function positiveIntArg(envName: string, flag: string): string[] {
+  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = process.env[envName]
   if (raw === undefined || raw === '') return []
+  /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = Number.parseInt(raw, 10)
   if (!Number.isSafeInteger(parsed) || parsed < 1 || String(parsed) !== raw) {
     throw new Error(`run-gates: ${envName} must be a positive integer, got ${JSON.stringify(raw)}.`)
@@ -610,14 +689,18 @@ function positiveIntArg(envName: string, flag: string): string[] {
   return [`${flag}=${raw}`]
 }
 
+/** 中文说明：函数 flagEnabled 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function flagEnabled(envName: string): boolean {
+  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = process.env[envName]
   if (raw === undefined || raw === '') return false
   if (raw !== '1') throw new Error(`run-gates: ${envName} must be 1 when set, got ${JSON.stringify(raw)}.`)
   return true
 }
 
+/** 中文说明：函数 hygieneLeafGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function hygieneLeafGates(options: { artifactNeeds?: string[] } = {}): Gate[] {
+  /** 中文说明：变量 artifactOptions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const artifactOptions = options.artifactNeeds === undefined ? {} : { needs: options.artifactNeeds }
   return [
     pnpmScript('rescope-vendor', 'rescope-vendor:check', { label: 'vendor rescope' }),
@@ -638,6 +721,7 @@ function hygieneLeafGates(options: { artifactNeeds?: string[] } = {}): Gate[] {
   ]
 }
 
+/** 中文说明：函数 docSyncLeafGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function docSyncLeafGates(options: {
   includeDocTypecheck?: boolean
   docTypecheckNeeds?: string[]
@@ -645,6 +729,7 @@ function docSyncLeafGates(options: {
   docTypecheckScript?: 'doc-typecheck' | 'doc-typecheck:contracts-ready'
   docsBuildScript?: 'docs:build' | 'docs:build:mpa'
 } = {}): Gate[] {
+  /** 中文说明：变量 docTypecheckOptions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const docTypecheckOptions: Partial<Gate> = {}
   if (options.docTypecheckNeeds !== undefined) docTypecheckOptions.needs = options.docTypecheckNeeds
   if (options.docTypecheckEnv !== undefined) docTypecheckOptions.env = options.docTypecheckEnv
@@ -685,6 +770,7 @@ function docSyncLeafGates(options: {
   ]
 }
 
+/** 中文说明：函数 builtBinSmokeGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function builtBinSmokeGate(needs: string[] = ['build']): Gate {
   return pnpmExec('built-bin-smoke', [
     'vitest',
@@ -716,20 +802,26 @@ function builtBinSmokeGate(needs: string[] = ['build']): Gate {
  * Reject a gate list whose graph cannot be executed unambiguously.
  * @param gates - complete aggregate to validate.
  */
+/** 中文说明：函数 validateGateGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateGateGraph(gates: readonly Gate[]): void {
   if (gates.length === 0) throw new Error('run-gates: gate graph has no gates.')
 
+  /** 中文说明：变量 ids 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ids = new Set<string>()
+  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const gate of gates) {
     if (ids.has(gate.id)) throw new Error(`run-gates: duplicate gate id ${JSON.stringify(gate.id)}.`)
     ids.add(gate.id)
   }
+  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const gate of gates) {
+    /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const dependency of gate.needs ?? []) {
       if (!ids.has(dependency)) {
         throw new Error(`run-gates: gate ${JSON.stringify(gate.id)} depends on unknown gate ${JSON.stringify(dependency)}.`)
       }
     }
+    /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const predecessor of gate.after ?? []) {
       if (!ids.has(predecessor)) {
         throw new Error(`run-gates: gate ${JSON.stringify(gate.id)} waits for unknown gate ${JSON.stringify(predecessor)}.`)
@@ -737,26 +829,37 @@ function validateGateGraph(gates: readonly Gate[]): void {
     }
   }
 
+  /** 中文说明：变量 cycle 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cycle = findDependencyCycle(gates)
   if (cycle !== undefined) throw new Error(`run-gates: dependency cycle: ${cycle.join(' -> ')}.`)
 }
 
+/** 中文说明：函数 findDependencyCycle 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function findDependencyCycle(gates: readonly Gate[]): string[] | undefined {
+  /** 中文说明：函数值 byId 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const byId = new Map(gates.map(gate => [gate.id, gate]))
+  /** 中文说明：变量 complete 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const complete = new Set<string>()
+  /** 中文说明：变量 active 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const active = new Map<string, number>()
+  /** 中文说明：变量 path 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path: string[] = []
 
+  /** 中文说明：函数值 visit 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const visit = (id: string): string[] | undefined => {
     if (complete.has(id)) return undefined
+    /** 中文说明：变量 cycleStart 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cycleStart = active.get(id)
     if (cycleStart !== undefined) return [...path.slice(cycleStart), id]
+    /** 中文说明：变量 gate 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const gate = byId.get(id)
     if (gate === undefined) return undefined
 
     active.set(id, path.length)
     path.push(id)
+    /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const predecessor of [...(gate.needs ?? []), ...(gate.after ?? [])]) {
+      /** 中文说明：变量 cycle 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const cycle = visit(predecessor)
       if (cycle !== undefined) return cycle
     }
@@ -766,7 +869,9 @@ function findDependencyCycle(gates: readonly Gate[]): string[] | undefined {
     return undefined
   }
 
+  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const gate of gates) {
+    /** 中文说明：变量 cycle 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cycle = visit(gate.id)
     if (cycle !== undefined) return cycle
   }
@@ -781,6 +886,7 @@ function findDependencyCycle(gates: readonly Gate[]): string[] | undefined {
  * @param observe - result observer invoked when each gate settles.
  * @returns results in aggregate order.
  */
+/** 中文说明：函数 runGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function runGates(
   gates: Gate[],
   maxActive: number,
@@ -791,13 +897,19 @@ export async function runGates(
   if (!Number.isSafeInteger(maxActive) || maxActive < 1) {
     throw new Error(`run-gates: max concurrency must be a positive integer, got ${JSON.stringify(maxActive)}.`)
   }
+  /** 中文说明：函数值 states 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const states = new Map<string, GateState>(gates.map(gate => [gate.id, 'pending']))
+  /** 中文说明：变量 results 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const results = new Map<string, GateResult>()
+  /** 中文说明：变量 running 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const running: RunningGate[] = []
 
+  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (;;) {
+    /** 中文说明：变量 madeProgress 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let madeProgress = false
     while (running.length < maxActive) {
+      /** 中文说明：函数值 ready 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
       const ready = gates.find(gate => states.get(gate.id) === 'pending' && predecessorsReady(gate, states))
       if (ready === undefined) break
       states.set(ready.id, 'running')
@@ -807,11 +919,15 @@ export async function runGates(
     }
 
     if (running.length === 0) {
+      /** 中文说明：函数值 pending 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
       const pending = gates.filter(gate => states.get(gate.id) === 'pending')
       if (pending.length === 0) break
+      /** 中文说明：函数值 gate 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
       const gate = pending.find(item => (item.needs ?? []).some(id => gateFailed(states.get(id))))
       if (gate === undefined) throw new Error('run-gates: validated graph stalled without a failed dependency.')
+      /** 中文说明：函数值 failedDeps 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
       const failedDeps = (gate.needs ?? []).filter(id => gateFailed(states.get(id)))
+      /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result: GateResult = {
         gate,
         status: 'skipped',
@@ -828,6 +944,7 @@ export async function runGates(
     }
 
     if (!madeProgress) {
+      /** 中文说明：函数值 settled 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
       const settled = await Promise.race(running.map(async item => ({ item, result: await item.promise })))
       running.splice(running.indexOf(settled.item), 1)
       states.set(settled.item.gate.id, settled.result.status)
@@ -837,21 +954,25 @@ export async function runGates(
   }
 
   return gates.map((gate) => {
+    /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = results.get(gate.id)
     if (result === undefined) throw new Error(`run-gates: missing result for ${gate.id}.`)
     return result
   })
 }
 
+/** 中文说明：函数 predecessorsReady 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function predecessorsReady(gate: Gate, states: Map<string, GateState>): boolean {
   return (gate.needs ?? []).every(id => states.get(id) === 'passed')
     && (gate.after ?? []).every(id => gateSettled(states.get(id)))
 }
 
+/** 中文说明：函数 gateSettled 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function gateSettled(state: GateState | undefined): boolean {
   return state === 'passed' || state === 'failed' || state === 'skipped'
 }
 
+/** 中文说明：函数 gateFailed 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function gateFailed(state: GateState | undefined): boolean {
   return state === 'failed' || state === 'skipped'
 }
@@ -861,15 +982,21 @@ function gateFailed(state: GateState | undefined): boolean {
  * @param gate - command and scheduler environment to execute.
  * @returns the complete process outcome.
  */
+/** 中文说明：函数 runGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function runGate(gate: Gate): Promise<GateResult> {
+  /** 中文说明：变量 started 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const started = performance.now()
+  /** 中文说明：变量 output 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const output: GateOutputChunk[] = []
+  /** 中文说明：变量 spawnError 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let spawnError: string | undefined
 
+  /** 中文说明：变量 outcome 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const outcome = await new Promise<{
     exitCode: number | null
     signalCode: NodeJS.Signals | null
   }>((resolveExit) => {
+    /** 中文说明：变量 child 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = spawn(gate.command, gate.args, {
       cwd: root,
       env: { ...process.env, ...gate.env },
@@ -896,7 +1023,9 @@ export async function runGate(gate: Gate): Promise<GateResult> {
   })
   const { exitCode, signalCode } = outcome
 
+  /** 中文说明：变量 status 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const status: GateResultStatus = exitCode === 0 && signalCode === null && spawnError === undefined ? 'passed' : 'failed'
+  /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result: GateResult = {
     gate,
     status,
@@ -914,7 +1043,9 @@ export async function runGate(gate: Gate): Promise<GateResult> {
  * @param result - unsuccessful gate result.
  * @returns error, exit, and signal facts without allowing one to hide another.
  */
+/** 中文说明：函数 formatGateResultReason 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function formatGateResultReason(result: GateResult): string {
+  /** 中文说明：变量 facts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const facts: string[] = []
   if (result.error !== undefined) facts.push(result.error)
   if (result.exitCode !== null) facts.push(`exit ${result.exitCode}`)
@@ -922,15 +1053,20 @@ export function formatGateResultReason(result: GateResult): string {
   return facts.length === 0 ? 'no exit code or signal' : facts.join(', ')
 }
 
+/** 中文说明：函数 printResult 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function printResult(result: GateResult): void {
+  /** 中文说明：变量 verbose 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const verbose = process.env.DSH_GATE_VERBOSE === '1'
+  /** 中文说明：变量 seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seconds = (result.durationMs / 1000).toFixed(2)
   if (result.status === 'passed' && !verbose) {
     console.log(`run-gates: PASS ${result.gate.label} (${seconds}s)`)
     return
   }
 
+  /** 中文说明：变量 heading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const heading = `${result.status.toUpperCase()} ${result.gate.label} (${seconds}s)`
+  /** 中文说明：变量 writeHeading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const writeHeading = result.status === 'passed' ? console.log : console.error
   writeHeading(`\n== ${heading} ==`)
   if (result.status !== 'passed') {
@@ -940,27 +1076,39 @@ function printResult(result: GateResult): void {
   if (result.gate.streamOutput !== true) printOutput(result.output)
 }
 
+/** 中文说明：函数 printSummary 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function printSummary(results: GateResult[], durationMs: number): void {
+  /** 中文说明：函数值 passed 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const passed = results.filter(result => result.status === 'passed').length
+  /** 中文说明：函数值 failed 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const failed = results.filter(result => result.status === 'failed').length
+  /** 中文说明：函数值 skipped 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const skipped = results.filter(result => result.status === 'skipped').length
+  /** 中文说明：变量 seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seconds = (durationMs / 1000).toFixed(2)
   console.log(`\nrun-gates: ${passed} passed, ${failed} failed, ${skipped} skipped in ${seconds}s.`)
 
+  /** 中文说明：函数值 unsuccessful 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const unsuccessful = results.filter(result => result.status === 'failed' || result.status === 'skipped')
   if (unsuccessful.length === 0) return
 
   console.error('run-gates: unsuccessful gates:')
+  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const result of unsuccessful) {
+    /** 中文说明：变量 duration 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const duration = (result.durationMs / 1000).toFixed(2)
+    /** 中文说明：变量 reason 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = formatGateResultReason(result)
+    /** 中文说明：变量 disposition 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposition = result.gate.allowFailure === true ? 'NON-BLOCKING ' : ''
     console.error(`  - ${disposition}${result.status.toUpperCase()} ${result.gate.label} (${duration}s, ${reason})`)
     console.error(`    ${result.gate.displayCommand}`)
   }
 }
 
+/** 中文说明：函数 printOutput 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function printOutput(output: GateOutputChunk[]): void {
+  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const chunk of output) {
     if (chunk.stream === 'stdout') process.stdout.write(chunk.text)
     else process.stderr.write(chunk.text)
