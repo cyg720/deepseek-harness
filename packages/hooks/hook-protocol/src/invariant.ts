@@ -1,33 +1,48 @@
 /** Package-owned hook invocation/result stream invariants. @module @deepseek-ai/dsh-hook-protocol/invariant */
+/**
+ * 文件职责：实现Hook 线协议的 invariant.ts 模块。
+ * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
+ * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
+ * 逻辑维度：解析配置，匹配事件，执行处理器并合并输出。
+ * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
+ * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 import type {} from './types.ts'
 
+/** 中文说明：协议局部值 PACKAGE_NAME，由紧邻初始化决定。 */
 const PACKAGE_NAME = '@deepseek-ai/dsh-hook-protocol'
 
 /** Cordis companion plugin name. */
+/** 中文说明：协议局部值 name，由紧邻初始化决定。 */
 export const name = 'hook-protocol-invariant'
 /** Service required before the companion can reserve package ownership. */
+/** 中文说明：协议局部值 inject，由紧邻初始化决定。 */
 export const inject = ['invariants']
 
+/** 中文说明：类型或类 HookTransition 约束 Hook、守卫或目标数据职责。 */
 interface HookTransition {
   key: string
   delta: 1 | -1
 }
 
+/** 中文说明：类型或类 HookTrace 约束 Hook、守卫或目标数据职责。 */
 interface HookTrace {
   openTurn: number | null
   pending: Map<string, number>
 }
 
 /** Correlation key shared by an invoked/result pair. */
+/** 中文说明：函数 hookKey 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hookKey(data: { turn: number; point: string; handlerId: string }): string {
   return `${data.turn}\0${data.point}\0${data.handlerId}`
 }
 
 /** Validate one hook event against committed pending invocations. */
+/** 中文说明：函数 validateHookEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateHookEvent(
   trace: HookTrace,
   event: SessionEvent,
@@ -42,12 +57,14 @@ function validateHookEvent(
     if (event.data.point.length === 0 || event.data.handlerId.length === 0) {
       fail('hook/invoked point and handlerId must be non-empty')
     }
+    /** 中文说明：协议局部值 dialect，由紧邻初始化决定。 */
     const dialect: string = event.data.dialect
     if (dialect !== 'claude-code' && dialect !== 'codex') {
       fail(`hook/invoked carries unknown dialect ${JSON.stringify(dialect)}`)
     }
     return { key: hookKey(event.data), delta: 1 }
   }
+  /** 中文说明：协议局部值 key，由紧邻初始化决定。 */
   const key = hookKey(event.data)
   if ((trace.pending.get(key) ?? 0) === 0) {
     fail(`hook/result has no matching hook/invoked for ${JSON.stringify(event.data.handlerId)}`)
@@ -59,7 +76,9 @@ function validateHookEvent(
 }
 
 /** Apply one committed hook-pair transition. */
+/** 中文说明：函数 applyHookTransition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function applyHookTransition(pending: Map<string, number>, transition: HookTransition): void {
+  /** 中文说明：协议局部值 next，由紧邻初始化决定。 */
   const next = (pending.get(transition.key) ?? 0) + transition.delta
   if (next === 0) pending.delete(transition.key)
   else pending.set(transition.key, next)
@@ -68,25 +87,35 @@ function applyHookTransition(pending: Map<string, number>, transition: HookTrans
 /** Install hook invoked/result pairing checks. */
 // Event owners keep precommit staging local so their vocabularies never move into a central helper.
 /* jscpd:ignore-start */
+/** 中文说明：协议局部值 install，由紧邻初始化决定。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
+  /** 中文说明：协议局部值 traces，由紧邻初始化决定。 */
   const traces = new WeakMap<Session, HookTrace>()
+  /** 中文说明：协议局部值 staged，由紧邻初始化决定。 */
   const staged = new WeakMap<SessionEvent, { session: Session; transition: HookTransition }>()
+  /** 中文说明：协议局部值 seed，由紧邻初始化决定。 */
   const seed = (session: Session): HookTrace => {
+    /** 中文说明：协议局部值 trace，由紧邻初始化决定。 */
     const trace: HookTrace = { openTurn: null, pending: new Map() }
     traces.set(session, trace)
+    /** 中文说明：协议局部值 event，由紧邻初始化决定。 */
     for (const event of session.events) {
       if (event.type === 'turn/start') trace.openTurn = event.data.turn
       else if (event.type === 'turn/end') trace.openTurn = null
+      /** 中文说明：协议局部值 transition，由紧邻初始化决定。 */
       const transition = validateHookEvent(trace, event, fail)
       if (transition !== undefined) applyHookTransition(trace.pending, transition)
     }
     return trace
   }
+  /** 中文说明：协议局部值 traceFor，由紧邻初始化决定。 */
   const traceFor = (session: Session): HookTrace => traces.get(session) ?? seed(session)
 
+  /** 中文说明：协议局部值 session，由紧邻初始化决定。 */
   for (const session of ctx.sessions.list()) seed(session)
   ctx.on('session/created', (session) => { seed(session) }, { global: true })
   ctx.on('session/event', (session, event) => {
+    /** 中文说明：协议局部值 trace，由紧邻初始化决定。 */
     const trace = traceFor(session)
     if (event.type === 'turn/start') {
       trace.openTurn = event.data.turn
@@ -97,6 +126,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
       return
     }
     if (event.type !== 'hook/invoked' && event.type !== 'hook/result') return
+    /** 中文说明：协议局部值 candidate，由紧邻初始化决定。 */
     const candidate = staged.get(event)
     /* v8 ignore next -- internal/dispatch stages every hook invocation/result event */
     if (candidate === undefined || candidate.session !== session) return fail('hook event published without pre-commit validation')
@@ -105,7 +135,9 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   }, { global: true })
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return
+    /** 中文说明：协议局部值 [session, event]，由紧邻初始化决定。 */
     const [session, event] = args as [Session, SessionEvent]
+    /** 中文说明：协议局部值 transition，由紧邻初始化决定。 */
     const transition = validateHookEvent(traceFor(session), event, fail)
     if (transition !== undefined) staged.set(event, { session, transition })
   }, { global: true })
@@ -117,5 +149,6 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
  * @param ctx - Cordis context carrying the invariant service.
  * @returns the installed registration's disposer after setup succeeds.
  */
+/** 中文说明：协议局部值 apply，由紧邻初始化决定。 */
 export const apply = (ctx: Context): Promise<() => void> =>
   Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))

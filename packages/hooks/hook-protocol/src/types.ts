@@ -4,8 +4,17 @@
  * and extension-point-specific decision mapping remain owned by each bridge.
  * @module @deepseek-ai/dsh-hook-protocol/types
  */
+/**
+ * 文件职责：实现Hook 线协议的 types.ts 模块。
+ * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
+ * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
+ * 逻辑维度：解析配置，匹配事件，执行处理器并合并输出。
+ * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
+ * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ */
 
 declare module '@deepseek-ai/dsh-session/types' {
+  /** 中文说明：类型或类 SessionEventMap 约束 Hook、守卫或目标数据职责。 */
   interface SessionEventMap {
     /**
      * A hook command was invoked at a hook point — a log-only record (like
@@ -45,6 +54,7 @@ declare module '@deepseek-ai/dsh-session/types' {
  * bridge `'codex'`. A native plugin at the interception points is not a bridge
  * and writes no `hook/*` invocation/result records (see the interception extension-points Agent Note).
  */
+/** 中文说明：类型或类 HookDialect 约束 Hook、守卫或目标数据职责。 */
 export type HookDialect = 'claude-code' | 'codex'
 
 /**
@@ -53,6 +63,7 @@ export type HookDialect = 'claude-code' | 'codex'
  * `http`) are parsed-and-skipped by a bridge, so only this shape reaches the
  * runner.
  */
+/** 中文说明：类型或类 CommandHook 约束 Hook、守卫或目标数据职责。 */
 export interface CommandHook {
   /** The shell command line to run. */
   command: string
@@ -65,6 +76,7 @@ export interface CommandHook {
  * plus the command hooks that run when it matches. Both dialects share this
  * shape (CC's `hooks.json` and Codex's `hooks.json`).
  */
+/** 中文说明：类型或类 MatcherGroup 约束 Hook、守卫或目标数据职责。 */
 export interface MatcherGroup {
   matcher?: string
   hooks: CommandHook[]
@@ -76,6 +88,7 @@ export interface MatcherGroup {
  * {@link regex} otherwise; Codex is always {@link regex}. The bridge picks the
  * mode for its dialect.
  */
+/** 中文说明：类型或类 MatcherMode 约束 Hook、守卫或目标数据职责。 */
 export type MatcherMode = 'claude-code' | 'codex'
 
 /**
@@ -86,6 +99,7 @@ export type MatcherMode = 'claude-code' | 'codex'
  * fields are meaningful for its hook point and which it ignores (faithful-but-
  * degraded — e.g. Codex ignores `allow`/`ask`).
  */
+/** 中文说明：类型或类 HookOutput 约束 Hook、守卫或目标数据职责。 */
 export interface HookOutput {
   /** The raw process exit code (`undefined` if the hook could not be run). */
   exitCode: number | undefined

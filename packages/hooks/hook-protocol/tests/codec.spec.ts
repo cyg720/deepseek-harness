@@ -1,8 +1,17 @@
+/**
+ * 文件职责：验证Hook 线协议的 codec.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
+ * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
+ * 逻辑维度：构造事件与配置，驱动入口并断言结果。
+ * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
+ * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ */
 import { describe, expect, it } from 'vitest'
 import { parseHookOutput } from '@deepseek-ai/dsh-hook-protocol'
 
 describe('parseHookOutput — exit code semantics', () => {
   it('exit 0 with no stdout is a neutral success', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, '', '')
     expect(out.exitCode).toBe(0)
     expect(out.decision).toBeUndefined()
@@ -10,6 +19,7 @@ describe('parseHookOutput — exit code semantics', () => {
   })
 
   it('exit 2 is a blocking error: stderr becomes the block decision + reason', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(2, '', 'this command is not allowed')
     expect(out.decision).toBe('block')
     expect(out.reason).toBe('this command is not allowed')
@@ -17,12 +27,14 @@ describe('parseHookOutput — exit code semantics', () => {
   })
 
   it('exit 2 with empty stderr still blocks, with no reason', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(2, '', '   ')
     expect(out.decision).toBe('block')
     expect(out.reason).toBeUndefined()
   })
 
   it('other non-zero exit is a non-blocking error (no decision, stderr recorded)', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(1, '', 'some warning')
     expect(out.decision).toBeUndefined()
     expect(out.exitCode).toBe(1)
@@ -30,6 +42,7 @@ describe('parseHookOutput — exit code semantics', () => {
   })
 
   it('undefined exit (could not run) carries no decision', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(undefined, '', 'spawn failed: ENOENT')
     expect(out.exitCode).toBeUndefined()
     expect(out.decision).toBeUndefined()
@@ -39,6 +52,7 @@ describe('parseHookOutput — exit code semantics', () => {
 
 describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   it('parses top-level continue/stopReason/systemMessage', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       continue: false, stopReason: 'budget exceeded', systemMessage: 'heads up',
     }), '')
@@ -61,12 +75,14 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('captures hookEventName from hookSpecificOutput (the discriminator a bridge validates)', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny' } }), '')
     expect(out.hookEventName).toBe('PreToolUse')
     expect(out.decision).toBe('deny')
   })
 
   it('hookSpecificOutput.permissionDecision OVERRIDES the legacy top-level decision', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       decision: 'approve',
       hookSpecificOutput: { permissionDecision: 'deny', permissionDecisionReason: 'denied by policy' },
@@ -81,6 +97,7 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('parses additionalContext and updatedInput from hookSpecificOutput', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       hookSpecificOutput: { additionalContext: 'remember X', updatedInput: { command: 'safe' } },
     }), '')
@@ -95,6 +112,7 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   it('DISCARDS a hookSpecificOutput block whose hookEventName mismatches the firing event', () => {
     // A PreToolUse block emitted on a Stop hook is malformed — its event-scoped
     // fields must not take effect (a stray PreToolUse deny must not deny the Stop).
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'no', additionalContext: 'x', updatedInput: { command: 'y' } },
     }), '', 'Stop')
@@ -106,6 +124,7 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('APPLIES a hookSpecificOutput block whose hookEventName matches the firing event', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', additionalContext: 'x' },
     }), '', 'PreToolUse')
@@ -114,6 +133,7 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('applies the block when expectedEventName is omitted (opt-out) even if it names an event', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny' },
     }), '')
@@ -124,6 +144,7 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
     // Under the keyed schema a missing discriminator is as malformed as a
     // mismatched one: a discriminator-less block must not apply its event-scoped
     // permission fields to whatever event happens to be firing.
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       hookSpecificOutput: { permissionDecision: 'deny', additionalContext: 'x' },
     }), '', 'Stop')
@@ -134,6 +155,7 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
 
   it('applies a discriminator-less block when expectedEventName is omitted (opt-out)', () => {
     // With no firing event to validate against, the block applies as-is.
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       hookSpecificOutput: { permissionDecision: 'deny' },
     }), '')
@@ -142,6 +164,7 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
 
   it('a mismatched block does NOT discard the event-agnostic top-level decision/continue', () => {
     // Only the per-event block is scoped; top-level fields are event-agnostic.
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, JSON.stringify({
       decision: 'block', reason: 'top', continue: false, stopReason: 'halt',
       hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' },
@@ -153,12 +176,14 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('malformed JSON on a clean exit is lenient (no structured output, no throw)', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, '{ not valid json', '')
     expect(out.decision).toBeUndefined()
     expect(out.continue).toBeUndefined()
   })
 
   it('non-object stdout (plain text) on exit 0 is left for the bridge (no JSON attempt)', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, 'just some text output', '')
     expect(out.decision).toBeUndefined()
     expect(out.continue).toBeUndefined()
@@ -168,7 +193,9 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('preserves raw stdout (trimmed) alongside parsed structured fields', () => {
+    /** 中文说明：测试局部值 json，由紧邻初始化决定。 */
     const json = JSON.stringify({ decision: 'block' })
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, `  ${json}  \n`, '')
     expect(out.stdout).toBe(json)
     expect(out.decision).toBe('block')
@@ -180,11 +207,13 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
 
   it('a JSON array stdout parses but yields no fields (not an object)', () => {
     // Starts with '{'? No — '[' — so it is not even attempted. Neutral.
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(0, '[1,2,3]', '')
     expect(out.decision).toBeUndefined()
   })
 
   it('structured stdout is IGNORED on a blocking (exit 2) run — stderr is authoritative', () => {
+    /** 中文说明：测试局部值 out，由紧邻初始化决定。 */
     const out = parseHookOutput(2, JSON.stringify({ decision: 'approve' }), 'blocked')
     // exit 2 forces block regardless of what stdout claims
     expect(out.decision).toBe('block')

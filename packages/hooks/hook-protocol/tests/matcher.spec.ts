@@ -1,7 +1,16 @@
+/**
+ * 文件职责：验证Hook 线协议的 matcher.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
+ * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
+ * 逻辑维度：构造事件与配置，驱动入口并断言结果。
+ * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
+ * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ */
 import { describe, expect, it } from 'vitest'
 import { matcherDiagnostic, matchesMatcher } from '@deepseek-ai/dsh-hook-protocol'
 
 describe('matchesMatcher — match-all sentinels (both dialects)', () => {
+  /** 中文说明：测试局部值 mode，由紧邻初始化决定。 */
   for (const mode of ['claude-code', 'codex'] as const) {
     it(`${mode}: absent / empty / '*' match everything`, () => {
       expect(matchesMatcher(undefined, 'Bash', mode)).toBe(true)

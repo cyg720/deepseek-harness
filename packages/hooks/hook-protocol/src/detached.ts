@@ -4,8 +4,17 @@
  * and drain on disposal so no process or late callback outlives the fiber.
  * @module @deepseek-ai/dsh-hook-protocol/detached
  */
+/**
+ * 文件职责：实现Hook 线协议的 detached.ts 模块。
+ * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
+ * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
+ * 逻辑维度：解析配置，匹配事件，执行处理器并合并输出。
+ * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
+ * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ */
 
 /** In-flight registry for one bridge's detached hook runs; see the module doc for the wiring contract. */
+/** 中文说明：类型或类 DetachedRuns 约束 Hook、守卫或目标数据职责。 */
 export interface DetachedRuns {
   /**
    * The abort signal every tracked run must hand to {@link runHook} (via its
@@ -40,13 +49,17 @@ export interface DetachedRuns {
  * runs are pruned so a long-lived session does not accumulate them.
  * @returns the tracker.
  */
+/** 中文说明：函数 createDetachedRuns 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function createDetachedRuns(): DetachedRuns {
+  /** 中文说明：协议局部值 inflight，由紧邻初始化决定。 */
   const inflight = new Set<Promise<unknown>>()
+  /** 中文说明：协议局部值 controller，由紧邻初始化决定。 */
   const controller = new AbortController()
   return {
     signal: controller.signal,
     track(run: Promise<unknown>): void {
       inflight.add(run)
+      /** 中文说明：协议局部值 settled，由紧邻初始化决定。 */
       const settled = (): void => { inflight.delete(run) }
       void run.then(settled, settled)
     },

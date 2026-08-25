@@ -1,13 +1,23 @@
+/**
+ * 文件职责：验证Hook 线协议的 merge.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
+ * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
+ * 逻辑维度：构造事件与配置，驱动入口并断言结果。
+ * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
+ * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ */
 import { describe, expect, it } from 'vitest'
 import { mergeHookOutputs } from '@deepseek-ai/dsh-hook-protocol'
 import type { HookOutput } from '@deepseek-ai/dsh-hook-protocol'
 
+/** 中文说明：函数 out 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function out(over: Partial<HookOutput> = {}): HookOutput {
   return { exitCode: 0, stderr: '', stdout: '', ...over }
 }
 
 describe('mergeHookOutputs — permission precedence deny > ask > allow', () => {
   it('empty list yields a neutral outcome', () => {
+    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = mergeHookOutputs([])
     expect(m.decision).toBe('none')
     expect(m.stop).toBe(false)
@@ -35,6 +45,7 @@ describe('mergeHookOutputs — permission precedence deny > ask > allow', () => 
 
 describe('mergeHookOutputs — reasons, stop, context, systemMessages accumulate', () => {
   it('joins block/deny reasons with a blank line (only from blocking hooks)', () => {
+    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = mergeHookOutputs([
       out({ decision: 'deny', reason: 'first objection' }),
       out({ decision: 'allow', reason: 'this allow reason is NOT collected' }),
@@ -48,6 +59,7 @@ describe('mergeHookOutputs — reasons, stop, context, systemMessages accumulate
   })
 
   it('surfaces the reason of the WINNING decision: an ask-winning outcome shows the ask reason', () => {
+    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = mergeHookOutputs([
       out({ decision: 'allow', reason: 'allow reason — not surfaced' }),
       out({ decision: 'ask', reason: 'needs approval' }),
@@ -57,6 +69,7 @@ describe('mergeHookOutputs — reasons, stop, context, systemMessages accumulate
   })
 
   it('when deny wins over ask, the ask reasons are dropped (only the winning rank\'s reasons)', () => {
+    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = mergeHookOutputs([
       out({ decision: 'ask', reason: 'ask reason — not surfaced once deny wins' }),
       out({ decision: 'deny', reason: 'the real objection' }),
@@ -66,6 +79,7 @@ describe('mergeHookOutputs — reasons, stop, context, systemMessages accumulate
   })
 
   it('stop is sticky on the first continue:false, capturing its stopReason', () => {
+    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = mergeHookOutputs([
       out({ continue: true }),
       out({ continue: false, stopReason: 'halt now' }),
@@ -76,18 +90,21 @@ describe('mergeHookOutputs — reasons, stop, context, systemMessages accumulate
   })
 
   it('no stop when every hook continues', () => {
+    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = mergeHookOutputs([out({ continue: true }), out()])
     expect(m.stop).toBe(false)
     expect(m.stopReason).toBeUndefined()
   })
 
   it('a continue:false with no stopReason stops with an undefined reason', () => {
+    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = mergeHookOutputs([out({ continue: false })])
     expect(m.stop).toBe(true)
     expect(m.stopReason).toBeUndefined()
   })
 
   it('collects additionalContext and systemMessages in hook order, skipping empties', () => {
+    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = mergeHookOutputs([
       out({ additionalContext: 'ctx-A', systemMessage: 'warn-A' }),
       out({ additionalContext: '', systemMessage: '' }), // empties skipped

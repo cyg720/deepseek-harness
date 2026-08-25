@@ -5,6 +5,14 @@
  * captured outcome.
  * @module @deepseek-ai/dsh-hook-protocol/runner
  */
+/**
+ * 文件职责：实现Hook 线协议的 runner.ts 模块。
+ * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
+ * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
+ * 逻辑维度：解析配置，匹配事件，执行处理器并合并输出。
+ * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
+ * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ */
 
 import type { ShellExecutor } from '@deepseek-ai/dsh-shell'
 import { parseHookOutput } from './codec.ts'
@@ -17,9 +25,11 @@ import type { CommandHook, HookOutput } from './types.ts'
  * config defaults to it, and a per-hook {@link CommandHook.timeoutSec} is the
  * override API.
  */
+/** 中文说明：协议局部值 DEFAULT_HOOK_TIMEOUT_MS，由紧邻初始化决定。 */
 export const DEFAULT_HOOK_TIMEOUT_MS = 600_000
 
 /** Everything a single hook invocation needs beyond its command line. */
+/** 中文说明：类型或类 RunHookOptions 约束 Hook、守卫或目标数据职责。 */
 export interface RunHookOptions {
   /** The JSON payload object written to the hook's stdin (the bridge builds it). */
   payload: unknown
@@ -47,6 +57,7 @@ export interface RunHookOptions {
 }
 
 /** The {@link HookOutput} plus the wall-clock duration of the run (for `hook/result`). */
+/** 中文说明：类型或类 RunHookResult 约束 Hook、守卫或目标数据职责。 */
 export interface RunHookResult {
   output: HookOutput
   /** Wall-clock duration of the run, from `now` — durable on the `hook/result` event. */
@@ -64,16 +75,21 @@ export interface RunHookResult {
  * @param now - millisecond clock used for the reported duration.
  * @returns the decoded output plus the run's wall-clock duration.
  */
+/** 中文说明：函数 runHook 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export async function runHook(
   bash: ShellExecutor,
   hook: CommandHook,
   options: RunHookOptions,
   now: () => number,
 ): Promise<RunHookResult> {
+  /** 中文说明：协议局部值 started，由紧邻初始化决定。 */
   const started = now()
+  /** 中文说明：协议局部值 timeoutMs，由紧邻初始化决定。 */
   const timeoutMs = hook.timeoutSec !== undefined ? hook.timeoutSec * 1000 : options.defaultTimeoutMs
+  /** 中文说明：协议局部值 stdin，由紧邻初始化决定。 */
   const stdin = JSON.stringify(options.payload) + (options.trailingNewline ? '\n' : '')
 
+  /** 中文说明：协议局部值 request，由紧邻初始化决定。 */
   const request = {
     command: hook.command,
     timeoutMs,
@@ -84,10 +100,12 @@ export async function runHook(
   }
 
   try {
+    /** 中文说明：协议局部值 result，由紧邻初始化决定。 */
     const result = await bash.run(bash.resolve(request))
     // ShellRunResult.exitCode is `number | null` (null = died by signal); the
     // protocol's exit-code contract is numeric, so a signal death maps to
     // `undefined` (a non-blocking error — no clean exit code to act on).
+    /** 中文说明：协议局部值 exitCode，由紧邻初始化决定。 */
     const exitCode = result.exitCode ?? undefined
     return {
       output: parseHookOutput(exitCode, result.stdout.text, result.stderr.text, options.expectedEventName),
@@ -97,6 +115,7 @@ export async function runHook(
     // The executor rejects only on infrastructure faults (unusable workdir,
     // missing shell). A hook that cannot run is a non-blocking error: no exit
     // code, the failure on stderr for the record. The turn proceeds.
+    /** 中文说明：协议局部值 message，由紧邻初始化决定。 */
     const message = error instanceof Error ? error.message : String(error)
     return {
       output: parseHookOutput(undefined, '', message),

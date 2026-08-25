@@ -3,6 +3,14 @@
  * persisted same-session goal domain.
  * @module @deepseek-ai/dsh-tool-goal
  */
+/**
+ * 文件职责：实现目标工具与投影的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
+ * 产品维度：保证目标工具与投影可预测地传递事件、限制循环或适配外部工具。
+ * 逻辑维度：解析配置，匹配事件，执行处理器并合并输出。
+ * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
+ * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -19,41 +27,51 @@ import {
 } from './authority.ts'
 import { renderWrapupContext } from './wrapup.ts'
 
+/** 中文说明：协议局部值 name，由紧邻初始化决定。 */
 export const name = 'tool-goal'
+/** 中文说明：协议局部值 inject，由紧邻初始化决定。 */
 export const inject = ['agents', 'goals', 'tools', 'systemPrompt']
 
 /** Model policy and hard lower bounds for goal-state updates. */
+/** 中文说明：类型或类 Config 约束 Hook、守卫或目标数据职责。 */
 export interface Config {
   /** Minimum admitted goal rounds before the model may self-report `blocked`. */
   blockedAfterConsecutiveRounds?: number
 }
 
 /** Schemastery config for the goal-tool policy. */
+/** 中文说明：协议局部值 Config，由紧邻初始化决定。 */
 export const Config: z<Config> = z.object({
   blockedAfterConsecutiveRounds: z.number().step(1).min(1).default(3),
 })
 
 /** Fully materialized tool policy. */
+/** 中文说明：类型或类 ResolvedConfig 约束 Hook、守卫或目标数据职责。 */
 interface ResolvedConfig {
   readonly blockedAfterConsecutiveRounds: number
 }
 
+/** 中文说明：类型或类 UpdateAction 约束 Hook、守卫或目标数据职责。 */
 type UpdateAction = 'edit' | 'pause' | 'resume' | 'complete' | 'blocked'
 
+/** 中文说明：协议局部值 UPDATE_ACTIONS，由紧邻初始化决定。 */
 const UPDATE_ACTIONS: UpdateAction[] = ['edit', 'pause', 'resume', 'complete', 'blocked']
 
+/** 中文说明：协议局部值 CREATE_DESCRIPTION，由紧邻初始化决定。 */
 const CREATE_DESCRIPTION =
   'Create one persisted same-session completion goal when the current direct human request '
   + 'is a long-running objective that should continue across autonomous goal rounds. You may '
   + 'infer that intent without requiring the user to say "create a goal". Do not use this for '
   + 'trivial single-turn work. Execution rejects non-human and subagent authority.'
 
+/** 中文说明：协议局部值 GET_DESCRIPTION，由紧邻初始化决定。 */
 const GET_DESCRIPTION =
   'Read the current same-session goal, including its exact id/revision, objective, phase, completed '
   + 'continuation rounds, round limit, blocker reason when present, and whether another continuation is armed. '
   + 'Call this before updating a goal.'
 
 /** Canonical goal-tool output, matching the existing compact Native JSON. */
+/** 中文说明：类型或类 GoalToolValue 约束 Hook、守卫或目标数据职责。 */
 type GoalToolValue =
   | { goal: null }
   | {
@@ -69,6 +87,7 @@ type GoalToolValue =
     activation: GoalView['activation']
   }
 
+/** 中文说明：协议局部值 GOAL_VALUE_SCHEMA，由紧邻初始化决定。 */
 const GOAL_VALUE_SCHEMA = {
   oneOf: [
     {
@@ -110,6 +129,7 @@ const GOAL_VALUE_SCHEMA = {
 } as const
 
 /** Render policy guidance with its deployment-selected blocked threshold. */
+/** 中文说明：函数 guidance 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function guidance(blockedAfter: number): string {
   return 'Use goal tools for one long-running completion objective in the current session. '
     + 'create_goal may infer goal intent from a direct human request in any language; do not '
@@ -123,7 +143,9 @@ function guidance(blockedAfter: number): string {
 }
 
 /** Validate config even when apply is called directly outside Loader normalization. */
+/** 中文说明：函数 resolveConfig 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveConfig(config: Config): ResolvedConfig {
+  /** 中文说明：协议局部值 blockedAfter，由紧邻初始化决定。 */
   const blockedAfter = config.blockedAfterConsecutiveRounds ?? 3
   if (!Number.isSafeInteger(blockedAfter) || blockedAfter < 1) {
     throw new TypeError('blockedAfterConsecutiveRounds must be a positive safe integer')
@@ -132,16 +154,19 @@ function resolveConfig(config: Config): ResolvedConfig {
 }
 
 /** Whether optional text is meaningful rather than a strict-schema empty filler. */
+/** 中文说明：函数 hasText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasText(value: string | undefined): value is string {
   return value !== undefined && value !== ''
 }
 
 /** Whether an optional round cap is meaningful rather than a strict-schema zero filler. */
+/** 中文说明：函数 hasRoundCap 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasRoundCap(value: number | undefined): value is number {
   return value !== undefined && value !== 0
 }
 
 /** Build the exact compare-and-set ref from model arguments. */
+/** 中文说明：函数 goalRef 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalRef(goalId: string, revision: number): GoalRef {
   if (goalId.length === 0 || goalId !== goalId.trim()
     || !Number.isSafeInteger(revision) || revision < 1) {
@@ -154,6 +179,7 @@ function goalRef(goalId: string, revision: number): GoalRef {
 }
 
 /** Stable compact model result; activation is an observation, not replay state. */
+/** 中文说明：函数 goalValue 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function goalValue(goal: GoalView | undefined): GoalToolValue {
   if (goal === undefined) return { goal: null }
   return {
@@ -173,18 +199,22 @@ function goalValue(goal: GoalView | undefined): GoalToolValue {
 }
 
 /** Reusable canonical output declaration for all three goal controls. */
+/** 中文说明：协议局部值 GOAL_OUTPUT，由紧邻初始化决定。 */
 const GOAL_OUTPUT = {
   schema: GOAL_VALUE_SCHEMA,
   render: (_args: unknown, value: GoalToolValue) => [{ type: 'text' as const, text: JSON.stringify(value) }],
 }
 
 /** Generic, args-only pending presentation shared by the goal tools. */
+/** 中文说明：函数 present 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function present(title: string, kind: 'read' | 'other', rawInput?: unknown): GenericCallView {
   return { card: 'generic', title, kind, ...rawInput === undefined ? {} : { rawInput } }
 }
 
 /** Register the three Codex-shaped goal tools and their shared policy section. */
+/** 中文说明：函数 apply 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function apply(ctx: Context, config: Config): void {
+  /** 中文说明：协议局部值 resolved，由紧邻初始化决定。 */
   const resolved = resolveConfig(config)
   ctx.systemPrompt.section({
     name: 'tool:goal',
@@ -198,6 +228,7 @@ export function apply(ctx: Context, config: Config): void {
     parameters: {},
     output: GOAL_OUTPUT,
     execute(_args, exec) {
+      /** 中文说明：协议局部值 execution，由紧邻初始化决定。 */
       const execution = goalToolExecution(ctx, exec)
       return Promise.resolve(goalValue(ctx.goals.get(execution.agent)))
     },
@@ -220,8 +251,10 @@ export function apply(ctx: Context, config: Config): void {
     },
     output: GOAL_OUTPUT,
     execute(args, exec) {
+      /** 中文说明：协议局部值 execution，由紧邻初始化决定。 */
       const execution = goalToolExecution(ctx, exec)
       requireDirectHuman(ctx, execution)
+      /** 中文说明：协议局部值 goal，由紧邻初始化决定。 */
       const goal = ctx.goals.create(execution.agent, {
         objective: args.objective,
         ...args.max_goal_rounds === undefined ? {} : { maxGoalRounds: args.max_goal_rounds },
@@ -255,8 +288,11 @@ export function apply(ctx: Context, config: Config): void {
     },
     output: GOAL_OUTPUT,
     execute(args, exec) {
+      /** 中文说明：协议局部值 execution，由紧邻初始化决定。 */
       const execution = goalToolExecution(ctx, exec)
+      /** 中文说明：协议局部值 ref，由紧邻初始化决定。 */
       const ref = goalRef(args.goal_id, args.revision)
+      /** 中文说明：协议局部值 replacements，由紧邻初始化决定。 */
       const replacements = {
         ...hasText(args.objective) ? { objective: args.objective } : {},
         ...hasRoundCap(args.max_goal_rounds) ? { maxGoalRounds: args.max_goal_rounds } : {},
@@ -266,6 +302,7 @@ export function apply(ctx: Context, config: Config): void {
         if (hasText(args.blocked_reason)) {
           throw new HarnessError('blocked_reason is valid only with action blocked', 'GOAL_TOOL_INVALID_UPDATE')
         }
+        /** 中文说明：协议局部值 goal，由紧邻初始化决定。 */
         const goal = ctx.goals.edit(execution.agent, ref, replacements)
         return Promise.resolve(goalValue(goal))
       }
@@ -277,11 +314,13 @@ export function apply(ctx: Context, config: Config): void {
             'GOAL_TOOL_INVALID_UPDATE',
           )
         }
+        /** 中文说明：协议局部值 goal，由紧邻初始化决定。 */
         const goal = args.action === 'pause'
           ? ctx.goals.pause(execution.agent, ref)
           : ctx.goals.resume(execution.agent, ref)
         return Promise.resolve(goalValue(goal))
       }
+      /** 中文说明：协议局部值 authority，由紧邻初始化决定。 */
       const authority = completionAuthority(ctx, execution)
       if (hasText(args.objective) || hasRoundCap(args.max_goal_rounds)) {
         throw new HarnessError(
@@ -304,6 +343,7 @@ export function apply(ctx: Context, config: Config): void {
           'GOAL_TOOL_BLOCK_THRESHOLD',
         )
       }
+      /** 中文说明：协议局部值 goal，由紧邻初始化决定。 */
       const goal = args.action === 'complete'
         ? ctx.goals.complete(execution.agent, ref)
         : ctx.goals.block(execution.agent, ref, {
