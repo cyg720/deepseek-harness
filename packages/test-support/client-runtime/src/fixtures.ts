@@ -1,4 +1,12 @@
 /** Session/workspace fixture shapes and snapshot defaults for the test runtime. */
+/**
+ * 文件职责：实现 fixtures.ts 覆盖的客户端运行时测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 import type {
   ConversationSnapshot, ISession, SessionId, SessionSummary, WorkspaceListState,
 } from '@deepseek-ai/dsh-client-runtime/client'
@@ -15,6 +23,7 @@ import {
  * misnamed verb leaves the fail-loud stub in place, which names itself at
  * the first call.
  */
+/** 中文说明：type SessionBehaviorOverrides 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export type SessionBehaviorOverrides = Partial<ISession> & Record<string, unknown>
 
 /**
@@ -22,6 +31,7 @@ export type SessionBehaviorOverrides = Partial<ISession> & Record<string, unknow
  * funnel through it so tests never handle SlotCore microtask batching or
  * React act themselves.
  */
+/** 中文说明：type Stabilizer 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export type Stabilizer = (fn: () => void | Promise<void>) => Promise<void>
 
 /**
@@ -30,6 +40,7 @@ export type Stabilizer = (fn: () => void | Promise<void>) => Promise<void>
  * test actually calls (kept open — the runtime never fakes methods a test did
  * not supply, so an unstubbed call fails loud at the call site).
  */
+/** 中文说明：interface SessionFixture 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export interface SessionFixture {
   id: string
   /** Overrides merged over {@link conversationSnapshot} (sessionId comes from `id`). */
@@ -45,6 +56,7 @@ export interface SessionFixture {
  * @param sessionId - owning session id.
  * @returns the snapshot; spread fixture overrides on top.
  */
+/** 中文说明：函数 conversationSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function conversationSnapshot(sessionId: SessionId): ConversationSnapshot {
   return {
     sessionId,
@@ -76,6 +88,7 @@ export function conversationSnapshot(sessionId: SessionId): ConversationSnapshot
  * projects after both baselines land).
  * @returns the initial state of the test workspaces store.
  */
+/** 中文说明：函数 workspaceListState 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function workspaceListState(): WorkspaceListState {
   return {
     items: [],

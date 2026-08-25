@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 suite.spec.ts 覆盖的快照与装载测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的快照与装载测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -8,7 +16,9 @@ import {
   defineAcpSnapshotSuite,
   stabilizeFixtureMessageIds,
   tokenizeSessionFixtureCwd,
+  /** 中文说明：type HarvestedLog 定义本测试所需的数据或行为，用于表达快照与装载测试支持场景。 */
   type HarvestedLog,
+  /** 中文说明：type Scenario 定义本测试所需的数据或行为，用于表达快照与装载测试支持场景。 */
   type Scenario,
 } from '../src/index.ts'
 import {
@@ -27,6 +37,7 @@ import {
   scenarioSkipped,
   sessionFixtureNames,
   restorePinnedToolSchemas,
+  /** 中文说明：type SharedSnapshotClaim 定义本测试所需的数据或行为，用于表达快照与装载测试支持场景。 */
   type SharedSnapshotClaim,
   stabilizeRefreshLog,
   stdoutExpectedVariants,
@@ -44,7 +55,9 @@ import {
  * spec once with `ACP_SNAPSHOT_SPEC_BOOTSTRAP=1`, then review and commit the resulting tree.
  */
 
+/** 中文说明：变量 fakeAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeAgent = fileURLToPath(new URL('./fixtures/fake-acp-agent.ts', import.meta.url))
+/** 中文说明：常量 AGENT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const AGENT = {
   binScript: fakeAgent,
   libBinScript: fakeAgent,
@@ -52,8 +65,10 @@ const AGENT = {
   tsconfigPath: fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url)),
 }
 
+/** 中文说明：常量 REPLAY_DIR 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REPLAY_DIR = fileURLToPath(new URL('./fixtures/suite', import.meta.url))
 
+/** 中文说明：函数 stabilize 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function stabilize(
   fresh: string,
   existing: string,
@@ -62,9 +77,11 @@ function stabilize(
 ): string {
   return stabilizeRefreshLog(fresh, existing, replacements, freshContext)
 }
+/** 中文说明：常量 RECORD_SRC 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RECORD_SRC = fileURLToPath(new URL('./fixtures/record-suite', import.meta.url))
 
 // Replay pins explicit header classes; recording covers the default fallback.
+/** 中文说明：常量 REPLAY_SCENARIOS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REPLAY_SCENARIOS: Scenario[] = [
   { name: 'pin-turn', hasModelTurn: true, recorded: true, pinsHeader: true, expectedHeaderChanges: 1, headerClass: 'main' },
   {
@@ -96,6 +113,7 @@ const REPLAY_SCENARIOS: Scenario[] = [
   { name: 'authored-error', hasModelTurn: true, recorded: false, overridden: true, headerClass: 'main' },
 ]
 
+/** 中文说明：常量 RECORD_SCENARIOS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RECORD_SCENARIOS: Scenario[] = [
   { name: 'rec-pin', hasModelTurn: true, recorded: true, pinsHeader: true },
   { name: 'rec-child', hasModelTurn: true, recorded: true, pinsChildToolSchemas: [1] },
@@ -106,7 +124,9 @@ const RECORD_SCENARIOS: Scenario[] = [
 // Record/refresh modes mutate their snapshots dir, so run them on throwaway
 // copies — except record's documented bootstrap knob, which regenerates the
 // committed record fixtures and expected outputs in place.
+/** 中文说明：常量 BOOTSTRAP 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const BOOTSTRAP = process.env.ACP_SNAPSHOT_SPEC_BOOTSTRAP === '1'
+/** 中文说明：变量 recordDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const recordDir = BOOTSTRAP ? RECORD_SRC : mkdtempSync(join(tmpdir(), 'acp-snap-record-suite-'))
 if (!BOOTSTRAP) {
   cpSync(RECORD_SRC, recordDir, { recursive: true })
@@ -115,6 +135,7 @@ if (!BOOTSTRAP) {
   rmSync(join(recordDir, 'rec-pin', 'session.jsonl'))
   writeFileSync(join(recordDir, 'rec-child', 'session.2.jsonl'), 'stale child\n')
 }
+/** 中文说明：变量 refreshDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const refreshDir = mkdtempSync(join(tmpdir(), 'acp-snap-refresh-suite-'))
 cpSync(REPLAY_DIR, refreshDir, { recursive: true })
 staleRefreshFixtures(refreshDir)
@@ -123,6 +144,7 @@ afterAll(async () => {
   await rm(refreshDir, { recursive: true, force: true })
 })
 
+/** 中文说明：函数 staleRefreshFixtures 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function staleRefreshFixtures(dir: string): void {
   writeFileSync(join(dir, 'plain-turn', 'stdout.expected.jsonl'), 'stale stdout\n')
   writeFileSync(join(dir, 'pin-turn', 'system-prompt.expected.md'), 'STALE PROMPT\n')
@@ -130,7 +152,9 @@ function staleRefreshFixtures(dir: string): void {
   writeFileSync(join(dir, 'plain-turn', 'tool-schemas.1.expected.json'), '{"initial":[{"name":"stale-child"}],"changes":[]}\n')
   writeFileSync(join(dir, 'plain-turn', 'system-prompt.1.expected.md'), 'STALE CHILD PROMPT\n')
 
+  /** 中文说明：变量 plainBehaviorFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const plainBehaviorFile = join(dir, 'plain-turn', 'behavior.json')
+  /** 中文说明：变量 plainBehavior 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const plainBehavior = JSON.parse(readFileSync(plainBehaviorFile, 'utf8')) as Record<string, unknown>
   plainBehavior.echoEnv = true
   writeFileSync(plainBehaviorFile, `${JSON.stringify(plainBehavior, null, 2)}\n`)
@@ -163,6 +187,7 @@ describe('defineAcpSnapshotSuite: refresh mode', () => {
 
 describe('defineAcpSnapshotSuite: refresh write-back', () => {
   it('rewrites stdout and comparable logs from a replay-mode child run', () => {
+    /** 中文说明：变量 stdout 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stdout = readFileSync(join(refreshDir, 'plain-turn', 'stdout.expected.jsonl'), 'utf8')
     expect(stdout).not.toContain('stale stdout')
     expect(stdout).toContain('env:{\\"mode\\":\\"replay\\"')
@@ -170,10 +195,12 @@ describe('defineAcpSnapshotSuite: refresh write-back', () => {
     // The scenario's own env layer reached the subprocess.
     expect(stdout).toContain('\\"permissionMode\\":\\"never\\"')
 
+    /** 中文说明：变量 blocked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blocked = readFileSync(join(refreshDir, 'blocked-log', 'session.jsonl'), 'utf8')
     expect(blocked).toContain('"decision":"block"')
     expect(blocked).not.toContain('"decision":"stale"')
 
+    /** 中文说明：变量 authored 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const authored = readFileSync(join(refreshDir, 'authored-error', 'session.jsonl'), 'utf8')
     expect(authored).toContain('"error":"model exploded"')
     expect(authored).not.toContain('"error":"stale"')
@@ -188,15 +215,19 @@ describe('defineAcpSnapshotSuite: refresh write-back', () => {
       'NEW PROMPT LINE',
       '',
     ].join('\n'))
+    /** 中文说明：变量 schemas 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schemas = readFileSync(join(refreshDir, 'pin-turn', 'tool-schemas.expected.json'), 'utf8')
     expect(schemas).toContain('"description": "D1"')
     expect(schemas).not.toContain('"name":"stale"')
+    /** 中文说明：变量 childSchemas 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childSchemas = readFileSync(join(refreshDir, 'plain-turn', 'tool-schemas.1.expected.json'), 'utf8')
     expect(childSchemas).toContain('"name": "child-only"')
     expect(childSchemas).not.toContain('stale-child')
+    /** 中文说明：变量 childPrompt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childPrompt = readFileSync(join(refreshDir, 'plain-turn', 'system-prompt.1.expected.md'), 'utf8')
     expect(childPrompt).toBe('SYS PROMPT\n\nCHILD GUIDANCE\n')
 
+    /** 中文说明：变量 pinSession 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pinSession = readFileSync(join(refreshDir, 'pin-turn', 'session.jsonl'), 'utf8')
     expect(pinSession).toContain('"cwd":"{{cwd}}"')
   })
@@ -204,6 +235,7 @@ describe('defineAcpSnapshotSuite: refresh write-back', () => {
 
 describe('defineAcpSnapshotSuite: record inventory write-back', () => {
   it('creates a missing primary fixture and prunes stale child fixtures', () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = readFileSync(join(recordDir, 'rec-pin', 'session.jsonl'), 'utf8')
     expect(fixture).toContain('"type":"session"')
     expect(fixture).toContain('"cwd":"{{cwd}}"')
@@ -213,11 +245,15 @@ describe('defineAcpSnapshotSuite: record inventory write-back', () => {
   })
 
   it('retains an unchanged message id across the recorded parent and child fixtures', () => {
+    /** 中文说明：变量 existingMessageId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingMessageId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：变量 freshMessageId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshMessageId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 fixtures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixtures = ['session.jsonl', 'session.1.jsonl']
       .map(file => readFileSync(join(recordDir, 'rec-child', file), 'utf8'))
 
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const fixture of fixtures) {
       expect(fixture).toContain(`"id":"${existingMessageId}"`)
       expect(fixture).not.toContain(freshMessageId)
@@ -390,6 +426,7 @@ describe('defineAcpSnapshotSuite: registration contract', () => {
 
 describe('shared snapshot content', () => {
   it('accepts identical claims and rejects order-dependent shared output', () => {
+    /** 中文说明：变量 claims 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const claims = new Map<string, SharedSnapshotClaim>()
     claimSharedSnapshot(claims, 'shared/system-prompt.expected.md', 'first', 'prompt\n')
     claimSharedSnapshot(claims, 'shared/system-prompt.expected.md', 'second', 'prompt\n')
@@ -455,6 +492,7 @@ describe('sessionFixtureNames', () => {
 })
 
 describe('stdoutExpectedVariants', () => {
+  /** 中文说明：变量 scenario 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const scenario: Scenario = {
     name: 'windows-native',
     hasModelTurn: true,
@@ -480,8 +518,11 @@ describe('stdoutExpectedVariants', () => {
 })
 
 describe('scenarioSkipped', () => {
+  /** 中文说明：变量 authored 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const authored: Scenario = { name: 'authored', hasModelTurn: true, recorded: false }
+  /** 中文说明：变量 posix 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const posix: Scenario = { name: 'posix-cancel', hasModelTurn: true, recorded: false, posixOnly: true }
+  /** 中文说明：变量 pwsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pwsh: Scenario = { name: 'pwsh-tool', hasModelTurn: true, recorded: false, pwshOnly: true }
 
   it('skips authored scenarios only while recording', () => {
@@ -506,6 +547,7 @@ describe('scenarioSkipped', () => {
 
 describe('fixtureContext', () => {
   it('reads the fixture header id and cwd', () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = fixtureContext('{"type":"session","id":"abc","cwd":"/rec"}\n{"type":"turn/start"}\n')
     expect(ctx).toEqual({ sessionIds: ['abc'], cwd: '/rec' })
   })
@@ -515,6 +557,7 @@ describe('fixtureContext', () => {
   })
 
   it('falls back to an impossible sentinel cwd (never the empty string)', () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = fixtureContext('{"type":"session","id":"abc"}\n')
     expect(ctx.cwd).toBe('\0no-cwd\0')
     expect(ctx.cwd).not.toBe('')
@@ -526,14 +569,18 @@ describe('fixtureContext', () => {
 })
 
 describe('normalizedHeaders', () => {
+  /** 中文说明：函数值 header 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const header = (system: string): string => JSON.stringify({
     type: 'request/header', seq: 0, time: 9, data: { header: { config: { model: 'm' }, system }, reason: 'initial' },
   })
 
   it('extracts every request/header payload in log order, normalized', () => {
+    /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = '11111111-2222-4333-8444-555555555555'
+    /** 中文说明：变量 log 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const log = `${JSON.stringify({ type: 'session', id, createdAt: 5, cwd: '/w' })}\n${header('one')}\n`
       + `${JSON.stringify({ type: 'turn/start', seq: 1, time: 9, data: { turn: 1 } })}\n${header('two')}\n`
+    /** 中文说明：变量 headers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const headers = normalizedHeaders(log, { sessionIds: [id], cwd: '/w' })
     expect(headers).toEqual([
       { config: { model: 'm' }, system: 'one' },
@@ -542,6 +589,7 @@ describe('normalizedHeaders', () => {
   })
 
   it('yields nothing for a log without header events', () => {
+    /** 中文说明：变量 log 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const log = `${JSON.stringify({ type: 'session', id: 'a', createdAt: 5 })}\n`
     expect(normalizedHeaders(log, { sessionIds: [], cwd: '/w' })).toEqual([])
   })
@@ -549,6 +597,7 @@ describe('normalizedHeaders', () => {
 
 describe('normalizedSystemPrompts', () => {
   it('extracts normalized string prompts and omits absent or non-string fields', () => {
+    /** 中文说明：变量 log 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const log = [
       '{"type":"session","id":"a","createdAt":5,"cwd":"/w"}',
       '{"type":"request/header","seq":0,"time":9,"data":{"header":{"system":"work in /w"}}}',
@@ -564,6 +613,7 @@ describe('normalizedSystemPrompts', () => {
 
 describe('normalizedToolSchemas', () => {
   it('extracts normalized schema arrays and omits absent or non-array fields', () => {
+    /** 中文说明：变量 log 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const log = [
       '{"type":"session","id":"a","createdAt":5,"cwd":"/w"}',
       '{"type":"request/header","seq":0,"time":9,"data":{"header":{"tools":[{"name":"read","description":"work in /w"}]}}}',
@@ -597,6 +647,7 @@ describe('formatSystemPromptSnapshot', () => {
 })
 
 describe('assertChildSystemPromptSnapshot', () => {
+  /** 中文说明：变量 label 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const label = 'plain-turn/system-prompt.1.expected.md'
 
   it('accepts a distinct non-empty canonical child prompt', () => {
@@ -613,9 +664,12 @@ describe('assertChildSystemPromptSnapshot', () => {
   })
 
   it('rejects a child prompt that duplicates its class pin', () => {
+    /** 中文说明：变量 classSnapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const classSnapshot = readFileSync(join(REPLAY_DIR, 'pin-turn', 'system-prompt.expected.md'), 'utf8')
+    /** 中文说明：变量 marker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const marker = classSnapshot.indexOf('\n<!-- request/header change ')
     expect(marker).toBeGreaterThan(0)
+    /** 中文说明：变量 initialClassPin 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialClassPin = classSnapshot.slice(0, marker)
 
     expect(() => {
@@ -626,8 +680,11 @@ describe('assertChildSystemPromptSnapshot', () => {
 
 describe('headerChangeCount', () => {
   it('counts changed request headers, ignoring anchors, blanks, and other lines', () => {
+    /** 中文说明：变量 change 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const change = JSON.stringify({ type: 'request/header', seq: 2, time: 9, data: { reason: 'change' } })
+    /** 中文说明：变量 anchor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const anchor = JSON.stringify({ type: 'request/header', seq: 0, time: 9, data: { reason: 'initial' } })
+    /** 中文说明：变量 other 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const other = JSON.stringify({ type: 'turn/start', seq: 1, time: 9, data: {} })
     expect(headerChangeCount(`${anchor}\n${other}\n\n${change}\n${change}\n`)).toBe(2)
     expect(headerChangeCount(`${anchor}\n`)).toBe(0)
@@ -635,12 +692,14 @@ describe('headerChangeCount', () => {
 })
 
 describe('tool-schema snapshots', () => {
+  /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const snapshot = {
     initial: [{ name: 'read', description: 'Read a file.' }],
     changes: [[{ name: 'grep', description: 'Search files.' }]],
   }
 
   it('formats and parses canonical structured JSON', () => {
+    /** 中文说明：变量 formatted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const formatted = formatToolSchemasSnapshot(snapshot.initial, snapshot.changes)
     expect(formatted).toBe(`${JSON.stringify(snapshot, null, 2)}\n`)
     expect(parseToolSchemasSnapshot(formatted)).toEqual(snapshot)
@@ -670,6 +729,7 @@ describe('tool-schema snapshots', () => {
 
 describe('unknownToolCallIds', () => {
   it('returns structured UNKNOWN_TOOL call ids and ignores other results', () => {
+    /** 中文说明：变量 log 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const log = [
       '{"type":"tool/result","data":{"message":{"source":{"kind":"tool","callId":"missing"}},"error":{"code":"UNKNOWN_TOOL"}}}',
       '{"type":"tool/result","data":{"message":{"source":{"kind":"tool","callId":"failed"}},"error":{"code":"EXECUTION_FAILED"}}}',
@@ -691,8 +751,11 @@ describe('unknownToolCallIds', () => {
 
 describe('stabilizeFixtureMessageIds', () => {
   it('reuses one committed message UUID across fixture-ready parent and child logs', () => {
+    /** 中文说明：变量 freshId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 existingId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：函数值 log 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const log = (session: string, id: string): string => [
       JSON.stringify({ type: 'session', id: session, cwd: '{{cwd}}' }),
       JSON.stringify({
@@ -701,12 +764,16 @@ describe('stabilizeFixtureMessageIds', () => {
       }),
       '',
     ].join('\n')
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [log('fresh-parent', freshId), log('fresh-child', freshId)]
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [log('old-parent', existingId), log('old-child', existingId)]
 
+    /** 中文说明：变量 stable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stable = stabilizeFixtureMessageIds(fresh, existing)
 
     expect(stable).toHaveLength(2)
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const fixture of stable) {
       expect(fixture).toContain(`"id":"${existingId}"`)
       expect(fixture).not.toContain(freshId)
@@ -714,6 +781,7 @@ describe('stabilizeFixtureMessageIds', () => {
   })
 
   it('rewrites only complete messages carried by surface events or durable inbox splices', () => {
+    /** 中文说明：变量 ids 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ids = {
       freshUser: '11111111-1111-4111-8111-111111111111',
       oldUser: '22222222-2222-4222-8222-222222222222',
@@ -723,12 +791,14 @@ describe('stabilizeFixtureMessageIds', () => {
       oldTool: '66666666-6666-4666-8666-666666666666',
       oldMalformed: '77777777-7777-4777-8777-777777777777',
     } as const
+    /** 中文说明：函数值 message 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const message = (id: string, role: string, text: string): Record<string, unknown> => ({
       id,
       role,
       content: [{ type: 'text', text }],
       source: { kind: role === 'user' ? 'user' : 'model' },
     })
+    /** 中文说明：函数值 log 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const log = (userId: string, assistantId: string, toolId: string, malformedId: string): string => [
       JSON.stringify({ type: 'session', id: 'same', cwd: '{{cwd}}' }),
       JSON.stringify({
@@ -752,12 +822,15 @@ describe('stabilizeFixtureMessageIds', () => {
       '',
     ].join('\n')
 
+    /** 中文说明：变量 stable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stable = stabilizeFixtureMessageIds(
       [log(ids.freshUser, ids.freshAssistant, ids.freshTool, 'not-a-uuid')],
       [log(ids.oldUser, ids.oldAssistant, ids.oldTool, ids.oldMalformed)],
     )[0] as string
+    /** 中文说明：函数值 records 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const records = stable.trim().split('\n').map(line => JSON.parse(line) as Record<string, unknown>)
 
+    /** 中文说明：变量 inserted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inserted = ((records[1]?.data as { inserted: Array<{ id: string }> }).inserted)
     expect(inserted[0]?.id).toBe(ids.oldUser)
     expect(inserted[1]?.id).toBe(ids.freshUser)
@@ -771,9 +844,13 @@ describe('stabilizeFixtureMessageIds', () => {
   })
 
   it('matches cwd-bearing messages only after the fresh log reaches fixture-ready form', () => {
+    /** 中文说明：变量 freshId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 existingId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：变量 freshCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshCwd = '/tmp/acp-snapshot-fresh-cwd'
+    /** 中文说明：函数值 message 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const message = (id: string, path: string): Record<string, unknown> => ({
       type: 'user/message',
       data: {
@@ -783,11 +860,13 @@ describe('stabilizeFixtureMessageIds', () => {
         source: { kind: 'user' },
       },
     })
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = tokenizeSessionFixtureCwd([
       JSON.stringify({ type: 'session', id: 'fresh', cwd: freshCwd }),
       JSON.stringify(message(freshId, freshCwd)),
       '',
     ].join('\n'))
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       JSON.stringify({ type: 'session', id: 'old', cwd: '{{cwd}}' }),
       JSON.stringify(message(existingId, '{{cwd}}')),
@@ -798,14 +877,20 @@ describe('stabilizeFixtureMessageIds', () => {
   })
 
   it('rejects a fingerprint connected to an id that also identifies different content', () => {
+    /** 中文说明：变量 freshId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 conflictingId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const conflictingId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：变量 competingId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const competingId = '33333333-3333-4333-8333-333333333333'
+    /** 中文说明：函数值 message 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const message = (id: string, text: string): string => JSON.stringify({
       type: 'user/message',
       data: { id, role: 'user', content: [{ type: 'text', text }], source: { kind: 'user' } },
     })
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = `${message(freshId, 'shared')}\n`
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       message(conflictingId, 'shared'),
       message(conflictingId, 'different'),
@@ -817,6 +902,7 @@ describe('stabilizeFixtureMessageIds', () => {
   })
 
   it('leaves fresh fixtures unchanged when no committed counterpart exists', () => {
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = '{"type":"session","id":"new"}\n'
     expect(stabilizeFixtureMessageIds([fresh], [''])).toEqual([fresh])
   })
@@ -824,12 +910,15 @@ describe('stabilizeFixtureMessageIds', () => {
 
 describe('refreshFixtureReplacements', () => {
   it('maps fresh ids and cwd values to the existing fixture values, skipping non-replacements', () => {
+    /** 中文说明：函数值 log 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const log = (content: string): HarvestedLog => ({ id: 'diagnostic', createdAt: 1, content })
+    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const logs = [
       log('{"type":"session","id":"","cwd":"/same"}\n'),
       log('{"type":"session","id":"new-parent","cwd":"/new"}\n'),
       log('{"type":"session","id":"new-child","cwd":"/new"}\n'),
     ]
+    /** 中文说明：变量 fixtures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixtures = [
       '{"type":"session","id":"","cwd":"/same"}\n',
       '{"type":"session","id":"old-parent","cwd":"/old"}\n',
@@ -841,20 +930,28 @@ describe('refreshFixtureReplacements', () => {
   })
 
   it('stabilizes moved snapshot spill paths by filename while skipping unchanged or unmatched names', () => {
+    /** 中文说明：函数值 spill 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spill = (session: string, hash: string, name: string): string =>
       `/tmp/dsh-acp-snapshot-spill/session-${session}/${hash}-${name}`
+    /** 中文说明：函数值 record 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const record = (text: string): string =>
       `${JSON.stringify({ type: 'session', id: 'same', cwd: '/same' })}\n`
       + `${JSON.stringify({ type: 'tool/result', data: { content: [{ type: 'text', text: `stored at: ${text} ` }] } })}\n`
+    /** 中文说明：变量 freshBash 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshBash = spill('aaaaaaaaaaaa', 'bbbbbbbbbbbb', 'bash.txt')
+    /** 中文说明：变量 oldBash 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldBash = spill('cccccccccccc', 'dddddddddddd', 'bash.txt')
+    /** 中文说明：变量 shared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const shared = spill('eeeeeeeeeeee', 'ffffffffffff', 'grep.txt')
+    /** 中文说明：变量 orphan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const orphan = spill('111111111111', '222222222222', 'orphan.txt')
+    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const logs: HarvestedLog[] = [{
       id: 'diagnostic',
       createdAt: 1,
       content: record(`${freshBash} and ${shared}`),
     }]
+    /** 中文说明：变量 fixtures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixtures = [record(`${oldBash} and ${shared} and ${orphan}`)]
     // bash.txt moved → replaced; grep.txt is identical and orphan.txt has no
     // fresh counterpart → both skipped.
@@ -864,8 +961,11 @@ describe('refreshFixtureReplacements', () => {
   })
 
   it('leaves complete message ids out of the literal refresh replacement list', () => {
+    /** 中文说明：变量 freshMessageId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshMessageId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 existingMessageId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingMessageId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：函数值 log 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const log = (sessionId: string, messageId: string): string => [
       JSON.stringify({ type: 'session', id: sessionId, cwd: '/same' }),
       JSON.stringify({
@@ -879,6 +979,7 @@ describe('refreshFixtureReplacements', () => {
       }),
       '',
     ].join('\n')
+    /** 中文说明：变量 replacements 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replacements = refreshFixtureReplacements(
       [{ id: 'diagnostic', createdAt: 1, content: log('fresh', freshMessageId) }],
       [log('old', existingMessageId)],
@@ -890,12 +991,14 @@ describe('refreshFixtureReplacements', () => {
 
 describe('stabilizeRefreshLog', () => {
   it('preserves unpacked member times when refresh first packs a chunk run', () => {
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"same","createdAt":200}',
       '{"type":"reasoning-chunks","seq0":2,"time0":200,"data":{"turn":1,"step":1,"index":0,"dt":[5,7],"texts":["new",""," split"]}}',
       '{"type":"assistant/message","seq":5,"time":220,"data":{}}',
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"same","createdAt":100}',
       '{"type":"assistant/chunk","seq":2,"time":100,"data":{"turn":1,"step":1,"chunk":{"type":"reasoning-delta","index":0,"text":"old"}}}',
@@ -914,11 +1017,13 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('preserves packed member times without flattening fresh chunk boundaries', () => {
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"same","createdAt":200}',
       '{"type":"text-chunks","seq0":2,"time0":200,"data":{"turn":1,"step":1,"index":0,"dt":[5,7],"texts":["new",""," split"]}}',
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"same","createdAt":100}',
       '{"type":"text-chunks","seq0":2,"time0":100,"data":{"turn":1,"step":1,"index":0,"dt":[1,2],"texts":["old","chunk","shape"]}}',
@@ -933,11 +1038,13 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('reads projected packed fixtures while retaining their data gaps', () => {
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"same","createdAt":200}',
       '{"type":"text-chunks","seq0":2,"time0":200,"data":{"turn":1,"step":1,"index":0,"dt":[5,7],"texts":["new",""," split"]}}',
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"same","createdAt":100}',
       '{"type":"text-chunks","data":{"turn":1,"step":1,"index":0,"dt":[1,2],"texts":["old","chunk","shape"]}}',
@@ -957,18 +1064,21 @@ describe('stabilizeRefreshLog', () => {
     ['a later old time is invalid', [100, 'invalid', 103], 100],
     ['an old gap is not exactly representable', [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER - 1], Number.MIN_SAFE_INTEGER],
   ])('keeps fresh packed gaps when %s', (_case, existingTimes, expectedTime0) => {
+    /** 中文说明：变量 freshRow 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshRow = {
       type: 'reasoning-chunks',
       seq0: 2,
       time0: 200,
       data: { turn: 1, step: 1, index: 0, dt: [5, 7], texts: ['new', '', ' split'] },
     }
+    /** 中文说明：函数值 existingRows 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const existingRows = existingTimes.map((time, index) => ({
       type: 'assistant/chunk',
       seq: index + 2,
       time,
       data: {},
     }))
+    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = stabilize(
       `${JSON.stringify({ type: 'session', id: 'same', createdAt: 200 })}\n${JSON.stringify(freshRow)}\n`,
       `${JSON.stringify({ type: 'session', id: 'same', createdAt: 100 })}\n${existingRows.map(row => JSON.stringify(row)).join('\n')}\n`,
@@ -978,6 +1088,7 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('aligns volatile times across a newly inserted log event', () => {
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"same","createdAt":200}',
       '{"type":"turn/start","seq":0,"time":21}',
@@ -987,6 +1098,7 @@ describe('stabilizeRefreshLog', () => {
       '{"type":"request/header","seq":4,"time":1001}',
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"same","createdAt":100}',
       '{"type":"turn/start","seq":0,"time":11}',
@@ -1008,14 +1120,20 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('retains unchanged message ids across an unrelated inserted event', () => {
+    /** 中文说明：变量 freshUserId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshUserId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 existingUserId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingUserId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：变量 freshAssistantId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshAssistantId = '33333333-3333-4333-8333-333333333333'
+    /** 中文说明：变量 existingAssistantId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingAssistantId = '44444444-4444-4444-8444-444444444444'
+    /** 中文说明：函数值 user 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const user = (id: string): Record<string, unknown> => ({
       type: 'user/message',
       data: { role: 'user', content: [{ type: 'text', text: 'same user' }], source: { kind: 'user' }, id },
     })
+    /** 中文说明：函数值 assistant 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const assistant = (id: string): Record<string, unknown> => ({
       type: 'assistant/message',
       data: {
@@ -1029,27 +1147,34 @@ describe('stabilizeRefreshLog', () => {
         },
       },
     })
+    /** 中文说明：函数值 lines 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const lines = (records: Record<string, unknown>[]): string => [
       JSON.stringify({ type: 'session', id: 'same', createdAt: 1, cwd: '/same' }),
       ...records.map(record => JSON.stringify(record)),
       '',
     ].join('\n')
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = lines([
       user(freshUserId),
       { type: 'session/inherited', data: {} },
       assistant(freshAssistantId),
     ])
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = lines([user(existingUserId), assistant(existingAssistantId)])
+    /** 中文说明：变量 replacements 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replacements = refreshFixtureReplacements(
       [{ id: 'diagnostic', createdAt: 1, content: fresh }],
       [existing],
     )
+    /** 中文说明：变量 refreshed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const refreshed = stabilize(fresh, existing, replacements)
+    /** 中文说明：变量 intermediate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const intermediate = refreshed.trim().split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>)
     expect((intermediate[1]?.data as { id: string }).id).toBe(freshUserId)
     expect(((intermediate[3]?.data as { message: { id: string } }).message).id).toBe(freshAssistantId)
 
+    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = (stabilizeFixtureMessageIds([refreshed], [existing])[0] as string).trim().split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>)
 
@@ -1058,8 +1183,11 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('leaves an aligned complete message id to the fixture-ready structural pass', () => {
+    /** 中文说明：变量 freshId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 existingId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：函数值 log 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const log = (id: string): string => [
       JSON.stringify({ type: 'session', id: 'same', createdAt: 1, cwd: '/same' }),
       JSON.stringify({
@@ -1068,8 +1196,11 @@ describe('stabilizeRefreshLog', () => {
       }),
       '',
     ].join('\n')
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = log(freshId)
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = log(existingId)
+    /** 中文说明：变量 refreshed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const refreshed = stabilize(fresh, existing)
 
     expect(refreshed).toContain(`"id":"${freshId}"`)
@@ -1077,6 +1208,7 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('keeps volatile fixture fields while preserving fresh meaningful payloads', () => {
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"new-child","createdAt":200,"cwd":"/new","parentSession":"new-parent","seedLength":1}',
       '{"type":"hook/result","seq":1,"time":22,"data":{"decision":"block","durationMs":37}}',
@@ -1085,6 +1217,7 @@ describe('stabilizeRefreshLog', () => {
       '{"type":"hook/result","seq":4,"time":55,"data":{"decision":"allow","durationMs":5}}',
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"old-child","createdAt":100,"cwd":"/old","parentSession":"old-parent","seedLength":5}',
       '{"type":"hook/result","seq":1,"time":11,"data":{"decision":"stale","durationMs":99}}',
@@ -1109,10 +1242,15 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('preserves normalized volatile fields while accepting fresh semantic fields', () => {
+    /** 中文说明：变量 freshApprovalId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshApprovalId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 existingApprovalId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingApprovalId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：变量 freshSpill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshSpill = '/tmp/dsh-acp-snap-012345678/session-111111111111/222222222222-bash.txt'
+    /** 中文说明：变量 existingSpill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingSpill = '/tmp/dsh-acp-snap-012345678/session-aaaaaaaaaaaa/bbbbbbbbbbbb-bash.txt'
+    /** 中文说明：变量 freshEventRead 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshEventRead = [
       'Session main — title',
       'Target event seq 4:',
@@ -1125,10 +1263,12 @@ describe('stabilizeRefreshLog', () => {
       '',
       `(Omitted 40000 bytes. Full formatted result stored at: ${freshSpill}. Use read with offset/limit, or grep this path to search within it.)`,
     ].join('\n')
+    /** 中文说明：变量 existingEventRead 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingEventRead = freshEventRead
       .replace('1785000000000', '1784000000000')
       .replace('40000 bytes', '30000 bytes')
       .replace(freshSpill, existingSpill)
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"same","createdAt":200,"cwd":"/old"}',
       JSON.stringify({
@@ -1155,6 +1295,7 @@ describe('stabilizeRefreshLog', () => {
       }),
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
       JSON.stringify({
@@ -1182,6 +1323,7 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
+    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = stabilize(fresh, existing).trim().split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>)
     expect(output).toEqual([
@@ -1212,19 +1354,25 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('normalizes fresh cwd aliases before reusing existing paths', () => {
+    /** 中文说明：变量 freshCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshCwd = String.raw`C:\Users\RUNNER~1\AppData\Local\Temp\acp-snap-cwd-new`
+    /** 中文说明：变量 freshAlias 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshAlias = String.raw`C:\Users\runneradmin\AppData\Local\Temp\acp-snap-cwd-new`
+    /** 中文说明：变量 existingCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingCwd = String.raw`C:\Users\RUNNER~1\AppData\Local\Temp\acp-snap-cwd-old`
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       JSON.stringify({ type: 'session', id: 'same', createdAt: 200, cwd: freshCwd }),
       JSON.stringify({ type: 'tool/result', data: { path: `${freshAlias}\\result.txt` } }),
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       JSON.stringify({ type: 'session', id: 'same', createdAt: 100, cwd: existingCwd }),
       JSON.stringify({ type: 'tool/result', data: { path: `${existingCwd}\\result.txt` } }),
       '',
     ].join('\n')
+    /** 中文说明：变量 freshContext 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshContext = { ...fixtureContext(fresh), cwdAliases: [freshAlias] }
 
     expect(stabilize(
@@ -1240,14 +1388,18 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('preserves one correlated volatile id through a consistent log-wide mapping', () => {
+    /** 中文说明：变量 freshId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 existingId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"same","createdAt":200,"cwd":"/old"}',
       JSON.stringify({ type: 'approval/asked', data: { id: freshId } }),
       JSON.stringify({ type: 'approval/decided', data: { id: freshId, outcome: 'allowed-once' } }),
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
       JSON.stringify({ type: 'approval/asked', data: { id: existingId } }),
@@ -1264,9 +1416,13 @@ describe('stabilizeRefreshLog', () => {
   })
 
   it('keeps fresh correlated ids when record alignment is structurally ambiguous', () => {
+    /** 中文说明：变量 firstFreshId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstFreshId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 secondFreshId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const secondFreshId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：变量 existingId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingId = '33333333-3333-4333-8333-333333333333'
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"same","createdAt":200,"cwd":"/old"}',
       JSON.stringify({ type: 'approval/asked', data: { id: firstFreshId } }),
@@ -1275,6 +1431,7 @@ describe('stabilizeRefreshLog', () => {
       JSON.stringify({ type: 'approval/decided', data: { id: secondFreshId } }),
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
       JSON.stringify({ type: 'approval/asked', data: { id: existingId } }),
@@ -1282,19 +1439,24 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
+    /** 中文说明：变量 ids 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ids = stabilize(fresh, existing).trim().split('\n').slice(1)
       .map(line => (JSON.parse(line) as { data: { id: string } }).data.id)
     expect(ids).toEqual([firstFreshId, secondFreshId, firstFreshId, secondFreshId])
   })
 
   it('keeps fresh ids when existing records remain unmatched', () => {
+    /** 中文说明：变量 freshId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freshId = '11111111-1111-4111-8111-111111111111'
+    /** 中文说明：变量 existingId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existingId = '22222222-2222-4222-8222-222222222222'
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = [
       '{"type":"session","id":"same","createdAt":200,"cwd":"/old"}',
       JSON.stringify({ type: 'approval/asked', data: { id: freshId } }),
       '',
     ].join('\n')
+    /** 中文说明：变量 existing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = [
       '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
       JSON.stringify({ type: 'approval/asked', data: { id: existingId } }),
@@ -1302,6 +1464,7 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
+    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = stabilize(fresh, existing).trim().split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>)
     expect(output[1]).toEqual({ type: 'approval/asked', data: { id: freshId } })
@@ -1319,19 +1482,23 @@ describe('stabilizeRefreshLog', () => {
       existing: ['x', 'x'],
     },
   ])('keeps fresh ids when $name', ({ fresh: freshNames, existing: existingNames }) => {
+    /** 中文说明：变量 ids 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ids = {
       a: '11111111-1111-4111-8111-111111111111',
       b: '22222222-2222-4222-8222-222222222222',
       x: '33333333-3333-4333-8333-333333333333',
       y: '44444444-4444-4444-8444-444444444444',
     } as const
+    /** 中文说明：变量 types 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const types = ['approval/asked', 'approval/asked', 'approval/decided', 'approval/decided']
+    /** 中文说明：函数值 log 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const log = (names: string[]): string => [
       '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
       ...names.map((name, index) => JSON.stringify({ type: types[index], data: { id: ids[name as keyof typeof ids] } })),
       '',
     ].join('\n')
 
+    /** 中文说明：变量 outputIds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outputIds = stabilize(log(freshNames), log(existingNames)).trim().split('\n').slice(1)
       .map(line => (JSON.parse(line) as { data: { id: string } }).data.id)
     expect(outputIds).toEqual(freshNames.map(name => ids[name as keyof typeof ids]))

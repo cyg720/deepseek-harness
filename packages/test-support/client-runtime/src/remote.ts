@@ -1,4 +1,12 @@
 /** Test-owned Remote face: `$on` subscriptions driven by the internal forwarded-event plumbing. */
+/**
+ * 文件职责：实现 remote.ts 覆盖的客户端运行时测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 import type { Context } from '@deepseek-ai/cordis'
 
 /**
@@ -20,6 +28,7 @@ import type { Context } from '@deepseek-ai/cordis'
  * this double for the containment guarantee `$on` documents — assert that
  * against the real service.
  */
+/** 中文说明：class TestRemote 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestRemote {
   private readonly subscriptions = new Map<string, Set<(...args: never[]) => void>>()
 
@@ -38,8 +47,10 @@ export class TestRemote {
    * @param args - the Host argument list, verbatim.
    */
   $dispatch(event: string, args: readonly unknown[]): void {
+    /** 中文说明：变量 listeners 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listeners = this.subscriptions.get(event)
     if (listeners === undefined) return
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const listener of [...listeners]) listener(...args as never[])
   }
 
@@ -50,6 +61,7 @@ export class TestRemote {
    * @returns disposer removing this subscription.
    */
   $on(event: string, listener: (...args: never[]) => void): () => void {
+    /** 中文说明：变量 listeners 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listeners = this.subscriptions.get(event) ?? new Set()
     this.subscriptions.set(event, listeners)
     listeners.add(listener)

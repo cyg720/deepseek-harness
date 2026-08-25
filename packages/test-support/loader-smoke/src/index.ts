@@ -10,6 +10,14 @@
  *
  * @module @deepseek-ai/dsh-loader-smoke
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的快照与装载测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的快照与装载测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -18,19 +26,25 @@ import { execa } from 'execa'
 
 export {
   runFixtureTurn,
+  /** 中文说明：type FixtureTurnOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
   type FixtureTurnOptions,
+  /** 中文说明：type FixtureTurnResult 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
   type FixtureTurnResult,
 } from './agent-turn.ts'
 
+/** 中文说明：常量 DEFAULT_PROCESS_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_PROCESS_TIMEOUT_MS = 30_000
 
 /** Vitest deadline that leaves room for the subprocess-owned 30-second diagnostic timeout. */
+/** 中文说明：常量 LOADER_SMOKE_TEST_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const LOADER_SMOKE_TEST_TIMEOUT_MS = DEFAULT_PROCESS_TIMEOUT_MS + 15_000
 
 /** Which artifact an example bin is booted from: unbuilt `src` via tsx, or built `lib` via plain Node. */
+/** 中文说明：type ExampleMode 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export type ExampleMode = 'src' | 'lib'
 
 /** Environment variable selecting the mode; CI sets it to `lib`, dev leaves it unset (`src`). */
+/** 中文说明：常量 EXAMPLE_MODE_ENV 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const EXAMPLE_MODE_ENV = 'DSH_EXAMPLE_MODE'
 
 /**
@@ -40,6 +54,7 @@ export const EXAMPLE_MODE_ENV = 'DSH_EXAMPLE_MODE'
  * @param raw - the raw value; defaults to `process.env.DSH_EXAMPLE_MODE`.
  * @returns the validated mode.
  */
+/** 中文说明：函数 resolveExampleMode 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function resolveExampleMode(raw: string | undefined = process.env[EXAMPLE_MODE_ENV]): ExampleMode {
   switch (raw) {
     case undefined:
@@ -54,6 +69,7 @@ export function resolveExampleMode(raw: string | undefined = process.env[EXAMPLE
 }
 
 /** Inputs to {@link resolveExampleLaunch}. */
+/** 中文说明：interface ExampleLaunchOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface ExampleLaunchOptions {
   /** Absolute path to the example bin's TypeScript source entry (`<pkg>/src/bin.ts`); the `lib` bin is derived from it. */
   readonly srcBin: string
@@ -70,6 +86,7 @@ export interface ExampleLaunchOptions {
 }
 
 /** The resolved spawn: `spawn(command, args, { env: { ...process.env, ...env } })`. */
+/** 中文说明：interface ExampleLaunch 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface ExampleLaunch {
   /** The executable to spawn — always the current Node binary. */
   readonly command: string
@@ -80,13 +97,18 @@ export interface ExampleLaunch {
 }
 
 /** Derive the built-lib bin (`<pkg>/lib/<name>.js`) from a source bin (`<pkg>/src/<name>.ts`). */
+/** 中文说明：函数 toLibBin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toLibBin(srcBin: string): string {
+  /** 中文说明：变量 markerLength 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const markerLength = '/src/'.length
+  /** 中文说明：变量 cut 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cut = Math.max(srcBin.lastIndexOf('/src/'), srcBin.lastIndexOf('\\src\\'))
   if (cut === -1) {
     throw new Error(`resolveExampleLaunch: expected a "/src/" segment or Windows equivalent in bin path ${JSON.stringify(srcBin)}.`)
   }
+  /** 中文说明：变量 separator 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const separator = srcBin.slice(cut, cut + 1)
+  /** 中文说明：变量 tail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const tail = srcBin.slice(cut + markerLength).replace(/\.ts$/, '.js')
   return `${srcBin.slice(0, cut)}${separator}lib${separator}${tail}`
 }
@@ -104,15 +126,20 @@ function toLibBin(srcBin: string): string {
  * @param options - the source bin, config arguments, mode, and environment.
  * @returns the command, argument vector, and mode-specific environment to spawn with.
  */
+/** 中文说明：函数 resolveExampleLaunch 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function resolveExampleLaunch(options: ExampleLaunchOptions): ExampleLaunch {
+  /** 中文说明：变量 mode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mode = options.mode ?? resolveExampleMode()
+  /** 中文说明：变量 configArgs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const configArgs = options.configArgs ?? []
+  /** 中文说明：变量 env 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const env: NodeJS.ProcessEnv = { ...options.env }
 
   if (mode === 'src') {
     if (options.tsconfigPath === undefined) {
       throw new Error("resolveExampleLaunch: 'src' mode needs tsconfigPath for the workspace paths map.")
     }
+    /** 中文说明：变量 tsxLoader 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tsxLoader = import.meta.resolve('tsx')
     env.TSX_TSCONFIG_PATH = options.tsconfigPath
     return { command: process.execPath, args: ['--import', tsxLoader, options.srcBin, ...configArgs], env }
@@ -122,6 +149,7 @@ export function resolveExampleLaunch(options: ExampleLaunchOptions): ExampleLaun
 }
 
 /** Inputs that vary between real-Loader example smokes. */
+/** 中文说明：interface LoaderSmokeOptions 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface LoaderSmokeOptions {
   /** Human-readable example name used in failure diagnostics. */
   readonly label: string
@@ -157,6 +185,7 @@ export interface LoaderSmokeOptions {
 }
 
 /** Captured output from a Loader smoke that exited successfully. */
+/** 中文说明：interface LoaderSmokeResult 定义本模块所需的数据或行为，用于表达快照与装载测试支持场景。 */
 export interface LoaderSmokeResult {
   /** Complete stdout after clean exit. */
   readonly stdout: string
@@ -171,11 +200,15 @@ export interface LoaderSmokeResult {
  * @param options - example paths, mode, environment, and diagnostic identity.
  * @returns captured stdout and stderr after a zero exit.
  */
+/** 中文说明：函数 runLoaderSmoke 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function runLoaderSmoke(options: LoaderSmokeOptions): Promise<LoaderSmokeResult> {
+  /** 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cwd = await mkdtemp(join(tmpdir(), options.tempDirPrefix))
+  /** 中文说明：变量 processTimeoutMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const processTimeoutMs = options.processTimeoutMs ?? DEFAULT_PROCESS_TIMEOUT_MS
   try {
     await options.prepare?.(cwd)
+    /** 中文说明：变量 launch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launch = resolveExampleLaunch({
       srcBin: options.binScript,
       libBin: options.libBinScript,
@@ -188,6 +221,7 @@ export async function runLoaderSmoke(options: LoaderSmokeOptions): Promise<Loade
     // stdin-close contract. `reject: false` folds spawn errors, the SIGKILL
     // deadline, and nonzero exits into independent result fields, so the
     // diagnostics below embed both streams on every failure.
+    /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await execa(launch.command, launch.args, {
       cwd,
       env: launch.env,
@@ -200,6 +234,7 @@ export async function runLoaderSmoke(options: LoaderSmokeOptions): Promise<Loade
     if (result.timedOut) {
       throw new Error(`${options.label} did not exit within ${processTimeoutMs / 1_000}s. stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
     }
+    /** 中文说明：变量 expectedExitCode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expectedExitCode = options.expectedExitCode ?? 0
     if (result.exitCode !== expectedExitCode) {
       throw new Error(`${options.label} exited ${String(result.exitCode)} (expected ${expectedExitCode}). stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)

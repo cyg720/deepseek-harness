@@ -2,6 +2,14 @@
  * Dependency-free CLI parsing for the standalone mock LLM server.
  * @module @deepseek-ai/dsh-llm-mock-server/cli
  */
+/**
+ * 文件职责：实现 cli.ts 覆盖的LLM 测试替身行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的LLM 测试替身能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 
 import { parseArgs } from 'node:util'
 import { MAX_MOCK_LLM_TIMER_DELAY_MS, MOCK_LLM_BEHAVIORS } from './index.ts'
@@ -13,9 +21,11 @@ import type {
 } from './index.ts'
 
 /** Listener lifecycle behavior understood only by the standalone CLI. */
+/** 中文说明：常量 CONNECTION_REFUSED_BEHAVIOR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CONNECTION_REFUSED_BEHAVIOR = 'connection_refused'
 
 /** Parsed CLI configuration, including a pre-listen unavailable interval. */
+/** 中文说明：interface MockLlmCliConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface MockLlmCliConfig {
   /** Server options after removing the lifecycle-only `connection_refused` entry. */
   readonly server: MockLlmServerOptions
@@ -26,14 +36,18 @@ export interface MockLlmCliConfig {
 }
 
 /** Result of parsing `dsh-llm-mock-server` arguments. */
+/** 中文说明：type MockLlmCliParseResult 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmCliParseResult =
   | { readonly kind: 'help' }
   | { readonly kind: 'run'; readonly config: MockLlmCliConfig }
 
+/** 中文说明：常量 BEHAVIORS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const BEHAVIORS = new Set<string>(MOCK_LLM_BEHAVIORS)
+/** 中文说明：常量 DEFAULT_LISTEN_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_LISTEN_DELAY_MS = 750
 
 /** Command usage written for `--help` and invalid arguments. */
+/** 中文说明：常量 MOCK_LLM_CLI_USAGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MOCK_LLM_CLI_USAGE = `Usage: dsh-llm-mock-server [options]
 
 Required:
@@ -64,13 +78,17 @@ Other:
   --help
 `
 
+/** 中文说明：函数 numberValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function numberValue(option: string, value: string): number {
+  /** 中文说明：变量 parsed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) throw new Error(`dsh-llm-mock-server: ${option} must be a finite number`)
   return parsed
 }
 
+/** 中文说明：函数 boundedIntegerValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function boundedIntegerValue(option: string, value: string, min: number, max: number): number {
+  /** 中文说明：变量 parsed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = numberValue(option, value)
   if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
     throw new Error(`dsh-llm-mock-server: ${option} must be an integer between ${min} and ${max}`)
@@ -78,27 +96,35 @@ function boundedIntegerValue(option: string, value: string, min: number, max: nu
   return parsed
 }
 
+/** 中文说明：函数 parseSequence 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function parseSequence(raw: string): { startsUnavailable: boolean; sequence: MockLlmBehavior[] } {
+  /** 中文说明：函数值 entries 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const entries = raw.split(',').map(entry => entry.trim())
   if (entries.some(entry => entry.length === 0)) {
     throw new Error('dsh-llm-mock-server: --sequence must contain non-empty comma-separated behaviors')
   }
+  /** 中文说明：变量 startsUnavailable 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const startsUnavailable = entries[0] === CONNECTION_REFUSED_BEHAVIOR
   if (entries.slice(1).includes(CONNECTION_REFUSED_BEHAVIOR)) {
     throw new Error('dsh-llm-mock-server: connection_refused is allowed only as the first behavior')
   }
+  /** 中文说明：变量 requestEntries 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const requestEntries = startsUnavailable ? entries.slice(1) : entries
   if (requestEntries.length === 0) {
     throw new Error('dsh-llm-mock-server: connection_refused must be followed by a request behavior')
   }
+  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const entry of requestEntries) {
     if (!BEHAVIORS.has(entry)) throw new Error(`dsh-llm-mock-server: unknown behavior ${JSON.stringify(entry)}`)
   }
   return { startsUnavailable, sequence: requestEntries as MockLlmBehavior[] }
 }
 
+/** 中文说明：函数 parseRandomWeights 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function parseRandomWeights(raw: string): MockLlmRandomWeights {
+  /** 中文说明：变量 weights 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const weights: MockLlmRandomWeights = {}
+  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const entry of raw.split(',')) {
     const [behavior, rawWeight, ...extra] = entry.split('=')
     if (behavior === undefined || behavior === '' || rawWeight === undefined || rawWeight === '' || extra.length > 0) {
@@ -116,6 +142,7 @@ function parseRandomWeights(raw: string): MockLlmRandomWeights {
 }
 
 /** parseArgs vocabulary: every documented flag; only `--repeat-last` and `--help` are boolean. */
+/** 中文说明：常量 CLI_OPTIONS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLI_OPTIONS = {
   'sequence': { type: 'string' },
   'host': { type: 'string' },
@@ -144,35 +171,55 @@ const CLI_OPTIONS = {
  * @param argv - arguments after the executable name.
  * @returns help or validated run configuration.
  */
+/** 中文说明：函数 parseMockLlmCliArgs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function parseMockLlmCliArgs(argv: readonly string[]): MockLlmCliParseResult {
   if (argv.includes('--help')) return { kind: 'help' }
 
   const { values } = parseArgs({ args: [...argv], options: CLI_OPTIONS, strict: true, allowPositionals: false })
 
+  /** 中文说明：变量 host 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const host = values.host
+  /** 中文说明：变量 port 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const port = values.port === undefined ? 8_000 : numberValue('--port', values.port)
+  /** 中文说明：变量 apiKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const apiKey = values['api-key']
+  /** 中文说明：变量 listenDelayMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const listenDelayMs = values['listen-delay-ms'] === undefined
     ? undefined
     : boundedIntegerValue('--listen-delay-ms', values['listen-delay-ms'], 0, MAX_MOCK_LLM_TIMER_DELAY_MS)
+  /** 中文说明：变量 repeatLast 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const repeatLast = values['repeat-last'] ?? false
+  /** 中文说明：变量 randomSeed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const randomSeed = values.seed === undefined ? undefined : numberValue('--seed', values.seed)
+  /** 中文说明：变量 randomWeights 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const randomWeights = values['random-weights'] === undefined ? undefined : parseRandomWeights(values['random-weights'])
+  /** 中文说明：变量 successText 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const successText = values['success-text']
+  /** 中文说明：变量 partialText 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const partialText = values['partial-text']
+  /** 中文说明：变量 reasoningText 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const reasoningText = values['reasoning-text']
+  /** 中文说明：变量 chunkSize 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const chunkSize = values['chunk-size'] === undefined ? undefined : numberValue('--chunk-size', values['chunk-size'])
+  /** 中文说明：变量 chunkDelayMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const chunkDelayMs = values['chunk-delay-ms'] === undefined ? undefined : numberValue('--chunk-delay-ms', values['chunk-delay-ms'])
+  /** 中文说明：变量 disconnectDelayMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const disconnectDelayMs = values['disconnect-delay-ms'] === undefined
     ? undefined
     : numberValue('--disconnect-delay-ms', values['disconnect-delay-ms'])
+  /** 中文说明：变量 retryAfterMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const retryAfterMs = values['retry-after-ms'] === undefined ? undefined : numberValue('--retry-after-ms', values['retry-after-ms'])
+  /** 中文说明：变量 requestId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const requestId = values['request-id']
+  /** 中文说明：变量 toolName 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const toolName = values['tool-name']
+  /** 中文说明：变量 toolArguments 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const toolArguments = values['tool-arguments']
 
   if (values.sequence === undefined) throw new Error('dsh-llm-mock-server: --sequence is required')
+  /** 中文说明：变量 sequenceRaw 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sequenceRaw = values.sequence
+  /** 中文说明：变量 parsedSequence 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsedSequence = parseSequence(sequenceRaw)
   if (parsedSequence.startsUnavailable && port === 0) {
     throw new Error('dsh-llm-mock-server: connection_refused requires an explicit nonzero --port')

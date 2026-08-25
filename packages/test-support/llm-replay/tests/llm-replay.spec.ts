@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 llm-replay.spec.ts 覆盖的LLM 测试替身行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的LLM 测试替身能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -7,8 +15,11 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { CompactionId } from '@deepseek-ai/dsh-compaction'
 import LlmRuntime, { CallId, createUserMessage, GenerateOptions, LlmAdapter, StreamChunk } from '@deepseek-ai/dsh-llm'
 import {
+  /** 中文说明：type Config 定义本测试所需的数据或行为，用于表达LLM 测试替身场景。 */
   type Config,
+  /** 中文说明：type ReplayEntry 定义本测试所需的数据或行为，用于表达LLM 测试替身场景。 */
   type ReplayEntry,
+  /** 中文说明：type SessionScript 定义本测试所需的数据或行为，用于表达LLM 测试替身场景。 */
   type SessionScript,
   apply,
   deriveReplayScript,
@@ -29,6 +40,7 @@ import {
  * derive/parse/load helpers that turn a recorded session JSONL into a script.
  */
 
+/** 中文说明：常量 TEXT_CHUNKS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TEXT_CHUNKS: StreamChunk[] = [
   { type: 'block-start', index: 0, blockType: 'text' },
   { type: 'text-delta', index: 0, text: 'hi' },
@@ -37,10 +49,13 @@ const TEXT_CHUNKS: StreamChunk[] = [
   { type: 'finish', reason: { kind: 'stop' } },
 ]
 
+/** 中文说明：常量 COMPACTION_ID 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const COMPACTION_ID = CompactionId('replay-compaction')
 
 /** Build a minimal session-JSONL string: a header line + the given events. */
+/** 中文说明：函数 sessionJsonl 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sessionJsonl(events: SessionEvent[], header?: { id?: string; createdAt?: number; seedLength?: number }): string {
+  /** 中文说明：变量 headerLine 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const headerLine = JSON.stringify({
     type: 'session',
     version: 0,
@@ -52,18 +67,25 @@ function sessionJsonl(events: SessionEvent[], header?: { id?: string; createdAt?
 }
 
 /** A SessionEvent of type assistant/chunk for (turn, step). */
+/** 中文说明：函数 chunkEvent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function chunkEvent(seq: number, turn: number, step: number, chunk: StreamChunk): SessionEvent {
   return { type: 'assistant/chunk', seq, time: 0, data: { turn, step, chunk } }
 }
 
+/** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let dir: string
+/** 中文说明：变量 file 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let file: string
 
 /** Write a session log file and return its path. */
+/** 中文说明：函数 writeSession 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function writeSession(filename: string, header: { id: string; createdAt: number }, calls: StreamChunk[][]): string {
+  /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let seq = 1
+  /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events: SessionEvent[] = []
   calls.forEach((chunks, step) => { for (const c of chunks) events.push(chunkEvent(seq++, 1, step + 1, c)) })
+  /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = join(dir, filename)
   writeFileSync(path, sessionJsonl(events, header), 'utf8')
   return path
@@ -78,32 +100,41 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
+/** 中文说明：函数 drain 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function drain(iter: AsyncIterable<StreamChunk>): Promise<StreamChunk[]> {
+  /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: StreamChunk[] = []
+  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for await (const chunk of iter) out.push(chunk)
   return out
 }
 
 describe('parseSessionLog', () => {
   it('skips the header line and parses each event', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = [chunkEvent(1, 1, 1, TEXT_CHUNKS[0] as StreamChunk)]
     expect(parseSessionLog(sessionJsonl(events))).toEqual(events)
   })
 
   it('ignores blank lines', () => {
+    /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = JSON.stringify({ type: 'session', version: 0, id: 's1', createdAt: 0 })
+    /** 中文说明：变量 ev 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ev = chunkEvent(1, 1, 1, TEXT_CHUNKS[0] as StreamChunk)
     expect(parseSessionLog(`${header}\n\n${JSON.stringify(ev)}\n\n`)).toEqual([ev])
   })
 
   it('rejects non-object body rows with their source line', () => {
+    /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = JSON.stringify({ type: 'session', version: 0, id: 's1', createdAt: 0 })
     expect(() => parseSessionLog(`${header}\nnull\n`))
       .toThrow('session snapshot line 2 must be a JSON object')
   })
 
   it('expands a packed chunk row into its events (a fixture recorded with packChunks on)', () => {
+    /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = JSON.stringify({ type: 'session', version: 0, id: 's1', createdAt: 0 })
+    /** 中文说明：变量 row 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const row = JSON.stringify({
       type: 'text-chunks', seq0: 1, time0: 0,
       data: { turn: 1, step: 1, index: 0, dt: [0, 0], texts: ['a', 'b', 'c'] },
@@ -116,8 +147,11 @@ describe('parseSessionLog', () => {
   })
 
   it('synthesizes omitted ordinary and packed snapshot envelopes', () => {
+    /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = JSON.stringify({ type: 'session', version: 0, id: 's1', createdAt: 7 })
+    /** 中文说明：变量 ordinary 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ordinary = JSON.stringify({ type: 'turn/start', data: { turn: 1 } })
+    /** 中文说明：变量 packed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packed = JSON.stringify({
       type: 'text-chunks',
       data: { turn: 1, step: 1, index: 0, dt: [3], texts: ['a', 'b'] },
@@ -132,16 +166,20 @@ describe('parseSessionLog', () => {
 
 describe('deriveReplayScript', () => {
   it('groups one finished assistant/chunk stream into one replay entry', () => {
+    /** 中文说明：函数值 events 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const events: SessionEvent[] = TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c))
     expect(deriveReplayScript(events)).toEqual([{ kind: 'chunks', chunks: TEXT_CHUNKS }])
   })
 
   it('separates retry calls that share one turn and step at their finish chunks', () => {
+    /** 中文说明：变量 failed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failed: StreamChunk[] = [
       { type: 'usage', usage: { inputTokens: 0, outputTokens: 0 } },
       { type: 'finish', reason: { kind: 'error', failure: { message: 'empty', code: 'EMPTY_RESPONSE' } } },
     ]
+    /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seq = 1
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       ...failed.map(chunk => chunkEvent(seq++, 1, 1, chunk)),
       ...TEXT_CHUNKS.map(chunk => chunkEvent(seq++, 1, 1, chunk)),
@@ -153,13 +191,17 @@ describe('deriveReplayScript', () => {
   })
 
   it('produces one entry per distinct (turn, step), in log order', () => {
+    /** 中文说明：变量 callA 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const callA = TEXT_CHUNKS
+    /** 中文说明：变量 callB 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const callB: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text: 'two' },
       { type: 'finish', reason: { kind: 'stop' } },
     ]
+    /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seq = 1
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       ...callA.map(c => chunkEvent(seq++, 1, 1, c)),
       ...callB.map(c => chunkEvent(seq++, 1, 2, c)), // same turn, next step
@@ -171,7 +213,9 @@ describe('deriveReplayScript', () => {
   })
 
   it('separates calls across turns too', () => {
+    /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seq = 1
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       ...TEXT_CHUNKS.map(c => chunkEvent(seq++, 1, 1, c)),
       ...TEXT_CHUNKS.map(c => chunkEvent(seq++, 2, 1, c)), // new turn, step resets to 1
@@ -180,7 +224,9 @@ describe('deriveReplayScript', () => {
   })
 
   it('ignores non-assistant/chunk events', () => {
+    /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seq = 1
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       { type: 'turn/start', seq: seq++, time: 0, data: { turn: 1 } },
       ...TEXT_CHUNKS.map(c => chunkEvent(seq++, 1, 1, c)),
@@ -194,28 +240,37 @@ describe('deriveReplayScript', () => {
   })
 
   it('keeps a finish-error chunk in the derived entry (replays naturally)', () => {
+    /** 中文说明：变量 errChunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const errChunks: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'finish', reason: { kind: 'error', failure: { message: 'boom', code: 'X' } } },
     ]
+    /** 中文说明：函数值 events 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const events = errChunks.map((c, i) => chunkEvent(i + 1, 1, 1, c))
     expect(deriveReplayScript(events)).toEqual([{ kind: 'chunks', chunks: errChunks }])
   })
 
   it('inserts compaction/summary output between the calls surrounding it', () => {
+    /** 中文说明：变量 overflow 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overflow: StreamChunk[] = [
       { type: 'finish', reason: { kind: 'error', failure: { message: 'too large', code: 'CONTEXT_WINDOW_EXCEEDED' } } },
     ]
+    /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const block = { type: 'text' as const, text: 'durable checkpoint' }
+    /** 中文说明：变量 rawOutput 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rawOutput = [block]
+    /** 中文说明：变量 usage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const usage = { inputTokens: 9, outputTokens: 2 }
+    /** 中文说明：变量 summaryChunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const summaryChunks: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'block-end', index: 0, block },
       { type: 'usage', usage },
       { type: 'finish', reason: { kind: 'stop' } },
     ]
+    /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seq = 1
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       ...overflow.map(chunk => chunkEvent(seq++, 1, 2, chunk)),
       {
@@ -252,6 +307,7 @@ describe('deriveReplayScript', () => {
   })
 
   it('does not infer an LLM call from compaction/summary without raw output', () => {
+    /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event: SessionEvent<'compaction/summary'> = {
       type: 'compaction/summary',
       seq: 1,
@@ -271,7 +327,9 @@ describe('deriveReplayScript', () => {
   })
 
   it('does not infer a local LLM call from external compact output', () => {
+    /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const block = { type: 'text' as const, text: 'remote summary' }
+    /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event: SessionEvent<'compaction/summary'> = {
       type: 'compaction/summary',
       seq: 1,
@@ -316,7 +374,9 @@ describe('deriveReplayScript', () => {
   })
 
   it('derives a compaction/summary stream when usage is unavailable', () => {
+    /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const block = { type: 'text' as const, text: 'summary without usage' }
+    /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event: SessionEvent<'compaction/summary'> = {
       type: 'compaction/summary',
       seq: 1,
@@ -346,6 +406,7 @@ describe('deriveReplayScript', () => {
 
   it('throws on a group that lacks a terminal finish chunk (a thrown stream)', () => {
     // A thrown stream(): prefix chunks logged, then turn/end (error reason), NO finish.
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       chunkEvent(1, 1, 1, { type: 'block-start', index: 0, blockType: 'text' }),
       chunkEvent(2, 1, 1, { type: 'text-delta', index: 0, text: 'par' }),
@@ -355,6 +416,7 @@ describe('deriveReplayScript', () => {
   })
 
   it('names the offending (turn, step) when a group is incomplete', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       chunkEvent(1, 2, 3, { type: 'block-start', index: 0, blockType: 'text' }),
     ]
@@ -362,6 +424,7 @@ describe('deriveReplayScript', () => {
   })
 
   it('rejects an unfinished call before consuming chunks from a new step', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       chunkEvent(1, 1, 1, { type: 'block-start', index: 0, blockType: 'text' }),
       chunkEvent(2, 1, 2, { type: 'finish', reason: { kind: 'stop' } }),
@@ -370,6 +433,7 @@ describe('deriveReplayScript', () => {
   })
 
   it('rejects an unfinished call at a compact summary boundary', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       chunkEvent(1, 1, 1, { type: 'block-start', index: 0, blockType: 'text' }),
       {
@@ -400,7 +464,9 @@ describe('loadReplayScript', () => {
 
   it('uses the sidecar override when present, ignoring the JSONL', () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
+    /** 中文说明：变量 override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const override: ReplayEntry[] = [{ kind: 'throw', chunks: [], message: '401', code: 'AUTH' }]
     writeFileSync(overrideFile, JSON.stringify(override), 'utf8')
     expect(loadReplayScript({ file, overrideFile })).toEqual(override)
@@ -418,22 +484,26 @@ describe('loadReplayScript', () => {
 
   it('rejects an override document that is neither supported form', () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, '{"not":"array"}', 'utf8')
     expect(() => loadReplayScript({ file, overrideFile })).toThrow(/document must be a ReplayEntry\[\] or \{ patches/)
   })
 
   it('patches form: swaps the named call index and keeps derived siblings', () => {
+    /** 中文说明：变量 callB 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const callB: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text: 'two' },
       { type: 'finish', reason: { kind: 'stop' } },
     ]
+    /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seq = 1
     writeFileSync(file, sessionJsonl([
       ...TEXT_CHUNKS.map(c => chunkEvent(seq++, 1, 1, c)),
       ...callB.map(c => chunkEvent(seq++, 1, 2, c)),
     ]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify({
       patches: [{ at: 0, entry: { kind: 'throw', chunks: [], message: 'transient', code: 'SERVER' } }],
@@ -446,6 +516,7 @@ describe('loadReplayScript', () => {
 
   it('patches form: at == derived length appends (the retry-attempt slot)', () => {
     writeFileSync(file, sessionJsonl(TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c))), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify({
       patches: [
@@ -461,6 +532,7 @@ describe('loadReplayScript', () => {
 
   it('patches form: an out-of-range index fails loud with the derived length', () => {
     writeFileSync(file, sessionJsonl(TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c))), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify({ patches: [{ at: 2, entry: { kind: 'hang' } }] }), 'utf8')
     expect(() => loadReplayScript({ file, overrideFile })).toThrow(/patch index 2 out of range.*1 call/s)
@@ -468,7 +540,9 @@ describe('loadReplayScript', () => {
 
   it('validates patch and entry shapes at the file boundary', () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
+    /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalid: Array<{ doc: unknown; message: RegExp }> = [
       { doc: null, message: /document must be/ },
       { doc: { patches: [null] }, message: /patch 0 must contain exactly at and entry/ },
@@ -485,6 +559,7 @@ describe('loadReplayScript', () => {
       { doc: [{ kind: 'hang', readyFile: 1 }], message: /readyFile must be a non-empty string/ },
       { doc: [{ kind: 'bogus' }], message: /unknown kind/ },
     ]
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const { doc, message } of invalid) {
       writeFileSync(overrideFile, JSON.stringify(doc), 'utf8')
       expect(() => loadReplayScript({ file, overrideFile })).toThrow(message)
@@ -493,6 +568,7 @@ describe('loadReplayScript', () => {
 
   it('rejects duplicate patch indexes instead of silently taking the last one', () => {
     writeFileSync(file, sessionJsonl(TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c))), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify({
       patches: [
@@ -505,10 +581,14 @@ describe('loadReplayScript', () => {
 })
 
 describe('installLlmReplay (through the real LlmRuntime)', () => {
+  /** 中文说明：函数 writeLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function writeLog(...calls: StreamChunk[][]): void {
+    /** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seq = 1
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = []
     calls.forEach((chunks, step) => {
+      /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
       for (const c of chunks) events.push(chunkEvent(seq++, 1, step + 1, c))
     })
     writeFileSync(file, sessionJsonl(events), 'utf8')
@@ -516,6 +596,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('serves derived chunks back, short-circuiting the adapter', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     // No adapter registered for 'm' — replay must not reach it.
@@ -524,11 +605,13 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
   })
 
   describe('{{fromRequest:...}} substitution', () => {
+    /** 中文说明：变量 requestMessages 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const requestMessages = [createUserMessage({
       content: [{ type: 'text' as const, text: 'stale {"goal":{"id":"goal-old"}} then {"goal":{"id":"goal-42ab"}}' }],
       source: { kind: 'user' as const },
     })]
 
+    /** 中文说明：函数 scriptedCall 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
     function scriptedCall(argumentsDelta: string): StreamChunk[] {
       return [
         { type: 'block-start', index: 0, blockType: 'tool-call' },
@@ -538,10 +621,13 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
       ]
     }
 
+    /** 中文说明：函数 streamScripted 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
     async function streamScripted(argumentsDelta: string): Promise<StreamChunk[]> {
       writeLog(TEXT_CHUNKS)
+      /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const overrideFile = join(dir, 'replay.override.json')
       writeFileSync(overrideFile, JSON.stringify([{ kind: 'chunks', chunks: scriptedCall(argumentsDelta) }]), 'utf8')
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       installLlmReplay(ctx, { file, overrideFile })
@@ -549,21 +635,28 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     }
 
     it('resolves the capture group from the LAST request match in every scripted string field', async () => {
+      /** 中文说明：变量 streamed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const streamed = await streamScripted('{"goal_id":"{{fromRequest:"id":"(goal-[^"]+)"}}","revision":1}')
+      /** 中文说明：函数值 delta 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const delta = streamed.find(chunk => chunk.type === 'tool-call-delta')
       expect(delta).toMatchObject({ argumentsDelta: '{"goal_id":"goal-42ab","revision":1}' })
+      /** 中文说明：函数值 end 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const end = streamed.find(chunk => chunk.type === 'block-end')
       expect(end).toMatchObject({ block: { arguments: '{"goal_id":"goal-42ab","revision":1}' } })
     })
 
     it('substitutes the whole match when the pattern has no capture group', async () => {
+      /** 中文说明：变量 streamed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const streamed = await streamScripted('{"goal_id":"{{fromRequest:goal-[0-9a-z]+}}"}')
+      /** 中文说明：函数值 delta 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const delta = streamed.find(chunk => chunk.type === 'tool-call-delta')
       expect(delta).toMatchObject({ argumentsDelta: '{"goal_id":"goal-42ab"}' })
     })
 
     it('keeps a trailing brace quantifier inside the pattern (terminator is the run tail)', async () => {
+      /** 中文说明：变量 streamed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const streamed = await streamScripted('{"goal_id":"{{fromRequest:goal-[0-9a-z]{4}}}"}')
+      /** 中文说明：函数值 delta 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const delta = streamed.find(chunk => chunk.type === 'tool-call-delta')
       expect(delta).toMatchObject({ argumentsDelta: '{"goal_id":"goal-42ab"}' })
     })
@@ -579,18 +672,23 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     })
 
     it('fails loud on an unterminated placeholder', () => {
+      /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const entry: ReplayEntry = { kind: 'chunks', chunks: scriptedCall('{"goal_id":"{{fromRequest:goal-1"}') }
       expect(() => resolveScriptedEntry(entry, requestMessages)).toThrow(/fromRequest placeholder is unterminated/)
     })
 
     it('returns the exact same entry when no placeholder appears', () => {
+      /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const entry: ReplayEntry = { kind: 'chunks', chunks: TEXT_CHUNKS }
       expect(resolveScriptedEntry(entry, requestMessages)).toBe(entry)
     })
 
     it('skips non-string request leaves when building the corpus', () => {
+      /** 中文说明：函数值 messages 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const messages = requestMessages.map(message => ({ ...message, seq: 7 })) as unknown as GenerateOptions['messages']
+      /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const entry: ReplayEntry = { kind: 'chunks', chunks: scriptedCall('{"goal_id":"{{fromRequest:goal-42[a-z]+}}"}') }
+      /** 中文说明：变量 resolved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const resolved = resolveScriptedEntry(entry, messages)
       if (resolved.kind !== 'chunks') throw new Error('expected chunks entry')
       expect(resolved.chunks[1]).toMatchObject({ argumentsDelta: '{"goal_id":"goal-42ab"}' })
@@ -599,6 +697,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('registers a replay-only provider catalog when configured', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     const { dispose } = installLlmReplay(ctx, {
@@ -677,6 +776,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('rejects an invalid replay-provider retry policy during registration', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 
@@ -689,12 +789,14 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
   })
 
   it('serves the Nth call the Nth derived entry (positional)', async () => {
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text: 'two' },
       { type: 'finish', reason: { kind: 'stop' } },
     ]
     writeLog(TEXT_CHUNKS, second)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file })
@@ -704,17 +806,22 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('replays a sidecar throw-entry as an LlmError with its stable code, after its prefix chunks', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
+    /** 中文说明：变量 partial 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const partial: StreamChunk[] = [{ type: 'block-start', index: 0, blockType: 'text' }]
     writeFileSync(overrideFile, JSON.stringify([
       { kind: 'throw', chunks: partial, message: 'unauthorized', code: 'AUTH' },
     ]), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile })
 
+    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seen: StreamChunk[] = []
     await expect((async () => {
+      /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
       for await (const c of ctx.llm.stream({ provider: 'm', model: 'm', messages: [] })) seen.push(c)
     })()).rejects.toMatchObject({ message: 'unauthorized', code: 'AUTH' })
     expect(seen).toEqual(partial)
@@ -722,13 +829,17 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('replays a sidecar hang-entry that surfaces abort when the signal fires', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify([{ kind: 'hang' }]), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile })
 
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 iterator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const iterator = ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal })[Symbol.asyncIterator]()
     // Deterministically consume the two pre-hang chunks (no sleep), then abort
     // and assert the next pull rejects — event-driven, per the no-sleeps rule.
@@ -740,6 +851,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('fails loud when the script is exhausted', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file })
@@ -749,9 +861,11 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('aborts mid-replay when the signal is already set', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
     await expect(drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal })))
@@ -760,10 +874,12 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('removes the waterfall listener when the owning fiber is disposed (HMR safety)', async () => {
     writeLog(TEXT_CHUNKS, TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 
     // A real adapter to fall through to AFTER dispose, proving the listener is gone.
+    /** 中文说明：class FallthroughAdapter 定义本测试所需的数据或行为，用于表达LLM 测试替身场景。 */
     class FallthroughAdapter extends LlmAdapter {
       async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         yield { type: 'finish', reason: { kind: 'stop' } }
@@ -771,6 +887,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     }
     ctx.llm.registerAdapter(['m'], new FallthroughAdapter())
 
+    /** 中文说明：函数值 fiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       installLlmReplay(inner, { file })
     }, { inject: ['llm'] }))
@@ -786,9 +903,11 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('rejects a malformed sidecar entry kind before installing replay', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     // A kind the union does not know — hand-edited/drifted sidecar data.
     writeFileSync(overrideFile, JSON.stringify([{ kind: 'bogus' }]), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     expect(() => installLlmReplay(ctx, { file, overrideFile })).toThrow(/unknown kind/)
@@ -796,19 +915,25 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('rejects a hang entry when the signal fires DURING the wait (abort listener path)', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
+    /** 中文说明：变量 readyFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const readyFile = join(dir, 'stream-ready')
     writeFileSync(overrideFile, JSON.stringify([{ kind: 'hang', readyFile }]), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 iterator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const iterator = ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal })[Symbol.asyncIterator]()
     // Consume the two pre-hang chunks, then start the third pull so the generator
     // is parked inside the await (signal NOT yet aborted — exercises the
     // addEventListener('abort') registration), and only THEN abort.
     expect((await iterator.next()).value).toMatchObject({ type: 'block-start' })
     expect((await iterator.next()).value).toMatchObject({ type: 'text-delta' })
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = iterator.next()
     await new Promise(r => setImmediate(r))
     expect(existsSync(readyFile)).toBe(true)
@@ -818,14 +943,18 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('aborts mid-replay of a throw-entry prefix when the signal is set', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
+    /** 中文说明：变量 partial 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const partial: StreamChunk[] = [{ type: 'block-start', index: 0, blockType: 'text' }]
     writeFileSync(overrideFile, JSON.stringify([
       { kind: 'throw', chunks: partial, message: 'unauthorized', code: 'AUTH' },
     ]), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
     // Already aborted: the throw-entry's prefix loop surfaces 'aborted' before
@@ -836,14 +965,18 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('surfaces an already-aborted signal on a hang entry before waiting', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify([{ kind: 'hang' }]), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
     // The two pre-hang chunks still flow; the abort surfaces at the await.
+    /** 中文说明：变量 iterator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const iterator = ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal })[Symbol.asyncIterator]()
     await iterator.next()
     await iterator.next()
@@ -852,6 +985,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('rejects a paceMs that is not a non-negative integer', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     expect(() => installLlmReplay(ctx, { file, paceMs: -1 })).toThrow(/paceMs/)
@@ -860,10 +994,13 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('paces chunk yields when paceMs is set (each chunk waits at least the pace)', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, paceMs: 10 })
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = performance.now()
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks = await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))
     expect(chunks).toEqual(TEXT_CHUNKS)
     // N chunks × 10ms; allow generous scheduling slack, assert the floor only.
@@ -872,10 +1009,13 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('aborting DURING a pace wait cancels the stream promptly', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, paceMs: 60_000 })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal }))
     // Let the generator park inside the pace timer, then abort — the reject
     // must come from the abort listener, not the (distant) timer.
@@ -886,8 +1026,10 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('assertConsumed passes only after every recorded call replayed', async () => {
     writeLog(TEXT_CHUNKS, TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = installLlmReplay(ctx, { file })
     await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))
     // One of two recorded calls consumed — the underrun must name the gap.
@@ -898,14 +1040,18 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('paces a throw-entry prefix too (the recorded partial streams at the same cadence)', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
+    /** 中文说明：变量 partial 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const partial: StreamChunk[] = [{ type: 'block-start', index: 0, blockType: 'text' }]
     writeFileSync(overrideFile, JSON.stringify([
       { kind: 'throw', chunks: partial, message: 'boom', code: 'STREAM_CLOSED' },
     ]), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile, paceMs: 10 })
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = performance.now()
     await expect(drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))).rejects.toThrow('boom')
     expect(performance.now() - started).toBeGreaterThanOrEqual(5)
@@ -913,9 +1059,12 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('assertConsumed names an underrunning identified session by its id', async () => {
     writeLog(TEXT_CHUNKS, TEXT_CHUNKS)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = installLlmReplay(ctx, { file })
+    /** 中文说明：变量 sessionId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sessionId = 'live-underrun' as NonNullable<GenerateOptions['sessionId']>
     await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], sessionId }))
     expect(() => { handle.assertConsumed() }).toThrow(/session live-underrun consumed 1\/2/)
@@ -923,13 +1072,16 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
   it('assertConsumed reports recorded scripts no live session ever bound', async () => {
     writeLog(TEXT_CHUNKS)
+    /** 中文说明：变量 childFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFile = join(dir, 'session.1.jsonl')
     writeFileSync(childFile, sessionJsonl(
       TEXT_CHUNKS.map((chunk, i) => chunkEvent(i + 1, 1, 1, chunk)),
       { id: 'child', createdAt: 10 },
     ), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = installLlmReplay(ctx, { file, childFiles: [childFile] })
     await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], sessionId: 'live-parent' as NonNullable<GenerateOptions['sessionId']> }))
     // The child script never bound: the scenario drove fewer sessions than recorded.
@@ -959,7 +1111,9 @@ describe('parseSessionHeader', () => {
 
 describe('loadSessionScripts', () => {
   it('returns one primary script for a single-session scenario', () => {
+    /** 中文说明：变量 f 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const f = writeSession('session.jsonl', { id: 'p', createdAt: 100 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 scripts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scripts: SessionScript[] = loadSessionScripts({ file: f })
     expect(scripts).toHaveLength(1)
     expect(scripts[0]).toMatchObject({ recordedId: 'p', createdAt: 100, primary: true })
@@ -967,10 +1121,14 @@ describe('loadSessionScripts', () => {
   })
 
   it('orders parent + children by createdAt with the primary first on a tie', () => {
+    /** 中文说明：变量 f 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const f = writeSession('session.jsonl', { id: 'parent', createdAt: 100 }, [TEXT_CHUNKS])
     // One child created LATER, one child sharing the parent's createdAt (tie).
+    /** 中文说明：变量 later 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const later = writeSession('session.1.jsonl', { id: 'late', createdAt: 200 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 tie 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tie = writeSession('session.2.jsonl', { id: 'tie', createdAt: 100 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 scripts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scripts = loadSessionScripts({ file: f, childFiles: [later, tie] })
     // parent (100, primary) → tie (100, non-primary) → late (200).
     expect(scripts.map(s => s.recordedId)).toEqual(['parent', 'tie', 'late'])
@@ -978,6 +1136,7 @@ describe('loadSessionScripts', () => {
   })
 
   it('throws when a declared child fixture is missing', () => {
+    /** 中文说明：变量 f 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const f = writeSession('session.jsonl', { id: 'p', createdAt: 1 }, [TEXT_CHUNKS])
     expect(() => loadSessionScripts({ file: f, childFiles: [join(dir, 'absent.jsonl')] }))
       .toThrow(/child fixture not found/)
@@ -986,20 +1145,26 @@ describe('loadSessionScripts', () => {
   it('derives a FORK child script from its OWN events only (skips the seeded parent prefix)', () => {
     // A fork log includes the parent's assistant chunks before `seedLength`. Deriving from the
     // whole log would replay parent responses as child calls, so only child-owned chunks qualify.
+    /** 中文说明：变量 parentChunk 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentChunk: StreamChunk = { type: 'text-delta', index: 0, text: 'PARENT-RESPONSE' }
+    /** 中文说明：变量 childChunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childChunks: StreamChunk[] = [{ type: 'text-delta', index: 0, text: 'CHILD-RESPONSE' }, { type: 'finish', reason: { kind: 'stop' } }]
+    /** 中文说明：变量 f 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const f = writeSession('session.jsonl', { id: 'parent', createdAt: 100 }, [TEXT_CHUNKS])
     // The child fixture: 2 seeded parent events (a chunk + its finish) then the
     // child's own turn. seedLength = 2 marks where the inherited prefix ends.
+    /** 中文说明：变量 childEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childEvents: SessionEvent[] = [
       chunkEvent(0, 1, 1, parentChunk),
       chunkEvent(1, 1, 1, { type: 'finish', reason: { kind: 'stop' } }),
       chunkEvent(2, 2, 1, childChunks[0]!),
       chunkEvent(3, 2, 1, childChunks[1]!),
     ]
+    /** 中文说明：变量 childPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childPath = join(dir, 'session.1.jsonl')
     writeFileSync(childPath, sessionJsonl(childEvents, { id: 'child', createdAt: 200, seedLength: 2 }), 'utf8')
 
+    /** 中文说明：变量 scripts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scripts = loadSessionScripts({ file: f, childFiles: [childPath] })
     // The child script is ONLY the child's own model call — the parent's seeded
     // chunk is gone.
@@ -1008,10 +1173,14 @@ describe('loadSessionScripts', () => {
 
   it('uses the override for the primary and still derives children', () => {
     writeFileSync(file, sessionJsonl([], { id: 'p', createdAt: 1 }), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
+    /** 中文说明：变量 override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const override: ReplayEntry[] = [{ kind: 'hang' }]
     writeFileSync(overrideFile, JSON.stringify(override), 'utf8')
+    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = writeSession('session.1.jsonl', { id: 'c', createdAt: 2 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 scripts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scripts = loadSessionScripts({ file, overrideFile, childFiles: [child] })
     expect(scripts[0]?.entries).toEqual(override)
     expect(scripts[1]?.entries).toEqual([{ kind: 'chunks', chunks: TEXT_CHUNKS }])
@@ -1020,8 +1189,10 @@ describe('loadSessionScripts', () => {
   it('defaults the primary header to id="" / createdAt=0 when only an override (no JSONL) exists', () => {
     // An override-only fixture: config.file does NOT exist, the override drives
     // the primary script, so the header default branch applies.
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify([{ kind: 'hang' }]), 'utf8')
+    /** 中文说明：变量 scripts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scripts = loadSessionScripts({ file: join(dir, 'absent.jsonl'), overrideFile })
     expect(scripts).toHaveLength(1)
     expect(scripts[0]).toMatchObject({ recordedId: '', createdAt: 0, primary: true })
@@ -1030,9 +1201,13 @@ describe('loadSessionScripts', () => {
   it('orders two same-createdAt children deterministically after the primary', () => {
     // Two children sharing a createdAt (both non-primary): exercises the sort
     // tie-break\'s "both same primary-ness" arm and a non-primary-vs-primary arm.
+    /** 中文说明：变量 f 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const f = writeSession('session.jsonl', { id: 'parent', createdAt: 100 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 c1 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const c1 = writeSession('session.1.jsonl', { id: 'c1', createdAt: 100 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 c2 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const c2 = writeSession('session.2.jsonl', { id: 'c2', createdAt: 100 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 scripts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scripts = loadSessionScripts({ file: f, childFiles: [c1, c2] })
     // Primary first (its createdAt ties the children but primary wins); the two
     // children keep a stable relative order.
@@ -1044,8 +1219,11 @@ describe('loadSessionScripts', () => {
   it('keeps the primary first even when a child sorts BEFORE it in input order', () => {
     // The primary is appended first internally. A strictly earlier child sorts before it, while
     // equal creation times preserve primary-first order regardless of input order.
+    /** 中文说明：变量 f 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const f = writeSession('session.jsonl', { id: 'parent', createdAt: 100 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 earlier 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const earlier = writeSession('session.1.jsonl', { id: 'early', createdAt: 100 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 scripts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scripts = loadSessionScripts({ file: f, childFiles: [earlier] })
     // Equal createdAt → primary first.
     expect(scripts.map(s => s.recordedId)).toEqual(['parent', 'early'])
@@ -1053,18 +1231,23 @@ describe('loadSessionScripts', () => {
 })
 
 describe('installLlmReplay (per-session keying)', () => {
+  /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const second: StreamChunk[] = [
     { type: 'block-start', index: 0, blockType: 'text' },
     { type: 'text-delta', index: 0, text: 'child' },
     { type: 'finish', reason: { kind: 'stop' } },
   ]
 
+  /** 中文说明：函数值 live 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const live = (id: string): GenerateOptions =>
     ({ provider: 'm', model: 'm', messages: [], sessionId: id as NonNullable<GenerateOptions['sessionId']> })
 
   it('routes each live session to its own script by FIRST-CALL order', async () => {
+    /** 中文说明：变量 parentFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentFile = writeSession('session.jsonl', { id: 'rec-parent', createdAt: 100 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 childFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFile = writeSession('session.1.jsonl', { id: 'rec-child', createdAt: 200 }, [second])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file: parentFile, childFiles: [childFile] })
@@ -1077,10 +1260,15 @@ describe('installLlmReplay (per-session keying)', () => {
   })
 
   it('keeps each session\'s cursor independent (interleaved calls)', async () => {
+    /** 中文说明：变量 a2 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const a2: StreamChunk[] = [{ type: 'text-delta', index: 0, text: 'a2' }, { type: 'finish', reason: { kind: 'stop' } }]
+    /** 中文说明：变量 b2 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const b2: StreamChunk[] = [{ type: 'text-delta', index: 0, text: 'b2' }, { type: 'finish', reason: { kind: 'stop' } }]
+    /** 中文说明：变量 parentFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentFile = writeSession('session.jsonl', { id: 'p', createdAt: 1 }, [TEXT_CHUNKS, a2])
+    /** 中文说明：变量 childFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFile = writeSession('session.1.jsonl', { id: 'c', createdAt: 2 }, [second, b2])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file: parentFile, childFiles: [childFile] })
@@ -1092,7 +1280,9 @@ describe('installLlmReplay (per-session keying)', () => {
   })
 
   it('treats a call with no sessionId as the single anonymous (primary) session', async () => {
+    /** 中文说明：变量 parentFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentFile = writeSession('session.jsonl', { id: 'p', createdAt: 1 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file: parentFile })
@@ -1101,7 +1291,9 @@ describe('installLlmReplay (per-session keying)', () => {
   })
 
   it('fails loud when more distinct live sessions call than were recorded', async () => {
+    /** 中文说明：变量 parentFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentFile = writeSession('session.jsonl', { id: 'p', createdAt: 1 }, [TEXT_CHUNKS])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file: parentFile }) // only ONE recorded session
@@ -1112,6 +1304,7 @@ describe('installLlmReplay (per-session keying)', () => {
 })
 
 describe('apply (the plugin entry)', () => {
+  /** 中文说明：常量 ORIG 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
   const ORIG = {
     file: process.env.DSH_SNAPSHOT_FILE,
     override: process.env.DSH_SNAPSHOT_OVERRIDE,
@@ -1133,6 +1326,7 @@ describe('apply (the plugin entry)', () => {
 
   it('installs replay and its catalog from explicit config', async () => {
     writeFileSync(file, sessionJsonl(TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c))), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx, {
@@ -1152,7 +1346,9 @@ describe('apply (the plugin entry)', () => {
     ['a string', 'image'],
     ['an unknown modality', ['audio']],
   ])('rejects inputModalities configured as %s during load', (_case, inputModalities) => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 providers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const providers = [{ id: 'm', models: [{ id: 'm', inputModalities }] }] as unknown as
       NonNullable<Config['providers']>
     expect(() => { apply(ctx, { file, providers }) }).toThrow(
@@ -1162,10 +1358,12 @@ describe('apply (the plugin entry)', () => {
 
   it('falls back to $DSH_SNAPSHOT_FILE / $DSH_SNAPSHOT_OVERRIDE when config is empty', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
+    /** 中文说明：变量 overrideFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overrideFile = join(dir, 'replay.override.json')
     writeFileSync(overrideFile, JSON.stringify([{ kind: 'chunks', chunks: TEXT_CHUNKS }]), 'utf8')
     process.env.DSH_SNAPSHOT_FILE = file
     process.env.DSH_SNAPSHOT_OVERRIDE = overrideFile
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)
@@ -1176,6 +1374,7 @@ describe('apply (the plugin entry)', () => {
     writeFileSync(file, sessionJsonl(TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c))), 'utf8')
     process.env.DSH_SNAPSHOT_FILE = file
     delete process.env.DSH_SNAPSHOT_OVERRIDE
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)
@@ -1184,6 +1383,7 @@ describe('apply (the plugin entry)', () => {
 
   it('throws when no fixture path is given by config or env', async () => {
     delete process.env.DSH_SNAPSHOT_FILE
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     expect(() => { apply(ctx, {}) }).toThrow(/a fixture path is required/)
@@ -1191,23 +1391,28 @@ describe('apply (the plugin entry)', () => {
 
   it('treats an empty-string fixture path as missing', async () => {
     delete process.env.DSH_SNAPSHOT_FILE
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     expect(() => { apply(ctx, { file: '' }) }).toThrow(/a fixture path is required/)
   })
 
   it('loads child fixtures from config.childFiles (per-session routing)', async () => {
+    /** 中文说明：变量 childSecond 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childSecond: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text: 'kid' },
       { type: 'finish', reason: { kind: 'stop' } },
     ]
     writeFileSync(file, sessionJsonl(TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c)), { id: 'p', createdAt: 1 }), 'utf8')
+    /** 中文说明：变量 childFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFile = join(dir, 'session.1.jsonl')
     writeFileSync(childFile, sessionJsonl(childSecond.map((c, i) => chunkEvent(i + 1, 1, 1, c)), { id: 'c', createdAt: 2 }), 'utf8')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx, { file, childFiles: [childFile] })
+    /** 中文说明：函数值 live 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const live = (id: string): GenerateOptions =>
       ({ provider: 'm', model: 'm', messages: [], sessionId: id as NonNullable<GenerateOptions['sessionId']> })
     expect(await drain(ctx.llm.stream(live('A')))).toEqual(TEXT_CHUNKS)
@@ -1215,19 +1420,23 @@ describe('apply (the plugin entry)', () => {
   })
 
   it('falls back to $DSH_SNAPSHOT_CHILD_FILES (path-delimited) when config omits childFiles', async () => {
+    /** 中文说明：变量 childChunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childChunks: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text: 'env-kid' },
       { type: 'finish', reason: { kind: 'stop' } },
     ]
     writeFileSync(file, sessionJsonl(TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c)), { id: 'p', createdAt: 1 }), 'utf8')
+    /** 中文说明：变量 childFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFile = join(dir, 'session.1.jsonl')
     writeFileSync(childFile, sessionJsonl(childChunks.map((c, i) => chunkEvent(i + 1, 1, 1, c)), { id: 'c', createdAt: 2 }), 'utf8')
     process.env.DSH_SNAPSHOT_FILE = file
     process.env.DSH_SNAPSHOT_CHILD_FILES = childFile // single entry, no delimiter needed
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)
+    /** 中文说明：函数值 live 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const live = (id: string): GenerateOptions =>
       ({ provider: 'm', model: 'm', messages: [], sessionId: id as NonNullable<GenerateOptions['sessionId']> })
     expect(await drain(ctx.llm.stream(live('A')))).toEqual(TEXT_CHUNKS)
@@ -1238,6 +1447,7 @@ describe('apply (the plugin entry)', () => {
     writeFileSync(file, sessionJsonl(TEXT_CHUNKS.map((c, i) => chunkEvent(i + 1, 1, 1, c)), { id: 'p', createdAt: 1 }), 'utf8')
     process.env.DSH_SNAPSHOT_FILE = file
     process.env.DSH_SNAPSHOT_CHILD_FILES = ''
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)

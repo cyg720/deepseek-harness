@@ -1,4 +1,12 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
+/**
+ * 文件职责：实现 workspaces.ts 覆盖的客户端运行时测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
   DirectoryListing, IWorkspaces, SessionId, SnapshotStore, WorkspaceId, WorkspaceListState, WorkspaceView,
@@ -13,6 +21,7 @@ import type { Stabilizer } from './fixtures.ts'
  * TestWorkspaces.calls}; defaults are inert echoes — feature tests needing
  * richer behavior replace them via {@link TestWorkspaces.stub}.
  */
+/** 中文说明：class TestWorkspaces 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestWorkspaces implements IWorkspaces {
   /** The useWorkspaces standard feed. */
   readonly list: SnapshotStore<WorkspaceListState>
@@ -56,6 +65,7 @@ export class TestWorkspaces implements IWorkspaces {
    */
   async connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId> {
     this.calls.push({ method: 'connectWorkspace', args: [workspaceId] })
+    /** 中文说明：变量 stub 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stub = this.stubs.get('connectWorkspace')
     if (stub !== undefined) return await (stub(workspaceId) as Promise<SessionId>)
     return `session-of-${workspaceId}` as SessionId
@@ -78,6 +88,7 @@ export class TestWorkspaces implements IWorkspaces {
    */
   async create(input: { path: string }): Promise<WorkspaceView> {
     this.calls.push({ method: 'create', args: [input] })
+    /** 中文说明：变量 stub 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stub = this.stubs.get('create')
     if (stub !== undefined) return await (stub(input) as Promise<WorkspaceView>)
     return {
@@ -103,6 +114,7 @@ export class TestWorkspaces implements IWorkspaces {
    */
   async pickDirectory(): Promise<string | null> {
     this.calls.push({ method: 'pickDirectory', args: [] })
+    /** 中文说明：变量 stub 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stub = this.stubs.get('pickDirectory')
     if (stub !== undefined) return await (stub() as Promise<string | null>)
     return null
@@ -119,6 +131,7 @@ export class TestWorkspaces implements IWorkspaces {
     // it to the wire, so cancellation integration tests can observe or
     // reject on a superseded scan.
     this.calls.push({ method: 'listDirectory', args: [path, signal] })
+    /** 中文说明：变量 stub 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stub = this.stubs.get('listDirectory')
     if (stub !== undefined) return await (stub(path, signal) as Promise<DirectoryListing>)
     // The chain runs root-to-target inclusive, per the DirectoryListing
@@ -145,6 +158,7 @@ export class TestWorkspaces implements IWorkspaces {
    */
   async createDirectory(path: string, name: string): Promise<string> {
     this.calls.push({ method: 'createDirectory', args: [path, name] })
+    /** 中文说明：变量 stub 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stub = this.stubs.get('createDirectory')
     if (stub !== undefined) return await (stub(path, name) as Promise<string>)
     return `${path}/${name}`
@@ -158,6 +172,7 @@ export class TestWorkspaces implements IWorkspaces {
    */
   async rename(workspaceId: WorkspaceId, title: string): Promise<WorkspaceView> {
     this.calls.push({ method: 'rename', args: [workspaceId, title] })
+    /** 中文说明：变量 stub 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stub = this.stubs.get('rename')
     if (stub !== undefined) return await (stub(workspaceId, title) as Promise<WorkspaceView>)
     return { workspaceId, title, path: `/${title}`, sessionIds: [] } as unknown as WorkspaceView
@@ -191,6 +206,7 @@ export class TestWorkspaces implements IWorkspaces {
    */
   async insertSessionBefore(workspaceId: WorkspaceId, sessionId: SessionId, beforeSessionId?: SessionId): Promise<WorkspaceView> {
     this.calls.push({ method: 'insertSessionBefore', args: [workspaceId, sessionId, beforeSessionId] })
+    /** 中文说明：变量 stub 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stub = this.stubs.get('insertSessionBefore')
     if (stub !== undefined) return await (stub(workspaceId, sessionId, beforeSessionId) as Promise<WorkspaceView>)
     return { workspaceId, title: '', path: '', sessionIds: [sessionId] } as unknown as WorkspaceView
@@ -203,6 +219,7 @@ export class TestWorkspaces implements IWorkspaces {
    */
   async archiveSession(sessionId: SessionId): Promise<void> {
     this.calls.push({ method: 'archiveSession', args: [sessionId] })
+    /** 中文说明：变量 stub 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stub = this.stubs.get('archiveSession')
     if (stub !== undefined) {
       await (stub(sessionId) as Promise<void>)

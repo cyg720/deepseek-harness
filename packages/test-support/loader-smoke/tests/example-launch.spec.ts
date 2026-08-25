@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 example-launch.spec.ts 覆盖的快照与装载测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的快照与装载测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   EXAMPLE_MODE_ENV,
@@ -5,9 +13,12 @@ import {
   resolveExampleMode,
 } from '@deepseek-ai/dsh-loader-smoke'
 
+/** 中文说明：常量 SRC_BIN 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SRC_BIN = '/repo/packages/examples/acp-demo/src/bin.ts'
+/** 中文说明：常量 TSCONFIG 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TSCONFIG = '/repo/tsconfig.json'
 
+/** 中文说明：变量 originalMode 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const originalMode = process.env[EXAMPLE_MODE_ENV]
 afterEach(() => {
   if (originalMode === undefined) Reflect.deleteProperty(process.env, EXAMPLE_MODE_ENV)
@@ -72,6 +83,7 @@ describe('resolveExampleLaunch', () => {
   })
 
   it('lib mode: uses an explicit plain-Node bin when provided', () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = '/repo/fixture.ts'
     const { args } = resolveExampleLaunch({ srcBin: fixture, libBin: fixture, mode: 'lib' })
     expect(args).toContain(fixture)

@@ -2,6 +2,14 @@
  * Model-extraction and negative-path contracts for the Cordis catalog generator
  * (`scripts/gen-cordis-catalog.ts`).
  */
+/**
+ * 文件职责：验证 cordis-catalog-contract.spec.ts 覆盖的Typert 类型目录生成行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的Typert 类型目录生成能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -18,6 +26,7 @@ import type {
   ServiceEntry,
 } from '../src/cordis-catalog.ts'
 
+/** 中文说明：常量 TEST_POLICY 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TEST_POLICY: CordisCatalogPolicy = {
   linkedTypePages: { SessionEvent: 'core.md' },
   foundationTypeNames: new Set(['AbortSignal', 'Promise', 'Readonly']),
@@ -26,22 +35,27 @@ const TEST_POLICY: CordisCatalogPolicy = {
   inheritedServices: [],
 }
 
+/** 中文说明：函数 collectEvents 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function collectEvents(root: string): EventEntry[] {
   return collectEventsWithPolicy(root, TEST_POLICY)
 }
 
+/** 中文说明：函数 collectServices 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function collectServices(root: string): ServiceEntry[] {
   return collectServicesWithPolicy(root, TEST_POLICY)
 }
 
+/** 中文说明：函数 renderEvents 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function renderEvents(events: EventEntry[], onPage = 'shell.md'): string {
   return renderPageRegion(onPage, [], events, TEST_POLICY)
 }
 
+/** 中文说明：函数 renderServices 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function renderServices(services: ServiceEntry[], onPage = 'shell.md'): string {
   return renderPageRegion(onPage, services, [], TEST_POLICY)
 }
 
+/** 中文说明：常量 TYPE_FIXTURES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TYPE_FIXTURES = [
   'export interface FixtureEntry {}',
   'interface SessionEvent {}',
@@ -53,8 +67,11 @@ const TYPE_FIXTURES = [
 ].join('\n')
 
 /** Materialize one independently compilable package and its host aggregate. */
+/** 中文说明：函数 writeProject 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function writeProject(root: string, source: string): void {
+  /** 中文说明：变量 packageRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const packageRoot = join(root, 'packages', 'group', 'fix')
+  /** 中文说明：变量 sourceRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceRoot = join(packageRoot, 'src')
   mkdirSync(sourceRoot, { recursive: true })
   writeFileSync(join(root, 'tsconfig.host.json'), JSON.stringify({
@@ -87,7 +104,9 @@ function writeProject(root: string, source: string): void {
 
 /** Write a fixture package exposing one `interface Events` block and return the
  * scan root to hand `collectEvents`. */
+/** 中文说明：函数 fixtureRoot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fixtureRoot(eventsBlock: string): string {
+  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'cordis-catalog-'))
   writeProject(
     root,
@@ -99,7 +118,9 @@ function fixtureRoot(eventsBlock: string): string {
 /** Write a fixture package exposing one `interface Context` entry (`ctx.fix` →
  * `FixService`) plus the class source, and return the scan root to hand
  * `collectServices`. */
+/** 中文说明：函数 serviceFixtureRoot 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function serviceFixtureRoot(classSource: string): string {
+  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'cordis-catalog-'))
   writeProject(
     root,
@@ -108,13 +129,18 @@ function serviceFixtureRoot(classSource: string): string {
   return root
 }
 
+/** 中文说明：变量 roots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const roots: string[] = []
+/** 中文说明：函数值 make 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const make = (block: string): string => {
+  /** 中文说明：变量 r 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const r = fixtureRoot(block)
   roots.push(r)
   return r
 }
+/** 中文说明：函数值 makeService 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const makeService = (classSource: string): string => {
+  /** 中文说明：变量 r 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const r = serviceFixtureRoot(classSource)
   roots.push(r)
   return r
@@ -126,6 +152,7 @@ afterEach(() => {
 
 describe.skip('gen-cordis-catalog collectEvents', { timeout: 60_000 }, () => {
   it('extracts a well-formed event with its @mode and JSDoc', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = collectEvents(make(
       '    /**\n     * A thing happened.\n     * @param id - which thing.\n     * @mode emit\n     */\n    \'fix/happened\'(id: string): void',
     ))
@@ -136,6 +163,7 @@ describe.skip('gen-cordis-catalog collectEvents', { timeout: 60_000 }, () => {
   })
 
   it('classifies a trailing-next signature as a waterfall', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = collectEvents(make(
       '    /**\n     * Intercept it.\n     * @param x - the value under interception.\n     * @mode waterfall\n     */\n    \'fix/intercept\'(x: number, next: () => Promise<number>): Promise<number>',
     ))
@@ -143,6 +171,7 @@ describe.skip('gen-cordis-catalog collectEvents', { timeout: 60_000 }, () => {
   })
 
   it('accepts a parallel (awaited, no next) event by trusting the tag', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = collectEvents(make(
       '    /**\n     * Flush.\n     * @mode parallel\n     */\n    \'fix/flush\'(): Promise<void> | void',
     ))
@@ -150,6 +179,7 @@ describe.skip('gen-cordis-catalog collectEvents', { timeout: 60_000 }, () => {
   })
 
   it('accepts linked, foundation, generic-parameter, and explicitly exempt signature types', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = collectEvents(make(
       '    /**\n     * Carry linked and foundation types.\n     * @param value - the linked value.\n     * @param preset - deployment metadata documented outside the subsystems catalog.\n     * @param signal - cancellation.\n     * @mode parallel\n     */\n    \'fix/typed\'<T extends SessionEvent>(value: Readonly<T>, preset: PresetSpec, signal: AbortSignal): Promise<T>',
     ))
@@ -160,6 +190,7 @@ describe.skip('gen-cordis-catalog collectEvents', { timeout: 60_000 }, () => {
   })
 
   it('aggregates every unclassified signature type with its source and remediation', () => {
+    /** 中文说明：变量 expected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expected = new RegExp([
       '2 signature type-link coverage violation\\(s\\)',
       'fix/one',
@@ -220,6 +251,7 @@ describe.skip('gen-cordis-catalog collectEvents', { timeout: 60_000 }, () => {
   })
 
   it('exempts the `this` receiver and the trailing waterfall `next` from @param', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = collectEvents(make(
       '    /**\n     * Scoped interception.\n     * @param x - the value under interception.\n     * @mode waterfall\n     */\n    \'fix/scoped\'(this: object, x: number, next: () => Promise<number>): Promise<number>',
     ))
@@ -240,6 +272,7 @@ describe.skip('gen-cordis-catalog collectEvents', { timeout: 60_000 }, () => {
 })
 
 describe.skip('gen-cordis-catalog collectServices', () => {
+  /** 中文说明：常量 WELL_FORMED 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
   const WELL_FORMED = `/** Fixture service. */
 export class FixService {
   /**
@@ -257,6 +290,7 @@ export class FixService {
 }`
 
   it('extracts a well-formed service with its methods and class JSDoc', () => {
+    /** 中文说明：变量 services 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const services = collectServices(makeService(WELL_FORMED))
     expect(services).toHaveLength(1)
     expect(services[0]).toMatchObject({ key: 'fix', type: 'FixService', abstract: false, doc: 'Fixture service.' })

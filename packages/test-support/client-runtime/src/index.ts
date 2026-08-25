@@ -10,6 +10,14 @@
  * machinery — everything mounts the production implementations.
  * @module @deepseek-ai/dsh-client-test-runtime
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的客户端运行时测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 /* oxlint-disable typescript/no-redundant-type-constituents --
  * `keyof SlotMap & string` is the declare-merge key pattern (see ui-slots):
  * this compilation unit sees only the runtime's 'root' row, but consumer
@@ -53,6 +61,7 @@ export { usePinnedBrowserLanguages } from './locale-env.ts'
  * @param source - Observable snapshot source.
  * @returns Typed React selector hook.
  */
+/** 中文说明：函数 bindSnapshotSelector 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function bindSnapshotSelector<T>(source: HostObservable<T>): SnapshotSelectorHook<T> {
   return bindRendererSnapshotSelector(source)
 }
@@ -61,11 +70,13 @@ export function bindSnapshotSelector<T>(source: HostObservable<T>): SnapshotSele
  * Create the production slot renderer used by client feature tests.
  * @returns Slot renderer instance.
  */
+/** 中文说明：函数 createSlotRenderer 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function createSlotRenderer(): SlotRenderer {
   return createRenderer()
 }
 
 /** Erased register face for the internal root call (the public declaration contract holds the typing). */
+/** 中文说明：type ErasedRegister 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 type ErasedRegister = (options: object, component: unknown) => () => void
 
 /**
@@ -75,6 +86,7 @@ type ErasedRegister = (options: object, component: unknown) => () => void
  * output), Testing Library queries are bound inside it, and `update`
  * re-renders with new owner props.
  */
+/** 中文说明：interface SlotView 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export interface SlotView<K extends keyof SlotMap & string> {
   /** The renderer's `<div data-slot="<key>">` anchor around the slot's rendered output. */
   readonly container: HTMLElement
@@ -93,6 +105,7 @@ export interface SlotView<K extends keyof SlotMap & string> {
  * idempotent dispose (unload cascade: entries, declared child slots, store
  * instances, and provided services all fall together).
  */
+/** 中文说明：interface FeatureHandle 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export interface FeatureHandle {
   /** The plugin's live Cordis fiber (state assertions, escape hatch). */
   readonly fiber: Fiber
@@ -108,6 +121,7 @@ export interface FeatureHandle {
  * subscribes to, so {@link SlotTestRuntime.renderSlot} and
  * {@link SlotView.update} drive React through the standard uSES boundary.
  */
+/** 中文说明：class OwnerPropsCell 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 class OwnerPropsCell {
   private readonly owners = new Map<string, object>()
   private readonly listeners = new Set<() => void>()
@@ -135,6 +149,7 @@ class OwnerPropsCell {
   set(key: string, owner: object): void {
     this.owners.set(key, owner)
     this.version += 1
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const fn of [...this.listeners]) fn()
   }
 
@@ -149,6 +164,7 @@ class OwnerPropsCell {
  * through the REAL `slots.register`, with a caller-supplied minimal frame —
  * the runtime never guesses a feature's page structure.
  */
+/** 中文说明：class TestRoot 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestRoot {
   private disposeEntry: (() => void) | undefined
 
@@ -190,6 +206,7 @@ export class TestRoot {
  * are act-wrapped throughout — tests never handle SlotCore microtask
  * batching or React act themselves.
  */
+/** 中文说明：class SlotTestRuntime 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class SlotTestRuntime {
   /** The runtime's Cordis root (escape hatch: extra services via `ctx.provide`, raw `ctx.plugin` mounts). */
   readonly ctx: Context
@@ -225,6 +242,7 @@ export class SlotTestRuntime {
     ctx.provide('workspaces', this.workspaces)
     // Capturing install: the production renderer does the rendering; the
     // wrapper only takes the host face for storeOf (no machinery copied).
+    /** 中文说明：变量 renderer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const renderer = createSlotRenderer()
     slots.install({
       renderRoot: (host, ownerProps) => {
@@ -241,7 +259,9 @@ export class SlotTestRuntime {
    */
   static async create(): Promise<SlotTestRuntime> {
     registerDomSnapshotSerializer()
+    /** 中文说明：变量 ctx 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    /** 中文说明：变量 fiber 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin(SlotRegistry)
     await fiber.await()
     await ctx.plugin(ConversationEventRegistry).await()
@@ -271,16 +291,21 @@ export class SlotTestRuntime {
    * @returns handle owning the fiber's explicit disposal.
    */
   async mount(plugin: Plugin): Promise<FeatureHandle> {
+    /** 中文说明：变量 required 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const required = Object.keys(Inject.resolve((plugin as { inject?: Inject }).inject))
+    /** 中文说明：函数值 missing 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const missing = required.filter(name => this.ctx.get(name) === undefined)
     if (missing.length > 0) {
       throw new Error(`mount would suspend: missing service(s) ${missing.join(', ')} — provide() them first`)
     }
+    /** 中文说明：变量 fiber 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = this.ctx.plugin(plugin)
     await this.stabilizer(async () => {
       await fiber.await()
     })
+    /** 中文说明：变量 disposed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let disposed = false
+    /** 中文说明：变量 handle 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle: FeatureHandle = {
       fiber,
       dispose: async () => {
@@ -299,6 +324,7 @@ export class SlotTestRuntime {
    * @returns the Testing Library view.
    */
   renderRoot(): RenderResult {
+    /** 中文说明：变量 view 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const view = render(createElement(Fragment, null, this.slots.renderSlot('root', {})))
     this.views.push(view)
     return view
@@ -315,8 +341,11 @@ export class SlotTestRuntime {
    * @returns completion of the act-wrapped registration.
    */
   async declare(children: ChildrenDecl): Promise<void> {
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const key of Object.keys(children)) this.autoDeclared.add(key)
+    /** 中文说明：变量 cell 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cell = this.ownerCell
+    /** 中文说明：函数值 AutoFrame 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const AutoFrame = (props: { renderSlot: (key: string, owner: object) => ReactNode }) => {
       useSyncExternalStore(cell.subscribe, cell.getVersion)
       // Keyed Fragments only: the renderer's outlet anchor is the one
@@ -342,6 +371,7 @@ export class SlotTestRuntime {
     if (!this.autoDeclared.has(key)) {
       throw new Error(`renderSlot('${key}') without declare() — declare the key first (or use root.declare for a custom frame)`)
     }
+    /** 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const install = (next: object): void => {
       // Synchronous cell write inside act: the frame re-renders through uSES.
       act(() => {
@@ -350,6 +380,7 @@ export class SlotTestRuntime {
     }
     install(owner)
     this.autoRootView ??= this.renderRoot()
+    /** 中文说明：变量 container 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const container = this.autoRootView.container.querySelector(`[data-slot="${key}"]`)
     if (!(container instanceof HTMLElement)) {
       throw new Error(`renderSlot('${key}'): the auto frame rendered no wrapper — was the runtime already disposed?`)
@@ -370,8 +401,10 @@ export class SlotTestRuntime {
     if (this.host === undefined) {
       throw new Error('storeOf before renderRoot() — the host face exists only inside the installed renderer')
     }
+    /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = this.host.entriesOf(key)[0]
     if (entry === undefined) throw new Error(`storeOf('${key}'): no registration on the ledger`)
+    /** 中文说明：变量 instance 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const instance = this.host.storeOf(entry, scopeKey)
     if (instance === undefined) throw new Error(`storeOf('${key}'): the entry declares no store`)
     return instance
@@ -396,7 +429,9 @@ export class SlotTestRuntime {
     if (this.disposed) return
     this.disposed = true
     this.autoRootView = undefined
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const view of this.views.splice(0)) view.unmount()
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const handle of this.handles.splice(0)) await handle.dispose()
     this.root.release()
     await this.sessions.disposeScopes()

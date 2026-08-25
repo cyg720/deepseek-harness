@@ -5,6 +5,14 @@
  *
  * @module @deepseek-ai/dsh-llm-mock-server
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的LLM 测试替身行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的LLM 测试替身能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 
 import { createServer } from 'node:http'
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:http'
@@ -13,6 +21,7 @@ import { isIP, type AddressInfo } from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 
 /** Request-scoped behaviors accepted by {@link startMockLlmServer}. */
+/** 中文说明：常量 MOCK_LLM_BEHAVIORS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MOCK_LLM_BEHAVIORS = [
   'connection_reset',
   'stream_disconnect',
@@ -41,18 +50,22 @@ export const MOCK_LLM_BEHAVIORS = [
 ] as const
 
 /** One scripted mock behavior name; `random` selects a concrete behavior per request. */
+/** 中文说明：type MockLlmBehavior 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmBehavior = typeof MOCK_LLM_BEHAVIORS[number]
 
 /** One concrete request behavior after resolving a `random` script entry. */
+/** 中文说明：type ConcreteMockLlmBehavior 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type ConcreteMockLlmBehavior = Exclude<MockLlmBehavior, 'random'>
 
 /** Relative non-negative weights for random request behavior selection. */
+/** 中文说明：type MockLlmRandomWeights 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmRandomWeights = Partial<Record<ConcreteMockLlmBehavior, number>>
 
 /**
  * Default stress profile for `random`. Weights are configurable test pressure,
  * not a claim about production incident frequency.
  */
+/** 中文说明：常量 DEFAULT_MOCK_LLM_RANDOM_WEIGHTS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_MOCK_LLM_RANDOM_WEIGHTS: Readonly<MockLlmRandomWeights> = Object.freeze({
   success: 48,
   slow_success: 10,
@@ -70,12 +83,15 @@ export const DEFAULT_MOCK_LLM_RANDOM_WEIGHTS: Readonly<MockLlmRandomWeights> = O
 })
 
 /** Largest millisecond delay accepted by Node timers without truncation. */
+/** 中文说明：常量 MAX_MOCK_LLM_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_MOCK_LLM_TIMER_DELAY_MS = 2_147_483_647
 
 /** How one accepted request ended at the mock boundary. */
+/** 中文说明：type MockLlmRequestOutcome 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmRequestOutcome = 'completed' | 'reset' | 'stalled' | 'client_closed' | 'server_error'
 
 /** Immutable telemetry emitted when a request starts or reaches an outcome. */
+/** 中文说明：type MockLlmServerEvent 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type MockLlmServerEvent =
   | {
     readonly type: 'request'
@@ -94,6 +110,7 @@ export type MockLlmServerEvent =
   }
 
 /** Captured wire request and its final server-side outcome. */
+/** 中文说明：interface MockLlmRequestRecord 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface MockLlmRequestRecord {
   /** One-based accepted chat-completions request number. */
   readonly attempt: number
@@ -114,6 +131,7 @@ export interface MockLlmRequestRecord {
 }
 
 /** Configuration for one mock server instance. */
+/** 中文说明：interface MockLlmServerOptions 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface MockLlmServerOptions {
   /** Loopback host by default. */
   readonly host?: string
@@ -154,6 +172,7 @@ export interface MockLlmServerOptions {
 }
 
 /** Running mock server and captured request state. */
+/** 中文说明：interface MockLlmServer 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface MockLlmServer {
   /** Base URL without `/v1`; both root and `/v1` chat-completions paths are accepted. */
   readonly baseURL: string
@@ -167,6 +186,7 @@ export interface MockLlmServer {
   close(): Promise<void>
 }
 
+/** 中文说明：interface ResolvedOptions 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 interface ResolvedOptions {
   readonly host: string
   readonly port: number
@@ -189,11 +209,16 @@ interface ResolvedOptions {
   readonly onEvent?: (event: MockLlmServerEvent) => void
 }
 
+/** 中文说明：常量 DEFAULT_SUCCESS_TEXT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_SUCCESS_TEXT = 'mock response recovered'
+/** 中文说明：常量 DEFAULT_PARTIAL_TEXT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_PARTIAL_TEXT = 'discarded partial response'
+/** 中文说明：常量 DEFAULT_REASONING_TEXT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_REASONING_TEXT = 'mock reasoning'
+/** 中文说明：函数值 CONCRETE_BEHAVIORS 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const CONCRETE_BEHAVIORS = new Set<string>(MOCK_LLM_BEHAVIORS.filter(behavior => behavior !== 'random'))
 
+/** 中文说明：函数 boundedInteger 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function boundedInteger(name: string, value: number, min: number, max: number): number {
   if (!Number.isInteger(value) || value < min || value > max) {
     throw new Error(`llm-mock-server: ${name} must be an integer between ${min} and ${max}`)
@@ -201,42 +226,56 @@ function boundedInteger(name: string, value: number, min: number, max: number): 
   return value
 }
 
+/** 中文说明：函数 resolveOptions 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveOptions(options: MockLlmServerOptions): ResolvedOptions {
+  /** 中文说明：变量 host 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const host = options.host ?? '127.0.0.1'
+  /** 中文说明：变量 port 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const port = boundedInteger('port', options.port ?? 0, 0, 65_535)
+  /** 中文说明：变量 chunkSize 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const chunkSize = boundedInteger('chunkSize', options.chunkSize ?? 8, 1, Number.MAX_SAFE_INTEGER)
+  /** 中文说明：变量 chunkDelayMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const chunkDelayMs = boundedInteger(
     'chunkDelayMs',
     options.chunkDelayMs ?? 25,
     0,
     MAX_MOCK_LLM_TIMER_DELAY_MS,
   )
+  /** 中文说明：变量 disconnectDelayMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const disconnectDelayMs = boundedInteger(
     'disconnectDelayMs',
     options.disconnectDelayMs ?? 10,
     0,
     MAX_MOCK_LLM_TIMER_DELAY_MS,
   )
+  /** 中文说明：变量 retryAfterMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const retryAfterMs = boundedInteger(
     'retryAfterMs',
     options.retryAfterMs ?? 1_000,
     1,
     MAX_MOCK_LLM_TIMER_DELAY_MS,
   )
+  /** 中文说明：变量 randomSeed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const randomSeed = boundedInteger(
     'randomSeed',
     options.randomSeed ?? randomBytes(4).readUInt32LE(0),
     0,
     0xffff_ffff,
   )
+  /** 中文说明：变量 successText 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const successText = options.successText ?? DEFAULT_SUCCESS_TEXT
+  /** 中文说明：变量 partialText 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const partialText = options.partialText ?? DEFAULT_PARTIAL_TEXT
+  /** 中文说明：变量 reasoningText 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const reasoningText = options.reasoningText ?? DEFAULT_REASONING_TEXT
+  /** 中文说明：变量 toolName 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const toolName = options.toolName ?? 'mock_tool'
+  /** 中文说明：变量 toolArguments 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const toolArguments = options.toolArguments ?? '{"value":"mock"}'
 
   if (host.length === 0) throw new Error('llm-mock-server: host must not be empty')
   if (options.sequence.length === 0) throw new Error('llm-mock-server: sequence must not be empty')
+  /** 中文说明：函数值 lastBehavior 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const lastBehavior = options.sequence.reduce((_previous, behavior) => behavior)
   if (options.apiKey === '') throw new Error('llm-mock-server: apiKey must not be empty')
   if (successText.length === 0) throw new Error('llm-mock-server: successText must not be empty')
@@ -250,8 +289,11 @@ function resolveOptions(options: MockLlmServerOptions): ResolvedOptions {
     throw new Error('llm-mock-server: toolArguments must be valid JSON')
   }
 
+  /** 中文说明：变量 configuredWeights 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const configuredWeights = options.randomWeights ?? DEFAULT_MOCK_LLM_RANDOM_WEIGHTS
+  /** 中文说明：变量 randomWeights 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const randomWeights: Array<readonly [ConcreteMockLlmBehavior, number]> = []
+  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const [behavior, weight] of Object.entries(configuredWeights)) {
     if (!CONCRETE_BEHAVIORS.has(behavior)) {
       throw new Error(`llm-mock-server: randomWeights contains unknown concrete behavior ${JSON.stringify(behavior)}`)
@@ -288,6 +330,7 @@ function resolveOptions(options: MockLlmServerOptions): ResolvedOptions {
   }
 }
 
+/** 中文说明：函数 emit 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function emit(options: ResolvedOptions, event: MockLlmServerEvent): void {
   try {
     options.onEvent?.(Object.freeze(event))
@@ -296,20 +339,29 @@ function emit(options: ResolvedOptions, event: MockLlmServerEvent): void {
   }
 }
 
+/** 中文说明：函数 readJsonBody 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  /** 中文说明：变量 chunks 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const chunks: Buffer[] = []
+  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array))
+  /** 中文说明：变量 body 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const body = Buffer.concat(chunks).toString('utf8')
   return body.length === 0 ? undefined : JSON.parse(body)
 }
 
+/** 中文说明：函数 splitText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function splitText(text: string, size: number): string[] {
+  /** 中文说明：变量 points 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const points = Array.from(text)
+  /** 中文说明：变量 chunks 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const chunks: string[] = []
+  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (let index = 0; index < points.length; index += size) chunks.push(points.slice(index, index + size).join(''))
   return chunks
 }
 
+/** 中文说明：函数 openSse 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function openSse(response: ServerResponse, contentType = 'text/event-stream; charset=utf-8'): void {
   response.writeHead(200, {
     'content-type': contentType,
@@ -319,15 +371,18 @@ function openSse(response: ServerResponse, contentType = 'text/event-stream; cha
   response.flushHeaders()
 }
 
+/** 中文说明：函数 writeSse 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function writeSse(record: MockLlmRequestRecord, response: ServerResponse, payload: unknown): void {
   response.write(`data: ${typeof payload === 'string' ? payload : JSON.stringify(payload)}\n\n`)
   record.chunksSent += 1
 }
 
+/** 中文说明：函数 writeDone 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function writeDone(record: MockLlmRequestRecord, response: ServerResponse): void {
   writeSse(record, response, '[DONE]')
 }
 
+/** 中文说明：函数 finishRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function finishRecord(
   options: ResolvedOptions,
   record: MockLlmRequestRecord,
@@ -345,6 +400,7 @@ function finishRecord(
   })
 }
 
+/** 中文说明：函数 httpError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function httpError(
   options: ResolvedOptions,
   record: MockLlmRequestRecord,
@@ -354,6 +410,7 @@ function httpError(
   code: string,
   type = 'mock_error',
 ): void {
+  /** 中文说明：变量 headers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (record.behavior === 'rate_limit') {
     headers['retry-after'] = String(Math.ceil(options.retryAfterMs / 1_000))
@@ -364,6 +421,7 @@ function httpError(
   finishRecord(options, record, 'completed')
 }
 
+/** 中文说明：函数 terminalChunk 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function terminalChunk(reason: string, outputTokens: number): unknown {
   return {
     choices: [{ index: 0, delta: { content: '' }, finish_reason: reason }],
@@ -371,9 +429,12 @@ function terminalChunk(reason: string, outputTokens: number): unknown {
   }
 }
 
+/** 中文说明：函数 pause 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function pause(milliseconds: number, response: ServerResponse): Promise<boolean> {
   if (milliseconds === 0) return !response.destroyed
+  /** 中文说明：变量 controller 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const controller = new AbortController()
+  /** 中文说明：函数值 stop 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const stop = (): void => { controller.abort() }
   response.once('close', stop)
   try {
@@ -387,6 +448,7 @@ async function pause(milliseconds: number, response: ServerResponse): Promise<bo
   }
 }
 
+/** 中文说明：函数 streamText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function streamText(
   options: ResolvedOptions,
   record: MockLlmRequestRecord,
@@ -394,6 +456,7 @@ async function streamText(
   text: string,
   delayMs: number,
 ): Promise<boolean> {
+  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const chunk of splitText(text, options.chunkSize)) {
     writeSse(record, response, { choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }] })
     if (!await pause(delayMs, response)) return false
@@ -401,6 +464,7 @@ async function streamText(
   return true
 }
 
+/** 中文说明：函数 completeText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function completeText(
   options: ResolvedOptions,
   record: MockLlmRequestRecord,
@@ -418,6 +482,7 @@ async function completeText(
   finishRecord(options, record, 'completed')
 }
 
+/** 中文说明：函数 disconnect 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function disconnect(
   options: ResolvedOptions,
   record: MockLlmRequestRecord,
@@ -431,7 +496,9 @@ async function disconnect(
   response.destroy()
 }
 
+/** 中文说明：函数 toolCallChunks 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toolCallChunks(options: ResolvedOptions): readonly unknown[] {
+  /** 中文说明：变量 midpoint 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const midpoint = Math.max(1, Math.floor(options.toolArguments.length / 2))
   return [
     {
@@ -458,6 +525,7 @@ function toolCallChunks(options: ResolvedOptions): readonly unknown[] {
   ]
 }
 
+/** 中文说明：函数 runBehavior 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function runBehavior(
   options: ResolvedOptions,
   record: MockLlmRequestRecord,
@@ -562,6 +630,7 @@ async function runBehavior(
       return
     case 'reasoning_success':
       openSse(response)
+      /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
       for (const chunk of splitText(options.reasoningText, options.chunkSize)) {
         writeSse(record, response, {
           choices: [{ index: 0, delta: { reasoning_content: chunk }, finish_reason: null }],
@@ -571,6 +640,7 @@ async function runBehavior(
       return
     case 'tool_call_success':
       openSse(response)
+      /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
       for (const chunk of toolCallChunks(options)) writeSse(record, response, chunk)
       writeSse(record, response, terminalChunk('tool_calls', 2))
       writeDone(record, response)
@@ -588,10 +658,13 @@ async function runBehavior(
   }
 }
 
+/** 中文说明：函数 seededRandom 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function seededRandom(seed: number): () => number {
+  /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let state = seed
   return () => {
     state = (state + 0x6d2b_79f5) >>> 0
+    /** 中文说明：变量 mixed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let mixed = state
     mixed = Math.imul(mixed ^ mixed >>> 15, mixed | 1)
     mixed ^= mixed + Math.imul(mixed ^ mixed >>> 7, mixed | 61)
@@ -599,12 +672,16 @@ function seededRandom(seed: number): () => number {
   }
 }
 
+/** 中文说明：函数 chooseRandomBehavior 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function chooseRandomBehavior(
   weights: readonly (readonly [ConcreteMockLlmBehavior, number])[],
   random: () => number,
 ): ConcreteMockLlmBehavior {
+  /** 中文说明：函数值 total 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const total = weights.reduce((sum, entry) => sum + entry[1], 0)
+  /** 中文说明：变量 draw 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let draw = random() * total
+  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const [behavior, weight] of weights) {
     if (draw < weight) return behavior
     draw -= weight
@@ -623,18 +700,26 @@ function chooseRandomBehavior(
  * @param options - listener, script, response content, timing, and telemetry options.
  * @returns the listening handle after the port is bound.
  */
+/** 中文说明：函数 startMockLlmServer 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function startMockLlmServer(options: MockLlmServerOptions): Promise<MockLlmServer> {
+  /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved = resolveOptions(options)
+  /** 中文说明：变量 requests 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const requests: MockLlmRequestRecord[] = []
+  /** 中文说明：变量 random 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const random = seededRandom(resolved.randomSeed)
+  /** 中文说明：变量 cursor 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let cursor = 0
 
+  /** 中文说明：变量 selectBehavior 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const selectBehavior = (): {
     scriptBehavior: MockLlmBehavior | 'script_exhausted'
     behavior: ConcreteMockLlmBehavior | 'script_exhausted'
   } => {
+    /** 中文说明：变量 selected 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const selected = resolved.sequence[cursor]
     cursor += 1
+    /** 中文说明：变量 scriptBehavior 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scriptBehavior = selected
       ?? (resolved.repeatLast ? resolved.lastBehavior : 'script_exhausted')
     return {
@@ -645,7 +730,9 @@ export async function startMockLlmServer(options: MockLlmServerOptions): Promise
     }
   }
 
+  /** 中文说明：函数值 handle 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    /** 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     /* v8 ignore next -- node:http server requests always carry a URL despite the shared optional type */
     const path = new URL(request.url ?? '/', 'http://mock.invalid').pathname
     if (request.method !== 'POST') {
@@ -662,6 +749,7 @@ export async function startMockLlmServer(options: MockLlmServerOptions): Promise
       return
     }
 
+    /** 中文说明：变量 body 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let body: unknown
     try {
       body = await readJsonBody(request)
@@ -671,7 +759,9 @@ export async function startMockLlmServer(options: MockLlmServerOptions): Promise
       return
     }
 
+    /** 中文说明：变量 selected 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const selected = selectBehavior()
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record: MockLlmRequestRecord = {
       attempt: requests.length + 1,
       scriptBehavior: selected.scriptBehavior,
@@ -697,9 +787,11 @@ export async function startMockLlmServer(options: MockLlmServerOptions): Promise
     await runBehavior(resolved, record, request, response)
   }
 
+  /** 中文说明：函数值 server 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const server = createServer((request, response) => {
     /* v8 ignore start -- last-resort containment for Node response failures after validated test inputs */
     handle(request, response).catch((error: unknown) => {
+      /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const record = requests.at(-1)
       if (record !== undefined) finishRecord(resolved, record, 'server_error')
       if (response.headersSent) {
@@ -712,7 +804,9 @@ export async function startMockLlmServer(options: MockLlmServerOptions): Promise
     /* v8 ignore stop */
   })
 
+  /** 中文说明：变量 closing 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let closing: Promise<void> | undefined
+  /** 中文说明：函数值 close 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const close = (): Promise<void> => (closing ??= new Promise((resolveClose) => {
     server.close(() => { resolveClose() })
     server.closeAllConnections()
@@ -726,7 +820,9 @@ export async function startMockLlmServer(options: MockLlmServerOptions): Promise
     })
   })
 
+  /** 中文说明：变量 address 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const address = server.address() as AddressInfo
+  /** 中文说明：变量 advertisedHost 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const advertisedHost = isIP(resolved.host) === 6 ? `[${resolved.host}]` : resolved.host
   return {
     baseURL: `http://${advertisedHost}:${address.port}`,

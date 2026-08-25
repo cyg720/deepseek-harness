@@ -1,12 +1,23 @@
+/**
+ * 文件职责：验证 agent-turn.spec.ts 覆盖的快照与装载测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的快照与装载测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { describe, expect, it, vi } from 'vitest'
 import { runFixtureTurn } from '../src/agent-turn.ts'
 
+/** 中文说明：type Listener 定义本测试所需的数据或行为，用于表达快照与装载测试支持场景。 */
 type Listener = (session: unknown, event: SessionEvent) => void
 
+/** 中文说明：函数值 event 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const event = (value: object): SessionEvent => value as unknown as SessionEvent
 
+/** 中文说明：函数 turnHarness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function turnHarness(): {
   readonly ctx: Context
   readonly session: { readonly id: string }
@@ -17,18 +28,27 @@ function turnHarness(): {
   readonly disposeListener: ReturnType<typeof vi.fn>
   readonly flush: ReturnType<typeof vi.fn>
 } {
+  /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const session = { id: 'fixture-session' }
+  /** 中文说明：变量 foreignSession 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const foreignSession = {}
+  /** 中文说明：变量 listener 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let listener: Listener | undefined
+  /** 中文说明：函数值 followup 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   let followup = (_message: { readonly id: unknown }): void => {}
+  /** 中文说明：函数值 whenIdle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const whenIdle = vi.fn(async () => {})
+  /** 中文说明：变量 disposeListener 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const disposeListener = vi.fn()
+  /** 中文说明：函数值 flush 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const flush = vi.fn(async () => {})
+  /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = {
     session,
     whenIdle,
     followup: vi.fn((message: { readonly id: unknown }) => { followup(message) }),
   }
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = {
     get: (name: string) => name === 'agents' ? { roots: () => [agent] } : undefined,
     on: (_name: string, callback: Listener) => {
@@ -54,13 +74,16 @@ describe('runFixtureTurn', () => {
     ['no agent registry', undefined, 0],
     ['multiple roots', { roots: () => [{}, {}] }, 2],
   ])('rejects %s', async (_label, registry, count) => {
+    /** 中文说明：函数值 ctx 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const ctx = { get: () => registry } as unknown as Context
     await expect(runFixtureTurn(ctx, { task: 'ignored' }))
       .rejects.toThrow(`fixture turn requires exactly one top-level agent, found ${count}`)
   })
 
   it('observes only the owned interval and returns its final text and deduplicated usage', async () => {
+    /** 中文说明：变量 harness 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const harness = turnHarness()
+    /** 中文说明：变量 observed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const observed: SessionEvent[] = []
     harness.setFollowup((message) => {
       harness.emit(harness.foreignSession, {
@@ -135,6 +158,7 @@ describe('runFixtureTurn', () => {
   })
 
   it('omits usage when the interval records none', async () => {
+    /** 中文说明：变量 harness 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const harness = turnHarness()
     harness.setFollowup((message) => {
       harness.emit(harness.session, {
@@ -150,6 +174,7 @@ describe('runFixtureTurn', () => {
   })
 
   it('always removes its listener when the turn fails', async () => {
+    /** 中文说明：变量 harness 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const harness = turnHarness()
     harness.whenIdle.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('turn failed'))
 

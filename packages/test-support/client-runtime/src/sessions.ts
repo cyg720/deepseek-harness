@@ -1,4 +1,12 @@
 /** Test-owned sessions face: the SlotRegistry host contract over declarative fixtures. */
+/**
+ * 文件职责：实现 sessions.ts 覆盖的客户端运行时测试支持行为与测试协作。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
+ * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
+ * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
+ * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
+ * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import type { AttachmentIdType } from '@deepseek-ai/dsh-attachment'
 import { createScope, scopeOf, SessionProvideChannel } from '@deepseek-ai/dsh-client-runtime/client'
@@ -22,6 +30,7 @@ import type { SessionFixture, Stabilizer } from './fixtures.ts'
  * declare — an unstubbed call names itself instead of half-working). Extra
  * fixture methods are grafted verbatim for feature-side casts.
  */
+/** 中文说明：class FixtureSession 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class FixtureSession implements SessionFace {
   /**
    * The useProjection seat: identity-stable per-key faces over the fixture's
@@ -39,16 +48,21 @@ export class FixtureSession implements SessionFace {
     private readonly store: SnapshotStore<ConversationSnapshot>,
     overrides: Record<string, unknown>,
   ) {
+    /** 中文说明：变量 values 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const values = new Map<string, unknown>()
+    /** 中文说明：函数值 listeners 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const listeners = new Map<string, Set<() => void>>()
+    /** 中文说明：变量 faces 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const faces = new Map<string, ObservableSnapshot<unknown>>()
     this.projections = {
       faceOf: (key: string) => {
+        /** 中文说明：变量 face 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         let face = faces.get(key)
         if (face === undefined) {
           face = {
             getSnapshot: () => values.get(key),
             subscribe: (fn: () => void) => {
+              /** 中文说明：变量 set 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
               const set = listeners.get(key) ?? new Set()
               set.add(fn)
               listeners.set(key, set)
@@ -61,6 +75,7 @@ export class FixtureSession implements SessionFace {
       },
       set: (key: string, value: unknown) => {
         values.set(key, value)
+        /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
         for (const fn of [...(listeners.get(key) ?? [])]) fn()
       },
     }
@@ -140,6 +155,7 @@ export class FixtureSession implements SessionFace {
 }
 
 /** One live test session: fixture-derived stores plus its minted scope state. */
+/** 中文说明：interface SessionRecord 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 interface SessionRecord {
   summary: SessionSummary
   snapshot: SnapshotStore<ConversationSnapshot>
@@ -151,6 +167,7 @@ interface SessionRecord {
 }
 
 /** Test binding shape handed to provider resolvers and feature injects (a SessionBinding whose session is the fixture face). */
+/** 中文说明：interface TestSessionBinding 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export interface TestSessionBinding {
   readonly sessionId: SessionId
   readonly session: FixtureSession
@@ -168,6 +185,7 @@ export interface TestSessionBinding {
  * members (add/updateSnapshot/setCurrent/remove/behavior/calls/stubSearch and
  * the legacy provideInfo/maybeProvideInfo lookups) are bench-only surface.
  */
+/** 中文说明：class TestSessions 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestSessions implements ISessions {
   /** The useSessions standard feed (list rows + current selection). */
   readonly list: SnapshotStore<SessionListState>
@@ -206,6 +224,7 @@ export class TestSessions implements ISessions {
     })
     this.channel = new SessionProvideChannel({
       rebuildBundles: () => {
+        /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
         for (const record of this.records.values()) {
           if (record.provideInfo !== undefined) {
             record.provideInfo = this.channel.materializeInfo(this.bindingOf(record.session.sessionId, record))
@@ -226,8 +245,10 @@ export class TestSessions implements ISessions {
    * @returns the stable session id (branded view of `fixture.id`).
    */
   async add(fixture: SessionFixture, opts?: { current?: boolean }): Promise<SessionId> {
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = fixture.id as SessionId
     if (this.records.has(id)) throw new Error(`test session "${id}" already added`)
+    /** 中文说明：变量 summary 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const summary: SessionSummary = {
       id,
       displayTitle: fixture.id,
@@ -236,6 +257,7 @@ export class TestSessions implements ISessions {
       updatedAt: this.records.size + 1,
       ...fixture.summary,
     }
+    /** 中文说明：变量 snapshot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const snapshot = createSnapshotStore<ConversationSnapshot>({
       ...conversationSnapshot(id),
       ...fixture.snapshot,
@@ -265,6 +287,7 @@ export class TestSessions implements ISessions {
    * @param mutate - draft mutator.
    */
   async updateSnapshot(id: string, mutate: (draft: ConversationSnapshot) => void): Promise<void> {
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.require(id)
     await this.stabilize(() => { record.snapshot.update(mutate) })
   }
@@ -276,6 +299,7 @@ export class TestSessions implements ISessions {
    * @param patch - summary fields to merge over the row.
    */
   async updateSummary(id: string, patch: Partial<Omit<SessionSummary, 'id'>>): Promise<void> {
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.require(id)
     record.summary = { ...record.summary, ...patch }
     await this.stabilize(() => {
@@ -301,6 +325,7 @@ export class TestSessions implements ISessions {
    * @param id - session id.
    */
   async remove(id: string): Promise<void> {
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.require(id)
     this.records.delete(id as SessionId)
     await this.stabilize(async () => {
@@ -332,6 +357,7 @@ export class TestSessions implements ISessions {
    * @returns the identity-stable bundle, or undefined for unknown sessions.
    */
   provideInfo(id: string): SessionProvideInfo | undefined {
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.records.get(id as SessionId)
     if (record === undefined) return undefined
     record.provideInfo ??= this.channel.materializeInfo(this.bindingOf(id as SessionId, record))
@@ -356,9 +382,11 @@ export class TestSessions implements ISessions {
    * @returns the scoped context, or undefined for unknown sessions.
    */
   scope(id: string): AgentContext | undefined {
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.records.get(id as SessionId)
     if (record === undefined) return undefined
     if (record.scope === undefined) {
+      /** 中文说明：变量 handle 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = createScope(this.rootCtx, id as SessionId)
       record.scope = handle.ctx
       record.scopeFiber = handle.fiber
@@ -372,6 +400,7 @@ export class TestSessions implements ISessions {
    * @returns sessionId + behavior face + scoped ctx, or undefined when unknown.
    */
   binding(id: string): TestSessionBinding | undefined {
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.records.get(id as SessionId)
     if (record === undefined) return undefined
     return this.bindingOf(id as SessionId, record)
@@ -393,6 +422,7 @@ export class TestSessions implements ISessions {
    * @returns the fixture session face, or undefined off-scope.
    */
   sessionOf(ctx: Context): SessionFace | undefined {
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = scopeOf(ctx)
     if (id === undefined) return undefined
     return this.records.get(id)?.session
@@ -425,6 +455,7 @@ export class TestSessions implements ISessions {
 
   /** Resolve the current fixture's retained catalog address. */
   subagentAddress(id: SessionId): SubagentAddress | undefined {
+    /** 中文说明：变量 address 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const address = this.list.getSnapshot().currentAddress
     return address?.childSessionId === id ? address : undefined
   }
@@ -443,6 +474,7 @@ export class TestSessions implements ISessions {
   /** Apply a confirmed preset switch into the fixture list, as production does. */
   noteAgentPreset(sessionId: SessionId, agentPreset: string): void {
     this.list.update((draft) => {
+      /** 中文说明：变量 summary 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const summary = draft.byId[sessionId]
       if (summary !== undefined) draft.byId[sessionId] = { ...summary, agentPreset }
     })
@@ -501,6 +533,7 @@ export class TestSessions implements ISessions {
 
   /** Dispose minted scope fibers (runtime dispose path). */
   async disposeScopes(): Promise<void> {
+    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const record of this.records.values()) {
       if (record.scopeFiber !== undefined) {
         await record.scopeFiber.dispose()
@@ -511,6 +544,7 @@ export class TestSessions implements ISessions {
   }
 
   private bindingOf(id: SessionId, record: SessionRecord): TestSessionBinding {
+    /** 中文说明：变量 ctx 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = this.scope(id)
     /* v8 ignore next 2 -- bindingOf only runs for a live record, whose scope
      * always resolves; kept so a future caller cannot mint a ctx-less binding. */
@@ -519,6 +553,7 @@ export class TestSessions implements ISessions {
   }
 
   private require(id: string): SessionRecord {
+    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.records.get(id as SessionId)
     if (record === undefined) throw new Error(`test session "${id}" is not added`)
     return record
