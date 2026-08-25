@@ -1,5 +1,13 @@
 #!/usr/bin/env node
 /**
+ * 文件职责：验证 fake-runtime.ts 覆盖的 SDK 通信行为与生命周期。
+ * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
+ * 产品维度：保障 Agent 的 SDK 通信能力稳定、可追踪且可恢复。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
+ * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
+ */
+/**
  * Scripted stand-in for the DeepSeek Harness SDK runtime, driven entirely by
  * env vars — no model, no network, no harness imports. Speaks the runtime's
  * newline-delimited JSON-RPC protocol on stdio: answers `initialize`,
@@ -48,6 +56,7 @@ import { appendFileSync, existsSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 import { createInterface } from 'node:readline'
 
+/** 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const env = process.env
 
 if (env.FAKE_STDERR !== undefined) process.stderr.write(`${env.FAKE_STDERR}\n`)
@@ -65,22 +74,29 @@ if (env.FAKE_IGNORE_EOF !== undefined) {
   })
 }
 
+/** 中文说明：函数 write 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function write(message: object): void {
   process.stdout.write(`${JSON.stringify(message)}\n`)
 }
 
+/** 中文说明：函数 notify 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function notify(method: string, params: object): void {
   write({ jsonrpc: '2.0', method, params })
 }
 
+/** 中文说明：变量 seq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let seq = 0
+/** 中文说明：函数 event 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function event(sessionId: string, type: string, data: object): void {
   notify('session.event', { sessionId, event: { type, seq: seq++, time: 0, data } })
 }
 
+/** 中文说明：函数 assistantText 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function assistantText(): string {
+  /** 中文说明：变量 parts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parts: string[] = []
   if (env.FAKE_ECHO_CWD !== undefined) parts.push(`cwd=${process.cwd()}`)
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const name of (env.FAKE_ECHO_ENV ?? '').split(',').filter(entry => entry.length > 0)) {
     parts.push(`${name}=${env[name] ?? ''}`)
   }
@@ -88,7 +104,9 @@ function assistantText(): string {
   return parts.join('\n')
 }
 
+/** 中文说明：函数 runTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runTurn(sessionId: string): void {
+  /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const text = assistantText()
   if (env.FAKE_MALFORMED_EVENT !== undefined) {
     notify('session.event', { sessionId, event: 42 })
@@ -125,9 +143,11 @@ function runTurn(sessionId: string): void {
       source: { kind: 'model', provider: 'fake', model: 'fake' },
     },
   })
+  /** 中文说明：变量 reasonKind 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const reasonKind = env.FAKE_REASON_KIND ?? 'completed'
   event(sessionId, 'turn/end', { turn: 0, reason: { kind: reasonKind } })
   if (env.FAKE_SUBAGENT !== undefined) {
+    /** 中文说明：变量 childId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childId = `${sessionId}-child`
     notify('subagent.started', { parentSessionId: sessionId, childSessionId: childId })
     event(childId, 'assistant/message', {
@@ -148,16 +168,21 @@ function runTurn(sessionId: string): void {
   }
 }
 
+/** 中文说明：函数 sessionIdOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sessionIdOf(params: Record<string, unknown> | undefined): string {
+  /** 中文说明：变量 value 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value = params?.sessionId
   return typeof value === 'string' ? value : ''
 }
 
+/** 中文说明：变量 reader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const reader = createInterface({ input: process.stdin })
 reader.on('line', (line) => {
   if (line.trim().length === 0) return
+  /** 中文说明：变量 frame 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const frame = JSON.parse(line) as { id?: string | number; method?: string; params?: Record<string, unknown> }
   if (frame.method === undefined || frame.id === undefined) return
+  /** 中文说明：函数值 respond 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const respond = (result: object): void => { write({ jsonrpc: '2.0', id: frame.id, result }) }
   switch (frame.method) {
     case 'initialize':
@@ -165,8 +190,11 @@ reader.on('line', (line) => {
       if (env.FAKE_HANG_INIT !== undefined) return
       if (env.FAKE_INIT_READY !== undefined && env.FAKE_INIT_GO !== undefined) {
         writeFileSync(env.FAKE_INIT_READY, 'ready\n')
+        /** 中文说明：变量 go 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const go = env.FAKE_INIT_GO
+        /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const id = frame.id
+        /** 中文说明：函数值 poll 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const poll = setInterval(() => {
           if (!existsSync(go)) return
           clearInterval(poll)
@@ -194,7 +222,9 @@ reader.on('line', (line) => {
       respond({ serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } })
       return
     case 'session/prompt': {
+      /** 中文说明：变量 sessionId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sessionId = sessionIdOf(frame.params)
+      /** 中文说明：变量 messageId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const messageId = `fake-user-${seq}`
       event(sessionId, 'agent/inbox/spliced', {
         target: 'next-turn',

@@ -5,16 +5,28 @@
  *
  * @module @deepseek-ai/dsh-sdk-protocol/transport
  */
+/**
+ * 文件职责：实现 transport.ts 覆盖的SDK 通信行为与生命周期。
+ * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
+ * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
+ * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
+ */
 
 import { randomUUID } from 'node:crypto'
 import type { Readable, Writable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
 
+/** 中文说明：type JsonRpcId 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 type JsonRpcId = string | number
+/** 中文说明：type RequestHandler 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 type RequestHandler = (method: string, params: Record<string, unknown>) => Promise<unknown>
+/** 中文说明：type NotificationHandler 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 type NotificationHandler = (method: string, params: Record<string, unknown>) => void
 
 /** A JSON-RPC error response, preserving the wire `code` and optional `data`. */
+/** 中文说明：class JsonRpcResponseError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class JsonRpcResponseError extends Error {
   /**
    * @param code - the wire error code, or `undefined` when the peer sent none.
@@ -31,6 +43,7 @@ export class JsonRpcResponseError extends Error {
  * Outbound request and notification surface used by the runtime server and
  * SDK clients.
  */
+/** 中文说明：interface JsonRpcTransportPeer 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface JsonRpcTransportPeer {
   /**
    * Send a request and await its response.
@@ -48,6 +61,7 @@ export interface JsonRpcTransportPeer {
   notify(method: string, params?: object): void
 }
 
+/** 中文说明：interface PendingRequest 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (error: Error) => void
@@ -59,6 +73,7 @@ interface PendingRequest {
  * destroying the streams. Missing request handlers return `-32601`; handler
  * failures return `-32603`. Notifications without a handler are dropped.
  */
+/** 中文说明：class JsonRpcLineTransport 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   private buffer = ''
   private readonly decoder = new StringDecoder('utf8')
@@ -119,15 +134,19 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
    * @returns the result; rejects per {@link JsonRpcTransportPeer.request}.
    */
   request(method: string, params: object, signal?: AbortSignal): Promise<unknown> {
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = `req_${randomUUID().replaceAll('-', '')}`
+    /** 中文说明：变量 message 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = { jsonrpc: '2.0', id, method, params }
     return new Promise((resolve, reject) => {
+      /** 中文说明：函数值 detach 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       let detach = (): void => {}
       if (signal !== undefined) {
         if (signal.aborted) {
           reject(abortError(signal.reason))
           return
         }
+        /** 中文说明：函数值 onAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const onAbort = (): void => {
           this.pending.delete(id)
           reject(abortError(signal.reason))
@@ -178,9 +197,12 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   }
 
   private drainLines(): void {
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (;;) {
+      /** 中文说明：变量 newline 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const newline = this.buffer.indexOf('\n')
       if (newline < 0) break
+      /** 中文说明：变量 line 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const line = this.buffer.slice(0, newline).trim()
       this.buffer = this.buffer.slice(newline + 1)
       if (!line) continue
@@ -199,6 +221,7 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   }
 
   private async handleLine(line: string): Promise<void> {
+    /** 中文说明：变量 message 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let message: unknown
     try {
       message = JSON.parse(line)
@@ -207,8 +230,11 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
       return
     }
     if (!message || typeof message !== 'object') return
+    /** 中文说明：变量 frame 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const frame = message as Record<string, unknown>
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = frame.id
+    /** 中文说明：变量 method 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const method = frame.method
     if ((typeof id === 'string' || typeof id === 'number') && typeof method === 'string') {
       await this.handleIncomingRequest(id, method, objectParams(frame.params))
@@ -224,12 +250,14 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   }
 
   private async handleIncomingRequest(id: JsonRpcId, method: string, params: Record<string, unknown>): Promise<void> {
+    /** 中文说明：变量 handler 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handler = this.requestHandler
     if (!handler) {
       this.writeError(id, -32601, `method not found: ${method}`)
       return
     }
     try {
+      /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await handler(method, params)
       this.write({ jsonrpc: '2.0', id, result })
     } catch (error) {
@@ -238,10 +266,12 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   }
 
   private handleIncomingResponse(id: JsonRpcId, frame: Record<string, unknown>): void {
+    /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = this.pending.get(id)
     if (!pending) return
     this.pending.delete(id)
     if (frame.error && typeof frame.error === 'object') {
+      /** 中文说明：变量 error 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const error = frame.error as Record<string, unknown>
       pending.reject(new JsonRpcResponseError(
         typeof error.code === 'number' ? error.code : undefined,
@@ -262,18 +292,22 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
   }
 
   private failPending(error: Error): void {
+    /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = [...this.pending.values()]
     this.pending.clear()
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const waiter of pending) waiter.reject(error)
   }
 }
 
 /** Normalize JSON-RPC `params` to a plain object (arrays and scalars collapse to `{}`). */
+/** 中文说明：函数 objectParams 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function objectParams(params: unknown): Record<string, unknown> {
   return params && typeof params === 'object' && !Array.isArray(params) ? params as Record<string, unknown> : {}
 }
 
 /** Normalize an abort reason into the rejection Error (a non-Error reason is stringified). */
+/** 中文说明：函数 abortError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function abortError(reason: unknown): Error {
   return reason instanceof Error ? reason : new Error(`JSON-RPC request aborted: ${String(reason)}`)
 }

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 runtime.spec.ts 覆盖的计划调度行为与生命周期。
+ * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
+ * 产品维度：保障 Agent 的计划调度能力稳定、可追踪且可恢复。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
+ * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
@@ -12,9 +20,12 @@ import {
 } from '../src/domain.ts'
 import { MAX_TIMER_DELAY_MS, ScheduleRuntime } from '../src/runtime.ts'
 
+/** 中文说明：变量 contexts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const contexts: Context[] = []
+/** 中文说明：变量 runtimes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const runtimes: ScheduleRuntime[] = []
 
+/** 中文说明：interface RuntimeHarness 定义本测试所需的数据或行为，用于表达计划调度场景。 */
 interface RuntimeHarness {
   readonly ctx: Context
   readonly agent: Agent
@@ -36,14 +47,20 @@ interface RuntimeHarness {
   readonly disposeAgent: () => void
 }
 
+/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(): Promise<RuntimeHarness> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(SessionStore)
   await ctx.plugin(AgentRegistry)
+  /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const session = ctx.sessions.create(SessionId(`schedule-runtime-${Math.random()}`))
+  /** 中文说明：变量 followed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const followed: UserMessage[] = []
+  /** 中文说明：变量 order 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const order: string[] = []
+  /** 中文说明：变量 controls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const controls = {
     canReserve: true,
     releaseCount: 0,
@@ -57,7 +74,9 @@ async function harness(): Promise<RuntimeHarness> {
     onFollowup: undefined as (() => void) | undefined,
     idle: Promise.withResolvers<undefined>(),
   }
+  /** 中文说明：函数值 inbox 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const inbox = new Inbox(session, { inserted: () => {}, discarded: () => {}, claimed: () => {} })
+  /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent: Agent = {
     id: session.id,
     options: {},
@@ -97,6 +116,7 @@ async function harness(): Promise<RuntimeHarness> {
     steer(_message: UserMessage) {},
     inject(_message: UserMessage) {},
   }
+  /** 中文说明：变量 disposeAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const disposeAgent = ctx.agents.register(agent)
   ctx.on('session/event', (_session, event) => {
     if (event.type === 'schedule/change' && event.data.operation === 'dispatch') order.push('dispatch')
@@ -110,6 +130,7 @@ async function harness(): Promise<RuntimeHarness> {
   return { ctx, agent, followed, order, controls, disposeAgent }
 }
 
+/** 中文说明：函数 appendAfter 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendAfter(
   test: RuntimeHarness,
   id: string,
@@ -117,10 +138,12 @@ function appendAfter(
   createdAt = Date.now(),
   prompt = 'check logs',
 ): void {
+  /** 中文说明：变量 record 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const record = createAfterScheduleRecord(ScheduleId(id), prompt, afterSeconds, createdAt)
   test.agent.session.append('schedule/change', { version: 1, operation: 'create', schedule: record })
 }
 
+/** 中文说明：函数 appendEvery 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendEvery(
   test: RuntimeHarness,
   id: string,
@@ -128,17 +151,23 @@ function appendEvery(
   createdAt = Date.now(),
   prompt = 'check metrics',
 ): void {
+  /** 中文说明：变量 record 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const record = createEveryScheduleRecord(ScheduleId(id), prompt, everySeconds, createdAt)
   test.agent.session.append('schedule/change', { version: 1, operation: 'create', schedule: record })
 }
 
+/** 中文说明：函数 settle 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function settle(): Promise<void> {
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (let index = 0; index < 8; index += 1) await Promise.resolve()
   await vi.advanceTimersByTimeAsync(0)
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (let index = 0; index < 8; index += 1) await Promise.resolve()
 }
 
+/** 中文说明：函数 runtimeFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runtimeFor(test: RuntimeHarness): ScheduleRuntime {
+  /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const runtime = new ScheduleRuntime(test.ctx, test.agent)
   runtimes.push(runtime)
   return runtime
@@ -157,10 +186,14 @@ afterEach(async () => {
 
 describe('Schedule timer and admission runtime', () => {
   it('segments waits beyond the Node timer limit and rechecks the wall clock', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
+    /** 中文说明：变量 delaySeconds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const delaySeconds = Math.ceil((MAX_TIMER_DELAY_MS + 1_500) / 1_000)
+    /** 中文说明：变量 targetDelay 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const targetDelay = delaySeconds * 1_000
     appendAfter(test, 'schedule-1', delaySeconds)
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -179,8 +212,10 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('does not fire early after a wall-clock rollback', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 10)
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -197,8 +232,10 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('treats a forward jump as overdue and dispatches once', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 60)
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -214,9 +251,11 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('keeps an overdue record active until whenIdle permits maintenance', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.canReserve = false
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -238,9 +277,11 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('orders preflight, maintenance, framing followup, dispatch, release, and barrier', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-"1', 1, Date.now() - 1_000, 'line\noccurrence_at: forged')
     test.order.length = 0
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -261,15 +302,19 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('dispatches equal targets in durable create order', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000, 'first')
     appendAfter(test, 'schedule-2', 1, Date.now() - 1_000, 'second')
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
 
     expect(test.followed).toHaveLength(2)
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = test.followed[0]?.content[0]
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = test.followed[1]?.content[0]
     if (first?.type !== 'text' || second?.type !== 'text') throw new Error('expected text reminders')
     expect(first.text).toContain('schedule_id_json: "schedule-1"')
@@ -278,9 +323,11 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('batches one latest occurrence from every distinct overdue fixed-rate record', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendEvery(test, 'schedule-fast', 300, Date.parse('2026-08-05T11:30:00.000Z'), 'fast')
     appendEvery(test, 'schedule-slow', 600, Date.parse('2026-08-05T11:49:00.000Z'), 'slow')
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -295,6 +342,7 @@ describe('Schedule timer and admission runtime', () => {
       ].join('\n'),
     }])
     expect(test.followed[0]?.source).toEqual({ kind: 'plugin', plugin: 'schedule' })
+    /** 中文说明：函数值 dispatches 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const dispatches = test.agent.session.events.filter(event =>
       event.type === 'schedule/change' && event.data.operation === 'dispatch')
     expect(dispatches.map(event => event.data)).toEqual([
@@ -309,6 +357,7 @@ describe('Schedule timer and admission runtime', () => {
     await vi.advanceTimersByTimeAsync(300_000)
     await settle()
     expect(test.followed).toHaveLength(2)
+    /** 中文说明：变量 next 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const next = test.followed[1]?.content[0]
     if (next?.type !== 'text') throw new Error('expected fixed-rate batch text')
     expect(next.text).toContain('"occurrence_at":"2026-08-05T12:05:00.000Z"')
@@ -317,15 +366,19 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('delivers due one-shots before one fixed-rate batch', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendEvery(test, 'schedule-every', 300, Date.parse('2026-08-05T11:50:00.000Z'), 'repeat')
     appendAfter(test, 'schedule-once', 1, Date.now() - 1_000, 'once')
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
 
     expect(test.followed).toHaveLength(2)
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = test.followed[0]?.content[0]
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = test.followed[1]?.content[0]
     if (first?.type !== 'text' || second?.type !== 'text') throw new Error('expected reminder text')
     expect(first.text).toContain('schedule_id_json: "schedule-once"')
@@ -335,12 +388,14 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('rechecks the wall clock after claiming maintenance before queuing', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.onReserve = () => {
       vi.setSystemTime(new Date('2026-08-05T11:59:50.000Z'))
       test.controls.onReserve = undefined
     }
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -354,6 +409,7 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('rechecks the durable fold after claiming maintenance', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.onReserve = () => {
@@ -364,6 +420,7 @@ describe('Schedule timer and admission runtime', () => {
         id: ScheduleId('schedule-1'),
       })
     }
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -378,9 +435,12 @@ describe('Schedule timer and admission runtime', () => {
   })
 
   it('contains invalid fixed-rate clocks and a fold that becomes unreadable after claiming', async () => {
+    /** 中文说明：变量 wakeClock 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wakeClock = await harness()
     appendEvery(wakeClock, 'schedule-every', 300, Date.parse('2026-08-05T11:50:00.000Z'))
+    /** 中文说明：变量 wakeClockSpy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wakeClockSpy = vi.spyOn(Date, 'now').mockReturnValue(Number.MAX_SAFE_INTEGER)
+    /** 中文说明：变量 wakeClockRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wakeClockRuntime = runtimeFor(wakeClock)
     wakeClockRuntime.start()
     await settle()
@@ -388,13 +448,17 @@ describe('Schedule timer and admission runtime', () => {
     wakeClockSpy.mockRestore()
     await wakeClockRuntime.dispose()
 
+    /** 中文说明：变量 claimedClock 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const claimedClock = await harness()
     appendEvery(claimedClock, 'schedule-every', 300, Date.parse('2026-08-05T11:50:00.000Z'))
+    /** 中文说明：变量 clockCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let clockCalls = 0
+    /** 中文说明：函数值 claimedClockSpy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const claimedClockSpy = vi.spyOn(Date, 'now').mockImplementation(() => {
       clockCalls += 1
       return clockCalls === 1 ? Date.parse('2026-08-05T12:00:00.000Z') : Number.MAX_SAFE_INTEGER
     })
+    /** 中文说明：变量 claimedClockRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const claimedClockRuntime = runtimeFor(claimedClock)
     claimedClockRuntime.start()
     await settle()
@@ -402,6 +466,7 @@ describe('Schedule timer and admission runtime', () => {
     claimedClockSpy.mockRestore()
     await claimedClockRuntime.dispose()
 
+    /** 中文说明：变量 unreadable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unreadable = await harness()
     appendAfter(unreadable, 'schedule-1', 1, Date.now() - 1_000)
     unreadable.controls.onReserve = () => {
@@ -411,6 +476,7 @@ describe('Schedule timer and admission runtime', () => {
         get() { throw new Error('became unreadable') },
       })
     }
+    /** 中文说明：变量 unreadableRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unreadableRuntime = runtimeFor(unreadable)
     unreadableRuntime.start()
     await settle()
@@ -421,9 +487,11 @@ describe('Schedule timer and admission runtime', () => {
 
 describe('Schedule runtime failure and teardown boundaries', () => {
   it('writes no dispatch when followup throws and still releases admission', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.throwFollowup = true
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -433,10 +501,12 @@ describe('Schedule runtime failure and teardown boundaries', () => {
       event.type === 'schedule/change' && event.data.operation === 'dispatch')).toEqual([])
     await runtime.dispose()
 
+    /** 中文说明：变量 departed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departed = await harness()
     appendAfter(departed, 'schedule-1', 1, Date.now() - 1_000)
     departed.controls.throwFollowup = true
     departed.controls.onFollowup = departed.disposeAgent
+    /** 中文说明：变量 departedRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedRuntime = runtimeFor(departed)
     departedRuntime.start()
     await settle()
@@ -445,15 +515,19 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('faults after append throws so an already-queued reminder is not repeated', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
+    /** 中文说明：函数值 stop 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const stop = test.ctx.on('internal/dispatch', (_mode, eventName, args) => {
       if (eventName !== 'session/event') return
+      /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const event = (args as unknown[])[1] as { type?: string; data?: { operation?: string } } | undefined
       if (event?.type === 'schedule/change' && event.data?.operation === 'dispatch') {
         throw new Error('append failed')
       }
     }, { global: true })
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -470,17 +544,22 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('faults after a partial fixed-rate batch append without repeating its queued message', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendEvery(test, 'schedule-first', 300, Date.now() - 600_000, 'first')
     appendEvery(test, 'schedule-second', 300, Date.now() - 600_000, 'second')
+    /** 中文说明：变量 dispatchAttempts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let dispatchAttempts = 0
+    /** 中文说明：函数值 stop 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const stop = test.ctx.on('internal/dispatch', (_mode, eventName, args) => {
       if (eventName !== 'session/event') return
+      /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const event = (args as unknown[])[1] as { type?: string; data?: { operation?: string } } | undefined
       if (event?.type !== 'schedule/change' || event.data?.operation !== 'dispatch') return
       dispatchAttempts += 1
       if (dispatchAttempts === 2) throw new Error('second append failed')
     }, { global: true })
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -507,9 +586,11 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('does not retry a rejected dispatch barrier until another trigger preflights it', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.flushOutcomes.push('resolve', 'reject', 'resolve')
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -522,6 +603,7 @@ describe('Schedule runtime failure and teardown boundaries', () => {
     expect(test.followed).toHaveLength(1)
     await runtime.dispose()
 
+    /** 中文说明：变量 departed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departed = await harness()
     appendAfter(departed, 'schedule-1', 1, Date.now() - 1_000)
     departed.controls.flushHandler = () => {
@@ -529,6 +611,7 @@ describe('Schedule runtime failure and teardown boundaries', () => {
       departed.disposeAgent()
       return Promise.reject(new Error('detached barrier'))
     }
+    /** 中文说明：变量 departedRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedRuntime = runtimeFor(departed)
     departedRuntime.start()
     await settle()
@@ -537,9 +620,11 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('keeps an overdue record pending after a rejected preflight', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.flushOutcomes.push('reject')
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -548,10 +633,13 @@ describe('Schedule runtime failure and teardown boundaries', () => {
     expect(test.agent.session.events.at(-1)?.data).toMatchObject({ operation: 'create' })
     await runtime.dispose()
 
+    /** 中文说明：变量 departed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departed = await harness()
     appendAfter(departed, 'schedule-1', 1, Date.now() - 1_000)
+    /** 中文说明：变量 rejected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rejected = Promise.withResolvers<undefined>()
     departed.controls.flushHandler = () => rejected.promise
+    /** 中文说明：变量 departedRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedRuntime = runtimeFor(departed)
     departedRuntime.start()
     await Promise.resolve()
@@ -563,9 +651,11 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('contains idle-wait rejection without dispatching', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.canReserve = false
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -574,9 +664,11 @@ describe('Schedule runtime failure and teardown boundaries', () => {
     expect(test.followed).toEqual([])
     await runtime.dispose()
 
+    /** 中文说明：变量 departed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departed = await harness()
     appendAfter(departed, 'schedule-1', 1, Date.now() - 1_000)
     departed.controls.canReserve = false
+    /** 中文说明：变量 departedRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedRuntime = runtimeFor(departed)
     departedRuntime.start()
     await settle()
@@ -588,15 +680,19 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('stops an idle wait during dispose even if the agent never becomes idle', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.canReserve = false
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
 
     expect(test.controls.whenIdleCount).toBe(1)
+    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let disposed = false
+    /** 中文说明：函数值 disposal 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposal = runtime.dispose().then(() => { disposed = true })
     await settle()
     try {
@@ -612,6 +708,7 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('faults on corrupt or unreadable durable state after preflight', async () => {
+    /** 中文说明：变量 corrupt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const corrupt = await harness()
     Object.defineProperty(corrupt.agent.session, 'events', {
       configurable: true,
@@ -620,16 +717,19 @@ describe('Schedule runtime failure and teardown boundaries', () => {
         data: { version: 9, operation: 'delete', id: 'schedule-1' },
       }],
     })
+    /** 中文说明：变量 corruptRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const corruptRuntime = runtimeFor(corrupt)
     corruptRuntime.start()
     await settle()
     expect(corrupt.followed).toEqual([])
 
+    /** 中文说明：变量 unreadable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unreadable = await harness()
     Object.defineProperty(unreadable.agent.session, 'events', {
       configurable: true,
       get() { throw 'unreadable log' },
     })
+    /** 中文说明：变量 unreadableRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unreadableRuntime = runtimeFor(unreadable)
     unreadableRuntime.start()
     await settle()
@@ -637,27 +737,36 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('contains runtime startup, maintenance, and framing failures', async () => {
+    /** 中文说明：变量 startup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const startup = await harness()
+    /** 中文说明：变量 startSpy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const startSpy = vi.spyOn(startup.ctx.agents, 'withoutInitiator')
       .mockImplementation(() => { throw new Error('initiator closing') })
+    /** 中文说明：变量 startupRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const startupRuntime = runtimeFor(startup)
     startupRuntime.start()
     expect(startup.controls.flushCount).toBe(0)
     startSpy.mockRestore()
 
+    /** 中文说明：变量 departedStartup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedStartup = await harness()
     departedStartup.disposeAgent()
+    /** 中文说明：变量 departedStartSpy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedStartSpy = vi.spyOn(departedStartup.ctx.agents, 'withoutInitiator')
       .mockImplementation(() => { throw new Error('initiator disposed') })
+    /** 中文说明：变量 departedStartupRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedStartupRuntime = runtimeFor(departedStartup)
     departedStartupRuntime.start()
     expect(departedStartup.controls.flushCount).toBe(0)
     departedStartSpy.mockRestore()
 
+    /** 中文说明：变量 maintenanceFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const maintenanceFailure = await harness()
     appendAfter(maintenanceFailure, 'schedule-1', 1, Date.now() - 1_000)
+    /** 中文说明：变量 maintenanceSpy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const maintenanceSpy = vi.spyOn(maintenanceFailure.agent, 'runMaintenance')
       .mockImplementation(() => Promise.reject(new Error('maintenance failed')))
+    /** 中文说明：变量 maintenanceRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const maintenanceRuntime = runtimeFor(maintenanceFailure)
     maintenanceRuntime.start()
     await settle()
@@ -666,45 +775,57 @@ describe('Schedule runtime failure and teardown boundaries', () => {
     await settle()
     expect(maintenanceSpy).toHaveBeenCalledOnce()
 
+    /** 中文说明：变量 departedMaintenance 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedMaintenance = await harness()
     appendAfter(departedMaintenance, 'schedule-1', 1, Date.now() - 1_000)
     vi.spyOn(departedMaintenance.agent, 'runMaintenance').mockImplementation(() => {
       departedMaintenance.disposeAgent()
       return Promise.reject(new Error('maintenance failed after detach'))
     })
+    /** 中文说明：变量 departedMaintenanceRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedMaintenanceRuntime = runtimeFor(departedMaintenance)
     departedMaintenanceRuntime.start()
     await settle()
     expect(departedMaintenance.followed).toEqual([])
 
+    /** 中文说明：变量 runFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runFailure = await harness()
     appendAfter(runFailure, 'schedule-1', 1, Date.now() - 1_000)
+    /** 中文说明：函数值 uuidSpy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const uuidSpy = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() => { throw 'message failed' })
+    /** 中文说明：变量 failingRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failingRuntime = runtimeFor(runFailure)
     failingRuntime.start()
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < 12; index += 1) await Promise.resolve()
     uuidSpy.mockRestore()
     failingRuntime.requestDrive()
     await settle()
     expect(runFailure.followed).toHaveLength(1)
 
+    /** 中文说明：变量 departedRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedRun = await harness()
     appendAfter(departedRun, 'schedule-1', 1, Date.now() - 1_000)
+    /** 中文说明：函数值 departedUuidSpy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const departedUuidSpy = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() => {
       departedRun.disposeAgent()
       throw 'message failed after detach'
     })
+    /** 中文说明：变量 departedRunRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedRunRuntime = runtimeFor(departedRun)
     departedRunRuntime.start()
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < 12; index += 1) await Promise.resolve()
     departedUuidSpy.mockRestore()
     expect(departedRun.followed).toEqual([])
   })
 
   it('releases maintenance without work when liveness changes during its claim', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
     test.controls.onReserve = test.disposeAgent
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -712,10 +833,12 @@ describe('Schedule runtime failure and teardown boundaries', () => {
     expect(test.followed).toEqual([])
     await runtime.dispose()
 
+    /** 中文说明：变量 busy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const busy = await harness()
     appendAfter(busy, 'schedule-1', 1, Date.now() - 1_000)
     busy.controls.canReserve = false
     busy.controls.onBusy = busy.disposeAgent
+    /** 中文说明：变量 busyRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const busyRuntime = runtimeFor(busy)
     busyRuntime.start()
     await settle()
@@ -725,15 +848,20 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('waits for in-flight preflight during dispose and does no post-dispose work', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = Promise.withResolvers<undefined>()
     test.controls.flushHandler = () => pending.promise
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await Promise.resolve()
 
+    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let disposed = false
+    /** 中文说明：函数值 disposal 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposal = runtime.dispose().then(() => { disposed = true })
     await Promise.resolve()
     expect(disposed).toBe(false)
@@ -743,15 +871,20 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('does not rearm after dispose begins during the dispatch barrier', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
+    /** 中文说明：变量 barrier 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const barrier = Promise.withResolvers<undefined>()
     test.controls.flushHandler = () => test.controls.flushCount === 2 ? barrier.promise : undefined
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < 12; index += 1) await Promise.resolve()
     expect(test.followed).toHaveLength(1)
 
+    /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposal = runtime.dispose()
     barrier.resolve(undefined)
     await disposal
@@ -759,10 +892,13 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('does no work when the exact agent stops being live during preflight', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 1, Date.now() - 1_000)
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = Promise.withResolvers<undefined>()
     test.controls.flushHandler = () => pending.promise
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await Promise.resolve()
@@ -775,8 +911,10 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('does not start a preflight for an already non-live runtime', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     test.disposeAgent()
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()
@@ -785,8 +923,10 @@ describe('Schedule runtime failure and teardown boundaries', () => {
   })
 
   it('clears a future timer during dispose', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     appendAfter(test, 'schedule-1', 60)
+    /** 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runtime = runtimeFor(test)
     runtime.start()
     await settle()

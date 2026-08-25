@@ -11,13 +11,24 @@
  *
  * @module @deepseek-ai/dsh-sdk-client/client
  */
+/**
+ * 文件职责：实现 client.ts 覆盖的SDK 通信行为与生命周期。
+ * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
+ * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
+ * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
+ */
 
 import { spawn, type ChildProcess } from 'node:child_process'
 import {
   JsonRpcLineTransport,
   JsonRpcResponseError,
+  /** 中文说明：type InitializeParams 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
   type InitializeParams,
+  /** 中文说明：type InitializeResult 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
   type InitializeResult,
+  /** 中文说明：type SessionPromptParams 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
   type SessionPromptParams,
 } from '@deepseek-ai/dsh-sdk-protocol'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
@@ -25,9 +36,11 @@ import { disposeRuntimeProcess } from './dispose.ts'
 import type { HarnessClientOptions, HarnessNotification, NotificationFilter } from './types.ts'
 
 /** Retained stderr lines used to diagnose an unexpected runtime death. */
+/** 中文说明：常量 STDERR_TAIL_LIMIT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STDERR_TAIL_LIMIT = 400
 
 /** Grace for the runtime's stdio streams to settle after its exit edge. */
+/** 中文说明：常量 STREAM_SETTLE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STREAM_SETTLE_MS = 100
 
 /**
@@ -35,6 +48,7 @@ const STREAM_SETTLE_MS = 100
  * it was never launchable. The message carries the exit code and a stderr
  * tail when available.
  */
+/** 中文说明：class TransportClosedError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class TransportClosedError extends Error {
   /** @param message - the failure description, including any stderr tail. */
   constructor(message: string) {
@@ -44,6 +58,7 @@ export class TransportClosedError extends Error {
 }
 
 /** A request exceeded {@link HarnessClientOptions.requestTimeoutMs}. */
+/** 中文说明：class RequestTimeoutError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class RequestTimeoutError extends Error {
   /** @param message - which method timed out. */
   constructor(message: string) {
@@ -56,6 +71,7 @@ export class RequestTimeoutError extends Error {
  * The runtime answered outside its documented protocol (for example a
  * `session/prompt` response without `accepted: true`).
  */
+/** 中文说明：class SdkProtocolError 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class SdkProtocolError extends Error {
   /** @param message - the protocol violation description. */
   constructor(message: string) {
@@ -64,6 +80,7 @@ export class SdkProtocolError extends Error {
   }
 }
 
+/** 中文说明：interface SubscriptionState 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 interface SubscriptionState {
   readonly queue: HarnessNotification[]
   readonly waiters: { resolve: (item: HarnessNotification) => void; reject: (error: Error) => void }[]
@@ -72,6 +89,7 @@ interface SubscriptionState {
 }
 
 /** One client-side notification stream returned by {@link HarnessClient.subscribe}. */
+/** 中文说明：interface NotificationSubscription 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface NotificationSubscription extends AsyncIterable<HarnessNotification> {
   /**
    * Await the next matching notification.
@@ -92,6 +110,7 @@ export interface NotificationSubscription extends AsyncIterable<HarnessNotificat
 }
 
 /** Internal producer side of a public notification subscription. */
+/** 中文说明：class NotificationSubscriptionImpl 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 class NotificationSubscriptionImpl implements NotificationSubscription {
   constructor(
     private readonly state: SubscriptionState,
@@ -105,6 +124,7 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
    * immediately (the queue is dropped).
    */
   next(): Promise<HarnessNotification> {
+    /** 中文说明：变量 queued 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const queued = this.state.queue.shift()
     if (queued !== undefined) return Promise.resolve(queued)
     if (this.state.failure !== undefined) return Promise.reject(this.state.failure)
@@ -137,6 +157,7 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
    */
   fail(error: Error): void {
     this.state.failure ??= error
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const waiter of this.state.waiters.splice(0)) waiter.reject(this.state.failure)
   }
 
@@ -148,6 +169,7 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
    * @param notification - the wire notification to deliver.
    */
   push(notification: HarnessNotification): void {
+    /** 中文说明：变量 matches 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let matches: boolean
     try {
       matches = this.state.filter === undefined || this.state.filter(notification)
@@ -157,6 +179,7 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
       return
     }
     if (!matches) return
+    /** 中文说明：变量 waiter 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const waiter = this.state.waiters.shift()
     if (waiter !== undefined) waiter.resolve(notification)
     else this.state.queue.push(notification)
@@ -168,6 +191,7 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
    * @returns an async iterator over {@link next} results.
    */
   async * [Symbol.asyncIterator](): AsyncIterator<HarnessNotification> {
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (;;) yield await this.next()
   }
 }
@@ -181,6 +205,7 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
  * wire-level cancel: a timed-out request stays running server-side until the
  * runtime is closed.
  */
+/** 中文说明：class HarnessClient 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class HarnessClient {
   private child: ChildProcess | undefined
   private transport: JsonRpcLineTransport | undefined
@@ -203,6 +228,7 @@ export class HarnessClient {
   start(): void {
     if (this.closeTask !== undefined) throw new TransportClosedError('DeepSeek Harness runtime client is closed')
     if (this.child !== undefined) return
+    /** 中文说明：变量 child 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = spawn(this.options.command, this.options.args ?? [], {
       cwd: this.options.cwd,
       env: this.options.env ?? process.env,
@@ -221,19 +247,24 @@ export class HarnessClient {
     // The timing of that race is not deterministically reproducible.
     /* v8 ignore next */
     child.stdin.on('error', () => {})
+    /** 中文说明：变量 stderrBuffer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let stderrBuffer = ''
     child.stderr.setEncoding('utf8')
     child.stderr.on('data', (chunk: string) => {
       stderrBuffer += chunk
+      /** 中文说明：变量 newline 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const newline = stderrBuffer.lastIndexOf('\n')
       if (newline >= 0) {
         this.appendStderr(stderrBuffer.slice(0, newline).split('\n'))
         stderrBuffer = stderrBuffer.slice(newline + 1)
       }
     })
+    /** 中文说明：函数值 signalStreamsSettled 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     let signalStreamsSettled!: () => void
     this.streamsSettled = new Promise((resolve) => { signalStreamsSettled = resolve })
+    /** 中文说明：变量 settled 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const settled = { stderr: false, exited: false }
+    /** 中文说明：函数值 maybeSettle 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const maybeSettle = (): void => {
       if (settled.stderr && settled.exited) signalStreamsSettled()
     }
@@ -254,6 +285,7 @@ export class HarnessClient {
       // will never be answered.
       this.transport?.close()
     })
+    /** 中文说明：变量 transport 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const transport = new JsonRpcLineTransport(child.stdout, child.stdin)
     transport.onNotification((method, params) => { this.dispatchNotification({ method, params }) })
     transport.start()
@@ -266,6 +298,7 @@ export class HarnessClient {
    * @returns the runtime's wire identity.
    */
   async initialize(params: InitializeParams): Promise<InitializeResult> {
+    /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await this.request('initialize', { ...params })
     if (!isRecord(result) || !isRecord(result.serverInfo)
       || typeof result.serverInfo.name !== 'string' || typeof result.serverInfo.version !== 'string') {
@@ -281,7 +314,9 @@ export class HarnessClient {
    * @returns the queued message id.
    */
   async prompt(sessionId: string, contentBlocks: ContentBlock[]): Promise<string> {
+    /** 中文说明：变量 params 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const params: SessionPromptParams = { sessionId, contentBlocks }
+    /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await this.request('session/prompt', { ...params })
     if (!isRecord(result) || typeof result.messageId !== 'string') {
       throw new SdkProtocolError(`session/prompt returned no message id: ${JSON.stringify(result)}`)
@@ -306,16 +341,20 @@ export class HarnessClient {
       await this.settleStreams()
       throw this.closedError('DeepSeek Harness runtime is not running')
     }
+    /** 中文说明：变量 transport 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const transport = this.transport
     /* v8 ignore next -- start() either sets the transport or throws */
     if (transport === undefined) throw new TransportClosedError('DeepSeek Harness runtime is not running')
+    /** 中文说明：变量 timeout 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const timeout = timeoutMs ?? this.options.requestTimeoutMs
     try {
       if (timeout === undefined) return await transport.request(method, params ?? {})
       // The abort signal makes the timeout an abandonment: the transport drops
       // its pending entry, so repeated bounded requests against a hung method
       // retain no per-call state (the server-side work still runs to close).
+      /** 中文说明：变量 abandon 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const abandon = new AbortController()
+      /** 中文说明：函数值 timer 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const timer = setTimeout(() => {
         abandon.abort(new RequestTimeoutError(`${method} timed out after ${timeout}ms waiting for the DeepSeek Harness runtime`))
       }, timeout)
@@ -340,8 +379,11 @@ export class HarnessClient {
    * producer left, so `next()` rejects instead of waiting forever.
    */
   subscribe(filter?: NotificationFilter): NotificationSubscription {
+    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = String(this.subscriptionSerial++)
+    /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const state: SubscriptionState = { queue: [], waiters: [], filter, failure: undefined }
+    /** 中文说明：函数值 subscription 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const subscription = new NotificationSubscriptionImpl(state, () => { this.subscriptions.delete(id) })
     if (this.closeTask !== undefined || this.exitCode !== undefined || this.spawnError !== undefined) {
       subscription.fail(this.closedError('DeepSeek Harness runtime closed'))
@@ -360,12 +402,15 @@ export class HarnessClient {
    */
   subscribeSessionTree(sessionId: string): NotificationSubscription {
     return this.subscribe((notification) => {
+      /** 中文说明：变量 params 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const params = notification.params
       if (notification.method === 'subagent.started' || notification.method === 'subagent.finished') {
+        /** 中文说明：变量 parentId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const parentId = params.parentSessionId
         if (typeof parentId === 'string' && this.isDescendantOf(parentId, sessionId)) return true
         return params.childSessionId === sessionId
       }
+      /** 中文说明：变量 relatedId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const relatedId = params.sessionId
       return typeof relatedId === 'string' && this.isDescendantOf(relatedId, sessionId)
     })
@@ -383,6 +428,7 @@ export class HarnessClient {
   }
 
   private async performClose(): Promise<void> {
+    /** 中文说明：变量 child 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = this.child
     if (child === undefined) return
     try {
@@ -402,12 +448,15 @@ export class HarnessClient {
 
   private dispatchNotification(notification: HarnessNotification): void {
     this.recordSessionRelationship(notification)
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const subscription of this.subscriptions.values()) subscription.push(notification)
   }
 
   private recordSessionRelationship(notification: HarnessNotification): void {
     if (notification.method !== 'subagent.started') return
+    /** 中文说明：变量 parentId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentId = notification.params.parentSessionId
+    /** 中文说明：变量 childId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childId = notification.params.childSessionId
     if (typeof parentId === 'string' && parentId !== '' && typeof childId === 'string' && childId !== '' && parentId !== childId) {
       this.sessionParents.set(childId, parentId)
@@ -415,11 +464,14 @@ export class HarnessClient {
   }
 
   private isDescendantOf(sessionId: string, rootSessionId: string): boolean {
+    /** 中文说明：变量 visited 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const visited = new Set<string>()
+    /** 中文说明：变量 current 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let current = sessionId
     while (!visited.has(current)) {
       if (current === rootSessionId) return true
       visited.add(current)
+      /** 中文说明：变量 parent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = this.sessionParents.get(current)
       if (parent === undefined) return false
       current = parent
@@ -430,10 +482,12 @@ export class HarnessClient {
   }
 
   private failSubscriptions(error: Error): void {
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const subscription of this.subscriptions.values()) subscription.fail(error)
   }
 
   private appendStderr(lines: string[]): void {
+    /** 中文说明：函数值 kept 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const kept = lines.filter(line => line.length > 0)
     this.stderrTail.push(...kept)
     if (this.stderrTail.length > STDERR_TAIL_LIMIT) {
@@ -449,6 +503,7 @@ export class HarnessClient {
   }
 
   private closedError(reason: string): TransportClosedError {
+    /** 中文说明：变量 parts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parts = [reason]
     if (this.spawnError !== undefined) parts.push(`spawn error: ${this.spawnError.message}`)
     if (this.exitCode !== undefined) parts.push(`exit code: ${String(this.exitCode)}`)
@@ -462,11 +517,13 @@ export class HarnessClient {
  * @param value - the wire value to probe.
  * @returns `true` iff `value` is a non-null, non-array object.
  */
+/** 中文说明：函数 isRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** The message of a thrown value (the transport only throws `Error`s; `String` covers the rest). */
+/** 中文说明：函数 errorMessage 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function errorMessage(error: unknown): string {
   /* v8 ignore next -- the transport and dispose ladder reject only with Errors */
   return error instanceof Error ? error.message : String(error)

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 tools.spec.ts 覆盖的计划调度行为与生命周期。
+ * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
+ * 产品维度：保障 Agent 的计划调度能力稳定、可追踪且可恢复。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
+ * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
@@ -11,9 +19,12 @@ import type { ToolExecutionResult } from '@deepseek-ai/dsh-tools'
 import { registerScheduleTools } from '../src/tools.ts'
 import { runScheduleTransaction } from '../src/transaction.ts'
 
+/** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const signal = new AbortController().signal
+/** 中文说明：变量 contexts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const contexts: Context[] = []
 
+/** 中文说明：interface ToolHarness 定义本测试所需的数据或行为，用于表达计划调度场景。 */
 interface ToolHarness {
   readonly ctx: Context
   readonly agent: Agent
@@ -22,8 +33,11 @@ interface ToolHarness {
   readonly disposeTools: () => void
 }
 
+/** 中文说明：函数 stubAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function stubAgent(ctx: Context, id: string): Agent {
+  /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const session = ctx.sessions.create(SessionId(id))
+  /** 中文说明：函数值 inbox 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const inbox = new Inbox(session, { inserted: () => {}, discarded: () => {}, claimed: () => {} })
   return {
     id: session.id,
@@ -42,28 +56,36 @@ function stubAgent(ctx: Context, id: string): Agent {
   }
 }
 
+/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(withPersistence = true): Promise<ToolHarness> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(SessionStore)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SystemPrompt, {})
   await ctx.plugin(ToolRuntime)
+  /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = stubAgent(ctx, `schedule-tools-${Math.random()}`)
   ctx.agents.register(agent)
+  /** 中文说明：变量 flushes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const flushes = { count: 0, outcomes: [] as Array<'resolve' | 'reject' | Promise<'resolve' | 'reject'>> }
   if (withPersistence) {
     ctx.on('session/flush', async () => {
       flushes.count += 1
+      /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const outcome = await (flushes.outcomes.shift() ?? 'resolve')
       if (outcome === 'reject') return Promise.reject(new Error('disk unavailable'))
     })
   }
+  /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const changes = { count: 0 }
+  /** 中文说明：函数值 disposeTools 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const disposeTools = registerScheduleTools(ctx, ctx, agent, () => { changes.count += 1 })
   return { ctx, agent, flushes, changes, disposeTools }
 }
 
+/** 中文说明：函数 execute 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function execute(
   test: ToolHarness,
   name: string,
@@ -80,9 +102,11 @@ async function execute(
   }))
 }
 
+/** 中文说明：函数 value 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function value(result: ToolExecutionResult): unknown {
   expect(result.isError).toBe(false)
   if (result.isError) throw new Error('expected canonical Schedule value')
+  /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const block = result.content[0]
   if (block?.type !== 'text') throw new Error('expected deterministic text content')
   expect(JSON.parse(block.text)).toEqual(result.value)
@@ -101,15 +125,19 @@ afterEach(async () => {
 
 describe('Schedule tool protocol', () => {
   it('registers three exclusive generic tools and disposes them together', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     expect(['schedule_create', 'schedule_list', 'schedule_delete'].map(name => test.ctx.tools.get(name)?.name))
       .toEqual(['schedule_create', 'schedule_list', 'schedule_delete'])
+    /** 中文说明：变量 outputSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outputSchema = test.ctx.tools.get('schedule_create')?.output.schema as {
       oneOf?: Array<{ properties?: { code?: { const?: string }; operation?: { enum?: string[] } } }>
     }
+    /** 中文说明：函数值 persistenceError 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const persistenceError = outputSchema.oneOf?.find(schema =>
       schema.properties?.code?.const === 'persistence_uncertain')
     expect(persistenceError?.properties?.operation?.enum).toEqual(['create', 'list', 'delete'])
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const name of ['schedule_create', 'schedule_list', 'schedule_delete']) {
       expect(test.ctx.tools.executionMode({ signal, callId: CallId(name), name, arguments: {}, agent: test.agent }))
         .toEqual({ kind: 'exclusive' })
@@ -128,10 +156,13 @@ describe('Schedule tool protocol', () => {
   })
 
   it('rolls back earlier tool registrations when a later name conflicts', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
+    /** 中文说明：变量 list 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const list = test.ctx.tools.get('schedule_list')
     if (list === undefined) throw new Error('expected registered list tool')
     test.disposeTools()
+    /** 中文说明：变量 disposeConflict 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeConflict = test.ctx.tools.register(list)
 
     expect(() => registerScheduleTools(test.ctx, test.ctx, test.agent, () => {})).toThrow()
@@ -142,6 +173,7 @@ describe('Schedule tool protocol', () => {
   })
 
   it('rejects shape-known invalid create input before persistence', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     expect(value(await execute(test, 'schedule_create', { prompt: ' ', after_seconds: 1 })))
       .toEqual({ code: 'invalid_prompt', message: 'prompt must be non-empty after trimming.' })
@@ -163,6 +195,7 @@ describe('Schedule tool protocol', () => {
   })
 
   it('creates, lists, marks overdue, deletes, and never reuses an id', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     expect(value(await execute(test, 'schedule_create', {
       prompt: '  check logs  ', after_seconds: 30,
@@ -198,7 +231,9 @@ describe('Schedule tool protocol', () => {
   })
 
   it('rejects an empty or padded delete id before persistence', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const id of ['', ' schedule-1']) {
       expect(value(await execute(test, 'schedule_delete', { id }))).toEqual({
         code: 'invalid_rule',
@@ -209,6 +244,7 @@ describe('Schedule tool protocol', () => {
   })
 
   it('creates offset and explicit-zone at records without persisting their input interpretation', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     expect(value(await execute(test, 'schedule_create', {
       prompt: 'join meeting', at: '2026-08-06T09:00:00+08:00',
@@ -232,6 +268,7 @@ describe('Schedule tool protocol', () => {
       expect.objectContaining({ id: 'schedule-1', kind: 'at' }),
       expect.objectContaining({ id: 'schedule-2', kind: 'at' }),
     ])
+    /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changes = test.agent.session.events
       .filter(event => event.type === 'schedule/change' && event.data.operation === 'create')
     expect(changes.map((change) => {
@@ -256,6 +293,7 @@ describe('Schedule tool protocol', () => {
   })
 
   it('creates and lists a fixed-rate record', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     expect(value(await execute(test, 'schedule_create', {
       prompt: '  check metrics  ', every_seconds: 300,
@@ -280,6 +318,7 @@ describe('Schedule tool protocol', () => {
   })
 
   it('returns stable at validation errors after persistence preflight', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     expect(value(await execute(test, 'schedule_create', {
       prompt: 'bad instant', at: '2026-08-06T09:00:00',
@@ -304,6 +343,7 @@ describe('Schedule tool protocol', () => {
   })
 
   it('returns a range error only after the create preflight', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     expect(value(await execute(test, 'schedule_create', {
       prompt: 'far future', after_seconds: Number.MAX_SAFE_INTEGER,
@@ -314,7 +354,9 @@ describe('Schedule tool protocol', () => {
     expect(test.flushes.count).toBe(1)
     expect(test.agent.session.events.filter(event => event.type === 'schedule/change')).toEqual([])
 
+    /** 中文说明：变量 internal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const internal = await harness()
+    /** 中文说明：函数值 now 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const now = vi.spyOn(Date, 'now').mockImplementationOnce(() => { throw new Error('clock unavailable') })
     expect(value(await execute(internal, 'schedule_create', { prompt: 'clock', after_seconds: 1 })))
       .toEqual({ code: 'internal_error', message: 'The schedule operation failed.' })
@@ -322,9 +364,12 @@ describe('Schedule tool protocol', () => {
   })
 
   it('contains a projection observer failure after the create barrier', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     test.disposeTools()
+    /** 中文说明：变量 calls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let calls = 0
+    /** 中文说明：函数值 dispose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const dispose = registerScheduleTools(test.ctx, test.ctx, test.agent, () => {
       calls += 1
       if (calls === 1) throw new Error('observer failed')
@@ -338,6 +383,7 @@ describe('Schedule tool protocol', () => {
   })
 
   it('treats missing persistence as uncertainty rather than a successful no-op', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness(false)
     expect(value(await execute(test, 'schedule_list', {}))).toEqual({
       code: 'persistence_uncertain',
@@ -349,6 +395,7 @@ describe('Schedule tool protocol', () => {
 
 describe('Schedule persistence failure boundaries', () => {
   it('does not fold an unconfirmed corrupt live suffix before preflight succeeds', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     Object.defineProperty(test.agent.session, 'events', {
       configurable: true,
@@ -369,6 +416,7 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('reports a create barrier rejection with the known appended id and recovers on list preflight', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     test.flushes.outcomes.push('resolve', 'reject', 'resolve')
     expect(value(await execute(test, 'schedule_create', { prompt: 'persist me', after_seconds: 10 })))
@@ -386,15 +434,20 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('serializes concurrent management transactions across both persistence barriers', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
+    /** 中文说明：函数值 releaseCreatePreflight 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let releaseCreatePreflight: (() => void) | undefined
+    /** 中文说明：函数值 createPreflight 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const createPreflight = new Promise<'resolve'>((resolve) => {
       releaseCreatePreflight = () => { resolve('resolve') }
     })
     test.flushes.outcomes.push(createPreflight, 'reject', 'resolve')
 
+    /** 中文说明：变量 creating 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const creating = execute(test, 'schedule_create', { prompt: 'persist me', after_seconds: 10 })
     await vi.waitFor(() => { expect(test.flushes.count).toBe(1) })
+    /** 中文说明：变量 listing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listing = execute(test, 'schedule_list', {})
     await Promise.resolve()
     expect(test.flushes.count).toBe(1)
@@ -411,19 +464,26 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('does not persist a create cancelled while it waits in the Schedule FIFO', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
+    /** 中文说明：函数值 releaseOwner 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let releaseOwner: (() => void) | undefined
+    /** 中文说明：函数值 markOwnerStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let markOwnerStarted: (() => void) | undefined
+    /** 中文说明：函数值 ownerStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const ownerStarted = new Promise<void>((resolve) => {
       markOwnerStarted = resolve
     })
+    /** 中文说明：函数值 owner 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const owner = runScheduleTransaction(test.agent, async () => {
       markOwnerStarted?.()
       await new Promise<void>((resolve) => { releaseOwner = resolve })
     })
     await ownerStarted
 
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 creating 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const creating = execute(test, 'schedule_create', {
       prompt: 'cancelled before its turn', after_seconds: 1,
     }, test.agent, controller.signal)
@@ -442,13 +502,18 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('does not persist a create cancelled during its first preflight', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
+    /** 中文说明：函数值 releaseCreate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let releaseCreate: (() => void) | undefined
+    /** 中文说明：函数值 blockedCreate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const blockedCreate = new Promise<'resolve'>((resolve) => {
       releaseCreate = () => { resolve('resolve') }
     })
     test.flushes.outcomes.push(blockedCreate)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 creating 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const creating = execute(test, 'schedule_create', {
       prompt: 'cancelled during preflight', after_seconds: 1,
     }, test.agent, controller.signal)
@@ -466,14 +531,19 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('does not persist a delete cancelled during its first preflight', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     await execute(test, 'schedule_create', { prompt: 'keep me', after_seconds: 60 })
+    /** 中文说明：函数值 releaseDelete 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let releaseDelete: (() => void) | undefined
+    /** 中文说明：函数值 blockedDelete 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const blockedDelete = new Promise<'resolve'>((resolve) => {
       releaseDelete = () => { resolve('resolve') }
     })
     test.flushes.outcomes.push(blockedDelete)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 deleting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const deleting = execute(test, 'schedule_delete', { id: 'schedule-1' }, test.agent, controller.signal)
     await vi.waitFor(() => { expect(test.flushes.count).toBe(3) })
     controller.abort()
@@ -492,12 +562,14 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('returns uncertainty before create or delete reads when their preflight rejects', async () => {
+    /** 中文说明：变量 createTest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const createTest = await harness()
     createTest.flushes.outcomes.push('reject')
     expect(value(await execute(createTest, 'schedule_create', { prompt: 'later', after_seconds: 1 })))
       .toMatchObject({ code: 'persistence_uncertain', operation: 'create' })
     expect(createTest.agent.session.events.filter(event => event.type === 'schedule/change')).toEqual([])
 
+    /** 中文说明：变量 deleteTest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const deleteTest = await harness()
     await execute(deleteTest, 'schedule_create', { prompt: 'keep', after_seconds: 1 })
     deleteTest.flushes.outcomes.push('reject')
@@ -507,6 +579,7 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('maps corrupt and unreadable folds for create, list, and delete', async () => {
+    /** 中文说明：变量 corrupt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const corrupt = await harness()
     Object.defineProperty(corrupt.agent.session, 'events', {
       configurable: true,
@@ -520,6 +593,7 @@ describe('Schedule persistence failure boundaries', () => {
     expect(value(await execute(corrupt, 'schedule_delete', { id: 'schedule-1' })))
       .toMatchObject({ code: 'corrupt_schedule_log' })
 
+    /** 中文说明：变量 unreadable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unreadable = await harness()
     Object.defineProperty(unreadable.agent.session, 'events', {
       configurable: true,
@@ -530,6 +604,7 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('reports a delete barrier rejection and lets the next preflight clarify the terminal record', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     await execute(test, 'schedule_create', { prompt: 'delete me', after_seconds: 10 })
     test.flushes.outcomes.push('resolve', 'reject', 'resolve')
@@ -540,7 +615,9 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('contains append failures and refuses cross-owner execution', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
+    /** 中文说明：函数值 stop 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const stop = test.ctx.on('internal/dispatch', (_mode, eventName, args) => {
       if (eventName === 'session/event' && (args as unknown[])[1] !== undefined) throw new Error('append denied')
     }, { global: true, prepend: true })
@@ -548,6 +625,7 @@ describe('Schedule persistence failure boundaries', () => {
       .toEqual({ code: 'internal_error', message: 'The schedule operation failed.' })
     stop()
 
+    /** 中文说明：变量 other 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const other = stubAgent(test.ctx, `other-${Math.random()}`)
     test.ctx.agents.register(other)
     expect(value(await execute(test, 'schedule_create', { prompt: 'x', after_seconds: 1 }, other)))
@@ -559,10 +637,13 @@ describe('Schedule persistence failure boundaries', () => {
   })
 
   it('contains a delete append failure after a successful preflight', async () => {
+    /** 中文说明：变量 test 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const test = await harness()
     await execute(test, 'schedule_create', { prompt: 'x', after_seconds: 1 })
+    /** 中文说明：函数值 stop 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const stop = test.ctx.on('internal/dispatch', (_mode, eventName, args) => {
       if (eventName !== 'session/event') return
+      /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const event = (args as unknown[])[1] as { type?: string; data?: { operation?: string } } | undefined
       if (event?.type === 'schedule/change' && event.data?.operation === 'delete') throw new Error('append denied')
     }, { global: true, prepend: true })

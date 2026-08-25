@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 session-query.spec.ts 覆盖的会话查询行为、持久化与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、SQLite 或会话事件日志。
+ * 产品维度：保障 Agent 的会话查询结果稳定、可追踪且可恢复。
+ * 逻辑维度：准备会话和存储数据，执行查询或恢复流程，再核对结果、错误与清理。
+ * 关键边界：持久化数据属于不可信输入；事件必须可重放；临时数据库与异步资源必须释放。
+ * 新手阅读建议：先看测试夹具和查询条件，再读正常场景，最后关注重启、损坏与失败路径。
+ */
 import { createUserMessage, createMessage } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it, vi } from 'vitest'
 import { Context, type Fiber } from '@deepseek-ai/cordis'
@@ -6,16 +14,20 @@ import type { SessionEvent, SessionHeader, SessionId as SessionIdType } from '@d
 import SessionPersistence, { SessionPersistenceCorruptionError, SessionPersistenceRevision } from '@deepseek-ai/dsh-session-persistence'
 import SessionQueryEngine, {
   SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY,
+  /** 中文说明：type SessionEventSurface 定义本测试所需的数据或行为，用于表达会话查询场景。 */
   type SessionEventSurface,
+  /** 中文说明：type SessionQueryErrorCode 定义本测试所需的数据或行为，用于表达会话查询场景。 */
   type SessionQueryErrorCode,
 } from '@deepseek-ai/dsh-session-query'
 import { SessionTitleProviderId } from '@deepseek-ai/dsh-session-title'
 import { TestSessionQueryEngine } from './test-service.ts'
 
+/** 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function header(id: string, createdAt = 1, extra: Partial<SessionHeader> = {}): SessionHeader {
   return { version: SESSION_FORMAT_VERSION, id: SessionId(id), createdAt, ...extra }
 }
 
+/** 中文说明：函数 eventLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function eventLog(text = 'hello'): SessionEvent[] {
   return [{
     type: 'user/message',
@@ -28,6 +40,7 @@ function eventLog(text = 'hello'): SessionEvent[] {
   }]
 }
 
+/** 中文说明：class TestPersistence 定义本测试所需的数据或行为，用于表达会话查询场景。 */
 class TestPersistence extends SessionPersistence {
   override readonly supportsRawArtifacts = false
 
@@ -70,6 +83,7 @@ class TestPersistence extends SessionPersistence {
   }
 
   append(id: SessionIdType, events: readonly SessionEvent[]): Promise<void> {
+    /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = TestPersistence.entries.get(id)
     if (entry === undefined) return Promise.reject(new Error('missing test session'))
     entry.events.push(...structuredClone(events))
@@ -90,8 +104,10 @@ class TestPersistence extends SessionPersistence {
       return TestPersistence.inspectOverride(id, signal)
     }
     if (TestPersistence.inspectFailure !== undefined) return rejectUnknown(TestPersistence.inspectFailure)
+    /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = TestPersistence.entries.get(id)
     if (entry === undefined) return Promise.reject(new Error('missing test session'))
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = structuredClone(entry)
     TestPersistence.inspectEffect?.()
     TestPersistence.inspectEffect = undefined
@@ -99,6 +115,7 @@ class TestPersistence extends SessionPersistence {
   }
 
   async readFrom(id: SessionIdType, fromSeq: number, signal?: AbortSignal): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
+    /** 中文说明：变量 whole 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const whole = await this.inspect(id, signal)
     return { meta: whole.meta, events: whole.events.filter(event => event.seq >= fromSeq) }
   }
@@ -108,6 +125,7 @@ class TestPersistence extends SessionPersistence {
     TestPersistence.listSignals.push(signal)
     if (TestPersistence.listOverride !== undefined) return TestPersistence.listOverride(signal)
     if (TestPersistence.listFailure !== undefined) return rejectUnknown(TestPersistence.listFailure)
+    /** 中文说明：函数值 headers 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const headers = [...TestPersistence.entries.values()].map(entry => structuredClone(entry.meta))
     TestPersistence.afterList?.()
     return Promise.resolve(headers)
@@ -122,22 +140,27 @@ class TestPersistence extends SessionPersistence {
   }
 }
 
+/** 中文说明：函数 liveContext 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function liveContext(config: ConstructorParameters<typeof TestSessionQueryEngine>[1] = {}): Promise<Context> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(TestSessionQueryEngine, config)
   return ctx
 }
 
+/** 中文说明：函数 expectCode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectCode(code: SessionQueryErrorCode): Error {
   return expect.objectContaining({ code }) as Error
 }
 
+/** 中文说明：函数 rejectUnknown 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function rejectUnknown<T>(reason: unknown): Promise<T> {
   // Exercise containment for an implementation that violates the Error rejection convention.
   return Promise.reject(reason) // oxlint-disable-line typescript/prefer-promise-reject-errors
 }
 
+/** 中文说明：变量 cancellableSessionListings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const cancellableSessionListings = [
   {
     name: 'listSessions',
@@ -149,6 +172,7 @@ const cancellableSessionListings = [
   },
 ] as const
 
+/** 中文说明：interface CancellableExactRead 定义本测试所需的数据或行为，用于表达会话查询场景。 */
 interface CancellableExactRead {
   readonly name: 'traceSession' | 'traceEvent' | 'readEvent'
   readonly inspects: boolean
@@ -159,6 +183,7 @@ interface CancellableExactRead {
   ) => Promise<unknown>
 }
 
+/** 中文说明：变量 cancellableExactReads 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const cancellableExactReads: readonly CancellableExactRead[] = [
   {
     name: 'traceSession',
@@ -180,9 +205,12 @@ const cancellableExactReads: readonly CancellableExactRead[] = [
 describe.each(cancellableSessionListings)('$name cancellation', ({ run }) => {
   it('preserves an exact pre-abort reason without entering persistence', async () => {
     TestPersistence.reset()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('session listing cancelled before start')
     controller.abort(reason)
 
@@ -193,17 +221,25 @@ describe.each(cancellableSessionListings)('$name cancellation', ({ run }) => {
 
   it('forwards in-flight cancellation and waits for persistence cleanup before rejecting', async () => {
     TestPersistence.reset()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('session listing cancelled in flight')
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 abortObserved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const abortObserved = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 cleanup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanup = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 active 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let active = false
     TestPersistence.listOverride = async (signal) => {
       if (signal === undefined) throw new Error('expected persistence listing signal')
       active = true
+      /** 中文说明：函数值 aborted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const aborted = new Promise<void>((resolve) => {
         signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
@@ -216,7 +252,9 @@ describe.each(cancellableSessionListings)('$name cancellation', ({ run }) => {
       return []
     }
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = run(ctx, controller.signal)
+    /** 中文说明：变量 settled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let settled = false
     void pending.then(
       () => { settled = true },
@@ -237,17 +275,23 @@ describe.each(cancellableSessionListings)('$name cancellation', ({ run }) => {
 
   it('preserves cancellation after a persistence implementation ignores the signal', async () => {
     TestPersistence.reset()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('session listing cancelled before persistence returned')
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 listing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listing = Promise.withResolvers<SessionHeader[]>()
     TestPersistence.listOverride = (_signal) => {
       started.resolve(undefined)
       return listing.promise
     }
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = run(ctx, controller.signal)
     await started.promise
     controller.abort(reason)
@@ -260,11 +304,15 @@ describe.each(cancellableSessionListings)('$name cancellation', ({ run }) => {
 
 describe.each(cancellableExactReads)('$name cancellation', ({ inspects, run }) => {
   it('preserves an exact pre-abort reason without entering persistence', async () => {
+    /** 中文说明：变量 persisted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persisted = header('pre-aborted-exact-read')
     TestPersistence.reset([{ meta: persisted, events: eventLog() }])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('exact read cancelled before start')
     controller.abort(reason)
 
@@ -274,19 +322,28 @@ describe.each(cancellableExactReads)('$name cancellation', ({ inspects, run }) =
   })
 
   it('forwards in-flight list cancellation and waits for cleanup before rejecting', async () => {
+    /** 中文说明：变量 persisted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persisted = header('cancelled-exact-list')
     TestPersistence.reset([{ meta: persisted, events: eventLog() }])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('exact read list cancelled in flight')
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 abortObserved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const abortObserved = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 cleanup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanup = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 active 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let active = false
     TestPersistence.listOverride = async (signal) => {
       if (signal === undefined) throw new Error('expected exact-read listing signal')
       active = true
+      /** 中文说明：函数值 aborted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const aborted = new Promise<void>((resolve) => {
         signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
@@ -299,7 +356,9 @@ describe.each(cancellableExactReads)('$name cancellation', ({ inspects, run }) =
       return []
     }
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = run(ctx, persisted.id, controller.signal)
+    /** 中文说明：变量 settled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let settled = false
     void pending.then(
       () => { settled = true },
@@ -320,15 +379,23 @@ describe.each(cancellableExactReads)('$name cancellation', ({ inspects, run }) =
   })
 
   it('waits for an ignoring backend to return before preserving the abort reason', async () => {
+    /** 中文说明：变量 persisted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persisted = header('ignored-exact-signal')
+    /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = { meta: persisted, events: eventLog() }
     TestPersistence.reset([entry])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('exact read cancelled while backend ignored signal')
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 release 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const release = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 active 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let active = false
     if (inspects) {
       TestPersistence.inspectOverride = async () => {
@@ -348,7 +415,9 @@ describe.each(cancellableExactReads)('$name cancellation', ({ inspects, run }) =
       }
     }
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = run(ctx, persisted.id, controller.signal)
+    /** 中文说明：变量 settled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let settled = false
     void pending.then(
       () => { settled = true },
@@ -372,19 +441,28 @@ describe.each(cancellableExactReads.filter(read => read.inspects))(
   '$name persisted inspection cancellation',
   ({ run }) => {
     it('forwards cancellation and waits for inspection cleanup before rejecting', async () => {
+      /** 中文说明：变量 persisted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const persisted = header('cancelled-exact-inspect')
       TestPersistence.reset([{ meta: persisted, events: eventLog() }])
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await liveContext()
       await ctx.plugin(TestPersistence)
+      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
+      /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const reason = new Error('exact read inspection cancelled in flight')
+      /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const started = Promise.withResolvers<undefined>()
+      /** 中文说明：变量 abortObserved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const abortObserved = Promise.withResolvers<undefined>()
+      /** 中文说明：变量 cleanup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const cleanup = Promise.withResolvers<undefined>()
+      /** 中文说明：变量 active 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let active = false
       TestPersistence.inspectOverride = async (_sessionId, signal) => {
         if (signal === undefined) throw new Error('expected exact-read inspection signal')
         active = true
+        /** 中文说明：函数值 aborted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const aborted = new Promise<void>((resolve) => {
           signal.addEventListener('abort', () => { resolve() }, { once: true })
         })
@@ -397,7 +475,9 @@ describe.each(cancellableExactReads.filter(read => read.inspects))(
         throw new Error('unreachable after exact-read cancellation')
       }
 
+      /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = run(ctx, persisted.id, controller.signal)
+      /** 中文说明：变量 settled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let settled = false
       void pending.then(
         () => { settled = true },
@@ -421,17 +501,23 @@ describe.each(cancellableExactReads.filter(read => read.inspects))(
 
 describe('session-query exact reads', () => {
   it('returns a detached replay-valid full log and rejects a corrupt persisted seed', async () => {
+    /** 中文说明：变量 valid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const valid = header('valid-log', 2)
+    /** 中文说明：变量 corrupt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const corrupt = header('corrupt-log', 1)
+    /** 中文说明：变量 validEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const validEvents = eventLog('valid')
+    /** 中文说明：变量 corruptEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const corruptEvents = [{ ...eventLog('bad')[0]!, seq: 1 }]
     TestPersistence.reset([
       { meta: valid, events: validEvents },
       { meta: corrupt, events: corruptEvents },
     ])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
 
+    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const snapshot = await ctx.sessionQuery.readSession(valid.id)
     expect(snapshot).toEqual({ session: valid, events: validEvents })
     Object.assign(snapshot.events[0]!, { time: 999 })
@@ -440,8 +526,10 @@ describe('session-query exact reads', () => {
   })
 
   it('prefers a live owner that attaches while its persisted prefix is inspected', async () => {
+    /** 中文说明：变量 shared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const shared = header('attach-during-inspect', 2)
     TestPersistence.reset([{ meta: shared, events: eventLog('persisted') }])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
     TestPersistence.inspectEffect = () => {
@@ -456,7 +544,9 @@ describe('session-query exact reads', () => {
   })
 
   it('reads the latest title from one live-preferred or persisted log without widening listSessions', async () => {
+    /** 中文说明：变量 persistedHeader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persistedHeader = header('persisted-title', 2)
+    /** 中文说明：变量 sharedHeader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sharedHeader = header('shared-title', 3)
     TestPersistence.reset([
       {
@@ -486,7 +576,9 @@ describe('session-query exact reads', () => {
         }],
       },
     ])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 shared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const shared = ctx.sessions.create(sharedHeader.id, { meta: { createdAt: 3 } })
     shared.append('session/title', {
       title: 'Live title',
@@ -508,8 +600,11 @@ describe('session-query exact reads', () => {
   })
 
   it('batches unique persisted title observations through one cancellable corpus scan', async () => {
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = header('batch-title-first', 1)
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = header('batch-title-second', 2)
+    /** 中文说明：函数值 titleEvent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const titleEvent = (title: string, time: number): SessionEvent => ({
       type: 'session/title',
       seq: 0,
@@ -524,11 +619,15 @@ describe('session-query exact reads', () => {
       { meta: first, events: [titleEvent('First title', 10)] },
       { meta: second, events: [titleEvent('Second title', 20)] },
     ])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = new AbortController().signal
+    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = SessionId('batch-title-missing')
 
+    /** 中文说明：变量 results 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const results = await ctx.sessionQuery.readTitleSnapshots(
       [second.id, first.id, second.id, missing],
       signal,
@@ -548,25 +647,32 @@ describe('session-query exact reads', () => {
   })
 
   it('bounds persisted title inspection concurrency while preserving ordered results', async () => {
+    /** 中文说明：函数值 entries 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const entries = Array.from({ length: 12 }, (_, index) => {
+      /** 中文说明：变量 meta 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const meta = header(`bounded-title-${index}`, index)
       return { meta, events: eventLog(`title-${index}`) }
     })
     TestPersistence.reset(entries)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 active 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let active = 0
+    /** 中文说明：变量 maximum 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let maximum = 0
     TestPersistence.inspectOverride = async (id) => {
       active += 1
       maximum = Math.max(maximum, active)
       await new Promise<void>(resolve => setImmediate(resolve))
       active -= 1
+      /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const entry = TestPersistence.entries.get(id)
       if (entry === undefined) throw new Error('missing bounded test session')
       return structuredClone(entry)
     }
 
+    /** 中文说明：函数值 results 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const results = await ctx.sessionQuery.readTitleSnapshots(entries.map(entry => entry.meta.id))
 
     expect(maximum).toBe(SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY)
@@ -577,19 +683,25 @@ describe('session-query exact reads', () => {
   })
 
   it('folds and discards each completed log before its worker dequeues another inspection', async () => {
+    /** 中文说明：函数值 entries 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const entries = Array.from({ length: 5 }, (_, index) => ({
       meta: header(`project-title-${index}`, index),
       events: [],
     }))
     TestPersistence.reset(entries)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 timeline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const timeline: string[] = []
+    /** 中文说明：函数值 releases 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const releases = new Map<SessionIdType, () => void>()
     TestPersistence.inspectOverride = id => new Promise((resolve) => {
       timeline.push(`inspect:${id}`)
       releases.set(id, () => {
+        /** 中文说明：变量 marker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const marker = `full-log-marker:${id}`
+        /** 中文说明：变量 titleEvent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const titleEvent = {
           type: 'session/title',
           seq: 1,
@@ -609,13 +721,17 @@ describe('session-query exact reads', () => {
         })
       })
     })
+    /** 中文说明：函数值 release 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const release = (id: SessionIdType): void => {
+      /** 中文说明：变量 settle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const settle = releases.get(id)
       if (settle === undefined) throw new Error(`inspection ${id} has not started`)
       settle()
     }
+    /** 中文说明：函数值 ids 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const ids = entries.map(entry => entry.meta.id)
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.sessionQuery.readTitleSnapshots(ids)
     await vi.waitFor(() => { expect(TestPersistence.inspectCalls).toHaveLength(4) })
     release(ids[0]!)
@@ -626,7 +742,9 @@ describe('session-query exact reads', () => {
     // observable title getter until every inspection has completed.
     expect(timeline.indexOf(`project:${ids[0]}`))
       .toBeLessThan(timeline.indexOf(`inspect:${ids[4]}`))
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const id of ids.slice(1)) release(id)
+    /** 中文说明：变量 results 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const results = await pending
 
     expect(results.map(result => result.sessionId)).toEqual(ids)
@@ -635,19 +753,26 @@ describe('session-query exact reads', () => {
   })
 
   it('passes cancellation into a stalled persisted title batch and rejects with its reason', async () => {
+    /** 中文说明：变量 persisted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persisted = header('stalled-title', 1)
     TestPersistence.reset([{ meta: persisted, events: [] }])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('title deadline')
+    /** 中文说明：函数值 started 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let started!: () => void
+    /** 中文说明：函数值 inspectStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const inspectStarted = new Promise<void>((resolve) => { started = resolve })
     TestPersistence.inspectOverride = (_id, signal) => new Promise((_resolve, reject) => {
       started()
       signal?.addEventListener('abort', () => { reject(reason) }, { once: true })
     })
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.sessionQuery.readTitleSnapshots([persisted.id], controller.signal)
     await inspectStarted
     controller.abort(reason)
@@ -658,18 +783,26 @@ describe('session-query exact reads', () => {
   })
 
   it('drains started title inspections after cancellation without starting queued ids', async () => {
+    /** 中文说明：函数值 entries 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const entries = Array.from({ length: 8 }, (_, index) => ({
       meta: header(`cancel-queued-title-${index}`, index),
       events: eventLog(`queued-${index}`),
     }))
     TestPersistence.reset(entries)
+    /** 中文说明：变量 persistedInspectConcurrency 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persistedInspectConcurrency = 2
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext({ persistedInspectConcurrency })
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('cancel queued title batch')
+    /** 中文说明：函数值 releases 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const releases: Array<() => void> = []
+    /** 中文说明：变量 abortsObserved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let abortsObserved = 0
+    /** 中文说明：变量 inspectionsSettled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let inspectionsSettled = 0
     TestPersistence.inspectOverride = (_id, signal) => new Promise((_resolve, reject) => {
       signal?.addEventListener('abort', () => { abortsObserved += 1 }, { once: true })
@@ -679,10 +812,12 @@ describe('session-query exact reads', () => {
       })
     })
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.sessionQuery.readTitleSnapshots(
       entries.map(entry => entry.meta.id),
       controller.signal,
     )
+    /** 中文说明：变量 batchSettled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let batchSettled = false
     void pending.then(
       () => { batchSettled = true },
@@ -697,6 +832,7 @@ describe('session-query exact reads', () => {
     expect(batchSettled).toBe(false)
     expect(TestPersistence.inspectCalls)
       .toEqual(entries.slice(0, persistedInspectConcurrency).map(entry => entry.meta.id))
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const release of releases) release()
 
     await expect(pending).rejects.toBe(reason)
@@ -706,19 +842,26 @@ describe('session-query exact reads', () => {
   })
 
   it('passes cancellation into a stalled persisted title listing and rejects with its reason', async () => {
+    /** 中文说明：变量 persisted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persisted = header('stalled-title-list', 1)
     TestPersistence.reset([{ meta: persisted, events: [] }])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('title listing deadline')
+    /** 中文说明：函数值 started 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let started!: () => void
+    /** 中文说明：函数值 listStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const listStarted = new Promise<void>((resolve) => { started = resolve })
     TestPersistence.listOverride = signal => new Promise((_resolve, reject) => {
       started()
       signal?.addEventListener('abort', () => { reject(reason) }, { once: true })
     })
 
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.sessionQuery.readTitleSnapshots([persisted.id], controller.signal)
     await listStarted
     controller.abort(reason)
@@ -729,10 +872,15 @@ describe('session-query exact reads', () => {
   })
 
   it('isolates title read and fold failures while preferring a live owner attached during inspection', async () => {
+    /** 中文说明：变量 attached 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const attached = header('batch-title-attached', 1)
+    /** 中文说明：变量 failed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failed = header('batch-title-failed', 2)
+    /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformed = header('batch-title-malformed', 3)
+    /** 中文说明：变量 inspectFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inspectFailure = new Error('one title inspect failed')
+    /** 中文说明：变量 malformedTitle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformedTitle = {
       type: 'session/title',
       seq: 0,
@@ -747,13 +895,16 @@ describe('session-query exact reads', () => {
       { meta: failed, events: [] },
       { meta: malformed, events: [malformedTitle] },
     ])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
     TestPersistence.inspectOverride = (id) => {
       if (id === failed.id) return Promise.reject(inspectFailure)
+      /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const entry = TestPersistence.entries.get(id)
       if (entry === undefined) return Promise.reject(new Error('missing test session'))
       if (id === attached.id) {
+        /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const session = ctx.sessions.create(attached.id, { meta: { createdAt: attached.createdAt } })
         session.append('session/title', {
           title: 'Attached live title',
@@ -764,6 +915,7 @@ describe('session-query exact reads', () => {
       return Promise.resolve(structuredClone(entry))
     }
 
+    /** 中文说明：变量 results 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const results = await ctx.sessionQuery.readTitleSnapshots([
       attached.id,
       failed.id,
@@ -788,8 +940,11 @@ describe('session-query exact reads', () => {
   })
 
   it('preserves live batch results across missing persistence, listing failure, and late attachment', async () => {
+    /** 中文说明：变量 liveOnly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const liveOnly = await liveContext()
+    /** 中文说明：变量 live 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const live = liveOnly.sessions.create(SessionId('batch-title-live'))
+    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = SessionId('batch-title-no-persistence')
 
     await expect(liveOnly.sessionQuery.readTitleSnapshots([live.id, live.id])).resolves.toEqual([{
@@ -804,10 +959,14 @@ describe('session-query exact reads', () => {
     await expect(liveOnly.sessionQuery.readTitleSnapshot(missing))
       .rejects.toThrow(expectCode('SESSION_QUERY_SESSION_NOT_FOUND'))
 
+    /** 中文说明：变量 persisted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persisted = header('batch-title-persisted', 1)
+    /** 中文说明：变量 late 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const late = header('batch-title-late', 2)
     TestPersistence.reset([{ meta: persisted, events: [] }])
+    /** 中文说明：变量 mixed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mixed = await liveContext()
+    /** 中文说明：变量 mixedLive 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mixedLive = mixed.sessions.create(SessionId('batch-title-mixed-live'))
     await mixed.plugin(TestPersistence)
     TestPersistence.afterList = () => {
@@ -827,7 +986,9 @@ describe('session-query exact reads', () => {
 
     TestPersistence.reset()
     TestPersistence.listFailure = new Error('title listing failed')
+    /** 中文说明：变量 failedList 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedList = await liveContext()
+    /** 中文说明：变量 survivingLive 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const survivingLive = failedList.sessions.create(SessionId('batch-title-list-live'))
     await failedList.plugin(TestPersistence)
 
@@ -843,11 +1004,14 @@ describe('session-query exact reads', () => {
   })
 
   it('lists live sessions deterministically and returns detached headers', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 older 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const older = ctx.sessions.create(SessionId('older'), { meta: { createdAt: 1 } })
     ctx.sessions.create(SessionId('z'), { meta: { createdAt: 2 } })
     ctx.sessions.create(SessionId('a'), { meta: { createdAt: 2 } })
 
+    /** 中文说明：变量 records 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const records = await ctx.sessionQuery.listSessions()
     expect(records.map(record => record.header.id)).toEqual([SessionId('a'), SessionId('z'), older.id])
     expect(records.every(record => record.live && !record.persisted)).toBe(true)
@@ -856,9 +1020,12 @@ describe('session-query exact reads', () => {
   })
 
   it('filters sessions symmetrically and owns mutable filter values immediately', async () => {
+    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('durable-filter', 1)
     TestPersistence.reset([{ meta: durable, events: eventLog('durable') }])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 live 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const live = ctx.sessions.create(SessionId('live-filter'), { meta: { createdAt: 2 } })
     live.append(
       'user/message',
@@ -867,9 +1034,12 @@ describe('session-query exact reads', () => {
       }),
       { surfaceOp: 'append' },
     )
+    /** 中文说明：变量 persistence 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persistence = await ctx.plugin(TestPersistence)
 
+    /** 中文说明：变量 ids 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ids = [durable.id]
+    /** 中文说明：变量 filtered 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const filtered = ctx.sessionQuery.filterSessions([{ kind: 'id', values: ids }])
     ids[0] = live.id
     await expect(filtered).resolves.toEqual([{
@@ -878,7 +1048,9 @@ describe('session-query exact reads', () => {
       persisted: true,
     }])
 
+    /** 中文说明：变量 surfaces 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const surfaces: SessionEventSurface[] = ['current']
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = ctx.sessionQuery.filterEvents(live.id, [{ kind: 'surface', values: surfaces }])
     surfaces[0] = 'shadowed'
     await expect(events).resolves.toMatchObject([{ sessionId: live.id, surface: 'current', text: 'live' }])
@@ -890,10 +1062,13 @@ describe('session-query exact reads', () => {
   })
 
   it('classifies current, shadowed, and raw-log-only events through foldSurface', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(SessionId('surface'))
     session.append('turn/start', { turn: 1 })
     session.append('step/start', { turn: 1, step: 1 })
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = session.append(
       'user/message',
       createUserMessage({
@@ -927,8 +1102,11 @@ describe('session-query exact reads', () => {
   })
 
   it('reads a detached current surface with its raw-log capture boundary', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(SessionId('surface-snapshot'), { meta: { cwd: '/work' } })
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = session.append(
       'user/message',
       createUserMessage({
@@ -948,6 +1126,7 @@ describe('session-query exact reads', () => {
       }),
       { surfaceOp: { op: 'replace', start: first.seq, end: first.seq }, sourceEventSeqs: [first.seq] },
     )
+    /** 中文说明：变量 retained 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const retained = session.append(
       'user/message',
       createUserMessage({
@@ -978,6 +1157,7 @@ describe('session-query exact reads', () => {
       { surfaceOp: 'append' },
     )
 
+    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const snapshot = await ctx.sessionQuery.readSurface(session.id)
     expect(snapshot.session).toEqual(session.header)
     expect(snapshot.capturedThroughSeq).toBe(5)
@@ -996,7 +1176,9 @@ describe('session-query exact reads', () => {
   })
 
   it('returns an empty current surface with a null capture boundary', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(SessionId('empty-surface'))
     await expect(ctx.sessionQuery.readSurface(session.id)).resolves.toMatchObject({
       capturedThroughSeq: null,
@@ -1005,9 +1187,12 @@ describe('session-query exact reads', () => {
   })
 
   it('returns a bounded detached raw-event window and validates the request', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext({ readWindowMax: 1 })
+    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(SessionId('window'), { meta: { cwd: '/work' } })
     session.append('turn/start', { turn: 1 })
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const text of ['one', 'two', 'three']) {
       session.append(
         'user/message',
@@ -1018,6 +1203,7 @@ describe('session-query exact reads', () => {
       )
     }
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.sessionQuery.readEvent({ sessionId: session.id, seq: 2, before: 1, after: 1 })
     expect([result.startSeq, result.endSeq, result.target.seq]).toEqual([1, 3, 2])
     expect(result.session).toEqual(session.header)
@@ -1031,6 +1217,7 @@ describe('session-query exact reads', () => {
 
     await expect(ctx.sessionQuery.readEvent({ sessionId: session.id, seq: 9 }))
       .rejects.toThrow(expectCode('SESSION_QUERY_EVENT_NOT_FOUND'))
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const request of [
       { sessionId: session.id, seq: 0, before: -1 },
       { sessionId: session.id, seq: 0, before: 2 },
@@ -1041,13 +1228,17 @@ describe('session-query exact reads', () => {
   })
 
   it('merges authoritative persistence with live precedence and detects conflicts', async () => {
+    /** 中文说明：变量 shared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const shared = header('shared', 3, { cwd: '/same' })
+    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('durable', 2)
     TestPersistence.reset([
       { meta: shared, events: eventLog('persisted') },
       { meta: durable, events: eventLog('durable') },
     ])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 live 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const live = ctx.sessions.create(shared.id, { meta: { createdAt: 3, cwd: '/same' } })
     live.append('turn/start', { turn: 1 })
     live.append(
@@ -1057,10 +1248,12 @@ describe('session-query exact reads', () => {
       }),
       { surfaceOp: 'append' },
     )
+    /** 中文说明：变量 persistence 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persistence = await ctx.plugin(TestPersistence)
 
     expect((await ctx.sessionQuery.listSessions()).map(record => [record.header.id, record.live, record.persisted]))
       .toEqual([[shared.id, true, true], [durable.id, false, true]])
+    /** 中文说明：变量 liveRead 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const liveRead = await ctx.sessionQuery.readEvent({ sessionId: shared.id, seq: 1 })
     expect(liveRead.target.type === 'user/message' && liveRead.target.data.content[0])
       .toMatchObject({ text: 'live' })
@@ -1074,6 +1267,7 @@ describe('session-query exact reads', () => {
       events: [{ data: { content: [{ text: 'durable' }] } }],
     })
 
+    /** 中文说明：变量 sharedEntry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sharedEntry = TestPersistence.entries.get(shared.id)!
     sharedEntry.meta = { ...sharedEntry.meta, cwd: '/conflict' }
     await expect(ctx.sessionQuery.listSessions()).rejects.toThrow(expectCode('SESSION_QUERY_SOURCE_CONFLICT'))
@@ -1087,7 +1281,9 @@ describe('session-query exact reads', () => {
 
   it('keeps known live reads independent from persistence health', async () => {
     TestPersistence.reset()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 live 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const live = ctx.sessions.create(SessionId('live'))
     live.append('turn/start', { turn: 1 })
     live.append(
@@ -1100,6 +1296,7 @@ describe('session-query exact reads', () => {
     await ctx.plugin(TestPersistence)
     TestPersistence.listFailure = new Error('list unavailable')
     TestPersistence.inspectFailure = new Error('inspect unavailable')
+    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = new AbortController().signal
 
     await expect(ctx.sessionQuery.listEvents(live.id)).resolves.toHaveLength(2)
@@ -1114,10 +1311,13 @@ describe('session-query exact reads', () => {
   })
 
   it('wraps persisted corruption as SESSION_QUERY_CORRUPT_SESSION with its cause preserved', async () => {
+    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('durable-corrupt')
     TestPersistence.reset([{ meta: durable, events: eventLog() }])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 corruption 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const corruption = new SessionPersistenceCorruptionError(
       'stored prefix failed validation',
       { cause: new Error('torn final record') },
@@ -1132,8 +1332,10 @@ describe('session-query exact reads', () => {
   })
 
   it('reports absent sessions, persisted load failures, and persisted header conflicts', async () => {
+    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('durable')
     TestPersistence.reset([{ meta: durable, events: eventLog() }])
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
     await expect(ctx.sessionQuery.listEvents(SessionId('absent')))
       .rejects.toThrow(expectCode('SESSION_QUERY_SESSION_NOT_FOUND'))
@@ -1145,9 +1347,11 @@ describe('session-query exact reads', () => {
     await expect(ctx.sessionQuery.listEvents(durable.id))
       .rejects.toThrow(expectCode('SESSION_QUERY_PERSISTENCE_FAILED'))
     TestPersistence.inspectFailure = undefined
+    /** 中文说明：变量 durableEntry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durableEntry = TestPersistence.entries.get(durable.id)!
     durableEntry.meta = { ...durableEntry.meta, cwd: '/changed-after-list' }
     TestPersistence.afterList = () => {
+      /** 中文说明：变量 listedEntry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const listedEntry = TestPersistence.entries.get(durable.id)!
       listedEntry.meta = { ...listedEntry.meta, cwd: '/changed-during-read' }
     }
@@ -1156,7 +1360,9 @@ describe('session-query exact reads', () => {
   })
 
   it('turns persisted malformed surfaces and direct invalid config into typed errors', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await liveContext()
+    /** 中文说明：变量 persisted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persisted = header('bad-persisted-surface')
     TestPersistence.reset([{
       meta: persisted,
@@ -1169,19 +1375,23 @@ describe('session-query exact reads', () => {
         }),
       }],
     }])
+    /** 中文说明：变量 persistence 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persistence = await ctx.plugin(TestPersistence)
     await expect(ctx.sessionQuery.listEvents(persisted.id))
       .rejects.toThrow(expectCode('SESSION_QUERY_INVALID_SURFACE'))
     await persistence.dispose()
 
+    /** 中文说明：变量 direct 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const direct = new Context()
     await direct.plugin(SessionStore)
     expect(new TestSessionQueryEngine(direct)).toBeInstanceOf(SessionQueryEngine)
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const config of [
       { readWindowMax: -1 },
       { persistedInspectConcurrency: 0 },
       { persistedInspectConcurrency: Number.MAX_SAFE_INTEGER + 1 },
     ]) {
+      /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const invalid = new Context()
       await invalid.plugin(SessionStore)
       expect(() => new TestSessionQueryEngine(invalid, config))
@@ -1190,8 +1400,10 @@ describe('session-query exact reads', () => {
   })
 
   it('leaves the optional persistence dependency optional', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(TestSessionQueryEngine)
     expect(ctx.sessionQuery).toBeInstanceOf(TestSessionQueryEngine)
     await fiber.dispose()
@@ -1200,18 +1412,26 @@ describe('session-query exact reads', () => {
 
   it('awaits optional-persistence child-fiber quiescence on disposal', async () => {
     TestPersistence.reset()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
+    /** 中文说明：变量 query 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const query = await ctx.plugin(TestSessionQueryEngine)
+    /** 中文说明：变量 persistence 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const persistence = await ctx.plugin(TestPersistence)
+    /** 中文说明：变量 optional 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const optional = (ctx.sessionQuery as unknown as {
       _corpus: { _optionalPersistenceFiber: Fiber }
     })._corpus._optionalPersistenceFiber
+    /** 中文说明：函数值 release 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let release!: () => void
+    /** 中文说明：函数值 cleanup 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const cleanup = new Promise<void>((resolve) => { release = resolve })
     optional.ctx.effect(() => () => cleanup)
 
+    /** 中文说明：变量 settled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let settled = false
+    /** 中文说明：函数值 disposing 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposing = query.dispose().then(() => { settled = true })
     await Promise.resolve()
     expect(settled).toBe(false)

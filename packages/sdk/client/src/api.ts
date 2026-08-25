@@ -6,6 +6,14 @@
  *
  * @module @deepseek-ai/dsh-sdk-client/api
  */
+/**
+ * 文件职责：实现 api.ts 覆盖的SDK 通信行为与生命周期。
+ * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
+ * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
+ * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
+ */
 
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
@@ -19,6 +27,7 @@ import type { ContentBlock, DeepSeekHarnessOptions, HarnessClientOptions, Harnes
  * this instance until {@link close}; always close (or `await using`) so the
  * child is reaped.
  */
+/** 中文说明：class DeepSeekHarness 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class DeepSeekHarness implements AsyncDisposable {
   private clientInstance: HarnessClient
   private readonly launch: HarnessClientOptions
@@ -119,6 +128,7 @@ export class DeepSeekHarness implements AsyncDisposable {
 }
 
 /** Per-run options: target session and streaming observer. */
+/** 中文说明：interface RunOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface RunOptions {
   /** Session id to run on; omitted mints a fresh session per call. */
   sessionId?: string
@@ -129,6 +139,7 @@ export interface RunOptions {
 /**
  * One SDK session: a stable id plus owned activity intervals.
  */
+/** 中文说明：class HarnessSession 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class HarnessSession {
   /**
    * @param harness - the owning harness (supplies the client and handshake).
@@ -145,17 +156,24 @@ export class HarnessSession {
    */
   async run(input: string | ContentBlock[], options?: Pick<RunOptions, 'onNotification'>): Promise<RunResult> {
     await this.harness.start()
+    /** 中文说明：变量 client 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = this.harness.client
+    /** 中文说明：变量 contentBlocks 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const contentBlocks = normalizeInput(input)
+    /** 中文说明：变量 events 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = []
+    /** 中文说明：变量 notifications 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const notifications: HarnessNotification[] = []
 
+    /** 中文说明：变量 subscription 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const subscription = client.subscribeSessionTree(this.id)
+    /** 中文说明：函数值 collect 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const collect = (notification: HarnessNotification): void => {
       if (notification.method === 'session.event' && notification.params.sessionId === this.id) {
         // Wire boundary: the envelope feeds the typed RunResult, so a
         // malformed runtime surfaces as a protocol error, not as type-invalid
         // data (or a TypeError out of finalResponse).
+        /** 中文说明：变量 event 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const event = validatedSessionEvent(notification.params.event)
         notifications.push(notification)
         options?.onNotification?.(notification)
@@ -166,9 +184,12 @@ export class HarnessSession {
       options?.onNotification?.(notification)
     }
     try {
+      /** 中文说明：变量 messageId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const messageId = await client.prompt(this.id, contentBlocks)
+      /** 中文说明：变量 received 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let received = false
       while (true) {
+        /** 中文说明：变量 notification 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const notification = await subscription.next()
         if (!received) {
           if (notification.method !== 'session.event'
@@ -199,11 +220,13 @@ export class HarnessSession {
  * @param input - prompt text or content blocks.
  * @returns the content blocks to send.
  */
+/** 中文说明：函数 normalizeInput 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function normalizeInput(input: string | ContentBlock[]): ContentBlock[] {
   return typeof input === 'string' ? [{ type: 'text', text: input }] : input
 }
 
 /** Validate the fields in a wire `session.event` envelope before returning the typed result. */
+/** 中文说明：函数 validatedSessionEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function validatedSessionEvent(value: unknown): SessionEvent {
   if (!isRecord(value) || typeof value.type !== 'string') {
     throw new SdkProtocolError(`session.event carried no event envelope: ${JSON.stringify(value)}`)
@@ -212,7 +235,9 @@ function validatedSessionEvent(value: unknown): SessionEvent {
   // kind-tagged content blocks; other variants pass through under their
   // envelope shape.
   if (value.type === 'assistant/message') {
+    /** 中文说明：变量 message 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = isRecord(value.data) ? value.data.message : undefined
+    /** 中文说明：变量 content 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const content = isRecord(message) ? message.content : undefined
     if (!Array.isArray(content) || !content.every(block => isRecord(block) && typeof block.type === 'string')) {
       throw new SdkProtocolError(`assistant/message event carried malformed content: ${JSON.stringify(value)}`)
@@ -222,8 +247,10 @@ function validatedSessionEvent(value: unknown): SessionEvent {
 }
 
 /** Whether a raw session event is the durable enqueue receipt for `messageId`. */
+/** 中文说明：函数 isInboxReceipt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isInboxReceipt(value: unknown, messageId: string): boolean {
   if (!isRecord(value) || value.type !== 'agent/inbox/spliced' || !isRecord(value.data)) return false
+  /** 中文说明：变量 inserted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const inserted = value.data.inserted
   return Array.isArray(inserted) && inserted.some(message => isRecord(message) && message.id === messageId)
 }
@@ -233,8 +260,11 @@ function isInboxReceipt(value: unknown, messageId: string): boolean {
  * @param events - the activity interval's `session.event` payloads in wire order.
  * @returns the final response text, or `''` when no assistant message exists.
  */
+/** 中文说明：函数 finalResponse 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function finalResponse(events: SessionEvent[]): string {
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (let index = events.length - 1; index >= 0; index--) {
+    /** 中文说明：变量 event 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event = events[index]
     if (event?.type !== 'assistant/message') continue
     return event.data.message.content

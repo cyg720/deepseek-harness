@@ -8,6 +8,14 @@
  *
  * @module @deepseek-ai/dsh-sdk-jsonrpc-server
  */
+/**
+ * 文件职责：实现 index.ts 覆盖的SDK 通信行为与生命周期。
+ * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
+ * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
+ * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
+ * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Readable, Writable } from 'node:stream'
@@ -17,11 +25,14 @@ import { HarnessSdkJsonRpcServer } from './server.ts'
 
 export * from './server.ts'
 
+/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'sdk-jsonrpc-server'
 // Only the agent factory is required; initialize reads the optional LLM seam with ctx.get().
+/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['agents']
 
 /** JSON-RPC deployment config plus runtime-only test hooks. */
+/** 中文说明：interface JsonRpcConfig 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface JsonRpcConfig {
   /** Report max-token turn/subagent termination as a successful SDK result. */
   maxTokensAsSuccess?: boolean
@@ -33,6 +44,7 @@ export interface JsonRpcConfig {
   exit?: (code: number) => void
 }
 
+/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: Schema<JsonRpcConfig> = Schema.object({
   maxTokensAsSuccess: Schema.boolean().default(false),
 })
@@ -43,27 +55,37 @@ export const Config: Schema<JsonRpcConfig> = Schema.object({
  * before the root runtime is disposed and the process exits 0; the app bin
  * owns root-context disposal for EOF and signals.
  */
+/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: JsonRpcConfig): void {
   // Cordis applies the schema default before invoking the plugin.
+  /** 中文说明：变量 resolvedConfig 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolvedConfig = config as JsonRpcConfig & { maxTokensAsSuccess: boolean }
   // Protocol shutdown owns the complete runtime process, so it must await the
   // root lifecycle (including persistence) before exiting.
+  /** 中文说明：变量 rootFiber 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rootFiber = ctx.root.fiber
+  /** 中文说明：变量 input 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   /* v8 ignore next -- production stdio wiring; tests always inject the runtime hooks */
   const input = config.input ?? process.stdin
+  /** 中文说明：变量 output 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   /* v8 ignore next -- production stdio wiring; tests always inject the runtime hooks */
   const output = config.output ?? process.stdout
+  /** 中文说明：函数值 exit 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   /* v8 ignore next -- production exit wiring; tests always inject the runtime hooks */
   const exit = config.exit ?? ((code: number): void => { process.exit(code) })
 
+  /** 中文说明：变量 transport 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const transport = new JsonRpcLineTransport(input, output)
+  /** 中文说明：变量 server 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const server = new HarnessSdkJsonRpcServer(ctx, transport, {
     maxTokensAsSuccess: resolvedConfig.maxTokensAsSuccess,
   })
 
   // Share one exit task so racing shutdown requests cannot dispose the root or
   // exit the process more than once.
+  /** 中文说明：变量 exitTask 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let exitTask: Promise<void> | undefined
+  /** 中文说明：函数值 disposeAndExit 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const disposeAndExit = (): Promise<void> => {
     exitTask ??= (async () => {
       await Promise.allSettled([Promise.resolve().then(() => transport.flush())])
@@ -80,6 +102,7 @@ export function apply(ctx: Context, config: JsonRpcConfig): void {
     // current tree has settled. A hand-built context without Loader remains
     // immediately usable.
     if (method === 'initialize') await ctx.get('loader')?.await()
+    /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await server.handleRequest(method, params)
     if (method === 'shutdown') {
       // Run after the handler result is written; the task then flushes, disposes, and exits.

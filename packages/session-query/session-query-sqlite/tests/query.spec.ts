@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 query.spec.ts 覆盖的会话查询行为、持久化与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、SQLite 或会话事件日志。
+ * 产品维度：保障 Agent 的会话查询结果稳定、可追踪且可恢复。
+ * 逻辑维度：准备会话和存储数据，执行查询或恢复流程，再核对结果、错误与清理。
+ * 关键边界：持久化数据属于不可信输入；事件必须可重放；临时数据库与异步资源必须释放。
+ * 新手阅读建议：先看测试夹具和查询条件，再读正常场景，最后关注重启、损坏与失败路径。
+ */
 import { describe, expect, it } from 'vitest'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionSearchCursor, type SessionQueryErrorCode } from '@deepseek-ai/dsh-session-query'
@@ -13,12 +21,16 @@ import {
   requestFingerprint,
   SQLITE_FTS5_OUTER_PREDICATE_LIMIT,
   SQLITE_MAX_PAGE_LIMIT,
+  /** 中文说明：type NormalizedEventRequest 定义本测试所需的数据或行为，用于表达会话查询场景。 */
   type NormalizedEventRequest,
+  /** 中文说明：type NormalizedSessionRequest 定义本测试所需的数据或行为，用于表达会话查询场景。 */
   type NormalizedSessionRequest,
 } from '../src/query.ts'
 
+/** 中文说明：变量 limits 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const limits = { defaultLimit: 2, maxLimit: 3 }
 
+/** 中文说明：函数 expectCode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectCode(code: SessionQueryErrorCode): Error {
   return expect.objectContaining({ code }) as Error
 }
@@ -86,6 +98,7 @@ describe('SQLite search request normalization', () => {
       query: 'x',
       eventFilters: [{} as never],
     }, limits)).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const limit of [1.5, 0, 4]) {
       expect(() => normalizeEventRequest({ sessionId: SessionId('s'), query: 'x', limit }, limits))
         .toThrow(expectCode('SESSION_QUERY_INVALID_LIMIT'))
@@ -99,9 +112,13 @@ describe('SQLite search request normalization', () => {
   })
 
   it('materializes owned filter values during normalization', () => {
+    /** 中文说明：变量 values 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const values = ['live'] as Array<'live' | 'persisted'>
+    /** 中文说明：变量 filter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const filter = { kind: 'availability' as const, values }
+    /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const request = { query: 'needle', sessionFilters: [filter] }
+    /** 中文说明：变量 normalized 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const normalized = normalizeSessionRequest(request, limits)
 
     values[0] = 'persisted'
@@ -178,6 +195,7 @@ describe('SQLite search predicate compilation', () => {
   })
 
   it('rejects predicate builders above the supported FTS5 outer budget', () => {
+    /** 中文说明：变量 filters 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const filters = Array.from(
       { length: SQLITE_FTS5_OUTER_PREDICATE_LIMIT },
       () => ({ kind: 'id' as const, values: [SessionId('safe')] }),
@@ -208,6 +226,7 @@ describe('SQLite query identity and presentation', () => {
   })
 
   it('canonicalizes request and filter ordering in both scopes', () => {
+    /** 中文说明：变量 sessionA 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sessionA: NormalizedSessionRequest = {
       query: 'needle',
       limit: 2,
@@ -219,6 +238,7 @@ describe('SQLite query identity and presentation', () => {
       ],
       eventFilters: [{ kind: 'time', to: 9 }],
     }
+    /** 中文说明：变量 sessionB 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sessionB: NormalizedSessionRequest = {
       query: 'needle',
       limit: 2,
@@ -232,12 +252,14 @@ describe('SQLite query identity and presentation', () => {
     }
     expect(requestFingerprint(sessionA)).toBe(requestFingerprint(sessionB))
 
+    /** 中文说明：变量 eventA 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const eventA: NormalizedEventRequest = {
       sessionId: SessionId('s'),
       query: 'needle',
       limit: 2,
       filters: [{ kind: 'seq' }, { kind: 'surface', values: ['shadowed', 'current'] }],
     }
+    /** 中文说明：变量 eventB 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const eventB: NormalizedEventRequest = {
       sessionId: SessionId('s'),
       query: 'needle',
