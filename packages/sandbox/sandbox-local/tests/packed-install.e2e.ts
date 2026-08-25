@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 packed-install.e2e.ts 覆盖的沙箱策略、平台隔离与失败行为。
+ * 技术维度：使用 TypeScript、Vitest、平台进程接口和受控文件系统资源。
+ * 产品维度：保障 Agent 执行命令时遵循预期权限并给出可诊断失败。
+ * 逻辑维度：准备策略和临时资源，启动受限操作，再核对结果、错误与清理。
+ * 关键边界：平台能力可能缺失；安全失败必须显式；进程与临时资源必须完全释放。
+ * 新手阅读建议：先读平台条件和夹具，再看允许/拒绝场景，最后阅读清理逻辑。
+ */
 import { spawnSync } from 'node:child_process'
 import { accessSync, constants, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
@@ -19,13 +27,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  * before the harness and native packages are built.
  */
 
+/** 中文说明：变量 packageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const packageDir = fileURLToPath(new URL('..', import.meta.url))
+/** 中文说明：变量 repoRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url))
+/** 中文说明：变量 nativeDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const nativeDir = join(repoRoot, 'native/landlock-run')
+/** 中文说明：变量 sourceLauncher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const sourceLauncher = join(nativeDir, 'packages', `linux-${process.arch}`, 'bin', 'landlock-run')
+/** 中文说明：变量 platformPackageName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const platformPackageName = `@deepseek-ai/node-addon-landlock-run-linux-${process.arch}`
 
 /** The harness closure the consumer needs; native tarballs are packed through their mode-preserving release script. */
+/** 中文说明：常量 WORKSPACE_CLOSURE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WORKSPACE_CLOSURE = [
   'packages/sandbox/sandbox-local',
   // sandbox-local's win32 chain rung is a runtime dependency: a packed
@@ -51,17 +65,22 @@ const WORKSPACE_CLOSURE = [
 ]
 
 /** ELF `e_machine` (offset 18, LE) for this host: x86-64 = 62, AArch64 = 183. */
+/** 中文说明：常量 E_MACHINE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const E_MACHINE = { x64: 62, arm64: 183 }[process.arch as 'x64' | 'arm64']
 
+/** 中文说明：变量 packable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const packable = process.platform === 'linux'
   && E_MACHINE !== undefined
   && existsSync(join(packageDir, 'lib', 'index.js'))
   && existsSync(join(nativeDir, 'packages/entry/lib/index.js'))
   && existsSync(sourceLauncher)
 
+/** 中文说明：变量 consumerDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let consumerDir = ''
+/** 中文说明：变量 workDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let workDir = ''
 /** The consumer script's JSON verdict (see its source below). */
+/** 中文说明：变量 verdict 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let verdict: {
   launcher: string
   launcherExists: boolean
@@ -75,11 +94,14 @@ let verdict: {
 
 describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-path rehearsal)', () => {
   beforeAll(async () => {
+    /** 中文说明：变量 packDest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packDest = mkdtempSync(join(tmpdir(), 'dsh-pack-'))
     consumerDir = mkdtempSync(join(tmpdir(), 'dsh-packed-consumer-'))
     workDir = mkdtempSync(join(tmpdir(), 'dsh-packed-work-'))
 
+    /** 中文说明：变量 nativePackDest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nativePackDest = join(packDest, 'native')
+    /** 中文说明：变量 nativePack 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nativePack = spawnSync('node', ['./scripts/pack-release.mjs', nativePackDest, '--current-platform-only'], {
       cwd: nativeDir,
       encoding: 'utf8',
@@ -87,20 +109,25 @@ describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-
     })
     expect(nativePack.status, `native pack failed:\n${nativePack.stdout}\n${nativePack.stderr}`).toBe(0)
 
+    /** 中文说明：变量 nativeTarballs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nativeTarballs = readFileSync(join(nativePackDest, 'publish-order.txt'), 'utf8')
       .trim()
       .split('\n')
       .map(tarball => join(nativePackDest, tarball))
 
     // Pack each harness closure member with the exact bytes publish would upload.
+    /** 中文说明：变量 tarballs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tarballs: string[] = []
+    /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
     for (const pkg of WORKSPACE_CLOSURE) {
+      /** 中文说明：变量 pack 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pack = spawnSync('pnpm', ['pack', '--pack-destination', packDest], {
         cwd: join(repoRoot, pkg),
         encoding: 'utf8',
         timeout: 120_000,
       })
       expect(pack.status, `pnpm pack failed for ${pkg}:\n${pack.stdout}\n${pack.stderr}`).toBe(0)
+      /** 中文说明：变量 lines 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const lines = pack.stdout.trim().split('\n')
       tarballs.push(lines[lines.length - 1] as string)
     }
@@ -109,6 +136,7 @@ describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-
     // Peer ranges resolve to the tarballs, the framework peer included. Do not omit optional
     // dependencies because the launcher selects its OS/CPU package through one.
     writeFileSync(join(consumerDir, 'package.json'), JSON.stringify({ name: 'dsh-packed-consumer', private: true, type: 'module' }))
+    /** 中文说明：变量 install 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const install = spawnSync('npm', ['install', '--no-audit', '--no-fund', ...tarballs], {
       cwd: consumerDir,
       encoding: 'utf8',
@@ -151,6 +179,7 @@ describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-
       }
       console.log(JSON.stringify(out))
     `)
+    /** 中文说明：变量 consumer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const consumer = spawnSync('node', ['consumer.mjs', workDir], { cwd: consumerDir, encoding: 'utf8', timeout: 60_000 })
     expect(consumer.status, `consumer script failed:\n${consumer.stdout}\n${consumer.stderr}`).toBe(0)
     verdict = JSON.parse(consumer.stdout.trim().split('\n').pop() as string) as typeof verdict
@@ -161,6 +190,7 @@ describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-
   })
 
   it('installs this checkout\'s launcher for the host: present, executable, byte-identical, and right ELF arch', () => {
+    /** 中文说明：变量 installed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const installed = join(consumerDir, 'node_modules', ...platformPackageName.split('/'), 'bin', 'landlock-run')
     expect(existsSync(installed), 'platform package missing from the installed tree').toBe(true)
     // A tarball or extraction step that strips the mode bit would leave the

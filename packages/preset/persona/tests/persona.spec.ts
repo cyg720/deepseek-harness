@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 persona.spec.ts 覆盖的Agent Persona行为与失败场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
+ * 产品维度：保障Agent Persona在真实使用路径中稳定且可诊断。
+ * 逻辑维度：准备配置与资源，触发被测流程，再核对结果、错误和清理。
+ * 关键边界：平台能力可能不同；安全失败必须显式；异步资源必须等待完全停止。
+ * 新手阅读建议：先读辅助函数，再看正常路径，最后阅读平台差异与失败用例。
+ */
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { createScope, type ScopeKey } from '@deepseek-ai/dsh-scope'
@@ -5,20 +13,25 @@ import { describe, expect, it } from 'vitest'
 import * as Persona from '@deepseek-ai/dsh-persona'
 import { PERSONA_SECTION } from '@deepseek-ai/dsh-persona'
 
+/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(deploymentPersona: string): Promise<Context> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt, { persona: deploymentPersona })
   return ctx
 }
 
 /** The rendered text of the persona slot as one scope sees it. */
+/** 中文说明：函数 personaText 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function personaText(ctx: Context, scope?: ScopeKey): Promise<string | undefined> {
+  /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const assembly = await ctx.systemPrompt.assemble(scope === undefined ? {} : { scope })
   return assembly.sections.find(section => section.name === PERSONA_SECTION)?.text
 }
 
 describe('the persona row', () => {
   it('rejects an unscoped mount, which would collide with the registry default', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('deployment identity')
 
     await expect(ctx.plugin(Persona, { text: 'composition identity' }))
@@ -26,8 +39,11 @@ describe('the persona row', () => {
   })
 
   it('shadows the deployment default for one scope only', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('deployment identity')
+    /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key: ScopeKey = { agent: 'a1' }
+    /** 中文说明：变量 scope 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scope = createScope(ctx, key)
 
     await scope.ctx.plugin(Persona, { text: 'preset identity' })
@@ -37,8 +53,11 @@ describe('the persona row', () => {
   })
 
   it('gives two scopes independent personas', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('')
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first: ScopeKey = { agent: 'a1' }
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second: ScopeKey = { agent: 'a2' }
 
     await createScope(ctx, first).ctx.plugin(Persona, { text: 'first identity' })
@@ -49,7 +68,9 @@ describe('the persona row', () => {
   })
 
   it('shadows the deployment persona away entirely when its text is empty', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('deployment identity')
+    /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key: ScopeKey = { agent: 'a1' }
 
     await createScope(ctx, key).ctx.plugin(Persona, { text: '' })
@@ -61,9 +82,13 @@ describe('the persona row', () => {
   })
 
   it('restores the shadowed default when its fiber unloads', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('deployment identity')
+    /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key: ScopeKey = { agent: 'a1' }
+    /** 中文说明：变量 scope 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scope = createScope(ctx, key)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await scope.ctx.plugin(Persona, { text: 'preset identity' })
     expect(await personaText(ctx, key)).toBe('preset identity')
 
@@ -73,7 +98,9 @@ describe('the persona row', () => {
   })
 
   it('interpolates prompt variables strictly, like any other section', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('')
+    /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key: ScopeKey = { agent: 'a1' }
     ctx.systemPrompt.variable('model', () => 'deepseek-v4-pro')
 
@@ -87,8 +114,11 @@ describe('the persona row', () => {
   })
 
   it('makes a complete persona the exact prompt after every other contribution', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('deployment identity')
+    /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key: ScopeKey = { agent: 'a1' }
+    /** 中文说明：变量 scope 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scope = createScope(ctx, key)
     ctx.systemPrompt.section({ name: 'global:extra', order: 100, text: 'global guidance' })
 
@@ -98,23 +128,30 @@ describe('the persona row', () => {
       return next()
     }, { prepend: true })
 
+    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await ctx.systemPrompt.assemble({ scope: key })
     expect(assembly.sections).toEqual([{ name: PERSONA_SECTION, text: 'Only this.' }])
     expect(renderPrompt(assembly)).toBe('Only this.')
   })
 
   it('can suppress runtime context for its scope without changing the global assembly', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('deployment identity')
+    /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key: ScopeKey = { agent: 'a1' }
+    /** 中文说明：变量 scope 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scope = createScope(ctx, key)
     ctx.systemPrompt.context({ name: 'policy', order: 1, text: 'global policy' })
 
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await scope.ctx.plugin(Persona, {
       text: 'Only this.',
       includeRuntimeContext: false,
     })
+    /** 中文说明：变量 suppressed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const suppressed = await ctx.systemPrompt.assemble({ scope: key })
     expect(suppressed.contexts).toEqual([])
+    /** 中文说明：变量 global 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const global = await ctx.systemPrompt.assemble()
     expect(global.contexts).toEqual([
       { name: 'policy', text: 'global policy' },
@@ -127,7 +164,9 @@ describe('the persona row', () => {
   })
 
   it('keeps runtime context by default when apply bypasses schema defaults', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness('deployment identity')
+    /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key: ScopeKey = { agent: 'a1' }
     ctx.systemPrompt.context({ name: 'policy', order: 1, text: 'global policy' })
 

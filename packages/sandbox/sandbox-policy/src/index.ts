@@ -17,6 +17,14 @@
  *
  * @module @deepseek-ai/dsh-sandbox-policy
  */
+/**
+ * 文件职责：实现 index.ts 承担的沙箱策略或 Windows ACL 隔离职责。
+ * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
+ * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
+ * 逻辑维度：解析策略，构造权限或原生调用，启动受限进程，并等待退出后清理。
+ * 关键边界：原生句柄和权限失败必须显式处理；环境变量需净化；清理必须达到静止状态。
+ * 新手阅读建议：先看公开配置和 Win32 类型，再读权限授予与启动，最后关注错误和清理。
+ */
 
 import { resolve as resolvePath } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -30,11 +38,13 @@ import { effectiveSandboxMode } from './session-mode.ts'
 export { SANDBOX_MODES, effectiveSandboxMode, setSandboxMode } from './session-mode.ts'
 
 /** Resolve filesystem identity before lexical normalization can erase symlink-sensitive components. */
+/** 中文说明：函数 resolveWorkspaceRoot 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveWorkspaceRoot(path: string): string {
   return resolvePath(canonicalPath(path))
 }
 
 /** Render the policy without claiming which capabilities are mounted. */
+/** 中文说明：函数 renderPolicyContext 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderPolicyContext(policy: SandboxExecutionPolicy): string {
   switch (policy.mode) {
     case 'read-only':
@@ -45,6 +55,7 @@ function renderPolicyContext(policy: SandboxExecutionPolicy): string {
       return 'Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.'
     /* v8 ignore next 4 -- SandboxMode is a typed same-process closed union; this branch is only the static exhaustiveness guard. */
     default: {
+      /** 中文说明：变量 mode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const mode: never = policy.mode
       throw new Error(`unreachable sandbox mode: ${String(mode)}`)
     }
@@ -52,6 +63,7 @@ function renderPolicyContext(policy: SandboxExecutionPolicy): string {
 }
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：interface Context 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
   interface Context {
     sandboxPolicy: SandboxPolicyService
   }
@@ -64,6 +76,7 @@ declare module '@deepseek-ai/cordis' {
  * runner choice is NOT here (it is the `ctx.sandbox` provider's config), nor
  * is any per-family knob: this is the one shared policy home.
  */
+/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface Config {
   /** File-sandbox mode a session starts from (default: `read-only`). */
   mode?: SandboxMode
@@ -75,6 +88,7 @@ export interface Config {
 }
 
 /** Inputs that select the sandbox policy for one capability call. */
+/** 中文说明：interface SandboxPolicyRequest 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface SandboxPolicyRequest {
   /** Calling session; its immutable cwd becomes the workspace boundary. */
   session?: Session
@@ -88,6 +102,7 @@ export interface SandboxPolicyRequest {
  * section. Tool layers call {@link resolve} for each execution so a session's
  * mode log and immutable cwd travel together to every enforcing capability.
  */
+/** 中文说明：class SandboxPolicyService 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export class SandboxPolicyService extends Service {
   // Inline schema call: the config catalog walks `static Config` statically.
   static Config: z<Config> = z.object({
@@ -114,6 +129,7 @@ export class SandboxPolicyService extends Service {
         name: 'sandbox:policy',
         order: 110,
         text: (context) => {
+          /** 中文说明：变量 session 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const session = context.agent?.session
           return session === undefined
             ? ''

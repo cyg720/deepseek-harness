@@ -6,6 +6,14 @@
  * probe-report parsing, per-rung denial signatures, and fail-closed behavior
  * are all exercised through the real `confine()` path.
  */
+/**
+ * 文件职责：验证 local.spec.ts 覆盖的沙箱策略与本地隔离行为与失败场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
+ * 产品维度：保障沙箱策略与本地隔离在真实使用路径中稳定且可诊断。
+ * 逻辑维度：准备配置与资源，触发被测流程，再核对结果、错误和清理。
+ * 关键边界：平台能力可能不同；安全失败必须显式；异步资源必须等待完全停止。
+ * 新手阅读建议：先读辅助函数，再看正常路径，最后阅读平台差异与失败用例。
+ */
 
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -21,12 +29,17 @@ import {
 import type { Config } from '@deepseek-ai/dsh-sandbox-local'
 import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from '../src/profiles.ts'
 
+/** 中文说明：常量 RO 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RO: SandboxPolicy = { mode: 'read-only', workspaceRoot: '/ws' }
+/** 中文说明：常量 WW 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WW: SandboxPolicy = { mode: 'workspace-write', workspaceRoot: '/ws' }
 
+/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(config: Config = {}, internals: LocalSandboxProvider['internals'] = {}) {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(LocalSandboxProvider, config)
+  /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sandbox = ctx.sandbox as LocalSandboxProvider
   sandbox.internals = internals
   return { ctx, sandbox }
@@ -38,27 +51,35 @@ async function setup(config: Config = {}, internals: LocalSandboxProvider['inter
  * whether the checkout has run `build:lib:host`, which emits
  * `sandbox-windows-acl/lib/runner.js`.
  */
+/** 中文说明：函数 absentRunnerEntry 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function absentRunnerEntry(): string {
   return join(mkdtempSync(join(tmpdir(), 'dsh-absent-acl-entry-')), 'runner.js')
 }
 
 /** Write an executable fake `landlock-run` that answers `--probe` with `report`. */
+/** 中文说明：函数 fakeLauncher 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeLauncher(report = 'landlock: fully enforced'): string {
+  /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-landlock-'))
+  /** 中文说明：变量 launcher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const launcher = join(dir, 'landlock-run')
   writeFileSync(launcher, `#!/bin/sh\nif [ "$1" = "--probe" ]; then echo "${report}"; exit 0; fi\nexit ${LAUNCHER_FAILURE_EXIT}\n`, { mode: 0o755 })
   return launcher
 }
 
 /** Write an executable fake `sandbox-exec` that exits `status` for any invocation. */
+/** 中文说明：函数 fakeSeatbeltExec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeSeatbeltExec(status: number): string {
+  /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-seatbelt-'))
+  /** 中文说明：变量 exec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const exec = join(dir, 'sandbox-exec')
   writeFileSync(exec, `#!/bin/sh\nexit ${status}\n`, { mode: 0o755 })
   return exec
 }
 
 /** The seatbelt read-only profile — every seatbelt profile starts with these forms. */
+/** 中文说明：常量 SEATBELT_RO_PROFILE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SEATBELT_RO_PROFILE = '(version 1) (allow default) (deny file-write*) (allow file-write* (literal "/dev/null"))'
 
 describe('profile dialects', () => {
@@ -93,13 +114,17 @@ describe('profile dialects', () => {
     // CANONICALIZED — Seatbelt matches resolved paths (`/tmp` IS
     // `/private/tmp` on macOS), and both collapse to one grant on hosts
     // where they resolve to the same directory.
+    /** 中文说明：变量 roots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const roots = [...new Set(['/ws', realpathSync('/tmp'), realpathSync(tmpdir())])]
+    /** 中文说明：函数值 allow 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const allow = `(allow file-write* ${roots.map(root => `(subpath "${root}")`).join(' ')})`
     expect(seatbeltProfileArgs(WW)).toEqual(['-p', `${SEATBELT_RO_PROFILE} ${allow}`])
   })
 
   it('seatbelt workspace-write dedups a workspace root that already IS the temp dir', () => {
+    /** 中文说明：变量 profile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const profile = seatbeltProfileArgs({ mode: 'workspace-write', workspaceRoot: tmpdir() })[1] as string
+    /** 中文说明：变量 grant 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const grant = `(subpath "${realpathSync(tmpdir())}")`
     expect(profile).toContain(grant)
     expect(profile.split(grant)).toHaveLength(2)
@@ -108,13 +133,17 @@ describe('profile dialects', () => {
 
 describe('runnerCommand config', () => {
   it('a non-empty runnerCommand skips the chain: runner argv + bwrap-shaped profile + -- + caller argv, asserted full', async () => {
+    /** 中文说明：函数值 probeBwrap 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeBwrap = vi.fn(() => false)
+    /** 中文说明：函数值 probeLandlock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeLandlock = vi.fn(() => 'unusable' as const)
+    /** 中文说明：函数值 probeSeatbelt 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeSeatbelt = vi.fn(() => false)
     const { sandbox } = await setup({
       runnerCommand: ['fake-runner', '--flag'],
       runnerFailureSignatures: ['fake-runner: profile rejected'],
     }, { probeBwrap, probeLandlock, probeSeatbelt })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['bash', '-c', 'echo hi'], WW)
     expect(confined).toEqual({
       argv: ['fake-runner', '--flag', ...bwrapProfileArgs(WW), '--', 'bash', '-c', 'echo hi'],
@@ -130,6 +159,7 @@ describe('runnerCommand config', () => {
   })
 
   it('an EMPTY runnerCommand means unconfigured: the platform chain still gates the wrap', async () => {
+    /** 中文说明：函数值 probeBwrap 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeBwrap = vi.fn(() => false)
     const { sandbox } = await setup({ runnerCommand: [] }, { platform: 'linux', probeBwrap, probeLandlock: () => 'unusable' })
     expect(() => sandbox.confine(['true'], RO)).toThrow(SandboxUnavailableError)
@@ -160,9 +190,12 @@ describe('runnerCommand config', () => {
 
 describe('the platform chains', () => {
   it('linux probes bwrap first: a passing probe wraps with the bwrap dialect at full enforcement', async () => {
+    /** 中文说明：函数值 probeBwrap 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeBwrap = vi.fn(() => true)
+    /** 中文说明：函数值 probeLandlock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeLandlock = vi.fn(() => 'full' as const)
     const { sandbox } = await setup({}, { platform: 'linux', probeBwrap, probeLandlock })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(confined).toEqual({
       argv: ['bwrap', ...bwrapProfileArgs(RO), '--', 'true'],
@@ -174,10 +207,14 @@ describe('the platform chains', () => {
   })
 
   it('linux falls back to the launcher when the bwrap probe fails, speaking the landlock dialect', async () => {
+    /** 中文说明：函数值 probeBwrap 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeBwrap = vi.fn(() => false)
+    /** 中文说明：函数值 probeLandlock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeLandlock = vi.fn(() => 'full' as const)
+    /** 中文说明：变量 launcher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launcher = fakeLauncher()
     const { sandbox } = await setup({}, { platform: 'linux', probeBwrap, probeLandlock, landlockLauncher: launcher })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['bash', '-c', 'echo hi'], WW)
     expect(confined).toEqual({
       argv: [launcher, ...landlockProfileArgs(WW), '--', 'bash', '-c', 'echo hi'],
@@ -196,8 +233,10 @@ describe('the platform chains', () => {
     // The safety property moves to execution time: an unusable sandbox-exec
     // refuses to run the command, and the wrap's runnerFailureRules let
     // the consumer classify that as a sandbox failure, not a task failure.
+    /** 中文说明：函数值 probeSeatbelt 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeSeatbelt = vi.fn(() => true)
     const { sandbox } = await setup({}, { platform: 'darwin', probeSeatbelt })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['bash', '-c', 'echo hi'], RO)
     expect(confined).toEqual({
       argv: ['sandbox-exec', ...seatbeltProfileArgs(RO), '--', 'bash', '-c', 'echo hi'],
@@ -209,8 +248,11 @@ describe('the platform chains', () => {
   })
 
   it('a platform with no chain fails closed without a single probe: the command never runs', async () => {
+    /** 中文说明：函数值 probeBwrap 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeBwrap = vi.fn(() => true)
+    /** 中文说明：函数值 probeLandlock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeLandlock = vi.fn(() => 'full' as const)
+    /** 中文说明：函数值 probeSeatbelt 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeSeatbelt = vi.fn(() => true)
     const { sandbox } = await setup({}, { platform: 'freebsd', probeBwrap, probeLandlock, probeSeatbelt })
     expect(() => sandbox.confine(['true'], RO)).toThrow(expect.objectContaining({ name: 'SandboxUnavailableError', code: SANDBOX_UNAVAILABLE }))
@@ -225,6 +267,7 @@ describe('the platform chains', () => {
   // Windows where this package's POSIX-only suites are excluded).
 
   it('caches the verdict for the provider lifetime: one chain walk across wraps', async () => {
+    /** 中文说明：函数值 probeBwrap 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeBwrap = vi.fn(() => true)
     const { sandbox } = await setup({}, { platform: 'linux', probeBwrap })
     sandbox.confine(['true'], RO)
@@ -233,7 +276,9 @@ describe('the platform chains', () => {
   })
 
   it('the unavailable verdict is cached too, and the error is structured', async () => {
+    /** 中文说明：函数值 probeBwrap 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeBwrap = vi.fn(() => false)
+    /** 中文说明：函数值 probeLandlock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeLandlock = vi.fn(() => 'unusable' as const)
     const { sandbox } = await setup({}, { platform: 'linux', probeBwrap, probeLandlock })
     expect(() => sandbox.confine(['true'], RO)).toThrow(expect.objectContaining({ name: 'SandboxUnavailableError', code: SANDBOX_UNAVAILABLE }))
@@ -246,9 +291,12 @@ describe('the platform chains', () => {
     // The product chains reach seatbelt only as darwin's sole (unprobed)
     // candidate; the probe chain exercises the path it would take in
     // a grown chain, keeping the default seatbelt probe honest.
+    /** 中文说明：变量 exec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exec = fakeSeatbeltExec(0)
+    /** 中文说明：函数值 probeBwrap 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeBwrap = vi.fn(() => false)
     const { sandbox } = await setup({}, { chain: ['bwrap', 'seatbelt'], probeBwrap, seatbeltExec: exec })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(confined.argv[0]).toBe(exec)
     expect(confined.enforcement).toBe('full')
@@ -275,6 +323,7 @@ describe('the platform chains', () => {
     // spawn run on every host: bwrap answers on a Linux box, ENOENT reads as
     // an unusable rung anywhere else — either way the walk is genuine.
     const { sandbox } = await setup({}, { platform: 'linux' })
+    /** 中文说明：函数值 verdict 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const verdict = (() => {
       try {
         sandbox.confine(['true'], RO)
@@ -289,6 +338,7 @@ describe('the platform chains', () => {
 
   it('walks the real platform chain when nothing is injected (usable here or fail closed there)', async () => {
     const { sandbox } = await setup({}, {})
+    /** 中文说明：函数值 verdict 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const verdict = (() => {
       try {
         sandbox.confine(['true'], RO)
@@ -309,13 +359,16 @@ describe('the default landlock probe (launcher CLI contract)', () => {
   })
 
   it('parses a partially-enforced (older-ABI) probe report as partial enforcement', async () => {
+    /** 中文说明：变量 launcher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launcher = fakeLauncher('landlock: partially enforced (older ABI)')
     const { sandbox } = await setup({}, { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher })
     expect(sandbox.confine(['true'], RO).enforcement).toBe('partial')
   })
 
   it('reads a failing launcher as unusable: the chain ends and fails closed', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-landlock-'))
+    /** 中文说明：变量 launcher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launcher = join(dir, 'landlock-run')
     writeFileSync(launcher, `#!/bin/sh\nexit ${LAUNCHER_FAILURE_EXIT}\n`, { mode: 0o755 })
     const { sandbox } = await setup({}, { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher })
@@ -325,6 +378,7 @@ describe('the default landlock probe (launcher CLI contract)', () => {
 
 describe('probeTimeoutMs config', () => {
   it('rejects 0 at construction: Node treats a 0 spawnSync timeout as UNBOUNDED, the opposite of the field', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await expect(ctx.plugin(LocalSandboxProvider, { probeTimeoutMs: 0 }))
       .rejects.toThrow(/probeTimeoutMs must be a positive finite number/)
@@ -336,16 +390,20 @@ describe('probeTimeoutMs config', () => {
     // keep a wide margin from the launcher's 1s runtime so a loaded host (where
     // spawnSync blocks the worker and fork/exec latency inflates wall-clock)
     // cannot flip either verdict; the vitest timeout clears the patient budget.
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-slow-landlock-'))
+    /** 中文说明：变量 launcher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launcher = join(dir, 'landlock-run')
     writeFileSync(launcher, '#!/bin/sh\nsleep 1\necho "landlock: fully enforced"\nexit 0\n', { mode: 0o755 })
 
+    /** 中文说明：变量 patient 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const patient = await setup(
       { probeTimeoutMs: 15_000 },
       { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher },
     )
     expect(patient.sandbox.confine(['true'], RO).enforcement).toBe('full')
 
+    /** 中文说明：变量 impatient 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const impatient = await setup(
       { probeTimeoutMs: 250 },
       { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher },
@@ -359,8 +417,10 @@ describe('the default seatbelt probe (sandbox-exec contract)', () => {
   // candidate), so the default probe's contract is pinned through the provider
   // chain: a grown chain must probe it like any other rung.
   it('selects the rung when the executable applies the read-only profile and exits 0', async () => {
+    /** 中文说明：变量 exec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exec = fakeSeatbeltExec(0)
     const { sandbox } = await setup({}, { chain: ['bwrap', 'seatbelt'], probeBwrap: () => false, seatbeltExec: exec })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(confined).toEqual({
       argv: [exec, ...seatbeltProfileArgs(RO), '--', 'true'],
@@ -381,6 +441,7 @@ describe('the windows-acl probe (runner invocation contract)', () => {
   // candidate), so the probe case and the runner-entry resolution are pinned
   // through the chain seam, mirroring the seatbelt default-probe contract.
   it('selects the rung when the injected probe passes, speaking the ACL dialect', async () => {
+    /** 中文说明：函数值 probeWindowsAcl 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeWindowsAcl = vi.fn(() => true)
     const { sandbox } = await setup({}, {
       chain: ['windows-acl', 'bwrap'],
@@ -388,6 +449,7 @@ describe('the windows-acl probe (runner invocation contract)', () => {
       probeBwrap: () => false,
       windowsAclRunnerArgs: ['node', 'windows-acl-runner.js'],
     })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(probeWindowsAcl).toHaveBeenCalledTimes(1)
     expect(confined.argv.slice(-4)).toEqual(['--mode', 'read-only', '--', 'true'])
@@ -397,8 +459,10 @@ describe('the windows-acl probe (runner invocation contract)', () => {
   })
 
   it('reads a failing probe as unusable and walks to the next rung', async () => {
+    /** 中文说明：函数值 probeWindowsAcl 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const probeWindowsAcl = vi.fn(() => false)
     const { sandbox } = await setup({}, { chain: ['windows-acl', 'bwrap'], probeWindowsAcl, probeBwrap: () => true })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(confined.argv[0]).toBe('bwrap')
     expect(probeWindowsAcl).toHaveBeenCalledTimes(1)
@@ -412,6 +476,7 @@ describe('the windows-acl probe (runner invocation contract)', () => {
     // either way — the runner cannot init off win32, so the probe reads
     // unusable and the walk falls through to the injected bwrap verdict.
     const { sandbox } = await setup({}, { chain: ['windows-acl', 'bwrap'], probeBwrap: () => true })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(confined.argv[0]).toBe('bwrap')
   }, 30_000)
@@ -425,6 +490,7 @@ describe('the windows-acl probe (runner invocation contract)', () => {
       probeWindowsAcl: () => true,
       windowsAclRunnerEntry: absentRunnerEntry(),
     })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(confined.argv.slice(0, 3)).toEqual([process.execPath, '--import', 'tsx/esm'])
     expect(confined.argv[3]).toMatch(/runner\.ts$/)
@@ -434,12 +500,15 @@ describe('the windows-acl probe (runner invocation contract)', () => {
     // windowsAclRunnerInvocation always yields [node, ...] in product; an
     // override returning [] exercises the default probe's empty-argv guard.
     const { sandbox } = await setup({}, { chain: ['windows-acl', 'bwrap'], probeBwrap: () => true, windowsAclRunnerArgs: [] })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(confined.argv[0]).toBe('bwrap')
   })
 
   it('prefers the built lib/runner.js entry when the resolved file exists', async () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-acl-entry-'))
+    /** 中文说明：变量 builtEntry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const builtEntry = join(dir, 'runner.js')
     writeFileSync(builtEntry, '')
     const { sandbox } = await setup({}, {
@@ -447,6 +516,7 @@ describe('the windows-acl probe (runner invocation contract)', () => {
       probeWindowsAcl: () => true,
       windowsAclRunnerEntry: builtEntry,
     })
+    /** 中文说明：变量 confined 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const confined = sandbox.confine(['true'], RO)
     expect(confined.argv.slice(0, 2)).toEqual([process.execPath, builtEntry])
   })

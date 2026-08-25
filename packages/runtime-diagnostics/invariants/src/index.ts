@@ -5,6 +5,14 @@
  *
  * @module @deepseek-ai/dsh-invariants
  */
+/**
+ * 文件职责：实现 index.ts 承担的运行时不变量诊断配置、注册与生命周期职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、配置校验和系统资源管理。
+ * 产品维度：为 Agent 提供可靠的运行时不变量诊断能力。
+ * 逻辑维度：解析配置，注册能力，执行核心操作，并在卸载时等待资源停止。
+ * 关键边界：安全配置应尽早失败；不得泄露环境凭据；清理必须达到静止状态。
+ * 新手阅读建议：先看导出类型与配置，再读主流程，最后关注平台限制和清理。
+ */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { Inject } from '@deepseek-ai/cordis'
@@ -12,6 +20,7 @@ import z from '@deepseek-ai/schemastery'
 import type Schema from '@deepseek-ai/schemastery'
 
 /** Runtime invariant selection configured on the service plugin. */
+/** 中文说明：interface Config 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export interface Config {
   /** Global switch; defaults to `true`. */
   readonly enabled?: boolean
@@ -26,9 +35,11 @@ export interface Config {
  * @param message - violated package contract without the standard prefix.
  * @returns never because reporting a violation throws.
  */
+/** 中文说明：type InvariantFailure 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export type InvariantFailure = (message: string) => never
 
 /** Install one package's checks into the registration's child context. */
+/** 中文说明：interface InvariantInstaller 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export interface InvariantInstaller {
   /**
    * Install the package contribution.
@@ -42,11 +53,13 @@ export interface InvariantInstaller {
 }
 
 /** Internal effect shape used to join child startup before a companion loads. */
+/** 中文说明：interface PendingInvariantRegistration 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 interface PendingInvariantRegistration extends PromiseLike<() => void> {
   (): void | Promise<void>
 }
 
 /** Thrown when a package-owned runtime invariant is violated. */
+/** 中文说明：class InvariantError 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export class InvariantError extends Error {
   /** Stable machine-readable invariant failure code. */
   readonly code = 'INVARIANT' as const
@@ -66,13 +79,16 @@ export class InvariantError extends Error {
 }
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：interface Context 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
   interface Context {
     invariants: InvariantRegistry
   }
 }
 
 /** Compile and validate one package-filter list. */
+/** 中文说明：函数 compilePatterns 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function compilePatterns(field: 'package_allowlist' | 'package_blocklist', values: readonly string[]): RegExp[] {
+  /** 中文说明：变量 seen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seen = new Set<string>()
   return values.map((value) => {
     if (value.length === 0 || value.trim() !== value) {
@@ -91,6 +107,7 @@ function compilePatterns(field: 'package_allowlist' | 'package_blocklist', value
 }
 
 /** Package-owned invariant registry with global and regex-based selection. */
+/** 中文说明：class InvariantRegistry 定义本模块所需的数据或行为，用于表达运行时不变量诊断场景。 */
 export class InvariantRegistry extends Service {
   static Config: Schema<Config> = z.object({
     enabled: z.boolean().default(true),
@@ -144,10 +161,13 @@ export class InvariantRegistry extends Service {
     // Service method tracing binds `this.ctx` to the caller. This explicit
     // origin keeps registrations and their child fibers owned by the service;
     // companion disposal is covered independently by the returned disposer.
+    /** 中文说明：变量 ctx 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = this.ownerCtx
+    /** 中文说明：变量 registrations 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const registrations = this.registrations
     registrations.add(packageName)
 
+    /** 中文说明：变量 registration 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let registration: PendingInvariantRegistration
     try {
       registration = ctx.effect(async () => {
@@ -157,12 +177,14 @@ export class InvariantRegistry extends Service {
           }
         }
 
+        /** 中文说明：函数值 installInvariant 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const installInvariant = (childCtx: Context) => (
           installer(childCtx, (message): never => {
             throw new InvariantError(packageName, message)
           })
         )
         try {
+          /** 中文说明：变量 child 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const child = ctx.plugin(installer.inject === undefined
             ? installInvariant
             : Object.assign(installInvariant, { inject: installer.inject }))

@@ -39,6 +39,14 @@
  *    revoke under live children.
  * @module @deepseek-ai/dsh-sandbox-windows-acl
  */
+/**
+ * 文件职责：实现 index.ts 承担的沙箱策略或 Windows ACL 隔离职责。
+ * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
+ * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
+ * 逻辑维度：解析策略，构造权限或原生调用，启动受限进程，并等待退出后清理。
+ * 关键边界：原生句柄和权限失败必须显式处理；环境变量需净化；清理必须达到静止状态。
+ * 新手阅读建议：先看公开配置和 Win32 类型，再读权限授予与启动，最后关注错误和清理。
+ */
 
 import { existsSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -59,6 +67,7 @@ export { tempWriteSid, workspaceWriteSid } from './workspace-sid.ts'
 export { Win32Error } from './errors.ts'
 
 /** Construction options: the workspace/temp allowlists and their distinct SID identities. */
+/** 中文说明：interface AclSandboxOptions 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface AclSandboxOptions {
   /** Directories the confined child may write into (must exist and be caller-owned). */
   writableDirs: readonly string[]
@@ -101,6 +110,7 @@ export interface AclSandboxOptions {
 }
 
 /** Per-spawn options: the program, its argv/cwd, and the stdio shape. */
+/** 中文说明：interface AclSandboxSpawnOptions 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface AclSandboxSpawnOptions {
   /** Program to run (resolved via PATH search when unqualified, like CreateProcess). */
   command: string
@@ -118,6 +128,7 @@ export interface AclSandboxSpawnOptions {
 }
 
 /** A settled confined child: captured stdio and the exit code. */
+/** 中文说明：interface AclSandboxChildResult 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface AclSandboxChildResult {
   stdout: Buffer
   stderr: Buffer
@@ -125,6 +136,7 @@ export interface AclSandboxChildResult {
 }
 
 /** A running confined child: its pid and a settlement promise. */
+/** 中文说明：interface AclSandboxChild 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface AclSandboxChild {
   /** Child process id. */
   pid: number
@@ -133,6 +145,7 @@ export interface AclSandboxChild {
 }
 
 /** Free one optional SID while retaining a failure for best-effort sibling cleanup. */
+/** 中文说明：函数 freeSidBestEffort 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function freeSidBestEffort(
   api: Win32Bindings,
   sidPtr: NativePtr | undefined,
@@ -141,6 +154,7 @@ function freeSidBestEffort(
 ): void {
   if (sidPtr === undefined) return
   try {
+    /** 中文说明：变量 freed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const freed = api.localFree(sidPtr)
     if (!isNullPtr(freed)) throwLastError(api, 'LocalFree', label)
   } catch (error) {
@@ -157,6 +171,7 @@ function freeSidBestEffort(
  * `manageDacls: false` the caller owns the grants (the sandbox seam's grant
  * reuse): init() applies none and dispose() revokes none.
  */
+/** 中文说明：class AclSandbox 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export class AclSandbox {
   /** Absolute writable directories (constructor-validated). */
   readonly writableDirs: string[]
@@ -181,6 +196,7 @@ export class AclSandbox {
     this.mode = options.mode
     this.manageDacls = options.manageDacls ?? true
     this.writableDirs = options.writableDirs.map((directory) => {
+      /** 中文说明：变量 absolute 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const absolute = resolve(directory)
       if (!existsSync(absolute) || !statSync(absolute).isDirectory()) {
         throw new Error(`AclSandbox writable dir does not exist or is not a directory: ${absolute}`)
@@ -221,16 +237,23 @@ export class AclSandbox {
   /** Create the restricted token and apply the capability-SID grants. Idempotent-unsafe: once per instance. */
   async init(): Promise<void> {
     if (this.api !== undefined) throw new Error('AclSandbox is already initialized')
+    /** 中文说明：变量 api 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = await win32()
+    /** 中文说明：变量 currentToken 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const currentToken = openCurrentProcessToken(api)
+    /** 中文说明：变量 currentTokenOpen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let currentTokenOpen = true
+    /** 中文说明：变量 restrictedToken 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let restrictedToken: NativePtr | undefined
     try {
+      /** 中文说明：函数值 parseSid 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const parseSid = (sid: string): NativePtr => {
+        /** 中文说明：变量 sidSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const sidSlot = allocPtrSlot()
         if (api.convertStringSidToSidW(sid, sidSlot) === 0) {
           throwLastError(api, 'ConvertStringSidToSidW', sid)
         }
+        /** 中文说明：变量 parsedSid 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const parsedSid = decodePtr(sidSlot)
         if (parsedSid === null) throw new Win32Error('ConvertStringSidToSidW', api.getLastError(), sid)
         return parsedSid
@@ -238,6 +261,7 @@ export class AclSandbox {
       this.writeSidPtr = this.writeSid === undefined ? undefined : parseSid(this.writeSid)
       this.tempWriteSidPtr = this.tempWriteSid === undefined ? undefined : parseSid(this.tempWriteSid)
 
+      /** 中文说明：变量 tempDir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const tempDir = this.mode === 'read-only' || this.tempDirOption === null ? null : this.tempDirOption
       /* v8 ignore next -- constructor validation requires workspace-write to supply
          an explicit temp directory or null; the other branches normalize to null. */
@@ -259,6 +283,7 @@ export class AclSandbox {
       // deleted; the ambient temp root is never granted).
       if (this.manageDacls) {
         if (this.writeSidPtr !== undefined) {
+          /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
           for (const path of this.writableDirs) {
             grantWrite(api, path, this.writeSidPtr)
           }
@@ -271,10 +296,13 @@ export class AclSandbox {
           }
         }
       }
+      /** 中文说明：变量 logonSid 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const logonSid = findLogonSid(api, currentToken)
       this.sidAllocations.push(logonSid)
+      /** 中文说明：变量 worldSid 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const worldSid = makeWellKnownSid(api, abi.WinWorldSid)
       this.sidAllocations.push(worldSid)
+      /** 中文说明：函数值 writeSids 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const writeSids = [this.writeSidPtr, this.tempWriteSidPtr].filter((sid): sid is NativePtr => sid !== undefined)
       restrictedToken = createRestrictedToken(
         api, currentToken, logonSid, writeSids,
@@ -303,6 +331,7 @@ export class AclSandbox {
       // allocation behind a failed init. Standing workspace ACEs are NOT
       // revoked — they are the intended end state (the reuse cache), not an
       // error artifact.
+      /** 中文说明：变量 cleanupFailures 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const cleanupFailures: unknown[] = []
       if (currentTokenOpen && api.closeHandle(currentToken) === 0) {
         cleanupFailures.push(new Win32Error('CloseHandle', api.getLastError(), 'current process token after init failure'))
@@ -310,6 +339,7 @@ export class AclSandbox {
       if (restrictedToken !== undefined && api.closeHandle(restrictedToken) === 0) {
         cleanupFailures.push(new Win32Error('CloseHandle', api.getLastError(), 'restricted token after init failure'))
       }
+      /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
       for (const grant of this.grantedPaths) {
         try {
           revokeWrite(api, grant.path, grant.sidPtr)
@@ -317,9 +347,11 @@ export class AclSandbox {
           cleanupFailures.push(cleanupError)
         }
       }
+      /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
       for (const [label, sidPtr] of [['workspace write SID', this.writeSidPtr], ['temp write SID', this.tempWriteSidPtr]] as const) {
         freeSidBestEffort(api, sidPtr, label, cleanupFailures)
       }
+      /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
       for (const sidPtr of this.sidAllocations.splice(0)) {
         freeSidBestEffort(api, sidPtr, 'init SID allocation', cleanupFailures)
       }
@@ -349,19 +381,26 @@ export class AclSandbox {
    * @returns the running child.
    */
   spawn(options: AclSandboxSpawnOptions): AclSandboxChild {
+    /** 中文说明：变量 api 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = this.api
+    /** 中文说明：变量 token 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const token = this.token
     if (api === undefined || token === undefined) throw new Error('AclSandbox is not initialized: call init() first')
+    /** 中文说明：变量 args 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const args = options.args ?? []
+    /** 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cwd = options.cwd ?? process.cwd()
 
     if (options.stdio === 'inherit') {
+      /** 中文说明：变量 native 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const native = spawnSandboxedInherited(api, token, { command: options.command, args, cwd })
+      /** 中文说明：变量 exitCodePromise 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let exitCodePromise: Promise<number> | undefined
       return {
         pid: native.pid,
         wait: async () => {
           exitCodePromise ??= Promise.resolve(waitForExit(api, native.process))
+          /** 中文说明：变量 exitCode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const exitCode = await exitCodePromise
           if (api.closeHandle(native.job) === 0) throwLastError(api, 'CloseHandle', 'kill-on-close job')
           return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode }
@@ -369,18 +408,24 @@ export class AclSandbox {
       }
     }
 
+    /** 中文说明：变量 native 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const native = spawnSandboxed(api, token, { command: options.command, args, cwd })
+    /** 中文说明：变量 stdout 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stdout = drainPipe(api, native.stdoutRead)
+    /** 中文说明：变量 stderr 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderr = drainPipe(api, native.stderrRead)
     // waitForExit is deliberately NOT started here: WaitForSingleObject blocks
     // the thread and would starve the drains while the child is still running
     // (pipe-buffer deadlock). The drains resolve only after the child closed
     // its pipe ends — by then the wait returns immediately.
+    /** 中文说明：变量 exitCodePromise 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let exitCodePromise: Promise<number> | undefined
     return {
       pid: native.pid,
       wait: async () => {
+        /** 中文说明：变量 stdoutBuffer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const stdoutBuffer = await stdout
+        /** 中文说明：变量 stderrBuffer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const stderrBuffer = await stderr
         exitCodePromise ??= Promise.resolve(waitForExit(api, native.process))
         return { stdout: stdoutBuffer, stderr: stderrBuffer, exitCode: await exitCodePromise }
@@ -394,10 +439,13 @@ export class AclSandbox {
    * failure.
    */
   dispose(): void {
+    /** 中文说明：变量 api 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = this.api
     if (api === undefined) return
+    /** 中文说明：变量 failures 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failures: unknown[] = []
     if (this.manageDacls) {
+      /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
       for (const grant of this.grantedPaths) {
         try {
           revokeWrite(api, grant.path, grant.sidPtr)
@@ -406,9 +454,11 @@ export class AclSandbox {
         }
       }
     }
+    /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
     for (const [label, sidPtr] of [['workspace write SID', this.writeSidPtr], ['temp write SID', this.tempWriteSidPtr]] as const) {
       freeSidBestEffort(api, sidPtr, label, failures)
     }
+    /** 中文说明：变量 token 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const token = this.token
     /* v8 ignore next -- init assigns this.api only after this.token, so an initialized instance always
        has its token; the guard mirrors the write-SID guard. */
@@ -419,6 +469,7 @@ export class AclSandbox {
         failures.push(error)
       }
     }
+    /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
     for (const sidPtr of this.sidAllocations.splice(0)) {
       freeSidBestEffort(api, sidPtr, 'init SID allocation', failures)
     }

@@ -11,6 +11,14 @@
  * cannot clobber each other's ACEs.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/acl
  */
+/**
+ * 文件职责：实现 acl.ts 承担的沙箱策略或 Windows ACL 隔离职责。
+ * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
+ * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
+ * 逻辑维度：解析策略，构造权限或原生调用，启动受限进程，并等待退出后清理。
+ * 关键边界：原生句柄和权限失败必须显式处理；环境变量需净化；清理必须达到静止状态。
+ * 新手阅读建议：先看公开配置和 Win32 类型，再读权限授予与启动，最后关注错误和清理。
+ */
 
 import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
@@ -31,7 +39,9 @@ import * as abi from './win32-abi.ts'
  * @param permissions - the access mask to grant (0 for REVOKE_ACCESS).
  * @returns the packed entry buffer.
  */
+/** 中文说明：函数 buildExplicitAccess 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function buildExplicitAccess(sidPtr: NativePtr, mode: number, permissions: number): Buffer {
+  /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entry = Buffer.alloc(abi.EXPLICIT_ACCESS_W_SIZE)
   entry.writeUInt32LE(permissions, 0) // grfAccessPermissions
   entry.writeUInt32LE(mode, 4) // grfAccessMode
@@ -52,7 +62,9 @@ export function buildExplicitAccess(sidPtr: NativePtr, mode: number, permissions
  * @param path - the protected directory (absolute).
  * @returns the lock file path for that directory.
  */
+/** 中文说明：函数 lockFilePath 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function lockFilePath(api: Win32Bindings, path: string): string {
+  /** 中文说明：变量 digest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const digest = createHash('sha256').update(path.toLowerCase()).digest('hex').slice(0, 16)
   return join(getTempPath(api), 'dsh-acl-locks', `${digest}.lock`)
 }
@@ -72,9 +84,12 @@ export function lockFilePath(api: Win32Bindings, path: string): string {
  * @param action - the get-merge-set sequence to serialize.
  * @returns the action's result.
  */
+/** 中文说明：函数 withPathLock 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function withPathLock<T>(api: Win32Bindings, path: string, action: () => T): T {
+  /** 中文说明：变量 lockPath 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lockPath = lockFilePath(api, path)
   mkdirSync(dirname(lockPath), { recursive: true })
+  /** 中文说明：变量 handle 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle = api.createFileW(
     lockPath,
     abi.GENERIC_READ | abi.GENERIC_WRITE,
@@ -82,13 +97,16 @@ export function withPathLock<T>(api: Win32Bindings, path: string, action: () => 
     null, abi.OPEN_ALWAYS, 0, null,
   )
   if (isInvalidHandle(handle)) throwLastError(api, 'CreateFileW', lockPath)
+  /** 中文说明：变量 overlapped 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const overlapped = allocOverlapped() // stays zeroed: offset 0, hEvent NULL
   if (api.lockFileEx(handle, abi.LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, overlapped) === 0) {
+    /** 中文说明：变量 win32Code 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const win32Code = api.getLastError()
     api.closeHandle(handle) // best-effort on the lock-failure path
     throwWin32(api, 'LockFileEx', win32Code, lockPath)
   }
 
+  /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let result: T
   try {
     result = action()
@@ -100,6 +118,7 @@ export function withPathLock<T>(api: Win32Bindings, path: string, action: () => 
     throw error
   }
   if (api.unlockFileEx(handle, 0, 1, 0, overlapped) === 0) {
+    /** 中文说明：变量 win32Code 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const win32Code = api.getLastError()
     api.closeHandle(handle) // best-effort on the unlock-failure path
     throwWin32(api, 'UnlockFileEx', win32Code, lockPath)
@@ -119,12 +138,19 @@ export function withPathLock<T>(api: Win32Bindings, path: string, action: () => 
  * @param path - the directory whose DACL is read.
  * @returns the current explicit DACL (null when the directory carries none) and its owning descriptor.
  */
+/** 中文说明：函数 readCurrentDacl 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readCurrentDacl(api: Win32Bindings, path: string): { oldAcl: NativePtr | null; descriptor: NativePtr | null } {
+  /** 中文说明：变量 ownerSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ownerSlot = allocPtrSlot()
+  /** 中文说明：变量 groupSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const groupSlot = allocPtrSlot()
+  /** 中文说明：变量 daclSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const daclSlot = allocPtrSlot()
+  /** 中文说明：变量 saclSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const saclSlot = allocPtrSlot()
+  /** 中文说明：变量 descriptorSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const descriptorSlot = allocPtrSlot()
+  /** 中文说明：变量 readResult 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const readResult = api.getNamedSecurityInfoW(
     path, abi.SE_FILE_OBJECT, abi.DACL_SECURITY_INFORMATION,
     ownerSlot, groupSlot, daclSlot, saclSlot, descriptorSlot,
@@ -145,6 +171,7 @@ function readCurrentDacl(api: Win32Bindings, path: string): { oldAcl: NativePtr 
  * @param descriptor - the descriptor allocation owning `oldAcl`.
  * @param label - the caller's name for error details.
  */
+/** 中文说明：函数 mergeAndApply 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function mergeAndApply(
   api: Win32Bindings,
   path: string,
@@ -153,12 +180,15 @@ function mergeAndApply(
   descriptor: NativePtr | null,
   label: string,
 ): void {
+  /** 中文说明：变量 newAclSlot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const newAclSlot = allocPtrSlot()
+  /** 中文说明：变量 mergeResult 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mergeResult = api.setEntriesInAclW(1, entry, oldAcl, newAclSlot)
   if (mergeResult !== abi.ERROR_SUCCESS) {
     if (descriptor !== null) api.localFree(descriptor) // frees the ACL block too
     throwWin32(api, 'SetEntriesInAclW', mergeResult, `${label}(${path})`)
   }
+  /** 中文说明：变量 newAcl 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const newAcl = decodePtr(newAclSlot)
   if (newAcl === null) {
     if (descriptor !== null) api.localFree(descriptor)
@@ -167,11 +197,14 @@ function mergeAndApply(
 
   // The descriptor block (oldAcl included) is dead after the merge — free it
   // before applying, exactly like the POC.
+  /** 中文说明：变量 freedDescriptor 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const freedDescriptor = descriptor !== null ? api.localFree(descriptor) : null
+  /** 中文说明：变量 applyResult 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const applyResult = api.setNamedSecurityInfoW(
     path, abi.SE_FILE_OBJECT, abi.DACL_SECURITY_INFORMATION,
     null, null, newAcl, null,
   )
+  /** 中文说明：变量 freedNew 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const freedNew = api.localFree(newAcl)
   if (applyResult !== abi.ERROR_SUCCESS) throwWin32(api, 'SetNamedSecurityInfoW', applyResult, `${label}(${path})`)
   if (freedDescriptor !== null && !isNullPtr(freedDescriptor)) throwLastError(api, 'LocalFree', `${label}(${path}) descriptor`)
@@ -193,16 +226,23 @@ function mergeAndApply(
  * @param sidPtr - the capability SID to match.
  * @returns whether the exact grant ACE is already present.
  */
+/** 中文说明：函数 hasExactGrant 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasExactGrant(oldAcl: NativePtr, sidPtr: NativePtr): boolean {
+  /** 中文说明：变量 aclSize 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const aclSize = decodeUint16At(oldAcl, 2)
+  /** 中文说明：变量 aceCount 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const aceCount = decodeUint16At(oldAcl, 4)
   if (aclSize < 8 || aclSize > 1_048_576) return false // implausible: fall back to the merge path
+  /** 中文说明：变量 offset 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let offset = 8 // the first ACE follows the 8-byte ACL header
+  /** 中文说明：该循环依次处理权限或资源数据；循环变量仅在当前循环中有效。 */
   for (let index = 0; index < aceCount; index++) {
     // ACE_HEADER: AceType@0, AceFlags@1, AceSize@2 (WORD);
     // ACCESS_ALLOWED_ACE: Mask@4, inline SID@8.
+    /** 中文说明：变量 aceSize 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const aceSize = decodeUint16At(oldAcl, offset + 2)
     if (aceSize < 8 || offset + aceSize > aclSize) return false // implausible: fall back to the merge path
+    /** 中文说明：变量 exact 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exact = decodeUint8At(oldAcl, offset) === abi.ACCESS_ALLOWED_ACE_TYPE
       && decodeUint8At(oldAcl, offset + 1) === abi.SUB_CONTAINERS_AND_OBJECTS_INHERIT
       && decodeUint32At(oldAcl, offset + 4) === abi.GRANT_MASK
@@ -228,12 +268,14 @@ function hasExactGrant(oldAcl: NativePtr, sidPtr: NativePtr): boolean {
  * @param path - the directory whose DACL gains the grant (the workspace or temp root).
  * @param sidPtr - the capability SID the ACE names.
  */
+/** 中文说明：函数 grantWrite 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function grantWrite(api: Win32Bindings, path: string, sidPtr: NativePtr): void {
   withPathLock(api, path, () => {
     const { oldAcl, descriptor } = readCurrentDacl(api, path)
     if (oldAcl !== null && hasExactGrant(oldAcl, sidPtr)) {
       // The exact ACE stands: releasing the descriptor is the whole operation.
       if (descriptor !== null) {
+        /** 中文说明：变量 freed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const freed = api.localFree(descriptor)
         if (!isNullPtr(freed)) throwLastError(api, 'LocalFree', `grantWrite(${path}) descriptor`)
       }
@@ -255,11 +297,13 @@ export function grantWrite(api: Win32Bindings, path: string, sidPtr: NativePtr):
  * @param sidPtr - the capability SID whose ACEs are removed.
  * @returns whether an ACE removal was attempted (false when the directory carries no DACL at all).
  */
+/** 中文说明：函数 revokeWrite 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function revokeWrite(api: Win32Bindings, path: string, sidPtr: NativePtr): boolean {
   return withPathLock(api, path, () => {
     const { oldAcl, descriptor } = readCurrentDacl(api, path)
     if (oldAcl === null) {
       if (descriptor !== null) {
+        /** 中文说明：变量 freed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const freed = api.localFree(descriptor)
         if (!isNullPtr(freed)) throwLastError(api, 'LocalFree', `revokeWrite(${path}) descriptor`)
       }
