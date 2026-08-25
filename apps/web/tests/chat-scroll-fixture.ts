@@ -2,6 +2,14 @@
 // generated through Session so pagination exercises the same event shapes as
 // persisted conversations, while unique markers identify semantic rows
 // without depending on CSS-module names or virtualizer DOM positions.
+/**
+ * 文件职责：验证当前模块的关键行为与边界场景（chat-scroll-fixture.ts）。
+ * 技术维度：TypeScript、Vitest、属性测试或可控测试替身。
+ * 产品维度：防止用户可见流程在重构后发生回归。
+ * 逻辑维度：构造输入，调用被测模块，再断言结果或错误。
+ * 关键边界：随机数据必须可复现，异步资源必须及时释放。
+ * 新手阅读建议：先读辅助函数，再按 describe/it 阅读核心与异常场景。
+ */
 import {
   CallId,
   createAssistantMessage,
@@ -17,6 +25,7 @@ import {
 import type {} from '@deepseek-ai/dsh-session-title'
 
 /** Options for one deterministic long-chat fixture. */
+/** 中文说明：interface ChatScrollFixtureOptions 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 export interface ChatScrollFixtureOptions {
   /** Marker namespace, used when two sessions share one browser world. */
   readonly markerPrefix: string
@@ -27,6 +36,7 @@ export interface ChatScrollFixtureOptions {
 }
 
 /** Semantic marker helpers returned with a generated fixture. */
+/** 中文说明：interface ChatScrollMarkers 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 interface ChatScrollMarkers {
   /** Marker painted in the human message for a turn. */
   user(turn: number): string
@@ -37,6 +47,7 @@ interface ChatScrollMarkers {
 }
 
 /** Generated JSONL plus the stable facts browser scenarios assert. */
+/** 中文说明：interface ChatScrollFixture 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 export interface ChatScrollFixture {
   readonly log: string
   readonly markers: ChatScrollMarkers
@@ -44,18 +55,24 @@ export interface ChatScrollFixture {
   readonly turns: number
 }
 
+/** 中文说明：常量 DEFAULT_TURNS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_TURNS = 88
+/** 中文说明：常量 TOOL_INTERVAL 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TOOL_INTERVAL = 8
+/** 中文说明：常量 CODE_INTERVAL 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CODE_INTERVAL = 11
 
+/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(value: string): { type: 'text'; text: string }[] {
   return [{ type: 'text', text: value }]
 }
 
+/** 中文说明：函数 suffix 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function suffix(turn: number): string {
   return String(turn).padStart(3, '0')
 }
 
+/** 中文说明：函数 markerHelpers 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function markerHelpers(prefix: string): ChatScrollMarkers {
   return {
     user: turn => `CHAT_SCROLL_${prefix}_USER_${suffix(turn)}`,
@@ -64,6 +81,7 @@ function markerHelpers(prefix: string): ChatScrollMarkers {
   }
 }
 
+/** 中文说明：函数 appendRequestHeader 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendRequestHeader(session: Session, turn: number, step: number): void {
   session.append('request/header', {
     header: {
@@ -74,6 +92,7 @@ function appendRequestHeader(session: Session, turn: number, step: number): void
   })
 }
 
+/** 中文说明：函数 appendAssistant 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendAssistant(session: Session, turn: number, step: number, body: string): void {
   session.append('assistant/message', {
     turn,
@@ -89,8 +108,10 @@ function appendAssistant(session: Session, turn: number, step: number, body: str
   }, { surfaceOp: 'append' })
 }
 
+/** 中文说明：函数 codeBlock 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function codeBlock(turn: number): string {
   if (turn % CODE_INTERVAL !== 0) return ''
+  /** 中文说明：变量 lines 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = Array.from(
     { length: 30 },
     (_, index) => `const scroll_case_${suffix(turn)}_${String(index).padStart(2, '0')} = ${String(turn + index)}`,
@@ -98,14 +119,19 @@ function codeBlock(turn: number): string {
   return `\n\n\`\`\`ts\n${lines.join('\n')}\n\`\`\``
 }
 
+/** 中文说明：函数 appendToolStep 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendToolStep(
   session: Session,
   markers: ChatScrollMarkers,
   turn: number,
 ): void {
+  /** 中文说明：函数值 calls 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const calls = [1, 2].map((index) => {
+    /** 中文说明：变量 marker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const marker = markers.tool(turn, index)
+    /** 中文说明：变量 callId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const callId = CallId(`chat-scroll-${suffix(turn)}-${String(index)}`)
+    /** 中文说明：变量 args 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const args = JSON.stringify({
       command: `printf '${marker}\\n'`,
       description: marker,
@@ -131,7 +157,9 @@ function appendToolStep(
     usage: { inputTokens: 2_000 + turn * 7, outputTokens: 240, reasoningTokens: 30 },
   }, { surfaceOp: 'append' })
 
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const call of calls) {
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = session.append('tool/call', {
       turn,
       step: 1,
@@ -154,6 +182,7 @@ function appendToolStep(
   }
 }
 
+/** 中文说明：函数 fixtureLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fixtureLog(session: Session): string {
   return [
     JSON.stringify({
@@ -176,15 +205,21 @@ function fixtureLog(session: Session): string {
  * @param options - Fixture identity and optional turn count.
  * @returns Canonical JSONL and semantic marker helpers.
  */
+/** 中文说明：函数 createChatScrollFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function createChatScrollFixture(options: ChatScrollFixtureOptions): ChatScrollFixture {
+  /** 中文说明：变量 turns 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const turns = options.turns ?? DEFAULT_TURNS
+  /** 中文说明：变量 markers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const markers = markerHelpers(options.markerPrefix)
+  /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const session = Session.create(SessionId(`chat-scroll-${options.markerPrefix.toLowerCase()}-template`))
 
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (let turn = 1; turn <= turns; turn += 1) {
     session.append('turn/start', {
       turn,
     })
+    /** 中文说明：变量 user 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const user = session.append('user/message', createUserMessage({
       content: text(
         `${markers.user(turn)} Review the long-running conversation state for turn ${String(turn)}. `

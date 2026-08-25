@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 mcp-client.spec.ts 覆盖的MCP 客户端行为、持久化与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身。
+ * 产品维度：保障 Agent 使用MCP 客户端时得到稳定且可重放的结果。
+ * 逻辑维度：准备上下文与事件，触发被测流程，再核对状态、输出和资源清理。
+ * 关键边界：持久化事件必须可重放；连接和异步资源必须在用例结束时释放。
+ * 新手阅读建议：先读辅助函数，再按 describe/it 阅读正常、恢复与失败场景。
+ */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
@@ -14,10 +22,12 @@ import { publicToolName, syncTools, type ToolBridgeOptions } from '@deepseek-ai/
 import { createTransport } from '@deepseek-ai/dsh-mcp-client/src/transport.ts'
 import type { Config } from '@deepseek-ai/dsh-mcp-client'
 
+/** 中文说明：变量 testToolSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const testToolSignal = new AbortController().signal
 
 // ---- Mock MCP Client ----
 
+/** 中文说明：interface MockTool 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 interface MockTool {
   name: string
   description?: string
@@ -26,16 +36,20 @@ interface MockTool {
   execution?: { taskSupport?: 'optional' | 'required' | 'forbidden' }
 }
 
+/** 中文说明：interface MockCallResult 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 interface MockCallResult {
   content: JsonValue[]
   structuredContent?: JsonValue
   isError?: boolean
 }
 
+/** 中文说明：函数 createMockClient 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function createMockClient(tools: MockTool[], callResult: MockCallResult = { content: [{ type: 'text', text: 'ok' }] }) {
+  /** 中文说明：变量 listTools 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const listTools = vi.fn(async (
     _params?: Record<string, unknown>,
   ): Promise<{ tools: MockTool[]; nextCursor: string | undefined }> => ({ tools, nextCursor: undefined }))
+  /** 中文说明：变量 callTool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const callTool = vi.fn(async (
     _params?: Record<string, unknown>,
     _compatibilitySchema?: unknown,
@@ -61,13 +75,16 @@ function createMockClient(tools: MockTool[], callResult: MockCallResult = { cont
 
 // ---- Test harness helper ----
 
+/** 中文说明：函数 mountRegistry 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountRegistry(): Promise<Context> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   return ctx
 }
 
+/** 中文说明：常量 IMAGE_LIMITS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const IMAGE_LIMITS: ImageAttachmentLimits = {
   maxImageBytes: 1024,
   maxImagesPerMessage: 4,
@@ -78,6 +95,7 @@ const IMAGE_LIMITS: ImageAttachmentLimits = {
 }
 
 /** Attachment fake that records exact decoded batches while using the real batch contract. */
+/** 中文说明：class RecordingAttachmentStore 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 class RecordingAttachmentStore extends AttachmentStore {
   readonly imageLimits = IMAGE_LIMITS
   readonly saved: SaveImageAttachment[] = []
@@ -88,7 +106,9 @@ class RecordingAttachmentStore extends AttachmentStore {
 
   saveImage(input: SaveImageAttachment): Promise<ImageAttachmentRef> {
     this.saved.push(input)
+    /** 中文说明：变量 marker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const marker = input.data[0] ?? 0
+    /** 中文说明：变量 ref 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ref: ImageAttachmentRef = {
       attachmentId: AttachmentId(`sha256:${marker.toString(16).padStart(64, '0')}`),
       mediaType: input.mediaType,
@@ -105,6 +125,7 @@ class RecordingAttachmentStore extends AttachmentStore {
 }
 
 /** Exact-route fake used only for image-capability admission. */
+/** 中文说明：class ImageCatalogAdapter 定义本测试所需的数据或行为，用于表达当前功能场景。 */
 class ImageCatalogAdapter extends LlmAdapter {
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({
@@ -120,7 +141,9 @@ class ImageCatalogAdapter extends LlmAdapter {
   }
 }
 
+/** 中文说明：函数 mountRichRegistry 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountRichRegistry(): Promise<{ ctx: Context; attachments: RecordingAttachmentStore }> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = await mountRegistry()
   await ctx.plugin(RecordingAttachmentStore)
   await ctx.plugin(LlmRuntime)
@@ -129,6 +152,7 @@ async function mountRichRegistry(): Promise<{ ctx: Context; attachments: Recordi
 }
 
 /** Calling-agent stand-in with no durable request header yet. */
+/** 中文说明：函数 agentOn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function agentOn(model: string | undefined = 'vision'): object {
   return {
     options: model === undefined ? {} : { provider: 'visual', model },
@@ -137,12 +161,15 @@ function agentOn(model: string | undefined = 'vision'): object {
 }
 
 /** Require one text block and return its text for diagnostic assertions. */
+/** 中文说明：函数 textAt 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function textAt(content: readonly ContentBlock[], index = 0): string {
+  /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const block = content[index]
   if (block?.type !== 'text') throw new Error(`expected text content at index ${index}`)
   return block.text
 }
 
+/** 中文说明：变量 defaultOpts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const defaultOpts: ToolBridgeOptions = {
   registrationFailure: 'contain',
   serverName: 'srv',
@@ -158,13 +185,16 @@ describe('publicToolName', () => {
   })
 
   it('replaces invalid characters and appends an identity hash', () => {
+    /** 中文说明：变量 name 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const name = publicToolName('srv', 'admin.reset')
     expect(name).toMatch(/^mcp__srv__admin_reset_[0-9a-f]{12}$/)
     expect(name.length).toBeLessThanOrEqual(64)
   })
 
   it('truncates over-long names and appends an identity hash', () => {
+    /** 中文说明：变量 rawName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rawName = 'a'.repeat(80)
+    /** 中文说明：变量 name 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const name = publicToolName('srv', rawName)
     expect(name).toHaveLength(64)
     expect(name).toMatch(/_[0-9a-f]{12}$/)
@@ -173,7 +203,9 @@ describe('publicToolName', () => {
 
   it('is deterministic and collision-free for distinct identities', () => {
     // Two raw names that normalize to the same base must not collapse.
+    /** 中文说明：变量 a 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const a = publicToolName('srv', 'admin.reset')
+    /** 中文说明：变量 b 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const b = publicToolName('srv', 'admin_reset')
     expect(a).toBe(publicToolName('srv', 'admin.reset'))
     expect(a).not.toBe(b)
@@ -181,6 +213,7 @@ describe('publicToolName', () => {
 })
 
 describe('syncTools', () => {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let ctx: Context
 
   beforeEach(async () => {
@@ -188,11 +221,13 @@ describe('syncTools', () => {
   })
 
   it('registers tools under server-qualified public names', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([
       { name: 'greet', description: 'Say hello', inputSchema: { type: 'object', properties: { name: { type: 'string' } } } },
       { name: 'add', description: 'Add numbers', inputSchema: { type: 'object', properties: {} } },
     ])
 
+    /** 中文说明：变量 disposers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposers = await syncTools(client as never, ctx, defaultOpts, new Map())
 
     expect(disposers.size).toBe(2)
@@ -204,7 +239,9 @@ describe('syncTools', () => {
   })
 
   it('lets two servers publish the same raw name side by side', async () => {
+    /** 中文说明：变量 clientA 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const clientA = createMockClient([{ name: 'search', inputSchema: { type: 'object' } }])
+    /** 中文说明：变量 clientB 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const clientB = createMockClient([{ name: 'search', inputSchema: { type: 'object' } }])
 
     await syncTools(clientA as never, ctx, { ...defaultOpts, serverName: 'github' }, new Map())
@@ -222,17 +259,20 @@ describe('syncTools', () => {
       output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value as string }] },
       execute: async () => 'native',
     })
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([{ name: 'search', inputSchema: { type: 'object' } }])
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
 
     expect(ctx.tools.get('search')).toBeDefined()
     expect(ctx.tools.get('mcp__srv__search')).toBeDefined()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'search', arguments: {} })
     expect(result.content[0]).toEqual({ type: 'text', text: 'native' })
   })
 
   it('rejects a tool list where one raw name appears twice', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([
       { name: 'dup', inputSchema: { type: 'object' } },
       { name: 'dup', inputSchema: { type: 'object' } },
@@ -245,7 +285,9 @@ describe('syncTools', () => {
   })
 
   it('keeps the previous generation when the fetch phase fails', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([{ name: 'stable', inputSchema: { type: 'object' } }])
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await syncTools(client as never, ctx, defaultOpts, new Map())
     expect(ctx.tools.get('mcp__srv__stable')).toBeDefined()
 
@@ -265,11 +307,13 @@ describe('syncTools', () => {
       output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value as string }] },
       execute: async () => 'squatter',
     })
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([
       { name: 'free', inputSchema: { type: 'object' } },
       { name: 'taken', inputSchema: { type: 'object' } },
     ])
 
+    /** 中文说明：变量 disposers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposers = await syncTools(client as never, ctx, defaultOpts, new Map())
 
     // All-or-nothing: the non-conflicting tool is rolled back too.
@@ -280,14 +324,17 @@ describe('syncTools', () => {
   })
 
   it('unregisters previous tools before re-syncing', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([
       { name: 'old_tool', inputSchema: { type: 'object' } },
     ])
 
+    /** 中文说明：变量 firstDisposers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstDisposers = await syncTools(client as never, ctx, defaultOpts, new Map())
     expect(ctx.tools.get('mcp__srv__old_tool')).toBeDefined()
 
     client.listTools.mockResolvedValue({ tools: [{ name: 'new_tool', inputSchema: { type: 'object' } }], nextCursor: undefined })
+    /** 中文说明：变量 secondDisposers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const secondDisposers = await syncTools(client as never, ctx, defaultOpts, firstDisposers)
 
     expect(ctx.tools.get('mcp__srv__old_tool')).toBeUndefined()
@@ -296,11 +343,13 @@ describe('syncTools', () => {
   })
 
   it('drains paginated listTools responses', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([])
     client.listTools
       .mockResolvedValueOnce({ tools: [{ name: 'page1', inputSchema: { type: 'object' } }], nextCursor: 'cursor1' })
       .mockResolvedValueOnce({ tools: [{ name: 'page2', inputSchema: { type: 'object' } }], nextCursor: undefined })
 
+    /** 中文说明：变量 disposers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposers = await syncTools(client as never, ctx, defaultOpts, new Map())
 
     expect(disposers.size).toBe(2)
@@ -312,9 +361,12 @@ describe('syncTools', () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     serverTransport.onmessage = (message) => {
       if (!('id' in message) || !('method' in message)) return
+      /** 中文说明：变量 params 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const params = 'params' in message ? message.params : undefined
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let result: Record<string, unknown>
       if (message.method === 'initialize') {
+        /** 中文说明：变量 protocolVersion 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const protocolVersion = params && 'protocolVersion' in params
           ? params.protocolVersion
           : '2025-11-25'
@@ -324,6 +376,7 @@ describe('syncTools', () => {
           serverInfo: { name: 'raw-test', version: '1' },
         }
       } else if (message.method === 'tools/list') {
+        /** 中文说明：变量 cursor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const cursor = params && 'cursor' in params ? params.cursor : undefined
         result = cursor === undefined
           ? {
@@ -347,6 +400,7 @@ describe('syncTools', () => {
             }],
           }
       } else if (message.method === 'tools/call') {
+        /** 中文说明：变量 name 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const name = params && 'name' in params ? params.name : undefined
         result = name === 'supported'
           ? { content: [{ type: 'text', text: 'missing structured content' }] }
@@ -357,12 +411,14 @@ describe('syncTools', () => {
       void serverTransport.send({ jsonrpc: '2.0', id: message.id, result })
     }
     await serverTransport.start()
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = new Client({ name: 'cache-independent-test', version: '1' })
     await client.connect(clientTransport)
 
     try {
       await syncTools(client, ctx, defaultOpts, new Map())
 
+      /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const missing = await ctx.tools.execute({
         signal: testToolSignal,
         callId: CallId('missing'), name: 'mcp__srv__supported', arguments: {},
@@ -370,6 +426,7 @@ describe('syncTools', () => {
       expect(missing.error).toMatchObject({ info: { code: 'INVALID_TOOL_OUTPUT' } })
       expect(missing.error?.message).toContain('structuredContent')
 
+      /** 中文说明：变量 fallback 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fallback = await ctx.tools.execute({
         signal: testToolSignal,
         callId: CallId('fallback'), name: 'mcp__srv__future-schema', arguments: {},
@@ -386,6 +443,7 @@ describe('syncTools', () => {
 })
 
 describe('tool execution', () => {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let ctx: Context
 
   beforeEach(async () => {
@@ -393,12 +451,14 @@ describe('tool execution', () => {
   })
 
   it('calls MCP callTool with the RAW name and returns text content', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'echo', inputSchema: { type: 'object' } }],
       { content: [{ type: 'text', text: 'hello world' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__echo', arguments: { msg: 'hi' } })
 
     expect(result.isError).toBe(false)
@@ -414,13 +474,16 @@ describe('tool execution', () => {
   })
 
   it('sends the raw name for normalized public names', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'admin.reset', inputSchema: { type: 'object' } }],
       { content: [{ type: 'text', text: 'reset done' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 publicName 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const publicName = publicToolName('srv', 'admin.reset')
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: publicName, arguments: {} })
 
     expect(result.isError).toBe(false)
@@ -432,19 +495,23 @@ describe('tool execution', () => {
   })
 
   it('joins multiple text blocks with newline', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'multi', inputSchema: { type: 'object' } }],
       { content: [{ type: 'text', text: 'line1' }, { type: 'text', text: 'line2' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__multi', arguments: {} })
 
     expect(result.content).toEqual([{ type: 'text', text: 'line1\nline2' }])
   })
 
   it('preserves canonical MCP JSON while admitting an ordered mixed image result', async () => {
+    /** 中文说明：变量 rich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rich = await mountRichRegistry()
+    /** 中文说明：变量 blocks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blocks = [
       { type: 'text', text: 'before' },
       { type: 'image', mimeType: 'image/png', data: 'AQ==', annotations: { audience: ['assistant'] } },
@@ -452,12 +519,14 @@ describe('tool execution', () => {
       { type: 'image', mimeType: 'image/jpeg', data: 'Ag==' },
       { type: 'text', text: 'after' },
     ] satisfies JsonValue[]
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: blocks },
     )
 
     await syncTools(client as never, rich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('c1'),
@@ -470,7 +539,9 @@ describe('tool execution', () => {
     expect(result.content[0]).toEqual({ type: 'text', text: 'before' })
     expect(result.content[2]).toEqual({ type: 'text', text: 'between' })
     expect(result.content[4]).toEqual({ type: 'text', text: 'after' })
+    /** 中文说明：变量 firstImage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstImage = result.content[1]
+    /** 中文说明：变量 secondImage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const secondImage = result.content[3]
     if (firstImage?.type !== 'image' || secondImage?.type !== 'image') throw new Error('expected ordered image blocks')
     expect(firstImage.attachment.mediaType).toBe('image/png')
@@ -485,13 +556,16 @@ describe('tool execution', () => {
   })
 
   it('keeps a valid raw image result while explicitly refusing it without a durable route', async () => {
+    /** 中文说明：变量 blocks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blocks = [{ type: 'image', mimeType: 'image/png', data: 'AQ==' }] satisfies JsonValue[]
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: blocks },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('no-store'),
@@ -509,17 +583,21 @@ describe('tool execution', () => {
   })
 
   it('rejects a malformed image batch before storing any member', async () => {
+    /** 中文说明：变量 rich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rich = await mountRichRegistry()
+    /** 中文说明：变量 blocks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blocks = [
       { type: 'image', mimeType: 'image/png', data: 'AQ==' },
       { type: 'image', mimeType: 'image/png', data: 'not base64' },
     ] satisfies JsonValue[]
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: blocks },
     )
 
     await syncTools(client as never, rich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('bad-batch'),
@@ -535,7 +613,9 @@ describe('tool execution', () => {
   })
 
   it('rejects non-canonical and incomplete image blocks as one atomic batch', async () => {
+    /** 中文说明：变量 rich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rich = await mountRichRegistry()
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: [
@@ -546,6 +626,7 @@ describe('tool execution', () => {
     )
 
     await syncTools(client as never, rich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('strict-batch'),
@@ -562,13 +643,16 @@ describe('tool execution', () => {
   })
 
   it('does not admit images for a route without declared image input', async () => {
+    /** 中文说明：变量 rich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rich = await mountRichRegistry()
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image', mimeType: 'image/png', data: 'AQ==' }] },
     )
 
     await syncTools(client as never, rich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('text-route'),
@@ -582,13 +666,16 @@ describe('tool execution', () => {
   })
 
   it('refuses images when the exact route is missing, unverifiable, or canceled', async () => {
+    /** 中文说明：变量 rich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rich = await mountRichRegistry()
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image', mimeType: 'image/png', data: 'AQ==' }] },
     )
     await syncTools(client as never, rich.ctx, defaultOpts, new Map())
 
+    /** 中文说明：变量 noProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noProvider = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('no-provider'),
@@ -598,6 +685,7 @@ describe('tool execution', () => {
     })
     expect(textAt(noProvider.content)).toContain('route could not be resolved')
 
+    /** 中文说明：变量 noModel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noModel = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('no-model'),
@@ -607,9 +695,11 @@ describe('tool execution', () => {
     })
     expect(textAt(noModel.content)).toContain('route could not be resolved')
 
+    /** 中文说明：变量 noLlmCtx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noLlmCtx = await mountRegistry()
     await noLlmCtx.plugin(RecordingAttachmentStore)
     await syncTools(client as never, noLlmCtx, defaultOpts, new Map())
+    /** 中文说明：变量 noLlm 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noLlm = await noLlmCtx.tools.execute({
       signal: testToolSignal,
       callId: CallId('no-llm'),
@@ -620,6 +710,7 @@ describe('tool execution', () => {
     expect(textAt(noLlm.content)).toContain('route could not be resolved')
 
     vi.spyOn(rich.ctx.llm, 'resolveModelInfo').mockRejectedValueOnce(new Error('catalog down'))
+    /** 中文说明：变量 unverified 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unverified = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('unverified'),
@@ -632,6 +723,7 @@ describe('tool execution', () => {
     vi.spyOn(rich.ctx.llm, 'resolveModelInfo').mockResolvedValueOnce({
       provider: 'visual', id: 'vision', name: 'vision',
     })
+    /** 中文说明：变量 unknown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unknown = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('unknown-modalities'),
@@ -641,11 +733,13 @@ describe('tool execution', () => {
     })
     expect(textAt(unknown.content)).toContain('does not declare image input')
 
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     vi.spyOn(rich.ctx.llm, 'resolveModelInfo').mockImplementationOnce(async (provider, model) => {
       controller.abort(new Error('stop'))
       return { provider, id: model, name: model, inputModalities: ['text', 'image'] }
     })
+    /** 中文说明：变量 canceled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canceled = await rich.ctx.tools.execute({
       signal: controller.signal,
       callId: CallId('canceled'),
@@ -659,14 +753,17 @@ describe('tool execution', () => {
   })
 
   it('refuses images when attachment storage rejects the admitted batch', async () => {
+    /** 中文说明：变量 rich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rich = await mountRichRegistry()
     vi.spyOn(rich.attachments, 'saveImages').mockRejectedValueOnce(new Error('disk full'))
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image', mimeType: 'image/png', data: 'AQ==' }] },
     )
 
     await syncTools(client as never, rich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('store-rejected'),
@@ -679,16 +776,19 @@ describe('tool execution', () => {
   })
 
   it('reports attachment policy rejection as image admission rather than storage failure', async () => {
+    /** 中文说明：变量 rich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rich = await mountRichRegistry()
     vi.spyOn(rich.attachments, 'saveImages').mockRejectedValueOnce(
       new AttachmentError('too many images', 'TOO_MANY_IMAGES'),
     )
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image', mimeType: 'image/png', data: 'AQ==' }] },
     )
 
     await syncTools(client as never, rich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('policy-rejected'),
@@ -702,17 +802,20 @@ describe('tool execution', () => {
   })
 
   it('lets post-execute replacement win over a prepared image projection', async () => {
+    /** 中文说明：变量 rich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rich = await mountRichRegistry()
     rich.ctx.on('tools/post-execute', async (): Promise<PostToolDecision> => ({
       kind: 'accept',
       content: [{ type: 'text', text: 'policy replacement' }],
     }))
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image', mimeType: 'image/png', data: 'AQ==' }] },
     )
 
     await syncTools(client as never, rich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await rich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('replaced'),
@@ -726,16 +829,19 @@ describe('tool execution', () => {
   })
 
   it('lets post-execute value replacement and blocking discard prepared projections', async () => {
+    /** 中文说明：变量 valueRich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const valueRich = await mountRichRegistry()
     valueRich.ctx.on('tools/post-execute', async (): Promise<PostToolDecision> => ({
       kind: 'accept',
       value: { content: [{ type: 'text', text: 'value replacement' }] },
     }))
+    /** 中文说明：变量 valueClient 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const valueClient = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image', mimeType: 'image/png', data: 'AQ==' }] },
     )
     await syncTools(valueClient as never, valueRich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 replaced 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replaced = await valueRich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('value-replaced'),
@@ -745,16 +851,19 @@ describe('tool execution', () => {
     })
     expect(replaced.content).toEqual([{ type: 'text', text: 'value replacement' }])
 
+    /** 中文说明：变量 blockedRich 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blockedRich = await mountRichRegistry()
     blockedRich.ctx.on('tools/post-execute', async (): Promise<PostToolDecision> => ({
       kind: 'block',
       feedback: [{ type: 'text', text: 'blocked by policy' }],
     }))
+    /** 中文说明：变量 blockedClient 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blockedClient = createMockClient(
       [{ name: 'img', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image', mimeType: 'image/png', data: 'Ag==' }] },
     )
     await syncTools(blockedClient as never, blockedRich.ctx, defaultOpts, new Map())
+    /** 中文说明：变量 blocked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blocked = await blockedRich.ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('blocked'),
@@ -767,13 +876,16 @@ describe('tool execution', () => {
   })
 
   it('preserves primitive JSON MCP blocks while Native rendering marks them unsupported', async () => {
+    /** 中文说明：变量 blocks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blocks = [42, null, ['nested']] satisfies JsonValue[]
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'primitive-blocks', inputSchema: { type: 'object' } }],
       { content: blocks },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('primitive'), name: 'mcp__srv__primitive-blocks', arguments: {},
@@ -788,27 +900,33 @@ describe('tool execution', () => {
   })
 
   it('validates structuredContent when the advertised output schema is supported', async () => {
+    /** 中文说明：变量 outputSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outputSchema = {
       type: 'object',
       additionalProperties: false,
       properties: { answer: { type: 'integer' } },
       required: ['answer'],
     }
+    /** 中文说明：变量 valid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const valid = createMockClient(
       [{ name: 'structured', inputSchema: { type: 'object' }, outputSchema }],
       { content: [{ type: 'text', text: '42' }], structuredContent: { answer: 42 } },
     )
     await syncTools(valid as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 success 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const success = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('valid'), name: 'mcp__srv__structured', arguments: {} })
     if (success.isError) throw new Error('expected supported structuredContent to validate')
     expect(success.value).toEqual({ content: [{ type: 'text', text: '42' }], structuredContent: { answer: 42 } })
 
+    /** 中文说明：变量 invalidCtx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidCtx = await mountRegistry()
+    /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalid = createMockClient(
       [{ name: 'structured', inputSchema: { type: 'object' }, outputSchema }],
       { content: [{ type: 'text', text: 'wrong' }], structuredContent: { answer: 'forty-two' } },
     )
     await syncTools(invalid as never, invalidCtx, defaultOpts, new Map())
+    /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = await invalidCtx.tools.execute({ signal: testToolSignal, callId: CallId('invalid'), name: 'mcp__srv__structured', arguments: {} })
     expect(failure.error).toMatchObject({ info: { code: 'INVALID_TOOL_OUTPUT' } })
     expect(failure.content[0]?.type === 'text' ? failure.content[0].text : '')
@@ -816,6 +934,7 @@ describe('tool execution', () => {
   })
 
   it('falls back to JsonValue for unsupported advertised output schemas', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{
         name: 'future-schema',
@@ -825,18 +944,21 @@ describe('tool execution', () => {
       { content: [], structuredContent: ['kept', { nested: true }] },
     )
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('fallback'), name: 'mcp__srv__future-schema', arguments: {} })
     if (result.isError) throw new Error('unsupported MCP output schemas must fall back')
     expect(result.value).toEqual({ content: [], structuredContent: ['kept', { nested: true }] })
   })
 
   it('maps isError to an error result via throw', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'fail', inputSchema: { type: 'object' } }],
       { content: [{ type: 'text', text: 'something went wrong' }], isError: true },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__fail', arguments: {} })
 
     expect(result.isError).toBe(true)
@@ -845,11 +967,13 @@ describe('tool execution', () => {
   })
 
   it('rejects tools that require task-based execution', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([
       { name: 'task-only', inputSchema: { type: 'object' }, execution: { taskSupport: 'required' } },
     ])
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('task-only'), name: 'mcp__srv__task-only', arguments: {},
@@ -861,7 +985,9 @@ describe('tool execution', () => {
   })
 
   it('passes abort signal to callTool', async () => {
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'slow', inputSchema: { type: 'object' } }],
       { content: [{ type: 'text', text: 'done' }] },
@@ -878,12 +1004,14 @@ describe('tool execution', () => {
   })
 
   it('handles legacy toolResult shape', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'legacy', inputSchema: { type: 'object' } }],
     )
     client.callTool.mockResolvedValue({ toolResult: { key: 'value' } })
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__legacy', arguments: {} })
 
     expect(result.isError).toBe(false)
@@ -891,6 +1019,7 @@ describe('tool execution', () => {
   })
 
   it('preserves structuredContent on a successful legacy result', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([{ name: 'legacy-structured', inputSchema: { type: 'object' } }])
     client.callTool.mockResolvedValue({
       toolResult: 'legacy',
@@ -898,6 +1027,7 @@ describe('tool execution', () => {
     })
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('legacy-structured'), name: 'mcp__srv__legacy-structured', arguments: {},
@@ -911,10 +1041,12 @@ describe('tool execution', () => {
   })
 
   it('maps a legacy isError reply to failure', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([{ name: 'legacy-error', inputSchema: { type: 'object' } }])
     client.callTool.mockResolvedValue({ toolResult: { reason: 'nope' }, isError: true })
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: CallId('legacy-error'), name: 'mcp__srv__legacy-error', arguments: {},
@@ -926,6 +1058,7 @@ describe('tool execution', () => {
 })
 
 describe('tool execution edge cases', () => {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let ctx: Context
 
   beforeEach(async () => {
@@ -933,12 +1066,14 @@ describe('tool execution edge cases', () => {
   })
 
   it('reports unsupported audio without claiming the raw block was discarded', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'audio_tool', inputSchema: { type: 'object' } }],
       { content: [{ type: 'audio', mimeType: 'audio/mp3' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__audio_tool', arguments: {} })
 
     expect(result.content[0]).toEqual({
@@ -948,12 +1083,14 @@ describe('tool execution edge cases', () => {
   })
 
   it('reports unsupported embedded resources without discarding the raw block', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'res_tool', inputSchema: { type: 'object' } }],
       { content: [{ type: 'resource' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__res_tool', arguments: {} })
 
     expect(result.content[0]).toEqual({
@@ -963,24 +1100,28 @@ describe('tool execution edge cases', () => {
   })
 
   it('preserves resource-link name and URI in the model projection', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'link_tool', inputSchema: { type: 'object' } }],
       { content: [{ type: 'resource_link', name: 'Design', uri: 'https://example.test/design' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__link_tool', arguments: {} })
 
     expect(result.content[0]).toEqual({ type: 'text', text: 'Resource link: Design (https://example.test/design)' })
   })
 
   it('diagnoses an incomplete resource link', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'link_tool', inputSchema: { type: 'object' } }],
       { content: [{ type: 'resource_link', name: 'Missing URI' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('missing-link'), name: 'mcp__srv__link_tool', arguments: {} })
 
     expect(result.content[0]).toEqual({
@@ -989,24 +1130,28 @@ describe('tool execution edge cases', () => {
   })
 
   it('handles unknown content types', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'unknown_tool', inputSchema: { type: 'object' } }],
       { content: [{ type: 'video' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__unknown_tool', arguments: {} })
 
     expect(result.content[0]).toEqual({ type: 'text', text: '[unsupported MCP content type: video]' })
   })
 
   it('handles image with missing mimeType (buggy server)', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'img2', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__img2', arguments: {} })
 
     expect(result.content[0]).toEqual({
@@ -1016,12 +1161,14 @@ describe('tool execution edge cases', () => {
   })
 
   it('handles audio with missing mimeType (buggy server)', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'audio_no_mime', inputSchema: { type: 'object' } }],
       { content: [{ type: 'audio' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__audio_no_mime', arguments: {} })
 
     expect(result.content[0]).toEqual({
@@ -1031,24 +1178,28 @@ describe('tool execution edge cases', () => {
   })
 
   it('handles text block with missing text (buggy server)', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'notext', inputSchema: { type: 'object' } }],
       { content: [{ type: 'text' }] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__notext', arguments: {} })
 
     expect(result.content[0]).toEqual({ type: 'text', text: '(notext returned no model-visible content)' })
   })
 
   it('handles empty content array', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'empty_tool', inputSchema: { type: 'object' } }],
       { content: [] },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__empty_tool', arguments: {} })
 
     expect(result.content[0]).toEqual({ type: 'text', text: '(empty_tool returned no model-visible content)' })
@@ -1056,36 +1207,42 @@ describe('tool execution edge cases', () => {
 
 
   it('handles legacy toolResult with undefined value', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'legacy2', inputSchema: { type: 'object' } }],
     )
     client.callTool.mockResolvedValue({ toolResult: undefined, structuredContent: undefined })
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__legacy2', arguments: {} })
 
     expect(result.content[0]).toEqual({ type: 'text', text: '(no output)' })
   })
 
   it('handles a legacy result with neither content nor toolResult', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'legacy-empty', inputSchema: { type: 'object' } }],
     )
     client.callTool.mockResolvedValue({})
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('legacy-empty'), name: 'mcp__srv__legacy-empty', arguments: {} })
 
     expect(result.content[0]).toEqual({ type: 'text', text: '(no output)' })
   })
 
   it('handles isError with non-text content (fallback error message)', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'err_notext', inputSchema: { type: 'object' } }],
       { content: [{ type: 'image', mimeType: 'image/png' }], isError: true },
     )
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'mcp__srv__err_notext', arguments: {} })
 
     expect(result.isError).toBe(true)
@@ -1097,21 +1254,25 @@ describe('tool execution edge cases', () => {
 
 
   it('uses tool description when provided', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([
       { name: 'described', description: 'A described tool', inputSchema: { type: 'object' } },
     ])
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 tool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tool = ctx.tools.get('mcp__srv__described')
     expect(tool?.description).toBe('A described tool')
   })
 
   it('uses empty description when tool has no description', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient([
       { name: 'nodesc', inputSchema: { type: 'object' } },
     ])
 
     await syncTools(client as never, ctx, defaultOpts, new Map())
+    /** 中文说明：变量 tool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tool = ctx.tools.get('mcp__srv__nodesc')
     expect(tool?.description).toBe('')
   })
@@ -1119,6 +1280,7 @@ describe('tool execution edge cases', () => {
 
 describe('createTransport', () => {
   it('creates StdioClientTransport for stdio config', () => {
+    /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const config: Config = {
       transport: 'stdio',
       serverName: 'srv',
@@ -1129,6 +1291,7 @@ describe('createTransport', () => {
       toolCallTimeoutMs: 60_000,
       failOnStartupError: false,
     }
+    /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const transport = createTransport(config)
     expect(transport).toBeDefined()
     expect(transport).toHaveProperty('start')
@@ -1136,6 +1299,7 @@ describe('createTransport', () => {
   })
 
   it('creates StreamableHTTPClientTransport for http config without headers', () => {
+    /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const config: Config = {
       transport: 'streamable-http',
       serverName: 'srv',
@@ -1144,6 +1308,7 @@ describe('createTransport', () => {
       toolCallTimeoutMs: 60_000,
       failOnStartupError: false,
     }
+    /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const transport = createTransport(config)
     expect(transport).toBeDefined()
     expect(transport).toHaveProperty('start')
@@ -1151,6 +1316,7 @@ describe('createTransport', () => {
   })
 
   it('creates StreamableHTTPClientTransport for http config with headers', () => {
+    /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const config: Config = {
       transport: 'streamable-http',
       serverName: 'srv',
@@ -1159,6 +1325,7 @@ describe('createTransport', () => {
       toolCallTimeoutMs: 60_000,
       failOnStartupError: false,
     }
+    /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const transport = createTransport(config)
     expect(transport).toBeDefined()
     expect(transport).toHaveProperty('start')
@@ -1166,6 +1333,7 @@ describe('createTransport', () => {
   })
 
   it('scrubs sensitive env vars and forwards the rest', () => {
+    /** 中文说明：变量 original 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const original = { ...process.env }
     try {
       process.env.SAFE_VAR = 'kept'
@@ -1173,6 +1341,7 @@ describe('createTransport', () => {
       process.env.API_KEY = 'hidden'
       process.env.AUTH_TOKEN = 'hidden'
 
+      /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const config: Config = {
         transport: 'stdio',
         serverName: 'srv',
@@ -1185,6 +1354,7 @@ describe('createTransport', () => {
       }
       // StdioClientTransport keeps its env private; the observable contract is
       // that createTransport(config) returns a transport without throwing.
+      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = createTransport(config)
       expect(transport).toBeDefined()
     } finally {
@@ -1192,6 +1362,7 @@ describe('createTransport', () => {
       delete process.env.MY_SECRET
       delete process.env.API_KEY
       delete process.env.AUTH_TOKEN
+      /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
       for (const key of Object.keys(process.env)) {
         if (!(key in original)) Reflect.deleteProperty(process.env, key)
       }
@@ -1199,6 +1370,7 @@ describe('createTransport', () => {
   })
 
   it('merges explicit env on top of scrubbed ambient env', () => {
+    /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const config: Config = {
       transport: 'stdio',
       serverName: 'srv',
@@ -1209,12 +1381,14 @@ describe('createTransport', () => {
       toolCallTimeoutMs: 60_000,
       failOnStartupError: false,
     }
+    /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const transport = createTransport(config)
     expect(transport).toBeDefined()
   })
 })
 
 describe('tool execution — non-object args fallback', () => {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let ctx: Context
 
   beforeEach(async () => {
@@ -1222,6 +1396,7 @@ describe('tool execution — non-object args fallback', () => {
   })
 
   it('coerces null args to empty object for callTool', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'coerce', inputSchema: { type: 'object' } }],
       { content: [{ type: 'text', text: 'ok' }] },
@@ -1238,6 +1413,7 @@ describe('tool execution — non-object args fallback', () => {
   })
 
   it('coerces primitive string args to empty object for callTool', async () => {
+    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const client = createMockClient(
       [{ name: 'coerce2', inputSchema: { type: 'object' } }],
       { content: [{ type: 'text', text: 'ok' }] },

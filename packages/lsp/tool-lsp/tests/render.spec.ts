@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 render.spec.ts 覆盖的LSP 语言服务行为与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、异步协议连接和可控测试替身。
+ * 产品维度：保障 Agent 能稳定使用LSP 语言服务提供的外部能力。
+ * 逻辑维度：准备上下文与协议数据，触发被测流程，再核对结果、呈现和资源清理。
+ * 关键边界：远端消息不可信；连接可能中断；异步资源必须在用例结束时释放。
+ * 新手阅读建议：先读辅助函数和夹具，再按 describe/it 阅读正常、失败与重连场景。
+ */
 import { describe, expect, it } from 'vitest'
 import { pathToFileURL } from 'node:url'
 import { join, resolve } from 'node:path'
@@ -13,16 +21,21 @@ import {
 } from '@deepseek-ai/dsh-tool-lsp'
 import type { LspLocation } from '@deepseek-ai/dsh-lsp'
 
+/** 中文说明：常量 WS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WS = resolve('/home/u/proj')
+/** 中文说明：常量 WS_URI 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WS_URI = pathToFileURL(WS).href
 
+/** 中文说明：函数 loc 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function loc(uri: string, line: number, character = 0): LspLocation {
   return { uri, range: { start: { line, character }, end: { line, character: character + 1 } } }
 }
 
 describe('parseLspArgs', () => {
   it('accepts the four operations and converts one-based to zero-based', () => {
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const operation of LSP_OPERATIONS) {
+      /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const input = parseLspArgs({ operation, file_path: 'a.ts', line: 3, character: 5 })
       expect(input.operation).toBe(operation)
       expect(input.position).toEqual({ line: 2, character: 4 })
@@ -48,12 +61,15 @@ describe('parseLspArgs', () => {
 
 describe('renderUri', () => {
   it('relativizes a file: URI inside the workspace with forward slashes', () => {
+    /** 中文说明：变量 uri 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const uri = pathToFileURL(join(WS, 'src', 'a.ts')).href
     expect(renderUri(uri, WS_URI)).toBe('src/a.ts')
   })
 
   it('returns an absolute path for a file: URI outside the workspace', () => {
+    /** 中文说明：变量 outside 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outside = resolve(WS, '..', 'other', 'lib', 'b.ts')
+    /** 中文说明：变量 uri 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const uri = pathToFileURL(outside).href
     expect(renderUri(uri, WS_URI)).toBe(outside.replaceAll('\\', '/'))
   })
@@ -64,6 +80,7 @@ describe('renderUri', () => {
 
   it('keeps an in-workspace path whose first segment starts with dots relative', () => {
     // `..generated` is a real in-workspace dir, not a parent escape; only a `..` segment is external.
+    /** 中文说明：变量 uri 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const uri = pathToFileURL(join(WS, '..generated', 'a.ts')).href
     expect(renderUri(uri, WS_URI)).toBe('..generated/a.ts')
   })
@@ -113,27 +130,36 @@ describe('formatLocations', () => {
   })
 
   it('renders one-based path:line:character grouped by file', () => {
+    /** 中文说明：变量 a 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const a = pathToFileURL(join(WS, 'a.ts')).href
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = formatLocations([loc(a, 0, 0), loc(a, 4, 2)], WS_URI, DEFAULT_MAX_LOCATIONS, DEFAULT_MAX_RESULT_CHARS)
     expect(text).toBe('a.ts:1:1\na.ts:5:3')
   })
 
   it('caps at maxLocations and marks the omission', () => {
+    /** 中文说明：变量 a 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const a = pathToFileURL(join(WS, 'a.ts')).href
+    /** 中文说明：函数值 many 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const many = Array.from({ length: 5 }, (_, i) => loc(a, i))
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = formatLocations(many, WS_URI, 2, DEFAULT_MAX_RESULT_CHARS)
     expect(text).toContain('a.ts:1:1')
     expect(text).toContain('3 more locations omitted (limit 2).')
   })
 
   it('uses the singular omission marker for exactly one extra', () => {
+    /** 中文说明：变量 a 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const a = pathToFileURL(join(WS, 'a.ts')).href
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = formatLocations([loc(a, 0), loc(a, 1)], WS_URI, 1, DEFAULT_MAX_RESULT_CHARS)
     expect(text).toContain('1 more location omitted (limit 1).')
   })
 
   it('caps the complete location text even when one URI is enormous', () => {
+    /** 中文说明：变量 maxResultChars 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const maxResultChars = 80
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = formatLocations([loc(`custom:${'x'.repeat(1_000_000)}`, 0)], WS_URI, 1, maxResultChars)
     expect(text).toHaveLength(maxResultChars)
     expect(text).toContain('locations truncated')
@@ -150,6 +176,7 @@ describe('formatHover', () => {
   })
 
   it('caps the complete hover text including its truncation marker', () => {
+    /** 中文说明：变量 text 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = formatHover({ contents: 'a'.repeat(100) }, 60)
     expect(text).toHaveLength(60)
     expect(text).toContain('hover truncated (limit 60 characters).')

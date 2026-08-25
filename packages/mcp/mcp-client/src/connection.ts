@@ -14,6 +14,14 @@
  *
  * @module
  */
+/**
+ * 文件职责：实现 connection.ts 承担的MCP 客户端连接、工具映射与生命周期职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、MCP/JSON-RPC 协议和异步资源管理。
+ * 产品维度：让 Agent 能发现并调用外部 MCP 服务器提供的工具。
+ * 逻辑维度：建立连接，协商能力，映射远端工具，并将调用结果转换为 Harness 数据。
+ * 关键边界：远端数据必须在协议入口校验；断线、取消和关闭必须释放资源。
+ * 新手阅读建议：先看公开类型与配置，再读连接建立和工具映射，最后关注重连与清理。
+ */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js'
@@ -25,6 +33,7 @@ import type { ToolBridgeOptions, ToolDisposers } from './tools.ts'
 import type { Config } from './index.ts'
 
 /** Automatic reconnect policy for one MCP server connection. */
+/** 中文说明：interface ReconnectConfig 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface ReconnectConfig {
   /** Reconnect automatically after a lost connection (default true). */
   enabled?: boolean
@@ -37,6 +46,7 @@ export interface ReconnectConfig {
 }
 
 /** Defaults shared by the Config schema and {@link resolveReconnectPolicy}. */
+/** 中文说明：常量 RECONNECT_DEFAULTS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const RECONNECT_DEFAULTS: Required<ReconnectConfig> = Object.freeze({
   enabled: true,
   initialDelayMs: 500,
@@ -47,9 +57,11 @@ export const RECONNECT_DEFAULTS: Required<ReconnectConfig> = Object.freeze({
 // The SDK's stdio transport owns two two-second termination grace periods.
 // Keep one additional second for the process-close event that proves the old
 // generation is gone; timing out fails closed instead of overlapping children.
+/** 中文说明：常量 GENERATION_CLOSE_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const GENERATION_CLOSE_TIMEOUT_MS = 5_000
 
 /** Fully resolved reconnect policy captured at plugin load. */
+/** 中文说明：type ResolvedReconnectPolicy 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export type ResolvedReconnectPolicy = Readonly<Required<ReconnectConfig>>
 
 /**
@@ -62,15 +74,21 @@ export type ResolvedReconnectPolicy = Readonly<Required<ReconnectConfig>>
  * @param path - Diagnostic prefix naming the config location in thrown messages.
  * @returns The frozen resolved policy.
  */
+/** 中文说明：函数 resolveReconnectPolicy 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function resolveReconnectPolicy(config: ReconnectConfig | undefined, path: string): ResolvedReconnectPolicy {
   if (config !== undefined) {
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const key of Object.keys(config)) {
       if (!Object.hasOwn(RECONNECT_DEFAULTS, key)) throw new Error(`${path}.${key} is not a reconnect option`)
     }
   }
+  /** 中文说明：变量 enabled 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const enabled = config?.enabled ?? RECONNECT_DEFAULTS.enabled
+  /** 中文说明：变量 initialDelayMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const initialDelayMs = config?.initialDelayMs ?? RECONNECT_DEFAULTS.initialDelayMs
+  /** 中文说明：变量 maxDelayMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const maxDelayMs = config?.maxDelayMs ?? RECONNECT_DEFAULTS.maxDelayMs
+  /** 中文说明：变量 maxAttempts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const maxAttempts = config?.maxAttempts ?? RECONNECT_DEFAULTS.maxAttempts
   /* jscpd:ignore-start — domain-specific delay validation parallels llm retry-policy; not extractable */
   if (!Number.isFinite(initialDelayMs) || initialDelayMs <= 0 || initialDelayMs > MAX_TIMER_DELAY_MS) {
@@ -90,12 +108,14 @@ export function resolveReconnectPolicy(config: ReconnectConfig | undefined, path
 }
 
 /** Result from the initial connection attempt, for startup-await semantics. */
+/** 中文说明：interface ConnectionOutcome 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface ConnectionOutcome {
   /** If the initial connection or tool sync failed, the error; otherwise absent. */
   error?: unknown
 }
 
 /** Handle for one plugin instance's supervised connection. */
+/** 中文说明：interface ConnectionHandle 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export interface ConnectionHandle {
   /**
    * Settles when the first connection attempt completes (success or failure).
@@ -120,8 +140,11 @@ export interface ConnectionHandle {
  * @param policy - Resolved reconnect policy from {@link resolveReconnectPolicy}.
  * @returns Handle with a `ready` promise for startup-await and a `dispose` for teardown.
  */
+/** 中文说明：函数 startConnection 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function startConnection(ctx: Context, config: Config, policy: ResolvedReconnectPolicy): ConnectionHandle {
+  /** 中文说明：变量 label 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const label = `mcp-client(${config.serverName})`
+  /** 中文说明：变量 opts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const opts: ToolBridgeOptions = {
     registrationFailure: 'contain',
     serverName: config.serverName,
@@ -130,26 +153,36 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   // The initial sync uses 'throw' when failOnStartupError is configured, so
   // a registration conflict propagates to the startup-await path. Re-syncs
   // and reconnect syncs always contain conflicts.
+  /** 中文说明：变量 startupOpts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const startupOpts: ToolBridgeOptions = config.failOnStartupError
     ? { ...opts, registrationFailure: 'throw' }
     : opts
 
+  /** 中文说明：变量 disposed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let disposed = false
   /** Current generation: the connecting or connected client; undefined during backoff waits and after final failure. */
+  /** 中文说明：变量 client 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let client: Client | undefined
   /** Close signal paired with {@link client}; captured by dispose before current ownership is cleared. */
+  /** 中文说明：变量 clientClosed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let clientClosed: Promise<void> | undefined
   /** Live tool registrations owned by this server; only {@link enqueueSync} and dispose swap it. */
+  /** 中文说明：变量 disposers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let disposers: ToolDisposers = new Map()
+  /** 中文说明：变量 reconnectTimer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let reconnectTimer: NodeJS.Timeout | undefined
   /** Consecutive failed connection attempts within the current outage. */
+  /** 中文说明：变量 failedAttempts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let failedAttempts = 0
   /** When the current generation finished connect + initial sync; undefined while down. */
+  /** 中文说明：变量 connectedAt 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let connectedAt: number | undefined
   /** The real error from the first connection attempt, for startup-await diagnostics. */
+  /** 中文说明：变量 firstAttemptError 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let firstAttemptError: unknown
 
   /** A generation may act only while it is the current one on a live plugin. */
+  /** 中文说明：函数值 isCurrent 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const isCurrent = (generation: Client): boolean => !disposed && client === generation
 
   /**
@@ -158,8 +191,11 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
    * dispose-previous/register-next swap (which would double-dispose one
    * generation and leak another).
    */
+  /** 中文说明：变量 syncChain 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let syncChain: Promise<void> = Promise.resolve()
+  /** 中文说明：函数 enqueueSync 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   function enqueueSync(generation: Client, syncOpts: ToolBridgeOptions = opts): Promise<void> {
+    /** 中文说明：函数值 run 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const run = syncChain.then(async () => {
       if (!isCurrent(generation)) return
       disposers = await syncTools(generation, ctx, syncOpts, disposers)
@@ -170,6 +206,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   }
 
   /** One disconnect decision per generation: the isCurrent guard makes racing close/error signals idempotent. */
+  /** 中文说明：函数 generationDown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   function generationDown(generation: Client): void {
     if (!isCurrent(generation)) return
     client = undefined
@@ -178,8 +215,10 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   }
 
   /** Wait for the transport-owned close signal without letting a broken transport wedge teardown forever. */
+  /** 中文说明：函数 waitForClose 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   function waitForClose(closed: Promise<void>): Promise<boolean> {
     return new Promise((resolve) => {
+      /** 中文说明：函数值 timeout 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const timeout = setTimeout(() => { resolve(false) }, GENERATION_CLOSE_TIMEOUT_MS)
       timeout.unref()
       void closed.then(() => {
@@ -189,9 +228,12 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
     })
   }
 
+  /** 中文说明：函数 scheduleReconnect 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   function scheduleReconnect(): void {
+    /** 中文说明：变量 lostEstablishedConnection 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lostEstablishedConnection = connectedAt !== undefined
     if (!policy.enabled) {
+      /** 中文说明：变量 message 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const message = lostEstablishedConnection
         ? 'connection lost and reconnect is disabled — registered tools will fail until an HMR reload or Host restart'
         : 'connection failed and reconnect is disabled — no tools were registered; reload the plugin or restart the Host to connect'
@@ -207,13 +249,16 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
       // Enqueue the give-up disposal so it cannot race an in-flight sync's
       // phase-2 swap (which checks isCurrent inside the queue).
       syncChain = syncChain.then(() => {
+        /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
         for (const dispose of disposers.values()) dispose()
         disposers = new Map()
       })
       ctx.logger.error(`${label}: giving up after ${policy.maxAttempts} consecutive failed reconnect attempts — tools unregistered; reload the plugin or restart the Host to reconnect`)
       return
     }
+    /** 中文说明：变量 delayMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const delayMs = Math.min(policy.maxDelayMs, policy.initialDelayMs * 2 ** (failedAttempts - 1))
+    /** 中文说明：变量 action 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const action = lostEstablishedConnection ? 'connection lost; reconnecting' : 'connection failed; retrying'
     ctx.logger.warn(`${label}: ${action} in ${delayMs}ms (attempt ${failedAttempts}/${policy.maxAttempts})`)
     reconnectTimer = setTimeout(() => {
@@ -234,14 +279,20 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
    *
    * @param startup - Whether this is the plugin's activation attempt.
    */
+  /** 中文说明：函数 connectGeneration 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
   async function connectGeneration(startup: boolean): Promise<void> {
+    /** 中文说明：变量 generation 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generation = new Client(
       { name: 'dsh-mcp-client', version: '0.0.1' },
       { capabilities: {} },
     )
+    /** 中文说明：变量 closed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const closed: PromiseWithResolvers<void> = Promise.withResolvers()
+    /** 中文说明：变量 attemptSettled 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let attemptSettled = false
+    /** 中文说明：变量 closeObserved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let closeObserved = false
+    /** 中文说明：函数值 hasClosed 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const hasClosed = (): boolean => closeObserved
     client = generation
     clientClosed = closed.promise
@@ -282,6 +333,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
       // only a live supervisor reports an attempt failure.
       if (isCurrent(generation)) ctx.logger.warn(`${label}: connection attempt failed: ${String(error)}`)
       try { await generation.close() } catch { /* transport already gone */ }
+      /** 中文说明：变量 quiesced 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const quiesced = hasClosed() || await waitForClose(closed.promise)
       attemptSettled = true
       if (!isCurrent(generation)) return
@@ -305,11 +357,13 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   }
 
   /** The in-flight (or last settled) connection attempt; dispose awaits it for quiescence. */
+  /** 中文说明：变量 settling 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let settling = connectGeneration(true)
 
   // The ready promise settles when the first attempt finishes (regardless of
   // success). If the first attempt fails and reconnect is enabled, the
   // supervisor is already scheduling a retry — ready just reports the outcome.
+  /** 中文说明：函数值 ready 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const ready: Promise<ConnectionOutcome> = settling.then(() => {
     // After settling: if client is set the initial connect+sync succeeded.
     // If not, the supervisor either scheduled a retry (error logged) or gave
@@ -330,7 +384,9 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
         clearTimeout(reconnectTimer)
         reconnectTimer = undefined
       }
+      /** 中文说明：变量 current 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const current = client
+      /** 中文说明：变量 currentClosed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const currentClosed = clientClosed
       client = undefined
       clientClosed = undefined
@@ -344,6 +400,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
       // sync before settling, so awaiting both leaves `disposers` final.
       await settling
       await syncChain
+      /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
       for (const dispose of disposers.values()) dispose()
       disposers = new Map()
     },

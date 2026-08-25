@@ -4,6 +4,14 @@
  * cap, the stability-window budget reset, and disposal stopping reconnection.
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
+/**
+ * 文件职责：验证 reconnect.spec.ts 覆盖的MCP 客户端行为、持久化与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身。
+ * 产品维度：保障 Agent 使用MCP 客户端时得到稳定且可重放的结果。
+ * 逻辑维度：准备上下文与事件，触发被测流程，再核对状态、输出和资源清理。
+ * 关键边界：持久化事件必须可重放；连接和异步资源必须在用例结束时释放。
+ * 新手阅读建议：先读辅助函数，再按 describe/it 阅读正常、恢复与失败场景。
+ */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -16,13 +24,19 @@ import type { Config } from '@deepseek-ai/dsh-mcp-client'
 // vi.mock factories are hoisted above every import/const, so the mock fns and
 // class must be created inside vi.hoisted to exist when the factories run.
 const { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotificationHandler, MockClient, instances } = vi.hoisted(() => {
+  /** 中文说明：函数值 mockConnect 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const mockConnect = vi.fn<() => Promise<void>>()
+  /** 中文说明：函数值 mockClose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const mockClose = vi.fn<() => Promise<void>>()
+  /** 中文说明：函数值 mockListTools 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const mockListTools = vi.fn<(_params?: Record<string, unknown>) => Promise<unknown>>()
+  /** 中文说明：变量 mockCallTool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mockCallTool = vi.fn<(
     _params?: Record<string, unknown>, _compatibilitySchema?: unknown, _options?: unknown,
   ) => Promise<unknown>>()
+  /** 中文说明：变量 mockSetNotificationHandler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mockSetNotificationHandler = vi.fn()
+  /** 中文说明：变量 mockRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mockRequest = vi.fn(async (
     request: { method: string; params?: Record<string, unknown> },
     _schema: unknown,
@@ -32,6 +46,7 @@ const { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotification
     if (request.method === 'tools/call') return await mockCallTool(request.params, undefined, options)
     throw new Error(`unexpected MCP request: ${request.method}`)
   })
+  /** 中文说明：class MockClient 定义本测试所需的数据或行为，用于表达当前功能场景。 */
   class MockClient {
     onclose: (() => void) | undefined
     connect = mockConnect
@@ -40,6 +55,7 @@ const { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotification
     setNotificationHandler = mockSetNotificationHandler
     constructor() { instances.push(this) }
   }
+  /** 中文说明：变量 instances 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const instances: MockClient[] = []
   return { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotificationHandler, MockClient, instances }
 })
@@ -63,28 +79,37 @@ import { RECONNECT_DEFAULTS, resolveReconnectPolicy, startConnection } from '@de
 
 // ---- Helpers ----
 
+/** 中文说明：变量 testToolSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const testToolSignal = new AbortController().signal
 
+/** 中文说明：函数 mountRegistry 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountRegistry(): Promise<Context> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   return ctx
 }
 
+/** 中文说明：函数 sleep 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sleep(ms: number): Promise<void> {
   // Annotated binding (not withResolvers<void>()): the tests lint layer runs
   // no-invalid-void-type with default options, which rejects the explicit
   // type argument in call position but accepts the inferred form.
+  /** 中文说明：变量 gate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const gate: PromiseWithResolvers<void> = Promise.withResolvers()
   setTimeout(gate.resolve, ms)
   return gate.promise
 }
 
 /** Capture the supervisor's logger lines by level on one context. */
+/** 中文说明：函数 captureLogs 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function captureLogs(ctx: Context): { warns: string[]; errors: string[]; infos: string[] } {
+  /** 中文说明：变量 warns 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const warns: string[] = []
+  /** 中文说明：变量 errors 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const errors: string[] = []
+  /** 中文说明：变量 infos 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const infos: string[] = []
   ctx.logger.warn = ((message: unknown) => { warns.push(String(message)) }) as typeof ctx.logger.warn
   ctx.logger.error = ((message: unknown) => { errors.push(String(message)) }) as typeof ctx.logger.error
@@ -92,6 +117,7 @@ function captureLogs(ctx: Context): { warns: string[]; errors: string[]; infos: 
   return { warns, errors, infos }
 }
 
+/** 中文说明：函数 stdioConfig 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function stdioConfig(reconnect?: Config['reconnect']): Config {
   return {
     transport: 'stdio',
@@ -107,6 +133,7 @@ function stdioConfig(reconnect?: Config['reconnect']): Config {
 }
 
 /** The tool list the mock server advertises after a successful (re)connect. */
+/** 中文说明：函数 listing 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function listing(...names: string[]): { tools: { name: string; inputSchema: { type: string } }[]; nextCursor: undefined } {
   return {
     tools: names.map(name => ({ name, inputSchema: { type: 'object' } })),
@@ -114,7 +141,9 @@ function listing(...names: string[]): { tools: { name: string; inputSchema: { ty
   }
 }
 
+/** 中文说明：变量 callSeq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let callSeq = 0
+/** 中文说明：函数 nextCallId 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function nextCallId(): CallId {
   return CallId(`reconnect-${++callSeq}`)
 }
@@ -122,6 +151,7 @@ function nextCallId(): CallId {
 // ---- Tests ----
 
 describe('reconnect supervisor', () => {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let ctx: Context
 
   beforeEach(async () => {
@@ -154,6 +184,7 @@ describe('reconnect supervisor', () => {
     expect(mockConnect).toHaveBeenCalledTimes(2)
 
     // Post-recovery calls execute through the re-registered definition.
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: nextCallId(), name: 'mcp__srv__revived', arguments: {},
@@ -201,9 +232,12 @@ describe('reconnect supervisor', () => {
     await apply(ctx, stdioConfig({ initialDelayMs: 2, maxDelayMs: 8, maxAttempts: 1 }))
     await vi.waitFor(() => { expect(ctx.tools.get('mcp__srv__remote')).toBeDefined() })
 
+    /** 中文说明：变量 gate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const gate: PromiseWithResolvers<unknown> = Promise.withResolvers()
     mockListTools.mockImplementation(() => gate.promise)
+    /** 中文说明：函数值 handler 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => Promise<void>
+    /** 中文说明：变量 resync 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resync = handler()
     await vi.waitFor(() => { expect(mockListTools).toHaveBeenCalledTimes(2) })
 
@@ -229,6 +263,7 @@ describe('reconnect supervisor', () => {
     // harness's second close call returns, but the child has not exited yet.
     mockClose.mockResolvedValue(undefined)
 
+    /** 中文说明：变量 applying 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const applying = apply(ctx, stdioConfig({ initialDelayMs: 2, maxDelayMs: 8, maxAttempts: 2 }))
     await vi.waitFor(() => { expect(mockClose).toHaveBeenCalled() })
     await sleep(30)
@@ -247,6 +282,7 @@ describe('reconnect supervisor', () => {
       mockConnect.mockRejectedValue(new Error('initialize failed'))
       mockClose.mockResolvedValue(undefined)
 
+      /** 中文说明：变量 applying 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const applying = apply(ctx, stdioConfig({ initialDelayMs: 2, maxDelayMs: 8, maxAttempts: 2 }))
       await vi.advanceTimersByTimeAsync(5_000)
       await applying
@@ -260,11 +296,14 @@ describe('reconnect supervisor', () => {
 
   it('suppresses retry reporting when disposal owns a pending connect rejection', async () => {
     const { warns } = captureLogs(ctx)
+    /** 中文说明：变量 gate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const gate: PromiseWithResolvers<void> = Promise.withResolvers()
     mockConnect.mockImplementation(() => gate.promise)
+    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = startConnection(ctx, stdioConfig(), resolveReconnectPolicy(undefined, 'reconnect'))
     await vi.waitFor(() => { expect(instances).toHaveLength(1) })
 
+    /** 中文说明：变量 disposing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposing = handle.dispose()
     gate.reject(new Error('disposed connect'))
     await disposing
@@ -278,12 +317,15 @@ describe('reconnect supervisor', () => {
     vi.useFakeTimers()
     try {
       const { errors } = captureLogs(ctx)
+      /** 中文说明：变量 gate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const gate: PromiseWithResolvers<void> = Promise.withResolvers()
       mockConnect.mockImplementation(() => gate.promise)
       mockClose.mockResolvedValue(undefined)
+      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = startConnection(ctx, stdioConfig(), resolveReconnectPolicy(undefined, 'reconnect'))
       await vi.advanceTimersByTimeAsync(0)
 
+      /** 中文说明：变量 disposing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const disposing = handle.dispose()
       await vi.advanceTimersByTimeAsync(5_000)
       gate.resolve()
@@ -309,6 +351,7 @@ describe('reconnect supervisor', () => {
   })
 
   it('a transport close after dispose schedules nothing', async () => {
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin({ name: 'mcp-client', inject: ['tools'], apply }, stdioConfig())
     await vi.waitFor(() => { expect(ctx.tools.get('mcp__srv__remote')).toBeDefined() })
 
@@ -419,15 +462,18 @@ describe('reconnect supervisor', () => {
   })
 
   it('dispose during an in-flight initial sync quiesces without leaking tools', async () => {
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin({ name: 'mcp-client', inject: ['tools'], apply }, stdioConfig({ initialDelayMs: 2, maxDelayMs: 8, maxAttempts: 5 }))
     await vi.waitFor(() => { expect(ctx.tools.get('mcp__srv__remote')).toBeDefined() })
 
     // Block the reconnect attempt's tool discovery until after dispose starts.
+    /** 中文说明：变量 gate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const gate: PromiseWithResolvers<unknown> = Promise.withResolvers()
     mockListTools.mockImplementation(() => gate.promise)
     instances[0]!.onclose?.()
     await vi.waitFor(() => { expect(mockListTools).toHaveBeenCalledTimes(2) })
 
+    /** 中文说明：变量 disposing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposing = fiber.dispose()
     await sleep(10)
     gate.resolve(listing('late'))
@@ -441,15 +487,20 @@ describe('reconnect supervisor', () => {
 
   it('a re-sync failing because dispose closed the transport stays silent', async () => {
     const { errors } = captureLogs(ctx)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin({ name: 'mcp-client', inject: ['tools'], apply }, stdioConfig())
     await vi.waitFor(() => { expect(ctx.tools.get('mcp__srv__remote')).toBeDefined() })
 
+    /** 中文说明：变量 gate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const gate: PromiseWithResolvers<unknown> = Promise.withResolvers()
     mockListTools.mockImplementation(() => gate.promise)
+    /** 中文说明：函数值 handler 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => Promise<void>
+    /** 中文说明：变量 resync 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resync = handler()
     await vi.waitFor(() => { expect(mockListTools).toHaveBeenCalledTimes(2) })
 
+    /** 中文说明：变量 disposing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposing = fiber.dispose()
     await sleep(10)
     gate.reject(new Error('Connection closed'))
@@ -466,8 +517,10 @@ describe('reconnect supervisor', () => {
     instances[0]!.onclose?.()
     await vi.waitFor(() => { expect(instances).toHaveLength(2) })
     await vi.waitFor(() => { expect(ctx.tools.get('mcp__srv__remote')).toBeDefined() })
+    /** 中文说明：变量 listCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listCalls = mockListTools.mock.calls.length
 
+    /** 中文说明：函数值 staleHandler 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const staleHandler = mockSetNotificationHandler.mock.calls[0]![1] as () => Promise<void>
     await staleHandler()
     expect(mockListTools).toHaveBeenCalledTimes(listCalls)
@@ -477,9 +530,11 @@ describe('reconnect supervisor', () => {
 // ---- Policy resolution ----
 
 describe('resolveReconnectPolicy', () => {
+  /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = 'mcp-client(srv): reconnect'
 
   it('resolves omission to the defaults, frozen', () => {
+    /** 中文说明：变量 policy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const policy = resolveReconnectPolicy(undefined, path)
     expect(policy).toEqual(RECONNECT_DEFAULTS)
     expect(Object.isFrozen(policy)).toBe(true)
@@ -514,6 +569,7 @@ describe('resolveReconnectPolicy', () => {
   })
 
   it('apply fails loud at load on a misconfigured reconnect', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await mountRegistry()
     await expect(apply(ctx, stdioConfig({ initialDelayMs: 100, maxDelayMs: 5 })))
       .rejects.toThrow(/initialDelayMs must be less than or equal to maxDelayMs/)

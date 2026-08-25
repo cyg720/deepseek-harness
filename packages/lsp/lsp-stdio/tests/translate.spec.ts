@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 LSP 连接、生命周期、协议转换与语言服务器协作行为（translate.spec.ts）。
+ * 技术维度：TypeScript、Vitest、JSON-RPC/LSP 协议、Node.js 流与可控进程。
+ * 产品维度：保障语言服务器能力能被 Agent 稳定调用。
+ * 逻辑维度：准备连接或测试进程，发送协议消息并核对结果与清理。
+ * 关键边界：帧长度、进程退出和取消均可能导致异步失败。
+ * 新手阅读建议：先读辅助对象，再看连接流程，最后阅读异常场景。
+ */
 import { describe, expect, it } from 'vitest'
 import {
   negotiatePositionEncoding,
@@ -9,6 +17,7 @@ import {
 } from '@deepseek-ai/dsh-lsp-stdio'
 import type { WireServerCapabilities } from '@deepseek-ai/dsh-lsp-stdio/src/protocol.ts'
 
+/** 中文说明：常量 RANGE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RANGE = { start: { line: 1, character: 2 }, end: { line: 1, character: 5 } }
 
 describe('requestMethod', () => {
@@ -22,6 +31,7 @@ describe('requestMethod', () => {
 
 describe('supportsOperation', () => {
   it('reads the provider slot for each operation (boolean and options forms)', () => {
+    /** 中文说明：变量 caps 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const caps: WireServerCapabilities = {
       definitionProvider: true,
       referencesProvider: { workDoneProgress: true },
@@ -76,11 +86,13 @@ describe('normalizeLocations', () => {
   })
 
   it('maps an array of Locations', () => {
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = normalizeLocations([{ uri: 'file:///a', range: RANGE }, { uri: 'file:///b', range: RANGE }])
     expect(result.map(l => l.uri)).toEqual(['file:///a', 'file:///b'])
   })
 
   it('maps a LocationLink from targetUri + targetSelectionRange', () => {
+    /** 中文说明：变量 link 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const link = { targetUri: 'file:///c', targetSelectionRange: RANGE, targetRange: RANGE }
     expect(normalizeLocations([link])).toEqual([{ uri: 'file:///c', range: RANGE }])
   })

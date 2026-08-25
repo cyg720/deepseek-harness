@@ -2,6 +2,14 @@
  * Tests for the mcp-client plugin's `apply` lifecycle entry point.
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
+/**
+ * 文件职责：验证 apply.spec.ts 覆盖的MCP 客户端行为与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、异步协议连接和可控测试替身。
+ * 产品维度：保障 Agent 能稳定使用MCP 客户端提供的外部能力。
+ * 逻辑维度：准备上下文与协议数据，触发被测流程，再核对结果、呈现和资源清理。
+ * 关键边界：远端消息不可信；连接可能中断；异步资源必须在用例结束时释放。
+ * 新手阅读建议：先读辅助函数和夹具，再按 describe/it 阅读正常、失败与重连场景。
+ */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -13,13 +21,19 @@ import type { Config } from '@deepseek-ai/dsh-mcp-client'
 // vi.mock factories are hoisted above every import/const, so the mock fns and
 // class must be created inside vi.hoisted to exist when the factories run.
 const { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotificationHandler, MockClient } = vi.hoisted(() => {
+  /** 中文说明：函数值 mockConnect 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const mockConnect = vi.fn<() => Promise<void>>()
+  /** 中文说明：函数值 mockClose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const mockClose = vi.fn<() => Promise<void>>()
+  /** 中文说明：函数值 mockListTools 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const mockListTools = vi.fn<(_params?: Record<string, unknown>) => Promise<unknown>>()
+  /** 中文说明：变量 mockCallTool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mockCallTool = vi.fn<(
     _params?: Record<string, unknown>, _compatibilitySchema?: unknown, _options?: unknown,
   ) => Promise<unknown>>()
+  /** 中文说明：变量 mockSetNotificationHandler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mockSetNotificationHandler = vi.fn()
+  /** 中文说明：变量 mockRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mockRequest = vi.fn(async (
     request: { method: string; params?: Record<string, unknown> },
     _schema: unknown,
@@ -29,6 +43,7 @@ const { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotification
     if (request.method === 'tools/call') return await mockCallTool(request.params, undefined, options)
     throw new Error(`unexpected MCP request: ${request.method}`)
   })
+  /** 中文说明：class MockClient 定义本测试所需的数据或行为，用于表达当前协议场景。 */
   class MockClient {
     connect = mockConnect
     close = mockClose
@@ -58,22 +73,27 @@ import { apply, name, inject, Config as ConfigSchema } from '@deepseek-ai/dsh-mc
 
 // ---- Helpers ----
 
+/** 中文说明：函数 mountRegistry 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountRegistry(): Promise<Context> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   return ctx
 }
 
+/** 中文说明：函数 sleep 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sleep(ms: number): Promise<void> {
   // Annotated binding (not withResolvers<void>()): the tests lint layer runs
   // no-invalid-void-type with default options, which rejects the explicit
   // type argument in call position but accepts the inferred form.
+  /** 中文说明：变量 gate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const gate: PromiseWithResolvers<void> = Promise.withResolvers()
   setTimeout(gate.resolve, ms)
   return gate.promise
 }
 
+/** 中文说明：变量 stdioConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const stdioConfig: Config = {
   transport: 'stdio',
   serverName: 'srv',
@@ -117,6 +137,7 @@ describe('mcp-client plugin module exports', () => {
   })
 
   it('Config schema accepts a valid serverName', () => {
+    /** 中文说明：变量 resolved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resolved = ConfigSchema({
       transport: 'stdio',
       serverName: 'github-prod_1',
@@ -126,6 +147,7 @@ describe('mcp-client plugin module exports', () => {
   })
 
   it('Config schema materializes reconnect defaults and merges partial overrides', () => {
+    /** 中文说明：变量 omitted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const omitted = ConfigSchema({
       transport: 'stdio',
       serverName: 'srv',
@@ -133,6 +155,7 @@ describe('mcp-client plugin module exports', () => {
     } as never)
     expect(omitted.reconnect).toEqual({ enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 })
 
+    /** 中文说明：变量 partial 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const partial = ConfigSchema({
       transport: 'stdio',
       serverName: 'srv',
@@ -154,6 +177,7 @@ describe('mcp-client plugin module exports', () => {
 })
 
 describe('apply (plugin lifecycle)', () => {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let ctx: Context
 
   beforeEach(async () => {
@@ -182,12 +206,16 @@ describe('apply (plugin lifecycle)', () => {
   })
 
   it('keeps the Cordis plugin loading until initial discovery publishes its tools', async () => {
+    /** 中文说明：变量 connection 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const connection: PromiseWithResolvers<void> = Promise.withResolvers()
     mockConnect.mockImplementation(async () => {
       await connection.promise
     })
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin({ name: 'mcp-client-lifecycle', inject, apply }, stdioConfig)
+    /** 中文说明：变量 activated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let activated = false
+    /** 中文说明：函数值 activation 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const activation = Promise.resolve(fiber).then(() => { activated = true })
 
     await vi.waitFor(() => { expect(mockConnect).toHaveBeenCalled() })
@@ -209,6 +237,7 @@ describe('apply (plugin lifecycle)', () => {
   })
 
   it('releases the serverName reservation on dispose', async () => {
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = new Context()
     await first.plugin(SystemPrompt)
     await first.plugin(ToolRuntime)
@@ -219,6 +248,7 @@ describe('apply (plugin lifecycle)', () => {
 
     // Same root would conflict; a fresh app root reuses the name freely,
     // and the disposed instance no longer holds the reservation on its root.
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = new Context()
     await second.plugin(SystemPrompt)
     await second.plugin(ToolRuntime)
@@ -227,10 +257,13 @@ describe('apply (plugin lifecycle)', () => {
   })
 
   it('scopes serverName reservations per app root', async () => {
+    /** 中文说明：变量 other 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const other = await mountRegistry()
 
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = apply(ctx, stdioConfig)
     // Same serverName on a DIFFERENT root is fine.
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = apply(other, stdioConfig)
     await Promise.all([first, second])
 
@@ -254,6 +287,7 @@ describe('apply (plugin lifecycle)', () => {
   })
 
   it('rejects activation and still closes the client when startup failure is configured as fatal', async () => {
+    /** 中文说明：变量 cause 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cause = new Error('connection refused')
     mockConnect.mockRejectedValue(cause)
     await expect(apply(ctx, {
@@ -304,6 +338,7 @@ describe('apply (plugin lifecycle)', () => {
       execute: async () => 'foreign',
     })
     mockConnect.mockImplementation(async () => {
+      /** 中文说明：函数值 handler 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => Promise<void>
       await handler()
     })
@@ -328,6 +363,7 @@ describe('apply (plugin lifecycle)', () => {
       nextCursor: undefined,
     })
 
+    /** 中文说明：函数值 handler 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => Promise<void>
     await handler()
 
@@ -340,6 +376,7 @@ describe('apply (plugin lifecycle)', () => {
     expect(ctx.tools.get('mcp__srv__remote')).toBeDefined()
 
     mockListTools.mockRejectedValue(new Error('flaky server'))
+    /** 中文说明：函数值 handler 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => Promise<void>
     // Must not reject (contained), and must keep the last good generation.
     await handler()
@@ -350,6 +387,7 @@ describe('apply (plugin lifecycle)', () => {
   it('effect disposer unregisters the CURRENT generation and closes client', async () => {
     // Load through ctx.plugin so ONLY the plugin's fiber is disposed — the
     // registry must survive to observe the unregistration.
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin({ name: 'mcp-client', inject: ['tools'], apply }, stdioConfig)
     await fiber
 
@@ -358,6 +396,7 @@ describe('apply (plugin lifecycle)', () => {
       tools: [{ name: 'updated', inputSchema: { type: 'object' } }],
       nextCursor: undefined,
     })
+    /** 中文说明：函数值 handler 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => Promise<void>
     await handler()
     expect(ctx.tools.get('mcp__srv__updated')).toBeDefined()
@@ -386,6 +425,7 @@ describe('apply (plugin lifecycle)', () => {
   })
 
   it('uses streamable-http config path', async () => {
+    /** 中文说明：变量 httpConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const httpConfig: Config = {
       transport: 'streamable-http',
       serverName: 'web',

@@ -11,6 +11,14 @@
  * capability the copied preset did not already carry.
  * @module @deepseek-ai/dsh-agent-presets/authoring
  */
+/**
+ * 文件职责：实现 authoring.ts 承担的Agent 预设配置、装载与运行时协作职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、事件日志、配置解析和异步生命周期管理。
+ * 产品维度：让 Agent 能按用户配置启用Agent 预设并保持会话行为一致。
+ * 逻辑维度：解析输入配置，注册插件能力，处理事件，并在卸载时清理资源。
+ * 关键边界：配置错误应尽早失败；模型可见状态必须写入日志；注册必须可撤销。
+ * 新手阅读建议：先看导出类型和配置，再读插件入口与事件处理，最后关注校验和清理。
+ */
 
 import { chmod, cp, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
@@ -20,6 +28,7 @@ import { METADATA_FILE, renderPresetMetadata } from './metadata.ts'
 import { PRESET_ID, type AgentPreset, type PresetRoot } from './preset.ts'
 
 /** A preset id that cannot be used as a directory name under a root. */
+/** 中文说明：class InvalidPresetIdError 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export class InvalidPresetIdError extends Error {
   constructor(
     /** The rejected id. */
@@ -33,6 +42,7 @@ export class InvalidPresetIdError extends Error {
 }
 
 /** A copy target that is already occupied — a copy never overwrites. */
+/** 中文说明：class PresetExistsError 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export class PresetExistsError extends Error {
   constructor(
     /** The id that is already taken. */
@@ -46,6 +56,7 @@ export class PresetExistsError extends Error {
 }
 
 /** Authoring was attempted where the deployment allows none. */
+/** 中文说明：class PresetNotWritableError 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export class PresetNotWritableError extends Error {
   constructor(
     /** What the caller tried to change, for the diagnostic. */
@@ -62,7 +73,9 @@ export class PresetNotWritableError extends Error {
  * @returns the absolute path of the first `user` root.
  * @throws when the deployment configured no writable root.
  */
+/** 中文说明：函数 writableRoot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function writableRoot(roots: readonly PresetRoot[]): string {
+  /** 中文说明：函数值 root 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const root = roots.find(candidate => candidate.trust === 'user')
   if (root === undefined) {
     throw new PresetNotWritableError('', 'this deployment configures no user-writable preset root')
@@ -75,12 +88,15 @@ export function writableRoot(roots: readonly PresetRoot[]): string {
  * @param preset - the resolved preset.
  * @returns the file's contents.
  */
+/** 中文说明：函数 readComposition 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function readComposition(preset: AgentPreset): Promise<string> {
   return await readFile(preset.path, 'utf8')
 }
 
 /** Whether anything occupies the path (cp's own errorOnExist backstops races). */
+/** 中文说明：函数 occupied 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function occupied(path: string): Promise<boolean> {
+  /** 中文说明：变量 present 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let present = true
   try {
     await stat(path)
@@ -98,9 +114,12 @@ async function occupied(path: string): Promise<boolean> {
  * the settings document beside it, so group/other access is stripped. A
  * file's owner-execute bit survives — a preset may ship runnable helpers.
  */
+/** 中文说明：函数 tightenModes 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function tightenModes(dir: string): Promise<void> {
   await chmod(dir, 0o700)
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const entry of await readdir(dir, { withFileTypes: true })) {
+    /** 中文说明：变量 target 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = join(dir, entry.name)
     if (entry.isDirectory()) {
       await tightenModes(target)
@@ -133,6 +152,7 @@ async function tightenModes(dir: string): Promise<void> {
  * @throws when the id is unusable or already occupied on disk, or the
  * deployment configures no writable root.
  */
+/** 中文说明：函数 copyComposition 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function copyComposition(
   roots: readonly PresetRoot[],
   source: AgentPreset,
@@ -140,6 +160,7 @@ export async function copyComposition(
   name?: string,
 ): Promise<string> {
   if (!PRESET_ID.test(id)) throw new InvalidPresetIdError(id)
+  /** 中文说明：变量 dir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = join(writableRoot(roots), id)
   // The roster check upstream only sees discovered presets; a directory with
   // no composition file still occupies the name and deserves a readable
@@ -150,10 +171,12 @@ export async function copyComposition(
       recursive: true, dereference: true, force: false, errorOnExist: true,
     })
     await tightenModes(dir)
+    /** 中文说明：变量 rendered 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rendered = renderPresetMetadata({
       ...name === undefined ? {} : { name },
       ...source.description === undefined ? {} : { description: source.description },
     })
+    /** 中文说明：变量 metadataPath 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const metadataPath = join(dir, METADATA_FILE)
     if (rendered === undefined) {
       await rm(metadataPath, { force: true })
@@ -179,6 +202,7 @@ export async function copyComposition(
  * @param preset - the resolved preset to remove.
  * @throws when the preset ships with the deployment or lies outside the writable root.
  */
+/** 中文说明：函数 deleteComposition 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export async function deleteComposition(
   roots: readonly PresetRoot[],
   preset: AgentPreset,
@@ -186,6 +210,7 @@ export async function deleteComposition(
   if (preset.trust !== 'user') {
     throw new PresetNotWritableError(preset.id, 'it ships with the deployment')
   }
+  /** 中文说明：变量 dir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = join(writableRoot(roots), preset.id)
   // Belt and braces over the id pattern: the resolved directory must still be
   // the one the writable root owns, whatever discovery reported.

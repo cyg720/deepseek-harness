@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 plan-mode.spec.ts 覆盖的计划模式行为、持久化与异常场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身。
+ * 产品维度：保障 Agent 使用计划模式时得到稳定且可重放的结果。
+ * 逻辑维度：准备上下文与事件，触发被测流程，再核对状态、输出和资源清理。
+ * 关键边界：持久化事件必须可重放；连接和异步资源必须在用例结束时释放。
+ * 新手阅读建议：先读辅助函数，再按 describe/it 阅读正常、恢复与失败场景。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage, CallId } from '@deepseek-ai/dsh-llm'
@@ -14,7 +22,9 @@ import { CodeRuntime, type CodeRunRequest, type CodeRunResult } from '@deepseek-
 import PlanModeController, { EXIT_PLAN_MODE, foldPlanMode, resolveConfig } from '../src/index.ts'
 import type { PlanModeConfig } from '../src/index.ts'
 
+/** 中文说明：常量 TEST_PLAN_SECTION 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TEST_PLAN_SECTION = 'Test plan mode instructions.'
+/** 中文说明：常量 PLAN_CONFIG 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PLAN_CONFIG = { section: TEST_PLAN_SECTION } satisfies PlanModeConfig
 
 /**
@@ -25,6 +35,7 @@ const PLAN_CONFIG = { section: TEST_PLAN_SECTION } satisfies PlanModeConfig
  * and the following `step/start` session event used by the loop.
  */
 
+/** 中文说明：函数 agentWithSession 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function agentWithSession(
   ctx: Context,
   id = 'agent-1',
@@ -32,7 +43,9 @@ async function agentWithSession(
 ): Promise<Agent & { session: Session }> {
   // A live store session when a store is mounted (the command executor logs
   // lifecycle events through it); bare otherwise (fold/tool-only benches).
+  /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const session = Session.create(SessionId(id))
+  /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = {
     id: SessionId(id),
     session,
@@ -41,6 +54,7 @@ async function agentWithSession(
       session.append('user/message', message, { surfaceOp: 'append' })
     },
   } as unknown as Agent & { session: Session }
+  /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let scoped!: Context
   await ctx.plugin(Object.assign((inner: Context) => { scoped = createScope(inner, agent).ctx }, {
     inject: ['tools'],
@@ -50,6 +64,7 @@ async function agentWithSession(
   if (active !== undefined) session.append('plan/mode', { active })
   // The loop publishes through the live registry when it is composed; narrow
   // fold-only benches retain the direct lifecycle event used before it exists.
+  /** 中文说明：变量 agents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agents = ctx.get('agents')
   if (agents === undefined) {
     ctx.emit('agent/created', { agent })
@@ -61,11 +76,14 @@ async function agentWithSession(
 }
 
 /** Assemble exactly as the loop does: the agent is both subject and scope. */
+/** 中文说明：函数 assembleFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function assembleFor(ctx: Context, agent: Agent) {
   return ctx.systemPrompt.assemble({ agent, scope: agent })
 }
 
+/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(config: PlanModeConfig = PLAN_CONFIG): Promise<Context> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
@@ -76,51 +94,64 @@ async function setup(config: PlanModeConfig = PLAN_CONFIG): Promise<Context> {
 /**
  * Dispatch pre-step processing and optionally its following step-start commit.
  */
+/** 中文说明：函数 boundary 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function boundary(ctx: Context, agent: Agent & { session: Session }, type: 'pre-step' | 'step-start'): Promise<void> {
+  /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events = agentEvents(ctx, agent)
+  /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const message = createUserMessage({
     content: [{ type: 'text', text: 'boundary probe' }],
     source: { kind: 'user' },
   })
+  /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const signal = new AbortController().signal
+  /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const decision = await events.waterfall(
     'agent/pre-step',
     { messages: [message], turn: 1, step: 1, signal },
     () => Promise.resolve({ kind: 'enter' as const, messages: [message] }),
   )
   if (decision.kind === 'enter') {
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const message of decision.messages.slice(1)) {
       agent.session.append('user/message', message, { surfaceOp: 'append' })
     }
   }
   if (type === 'step-start') {
+    /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event = agent.session.append('step/start', { turn: 1, step: 1 })
     ctx.emit('session/event', agent.session, event)
   }
 }
 
 /** Open a turn so a selection queues for the boundary flush (the mid-turn shape). */
+/** 中文说明：函数 openTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function openTurn(session: Session, turn = 0): void {
   session.append('turn/start', { turn })
 }
 
 /** Close the open turn (the between-turns shape: selections commit immediately). */
+/** 中文说明：函数 closeTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function closeTurn(session: Session, turn = 0): void {
   session.append('turn/end', { turn, reason: { kind: 'completed' } })
 }
 
 /** Append a minimal `request/header` snapshot so the log has a "what the model was told" anchor. */
+/** 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function header(session: Session): void {
   session.append('request/header', { header: { config: { provider: 'test', model: 'test-model' } }, reason: 'initial' })
 }
 
+/** 中文说明：函数 noticeTexts 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function noticeTexts(session: Session): string[] {
   return session.events
     .filter(event => event.type === 'user/message' && event.data.source.kind === 'plugin')
     .map(event => (event.data as { content: { type: string; text?: string }[] }).content.map(block => block.text ?? '').join(''))
 }
 
+/** 中文说明：函数 registerNamedTools 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function registerNamedTools(ctx: Context, names: string[]): void {
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const name of names) {
     ctx.tools.register(defineContentToolFixture({
       name,
@@ -132,6 +163,7 @@ function registerNamedTools(ctx: Context, names: string[]): void {
 }
 
 /** Assert the mapped Code Mode SDK includes the stable plan exit binding and test tools. */
+/** 中文说明：函数 expectPlanCodeSdkBindings 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectPlanCodeSdkBindings(sdk: string): void {
   expect(sdk).toContain('interface ToolArgsMap {')
   expect(sdk).toContain('read: Record<string, JsonValue>;')
@@ -141,7 +173,9 @@ function expectPlanCodeSdkBindings(sdk: string): void {
   expect(sdk).toContain('[K in ToolName]: (args: ToolArgsMap[K]) => Promise<ToolOutputMap[K]>;')
 }
 
+/** 中文说明：变量 callCounter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let callCounter = 0
+/** 中文说明：函数 execute 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function execute(ctx: Context, name: string, agent?: Agent) {
   return ctx.tools.execute({
     callId: CallId(`call-${++callCounter}`),
@@ -163,7 +197,9 @@ describe('resolveConfig', () => {
   })
 
   it('returns a detached plan config', () => {
+    /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const config = { section: TEST_PLAN_SECTION }
+    /** 中文说明：变量 resolved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resolved = resolveConfig(config)
     expect(resolved).toEqual(config)
     expect(resolved).not.toBe(config)
@@ -177,6 +213,7 @@ describe('resolveConfig', () => {
 
 describe('foldPlanMode', () => {
   it('folds an empty log to inactive and takes the last plan/mode otherwise', () => {
+    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('fold'))
     expect(foldPlanMode(session.events)).toBe(false)
     session.append('plan/mode', { active: true })
@@ -186,6 +223,7 @@ describe('foldPlanMode', () => {
   })
 
   it('folds a prefix when `end` is given', () => {
+    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('fold-prefix'))
     session.append('plan/mode', { active: true })
     session.append('plan/mode', { active: false })
@@ -196,7 +234,9 @@ describe('foldPlanMode', () => {
 
 describe('ctx.planMode: get/set', () => {
   it('reads the folded state', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     expect(ctx.planMode.get(agent)).toEqual({ active: false })
     agent.session.append('plan/mode', { active: true })
@@ -204,7 +244,9 @@ describe('ctx.planMode: get/set', () => {
   })
 
   it('selects inactive as the plan exit target during an open turn', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     agent.session.append('plan/mode', { active: true })
     openTurn(agent.session)
@@ -213,7 +255,9 @@ describe('ctx.planMode: get/set', () => {
   })
 
   it('drops a no-op set (target equals pending, else the current fold)', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     openTurn(agent.session)
     expect(ctx.planMode.set(agent, false)).toBe('noop')
@@ -224,7 +268,9 @@ describe('ctx.planMode: get/set', () => {
   })
 
   it('a between-turns selection commits plan/mode immediately (no boundary would come)', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-idle')
     expect(ctx.planMode.set(agent, true)).toBe('committed')
     expect(foldPlanMode(agent.session.events)).toBe(true)
@@ -238,7 +284,9 @@ describe('ctx.planMode: get/set', () => {
   })
 
   it('a between-turns reversal of a mid-turn pending intent cancels without logging', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     openTurn(agent.session)
     expect(ctx.planMode.set(agent, true)).toBe('queued')
@@ -250,7 +298,9 @@ describe('ctx.planMode: get/set', () => {
   })
 
   it('a between-turns commit narrates when the last header told the model otherwise', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-idle-narrate')
     header(agent.session)
     ctx.planMode.set(agent, true)
@@ -260,8 +310,11 @@ describe('ctx.planMode: get/set', () => {
 
 describe('the boundary flush', () => {
   it('is inert when no selection is pending', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
+    /** 中文说明：变量 service 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const service = ctx.planMode as unknown as { onBoundary(session: Session): void }
 
     expect(() => { service.onBoundary(agent.session) }).not.toThrow()
@@ -269,7 +322,9 @@ describe('the boundary flush', () => {
   })
 
   it('flushes from pre-step before the following step/start', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     openTurn(agent.session)
     ctx.planMode.set(agent, true)
@@ -279,10 +334,13 @@ describe('the boundary flush', () => {
   })
 
   it('removes the pre-step flush when the plugin fiber is disposed', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(PlanModeController, PLAN_CONFIG)
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     openTurn(agent.session)
     ctx.planMode.set(agent, true)
@@ -292,7 +350,9 @@ describe('the boundary flush', () => {
   })
 
   it('flushes at the between-step seam too', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     ctx.planMode.set(agent, true)
     await boundary(ctx, agent, 'step-start')
@@ -301,7 +361,9 @@ describe('the boundary flush', () => {
 
 
   it('nets out a flip sequence that returns to the folded mode (no append, no notice)', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     openTurn(agent.session)
     ctx.planMode.set(agent, true)
@@ -312,7 +374,9 @@ describe('the boundary flush', () => {
   })
 
   it('narrates nothing before the first request header (the section is the state statement)', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     ctx.planMode.set(agent, true)
     await boundary(ctx, agent, 'pre-step')
@@ -320,7 +384,9 @@ describe('the boundary flush', () => {
   })
 
   it('narrates once when the flushed mode differs from what the last header told the model', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     header(agent.session)
     ctx.planMode.set(agent, true)
@@ -331,7 +397,9 @@ describe('the boundary flush', () => {
   })
 
   it('narrates a switch back to the default mode with the default wording', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     agent.session.append('plan/mode', { active: true })
     header(agent.session)
@@ -341,7 +409,9 @@ describe('the boundary flush', () => {
   })
 
   it('stays silent when the header already reflects the flushed mode', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     agent.session.append('plan/mode', { active: true })
     header(agent.session)
@@ -354,12 +424,16 @@ describe('the boundary flush', () => {
 
 
   it('contains an append failure instead of blocking the prompt or the turn', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 warn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warn = vi.fn()
     ctx.logger.warn = warn as never
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     openTurn(agent.session)
     ctx.planMode.set(agent, true)
+    /** 中文说明：变量 original 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const original = agent.session.append.bind(agent.session)
     // Only the flush's own plan/mode append fails; the boundary event itself
     // lands (the loop appended it before the between-step hook fires).
@@ -380,12 +454,16 @@ describe('the boundary flush', () => {
   })
 
   it('contains a pre-step append failure and keeps the intent pending', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 warn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warn = vi.fn()
     ctx.logger.warn = warn as never
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     openTurn(agent.session)
     ctx.planMode.set(agent, true)
+    /** 中文说明：变量 original 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const original = agent.session.append.bind(agent.session)
     agent.session.append = (((type: string, ...rest: unknown[]) => {
       if (type === 'plan/mode') throw new Error('backend gone')
@@ -399,31 +477,40 @@ describe('the boundary flush', () => {
 
 describe('the soft layer', () => {
   it('keeps the tool schemas identical across default and plan mode', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     registerNamedTools(ctx, ['read', 'write'])
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
+    /** 中文说明：变量 defaultAssembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const defaultAssembly = await assembleFor(ctx, agent)
     expect(defaultAssembly.tools.map(tool => tool.name)).toEqual([EXIT_PLAN_MODE, 'read', 'write'])
     expect(defaultAssembly.sections.find(section => section.name === 'plan:policy')?.text).toBe('')
 
     agent.session.append('plan/mode', { active: true })
+    /** 中文说明：变量 planAssembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const planAssembly = await assembleFor(ctx, agent)
     expect(planAssembly.tools).toEqual(defaultAssembly.tools)
     expect(planAssembly.sections.find(section => section.name === 'plan:policy')?.text).toBe(TEST_PLAN_SECTION)
   })
 
   it('leaves an agent-less assembly untouched', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     registerNamedTools(ctx, ['read'])
+    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await ctx.systemPrompt.assemble()
     expect(assembly.tools.map(tool => tool.name)).toEqual([EXIT_PLAN_MODE, 'read'])
     expect(assembly.sections.find(section => section.name === 'plan:policy')?.text).toBe('')
   })
 
   it('keeps the full toolset in plan mode and renders the configured mode section', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     registerNamedTools(ctx, ['read', 'write', 'todo_write'])
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-1', { active: true })
+    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await assembleFor(ctx, agent)
     expect(assembly.tools.map(tool => tool.name).sort()).toEqual([EXIT_PLAN_MODE, 'read', 'todo_write', 'write'])
     expect(assembly.sections.find(section => section.name === 'plan:policy')?.text).toBe(TEST_PLAN_SECTION)
@@ -431,19 +518,23 @@ describe('the soft layer', () => {
 
   it('leaves foreign assemble additions alone (no assemble-layer filtering)', async () => {
     // Plan guidance does not filter the registry or later assembly additions.
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
+      /** 中文说明：变量 final 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const final = await next()
       final.tools = [...final.tools, { name: 'added-later', description: 'added after next()', parameters: {} }]
       return final
     })
     await ctx.plugin(PlanModeController, PLAN_CONFIG)
     registerNamedTools(ctx, ['read'])
+    /** 中文说明：变量 planning 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const planning = await agentWithSession(ctx, 'planning', { active: true })
     expect((await assembleFor(ctx, planning)).tools.map(tool => tool.name))
       .toEqual(['exit_plan_mode', 'read', 'added-later'])
+    /** 中文说明：变量 defaulted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const defaulted = await agentWithSession(ctx, 'defaulted')
     expect((await assembleFor(ctx, defaulted)).tools.map(tool => tool.name))
       .toEqual(['exit_plan_mode', 'read', 'added-later'])
@@ -452,73 +543,90 @@ describe('the soft layer', () => {
   it('keeps run_code the only wire tool in plan mode under the registry Code Mode; the SDK gains the exit binding', async () => {
     // Minimal scriptable runtime: the SDK section resolves ctx.codeRuntime at
     // assembly time (the code-mode.spec fake's shape).
+    /** 中文说明：class FakeRuntime 定义本测试所需的数据或行为，用于表达当前功能场景。 */
     class FakeRuntime extends CodeRuntime {
       readonly language = 'typescript'
       readonly isolation = 'fake'
       run(_request: CodeRunRequest): Promise<CodeRunResult> { return Promise.resolve({ logs: [] }) }
     }
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'code' })
     await ctx.plugin(FakeRuntime)
     await ctx.plugin(PlanModeController, PLAN_CONFIG)
     registerNamedTools(ctx, ['read', 'write'])
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-1', { active: true })
+    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await assembleFor(ctx, agent)
     expect(assembly.tools.map(tool => tool.name)).toEqual(['run_code'])
     // The SDK documents the full binding set plus the exit; plan mode never
     // prunes capabilities and restrains through guidance alone.
+    /** 中文说明：函数值 sdk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const sdk = assembly.sections.find(section => section.name === 'tools:sdk')?.text ?? ''
     expectPlanCodeSdkBindings(sdk)
   })
 
   it('keeps native wire schemas and the SDK in step under mode both', async () => {
+    /** 中文说明：class FakeRuntime 定义本测试所需的数据或行为，用于表达当前功能场景。 */
     class FakeRuntime extends CodeRuntime {
       readonly language = 'typescript'
       readonly isolation = 'fake'
       run(_request: CodeRunRequest): Promise<CodeRunResult> { return Promise.resolve({ logs: [] }) }
     }
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'both' })
     await ctx.plugin(FakeRuntime)
     await ctx.plugin(PlanModeController, PLAN_CONFIG)
     registerNamedTools(ctx, ['read', 'write'])
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-1', { active: true })
+    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await assembleFor(ctx, agent)
     // The stable registry contribution reaches both model interfaces: the exit tool
     // is present on the wire AND in the SDK alongside the untouched toolset.
     expect(assembly.tools.map(tool => tool.name).sort()).toEqual(['exit_plan_mode', 'read', 'run_code', 'write'])
+    /** 中文说明：函数值 sdk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const sdk = assembly.sections.find(section => section.name === 'tools:sdk')?.text ?? ''
     expectPlanCodeSdkBindings(sdk)
   })
 
   it('keeps the Code Mode SDK byte-identical across mode switches', async () => {
+    /** 中文说明：class FakeRuntime 定义本测试所需的数据或行为，用于表达当前功能场景。 */
     class FakeRuntime extends CodeRuntime {
       readonly language = 'typescript'
       readonly isolation = 'fake'
       run(_request: CodeRunRequest): Promise<CodeRunResult> { return Promise.resolve({ logs: [] }) }
     }
+    /** 中文说明：变量 withPlanMode 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const withPlanMode = new Context()
     await withPlanMode.plugin(SystemPrompt)
     await withPlanMode.plugin(ToolRuntime, { mode: 'code' })
     await withPlanMode.plugin(FakeRuntime)
     await withPlanMode.plugin(PlanModeController, PLAN_CONFIG)
     registerNamedTools(withPlanMode, ['read', 'write'])
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(withPlanMode)
+    /** 中文说明：函数值 defaultSdk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const defaultSdk = (await assembleFor(withPlanMode, agent)).sections.find(section => section.name === 'tools:sdk')?.text ?? ''
     expectPlanCodeSdkBindings(defaultSdk)
     agent.session.append('plan/mode', { active: true })
+    /** 中文说明：函数值 planSdk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const planSdk = (await assembleFor(withPlanMode, agent)).sections.find(section => section.name === 'tools:sdk')?.text ?? ''
     expect(planSdk).toBe(defaultSdk)
 
     // Loading the plan-mode plugin deliberately adds one stable binding compared
     // with a deployment that does not compose plan mode at all.
+    /** 中文说明：变量 bare 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bare = new Context()
     await bare.plugin(SystemPrompt)
     await bare.plugin(ToolRuntime, { mode: 'code' })
     await bare.plugin(FakeRuntime)
     registerNamedTools(bare, ['read', 'write'])
+    /** 中文说明：函数值 bareSdk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const bareSdk = (await bare.systemPrompt.assemble({ agent })).sections.find(section => section.name === 'tools:sdk')?.text ?? ''
     expect(bareSdk).not.toContain('exit_plan_mode:')
     expect(defaultSdk).not.toBe(bareSdk)
@@ -527,20 +635,28 @@ describe('the soft layer', () => {
 
 describe('no execution gating beyond the exit tool', () => {
   it('passes agent-less and default-mode executions through', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     registerNamedTools(ctx, ['write'])
+    /** 中文说明：变量 agentless 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agentless = await execute(ctx, 'write')
     expect(agentless.isError).toBe(false)
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
+    /** 中文说明：变量 defaulted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const defaulted = await execute(ctx, 'write', agent)
     expect(defaulted.isError).toBe(false)
   })
 
   it('runs every call in plan mode untouched — guidance and enforcement are separate axes', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     registerNamedTools(ctx, ['read', 'write', 'bash'])
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-1', { active: true })
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const name of ['read', 'write', 'bash']) {
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await execute(ctx, name, agent)
       expect(result.isError).toBe(false)
     }
@@ -549,24 +665,30 @@ describe('no execution gating beyond the exit tool', () => {
 
 describe('/plan', () => {
   it('registers only when a commands service is composed and optionally submits the next-step message', async () => {
+    /** 中文说明：变量 bare 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bare = await setup()
     expect(bare.get('commands')).toBeUndefined()
 
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     await ctx.plugin(CommandRuntime)
     // The `ctx.inject` child mounts asynchronously once `commands` resolves.
     await new Promise(resolve => setImmediate(resolve))
+    /** 中文说明：变量 plainAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plainAgent = await agentWithSession(ctx, 'plain-plan-command')
     openTurn(plainAgent.session)
+    /** 中文说明：变量 plainSteer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plainSteer = vi.fn()
     ;(plainAgent as unknown as { steer: typeof plainSteer }).steer = plainSteer
     expect(ctx.commands.list(plainAgent)).toEqual([
       { name: 'plan', description: 'Enter or leave plan mode', input: { hint: '[off|message]', images: true } },
     ])
 
+    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = new AbortController().signal
     expect(await ctx.commands.execute(plainAgent, '/mode', [], signal)).toBeUndefined()
     expect(await ctx.commands.execute(plainAgent, '/review', [], signal)).toBeUndefined()
+    /** 中文说明：变量 plain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plain = await ctx.commands.execute(plainAgent, '/plan', [], signal)
     expect(plain?.result).toEqual({
       kind: 'success',
@@ -575,10 +697,13 @@ describe('/plan', () => {
     expect(ctx.planMode.get(plainAgent)).toEqual({ active: false, pending: true })
     expect(plainSteer).not.toHaveBeenCalled()
 
+    /** 中文说明：变量 messageAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const messageAgent = await agentWithSession(ctx, 'message-plan-command')
     openTurn(messageAgent.session)
+    /** 中文说明：变量 messageSteer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const messageSteer = vi.fn()
     ;(messageAgent as unknown as { steer: typeof messageSteer }).steer = messageSteer
+    /** 中文说明：变量 plan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plan = await ctx.commands.execute(messageAgent, '/plan   draft the migration  ', [], signal)
     expect(plan?.result).toEqual({
       kind: 'success',
@@ -594,18 +719,23 @@ describe('/plan', () => {
   })
 
   it('leaves active plan mode, cancels a pending entry, and treats inactive exit as idempotent', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     await ctx.plugin(CommandRuntime)
     await new Promise(resolve => setImmediate(resolve))
+    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = new AbortController().signal
 
+    /** 中文说明：变量 inactive 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inactive = await agentWithSession(ctx, 'inactive-plan-command')
     expect((await ctx.commands.execute(inactive, '/plan off', [], signal))?.result)
       .toEqual({ kind: 'success', text: 'Plan mode is already inactive.' })
     expect(ctx.planMode.get(inactive)).toEqual({ active: false })
 
+    /** 中文说明：变量 entering 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entering = await agentWithSession(ctx, 'entering-plan-command')
     openTurn(entering.session)
+    /** 中文说明：变量 enteringSteer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const enteringSteer = vi.fn()
     ;(entering as unknown as { steer: typeof enteringSteer }).steer = enteringSteer
     await ctx.commands.execute(entering, '/plan', [], signal)
@@ -617,8 +747,10 @@ describe('/plan', () => {
     expect(ctx.planMode.get(entering)).toEqual({ active: false })
     expect(entering.session.events.some(event => event.type === 'plan/mode')).toBe(false)
 
+    /** 中文说明：变量 active 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const active = await agentWithSession(ctx, 'active-plan-command', { active: true })
     openTurn(active.session)
+    /** 中文说明：变量 activeSteer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const activeSteer = vi.fn()
     ;(active as unknown as { steer: typeof activeSteer }).steer = activeSteer
     expect((await ctx.commands.execute(active, '/plan off', [], signal))?.result)
@@ -632,10 +764,13 @@ describe('/plan', () => {
   })
 
   it('idle sessions get the immediate-commit copy on both /plan and /plan off', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     await ctx.plugin(CommandRuntime)
     await new Promise(resolve => setImmediate(resolve))
+    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = new AbortController().signal
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'idle-plan-command')
     expect((await ctx.commands.execute(agent, '/plan', [], signal))?.result)
       .toEqual({ kind: 'success', text: 'Plan mode on. Use /plan off to leave.' })
@@ -646,10 +781,13 @@ describe('/plan', () => {
   })
 
   it('steers image attachments with or without text and refuses them on /plan off', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     await ctx.plugin(CommandRuntime)
     await new Promise(resolve => setImmediate(resolve))
+    /** 中文说明：变量 saved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let saved = 0
+    /** 中文说明：函数值 saveImage 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const saveImage = (input: { mediaType: string }) => {
       saved += 1
       return Promise.resolve({
@@ -664,18 +802,25 @@ describe('/plan', () => {
       validateImage: () => Promise.resolve(),
       saveImage,
       async saveImages(inputs: readonly { mediaType: string }[]) {
+        /** 中文说明：变量 refs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const refs = []
+        /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
         for (const input of inputs) refs.push(await saveImage(input))
         return refs
       },
     })
+    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = new AbortController().signal
+    /** 中文说明：变量 images 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const images = [{ mediaType: 'image/png' as const, data: 'AAAA' }]
 
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'imaged-plan-command')
     openTurn(agent.session)
+    /** 中文说明：变量 steer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const steer = vi.fn()
     ;(agent as unknown as { steer: typeof steer }).steer = steer
+    /** 中文说明：变量 withMessage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const withMessage = await ctx.commands.execute(agent, '/plan sketch the layout', images, signal)
     expect(withMessage?.result.kind).toBe('success')
     expect(steer).toHaveBeenCalledExactlyOnceWith({
@@ -688,8 +833,10 @@ describe('/plan', () => {
       source: { kind: 'user' },
     })
 
+    /** 中文说明：变量 bareAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bareAgent = await agentWithSession(ctx, 'imaged-bare-plan-command')
     openTurn(bareAgent.session)
+    /** 中文说明：变量 bareSteer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bareSteer = vi.fn()
     ;(bareAgent as unknown as { steer: typeof bareSteer }).steer = bareSteer
     expect((await ctx.commands.execute(bareAgent, '/plan', images, signal))?.result)
@@ -702,7 +849,9 @@ describe('/plan', () => {
     })
     expect(ctx.planMode.get(bareAgent)).toEqual({ active: false, pending: true })
 
+    /** 中文说明：变量 activeAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const activeAgent = await agentWithSession(ctx, 'imaged-off-plan-command', { active: true })
+    /** 中文说明：变量 offSteer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const offSteer = vi.fn()
     ;(activeAgent as unknown as { steer: typeof offSteer }).steer = offSteer
     expect((await ctx.commands.execute(activeAgent, '/plan off', images, signal))?.result)
@@ -712,12 +861,15 @@ describe('/plan', () => {
   })
 
   it('removes the contributed command when the plan-mode plugin is disposed', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(CommandRuntime)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(PlanModeController, PLAN_CONFIG)
     await new Promise(resolve => setImmediate(resolve))
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     expect(ctx.commands.list(agent).map(command => command.name)).toEqual(['plan'])
 
@@ -728,10 +880,13 @@ describe('/plan', () => {
 })
 
 describe('exit_plan_mode', () => {
+  /** 中文说明：函数 setupWithReview 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function setupWithReview(answer?: { selected: string[]; custom?: string }) {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(UserQuestionService)
+    /** 中文说明：变量 asked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const asked: AskUserQuestionRequest[] = []
     if (answer !== undefined) {
       ctx.userQuestions.registerProvider({
@@ -741,10 +896,12 @@ describe('exit_plan_mode', () => {
         },
       })
     }
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-1', { active: true })
     return { ctx, agent, asked }
   }
 
+  /** 中文说明：函数 callExit 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function callExit(ctx: Context, agent: Agent | undefined, plan = '# The plan\n\ndo things') {
     return ctx.tools.execute({
       callId: CallId(`call-exit-${++callCounter}`),
@@ -756,8 +913,11 @@ describe('exit_plan_mode', () => {
   }
 
   it('registers the tool with one required plan argument', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：函数值 schema 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const schema = ctx.tools.schemas().find(entry => entry.name === EXIT_PLAN_MODE)
+    /** 中文说明：变量 parameters 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parameters = schema?.parameters as { required?: string[]; properties?: Record<string, unknown> }
     expect(schema?.description).toMatch(/^Use only in plan mode\./)
     expect(Object.keys(parameters.properties ?? {})).toEqual(['plan'])
@@ -765,16 +925,21 @@ describe('exit_plan_mode', () => {
   })
 
   it('rejects an agent-less call', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, undefined)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: exit_plan_mode requires a calling agent (no session to switch)' }])
   })
 
   it('rejects a call outside plan mode while remaining advertised', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx)
     expect(ctx.tools.schemas().map(tool => tool.name)).toContain(EXIT_PLAN_MODE)
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: exit_plan_mode is only available in plan mode' }])
@@ -782,7 +947,9 @@ describe('exit_plan_mode', () => {
 
   it('rejects an empty or heading-less plan before asking the reviewer', async () => {
     const { ctx, agent, asked } = await setupWithReview({ selected: ['Approve'] })
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const plan of ['', 'do things']) {
+      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await callExit(ctx, agent, plan)
       expect(result.isError).toBe(true)
       expect(result.content).toEqual([{ type: 'text', text: 'Error: exit_plan_mode requires a non-empty markdown plan starting with a # heading' }])
@@ -792,8 +959,11 @@ describe('exit_plan_mode', () => {
   })
 
   it('degrades to the manual exit when no user-questions seam is composed', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-1', { active: true })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: no user-questions channel is available to review the plan; ask the user to switch the session mode instead' }])
@@ -802,6 +972,7 @@ describe('exit_plan_mode', () => {
 
   it('degrades the same way when the seam has no provider (NO_PROVIDER)', async () => {
     const { ctx, agent } = await setupWithReview()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: no user-questions provider is registered' }])
@@ -809,14 +980,19 @@ describe('exit_plan_mode', () => {
   })
 
   it('rejects review from a runtime-owned agent with consumer-neutral guidance', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(UserQuestionService)
+    /** 中文说明：函数值 ask 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const ask = vi.fn(async () => ({ answers: [{ id: 'plan-review', selected: ['Approve'] }] }))
     ctx.userQuestions.registerProvider({ ask })
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await agentWithSession(ctx, 'review-root')
+    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = await agentWithSession(ctx, 'review-child', { active: true, owner: root })
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, child)
 
     expect(result.isError).toBe(true)
@@ -830,6 +1006,7 @@ describe('exit_plan_mode', () => {
 
   it('approve: records the boundary-applied switch and confirms (the fold flips at the flush)', async () => {
     const { ctx, agent, asked } = await setupWithReview({ selected: ['Approve'] })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected approved plan result')
@@ -848,16 +1025,20 @@ describe('exit_plan_mode', () => {
   })
 
   it('carries the exact plan through a Code Mode review and logs the nested dispatch', async () => {
+    /** 中文说明：变量 plan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plan = '# Code Mode plan\n\nUse the existing seam.'
+    /** 中文说明：class ExitRuntime 定义本测试所需的数据或行为，用于表达当前功能场景。 */
     class ExitRuntime extends CodeRuntime {
       readonly language = 'typescript'
       readonly isolation = 'fake'
       async run(request: CodeRunRequest): Promise<CodeRunResult> {
+        /** 中文说明：变量 exit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const exit = request.bindings[0]?.functions[EXIT_PLAN_MODE]
         if (exit === undefined) throw new Error('missing exit_plan_mode binding')
         return { logs: [], value: await exit({ plan }) }
       }
     }
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'code' })
@@ -865,6 +1046,7 @@ describe('exit_plan_mode', () => {
     await ctx.plugin(PlanModeController, PLAN_CONFIG)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(UserQuestionService)
+    /** 中文说明：变量 asked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const asked: AskUserQuestionRequest[] = []
     ctx.userQuestions.registerProvider({
       ask: (request) => {
@@ -872,8 +1054,10 @@ describe('exit_plan_mode', () => {
         return Promise.resolve({ answers: [{ id: 'plan-review', selected: ['Approve'] }] })
       },
     })
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'code-mode-exit', { active: true })
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       callId: CallId(`call-exit-${++callCounter}`),
       name: RUN_CODE_NAME,
@@ -899,17 +1083,20 @@ describe('exit_plan_mode', () => {
 
   it('an approved exit projects the next assembly before the boundary and never removes the tool', async () => {
     const { ctx, agent } = await setupWithReview({ selected: ['Approve'] })
+    /** 中文说明：变量 approved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const approved = await callExit(ctx, agent)
     expect(approved.isError).toBe(false)
     // Calls of the SAME assistant response were requested under the existing
     // plan-shaped header. Pending state shapes only the proposed next
     // assembly; the accepted boundary then commits the matching durable fold.
     expect(foldPlanMode(agent.session.events)).toBe(true)
+    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await ctx.systemPrompt.assemble({ agent })
     expect(assembly.tools.some(tool => tool.name === EXIT_PLAN_MODE)).toBe(true)
     expect(assembly.sections.find(section => section.name === 'plan:policy')?.text).toBe('')
     await boundary(ctx, agent, 'step-start')
     expect(foldPlanMode(agent.session.events)).toBe(false)
+    /** 中文说明：变量 afterExit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const afterExit = await ctx.systemPrompt.assemble({ agent })
     expect(afterExit.tools).toEqual(assembly.tools)
     expect(afterExit.sections.find(section => section.name === 'plan:policy')?.text).toBe('')
@@ -926,6 +1113,7 @@ describe('exit_plan_mode', () => {
 
   it('keep planning returns the corrective error carrying the feedback verbatim', async () => {
     const { ctx, agent } = await setupWithReview({ selected: ['Keep planning'], custom: 'consider the resume path' })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user chose to keep planning; their feedback: consider the resume path' }])
@@ -934,6 +1122,7 @@ describe('exit_plan_mode', () => {
 
   it('keep planning without feedback returns the generic corrective error', async () => {
     const { ctx, agent } = await setupWithReview({ selected: ['Keep planning'] })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user chose to keep planning; revise the plan and present it again.' }])
@@ -941,6 +1130,7 @@ describe('exit_plan_mode', () => {
 
   it('a custom-text-only answer is feedback, never consent', async () => {
     const { ctx, agent } = await setupWithReview({ selected: [], custom: 'add tests first' })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user chose to keep planning; their feedback: add tests first' }])
@@ -949,6 +1139,7 @@ describe('exit_plan_mode', () => {
 
   it('requires exactly the single Approve selection', async () => {
     const { ctx, agent } = await setupWithReview({ selected: ['Approve', 'Keep planning'] })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user chose to keep planning; revise the plan and present it again.' }])
@@ -957,6 +1148,7 @@ describe('exit_plan_mode', () => {
 
   it('treats custom text alongside Approve as feedback, not consent', async () => {
     const { ctx, agent } = await setupWithReview({ selected: ['Approve'], custom: 'change the tests' })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user chose to keep planning; their feedback: change the tests' }])
@@ -971,6 +1163,7 @@ describe('exit_plan_mode', () => {
         { id: 'plan-review', selected: ['Keep planning'] },
       ] }),
     })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user chose to keep planning; revise the plan and present it again.' }])
@@ -980,6 +1173,7 @@ describe('exit_plan_mode', () => {
   it('a missing answer item reads as keep-planning', async () => {
     const { ctx, agent } = await setupWithReview()
     ctx.userQuestions.registerProvider({ ask: () => Promise.resolve({ answers: [] }) })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user chose to keep planning; revise the plan and present it again.' }])
@@ -988,6 +1182,7 @@ describe('exit_plan_mode', () => {
   it('declares the plan-review presentation intent naming its approve option', async () => {
     const { ctx, agent, asked } = await setupWithReview({ selected: ['Approve'] })
     await callExit(ctx, agent)
+    /** 中文说明：变量 question 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const question = asked[0]?.questions[0]
     expect(question?.intent).toEqual({ kind: 'plan-review', approve: 'Approve' })
     // The named label is one this same question offers, so a UI honouring the
@@ -1001,6 +1196,7 @@ describe('exit_plan_mode', () => {
       ask: () => Promise.reject(new UserQuestionError(
         'the user cancelled ask_user_question', 'ASK_CANCELLED')),
     })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user dismissed the plan review to speak instead; stay in plan mode, stop here, and wait for their message.' }])
@@ -1013,6 +1209,7 @@ describe('exit_plan_mode', () => {
       ask: () => Promise.reject(new UserQuestionError(
         'ask_user_question was aborted before the user answered', 'ASK_ABORTED')),
     })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: ask_user_question was aborted before the user answered' }])
@@ -1021,7 +1218,9 @@ describe('exit_plan_mode', () => {
 
   it('forwards the execution abort signal to the review question', async () => {
     const { ctx, agent, asked } = await setupWithReview({ selected: ['Approve'] })
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       callId: CallId(`call-exit-${++callCounter}`),
       name: EXIT_PLAN_MODE,
@@ -1034,17 +1233,22 @@ describe('exit_plan_mode', () => {
   })
 
   it('fails the call when the plugin is disposed while the review awaits (no phantom exit)', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(PlanModeController, PLAN_CONFIG)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(UserQuestionService)
+    /** 中文说明：函数值 answer 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let answer!: (value: { answers: { id: string; selected: string[] }[] }) => void
     ctx.userQuestions.registerProvider({
       ask: () => new Promise((resolve) => { answer = resolve }),
     })
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'agent-1', { active: true })
+    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = callExit(ctx, agent)
     // Let execute reach the review await, then unload the plugin (HMR) and
     // only afterwards approve. The boundary listeners are gone, so a success
@@ -1052,6 +1256,7 @@ describe('exit_plan_mode', () => {
     await new Promise(resolve => setImmediate(resolve))
     await fiber.dispose()
     answer({ answers: [{ id: 'plan-review', selected: ['Approve'] }] })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await pending
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: the plan-mode service was reloaded while the plan was under review; present the plan again' }])
@@ -1061,6 +1266,7 @@ describe('exit_plan_mode', () => {
   it('a throwing provider surfaces as the corrective isError and the mode stays plan', async () => {
     const { ctx, agent } = await setupWithReview()
     ctx.userQuestions.registerProvider({ ask: () => { throw new Error('review aborted') } })
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: review aborted' }])
@@ -1068,7 +1274,9 @@ describe('exit_plan_mode', () => {
   })
 
   it('presents the call as a generic card titled by the plan first heading', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 def 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const def = ctx.tools.get(EXIT_PLAN_MODE)!
     expect(def.presentCall?.({ plan: '## Fix the flake\n\nsteps' })).toEqual({
       card: 'generic',
@@ -1085,8 +1293,11 @@ describe('exit_plan_mode', () => {
   })
 
   it('presents the result as a generic review card', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
+    /** 中文说明：变量 def 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const def = ctx.tools.get(EXIT_PLAN_MODE)!
+    /** 中文说明：变量 content 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const content = [{ type: 'text' as const, text: 'ok' }]
     expect(def.presentResult?.({ plan: '# P' }, { content, isError: false })).toEqual({
       card: 'generic',
@@ -1098,10 +1309,13 @@ describe('exit_plan_mode', () => {
 
 describe('HMR disposal', () => {
   it('unregisters the service, listeners, prompt section, and stable exit tool with the plugin fiber', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(PlanModeController, PLAN_CONFIG)
+    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentWithSession(ctx, 'disposed-recovery')
     openTurn(agent.session)
     ctx.planMode.set(agent, true)

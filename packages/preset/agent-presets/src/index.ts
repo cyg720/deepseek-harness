@@ -20,6 +20,14 @@
  * unpublished, so a rejected composition rolls the whole creation back.
  * @module @deepseek-ai/dsh-agent-presets
  */
+/**
+ * 文件职责：实现 index.ts 承担的Agent 预设配置、装载与运行时协作职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、事件日志、配置解析和异步生命周期管理。
+ * 产品维度：让 Agent 能按用户配置启用Agent 预设并保持会话行为一致。
+ * 逻辑维度：解析输入配置，注册插件能力，处理事件，并在卸载时清理资源。
+ * 关键边界：配置错误应尽早失败；模型可见状态必须写入日志；注册必须可撤销。
+ * 新手阅读建议：先看导出类型和配置，再读插件入口与事件处理，最后关注校验和清理。
+ */
 
 import { stat } from 'node:fs/promises'
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -37,15 +45,18 @@ import { PresetMountError, UnknownPresetError, type AgentPreset, type Config, ty
 import type {} from './types.ts'
 
 /** Settings namespace carrying the user's chosen default preset. */
+/** 中文说明：常量 SETTINGS_NAMESPACE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SETTINGS_NAMESPACE = 'agent-presets'
 
 /** The user-writable slice of this plugin's config. */
+/** 中文说明：interface AgentPresetSettings 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export interface AgentPresetSettings {
   /** Preset mounted when a session names none. */
   default?: string
 }
 
 /** Runtime schema for the user-writable slice. */
+/** 中文说明：变量 AgentPresetSettingsSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const AgentPresetSettingsSchema: z<AgentPresetSettings> = z.object({
   default: z.string(),
 })
@@ -56,6 +67,7 @@ export {
 } from './metadata.ts'
 export {
   inactiveRows, leakedServices, livePresetMounts, mountPreset, serviceForAgent, standingMountFor,
+  /** 中文说明：type JoinedPresetMount 定义本模块所需的数据或行为，用于表达当前功能场景。 */
   type JoinedPresetMount, type PresetMount,
 } from './mount.ts'
 export {
@@ -67,6 +79,7 @@ export { PresetMountError, UnknownPresetError } from './preset.ts'
 export type { AgentPreset, Config, PresetRoot, PresetTrust } from './preset.ts'
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：interface Context 定义本模块所需的数据或行为，用于表达当前功能场景。 */
   interface Context {
     agentPresets: AgentPresets
   }
@@ -79,6 +92,7 @@ declare module '@deepseek-ai/cordis' {
  * call so a preset authored while the process runs is visible immediately,
  * and a preset deleted underneath a picker disappears from the next read.
  */
+/** 中文说明：class AgentPresets 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export class AgentPresets extends Service {
   static inject = ['loader']
 
@@ -211,8 +225,11 @@ export class AgentPresets extends Service {
    * @throws when no configured root supplies that id.
    */
   async resolve(id?: string): Promise<AgentPreset> {
+    /** 中文说明：变量 wanted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wanted = id ?? this.defaultId
+    /** 中文说明：变量 presets 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const presets = await this.list()
+    /** 中文说明：函数值 found 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const found = presets.find(preset => preset.id === wanted)
     if (found === undefined) {
       throw new UnknownPresetError(wanted, presets.map(preset => preset.id))
@@ -231,6 +248,7 @@ export class AgentPresets extends Service {
    * @throws when the preset is unknown or discovery reports it broken.
    */
   private async resolveMountable(id?: string): Promise<AgentPreset> {
+    /** 中文说明：变量 preset 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = await this.resolve(id)
     if (preset.broken !== undefined) {
       throw new PresetMountError(preset.id, preset.broken)
@@ -273,11 +291,14 @@ export class AgentPresets extends Service {
    * @throws when the preset is unknown or its composition is unusable.
    */
   async mount(agentCtx: Context, id?: string): Promise<AgentPreset> {
+    /** 中文说明：变量 agentKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agentKey = scopeOf(agentCtx)
     if (agentKey === undefined) {
       throw new Error('agent-presets: refusing to compose an unscoped context; the scope key is what joins an agent to its preset')
     }
+    /** 中文说明：变量 preset 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = await this.resolveMountable(id)
+    /** 中文说明：变量 standing 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const standing = await this.ensureStanding(preset)
     // The one bind of this agent's ancestry. The binding is the only re-link
     // authority, held privately so nothing outside this roster can move a
@@ -314,10 +335,12 @@ export class AgentPresets extends Service {
    * @throws when `agentCtx` carries no scope, or has already joined a preset.
    */
   composeFrom(agentCtx: Context, parentCtx: Context): string | undefined {
+    /** 中文说明：变量 agentKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agentKey = scopeOf(agentCtx)
     if (agentKey === undefined) {
       throw new Error('agent-presets: refusing to compose an unscoped context; the scope key is what joins an agent to its preset')
     }
+    /** 中文说明：变量 standing 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const standing = standingMountFor(parentCtx)
     if (standing === undefined) return undefined
     this.bindings.set(agentKey, bindScopeParent(agentKey, standing.key))
@@ -378,6 +401,7 @@ export class AgentPresets extends Service {
    * or the deployment configures no writable root.
    */
   async copy(from: string, id: string, name?: string): Promise<void> {
+    /** 中文说明：变量 source 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = await this.resolve(from)
     // The roster check refuses ids any root supplies — shipped ones included,
     // since a user directory named like a shipped preset is shadowed by it.
@@ -456,12 +480,16 @@ export class AgentPresets extends Service {
    * @throws when the preset is unknown or its composition is unusable.
    */
   async recompose(agentCtx: Context, id: string): Promise<AgentPreset> {
+    /** 中文说明：变量 agentKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agentKey = scopeOf(agentCtx)
     if (agentKey === undefined) {
       throw new Error('agent-presets: refusing to recompose an unscoped context')
     }
+    /** 中文说明：变量 preset 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = await this.resolveMountable(id)
+    /** 中文说明：变量 standing 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const standing = await this.ensureStanding(preset)
+    /** 中文说明：变量 binding 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const binding = this.bindings.get(agentKey)
     if (binding === undefined) {
       this.bindings.set(agentKey, bindScopeParent(agentKey, standing.key))
@@ -483,20 +511,24 @@ export class AgentPresets extends Service {
    * @throws when the preset is unknown or its composition is unusable.
    */
   async standingKeyFor(id?: string): Promise<ScopeKey> {
+    /** 中文说明：变量 preset 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = await this.resolveMountable(id)
     return (await this.ensureStanding(preset)).key
   }
 
   /** Resolve (or create, single-flight) the standing mount of one preset. */
   private async ensureStanding(preset: AgentPreset): Promise<StandingMount> {
+    /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = this.standing.get(preset.id)
     if (pending !== undefined) {
+      /** 中文说明：变量 mounted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const mounted = await pending
       // Files are the only composition editor (authoring is copy/delete), so
       // the stamp is what notices an edit: a changed file starts the next
       // generation here, for this and later sessions. An unreadable stamp
       // serves the current generation — a mount must survive its file
       // disappearing, and failing the session over a stat would not.
+      /** 中文说明：变量 current 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const current = await compositionStamp(preset.path)
       if (current === undefined || sameStamp(mounted.stamp, current)) return mounted
       // TODO: reclaim the superseded generation once the last agent joined to
@@ -510,13 +542,17 @@ export class AgentPresets extends Service {
       if (this.standing.get(preset.id) === pending) this.standing.delete(preset.id)
       return this.ensureStanding(preset)
     }
+    /** 中文说明：函数值 created 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const created = (async (): Promise<StandingMount> => {
+      /** 中文说明：变量 key 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const key: ScopeKey = { agentPreset: preset.id }
+      /** 中文说明：变量 scope 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const scope = createScope(this.selfCtx, key)
       try {
         // Stamped before the file is read: an edit racing the mount makes the
         // stamp stale rather than silently current, so the next session
         // refreshes instead of trusting a composition older than its stamp.
+        /** 中文说明：变量 stamp 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const stamp = await compositionStamp(preset.path)
         if (stamp === undefined) {
           throw new PresetMountError(preset.id, `composition file is unreadable: ${preset.path}`)
@@ -535,6 +571,7 @@ export class AgentPresets extends Service {
 }
 
 /** The composition file identity one standing generation was mounted from. */
+/** 中文说明：interface CompositionStamp 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 interface CompositionStamp {
   /** Modification time in milliseconds, as `stat` reports it. */
   readonly mtimeMs: number
@@ -543,6 +580,7 @@ interface CompositionStamp {
 }
 
 /** Read one composition file's stamp, or undefined when it cannot be statted. */
+/** 中文说明：函数 compositionStamp 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function compositionStamp(path: string): Promise<CompositionStamp | undefined> {
   try {
     const { mtimeMs, size } = await stat(path)
@@ -555,11 +593,13 @@ async function compositionStamp(path: string): Promise<CompositionStamp | undefi
 }
 
 /** Whether two stamps name the same file state. */
+/** 中文说明：函数 sameStamp 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function sameStamp(a: CompositionStamp, b: CompositionStamp): boolean {
   return a.mtimeMs === b.mtimeMs && a.size === b.size
 }
 
 /** One preset's standing composition. */
+/** 中文说明：interface StandingMount 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 interface StandingMount {
   /** Scope key agents are parented to; also the mount's registration scope. */
   readonly key: ScopeKey
