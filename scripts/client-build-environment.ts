@@ -1,3 +1,11 @@
+/**
+ * 文件职责：实现 client-build-environment.ts 覆盖的仓库构建、校验或维护脚本职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
+ * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
+ * 逻辑维度：解析参数和文件，执行检查或转换，再输出结果并处理错误。
+ * 关键边界：脚本可能修改构建产物；路径和子进程输出不可信；失败必须以非零状态显式报告。
+ * 新手阅读建议：先看命令入口和参数，再读文件遍历或转换，最后关注错误码和平台差异。
+ */
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import {
@@ -11,24 +19,31 @@ import {
 import { dirname, resolve } from 'node:path'
 
 /** Prefix reserved for build-time values that may be embedded in browser artifacts. */
+/** 中文说明：常量 CLIENT_BUILD_ENV_PREFIX 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLIENT_BUILD_ENV_PREFIX = 'DSH_CLIENT_'
 
 /** Non-public selector used by build orchestration to request a named client profile. */
+/** 中文说明：常量 CLIENT_BUILD_PROFILE_SELECTOR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CLIENT_BUILD_PROFILE_SELECTOR = 'DSH_BUILD_CLIENT_PROFILE'
 
 /** Public client environment required by official DSH artifacts. */
+/** 中文说明：常量 OFFICIAL_CLIENT_BUILD_ENVIRONMENT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OFFICIAL_CLIENT_BUILD_ENVIRONMENT = {
   DSH_CLIENT_BUILD_PROFILE: 'official',
   DSH_CLIENT_TITLE: 'DeepSeek Harness',
 } as const
 
 /** Public variable carrying the source commit embedded in client artifacts. */
+/** 中文说明：常量 CLIENT_COMMIT_HASH_VARIABLE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLIENT_COMMIT_HASH_VARIABLE = 'DSH_CLIENT_COMMIT_HASH'
 
 /** Repository-relative path of the complete client build record. */
+/** 中文说明：常量 CLIENT_BUILD_RECORD_PATH 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CLIENT_BUILD_RECORD_PATH = '.dsh-build/client-build-environment.json'
 
+/** 中文说明：常量 CLIENT_BUILD_RECORD_FORMAT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLIENT_BUILD_RECORD_FORMAT = 1
+/** 中文说明：常量 CLIENT_ARTIFACT_PATTERNS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLIENT_ARTIFACT_PATTERNS = [
   'apps/web/dist/**/*',
   'packages/*/*/lib/client.js',
@@ -36,6 +51,7 @@ const CLIENT_ARTIFACT_PATTERNS = [
 ] as const
 
 /** Public values embedded in one set of client artifacts. */
+/** 中文说明：type ClientBuildEnvironment 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export type ClientBuildEnvironment = Readonly<Record<string, string>>
 
 /**
@@ -44,8 +60,11 @@ export type ClientBuildEnvironment = Readonly<Record<string, string>>
  * @param environment - environment that may already carry a commit value.
  * @returns lowercase 7-character Git commit prefix.
  */
+/** 中文说明：函数 repositoryCommitHash 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function repositoryCommitHash(root: string, environment: NodeJS.ProcessEnv = process.env): string {
+  /** 中文说明：变量 explicit 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const explicit = environment[CLIENT_COMMIT_HASH_VARIABLE]
+  /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value = explicit ?? execFileSync('git', ['rev-parse', 'HEAD'], {
     cwd: root,
     encoding: 'utf8',
@@ -63,6 +82,7 @@ export function repositoryCommitHash(root: string, environment: NodeJS.ProcessEn
  * @param environment - optional explicit commit source for non-Git build environments.
  * @returns complete official client environment.
  */
+/** 中文说明：函数 officialClientBuildEnvironment 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function officialClientBuildEnvironment(
   root: string,
   environment: NodeJS.ProcessEnv = process.env,
@@ -74,6 +94,7 @@ export function officialClientBuildEnvironment(
 }
 
 /** Digest of every client artifact produced by the complete root build. */
+/** 中文说明：interface ClientArtifactDigest 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 interface ClientArtifactDigest {
   /** Number of files covered by the digest. */
   readonly fileCount: number
@@ -82,6 +103,7 @@ interface ClientArtifactDigest {
 }
 
 /** Durable description of one complete root client build. */
+/** 中文说明：interface ClientBuildRecord 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export interface ClientBuildRecord {
   /** Record schema version. */
   readonly formatVersion: number
@@ -96,6 +118,7 @@ export interface ClientBuildRecord {
  * @param environment - environment inherited by the build process.
  * @returns defined `DSH_CLIENT_*` values only.
  */
+/** 中文说明：函数 clientBuildEnvironment 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function clientBuildEnvironment(environment: NodeJS.ProcessEnv): ClientBuildEnvironment {
   return Object.fromEntries(Object.entries(environment)
     .filter(([name, value]) => name.startsWith(CLIENT_BUILD_ENV_PREFIX) && value !== undefined)
@@ -108,12 +131,14 @@ function clientBuildEnvironment(environment: NodeJS.ProcessEnv): ClientBuildEnvi
  * @param profile - explicit profile, or the non-public selector when omitted.
  * @returns the inherited public values when no profile is selected, otherwise the named profile.
  */
+/** 中文说明：函数 resolveClientBuildEnvironment 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function resolveClientBuildEnvironment(
   environment: NodeJS.ProcessEnv,
   profile: string | undefined = environment[CLIENT_BUILD_PROFILE_SELECTOR],
 ): ClientBuildEnvironment {
   if (profile === undefined) return clientBuildEnvironment(environment)
   if (profile === 'official') {
+    /** 中文说明：变量 commitHash 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commitHash = environment[CLIENT_COMMIT_HASH_VARIABLE]
     if (commitHash === undefined) {
       throw new Error(`${CLIENT_COMMIT_HASH_VARIABLE} is required for the official client build profile`)
@@ -129,11 +154,14 @@ export function resolveClientBuildEnvironment(
  * @param clientEnvironment - complete public environment selected for the build.
  * @returns the parent environment with selectors and inherited public values replaced.
  */
+/** 中文说明：函数 clientBuildProcessEnvironment 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function clientBuildProcessEnvironment(
   environment: NodeJS.ProcessEnv,
   clientEnvironment: ClientBuildEnvironment,
 ): NodeJS.ProcessEnv {
+  /** 中文说明：变量 child 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const child: NodeJS.ProcessEnv = {}
+  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const [name, value] of Object.entries(environment)) {
     if (name === CLIENT_BUILD_PROFILE_SELECTOR || name.startsWith(CLIENT_BUILD_ENV_PREFIX)) continue
     child[name] = value
@@ -151,18 +179,23 @@ export function clientBuildProcessEnvironment(
  * @param environment - public environment from a build process or build record.
  * @param expected - complete public client environment for the artifact profile.
  */
+/** 中文说明：函数 assertClientBuildEnvironment 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function assertClientBuildEnvironment(
   environment: Readonly<Record<string, string | undefined>>,
   expected: Readonly<Record<`DSH_CLIENT_${string}`, string>>,
 ): void {
+  /** 中文说明：变量 actual 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const actual = Object.fromEntries(Object.entries(environment)
     .filter(([name, value]) => name.startsWith(CLIENT_BUILD_ENV_PREFIX) && value !== undefined)
     .sort(([left], [right]) => left.localeCompare(right)))
+  /** 中文说明：变量 normalizedExpected 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const normalizedExpected = Object.fromEntries(Object.entries(expected)
     .sort(([left], [right]) => left.localeCompare(right)))
   if (JSON.stringify(actual) === JSON.stringify(normalizedExpected)) return
 
+  /** 中文说明：变量 names 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const names = [...new Set([...Object.keys(actual), ...Object.keys(normalizedExpected)])].sort()
+  /** 中文说明：函数值 differences 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const differences = names.filter(name => actual[name] !== normalizedExpected[name])
   throw new Error(`client build environment differs from the required artifact profile: ${differences.join(', ')}`)
 }
@@ -178,10 +211,13 @@ export function assertClientBuildEnvironment(
  * @param environment - environment inherited by the build process.
  * @returns deterministic Vite/tsdown `define` expressions.
  */
+/** 中文说明：函数 clientBuildEnvironmentDefines 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function clientBuildEnvironmentDefines(
   environment: NodeJS.ProcessEnv,
 ): Record<string, string> {
+  /** 中文说明：变量 defines 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const defines: Record<string, string> = { 'process.env': '{}' }
+  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const [name, value] of Object.entries(clientBuildEnvironment(environment))) {
     defines[`process.env.${name}`] = JSON.stringify(value)
   }
@@ -194,15 +230,18 @@ export function clientBuildEnvironmentDefines(
  * @param environment - exact public environment supplied to both bundlers.
  * @returns the record written to disk.
  */
+/** 中文说明：函数 writeClientBuildRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function writeClientBuildRecord(
   root: string,
   environment: ClientBuildEnvironment,
 ): ClientBuildRecord {
+  /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const record: ClientBuildRecord = {
     formatVersion: CLIENT_BUILD_RECORD_FORMAT,
     environment: clientBuildEnvironment(environment),
     artifacts: clientArtifactDigest(root),
   }
+  /** 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = resolve(root, CLIENT_BUILD_RECORD_PATH)
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`)
@@ -215,25 +254,31 @@ export function writeClientBuildRecord(
  * @param expected - optional exact public environment required by a consumer.
  * @returns the parsed and artifact-verified record.
  */
+/** 中文说明：函数 readClientBuildRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function readClientBuildRecord(
   root: string,
   expected?: Readonly<Record<`DSH_CLIENT_${string}`, string>>,
 ): ClientBuildRecord {
+  /** 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path = resolve(root, CLIENT_BUILD_RECORD_PATH)
   if (!existsSync(path)) {
     throw new Error(`client build record ${CLIENT_BUILD_RECORD_PATH} is missing; run a complete pnpm run build first`)
   }
 
+  /** 中文说明：变量 parsed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let parsed: unknown
   try {
     parsed = JSON.parse(readFileSync(path, 'utf8'))
   } catch (error) {
+    /** 中文说明：变量 detail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const detail = error instanceof Error ? error.message : String(error)
     throw new Error(`client build record ${CLIENT_BUILD_RECORD_PATH} is invalid JSON: ${detail}`)
   }
+  /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const record = parseClientBuildRecord(parsed)
   if (expected !== undefined) assertClientBuildEnvironment(record.environment, expected)
 
+  /** 中文说明：变量 current 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const current = clientArtifactDigest(root)
   if (current.fileCount !== record.artifacts.fileCount || current.sha256 !== record.artifacts.sha256) {
     throw new Error(
@@ -244,15 +289,20 @@ export function readClientBuildRecord(
 }
 
 /** Return the deterministic digest of every artifact affected by the public client environment. */
+/** 中文说明：函数 clientArtifactDigest 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function clientArtifactDigest(root: string): ClientArtifactDigest {
+  /** 中文说明：变量 paths 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const paths = globSync([...CLIENT_ARTIFACT_PATTERNS], { cwd: root })
     .map(path => path.replaceAll('\\', '/'))
     .filter(path => statSync(resolve(root, path)).isFile())
     .sort()
   if (paths.length === 0) throw new Error('complete client build produced no Vite or dynamic client artifacts')
 
+  /** 中文说明：变量 digest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const digest = createHash('sha256')
+  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const path of paths) {
+    /** 中文说明：变量 content 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const content = readFileSync(resolve(root, path))
     digest.update(`${Buffer.byteLength(path)}:`)
     digest.update(path)
@@ -263,6 +313,7 @@ function clientArtifactDigest(root: string): ClientArtifactDigest {
 }
 
 /** Parse and validate the persisted record before any consumer trusts it. */
+/** 中文说明：函数 parseClientBuildRecord 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function parseClientBuildRecord(value: unknown): ClientBuildRecord {
   if (!isObject(value) || !hasExactKeys(value, ['artifacts', 'environment', 'formatVersion'])) {
     throw new Error(`client build record ${CLIENT_BUILD_RECORD_PATH} has an invalid top-level schema`)
@@ -275,7 +326,9 @@ function parseClientBuildRecord(value: unknown): ClientBuildRecord {
   if (!isObject(value.environment)) {
     throw new Error(`client build record ${CLIENT_BUILD_RECORD_PATH} has an invalid environment`)
   }
+  /** 中文说明：变量 environment 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const environment: Record<string, string> = {}
+  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const [name, entry] of Object.entries(value.environment).sort(([left], [right]) => left.localeCompare(right))) {
     if (!name.startsWith(CLIENT_BUILD_ENV_PREFIX) || typeof entry !== 'string') {
       throw new Error(`client build record ${CLIENT_BUILD_RECORD_PATH} has an invalid environment entry ${name}`)
@@ -301,11 +354,14 @@ function parseClientBuildRecord(value: unknown): ClientBuildRecord {
   }
 }
 
+/** 中文说明：函数 isObject 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+/** 中文说明：函数 hasExactKeys 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  /** 中文说明：变量 actual 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const actual = Object.keys(value).sort()
   return actual.length === expected.length && actual.every((key, index) => key === expected[index])
 }

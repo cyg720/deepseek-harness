@@ -1,3 +1,9 @@
+# 文件职责：验证 test_client.py 覆盖的Python SDK 与捆绑运行时职责。
+# 技术维度：使用 Python、异步 I/O、JSON-RPC、构建后端或标准库文件与进程接口。
+# 产品维度：保障 Agent 的Python SDK 与捆绑运行时能力可安装、可调用且可诊断。
+# 逻辑维度：解析参数或数据，执行核心调用或校验，再返回结果并处理资源清理。
+# 关键边界：外部进程与文件不可信；版本和平台条件必须显式；敏感环境变量不得泄露。
+# 新手阅读建议：先看导入和公开类型，再读主流程，最后关注异常、平台差异和清理。
 from __future__ import annotations
 
 import json
@@ -12,9 +18,13 @@ import pytest
 from deepseek_harness import DeepSeekHarness, HarnessClient, HarnessConfig, Notification, SdkProtocolError
 
 
+# 中文说明：函数 test_high_level_sdk_runs_turn_and_collects_final_response 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_high_level_sdk_runs_turn_and_collects_final_response(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_runtime.py"
+    # 中文说明：变量 env_dump 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     env_dump = tmp_path / "env.json"
+    # 中文说明：变量 init_dump 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     init_dump = tmp_path / "init.json"
     script.write_text(
         """
@@ -92,12 +102,19 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(
+        # 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         model="deepseek-v4-flash",
+        # 中文说明：变量 max_tokens 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         max_tokens=4096,
+        # 中文说明：变量 cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cwd=str(tmp_path),
+        # 中文说明：变量 cordis 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cordis=str(tmp_path / "cordis.yml"),
+        # 中文说明：变量 session_root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         session_root=str(tmp_path / "sessions"),
+        # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         launch_args_override=(sys.executable, str(script)),
+        # 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         env={
             "ENV_DUMP": str(env_dump),
             "INIT_DUMP": str(init_dump),
@@ -105,11 +122,13 @@ for line in sys.stdin:
             "DEEPSEEK_BASE_URL": "http://127.0.0.1:4321",
         },
     ) as harness:
+        # 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         result = harness.run("say hello", session_id="main")
 
     assert result.final_response == "hello from runtime"
     assert result.finish_reason == "max-tokens"
     assert result.events[-1]["type"] == "turn/end"
+    # 中文说明：变量 dumped_env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     dumped_env = json.loads(env_dump.read_text())
     assert dumped_env["DEEPSEEK_API_KEY"] == "env-key"
     assert dumped_env["DEEPSEEK_BASE_URL"] == "http://127.0.0.1:4321"
@@ -124,7 +143,9 @@ for line in sys.stdin:
     }
 
 
+# 中文说明：函数 test_session_run_invokes_notification_callback_before_returning 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_session_run_invokes_notification_callback_before_returning(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_runtime.py"
     script.write_text(
         """
@@ -148,14 +169,20 @@ for line in sys.stdin:
 """.strip()
     )
 
+    # 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     seen: list[str] = []
     with DeepSeekHarness(
+        # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         launch_args_override=(sys.executable, str(script)),
+        # 中文说明：变量 cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cwd=str(tmp_path),
     ) as harness:
+        # 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         session = harness.start_session("main")
+        # 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         result = session.run(
             "spawn a helper",
+            # 中文说明：变量 on_notification 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             on_notification=lambda notification: seen.append(notification.method),
         )
 
@@ -163,7 +190,9 @@ for line in sys.stdin:
     assert result.finish_reason is None
 
 
+# 中文说明：函数 test_high_level_sdk_rejects_turn_end_without_reason_kind 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_high_level_sdk_rejects_turn_end_without_reason_kind(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_runtime.py"
     script.write_text(
         """
@@ -188,20 +217,26 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(
+        # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         launch_args_override=(sys.executable, str(script)),
+        # 中文说明：变量 cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cwd=str(tmp_path),
     ) as harness:
         with pytest.raises(
             SdkProtocolError,
+            # 中文说明：变量 match 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             match=r"turn/end event requires a string data\.reason\.kind",
         ):
             harness.run("reject malformed turn ending", session_id="main")
 
 
+# 中文说明：函数 test_relative_cwd_is_absolute_in_process_environment_and_wire 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_relative_cwd_is_absolute_in_process_environment_and_wire(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "capture_cwd.py"
+    # 中文说明：变量 capture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     capture = tmp_path / "cwd.json"
     script.write_text(
         """
@@ -222,13 +257,18 @@ for line in sys.stdin:
     monkeypatch.chdir(tmp_path)
 
     with DeepSeekHarness(
+        # 中文说明：变量 cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cwd=".",
+        # 中文说明：变量 runtime_cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         runtime_cwd=".",
+        # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         launch_args_override=(sys.executable, str(script)),
+        # 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         env={"CAPTURE": str(capture)},
     ):
         pass
 
+    # 中文说明：变量 expected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     expected = str(tmp_path.resolve())
     assert json.loads(capture.read_text()) == {
         "process": expected,
@@ -237,7 +277,9 @@ for line in sys.stdin:
     }
 
 
+# 中文说明：函数 test_session_run_includes_subagent_finished_for_parent_session 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_session_run_includes_subagent_finished_for_parent_session(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_runtime.py"
     script.write_text(
         """
@@ -263,9 +305,12 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(
+        # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         launch_args_override=(sys.executable, str(script)),
+        # 中文说明：变量 cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cwd=str(tmp_path),
     ) as harness:
+        # 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         result = harness.run("spawn a helper", session_id="main")
 
     assert [notification.method for notification in result.notifications] == [
@@ -277,9 +322,11 @@ for line in sys.stdin:
     ]
 
 
+# 中文说明：函数 test_session_run_collects_nested_subagent_tree_without_polluting_root_events 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_session_run_collects_nested_subagent_tree_without_polluting_root_events(
     tmp_path: Path,
 ) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_runtime.py"
     script.write_text(
         """
@@ -310,14 +357,20 @@ for line in sys.stdin:
 """.strip()
     )
 
+    # 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     seen: list[str] = []
     with DeepSeekHarness(
+        # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         launch_args_override=(sys.executable, str(script)),
+        # 中文说明：变量 cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cwd=str(tmp_path),
     ) as harness:
+        # 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         result = harness.run(
             "delegate recursively",
+            # 中文说明：变量 session_id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             session_id="main",
+            # 中文说明：变量 on_notification 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             on_notification=lambda notification: seen.append(notification.method),
         )
         assert harness.client._notifications.qsize() == 0
@@ -339,7 +392,9 @@ for line in sys.stdin:
     assert seen == [notification.method for notification in result.notifications]
 
 
+# 中文说明：函数 test_session_run_ignores_notifications_for_other_sessions 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_session_run_ignores_notifications_for_other_sessions(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_runtime.py"
     script.write_text(
         """
@@ -367,16 +422,21 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(
+        # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         launch_args_override=(sys.executable, str(script)),
+        # 中文说明：变量 cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         cwd=str(tmp_path),
     ) as harness:
+        # 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         result = harness.run("stay in your lane", session_id="main")
 
     assert result.final_response == "right session"
     assert [notification.payload.get("sessionId") for notification in result.notifications] == ["main"] * 4
 
 
+# 中文说明：函数 test_high_level_session_run_does_not_accumulate_global_notifications 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_high_level_session_run_does_not_accumulate_global_notifications(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_runtime.py"
     script.write_text(
         """
@@ -402,11 +462,14 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(launch_args_override=(sys.executable, str(script)), cwd=str(tmp_path)) as harness:
+        # 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         result = harness.run("one turn", session_id="main")
         assert harness.client._notifications.qsize() == 0
 
 
+# 中文说明：函数 test_session_run_waits_for_late_idle_without_replaying_stale_notifications 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_session_run_waits_for_late_idle_without_replaying_stale_notifications(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_runtime.py"
     script.write_text(
         """
@@ -442,7 +505,9 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(launch_args_override=(sys.executable, str(script)), cwd=str(tmp_path)) as harness:
+        # 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         first = harness.run("first turn", session_id="main")
+        # 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         second = harness.run("second turn", session_id="main")
 
     assert first.final_response == "first"
@@ -450,7 +515,9 @@ for line in sys.stdin:
     assert [notification.payload.get("sessionId") for notification in second.notifications] == ["main"] * 4
 
 
+# 中文说明：函数 test_client_starts_subprocess_sends_requests_and_routes_notifications 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_starts_subprocess_sends_requests_and_routes_notifications(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
     script.write_text(
         """
@@ -475,17 +542,21 @@ for line in sys.stdin:
     with HarnessClient(
         HarnessConfig(launch_args_override=(sys.executable, str(script)))
     ) as client:
+        # 中文说明：变量 init 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         init = client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
         assert init.serverInfo.name == "fake-dsh"
 
         client.session_prompt("main", [{"type": "text", "text": "fix it"}])
+        # 中文说明：变量 notification 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         notification = client.next_notification()
         assert notification.method == "llm/request"
         assert notification.payload["requestId"] == "req-1"
     assert notification.payload["sessionId"] == "main"
 
 
+# 中文说明：函数 test_client_keeps_unmatched_notifications_available_globally_while_subscribed 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_keeps_unmatched_notifications_available_globally_while_subscribed() -> None:
+    # 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     client = HarnessClient()
     with client.subscribe_session_notifications("main"):
         client._handle_message({
@@ -495,13 +566,16 @@ def test_client_keeps_unmatched_notifications_available_globally_while_subscribe
         })
 
         assert client._notifications.qsize() == 1
+        # 中文说明：变量 notification 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         notification = client._notifications.get_nowait()
         assert not isinstance(notification, BaseException)
         assert notification.method == "session.event"
         assert notification.payload["sessionId"] == "other"
 
 
+# 中文说明：函数 test_session_subscription_keeps_descendant_relationships_across_subscriptions 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_session_subscription_keeps_descendant_relationships_across_subscriptions() -> None:
+    # 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     client = HarnessClient()
     with client.subscribe_session_notifications("main") as first:
         client._handle_message({
@@ -528,9 +602,13 @@ def test_session_subscription_keeps_descendant_relationships_across_subscription
     assert client._notifications.qsize() == 0
 
 
+# 中文说明：函数 test_session_subscription_preserves_reused_child_ancestry_after_late_finish 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_session_subscription_preserves_reused_child_ancestry_after_late_finish() -> None:
+    # 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     client = HarnessClient()
+    # 中文说明：变量 old_seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     old_seen: list[Notification] = []
+    # 中文说明：变量 new_seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     new_seen: list[Notification] = []
     with (
         client.subscribe_session_notifications("old-parent") as old_subscription,
@@ -587,7 +665,9 @@ def test_session_subscription_preserves_reused_child_ancestry_after_late_finish(
     assert client._notifications.qsize() == 0
 
 
+# 中文说明：函数 test_client_contains_notification_filter_failure_to_its_subscription 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_contains_notification_filter_failure_to_its_subscription(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
     script.write_text(
         """
@@ -609,6 +689,7 @@ for line in sys.stdin:
 """.strip()
     )
 
+    # 中文说明：函数 broken_filter 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def broken_filter(_notification: object) -> bool:
         raise RuntimeError("bad notification filter")
 
@@ -629,7 +710,9 @@ for line in sys.stdin:
             assert healthy.next().payload == {"source": "emit-second"}
 
 
+# 中文说明：函数 test_client_rejects_unaccepted_session_prompt_response 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_rejects_unaccepted_session_prompt_response(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
     script.write_text(
         """
@@ -655,7 +738,9 @@ for line in sys.stdin:
             client.session_prompt("main", [{"type": "text", "text": "fix it"}])
 
 
+# 中文说明：函数 test_client_routes_bridge_requests_and_sends_responses 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_routes_bridge_requests_and_sends_responses(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
     script.write_text(
         """
@@ -681,18 +766,22 @@ for line in sys.stdin:
     ) as client:
         client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
 
+        # 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         request = client.next_request()
         assert request.id == "bridge-req-1"
         assert request.method == "llm.request"
         assert request.payload["requestId"] == "req-1"
 
         client.respond(request.id, {"content_blocks": [{"type": "text", "text": "done"}]})
+        # 中文说明：变量 notification 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         notification = client.next_notification()
         assert notification.method == "response/seen"
         assert notification.payload["result"]["content_blocks"][0]["text"] == "done"
 
 
+# 中文说明：函数 test_client_ignores_non_json_stdout_lines 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_ignores_non_json_stdout_lines(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
     script.write_text(
         """
@@ -713,11 +802,14 @@ for line in sys.stdin:
     with HarnessClient(
         HarnessConfig(launch_args_override=(sys.executable, str(script)))
     ) as client:
+        # 中文说明：变量 init 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         init = client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
         assert init.serverInfo.name == "fake-dsh"
 
 
+# 中文说明：函数 test_client_request_times_out_when_bridge_does_not_respond 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_request_times_out_when_bridge_does_not_respond(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
     script.write_text(
         """
@@ -731,10 +823,13 @@ time.sleep(60)
 
     with HarnessClient(
         HarnessConfig(
+            # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             launch_args_override=(sys.executable, str(script)),
+            # 中文说明：变量 request_timeout_seconds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             request_timeout_seconds=0.1,
         )
     ) as client:
+        # 中文说明：变量 start 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         start = time.monotonic()
         try:
             client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
@@ -745,7 +840,9 @@ time.sleep(60)
             raise AssertionError("initialize should time out")
 
 
+# 中文说明：函数 test_client_close_times_out_when_shutdown_does_not_respond 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_close_times_out_when_shutdown_does_not_respond(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
     script.write_text(
         """
@@ -765,16 +862,21 @@ for line in sys.stdin:
 """.strip()
     )
 
+    # 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     client = HarnessClient(
         HarnessConfig(
+            # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             launch_args_override=(sys.executable, str(script)),
+            # 中文说明：变量 shutdown_timeout_seconds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             shutdown_timeout_seconds=0.1,
         )
     )
     client.start()
+    # 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     proc = client._proc
     assert proc is not None
     client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
+    # 中文说明：变量 start 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     start = time.monotonic()
     client.close()
     assert time.monotonic() - start < 2
@@ -782,7 +884,9 @@ for line in sys.stdin:
     assert client._proc is None
 
 
+# 中文说明：函数 test_initialize_failure_reaps_started_runtime 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_initialize_failure_reaps_started_runtime(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "rejecting_runtime.py"
     script.write_text(
         """
@@ -799,8 +903,10 @@ for line in sys.stdin:
 """.strip()
     )
 
+    # 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     client = HarnessClient(HarnessConfig(launch_args_override=(sys.executable, str(script))))
     client.start()
+    # 中文说明：变量 proc 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     proc = client._proc
     assert proc is not None
 
@@ -811,6 +917,7 @@ for line in sys.stdin:
     assert client._proc is None
 
 
+# 中文说明：函数 test_public_signatures_omit_unsupported_wire_parameters 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_public_signatures_omit_unsupported_wire_parameters() -> None:
     from deepseek_harness import DeepSeekHarnessConfig, Session
 
@@ -826,9 +933,11 @@ def test_public_signatures_omit_unsupported_wire_parameters() -> None:
     assert "client_version" not in HarnessConfig.__dataclass_fields__
 
 
+# 中文说明：函数 test_client_close_is_idempotent_before_and_after_start 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_close_is_idempotent_before_and_after_start(tmp_path: Path) -> None:
     HarnessClient().close()
 
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
     script.write_text(
         """
@@ -845,6 +954,7 @@ for line in sys.stdin:
 """.strip()
     )
 
+    # 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     client = HarnessClient(HarnessConfig(launch_args_override=(sys.executable, str(script))))
     client.start()
     client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
@@ -852,7 +962,9 @@ for line in sys.stdin:
     client.close()
 
 
+# 中文说明：函数 test_runtime_closed_error_includes_stderr_tail 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_runtime_closed_error_includes_stderr_tail(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "crashing_runtime.py"
     script.write_text(
         """
@@ -865,7 +977,9 @@ sys.exit(42)
 
     with HarnessClient(
         HarnessConfig(
+            # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             launch_args_override=(sys.executable, str(script)),
+            # 中文说明：变量 request_timeout_seconds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             request_timeout_seconds=2,
         )
     ) as client:
@@ -873,8 +987,11 @@ sys.exit(42)
             client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
 
 
+# 中文说明：函数 test_client_serializes_concurrent_writes 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_serializes_concurrent_writes(tmp_path: Path) -> None:
+    # 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     script = tmp_path / "fake_bridge.py"
+    # 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     output = tmp_path / "seen.jsonl"
     script.write_text(
         """
@@ -897,24 +1014,32 @@ with open(os.environ["SEEN"], "w") as seen:
 
     with HarnessClient(
         HarnessConfig(
+            # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             launch_args_override=(sys.executable, str(script)),
+            # 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             env={"SEEN": str(output)},
         )
     ) as client:
         client.initialize(provider="deepseek-official", cwd="/workspace", model="dsagent")
+        # 中文说明：变量 threads 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         threads = [
             threading.Thread(target=client.notify, args=(f"notice-{index}", {"index": index}))
+            # 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。
             for index in range(50)
         ]
+        # 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。
         for thread in threads:
             thread.start()
+        # 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。
         for thread in threads:
             thread.join()
 
+    # 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。
     for line in output.read_text().splitlines():
         json.loads(line)
 
 
+# 中文说明：函数 _install_fake_bundled_runtime 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def _install_fake_bundled_runtime(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Path:
@@ -922,6 +1047,7 @@ def _install_fake_bundled_runtime(
 
     Returns the fake bundled default config path.
     """
+    # 中文说明：变量 runtime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     runtime = tmp_path / "dsh-jsonrpc-agent"
     runtime.write_text(
         """#!/usr/bin/env python3
@@ -941,7 +1067,9 @@ for line in sys.stdin:
     )
     runtime.chmod(0o755)
 
+    # 中文说明：变量 default_config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     default_config = tmp_path / "default-cordis.yml"
+    # 中文说明：变量 module_dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     module_dir = tmp_path / "deepseek_harness_runtime"
     module_dir.mkdir()
     (module_dir / "__init__.py").write_text(
@@ -961,10 +1089,13 @@ def bundled_default_config_path():
 
 
 @pytest.mark.parametrize("ambient_config", [None, ""], ids=["unset", "empty-counts-as-absent"])
+# 中文说明：函数 test_client_default_launch_uses_bundled_runtime_and_injects_default_config 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_default_launch_uses_bundled_runtime_and_injects_default_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ambient_config: str | None
 ) -> None:
+    # 中文说明：变量 env_dump 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     env_dump = tmp_path / "env.json"
+    # 中文说明：变量 default_config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     default_config = _install_fake_bundled_runtime(tmp_path, monkeypatch)
     if ambient_config is None:
         monkeypatch.delenv("DSH_CORDIS_CONFIG", raising=False)
@@ -972,15 +1103,18 @@ def test_client_default_launch_uses_bundled_runtime_and_injects_default_config(
         monkeypatch.setenv("DSH_CORDIS_CONFIG", ambient_config)
 
     with HarnessClient(HarnessConfig(env={"ENV_DUMP": str(env_dump)})) as client:
+        # 中文说明：变量 init 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         init = client.initialize(provider="deepseek-official", cwd="/workspace", model="deepseek-v4-pro")
 
     assert init.serverInfo.name == "bundled-runtime"
     assert json.loads(env_dump.read_text())["DSH_CORDIS_CONFIG"] == str(default_config)
 
 
+# 中文说明：函数 test_client_respects_explicit_config_over_bundled_default 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_respects_explicit_config_over_bundled_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # 中文说明：变量 env_dump 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     env_dump = tmp_path / "env.json"
     _install_fake_bundled_runtime(tmp_path, monkeypatch)
     monkeypatch.delenv("DSH_CORDIS_CONFIG", raising=False)
@@ -993,6 +1127,7 @@ def test_client_respects_explicit_config_over_bundled_default(
     assert json.loads(env_dump.read_text())["DSH_CORDIS_CONFIG"] == "./explicit.yml"
 
 
+# 中文说明：函数 test_client_reports_missing_bundled_runtime_dependency 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_client_reports_missing_bundled_runtime_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delitem(sys.modules, "deepseek_harness_runtime", raising=False)
     monkeypatch.setattr(sys, "path", [])

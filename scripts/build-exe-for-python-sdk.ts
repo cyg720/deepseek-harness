@@ -5,6 +5,14 @@
  * The staged closure is symlink-free, and whole-tree assets cover Cordis's
  * runtime imports that pkg cannot discover statically.
  */
+/**
+ * 文件职责：实现 build-exe-for-python-sdk.ts 覆盖的仓库构建、校验或维护脚本职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
+ * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
+ * 逻辑维度：解析参数和文件，执行检查或转换，再输出结果并处理错误。
+ * 关键边界：脚本可能修改构建产物；路径和子进程输出不可信；失败必须以非零状态显式报告。
+ * 新手阅读建议：先看命令入口和参数，再读文件遍历或转换，最后关注错误码和平台差异。
+ */
 
 import { spawn } from 'node:child_process'
 import { existsSync, statSync } from 'node:fs'
@@ -13,25 +21,36 @@ import { basename, dirname, join, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { resolveLinuxNodePtyAddon } from './build-exe-for-python-sdk-native-pty.ts'
 
+/** 中文说明：变量 root 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
 
 /** The closure manifest whose dependencies define the executable. */
+/** 中文说明：常量 DEPLOY_ROOT_PACKAGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEPLOY_ROOT_PACKAGE = 'dsh-jsonrpc-agent-pkg'
 /** The closed-runtime app entry inside the deployed closure. */
+/** 中文说明：常量 ENTRY_BIN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ENTRY_BIN = 'node_modules/@deepseek-ai/dsh-sdk-jsonrpc-demo/lib/packaged-bin.js'
+/** 中文说明：常量 OUTPUT_BASENAME 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUTPUT_BASENAME = 'dsh-jsonrpc-agent-pkg'
 /** Default Node major; SEA mode requires at least Node 22. */
+/** 中文说明：常量 DEFAULT_NODE_RANGE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_NODE_RANGE = 'node24'
 /** Pinned for reproducible builds. */
+/** 中文说明：常量 PKG_SPEC 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PKG_SPEC = '@yao-pkg/pkg@6.21.0'
+/** 中文说明：常量 OUT_DIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUT_DIR = 'dist-exe'
 /** Python package destination; created when absent. */
+/** 中文说明：常量 PYTHON_RUNTIME_DIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PYTHON_RUNTIME_DIR = 'python/sdk-runtime/src/deepseek_harness_runtime/runtime'
 /** The deployed closure doubles as the node-mode carrier. */
+/** 中文说明：常量 PYTHON_NODE_SUBDIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PYTHON_NODE_SUBDIR = 'node'
 /** Legacy deploy may hoist peer-specialized workspace packages back here. */
+/** 中文说明：常量 DEPLOY_SOURCE_NODE_MODULES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEPLOY_SOURCE_NODE_MODULES = 'python/sdk-runtime/node_modules'
 /** Documentation excluded from the generated runtime directory. */
+/** 中文说明：常量 DEPLOY_ONLY_DOCS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEPLOY_ONLY_DOCS = ['README.md', 'README.zh.md', 'README.i18n.yaml']
 
 /**
@@ -39,6 +58,7 @@ const DEPLOY_ONLY_DOCS = ['README.md', 'README.zh.md', 'README.i18n.yaml']
  * static analysis cannot see. Package manifests are explicit because bare-name
  * resolution depends on them.
  */
+/** 中文说明：常量 ASSET_GLOBS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ASSET_GLOBS = [
   'package.json',
   'node_modules/**/*.js',
@@ -50,15 +70,21 @@ const ASSET_GLOBS = [
   'node_modules/**/*.wasm',
 ]
 
+/** 中文说明：常量 PLATFORMS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PLATFORMS = ['linux', 'macos'] as const
+/** 中文说明：常量 ARCHES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ARCHES = ['x64', 'arm64'] as const
+/** 中文说明：type Platform 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 type Platform = (typeof PLATFORMS)[number]
+/** 中文说明：type Arch 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 type Arch = (typeof ARCHES)[number]
 
+/** 中文说明：函数 isPlatform 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isPlatform(value: string): value is Platform {
   return (PLATFORMS as readonly string[]).includes(value)
 }
 
+/** 中文说明：函数 isArch 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isArch(value: string): value is Arch {
   return (ARCHES as readonly string[]).includes(value)
 }
@@ -66,6 +92,7 @@ function isArch(value: string): value is Arch {
 /**
  * A parsed pkg target triple, constructed from `--targets` or the host.
  */
+/** 中文说明：class Target 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 class Target {
   private constructor(
     /** pkg Node range (`node<major>`). */
@@ -90,6 +117,7 @@ class Target {
    * @returns the parsed target.
    */
   static parse(spec: string): Target {
+    /** 中文说明：变量 parts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parts = spec.split('-')
     const [nodeRange, platform, arch] = parts
     if (parts.length !== 3 || nodeRange === undefined || platform === undefined || arch === undefined) {
@@ -112,10 +140,12 @@ class Target {
    * @returns the host target; throws on an unsupported host platform or arch.
    */
   static host(): Target {
+    /** 中文说明：变量 platform 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const platform = process.platform === 'darwin' ? 'macos' : process.platform === 'linux' ? 'linux' : undefined
     if (platform === undefined) {
       throw new Error(`build-exe-for-python-sdk: unsupported host platform ${process.platform}; pass --targets explicitly.`)
     }
+    /** 中文说明：变量 arch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const arch = process.arch === 'x64' || process.arch === 'arm64' ? process.arch : undefined
     if (arch === undefined) {
       throw new Error(`build-exe-for-python-sdk: unsupported host arch ${process.arch}; pass --targets explicitly.`)
@@ -127,6 +157,7 @@ class Target {
 /**
  * Validated CLI configuration; construction owns help and parse-error exits.
  */
+/** 中文说明：class BuildCli 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 class BuildCli {
   private constructor(
     /** Build targets; defaults to the host platform only. */
@@ -144,6 +175,7 @@ class BuildCli {
    * @returns the parsed, validated configuration.
    */
   static parse(argv: string[]): BuildCli {
+    /** 中文说明：变量 values 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let values: ReturnType<typeof BuildCli.parseRaw>
     try {
       values = BuildCli.parseRaw(argv)
@@ -156,12 +188,16 @@ class BuildCli {
       console.log(BuildCli.usage())
       process.exit(0)
     }
+    /** 中文说明：变量 targets 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const targets = values.targets === undefined
       ? [Target.host()]
       : values.targets.split(',').map(part => part.trim()).filter(part => part !== '').map(spec => Target.parse(spec))
     if (targets.length === 0) throw new Error('build-exe-for-python-sdk: --targets is empty.')
+    /** 中文说明：变量 seen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seen = new Set<string>()
+    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const target of targets) {
+      /** 中文说明：变量 key 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const key = `${target.platform}-${target.arch}`
       if (seen.has(key)) {
         throw new Error(`build-exe-for-python-sdk: duplicate platform-arch ${key} in --targets; canonical product names would collide.`)
@@ -199,6 +235,7 @@ class BuildCli {
   }
 }
 
+/** 中文说明：函数 pnpmBin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function pnpmBin(): string {
   return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 }
@@ -209,6 +246,7 @@ function pnpmBin(): string {
  * @param args - its arguments.
  * @returns the printable command line.
  */
+/** 中文说明：函数 formatCommand 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function formatCommand(command: string, args: string[]): string {
   return [command, ...args].map(part => (part.includes(' ') ? JSON.stringify(part) : part)).join(' ')
 }
@@ -217,6 +255,7 @@ function formatCommand(command: string, args: string[]): string {
  * Sequential build pipeline. Subprocesses inherit stdio and errors include
  * the command; dry runs print commands and filesystem changes.
  */
+/** 中文说明：class SingleExeBuild 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 class SingleExeBuild {
   /**
    * The cleared deploy target, pkg input, and Python node-mode carrier. The
@@ -262,6 +301,7 @@ class SingleExeBuild {
     await this.restoreLegacyHoists()
     await this.materializeStagedLinks()
     if (this.cli.dryRun) {
+      /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
       for (const name of DEPLOY_ONLY_DOCS) console.log(`build-exe-for-python-sdk: [dry-run] rm -f ${join(this.staging, name)}`)
     } else {
       await Promise.all(DEPLOY_ONLY_DOCS.map(name => rm(join(this.staging, name), { force: true })))
@@ -279,15 +319,22 @@ class SingleExeBuild {
       console.log('build-exe-for-python-sdk: [dry-run] restore direct dependencies omitted by legacy deploy')
       return
     }
+    /** 中文说明：变量 manifestPath 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifestPath = join(this.staging, 'package.json')
+    /** 中文说明：变量 manifest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
       dependencies?: Record<string, string>
     }
+    /** 中文说明：变量 sourceNodeModules 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourceNodeModules = resolve(root, DEPLOY_SOURCE_NODE_MODULES)
+    /** 中文说明：变量 restored 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const restored: string[] = []
+    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const dependency of Object.keys(manifest.dependencies ?? {}).sort()) {
+      /** 中文说明：变量 destination 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const destination = join(this.staging, 'node_modules', dependency)
       if (existsSync(destination)) continue
+      /** 中文说明：变量 source 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const source = join(sourceNodeModules, dependency)
       if (!existsSync(source)) {
         throw new Error(
@@ -295,6 +342,7 @@ class SingleExeBuild {
         )
       }
       await mkdir(dirname(destination), { recursive: true })
+      /** 中文说明：变量 nestedNodeModules 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const nestedNodeModules = join(source, 'node_modules')
       await cp(source, destination, {
         recursive: true,
@@ -303,6 +351,7 @@ class SingleExeBuild {
       })
       restored.push(dependency)
     }
+    /** 中文说明：变量 stillMissing 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stillMissing = Object.keys(manifest.dependencies ?? {})
       .filter(dependency => !existsSync(join(this.staging, 'node_modules', dependency)))
     if (stillMissing.length > 0) {
@@ -319,18 +368,25 @@ class SingleExeBuild {
       console.log('build-exe-for-python-sdk: [dry-run] materialize staged package links')
       return
     }
+    /** 中文说明：变量 nodeModules 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nodeModules = join(this.staging, 'node_modules')
+    /** 中文说明：变量 remaining 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let remaining = await this.findSymlink(nodeModules)
     while (remaining !== undefined) {
+      /** 中文说明：变量 segments 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const segments = remaining.slice(nodeModules.length + 1).split(sep)
+      /** 中文说明：变量 binIndex 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const binIndex = segments.lastIndexOf('.bin')
       if (binIndex >= 0) {
         await rm(join(nodeModules, ...segments.slice(0, binIndex + 1)), { recursive: true, force: true })
         remaining = await this.findSymlink(nodeModules)
         continue
       }
+      /** 中文说明：变量 destination 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const destination = remaining
+      /** 中文说明：变量 source 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const source = await realpath(destination)
+      /** 中文说明：变量 nestedNodeModules 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const nestedNodeModules = join(source, 'node_modules')
       await rm(destination, { recursive: true, force: true })
       await cp(source, destination, {
@@ -344,11 +400,15 @@ class SingleExeBuild {
 
   /** Return the first symbolic link below a directory, if one exists. */
   private async findSymlink(directory: string): Promise<string | undefined> {
+    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const entry of await readdir(directory, { withFileTypes: true })) {
+      /** 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const path = join(directory, entry.name)
+      /** 中文说明：变量 metadata 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const metadata = await lstat(path)
       if (metadata.isSymbolicLink()) return path
       if (metadata.isDirectory()) {
+        /** 中文说明：变量 nested 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const nested = await this.findSymlink(path)
         if (nested !== undefined) return nested
       }
@@ -358,7 +418,9 @@ class SingleExeBuild {
 
   /** Add the executable entry and pkg assets to the staged manifest. */
   async injectPkgConfig(): Promise<void> {
+    /** 中文说明：变量 patch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const patch = { bin: ENTRY_BIN, pkg: { assets: ASSET_GLOBS } }
+    /** 中文说明：变量 manifestPath 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifestPath = join(this.staging, 'package.json')
     if (this.cli.dryRun) {
       console.log(`build-exe-for-python-sdk: [dry-run] patch ${manifestPath} with ${JSON.stringify(patch)}`)
@@ -370,6 +432,7 @@ class SingleExeBuild {
     if (!existsSync(join(this.staging, ENTRY_BIN))) {
       throw new Error(`build-exe-for-python-sdk: ${join(this.staging, ENTRY_BIN)} missing — run without --skip-build so lib/ artifacts exist.`)
     }
+    /** 中文说明：变量 manifest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>
     await writeFile(manifestPath, `${JSON.stringify({ ...manifest, ...patch }, null, 2)}\n`)
     console.log(`build-exe-for-python-sdk: injected pkg config into ${manifestPath}`)
@@ -381,6 +444,7 @@ class SingleExeBuild {
    * @returns the executable and ripgrep sidecar paths, plus the macOS spawn helper path when required.
    */
   async pack(target: Target): Promise<string[]> {
+    /** 中文说明：变量 product 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const product = join(this.outDir, `${OUTPUT_BASENAME}-${target.platform}-${target.arch}`)
     await this.prepareNativePty(target)
     if (!this.cli.dryRun) await mkdir(this.outDir, { recursive: true })
@@ -397,9 +461,12 @@ class SingleExeBuild {
     if (!this.cli.dryRun && !existsSync(product)) {
       throw new Error(`build-exe-for-python-sdk: product ${product} is missing after the pkg run; inspect ${this.outDir}.`)
     }
+    /** 中文说明：变量 ripgrep 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ripgrep = await this.copyRipgrepSidecar(target, product)
     if (target.platform !== 'macos') return [product, ripgrep]
+    /** 中文说明：变量 spawnHelper 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnHelper = `${product}-spawn-helper`
+    /** 中文说明：变量 source 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = join(this.staging, 'node_modules', 'node-pty', 'prebuilds', `darwin-${target.arch}`, 'spawn-helper')
     if (this.cli.dryRun) {
       console.log(`build-exe-for-python-sdk: [dry-run] cp ${source} ${spawnHelper}`)
@@ -412,7 +479,9 @@ class SingleExeBuild {
 
   /** Copy the target ripgrep binary beside the executable so Node can spawn it outside pkg's virtual filesystem. */
   private async copyRipgrepSidecar(target: Target, product: string): Promise<string> {
+    /** 中文说明：变量 platform 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const platform = target.platform === 'macos' ? 'darwin' : target.platform
+    /** 中文说明：变量 source 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = join(
       this.staging,
       'node_modules',
@@ -421,6 +490,7 @@ class SingleExeBuild {
       'bin',
       'rg',
     )
+    /** 中文说明：变量 destination 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const destination = `${product}-rg`
     if (this.cli.dryRun) {
       console.log(`build-exe-for-python-sdk: [dry-run] cp ${source} ${destination}`)
@@ -440,10 +510,12 @@ class SingleExeBuild {
    * @param target - the pkg target whose native addon is being staged.
    */
   private async prepareNativePty(target: Target): Promise<void> {
+    /** 中文说明：变量 stagedBuild 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stagedBuild = join(this.staging, 'node_modules', 'node-pty', 'build')
     if (this.cli.dryRun) console.log(`build-exe-for-python-sdk: [dry-run] rm -rf ${stagedBuild}`)
     else await rm(stagedBuild, { recursive: true, force: true })
     if (target.platform !== 'linux') return
+    /** 中文说明：变量 packageDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packageDirectory = join(
       root,
       'packages',
@@ -452,12 +524,15 @@ class SingleExeBuild {
       'node_modules',
       'node-pty',
     )
+    /** 中文说明：变量 destination 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const destination = join(stagedBuild, 'Release', 'pty.node')
+    /** 中文说明：变量 source 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = resolveLinuxNodePtyAddon(packageDirectory, target.arch)
     if (this.cli.dryRun) {
       console.log(`build-exe-for-python-sdk: [dry-run] cp ${source} ${destination}`)
       return
     }
+    /** 中文说明：变量 host 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const host = Target.host()
     if (target.platform !== host.platform || target.arch !== host.arch) {
       throw new Error(
@@ -475,11 +550,13 @@ class SingleExeBuild {
    */
   printProducts(products: string[]): void {
     console.log(this.cli.dryRun ? 'build-exe-for-python-sdk: [dry-run] would produce:' : 'build-exe-for-python-sdk: products:')
+    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const path of products) {
       if (this.cli.dryRun) {
         console.log(`  ${path}`)
         continue
       }
+      /** 中文说明：变量 megabytes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const megabytes = statSync(path).size / (1024 * 1024)
       console.log(`  ${path}  (${megabytes.toFixed(1)} MB)`)
     }
@@ -491,15 +568,19 @@ class SingleExeBuild {
    * @param products - the product paths returned by {@link pack}.
    */
   async syncToPythonRuntime(products: string[]): Promise<void> {
+    /** 中文说明：变量 destDir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const destDir = resolve(root, PYTHON_RUNTIME_DIR)
     if (this.cli.dryRun) {
+      /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
       for (const path of products) {
         console.log(`build-exe-for-python-sdk: [dry-run] cp ${path} ${join(destDir, basename(path))}`)
       }
       return
     }
     await mkdir(destDir, { recursive: true })
+    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const path of products) {
+      /** 中文说明：变量 destination 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const destination = join(destDir, basename(path))
       await copyFile(path, destination)
       await chmod(destination, statSync(path).mode & 0o777)
@@ -515,6 +596,7 @@ class SingleExeBuild {
    * @param args - its arguments.
    */
   private async run(label: string, command: string, args: string[]): Promise<void> {
+    /** 中文说明：变量 printable 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const printable = formatCommand(command, args)
     if (this.cli.dryRun) {
       console.log(`build-exe-for-python-sdk: [dry-run] ${printable}`)
@@ -522,6 +604,7 @@ class SingleExeBuild {
     }
     console.log(`build-exe-for-python-sdk: ${label}: ${printable}`)
     await new Promise<void>((resolvePromise, reject) => {
+      /** 中文说明：变量 child 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = spawn(command, args, {
         cwd: root,
         stdio: 'inherit',
@@ -536,6 +619,7 @@ class SingleExeBuild {
           resolvePromise()
           return
         }
+        /** 中文说明：变量 cause 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const cause = code === null ? `signal ${signal ?? 'unknown'}` : `exit code ${code}`
         reject(new Error(`build-exe-for-python-sdk: ${label} failed (${cause}): ${printable}`))
       })
@@ -543,8 +627,11 @@ class SingleExeBuild {
   }
 }
 
+/** 中文说明：函数 main 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function main(): Promise<void> {
+  /** 中文说明：变量 cli 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cli = BuildCli.parse(process.argv.slice(2))
+  /** 中文说明：变量 pipeline 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pipeline = new SingleExeBuild(cli)
   console.log(`build-exe-for-python-sdk: targets: ${cli.targets.map(target => target.spec).join(', ')}`)
   console.log(`build-exe-for-python-sdk: staging: ${pipeline.staging}`)
@@ -552,7 +639,9 @@ async function main(): Promise<void> {
   await pipeline.build()
   await pipeline.deployStaging()
   await pipeline.injectPkgConfig()
+  /** 中文说明：变量 products 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const products: string[] = []
+  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const target of cli.targets) products.push(...await pipeline.pack(target))
   pipeline.printProducts(products)
   await pipeline.syncToPythonRuntime(products)
