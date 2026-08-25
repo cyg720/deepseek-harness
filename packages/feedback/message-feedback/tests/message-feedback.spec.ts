@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证反馈记录的 message-feedback.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
+ * 产品维度：保证反馈记录在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：构造插件或沙箱，驱动操作并断言日志与清理。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
 import { randomUUID } from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -13,12 +21,16 @@ import {
   appendMessageFixture,
   messageFixture,
   setupHarness,
+  /** 中文说明：类型或类 TestHarness 约束扩展或反馈数据职责。 */
   type TestHarness,
 } from './helpers.ts'
 
+/** 中文说明：测试局部值 harnesses，由紧邻初始化决定。 */
 const harnesses: TestHarness[] = []
 
+/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(maxNoteBytes = 64): Promise<TestHarness> {
+  /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
   const value = await setupHarness(maxNoteBytes)
   harnesses.push(value)
   return value
@@ -29,10 +41,12 @@ afterEach(async () => {
   await Promise.all(harnesses.splice(0).map(value => value.dispose()))
 })
 
+/** 中文说明：函数 staleVersion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function staleVersion(): MessageFeedbackVersion {
   return randomUUID() as MessageFeedbackVersion
 }
 
+/** 中文说明：函数 expectItem 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function expectItem(
   result: Awaited<ReturnType<TestHarness['ctx']['messageFeedback']['put']>>,
 ): MessageFeedbackItem {
@@ -42,7 +56,9 @@ function expectItem(
 
 describe('MessageFeedbackService public contract', () => {
   it('publishes the exact Gateway namespace and Remote method names', async () => {
+    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await harness()
+    /** 中文说明：测试局部值 binding，由紧邻初始化决定。 */
     const binding = ctx.messageFeedback.typertRemote
     expect(binding.serviceKey).toBe('messageFeedback')
     expect(binding.namespace).toBe('messageFeedback')
@@ -54,30 +70,39 @@ describe('MessageFeedbackService public contract', () => {
   })
 
   it('returns session-not-found only for a definite persistence miss', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = SessionId('missing-session')
     await expect(ctx.messageFeedback.list({ sessionId: missing })).resolves.toEqual({
       ok: false,
       error: { code: 'session-not-found', sessionId: missing },
     })
 
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('corrupt-session')
     persistence.setDurable({ meta: fixture.session.header, events: fixture.session.events })
+    /** 中文说明：测试局部值 corruption，由紧邻初始化决定。 */
     const corruption = new Error('stored log checksum mismatch')
     persistence.inspectFailure = corruption
     await expect(ctx.messageFeedback.list({ sessionId: fixture.session.id })).rejects.toBe(corruption)
   })
 
   it('rechecks live ownership before returning a cold catalog miss', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 sessionId，由紧邻初始化决定。 */
     const sessionId = SessionId('catalog-live-race')
+    /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
     const listed = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
     persistence.onListSnapshots = async () => {
       listed.resolve(undefined)
       await release.promise
     }
 
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = ctx.messageFeedback.list({ sessionId })
     await listed.promise
     ctx.sessions.create(sessionId, { meta: { createdAt: 1_700_000_000_001 } })
@@ -88,8 +113,11 @@ describe('MessageFeedbackService public contract', () => {
   })
 
   it('returns session-not-found from mutations and conflicts on an observed version for an absent item', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = SessionId('missing-mutations')
+    /** 中文说明：测试局部值 missingMessage，由紧邻初始化决定。 */
     const missingMessage = 'missing-message' as MessageId
     await expect(ctx.messageFeedback.put({
       sessionId: missing,
@@ -109,8 +137,10 @@ describe('MessageFeedbackService public contract', () => {
       error: { code: 'session-not-found', sessionId: missing },
     })
 
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('absent-version-conflict')
     persistence.persist(fixture.session)
+    /** 中文说明：测试局部值 expected，由紧邻初始化决定。 */
     const expected = staleVersion()
     await expect(ctx.messageFeedback.put({
       sessionId: fixture.session.id,
@@ -124,13 +154,17 @@ describe('MessageFeedbackService public contract', () => {
   })
 
   it('creates, updates, and retry-reads immutable items with monotonic Host times', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('timestamps')
     persistence.persist(fixture.session)
+    /** 中文说明：测试局部值 messageId，由紧邻初始化决定。 */
     const messageId = fixture.assistantMessageIds[0]
 
     vi.useFakeTimers()
     vi.setSystemTime(1_700_000_001_000)
+    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId,
@@ -149,6 +183,7 @@ describe('MessageFeedbackService public contract', () => {
     expect(Object.isFrozen(created)).toBe(true)
 
     vi.setSystemTime(1_700_000_000_000)
+    /** 中文说明：测试局部值 updated，由紧邻初始化决定。 */
     const updated = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId,
@@ -163,6 +198,7 @@ describe('MessageFeedbackService public contract', () => {
     })
     expect(updated.version).not.toBe(created.version)
 
+    /** 中文说明：测试局部值 retry，由紧邻初始化决定。 */
     const retry = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId,
@@ -171,6 +207,7 @@ describe('MessageFeedbackService public contract', () => {
     }))
     expect(retry).toEqual(updated)
 
+    /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
     const listed = await ctx.messageFeedback.list({ sessionId: fixture.session.id })
     if (!listed.ok) throw new Error(`expected list success, got ${listed.error.code}`)
     expect(listed.value.items).toEqual([updated])
@@ -181,10 +218,14 @@ describe('MessageFeedbackService public contract', () => {
   })
 
   it('reports non-blank and complete UTF-8 byte limits without touching persistence', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness(4)
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('note-limits')
     persistence.persist(fixture.session)
+    /** 中文说明：测试局部值 messageId，由紧邻初始化决定。 */
     const messageId = fixture.assistantMessageIds[0]
+    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = persistence.inspectCalls
 
     await expect(ctx.messageFeedback.put({
@@ -216,14 +257,18 @@ describe('MessageFeedbackService public contract', () => {
   })
 
   it('accepts only non-empty append-origin assistant projections as targets', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('targets')
     persistence.persist(fixture.session)
+    /** 中文说明：测试局部值 rejectedTargets，由紧邻初始化决定。 */
     const rejectedTargets: MessageId[] = [
       fixture.userMessageId,
       fixture.emptyAssistantMessageId,
       fixture.replacementAssistantMessageId,
     ]
+    /** 中文说明：测试局部值 messageId，由紧邻初始化决定。 */
     for (const messageId of rejectedTargets) {
       await expect(ctx.messageFeedback.put({
         sessionId: fixture.session.id,
@@ -248,18 +293,22 @@ describe('MessageFeedbackService public contract', () => {
   })
 
   it('fails invalid direct configuration and a read before domain initialization', async () => {
+    /** 中文说明：测试局部值 invalidCtx，由紧邻初始化决定。 */
     const invalidCtx = new Context()
     expect(() => new MessageFeedbackService(invalidCtx, { maxNoteBytes: 0 }))
       .toThrow(/positive safe integer/u)
     await invalidCtx.fiber.dispose()
 
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('uninitialized-domain')
+    /** 中文说明：测试局部值 rawCtx，由紧邻初始化决定。 */
     const rawCtx = new Context()
     rawCtx.provide('sessions', { get: () => undefined } as never)
     rawCtx.provide('sessionPersistence', {
       listSnapshots: () => Promise.resolve([{ header: fixture.session.header, revision: 'test' }]),
       inspect: () => Promise.resolve({ meta: fixture.session.header, events: fixture.session.events }),
     } as never)
+    /** 中文说明：测试局部值 raw，由紧邻初始化决定。 */
     const raw = new MessageFeedbackService(rawCtx, { maxNoteBytes: 1 })
     await expect(raw.list({ sessionId: fixture.session.id }))
       .rejects.toThrow(/durable domain is not initialized/u)
@@ -267,7 +316,9 @@ describe('MessageFeedbackService public contract', () => {
   })
 
   it('rejects durable rows with duplicate message ids or reused item versions', () => {
+    /** 中文说明：测试局部值 version，由紧邻初始化决定。 */
     const version = staleVersion()
+    /** 中文说明：测试局部值 duplicate，由紧邻初始化决定。 */
     const duplicate = messageFeedbackRowSchema.safeParse({
       session: { createdAt: 1 },
       items: [
@@ -296,11 +347,15 @@ describe('MessageFeedbackService public contract', () => {
 
 describe('MessageFeedbackService item concurrency', () => {
   it('serializes whole-row writes while keeping versions independent per message', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('concurrent-items')
     persistence.persist(fixture.session)
+    /** 中文说明：测试局部值 [firstId, secondId]，由紧邻初始化决定。 */
     const [firstId, secondId] = fixture.assistantMessageIds
 
+    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const [firstResult, secondResult] = await Promise.all([
       ctx.messageFeedback.put({
         sessionId: fixture.session.id,
@@ -315,8 +370,11 @@ describe('MessageFeedbackService item concurrency', () => {
         ifVersion: null,
       }),
     ])
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = expectItem(firstResult)
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = expectItem(secondResult)
+    /** 中文说明：测试局部值 updated，由紧邻初始化决定。 */
     const updated = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId: firstId,
@@ -336,6 +394,7 @@ describe('MessageFeedbackService item concurrency', () => {
       error: { code: 'version-conflict', current: updated },
     })
 
+    /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
     const listed = await ctx.messageFeedback.list({ sessionId: fixture.session.id })
     if (!listed.ok) throw new Error(`expected list success, got ${listed.error.code}`)
     expect(listed.value.items).toEqual([updated, second])
@@ -343,22 +402,28 @@ describe('MessageFeedbackService item concurrency', () => {
   })
 
   it('rejects a stale put even when the current value has returned to the same state', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('put-aba')
     persistence.persist(fixture.session)
+    /** 中文说明：测试局部值 messageId，由紧邻初始化决定。 */
     const messageId = fixture.assistantMessageIds[0]
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId,
       rating: 'positive',
       ifVersion: null,
     }))
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId,
       rating: 'negative',
       ifVersion: first.version,
     }))
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId,
@@ -378,10 +443,14 @@ describe('MessageFeedbackService item concurrency', () => {
   })
 
   it('makes delete retries stable and prevents delete/recreate ABA', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('delete-aba')
     persistence.persist(fixture.session)
+    /** 中文说明：测试局部值 messageId，由紧邻初始化决定。 */
     const messageId = fixture.assistantMessageIds[0]
+    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId,
@@ -397,6 +466,7 @@ describe('MessageFeedbackService item concurrency', () => {
       ok: false,
       error: { code: 'version-conflict', current: created },
     })
+    /** 中文说明：测试局部值 request，由紧邻初始化决定。 */
     const request = {
       sessionId: fixture.session.id,
       messageId,
@@ -411,6 +481,7 @@ describe('MessageFeedbackService item concurrency', () => {
       value: { absent: true },
     })
 
+    /** 中文说明：测试局部值 recreated，由紧邻初始化决定。 */
     const recreated = expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
       messageId,
@@ -425,9 +496,12 @@ describe('MessageFeedbackService item concurrency', () => {
   })
 
   it('fences a reused Session id and lets the new lifecycle start cleanly', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 old，由紧邻初始化决定。 */
     const old = messageFixture('reused-session', { createdAt: 10, cwd: '/old' })
     persistence.persist(old.session)
+    /** 中文说明：测试局部值 oldItem，由紧邻初始化决定。 */
     const oldItem = expectItem(await ctx.messageFeedback.put({
       sessionId: old.session.id,
       messageId: old.assistantMessageIds[0],
@@ -435,6 +509,7 @@ describe('MessageFeedbackService item concurrency', () => {
       ifVersion: null,
     }))
 
+    /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = Session.create(
       old.session.id,
       old.session.events,
@@ -451,6 +526,7 @@ describe('MessageFeedbackService item concurrency', () => {
       ifVersion: oldItem.version,
     })).resolves.toEqual({ ok: true, value: { absent: true } })
 
+    /** 中文说明：测试局部值 newItem，由紧邻初始化决定。 */
     const newItem = expectItem(await ctx.messageFeedback.put({
       sessionId: replacement.id,
       messageId: old.assistantMessageIds[0],
@@ -461,15 +537,24 @@ describe('MessageFeedbackService item concurrency', () => {
   })
 
   it('drains admitted mutations before domain close and rejects later admission', async () => {
+    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     const current = await harness()
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = current
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('dispose-quiescence')
     persistence.persist(fixture.session)
+    /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
     const service = ctx.messageFeedback
+    /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定。 */
     const lifecycle = service as unknown as { readonly mutationAdmissionOpen: boolean }
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 physicalReads，由紧邻初始化决定。 */
     let physicalReads = 0
+    /** 中文说明：测试局部值 committed，由紧邻初始化决定。 */
     let committed = 0
     persistence.onReadFrom = async () => {
       physicalReads += 1
@@ -481,6 +566,7 @@ describe('MessageFeedbackService item concurrency', () => {
       if (change.domain === 'message_feedback') committed += 1
     })
 
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = service.put({
       sessionId: fixture.session.id,
       messageId: fixture.assistantMessageIds[0],
@@ -488,12 +574,14 @@ describe('MessageFeedbackService item concurrency', () => {
       ifVersion: null,
     })
     await started.promise
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = service.put({
       sessionId: fixture.session.id,
       messageId: fixture.assistantMessageIds[1],
       rating: 'negative',
       ifVersion: null,
     })
+    /** 中文说明：测试局部值 disposal，由紧邻初始化决定。 */
     const disposal = current.disposeFeedback()
     await vi.waitFor(() => { expect(lifecycle.mutationAdmissionOpen).toBe(false) })
 
@@ -514,7 +602,9 @@ describe('MessageFeedbackService item concurrency', () => {
 
 describe('MessageFeedbackService durability ordering', () => {
   it('rejects a logical target missing from the cold physical durable prefix', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('cold-prefix')
     persistence.logical.set(fixture.session.id, {
       meta: fixture.session.header,
@@ -543,11 +633,15 @@ describe('MessageFeedbackService durability ordering', () => {
   })
 
   it('commits and physically verifies a live target checkpoint before the sidecar write', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.create(SessionId('live-checkpoint'), {
       meta: { createdAt: 30, cwd: '/live' },
     })
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = appendMessageFixture(session)
+    /** 中文说明：测试局部值 order，由紧邻初始化决定。 */
     const order: string[] = []
     ctx.on('session/flush', (current) => {
       order.push('session:durable')
@@ -572,9 +666,13 @@ describe('MessageFeedbackService durability ordering', () => {
   })
 
   it('fails closed when a live checkpoint fails, has no participant, or is not physically durable', async () => {
+    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = await harness()
+    /** 中文说明：测试局部值 failedSession，由紧邻初始化决定。 */
     const failedSession = failed.ctx.sessions.create(SessionId('live-flush-failure'))
+    /** 中文说明：测试局部值 failedFixture，由紧邻初始化决定。 */
     const failedFixture = appendMessageFixture(failedSession)
+    /** 中文说明：测试局部值 diskFailure，由紧邻初始化决定。 */
     const diskFailure = new Error('disk unavailable')
     failed.ctx.on('session/flush', () => { throw diskFailure })
     await expect(failed.ctx.messageFeedback.put({
@@ -588,8 +686,11 @@ describe('MessageFeedbackService durability ordering', () => {
       value: { items: [] },
     })
 
+    /** 中文说明：测试局部值 absent，由紧邻初始化决定。 */
     const absent = await harness()
+    /** 中文说明：测试局部值 absentSession，由紧邻初始化决定。 */
     const absentSession = absent.ctx.sessions.create(SessionId('live-no-flush'))
+    /** 中文说明：测试局部值 absentFixture，由紧邻初始化决定。 */
     const absentFixture = appendMessageFixture(absentSession)
     await expect(absent.ctx.messageFeedback.put({
       sessionId: absentSession.id,
@@ -602,8 +703,11 @@ describe('MessageFeedbackService durability ordering', () => {
       value: { items: [] },
     })
 
+    /** 中文说明：测试局部值 noDurability，由紧邻初始化决定。 */
     const noDurability = await harness()
+    /** 中文说明：测试局部值 unpersistedSession，由紧邻初始化决定。 */
     const unpersistedSession = noDurability.ctx.sessions.create(SessionId('live-unpersisted'))
+    /** 中文说明：测试局部值 unpersistedFixture，由紧邻初始化决定。 */
     const unpersistedFixture = appendMessageFixture(unpersistedSession)
     noDurability.ctx.on('session/flush', () => {})
     await expect(noDurability.ctx.messageFeedback.put({
@@ -620,14 +724,20 @@ describe('MessageFeedbackService durability ordering', () => {
   })
 
   it('finishes the captured live checkpoint when the Session detaches mid-flush', async () => {
+    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
     const { ctx, persistence } = await harness()
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = ctx.sessions.prepare(SessionId('detach-during-flush'), {
       meta: { createdAt: 40, cwd: '/detach' },
     })
+    /** 中文说明：测试局部值 detach，由紧邻初始化决定。 */
     const detach = ctx.sessions.enter(session)
     ctx.sessions.announce(session)
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = appendMessageFixture(session)
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
     ctx.on('session/flush', async (current) => {
       started.resolve(undefined)
@@ -635,6 +745,7 @@ describe('MessageFeedbackService durability ordering', () => {
       persistence.persist(current)
     })
 
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = ctx.messageFeedback.put({
       sessionId: session.id,
       messageId: fixture.assistantMessageIds[0],

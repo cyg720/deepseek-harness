@@ -1,4 +1,12 @@
 /* Sidebar-foot Cordis action and the fixed list it opens above the footer. */
+/**
+ * 文件职责：定义Cordis 扩展界面的 CordisPanel.module.css 样式。
+ * 技术维度：CSS Modules、主题变量和状态选择器。
+ * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：按容器、字段、操作与状态组织规则。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
 
 .layer {
   position: relative;
@@ -94,7 +102,9 @@
   background: var(--dsw-specific-menu);
   box-shadow: var(--dsw-shadow-lv3);
   /* Only `.body` scrolls; the header remains fixed above it. */
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存扩展界面复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存扩展界面复用的样式值。 */
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 

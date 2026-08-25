@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证反馈记录的 loader-composition.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
+ * 产品维度：保证反馈记录在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：构造插件或沙箱，驱动操作并断言日志与清理。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -15,7 +23,9 @@ import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
 import MessageFeedbackService from '../src/index.ts'
 import { appendMessageFixture } from './helpers.ts'
 
+/** 中文说明：测试局部值 root: string | undefined，由紧邻初始化决定。 */
 let root: string | undefined
+/** 中文说明：测试局部值 contexts，由紧邻初始化决定。 */
 const contexts: Context[] = []
 
 afterEach(async () => {
@@ -23,12 +33,15 @@ afterEach(async () => {
   if (root !== undefined) await rm(root, { recursive: true, force: true })
   root = undefined
 })
+/** 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function loadComposition(configPath: string): Promise<Context> {
+  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   contexts.push(ctx)
   ctx.baseUrl = pathToFileURL(root as string).href + '/'
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
+  /** 中文说明：测试局部值 modules，由紧邻初始化决定。 */
   const modules = new Map<string, unknown>([
     ['@deepseek-ai/dsh-session', SessionStore],
     ['@deepseek-ai/dsh-session-persistence-jsonl', JsonlSessionPersistence],
@@ -49,6 +62,7 @@ async function loadComposition(configPath: string): Promise<Context> {
     config: { path: pathToFileURL(configPath).href },
   })
   await ctx.loader.await()
+  /** 中文说明：测试局部值 unloaded，由紧邻初始化决定。 */
   const unloaded = [...ctx.loader.entries()]
     .filter(entry => entry.fiber === undefined && !entry.disabled)
     .map(entry => entry.options.name)
@@ -59,6 +73,7 @@ async function loadComposition(configPath: string): Promise<Context> {
 describe('message feedback through a real Loader composition', () => {
   it('persists a checkpointed target and its sidecar across a cold restart', async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-message-feedback-loader-'))
+    /** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
     const configPath = join(root, 'cordis.yml')
     await writeFile(configPath, [
       "- name: '@deepseek-ai/dsh-session'",
@@ -80,15 +95,19 @@ describe('message feedback through a real Loader composition', () => {
       '',
     ].join('\n'))
 
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await loadComposition(configPath)
     expect(first.messageFeedback.typertRemote.namespace).toBe('messageFeedback')
     expect(remoteMethods(first.messageFeedback).map(marker => marker.method))
       .toEqual(['list', 'put', 'delete'])
 
+    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = first.sessions.create(SessionId('loader-feedback'), {
       meta: { cwd: root },
     })
+    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = appendMessageFixture(session)
+    /** 中文说明：测试局部值 put，由紧邻初始化决定。 */
     const put = await first.messageFeedback.put({
       sessionId: session.id,
       messageId: fixture.assistantMessageIds[0],
@@ -97,6 +116,7 @@ describe('message feedback through a real Loader composition', () => {
       ifVersion: null,
     })
     if (!put.ok) throw new Error(`expected put success, got ${put.error.code}`)
+    /** 中文说明：测试局部值 durable，由紧邻初始化决定。 */
     const durable = await first.sessionPersistence.readFrom(session.id, 0)
     expect(durable.events.some(event =>
       event.type === 'assistant/message'
@@ -105,6 +125,7 @@ describe('message feedback through a real Loader composition', () => {
     await first.fiber.dispose()
     contexts.splice(contexts.indexOf(first), 1)
 
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await loadComposition(configPath)
     await expect(second.messageFeedback.list({ sessionId: session.id })).resolves.toEqual({
       ok: true,

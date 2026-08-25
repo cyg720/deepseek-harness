@@ -1,3 +1,11 @@
+/**
+ * 文件职责：定义Cordis 扩展界面的 CordisRunRow.module.css 样式。
+ * 技术维度：CSS Modules、主题变量和状态选择器。
+ * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：按容器、字段、操作与状态组织规则。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
 .card {
   display: flex;
   flex-direction: column;

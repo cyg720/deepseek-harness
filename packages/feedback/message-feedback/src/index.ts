@@ -2,6 +2,14 @@
  * Durable, lifecycle-bound feedback for finalized assistant messages.
  * @module @deepseek-ai/dsh-message-feedback
  */
+/**
+ * 文件职责：实现反馈记录的 index.ts 模块。
+ * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
+ * 产品维度：保证反馈记录在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：注册服务或命令，转换请求并记录结果。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
 
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
@@ -46,21 +54,25 @@ export {
 export type { MessageFeedbackRow, MessageFeedbackSessionIdentity } from './spec.ts'
 
 /** Required deployment policy for optional notes. */
+/** 中文说明：类型或类 Config 约束扩展或反馈数据职责。 */
 export interface Config {
   /** Maximum UTF-8 byte length accepted for one note. */
   readonly maxNoteBytes: number
 }
 
 declare module '@deepseek-ai/cordis' {
+  /** 中文说明：类型或类 Context 约束扩展或反馈数据职责。 */
   interface Context {
     messageFeedback: MessageFeedbackService
   }
 }
 
 /** Immutable empty list reused only as an input to caller-owned copying. */
+/** 中文说明：模块局部值 EMPTY_ITEMS，由紧邻初始化决定。 */
 const EMPTY_ITEMS: readonly MessageFeedbackItem[] = Object.freeze([])
 
 /** Validate the one deployment-varying limit at the configuration boundary. */
+/** 中文说明：函数 resolveMaxNoteBytes 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveMaxNoteBytes(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new TypeError(
@@ -71,6 +83,7 @@ function resolveMaxNoteBytes(value: number): number {
 }
 
 /** Copy and freeze one item before it crosses the service boundary. */
+/** 中文说明：函数 snapshotItem 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function snapshotItem(item: MessageFeedbackItem): MessageFeedbackItem {
   return Object.freeze({
     messageId: item.messageId,
@@ -83,21 +96,25 @@ function snapshotItem(item: MessageFeedbackItem): MessageFeedbackItem {
 }
 
 /** Copy and freeze a list response. */
+/** 中文说明：函数 snapshotList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function snapshotList(items: readonly MessageFeedbackItem[]): MessageFeedbackListValue {
   return Object.freeze({ items: Object.freeze(items.map(snapshotItem)) })
 }
 
 /** Build a frozen success branch. */
+/** 中文说明：函数 success 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function success<T>(value: T): MessageFeedbackSuccess<T> {
   return Object.freeze({ ok: true, value })
 }
 
 /** Build a frozen business-failure branch. */
+/** 中文说明：函数 rejected 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rejected<E extends MessageFeedbackFailure>(error: E): MessageFeedbackRejected<E> {
   return Object.freeze({ ok: false, error: Object.freeze(error) })
 }
 
 /** Project the Session fields that distinguish one persisted log lifecycle. */
+/** 中文说明：函数 identityOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function identityOf(header: SessionHeader): MessageFeedbackSessionIdentity {
   return Object.freeze({
     createdAt: header.createdAt,
@@ -106,20 +123,24 @@ function identityOf(header: SessionHeader): MessageFeedbackSessionIdentity {
 }
 
 /** Whether a stored row belongs to the inspected Session lifecycle. */
+/** 中文说明：函数 sameIdentity 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sameIdentity(row: MessageFeedbackRow, header: SessionHeader): boolean {
   return row.session.createdAt === header.createdAt && row.session.cwd === header.cwd
 }
 
 /** Whether two observations name the same persisted Session lifecycle. */
+/** 中文说明：函数 sameHeaderIdentity 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sameHeaderIdentity(left: SessionHeader, right: SessionHeader): boolean {
   return left.id === right.id && left.createdAt === right.createdAt && left.cwd === right.cwd
 }
 
 /** Freeze the replacement row so storage-domain never exposes mutable aliases. */
+/** 中文说明：函数 rowSnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowSnapshot(
   session: MessageFeedbackSessionIdentity,
   items: readonly MessageFeedbackItem[],
 ): MessageFeedbackRow {
+  /** 中文说明：模块局部值 copiedItems，由紧邻初始化决定。 */
   const copiedItems = items.map(snapshotItem)
   Object.freeze(copiedItems)
   return Object.freeze({
@@ -129,16 +150,19 @@ function rowSnapshot(
 }
 
 /** Generate an opaque equality token for one material mutation. */
+/** 中文说明：函数 nextVersion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function nextVersion(): MessageFeedbackVersion {
   return randomUUID() as MessageFeedbackVersion
 }
 
 /** Session inspection result that keeps absence inside the business union. */
+/** 中文说明：类型或类 KnownSession 约束扩展或反馈数据职责。 */
 type KnownSession =
   | MessageFeedbackSuccess<SessionInspection>
   | MessageFeedbackRejected<MessageFeedbackSessionNotFound>
 
 /** Validated note or one explicit request failure. */
+/** 中文说明：类型或类 ResolvedNote 约束扩展或反馈数据职责。 */
 type ResolvedNote =
   | MessageFeedbackSuccess<string | undefined>
   | MessageFeedbackRejected<MessageFeedbackNoteBlank | MessageFeedbackNoteTooLarge>
@@ -147,6 +171,7 @@ type ResolvedNote =
  * Storage-domain sidecar service. It inspects persisted Session history and
  * never creates or resumes an Agent or Session.
  */
+/** 中文说明：类型或类 MessageFeedbackService 约束扩展或反馈数据职责。 */
 export class MessageFeedbackService extends TypertRemoteService {
   static inject = ['storageDomain', 'sessionPersistence', 'sessions']
 
@@ -171,6 +196,7 @@ export class MessageFeedbackService extends TypertRemoteService {
 
   /** Open and own the one message-feedback sidecar domain. */
   protected async [Service.init](): Promise<void> {
+    /** 中文说明：模块局部值 domain，由紧邻初始化决定。 */
     const domain = await this.ctx.storageDomain.open(messageFeedbackDomainSpec)
     this.ctx.effect(() => async () => {
       this.mutationAdmissionOpen = false
@@ -188,9 +214,12 @@ export class MessageFeedbackService extends TypertRemoteService {
    */
   @Remote('list')
   async list(request: MessageFeedbackListRequest): Promise<MessageFeedbackListResult> {
+    /** 中文说明：模块局部值 known，由紧邻初始化决定。 */
     const known = await this.inspectSession(request.sessionId)
     if (!known.ok) return known
+    /** 中文说明：模块局部值 row，由紧邻初始化决定。 */
     const row = this.requireTable().get(request.sessionId)
+    /** 中文说明：模块局部值 items，由紧邻初始化决定。 */
     const items = row !== undefined && sameIdentity(row, known.value.meta) ? row.items : EMPTY_ITEMS
     return success(snapshotList(items))
   }
@@ -204,9 +233,11 @@ export class MessageFeedbackService extends TypertRemoteService {
    */
   @Remote('put')
   put(request: MessageFeedbackPutRequest): Promise<MessageFeedbackPutResult> {
+    /** 中文说明：模块局部值 note，由紧邻初始化决定。 */
     const note = this.resolveNote(request.note)
     if (!note.ok) return Promise.resolve(note)
     return this.enqueue(request.sessionId, async () => {
+      /** 中文说明：模块局部值 known，由紧邻初始化决定。 */
       const known = await this.inspectSession(request.sessionId)
       if (!known.ok) return known
       if (!this.hasFeedbackTarget(known.value, request.messageId)) {
@@ -217,6 +248,7 @@ export class MessageFeedbackService extends TypertRemoteService {
         })
       }
 
+      /** 中文说明：模块局部值 durable，由紧邻初始化决定。 */
       const durable = await this.ensureTargetDurable(known.value)
       if (!sameHeaderIdentity(durable.meta, known.value.meta)
         || !this.hasFeedbackTarget(durable, request.messageId)) {
@@ -227,11 +259,17 @@ export class MessageFeedbackService extends TypertRemoteService {
         })
       }
 
+      /** 中文说明：模块局部值 table，由紧邻初始化决定。 */
       const table = this.requireTable()
+      /** 中文说明：模块局部值 stored，由紧邻初始化决定。 */
       const stored = table.get(request.sessionId)
+      /** 中文说明：模块局部值 current，由紧邻初始化决定。 */
       const current = stored !== undefined && sameIdentity(stored, durable.meta) ? stored : undefined
+      /** 中文说明：模块局部值 items，由紧邻初始化决定。 */
       const items = current?.items ?? EMPTY_ITEMS
+      /** 中文说明：模块局部值 index，由紧邻初始化决定。 */
       const index = items.findIndex(item => item.messageId === request.messageId)
+      /** 中文说明：模块局部值 existing，由紧邻初始化决定。 */
       const existing = items[index]
       if (request.ifVersion !== (existing?.version ?? null)) {
         return rejected(this.versionConflict(existing ?? null))
@@ -242,7 +280,9 @@ export class MessageFeedbackService extends TypertRemoteService {
         return success(snapshotItem(existing))
       }
 
+      /** 中文说明：模块局部值 now，由紧邻初始化决定。 */
       const now = Date.now()
+      /** 中文说明：模块局部值 item，由紧邻初始化决定。 */
       const item = snapshotItem({
         messageId: request.messageId,
         rating: request.rating,
@@ -251,6 +291,7 @@ export class MessageFeedbackService extends TypertRemoteService {
         createdAt: existing?.createdAt ?? now,
         updatedAt: existing === undefined ? now : Math.max(now, existing.updatedAt),
       })
+      /** 中文说明：模块局部值 nextItems，由紧邻初始化决定。 */
       const nextItems = [...items]
       if (index === -1) nextItems.push(item)
       else nextItems[index] = item
@@ -271,13 +312,19 @@ export class MessageFeedbackService extends TypertRemoteService {
   @Remote('delete')
   delete(request: MessageFeedbackDeleteRequest): Promise<MessageFeedbackDeleteResult> {
     return this.enqueue(request.sessionId, async () => {
+      /** 中文说明：模块局部值 known，由紧邻初始化决定。 */
       const known = await this.inspectSession(request.sessionId)
       if (!known.ok) return known
 
+      /** 中文说明：模块局部值 table，由紧邻初始化决定。 */
       const table = this.requireTable()
+      /** 中文说明：模块局部值 stored，由紧邻初始化决定。 */
       const stored = table.get(request.sessionId)
+      /** 中文说明：模块局部值 current，由紧邻初始化决定。 */
       const current = stored !== undefined && sameIdentity(stored, known.value.meta) ? stored : undefined
+      /** 中文说明：模块局部值 items，由紧邻初始化决定。 */
       const items = current?.items ?? EMPTY_ITEMS
+      /** 中文说明：模块局部值 existing，由紧邻初始化决定。 */
       const existing = items.find(item => item.messageId === request.messageId)
       if (existing === undefined) {
         return success<MessageFeedbackDeleteValue>(Object.freeze({ absent: true }))
@@ -302,6 +349,7 @@ export class MessageFeedbackService extends TypertRemoteService {
    */
   private async inspectSession(sessionId: SessionId): Promise<KnownSession> {
     if (this.ctx.sessions.get(sessionId) === undefined) {
+      /** 中文说明：模块局部值 snapshots，由紧邻初始化决定。 */
       const snapshots = await this.ctx.sessionPersistence.listSnapshots()
       if (!snapshots.some(snapshot => snapshot.header.id === sessionId)
         && this.ctx.sessions.get(sessionId) === undefined) {
@@ -315,6 +363,7 @@ export class MessageFeedbackService extends TypertRemoteService {
   private hasFeedbackTarget(inspection: SessionInspection, messageId: MessageFeedbackItem['messageId']): boolean {
     return inspection.events.some((event) => {
       if (event.type !== 'assistant/message' || !isAppendSurfaceEvent(event)) return false
+      /** 中文说明：模块局部值 message，由紧邻初始化决定。 */
       const message = deriveEventMessage(event)
       return message?.role === 'assistant' && message.id === messageId
     })
@@ -326,6 +375,7 @@ export class MessageFeedbackService extends TypertRemoteService {
    * cold owner is re-read from the physical durable prefix.
    */
   private async ensureTargetDurable(inspection: SessionInspection): Promise<SessionInspection> {
+    /** 中文说明：模块局部值 live，由紧邻初始化决定。 */
     const live = this.ctx.sessions.get(inspection.meta.id)
     if (live !== undefined && sameHeaderIdentity(live.header, inspection.meta)) {
       if (!(await this.ctx.sessions.flush(live))) {
@@ -342,6 +392,7 @@ export class MessageFeedbackService extends TypertRemoteService {
   private resolveNote(note: string | undefined): ResolvedNote {
     if (note === undefined) return success(undefined)
     if (note.trim().length === 0) return rejected({ code: 'note-blank' })
+    /** 中文说明：模块局部值 actualBytes，由紧邻初始化决定。 */
     const actualBytes = Buffer.byteLength(note, 'utf8')
     if (actualBytes > this.maxNoteBytes) {
       return rejected({ code: 'note-too-large', maxBytes: this.maxNoteBytes, actualBytes })
@@ -362,8 +413,11 @@ export class MessageFeedbackService extends TypertRemoteService {
     if (!this.mutationAdmissionOpen) {
       return Promise.reject(new Error('message-feedback: service is disposing'))
     }
+    /** 中文说明：模块局部值 previous，由紧邻初始化决定。 */
     const previous = this.operationTails.get(sessionId) ?? Promise.resolve()
+    /** 中文说明：模块局部值 result，由紧邻初始化决定。 */
     const result = previous.then(operation)
+    /** 中文说明：模块局部值 tail，由紧邻初始化决定。 */
     const tail = result.then(() => undefined, () => undefined)
     this.operationTails.set(sessionId, tail)
     return result.finally(() => {

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Cordis 宿主运行器的 composition.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
+ * 产品维度：保证Cordis 宿主运行器在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：构造插件或沙箱，驱动操作并断言日志与清理。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CordisDynamicPackageId, CordisDynamicPluginId } from '../src/types.ts'
 import { missingServices } from '../src/lifecycle.ts'
@@ -19,8 +27,11 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** 中文说明：函数 latestPackage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function latestPackage(harness: Awaited<ReturnType<typeof setup>>, pluginId: CordisDynamicPluginId): CordisDynamicPackageId {
+  /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
   const row = harness.runner.inventory().find(candidate => candidate.pluginId === pluginId)
+  /** 中文说明：测试局部值 packageId，由紧邻初始化决定。 */
   const packageId = row?.packages.at(-1)?.packageId
   if (packageId === undefined) throw new Error(`missing package for ${pluginId}`)
   return packageId
@@ -28,23 +39,28 @@ function latestPackage(harness: Awaited<ReturnType<typeof setup>>, pluginId: Cor
 
 describe('cross-package provide/inject', () => {
   it('provider first: the consumer activates immediately and its tool reaches the provided service', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await mount(harness, PROVIDER_CODE)
     await mount(harness, CONSUMER_CODE)
 
     // The vm-realm service value is callable across packages, and the result
     // normalizes into the host realm like any dynamic tool result.
+    /** 中文说明：测试局部值 greeted，由紧邻初始化决定。 */
     const greeted = await call(harness.ctx, 'greet', { name: 'harness' })
     expect(greeted.isError).toBe(false)
     expect(text(greeted)).toBe('hi harness')
   })
 
   it('consumer first: runs but stays parked on the missing service, then activates when the provider runs', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
+    /** 中文说明：测试局部值 consumer，由紧邻初始化决定。 */
     const consumer = await mount(harness, CONSUMER_CODE)
 
     // A settled-but-pending host half is a successful run in legal cordis
     // semantics; the fiber names what it waits for.
+    /** 中文说明：测试局部值 [row]，由紧邻初始化决定。 */
     const [row] = harness.runner.snapshot(AGENT_A)
     expect(row?.activeRun?.fiber).toBeDefined()
     expect(missingServices(harness.ctx, row?.activeRun?.fiber as never)).toEqual(['greeter'])
@@ -57,7 +73,9 @@ describe('cross-package provide/inject', () => {
   })
 
   it('stopping the provider sends the consumer back to pending and unwinds its registrations', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
+    /** 中文说明：测试局部值 provider，由紧邻初始化决定。 */
     const provider = await mount(harness, PROVIDER_CODE)
     await mount(harness, CONSUMER_CODE)
     expect(harness.ctx.tools.get('greet')).toBeDefined()
@@ -69,7 +87,9 @@ describe('cross-package provide/inject', () => {
   })
 
   it('running the provider again re-runs the consumer through a fresh guard (tool back)', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
+    /** 中文说明：测试局部值 provider，由紧邻初始化决定。 */
     const provider = await mount(harness, PROVIDER_CODE)
     await mount(harness, CONSUMER_CODE)
     await harness.runner.stop(AGENT_A, provider)
@@ -85,11 +105,13 @@ describe('cross-package provide/inject', () => {
   })
 
   it('a duplicate provide fails loud and leaves the second package not running', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await mount(harness, PROVIDER_CODE)
 
     await expect(mount(harness, PROVIDER_CODE)).rejects.toThrow('has been registered')
 
+    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows = harness.runner.snapshot(AGENT_A)
     expect(rows.map(row => row.activeRun !== undefined)).toEqual([true, false])
     // The service still belongs to the first package's fiber.
@@ -97,6 +119,7 @@ describe('cross-package provide/inject', () => {
   })
 
   it('a primitive (or null) provided value passes through the façade unwrapped, on both read paths', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await mount(harness, `
       return {
@@ -129,8 +152,10 @@ describe('cross-package provide/inject', () => {
   })
 
   it('stopping the consumer leaves the provider and its service intact', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await mount(harness, PROVIDER_CODE)
+    /** 中文说明：测试局部值 consumer，由紧邻初始化决定。 */
     const consumer = await mount(harness, CONSUMER_CODE)
 
     await harness.runner.stop(AGENT_A, consumer)
@@ -142,8 +167,11 @@ describe('cross-package provide/inject', () => {
 
 describe('stop reaches quiescence', () => {
   it('the host half\'s listeners have stopped by the time stop returns', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
+    /** 中文说明：测试局部值 log，由紧邻初始化决定。 */
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = await mount(harness, LISTENER_CODE)
 
     harness.ctx.tools.register(dummyTool('trigger_before'))
@@ -158,7 +186,9 @@ describe('stop reaches quiescence', () => {
   })
 
   it('unregisters a self-made tool on stop, and registers it again on the next run', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = await mount(harness, REVERSE_TOOL_CODE)
     expect(harness.ctx.tools.get('reverse_text')).toBeDefined()
 
@@ -170,6 +200,7 @@ describe('stop reaches quiescence', () => {
   })
 
   it('names the replace recipe when a run collides with a live registration', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await mount(harness, REVERSE_TOOL_CODE)
 

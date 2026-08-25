@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Cordis 宿主运行器的 runner.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
+ * 产品维度：保证Cordis 宿主运行器在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：构造插件或沙箱，驱动操作并断言日志与清理。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
 import { describe, expect, it } from 'vitest'
 import { ApprovalRequestId } from '../src/index.ts'
 import type {
@@ -13,6 +21,7 @@ import { AGENT_A, AGENT_B, CLIENT_CODE, setup, running } from './helpers.ts'
  */
 
 /** A host half that registers one invoke handler and provides a service. */
+/** 中文说明：测试局部值 HOST_CODE，由紧邻初始化决定。 */
 const HOST_CODE = `
   harness.handle('double', async (args) => args.value * 2)
   return {
@@ -23,8 +32,10 @@ const HOST_CODE = `
   }
 `
 
+/** 中文说明：类型或类 Runner 约束扩展或反馈数据职责。 */
 type Runner = Awaited<ReturnType<typeof setup>>['runner']
 
+/** 中文说明：函数 define 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function define(
   runner: Runner,
   request: {
@@ -49,8 +60,11 @@ function define(
 
 describe('dynamic runner definitions', () => {
   it('lists the whole registry for a global surface, each row carrying its owning session', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 mine，由紧邻初始化决定。 */
     const mine = define(runner, { sessionId: AGENT_A.id, name: 'mine', purpose: 'ours', host: HOST_CODE })
+    /** 中文说明：测试局部值 theirs，由紧邻初始化决定。 */
     const theirs = define(runner, { sessionId: AGENT_B.id, name: 'theirs', purpose: 'not ours', client: CLIENT_CODE })
 
     // Global by design: a run-control surface that is not inside a session can
@@ -77,6 +91,7 @@ describe('dynamic runner definitions', () => {
   })
 
   it('tells a global surface which definitions even have a browser half to load', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
     define(runner, { sessionId: AGENT_A.id, name: 'host only', purpose: 'no UI', host: HOST_CODE })
     define(runner, {
@@ -96,9 +111,12 @@ describe('dynamic runner definitions', () => {
   })
 
   it('records a definition without running it, and mints ids that are never reused', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
 
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = define(runner, { sessionId: AGENT_A.id, name: 'first', purpose: 'do a thing', host: HOST_CODE })
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = define(runner, { sessionId: AGENT_A.id, name: 'second', purpose: 'do another', client: 'return () => {}' })
 
     expect(first).toEqual({
@@ -117,11 +135,13 @@ describe('dynamic runner definitions', () => {
     [{ name: 'n', purpose: '', host: 'return () => {}' }, 'non-empty `purpose`'],
     [{ name: 'n', purpose: 'p' }, 'needs `code.host`, `code.client`, or both'],
   ])('refuses an incomplete define request: %j', async (request, message) => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
     expect(() => define(runner, { sessionId: AGENT_A.id, ...request })).toThrow(message)
   })
 
   it('keeps unparseable code out of the registry, teaching the TypeScript removal', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
 
     expect(() => define(runner, {
@@ -134,7 +154,9 @@ describe('dynamic runner definitions', () => {
   })
 
   it('hides another session\'s definition, so only its own card can address it', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'owned', purpose: 'p', host: HOST_CODE,
     })
@@ -148,11 +170,14 @@ describe('dynamic runner definitions', () => {
 
 describe('dynamic runner dispatch', () => {
   it('starts a host-only package immediately, with no request and no approval', async () => {
+    /** 中文说明：测试局部值 { ctx, runner, gateway }，由紧邻初始化决定。 */
     const { ctx, runner, gateway } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'doubler', purpose: 'p', host: HOST_CODE,
     })
 
+    /** 中文说明：测试局部值 receipt，由紧邻初始化决定。 */
     const receipt = await runner.run(AGENT_A, pluginId, packageId, 'run')
 
     expect(receipt).toEqual({
@@ -176,13 +201,16 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('returns awaiting approval, then records the page activation asynchronously', async () => {
+    /** 中文说明：测试局部值 { ctx, runner, gateway }，由紧邻初始化决定。 */
     const { ctx, runner, gateway } = await setup()
     gateway.answer = 'approve'
     gateway.clientWaitingFor = ['slots']
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'both', purpose: 'p', host: HOST_CODE, client: CLIENT_CODE,
     })
 
+    /** 中文说明：测试局部值 receipt，由紧邻初始化决定。 */
     const receipt = await runner.run(AGENT_A, pluginId, packageId, 'run')
 
     expect(receipt).toEqual({
@@ -208,12 +236,15 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('returns awaiting approval, then records a refusal without starting', async () => {
+    /** 中文说明：测试局部值 { ctx, runner, gateway }，由紧邻初始化决定。 */
     const { ctx, runner, gateway } = await setup()
     gateway.answer = 'reject'
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'both', purpose: 'p', host: HOST_CODE, client: CLIENT_CODE,
     })
 
+    /** 中文说明：测试局部值 receipt，由紧邻初始化决定。 */
     const receipt = await runner.run(AGENT_A, pluginId, packageId, 'run')
 
     expect(receipt).toMatchObject({ ok: true, status: 'awaiting-approval' })
@@ -224,12 +255,15 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('records an asynchronous Client failure and unwinds the Host half it started', async () => {
+    /** 中文说明：测试局部值 { ctx, runner, gateway }，由紧邻初始化决定。 */
     const { ctx, runner, gateway } = await setup()
     gateway.answer = { clientFails: 'createElement is not defined' }
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'both', purpose: 'p', host: HOST_CODE, client: CLIENT_CODE,
     })
 
+    /** 中文说明：测试局部值 receipt，由紧邻初始化决定。 */
     const receipt = await runner.run(AGENT_A, pluginId, packageId, 'run')
 
     expect(receipt).toMatchObject({ ok: true, status: 'awaiting-approval' })
@@ -245,7 +279,9 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('replaces a prior run and records failure when the repeated run cannot load Client code', async () => {
+    /** 中文说明：测试局部值 { ctx, runner, gateway }，由紧邻初始化决定。 */
     const { ctx, runner, gateway } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'both', purpose: 'p', host: HOST_CODE, client: CLIENT_CODE,
     })
@@ -255,6 +291,7 @@ describe('dynamic runner dispatch', () => {
     await gateway.answering
     gateway.answer = { clientFails: 'this page could not load it' }
 
+    /** 中文说明：测试局部值 receipt，由紧邻初始化决定。 */
     const receipt = await runner.run(AGENT_A, pluginId, packageId, 'run')
 
     expect(receipt).toMatchObject({ ok: true, status: 'starting' })
@@ -268,12 +305,16 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('binds a running host half instead of evaluating it twice', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'doubler', purpose: 'p', host: HOST_CODE,
     })
 
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', null, false)
+    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', null, false)
 
     expect(first).toEqual({
@@ -287,11 +328,14 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('shares one activation when two pages start the same Package concurrently', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'doubler', purpose: 'p', host: HOST_CODE,
     })
 
+    /** 中文说明：测试局部值 [first, second]，由紧邻初始化决定。 */
     const [first, second] = await Promise.all([
       runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', null, false),
       runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', null, false),
@@ -302,12 +346,15 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('hands the browser half\'s source only to the owning session, and only while it runs', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'ui', purpose: 'p', client: CLIENT_CODE,
     })
 
     expect(() => runner.getClientCode(AGENT_A, pluginId, 'run-0' as never)).toThrow('is not running')
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', null, false)
     if (!started.ok) throw new Error(started.message)
     expect(runner.getClientCode(AGENT_A, pluginId, started.pluginRunId)).toEqual({
@@ -317,6 +364,7 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('accepts and ignores an answer to a request nobody is waiting for', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
 
     await expect(runner.resolveRequestRun(ApprovalRequestId('approval-404'), {
@@ -326,17 +374,23 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('refuses an answer after stop cancels the request and allows a fresh direct run', async () => {
+    /** 中文说明：测试局部值 { runner, gateway }，由紧邻初始化决定。 */
     const { runner, gateway } = await setup()
     // No auto-answer: this suite drives the round trip by hand so the dispatch
     // can be replaced underneath the page that is still loading run 1.
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'ui', purpose: 'p', client: CLIENT_CODE,
     })
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = await runner.run(AGENT_A, pluginId, packageId, 'run')
     expect(pending).toMatchObject({ ok: true, status: 'awaiting-approval' })
     await Promise.resolve()
+    /** 中文说明：测试局部值 asked，由紧邻初始化决定。 */
     const asked = gateway.events.find(([name]) => name === 'cordis/request-run')?.[1]
+    /** 中文说明：测试局部值 requestId，由紧邻初始化决定。 */
     const requestId = (asked as { requestId: ApprovalRequestIdType }).requestId
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', requestId, false)
     if (!first.ok) throw new Error(first.message)
     expect(runner.getClientCode(AGENT_A, pluginId, first.pluginRunId).pluginRunId).toBe(first.pluginRunId)
@@ -354,16 +408,23 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('cancels a pending request after its provisional activation is stopped', async () => {
+    /** 中文说明：测试局部值 { runner, gateway }，由紧邻初始化决定。 */
     const { runner, gateway } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'ui', purpose: 'p', client: CLIENT_CODE,
     })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = await runner.run(AGENT_A, pluginId, packageId, 'run', controller.signal)
     expect(pending).toMatchObject({ ok: true, status: 'awaiting-approval' })
     await Promise.resolve()
+    /** 中文说明：测试局部值 asked，由紧邻初始化决定。 */
     const asked = gateway.events.find(([name]) => name === 'cordis/request-run')?.[1]
+    /** 中文说明：测试局部值 requestId，由紧邻初始化决定。 */
     const requestId = (asked as { requestId: ApprovalRequestIdType }).requestId
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', requestId, false)
     if (!started.ok) throw new Error(started.message)
     await runner.stop(AGENT_A, pluginId)
@@ -378,20 +439,27 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('keeps a published request answerable after the creating Tool call ends', async () => {
+    /** 中文说明：测试局部值 { runner, gateway }，由紧邻初始化决定。 */
     const { runner, gateway } = await setup()
     // No answer configured: the request stays pending until the signal fires.
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'ui', purpose: 'p', client: CLIENT_CODE,
     })
+    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
 
+    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = await runner.run(AGENT_A, pluginId, packageId, 'run', controller.signal)
     await Promise.resolve()
     controller.abort()
 
     expect(pending).toMatchObject({ ok: true, status: 'awaiting-approval' })
+    /** 中文说明：测试局部值 asked，由紧邻初始化决定。 */
     const asked = gateway.events.find(([name]) => name === 'cordis/request-run')?.[1]
+    /** 中文说明：测试局部值 requestId，由紧邻初始化决定。 */
     const requestId = (asked as { requestId: ApprovalRequestIdType }).requestId
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', requestId, false)
     if (!started.ok) throw new Error(started.message)
     await expect(runner.resolveRequestRun(requestId, { ok: true, pluginRunId: started.pluginRunId }))
@@ -400,7 +468,9 @@ describe('dynamic runner dispatch', () => {
   })
 
   it('reports the sandbox failure and starts nothing when the host half throws', async () => {
+    /** 中文说明：测试局部值 { runner, gateway }，由紧邻初始化决定。 */
     const { runner, gateway } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id,
       name: 'broken',
@@ -408,6 +478,7 @@ describe('dynamic runner dispatch', () => {
       host: 'harness.handle(\'never\', async () => 1)\nthrow new Error(\'host half exploded\')',
     })
 
+    /** 中文说明：测试局部值 receipt，由紧邻初始化决定。 */
     const receipt = await runner.run(AGENT_A, pluginId, packageId, 'run')
 
     expect(receipt).toMatchObject({ ok: false, reason: 'host-half-failed' })
@@ -420,11 +491,14 @@ describe('dynamic runner dispatch', () => {
 
 describe('dynamic runner teardown', () => {
   it('stops both halves while keeping the definition runnable', async () => {
+    /** 中文说明：测试局部值 { ctx, runner, gateway }，由紧邻初始化决定。 */
     const { ctx, runner, gateway } = await setup()
     gateway.answer = 'approve'
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'doubler', purpose: 'p', host: HOST_CODE, client: CLIENT_CODE,
     })
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await runner.run(AGENT_A, pluginId, packageId, 'run')
     if (!first.ok) throw new Error(first.message)
     await gateway.answering
@@ -444,7 +518,9 @@ describe('dynamic runner teardown', () => {
   })
 
   it('announces the stop of a host-only package too, so a global surface drops its row', async () => {
+    /** 中文说明：测试局部值 { runner, gateway }，由紧邻初始化决定。 */
     const { runner, gateway } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'doubler', purpose: 'p', host: HOST_CODE,
     })
@@ -461,7 +537,9 @@ describe('dynamic runner teardown', () => {
   })
 
   it('refuses to stop a definition that is not running', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId }，由紧邻初始化决定。 */
     const { pluginId } = define(runner, {
       sessionId: AGENT_A.id, name: 'idle', purpose: 'p', host: HOST_CODE,
     })
@@ -470,7 +548,9 @@ describe('dynamic runner teardown', () => {
   })
 
   it('stops a running definition on undefine and forgets it', async () => {
+    /** 中文说明：测试局部值 { ctx, runner, gateway }，由紧邻初始化决定。 */
     const { ctx, runner, gateway } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'doubler', purpose: 'p', host: HOST_CODE,
     })
@@ -487,7 +567,9 @@ describe('dynamic runner teardown', () => {
   })
 
   it('answers a missing definition with the memory-only explanation', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 receipt，由紧邻初始化决定。 */
     const receipt = await runner.undefine(AGENT_A, 'dyn-404' as CordisDynamicPluginId)
 
     expect(receipt).toMatchObject({ ok: false, reason: 'plugin-missing' })
@@ -495,7 +577,9 @@ describe('dynamic runner teardown', () => {
   })
 
   it('unwinds every host half when the runner itself is disposed', async () => {
+    /** 中文说明：测试局部值 { ctx, runner }，由紧邻初始化决定。 */
     const { ctx, runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'doubler', purpose: 'p', host: HOST_CODE,
     })
@@ -510,10 +594,13 @@ describe('dynamic runner teardown', () => {
 
 describe('render failure reports', () => {
   it('keeps the last report per package and shows it to a snapshot reader', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'ui', purpose: 'renders', client: CLIENT_CODE,
     })
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', null, false)
     if (!started.ok) throw new Error(started.message)
 
@@ -533,10 +620,13 @@ describe('render failure reports', () => {
   })
 
   it('drops a report for a definition the reporting session does not own', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'ui', purpose: 'renders', client: CLIENT_CODE,
     })
+    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await runner.runHostHalf(AGENT_A, pluginId, packageId, 'run', null, false)
     if (!started.ok) throw new Error(started.message)
 
@@ -550,10 +640,13 @@ describe('render failure reports', () => {
   })
 
   it('clears the report when a fresh dispatch starts and when one stops', async () => {
+    /** 中文说明：测试局部值 { runner }，由紧邻初始化决定。 */
     const { runner } = await setup()
+    /** 中文说明：测试局部值 { pluginId, packageId }，由紧邻初始化决定。 */
     const { pluginId, packageId } = define(runner, {
       sessionId: AGENT_A.id, name: 'ui', purpose: 'renders', host: 'return () => {}',
     })
+    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await runner.run(AGENT_A, pluginId, packageId, 'run')
     if (!first.ok) throw new Error(first.message)
     await runner.reportRenderFailure(

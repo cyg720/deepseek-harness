@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证Cordis 宿主运行器的 sandbox.spec.ts 行为与边界。
+ * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
+ * 产品维度：保证Cordis 宿主运行器在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：构造插件或沙箱，驱动操作并断言日志与清理。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { sandboxDefineTool } from '../src/guard.ts'
 import { syntaxErrorContext } from '../src/sandbox.ts'
@@ -27,6 +35,7 @@ describe('dynamic tool declaration boundary', () => {
   })
 
   it('bounds the preview of an invalid dynamic renderer return', () => {
+    /** 中文说明：测试局部值 definition，由紧邻初始化决定。 */
     const definition = sandboxDefineTool({
       name: 'invalid-renderer',
       description: 'invalid renderer',
@@ -43,6 +52,7 @@ describe('dynamic tool declaration boundary', () => {
 
 describe('sandbox isolation and Node-API traps', () => {
   it('isolates sandbox globals: no process/Buffer, and globalThis writes do not leak to the host', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await mount(harness, `
       globalThis.__cordis_runner_leak = 'leaked'
@@ -56,7 +66,9 @@ describe('sandbox isolation and Node-API traps', () => {
     ['setTimeout(() => {}, 5)', 'setTimeout is not available in the dynamic package sandbox', 'ctx.timeout / ctx.interval'],
     ['fetch(\'https://example.com\')', 'fetch is not available in the dynamic package sandbox', 'ctx.web'],
   ])('traps the Node API call %s with a redirect to the cordis alternative', async (invocation, trapMessage, redirect) => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
+    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
     const failure = await mount(harness, `${invocation}\nreturn (ctx) => {}`).catch((error: unknown) =>
       error instanceof Error ? error.message : String(error))
     expect(failure).toContain(trapMessage)
@@ -65,8 +77,11 @@ describe('sandbox isolation and Node-API traps', () => {
   })
 
   it('lets a host half schedule through the cordis timer service (inject: [\'timer\'])', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
+    /** 中文说明：测试局部值 log，由紧邻初始化决定。 */
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = await mount(harness, `
       return {
         name: 'ticker',
@@ -82,9 +97,13 @@ describe('sandbox isolation and Node-API traps', () => {
   })
 
   it('provides btoa/atob and the tagged console variants inside the sandbox', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
+    /** 中文说明：测试局部值 log，由紧邻初始化决定。 */
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = await mount(harness, `
       console.warn('warned')
       console.error('errored')
@@ -102,6 +121,7 @@ describe('sandbox isolation and Node-API traps', () => {
     // The args a tool's execute receives are HOST-realm objects; without the dual-realm
     // Symbol.hasInstance prelude, `args.items instanceof Array` in sandbox code is silently
     // false.
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await mount(harness, `
       return {
@@ -126,6 +146,7 @@ describe('sandbox isolation and Node-API traps', () => {
         },
       }
     `)
+    /** 中文说明：测试局部值 probed，由紧邻初始化决定。 */
     const probed = await call(harness.ctx, 'probe_instanceof', { items: ['a'] })
     expect(probed.isError).toBe(false)
     expect(JSON.parse(text(probed))).toEqual({ hostArray: true, hostObject: true, vmArray: true, vmObject: true })
@@ -136,6 +157,7 @@ describe('sandbox isolation and Node-API traps', () => {
   })
 
   it('honors the configured vmTimeoutMs for the synchronous portion', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup({ vmTimeoutMs: 50 })
     await expect(mount(harness, 'while (true) {}')).rejects.toThrow(/timed? ?out/i)
     expect(running(harness.runner, AGENT_A)).toEqual([{ id: 'probe-1', running: false }])
@@ -150,12 +172,14 @@ describe('host-half failures leave nothing running', () => {
     ['const plugin = (ctx) => {}', 'did you forget `return`?'],
     ['return { name: \'broken\', apply(ctx) { throw new Error(\'apply exploded\') } }', 'apply exploded'],
   ])('refuses %j with a teaching message', async (code, message) => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await expect(mount(harness, code)).rejects.toThrow(message)
     expect(running(harness.runner, AGENT_A)).toEqual([{ id: 'probe-1', running: false }])
   })
 
   it('passes a null throw through untouched (no SyntaxError misclassification)', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     await expect(mount(harness, 'throw null')).rejects.toThrow()
   })
@@ -163,6 +187,7 @@ describe('host-half failures leave nothing running', () => {
 
 describe('parse failures teach the fix', () => {
   it('answers TypeScript syntax in the plain-JS sandbox with the fix, at define time', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     // The precheck runs inside define, so unparseable code never reaches the registry.
     expect(() => harness.runner.define({
@@ -176,10 +201,12 @@ describe('parse failures teach the fix', () => {
   })
 
   it('surfaces the offending line + caret and the bracket-balance hint on a syntax error', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     // The canonical model mistake: closing the returned object with `});` as
     // if it were a callback argument. The word "as" in a STRING elsewhere must
     // not trigger the TypeScript hint — the heuristic reads the failing line.
+    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     let message = ''
     try {
       harness.runner.define({
@@ -200,15 +227,18 @@ describe('parse failures teach the fix', () => {
   })
 
   it('syntaxErrorContext falls back to String(error) when the stack has no vm prelude', () => {
+    /** 中文说明：测试局部值 doctored，由紧邻初始化决定。 */
     const doctored = new SyntaxError('boom')
     delete (doctored as { stack?: string }).stack
     expect(syntaxErrorContext(doctored)).toBe('SyntaxError: boom')
+    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain = new SyntaxError('bang')
     plain.stack = 'not-a-vm-stack'
     expect(syntaxErrorContext(plain)).toBe('SyntaxError: bang')
   })
 
   it('handles a runtime-thrown SyntaxError (no source-line prelude) with the generic hint', async () => {
+    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await setup()
     // Thrown at RUN time (the define precheck compiles fine), so the evaluator's
     // own SyntaxError branch classifies it.
