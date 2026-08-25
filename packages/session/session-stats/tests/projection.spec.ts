@@ -9,6 +9,14 @@
  * message (empty content) adds no extra step. Wall-time math runs against the
  * exported definition directly, where event times are controlled.
  */
+/**
+ * 文件职责：验证 projection.spec.ts 覆盖的会话投影统计行为、持久化与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
+ * 产品维度：保障 Agent 的会话投影统计状态稳定、可重放且可诊断。
+ * 逻辑维度：准备或解析会话数据，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：持久化和遥测输入不可信；敏感数据必须脱敏；事件与数据库资源必须正确收尾。
+ * 新手阅读建议：先看数据类型和辅助函数，再读写入/投影主流程，最后关注恢复、脱敏和失败场景。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -20,7 +28,9 @@ import * as SessionStatsPlugin from '@deepseek-ai/dsh-session-stats'
 import { sessionStatsProjectionDefinition } from '@deepseek-ai/dsh-session-stats/src/projection.ts'
 import type { SessionStatsProjection } from '@deepseek-ai/dsh-session-stats/types'
 
+/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(withStatsPlugin: boolean): Promise<{ ctx: Context; session: Session }> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
@@ -29,12 +39,14 @@ async function harness(withStatsPlugin: boolean): Promise<{ ctx: Context; sessio
 }
 
 /** Close one step; returns the counted `step/end` seq. */
+/** 中文说明：函数 closeStep 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function closeStep(session: Session, turn: number, step: number): number {
   session.append('step/start', { turn, step })
   return session.append('step/end', { turn, step }).seq
 }
 
 /** Append the max-tokens usage-host shape: an assistant/message with empty content. */
+/** 中文说明：函数 appendEmptyAssistantMessage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendEmptyAssistantMessage(session: Session, turn: number, step: number): void {
   session.append('assistant/message', {
     turn,
@@ -48,6 +60,7 @@ function appendEmptyAssistantMessage(session: Session, turn: number, step: numbe
 }
 
 /** The all-zero projection value plus overrides, for exact fold expectations. */
+/** 中文说明：函数 totals 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function totals(overrides: Partial<SessionStatsProjection> = {}): SessionStatsProjection {
   return {
     turns: 0, steps: 0, llmMs: 0, toolMs: 0, ttftMs: 0, ttftSteps: 0, decodeMs: 0, decodeTokens: 0,
@@ -63,21 +76,26 @@ describe('sessionStats projection unit (registry drive)', () => {
 
   it('counts distinct turns and closed steps and notifies the change feed with the causing seq', async () => {
     const { ctx, session } = await harness(true)
+    /** 中文说明：变量 changes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changes: { key: string; value: unknown; seq: number }[] = []
     ctx.sessionProjections.onChanged((_session, key, value, seq) => {
       changes.push({ key, value, seq })
     })
     session.append('turn/start', { turn: 1 })
+    /** 中文说明：变量 firstSeq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstSeq = closeStep(session, 1, 1)
+    /** 中文说明：变量 secondSeq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const secondSeq = closeStep(session, 1, 2)
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     session.append('turn/start', { turn: 2 })
+    /** 中文说明：变量 thirdSeq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const thirdSeq = closeStep(session, 2, 1)
     session.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
     // Boundary events that carry no figure change (turn/start, empty-prune
     // turn/end, user input) fold to the same reference and stay silent;
     // step/start opens a boundary (internal state) and step/end commits the
     // counts, so each closed step notifies twice with the step/end value last.
+    /** 中文说明：函数值 counted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const counted = changes.filter(change => (change.value as SessionStatsProjection).steps > 0
       || change.seq === firstSeq)
     expect(changes.every(change => change.key === 'sessionStats')).toBe(true)
@@ -85,6 +103,7 @@ describe('sessionStats projection unit (registry drive)', () => {
       { seq: firstSeq, value: totals({ turns: 1, steps: 1 }) },
     )
     expect(changes.at(-1)).toEqual({ key: 'sessionStats', value: totals({ turns: 2, steps: 3 }), seq: thirdSeq })
+    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const snapshot = ctx.sessionProjections.snapshot(session)
     expect(snapshot.values.sessionStats).toEqual(totals({ turns: 2, steps: 3 }))
     expect(snapshot.asOfSeq).toBe(session.seq - 1)
@@ -137,6 +156,7 @@ describe('sessionStats projection unit (registry drive)', () => {
   it('has no sessionStats key without the plugin, and drops it when the plugin unloads (HMR safety)', async () => {
     const { ctx, session } = await harness(false)
     expect('sessionStats' in ctx.sessionProjections.snapshot(session).values).toBe(false)
+    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(SessionStatsPlugin)
     session.append('turn/start', { turn: 1 })
     closeStep(session, 1, 1)
@@ -148,12 +168,15 @@ describe('sessionStats projection unit (registry drive)', () => {
 })
 
 /** Build one synthetic committed event with a controlled timestamp. */
+/** 中文说明：函数 at 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function at(time: number, type: string, data: unknown): SessionEvent {
   return { type, seq: time, time, data } as unknown as SessionEvent
 }
 
 /** Fold a synthetic event list through the definition and view the result. */
+/** 中文说明：函数 fold 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fold(events: readonly SessionEvent[]): SessionStatsProjection {
+  /** 中文说明：变量 state 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const state = events.reduce<Parameters<typeof sessionStatsProjectionDefinition.apply>[0]>(
     (folded, event) => sessionStatsProjectionDefinition.apply(folded, event),
     sessionStatsProjectionDefinition.init(),
@@ -162,6 +185,7 @@ function fold(events: readonly SessionEvent[]): SessionStatsProjection {
 }
 
 describe('sessionStats wall-time fold (controlled timestamps)', () => {
+  /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const message = createMessage({
     role: 'assistant',
     content: [{ type: 'text', text: 'answer' }],
@@ -213,8 +237,10 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
   })
 
   it('pairs tool wall time by callId, ignores orphan results, and prunes leftovers at turn/end', () => {
+    /** 中文说明：函数值 result 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const result = (callId: string): unknown =>
       ({ turn: 1, step: 1, message: { source: { kind: 'tool', callId } } })
+    /** 中文说明：变量 paired 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const paired = fold([
       at(1_000, 'step/start', { turn: 1, step: 1 }),
       at(1_100, 'tool/call', { turn: 1, step: 1, callId: 'a', name: 'read', arguments: '{}' }),
@@ -227,6 +253,7 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
     ])
     expect(paired).toEqual(totals({ turns: 1, steps: 1, toolMs: 3_500 }))
     // An unresolved call is dropped at turn/end; a later result cannot pair.
+    /** 中文说明：变量 pruned 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pruned = fold([
       at(1_000, 'step/start', { turn: 1, step: 1 }),
       at(1_100, 'tool/call', { turn: 1, step: 1, callId: 'orphan', name: 'read', arguments: '{}' }),
@@ -238,6 +265,7 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
   })
 
   it('pairs only own pendingCalls keys: a prototype-name callId without a recorded call stays unmatched', () => {
+    /** 中文说明：函数值 result 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const result = (callId: string): unknown =>
       ({ turn: 1, step: 1, message: { source: { kind: 'tool', callId } } })
     // Crash recovery (TOOL_NOT_STARTED) emits results with no preceding
@@ -259,6 +287,7 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
   })
 
   it('skips decode for an invalid usage report and ignores a duplicate assembled message', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = [
       at(1_000, 'step/start', { turn: 1, step: 1 }),
       at(1_400, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'a' } }),
@@ -269,6 +298,7 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
       .toEqual(totals({ turns: 1, steps: 1, llmMs: 1_000, ttftMs: 400, ttftSteps: 1 }))
     // The first message closed the step boundary; a defensive duplicate finds
     // no open step and folds to the same reference.
+    /** 中文说明：变量 state 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const state = events.reduce<Parameters<typeof sessionStatsProjectionDefinition.apply>[0]>(
       (folded, event) => sessionStatsProjectionDefinition.apply(folded, event),
       sessionStatsProjectionDefinition.init(),
@@ -280,7 +310,9 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
   })
 
   it('accrues nothing for unrelated events and clamps negative clock skew to zero', () => {
+    /** 中文说明：变量 state 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const state = sessionStatsProjectionDefinition.init()
+    /** 中文说明：变量 untouched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const untouched = sessionStatsProjectionDefinition.apply(state, at(1, 'user/message', { content: [] }))
     expect(untouched).toBe(state)
     expect(fold([

@@ -6,6 +6,14 @@
  * cache), duplicate-key rejection, stateVersion validation, and effect-tied
  * removal of registrations and change listeners (HMR safety).
  */
+/**
+ * 文件职责：验证 registry.spec.ts 覆盖的会话投影统计行为、持久化与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
+ * 产品维度：保障 Agent 的会话投影统计状态稳定、可重放且可诊断。
+ * 逻辑维度：准备或解析会话数据，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：持久化和遥测输入不可信；敏感数据必须脱敏；事件与数据库资源必须正确收尾。
+ * 新手阅读建议：先看数据类型和辅助函数，再读写入/投影主流程，最后关注恢复、脱敏和失败场景。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -16,24 +24,29 @@ import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
+  /** 中文说明：interface SessionProjectionStateMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface SessionProjectionStateMap {
     'test/marks': MarksState
     'test/count': number
   }
 
+  /** 中文说明：interface SessionProjectionMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface SessionProjectionMap {
     'test/marks': { marks: string[] }
   }
 }
 
 declare module '@deepseek-ai/dsh-session/types' {
+  /** 中文说明：interface SessionEventMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface SessionEventMap {
     'test/mark': { marks: string[] }
   }
 }
 
+/** 中文说明：type MarksState 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
 type MarksState = { marks: string[] } | null
 /** Whole-value unit: latest test/mark event wins; unrelated events return the same reference. */
+/** 中文说明：变量 marksUnit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const marksUnit = (): Omit<ProjectionDefinition<'test/marks', MarksState>, 'wire'>
   & { wire: NonNullable<ProjectionDefinition<'test/marks', MarksState>['wire']> } => ({
   key: 'test/marks',
@@ -48,6 +61,7 @@ const marksUnit = (): Omit<ProjectionDefinition<'test/marks', MarksState>, 'wire
 })
 
 /** Host-only counting unit over every event — state changes on each apply. */
+/** 中文说明：函数值 countUnit 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const countUnit = (): ProjectionDefinition<'test/count', number> => ({
   key: 'test/count',
   stateSchema: z.number().int().nonnegative(),
@@ -56,13 +70,16 @@ const countUnit = (): ProjectionDefinition<'test/count', number> => ({
   stateVersion: 1,
 })
 
+/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(): Promise<{ ctx: Context; session: Session }> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
   return { ctx, session: ctx.sessions.create() }
 }
 
+/** 中文说明：函数值 mark 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const mark = (session: Session, marks: string[]): SessionEvent =>
   session.append('test/mark', { marks })
 
@@ -72,6 +89,7 @@ describe('SessionProjectionRegistry drive', () => {
     ctx.sessionProjections.register(marksUnit())
     mark(session, ['a'])
     mark(session, ['a', 'b'])
+    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const snapshot = ctx.sessionProjections.snapshot(session)
     expect(snapshot.values['test/marks']).toEqual({ marks: ['a', 'b'] })
     expect(snapshot.asOfSeq).toBe(session.seq - 1)
@@ -90,6 +108,7 @@ describe('SessionProjectionRegistry drive', () => {
   it('serves init-derived state and asOfSeq -1 for an empty log', async () => {
     const { ctx, session } = await harness()
     ctx.sessionProjections.register(marksUnit())
+    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const snapshot = ctx.sessionProjections.snapshot(session)
     expect(snapshot.asOfSeq).toBe(-1)
     expect(snapshot.values['test/marks']).toEqual({ marks: [] })
@@ -98,10 +117,12 @@ describe('SessionProjectionRegistry drive', () => {
   it('notifies onChanged with the validated view and the causing seq, and skips same-reference applies', async () => {
     const { ctx, session } = await harness()
     ctx.sessionProjections.register(marksUnit())
+    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seen: { key: string; value: unknown; seq: number; sessionId: string }[] = []
     ctx.sessionProjections.onChanged((changedSession, key, value, seq) => {
       seen.push({ key, value, seq, sessionId: String(changedSession.id) })
     })
+    /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event = mark(session, ['a'])
     // Non-matching event: apply returns the same reference — no notification.
     session.append('turn/start', { turn: 1 })
@@ -110,6 +131,7 @@ describe('SessionProjectionRegistry drive', () => {
 
   it('drives independently per session (cells are per-session watermarks)', async () => {
     const { ctx, session } = await harness()
+    /** 中文说明：变量 other 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const other = ctx.sessions.create()
     ctx.sessionProjections.register(marksUnit())
     mark(session, ['one'])
@@ -122,6 +144,7 @@ describe('SessionProjectionRegistry drive', () => {
     const { ctx, session } = await harness()
     ctx.sessionProjections.register(marksUnit())
     ctx.sessionProjections.register(countUnit())
+    /** 中文说明：变量 changedKeys 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changedKeys: string[] = []
     ctx.sessionProjections.onChanged((_session, key) => {
       changedKeys.push(key)
@@ -146,7 +169,9 @@ describe('SessionProjectionRegistry drive', () => {
 
   it('keeps the unit until the last registrant releases it', async () => {
     const { ctx, session } = await harness()
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = ctx.sessionProjections.register(marksUnit())
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = ctx.sessionProjections.register(marksUnit())
     mark(session, ['kept'])
 
@@ -179,6 +204,7 @@ describe('SessionProjectionRegistry drive', () => {
 
   it('register() disposer removes the key (with its cells) and frees it for re-registration', async () => {
     const { ctx, session } = await harness()
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = ctx.sessionProjections.register(marksUnit())
     mark(session, ['cached'])
     dispose()
@@ -190,7 +216,9 @@ describe('SessionProjectionRegistry drive', () => {
 
   it('removes registrations and change listeners when their owning fiber unloads (HMR safety)', async () => {
     const { ctx, session } = await harness()
+    /** 中文说明：变量 notifications 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const notifications: string[] = []
+    /** 中文说明：函数值 fiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       inner.sessionProjections.register(marksUnit())
       inner.sessionProjections.onChanged((_session, key) => {
@@ -210,6 +238,7 @@ describe('SessionProjectionRegistry drive', () => {
     ctx.sessionProjections.register(marksUnit())
     ctx.sessionProjections.register(countUnit())
     mark(session, ['a', 'b'])
+    /** 中文说明：变量 values 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const values = ctx.sessionProjections.snapshot(session).values
     expect(values['test/marks']).toEqual({ marks: ['a', 'b'] })
     expect('test/count' in values).toBe(false)
@@ -221,11 +250,14 @@ describe('SessionProjectionRegistry drive', () => {
     const { ctx, session } = await harness()
     ctx.sessionProjections.register(marksUnit())
     ctx.sessionProjections.register({ ...countUnit(), stateVersion: 7 })
+    /** 中文说明：变量 markEvent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const markEvent = mark(session, ['a'])
+    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rows = ctx.sessionProjections.checkpoint(session)
     expect(rows['test/marks']).toEqual({ ver: 1, seq: markEvent.seq, val: { marks: ['a'] } })
     expect(rows['test/count']).toEqual({ ver: 7, seq: markEvent.seq, val: 1 })
     // Empty log: init-derived state at watermark -1.
+    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = ctx.sessions.create()
     expect(ctx.sessionProjections.checkpoint(fresh)['test/marks']).toEqual({ ver: 1, seq: -1, val: null })
   })
@@ -234,6 +266,7 @@ describe('SessionProjectionRegistry drive', () => {
     const { ctx, session } = await harness()
     ctx.sessionProjections.register(marksUnit())
     mark(session, ['a'])
+    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rows = ctx.sessionProjections.checkpoint(session)
     // Hostile (or merely careless) consumer mutates the handed-out state.
     ;(rows['test/marks']?.val as { marks: string[] }).marks.push('INJECTED')
@@ -271,6 +304,7 @@ describe('SessionProjectionRegistry drive', () => {
     const { ctx } = await harness()
     ctx.sessionProjections.register(marksUnit())
     ctx.sessionProjections.register(countUnit())
+    /** 中文说明：变量 tail 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tail: SessionEvent[] = [
       { type: 'test/mark', seq: 3, time: 3, data: { marks: ['new'] } },
       { type: 'turn/end', seq: 4, time: 4, data: { turn: 1, reason: { kind: 'completed' } } },
@@ -282,6 +316,7 @@ describe('SessionProjectionRegistry drive', () => {
       'test/count': { ver: 99, seq: 2, val: 3 },
     }, tail, 3)).toThrow(/re-read from seq 0/)
     // The full-log re-read (baseSeq 0) refolds the mismatched key from init.
+    /** 中文说明：变量 full 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const full: SessionEvent[] = [
       { type: 'turn/start', seq: 0, time: 0, data: { turn: 1 } },
       { type: 'test/mark', seq: 1, time: 1, data: { marks: ['old'] } },
@@ -304,10 +339,12 @@ describe('SessionProjectionRegistry drive', () => {
     const { ctx } = await harness()
     ctx.sessionProjections.register(marksUnit())
     ctx.sessionProjections.register(countUnit())
+    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rows = {
       'test/marks': { ver: 1, seq: 4, val: { marks: ['done'] } },
       'test/count': { ver: 1, seq: 2, val: 3 },
     }
+    /** 中文说明：变量 tail 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tail: SessionEvent[] = [
       { type: 'turn/start', seq: 3, time: 3, data: { turn: 2 } },
       { type: 'turn/end', seq: 4, time: 4, data: { turn: 2, reason: { kind: 'completed' } } },
@@ -334,6 +371,7 @@ describe('SessionProjectionRegistry drive', () => {
     const { ctx } = await harness()
     ctx.sessionProjections.register(marksUnit())
     ctx.sessionProjections.register(countUnit())
+    /** 中文说明：变量 values 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const values = ctx.sessionProjections.viewCheckpoint({
       'test/marks': { ver: 1, seq: 4, val: { marks: ['stored'] } },
       'test/count': { ver: 99, seq: 4, val: 5 }, // mismatched: absent
@@ -347,6 +385,7 @@ describe('SessionProjectionRegistry drive', () => {
     const { ctx } = await harness()
     ctx.sessionProjections.register(marksUnit())
     ctx.sessionProjections.register(countUnit())
+    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rows = {
       'test/marks': { ver: 1, seq: 4, val: { marks: ['stored'] } },
       'test/count': { ver: 1, seq: 4, val: 5 },
@@ -355,6 +394,7 @@ describe('SessionProjectionRegistry drive', () => {
       'test/marks': { marks: ['stored'] },
     })
 
+    /** 中文说明：变量 restored 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const restored = ctx.sessionProjections.restore(rows, [], 5)
     expect(restored.snapshot.values).toEqual({
       'test/marks': { marks: ['stored'] },
@@ -365,6 +405,7 @@ describe('SessionProjectionRegistry drive', () => {
   it('rejects version-matching rows whose state no longer matches the registered schema', async () => {
     const { ctx } = await harness()
     ctx.sessionProjections.register(marksUnit())
+    /** 中文说明：变量 drifted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const drifted = {
       'test/marks': { ver: 1, seq: 2, val: { marks: 'not-an-array' } },
     }
@@ -376,13 +417,17 @@ describe('SessionProjectionRegistry drive', () => {
   it('restore rejects a row claiming events past the supplied log end (shrunk log ⇒ re-read)', async () => {
     const { ctx } = await harness()
     ctx.sessionProjections.register(countUnit())
+    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rows = { 'test/count': { ver: 1, seq: 9, val: 10 } }
     // The anchored floor sits ON the watermark, so the tail read must return
     // at least seq 9 from an intact log…
+    /** 中文说明：变量 floor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const floor = ctx.sessionProjections.restoreFloor(rows)
     expect(floor).toBe(9)
     // …an intact log serves the anchor event and the checkpoint stands as-is.
+    /** 中文说明：变量 anchor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const anchor: SessionEvent = { type: 'turn/end', seq: 9, time: 9, data: { turn: 2, reason: { kind: 'completed' } } }
+    /** 中文说明：变量 anchored 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const anchored = ctx.sessionProjections.restore(rows, [anchor], 9)
     expect(anchored.snapshot.values).toEqual({})
     expect(anchored.checkpoint['test/count']).toEqual({ ver: 1, seq: 9, val: 10 })
@@ -390,6 +435,7 @@ describe('SessionProjectionRegistry drive', () => {
     // the row overreaches the proven end and a tail read cannot fix this key.
     expect(() => ctx.sessionProjections.restore(rows, [], 9)).toThrow(/re-read from seq 0/)
     // The full re-read discards the overreaching row and refolds from init.
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       { type: 'turn/start', seq: 0, time: 0, data: { turn: 1 } },
       { type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } } },

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 compression.spec.ts 覆盖的会话持久化行为、持久化与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
+ * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。
+ * 逻辑维度：准备或解析会话数据，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：持久化和遥测输入不可信；敏感数据必须脱敏；事件与数据库资源必须正确收尾。
+ * 新手阅读建议：先看数据类型和辅助函数，再读写入/投影主流程，最后关注恢复、脱敏和失败场景。
+ */
 import { describe, expect, it } from 'vitest'
 import { zstdCompressSync } from 'node:zlib'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -7,6 +15,7 @@ import {
   MAX_PACKED_DATA_BYTES,
   MAX_PACKED_ROW_MEMBERS,
   packChunkRuns,
+  /** 中文说明：type StorageRecord 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
   type StorageRecord,
 } from '../src/codec.ts'
 import {
@@ -17,6 +26,7 @@ import {
 } from '../src/compression.ts'
 import type { EventRow } from '../src/schema.ts'
 
+/** 中文说明：函数 chunk 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function chunk(seq: number, text = `token-${seq}`): SessionEvent {
   return {
     type: 'assistant/chunk',
@@ -30,11 +40,14 @@ function chunk(seq: number, text = `token-${seq}`): SessionEvent {
   }
 }
 
+/** 中文说明：函数 event 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function event(seq: number, time: number, value: StreamChunk, turn = 1, step = 1): SessionEvent {
   return { type: 'assistant/chunk', seq, time, data: { turn, step, chunk: value } }
 }
 
+/** 中文说明：函数 row 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function row(record: StorageRecord): EventRow {
+  /** 中文说明：变量 bound 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bound = bindRecord(record)
   return {
     seq: bound.seq,
@@ -49,7 +62,9 @@ function row(record: StorageRecord): EventRow {
 
 describe('SQLite compression', () => {
   it('stores a 100-member run in one row and restores every logical event', () => {
+    /** 中文说明：函数值 events 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const events = Array.from({ length: 100 }, (_, index) => chunk(index))
+    /** 中文说明：变量 records 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const records = packChunkRuns(events)
     expect(records).toHaveLength(1)
     expect(records[0]?.type).toBe('text-chunks')
@@ -57,14 +72,19 @@ describe('SQLite compression', () => {
   })
 
   it('partitions long and large runs within schema-owned row limits', () => {
+    /** 中文说明：函数值 long 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const long = Array.from({ length: MAX_PACKED_ROW_MEMBERS + 3 }, (_, index) => chunk(index))
+    /** 中文说明：变量 longRecords 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const longRecords = packChunkRuns(long)
     expect(longRecords).toHaveLength(2)
     expect(scanRows(longRecords.map(row)).preserved).toEqual(long)
 
+    /** 中文说明：函数值 large 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const large = Array.from({ length: 4 }, (_, index) => chunk(index, 'x'.repeat(300_000)))
+    /** 中文说明：变量 largeRecords 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const largeRecords = packChunkRuns(large)
     expect(largeRecords).toHaveLength(2)
+    /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
     for (const record of largeRecords) {
       if (record.type.endsWith('-chunks')) {
         expect(Buffer.byteLength(JSON.stringify(record.data))).toBeLessThanOrEqual(MAX_PACKED_DATA_BYTES)
@@ -72,16 +92,20 @@ describe('SQLite compression', () => {
     }
     expect(scanRows(largeRecords.map(row)).preserved).toEqual(large)
 
+    /** 中文说明：函数值 individuallyLarge 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const individuallyLarge = Array.from({ length: 3 }, (_, index) => chunk(index, 'x'.repeat(400_000)))
     expect(packChunkRuns(individuallyLarge)).toEqual(individuallyLarge)
 
+    /** 中文说明：函数值 byteBound 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const byteBound = Array.from({ length: 10 }, (_, index) => chunk(index, 'x'.repeat(150_000)))
+    /** 中文说明：变量 byteBoundRecords 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const byteBoundRecords = packChunkRuns(byteBound)
     expect(byteBoundRecords.length).toBeGreaterThan(1)
     expect(scanRows(byteBoundRecords.map(row)).preserved).toEqual(byteBound)
   })
 
   it('packs every owned kind and preserves optional tool-call names', () => {
+    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = [
       ...[0, 1, 2].map(seq => event(seq, seq, { type: 'reasoning-delta', index: 1, text: `${seq}` })),
       ...[3, 4, 5].map(seq => event(seq, seq, {
@@ -91,6 +115,7 @@ describe('SQLite compression', () => {
         type: 'tool-call-delta', index: 3, id: CallId('unnamed'), argumentsDelta: `${seq}`,
       })),
     ]
+    /** 中文说明：变量 records 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const records = packChunkRuns(events)
     expect(records.map(record => record.type)).toEqual([
       'reasoning-chunks', 'tool-call-chunks', 'tool-call-chunks',
@@ -99,9 +124,11 @@ describe('SQLite compression', () => {
   })
 
   it('keeps every off-format delta scalar and splits incompatible runs', () => {
+    /** 中文说明：函数值 malformed 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const malformed = (seq: number, data: unknown): SessionEvent => ({
       type: 'assistant/chunk', seq, time: 10 + seq, data,
     } as SessionEvent)
+    /** 中文说明：变量 values 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const values: SessionEvent[] = [
       { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
       { ...chunk(1), extra: true } as unknown as SessionEvent,
@@ -119,18 +146,24 @@ describe('SQLite compression', () => {
     ]
     expect(packChunkRuns(values)).toEqual(values)
 
+    /** 中文说明：变量 gap 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const gap = [chunk(0), chunk(1), chunk(3)]
+    /** 中文说明：变量 step 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const step = [chunk(0), chunk(1), event(2, 2, { type: 'text-delta', index: 0, text: 'x' }, 1, 2)]
+    /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const block = [chunk(0), chunk(1), event(2, 2, { type: 'text-delta', index: 1, text: 'x' })]
+    /** 中文说明：变量 unsafeTime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unsafeTime = [
       event(0, Number.MIN_SAFE_INTEGER, { type: 'text-delta', index: 0, text: 'a' }),
       event(1, Number.MAX_SAFE_INTEGER, { type: 'text-delta', index: 0, text: 'b' }),
       event(2, Number.MAX_SAFE_INTEGER, { type: 'text-delta', index: 0, text: 'c' }),
     ]
+    /** 中文说明：函数值 toolName 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const toolName = [0, 1, 2].map(seq => event(seq, seq, {
       type: 'tool-call-delta', index: 0, id: CallId('id'),
       ...seq === 2 ? {} : { name: 'write' }, argumentsDelta: 'x',
     }))
+    /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
     for (const events of [gap, step, block, unsafeTime, toolName]) {
       expect(packChunkRuns(events)).toEqual(events)
     }
@@ -161,6 +194,7 @@ describe('SQLite compression', () => {
   })
 
   it('decodes the schema-17 row vocabulary without another package codec', () => {
+    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture: EventRow = {
       seq: 7,
       type: 'text-chunks',
@@ -180,17 +214,21 @@ describe('SQLite compression', () => {
   })
 
   it('rejects surface columns on packed rows', () => {
+    /** 中文说明：变量 packed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packed = row(packChunkRuns([chunk(0), chunk(1), chunk(2)])[0]!)
+    /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalid: EventRow[] = [
       { ...packed, source_event_seqs: Buffer.alloc(0) },
       { ...packed, surface_op: '"append"' },
     ]
+    /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
     for (const candidate of invalid) {
       expect(() => decodeRow(candidate)).toThrow(/surface fields must be null/)
     }
   })
 
   it('rejects the packed discriminator on a scalar event type', () => {
+    /** 中文说明：变量 scalar 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scalar = row({ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } })
     expect(() => decodeRow({ ...scalar, ignorable: 0 }))
       .toThrow(/packed discriminator requires a chunk tag/)
@@ -199,6 +237,7 @@ describe('SQLite compression', () => {
   it.each(['text-chunks', 'reasoning-chunks', 'tool-call-chunks'])(
     'preserves an ignorable logical event named %s as a scalar row',
     (type) => {
+      /** 中文说明：变量 logical 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const logical = {
         type,
         seq: 0,
@@ -206,6 +245,7 @@ describe('SQLite compression', () => {
         data: { future: true },
         ignorable: true,
       } as unknown as SessionEvent
+      /** 中文说明：变量 physical 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const physical = row(logical)
       expect(physical.ignorable).toBe(1)
       expect(decodeRow(physical)).toEqual([logical])
@@ -213,7 +253,9 @@ describe('SQLite compression', () => {
   )
 
   it('compresses large data and delta-encodes complete provenance arrays', () => {
+    /** 中文说明：函数值 sources 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const sources = Array.from({ length: 2_000 }, (_, index) => index + 10)
+    /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event = {
       type: 'assistant/message',
       seq: sources.at(-1)! + 1,
@@ -222,21 +264,25 @@ describe('SQLite compression', () => {
       sourceEventSeqs: sources,
       surfaceOp: 'append',
     } as unknown as SessionEvent
+    /** 中文说明：变量 bound 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bound = bindRecord(event)
     expect(bound.data).toBeInstanceOf(Uint8Array)
     expect(bound.sourceEventSeqs).toBeInstanceOf(Uint8Array)
     expect(bound.sourceEventSeqs?.byteLength).toBeLessThan(Buffer.byteLength(JSON.stringify(sources)))
     expect(decodeRow(row(event))).toEqual([event])
 
+    /** 中文说明：变量 small 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const small = bindRecord({ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } })
     expect(typeof small.data).toBe('string')
   })
 
   it('round-trips empty, descending, and maximum-safe provenance deltas', () => {
+    /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
     for (const sources of [
       [],
       [Number.MAX_SAFE_INTEGER - 1, 0, Number.MAX_SAFE_INTEGER - 2],
     ]) {
+      /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const event = {
         type: 'assistant/message',
         seq: Number.MAX_SAFE_INTEGER,
@@ -250,6 +296,7 @@ describe('SQLite compression', () => {
   })
 
   it.each([-1, 0.5])('rejects invalid provenance sequence %s before encoding', (sourceSeq) => {
+    /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const event = {
       type: 'assistant/message',
       seq: 1,
@@ -262,6 +309,7 @@ describe('SQLite compression', () => {
   })
 
   it('rejects malformed compressed and delta-encoded values', () => {
+    /** 中文说明：变量 scalar 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scalar = row({ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } })
     expect(() => decodeRow({ ...scalar, data: Buffer.from('not zstd') })).toThrow()
     expect(() => decodeRow({ ...scalar, source_event_seqs: Buffer.from([0x80]) }))
@@ -281,6 +329,7 @@ describe('SQLite compression', () => {
   })
 
   it('rejects an oversized packed data column before JSON decoding', () => {
+    /** 中文说明：变量 oversized 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oversized: EventRow = {
       seq: 0,
       type: 'text-chunks',
@@ -294,6 +343,7 @@ describe('SQLite compression', () => {
   })
 
   it('bounds packed data while decompressing', () => {
+    /** 中文说明：变量 serialized 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const serialized = JSON.stringify({
       turn: 1,
       step: 1,
@@ -301,6 +351,7 @@ describe('SQLite compression', () => {
       dt: [0, 0],
       texts: ['x'.repeat(MAX_PACKED_DATA_BYTES), 'b', 'c'],
     })
+    /** 中文说明：变量 oversized 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oversized: EventRow = {
       seq: 0,
       type: 'text-chunks',
@@ -314,12 +365,15 @@ describe('SQLite compression', () => {
   })
 
   it('distinguishes removable and committed physical corruption', () => {
+    /** 中文说明：变量 start 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const start = row({ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } })
+    /** 中文说明：变量 skipped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const skipped = row({ type: 'step/start', seq: 2, time: 2, data: { turn: 1, step: 1 } })
     expect(scanRows([start, skipped])).toEqual({ preserved: [
       { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
     ], tornFrom: 2 })
 
+    /** 中文说明：变量 end 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const end = row({
       type: 'turn/end',
       seq: 3,
@@ -328,10 +382,12 @@ describe('SQLite compression', () => {
     })
     expect(() => scanRows([start, skipped, end])).toThrow(/invalid committed physical row at seq 2/)
 
+    /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformed = {
       ...row(packChunkRuns([chunk(0), chunk(1), chunk(2)])[0]!),
       data: '{not json',
     }
+    /** 中文说明：变量 committedEnd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const committedEnd = row({
       type: 'turn/end',
       seq: 1,
@@ -343,6 +399,7 @@ describe('SQLite compression', () => {
   })
 
   it('treats a malformed packed tail as one removable physical row', () => {
+    /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformed: EventRow = {
       seq: 0,
       type: 'text-chunks',

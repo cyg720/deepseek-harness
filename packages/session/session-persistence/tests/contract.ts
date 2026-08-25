@@ -7,6 +7,14 @@
  *
  * @module @deepseek-ai/dsh-session-persistence/tests/contract
  */
+/**
+ * 文件职责：验证 contract.ts 覆盖的会话持久化行为、持久化与生命周期。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
+ * 产品维度：保障 Agent 的会话持久化状态稳定、可重放且可诊断。
+ * 逻辑维度：准备或解析会话数据，执行核心流程，再处理结果、错误与资源清理。
+ * 关键边界：持久化和遥测输入不可信；敏感数据必须脱敏；事件与数据库资源必须正确收尾。
+ * 新手阅读建议：先看数据类型和辅助函数，再读写入/投影主流程，最后关注恢复、脱敏和失败场景。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { SESSION_FORMAT_VERSION, Session, SessionId, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from '@deepseek-ai/dsh-session'
@@ -15,12 +23,14 @@ import { CallId, MessageId, createMessage, freezeMessage } from '@deepseek-ai/ds
 import type { SessionPersistence } from '../src/index.ts'
 
 /** A backend under test plus its teardown. */
+/** 中文说明：interface ContractBackend 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
 export interface ContractBackend {
   persistence: SessionPersistence
   dispose: () => Promise<void>
 }
 
 /** Build a minimal {@link SessionHeader} for a session id. */
+/** 中文说明：函数 meta 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function meta(id: string, cwd?: string): SessionHeader {
   return {
     version: SESSION_FORMAT_VERSION,
@@ -31,6 +41,7 @@ export function meta(id: string, cwd?: string): SessionHeader {
 }
 
 /** A well-formed one-turn event log (contiguous seqs from 0). */
+/** 中文说明：函数 oneTurnLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function oneTurnLog(): SessionEvent[] {
   return [
     { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
@@ -62,10 +73,14 @@ export function oneTurnLog(): SessionEvent[] {
  * `SessionEvent` union makes the typed marker optional, but the runtime guard must still reject a
  * surface event whose fixture omitted it; this helper never synthesizes a default.
  */
+/** 中文说明：函数 appendLog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function appendLog(session: Session, events: readonly SessionEvent[]): void {
+  /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
   for (const e of events) {
+    /** 中文说明：变量 se 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const se = e as SessionEvent<SurfaceEventType>
     if (se.surfaceOp !== undefined) {
+      /** 中文说明：变量 intent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const intent: SurfaceIntent = {
         surfaceOp: se.surfaceOp,
         ...se.sourceEventSeqs !== undefined ? { sourceEventSeqs: se.sourceEventSeqs } : {},
@@ -81,16 +96,20 @@ export function appendLog(session: Session, events: readonly SessionEvent[]): vo
  * Run the backend-agnostic contract suite. `make()` MUST return a fresh, empty
  * backend each call.
  */
+/** 中文说明：函数 runPersistenceContract 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 export function runPersistenceContract(name: string, make: () => Promise<ContractBackend>): void {
   describe(`SessionPersistence contract: ${name}`, () => {
     it('round-trips a session: create + append → load returns identical meta and byte-identical events', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = meta('s1', '/work')
+        /** 中文说明：变量 log 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const log = oneTurnLog()
         await persistence.create(m)
         await persistence.append(m.id, log)
 
+        /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const loaded = await persistence.load(m.id)
         expect(loaded.meta).toMatchObject({ version: SESSION_FORMAT_VERSION, id: m.id, cwd: '/work' })
         expect(loaded.events).toEqual(log)
@@ -102,10 +121,12 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('rejects a fractional creation timestamp without reserving its session id', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = { ...meta('fractional-created-at'), createdAt: 1.5 }
         await expect(persistence.create(m))
           .rejects.toThrow('session metadata createdAt must be a non-negative safe integer')
 
+        /** 中文说明：变量 valid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const valid = meta('fractional-created-at')
         await persistence.create(valid)
         await persistence.append(valid.id, oneTurnLog())
@@ -118,6 +139,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('crash recovery: load preserves an interrupted (unclosed) turn and closes it with turn/end {interrupted}', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = meta('interrupted')
         await persistence.create(m)
         await persistence.append(m.id, oneTurnLog()) // turn 1, committed (seqs 0..5)
@@ -127,10 +149,13 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           { type: 'turn/start', seq: 6, time: 7, data: { turn: 2 } },
           { type: 'step/start', seq: 7, time: 8, data: { turn: 2, step: 1 } },
         ])
+        /** 中文说明：变量 beforeRepair 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const beforeRepair = (await persistence.listSnapshots())
           .find(snapshot => snapshot.header.id === m.id)?.revision
 
+        /** 中文说明：变量 inspected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const inspected = await persistence.inspect(m.id)
+        /** 中文说明：变量 afterInspect 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const afterInspect = (await persistence.listSnapshots())
           .find(snapshot => snapshot.header.id === m.id)?.revision
         expect(afterInspect).toBe(beforeRepair)
@@ -142,7 +167,9 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         // load PRESERVES the interrupted turn's events (a turn can be huge — they
         // must not be truncated) and closes the orphaned turn with synthetic
         // boundary events: step/end (the step was open) then turn/end {interrupted}.
+        /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const loaded = await persistence.load(m.id)
+        /** 中文说明：变量 afterRepair 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const afterRepair = (await persistence.listSnapshots())
           .find(snapshot => snapshot.header.id === m.id)?.revision
         expect(afterRepair).not.toBe(beforeRepair)
@@ -151,6 +178,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           'turn/start', 'step/start', 'step/end', 'turn/end', // turn 2: real events + synthetic closers
         ])
         expect(loaded.events.map(e => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        /** 中文说明：变量 last 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const last = loaded.events.at(-1)!
         expect(last.type === 'turn/end' && last.data.reason).toEqual({ kind: 'interrupted' })
 
@@ -160,6 +188,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           { type: 'turn/start', seq: 10, time: 9, data: { turn: 3 } },
           { type: 'turn/end', seq: 11, time: 10, data: { turn: 3, reason: { kind: 'completed' } } },
         ])
+        /** 中文说明：变量 reloaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const reloaded = await persistence.load(m.id)
         expect(reloaded.events.map(e => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
       } finally {
@@ -170,6 +199,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('crash recovery: an unstarted assistant tool request gets a retryable synthetic result', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = meta('interrupted-toolcall')
         await persistence.create(m)
         await persistence.append(m.id, oneTurnLog()) // turn 1, committed (seqs 0..5)
@@ -194,6 +224,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           }, surfaceOp: 'append' },
         ])
 
+        /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const loaded = await persistence.load(m.id)
         // The orphaned call is answered by a synthetic error tool/result BEFORE
         // step/end + turn/end {interrupted}, so the step (and turn) are balanced
@@ -202,6 +233,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           'turn/start', 'user/message', 'step/start', 'assistant/message', 'step/end', 'turn/end', // turn 1
           'turn/start', 'step/start', 'assistant/message', 'tool/result', 'step/end', 'turn/end', // turn 2
         ])
+        /** 中文说明：函数值 synthetic 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const synthetic = loaded.events.find(e => e.type === 'tool/result')
         expect(synthetic?.type === 'tool/result' && synthetic.data).toMatchObject({
           message: {
@@ -212,7 +244,9 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         })
         // The synthetic result carries the SAME callId as the orphaned tool-call,
         // so deriveMessages() pairs them — no provider-invalid dangling call.
+        /** 中文说明：函数值 call 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const call = loaded.events.findLast(e => e.type === 'assistant/message')
+        /** 中文说明：变量 callId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const callId = call?.type === 'assistant/message'
           && call.data.message.content.find(b => b.type === 'tool-call')
         expect(callId && callId.type === 'tool-call' && callId.id).toBe(CallId('call-x'))
@@ -224,6 +258,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('crash recovery: a recorded tool call with no result tells the model to assess retry risk', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = meta('unknown-tool-outcome')
         await persistence.create(m)
         await persistence.append(m.id, [
@@ -245,7 +280,9 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           { type: 'tool/call', seq: 3, time: 4, data: { turn: 1, step: 1, callId: CallId('call-risk'), name: 'write', arguments: '{}' } },
         ])
 
+        /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const loaded = await persistence.load(m.id)
+        /** 中文说明：函数值 synthetic 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const synthetic = loaded.events.find(e => e.type === 'tool/result')
         expect(synthetic?.type === 'tool/result' && synthetic.data.error).toEqual({
           name: 'ToolOutcomeUnknownError', code: TOOL_OUTCOME_UNKNOWN,
@@ -255,7 +292,9 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         }
         expect(synthetic.data.message.content[0].content[0].text).toContain('retry only if the operation is read-only or idempotent')
         expect(synthetic.data.message.content[0].content[0].text).toContain('if it may have side effects, first verify external state or ask the user')
+        /** 中文说明：变量 resumed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const resumed = Session.create(m.id, loaded.events, loaded.meta)
+        /** 中文说明：函数值 resumedResult 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const resumedResult = resumed.deriveMessages().find(message => message.content.some(block => block.type === 'tool-result'))
         expect(resumedResult?.content[0]).toMatchObject({
           type: 'tool-result', toolCallId: CallId('call-risk'), isError: true,
@@ -280,7 +319,9 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('rejects pre-aborted observation reads with the exact cancellation reason', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const reason = new Error('persistence observation cancelled')
+        /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const controller = new AbortController()
         await expect(persistence.listSnapshots(controller.signal)).resolves.toEqual([])
         controller.abort(reason)
@@ -299,15 +340,19 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('readFrom returns exactly the stored suffix from the requested seq, without mutating the log', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = meta('read-from', '/work')
+        /** 中文说明：变量 log 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const log = oneTurnLog()
         await persistence.create(m)
         await persistence.append(m.id, log)
 
+        /** 中文说明：变量 whole 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const whole = await persistence.readFrom(m.id, 0)
         expect(whole.meta).toMatchObject({ id: m.id, cwd: '/work' })
         expect(whole.events).toEqual(log)
 
+        /** 中文说明：变量 suffix 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const suffix = await persistence.readFrom(m.id, 3)
         expect(suffix.events).toEqual(log.slice(3))
         expect(suffix.events[0]?.seq).toBe(3)
@@ -320,6 +365,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         await persistence.append(m.id, [
           { type: 'turn/start', seq: 6, time: 7, data: { turn: 2 } },
         ])
+        /** 中文说明：变量 tail 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const tail = await persistence.readFrom(m.id, 6)
         expect(tail.events.map(event => event.type)).toEqual(['turn/start'])
 
@@ -334,11 +380,14 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('lists stable lightweight revisions that change after an append', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = meta('s2')
         await persistence.create(m)
         await persistence.append(m.id, oneTurnLog())
         expect((await persistence.list()).map(x => x.id)).toContain(m.id)
+        /** 中文说明：函数值 first 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const first = (await persistence.listSnapshots()).find(snapshot => snapshot.header.id === m.id)
+        /** 中文说明：函数值 repeated 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const repeated = (await persistence.listSnapshots()).find(snapshot => snapshot.header.id === m.id)
         expect(first).toBeDefined()
         expect(repeated?.revision).toBe(first?.revision)
@@ -349,6 +398,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           time: 7,
           data: { turn: 2 },
         }])
+        /** 中文说明：函数值 changed 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const changed = (await persistence.listSnapshots()).find(snapshot => snapshot.header.id === m.id)
         expect(changed?.revision).not.toBe(first?.revision)
       } finally {
@@ -359,10 +409,12 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('append rejects a batch whose first seq does not match the stored next-seq', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = meta('s3')
         await persistence.create(m)
         await persistence.append(m.id, oneTurnLog()) // seqs 0..5, next-seq = 6
         // A re-append of an already-stored seq must be rejected, not duplicated.
+        /** 中文说明：变量 restated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const restated = oneTurnLog()
         await expect(persistence.append(m.id, restated)).rejects.toThrow()
       } finally {
@@ -373,8 +425,10 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
     it('append rejects a mid-batch seq gap', async () => {
       const { persistence, dispose } = await make()
       try {
+        /** 中文说明：变量 m 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const m = meta('s4')
         await persistence.create(m)
+        /** 中文说明：变量 gapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const gapped: SessionEvent[] = [
           { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
           { type: 'step/start', seq: 2, time: 2, data: { turn: 1, step: 1 } }, // gap: missing seq 1
@@ -392,8 +446,10 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         // otherwise a backend could pass this contract while still accepting values that
         // corrupt the durable round-trip. Each value is carried in a plugin-added field on one
         // user message so the contract covers the complete JSON-value boundary.
+        /** 中文说明：变量 cyclic 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const cyclic: Record<string, unknown> = { type: 'text', text: 'x' }
         cyclic['self'] = cyclic
+        /** 中文说明：变量 badValues 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const badValues: unknown[] = [
           1n,                  // BigInt
           undefined,           // dropped by JSON.stringify
@@ -403,11 +459,14 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
           new Map(),           // exotic object
           cyclic,              // circular ref
         ]
+        /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
         for (const [i, bad] of badValues.entries()) {
           // A fresh session per value isolates each rejection (a rejected append
           // must leave no state behind, but isolating keeps the assertion clean).
+          /** 中文说明：变量 mi 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const mi = meta(`s5-${i}`)
           await persistence.create(mi)
+          /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const events = [
             {
               type: 'user/message',
