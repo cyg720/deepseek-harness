@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 service.spec.ts 覆盖的 LLM 计量、配置、调用与事件处理行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
+ * 产品维度：保障模型调用及令牌统计能向 Agent 和使用者提供稳定、可追踪的结果。
+ * 逻辑维度：准备上下文与测试数据，触发被测流程，再核对请求、事件、投影结果和清理行为。
+ * 关键边界：测试替身必须保持确定性；持久化事件应可重放；异步资源必须在用例结束时释放。
+ * 新手阅读建议：先看测试数据和辅助函数，再按 describe/it 场景阅读，最后对照被测插件实现。
+ */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
@@ -24,6 +32,7 @@ import type {
   LlmResolvedModelInfo,
 } from '@deepseek-ai/dsh-llm'
 
+/** 中文说明：class ScriptedAdapter 定义本测试所需的数据或行为，用于表达当前协议场景。 */
 class ScriptedAdapter extends LlmAdapter {
   constructor(private script: StreamChunk[]) {
     super()
@@ -34,6 +43,7 @@ class ScriptedAdapter extends LlmAdapter {
   }
 }
 
+/** 中文说明：class RecordingAdapter 定义本测试所需的数据或行为，用于表达当前协议场景。 */
 class RecordingAdapter extends ScriptedAdapter {
   lastOptions: GenerateOptions | undefined
 
@@ -43,6 +53,7 @@ class RecordingAdapter extends ScriptedAdapter {
   }
 }
 
+/** 中文说明：class ThrowingAdapter 定义本测试所需的数据或行为，用于表达当前协议场景。 */
 class ThrowingAdapter extends LlmAdapter {
   constructor(private readonly failure: Error) {
     super()
@@ -53,6 +64,7 @@ class ThrowingAdapter extends LlmAdapter {
   }
 }
 
+/** 中文说明：class CatalogAdapter 定义本测试所需的数据或行为，用于表达当前协议场景。 */
 class CatalogAdapter extends ScriptedAdapter {
   constructor(
     private readonly provider: LlmProviderInfo,
@@ -87,6 +99,7 @@ class CatalogAdapter extends ScriptedAdapter {
   }
 }
 
+/** 中文说明：常量 SCRIPT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SCRIPT: StreamChunk[] = [
   { type: 'block-start', index: 0, blockType: 'text' },
   { type: 'text-delta', index: 0, text: 'hi' },
@@ -94,8 +107,11 @@ const SCRIPT: StreamChunk[] = [
   { type: 'finish', reason: { kind: 'stop' } },
 ]
 
+/** 中文说明：函数 collect 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function collect(stream: AsyncIterable<StreamChunk>): Promise<StreamChunk[]> {
+  /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const chunks: StreamChunk[] = []
+  /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
   for await (const chunk of stream) chunks.push(chunk)
   return chunks
 }
@@ -118,6 +134,7 @@ describe('LlmRuntime', () => {
   })
 
   it('distinguishes exhausted account quota from transient rate limiting', () => {
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for (const detail of [
       'insufficient_quota',
       'account balance depleted',
@@ -130,15 +147,18 @@ describe('LlmRuntime', () => {
   })
 
   it('errorChain renders the full cause chain of a wrapped transport failure', () => {
+    /** 中文说明：变量 chain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chain = new TypeError('fetch failed', { cause: new Error('connect ECONNREFUSED 127.0.0.1:443') })
     expect(errorChain(chain)).toBe('fetch failed: connect ECONNREFUSED 127.0.0.1:443')
   })
 
   it('errorChain renders AggregateError members (Happy Eyeballs multi-address failures)', () => {
+    /** 中文说明：变量 aggregate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const aggregate = new AggregateError(
       [new Error('connect ECONNREFUSED ::1:443'), new Error('connect ECONNREFUSED 127.0.0.1:443')],
       '',
     )
+    /** 中文说明：变量 wrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wrapped = new TypeError('fetch failed', { cause: aggregate })
     expect(errorChain(wrapped)).toBe(
       'fetch failed: AggregateError [connect ECONNREFUSED ::1:443; connect ECONNREFUSED 127.0.0.1:443]',
@@ -150,15 +170,19 @@ describe('LlmRuntime', () => {
     expect(errorChain({ message: 'structured provider failure', code: 'SERVER' }))
       .toBe('structured provider failure')
     expect(errorChain({ toString: () => { throw new Error('hostile') } })).toBe('<unrenderable value>')
+    /** 中文说明：变量 circular 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const circular = new Error('outer')
     circular.cause = circular
     expect(errorChain(circular)).toBe('outer: <circular cause>')
     // A hostile accessor collapses only its own node, not the whole chain.
+    /** 中文说明：变量 hostileNode 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hostileNode = new Error('node')
     Object.defineProperty(hostileNode, 'message', { get() { throw new Error('hostile getter') } })
     expect(errorChain(new Error('outer', { cause: hostileNode }))).toBe('outer: <unrenderable value>')
     // A diamond-shared (non-cyclic) cause renders in full on both paths.
+    /** 中文说明：变量 shared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const shared = new Error('shared')
+    /** 中文说明：变量 diamond 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const diamond = new AggregateError([new Error('a', { cause: shared }), new Error('b', { cause: shared })], 'agg')
     expect(errorChain(diamond)).toBe('agg [a: shared; b: shared]')
   })
@@ -171,31 +195,39 @@ describe('LlmRuntime', () => {
   it('errorChain collapses a cause that repeats the wrapper message verbatim', () => {
     // The `new HarnessError(String(value), code, { cause: value })` normalization
     // pattern repeats its cause; rendering it twice would only add noise.
+    /** 中文说明：变量 wrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wrapped = new HarnessError('boom', 'UNKNOWN', { cause: 'boom' })
     expect(errorChain(wrapped)).toBe('boom')
   })
 
   it('routes stream() to the registered adapter', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test-provider'], new ScriptedAdapter(SCRIPT))
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks: StreamChunk[] = []
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const chunk of ctx.llm.stream({ provider: 'test-provider', model: 'test-model', messages: [] })) chunks.push(chunk)
     expect(chunks).toEqual(SCRIPT)
   })
 
   it('trusts the immutable message creation boundary for direct calls', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new RecordingAdapter(SCRIPT)
     ctx.llm.registerAdapter(['test-provider'], adapter)
+    /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = createMessage({
       role: 'user',
       content: [{ type: 'text', text: 'hello' }],
       source: { kind: 'user' },
     })
 
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of ctx.llm.stream({
       provider: 'test-provider',
       model: 'test-model',
@@ -206,12 +238,15 @@ describe('LlmRuntime', () => {
   })
 
   it('captures provider-owned retry policy at registration and defaults omission', async () => {
+    /** 中文说明：变量 configured 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configured = resolveRetryPolicy({ mode: 'always' }, 'test retryPolicy')
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends ScriptedAdapter {
       override providerRetryPolicy(provider: string) {
         return provider === 'configured' ? configured : undefined
       }
     }(SCRIPT)
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['configured', 'defaulted'], adapter)
@@ -227,16 +262,22 @@ describe('LlmRuntime', () => {
   })
 
   it('keeps a prepared registration and retry policy after route replacement', async () => {
+    /** 中文说明：变量 oldPolicy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldPolicy = resolveRetryPolicy({ mode: 'always' }, 'old retryPolicy')
+    /** 中文说明：变量 newPolicy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const newPolicy = resolveRetryPolicy({ mode: 'normal', maxRetries: 0 }, 'new retryPolicy')
+    /** 中文说明：变量 oldFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const oldFailure = new LlmError('old route failed', 'AUTH')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 disposeOld 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeOld = ctx.llm.registerAdapter(['route'], new class extends ThrowingAdapter {
       override providerRetryPolicy(): typeof oldPolicy {
         return oldPolicy
       }
     }(oldFailure))
+    /** 中文说明：变量 prepared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prepared = await ctx.llm.prepareCall({ provider: 'route', model: 'model' })
 
     disposeOld()
@@ -246,6 +287,7 @@ describe('LlmRuntime', () => {
       }
     }(SCRIPT))
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks = await collect(prepared.stream({ ...prepared.config, messages: [] }))
     expect(chunks.at(-1)).toEqual({
       type: 'finish',
@@ -259,15 +301,18 @@ describe('LlmRuntime', () => {
   })
 
   it('normalizes an unregistered provider to a terminal failure', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks = await collect(ctx.llm.stream({
       provider: 'nope',
       model: 'any-model',
       messages: [],
     }))
 
+    /** 中文说明：变量 finish 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const finish = chunks.at(-1)
     expect(finish).toMatchObject({
       type: 'finish',
@@ -281,10 +326,14 @@ describe('LlmRuntime', () => {
   })
 
   it.each(['done', 'value'] as const)('normalizes a throwing IteratorResult.%s getter', async (field) => {
+    /** 中文说明：变量 original 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const original = new LlmError(`${field} getter failed`, 'RESULT_GETTER_FAILED')
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = field === 'done' ? {} : { done: false }
     Object.defineProperty(result, field, { get: () => { throw original } })
+    /** 中文说明：变量 cleanupLookups 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let cleanupLookups = 0
+    /** 中文说明：变量 iterator 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const iterator: AsyncIterator<StreamChunk> = {
       next: () => Promise.resolve(result as unknown as IteratorResult<StreamChunk>),
     }
@@ -294,15 +343,18 @@ describe('LlmRuntime', () => {
         throw new Error('return getter must not run after iteration fails')
       },
     })
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends LlmAdapter {
       stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         return { [Symbol.asyncIterator]: () => iterator }
       }
     }()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test'], adapter)
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks = await collect(ctx.llm.stream({
       provider: 'test',
       model: 'test',
@@ -320,17 +372,21 @@ describe('LlmRuntime', () => {
   })
 
   it.each(['dispatch', 'iterator'] as const)('normalizes synchronous adapter %s failures', async (boundary) => {
+    /** 中文说明：变量 original 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const original = new LlmError(`${boundary} failed`, 'BOUNDARY_FAILED')
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends LlmAdapter {
       stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         if (boundary === 'dispatch') throw original
         return { [Symbol.asyncIterator]: () => { throw original } }
       }
     }()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test'], adapter)
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks = await collect(ctx.llm.stream({
       provider: 'test',
       model: 'test',
@@ -347,15 +403,18 @@ describe('LlmRuntime', () => {
   })
 
   it('preserves structured LlmError facts in the terminal failure', async () => {
+    /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = new LlmError('provider busy', 'RATE_LIMIT', {
       status: 429,
       providerRetryAfterMs: 1_500,
       requestId: ProviderRequestId('req-7'),
     })
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test'], new ThrowingAdapter(failure))
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks = await collect(ctx.llm.stream({
       provider: 'test',
       model: 'test',
@@ -378,6 +437,7 @@ describe('LlmRuntime', () => {
   })
 
   it('normalizes arbitrary adapter rejections without throwing them downstream', async () => {
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends LlmAdapter {
       stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         return {
@@ -391,10 +451,12 @@ describe('LlmRuntime', () => {
         }
       }
     }()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test'], adapter)
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks = await collect(ctx.llm.stream({
       provider: 'test',
       model: 'test',
@@ -411,12 +473,15 @@ describe('LlmRuntime', () => {
   })
 
   it('maps adapter failure to aborted when the request signal is aborted', async () => {
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort('cancelled')
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test'], new ThrowingAdapter(new Error('stopped')))
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks = await collect(ctx.llm.stream({
       provider: 'test',
       model: 'test',
@@ -431,7 +496,9 @@ describe('LlmRuntime', () => {
   })
 
   it('leaves middleware and consumer failures thrown', async () => {
+    /** 中文说明：变量 middlewareFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const middlewareFailure = new Error('middleware failed')
+    /** 中文说明：变量 middlewareCtx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const middlewareCtx = new Context()
     await middlewareCtx.plugin(LlmRuntime)
     middlewareCtx.llm.registerAdapter(['test'], new ScriptedAdapter(SCRIPT))
@@ -444,11 +511,14 @@ describe('LlmRuntime', () => {
       messages: [],
     }))).rejects.toBe(middlewareFailure)
 
+    /** 中文说明：变量 consumerFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const consumerFailure = new Error('consumer failed')
+    /** 中文说明：变量 consumerCtx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const consumerCtx = new Context()
     await consumerCtx.plugin(LlmRuntime)
     consumerCtx.llm.registerAdapter(['test'], new ScriptedAdapter(SCRIPT))
     await expect((async () => {
+      /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
       for await (const _chunk of consumerCtx.llm.stream({
         provider: 'test',
         model: 'test',
@@ -460,8 +530,11 @@ describe('LlmRuntime', () => {
   })
 
   it('awaits adapter cleanup on downstream close and leaves cleanup failure thrown', async () => {
+    /** 中文说明：变量 cleanup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanup = new Error('cleanup failed')
+    /** 中文说明：变量 cleanupCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let cleanupCalls = 0
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends LlmAdapter {
       stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         return {
@@ -477,11 +550,13 @@ describe('LlmRuntime', () => {
         }
       }
     }()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test'], adapter)
 
     await expect((async () => {
+      /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
       for await (const _chunk of ctx.llm.stream({
         provider: 'test',
         model: 'test',
@@ -492,6 +567,7 @@ describe('LlmRuntime', () => {
   })
 
   it('allows downstream close when an adapter iterator has no return method', async () => {
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends LlmAdapter {
       stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         return {
@@ -501,17 +577,21 @@ describe('LlmRuntime', () => {
         }
       }
     }()
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test'], adapter)
 
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of ctx.llm.stream({ provider: 'test', model: 'test', messages: [] })) break
   })
 
   it('unregisters adapters when the owning fiber is disposed (HMR safety)', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 
+    /** 中文说明：函数值 fiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       inner.llm.registerAdapter(['scoped-model'], new ScriptedAdapter(SCRIPT))
     }, { inject: ['llm'] }))
@@ -522,13 +602,18 @@ describe('LlmRuntime', () => {
   })
 
   it('discovers detached provider and advisory model metadata', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = { id: 'catalog', name: 'Catalog Provider' }
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = { provider: 'catalog', id: 'fast', name: 'Fast', description: 'Low latency' }
     ctx.llm.registerAdapter(['catalog'], new CatalogAdapter(provider, [model]))
 
+    /** 中文说明：变量 providers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const providers = ctx.llm.listProviders()
+    /** 中文说明：变量 models 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const models = await ctx.llm.listModels('catalog')
     expect(providers).toEqual([provider])
     expect(models).toEqual([model])
@@ -544,6 +629,7 @@ describe('LlmRuntime', () => {
   })
 
   it('defaults adapters to their route name and an empty advisory model list', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['plain'], new ScriptedAdapter(SCRIPT))
@@ -565,8 +651,10 @@ describe('LlmRuntime', () => {
     [{ provider: 'route', id: 'model', name: '' }, 'empty name'],
     [{ provider: 'route', id: 'model', name: 'Model', description: 1 }, 'non-string description'],
   ] as const)('rejects invalid exact model metadata (%s: %s)', async (metadata, _label) => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends ScriptedAdapter {
       override resolveModel(): Promise<LlmResolvedModelInfo> {
         return Promise.resolve(metadata as unknown as LlmResolvedModelInfo)
@@ -579,8 +667,10 @@ describe('LlmRuntime', () => {
   })
 
   it('preserves modality metadata through exact model resolution', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends ScriptedAdapter {
       override resolveModel(): Promise<LlmResolvedModelInfo> {
         return Promise.resolve({
@@ -600,8 +690,10 @@ describe('LlmRuntime', () => {
   })
 
   it('resolves detached model context independently of advisory catalog membership', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = { contextWindow: 32_000 }
     ctx.llm.registerAdapter(['route'], new CatalogAdapter(
       { id: 'route', name: 'Route' },
@@ -609,6 +701,7 @@ describe('LlmRuntime', () => {
       { unlisted: source },
     ))
 
+    /** 中文说明：变量 resolved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resolved = await ctx.llm.resolveModelInfo('route', 'unlisted')
     expect(resolved.context).toEqual({ contextWindow: 32_000 })
     source.contextWindow = 64_000
@@ -619,8 +712,10 @@ describe('LlmRuntime', () => {
   })
 
   it('resolves detached adapter-owned reasoning metadata and materializes its default', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = {
       efforts: [
         { id: ReasoningEffortId('standard'), name: 'Standard' },
@@ -640,6 +735,7 @@ describe('LlmRuntime', () => {
       },
     ))
 
+    /** 中文说明：变量 resolved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resolved = await ctx.llm.resolveModelInfo('route', 'model')
     expect(resolved.reasoning).toEqual(source)
     source.efforts[0]!.name = 'mutated'
@@ -649,13 +745,16 @@ describe('LlmRuntime', () => {
       model: 'model',
       reasoningEffort: ReasoningEffortId('standard'),
     })
+    /** 中文说明：变量 explicit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const explicit = { provider: 'route', model: 'model', reasoningEffort: ReasoningEffortId('ultra') }
     await expect(ctx.llm.resolveCallConfig(explicit)).resolves.toBe(explicit)
+    /** 中文说明：变量 providerDefault 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const providerDefault = { provider: 'route', model: 'providerDefault' }
     await expect(ctx.llm.resolveCallConfig(providerDefault)).resolves.toBe(providerDefault)
   })
 
   it('materializes an adapter-owned maxTokens default while preserving an explicit cap', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['route'], new CatalogAdapter(
@@ -674,10 +773,13 @@ describe('LlmRuntime', () => {
       model: 'model',
       maxTokens: 256_000,
     })
+    /** 中文说明：变量 preparedDefault 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preparedDefault = await ctx.llm.prepareCall({ provider: 'route', model: 'model' })
     expect(preparedDefault.adapterDefaults).toEqual({ maxTokens: true })
+    /** 中文说明：变量 explicit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const explicit = { provider: 'route', model: 'model', maxTokens: 8_192 }
     await expect(ctx.llm.resolveCallConfig(explicit)).resolves.toBe(explicit)
+    /** 中文说明：变量 preparedExplicit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preparedExplicit = await ctx.llm.prepareCall(explicit)
     expect(preparedExplicit.adapterDefaults).toEqual({})
   })
@@ -685,8 +787,10 @@ describe('LlmRuntime', () => {
   it.each([0, 1.5, Number.MAX_SAFE_INTEGER + 1])(
     'rejects invalid adapter-owned default maxTokens %s',
     async (defaultMaxTokens) => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
+      /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const adapter = new class extends ScriptedAdapter {
         override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
           return Promise.resolve({ provider, id: model, name: model, defaultMaxTokens })
@@ -707,6 +811,7 @@ describe('LlmRuntime', () => {
     [{ efforts: [{ id: 'same', name: 'One' }, { id: 'same', name: 'Two' }] }, 'duplicate id'],
     [{ efforts: [{ id: 'valid', name: 'Valid' }], defaultEffort: 'other' }, 'unknown default'],
   ] as const)('rejects invalid model reasoning metadata (%s: %s)', async (metadata, _label) => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['route'], new CatalogAdapter(
@@ -720,6 +825,7 @@ describe('LlmRuntime', () => {
   })
 
   it('rejects unsupported reasoning efforts without clamping', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['route'], new CatalogAdapter(
@@ -742,10 +848,13 @@ describe('LlmRuntime', () => {
   })
 
   it('resolves reasoning defaults at the final adapter boundary after routing middleware', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends RecordingAdapter {
       override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
+        /** 中文说明：变量 reasoning 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const reasoning: LlmModelReasoningInfo = {
           efforts: [{ id: ReasoningEffortId('standard'), name: 'Standard' }],
           defaultEffort: ReasoningEffortId('standard'),
@@ -759,11 +868,13 @@ describe('LlmRuntime', () => {
       }
     }(SCRIPT)
     ctx.llm.registerAdapter(['routed'], adapter)
+    /** 中文说明：函数值 disposeRouting 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposeRouting = ctx.on('llm/stream', (options, next) => {
       options.provider = 'routed'
       return next()
     })
 
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of ctx.llm.stream({
       provider: 'initial',
       model: 'model',
@@ -773,21 +884,27 @@ describe('LlmRuntime', () => {
     expect(adapter.lastOptions?.reasoningEffort).toBe(ReasoningEffortId('standard'))
     disposeRouting()
 
+    /** 中文说明：变量 frozenRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const frozenRequest: GenerateOptions = Object.freeze({
       provider: 'routed',
       model: 'model',
       messages: [],
     })
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of ctx.llm.stream(frozenRequest)) { /* drain */ }
     expect(adapter.lastOptions?.reasoningEffort).toBe(ReasoningEffortId('standard'))
     expect(Object.isFrozen(adapter.lastOptions)).toBe(true)
   })
 
   it('pins one adapter registration across asynchronous exact-model resolution and dispatch', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 reasoning 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reasoning = Promise.withResolvers<LlmModelReasoningInfo>()
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = new class extends RecordingAdapter {
       override async resolveModel(
         provider: string,
@@ -803,8 +920,11 @@ describe('LlmRuntime', () => {
         }
       }
     }(SCRIPT)
+    /** 中文说明：变量 disposeFirst 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeFirst = ctx.llm.registerAdapter(['route'], first)
+    /** 中文说明：函数值 draining 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const draining = (async () => {
+      /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
       for await (const _chunk of ctx.llm.stream({
         provider: 'route',
         model: 'model',
@@ -814,6 +934,7 @@ describe('LlmRuntime', () => {
 
     await started.promise
     disposeFirst()
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = new RecordingAdapter(SCRIPT)
     ctx.llm.registerAdapter(['route'], second)
     reasoning.resolve({
@@ -827,8 +948,10 @@ describe('LlmRuntime', () => {
   })
 
   it('prepares a one-shot registration-bound call and rejects config drift', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new CatalogAdapter(
       { id: 'route', name: 'Route' },
       [],
@@ -841,6 +964,7 @@ describe('LlmRuntime', () => {
       },
     )
     ctx.llm.registerAdapter(['route'], adapter)
+    /** 中文说明：变量 prepared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prepared = await ctx.llm.prepareCall({ provider: 'route', model: 'model' })
     expect(Object.isFrozen(prepared.config)).toBe(true)
     expect(Object.isFrozen(prepared.adapterDefaults)).toBe(true)
@@ -859,8 +983,11 @@ describe('LlmRuntime', () => {
       messages: [],
     })).toThrow(expect.objectContaining({ code: 'INVALID_PREPARED_CALL' }))
 
+    /** 中文说明：变量 late 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const late = await ctx.llm.prepareCall({ provider: 'route', model: 'model' })
+    /** 中文说明：变量 lateOptions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lateOptions = { ...late.config, messages: [] }
+    /** 中文说明：变量 lateStream 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lateStream = late.stream(lateOptions)
     lateOptions.model = 'other'
     expect(await collect(lateStream)).toContainEqual({
@@ -876,10 +1003,14 @@ describe('LlmRuntime', () => {
   })
 
   it('reuses one exact-model lookup for prepared config and context metadata', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 resolutions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let resolutions = 0
+    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = { contextWindow: 128_000 }
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends ScriptedAdapter {
       override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
         resolutions += 1
@@ -900,17 +1031,20 @@ describe('LlmRuntime', () => {
     }(SCRIPT)
     ctx.llm.registerAdapter(['route'], adapter)
 
+    /** 中文说明：变量 prepared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prepared = await ctx.llm.prepareCall({ provider: 'route', model: 'model' })
     source.contextWindow = 64_000
     expect(prepared.config.reasoningEffort).toBe(ReasoningEffortId('high'))
     expect(prepared.context).toEqual({ contextWindow: 128_000 })
     expect(Object.isFrozen(prepared.context)).toBe(true)
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of prepared.stream({
       ...prepared.config,
       messages: [],
     })) { /* drain */ }
     expect(resolutions).toBe(1)
 
+    /** 中文说明：变量 noDefault 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noDefault = await ctx.llm.prepareCall({ provider: 'route', model: 'no-default' })
     expect(noDefault.config).toEqual({ provider: 'route', model: 'no-default' })
     expect(noDefault.context).toEqual({ contextWindow: 64_000 })
@@ -918,12 +1052,17 @@ describe('LlmRuntime', () => {
   })
 
   it('binds adapter-owned capabilities and dispatch to one prepared generation', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 generation 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let generation = 'first'
+    /** 中文说明：变量 dispatched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let dispatched: string | undefined
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends ScriptedAdapter {
       override prepareCall(provider: string, model: string) {
+        /** 中文说明：变量 captured 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const captured = generation
         return Promise.resolve({
           model: { provider, id: model, name: model, inputModalities: ['text'] as const },
@@ -936,6 +1075,7 @@ describe('LlmRuntime', () => {
     }(SCRIPT)
     ctx.llm.registerAdapter(['route'], adapter)
 
+    /** 中文说明：变量 prepared 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prepared = await ctx.llm.prepareCall({ provider: 'route', model: 'model' })
     generation = 'second'
     expect(prepared.inputModalities).toEqual(['text'])
@@ -945,9 +1085,12 @@ describe('LlmRuntime', () => {
   })
 
   it('projects historical images to stable text only after the loop-visible waterfall', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seen: GenerateOptions[] = []
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends ScriptedAdapter {
       override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
         return Promise.resolve({ provider, id: model, name: model, inputModalities: ['text'] })
@@ -959,6 +1102,7 @@ describe('LlmRuntime', () => {
       }
     }(SCRIPT)
     ctx.llm.registerAdapter(['route'], adapter)
+    /** 中文说明：变量 attachment 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const attachment = {
       attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
       mediaType: 'image/png' as const,
@@ -966,6 +1110,7 @@ describe('LlmRuntime', () => {
       width: 1,
       height: 1,
     }
+    /** 中文说明：变量 waterfall 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const waterfall: GenerateOptions[] = []
     ctx.on('llm/stream', async function* (options, next) {
       waterfall.push(options)
@@ -987,6 +1132,7 @@ describe('LlmRuntime', () => {
       text: '[image omitted because this model accepts text only; attachment sha256:aaaaaaaa]',
     }])
 
+    /** 中文说明：变量 frozen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const frozen = Object.freeze({
       provider: 'route',
       model: 'text-only',
@@ -1001,9 +1147,12 @@ describe('LlmRuntime', () => {
   })
 
   it('passes cancellation through exact-model resolution', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = Promise.withResolvers<undefined>()
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new class extends ScriptedAdapter {
       override resolveModel(
         _provider: string,
@@ -1027,13 +1176,16 @@ describe('LlmRuntime', () => {
       }
     }(SCRIPT)
     ctx.llm.registerAdapter(['route'], adapter)
+    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
+    /** 中文说明：变量 resolving 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resolving = ctx.llm.resolveCallConfig(
       { provider: 'route', model: 'model' },
       controller.signal,
     )
 
     await started.promise
+    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('cancel reasoning')
     controller.abort(reason)
     await expect(resolving).rejects.toBe(reason)
@@ -1042,6 +1194,7 @@ describe('LlmRuntime', () => {
   it.each([0, -1, 1.5, Number.NaN])(
     'rejects invalid adapter model context %s',
     async (contextWindow) => {
+      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       ctx.llm.registerAdapter(['route'], new CatalogAdapter(
@@ -1060,8 +1213,10 @@ describe('LlmRuntime', () => {
     [{ id: 'route', name: 1 }, 'non-string name'],
     [{ id: 'route', name: '' }, 'empty name'],
   ] as const)('rejects invalid provider metadata atomically (%s: %s)', async (metadata, _label) => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new CatalogAdapter(metadata as unknown as LlmProviderInfo, [])
     expect(() => ctx.llm.registerAdapter(['route'], adapter)).toThrow(expect.objectContaining({ code: 'INVALID_ADAPTER' }))
     expect(ctx.llm.listProviders()).toEqual([])
@@ -1076,6 +1231,7 @@ describe('LlmRuntime', () => {
     [{ provider: 'route', id: 'm', name: '' }, 'empty name'],
     [{ provider: 'route', id: 'm', name: 'M', description: 1 }, 'non-string description'],
   ] as const)('rejects invalid model metadata (%s: %s)', async (metadata, _label) => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['route'], new CatalogAdapter(
@@ -1086,19 +1242,23 @@ describe('LlmRuntime', () => {
   })
 
   it('rejects duplicate model ids in one provider catalog', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = { provider: 'route', id: 'same', name: 'Same' }
     ctx.llm.registerAdapter(['route'], new CatalogAdapter({ id: 'route', name: 'Route' }, [model, model]))
     await expect(ctx.llm.listModels('route')).rejects.toMatchObject({ code: 'INVALID_CATALOG' })
   })
 
   it('lets llm/stream waterfall listeners wrap the underlying stream', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['test-model'], new ScriptedAdapter(SCRIPT))
 
     ctx.on('llm/stream', function (_options, next) {
+      /** 中文说明：变量 inner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const inner = next()
       return (async function * () {
         yield { type: 'block-start', index: 99, blockType: 'text' } satisfies StreamChunk
@@ -1107,15 +1267,19 @@ describe('LlmRuntime', () => {
       })()
     })
 
+    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks: StreamChunk[] = []
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const chunk of ctx.llm.stream({ provider: 'test-model', model: 'dynamic-model', messages: [] })) chunks.push(chunk)
     expect(chunks).toHaveLength(6)
     expect(chunks[0]).toMatchObject({ index: 99 })
   })
 
   it('resolves the provider after llm/stream listeners have had a chance to route it', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new RecordingAdapter(SCRIPT)
     ctx.llm.registerAdapter(['routed'], adapter)
     ctx.on('llm/stream', (options, next) => {
@@ -1123,17 +1287,22 @@ describe('LlmRuntime', () => {
       return next()
     })
 
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of ctx.llm.stream({ provider: 'initial', model: 'm', messages: [] })) { /* drain */ }
     expect(adapter.lastOptions?.provider).toBe('routed')
   })
 
   it('keeps replay state when historical and target providers belong to the same adapter instance', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new RecordingAdapter(SCRIPT)
     ctx.llm.registerAdapter(['historical', 'target'], adapter)
+    /** 中文说明：变量 replayState 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replayState = { private: 'state' }
 
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of ctx.llm.stream({
       provider: 'target',
       model: 'new-model',
@@ -1153,12 +1322,15 @@ describe('LlmRuntime', () => {
   })
 
   it('strips replay state but preserves provider and model when the target uses a different adapter instance', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['historical'], new RecordingAdapter(SCRIPT))
+    /** 中文说明：变量 target 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = new RecordingAdapter(SCRIPT)
     ctx.llm.registerAdapter(['target'], target)
 
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of ctx.llm.stream({
       provider: 'target',
       model: 'new-model',
@@ -1180,11 +1352,14 @@ describe('LlmRuntime', () => {
   })
 
   it('preserves immutability while stripping replay state from frozen requests', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['historical'], new RecordingAdapter(SCRIPT))
+    /** 中文说明：变量 target 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = new RecordingAdapter(SCRIPT)
     ctx.llm.registerAdapter(['target'], target)
+    /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const options = Object.freeze({
       provider: 'target',
       model: 'new-model',
@@ -1200,6 +1375,7 @@ describe('LlmRuntime', () => {
       })],
     })
 
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for await (const _chunk of ctx.llm.stream(options)) { /* drain */ }
 
     expect(target.lastOptions).not.toBe(options)
@@ -1212,6 +1388,7 @@ describe('LlmRuntime', () => {
   })
 
   it('creates LlmError with a code for programmatic handling', () => {
+    /** 中文说明：变量 err 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const err = new LlmError('something went wrong', 'CUSTOM_CODE')
     expect(err).toBeInstanceOf(Error)
     expect(err.name).toBe('LlmError')
@@ -1231,7 +1408,9 @@ describe('LlmRuntime', () => {
 
   it('LlmError extends the shared HarnessError base', async () => {
     const { HarnessError, isHarnessError } = await import('@deepseek-ai/dsh-llm')
+    /** 中文说明：变量 cause 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cause = new Error('root cause')
+    /** 中文说明：变量 err 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const err = new LlmError('boom', 'AUTH', { cause })
     expect(err).toBeInstanceOf(HarnessError)
     expect(isHarnessError(err)).toBe(true)
@@ -1241,7 +1420,9 @@ describe('LlmRuntime', () => {
 
   it('HarnessError carries a code, names itself by subclass, and chains cause', async () => {
     const { HarnessError, isHarnessError } = await import('@deepseek-ai/dsh-llm')
+    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = new Error('root cause')
+    /** 中文说明：变量 err 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const err = new HarnessError('wrapper', 'UNKNOWN', { cause: root })
     expect(err).toBeInstanceOf(Error)
     expect(err.name).toBe('HarnessError')
@@ -1253,9 +1434,11 @@ describe('LlmRuntime', () => {
   })
 
   it('removes the adapter when the returned disposer is called', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = ctx.llm.registerAdapter(['m1'], new ScriptedAdapter(SCRIPT))
     expect(ctx.llm.listProviders()).toEqual([{ id: 'm1', name: 'm1' }])
     dispose()
@@ -1263,6 +1446,7 @@ describe('LlmRuntime', () => {
   })
 
   it('rejects duplicate adapter registration with DUPLICATE_ADAPTER code', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['m1'], new ScriptedAdapter(SCRIPT))
@@ -1277,8 +1461,10 @@ describe('LlmRuntime', () => {
   })
 
   it('rejects empty and internally duplicated provider registrations atomically', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new ScriptedAdapter(SCRIPT)
 
     expect(() => ctx.llm.registerAdapter([], adapter)).toThrow(expect.objectContaining({ code: 'INVALID_ADAPTER' }))
@@ -1288,15 +1474,18 @@ describe('LlmRuntime', () => {
   })
 
   it('re-registers a model after its prior registration is disposed', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 
+    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = ctx.llm.registerAdapter(['m1'], new ScriptedAdapter(SCRIPT))
     expect(ctx.llm.listProviders()).toEqual([{ id: 'm1', name: 'm1' }])
     dispose()
     expect(ctx.llm.listProviders()).toEqual([])
 
     // The duplicate check is not wedged: the same model registers cleanly again.
+    /** 中文说明：变量 disposeAgain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeAgain = ctx.llm.registerAdapter(['m1'], new ScriptedAdapter(SCRIPT))
     expect(ctx.llm.listProviders()).toEqual([{ id: 'm1', name: 'm1' }])
     disposeAgain()
@@ -1306,9 +1495,11 @@ describe('LlmRuntime', () => {
   it('refuses to replace routes on a registration that was already released', async () => {
     // The leak this prevents: the effect's disposer has run, so a route added
     // afterwards would sit in the registry with nothing left to release it.
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 
+    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = ctx.llm.registerAdapter(['m1'], new ScriptedAdapter(SCRIPT))
     handle()
     expect(() => { handle.replace(['leaked']) })
@@ -1319,9 +1510,11 @@ describe('LlmRuntime', () => {
   it('still allows an empty route set on a live registration', async () => {
     // `replace([])` is the settings-section-emptied case: legal, and it must
     // not be mistaken for disposal by the guard above.
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 
+    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = ctx.llm.registerAdapter(['m1'], new ScriptedAdapter(SCRIPT))
     handle.replace([])
     expect(ctx.llm.listProviders()).toEqual([])

@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 message.spec.ts 覆盖的 LLM 配置、调用与事件处理行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
+ * 产品维度：保障模型接入在配置变化、认证、重试与异常场景下仍能给 Agent 稳定反馈。
+ * 逻辑维度：准备上下文与测试数据，触发被测流程，再核对请求、事件、结果和清理行为。
+ * 关键边界：测试替身必须保持确定性；敏感凭据不可写入日志；异步资源必须在用例结束时释放。
+ * 新手阅读建议：先看测试数据和辅助函数，再按 describe/it 场景阅读，最后对照被测插件实现。
+ */
 import { describe, expect, it } from 'vitest'
 import {
   CallId,
@@ -10,11 +18,13 @@ import {
 
 describe('message construction', () => {
   it('assigns identity immediately and returns a detached deep-frozen message', () => {
+    /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const input = {
       content: [{ type: 'text' as const, text: 'original' }],
       source: { kind: 'plugin' as const, plugin: 'test' },
     }
 
+    /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = createUserMessage(input)
 
     expect(message.id).toEqual(expect.any(String))
@@ -34,7 +44,9 @@ describe('message construction', () => {
   })
 
   it('freezes an existing identity without minting a replacement', () => {
+    /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = MessageId('existing')
+    /** 中文说明：变量 input 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const input = {
       id,
       role: 'assistant' as const,
@@ -42,6 +54,7 @@ describe('message construction', () => {
       source: { kind: 'model' as const, provider: 'test', model: 'test' },
     }
 
+    /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = freezeMessage(input)
 
     expect(message).not.toBe(input)
@@ -51,6 +64,7 @@ describe('message construction', () => {
   })
 
   it('fixes the assistant role and model source kind at creation', () => {
+    /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = createAssistantMessage({
       content: [{ type: 'text', text: 'answer' }],
       source: {
@@ -75,7 +89,9 @@ describe('message construction', () => {
   })
 
   it('couples tool-result content and its cited call seq to one call identity', () => {
+    /** 中文说明：变量 callId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const callId = CallId('call-1')
+    /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = createToolResultMessage({
       callId,
       content: [{ type: 'text', text: 'result' }],

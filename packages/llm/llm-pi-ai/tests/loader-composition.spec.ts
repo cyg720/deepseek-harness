@@ -7,6 +7,14 @@
  * catch Loader export-shape failures, which is why the twin adapter has the
  * same guard.
  */
+/**
+ * 文件职责：验证 loader-composition.spec.ts 覆盖的 LLM 配置、调用与事件处理行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
+ * 产品维度：保障模型接入在配置变化、认证、重试与异常场景下仍能给 Agent 稳定反馈。
+ * 逻辑维度：准备上下文与测试数据，触发被测流程，再核对请求、事件、结果和清理行为。
+ * 关键边界：测试替身必须保持确定性；敏感凭据不可写入日志；异步资源必须在用例结束时释放。
+ * 新手阅读建议：先看测试数据和辅助函数，再按 describe/it 场景阅读，最后对照被测插件实现。
+ */
 
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -24,6 +32,7 @@ import { assemble } from './assemble.ts'
 import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
 
 /** One text block, then a tool call truncated by the output-token ceiling. */
+/** 中文说明：变量 truncatedToolCallEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const truncatedToolCallEvents = [
   '{"choices":[{"delta":{"role":"assistant","content":""},"index":0,"finish_reason":null}]}',
   '{"choices":[{"delta":{"content":"partial"},"index":0,"finish_reason":null}]}',
@@ -32,7 +41,9 @@ const truncatedToolCallEvents = [
   '[DONE]',
 ]
 
+/** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let root: string | undefined
+/** 中文说明：变量 context 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let context: Context | undefined
 
 afterEach(async () => {
@@ -45,12 +56,15 @@ afterEach(async () => {
 })
 
 /** Boot the dormant composition: a bare `llm-pi-ai` row with no config at all. */
+/** 中文说明：函数 loadComposition 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function loadComposition(): Promise<{ ctx: Context; settingsPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-pi-composition-'))
+  /** 中文说明：变量 settingsPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const settingsPath = join(root, 'settings.yaml')
   await writeFile(settingsPath, '# personal settings\n')
   await writeFile(join(root, '.credentials.yaml'), 'version: 1\nrefs:\n  PI_COMPOSITION_KEY: key-from-store\n', { mode: 0o600 })
 
+  /** 中文说明：变量 configPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const configPath = join(root, 'cordis.yml')
   await writeFile(configPath, [
     '- id: llm',
@@ -70,11 +84,13 @@ async function loadComposition(): Promise<{ ctx: Context; settingsPath: string }
     '',
   ].join('\n'))
 
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   context = ctx
   ctx.baseUrl = pathToFileURL(root).href + '/'
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
+  /** 中文说明：变量 modules 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const modules = new Map<string, unknown>([
     ['test-llm-service', LlmRuntime],
     ['@deepseek-ai/dsh-settings-file', FileSettingsProvider],
@@ -99,6 +115,7 @@ async function loadComposition(): Promise<{ ctx: Context; settingsPath: string }
 describe('llm-pi-ai real dormant composition', () => {
   it('boots with zero routes and registers one the moment settings supply a profile', async () => {
     vi.stubEnv('PI_COMPOSITION_KEY', '')
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await mockServer([{ events: textEvents }])
     const { ctx, settingsPath } = await loadComposition()
 
@@ -118,6 +135,7 @@ describe('llm-pi-ai real dormant composition', () => {
       expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['deepseek'])
     }, { timeout: 5000 })
 
+    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await assemble(ctx, { provider: 'deepseek', model: 'deepseek-v4-flash', messages: [] })
     expect(result.message.content).toEqual([{ type: 'text', text: 'hello' }])
     expect(server.headers[0]?.authorization).toBe('Bearer key-from-store')
@@ -125,6 +143,7 @@ describe('llm-pi-ai real dormant composition', () => {
 
   it('continues natively after max-token assembly drops a tool call, with pruned replay metadata', async () => {
     vi.stubEnv('PI_COMPOSITION_KEY', '')
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await mockServer([
       { events: truncatedToolCallEvents },
       { events: textEvents },
@@ -142,6 +161,7 @@ describe('llm-pi-ai real dormant composition', () => {
       expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['deepseek'])
     }, { timeout: 5000 })
 
+    /** 中文说明：变量 truncated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const truncated = await assemble(ctx, {
       provider: 'deepseek',
       model: 'deepseek-v4-flash',
@@ -166,6 +186,7 @@ describe('llm-pi-ai real dormant composition', () => {
       },
     })
 
+    /** 中文说明：变量 continued 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const continued = await assemble(ctx, {
       provider: 'deepseek',
       model: 'deepseek-v4-flash',
@@ -182,12 +203,14 @@ describe('llm-pi-ai real dormant composition', () => {
         { role: 'user', content: 'continue' },
       ],
     })
+    /** 中文说明：变量 followup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const followup = server.requests[1] as { messages?: unknown[] }
     expect(followup.messages?.[0]).not.toHaveProperty('tool_calls')
   })
 
   it('continues a legacy session whose stored replay state no longer matches its content', async () => {
     vi.stubEnv('PI_COMPOSITION_KEY', '')
+    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await mockServer([{ events: textEvents }])
     const { ctx, settingsPath } = await loadComposition()
     await writeFile(settingsPath, [
@@ -204,6 +227,7 @@ describe('llm-pi-ai real dormant composition', () => {
 
     // A pre-envelope session log entry: max-token assembly dropped the tool
     // call from content while the flat v1 state still describes both blocks.
+    /** 中文说明：变量 poisoned 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const poisoned = createMessage({
       role: 'assistant',
       content: [{ type: 'text', text: 'partial' }],
@@ -224,6 +248,7 @@ describe('llm-pi-ai real dormant composition', () => {
         },
       },
     })
+    /** 中文说明：变量 continued 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const continued = await assemble(ctx, {
       provider: 'deepseek',
       model: 'deepseek-v4-flash',

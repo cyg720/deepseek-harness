@@ -1,3 +1,11 @@
+/**
+ * 文件职责：验证 retry-policy.spec.ts 覆盖的 LLM 配置、调用与事件处理行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
+ * 产品维度：保障模型接入在配置变化、认证、重试与异常场景下仍能给 Agent 稳定反馈。
+ * 逻辑维度：准备上下文与测试数据，触发被测流程，再核对请求、事件、结果和清理行为。
+ * 关键边界：测试替身必须保持确定性；敏感凭据不可写入日志；异步资源必须在用例结束时释放。
+ * 新手阅读建议：先看测试数据和辅助函数，再按 describe/it 场景阅读，最后对照被测插件实现。
+ */
 import { describe, expect, it } from 'vitest'
 import {
   resolveRetryPolicy,
@@ -8,6 +16,7 @@ import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 
 describe('provider retry policy', () => {
   it('resolves immutable normal defaults', () => {
+    /** 中文说明：变量 policy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const policy = resolveRetryPolicy(undefined, 'provider.retryPolicy')
 
     expect(policy).toEqual({
@@ -24,7 +33,9 @@ describe('provider retry policy', () => {
   })
 
   it('resolves and detaches a configured normal policy', () => {
+    /** 中文说明：变量 retryableCodes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const retryableCodes = ['BUSY']
+    /** 中文说明：变量 config 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const config: RetryPolicyConfig = {
       mode: 'normal',
       maxRetries: 4,
@@ -36,6 +47,7 @@ describe('provider retry policy', () => {
       },
     }
 
+    /** 中文说明：变量 policy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const policy = resolveRetryPolicy(config, 'provider.retryPolicy')
     retryableCodes.push('LATE')
 
@@ -60,6 +72,7 @@ describe('provider retry policy', () => {
   })
 
   it('ignores normal-only fields retained after switching to always mode', () => {
+    /** 中文说明：变量 layered 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const layered = {
       mode: 'always',
       maxRetries: 5,

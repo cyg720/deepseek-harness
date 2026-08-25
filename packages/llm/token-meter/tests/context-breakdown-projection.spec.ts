@@ -1,5 +1,13 @@
 // contextBreakdown projection: heuristic system/tools/message composition,
 // plus the shared estimator's pricing branches.
+/**
+ * 文件职责：验证 context-breakdown-projection.spec.ts 覆盖的 LLM 计量、配置、调用与事件处理行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
+ * 产品维度：保障模型调用及令牌统计能向 Agent 和使用者提供稳定、可追踪的结果。
+ * 逻辑维度：准备上下文与测试数据，触发被测流程，再核对请求、事件、投影结果和清理行为。
+ * 关键边界：测试替身必须保持确定性；持久化事件应可重放；异步资源必须在用例结束时释放。
+ * 新手阅读建议：先看测试数据和辅助函数，再按 describe/it 场景阅读，最后对照被测插件实现。
+ */
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -20,15 +28,19 @@ import {
   estimateToolsTokens,
 } from '../src/estimate.ts'
 
+/** 中文说明：常量 CONFIG 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CONFIG = { provider: 'test', model: 'test-model' }
 
+/** 中文说明：常量 TOOLS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TOOLS: ToolSchema[] = [{
   name: 'bash',
   description: 'run a command',
   parameters: { type: 'object', properties: {} },
 }]
 
+/** 中文说明：函数 harness 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function harness(): Promise<{ ctx: Context; session: Session }> {
+  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
@@ -36,12 +48,15 @@ async function harness(): Promise<{ ctx: Context; session: Session }> {
   return { ctx, session: ctx.sessions.create() }
 }
 
+/** 中文说明：函数值 projected 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const projected = (ctx: Context, session: Session): ContextBreakdownProjection => {
+  /** 中文说明：变量 value 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value = ctx.sessionProjections.snapshot(session).values.contextBreakdown
   if (value === undefined) throw new Error('contextBreakdown projection is not registered')
   return value
 }
 
+/** 中文说明：函数 appendUser 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function appendUser(session: Session, text: string): number {
   return session.append('user/message', createUserMessage({
     content: [{ type: 'text', text }],
@@ -54,10 +69,15 @@ function appendUser(session: Session, text: string): number {
  * replaced span from the measurement service's own nodes and log the
  * shadow-price event directly before the replace.
  */
+/** 中文说明：函数 appendSummaryMeter 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function appendSummaryMeter(ctx: Context, session: Session, start: number, end: number): void {
+  /** 中文说明：变量 nodes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const nodes = ctx.tokenMeter.measure(session).nodes
+  /** 中文说明：函数值 startIdx 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const startIdx = nodes.findIndex(node => node.seq === start)
+  /** 中文说明：函数值 endIdx 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const endIdx = nodes.findIndex(node => node.seq === end)
+  /** 中文说明：变量 shadowed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const shadowed = nodes.slice(startIdx, endIdx + 1)
   session.append('compaction/summary', {
     compactionId: CompactionId('context-breakdown-summary'),
@@ -88,6 +108,7 @@ describe('contextBreakdown session projection', () => {
       messageTokens: 0,
     })
 
+    /** 中文说明：变量 changed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changed: string[] = []
     ctx.sessionProjections.onChanged((_session, key) => { changed.push(key) })
     session.append('request/header', {
@@ -124,8 +145,11 @@ describe('contextBreakdown session projection', () => {
 
   it('shrinks the message figure when a metered replacement compacts the surface', async () => {
     const { ctx, session } = await harness()
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = appendUser(session, 'before compaction, a longer message')
+    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = appendUser(session, 'and a second entry')
+    /** 中文说明：变量 summary 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const summary = createUserMessage({
       content: [{ type: 'text', text: 'summary' }],
       source: { kind: 'plugin', plugin: 'test' },
@@ -142,7 +166,9 @@ describe('contextBreakdown session projection', () => {
     const { ctx, session } = await harness()
     // The panel's composition rows and `measure()` answer the same question in
     // the same vocabulary; one shared fold is what makes that true.
+    /** 中文说明：函数值 agree 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const agree = (): number => {
+      /** 中文说明：变量 messageTokens 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const messageTokens = projected(ctx, session).messageTokens
       expect(messageTokens).toBe(ctx.tokenMeter.measure(session).surfaceTokens)
       return messageTokens
@@ -153,8 +179,10 @@ describe('contextBreakdown session projection', () => {
     })
     expect(agree()).toBe(0)
 
+    /** 中文说明：变量 question 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const question = appendUser(session, 'a first question, long enough to price above zero')
     session.append('step/start', { turn: 1, step: 1 })
+    /** 中文说明：变量 answer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const answer = session.append('assistant/message', {
       turn: 1,
       step: 1,
@@ -166,6 +194,7 @@ describe('contextBreakdown session projection', () => {
       usage: { inputTokens: 40, outputTokens: 7 },
     }, { surfaceOp: 'append', sourceEventSeqs: [] }).seq
     session.append('step/end', { turn: 1, step: 1 })
+    /** 中文说明：变量 grown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const grown = agree()
     expect(grown).toBeGreaterThan(0)
 
@@ -183,7 +212,9 @@ describe('contextBreakdown session projection', () => {
   })
 
   it('folds a replacement without a claim at zero and fails on a mismatched claim', () => {
+    /** 中文说明：变量 definition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const definition = contextBreakdownProjectionDefinition
+    /** 中文说明：函数值 replace 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const replace = (start: number, end: number): SessionEvent => ({
       type: 'user/message',
       seq: 9,
@@ -192,6 +223,7 @@ describe('contextBreakdown session projection', () => {
       surfaceOp: { op: 'replace', start, end },
       sourceEventSeqs: [start, end],
     } as unknown as SessionEvent)
+    /** 中文说明：函数值 append 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const append = (seq: number): SessionEvent => ({
       type: 'user/message',
       seq,
@@ -199,12 +231,14 @@ describe('contextBreakdown session projection', () => {
       data: createUserMessage({ content: [{ type: 'text', text: 'x' }], source: { kind: 'user' } }),
       surfaceOp: 'append',
     } as unknown as SessionEvent)
+    /** 中文说明：函数值 meter 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const meter = (start: number, end: number, seq: number): SessionEvent => ({
       type: 'compaction/prune',
       seq,
       time: 0,
       data: { shadowedRange: { start, end }, shadowedSeqs: [start, end], shadowedTokenCount: 5 },
     } as unknown as SessionEvent)
+    /** 中文说明：变量 state 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let state = definition.init()
     state = definition.apply(state, append(1))
     state = definition.apply(state, append(3))
@@ -212,14 +246,17 @@ describe('contextBreakdown session projection', () => {
     expect(definition.wire.view(definition.apply(state, replace(1, 3))).messageTokens)
       .toBe(definition.wire.view(state).messageTokens)
     // An adjacent claim for another range contradicts the replacement.
+    /** 中文说明：变量 mismatched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mismatched = definition.apply(state, meter(1, 1, 8))
     expect(() => definition.apply(mismatched, replace(1, 3))).toThrow('no adjacent shadow price')
     // A claim expires after one intervening event, so replacement delta is zero.
+    /** 中文说明：变量 expired 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let expired = definition.apply(state, meter(1, 3, 8))
     expired = definition.apply(expired, { type: 'todo/write', seq: 9, time: 0, data: { todos: [] } } as unknown as SessionEvent)
     expect(definition.wire.view(definition.apply(expired, replace(1, 3))).messageTokens)
       .toBe(definition.wire.view(state).messageTokens)
     // The armed claim prices exactly the next event's matching replacement.
+    /** 中文说明：变量 armed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const armed = definition.apply(state, meter(1, 3, 8))
     expect(definition.wire.view(definition.apply(armed, replace(1, 3))).messageTokens)
       .toBe(definition.wire.view(state).messageTokens - 5 + estimateMessage(
@@ -229,16 +266,22 @@ describe('contextBreakdown session projection', () => {
 
   it('keeps the persisted checkpoint O(1) as the surface grows and compacts', async () => {
     const { ctx, session } = await harness()
+    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = appendUser(session, 'the first of many messages')
+    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < 24; index += 1) appendUser(session, `message number ${index} with some text`)
+    /** 中文说明：变量 last 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const last = appendUser(session, 'the last message before compaction')
+    /** 中文说明：函数值 stateKeys 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const stateKeys = (): string[] => {
+      /** 中文说明：变量 row 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const row = ctx.sessionProjections.checkpoint(session)['contextBreakdown']
       if (row === undefined) throw new Error('contextBreakdown checkpoint row is missing')
       return Object.keys(row.val as Record<string, unknown>).sort()
     }
     // Growth adds no per-node bookkeeping to the durable state.
     expect(stateKeys()).toEqual(['messageTokens', 'systemTokens', 'toolsTokens'])
+    /** 中文说明：变量 shadowed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const shadowed = session.surface.nodes.slice(
       session.surface.nodes.indexOf(first),
       session.surface.nodes.indexOf(last) + 1,
@@ -257,16 +300,20 @@ describe('contextBreakdown session projection', () => {
   })
 
   it('restores from a JSON checkpoint and unregisters with the token-meter fiber', async () => {
+    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
     await ctx.plugin(SessionProjectionRegistry)
+    /** 中文说明：变量 meterFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const meterFiber = await ctx.plugin(TokenMeter)
+    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create()
     session.append('request/header', {
       header: { config: CONFIG, system: 'You are terse.' },
       reason: 'initial',
     })
     appendUser(session, 'abcd')
+    /** 中文说明：变量 checkpoint 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const checkpoint = JSON.parse(JSON.stringify(
       ctx.sessionProjections.checkpoint(session),
     )) as ReturnType<typeof ctx.sessionProjections.checkpoint>
@@ -292,6 +339,7 @@ describe('shared estimator', () => {
       type: 'tool-result', toolCallId: 'c' as never,
       content: [{ type: 'text', text: 'abcd' }],
     }])).toBe(9)
+    /** 中文说明：变量 unknown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unknown = { type: 'mystery', payload: 'abc' } as unknown as ContentBlock
     expect(estimateContent([unknown])).toBe(4 + Math.ceil(JSON.stringify(unknown).length / 4))
   })
