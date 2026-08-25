@@ -5,6 +5,14 @@
  * families (`dsh-tool-bash`, `dsh-tool-fs`) delegate here, so the ordering and
  * verbatim texts are pinned once, next to the vocabulary that owns them.
  */
+/**
+ * 文件职责：验证 escalation.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
+ * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
+ * 逻辑维度：准备配置与资源，触发被测流程，再核对结果、事件、错误和清理。
+ * 关键边界：平台能力可能不同；持久化数据和外部输入不可信；异步资源必须完全释放。
+ * 新手阅读建议：先读辅助函数和平台条件，再看正常路径，最后阅读恢复与失败用例。
+ */
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -55,6 +63,7 @@ describe('the model-facing markers', () => {
 })
 
 describe('approveEscalation', () => {
+  /** 中文说明：函数值 req 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const req = (over: Partial<Parameters<typeof approveEscalation>[0]> = {}) => ({
     requestedMode: 'workspace-write',
     justification: 'the user asked to write in the workspace',
@@ -63,9 +72,11 @@ describe('approveEscalation', () => {
     ...over,
   })
   /** An approver that records the request and returns a fixed outcome. */
+  /** 中文说明：函数值 approver 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const approver = (outcome: EscalationOutcome, sink?: (req: unknown) => void): EscalationApprover => ({
     request: async (request) => { sink?.(request); return outcome },
   })
+  /** 中文说明：函数值 ingredients 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const ingredients = (over: Partial<Parameters<typeof approveEscalation>[1]> = {}) => ({
     approver: approver('allowed-once'),
     agent: {},
@@ -75,14 +86,18 @@ describe('approveEscalation', () => {
   })
 
   it('grants: returns the requested mode, asking through the approver with the audit reason', async () => {
+    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seen: { reason?: string }[] = []
+    /** 中文说明：函数值 granted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const granted = await approveEscalation(req(), ingredients({ approver: approver('allowed-once', r => seen.push(r as { reason?: string })) }))
     expect(granted).toBe('workspace-write')
     expect(seen[0]?.reason).toBe('escalate sandbox to workspace-write: the user asked to write in the workspace')
   })
 
   it('a non-widening request fails closed with its own text and never asks', async () => {
+    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seen: unknown[] = []
+    /** 中文说明：函数值 spy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spy = ingredients({ approver: approver('allowed-once', r => seen.push(r)) })
     await expect(approveEscalation(req({ requestedMode: 'read-only' }), spy))
       .rejects.toThrow(/not strictly wider than this call's current "read-only" mode/)

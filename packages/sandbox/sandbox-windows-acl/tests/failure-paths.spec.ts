@@ -4,6 +4,14 @@
  * getTempPath must refuse to decode a buffer GetTempPathW never wrote.
  * Pure stubs — no real Win32 calls, so these run on every platform.
  */
+/**
+ * 文件职责：验证 failure-paths.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
+ * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
+ * 逻辑维度：准备配置与资源，触发被测流程，再核对结果、事件、错误和清理。
+ * 关键边界：平台能力可能不同；持久化数据和外部输入不可信；异步资源必须完全释放。
+ * 新手阅读建议：先读辅助函数和平台条件，再看正常路径，最后阅读恢复与失败用例。
+ */
 
 import { describe, expect, it, vi } from 'vitest'
 import koffi from 'koffi'
@@ -14,16 +22,22 @@ import { Win32Error } from '../src/errors.ts'
 import { drainPipe, spawnSandboxed, spawnSandboxedInherited, waitForExit } from '../src/spawn.ts'
 import * as abi from '../src/win32-abi.ts'
 
+/** 中文说明：常量 PVOID 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PVOID = koffi.pointer('void')
 
 /** The stub the CreateProcessAsUserW failure branch needs: pipes "succeed", the spawn fails with Win32 5. */
+/** 中文说明：函数 pipeFailureApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function pipeFailureApi(): { api: Win32Bindings; closed: bigint[]; closeHandle: ReturnType<typeof vi.fn> } {
+  /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const closed: bigint[] = []
+  /** 中文说明：变量 next 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let next = 1n
+  /** 中文说明：函数值 closeHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const closeHandle = vi.fn((handle: NativePtr) => {
     closed.push(handle)
     return 1
   })
+  /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const api = {
     createPipe: vi.fn((readSlot: NativePtr, writeSlot: NativePtr) => {
       koffi.encode(readSlot, PVOID, next++)
@@ -40,13 +54,18 @@ function pipeFailureApi(): { api: Win32Bindings; closed: bigint[]; closeHandle: 
 }
 
 /** The stub the ResumeThread failure branch needs: everything succeeds until ResumeThread returns 0xFFFFFFFF. */
+/** 中文说明：函数 resumeFailureApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function resumeFailureApi(): { api: Win32Bindings; closed: bigint[]; closeHandle: ReturnType<typeof vi.fn> } {
+  /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const closed: bigint[] = []
+  /** 中文说明：变量 std 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let std = 50n
+  /** 中文说明：函数值 closeHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const closeHandle = vi.fn((handle: NativePtr) => {
     closed.push(handle)
     return 1
   })
+  /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const api = {
     createJobObjectW: vi.fn(() => 100n),
     setInformationJobObject: vi.fn(() => 1),
@@ -70,10 +89,12 @@ function resumeFailureApi(): { api: Win32Bindings; closed: bigint[]; closeHandle
 
 describe('spawn failure paths close their handles', () => {
   // A dummy token value; the stubbed spawn never reads it.
+  /** 中文说明：变量 token 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const token = 1n as NativePtr
 
   it('spawnSandboxed closes all six pipe handles before throwing when CreateProcessAsUserW fails', () => {
     const { api, closed, closeHandle } = pipeFailureApi()
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxed(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -89,6 +110,7 @@ describe('spawn failure paths close their handles', () => {
 
   it('spawnSandboxedInherited closes thread, process, and kill-on-close job before throwing when ResumeThread fails', () => {
     const { api, closed, closeHandle } = resumeFailureApi()
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxedInherited(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -110,13 +132,16 @@ describe('spawn failure paths close their handles', () => {
     // branch must TerminateProcess first or every failure strands a hanging
     // orphan forever.
     const { api: baseApi, closeHandle } = resumeFailureApi()
+    /** 中文说明：type JobFailureApi 定义本测试所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
     type JobFailureApi = Win32Bindings & {
       assignProcessToJobObject: ReturnType<typeof vi.fn>
       terminateProcess: ReturnType<typeof vi.fn>
     }
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = baseApi as JobFailureApi
     api.assignProcessToJobObject = vi.fn(() => 0)
     api.terminateProcess = vi.fn(() => 1)
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxedInherited(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -133,23 +158,29 @@ describe('spawn failure paths close their handles', () => {
 
 describe('getTempPath buffer defense', () => {
   it('throws a clear error instead of decoding a buffer GetTempPathW never wrote', () => {
+    /** 中文说明：函数值 api 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const api = { getTempPathW: vi.fn(() => 300) } as unknown as Win32Bindings // 300 > the 261-char buffer
     expect(() => getTempPath(api)).toThrow(/GetTempPathW failed \(Win32 122\): required 300/u)
   })
 })
 
 /** The stub the pipe-happy path needs: CreatePipe fills both out slots with fresh handles. */
+/** 中文说明：函数 pipeOkApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function pipeOkApi(overrides: Partial<Win32Bindings> = {}): {
   api: Win32Bindings
   closed: bigint[]
   closeHandle: ReturnType<typeof vi.fn>
 } {
+  /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const closed: bigint[] = []
+  /** 中文说明：变量 next 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let next = 1n
+  /** 中文说明：函数值 closeHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const closeHandle = vi.fn((handle: NativePtr) => {
     closed.push(handle)
     return 1
   })
+  /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const api = {
     createPipe: vi.fn((readSlot: NativePtr, writeSlot: NativePtr) => {
       koffi.encode(readSlot, PVOID, next++)
@@ -173,10 +204,13 @@ function pipeOkApi(overrides: Partial<Win32Bindings> = {}): {
 }
 
 describe('spawn pipe failures close their handles', () => {
+  /** 中文说明：变量 token 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const token = 1n as NativePtr
 
   it('spawnSandboxed reports a CreatePipe failure', () => {
+    /** 中文说明：函数值 api 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const api = { createPipe: vi.fn(() => 0), getLastError: vi.fn(() => 5), formatMessageW: vi.fn(() => 0) } as unknown as Win32Bindings
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxed(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -188,7 +222,9 @@ describe('spawn pipe failures close their handles', () => {
   })
 
   it('spawnSandboxed reports a NULL pipe handle after CreatePipe succeeds', () => {
+    /** 中文说明：函数值 api 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const api = { createPipe: vi.fn(() => 1), getLastError: vi.fn(() => 5), formatMessageW: vi.fn(() => 0) } as unknown as Win32Bindings
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxed(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -201,6 +237,7 @@ describe('spawn pipe failures close their handles', () => {
 
   it('spawnSandboxed reports a SetHandleInformation failure', () => {
     const { api } = pipeOkApi({ setHandleInformation: vi.fn(() => 0) })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxed(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -227,20 +264,26 @@ describe('spawn pipe failures close their handles', () => {
 })
 
 describe('spawnSandboxedInherited failure paths', () => {
+  /** 中文说明：变量 token 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const token = 1n as NativePtr
 
   /** The stub the inherited-happy path needs; overrides flip one call per test. */
+  /** 中文说明：函数 inheritedApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function inheritedApi(overrides: Partial<Win32Bindings> = {}): {
     api: Win32Bindings
     closed: bigint[]
     closeHandle: ReturnType<typeof vi.fn>
   } {
+    /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const closed: bigint[] = []
+    /** 中文说明：变量 std 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let std = 50n
+    /** 中文说明：函数值 closeHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closeHandle = vi.fn((handle: NativePtr) => {
       closed.push(handle)
       return 1
     })
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       createJobObjectW: vi.fn(() => 100n),
       setInformationJobObject: vi.fn(() => 1),
@@ -265,6 +308,7 @@ describe('spawnSandboxedInherited failure paths', () => {
 
   it('closes the job and reports when GetStdHandle yields a NULL handle', () => {
     const { api, closeHandle } = inheritedApi({ getStdHandle: vi.fn(() => 0n as NativePtr) })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxedInherited(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -278,6 +322,7 @@ describe('spawnSandboxedInherited failure paths', () => {
 
   it('reports a SetHandleInformation failure while enabling stdio inheritance', () => {
     const { api } = inheritedApi({ setHandleInformation: vi.fn(() => 0) })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxedInherited(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -290,6 +335,7 @@ describe('spawnSandboxedInherited failure paths', () => {
 
   it('closes the job and reports when CreateProcessAsUserW fails', () => {
     const { api, closeHandle } = inheritedApi({ createProcessAsUserW: vi.fn(() => 0) })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxedInherited(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -318,6 +364,7 @@ describe('spawnSandboxedInherited failure paths', () => {
 
   it('closes the job and reports when SetInformationJobObject fails', () => {
     const { api, closeHandle } = inheritedApi({ setInformationJobObject: vi.fn(() => 0) })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxedInherited(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -331,6 +378,7 @@ describe('spawnSandboxedInherited failure paths', () => {
 
   it('closes the job and reports a NULL job object', () => {
     const { api } = inheritedApi({ createJobObjectW: vi.fn(() => 0n as NativePtr) })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       spawnSandboxedInherited(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
@@ -343,6 +391,7 @@ describe('spawnSandboxedInherited failure paths', () => {
 
   it('returns the pid, process handle, and kill-on-close job when every call succeeds', () => {
     const { api, closeHandle } = inheritedApi()
+    /** 中文说明：变量 spawned 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawned = spawnSandboxedInherited(api, token, { command: 'probe.exe', args: [], cwd: 'C:\\' })
     expect(spawned.pid).toBe(1234)
     expect(spawned.process).toBe(200n)
@@ -356,7 +405,9 @@ describe('spawnSandboxedInherited failure paths', () => {
 
 describe('drainPipe', () => {
   it('stops at ERROR_NO_DATA and closes the read end', () => {
+    /** 中文说明：函数值 closeHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closeHandle = vi.fn(() => 1)
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       peekNamedPipe: vi.fn(() => 0),
       getLastError: vi.fn(() => abi.ERROR_NO_DATA),
@@ -370,6 +421,7 @@ describe('drainPipe', () => {
   })
 
   it('reports a PeekNamedPipe failure that is not a clean EOF', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       peekNamedPipe: vi.fn(() => 0),
       getLastError: vi.fn(() => 5),
@@ -380,6 +432,7 @@ describe('drainPipe', () => {
   })
 
   it('reports a ReadFile failure after data was reported available', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       peekNamedPipe: vi.fn((_pipe: unknown, _buffer: unknown, _size: unknown, _read: unknown, totalAvail: NativePtr) => {
         koffi.encode(totalAvail, 'uint32', 4)
@@ -394,7 +447,9 @@ describe('drainPipe', () => {
   })
 
   it('drains one chunk and stops at ERROR_BROKEN_PIPE', () => {
+    /** 中文说明：变量 peeks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let peeks = 0
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       peekNamedPipe: vi.fn((_pipe: unknown, _buffer: unknown, _size: unknown, _read: unknown, totalAvail: NativePtr) => {
         peeks++
@@ -419,6 +474,7 @@ describe('drainPipe', () => {
 
 describe('waitForExit', () => {
   it('reports a WaitForSingleObject failure', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       waitForSingleObject: vi.fn(() => 0xFFFFFFFF),
       getLastError: vi.fn(() => 5),
@@ -428,6 +484,7 @@ describe('waitForExit', () => {
   })
 
   it('reports a GetExitCodeProcess failure', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       waitForSingleObject: vi.fn(() => 0),
       getExitCodeProcess: vi.fn(() => 0),
@@ -438,7 +495,9 @@ describe('waitForExit', () => {
   })
 
   it('returns the exit code and closes the process handle', () => {
+    /** 中文说明：函数值 closeHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closeHandle = vi.fn(() => 1)
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       waitForSingleObject: vi.fn(() => 0),
       getExitCodeProcess: vi.fn((_process: unknown, slot: NativePtr) => {

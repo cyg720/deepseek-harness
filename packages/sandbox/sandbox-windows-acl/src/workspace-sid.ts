@@ -23,6 +23,14 @@
  * once.
  * @module @deepseek-ai/dsh-sandbox-windows-acl/workspace-sid
  */
+/**
+ * 文件职责：实现 workspace-sid.ts 承担的沙箱安全与权限隔离配置、协议与生命周期职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
+ * 产品维度：为 Agent 提供可靠的沙箱安全与权限隔离能力。
+ * 逻辑维度：解析输入，注册能力，执行核心操作，并在结束时释放所拥有的资源。
+ * 关键边界：权限和配置失败必须显式；模型可见状态必须记录；清理必须达到静止状态。
+ * 新手阅读建议：先看导出类型和常量，再读主流程，最后关注平台限制、恢复和清理。
+ */
 
 import { createHash } from 'node:crypto'
 
@@ -32,9 +40,13 @@ import { createHash } from 'node:crypto'
  * @param workspaceRoot - the canonical workspace path.
  * @returns the SDDL string form.
  */
+/** 中文说明：函数 workspaceWriteSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function workspaceWriteSid(workspaceRoot: string): string {
+  /** 中文说明：变量 digest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const digest = createHash('sha256').update(workspaceRoot, 'utf8').digest()
+  /** 中文说明：变量 first 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const first = (digest.readUInt32LE(0) % (2 ** 30 - 1)) + 1
+  /** 中文说明：变量 second 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const second = (digest.readUInt32LE(4) % (2 ** 30 - 1)) + 1
   return `S-1-4-${first}-${second}`
 }
@@ -46,9 +58,13 @@ export function workspaceWriteSid(workspaceRoot: string): string {
  * @param tempDir - the private temp directory's absolute path.
  * @returns the SDDL string form.
  */
+/** 中文说明：函数 tempWriteSid 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function tempWriteSid(tempDir: string): string {
+  /** 中文说明：变量 digest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const digest = createHash('sha256').update('temp\0', 'utf8').update(tempDir, 'utf8').digest()
+  /** 中文说明：变量 first 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const first = (digest.readUInt32LE(0) % (2 ** 30 - 1)) + 1
+  /** 中文说明：变量 second 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const second = (digest.readUInt32LE(4) % (2 ** 30 - 1)) + 1
   return `S-1-4-${first}-${second}-1`
 }

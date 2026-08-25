@@ -2,6 +2,14 @@
  * Disposable live timer projection for one exact root agent.
  * @module @deepseek-ai/dsh-schedule
  */
+/**
+ * 文件职责：实现 runtime.ts 承担的计划调度配置、协议与生命周期职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
+ * 产品维度：为 Agent 提供可靠的计划调度能力。
+ * 逻辑维度：解析输入，注册能力，执行核心操作，并在结束时释放所拥有的资源。
+ * 关键边界：权限和配置失败必须显式；模型可见状态必须记录；清理必须达到静止状态。
+ * 新手阅读建议：先看导出类型和常量，再读主流程，最后关注平台限制、恢复和清理。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -19,33 +27,41 @@ import { flushSchedulePersistence } from './persistence.ts'
 import { runScheduleTransaction } from './transaction.ts'
 
 /** Largest delay that Node timers represent without clamping. */
+/** 中文说明：常量 MAX_TIMER_DELAY_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const MAX_TIMER_DELAY_MS = 2_147_483_647
 
+/** 中文说明：interface EveryDue 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 interface EveryDue {
   readonly record: EveryScheduleRecord
   readonly occurrenceAt: string
 }
 
+/** 中文说明：type DueDecision 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 type DueDecision =
   | { readonly kind: 'one-shot'; readonly record: OneShotScheduleRecord }
   | { readonly kind: 'every'; readonly reminders: readonly EveryDue[]; readonly acceptedAt: string }
   | { readonly kind: 'wait'; readonly target?: number }
 
 /** Select one due one-shot, one complete fixed-rate batch, or the next wake. */
+/** 中文说明：函数 dueDecision 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function dueDecision(folded: FoldedSchedules, now: number): DueDecision {
+  /** 中文说明：函数值 indexed 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const indexed = folded.active.map((record, index) => ({ record, index }))
+  /** 中文说明：变量 byTargetThenCreate 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const byTargetThenCreate = (
     left: { readonly record: { readonly scheduledAt: string }; readonly index: number },
     right: { readonly record: { readonly scheduledAt: string }; readonly index: number },
   ): number => Date.parse(left.record.scheduledAt) - Date.parse(right.record.scheduledAt)
     || left.index - right.index
 
+  /** 中文说明：变量 oneShot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const oneShot = indexed
     .filter((entry): entry is { record: OneShotScheduleRecord; index: number } =>
       entry.record.kind !== 'every' && Date.parse(entry.record.scheduledAt) <= now)
     .sort(byTargetThenCreate)[0]?.record
   if (oneShot !== undefined) return { kind: 'one-shot', record: oneShot }
 
+  /** 中文说明：变量 every 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const every = indexed
     .filter((entry): entry is { record: EveryScheduleRecord; index: number } =>
       entry.record.kind === 'every' && Date.parse(entry.record.scheduledAt) <= now)
@@ -61,7 +77,9 @@ function dueDecision(folded: FoldedSchedules, now: number): DueDecision {
     }
   }
 
+  /** 中文说明：函数值 target 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const target = folded.active.reduce<number | undefined>((selected, record) => {
+    /** 中文说明：变量 candidate 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const candidate = Date.parse(record.scheduledAt)
     return candidate > now && (selected === undefined || candidate < selected) ? candidate : selected
   }, undefined)
@@ -69,11 +87,13 @@ function dueDecision(folded: FoldedSchedules, now: number): DueDecision {
 }
 
 /** Render an unknown value for process-local diagnostics only. */
+/** 中文说明：函数 renderThrown 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderThrown(value: unknown): string {
   return value instanceof Error ? value.message : String(value)
 }
 
 /** One process-local, disposable projection of an exact agent's durable schedules. */
+/** 中文说明：class ScheduleRuntime 定义本模块所需的数据或行为，用于表达计划调度场景。 */
 export class ScheduleRuntime {
   private readonly stop = Promise.withResolvers<void>()
   private timer: ReturnType<typeof setTimeout> | undefined
@@ -105,6 +125,7 @@ export class ScheduleRuntime {
     this.clearTimer()
     this.requested = true
     if (this.run !== undefined) return
+    /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let run: Promise<void>
     try {
       run = this.ctx.agents.withoutInitiator(() => this.runRequested())
@@ -134,6 +155,7 @@ export class ScheduleRuntime {
       this.requested = false
       this.clearTimer()
       this.stop.resolve()
+      /** 中文说明：函数值 pending 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const pending = [this.run, this.idleWait].filter((value): value is Promise<void> => value !== undefined)
       await Promise.allSettled(pending)
     })())
@@ -176,6 +198,7 @@ export class ScheduleRuntime {
 
   /** Arm one bounded timer segment; every wake rechecks the wall clock. */
   private arm(target: number, now: number): void {
+    /** 中文说明：变量 delay 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const delay = Math.min(target - now, MAX_TIMER_DELAY_MS)
     this.timer = setTimeout(() => {
       this.timer = undefined
@@ -186,6 +209,7 @@ export class ScheduleRuntime {
   /** Await one public idle boundary without holding admission or creating a retry timer. */
   private waitForIdle(): void {
     if (this.idleWait !== undefined) return
+    /** 中文说明：变量 wait 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wait = Promise.race([this.agent.whenIdle(), this.stop.promise])
     this.idleWait = wait
     void wait.then(
@@ -211,6 +235,7 @@ export class ScheduleRuntime {
       )
     } catch (error: unknown) {
       this.faulted = true
+      /** 中文说明：变量 detail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const detail = error instanceof ScheduleLogError ? error.message : renderThrown(error)
       this.ctx.logger.warn(`schedule: corrupt schedule log for agent "${this.agent.id}": ${detail}`)
       return undefined
@@ -241,9 +266,12 @@ export class ScheduleRuntime {
     }
     if (!this.isRunnable()) return
 
+    /** 中文说明：变量 folded 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const folded = this.readFolded()
     if (folded === undefined) return
+    /** 中文说明：变量 wakeNow 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wakeNow = Date.now()
+    /** 中文说明：变量 wakeDecision 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wakeDecision = this.decide(folded, wakeNow)
     if (wakeDecision === undefined) return
     if (wakeDecision.kind === 'wait') {
@@ -251,13 +279,17 @@ export class ScheduleRuntime {
       return
     }
 
+    /** 中文说明：变量 maintenance 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let maintenance: Promise<boolean>
     try {
       maintenance = this.agent.runMaintenance(() => {
         if (!this.isRunnable()) return Promise.resolve(false)
+        /** 中文说明：变量 claimed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const claimed = this.readFolded()
         if (claimed === undefined) return Promise.resolve(false)
+        /** 中文说明：变量 decisionNow 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const decisionNow = Date.now()
+        /** 中文说明：变量 decision 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const decision = this.decide(claimed, decisionNow)
         if (decision === undefined) return Promise.resolve(false)
         if (decision.kind === 'wait') {
@@ -265,9 +297,11 @@ export class ScheduleRuntime {
           return Promise.resolve(false)
         }
         try {
+          /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const text = decision.kind === 'one-shot'
             ? renderReminderFraming(decision.record)
             : renderEveryReminderBatchFraming(decision.reminders)
+          /** 中文说明：变量 message 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const message = createUserMessage({
             content: [{ type: 'text', text }],
             source: { kind: 'plugin', plugin: 'schedule' },
@@ -287,6 +321,7 @@ export class ScheduleRuntime {
               id: decision.record.id,
             })
           } else {
+            /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
             for (const reminder of decision.reminders) {
               this.agent.session.append('schedule/change', {
                 version: 1,

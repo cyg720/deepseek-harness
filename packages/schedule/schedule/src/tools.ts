@@ -2,6 +2,14 @@
  * Agent-scoped Schedule management tools over the durable session fold.
  * @module @deepseek-ai/dsh-schedule
  */
+/**
+ * 文件职责：实现 tools.ts 承担的计划调度配置、协议与生命周期职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
+ * 产品维度：为 Agent 提供可靠的计划调度能力。
+ * 逻辑维度：解析输入，注册能力，执行核心操作，并在结束时释放所拥有的资源。
+ * 关键边界：权限和配置失败必须显式；模型可见状态必须记录；清理必须达到静止状态。
+ * 新手阅读建议：先看导出类型和常量，再读主流程，最后关注平台限制、恢复和清理。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -35,6 +43,7 @@ import type {
   ScheduleToolError,
 } from './types.ts'
 
+/** 中文说明：常量 SHARED_VIEW_PROPERTIES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SHARED_VIEW_PROPERTIES = {
   id: { type: 'string', required: true },
   prompt: { type: 'string', required: true },
@@ -43,6 +52,7 @@ const SHARED_VIEW_PROPERTIES = {
   deliveryMode: { type: 'string', required: true, const: 'session-local' },
 } as const
 
+/** 中文说明：常量 AFTER_VIEW_SCHEMA 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const AFTER_VIEW_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -53,6 +63,7 @@ const AFTER_VIEW_SCHEMA = {
   },
 } as const
 
+/** 中文说明：常量 AT_VIEW_SCHEMA 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const AT_VIEW_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -62,6 +73,7 @@ const AT_VIEW_SCHEMA = {
   },
 } as const
 
+/** 中文说明：常量 EVERY_VIEW_SCHEMA 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const EVERY_VIEW_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -72,9 +84,11 @@ const EVERY_VIEW_SCHEMA = {
   },
 } as const
 
+/** 中文说明：常量 VIEW_SCHEMA 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const VIEW_SCHEMA = { oneOf: [AFTER_VIEW_SCHEMA, AT_VIEW_SCHEMA, EVERY_VIEW_SCHEMA] } as const
 
 /** Build one exact two-field error schema while preserving its literal code. */
+/** 中文说明：函数 basicErrorSchema 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function basicErrorSchema<const C extends string>(code: C) {
   return {
     type: 'object',
@@ -86,6 +100,7 @@ function basicErrorSchema<const C extends string>(code: C) {
   } as const
 }
 
+/** 中文说明：常量 BASIC_ERROR_SCHEMAS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const BASIC_ERROR_SCHEMAS = [
   basicErrorSchema('invalid_prompt'),
   basicErrorSchema('invalid_selector'),
@@ -98,6 +113,7 @@ const BASIC_ERROR_SCHEMAS = [
   basicErrorSchema('internal_error'),
 ] as const
 
+/** 中文说明：常量 PERSISTENCE_ERROR_SCHEMA 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PERSISTENCE_ERROR_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -109,18 +125,22 @@ const PERSISTENCE_ERROR_SCHEMA = {
   },
 } as const
 
+/** 中文说明：常量 ERROR_SCHEMAS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ERROR_SCHEMAS = [
   ...BASIC_ERROR_SCHEMAS,
   PERSISTENCE_ERROR_SCHEMA,
 ] as const
 
+/** 中文说明：常量 CREATE_OUTPUT_SCHEMA 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CREATE_OUTPUT_SCHEMA = { oneOf: [VIEW_SCHEMA, ...ERROR_SCHEMAS] } as const
+/** 中文说明：常量 LIST_OUTPUT_SCHEMA 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LIST_OUTPUT_SCHEMA = {
   oneOf: [
     { type: 'array', items: VIEW_SCHEMA },
     ...ERROR_SCHEMAS,
   ],
 } as const
+/** 中文说明：常量 DELETE_OUTPUT_SCHEMA 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DELETE_OUTPUT_SCHEMA = {
   oneOf: [
     {
@@ -144,6 +164,7 @@ const DELETE_OUTPUT_SCHEMA = {
   ],
 } as const
 
+/** 中文说明：常量 CREATE_DESCRIPTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CREATE_DESCRIPTION =
   'Create one reminder in the current session. Supply a non-empty prompt and exactly one selector: '
   + 'a positive safe-integer after_seconds delay, at as a strict offset date-time or local '
@@ -153,54 +174,65 @@ const CREATE_DESCRIPTION =
   + 'Delivery is session-local: the reminder runs on time only while this session '
   + 'is live and otherwise becomes overdue until the session is resumed.'
 
+/** 中文说明：常量 LIST_DESCRIPTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LIST_DESCRIPTION =
   'List every active reminder in the current session in creation order, including its exact id, '
   + 'UTC target, scheduled or overdue state, and session-local delivery mode.'
 
+/** 中文说明：常量 DELETE_DESCRIPTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DELETE_DESCRIPTION =
   'Delete one active reminder in the current session by the exact id returned by schedule_create '
   + 'or schedule_list. Unknown or already-finished ids return deleted false.'
 
 /** Deterministic model content for every canonical Schedule value. */
+/** 中文说明：函数 renderValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderValue(_args: unknown, value: unknown): ContentBlock[] {
   // The ToolRuntime has already validated the value against the lossless-JSON output schema.
+  /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const text = JSON.stringify(value)
   return [{ type: 'text', text }]
 }
 
 /** Pure generic pending card. */
+/** 中文说明：函数 present 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function present(title: string, kind: 'read' | 'other', rawInput?: unknown): GenericCallView {
   return { card: 'generic', title, kind, ...rawInput === undefined ? {} : { rawInput } }
 }
 
 /** Stable error for failures not safe to expose. */
+/** 中文说明：函数 internalError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function internalError(): InternalScheduleError {
   return { code: 'internal_error', message: 'The schedule operation failed.' }
 }
 
 /** Placeholder the registry replaces with its canonical ABORTED result after body quiescence. */
+/** 中文说明：函数 cancellationPlaceholder 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function cancellationPlaceholder(signal: AbortSignal): InternalScheduleError | undefined {
   return signal.aborted ? internalError() : undefined
 }
 
 /** Serialize one operation, stopping a body whose caller cancelled before its FIFO turn. */
+/** 中文说明：函数 runCancellableScheduleTransaction 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function runCancellableScheduleTransaction<T>(
   agent: Agent,
   signal: AbortSignal,
   task: () => Promise<T>,
 ): Promise<T | InternalScheduleError> {
   return runScheduleTransaction(agent, async () => {
+    /** 中文说明：变量 cancelled 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelled = cancellationPlaceholder(signal)
     return cancelled ?? task()
   })
 }
 
 /** Stable durable-log failure. */
+/** 中文说明：函数 corruptLogError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function corruptLogError(): ScheduleToolError {
   return { code: 'corrupt_schedule_log', message: 'The session schedule log is corrupt.' }
 }
 
 /** Stable persistence uncertainty with the known operation identity. */
+/** 中文说明：函数 persistenceError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function persistenceError(
   operation: SchedulePersistenceOperation,
   id?: ScheduleIdType,
@@ -214,11 +246,13 @@ function persistenceError(
 }
 
 /** Translate one contained input failure to the closed tool union. */
+/** 中文说明：函数 inputError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function inputError(error: ScheduleInputError): ScheduleToolError {
   return { code: error.code, message: error.message }
 }
 
 /** Fold only after a successful preflight, mapping corruption to a stable value. */
+/** 中文说明：函数 foldForTool 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function foldForTool(agent: Agent): ReturnType<typeof foldScheduleEvents> | ScheduleToolError {
   try {
     return foldScheduleEvents(agent.session.events, agent.session.header.seedLength ?? 0)
@@ -228,6 +262,7 @@ function foldForTool(agent: Agent): ReturnType<typeof foldScheduleEvents> | Sche
 }
 
 /** Whether a fold attempt produced an error rather than replay state. */
+/** 中文说明：函数 isToolError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function isToolError(
   value: ReturnType<typeof foldScheduleEvents> | ScheduleToolError,
 ): value is ScheduleToolError {
@@ -235,6 +270,7 @@ function isToolError(
 }
 
 /** Require one persistence checkpoint without leaking the backend failure. */
+/** 中文说明：函数 preflight 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function preflight(
   rootCtx: Context,
   agent: Agent,
@@ -250,12 +286,14 @@ async function preflight(
 }
 
 /** Validate the v1 selector constraints that the open parameter root cannot express. */
+/** 中文说明：函数 validateCreateArgs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function validateCreateArgs(args: {
   prompt: string
   after_seconds?: number
   at?: AtInput
   every_seconds?: number
 }): ScheduleToolError | undefined {
+  /** 中文说明：变量 keys 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const keys = Object.keys(args as unknown as Record<string, unknown>)
   if (keys.some(key => key !== 'prompt'
     && key !== 'after_seconds'
@@ -296,15 +334,18 @@ function validateCreateArgs(args: {
  * @param onDurableChange - Called after every successful preflight and again after a create or actual delete barrier succeeds.
  * @returns Idempotent aggregate disposer for the three registrations.
  */
+/** 中文说明：函数 registerScheduleTools 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function registerScheduleTools(
   rootCtx: Context,
   toolCtx: Context,
   agent: Agent,
   onDurableChange: () => void,
 ): () => void {
+  /** 中文说明：函数值 disposers 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const disposers: Array<() => void> = []
 
   /** A projection observer cannot reverse a completed durability barrier. */
+  /** 中文说明：函数值 notifyDurableChange 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const notifyDurableChange = (): void => {
     try {
       onDurableChange()
@@ -350,15 +391,20 @@ export function registerScheduleTools(
       output: { schema: CREATE_OUTPUT_SCHEMA, render: renderValue },
       async execute(args, exec): Promise<ScheduleCreateValue> {
         if (exec.agent !== agent) return internalError()
+        /** 中文说明：变量 invalid 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const invalid = validateCreateArgs(args)
         if (invalid !== undefined) return invalid
         return runCancellableScheduleTransaction(agent, exec.signal, async () => {
+          /** 中文说明：变量 uncertain 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const uncertain = await preflight(rootCtx, agent, 'create')
           if (uncertain !== undefined) return uncertain
           notifyDurableChange()
+          /** 中文说明：变量 folded 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const folded = foldForTool(agent)
           if (isToolError(folded)) return folded
+          /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const id = allocateScheduleId(folded)
+          /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           let record: ScheduleRecord
           try {
             if (args.at !== undefined) {
@@ -376,6 +422,7 @@ export function registerScheduleTools(
           } catch (error: unknown) {
             return error instanceof ScheduleInputError ? inputError(error) : internalError()
           }
+          /** 中文说明：变量 cancelledBeforeAppend 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const cancelledBeforeAppend = cancellationPlaceholder(exec.signal)
           if (cancelledBeforeAppend !== undefined) return cancelledBeforeAppend
           try {
@@ -387,6 +434,7 @@ export function registerScheduleTools(
           } catch {
             return internalError()
           }
+          /** 中文说明：变量 barrier 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const barrier = await preflight(rootCtx, agent, 'create', id)
           if (barrier !== undefined) return barrier
           notifyDurableChange()
@@ -404,11 +452,14 @@ export function registerScheduleTools(
       async execute(_args, exec): Promise<ScheduleListValue> {
         if (exec.agent !== agent) return internalError()
         return runCancellableScheduleTransaction(agent, exec.signal, async () => {
+          /** 中文说明：变量 uncertain 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const uncertain = await preflight(rootCtx, agent, 'list')
           if (uncertain !== undefined) return uncertain
           notifyDurableChange()
+          /** 中文说明：变量 folded 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const folded = foldForTool(agent)
           if (isToolError(folded)) return folded
+          /** 中文说明：变量 now 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const now = Date.now()
           return folded.active.map(record => scheduleView(record, now))
         })
@@ -427,17 +478,21 @@ export function registerScheduleTools(
         if (args.id.length === 0 || args.id.trim() !== args.id) {
           return { code: 'invalid_rule', message: 'schedule_delete id must be non-empty without surrounding whitespace.' }
         }
+        /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const id = ScheduleId(args.id)
         if (exec.agent !== agent) return internalError()
         return runCancellableScheduleTransaction(agent, exec.signal, async () => {
+          /** 中文说明：变量 uncertain 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const uncertain = await preflight(rootCtx, agent, 'delete', id)
           if (uncertain !== undefined) return uncertain
           notifyDurableChange()
+          /** 中文说明：变量 folded 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const folded = foldForTool(agent)
           if (isToolError(folded)) return folded
           if (!folded.active.some(record => record.id === id)) {
             return { id, deleted: false, code: 'schedule_not_found' }
           }
+          /** 中文说明：变量 cancelledBeforeAppend 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const cancelledBeforeAppend = cancellationPlaceholder(exec.signal)
           if (cancelledBeforeAppend !== undefined) return cancelledBeforeAppend
           try {
@@ -445,6 +500,7 @@ export function registerScheduleTools(
           } catch {
             return internalError()
           }
+          /** 中文说明：变量 barrier 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const barrier = await preflight(rootCtx, agent, 'delete', id)
           if (barrier !== undefined) return barrier
           notifyDurableChange()
@@ -454,14 +510,17 @@ export function registerScheduleTools(
       presentCall: args => present('Delete reminder', 'other', args.id),
     })))
   } catch (error) {
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const dispose of disposers.reverse()) dispose()
     throw error
   }
 
+  /** 中文说明：变量 active 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let active = true
   return () => {
     if (!active) return
     active = false
+    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const dispose of disposers.reverse()) dispose()
   }
 }

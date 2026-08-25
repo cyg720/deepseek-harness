@@ -7,6 +7,14 @@
  * so these run on every platform; the real-FFI round-trip lives in
  * acl.spec.ts and runner.spec.ts (win32 only).
  */
+/**
+ * 文件职责：验证 index-failure-paths.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
+ * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
+ * 逻辑维度：准备配置与资源，触发被测流程，再核对结果、事件、错误和清理。
+ * 关键边界：平台能力可能不同；持久化数据和外部输入不可信；异步资源必须完全释放。
+ * 新手阅读建议：先读辅助函数和平台条件，再看正常路径，最后阅读恢复与失败用例。
+ */
 
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -20,11 +28,14 @@ import { Win32Error } from '../src/errors.ts'
 import { AclSandbox } from '../src/index.ts'
 import * as abi from '../src/win32-abi.ts'
 
+/** 中文说明：常量 PVOID 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PVOID = koffi.pointer('void')
 
+/** 中文说明：type MockFn 定义本测试所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 type MockFn = ReturnType<typeof vi.fn>
 
 /** The stub binding table plus the mocks the assertions inspect directly. */
+/** 中文说明：interface HappyStubs 定义本测试所需的数据或行为，用于表达沙箱安全与权限隔离场景。 */
 interface HappyStubs {
   api: Win32Bindings
   setNamedSecurityInfoW: MockFn
@@ -36,9 +47,11 @@ interface HappyStubs {
   getNamedSecurityInfoW: MockFn
 }
 
+/** 中文说明：函数值 state 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const state = vi.hoisted(() => ({ stubs: undefined as HappyStubs | undefined }))
 
 vi.mock('../src/ffi.ts', async (importOriginal) => {
+  /** 中文说明：变量 actual 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const actual = await importOriginal<typeof import('../src/ffi.ts')>()
   return {
     ...actual,
@@ -47,12 +60,16 @@ vi.mock('../src/ffi.ts', async (importOriginal) => {
   }
 })
 
+/** 中文说明：变量 scratchDirs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const scratchDirs: string[] = []
 afterAll(() => {
+  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const dir of scratchDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
+/** 中文说明：函数 scratch 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function scratch(): string {
+  /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'dsh-acl-index-'))
   scratchDirs.push(dir)
   return dir
@@ -64,25 +81,35 @@ function scratch(): string {
  * default-DACL merge, piped/inherited spawns, drains, and exit waits all
  * succeed. Every test flips one call per branch.
  */
+/** 中文说明：函数 happyStubs 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function happyStubs(): HappyStubs {
+  /** 中文说明：变量 next 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let next = 0n
+  /** 中文说明：函数值 fresh 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const fresh = () => ++next
 
+  /** 中文说明：函数值 openProcess 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const openProcess = vi.fn(() => fresh())
+  /** 中文说明：函数值 openProcessToken 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const openProcessToken = vi.fn((_process: unknown, _access: unknown, slot: NativePtr) => {
     koffi.encode(slot, PVOID, fresh())
     return 1
   })
+  /** 中文说明：函数值 convertStringSidToSidW 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const convertStringSidToSidW = vi.fn((_sid: string, slot: NativePtr) => {
     koffi.encode(slot, PVOID, fresh())
     return 1
   })
+  /** 中文说明：函数值 getTempPathW 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const getTempPathW = vi.fn((_length: number, buffer: Buffer) => {
+    /** 中文说明：变量 temp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const temp = tmpdir().replace(/[\\/]$/u, '')
     buffer.write(temp, 'utf16le')
     return temp.length
   })
+  /** 中文说明：函数值 createFileW 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const createFileW = vi.fn(() => fresh())
+  /** 中文说明：变量 getNamedSecurityInfoW 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const getNamedSecurityInfoW = vi.fn((
     _path: unknown, _type: unknown, _info: unknown, _owner: unknown, _group: unknown,
     dacl: NativePtr, _sacl: unknown, descriptor: NativePtr,
@@ -91,11 +118,14 @@ function happyStubs(): HappyStubs {
     koffi.encode(descriptor, PVOID, 0n)
     return 0
   })
+  /** 中文说明：函数值 setEntriesInAclW 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const setEntriesInAclW = vi.fn((_count: unknown, _entries: unknown, _old: unknown, newAcl: NativePtr) => {
     koffi.encode(newAcl, PVOID, fresh())
     return 0
   })
+  /** 中文说明：函数值 setNamedSecurityInfoW 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const setNamedSecurityInfoW = vi.fn(() => 0)
+  /** 中文说明：函数值 getTokenInformation 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const getTokenInformation = vi.fn((_token: unknown, cls: number, info: Buffer | null, _length: number, needed: NativePtr) => {
     if (info === null) {
       koffi.encode(needed, 'uint32', cls === abi.TokenGroups ? 24 : 8)
@@ -110,10 +140,15 @@ function happyStubs(): HappyStubs {
     }
     return 1
   })
+  /** 中文说明：函数值 getLengthSid 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const getLengthSid = vi.fn(() => 12)
+  /** 中文说明：函数值 copySid 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const copySid = vi.fn(() => 1)
+  /** 中文说明：函数值 createWellKnownSid 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const createWellKnownSid = vi.fn(() => 1)
+  /** 中文说明：函数值 isValidSid 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const isValidSid = vi.fn(() => 1)
+  /** 中文说明：变量 createRestrictedToken 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const createRestrictedToken = vi.fn((
     _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
     _rc: unknown, _rs: unknown, slot: NativePtr,
@@ -121,13 +156,17 @@ function happyStubs(): HappyStubs {
     koffi.encode(slot, PVOID, fresh())
     return 1
   })
+  /** 中文说明：函数值 setTokenInformation 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const setTokenInformation = vi.fn(() => 1)
+  /** 中文说明：函数值 createPipe 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const createPipe = vi.fn((readSlot: NativePtr, writeSlot: NativePtr) => {
     koffi.encode(readSlot, PVOID, fresh())
     koffi.encode(writeSlot, PVOID, fresh())
     return 1
   })
+  /** 中文说明：函数值 setHandleInformation 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const setHandleInformation = vi.fn(() => 1)
+  /** 中文说明：变量 createProcessAsUserW 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const createProcessAsUserW = vi.fn((
     _token: unknown, _app: unknown, _cmd: unknown, _pa: unknown, _ta: unknown,
     _inherit: unknown, _flags: unknown, _env: unknown, _cwd: unknown, _si: unknown, processInfo: NativePtr,
@@ -135,23 +174,37 @@ function happyStubs(): HappyStubs {
     koffi.encode(processInfo, PROCESS_INFORMATION, { hProcess: fresh(), hThread: fresh(), dwProcessId: 1234, dwThreadId: 5678 })
     return 1
   })
+  /** 中文说明：函数值 peekNamedPipe 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const peekNamedPipe = vi.fn(() => 0)
+  /** 中文说明：函数值 readFile 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const readFile = vi.fn(() => 1)
+  /** 中文说明：函数值 waitForSingleObject 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const waitForSingleObject = vi.fn(() => 0)
+  /** 中文说明：函数值 getExitCodeProcess 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const getExitCodeProcess = vi.fn((_process: unknown, slot: NativePtr) => {
     koffi.encode(slot, 'uint32', 42)
     return 1
   })
+  /** 中文说明：函数值 createJobObjectW 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const createJobObjectW = vi.fn(() => fresh())
+  /** 中文说明：函数值 setInformationJobObject 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const setInformationJobObject = vi.fn(() => 1)
+  /** 中文说明：函数值 assignProcessToJobObject 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const assignProcessToJobObject = vi.fn(() => 1)
+  /** 中文说明：函数值 resumeThread 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const resumeThread = vi.fn(() => 0)
+  /** 中文说明：函数值 getStdHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const getStdHandle = vi.fn(() => fresh())
+  /** 中文说明：函数值 localFree 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const localFree = vi.fn(() => 0n)
+  /** 中文说明：函数值 closeHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const closeHandle = vi.fn(() => 1)
+  /** 中文说明：函数值 getLastError 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const getLastError = vi.fn(() => abi.ERROR_BROKEN_PIPE) // the drains' clean EOF
+  /** 中文说明：函数值 formatMessageW 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const formatMessageW = vi.fn(() => 0)
 
+  /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const api = {
     openProcess, openProcessToken, convertStringSidToSidW, getTempPathW, createFileW,
     lockFileEx: vi.fn(() => 1), unlockFileEx: vi.fn(() => 1),
@@ -174,13 +227,16 @@ beforeEach(() => {
 
 describe('AclSandbox constructor validation', () => {
   it('rejects a writable directory that does not exist', () => {
+    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = join(scratch(), 'missing')
     expect(() => new AclSandbox({ writableDirs: [missing], tempDir: null, mode: 'read-only' }))
       .toThrow(/writable dir does not exist/u)
   })
 
   it('resolves relative writable directories to absolute paths', () => {
+    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [dir], tempDir: null, mode: 'read-only' })
     expect(sandbox.writableDirs).toEqual([resolve(dir)])
     expect(sandbox.mode).toBe('read-only')
@@ -188,7 +244,9 @@ describe('AclSandbox constructor validation', () => {
   })
 
   it('rejects temp authority under read-only', () => {
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 temp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const temp = scratch()
     expect(() => new AclSandbox({ writableDirs: [workspace], tempDir: temp, mode: 'read-only' }))
       .toThrow(/read-only does not accept a temp directory/u)
@@ -199,6 +257,7 @@ describe('AclSandbox constructor validation', () => {
   })
 
   it('rejects a temp SID when temp writes are disabled', () => {
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
     expect(() => new AclSandbox({
       writableDirs: [workspace],
@@ -213,8 +272,11 @@ describe('AclSandbox constructor validation', () => {
 describe('AclSandbox init', () => {
   it('completes the happy workspace-write pipeline: workspace and temp grants, restricted token, resolved temp dir', async () => {
     const { setNamedSecurityInfoW } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 temp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const temp = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({
       writableDirs: [workspace],
       tempDir: temp,
@@ -228,6 +290,7 @@ describe('AclSandbox init', () => {
   })
 
   it('requires an explicit private temp directory or null under workspace-write', () => {
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
     expect(() => new AclSandbox({ writableDirs: [workspace], writeSid: 'S-1-4-9000-2', mode: 'workspace-write' }))
       .toThrow(/requires an explicit private temp directory or null/u)
@@ -235,14 +298,18 @@ describe('AclSandbox init', () => {
 
   it('applies no grants when the temp dir option is null', async () => {
     const { setNamedSecurityInfoW } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-3', mode: 'workspace-write' })
     await sandbox.init()
     expect(setNamedSecurityInfoW).toHaveBeenCalledTimes(1) // workspace only
   })
 
   it('rejects a temp dir that does not exist', async () => {
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({
       writableDirs: [workspace],
       tempDir: join(scratch(), 'missing'),
@@ -255,7 +322,9 @@ describe('AclSandbox init', () => {
 
   it('builds a read-only token without parsing a write SID or applying grants', async () => {
     const { convertStringSidToSidW, setNamedSecurityInfoW } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, mode: 'read-only' })
     await sandbox.init()
     expect(convertStringSidToSidW).not.toHaveBeenCalled()
@@ -265,7 +334,9 @@ describe('AclSandbox init', () => {
 
   it('applies no grants when the caller owns the DACLs (manageDacls: false)', async () => {
     const { setNamedSecurityInfoW } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-5', mode: 'workspace-write', manageDacls: false })
     await sandbox.init()
     expect(setNamedSecurityInfoW).not.toHaveBeenCalled()
@@ -273,7 +344,9 @@ describe('AclSandbox init', () => {
   })
 
   it('refuses a second init on the same instance', async () => {
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-6', mode: 'workspace-write' })
     await sandbox.init()
     await expect(sandbox.init()).rejects.toThrow(/already initialized/u)
@@ -282,7 +355,9 @@ describe('AclSandbox init', () => {
   it('reports a ConvertStringSidToSidW failure before granting anything', async () => {
     const { convertStringSidToSidW, setNamedSecurityInfoW } = state.stubs as HappyStubs
     convertStringSidToSidW.mockReturnValue(0)
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-7', mode: 'workspace-write' })
     await expect(sandbox.init()).rejects.toMatchObject({ api: 'ConvertStringSidToSidW' })
     expect(setNamedSecurityInfoW).not.toHaveBeenCalled()
@@ -291,15 +366,20 @@ describe('AclSandbox init', () => {
   it('rejects a NULL write SID after ConvertStringSidToSidW succeeds', async () => {
     const { convertStringSidToSidW } = state.stubs as HappyStubs
     convertStringSidToSidW.mockImplementation(() => 1) // no out slot write
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-8', mode: 'workspace-write' })
     await expect(sandbox.init()).rejects.toBeInstanceOf(Win32Error)
   })
 
   it('aggregates failed current and restricted token closes after init', async () => {
     const { closeHandle, createRestrictedToken } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-9', mode: 'workspace-write' })
+    /** 中文说明：变量 restrictedToken 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const restrictedToken = 99n
     createRestrictedToken.mockImplementation((
       _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
@@ -325,8 +405,11 @@ describe('AclSandbox init', () => {
 
   it('revokes the revocable grants and aggregates cleanup failures when the token pipeline fails', async () => {
     const { createRestrictedToken, localFree, getNamedSecurityInfoW } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 temp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const temp = scratch()
+    /** 中文说明：变量 inCleanup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let inCleanup = false
     createRestrictedToken.mockImplementation(() => {
       inCleanup = true // the grants already landed: every later call is the cleanup's
@@ -342,6 +425,7 @@ describe('AclSandbox init', () => {
       koffi.encode(descriptor, PVOID, 0n)
       return 0
     })
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({
       writableDirs: [workspace],
       tempDir: temp,
@@ -356,17 +440,23 @@ describe('AclSandbox init', () => {
 
 describe('AclSandbox spawn', () => {
   it('refuses to spawn before init', () => {
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-11', mode: 'workspace-write' })
     expect(() => sandbox.spawn({ command: 'probe.exe' })).toThrow(/not initialized/u)
   })
 
   it('pipe spawn drains empty pipes and settles with the child exit code', async () => {
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-12', mode: 'workspace-write' })
     await sandbox.init()
+    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = sandbox.spawn({ command: 'probe.exe', args: ['--flag'], cwd: workspace })
     expect(child.pid).toBe(1234)
+    /** 中文说明：变量 expected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expected = { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 42 }
     await expect(child.wait()).resolves.toEqual(expected)
     // The second wait reuses the settled exit-code promise instead of re-waiting.
@@ -375,9 +465,12 @@ describe('AclSandbox spawn', () => {
 
   it('inherit spawn settles with empty stdio and closes the kill-on-close job', async () => {
     const { closeHandle } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-13', mode: 'workspace-write' })
     await sandbox.init()
+    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = sandbox.spawn({ command: 'probe.exe', stdio: 'inherit' })
     await expect(child.wait()).resolves.toEqual({ stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 42 })
     expect(closeHandle).toHaveBeenCalled()
@@ -385,11 +478,15 @@ describe('AclSandbox spawn', () => {
 
   it('inherit spawn reports a failed close of the kill-on-close job', async () => {
     const { closeHandle, createJobObjectW } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-14', mode: 'workspace-write' })
     await sandbox.init()
+    /** 中文说明：变量 jobHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let jobHandle = 0n
     closeHandle.mockImplementation((handle: NativePtr) => (handle === jobHandle ? 0 : 1))
+    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = sandbox.spawn({ command: 'probe.exe', stdio: 'inherit' })
     jobHandle = createJobObjectW.mock.results.at(-1)?.value as NativePtr
     await expect(child.wait()).rejects.toMatchObject({ api: 'CloseHandle' })
@@ -398,15 +495,20 @@ describe('AclSandbox spawn', () => {
 
 describe('AclSandbox dispose', () => {
   it('is a no-op before init', () => {
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-15', mode: 'workspace-write' })
     expect(() => { sandbox.dispose() }).not.toThrow()
   })
 
   it('aggregates a failing temp revocation into an AggregateError', async () => {
     const { getNamedSecurityInfoW } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 temp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const temp = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({
       writableDirs: [workspace],
       tempDir: temp,
@@ -421,7 +523,9 @@ describe('AclSandbox dispose', () => {
 
   it('aggregates SID and token cleanup failures into an AggregateError', async () => {
     const { localFree } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-17', mode: 'workspace-write' })
     await sandbox.init()
     localFree.mockReturnValue(1n)
@@ -430,8 +534,11 @@ describe('AclSandbox dispose', () => {
 
   it('reports a failed close of the restricted token', async () => {
     const { createRestrictedToken, closeHandle } = state.stubs as HappyStubs
+    /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspace = scratch()
+    /** 中文说明：变量 sandbox 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-18', mode: 'workspace-write' })
+    /** 中文说明：变量 restrictedToken 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let restrictedToken = 0n
     createRestrictedToken.mockImplementation((
       _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,

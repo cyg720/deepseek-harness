@@ -7,6 +7,14 @@
  * real Win32 calls, so these run on every platform; the real-FFI round-trip
  * lives in acl.spec.ts (win32 only).
  */
+/**
+ * 文件职责：验证 token-failure-paths.spec.ts 覆盖的沙箱安全与权限隔离行为与失败场景。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和受控系统资源。
+ * 产品维度：保障 Agent 使用沙箱安全与权限隔离时得到稳定且可诊断的结果。
+ * 逻辑维度：准备配置与资源，触发被测流程，再核对结果、事件、错误和清理。
+ * 关键边界：平台能力可能不同；持久化数据和外部输入不可信；异步资源必须完全释放。
+ * 新手阅读建议：先读辅助函数和平台条件，再看正常路径，最后阅读恢复与失败用例。
+ */
 
 import { describe, expect, it, vi } from 'vitest'
 import koffi from 'koffi'
@@ -19,15 +27,18 @@ import {
 } from '../src/token.ts'
 import * as abi from '../src/win32-abi.ts'
 
+/** 中文说明：常量 PVOID 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PVOID = koffi.pointer('void')
 
 describe('openCurrentProcessToken failure paths', () => {
   it('reports when OpenProcess yields no handle', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       openProcess: vi.fn(() => 0n),
       getLastError: vi.fn(() => 5),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32Bindings
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       openCurrentProcessToken(api)
@@ -39,7 +50,9 @@ describe('openCurrentProcessToken failure paths', () => {
   })
 
   it('closes the process handle and reports when OpenProcessToken fails', () => {
+    /** 中文说明：函数值 closeHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closeHandle = vi.fn(() => 1)
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       openProcess: vi.fn(() => 7n),
       openProcessToken: vi.fn(() => 0),
@@ -47,6 +60,7 @@ describe('openCurrentProcessToken failure paths', () => {
       getLastError: vi.fn(() => 5),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32Bindings
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       openCurrentProcessToken(api)
@@ -59,6 +73,7 @@ describe('openCurrentProcessToken failure paths', () => {
   })
 
   it('reports a failed CloseHandle of the process handle', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       openProcess: vi.fn(() => 7n),
       openProcessToken: vi.fn((_process: unknown, _access: unknown, slot: NativePtr) => {
@@ -69,6 +84,7 @@ describe('openCurrentProcessToken failure paths', () => {
       getLastError: vi.fn(() => 5),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32Bindings
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       openCurrentProcessToken(api)
@@ -80,6 +96,7 @@ describe('openCurrentProcessToken failure paths', () => {
   })
 
   it('rejects a NULL token handle after a successful OpenProcessToken', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       openProcess: vi.fn(() => 7n),
       openProcessToken: vi.fn(() => 1), // succeeds without writing the out slot
@@ -87,6 +104,7 @@ describe('openCurrentProcessToken failure paths', () => {
       getLastError: vi.fn(() => 5),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32Bindings
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       openCurrentProcessToken(api)
@@ -104,6 +122,7 @@ describe('openCurrentProcessToken failure paths', () => {
  * attributes@16) with the state's one group. The CopySid mock comes back
  * beside the table for the one test that asserts on its arguments.
  */
+/** 中文说明：函数 logonApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function logonApi(state: {
   needed: number
   groupCount: number
@@ -113,7 +132,9 @@ function logonApi(state: {
   sidLength?: number
   copyOk?: boolean
 }): { api: Win32Bindings; copySid: ReturnType<typeof vi.fn> } {
+  /** 中文说明：函数值 copySid 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const copySid = vi.fn(() => (state.copyOk === false ? 0 : 1))
+  /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const api = {
     getTokenInformation: vi.fn((_token: unknown, cls: number, info: Buffer | null, _length: number, needed: NativePtr) => {
       if (cls !== abi.TokenGroups) throw new Error(`unexpected token information class ${cls}`)
@@ -138,10 +159,12 @@ function logonApi(state: {
 }
 
 describe('findLogonSid failure paths', () => {
+  /** 中文说明：变量 token 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const token = 9n as NativePtr
 
   it('reports a size probe that wrote nothing', () => {
     const { api } = logonApi({ needed: 0, groupCount: 0, sidPtr: 0n, logon: false })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       findLogonSid(api, token)
@@ -154,6 +177,7 @@ describe('findLogonSid failure paths', () => {
 
   it('rejects an implausibly small TokenGroups size', () => {
     const { api } = logonApi({ needed: 4, groupCount: 0, sidPtr: 0n, logon: false })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       findLogonSid(api, token)
@@ -166,6 +190,7 @@ describe('findLogonSid failure paths', () => {
 
   it('reports a failed TokenGroups read', () => {
     const { api } = logonApi({ needed: 24, groupCount: 1, sidPtr: 77n, logon: true, secondOk: false })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       findLogonSid(api, token)
@@ -188,6 +213,7 @@ describe('findLogonSid failure paths', () => {
 
   it('reports a zero logon-SID length', () => {
     const { api } = logonApi({ needed: 24, groupCount: 1, sidPtr: 77n, logon: true, sidLength: 0 })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       findLogonSid(api, token)
@@ -200,6 +226,7 @@ describe('findLogonSid failure paths', () => {
 
   it('reports a failed CopySid of the logon SID', () => {
     const { api } = logonApi({ needed: 24, groupCount: 1, sidPtr: 77n, logon: true, copyOk: false })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       findLogonSid(api, token)
@@ -212,6 +239,7 @@ describe('findLogonSid failure paths', () => {
 
   it('copies the logon SID and returns the new allocation', () => {
     const { api, copySid } = logonApi({ needed: 24, groupCount: 1, sidPtr: 77n, logon: true })
+    /** 中文说明：变量 copy 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const copy = findLogonSid(api, token)
     expect(isNullPtr(copy)).toBe(false)
     expect(copySid).toHaveBeenCalledWith(12, copy, 77n)
@@ -220,11 +248,13 @@ describe('findLogonSid failure paths', () => {
 
 describe('makeWellKnownSid failure paths', () => {
   it('reports when CreateWellKnownSid fails', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       createWellKnownSid: vi.fn(() => 0),
       getLastError: vi.fn(() => 5),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32Bindings
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       makeWellKnownSid(api, abi.WinWorldSid)
@@ -236,12 +266,14 @@ describe('makeWellKnownSid failure paths', () => {
   })
 
   it('reports when the created well-known SID is invalid', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       createWellKnownSid: vi.fn(() => 1),
       isValidSid: vi.fn(() => 0),
       getLastError: vi.fn(() => 5),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32Bindings
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       makeWellKnownSid(api, abi.WinWorldSid)
@@ -258,6 +290,7 @@ describe('makeWellKnownSid failure paths', () => {
  * second call fills the DACL pointer slot, and the merge/apply calls follow
  * the state's results.
  */
+/** 中文说明：函数 daclApi 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function daclApi(state: {
   needed: number
   currentDacl: bigint
@@ -266,6 +299,7 @@ function daclApi(state: {
   newDacl: bigint
   setTokenInfo?: number
 }): Win32Bindings {
+  /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const api = {
     getTokenInformation: vi.fn((_token: unknown, cls: number, info: Buffer | null, _length: number, needed: NativePtr) => {
       if (cls !== abi.TokenDefaultDacl) throw new Error(`unexpected token information class ${cls}`)
@@ -291,11 +325,15 @@ function daclApi(state: {
 }
 
 describe('setTokenDefaultDaclGrant failure paths', () => {
+  /** 中文说明：变量 token 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const token = 9n as NativePtr
+  /** 中文说明：变量 sid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sid = 77n as NativePtr
 
   it('reports a size probe that wrote nothing', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = daclApi({ needed: 0, currentDacl: 0n, newDacl: 0n })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       setTokenDefaultDaclGrant(api, token, sid)
@@ -307,7 +345,9 @@ describe('setTokenDefaultDaclGrant failure paths', () => {
   })
 
   it('reports a failed default-DACL read', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = daclApi({ needed: 8, currentDacl: 88n, secondOk: false, newDacl: 0n })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       setTokenDefaultDaclGrant(api, token, sid)
@@ -319,12 +359,15 @@ describe('setTokenDefaultDaclGrant failure paths', () => {
   })
 
   it('rejects a token that carries no default DACL', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = daclApi({ needed: 8, currentDacl: 0n, newDacl: 0n })
     expect(() => { setTokenDefaultDaclGrant(api, token, sid) }).toThrow(/no default DACL/u)
   })
 
   it('reports a failed SetEntriesInAclW merge', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = daclApi({ needed: 8, currentDacl: 88n, mergeResult: 5, newDacl: 0n })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       setTokenDefaultDaclGrant(api, token, sid)
@@ -336,7 +379,9 @@ describe('setTokenDefaultDaclGrant failure paths', () => {
   })
 
   it('rejects a NULL merged default DACL', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = daclApi({ needed: 8, currentDacl: 88n, newDacl: 0n })
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       setTokenDefaultDaclGrant(api, token, sid)
@@ -348,9 +393,12 @@ describe('setTokenDefaultDaclGrant failure paths', () => {
   })
 
   it('frees the merged DACL and reports when SetTokenInformation fails', () => {
+    /** 中文说明：函数值 localFree 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const localFree = vi.fn(() => 0n)
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = daclApi({ needed: 8, currentDacl: 88n, newDacl: 99n, setTokenInfo: 0 })
     ;(api.localFree as unknown as ReturnType<typeof vi.fn>).mockImplementation(localFree)
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       setTokenDefaultDaclGrant(api, token, sid)
@@ -363,7 +411,9 @@ describe('setTokenDefaultDaclGrant failure paths', () => {
   })
 
   it('frees the merged DACL after a successful apply', () => {
+    /** 中文说明：函数值 localFree 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const localFree = vi.fn(() => 0n)
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = daclApi({ needed: 8, currentDacl: 88n, newDacl: 99n })
     ;(api.localFree as unknown as ReturnType<typeof vi.fn>).mockImplementation(localFree)
     setTokenDefaultDaclGrant(api, token, sid)
@@ -373,6 +423,7 @@ describe('setTokenDefaultDaclGrant failure paths', () => {
 
 describe('createRestrictedToken failure paths', () => {
   it('builds the read-only restricting list without a write SID', () => {
+    /** 中文说明：变量 create 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const create = vi.fn((
       _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
       count: number, _sids: unknown, slot: NativePtr,
@@ -381,12 +432,15 @@ describe('createRestrictedToken failure paths', () => {
       expect(count).toBe(2)
       return 1
     })
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = { createRestrictedToken: create } as unknown as Win32Bindings
+    /** 中文说明：变量 logon 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const logon = allocBytes(12)
     expect(createRestrictedToken(api, 1n as NativePtr, logon, [], { world: 2n as NativePtr }, 'read-only')).toBe(9n)
   })
 
   it('builds the workspace-write restricting list with the write SID', () => {
+    /** 中文说明：变量 create 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const create = vi.fn((
       _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
       count: number, _sids: unknown, slot: NativePtr,
@@ -395,18 +449,23 @@ describe('createRestrictedToken failure paths', () => {
       expect(count).toBe(3)
       return 1
     })
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = { createRestrictedToken: create } as unknown as Win32Bindings
+    /** 中文说明：变量 logon 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const logon = allocBytes(12)
     expect(createRestrictedToken(api, 1n as NativePtr, logon, [3n as NativePtr], { world: 2n as NativePtr }, 'workspace-write')).toBe(9n)
   })
 
   it('reports when CreateRestrictedToken fails', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       createRestrictedToken: vi.fn(() => 0),
       getLastError: vi.fn(() => 5),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32Bindings
+    /** 中文说明：变量 logon 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const logon = allocBytes(12)
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       createRestrictedToken(api, 1n as NativePtr, logon, [], { world: 2n as NativePtr }, 'read-only')
@@ -418,12 +477,15 @@ describe('createRestrictedToken failure paths', () => {
   })
 
   it('rejects a NULL token handle after a successful CreateRestrictedToken', () => {
+    /** 中文说明：变量 api 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const api = {
       createRestrictedToken: vi.fn(() => 1), // succeeds without writing the out slot
       getLastError: vi.fn(() => 5),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32Bindings
+    /** 中文说明：变量 logon 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const logon = allocBytes(12)
+    /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let caught: unknown
     try {
       createRestrictedToken(api, 1n as NativePtr, logon, [], { world: 2n as NativePtr }, 'read-only')
