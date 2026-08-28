@@ -1,5 +1,13 @@
 /* Zero-height sticky slot, like the back-to-bottom control: the rail floats
    over the transcript's right gutter without extending scrollHeight. */
+/**
+ * 文件职责：实现 client/ui-chat 中 TurnNavigator module 模块的职责，并向相邻模块提供可复用能力。
+ * 技术维度：主要使用CSS Modules、层叠样式与项目统一的设计变量，通过当前文件中的类型、函数与数据结构完成实现。
+ * 产品维度：支撑 DeepSeek Harness 的 client/ui-chat 能力，使上层功能能够稳定组合和扩展。
+ * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
+ * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
+ * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+ */
 .slot {
   position: sticky;
   top: 0;
@@ -13,9 +21,11 @@
      stack covering its floor. ConversationRoot publishes both measurements on
      the scrollport; the fallbacks carry the first paint before its observer
      fires. */
+  /* 变量说明：--turn-rail-band 保存可复用的样式值；取值必须符合使用它的 CSS 属性语法，并注意层叠作用域。 */
   --turn-rail-band: calc(
     var(--dsh-conversation-viewport-height, 100dvh) - var(--dsh-composer-height, 152px)
   );
+  /* 变量说明：--turn-preview-height 保存可复用的样式值；取值必须符合使用它的 CSS 属性语法，并注意层叠作用域。 */
   --turn-preview-height: 100px;
 
   position: absolute;
@@ -153,10 +163,14 @@
   -webkit-line-clamp: 2;
 }
 
+/* 动画说明：dsh-turn-mark-enter 定义可复用的关键帧流程；调用处需同时遵守时长、缓动和可访问性约定。 */
+
 @keyframes dsh-turn-mark-enter {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* 动画说明：dsh-turn-preview-enter 定义可复用的关键帧流程；调用处需同时遵守时长、缓动和可访问性约定。 */
 
 @keyframes dsh-turn-preview-enter {
   from { opacity: 0; transform: translateX(4px); }
