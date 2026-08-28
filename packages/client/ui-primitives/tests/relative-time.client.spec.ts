@@ -1,12 +1,41 @@
+/**
+ * 文件职责：验证 client/ui-primitives 中 relative time client spec 相关行为与失败场景。
+ * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
+ * 通过当前文件中的类型、函数与数据结构完成实现。
+ * 产品维度：保障用户实际使用路径在演进过程中保持稳定，降低回归风险。
+ * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
+ * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
+ * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+ */
 import { describe, expect, it } from 'vitest'
 import { relativeTime } from '@deepseek-ai/dsh-client-ui-primitives'
 
+/**
+ * 常量说明：MIN 用于处理 MIN 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+ */
 const MIN = 60_000
+/**
+ * 常量说明：HOUR 用于处理 HOUR 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+ */
 const HOUR = 3_600_000
+/**
+ * 常量说明：DAY 用于处理 DAY 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+ */
 const DAY = 86_400_000
+/**
+ * 常量说明：now 用于处理 now 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+ */
 const now = 1_800_000_000_000
 
+/**
+ * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+ * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+ */
 describe('relativeTime', () => {
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+   */
   it('buckets each distance and reports its magnitude', () => {
     expect(relativeTime(now, now)).toEqual({ unit: 'now', n: 0 })
     expect(relativeTime(now - 5 * MIN, now)).toEqual({ unit: 'minutes', n: 5 })
@@ -16,6 +45,10 @@ describe('relativeTime', () => {
     expect(relativeTime(now - 400 * DAY, now)).toEqual({ unit: 'years', n: 1 })
   })
 
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+   */
   it('reports the coarser bucket at each boundary', () => {
     expect(relativeTime(now - MIN, now)).toEqual({ unit: 'minutes', n: 1 })
     expect(relativeTime(now - HOUR, now)).toEqual({ unit: 'hours', n: 1 })
@@ -24,6 +57,10 @@ describe('relativeTime', () => {
     expect(relativeTime(now - 365 * DAY, now)).toEqual({ unit: 'years', n: 1 })
   })
 
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+   */
   it('reads a future moment as the present rather than a negative distance', () => {
     expect(relativeTime(now + DAY, now)).toEqual({ unit: 'now', n: 0 })
   })
