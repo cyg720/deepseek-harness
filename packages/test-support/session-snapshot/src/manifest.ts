@@ -1,4 +1,11 @@
-/** Parse and validate one recorded-session snapshot manifest. */
+/** Parse and validate one recorded-session snapshot manifest.
+ * @remarks 文件说明：文件职责：实现 test-support/session-snapshot 中 manifest 模块的职责，
+ * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
+ * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
+ * test-support/session-snapshot 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 →
+ * 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
+ * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
+ * 最后结合相邻测试理解输入、输出与边界条件。 */
 
 import { isAbsolute } from 'node:path'
 import * as yaml from 'js-yaml'
@@ -103,12 +110,36 @@ export interface SnapshotManifest {
   session?: SnapshotSessionReference
 }
 
+/**
+ * 常量说明：PROFILES 用于处理 PROFILES 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+ */
 const PROFILES = new Set<SnapshotProfile>(['headless', 'sdk', 'acp', 'web'])
+/**
+ * 常量说明：RECORDINGS 用于处理 RECORDINGS 相关数据，作用于当前作用域；初始化后不可重新赋值，
+ * 但对象内部是否可变仍由其类型决定。
+ */
 const RECORDINGS = new Set<SnapshotRecording>(['live', 'authored'])
+/**
+ * 常量说明：PLATFORMS 用于处理 PLATFORMS 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+ */
 const PLATFORMS = new Set<SnapshotPlatform>(['posix', 'pwsh'])
+/**
+ * 常量说明：PERMISSIONS 用于处理 PERMISSIONS 相关数据，作用于当前作用域；初始化后不可重新赋值，
+ * 但对象内部是否可变仍由其类型决定。
+ */
 const PERMISSIONS = new Set<SnapshotPermission>(['read-only', 'workspace-write', 'danger-full-access'])
+/**
+ * 常量说明：NAME_RE 用于处理 NAME_RE 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+ */
 const NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/**
+ * 功能说明：处理 record 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param label （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns Record<string, unknown>；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 record(value, label)，并按返回类型处理结果。
+ */
 function record(value: unknown, label: string): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${label} must be a mapping`)
@@ -116,11 +147,34 @@ function record(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
+/**
+ * 功能说明：处理 exactKeys 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （Record<string, unknown>）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param allowed （readonly string[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param label （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns void；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 exactKeys(value, allowed, label)，并按返回类型处理结果。
+ */
 function exactKeys(value: Record<string, unknown>, allowed: readonly string[], label: string): void {
+  /**
+   * 常量说明：unknown 用于处理 unknown 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：key（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(key)，并按返回类型处理结果。
+   */
   const unknown = Object.keys(value).filter(key => !allowed.includes(key)).sort()
   if (unknown.length > 0) throw new Error(`${label} has unknown field(s): ${unknown.join(', ')}`)
 }
 
+/**
+ * 功能说明：处理 name 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param label （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns string；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 name(value, label)，并按返回类型处理结果。
+ */
 function name(value: unknown, label: string): string {
   if (typeof value !== 'string' || !NAME_RE.test(value)) {
     throw new Error(`${label} must be a lower-kebab-case name`)
@@ -128,14 +182,38 @@ function name(value: unknown, label: string): string {
   return value
 }
 
+/**
+ * 功能说明：处理 scenarioSource 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param label （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns string；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 scenarioSource(value, label)，并按返回类型处理结果。
+ */
 function scenarioSource(value: unknown, label: string): string {
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：segment（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(segment)，并按返回类型处理结果。
+   */
   if (typeof value !== 'string' || !value.split('/').every(segment => NAME_RE.test(segment))) {
     throw new Error(`${label} must be a lower-kebab-case name or corpus-relative path`)
   }
   return value
 }
 
+/**
+ * 功能说明：处理 positiveIndexes 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param label （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns number[]；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 positiveIndexes(value, label)，并按返回类型处理结果。
+ */
 function positiveIndexes(value: unknown, label: string): number[] {
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：item（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(item)，并按返回类型处理结果。
+   */
   if (!Array.isArray(value)
     || value.some(item => !Number.isInteger(item) || Number(item) < 1)
     || new Set(value).size !== value.length) {
@@ -149,16 +227,33 @@ function positiveIndexes(value: unknown, label: string): number[] {
  * @param source - complete manifest text.
  * @param path - diagnostic path.
  * @returns validated manifest metadata.
+ * @remarks 中文说明：功能说明：解析 Snapshot Manifest 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：source（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数说明：path（由 TypeScript
+ * 根据调用位置推断的类型）：指定要读取、写入或匹配的文件位置；必须满足声明的类型及调用时序要求。；返回值：SnapshotManifest；
+ * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
+ * parseSnapshotManifest(source, path)，并按返回类型处理结果。
  */
 export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): SnapshotManifest {
+  /**
+   * 变量说明：parsed 用于处理 parsed 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
+   */
   let parsed: unknown
+  /**
+   * 变量说明：error 保存当前捕获的异常；使用前应按项目约定缩小其类型。
+   */
   try {
     parsed = yaml.load(source, { schema: yaml.JSON_SCHEMA })
   } catch (error) {
     throw new Error(`session-snapshot: ${path}: invalid YAML: ${String(error)}`)
   }
 
+  /**
+   * 变量说明：error 保存当前捕获的异常；使用前应按项目约定缩小其类型。
+   */
   try {
+    /**
+     * 常量说明：root 用于处理 root 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+     */
     const root = record(parsed, 'manifest')
     exactKeys(root, [
       'version',
@@ -176,14 +271,25 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
       'session',
     ], 'manifest')
     if (root.version !== 1) throw new Error('manifest.version must equal 1')
+    /**
+     * 常量说明：scenario 用于处理 scenario 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+     */
     const scenario = root.scenario === undefined ? undefined : name(root.scenario, 'manifest.scenario')
     if (typeof root.profile !== 'string' || !PROFILES.has(root.profile as SnapshotProfile)) {
       throw new Error('manifest.profile must be headless, sdk, acp, or web')
     }
 
+    /**
+     * 常量说明：composition 用于处理 composition 相关数据，作用于当前作用域；初始化后不可重新赋值，
+     * 但对象内部是否可变仍由其类型决定。
+     */
     const composition = root.composition === undefined
       ? undefined
       : name(root.composition, 'manifest.composition')
+    /**
+     * 变量说明：recording 用于处理 recording 相关数据，作用于当前作用域；其值可能随流程推进而变化，
+     * 读写时需遵守声明类型和所在生命周期。
+     */
     let recording: SnapshotRecording | undefined
     if (root.recording !== undefined) {
       if (typeof root.recording !== 'string' || !RECORDINGS.has(root.recording as SnapshotRecording)) {
@@ -192,8 +298,14 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
       recording = root.recording as SnapshotRecording
     }
 
+    /**
+     * 变量说明：header 用于处理 header 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
+     */
     let header: SnapshotHeaderManifest | undefined
     if (root.header !== undefined) {
+      /**
+       * 常量说明：value 用于处理 value 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+       */
       const value = record(root.header, 'manifest.header')
       exactKeys(value, [
         'class',
@@ -229,14 +341,23 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
       }
     }
 
+    /**
+     * 变量说明：replay 用于处理 replay 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
+     */
     let replay: SnapshotReplayManifest | undefined
     if (root.replay !== undefined) {
+      /**
+       * 常量说明：value 用于处理 value 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+       */
       const value = record(root.replay, 'manifest.replay')
       exactKeys(value, ['override'], 'manifest.replay')
       if (value.override !== true) throw new Error('manifest.replay.override must equal true')
       replay = { override: true }
     }
 
+    /**
+     * 变量说明：platform 用于处理 platform 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
+     */
     let platform: SnapshotPlatform | undefined
     if (root.platform !== undefined) {
       if (typeof root.platform !== 'string' || !PLATFORMS.has(root.platform as SnapshotPlatform)) {
@@ -245,6 +366,10 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
       platform = root.platform as SnapshotPlatform
     }
 
+    /**
+     * 变量说明：permission 用于处理 permission 相关数据，作用于当前作用域；其值可能随流程推进而变化，
+     * 读写时需遵守声明类型和所在生命周期。
+     */
     let permission: SnapshotPermission | undefined
     if (root.permission !== undefined) {
       if (typeof root.permission !== 'string' || !PERMISSIONS.has(root.permission as SnapshotPermission)) {
@@ -253,17 +378,36 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
       permission = root.permission as SnapshotPermission
     }
 
+    /**
+     * 变量说明：environment 用于处理 environment 相关数据，作用于当前作用域；其值可能随流程推进而变化，
+     * 读写时需遵守声明类型和所在生命周期。
+     */
     let environment: Record<string, string> | undefined
     if (root.environment !== undefined) {
+      /**
+       * 常量说明：value 用于处理 value 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+       */
       const value = record(root.environment, 'manifest.environment')
+      /**
+       * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：[key, item]（由 TypeScript
+       * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+       * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调([key, item])，并按返回类型处理结果。
+       */
       if (Object.entries(value).some(([key, item]) => !/^[A-Z][A-Z0-9_]*$/.test(key) || typeof item !== 'string')) {
         throw new Error('manifest.environment must map uppercase environment names to strings')
       }
       environment = value as Record<string, string>
     }
 
+    /**
+     * 变量说明：workspace 用于处理 workspace 相关数据，作用于当前作用域；其值可能随流程推进而变化，
+     * 读写时需遵守声明类型和所在生命周期。
+     */
     let workspace: SnapshotWorkspaceManifest | undefined
     if (root.workspace !== undefined) {
+      /**
+       * 常量说明：value 用于处理 value 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+       */
       const value = record(root.workspace, 'manifest.workspace')
       exactKeys(value, ['setup', 'final', 'parent'], 'manifest.workspace')
       if (value.final !== undefined && value.final !== true) {
@@ -280,19 +424,39 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
       if (Object.keys(workspace).length === 0) throw new Error('manifest.workspace must not be empty')
     }
 
+    /**
+     * 变量说明：input 用于处理 input 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
+     */
     let input: SnapshotInputManifest | undefined
     if (root.input !== undefined) {
+      /**
+       * 常量说明：value 用于处理 value 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+       */
       const value = record(root.input, 'manifest.input')
       exactKeys(value, ['task', 'attachments'], 'manifest.input')
       if (value.task !== undefined && (typeof value.task !== 'string' || value.task.trim() === '')) {
         throw new Error('manifest.input.task must be a non-empty string when present')
       }
+      /**
+       * 变量说明：attachments 用于处理 attachments 相关数据，作用于当前作用域；其值可能随流程推进而变化，
+       * 读写时需遵守声明类型和所在生命周期。
+       */
       let attachments: SnapshotInputAttachment[] | undefined
       if (value.attachments !== undefined) {
         if (!Array.isArray(value.attachments) || value.attachments.length === 0) {
           throw new Error('manifest.input.attachments must be a non-empty array')
         }
+        /**
+         * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：item（由 TypeScript
+         * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：index（由 TypeScript
+         * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+         * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(item, index)，并按返回类型处理结果。
+         */
         attachments = value.attachments.map((item, index) => {
+          /**
+           * 常量说明：attachment 用于处理 attachment 相关数据，作用于当前作用域；初始化后不可重新赋值，
+           * 但对象内部是否可变仍由其类型决定。
+           */
           const attachment = record(item, `manifest.input.attachments[${index}]`)
           exactKeys(attachment, ['id', 'mediaType', 'data'], `manifest.input.attachments[${index}]`)
           if (typeof attachment.id !== 'string' || !attachment.id.startsWith('sha256:')) {
@@ -306,6 +470,11 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
           }
           return { id: attachment.id, mediaType: attachment.mediaType, data: attachment.data }
         })
+        /**
+         * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：attachment（由 TypeScript
+         * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+         * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(attachment)，并按返回类型处理结果。
+         */
         if (new Set(attachments.map(attachment => attachment.id)).size !== attachments.length) {
           throw new Error('manifest.input.attachments must have unique ids')
         }
@@ -319,8 +488,14 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
       }
     }
 
+    /**
+     * 变量说明：session 用于处理 session 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
+     */
     let session: SnapshotSessionReference | undefined
     if (root.session !== undefined) {
+      /**
+       * 常量说明：value 用于处理 value 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+       */
       const value = record(root.session, 'manifest.session')
       exactKeys(value, ['source'], 'manifest.session')
       if (typeof value.source !== 'string' || value.source.trim() === '') {

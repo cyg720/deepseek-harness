@@ -1,7 +1,24 @@
+/**
+ * 文件职责：验证 test-support/session-snapshot 中 manifest spec 相关行为与失败场景。
+ * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
+ * 通过当前文件中的类型、函数与数据结构完成实现。
+ * 产品维度：保障用户实际使用路径在演进过程中保持稳定，降低回归风险。
+ * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
+ * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
+ * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+ */
 import { describe, expect, it } from 'vitest'
 import { parseSnapshotManifest } from '../src/manifest.ts'
 
+/**
+ * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+ * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+ */
 describe('snapshot manifest', () => {
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+   */
   it('parses an owning scenario', () => {
     expect(parseSnapshotManifest('version: 1\nprofile: headless\n')).toEqual({
       version: 1,
@@ -9,6 +26,10 @@ describe('snapshot manifest', () => {
     })
   })
 
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+   */
   it('parses a read-only session reference', () => {
     expect(parseSnapshotManifest([
       'version: 1',
@@ -23,6 +44,10 @@ describe('snapshot manifest', () => {
     })
   })
 
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+   */
   it('parses composition, recording, header, and exceptional replay metadata', () => {
     expect(parseSnapshotManifest([
       'version: 1',
@@ -82,6 +107,10 @@ describe('snapshot manifest', () => {
     })
   })
 
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+   */
   it('parses independently optional header and input fields', () => {
     expect(parseSnapshotManifest([
       'version: 1',
@@ -114,6 +143,13 @@ describe('snapshot manifest', () => {
     })
   })
 
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：source（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：message（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(source, message)，
+   * 并按返回类型处理结果。
+   */
   it.each([
     ['', 'manifest must be a mapping'],
     ['version: 2\nprofile: acp\n', 'manifest.version must equal 1'],
@@ -145,6 +181,10 @@ describe('snapshot manifest', () => {
     ['version: 1\nprofile: acp\nsession:\n  source: ..\\session.jsonl\n', 'manifest.session.source must be a relative POSIX path'],
     ['version: 1\nprofile: !!js acp\n', 'invalid YAML'],
   ])('rejects invalid metadata', (source, message) => {
+    /**
+     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+     */
     expect(() => parseSnapshotManifest(source, 'case/snapshot.yml')).toThrow(message)
   })
 })
