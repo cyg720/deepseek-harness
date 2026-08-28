@@ -685,10 +685,10 @@ export class CordisDomSession {
       this.releaseSourceObjects(event.source)
       return
     }
-    if (this.enabled) /**
- * 变量说明：mutation 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
- */
-for (const mutation of event.mutations) this.sendMutation(mutation)
+    /**
+    * 变量说明：mutation 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+    */
+    if (this.enabled) for (const mutation of event.mutations) this.sendMutation(mutation)
     this.pruneDocumentState()
   }
 

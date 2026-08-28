@@ -92,12 +92,12 @@ describe('full fetch observer', () => {
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
      */
-    await vi.waitFor(() => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
- */
-expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
+    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
+    */
+    await vi.waitFor(() => { expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
 
     /**
      * 常量说明：start 用于启动 start 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -163,12 +163,12 @@ expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
      */
-    await vi.waitFor(() => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
- */
-expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
+    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
+    */
+    await vi.waitFor(() => { expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
 
     expect(decodeChunks(records, 'fetch/request-body-chunk')).toBe('requ')
     expect(payload(records, 'fetch/request-body-end')).toMatchObject({ capturedBytes: 4, truncated: true })
@@ -242,12 +242,12 @@ expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
      */
-    await vi.waitFor(() => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
- */
-expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
+    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
+    */
+    await vi.waitFor(() => { expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
 
     expect(decodeChunks(records, 'fetch/response-body-chunk')).toBe('first')
     expect(payload(records, 'fetch/end')).toMatchObject({
@@ -484,12 +484,12 @@ expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
      */
-    await vi.waitFor(() => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
- */
-expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
+    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
+    */
+    await vi.waitFor(() => { expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
     Object.defineProperty(globalThis, 'fetch', { value: replacement, writable: true, configurable: true })
     /**
      * 常量说明：firstStop 用于处理 firstStop 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -726,12 +726,12 @@ expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
      */
-    await vi.waitFor(() => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
- */
-expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
+    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
+    */
+    await vi.waitFor(() => { expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
     expect(payload(records, 'fetch/end')).toMatchObject({ capturedBytes: 1, responseBodyTruncated: true })
     expect(reader.cancel).toHaveBeenCalledWith('inspector body capture limit reached')
   })
@@ -907,12 +907,12 @@ expect(records.some(record => record.topic === 'fetch/end')).toBe(true) })
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
      */
-    await vi.waitFor(() => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
- */
-expect(records.some(record => record.topic === 'fetch/request-body-end')).toBe(true) })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
+    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
+    */
+    await vi.waitFor(() => { expect(records.some(record => record.topic === 'fetch/request-body-end')).toBe(true) })
     expect(payload(records, 'fetch/request-body-end')).toMatchObject({ captureError: 'request read failed' })
     await expect(fetch('https://example.test/network-failure')).rejects.toThrow('network failed')
     /**

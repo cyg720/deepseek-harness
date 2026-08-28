@@ -71,12 +71,12 @@ const context = new Context()
  * 常量说明：childFiber 用于处理 childFiber 相关数据，作用于当前作用域；初始化后不可重新赋值，
  * 但对象内部是否可变仍由其类型决定。
  */
-const childFiber = context.plugin({ name: 'client-child', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} })
+/**
+* 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+* @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+* @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+*/
+const childFiber = context.plugin({ name: 'client-child', apply() {} })
 await childFiber.await()
 Reflect.set(globalThis, '__cordisClientProbe', context)
 Reflect.set(globalThis, '__cordisClientFiberProbe', childFiber)
@@ -193,12 +193,12 @@ async function dispatch(message: ClientFixtureRequest): Promise<unknown> {
       context.emit('internal/status', childFiber.ctx.fiber, childFiber.ctx.fiber.state)
       return undefined
     case 'add-fiber':
-      addedFiber = context.plugin({ name: 'dynamic-client-child', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} }).ctx.fiber
+      /**
+      * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+      * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+      * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+      */
+      addedFiber = context.plugin({ name: 'dynamic-client-child', apply() {} }).ctx.fiber
       await addedFiber.await()
       return addedFiber.uid
     case 'remove-fiber':

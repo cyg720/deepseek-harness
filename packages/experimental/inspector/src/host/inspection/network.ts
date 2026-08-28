@@ -311,11 +311,11 @@ async function captureBody(
    * @returns void；调用方应按声明类型处理，不应假定未声明的附加状态。
    * @example 在完成前置校验后调用 abort()，并按返回类型处理结果。
    */
-  const abort = (): void => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-void reader.cancel(signal.reason).catch(() => undefined) }
+  /**
+  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+  */
+  const abort = (): void => { void reader.cancel(signal.reason).catch(() => undefined) }
   signal.addEventListener('abort', abort, { once: true })
   /**
    * 变量说明：capturedBytes 用于处理 capturedBytes 相关数据，作用于当前作用域；其值可能随流程推进而变化，

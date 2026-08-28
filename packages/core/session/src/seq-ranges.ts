@@ -49,11 +49,11 @@ export function encodeSeqRanges(values: readonly number[]): EncodedSeq[] {
      */
     let end = start
     while (end + 1 < values.length && values[end + 1] === (values[end] as number) + 1) end += 1
+    /**
+    * 变量说明：index 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+    */
     if (end - start >= 2) encoded.push([values[start] as number, values[end] as number])
-    else /**
- * 变量说明：index 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
- */
-for (let index = start; index <= end; index += 1) encoded.push(values[index] as number)
+    else for (let index = start; index <= end; index += 1) encoded.push(values[index] as number)
     start = end + 1
   }
   return encoded

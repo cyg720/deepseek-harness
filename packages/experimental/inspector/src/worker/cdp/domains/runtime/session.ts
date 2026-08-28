@@ -283,12 +283,12 @@ export class RuntimeDomainSession {
         if (route.realm.nativeDomains.state === 'unsupported') throw new Error(route.realm.nativeDomains.reason)
         return route.handle
       }
-      if (Array.isArray(value)) /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：item（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(item)，并按返回类型处理结果。
- */
-return value.map(item => visit(item, undefined))
+      /**
+      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：item（由 TypeScript
+      * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(item)，并按返回类型处理结果。
+      */
+      if (Array.isArray(value)) return value.map(item => visit(item, undefined))
       if (typeof value !== 'object' || value === null) return value
       /**
        * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：[name, item]（由 TypeScript

@@ -138,11 +138,11 @@ class FakeServer {
      * 常量说明：callback 用于处理 callback 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const callback = args.at(-1)
-    if (typeof callback === 'function') /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-queueMicrotask(() => { (callback as Listener)() })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+    */
+    if (typeof callback === 'function') queueMicrotask(() => { (callback as Listener)() })
     return this
   }
 
@@ -167,11 +167,11 @@ queueMicrotask(() => { (callback as Listener)() })
    * 并按返回类型处理结果。
    */
   close(callback?: Listener): this {
-    if (callback !== undefined) /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-queueMicrotask(() => { callback() })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+    */
+    if (callback !== undefined) queueMicrotask(() => { callback() })
     return this
   }
 

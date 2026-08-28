@@ -540,12 +540,12 @@ export class DebuggerDomainSession {
    */
   private receiveRealm(event: InspectorRealmSessionEvent): void {
     if (event.type === 'opened') {
-      if (this.enabled) /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：error（unknown）：提供本次调用所需的数据；
- * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；
- * 典型用法：在完成前置校验后调用 匿名回调(error)，并按返回类型处理结果。
- */
-void this.enableRealm(event.session).catch((error: unknown) => {
+      /**
+      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：error（unknown）：提供本次调用所需的数据；
+      * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；
+      * 典型用法：在完成前置校验后调用 匿名回调(error)，并按返回类型处理结果。
+      */
+      if (this.enabled) void this.enableRealm(event.session).catch((error: unknown) => {
         console.error(`Inspector could not enable Debugger realm ${event.session.descriptor.label}:`, error)
       })
       return

@@ -166,11 +166,11 @@ class CdpClient {
      * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(resolve)，并按返回类型处理结果。
      */
-    const closed = new Promise<void>((resolve) => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-this.socket.once('close', () => { resolve() }) })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+    */
+    const closed = new Promise<void>((resolve) => { this.socket.once('close', () => { resolve() }) })
     this.socket.close()
     await closed
   }
@@ -254,12 +254,12 @@ describe('Cordis tree inspection', () => {
     /**
      * 常量说明：fiber 用于处理 fiber 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-    const fiber = parent.plugin({ name: 'child', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} })
+    /**
+    * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+    * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+    * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+    */
+    const fiber = parent.plugin({ name: 'child', apply() {} })
     await fiber.await()
     /**
      * 常量说明：collector 用于处理 collector 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -367,12 +367,12 @@ apply() {} })
     /**
      * 常量说明：fiber 用于处理 fiber 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-    const fiber = context.plugin({ name: 'deep-child', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} })
+    /**
+    * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+    * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+    * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+    */
+    const fiber = context.plugin({ name: 'deep-child', apply() {} })
     await fiber.await()
     /**
      * 常量说明：collector 用于处理 collector 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -405,12 +405,12 @@ apply() {} })
     /**
      * 常量说明：fiber 用于处理 fiber 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-    const fiber = child.plugin({ name: 'bounded-child', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} })
+    /**
+    * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+    * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+    * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+    */
+    const fiber = child.plugin({ name: 'bounded-child', apply() {} })
     await fiber.await()
     /**
      * 常量说明：completeCollector 用于处理 completeCollector 相关数据，作用于当前作用域；初始化后不可重新赋值，
@@ -449,12 +449,12 @@ apply() {} })
      * 常量说明：directFiber 用于处理 directFiber 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-    const directFiber = directRoot.plugin({ name: 'direct-child', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} })
+    /**
+    * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+    * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+    * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+    */
+    const directFiber = directRoot.plugin({ name: 'direct-child', apply() {} })
     await directFiber.await()
     /**
      * 常量说明：fiberBound 用于处理 fiberBound 相关数据，作用于当前作用域；初始化后不可重新赋值，
@@ -541,12 +541,12 @@ apply() {} })
     /**
      * 常量说明：fiber 用于处理 fiber 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-    const fiber = root.plugin({ name: 'temporarily-disposed', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} })
+    /**
+    * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+    * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+    * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+    */
+    const fiber = root.plugin({ name: 'temporarily-disposed', apply() {} })
     await fiber.await()
     /**
      * 常量说明：runtimeFiber 用于处理 runtimeFiber 相关数据，作用于当前作用域；初始化后不可重新赋值，
@@ -799,12 +799,12 @@ apply() {} })
     /**
      * 常量说明：hostFiber 用于处理 hostFiber 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-    const hostFiber = host.plugin({ name: 'host-child', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} })
+    /**
+    * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+    * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+    * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+    */
+    const hostFiber = host.plugin({ name: 'host-child', apply() {} })
     fibers.push(hostFiber)
     await hostFiber.await()
     Reflect.set(globalThis, '__cordisHostProbe', host)
@@ -1407,6 +1407,11 @@ apply() {} })
     /**
      * 常量说明：outer 用于处理 outer 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
+    /**
+    * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
+    * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+    * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
+    */
     const outer = host.plugin({
       name: 'outer',
       /**
@@ -1415,12 +1420,7 @@ apply() {} })
        * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
        * @example 在完成前置校验后调用 apply(ctx)，并按返回类型处理结果。
        */
-      apply(ctx: Context) { innerFiber = ctx.plugin({ name: 'inner', /**
- * 功能说明：注册并应用 apply 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 apply()，并按返回类型处理结果。
- */
-apply() {} }) },
+      apply(ctx: Context) { innerFiber = ctx.plugin({ name: 'inner', apply() {} }) },
     })
     fibers.push(outer)
     await outer.await()

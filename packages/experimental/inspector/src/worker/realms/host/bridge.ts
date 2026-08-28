@@ -290,6 +290,7 @@ export class HostNotificationChannel<Event> {
    * ；返回值：() => void；调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
    * subscribe(listener)，并按返回类型处理结果。
    */
+  // oxlint-disable-next-line sonarjs/no-identical-functions -- 两类订阅器共享相同的监听集合管理语义。
   subscribe(listener: (event: Event) => void): () => void {
     this.listeners.add(listener)
     /**

@@ -38,12 +38,10 @@ describe('dsh-sdk-minimal bundle', () => {
     /**
      * 常量说明：patches 用于处理 patches 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-    /* oxlint-disable @stylistic/max-len -- 保留 master 的原始类型断言，本次任务只增加注释。 */
     const patches = yaml.load(
       readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
       { schema: entryListSchema },
     ) as Array<{ insert?: Array<{ id?: string; inject?: string[]; name?: string; config?: Record<string, unknown>; disabled?: unknown }> }>
-    /* oxlint-enable @stylistic/max-len */
     expect(patches).toHaveLength(1)
     /**
      * 常量说明：rows 用于处理 rows 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。

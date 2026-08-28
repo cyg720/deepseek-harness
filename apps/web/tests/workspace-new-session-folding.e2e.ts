@@ -94,7 +94,8 @@ describe('web e2e: blank New Session folding quota', /*
      * 常量说明：workspace 用于处理 workspace 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
         const workspace = await scaffold.ctx.workspaceRegistry.create(scaffold.workspaceCwd)
-        for (const /* 变量说明：sessionId 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。 */ sessionId of sessionIds) await workspace.attachSession(sessionId)
+        /** 变量说明：sessionId 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。 */
+        for (const sessionId of sessionIds) await workspace.attachSession(sessionId)
 
         browser = await chromium.launch()
         page = await newEnglishPage(browser)

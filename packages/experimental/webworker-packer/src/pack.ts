@@ -1109,13 +1109,13 @@ export function packVfsImage(options: PackOptions): PackResult {
   /**
    * 变量说明：tree 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
    */
-  for (const tree of configTrees) /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：relativePath（由 TypeScript
- * 根据调用位置推断的类型）：指定要读取、写入或匹配的文件位置；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript
- * 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(relativePath)，
- * 并按返回类型处理结果。
- */
-collectTree(tree.directory, files, tree.mount, relativePath => !excluded(relativePath))
+  /**
+  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：relativePath（由 TypeScript
+  * 根据调用位置推断的类型）：指定要读取、写入或匹配的文件位置；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript
+  * 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(relativePath)，
+  * 并按返回类型处理结果。
+  */
+  for (const tree of configTrees) collectTree(tree.directory, files, tree.mount, relativePath => !excluded(relativePath))
 
   /**
    * 常量说明：executables 用于处理 executables 相关数据，作用于当前作用域；初始化后不可重新赋值，

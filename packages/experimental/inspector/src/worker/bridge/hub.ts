@@ -393,13 +393,13 @@ export class InspectorSourceRegistry {
       /**
        * 变量说明：consumer 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
        */
-      for (const consumer of this.consumers) /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：index（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record, index)，并按返回类型处理结果。
- */
-consumer.replace(
+      /**
+      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
+      * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：index（由 TypeScript
+      * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record, index)，并按返回类型处理结果。
+      */
+      for (const consumer of this.consumers) consumer.replace(
         state.source,
         frame.records.map((record, index) => ({ ...record, sequence: frame.nextSequence + index })),
       )

@@ -177,12 +177,12 @@ class FeedService extends Service {
        * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(resolve)，并按返回类型处理结果。
        */
       await new Promise<void>((resolve) => {
+        /**
+        * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+        * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+        */
         if (signal.aborted) resolve()
-        else /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-signal.addEventListener('abort', () => { resolve() }, { once: true })
+        else signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
     } finally {
       this.returns += 1
@@ -800,12 +800,12 @@ describe('Typert Remote streams', () => {
            * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(resolve)，并按返回类型处理结果。
            */
           await new Promise<void>((resolve) => {
+            /**
+            * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+            * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+            */
             if (signal.aborted) resolve()
-            else /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-signal.addEventListener('abort', () => { resolve() }, { once: true })
+            else signal.addEventListener('abort', () => { resolve() }, { once: true })
           })
         } finally {
           sourceClosed()
@@ -1036,12 +1036,12 @@ signal.addEventListener('abort', () => { resolve() }, { once: true })
        * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(resolve)，并按返回类型处理结果。
        */
       await new Promise<void>((resolve) => {
+        /**
+        * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+        * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+        */
         if (signal.aborted) resolve()
-        else /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-signal.addEventListener('abort', () => { resolve() }, { once: true })
+        else signal.addEventListener('abort', () => { resolve() }, { once: true })
       })
       throw new Error('fixture source rejected during removal')
     })(), REMOTE_HOST)
@@ -2173,6 +2173,11 @@ signal.addEventListener('abort', () => { resolve() }, { once: true })
    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
+  /**
+  * 功能说明：处理 abort 相关流程；使用场景由所在模块及调用位置决定。
+  * @returns void；调用方应按声明类型处理，不应假定未声明的附加状态。
+  * @example 在完成前置校验后调用 abort()，并按返回类型处理结果。
+  */
   it('applies Connection trusted-host policy before accepting the Gateway socket', async () => {
     /**
      * 常量说明：ctx 用于处理 ctx 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -2214,18 +2219,18 @@ signal.addEventListener('abort', () => { resolve() }, { once: true })
     const rejected = response as { statusCode?: number; resume(): void }
     expect(rejected.statusCode).toBe(403)
     rejected.resume()
-    ;/**
- * 功能说明：处理 abort 相关流程；使用场景由所在模块及调用位置决定。
- * @returns void；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 abort()，并按返回类型处理结果。
- */
-(request as { abort(): void }).abort()
+    ;(request as { abort(): void }).abort()
   })
 
   /**
    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
+  /**
+  * 功能说明：处理 abort 相关流程；使用场景由所在模块及调用位置决定。
+  * @returns void；调用方应按声明类型处理，不应假定未声明的附加状态。
+  * @example 在完成前置校验后调用 abort()，并按返回类型处理结果。
+  */
   it('answers an unauthenticated trusted Host with 401 before opening a stream', async () => {
     /**
      * 常量说明：ctx 用于处理 ctx 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -2264,12 +2269,7 @@ signal.addEventListener('abort', () => { resolve() }, { once: true })
     const rejected = response as { statusCode?: number; resume(): void }
     expect(rejected.statusCode).toBe(401)
     rejected.resume()
-    ;/**
- * 功能说明：处理 abort 相关流程；使用场景由所在模块及调用位置决定。
- * @returns void；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 abort()，并按返回类型处理结果。
- */
-(request as { abort(): void }).abort()
+    ;(request as { abort(): void }).abort()
   })
 })
 

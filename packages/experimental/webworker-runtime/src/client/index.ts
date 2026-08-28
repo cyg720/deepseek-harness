@@ -211,28 +211,29 @@ export async function connectWorkerHost(worker: Worker, options?: WorkerHostConn
      * 常量说明：payload 用于处理 payload 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const payload = await tunnel.bootPayload()
-    ;/**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：input（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：init（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(input, init)，并按返回类型处理结果。
- */
-/**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：endpoint（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：payload（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：signal（由 TypeScript
- * 根据调用位置推断的类型）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(endpoint, payload,
- * signal)，并按返回类型处理结果。
- */
-/**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：url（string）：提供本次调用所需的数据；
- * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；
- * 典型用法：在完成前置校验后调用 匿名回调(url)，并按返回类型处理结果。
- */
-(globalThis as ClientTransportGlobal).__DSH_TRANSPORT__ = {
+    ;(globalThis as ClientTransportGlobal).__DSH_TRANSPORT__ = {
+      /**
+       * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：input（由 TypeScript
+       * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：init（由 TypeScript
+       * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+       * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(input,
+       * init)，并按返回类型处理结果。
+       */
       fetch: (input, init) => tunnel.fetch(input, init),
+      /**
+       * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：endpoint（由 TypeScript
+       * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：payload（由 TypeScript
+       * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：signal（由 TypeScript
+       * 根据调用位置推断的类型）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript
+       * 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用
+       * 匿名回调(endpoint, payload, signal)，并按返回类型处理结果。
+       */
       openStream: (endpoint, payload, signal) => tunnel.open(endpoint, payload, signal),
+      /**
+       * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：url（string）：提供本次调用所需的数据；
+       * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，
+       * 不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(url)，并按返回类型处理结果。
+       */
       loadBundle: (url: string) => tunnel.loadBundle(url),
       // The host lives in a worker this page spawned: the page owns it, so
       // the privileged surface stays reachable off loopback authorities.

@@ -954,11 +954,11 @@ function closeFileStream(
   stream: ClosableFileStream,
   callback?: (error?: NodeJS.ErrnoException | null) => void,
 ): void {
-  if (callback !== undefined) /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-stream.once('close', () => { callback(null) })
+  /**
+  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+  */
+  if (callback !== undefined) stream.once('close', () => { callback(null) })
   stream.destroy()
 }
 
