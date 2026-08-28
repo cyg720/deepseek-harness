@@ -1,4 +1,11 @@
-/** Versioned source lifecycle, observation, and extension frames shared by both carriers. */
+/** Versioned source lifecycle, observation, and extension frames shared by both carriers.
+ * @remarks 文件说明：文件职责：实现 experimental/inspector 中 observation 模块的职责，
+ * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
+ * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
+ * experimental/inspector 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
+ * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
+ * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
+ * 最后结合相邻测试理解输入、输出与边界条件。 */
 
 import { inspectorId, type InspectorSourceGeneration, type InspectorSourceId } from '../ids.ts'
 import { isJsonValue, isPlainObject, type InspectorJsonValue } from '../../json.ts'
@@ -164,6 +171,10 @@ export type WorkerToSourceFrame =
  * Parse and rebuild one Worker control frame received by a source.
  * @param value - Untrusted decoded wire value.
  * @returns The validated Worker-to-source frame.
+ * @remarks 中文说明：功能说明：解析 Worker Source Frame 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：value（unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
+ * 返回值：WorkerToSourceFrame；调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
+ * parseWorkerSourceFrame(value)，并按返回类型处理结果。
  */
 export function parseWorkerSourceFrame(value: unknown): WorkerToSourceFrame {
   if (!isJsonValue(value)
@@ -191,6 +202,9 @@ export function parseWorkerSourceFrame(value: unknown): WorkerToSourceFrame {
   if (value.t === 'client-console/enable' || value.t === 'client-console/disable') {
     return parseClientConsoleControlFrame(value)
   }
+  /**
+   * 常量说明：common 用于处理 common 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const common = {
     v: INSPECTOR_PROTOCOL_VERSION,
     sourceId: sourceId(value.sourceId),
@@ -226,6 +240,11 @@ export function parseWorkerSourceFrame(value: unknown): WorkerToSourceFrame {
  * @param value - Untrusted decoded wire value.
  * @param maxRecords - Maximum records admitted in one frame.
  * @returns The validated source-to-Worker frame.
+ * @remarks 中文说明：功能说明：解析 Source Frame 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：value（unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
+ * 参数说明：maxRecords（number）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
+ * 返回值：SourceToWorkerFrame；调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
+ * parseSourceFrame(value, maxRecords)，并按返回类型处理结果。
  */
 export function parseSourceFrame(value: unknown, maxRecords: number): SourceToWorkerFrame {
   if (!isJsonValue(value) || !isPlainObject(value)) {
@@ -260,13 +279,25 @@ export function parseSourceFrame(value: unknown, maxRecords: number): SourceToWo
   }
 }
 
+/**
+ * 功能说明：解析 Open 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （Record<string, unknown>）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns SourceOpenFrame；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 parseOpen(value)，并按返回类型处理结果。
+ */
 function parseOpen(value: Record<string, unknown>): SourceOpenFrame {
   exactKeys(value, ['v', 't', 'source', 'topics'], 'source/open frame')
   if (!isPlainObject(value.source) || !Array.isArray(value.topics)) {
     throw new Error('inspector protocol: source/open needs source and topics')
   }
+  /**
+   * 常量说明：source 用于处理 source 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const source = value.source
   exactKeys(source, ['sourceId', 'generation', 'kind', 'label', 'timeOriginMs', 'capabilities'], 'source descriptor')
+  /**
+   * 常量说明：kind 用于处理 kind 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const kind = source.kind
   if (kind !== 'host' && kind !== 'client') throw new Error('inspector protocol: invalid source kind')
   if (typeof source.label !== 'string' || source.label.length === 0 || source.label.length > 256) {
@@ -278,8 +309,19 @@ function parseOpen(value: Record<string, unknown>): SourceOpenFrame {
   if (!Array.isArray(source.capabilities)) {
     throw new Error('inspector protocol: source capabilities must be an array')
   }
+  /**
+   * 常量说明：capabilities 用于处理 capabilities 相关数据，作用于当前作用域；初始化后不可重新赋值，
+   * 但对象内部是否可变仍由其类型决定。
+   */
   const capabilities = source.capabilities.map(parseSourceCapability)
+  /**
+   * 常量说明：capabilityTypes 用于处理 capabilityTypes 相关数据，作用于当前作用域；初始化后不可重新赋值，
+   * 但对象内部是否可变仍由其类型决定。
+   */
   const capabilityTypes = new Set<string>()
+  /**
+   * 变量说明：capability 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+   */
   for (const capability of capabilities) {
     if (capabilityTypes.has(capability.type)) {
       throw new Error(`inspector protocol: source declares ${capability.type} more than once`)
@@ -289,6 +331,14 @@ function parseOpen(value: Record<string, unknown>): SourceOpenFrame {
   if (kind !== 'client' && capabilities.length > 0) {
     throw new Error('inspector protocol: Host sources cannot declare Client capabilities')
   }
+  /**
+   * 常量说明：topics 用于处理 topics 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：topic（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(topic)，并按返回类型处理结果。
+   */
   const topics = value.topics.map((topic) => {
     if (typeof topic !== 'string' || topic.length === 0 || topic.length > 128) {
       throw new Error('inspector protocol: every source topic must contain 1 to 128 characters')
@@ -310,6 +360,12 @@ function parseOpen(value: Record<string, unknown>): SourceOpenFrame {
   }
 }
 
+/**
+ * 功能说明：解析 Source Capability 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns InspectorSourceCapability；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 parseSourceCapability(value)，并按返回类型处理结果。
+ */
 function parseSourceCapability(value: unknown): InspectorSourceCapability {
   if (!isPlainObject(value) || typeof value.type !== 'string') {
     throw new Error('inspector protocol: source capability must have a type')
@@ -322,6 +378,15 @@ function parseSourceCapability(value: unknown): InspectorSourceCapability {
   }
 }
 
+/**
+ * 功能说明：解析 Records Frame 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （Record<string, unknown>）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param maxRecords （number）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param replace （boolean）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns SourceReplaceFrame | SourceAppendFrame；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 parseRecordsFrame(value, maxRecords, replace)，
+ * 并按返回类型处理结果。
+ */
 function parseRecordsFrame(
   value: Record<string, unknown>,
   maxRecords: number,
@@ -337,7 +402,13 @@ function parseRecordsFrame(
   if (!Array.isArray(value.records) || value.records.length > maxRecords) {
     throw new Error(`inspector protocol: source batch exceeds ${String(maxRecords)} records`)
   }
+  /**
+   * 常量说明：records 用于处理 records 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const records = value.records.map(parseRecord)
+  /**
+   * 常量说明：common 用于处理 common 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const common = {
     v: INSPECTOR_PROTOCOL_VERSION,
     sourceId: sourceId(value.sourceId),
@@ -359,6 +430,12 @@ function parseRecordsFrame(
   }
 }
 
+/**
+ * 功能说明：解析 Record 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns InspectorRecordInput；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 parseRecord(value)，并按返回类型处理结果。
+ */
 function parseRecord(value: unknown): InspectorRecordInput {
   if (!isPlainObject(value)
     || typeof value.monotonicMs !== 'number'
@@ -373,16 +450,35 @@ function parseRecord(value: unknown): InspectorRecordInput {
   return { monotonicMs: value.monotonicMs, topic: value.topic, payload: value.payload }
 }
 
+/**
+ * 功能说明：处理 sourceId 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns InspectorSourceId；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 sourceId(value)，并按返回类型处理结果。
+ */
 function sourceId(value: unknown): InspectorSourceId {
   if (typeof value !== 'string') throw new Error('inspector protocol: sourceId must be a string')
   return inspectorId<'InspectorSourceId'>(value, 'sourceId')
 }
 
+/**
+ * 功能说明：处理 generation 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns InspectorSourceGeneration；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 generation(value)，并按返回类型处理结果。
+ */
 function generation(value: unknown): InspectorSourceGeneration {
   if (typeof value !== 'string') throw new Error('inspector protocol: generation must be a string')
   return inspectorId<'InspectorSourceGeneration'>(value, 'generation')
 }
 
+/**
+ * 功能说明：处理 natural 相关流程；使用场景由所在模块及调用位置决定。
+ * @param value （unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @param label （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns number；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 natural(value, label)，并按返回类型处理结果。
+ */
 function natural(value: unknown, label: string): number {
   if (!Number.isSafeInteger(value) || (value as number) < 0) {
     throw new Error(`inspector protocol: ${label} must be a non-negative safe integer`)
