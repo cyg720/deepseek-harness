@@ -4,7 +4,14 @@
  * @module @deepseek-ai/dsh-experimental-webworker-runtime/src/transport/frames
  */
 
-/** Request identifier minted by the page. */
+/** Request identifier minted by the page.
+ * @remarks 文件说明：文件职责：实现 experimental/webworker-runtime 中 frames 模块的职责，
+ * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
+ * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
+ * experimental/webworker-runtime 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 →
+ * 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
+ * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
+ * 最后结合相邻测试理解输入、输出与边界条件。 */
 export type TunnelRequestId = string | number
 
 /** One request; `body` carries the raw bytes for methods that have one. */
@@ -133,21 +140,36 @@ export type TunnelOutboundFrame =
  * Validate a `postMessage` payload as a tunnel frame.
  * @param data - Message data received by the worker.
  * @returns The frame.
+ * @remarks 中文说明：功能说明：解析 Inbound Frame 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：data（unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：TunnelInboundFrame；
+ * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 parseInboundFrame(data)，
+ * 并按返回类型处理结果。
  */
 export function parseInboundFrame(data: unknown): TunnelInboundFrame {
   if (typeof data !== 'object' || data === null) {
     throw new Error(`webworker tunnel: message is not a frame: ${String(data)}`)
   }
+  /**
+   * 常量说明：frame 用于处理 frame 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const frame = data as Record<string, unknown>
   if (frame.t === 'init') {
     if (typeof frame.image !== 'string') {
       throw new Error('webworker tunnel: init frame needs a string image url')
     }
+    /**
+     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：overlay（由 TypeScript
+     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(overlay)，并按返回类型处理结果。
+     */
     if (!Array.isArray(frame.overlays) || frame.overlays.some(overlay => typeof overlay !== 'string')) {
       throw new Error('webworker tunnel: init frame needs an array of string overlay urls')
     }
     return { t: 'init', image: frame.image, overlays: frame.overlays as string[] }
   }
+  /**
+   * 常量说明：id 用于处理 id 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const id = frame.id
   if (typeof id !== 'string' && typeof id !== 'number') {
     throw new Error(`webworker tunnel: frame has no usable id: ${JSON.stringify(frame.id)}`)
@@ -166,10 +188,19 @@ export function parseInboundFrame(data: unknown): TunnelInboundFrame {
   if (typeof frame.headers !== 'object' || frame.headers === null) {
     throw new Error(`webworker tunnel: request ${String(id)} needs a headers object`)
   }
+  /**
+   * 常量说明：headers 用于处理 headers 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const headers: Record<string, string> = {}
+  /**
+   * 变量说明：key、value 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+   */
   for (const [key, value] of Object.entries(frame.headers)) {
     if (typeof value === 'string') headers[key.toLowerCase()] = value
   }
+  /**
+   * 常量说明：body 用于处理 body 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const body = frame.body
   if (body !== undefined && !(body instanceof ArrayBuffer)) {
     throw new Error(`webworker tunnel: request ${String(id)} body must be an ArrayBuffer`)
