@@ -1,13 +1,24 @@
 /** Framework-neutral snapshot and store contracts. */
 
-/** Minimal observable snapshot source shared by controllers, stores, and render adapters. */
+/** Minimal observable snapshot source shared by controllers, stores, and render adapters.
+ * @remarks 文件说明：文件职责：实现 client/store 中 contract 模块的职责，并向相邻模块提供可复用能力。；
+ * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
+ * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的 client/store 能力，
+ * 使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；
+ * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。；
+ * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。 */
 export interface ObservableSnapshot<T> {
-  /** Read the cached snapshot reference. */
+  /** Read the cached snapshot reference.
+   * @remarks 中文说明：功能说明：获取 Snapshot 相关流程；使用场景由所在模块及调用位置决定。；返回值：T；调用方应按声明类型处理，
+   * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 getSnapshot()，并按返回类型处理结果。 */
   getSnapshot(): T
   /**
    * Subscribe to snapshot invalidation.
    * @param fn - invalidation callback.
    * @returns unsubscribe function.
+   * @remarks 中文说明：功能说明：处理 subscribe 相关流程；使用场景由所在模块及调用位置决定。；参数说明：fn（() =>
+   * void）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：() => void；调用方应按声明类型处理，
+   * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 subscribe(fn)，并按返回类型处理结果。
    */
   subscribe(fn: () => void): () => void
 }
@@ -69,17 +80,28 @@ export interface StoreSpec<T, A extends ActionsDecl<T>> {
  */
 export interface StoreInstance<T, A extends ActionsDecl<T>> {
   readonly actions: BakedActions<T, A>
+  /**
+   * 功能说明：获取 Snapshot 相关流程；使用场景由所在模块及调用位置决定。
+   * @returns T；调用方应按声明类型处理，不应假定未声明的附加状态。
+   * @example 在完成前置校验后调用 getSnapshot()，并按返回类型处理结果。
+   */
   getSnapshot(): T
   /**
    * Subscribe to state changes (uSES subscribe side).
    * @param fn - change callback.
    * @returns unsubscribe.
+   * @remarks 中文说明：功能说明：处理 subscribe 相关流程；使用场景由所在模块及调用位置决定。；参数说明：fn（() =>
+   * void）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：() => void；调用方应按声明类型处理，
+   * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 subscribe(fn)，并按返回类型处理结果。
    */
   subscribe(fn: () => void): () => void
   /**
    * Drop this instance's persisted value (no-op for non-persist specs). The
    * framework calls it when the owning scope dies for good — a pruned session
    * must not leave orphaned storage keys behind.
+   * @remarks 中文说明：功能说明：处理 clearPersisted 相关流程；使用场景由所在模块及调用位置决定。；返回值：void；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 clearPersisted()，
+   * 并按返回类型处理结果。
    */
   clearPersisted(): void
 }
@@ -99,6 +121,10 @@ export interface StoreHandle<T, A extends ActionsDecl<T>> {
    * persist key so per-session instances persist independently (root-scope
    * instances omit it).
    * @returns a fresh instance seeded from `spec.init()`.
+   * @remarks 中文说明：功能说明：创建 create 相关流程；使用场景由所在模块及调用位置决定。；
+   * 参数说明：scopeKey（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：StoreInstance<T,
+   * A>；调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 create(scopeKey)，
+   * 并按返回类型处理结果。
    */
   create(scopeKey?: string): StoreInstance<T, A>
 }
