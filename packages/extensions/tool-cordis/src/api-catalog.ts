@@ -13,7 +13,14 @@
  */
 
 /* jscpd:ignore-start */
-/** One named parameter in a Service method or Event listener. */
+/** One named parameter in a Service method or Event listener.
+ * @remarks 文件说明：文件职责：实现 extensions/tool-cordis 中 api catalog 模块的职责，
+ * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
+ * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
+ * extensions/tool-cordis 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
+ * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
+ * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
+ * 最后结合相邻测试理解输入、输出与边界条件。 */
 export interface ApiParameter {
   /** Parameter name from the exact signature. */
   name: string
@@ -79,7 +86,9 @@ export interface TypeApiEntry {
   declaration: string
 }
 
-/** Every harness `ctx.<key>` service, sorted by key. */
+/** Every harness `ctx.<key>` service, sorted by key.
+ * @remarks 中文说明：常量说明：SERVICE_API 用于处理 SERVICE_API 相关数据，作用于当前作用域；初始化后不可重新赋值，
+ * 但对象内部是否可变仍由其类型决定。 */
 export const SERVICE_API: readonly ServiceApiEntry[] = [
   {
     key: 'agentDefaultModel',
@@ -2856,7 +2865,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
 ]
 
-/** Every harness event, sorted by name. */
+/** Every harness event, sorted by name.
+ * @remarks 中文说明：常量说明：EVENT_API 用于处理 EVENT_API 相关数据，作用于当前作用域；初始化后不可重新赋值，
+ * 但对象内部是否可变仍由其类型决定。 */
 export const EVENT_API: readonly EventApiEntry[] = [
   {
     name: 'agent-loop/config-start-failed',
@@ -3380,7 +3391,9 @@ export const EVENT_API: readonly EventApiEntry[] = [
   },
 ]
 
-/** Shapes of every exported type the Service and Event signatures reference (transitively), sorted by name. */
+/** Shapes of every exported type the Service and Event signatures reference (transitively), sorted by name.
+ * @remarks 中文说明：常量说明：TYPE_API 用于处理 TYPE_API 相关数据，作用于当前作用域；初始化后不可重新赋值，
+ * 但对象内部是否可变仍由其类型决定。 */
 export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AdapterRegistrationHandle',
@@ -6112,7 +6125,9 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
 ]
 
-/** The inherited `ctx` API (cordis core + loader/hmr/timer), in curated order. */
+/** The inherited `ctx` API (cordis core + loader/hmr/timer), in curated order.
+ * @remarks 中文说明：常量说明：INHERITED_CTX_API 用于处理 INHERITED_CTX_API 相关数据，
+ * 作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。 */
 export const INHERITED_CTX_API: readonly InheritedApiEntry[] = [
   { name: 'ctx.on / ctx.once', summary: 'Register an event listener (disposable).' },
   { name: 'ctx.emit / ctx.parallel / ctx.serial / ctx.bail / ctx.waterfall', summary: 'Dispatch an event (sync / awaited / first-bail / short-circuit chain).' },
@@ -6126,23 +6141,60 @@ export const INHERITED_CTX_API: readonly InheritedApiEntry[] = [
   { name: 'ctx.hmr', summary: 'The hot-module-reload watcher (present under the hmr plugin).' },
 ]
 
+/**
+ * 功能说明：处理 referencedTypeClosure 相关流程；使用场景由所在模块及调用位置决定。
+ * @param seeds （readonly string[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns TypeApiEntry[]；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 referencedTypeClosure(seeds)，并按返回类型处理结果。
+ */
 function referencedTypeClosure(seeds: readonly string[]): TypeApiEntry[] {
+  /**
+   * 常量说明：included 用于处理 included 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
   const included = new Set<string>()
+  /**
+   * 变量说明：frontier 用于处理 frontier 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
+   */
   let frontier = [...seeds]
   while (frontier.length > 0) {
+    /**
+     * 常量说明：next 用于处理 next 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+     */
     const next: string[] = []
+    /**
+     * 变量说明：entry 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+     */
     for (const entry of TYPE_API) {
       if (included.has(entry.name)) continue
+      /**
+       * 常量说明：pattern 用于处理 pattern 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+       */
       const pattern = new RegExp(`\\b${entry.name}\\b`)
+      /**
+       * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：text（由 TypeScript
+       * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+       * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(text)，并按返回类型处理结果。
+       */
       if (!frontier.some(text => pattern.test(text))) continue
       included.add(entry.name)
       next.push(entry.declaration)
     }
     frontier = next
   }
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：entry（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(entry)，并按返回类型处理结果。
+   */
   return TYPE_API.filter(entry => included.has(entry.name))
 }
 
+/**
+ * 功能说明：处理 contextProperty 相关流程；使用场景由所在模块及调用位置决定。
+ * @param key （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
+ * @returns string；调用方应按声明类型处理，不应假定未声明的附加状态。
+ * @example 在完成前置校验后调用 contextProperty(key)，并按返回类型处理结果。
+ */
 function contextProperty(key: string): string {
   return /^[A-Za-z_$][\w$]*$/.test(key) ? `ctx.${key}` : `ctx[${JSON.stringify(key)}]`
 }
@@ -6152,9 +6204,24 @@ function contextProperty(key: string): string {
  * @param key - exact Service key; omit it to list all Services and method signatures.
  * @param services - platform-specific visible Service entries.
  * @returns compact navigation data or one detailed Service with its referenced type closure.
+ * @remarks 中文说明：功能说明：处理 queryServiceApi 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：key（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数说明：services（readonly
+ * ServiceApiEntry[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：object；调用方应按声明类型处理，
+ * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 queryServiceApi(key, services)，
+ * 并按返回类型处理结果。
  */
 export function queryServiceApi(key?: string, services: readonly ServiceApiEntry[] = SERVICE_API): object {
   if (key === undefined) {
+    /**
+     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：service（由 TypeScript
+     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(service)，并按返回类型处理结果。
+     */
+    /**
+     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：method（由 TypeScript
+     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(method)，并按返回类型处理结果。
+     */
     return {
       mode: 'catalog',
       services: services.map(service => ({
@@ -6164,8 +6231,21 @@ export function queryServiceApi(key?: string, services: readonly ServiceApiEntry
       })),
     }
   }
+  /**
+   * 常量说明：service 用于处理 service 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：candidate（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(candidate)，并按返回类型处理结果。
+   */
   const service = services.find(candidate => candidate.key === key)
   if (service === undefined) throw new Error(`no catalogued Service named "${key}"`)
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：method（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(method)，并按返回类型处理结果。
+   */
   return {
     mode: 'service',
     service: {
@@ -6186,9 +6266,19 @@ export function queryServiceApi(key?: string, services: readonly ServiceApiEntry
  * @param name - exact Event name; omit it to list all Events and listener signatures.
  * @param events - platform-specific visible Event entries.
  * @returns compact navigation data or one detailed Event with its referenced type closure.
+ * @remarks 中文说明：功能说明：处理 queryEventApi 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：name（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数说明：events（readonly
+ * EventApiEntry[]）：提供需要处理或投影的事件数据；必须满足声明的类型及调用时序要求。；返回值：object；调用方应按声明类型处理，
+ * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 queryEventApi(name, events)，
+ * 并按返回类型处理结果。
  */
 export function queryEventApi(name?: string, events: readonly EventApiEntry[] = EVENT_API): object {
   if (name === undefined) {
+    /**
+     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：event（由 TypeScript
+     * 根据调用位置推断的类型）：提供需要处理或投影的事件数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(event)，并按返回类型处理结果。
+     */
     return {
       mode: 'catalog',
       events: events.map(event => ({
@@ -6199,6 +6289,14 @@ export function queryEventApi(name?: string, events: readonly EventApiEntry[] = 
       })),
     }
   }
+  /**
+   * 常量说明：event 用于处理 event 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+   */
+  /**
+   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：candidate（由 TypeScript
+   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
+   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(candidate)，并按返回类型处理结果。
+   */
   const event = events.find(candidate => candidate.name === name)
   if (event === undefined) throw new Error(`no catalogued Event named "${name}"`)
   return {
