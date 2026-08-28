@@ -38,8 +38,7 @@ afterEach(async () => {
 })
 
 /** Write a cordis.yml with one webserver row, then boot it through the real Loader. */
-/* 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-async function loadComposition(port = 0): Promise<Context> {
+async function loadComposition(port = 0, gzip = false): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-webserver-loader-'))
   /** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
   const configPath = join(root, 'cordis.yml')
@@ -48,6 +47,13 @@ async function loadComposition(port = 0): Promise<Context> {
     '  config:',
     "    host: '127.0.0.1'",
     `    port: ${String(port)}`,
+    ...(gzip
+      ? [
+        '    compression: gzip',
+        '    compressionLevel: 1',
+        '    compressionThresholdBytes: 16',
+      ]
+      : []),
     '',
   ].join('\n'))
 
@@ -75,11 +81,13 @@ async function loadComposition(port = 0): Promise<Context> {
 }
 
 /** GET (by default) one path against the running server; returns status plus a body prefix. */
-/* 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-async function request(port: number, path: string, init?: RequestInit): Promise<{ status: number; body: string }> {
-  /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
+async function request(
+  port: number,
+  path: string,
+  init?: RequestInit,
+): Promise<{ status: number; body: string; headers: Headers }> {
   const response = await fetch(`http://127.0.0.1:${String(port)}${path}`, init)
-  return { status: response.status, body: (await response.text()).slice(0, 80) }
+  return { status: response.status, body: (await response.text()).slice(0, 80), headers: response.headers }
 }
 
 /** Open one raw upgrade request and return after the handler writes its response. */
@@ -105,6 +113,98 @@ async function upgrade(port: number, path: string): Promise<ReturnType<typeof co
 }
 
 describe('real Loader composition', () => {
+  it('applies gzip only to eligible socket-backed HTTP responses', { timeout: 60_000 }, async () => {
+    expect(HttpServer.Config({ host: '127.0.0.1', port: 0 })).toEqual({
+      host: '127.0.0.1',
+      port: 0,
+      compression: 'none',
+      compressionLevel: 1,
+      compressionThresholdBytes: 1024,
+    })
+    expect(() => HttpServer.Config({
+      host: '127.0.0.1', port: 0, compressionLevel: 10,
+    })).toThrow()
+
+    const loaded = await loadComposition(0, true)
+    const server = loaded.webServer
+    const body = 'compressible response '.repeat(8)
+    server.register({
+      kind: 'exact',
+      path: '/text',
+      handler: (_req, res) => {
+        res.writeHead(200, {
+          'content-type': 'text/plain; charset=utf-8',
+          'content-length': String(Buffer.byteLength(body)),
+        })
+        res.end(body)
+      },
+    })
+    server.register({
+      kind: 'exact',
+      path: '/stream',
+      handler: (_req, res) => {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.write(body.slice(0, 40))
+        res.end(body.slice(40))
+      },
+    })
+    server.register({
+      kind: 'exact',
+      path: '/small',
+      handler: (_req, res) => {
+        res.writeHead(200, { 'content-type': 'text/plain', 'content-length': '5' })
+        res.end('small')
+      },
+    })
+    server.register({
+      kind: 'exact',
+      path: '/events',
+      handler: (_req, res) => {
+        res.writeHead(200, { 'content-type': 'text/event-stream' })
+        res.end(body)
+      },
+    })
+    server.register({
+      kind: 'exact',
+      path: '/archive',
+      handler: (_req, res) => {
+        res.writeHead(200, { 'content-type': 'application/gzip' })
+        res.end(body)
+      },
+    })
+    server.register({
+      kind: 'exact',
+      path: '/range',
+      handler: (_req, res) => {
+        res.writeHead(206, { 'content-type': 'text/plain', 'content-range': 'bytes 0-15/160' })
+        res.end(body.slice(0, 16))
+      },
+    })
+
+    const compressed = await request(server.port, '/text', { headers: { 'accept-encoding': 'br, gzip, deflate' } })
+    expect(compressed).toMatchObject({ status: 200, body: body.slice(0, 80) })
+    expect(compressed.headers.get('content-encoding')).toBe('gzip')
+    expect(compressed.headers.get('content-length')).toBeNull()
+    expect(compressed.headers.get('vary')).toBe('Accept-Encoding')
+    const streamed = await request(server.port, '/stream', { headers: { 'accept-encoding': 'gzip' } })
+    expect(streamed).toMatchObject({ body: body.slice(0, 80) })
+    expect(streamed.headers.get('content-encoding')).toBe('gzip')
+    expect((await request(server.port, '/small', { headers: { 'accept-encoding': 'gzip' } }))
+      .headers.get('content-encoding')).toBeNull()
+
+    const identity = await request(server.port, '/text', {
+      headers: { 'accept-encoding': 'gzip;q=0.5, identity;q=1' },
+    })
+    expect(identity.headers.get('content-encoding')).toBeNull()
+    expect(identity.headers.get('vary')).toBe('Accept-Encoding')
+    expect((await request(server.port, '/events', { headers: { 'accept-encoding': 'gzip' } }))
+      .headers.get('content-encoding')).toBeNull()
+    expect((await request(server.port, '/archive', { headers: { 'accept-encoding': 'gzip' } }))
+      .headers.get('content-encoding')).toBeNull()
+    expect((await request(server.port, '/range', { headers: { 'accept-encoding': 'gzip' } }))
+      .headers.get('content-encoding')).toBeNull()
+  })
+
   // Real-Loader composition resolves workspace packages through tsx at test
   // time; first resolution after the host/client program split is slow enough
   // to trip the default 5s budget on cold caches.
@@ -242,6 +342,7 @@ describe('real Loader composition', () => {
       table.push(
         { kind: 'script', placement: 'head', text: 'window.__Q__=1' },
         { kind: 'script-src', placement: 'head', src: '/plugins/a.js?rev="1"&x=<y>' },
+        { kind: 'script-preload', src: '/plugins/b.js?rev="2"&x=<z>' },
         { kind: 'global', name: '__DSH_BOOT__', value: { rev: '</script><b>' } },
         { kind: 'style', text: 'body{margin:0}' },
         { kind: 'html', placement: 'head', html: '<meta name="probe">' },
@@ -258,6 +359,7 @@ describe('real Loader composition', () => {
       '<head>',
       '<script>window.__Q__=1</script>',
       '<script src="/plugins/a.js?rev=&quot;1&quot;&amp;x=&lt;y&gt;"></script>',
+      '<link rel="preload" as="script" href="/plugins/b.js?rev=&quot;2&quot;&amp;x=&lt;z&gt;">',
       'globalThis["__DSH_BOOT__"] = {"rev":"\\u003c/script>\\u003cb>"}',
       '<style>body{margin:0}</style>',
       '<meta name="probe">',
@@ -278,11 +380,13 @@ describe('real Loader composition', () => {
     expect(server.renderIndex('<head></head><body></body>')).toContain('window.__Q__=2')
     untap()
 
-    // Tag-less fragments: head rows prepend, body rows append.
+    // Tag-less fragments: head rows prepend, body rows append, and the
+    // boot-readiness tail lands after the last body row.
     expect(renderIndexInjections('<main>x</main>', [
       { kind: 'script', placement: 'head', text: 'H' },
       { kind: 'script', placement: 'body', text: 'B' },
-    ])).toBe('<script>H</script><main>x</main><script>B</script>')
+    ])).toBe('<script>H</script><main>x</main><script>B</script>'
+      + '<script>(globalThis.__DSH_BOOT_READY__ ??= Promise.withResolvers()).resolve()</script>')
   })
 
   it('fails the fiber when the port is already taken (fail-loud at activation)', { timeout: 60_000 }, async () => {

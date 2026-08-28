@@ -38,15 +38,15 @@ try {
   const document = read('docs/i18n/translation-prompt.md')
   /** 中文说明：变量 terminology 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const terminology = read('docs/i18n/terminology.md')
-  /** 中文说明：变量 examplePaths 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  // Synthetic reviewed examples, not live documents: editing a paired document must not
+  // churn the prompt snapshot. Each pair mirrors the other side's structure and uses
+  // terminology-table forms.
   const examplePaths = [
-    ['README.md', 'README.zh.md'],
-    ['docs/development.md', 'docs/development.zh.md'],
-    ['docs/i18n/README.md', 'docs/i18n/README.zh.md'],
-    ['docs/i18n/translation-rules.md', 'docs/i18n/translation-rules.zh.md'],
+    ['scripts/fixtures/translation-prompt/examples/product.md', 'scripts/fixtures/translation-prompt/examples/product.zh.md'],
+    ['scripts/fixtures/translation-prompt/examples/rules.md', 'scripts/fixtures/translation-prompt/examples/rules.zh.md'],
     [
-      '.agents/notes/implemented/process/2026-07-02-bilingual-docs-and-pairing-gate.md',
-      '.agents/notes/implemented/process/2026-07-02-bilingual-docs-and-pairing-gate.zh.md',
+      'scripts/fixtures/translation-prompt/examples/agent-note.md',
+      'scripts/fixtures/translation-prompt/examples/agent-note.zh.md',
     ],
   ] as const
   /** 中文说明：函数值 examples 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */

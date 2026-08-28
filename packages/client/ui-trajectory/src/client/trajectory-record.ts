@@ -16,7 +16,9 @@
 /** Shared trajectory record data and formatting contracts. */
 
 import type { HTMLAttributes } from 'react'
-import type { ConversationPromptSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { ConversationPromptSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { TrajectoryTranslate } from './locales.ts'
 
 /** Closed set of trajectory record kinds. */
 // 轨迹记录种类的封闭集合：系统 / 用户 / 上下文 / 压缩 / 消息 / 工具 / 子工具。
@@ -45,8 +47,7 @@ export interface AssistantMetricDetail {
 export interface TrajectorySourceBlock {
   type: string
   content: string
-  imageSrc?: string
-  imageAlt?: string
+  attachment?: ImageAttachmentRef
   callId?: string
   toolName?: string
 }
@@ -169,29 +170,29 @@ export function trajectoryRecordId(cell: TrajectoryCellProps): string {
 /**
  * Format a duration in milliseconds with thousands separators.
  * @param milliseconds - Duration in milliseconds, or `null` when absent.
+ * @param t - Trajectory locale translator.
  * @returns `—` when unknown, otherwise an integer-millisecond label.
  */
-/*
- * 格式化毫秒时长（带千分位）。未知（null 或非有限数）时返回长破折号。
- * @param milliseconds - 毫秒时长；缺失时为 null。
- * @returns 未知时返回 '—'，否则返回整数毫秒标签。
- */
-export function formatDurationMillis(milliseconds: number | null): string {
+export function formatDurationMillis(
+  milliseconds: number | null,
+  t: TrajectoryTranslate,
+): string {
   if (milliseconds === null || !Number.isFinite(milliseconds)) return '—'
   const integer = String(Math.round(milliseconds))
-  return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} ms`
+  return t('unit.milliseconds', {
+    value: integer.replace(/\B(?=(\d{3})+(?!\d))/g, ','),
+  })
 }
 
 /**
  * Format an elapsed duration given in seconds as a millisecond label.
  * @param seconds - Duration seconds, or `null` when absent.
+ * @param t - Trajectory locale translator.
  * @returns `—` when unknown, otherwise an integer-millisecond label.
  */
-/*
- * 把以秒给出的时长格式化成毫秒标签（转成毫秒后复用 formatDurationMillis）。
- * @param seconds - 时长秒数；缺失时为 null。
- * @returns 未知时返回 '—'，否则返回整数毫秒标签。
- */
-export function formatElapsedSeconds(seconds: number | null): string {
-  return formatDurationMillis(seconds === null ? null : seconds * 1000)
+export function formatElapsedSeconds(
+  seconds: number | null,
+  t: TrajectoryTranslate,
+): string {
+  return formatDurationMillis(seconds === null ? null : seconds * 1000, t)
 }

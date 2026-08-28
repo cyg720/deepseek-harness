@@ -11,7 +11,45 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
 import type { TsdownBundle } from 'tsdown'
-import { discoverLibraryDirs, discoverPluginDirs, watchClientPlugins } from './dev-web.ts'
+import { writeClientBuildRecord } from './client-build-environment.ts'
+import {
+  devWebBuildEnvironment,
+  discoverLibraryDirs,
+  discoverPluginDirs,
+  watchClientPlugins,
+} from './dev-web.ts'
+
+it('samples one local environment at startup without validating watcher outputs', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-dev-web-environment-'))
+  try {
+    await mkdir(join(root, 'apps/web/dist'), { recursive: true })
+    await mkdir(join(root, 'packages/client/example/lib'), { recursive: true })
+    await writeFile(join(root, 'package.json'), JSON.stringify({ version: '1.2.3' }))
+    await writeFile(join(root, 'apps/web/dist/index.html'), '<main></main>')
+    await writeFile(join(root, 'packages/client/example/lib/client.js'), 'module.exports = {}\n')
+    writeClientBuildRecord(root, {
+      DSH_CLIENT_BUILD_PROFILE: 'official',
+      DSH_CLIENT_COMMIT_HASH: 'fffffff',
+      DSH_CLIENT_TITLE: 'DeepSeek Harness',
+      DSH_CLIENT_VERSION: '1.2.2',
+    })
+    await writeFile(join(root, 'packages/client/example/lib/client.js'), 'module.exports = { changed: true }\n')
+
+    expect(devWebBuildEnvironment(root, {
+      PATH: '/bin',
+      DSH_BUILD_CLIENT_PROFILE: 'official',
+      DSH_CLIENT_COMMIT_HASH: 'abc1234',
+      DSH_CLIENT_EXTRA: 'launch-value',
+    })).toEqual({
+      PATH: '/bin',
+      DSH_CLIENT_COMMIT_HASH: 'abc1234',
+      DSH_CLIENT_EXTRA: 'launch-value',
+      DSH_CLIENT_VERSION: '1.2.3',
+    })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
 
 it('discovers dsh.client packages with sibling roles', async () => {
   /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

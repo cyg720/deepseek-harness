@@ -25,9 +25,7 @@ import {
 } from './scaffold.ts'
 import { ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
-/** 其他提供方引导场景的快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/onboarding-usable-provider', import.meta.url))
-/** 关闭官方配置卡后模型设置页的预期快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/onboarding-usable-provider', import.meta.url))
 const DISMISSED_EXPECTED = join(SNAPSHOT_DIR, 'dismissed.expected.md')
 /** 当前快照模式。 */
 const MODE = webSnapshotMode()
@@ -50,7 +48,7 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     // The scenario asserts the shipped Chinese copy, so the browser asks for it.
     page = await browser.newPage({ viewport: { width: 1440, height: 960 }, locale: ZH_BROWSER_LOCALE })
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 
@@ -69,8 +67,8 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     await page.getByRole('button', { name: '设置', exact: true }).click()
     const settings = page.getByRole('dialog', { name: '设置' })
     await settings.waitFor({ timeout: 10_000 })
-    // The onboarding step no longer navigates into Settings on dismissal, so
-    // enter the Models section explicitly before exercising its normal cards.
+    // Dismissing the onboarding step leaves Settings closed, so enter the
+    // Models section explicitly before exercising its normal cards.
     await settings.getByRole('button', { name: '模型' }).click()
     const setupKey = settings.getByRole('textbox', { name: 'API 密钥', exact: true })
     await setupKey.waitFor({ timeout: 10_000 })

@@ -28,7 +28,7 @@ export interface RiskConfirmationProps {
   acknowledgeLabel: string
   /** 取消按钮文案。 */
   cancelLabel: string
-  /** 确认按钮文案。 */
+  closeLabel: string
   confirmLabel: string
   /** 调用方持有的复选框当前值。 */
   acknowledged: boolean
@@ -53,6 +53,7 @@ export function RiskConfirmation({
   description,
   acknowledgeLabel,
   cancelLabel,
+  closeLabel,
   confirmLabel,
   acknowledged,
   disabled = false,
@@ -65,6 +66,7 @@ export function RiskConfirmation({
       open={open}
       onClose={onCancel}
       title={title}
+      closeLabel={closeLabel}
       className={css.confirmation ?? ''}
       contentClassName={css.confirmationContent ?? ''}
       footer={(

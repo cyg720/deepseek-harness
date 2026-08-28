@@ -10,7 +10,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import { createSnapshotStore, type SessionListState, type WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionPendingInteractionSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { EnterBehaviorRow } from '../src/client/settings/EnterBehaviorRow.tsx'
 import type { EnterBehaviorRowProps } from '../src/client/settings/EnterBehaviorRow.tsx'
@@ -31,13 +34,15 @@ function emptySessions() {
 
 /** 中文说明：函数 emptyWorkspaces 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function emptyWorkspaces() {
-  return bindSnapshotSelector(createSnapshotStore<WorkspaceListState>({
+  return bindSnapshotSelector(createSnapshotStore<WorkspaceSnapshot>({
     items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-    baselinesReady: true, recentWorkspaceId: undefined,
   }))
 }
 
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+function noPendingInteraction() {
+  return bindSnapshotSelector(createSnapshotStore<SessionPendingInteractionSnapshot>(new Map()))
+}
+
 function mount() {
   /** 中文说明：测试局部值 policy，取值由紧邻初始化决定。 */
   const policy = new ComposerSubmissionPolicy()
@@ -46,6 +51,7 @@ function mount() {
   /** 中文说明：测试局部值 props，取值由紧邻初始化决定。 */
   const props: EnterBehaviorRowProps = {
     useSessions: emptySessions(),
+    useSessionPendingInteraction: noPendingInteraction(),
     useWorkspaces: emptyWorkspaces(),
     useBusyEnter: bindSnapshotSelector(policy.busyEnter),
     setBusyEnter,

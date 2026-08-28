@@ -7,13 +7,11 @@
  * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
  */
 import { useEffect, useLayoutEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import css from './Toast.module.css'
 
-/** Full-opacity hold before the fade starts. Must agree with the stylesheet's
- * toast-fade delay (Toast.module.css) or the banner unmounts mid-fade. */
-/* 中文说明：组件局部值 HOLD_MS，由紧邻初始化决定。 */
+/** Full-opacity hold before the fade starts, when the owner names none. */
 const HOLD_MS = 3000
 /** Fade duration. Must agree with the stylesheet's toast-fade duration. */
 /* 中文说明：组件局部值 FADE_MS，由紧邻初始化决定。 */
@@ -27,26 +25,32 @@ const FADE_MS = 1000
  * transformed or filtered ancestor cannot trap the fixed banner in that
  * ancestor's box.
  *
+ * The hold is the owner's to set, because how long a banner has to stay
+ * depends on how much there is to read: a one-line limit lands in the default
+ * window, while a failure that names what broke does not. One value drives
+ * both the unmount timer and the stylesheet's fade delay — the stylesheet
+ * reads it as a custom property — so the two can no longer disagree and leave
+ * the banner unmounting mid-fade.
  * @param props.text - resolved banner copy; the owner passes localized text.
  * @param props.icon - optional leading glyph (e.g. a warning icon).
+ * @param props.holdMs - full-opacity hold before the fade; defaults to 3000.
  * @param props.anchor - optional element whose horizontal center the banner
  * follows (e.g. the composer card, so the banner centers over the chat column
  * rather than the whole window); omitted, it centers on the viewport.
  * @param props.onDone - called once the fade completes; unmount the toast here.
  * @returns the floating banner.
  */
-/* 中文说明：函数 Toast 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-export function Toast({ text, icon, anchor, onDone }: {
+export function Toast({ text, icon, anchor, holdMs = HOLD_MS, onDone }: {
   text: string
   icon?: ReactNode
   anchor?: HTMLElement | null
+  holdMs?: number
   onDone: () => void
 }) {
   useEffect(() => {
-    /** 中文说明：组件局部值 timer，由紧邻初始化决定。 */
-    const timer = setTimeout(onDone, HOLD_MS + FADE_MS)
+    const timer = setTimeout(onDone, holdMs + FADE_MS)
     return () => { clearTimeout(timer) }
-  }, [onDone])
+  }, [holdMs, onDone])
   // Anchor-centered placement re-measures on window resizes; the banner lives
   // four seconds, so sub-window layout drift within that span stays out of
   // scope.
@@ -65,7 +69,14 @@ export function Toast({ text, icon, anchor, onDone }: {
     return () => { window.removeEventListener('resize', measure) }
   }, [anchor])
   return createPortal(
-    <div className={css.toast} role="alert" style={left === null ? undefined : { left }}>
+    <div
+      className={css.toast}
+      role="alert"
+      style={{
+        ...left === null ? {} : { left },
+        '--dsh-toast-hold': `${String(holdMs)}ms`,
+      } as CSSProperties}
+    >
       {icon !== undefined && <span className={css.icon} aria-hidden>{icon}</span>}
       <span className={css.text}>{text}</span>
     </div>,

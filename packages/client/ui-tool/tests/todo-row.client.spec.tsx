@@ -10,7 +10,8 @@
 /** todo_write atomic Tool presentation and its plan-summary model. */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { TodoItem, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
+import type { TodoItem } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { TodoRow, todoToolview } from '../src/client/tool/toolviews/todo-row.tsx'
@@ -74,7 +75,7 @@ describe('planSummary', () => {
 const resultNode = (argsRaw: string, over?: Partial<ToolResultNode>): ToolResultNode => ({
   kind: 'tool-result', seq: 10, time: 2_000, callTime: 1_000, callId: 'c1',
   call: { name: 'todo_write', argsRaw },
-  content: [], isError: false, callView: null, resultView: null, subCalls: [], ...over,
+  content: [], isError: false, subCalls: [], ...over,
 })
 
 /** 中文说明：函数 rowProps 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
@@ -112,7 +113,7 @@ describe('TodoRow', () => {
   it('omits the active clause when no item is in progress and reads running-call args', () => {
     /** 中文说明：测试局部值 args，由紧邻初始化决定。 */
     const args = JSON.stringify({ todos: [{ content: 'x', status: 'completed' }] })
-    render(<TodoRow {...rowProps({ callId: 'c1', name: 'todo_write', argsRaw: args, turn: 1, step: 1, time: 1_000, callView: null })} />)
+    render(<TodoRow {...rowProps({ callId: 'c1', name: 'todo_write', argsRaw: args, turn: 1, step: 1, time: 1_000, subCalls: [] })} />)
     expect(screen.getByText('1/1 已完成')).toBeTruthy()
   })
 
@@ -128,8 +129,7 @@ describe('TodoRow', () => {
   it('keeps non-ok execution states visible through the shared row states', () => {
     /** 中文说明：测试局部值 args，由紧邻初始化决定。 */
     const args = JSON.stringify({ todos: LIST })
-    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
-    const running = render(<TodoRow {...rowProps({ callId: 'c1', name: 'todo_write', argsRaw: args, turn: 1, step: 1, time: 1_000, callView: null, subCalls: [] })} />)
+    const running = render(<TodoRow {...rowProps({ callId: 'c1', name: 'todo_write', argsRaw: args, turn: 1, step: 1, time: 1_000, subCalls: [] })} />)
     expect(running.container.querySelector('[data-state="running"]')).not.toBeNull()
     expect(running.container.querySelector('[data-state="running"] svg')).not.toBeNull()
     running.unmount()

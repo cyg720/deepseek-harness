@@ -23,7 +23,7 @@
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type {
   AssistantMessage,
-  CallId,
+  ToolCallId,
   LlmCallConfig,
   LlmCallConfigAdapterDefaults,
   LlmFailure,
@@ -75,13 +75,13 @@ export function SessionId(id: string): SessionId {
  * wrong read). Only structural changes reach that bar: the header shape, the
  * {@link SessionEvent} envelope, core event semantics, or the surface
  * mechanism (the {@link SurfaceEventType} set and {@link SurfaceOp} variants).
- * Adding an ordinary event type does not bump — the per-event
- * {@link SessionEvent.ignorable} guard covers vocabulary growth instead. When
- * in doubt, bump: a near-identity upgrade step is almost free, a missed bump
- * makes older runtimes read new logs wrong silently. The full mechanism
+ * Adding an ordinary event type does not bump: the generated known-event guard
+ * makes older runtimes refuse logs containing a type they do not understand.
+ * When in doubt, bump: a near-identity upgrade step is almost free, a missed
+ * bump makes older runtimes read new logs wrong silently. The full mechanism
  * (upgrade-step chain, in-memory view conversion, migrate-on-continue) is
- * recorded in the session-log-version-mechanism Agent Note
- * (`.agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.md`).
+ * recorded in the fail-closed-session-event-vocabulary Agent Note
+ * (`.agents/notes/implemented/simplification/2026-08-25-fail-closed-session-event-vocabulary.md`).
  */
 /*
  * 会话日志磁盘格式的版本号：写入每个新建的 {@link SessionHeader}，所有持久化后端加载时校验它。
@@ -260,30 +260,6 @@ export interface TurnEndReasonMap {
 export type TurnEndReason = TurnEndReasonMap[keyof TurnEndReasonMap]
 
 /**
- * One entry in an agent's todo list — the unit of the `todo/write`
- * {@link SessionEventMap} event's whole-list snapshot.
- *
- * Deliberately minimal: a human-readable `content` line and a three-state
- * `status`. No id, priority, or `activeForm` — the list is replaced wholesale
- * on every write (last-write-wins), so entries need no stable identity. The
- * three statuses describe the complete portable lifecycle needed by model and
- * UI consumers.
- */
-/*
- * agent 待办清单中的一项——todo/write 事件整表快照的基本单元。
- * 刻意保持最小：一行人类可读的 content 加三态 status。没有 id、优先级或 activeForm——
- * 因为每次写入都是整表替换（最后写入者胜），条目无需稳定身份。
- */
-export interface TodoItem {
-  /** What this task is — a short imperative line shown in the UI. */
-  /* 这项任务是什么——展示在界面上的一句简短祈使句。 */
-  content: string
-  /** Lifecycle state. `in_progress` marks a task being worked now; parallel work may mark several. */
-  /* 生命周期状态：pending 待办 / in_progress 进行中（并行任务可同时多个）/ completed 已完成。 */
-  status: 'pending' | 'in_progress' | 'completed'
-}
-
-/**
  * Logged request state outside derived history: call config, system prompt, and
  * tools. The latest full `request/header` snapshot reconstructs it; canonical
  * empty optional fields are absent.
@@ -326,14 +302,11 @@ export interface RequestContext {
  * Why a `request/header` snapshot was appended: `'initial'` — the log's first
  * header (a new conversation); `'resume'` — a loop instance's first request
  * over a log that already has header events (process restart, fork seed);
- * `'change'` — a later request used a different header.
+ * `'change'` — a later request used a different header, with `startsSeries`
+ * preserving a coincident series boundary; `'series'` — an unchanged header
+ * began an explicitly distinct message series or followed a surface replacement.
  */
-/*
- * 为什么追加了一条 request/header 快照：'initial' 表示日志第一条头部（新对话）；
- * 'resume' 表示循环实例在一个已有头部事件的日志上发起首次请求（进程重启、fork 种子）；
- * 'change' 表示后续某次请求使用了不同的头部。
- */
-export type RequestHeaderReason = 'initial' | 'resume' | 'change'
+export type RequestHeaderReason = 'initial' | 'resume' | 'change' | 'series'
 
 /**
  * The merge-extensible, append-only source of truth for an agent interaction.
@@ -416,8 +389,7 @@ export interface SessionEventMap {
    * JSON string exactly as the model produced it (unparsed). `callId` pairs the
    * call with its `tool/result`.
    */
-  /* 模型请求一次工具调用：name 加上模型原始产出的 arguments JSON 字符串（不解析）；callId 用于与对应的 tool/result 配对。 */
-  'tool/call': { turn: number; step: number; callId: CallId; name: string; arguments: string }
+  'tool/call': { turn: number; step: number; callId: ToolCallId; name: string; arguments: string }
   /**
    * A completed tool call's model-facing result, optional internal failure
    * identity, and optional tool-private `meta` presentation payload. `meta` is
@@ -443,15 +415,16 @@ export interface SessionEventMap {
     error?: { name: string; code: string }
     meta?: JsonValue
   }
-  /** Whole-list snapshot; latest write wins on replay. Log-only UI state; never derived history. */
-  /* 整张待办清单的快照；重放时最新一次写入生效。只用于日志/UI 状态，绝不进入派生历史。 */
-  'todo/write': { todos: TodoItem[] }
   /**
    * Full header for the next request, appended inside its step before dispatch.
    * It is log-only; the latest snapshot reconstructs the request header.
    */
-  /* 下一次请求的完整头部，在其 step 内、派发之前追加。仅供日志使用；最新一份快照即重建结果。 */
-  'request/header': { header: EpochHeader; reason: RequestHeaderReason }
+  'request/header': {
+    header: EpochHeader
+    reason: RequestHeaderReason
+    /** A changed header also begins a distinct model-message series. */
+    startsSeries?: true
+  }
   /**
    * Route metadata for the next request, logged only when the route or capacity
    * changes. It does not participate in request reconstruction or header equality.
@@ -599,23 +572,6 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
     time: number
     // 事件载荷，形状由 SessionEventMap 中该类型的成员决定。
     data: SessionEventMap[K]
-    /**
-     * Marks an event a reader may safely skip when it does not recognize
-     * `type`. Absent means required: a reader meeting an unrecognized type
-     * without this marker MUST refuse to reconstruct the session instead of
-     * silently dropping the event, because an unrecognized required event may
-     * change how the rest of the log is interpreted. A writer sets `true` only
-     * on purely informational records whose loss cannot affect reconstruction;
-     * defaulting to required means a forgotten marker over-refuses (an
-     * inconvenience) rather than silently resuming a gutted session.
-     */
-    /*
-     * 标记“读者不认识该 type 时可以安全跳过”。缺省即必需：读到不认识的必需事件必须拒绝重建会话，
-     * 而不是悄悄丢弃——因为不认识的必需事件可能改变日志其余部分的解读方式。写方只在纯资讯性记录上
-     * 设 true（丢失它不可能影响重建）。默认必需意味着漏写标记只会导致“过度拒绝”（麻烦一点），
-     * 而不是静默地续读一个被掏空的会话。
-     */
-    ignorable?: true
   } & (K extends SurfaceEventType ? {
     /**
      * Seq numbers of earlier events that this event cites as sources

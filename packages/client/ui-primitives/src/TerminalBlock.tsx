@@ -1,18 +1,3 @@
-// TerminalBlock: the terminal surface for a shell command and its output —
-// prompt line (run-state dot + shortened cwd + command), ANSI-colored output,
-// settled exit status, and a copy control for the raw output. Output never soft-wraps:
-// column-aligned output (ls, tables, box drawing) keeps its alignment and
-// scrolls horizontally instead of folding. Colors resolve through --dsw-*
-// tokens; ANSI parsing lives in ansi.ts.
-/**
- * 文件职责：实现工具结果相关的 TerminalBlock 基础组件。
- * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
- * 产品维度：为上层产品界面提供一致的工具结果展示。
- * 逻辑维度：接收属性，派生展示结构并处理局部交互。
- * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
- * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
- */
-
 import { useCallback, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { parseAnsiLines, type AnsiLine } from './ansi.ts'
@@ -22,19 +7,12 @@ import { Pill } from './Pill.tsx'
 import { StateDot, type StateDotState } from './StateDot.tsx'
 import css from './TerminalBlock.module.css'
 
-/**
- * Output lines shown before the height cap collapses the middle. Matches the
- * TUI transcript's default tool-output budget so both front ends cut a long
- * command's output at the same place.
- */
-/* 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
+/** Output lines shown before the height cap collapses the middle. */
 export const DEFAULT_TERMINAL_MAX_LINES = 16
 
 /**
  * Display copy for the terminal surface; the owner passes localized labels
- * (this package is cordis-free, so copy arrives via props). Every field
- * defaults to the current built-in value, so existing consumers render
- * unchanged.
+ * (this package is cordis-free, so copy arrives via props).
  */
 /* 中文说明：类型或类 TerminalBlockLabels 约束基础组件的数据或职责。 */
 export interface TerminalBlockLabels {
@@ -64,23 +42,6 @@ export interface TerminalBlockLabels {
   expand: (hidden: number) => string
 }
 
-/** 中文说明：组件局部值 DEFAULT_LABELS，由紧邻初始化决定。 */
-const DEFAULT_LABELS: TerminalBlockLabels = {
-  signal: signal => `信号 ${signal}`,
-  exitCode: exitCode => `退出码 ${exitCode}`,
-  running: '运行中',
-  failed: '失败',
-  done: '已完成',
-  copy: '复制',
-  copied: '复制成功',
-  noOutput: '无输出',
-  collapseAria: '收起输出',
-  collapse: '收起',
-  expandAria: hidden => `展开其余 ${hidden} 行输出`,
-  expand: hidden => `… 其余 ${hidden} 行`,
-}
-
-/** 中文说明：类型或类 TerminalBlockProps 约束基础组件的数据或职责。 */
 export interface TerminalBlockProps {
   /** The command line, rendered verbatim after the prompt label. */
   command: string
@@ -100,8 +61,8 @@ export interface TerminalBlockProps {
   maxLines?: number | undefined
   /** Extra class merged onto the wrapper (callers position; this component draws). */
   className?: string | undefined
-  /** Localized display copy; omitted fields keep the built-in defaults. */
-  labels?: Partial<TerminalBlockLabels> | undefined
+  /** Localized display copy supplied by the owning render site. */
+  labels: TerminalBlockLabels
 }
 
 /**
@@ -202,12 +163,7 @@ export function TerminalBlock({
   className,
   labels,
 }: TerminalBlockProps) {
-  /** 中文说明：组件局部值 copy，由紧邻初始化决定。 */
-  const copy = useMemo<TerminalBlockLabels>(
-    () => (labels === undefined ? DEFAULT_LABELS : { ...DEFAULT_LABELS, ...labels }),
-    [labels],
-  )
-  /** 中文说明：组件局部值 text，由紧邻初始化决定。 */
+  const copy = labels
   const text = output ?? ''
   // A command's output ends with a newline; that terminator is not an extra
   // blank line to draw or to count against the height cap. The check runs on the

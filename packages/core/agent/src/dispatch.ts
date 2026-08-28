@@ -21,7 +21,7 @@ import type { Context, Events } from '@deepseek-ai/cordis'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
 import type { Scoped } from '@deepseek-ai/dsh-scope'
 import type { AssembleContext } from '@deepseek-ai/dsh-system-prompt'
-import type { Agent } from './runtime-types.ts'
+import type { Agent } from './types.ts'
 
 /** Extract the parameter tuple from an event handler type (its `this` is not part of the tuple). */
 // 类型助手：取事件处理函数的参数元组（其 this 参数不计入元组）。

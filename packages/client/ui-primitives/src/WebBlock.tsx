@@ -1,34 +1,5 @@
-// WebBlock: the surface for a completed web retrieval. One component draws both
-// kinds of the `web` render intent, discriminated by `kind`: a `search` shows an
-// optional provider answer above a citation list of sources (each a safe
-// external link labelled by its title, or its hostname when the provider gave
-// none, with the snippet and publication date below it), and a `fetch` shows a
-// compact retrieval summary (the linked final URL and its HTTP status). Both
-// mark a capped retrieval. Every link is a same-origin-safe external anchor:
-// only http(s) URLs become anchors (target/rel set) — the http(s) subset of the
-// allowlist MarkdownText applies to untrusted assistant-authored links (it also
-// permits mailto, excluded here); an unparseable or non-http URL renders as
-// plain text. Geometry, radius, and fonts mirror CodeBlock/TerminalBlock so a
-// web card reads as one family with them; the whole source list renders inside a
-// fixed-height scroll container (its `.sources` max-height), so a long list
-// scrolls in place rather than growing the card — and that container's
-// `padding-left` must stay wide enough for the widest `<li>` marker, since a
-// scroll container clips inline-start overflow irrecoverably. The card draws every source the
-// view carries: the tool already cut the list to its source cap, and `truncated`
-// reports that cut. A content-only transform downstream of the tool — spill-policy
-// replacing an oversized result's text while leaving its presentationMeta whole —
-// can still narrow what the model reads below this list.
-/**
- * 文件职责：实现工具结果相关的 WebBlock 基础组件。
- * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
- * 产品维度：为上层产品界面提供一致的工具结果展示。
- * 逻辑维度：接收属性，派生展示结构并处理局部交互。
- * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
- * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
- */
-
 import clsx from 'clsx'
-import { MarkdownText } from './markdown/MarkdownText.tsx'
+import { MarkdownText, type MarkdownLabels } from './markdown/MarkdownText.tsx'
 import css from './WebBlock.module.css'
 
 /**
@@ -52,6 +23,8 @@ export interface WebSourceView {
 /* 中文说明：类型或类 WebSearchBlockProps 约束基础组件的数据或职责。 */
 export interface WebSearchBlockProps {
   kind: 'search'
+  /** Localized chrome supplied by the owning render site. */
+  labels: WebBlockLabels
   /** The provider-generated answer, rendered as markdown above the sources. */
   answer?: string | undefined
   /** The cited sources, in provider order. */
@@ -66,6 +39,8 @@ export interface WebSearchBlockProps {
 /* 中文说明：类型或类 WebFetchBlockProps 约束基础组件的数据或职责。 */
 export interface WebFetchBlockProps {
   kind: 'fetch'
+  /** Localized chrome supplied by the owning render site. */
+  labels: WebBlockLabels
   /** The final URL after allowed redirects; becomes a safe external link when http(s). */
   url: string
   /** HTTP status code of the fetched response. */
@@ -79,6 +54,15 @@ export interface WebFetchBlockProps {
 /** A completed web retrieval card, discriminated by `kind`. */
 /* 中文说明：类型或类 WebBlockProps 约束基础组件的数据或职责。 */
 export type WebBlockProps = WebSearchBlockProps | WebFetchBlockProps
+
+/** Localized chrome for {@link WebBlock}. */
+export interface WebBlockLabels {
+  noResults: string
+  sourcesTruncated: string
+  http: string
+  contentTruncated: string
+  markdown: MarkdownLabels
+}
 
 /**
  * The URL to link to, or undefined when the URL must render as plain text. Only
@@ -172,8 +156,7 @@ function SourceItem({ source, ordinal }: { source: WebSourceView; ordinal: numbe
  * @param props - see {@link WebSearchBlockProps}.
  * @returns the search card element.
  */
-/* 中文说明：函数 WebSearchBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function WebSearchBlock({ answer, sources, truncated, className }: WebSearchBlockProps) {
+function WebSearchBlock({ answer, sources, truncated, labels, className }: WebSearchBlockProps) {
   // A provider may legitimately return no answer and no sources; the chat WebRow
   // does not show the raw result content, so without this the user would see an
   // empty card. Mirror the backend's `No results found.` render text.
@@ -182,16 +165,16 @@ function WebSearchBlock({ answer, sources, truncated, className }: WebSearchBloc
   return (
     <div className={clsx(css.block, className)} data-web="search">
       {answer !== undefined && answer !== '' && (
-        <div className={css.answer}><MarkdownText text={answer} /></div>
+        <div className={css.answer}><MarkdownText text={answer} labels={labels.markdown} /></div>
       )}
       {empty ? (
-        <div className={css.empty}>未找到结果</div>
+        <div className={css.empty}>{labels.noResults}</div>
       ) : (
         <ol className={css.sources}>
           {sources.map((source, index) => <SourceItem key={index} source={source} ordinal={index + 1} />)}
         </ol>
       )}
-      {truncated && <div className={css.truncated}>来源列表已截断</div>}
+      {truncated && <div className={css.truncated}>{labels.sourcesTruncated}</div>}
     </div>
   )
 }
@@ -201,14 +184,13 @@ function WebSearchBlock({ answer, sources, truncated, className }: WebSearchBloc
  * @param props - see {@link WebFetchBlockProps}.
  * @returns the fetch card element.
  */
-/* 中文说明：函数 WebFetchBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function WebFetchBlock({ url, statusCode, truncated, className }: WebFetchBlockProps) {
+function WebFetchBlock({ url, statusCode, truncated, labels, className }: WebFetchBlockProps) {
   return (
     <div className={clsx(css.block, css.fetch, className)} data-web="fetch">
       <SafeLink url={url} label={url} className={css.fetchUrl} />
       <div className={css.fetchMeta}>
-        <span className={css.status}>HTTP {statusCode}</span>
-        {truncated && <span className={css.truncated}>内容已截断</span>}
+        <span className={css.status}>{labels.http} {statusCode}</span>
+        {truncated && <span className={css.truncated}>{labels.contentTruncated}</span>}
       </div>
     </div>
   )

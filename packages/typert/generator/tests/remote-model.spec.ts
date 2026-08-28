@@ -33,6 +33,7 @@ interface RuntimeSchema {
 /** 中文说明：interface RuntimeDescriptor 定义本测试所需的数据或行为，用于表达Typert 类型系统场景。 */
 interface RuntimeDescriptor {
   readonly id: string
+  readonly mode?: 'stream'
   readonly cancellation?: { readonly parameter: 'signal' }
   readonly parameters: readonly {
     readonly wire: string
@@ -84,7 +85,7 @@ describe('Remote model generation', { timeout: 60_000 }, () => {
     /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const model = remotePackage(fixtureRoot)
     expect(model.services).toEqual([])
-    expect(model.invocations).toHaveLength(2)
+    expect(model.invocations).toHaveLength(3)
     expect(model.invocations[0]).toMatchObject({
       id: '@fixture/remote#goals/create',
       service: 'goals',
@@ -129,6 +130,22 @@ describe('Remote model generation', { timeout: 60_000 }, () => {
       }],
       result: { typeSymbol: '@fixture/remote/types#RenameGoalResult' },
     })
+    expect(model.invocations[2]).toMatchObject({
+      id: '@fixture/remote#goals/watch',
+      service: 'goals',
+      namespace: 'goals',
+      method: 'watch',
+      mode: 'stream',
+      invocation: { kind: 'direct' },
+      parameters: [{
+        name: 'agent',
+        wire: 'agentId',
+        source: 'lookup',
+        lookup: 'agent',
+      }],
+      cancellation: { parameter: 'signal' },
+      result: { typeSymbol: '@fixture/remote/types#CreateGoalResult' },
+    })
 
     expect(artifact?.js).toContain('invocations: [')
     expect(artifact?.remote?.dts).toContain(
@@ -141,6 +158,9 @@ describe('Remote model generation', { timeout: 60_000 }, () => {
     )
     expect(artifact?.remote?.dts).toContain(
       "'agent:goals/rename': (request: RenameGoalRequest) => Promise<RemoteResult<RenameGoalResult>>",
+    )
+    expect(artifact?.remote?.dts).toContain(
+      "'goals/watch': (agentId: AgentId, signal?: AbortSignal) => AsyncIterable<CreateGoalResult>",
     )
 
     /** 中文说明：变量 remoteJs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -158,6 +178,7 @@ describe('Remote model generation', { timeout: 60_000 }, () => {
     expect(create?.parameters[1]?.codec.schema.safeParse({ title: 1 }).success).toBe(false)
     expect(create?.result.schema.safeParse({ ref: 'goal-1' }).success).toBe(true)
     expect(create?.result.schema.safeParse({ ref: 1 }).success).toBe(false)
+    expect(generated.TYPERT_REMOTE.descriptors[2]?.mode).toBe('stream')
 
     /** 中文说明：变量 declarationMap 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const declarationMap = JSON.parse(artifact?.remote?.dtsMap ?? '') as RemoteDeclarationMap
@@ -272,17 +293,15 @@ export type GenericResult = {
         '  RenameGoalResult,\n  GenericRequest,\n  GenericResult,\n',
       )
       .replace(
-        '  rename(request: RenameGoalRequest): RenameGoalResult {\n    return { renamed: request.title.length > 0 }\n  }\n}',
-        `  rename(request: RenameGoalRequest): RenameGoalResult {
-    return { renamed: request.title.length > 0 }
-  }
-
-  @Remote
+        "  @Remote({ mode: 'stream' })\n  async *watch",
+        `  @Remote
   dispatch(request: GenericRequest): GenericResult {
     if (request.kind === 'ship') return { kind: 'ship', value: { accepted: request.payload.count > 0 } }
     return { kind: 'cancel', value: { cancelled: request.payload.reason.length > 0 } }
   }
-}`,
+
+  @Remote({ mode: 'stream' })
+  async *watch`,
       ))
 
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
@@ -329,16 +348,14 @@ export interface BoxPayload {
         '  RenameGoalResult,\n  Box,\n  BoxPayload,\n',
       )
       .replace(
-        '  rename(request: RenameGoalRequest): RenameGoalResult {\n    return { renamed: request.title.length > 0 }\n  }\n}',
-        `  rename(request: RenameGoalRequest): RenameGoalResult {
-    return { renamed: request.title.length > 0 }
-  }
-
-  @Remote
+        "  @Remote({ mode: 'stream' })\n  async *watch",
+        `  @Remote
   box(request: Box<BoxPayload>): Box<BoxPayload> {
     return request
   }
-}`,
+
+  @Remote({ mode: 'stream' })
+  async *watch`,
       ))
 
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
@@ -351,16 +368,14 @@ export interface BoxPayload {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', source => source.replace(
-      '  rename(request: RenameGoalRequest): RenameGoalResult {\n    return { renamed: request.title.length > 0 }\n  }\n}',
-      `  rename(request: RenameGoalRequest): RenameGoalResult {
-    return { renamed: request.title.length > 0 }
-  }
-
-  @Remote('create-goal')
+      "  @Remote({ mode: 'stream' })\n  async *watch",
+      `  @Remote('create-goal')
   createAlias(request: CreateGoalRequest): CreateGoalResult {
     return { ref: request.title }
   }
-}`,
+
+  @Remote({ mode: 'stream' })
+  async *watch`,
     ))
 
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
@@ -383,8 +398,9 @@ export interface BoxPayload {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = copyFixture()
     editFile(root, 'packages/remote/src/index.ts', source => source
-      .replace('  @Remote\n', '')
-      .replace("  @RemoteScope('agent')\n", ''))
+      .replaceAll('  @Remote\n', '')
+      .replace("  @RemoteScope('agent')\n", '')
+      .replace("  @Remote({ mode: 'stream' })\n", ''))
     editFile(root, 'packages/remote/src/types.ts', source => `${source}
 
 /** @typert schema */

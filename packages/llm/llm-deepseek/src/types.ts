@@ -239,7 +239,8 @@ export interface WireUsage {
   prompt_tokens: number
   // 中文：完成 token 数。
   completion_tokens: number
-  // 中文：缓存命中 token 数（可选）。
+  /** Provider-reported aggregate across prompt and completion tokens. */
+  total_tokens?: number
   prompt_cache_hit_tokens?: number
   // 中文：缓存未命中 token 数（可选）。
   prompt_cache_miss_tokens?: number

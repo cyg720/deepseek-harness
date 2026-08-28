@@ -1,15 +1,3 @@
-// Skill toolview registrant: a domain-owned row over the keyed toolview hole.
-// The compact accent row keeps loaded instructions scannable in the transcript;
-// the exact durable tool output remains available in a bounded disclosure card.
-/**
- * 文件职责：实现技能入口的 SkillRow 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：帮助用户查看或调整技能入口。
- * 逻辑维度：读取状态，派生展示信息并处理交互。
- * 关键边界：父子作用域、空状态、可访问性和主题同步必须正确。
- * 新手阅读建议：先读 Props，再看派生值、effect 和 JSX。
- */
-
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
   IconChevronDownOutline14, IconInspectOutline12, IconSkillOutline16, StateDot,
@@ -22,8 +10,6 @@ import css from './SkillRow.module.css'
 /* 中文说明：类型或类 SkillRowState 约束模块数据或组件职责。 */
 type SkillRowState = 'running' | 'ok' | 'error' | 'stopped'
 
-/** Full row props: the toolview runtime share plus this package's locale seat. */
-/* 中文说明：类型或类 SkillRowProps 约束模块数据或组件职责。 */
 type SkillRowProps = ToolCallViewProps & PropsLocale<'skill'>
 
 /** Compact, replay-stable view model for the dedicated row. */
@@ -185,7 +171,7 @@ export function SkillRow({ block, inspect, t }: SkillRowProps) {
       >
         <span className={css.leading}>{leading}</span>
         {status !== null ? <span className={css.visuallyHidden}>{status}</span> : null}
-        <span className={css.title}>Skill</span>
+        <span className={css.title}>{t('row.title')}</span>
         <span className={css.separator} aria-hidden />
         <span className={model.errorSummary === null ? css.summary : `${css.summary} ${css.errorSummary}`}>
           {summary}
@@ -200,7 +186,7 @@ export function SkillRow({ block, inspect, t }: SkillRowProps) {
           {inspect !== undefined ? (
             <button type="button" className={css.inspectButton} onClick={inspect}>
               <IconInspectOutline12 />
-              Inspect
+              {t('row.inspect')}
             </button>
           ) : null}
         </div>

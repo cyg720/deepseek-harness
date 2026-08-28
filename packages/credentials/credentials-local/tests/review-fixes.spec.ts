@@ -1,15 +1,3 @@
-// Third-review behaviors: read-modify-write under the writer lock (external
-// edits survive an API write), the contained credentials/reference-updated fan-out (a
-// broken observer never fails a committed write), and the YAML document
-// editor's isolation between entries.
-/**
- * 文件职责：验证凭据存储的 review-fixes.spec.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
- * 产品维度：保证凭据存储在真实组装、失败和清理场景中可靠。
- * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
- * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
- * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
@@ -18,8 +6,6 @@ import { join } from 'node:path'
 import { credentialKey, credentialRef } from '@deepseek-ai/dsh-credentials'
 import { LocalCredentialProvider } from '../src/index.ts'
 
-/** Credential documents are seeded owner-only, exactly as the provider creates them. */
-/* 中文说明：函数 writeCredentials 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function writeCredentials(file: string, text: string): Promise<void> {
   return writeFile(file, text, { mode: 0o600 })
 }

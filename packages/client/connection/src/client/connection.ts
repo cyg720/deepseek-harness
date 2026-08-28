@@ -1,12 +1,16 @@
-/**
- * 文件职责：管理浏览器API的双事件流连接代际、严格就绪握手、断线检测和指数退避重连。
- * 技术维度：使用AsyncIterable、AbortController、Promise竞态和隔离回调实现不依赖UI状态库的连接控制器。
- * 产品维度：让Web界面在网络中断后自动恢复，并只在一元API和两条流均可用时公布已连接状态。
- * 逻辑维度：启动每代mux/host流，等待stream open与host.describe，分发帧，任一流结束后进入退避并创建下一代。
- * 关键边界：业务sink异常不得杀死连接泵；start/stop幂等；初次连接前不报告reconnecting；退避参数由配置决定。
- * 新手阅读建议：先看ConnectionConfig和Sinks，再看start/stop，随后逐段跟踪loop的一代连接和失败重试。
- */
-import type { HostDescription, IApiClient, HostFrame, MuxFrame, RpcRequest } from './api.ts'
+/** Stable Host facts delivered by one established Remote event generation. */
+export interface ConnectionHostInfo {
+  /** Host account home used only to abbreviate displayed filesystem paths. */
+  readonly home: string
+}
+
+/** One successfully established Host generation. */
+export interface ConnectionGeneration {
+  /** Monotone generation number within this Client runtime. */
+  readonly id: number
+  /** Host facts carried by this generation's opening frame. */
+  readonly host: ConnectionHostInfo
+}
 
 /** Reconnect/backoff tunables (deployment-varying — no hardcoded tunables; these become the
  *  future `ctx.connection` plugin's Config). All fields optional; defaults below. */
@@ -20,12 +24,8 @@ export interface ConnectionConfig {
   /** Upper bound for the backoff cap in ms. */
   /* 所有重试退避上限的最大毫秒数。 */
   backoffMaxMs?: number
-  /** Cap on waiting for both streams' onOpen before onConnected, in ms. The strict handshake
-   *  waits for mux+host stream establishment plus describe; a carrier that never
-   *  fires onOpen (misbehaving proxy) must not wedge the connection forever — on timeout the
-   *  generation proceeds as connected and the live-gap repair path covers stragglers. */
-  /* 等待mux和host两条流onOpen的最大毫秒数，防止异常代理永久卡住握手。 */
-  streamOpenTimeoutMs?: number
+  /** Maximum wait for the registered generation source's ready signal. */
+  generationReadyTimeoutMs?: number
 }
 
 // 所有可部署连接调优项的默认值。
@@ -33,7 +33,7 @@ const CONNECTION_DEFAULTS: Required<ConnectionConfig> = {
   backoffBaseMs: 500,
   backoffFactor: 2,
   backoffMaxMs: 10_000,
-  streamOpenTimeoutMs: 3_000,
+  generationReadyTimeoutMs: 3_000,
 }
 
 /** 等待指定毫秒，信号取消时提前结束但不拒绝。 */
@@ -55,16 +55,10 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 /* UI观察的粗粒度连接状态：握手完成或整个退避重试区间。 */
 export type ConnectionState = 'connected' | 'reconnecting'
 
-/** Frame sink callbacks: the Controller owns the physical streams; business dispatch belongs to
- *  SessionManager. */
+/** Connection-generation callbacks owned by API Gateway. */
 export interface ConnectionSinks {
-  /** mux流每个业务帧的可选接收回调。 */
-  onMuxEnvelope?: (envelope: RpcRequest<MuxFrame>) => void
-  /** host流每个业务帧的可选接收回调。 */
-  onHostEnvelope?: (envelope: RpcRequest<HostFrame>) => void
-  /** After each connection generation is established (both streams open + describe succeeded), first connect included. */
-  /* 每个连接代际完成两流和describe握手后的回调。 */
-  onConnected?: (description: HostDescription) => void
+  /** After the generation source reports ready, first connect included. */
+  onConnected?: (host: ConnectionHostInfo) => void
   /** Coarse state transitions (deduplicated: fires only on change). The initial pre-connect
    *  span reports nothing — the UI treats "no state yet" as connecting, not as an outage. */
   /* 去重后的粗粒度状态变化回调，初始连接阶段不调用。 */
@@ -72,11 +66,22 @@ export interface ConnectionSinks {
 }
 
 /**
- * Opens both streams and keeps iterating (pull mode: nothing reads the socket and the tap
- * never fires unless someone for-awaits), reconnecting with exponential backoff on loss.
+ * One long-lived source defining a Connection generation. The source must
+ * attach its incremental listeners before calling `ready`, then remain pending
+ * until the generation is lost or `signal` aborts.
+ * @param signal - cancellation for the current generation.
+ * @param ready - one-shot report that incremental delivery is attached.
+ * @returns a promise settling only when this generation ends or fails.
+ */
+export type ConnectionGenerationSource = (
+  signal: AbortSignal,
+  ready: (host: ConnectionHostInfo) => void,
+) => Promise<void>
+
+/**
+ * Opens the registered generation source, reconnecting with exponential backoff on loss.
  * State (generation/attempt) is instance-private, never in the store.
- * The pump body feeds each frame to a sink (sink exceptions must
- * not kill the pump — a broken business layer must not drag down the connection layer).
+ * Sink exceptions do not kill the generation loop.
  */
 export class ConnectionController {
   /** 每次尝试连接递增的代际编号，用于拒绝旧代回调。 */
@@ -100,7 +105,7 @@ export class ConnectionController {
    * @example new ConnectionController(api, sinks, {}).start()
    */
   constructor(
-    private readonly api: IApiClient,
+    private readonly source: ConnectionGenerationSource,
     private readonly sinks: ConnectionSinks = {},
     config: ConnectionConfig = {},
   ) {
@@ -114,7 +119,7 @@ export class ConnectionController {
     void this.loop()
   }
 
-  /** Stop the loop and abort the current generation's streams. */
+  /** Stop the loop and abort the current generation source. */
   stop(): void {
     this.running = false
     this.current?.abort()
@@ -147,16 +152,22 @@ export class ConnectionController {
       const ac = new AbortController()
       this.current = ac
 
-      /* v8 ignore next -- initializer placeholder: the Promise executor
-       * below runs synchronously and replaces it before anyone can call it. */
-      let muxOpened = (): void => {}
-      /* v8 ignore next -- same placeholder pattern as muxOpened. */
-      let hostOpened = (): void => {}
-      // 两条物理流都报告onOpen时解决的严格就绪门。
-      const streamsOpen = Promise.all([
-        new Promise<void>((resolve) => { muxOpened = resolve }),
-        new Promise<void>((resolve) => { hostOpened = resolve }),
-      ])
+      let sourceReady = false
+      let resolveReady!: (host: ConnectionHostInfo) => void
+      let rejectReady!: (error: Error) => void
+      let rejectSourceLost!: (error: Error) => void
+      const ready = new Promise<ConnectionHostInfo>((resolve, reject) => {
+        resolveReady = resolve
+        rejectReady = reject
+      })
+      const sourceLost = new Promise<never>((_resolve, reject) => {
+        rejectSourceLost = reject
+      })
+      const reportReady = (host: ConnectionHostInfo): void => {
+        if (sourceReady) return
+        sourceReady = true
+        resolveReady(host)
+      }
 
       // 任一流结束或失败时解决并中止本代的共享失败门。
       const failed = new Promise<void>((resolve) => {
@@ -165,35 +176,37 @@ export class ConnectionController {
           if (gen === this.generation && !ac.signal.aborted) ac.abort()
           resolve()
         }
-        void this.pumpStream(this.api.events.mux({}, ac.signal, muxOpened), this.sinks.onMuxEnvelope, settle)
-        void this.pumpStream(this.api.events.host({}, ac.signal, hostOpened), this.sinks.onHostEnvelope, settle)
+        void Promise.resolve()
+          .then(() => this.source(ac.signal, reportReady))
+          .then(
+            () => {
+              const error = new Error('connection generation ended')
+              if (!sourceReady) rejectReady(error)
+              rejectSourceLost(error)
+              settle()
+            },
+            (error: unknown) => {
+              const failure = error instanceof Error
+                ? error
+                : new Error('connection generation failed', { cause: error })
+              if (!sourceReady) rejectReady(failure)
+              rejectSourceLost(failure)
+              settle()
+            },
+          )
       })
 
       try {
-        // Strict readiness handshake: describe proves unary reachability, onOpen
-        // proves each physical stream is established before any frame —
-        // only then may onConnected fire, so the resync it triggers cannot outrun the
-        // subscribed baseline. The timeout guards against a carrier that never fires onOpen
-        // (see ConnectionConfig.streamOpenTimeoutMs).
-        // 严格流打开等待使用的可取消超时控制器。
-        const timeout = new AbortController()
-        const [description] = await Promise.all([
-          this.api.host.describe({}),
-          Promise.race([streamsOpen, sleep(this.config.streamOpenTimeoutMs, timeout.signal)]),
+        const host = await Promise.race([
+          waitForReady(ready, this.config.generationReadyTimeoutMs, ac.signal),
+          sourceLost,
         ])
-        timeout.abort()
-        // host.describe响应的业务结果槽。
-        const descriptionResult = description.result
-        if (!descriptionResult.ok) {
-          throw new Error(`host.describe failed: ${descriptionResult.error.code}: ${descriptionResult.error.message}`)
-        }
         if (ac.signal.aborted) throw new Error('generation aborted during readiness handshake')
         this.attempt = 0
         this.emitState('connected')
-        // A state sink may synchronously stop this controller. Do not publish
-        // a description for a generation that no longer exists afterward.
+        // A state sink may synchronously stop this controller.
         if (this.isGenerationActive(ac)) {
-          this.callSink(() => { this.sinks.onConnected?.(descriptionResult.value) })
+          this.callSink(() => { this.sinks.onConnected?.(host) })
         }
       } catch {
         // Transport failure: treat as generation failure, fall through to the shared backoff.
@@ -204,8 +217,7 @@ export class ConnectionController {
       if (!this.isRunning()) return
       this.emitState('reconnecting')
       this.attempt += 1
-      console.warn(`[web-runtime] connection lost, retry #${this.attempt}`)
-      // 当前退避等待的可取消控制器。
+      console.warn(`[connection] connection lost, retry #${this.attempt}`)
       const idle = new AbortController()
       await sleep(this.backoffDelay(this.attempt), idle.signal)
     }
@@ -218,28 +230,40 @@ export class ConnectionController {
     this.callSink(() => this.sinks.onStateChange?.(state))
   }
 
-  private async pumpStream<F extends { type: string }>(
-    stream: AsyncIterable<RpcRequest<F>>,
-    sink: ((envelope: RpcRequest<F>) => void) | undefined,
-    onEnd: () => void,
-  ): Promise<void> {
-    try {
-      for await (const envelope of stream) {
-        if (envelope.payload.type === 'stream/error') break
-        if (sink !== undefined) this.callSink(() => { sink(envelope) })
-      }
-    } catch {
-      // Stream loss: converge on onEnd, which triggers the shared reconnect.
-    }
-    onEnd()
-  }
-
   /** Sink exception isolation: a business-layer throw is logged only, never affecting pump or reconnect semantics. */
   private callSink(fn: () => void): void {
     try {
       fn()
     } catch (error) {
-      console.error('[web-runtime] connection sink threw:', error)
+      console.error('[connection] connection sink threw:', error)
     }
   }
+}
+
+/** Await source readiness without letting a stalled carrier wedge startup forever. */
+function waitForReady<T>(ready: Promise<T>, timeoutMs: number, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false
+    const timeout = setTimeout(() => {
+      finish({ error: new Error(`connection generation was not ready within ${String(timeoutMs)}ms`) })
+    }, timeoutMs)
+    const aborted = (): void => {
+      finish({ error: new Error('connection generation aborted', { cause: signal.reason }) })
+    }
+    const finish = (outcome: { readonly value: T } | { readonly error: Error }): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      signal.removeEventListener('abort', aborted)
+      if ('error' in outcome) reject(outcome.error)
+      else resolve(outcome.value)
+    }
+    signal.addEventListener('abort', aborted, { once: true })
+    void ready.then(
+      (value) => { finish({ value }) },
+      (error: unknown) => {
+        finish({ error: error as Error })
+      },
+    )
+  })
 }

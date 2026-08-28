@@ -49,12 +49,12 @@ describe('HTTP bridge abort', () => {
   it('aborts a pending native picker request when the browser disconnects', async () => {
     /** 中文说明：当前场景输入、传输或校验的数据；变量 `body` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const body = JSON.stringify({
-      type: 'client-request', rpcId: 'picker-1', method: 'host.pickDirectory', payload: {},
+      type: 'client-request', rpcId: 'picker-1', method: 'directoryPicker/pick', payload: { args: {} },
     })
     /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const request = Readable.from([Buffer.from(body)]) as unknown as IncomingMessage
     Object.assign(request, {
-      url: '/api/host.pickDirectory',
+      url: '/api/directoryPicker/pick',
       method: 'POST',
       headers: { 'content-type': 'application/json' },
     })

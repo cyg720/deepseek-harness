@@ -115,7 +115,7 @@ describe('contextBreakdown session projection', () => {
       header: { config: CONFIG, system: 'You are terse.', tools: TOOLS },
       reason: 'change',
     })
-    session.append('todo/write', { todos: [] })
+    session.append('session/end-seed', {})
     expect(changed).not.toContain('contextBreakdown')
 
     // A system-less, tool-less envelope prices back to zero.
@@ -252,7 +252,7 @@ describe('contextBreakdown session projection', () => {
     // A claim expires after one intervening event, so replacement delta is zero.
     /** 中文说明：变量 expired 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let expired = definition.apply(state, meter(1, 3, 8))
-    expired = definition.apply(expired, { type: 'todo/write', seq: 9, time: 0, data: { todos: [] } } as unknown as SessionEvent)
+    expired = definition.apply(expired, { type: 'session/end-seed', seq: 9, time: 0, data: {} })
     expect(definition.wire.view(definition.apply(expired, replace(1, 3))).messageTokens)
       .toBe(definition.wire.view(state).messageTokens)
     // The armed claim prices exactly the next event's matching replacement.

@@ -61,7 +61,7 @@ export function MessageId(id: string): MessageId {
  * Correlates a model-issued tool call with its result. Provider-issued for
  * real adapters; synthesized by mocks/assembler fallbacks.
  */
-export type CallId = Branded<'CallId'>
+export type ToolCallId = Branded<'ToolCallId'>
 
 /*
  * （中文）给字符串打上 CallId 标签；运行时无校验，纯类型标记。
@@ -69,12 +69,12 @@ export type CallId = Branded<'CallId'>
  * @returns 同一个字符串，类型标记为 CallId。
  */
 /**
- * Brand a string as a {@link CallId}.
+ * Brand a string as a {@link ToolCallId}.
  * @param id - the provider-issued (or synthesized) call id.
  * @returns the same string, branded; no validation is performed.
  */
-export function CallId(id: string): CallId {
-  return id as CallId
+export function ToolCallId(id: string): ToolCallId {
+  return id as ToolCallId
 }
 
 /*

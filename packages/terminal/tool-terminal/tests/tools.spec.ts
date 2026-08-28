@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -154,12 +154,12 @@ const TOOL_NAMES = ['terminal_open', 'terminal_send', 'terminal_read', 'terminal
 const testToolSignal = new AbortController().signal
 /** 中文说明：函数 call 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function call(ctx: Context, name: string, args: unknown, agent?: Agent) {
-  return ctx.tools.execute({ signal: testToolSignal, callId: CallId(`pty-call-${++callNumber}`), name, arguments: args, ...agent ? { agent } : {} })
+  return ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId(`pty-call-${++callNumber}`), name, arguments: args, ...agent ? { agent } : {} })
 }
 
 /** 中文说明：函数 callWithSignal 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function callWithSignal(ctx: Context, name: string, args: unknown, agent: Agent, signal: AbortSignal) {
-  return ctx.tools.execute({ callId: CallId(`pty-call-${++callNumber}`), name, arguments: args, agent, signal })
+  return ctx.tools.execute({ callId: ToolCallId(`pty-call-${++callNumber}`), name, arguments: args, agent, signal })
 }
 
 /** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
@@ -227,7 +227,7 @@ describe('tool-terminal foreground API', () => {
     expect(empty).toMatchObject({ isError: false, value: [] })
   })
 
-  it('projects every terminal DTO into the generated Code Mode output map', async () => {
+  it('projects every terminal DTO into the generated PTC mode output map', async () => {
     const { ctx } = await setup(false)
     /** 中文说明：函数值 schemas 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const schemas = TOOL_NAMES.map((toolName): ToolSdkSchema => {

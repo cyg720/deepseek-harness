@@ -1,17 +1,3 @@
-/* Visual spec mirrors deepsuite @deepseek/ui Tooltip.css (size m, no arrow),
-   except padding tightened 6/12 -> 3/7, type 14/22 -> 13/20, radius
-   10 -> 8, a tooltip-bg plate,
-   one text color across both themes (the plate stays dark in light and dark
-   mode). Behavior (fixed positioning off the anchor rect) is local — the
-   upstream Floating stack is intentionally not vendored. */
-/* 文件职责：定义无箭头工具提示气泡的定位、尺寸、换行和入场动画。
- * 技术维度：使用 CSS Module、fixed 定位、data 方位选择器、关键帧和减少动态媒体查询。
- * 产品维度：为图标和紧凑操作提供清晰说明，同时避免长路径或 URL 超出视口。
- * 逻辑维度：bubble 提供公共外观，各 data-side 变换对齐锚点，动画与媒体查询控制入场。
- * 关键边界：气泡不接收指针事件；最大宽度为半个视口，无法断开的文本必须换行。
- * 新手阅读建议：先看 bubble 的尺寸策略，再比较三个方位变换，最后看动画降级。 */
-
-/* 固定定位气泡；按标签内容取宽，最多占半个视口。 */
 .bubble {
   position: fixed;
   z-index: 100;

@@ -22,7 +22,7 @@ import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import {
   createUserMessage,
-  CallId,
+  ToolCallId,
   LlmAdapter,
   LlmError,
   resolveRetryPolicy,
@@ -691,8 +691,8 @@ describe('dsh-agent-spine-demo bundle', () => {
     const execution: ToolExecution = {
       signal: testToolSignal,
       token: Symbol('agent-core-dsh-home-test') as ToolExecution['token'],
-      callId: CallId('agent-core-dsh-home'),
-      rootCallId: CallId('agent-core-dsh-home'),
+      callId: ToolCallId('agent-core-dsh-home'),
+      rootCallId: ToolCallId('agent-core-dsh-home'),
       name: 'bash',
       arguments: { command: 'true' },
     }
@@ -781,7 +781,7 @@ describe('dsh-agent-spine-demo bundle', () => {
     const wait = vi.spyOn(ctx.jobs, 'wait')
     await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('task-config-forwarding'),
+      callId: ToolCallId('task-config-forwarding'),
       name: 'job_output',
       arguments: { job_id: id, wait: true },
     })
@@ -806,8 +806,7 @@ describe('dsh-agent-spine-demo bundle', () => {
     await ctx.fiber.dispose()
   })
 
-  it('can omit the bundled bash tool and Harness identity for a compatibility deployment', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
+  it('can omit the bundled bash tool, Harness identity, and runtime context', async () => {
     const ctx = await mount({
       includeHarnessIdentity: false,
       includeRuntimeContext: false,

@@ -1,14 +1,7 @@
-/* Transient top-center banner (DeepSeek Chat toast look): contrast fill,
-   inverted label, slide-in, then hold-and-fade. The fade delay/duration MUST
-   agree with HOLD_MS/FADE_MS in Toast.tsx: the component unmounts at their
-   sum, so a mismatched sheet either cuts the fade or leaves an invisible
-   banner blocking nothing. */
-/* 文件职责：定义页面顶部居中的临时 Toast 横幅、图标、文字、入场和延迟淡出动画。
- * 技术维度：使用 CSS Module、fixed 定位、主题令牌、多动画和减少动态媒体查询。
- * 产品维度：在图片预览等高层界面上仍清晰展示警告，同时不阻挡任何点击。
- * 逻辑维度：toast 设置布局与两段动画，icon/text 排版内容，关键帧控制滑入和淡出，媒体查询去掉移动。
- * 关键边界：3000ms 保持与 1000ms 淡出必须和 Toast.tsx 常量一致；pointer-events 必须为 none。
- * 新手阅读建议：先看 toast 的层级与时间，再看 icon/text，最后比较普通与 reduced-motion 动画。 */
+/* The fade delay comes from the component as `--dsh-toast-hold`, so one value
+   drives both the unmount timer and this animation; the fallback matches the
+   component's own default. The fade DURATION still has to agree with FADE_MS
+   in Toast.tsx, which no owner varies. */
 
 /* 顶部居中的通知横幅；位于图片灯箱之上且永不接收指针事件。 */
 .toast {
@@ -19,10 +12,7 @@
      a preview is open must stay readable. */
   /* 高于图片灯箱的 1000 层级，预览打开时错误仍可见。 */
   z-index: 1100;
-  /* Purely an announcement: it must never intercept clicks — in particular
-     after the CSS fade finished while a throttled background-tab timer has
-     not yet unmounted the still-hit-testable fixed element. */
-  /* 纯通知不得拦截点击，尤其后台标签计时器延迟卸载时仍要保持不可命中。 */
+  /* Announcements never intercept clicks. */
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -38,7 +28,7 @@
   transform: translateX(-50%);
   animation:
     dsh-toast-in 160ms ease-out,
-    dsh-toast-fade 1000ms ease 3000ms forwards;
+    dsh-toast-fade 1000ms ease var(--dsh-toast-hold, 3000ms) forwards;
 }
 
 /* Toast 图标容器；固定不缩小并使用警告标签色。 */
@@ -79,6 +69,6 @@
 /* 减少动态模式移除滑入，但保留不涉及位移的延迟淡出以配合定时卸载。 */
 @media (prefers-reduced-motion: reduce) {
   .toast {
-    animation: dsh-toast-fade 1000ms ease 3000ms forwards;
+    animation: dsh-toast-fade 1000ms ease var(--dsh-toast-hold, 3000ms) forwards;
   }
 }

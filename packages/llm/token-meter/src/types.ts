@@ -56,8 +56,7 @@ export interface TokenMeasurement {
   /** Non-negative current request-and-response pressure. */
   // 中文：非负的当前请求+响应压力。
   readonly totalTokens: number
-  /** Total heuristic tokens across the current surface. */
-  // 中文：当前表面总启发式 token 数。
+  /** Total route-priced request tokens across the current surface; equals the sum of the node prices. */
   readonly surfaceTokens: number
   /** Current surface nodes in positional head-to-tail order. */
   // 中文：当前表面节点，按位置从头到尾排列。
@@ -72,7 +71,17 @@ export interface TokenSurfaceNode {
   /** Durable sequence number of the surface event. */
   // 中文：表面事件的持久序号。
   readonly seq: number
-  /** Heuristic tokens for the exact message projected by this node. */
-  // 中文：该节点投影的精确消息的启发式 token 数。
+  /**
+   * Request-pressure tokens for the exact message projected by this node under
+   * the measured route: image occurrences carry the route's declared visual
+   * price when the routed adapter declares one, and the fixed heuristic
+   * otherwise. Trigger, retention, and range selection all read this price.
+   */
   readonly tokens: number
+  /**
+   * Fixed-heuristic tokens for the same message, independent of any route.
+   * The shadow-price protocol prices replacements with this value so the O(1)
+   * projection fold stays in agreement with its own appends.
+   */
+  readonly heuristicTokens: number
 }

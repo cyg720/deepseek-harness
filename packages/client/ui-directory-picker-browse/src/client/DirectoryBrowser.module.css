@@ -1,17 +1,3 @@
-/* Directory-browser dialog (figma 813-23126 family). The shared Modal renders
- * headless here — mask, card, Escape only — and this module owns the figma
- * frame: 680×500 card (viewport-clamped; upsized from the figma 600×420),
- * header (title + crumbs, l3 separator),
- * the one-or-two-column Miller content, and the bordered footer. */
-/**
- * 文件职责：定义 DirectoryBrowser 的局部样式。
- * 技术维度：CSS Modules、主题变量和交互状态选择器。
- * 产品维度：让目录选择界面保持清晰一致。
- * 逻辑维度：按容器、内容、操作和状态组织规则。
- * 关键边界：类名须与组件同步并复用主题值。
- * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
- */
-
 /* Doubled class beats Modal's own .dialog regardless of stylesheet order. */
 /* Short viewports clamp the card: header/footer are flex-none and the
  * columns scroll, so shrinking the height keeps Open/Cancel reachable

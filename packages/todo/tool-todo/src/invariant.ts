@@ -54,25 +54,58 @@ function validateTodos(value: unknown, fail: InvariantFailure): void {
 }
 
 /* jscpd:ignore-start -- package companions share replay and dispatch plumbing */
-/** Validate the package-owned event fields and ignore unrelated events. */
-/* 中文说明：函数 validateEvent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function validateEvent(event: SessionEvent, fail: InvariantFailure): void {
-  if (event.type === 'todo/write') validateTodos(event.data.todos, fail)
+/** Incremental turn state for one committed session log. */
+interface TurnTrace {
+  open: boolean
+}
+
+/** Advance the trace after one event has committed. */
+function advanceTrace(trace: TurnTrace, event: SessionEvent): void {
+  if (event.type === 'turn/start') trace.open = true
+  if (event.type === 'turn/end') trace.open = false
+}
+
+/** Validate one package-owned event against the preceding committed trace. */
+function validateEvent(event: SessionEvent, trace: TurnTrace, fail: InvariantFailure): void {
+  if (event.type !== 'todo/write') return
+  validateTodos(event.data.todos, fail)
+  if (!trace.open) fail('todo/write appended outside any open turn')
+}
+
+/** Validate one existing log in a single pass and return its tail trace. */
+function seedTrace(session: Session, fail: InvariantFailure): TurnTrace {
+  const trace: TurnTrace = { open: false }
+  for (const event of session.events) {
+    validateEvent(event, trace, fail)
+    advanceTrace(trace, event)
+  }
+  return trace
 }
 
 /** Install validation for loaded and newly appended whole-list todo snapshots. */
 /* 中文说明：函数值 install 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
-  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
-  for (const session of ctx.sessions.list()) {
-    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
-    for (const event of session.events) validateEvent(event, fail)
+  const traces = new WeakMap<Session, TurnTrace>()
+  const seed = (session: Session): void => {
+    traces.set(session, seedTrace(session, fail))
   }
+  const traceFor = (session: Session): TurnTrace => {
+    let trace = traces.get(session)
+    if (trace === undefined) {
+      trace = seedTrace(session, fail)
+      traces.set(session, trace)
+    }
+    return trace
+  }
+  for (const session of ctx.sessions.list()) seed(session)
+  ctx.on('session/created', (session) => { seed(session) }, { global: true })
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return
-    /** 中文说明：变量 event 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const event = (args as [Session, SessionEvent])[1]
-    validateEvent(event, fail)
+    const [session, event] = args as [Session, SessionEvent]
+    validateEvent(event, traceFor(session), fail)
+  }, { global: true })
+  ctx.on('session/event', (session, event) => {
+    advanceTrace(traceFor(session), event)
   }, { global: true })
 }, { inject: ['sessions'] })
 /* jscpd:ignore-end */

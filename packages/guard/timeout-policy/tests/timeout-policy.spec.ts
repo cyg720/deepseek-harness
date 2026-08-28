@@ -17,7 +17,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
-import { CallId, HarnessError } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, HarnessError } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineContentToolFixture, TOOL_ABORTED, type ToolExecutionInput, type PostToolDecision } from '@deepseek-ai/dsh-tools'
 import * as timeoutPolicy from '@deepseek-ai/dsh-tool-call-timeout-policy'
@@ -69,8 +69,7 @@ describe('timeout-policy delegation (unconfigured / fast)', () => {
       async execute(_a, exec) { seenSignal = exec.signal; return [{ type: 'text' as const, text: 'ok' }] } }))
     /** 中文说明：测试局部值 upstream，由紧邻初始化决定。 */
     const upstream = new AbortController().signal
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-    const result = await ctx.tools.execute({ callId: CallId('c1'), name: 'probe', arguments: {}, signal: upstream })
+    const result = await ctx.tools.execute({ callId: ToolCallId('c1'), name: 'probe', arguments: {}, signal: upstream })
     expect(result.isError).toBe(false)
     expect(seenSignal).toBe(upstream)
   })
@@ -80,8 +79,7 @@ describe('timeout-policy delegation (unconfigured / fast)', () => {
     const ctx = await setup()
     ctx.tools.register(defineContentToolFixture({ name: 'fast', description: 'd', parameters: {}, timeoutMs: 10_000,
       async execute() { return [{ type: 'text' as const, text: 'ok' }] } }))
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-    const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'fast', arguments: {} })
+    const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'fast', arguments: {} })
     expect(result).toEqual({
       content: [{ type: 'text', text: 'ok' }],
       isError: false,
@@ -98,7 +96,7 @@ describe('timeout-policy delegation (unconfigured / fast)', () => {
       async execute(_a, exec) { seenSignal = exec.signal; return [{ type: 'text' as const, text: 'ok' }] } }))
     /** 中文说明：测试局部值 upstream，由紧邻初始化决定。 */
     const upstream = new AbortController().signal
-    await ctx.tools.execute({ callId: CallId('c1'), name: 'probe', arguments: {}, signal: upstream })
+    await ctx.tools.execute({ callId: ToolCallId('c1'), name: 'probe', arguments: {}, signal: upstream })
     expect(seenSignal).toBeDefined()
     expect(seenSignal).not.toBe(upstream)
   })
@@ -115,7 +113,7 @@ describe('timeout-policy signal restoration', () => {
     ctx.on('tools/post-execute', async (exec, _result, next): Promise<PostToolDecision> => { postSignal = exec.signal; return next() })
     /** 中文说明：测试局部值 upstream，由紧邻初始化决定。 */
     const upstream = new AbortController().signal
-    await ctx.tools.execute({ callId: CallId('c1'), name: 'fast', arguments: {}, signal: upstream })
+    await ctx.tools.execute({ callId: ToolCallId('c1'), name: 'fast', arguments: {}, signal: upstream })
     expect(postSignal).toBe(upstream)
   })
 })
@@ -128,8 +126,7 @@ describe('timeout-policy TOOL_TIMEOUT replacement (deadline wins)', () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
     ctx.tools.register(cooperativeTool)
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
-    const pending = ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'slow', arguments: {} })
+    const pending = ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'slow', arguments: {} })
     await vi.advanceTimersByTimeAsync(150)
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await pending
@@ -147,8 +144,7 @@ describe('timeout-policy TOOL_TIMEOUT replacement (deadline wins)', () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
     ctx.tools.register(abortThrowingTool)
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
-    const pending = ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'aborter', arguments: {} })
+    const pending = ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'aborter', arguments: {} })
     await vi.advanceTimersByTimeAsync(150)
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await pending
@@ -179,8 +175,7 @@ describe('timeout-policy TOOL_TIMEOUT replacement (deadline wins)', () => {
     }))
     /** 中文说明：测试局部值 upstream，由紧邻初始化决定。 */
     const upstream = new AbortController()
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
-    const pending = ctx.tools.execute({ callId: CallId('c1'), name: 'slow', arguments: {}, signal: upstream.signal })
+    const pending = ctx.tools.execute({ callId: ToolCallId('c1'), name: 'slow', arguments: {}, signal: upstream.signal })
     await entered.promise
     upstream.abort('user cancelled')
     await vi.advanceTimersByTimeAsync(0)
@@ -218,7 +213,7 @@ describe('timeout-policy TOOL_TIMEOUT replacement (deadline wins)', () => {
     const upstream = new AbortController()
     /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = ctx.tools.execute({
-      callId: CallId('timeout-first'), name: 'slow-cleanup', arguments: {}, signal: upstream.signal,
+      callId: ToolCallId('timeout-first'), name: 'slow-cleanup', arguments: {}, signal: upstream.signal,
     })
 
     await vi.advanceTimersByTimeAsync(100)
@@ -256,10 +251,10 @@ describe('timeout-policy disposal (HMR safety)', () => {
     const fiber = await ctx.plugin(timeoutPolicy)
     /** 中文说明：测试局部值 upstream，由紧邻初始化决定。 */
     const upstream = new AbortController().signal
-    await ctx.tools.execute({ callId: CallId('c1'), name: 'probe', arguments: {}, signal: upstream })
+    await ctx.tools.execute({ callId: ToolCallId('c1'), name: 'probe', arguments: {}, signal: upstream })
     expect(seenSignal).not.toBe(upstream)
     await fiber.dispose()
-    await ctx.tools.execute({ callId: CallId('c2'), name: 'probe', arguments: {}, signal: upstream })
+    await ctx.tools.execute({ callId: ToolCallId('c2'), name: 'probe', arguments: {}, signal: upstream })
     expect(seenSignal).toBe(upstream)
   })
 })
@@ -290,8 +285,7 @@ describe('dsh-tool-call-timeout-policy real-load-path guard', () => {
     const unwrapped = loader.unwrapExports(timeoutPolicy) as Parameters<Context['plugin']>[0]
     /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(unwrapped)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-    const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'fast', arguments: {} } satisfies ToolExecutionInput)
+    const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'fast', arguments: {} } satisfies ToolExecutionInput)
     expect(result.isError).toBe(false)
     await fiber.dispose()
   })

@@ -79,12 +79,9 @@ describe('the tool-presentation row', () => {
     expect(inject).toEqual(['tools'])
   })
 
-  it('gives its own agent Code Mode and leaves the rest native', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
+  it('gives its own agent PTC mode and leaves the rest native', async () => {
     const ctx = await host()
-    /** 中文说明：测试局部值 coded，由紧邻初始化决定，仅在当前场景使用。 */
-    const coded = await mount(ctx, { mode: 'code' }, 'coded')
-    /** 中文说明：测试局部值 plain，由紧邻初始化决定，仅在当前场景使用。 */
+    const coded = await mount(ctx, { mode: 'ptc' }, 'coded')
     const plain = await mount(ctx, { mode: 'native' }, 'plain')
 
     /** 中文说明：测试局部值 codedAssembly，由紧邻初始化决定，仅在当前场景使用。 */
@@ -112,8 +109,7 @@ describe('the tool-presentation row', () => {
   it('restores the deployment default when the agent unloads', async () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await host()
-    /** 中文说明：测试局部值 { agent, row }，由紧邻初始化决定，仅在当前场景使用。 */
-    const { agent, row } = await mount(ctx, { mode: 'code' })
+    const { agent, row } = await mount(ctx, { mode: 'ptc' })
 
     await row.dispose()
 
@@ -129,8 +125,7 @@ describe('the tool-presentation row', () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await host({ runtime: false })
 
-    /** 中文说明：测试局部值 { agent, row }，由紧邻初始化决定，仅在当前场景使用。 */
-    const { agent, row } = await mount(ctx, { mode: 'code' })
+    const { agent, row } = await mount(ctx, { mode: 'ptc' })
 
     // Pending, not applied: `dsh-agent-presets` rejects a mount holding a row
     // that never reached a usable state, naming this id — so the preset fails
@@ -144,8 +139,7 @@ describe('the tool-presentation row', () => {
   it('applies once the runtime arrives', async () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await host({ runtime: false })
-    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定，仅在当前场景使用。 */
-    const { agent } = await mount(ctx, { mode: 'code' })
+    const { agent } = await mount(ctx, { mode: 'ptc' })
 
     await ctx.plugin(StubRuntime)
 

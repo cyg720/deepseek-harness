@@ -22,12 +22,13 @@
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
 import { Button, IconPlusOutline16, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+// Type-only: pulls this package's SlotMap merge (the two Models child slots).
+import type {} from './slot-contract.ts'
 import { CustomProviderCard } from './CustomProviderCard.tsx'
 import { deriveKeyRef, messageOf, protocolChoices, providerUsable } from './store.ts'
-import type { ModelsSettingsStore, ProviderRow } from './store.ts'
+import type { ModelsSettingsStore, ModelsWire, ProviderRow } from './store.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
@@ -43,19 +44,27 @@ export interface ModelsSectionInjected {
     snapshot: ModelsSettingsStore['store']
   }
   /** Wire faces the editor writes through. */
-  api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  api: ModelsWire
   /** Settings schema and immutable path callbacks. */
   schema: SettingsSchemaOperations
   /** Section copy. */
   t: (key: keyof typeof en) => string
 }
 
+/** The child slots this section declares and dispatches (see ./slot-contract.ts). */
+type ModelsChildSlots = 'settings.models.provider-card' | 'settings.models.footer'
+
+/** The child-slot dispatch function the renderer binds for the section. */
+type ModelsRenderSlot = PropsRenderSlots<ModelsChildSlots>['renderSlot']
+
 /**
  * Props delivered by the slot outlet: the inject face spread flat (the
- * renderer erases the share boundary at the render call).
+ * renderer erases the share boundary at the render call) plus the child-slot
+ * dispatch seat. The seat is required: the renderer binds it at the render
+ * call itself — unlike the inject face it is never absent at runtime — and a
+ * direct render that forgets it fails to compile instead of mounting nothing.
  */
-/* 中文说明：类型或类 ModelsSectionProps 约束设置数据或组件职责。 */
-export type ModelsSectionProps = Partial<InjectFace<ModelsSectionInjected>>
+export type ModelsSectionProps = Partial<InjectFace<ModelsSectionInjected>> & PropsRenderSlots<ModelsChildSlots>
 
 /** 中文说明：类型或类 ModelsSectionFace 约束设置数据或组件职责。 */
 type ModelsSectionFace = InjectFace<ModelsSectionInjected>
@@ -116,22 +125,21 @@ function renderProviderEditor({ target, ...props }: ProviderEditorRenderProps): 
  */
 /* 中文说明：函数 removeProviderProfile 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export async function removeProviderProfile(
-  api: Pick<IApiClient, 'settings' | 'credentials'>,
+  api: Pick<ModelsWire, 'settings' | 'credentials'>,
   controller: ModelsSettingsStore,
   target: { settingsNs: string; settingsPath: readonly string[]; credentialRef?: string },
 ): Promise<string | undefined> {
   try {
     if (target.credentialRef !== undefined) {
-      /** 中文说明：设置局部值 credential，由紧邻初始化决定。 */
-      const credential = await api.credentials.unset({ ref: target.credentialRef })
-      if (!credential.result.ok) return credential.result.error.message
+      const credential = await api.credentials.unset(target.credentialRef)
+      if (!credential.ok) return credential.error.message
     }
-    /** 中文说明：设置局部值 response，由紧邻初始化决定。 */
-    const response = await api.settings.mutate({
-      ns: target.settingsNs,
-      ops: [{ op: 'unset', path: [...target.settingsPath] }],
-    })
-    if (!response.result.ok) return response.result.error.message
+    const response = await api.settings.mutate(
+      target.settingsNs,
+      [{ op: 'unset', path: [...target.settingsPath] }],
+      undefined,
+    )
+    if (!response.ok) return response.error.message
   } catch (error) {
     // The transport rejected rather than answering; the caller must be able
     // to retry the idempotent operation instead of the row silently staying.
@@ -157,7 +165,19 @@ export function needsSetup(row: ProviderRow, anyUsable: boolean): boolean {
   return row.credential?.configured !== true
 }
 
-/** 中文说明：函数 targetOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
+/**
+ * The provider-card seat's credential fact: the reference this page would use
+ * for the row — the profile's `apiKeyEnv`, or the page's derived
+ * `<ROUTE>_API_KEY` while the profile names none — confirmed configured. The
+ * derived half is what keeps the seat consistent with the editor on the
+ * add-provider draft, whose dormant row names no reference yet.
+ */
+function keyConfiguredOf(row: ProviderRow): boolean {
+  return row.apiKeyEnv !== undefined
+    ? row.credential?.configured === true
+    : row.derivedCredential?.configured === true
+}
+
 function targetOf(row: ProviderRow): EditorTarget {
   /** 中文说明：设置局部值 managedRef，由紧邻初始化决定。 */
   const managedRef = deriveKeyRef(row.entry.provider)
@@ -173,9 +193,7 @@ function targetOf(row: ProviderRow): EditorTarget {
     settingsNs: row.entry.settingsNs,
     settingsPath: row.entry.settingsPath,
     ...credentialRef === undefined ? {} : { credentialRef },
-    // Absent is not "shipped": an adapter that answers nothing leaves the
-    // route-level fields only a declared route owns off the card, exactly as
-    // it leaves the custom tag off the row.
+    // Only declared routes may expose route-owned fields.
     ...row.entry.declared === true ? { declared: true } : {},
   }
 }
@@ -201,18 +219,15 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  */
 /* 中文说明：函数 ModelsSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
-  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
-  const { controller, useSnapshot, api, schema, t } = props
+  const { controller, useSnapshot, api, schema, t, renderSlot } = props
   if (
     controller === undefined || useSnapshot === undefined || api === undefined
     || schema === undefined || t === undefined
   ) return null
-  return <Loaded injected={{ controller, useSnapshot, api, schema, t }} />
+  return <Loaded injected={{ controller, useSnapshot, api, schema, t }} renderSlot={renderSlot} />
 }
 
-/** 中文说明：函数 Loaded 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
-function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
-  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
+function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderSlot: ModelsRenderSlot }): ReactNode {
   const { controller, api, schema, t } = injected
   /** 中文说明：设置局部值 state，由紧邻初始化决定。 */
   const state = injected.useSnapshot(snapshot => snapshot)
@@ -326,6 +341,12 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
   const addTarget = adding ? editing : undefined
   /** 中文说明：设置局部值 addNamespace，由紧邻初始化决定。 */
   const addNamespace = addTarget === undefined ? undefined : state.namespaces.get(addTarget.settingsNs)
+  // The draft's directory row, for the card extension seat. A refresh can drop
+  // the row mid-draft (the route was adopted or withdrawn elsewhere); the
+  // draft card stays while the seat simply has no row to dispatch.
+  const addRow = addTarget === undefined
+    ? undefined
+    : state.rows.find(row => row.entry.provider === addTarget.provider)
   // Hand-declared routes live in the pi-ai namespace, which is also the only
   // one whose schema names the protocols one may speak; without it mounted
   // there is nothing to declare and the entry point stays disabled.
@@ -366,6 +387,11 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   readOnly: !state.writable,
                   onClose: (changed) => { closeSetup(changed, target) },
                 })}
+                {renderSlot(
+                  'settings.models.provider-card',
+                  { provider: row.entry, configured: row.configured, keyConfigured: keyConfiguredOf(row) },
+                  { entryKey: row.entry.settingsNs },
+                )}
               </li>
             )
           }
@@ -444,6 +470,11 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                     : null}
                 </span>
               </div>
+              {renderSlot(
+                'settings.models.provider-card',
+                { provider: row.entry, configured: row.configured, keyConfigured: keyConfiguredOf(row) },
+                { entryKey: row.entry.settingsNs },
+              )}
               {open
                 ? renderProviderEditor({
                   target,
@@ -495,6 +526,13 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                 readOnly={!state.writable}
                 onClose={(changed) => { closeEditor(changed, addTarget) }}
               />
+              {addRow === undefined
+                ? null
+                : renderSlot(
+                  'settings.models.provider-card',
+                  { provider: addRow.entry, configured: addRow.configured, keyConfigured: keyConfiguredOf(addRow) },
+                  { entryKey: addRow.entry.settingsNs },
+                )}
             </div>
           )
           : declaring
@@ -536,7 +574,6 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                     setEditing(targetOf(first))
                   }}
                 >
-                  {/* Same glyph as the composer's attach button. */}
                   <IconPlusOutline16 size={14} />
                   {t('add')}
                 </button>
@@ -557,6 +594,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
               </div>
             )}
       </div>
+      {renderSlot('settings.models.footer', {})}
       <Modal
         open={deleteTarget !== undefined}
         onClose={closeDelete}

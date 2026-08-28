@@ -1,3 +1,4 @@
+import { join, parse } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // 提升到 mock 初始化前的依赖 rg 路径和 existsSync 替身。
@@ -5,6 +6,8 @@ const { dependencyRgPath, existsSync } = vi.hoisted(() => ({
   dependencyRgPath: '/node_modules/@vscode/ripgrep/bin/rg',
   existsSync: vi.fn(),
 }))
+const originalPlatform = process.platform
+const originalExecPath = process.execPath
 
 // 保留真实 node:fs 其余导出，只替换 existsSync。
 vi.mock('node:fs', async (importOriginal) => {
@@ -21,11 +24,15 @@ beforeEach(() => {
   vi.resetModules()
   existsSync.mockReset()
   Reflect.deleteProperty(process, 'pkg')
+  Reflect.defineProperty(process, 'platform', { configurable: true, enumerable: true, value: originalPlatform })
+  process.execPath = originalExecPath
 })
 
 // 每例后再次删除 process.pkg，防止失败路径泄漏环境。
 afterEach(() => {
   Reflect.deleteProperty(process, 'pkg')
+  Reflect.defineProperty(process, 'platform', { configurable: true, enumerable: true, value: originalPlatform })
+  process.execPath = originalExecPath
 })
 
 // ripgrep 路径解析测试套件。
@@ -33,10 +40,22 @@ describe('ripgrep resolution', () => {
   // 验证打包运行时且 sidecar 存在时选择当前 exe-rg。
   it('uses the native sidecar beside the current executable', async () => {
     Reflect.defineProperty(process, 'pkg', { configurable: true, value: {} })
+    Reflect.defineProperty(process, 'platform', { configurable: true, enumerable: true, value: 'linux' })
+    process.execPath = '/runtime/dsh'
     existsSync.mockReturnValue(true)
-    // 当前可执行文件旁的 sidecar 候选路径。
-    const sidecar = `${process.execPath}-rg`
-    // 动态导入的解析函数，读取本例 process.pkg/mock 状态。
+    const sidecar = '/runtime/dsh-rg'
+    const { resolveRgPath } = await import('@deepseek-ai/dsh-tool-fs-search')
+
+    await expect(resolveRgPath()).resolves.toBe(sidecar)
+    expect(existsSync).toHaveBeenCalledWith(sidecar)
+  })
+
+  it('uses a conventional executable name for the Windows ripgrep sidecar', async () => {
+    Reflect.defineProperty(process, 'pkg', { configurable: true, value: {} })
+    Reflect.defineProperty(process, 'platform', { configurable: true, enumerable: true, value: 'win32' })
+    process.execPath = 'C:\\runtime\\deepseek-harness-sdk-runtime-win-x64.exe'
+    existsSync.mockReturnValue(true)
+    const sidecar = 'C:\\runtime\\deepseek-harness-sdk-runtime-win-x64-rg.exe'
     const { resolveRgPath } = await import('@deepseek-ai/dsh-tool-fs-search')
 
     await expect(resolveRgPath()).resolves.toBe(sidecar)
@@ -61,7 +80,11 @@ describe('ripgrep resolution', () => {
     const { resolveRgPath } = await import('@deepseek-ai/dsh-tool-fs-search')
 
     await expect(resolveRgPath()).resolves.toBe(dependencyRgPath)
-    expect(existsSync).toHaveBeenCalledWith(`${process.execPath}-rg`)
+    const executable = parse(process.execPath)
+    const sidecar = process.platform === 'win32'
+      ? join(executable.dir, `${executable.name}-rg.exe`)
+      : `${process.execPath}-rg`
+    expect(existsSync).toHaveBeenCalledWith(sidecar)
   })
 })
 /**

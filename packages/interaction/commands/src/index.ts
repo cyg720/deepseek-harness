@@ -22,6 +22,7 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
+import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { AttachmentError, admitEncodedImages } from '@deepseek-ai/dsh-attachment'
 import type { EncodedImageAttachment } from '@deepseek-ai/dsh-attachment/types'
@@ -287,7 +288,7 @@ export class CommandRuntime extends TypertRemoteService {
   /** Monotonic per-instance counter behind {@link mintCommandId}. */
   private commandSeq = 0
   /** Instance token keeping minted ids unique across process restarts over one resumed log. */
-  private readonly instanceToken = crypto.randomUUID().slice(0, 8)
+  private readonly instanceToken = randomUUID().slice(0, 8)
 
   constructor(ctx: Context) {
     super(ctx, 'commands')

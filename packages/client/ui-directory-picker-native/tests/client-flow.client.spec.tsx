@@ -11,7 +11,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach } from 'vitest'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { DirectoryFlowOwnerProps } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { apply, inject } from '../src/client/index.ts'
 import { NativeDirectoryFlow } from '../src/client/flow.ts'
@@ -29,8 +29,7 @@ async function bench() {
   await ctx.plugin(SlotRegistry).await()
   /** 中文说明：测试局部值 pickDirectory，由紧邻初始化决定。 */
   const pickDirectory = vi.fn(async (): Promise<string | null> => '/tmp/picked')
-  ctx.provide('workspaces', { pickDirectory } as never)
-  /** 中文说明：测试局部值 slots，由紧邻初始化决定。 */
+  ctx.provide('uiWorkspace', { pickDirectory } as never)
   const slots = ctx.get('slots') as SlotRegistry
   /** 中文说明：测试局部值 declare，由紧邻初始化决定。 */
   const declare = () => slots.register({
@@ -51,7 +50,7 @@ function owner(overrides: Partial<DirectoryFlowOwnerProps> = {}): DirectoryFlowO
 
 describe('directory-picker-native client half', () => {
   it('declares the services it drives', () => {
-    expect(inject).toEqual(['slots', 'workspaces'])
+    expect(inject).toEqual(['slots', 'uiWorkspace'])
   })
 
   it('fills both directory-flow holes for declarations before or after apply, and leaves with its fiber', async () => {

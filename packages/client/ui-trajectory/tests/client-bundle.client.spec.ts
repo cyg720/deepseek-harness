@@ -19,9 +19,8 @@ import { resolve } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  ConversationEventRegistry, ConversationViewRegistry, SlotRegistry,
-} from '@deepseek-ai/dsh-client-runtime/client'
+import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 
 /** 中文说明：测试局部值 PLUGIN_ID，由紧邻初始化决定。 */
 const PLUGIN_ID = '@deepseek-ai/dsh-client-ui-trajectory'
@@ -67,7 +66,8 @@ describe('tsdown client artifact', () => {
       ['react', await import('react')],
       ['react/jsx-runtime', await import('react/jsx-runtime')],
       ['react-dom', await import('react-dom')],
-      ['@deepseek-ai/dsh-client-runtime/client', await import('@deepseek-ai/dsh-client-runtime/client')],
+      ['@deepseek-ai/dsh-client-store', await import('@deepseek-ai/dsh-client-store')],
+      ['@deepseek-ai/dsh-client-ui-conversation/client', await import('@deepseek-ai/dsh-client-ui-conversation/client')],
       ['@deepseek-ai/dsh-client-ui-primitives', await import('@deepseek-ai/dsh-client-ui-primitives')],
     ])
     /** 中文说明：测试局部值 exports，由紧邻初始化决定。 */
@@ -84,7 +84,7 @@ describe('tsdown client artifact', () => {
     expect(handoff.id).toBe(PLUGIN_ID)
     expect(exports.apply).toBeTypeOf('function')
     expect(exports.inject).toEqual([
-      'slots', 'conversationEvents', 'conversationViews', 'sessions', 'locale',
+      'slots', 'sessions', 'uiSession', 'uiConversation', 'locale',
     ])
   })
 
@@ -95,8 +95,7 @@ describe('tsdown client artifact', () => {
     const ctx = new Context()
     /** 中文说明：测试局部值 slots，由紧邻初始化决定。 */
     const slots = new SlotRegistry(ctx)
-    await ctx.plugin(ConversationEventRegistry).await()
-    await ctx.plugin(ConversationViewRegistry).await()
+    ctx.provide('uiSession', { provide: () => () => {} } as never)
     // The conversation entry's role: the ring must be declared before riders land.
     slots.register({
       name: 'root',
@@ -106,7 +105,10 @@ describe('tsdown client artifact', () => {
     // entry, so the binding stays deliberately empty. The locale plugin backs
     // the locale-aware view tab label (its settings scope needs a connection
     // handle and the Host-facing settings/remote seams).
-    ctx.provide('sessions', { binding: () => undefined })
+    const sessions = { binding: () => undefined }
+    ctx.provide('sessions', sessions)
+    const uiConversation = new UiConversation(ctx, sessions as never)
+    const { events, views } = uiConversation
     ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
     ctx.provide('remote', { $on: () => () => {} } as never)
     ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
@@ -116,10 +118,6 @@ describe('tsdown client artifact', () => {
     /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin(exports as { apply: (ctx: Context) => void })
     await fiber.await()
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
-    const events = ctx.get('conversationEvents') as ConversationEventRegistry
-    /** 中文说明：测试局部值 views，由紧邻初始化决定。 */
-    const views = ctx.get('conversationViews') as ConversationViewRegistry
     expect(slots.entries('conversation.view').map(e => e.options.id)).toEqual(['trajectory'])
     expect(events.entries().length).toBeGreaterThan(0)
     expect(views.entries()).toHaveLength(1)

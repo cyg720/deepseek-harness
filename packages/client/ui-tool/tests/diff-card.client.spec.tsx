@@ -1,42 +1,29 @@
 // @vitest-environment jsdom
-// The diff render intent on the web side: the pure diffCardModel derivation
-// over callView/resultView, and both conversation render sites that consume it
-// — the chat tool row's expanded body (GenericToolCard / FileMutationRow) and
-// the details panel's Output section.
-/**
- * 文件职责：验证工具调用的 diff-card.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
- * 产品维度：防止工具调用展示与展开交互回归。
- * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
- * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
- * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
- */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import {
-  createSnapshotStore, EMPTY_CONVERSATION_VIEWS,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  bindSnapshotSelector, conversationSnapshot, sessionSnapshot, workspaceSnapshot,
+} from '@deepseek-ai/dsh-client-test-runtime'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  ConversationSnapshot, RunningToolCall, SessionId, SessionListState, ToolResultNode, WorkspaceListState,
-} from '@deepseek-ai/dsh-client-runtime/client'
-import type { ToolCallView, ToolResultView } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SelectionTarget } from '@deepseek-ai/dsh-client-ui-conversation/client'
+  ChatSnapshot, ConversationNode, RunningToolCall, SelectionTarget, ToolResultNode,
+} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { CHAT_DIFF_MAX_LINES, diffCardModel } from '../src/client/tool/models/diff-card-model.ts'
-import { createChatStore } from '@deepseek-ai/dsh-client-ui-conversation/src/client/stores.ts'
+import { createChatStore } from '@deepseek-ai/dsh-client-ui-chat/src/client/stores.ts'
 import { GenericToolCard, type GenericToolCardProps } from '../src/client/tool/toolviews/GenericToolCard.tsx'
-import { DetailsPanel } from '@deepseek-ai/dsh-client-ui-conversation/src/client/skeleton/DetailsPanel.tsx'
+import { DetailsPanel } from '@deepseek-ai/dsh-client-ui-chat/src/client/details/DetailsPanel.tsx'
 import { FileMutationRow, fileMutationToolview } from '../src/client/tool/toolviews/file-mutation-row.tsx'
-import { renderToolDetails, SessionProviderStub, toolChatSnapshot } from './tool-details-render.client.tsx'
+import { renderToolDetails, toolChatSnapshot, useEmptyTrajectory } from './tool-details-render.client.tsx'
 import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
+import { zh as chatZh } from '@deepseek-ai/dsh-client-ui-chat/src/client/locale.ts'
 
 afterEach(cleanup)
 
-/** FileMutationRow's full prop shape (ToolRow runtime share + conversation locale seat). */
-/* 中文说明：类型或类 FileMutationRowProps 约束工具或轨迹数据职责。 */
 type FileMutationRowProps = Parameters<typeof FileMutationRow>[0]
 
 /** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
@@ -44,28 +31,17 @@ const SID = 's1' as SessionId
 
 /** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = makeTranslate(zh, commonZh)
+const chatT = makeTranslate(chatZh, commonZh)
 
 /** 中文说明：测试局部值 ARGS，由紧邻初始化决定。 */
 const ARGS = '{"file_path":"notes/demo.txt","old_string":"hello","new_string":"hello fixture"}'
 
-/** The edit tool's own call view (a call-time diff derived from the arguments). */
-/* 中文说明：测试局部值 callDiff，由紧邻初始化决定。 */
-const callDiff = (over?: Partial<Extract<ToolCallView, { card: 'diff' }>>): ToolCallView => ({
-  card: 'diff', title: 'Edit notes/demo.txt',
-  diffs: [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixture' }], ...over,
-})
-
-/** The edit tool's own result view (the applied hunk diff). */
-/* 中文说明：测试局部值 resultDiff，由紧邻初始化决定。 */
-const resultDiff = (over?: Partial<Extract<ToolResultView, { card: 'diff' }>>): ToolResultView => ({
-  card: 'diff', title: 'Edit notes/demo.txt',
-  diffs: [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixture' }], ...over,
-})
+const DIFFS = [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixture' }]
 
 /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
 const running = (over?: Partial<RunningToolCall>): RunningToolCall => ({
   callId: 'c1', name: 'edit', argsRaw: ARGS,
-  turn: 1, step: 1, time: 1_000, callView: callDiff(), subCalls: [], ...over,
+  turn: 1, step: 1, time: 1_000, subCalls: [], ...over,
 })
 
 /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
@@ -74,62 +50,124 @@ const settled = (over?: Partial<ToolResultNode>): ToolResultNode => ({
   call: { name: 'edit', argsRaw: ARGS },
   callTime: 1_000,
   content: [{ type: 'text', text: 'The file notes/demo.txt has been updated successfully.' }], isError: false,
-  callView: callDiff(), resultView: resultDiff(), subCalls: [], ...over,
+  meta: { diffs: DIFFS }, subCalls: [], ...over,
 })
 
 describe('diffCardModel', () => {
-  it('derives a running card from the call view alone', () => {
+  it('derives a running card from raw edit arguments', () => {
     expect(diffCardModel(running())).toEqual({
       card: { diffs: [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixture' }] },
     })
   })
 
-  it('derives a settled card from the result view, which replaces the call-time diff', () => {
-    // The applied hunks (result) win over the args-derived call diff.
+  it('preserves the Host presenter\'s whole-file diff for an empty old_string', () => {
+    expect(diffCardModel(running({
+      argsRaw: '{"file_path":"notes/demo.txt","old_string":"","new_string":"replacement"}',
+    }))).toEqual({
+      card: { diffs: [{ path: 'notes/demo.txt', oldText: null, newText: 'replacement' }] },
+    })
+  })
+
+  it.each([
+    {
+      command: 'create',
+      args: { command: 'create', path: 'notes/new.txt', file_text: 'new file\n' },
+      diff: { path: 'notes/new.txt', oldText: null, newText: 'new file\n' },
+    },
+    {
+      command: 'str_replace',
+      args: { command: 'str_replace', path: 'notes/demo.txt', old_str: 'old', new_str: 'new' },
+      diff: { path: 'notes/demo.txt', oldText: 'old', newText: 'new' },
+    },
+  ])('preserves the running str_replace_editor $command diff', ({ args, diff }) => {
+    expect(diffCardModel(running({
+      name: 'str_replace_editor',
+      argsRaw: JSON.stringify(args),
+    }))).toEqual({ card: { diffs: [diff] } })
+  })
+
+  it('preserves str_replace_editor defaults and its settled Generic result', () => {
+    const argsRaw = JSON.stringify({ command: 'str_replace', path: 'notes/demo.txt' })
+    expect(diffCardModel(running({ name: 'str_replace_editor', argsRaw }))).toEqual({
+      card: { diffs: [{ path: 'notes/demo.txt', oldText: null, newText: '' }] },
+    })
     expect(diffCardModel(settled({
-      resultView: resultDiff({ diffs: [{ path: 'notes/demo.txt', oldText: 'a', newText: 'b' }] }),
+      call: { name: 'str_replace_editor', argsRaw },
+      meta: { diffs: [{ path: 'notes/demo.txt', oldText: 'old', newText: 'new' }] },
+    }))).toBeNull()
+  })
+
+  it('keeps unsupported or malformed str_replace_editor calls generic', () => {
+    const editor = (args: Record<string, unknown>) => running({
+      name: 'str_replace_editor', argsRaw: JSON.stringify(args),
+    })
+    expect(diffCardModel(editor({ command: 'view', path: 'notes/demo.txt' }))).toBeNull()
+    expect(diffCardModel(editor({ command: 'insert', path: 'notes/demo.txt', new_str: 'x' }))).toBeNull()
+    expect(diffCardModel(editor({ command: 'create', path: '', file_text: 'x' }))).toBeNull()
+    expect(diffCardModel(editor({ command: 'create', path: 'notes/demo.txt', file_text: 1 }))).toBeNull()
+    expect(diffCardModel(editor({ command: 'str_replace', path: 'notes/demo.txt', old_str: 1 }))).toBeNull()
+    expect(diffCardModel(editor({ command: 'str_replace', path: 'notes/demo.txt', new_str: 1 }))).toBeNull()
+  })
+
+  it('derives a settled card from result metadata, which replaces the intended diff', () => {
+    expect(diffCardModel(settled({
+      meta: { diffs: [{ path: 'notes/demo.txt', oldText: 'a', newText: 'b' }] },
     }))).toEqual({
       card: { diffs: [{ path: 'notes/demo.txt', oldText: 'a', newText: 'b' }] },
     })
   })
 
-  it('renders a settled diff even when the window dropped the call head', () => {
-    // A truncated call carries only the result view, which holds the whole change.
-    expect(diffCardModel(settled({ call: null, callView: null }))?.card.diffs).toHaveLength(1)
-  })
-
-  it('returns null for every non-diff call: no views, generic views, unknown cards', () => {
-    expect(diffCardModel(running({ callView: null }))).toBeNull()
-    expect(diffCardModel(settled({ callView: null, resultView: null }))).toBeNull()
-    expect(diffCardModel(running({ callView: { card: 'generic', title: 'read x' } }))).toBeNull()
-    // A generic result settles a diff call on the generic path (write/edit's
-    // own execution-error arm).
-    expect(diffCardModel(settled({ resultView: { card: 'generic' } }))).toBeNull()
-    // A card tag this UI version does not know arrives over the wire; the
-    // documented generic-card default takes it, not a crash.
-    /** 中文说明：测试局部值 future，由紧邻初始化决定。 */
-    const future = { card: 'chart', title: 'plot' } as unknown as ToolCallView
-    expect(diffCardModel(running({ callView: future }))).toBeNull()
+  it('uses the intended write diff when successful metadata reports no applied hunk', () => {
+    const writeArgs = JSON.stringify({ file_path: 'notes/new.txt', content: 'hello fixture\n' })
     expect(diffCardModel(settled({
-      callView: future, resultView: { card: 'chart' } as unknown as ToolResultView,
-    }))).toBeNull()
+      call: { name: 'write', argsRaw: writeArgs },
+      meta: { diffs: [] },
+    }))).toEqual({
+      card: { diffs: [{ path: 'notes/new.txt', oldText: null, newText: 'hello fixture\n' }] },
+    })
   })
 
-  it('falls back to null for a malformed diff payload off the wire', () => {
-    // toolEventViewSchema validates only the `card` string, so a version
-    // mismatch can deliver a diff card with an unusable diffs field. Each shape
-    // routes to the generic path instead of throwing inside DiffBlock.
-    /** 中文说明：测试局部值 bad，由紧邻初始化决定。 */
-    const bad = (diffs: unknown): ToolResultView => ({ card: 'diff', diffs } as unknown as ToolResultView)
-    expect(diffCardModel(settled({ resultView: bad(undefined) }))).toBeNull()
-    expect(diffCardModel(settled({ resultView: bad([]) }))).toBeNull()
-    expect(diffCardModel(settled({ resultView: bad('nope') }))).toBeNull()
-    expect(diffCardModel(settled({ resultView: bad([null]) }))).toBeNull()
-    expect(diffCardModel(settled({ resultView: bad([{ path: 1, oldText: null, newText: 'x' }]) }))).toBeNull()
-    expect(diffCardModel(settled({ resultView: bad([{ path: 'a', oldText: 5, newText: 'x' }]) }))).toBeNull()
-    expect(diffCardModel(settled({ resultView: bad([{ path: 'a', oldText: null, newText: 9 }]) }))).toBeNull()
-    // The running side narrows identically.
-    expect(diffCardModel(running({ callView: { card: 'diff', diffs: 'nope' } as unknown as ToolCallView }))).toBeNull()
+  it('returns null for missing calls, errors, malformed args, unrelated tools, and child dispatches', () => {
+    expect(diffCardModel(settled({ call: null }))).toBeNull()
+    expect(diffCardModel(settled({ isError: true }))).toBeNull()
+    expect(diffCardModel(running({ argsRaw: '{' }))).toBeNull()
+    expect(diffCardModel(running({ name: 'read' }))).toBeNull()
+    expect(diffCardModel(running({ parentCallId: 'parent' }))).toBeNull()
+    expect(diffCardModel(settled({ parentCallId: 'parent' }))).toBeNull()
+  })
+
+  it('keeps edit generic for missing or malformed applied metadata', () => {
+    expect(diffCardModel(settled({ meta: undefined }))).toBeNull()
+    expect(diffCardModel(settled({ meta: null }))).toBeNull()
+    expect(diffCardModel(settled({ meta: { diffs: 'nope' } }))).toBeNull()
+    expect(diffCardModel(settled({ meta: { diffs: [null] } }))).toBeNull()
+    expect(diffCardModel(settled({ meta: { diffs: [{ path: 1, oldText: null, newText: 'x' }] } }))).toBeNull()
+    expect(diffCardModel(settled({ meta: { diffs: [{ path: 'a', oldText: 5, newText: 'x' }] } }))).toBeNull()
+    expect(diffCardModel(settled({ meta: { diffs: [{ path: 'a', oldText: null, newText: 9 }] } }))).toBeNull()
+  })
+
+  it.each([
+    undefined,
+    null,
+    { diffs: 'nope' },
+    { diffs: [null] },
+  ])('uses the intended write diff when applied metadata is absent or malformed: %j', (meta) => {
+    const writeArgs = JSON.stringify({ file_path: 'notes/new.txt', content: 'hello fixture\n' })
+    expect(diffCardModel(settled({
+      call: { name: 'write', argsRaw: writeArgs },
+      meta,
+    }))).toEqual({
+      card: { diffs: [{ path: 'notes/new.txt', oldText: null, newText: 'hello fixture\n' }] },
+    })
+  })
+
+  it('validates mutation escalation fields but accepts unrelated open-root fields', () => {
+    const args = (fields: Record<string, unknown>) => JSON.stringify({
+      file_path: 'notes/demo.txt', old_string: 'hello', new_string: 'hello fixture', ...fields,
+    })
+    expect(diffCardModel(running({ argsRaw: args({ sandbox_permissions: 7, justification: 'Need access' }) }))).toBeNull()
+    expect(diffCardModel(running({ argsRaw: args({ sandbox_permissions: 'workspace-write' }) }))).toBeNull()
+    expect(diffCardModel(running({ argsRaw: args({ extension: { version: 1 } }) }))).not.toBeNull()
   })
 })
 
@@ -166,7 +204,7 @@ describe('chat row diff body', () => {
       callId: 'c1', toolName: 'some_tool', openFile: vi.fn(), t,
       block: settled({
         call: { name: 'some_tool', argsRaw: '{"foo":"bar"}' },
-        callView: null, resultView: null,
+        meta: undefined,
       }),
     }} />)
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
@@ -229,12 +267,11 @@ describe('FileMutationRow diff card', () => {
     /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
       call: { name: 'write', argsRaw: writeArgs },
-      callView: { card: 'diff', title: 'Write notes/new.txt', diffs: [{ path: 'notes/new.txt', oldText: null, newText: 'hello fixture' }] },
-      resultView: { card: 'diff', title: 'Write notes/new.txt', diffs: [{ path: 'notes/new.txt', oldText: null, newText: 'hello fixture' }] },
+      meta: { diffs: [] },
     }), 'write')} />)
     // The footer counts live inside the collapsed diff card.
     toggleRow(view)
-    expect(view.getByText('└ +1 -0 · 1 file')).toBeTruthy()
+    expect(view.getByText('└ +1 -0 · 1 个文件')).toBeTruthy()
   })
 
   it('reflects the run state on its leading slot', () => {
@@ -242,14 +279,12 @@ describe('FileMutationRow diff card', () => {
     const runningView = render(<FileMutationRow {...rowProps(running())} />)
     expect(runningView.container.querySelector('[data-state="running"]')).not.toBeNull()
     cleanup()
-    /** 中文说明：测试局部值 errorView，由紧邻初始化决定。 */
-    const errorView = render(<FileMutationRow {...rowProps(settled({ isError: true, resultView: null, callView: null }))} />)
+    const errorView = render(<FileMutationRow {...rowProps(settled({ isError: true }))} />)
     expect(errorView.container.querySelector('[data-state="error"]')).not.toBeNull()
   })
 
-  it('a mutation call with no diff view renders the summary row alone', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = render(<FileMutationRow {...rowProps(settled({ callView: null, resultView: null }))} />)
+  it('a mutation result with no metadata renders the summary row alone', () => {
+    const view = render(<FileMutationRow {...rowProps(settled({ meta: undefined }))} />)
     // No diff material: expanding shows the args-JSON body, never a diff card.
     expect(view.container.querySelector('[data-diff]')).toBeNull()
     toggleRow(view)
@@ -257,12 +292,9 @@ describe('FileMutationRow diff card', () => {
   })
 
   it('surfaces the result text when an errored mutation has no diff card', () => {
-    // write/edit return undefined from presentResult on isError, so the failure
-    // has no diff — ToolRow shows the model-facing error text as the collapsed
-    // summary's first line (errorSummary) instead of a bare red dot.
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
+    // Failed mutations have no diff; ToolRow keeps the model-facing error text.
     const view = render(<FileMutationRow {...rowProps(settled({
-      isError: true, callView: null, resultView: null,
+      isError: true,
       content: [{ type: 'text', text: 'old_string not found in notes/demo.txt' }],
     }))} />)
     expect(view.container.querySelector('[data-diff]')).toBeNull()
@@ -272,7 +304,7 @@ describe('FileMutationRow diff card', () => {
   it('falls back to the error name/code when an errored result has no text block', () => {
     /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
-      isError: true, callView: null, resultView: null, content: [],
+      isError: true, content: [],
       error: { name: 'ToolError', code: 'sandbox_denied' },
     }))} />)
     expect(view.getByText('ToolError: sandbox_denied')).toBeTruthy()
@@ -292,7 +324,7 @@ describe('FileMutationRow diff card', () => {
   it('shows the stopped state when the call was interrupted', () => {
     /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
-      callView: null, resultView: null, isError: true,
+      isError: true,
       error: { name: 'ToolError', code: 'interrupted' },
     }))} />)
     expect(view.container.querySelector('[data-state="stopped"]')).not.toBeNull()
@@ -305,7 +337,7 @@ describe('FileMutationRow diff card', () => {
     // Empty args leave deriveFilePath undefined, so the summary is not a link.
     /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<FileMutationRow {...rowProps(settled({
-      call: { name: 'edit', argsRaw: '' }, callView: null, resultView: null,
+      call: { name: 'edit', argsRaw: '' },
     }))} />)
     expect(view.container.querySelector('[class*="_fileLink_"]')).toBeNull()
     expect(view.container.querySelector('[class*="_summary_"]')).not.toBeNull()
@@ -352,8 +384,7 @@ describe('fileMutationToolview registration', () => {
 })
 
 describe('DetailsPanel diff Output section', () => {
-  /** 中文说明：函数 mount 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
-  function mount(snapshot: ConversationSnapshot, selection: SelectionTarget | null, cwd?: string) {
+  function mount(snapshot: ChatSnapshot, selection: SelectionTarget | null, cwd?: string) {
     localStorage.clear()
     /** 中文说明：测试局部值 chat，由紧邻初始化决定。 */
     const chat = createChatStore().create()
@@ -369,19 +400,22 @@ describe('DetailsPanel diff Output section', () => {
         subagentsByParent: {}, jobsBySession: {},
         currentAddress: undefined,
       })
-    /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
-    const workspaces = createSnapshotStore<WorkspaceListState>({
-      items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-      baselinesReady: true, recentWorkspaceId: undefined,
-    })
+    const session = createSnapshotStore(sessionSnapshot(SID))
+    const conversation = createSnapshotStore(conversationSnapshot())
+    const workspaces = createSnapshotStore(workspaceSnapshot())
+    const attention = createSnapshotStore(new Map())
     return render(
       <DetailsPanel
-        SessionProvider={SessionProviderStub}
         renderSlot={renderToolDetails(t)}
+        SessionProvider={({ children }) => children}
         sessionId={SID}
-        useSession={bindSnapshotSelector({ getSnapshot: () => snapshot, subscribe: () => () => {} })}
+        useSession={bindSnapshotSelector(session)}
         useSessions={bindSnapshotSelector(sessions)}
+        useSessionPendingInteraction={bindSnapshotSelector(attention)}
         useWorkspaces={bindSnapshotSelector(workspaces)}
+        useConversation={bindSnapshotSelector(conversation)}
+        useChat={bindSnapshotSelector({ getSnapshot: () => snapshot, subscribe: () => () => {} })}
+        useTrajectory={useEmptyTrajectory}
         useInput={(() => { throw new Error('unused') })}
         inputActions={{
           setDraft: () => {},
@@ -394,25 +428,19 @@ describe('DetailsPanel diff Output section', () => {
         useStore={bindSnapshotSelector(chat)}
         actions={chat.actions}
         closeDetails={vi.fn()}
-        t={t}
+        t={chatT}
       />,
     )
   }
 
-  /** 中文说明：函数 snapshot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
-  function snapshot(over: Partial<ConversationSnapshot> = {}): ConversationSnapshot {
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
+  function snapshot(over: {
+    nodes?: readonly ConversationNode[]
+    runningCalls?: readonly RunningToolCall[]
+  } = {}): ChatSnapshot {
     const nodes = over.nodes ?? []
     /** 中文说明：测试局部值 runningCalls，由紧邻初始化决定。 */
     const runningCalls = over.runningCalls ?? []
-    return {
-      sessionId: SID, views: EMPTY_CONVERSATION_VIEWS,
-      chat: over.chat ?? toolChatSnapshot(nodes, runningCalls),
-      nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [],
-      pending: [], queue: [], running: false, composerPhase: 'active', removed: false,
-      openState: 'open', openError: null, hasMore: false, loadingOlder: false,
-      promptError: null, blank: false, subagent: null, lastAgentError: null, ...over,
-    }
+    return toolChatSnapshot(nodes, runningCalls)
   }
 
   /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
@@ -437,7 +465,7 @@ describe('DetailsPanel diff Output section', () => {
     /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = mount(snapshot({
       nodes: [settled({
-        callView: null, resultView: null,
+        meta: undefined,
         content: [{ type: 'text', text: 'permission denied' }],
       })],
     }), target)

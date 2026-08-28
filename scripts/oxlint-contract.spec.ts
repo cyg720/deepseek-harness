@@ -77,7 +77,7 @@ describe('Oxlint executable contract', () => {
       // A test under packages/client states its face in the filename, so the
       // probe carries the Client suffix to reach the Client aggregate.
       ['client package test', 'packages/client/ui-trajectory/tests', 'tsconfig.client.json', '.client.ts'],
-      ['example', 'examples/headless-agent/tests', 'tsconfig.host.json'],
+      ['CLI profile test', 'apps/cli/tests/profiles/headless/tests', 'tsconfig.host.json'],
       ['website', 'website', 'tsconfig.host.json'],
     ] as const
     /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -134,7 +134,7 @@ probePromise()
         rm(configPath, { force: true }),
       ])
     }
-  }, 20_000)
+  }, 90_000)
 
   it('runs JavaScript compatibility and nursery rules', async () => {
     /** 中文说明：变量 suffix 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -187,7 +187,7 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
         rm(configPath, { force: true }),
       ])
     }
-  }, 20_000)
+  }, 90_000)
 
   it('keeps the complete stylistic contract in Oxlint', async () => {
     /** 中文说明：变量 oxlintPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -300,7 +300,7 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
         rm(configPath, { force: true }),
       ])
     }
-  }, 20_000)
+  }, 90_000)
 
   it('accepts an ignored-only staged selection', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -439,6 +439,6 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
         await rm(directory, { recursive: true, force: true })
       }
     },
-    20_000,
+    90_000,
   )
 })

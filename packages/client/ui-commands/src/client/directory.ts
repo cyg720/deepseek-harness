@@ -20,7 +20,7 @@
  * is the only extra dimension.
  */
 import type { CommandDescriptor } from '@deepseek-ai/dsh-commands/types'
-import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 export type { CommandDescriptor } from '@deepseek-ai/dsh-commands/types'
 
@@ -81,6 +81,18 @@ export class CommandDirectory {
   // 软失效：对所有已触碰的会话键后台重拉；ready 快照在重拉期间继续服务。
   invalidateAll(): void {
     for (const key of this.entries.keys()) void this.refresh(key)
+  }
+
+  /**
+   * Drop one Session's obsolete composition-specific snapshot and prewarm its replacement.
+   * @param sessionId - Session whose effective command composition changed.
+   */
+  resetSession(sessionId: SessionId): void {
+    const entry = this.entry(sessionId)
+    entry.state = 'cold'
+    entry.commands = []
+    entry.lastError = undefined
+    void this.refresh(sessionId)
   }
 
   /**

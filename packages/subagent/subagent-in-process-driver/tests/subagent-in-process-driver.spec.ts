@@ -1,12 +1,4 @@
-/**
- * 文件职责：验证 subagent-in-process-driver.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
- */
-import { CallId, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { type Agent, type AgentOptions } from '@deepseek-ai/dsh-agent'
@@ -213,8 +205,8 @@ describe('startInProcessRun', () => {
       toolCallResponse('t1', 'noop', {}, 'partial one'),
       [
         { type: 'block-start', index: 0, blockType: 'tool-call' },
-        { type: 'tool-call-delta', index: 0, id: CallId('t2'), name: 'noop', argumentsDelta: '{}' },
-        { type: 'block-end', index: 0, block: { type: 'tool-call', id: CallId('t2'), name: 'noop', arguments: '{}' } },
+        { type: 'tool-call-delta', index: 0, id: ToolCallId('t2'), name: 'noop', argumentsDelta: '{}' },
+        { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('t2'), name: 'noop', arguments: '{}' } },
         { type: 'usage', usage: { inputTokens: 20, outputTokens: 5 } },
         { type: 'finish', reason: { kind: 'max-tokens' } },
       ],

@@ -22,11 +22,8 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 真实取消工具调用的会话日志夹具。 */
-const FIXTURE = fileURLToPath(new URL('../../../examples/acp-agent/tests/snapshots/cancel-tool-calls/session.jsonl', import.meta.url))
-/** 本场景快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/bash-abort-row', import.meta.url))
-/** 展开取消 Bash 行后的 ARIA 快照。 */
+const FIXTURE = fileURLToPath(new URL('../../../snapshots/acp/cancel-tool-calls/session.jsonl', import.meta.url))
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/bash-abort-row', import.meta.url))
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
@@ -54,7 +51,7 @@ describe.skipIf(MODE === 'record')('web e2e: cancelled Bash row disclosure', () 
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
 
     /** 左侧会话树的分组行。 */

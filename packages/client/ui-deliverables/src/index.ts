@@ -19,7 +19,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-system-prompt'
+import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 
 /** Services required for the model guidance paired with the browser renderer. */
 // 本插件依赖系统提示词注册服务。
@@ -39,7 +39,7 @@ const FILE_REFERENCE_PROMPT = 'When you successfully create or modify files, men
 export function apply(ctx: Context): void {
   ctx.systemPrompt.section({
     name: 'ui:deliverable-file-references',
-    order: 190,
+    order: FIRST_PARTY_SECTION_ORDER.DELIVERABLE_FILE_REFERENCES,
     text: FILE_REFERENCE_PROMPT,
   })
 }

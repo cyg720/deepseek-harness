@@ -17,11 +17,12 @@
  */
 
 import { useEffect } from 'react'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconAgentPresetOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the header actions).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-agent-presets/types'
 import type { AgentPresetSettingsState } from './settings-store.ts'
 import { presetDisplayText } from './locales.ts'
 import css from './AgentPresetLabel.module.css'
@@ -55,9 +56,10 @@ export type AgentPresetLabelProps =
 export function AgentPresetLabel({
   sessionId, useSessions, useAgentPresets, load, t,
 }: AgentPresetLabelProps) {
-  /** 中文说明：当前处理步骤的局部值 preset，取值由紧邻初始化决定，仅在当前作用域使用。 */
-  const preset = useSessions(state => state.byId[sessionId]?.agentPreset)
-  /** 中文说明：按序保存的数据集合 options，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  const preset = useSessions((state) => {
+    const value = state.byId[sessionId]?.projectionValues?.agentPreset
+    return typeof value === 'string' ? value : undefined
+  })
   const options = useAgentPresets(state => state.options)
 
   useEffect(() => {

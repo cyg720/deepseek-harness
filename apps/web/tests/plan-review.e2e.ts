@@ -24,14 +24,13 @@ import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
+  assertFixtureInventory, captureExpandedTurnProcessAria, captureStableAria,
+  compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 计划复审 fixture 和界面快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/plan-review', import.meta.url))
-/** 录制计划输出与后续完成回复的会话日志。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/plan-review', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 // The waiting golden owns the decision card; the approved golden owns the
 // transcript the approval leaves behind — the state the card cannot see.
@@ -42,7 +41,7 @@ const REVIEW_EXPECTED = join(SNAPSHOT_DIR, 'review.expected.md')
 const SIDEBAR_EXPECTED = join(SNAPSHOT_DIR, 'sidebar.expected.md')
 /** 批准后会话主体的预期快照。 */
 const APPROVED_EXPECTED = join(SNAPSHOT_DIR, 'approved.expected.md')
-/** 当前快照模式。 */
+const APPROVED_EXPANDED_EXPECTED = join(SNAPSHOT_DIR, 'approved-expanded.expected.md')
 const MODE = webSnapshotMode()
 
 // One command line: /plan enters plan mode and submits the rest as the turn's
@@ -70,14 +69,14 @@ describe('web e2e: plan review takeover round trip', () => {
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {
-    scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15 })
+    scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15, compareReplaySession: true })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
     // English page: the decision copy is the surface under test, and the
     // golden pins one language.
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -92,7 +91,7 @@ describe('web e2e: plan review takeover round trip', () => {
     if (MODE !== 'record') {
       expect(fixtureUserPrompts(await readFile(FIXTURE, 'utf8'))).toEqual([TASK])
     }
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
     const settled = scaffold.whenTurnSettled(MODE === 'record' ? 180_000 : 30_000)
     await input.fill(LINE)
@@ -132,16 +131,23 @@ describe('web e2e: plan review takeover round trip', () => {
     // Card gone; regular input restored.
     expect(await page.locator('[data-plan-review-key]').count()).toBe(0)
     expect(await selectedRow.locator('[data-state="warning"]').count()).toBe(0)
-    await expect.poll(() => page.locator('textarea').first().isEnabled(), { timeout: 10_000 }).toBe(true)
+    await expect.poll(() => page.locator('[data-composer-input]').first().isEnabled(), { timeout: 10_000 }).toBe(true)
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(APPROVED_EXPECTED, snapshot, MODE)
+    const expanded = await captureExpandedTurnProcessAria(
+      page,
+      '[class*="centerCol"]',
+      scaffold.workspaceCwd,
+    )
+    await compareOrRefreshGolden(APPROVED_EXPANDED_EXPECTED, expanded, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   }, 200_000)
 
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'session.jsonl', 'review.expected.md', 'sidebar.expected.md', 'approved.expected.md',
+      'session.jsonl', 'review.expected.md', 'sidebar.expected.md',
+      'approved.expected.md', 'approved-expanded.expected.md',
     ])
   })
 })

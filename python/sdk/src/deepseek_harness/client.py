@@ -34,17 +34,14 @@ NotificationFilter: TypeAlias = Callable[[Notification], bool]
 class HarnessConfig:
     """Configuration for launching the local DeepSeek Harness SDK runtime."""
 
-    # 中文说明：变量 runtime_bin 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    runtime_bin: str | None = None
-    # 中文说明：变量 bridge_bin 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    bridge_bin: str | None = None
-    # 中文说明：变量 launch_args_override 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    launch_args_override: tuple[str, ...] | None = None
-    # 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+    dsh_bin: str | None = None
+    profile: str = "sdk"
+    patches: tuple[str, ...] = ()
+    dsh_home: str | None = None
     cwd: str | None = None
     # 中文说明：变量 env 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     env: dict[str, str] | None = None
-    # 中文说明：变量 request_timeout_seconds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+    initialize_timeout_seconds: float = 30.0
     request_timeout_seconds: float | None = None
     # 中文说明：变量 shutdown_timeout_seconds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     shutdown_timeout_seconds: float | None = 1.0
@@ -54,9 +51,14 @@ class HarnessConfig:
 class HarnessClient:
     """Synchronous JSON-RPC client for the DeepSeek Harness SDK runtime over stdio."""
 
-    # 中文说明：函数 __init__ 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
-    def __init__(self, config: HarnessConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: HarnessConfig | None = None,
+        *,
+        _launch_args: tuple[str, ...] | None = None,
+    ) -> None:
         self.config = config or HarnessConfig()
+        self._launch_args = _launch_args
         self._proc: subprocess.Popen[str] | None = None
         self._lock = threading.Lock()
         self._write_lock = threading.Lock()
@@ -86,13 +88,10 @@ class HarnessClient:
             return
         with self._lock:
             self._session_parents.clear()
-        # 中文说明：变量 args 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-        args = list(self.config.launch_args_override or self._default_launch_args())
-        # 中文说明：变量 env 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         env = os.environ.copy()
         if self.config.env:
             env.update(self.config.env)
-        self._inject_bundled_default_config(env)
+        args = list(self._launch_args or self._default_launch_args(env))
         self._proc = subprocess.Popen(
             args,
             # 中文说明：变量 stdin 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
@@ -117,12 +116,14 @@ class HarnessClient:
 
     # 中文说明：函数 close 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def close(self) -> None:
-        # 中文说明：变量 proc 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+        """Close the runtime after a bounded opportunity to flush durable state."""
         proc = self._proc
         if proc is None:
             return
+        shutdown_completed = False
         try:
             self.request("shutdown", None, response_model=_ShutdownResponse, timeout_seconds=self.config.shutdown_timeout_seconds)
+            shutdown_completed = True
         except Exception as exc:
             self._stderr_lines.append(f"shutdown request failed: {exc}")
         if proc.stdin:
@@ -130,16 +131,22 @@ class HarnessClient:
                 proc.stdin.close()
             except Exception as exc:
                 self._stderr_lines.append(f"stdin close failed: {exc}")
+        if shutdown_completed:
+            try:
+                proc.wait(timeout=self.config.shutdown_timeout_seconds)
+            except subprocess.TimeoutExpired:
+                pass
         if proc.poll() is None:
             try:
                 proc.terminate()
             except ProcessLookupError:
                 pass
-        try:
-            proc.wait(timeout=self.config.shutdown_timeout_seconds)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
+        if proc.poll() is None:
+            try:
+                proc.wait(timeout=self.config.shutdown_timeout_seconds)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
         self._proc = None
         self._fail_waiters(self._runtime_closed_error("DeepSeek Harness runtime closed"))
         if self._reader_thread and self._reader_thread.is_alive():
@@ -154,7 +161,7 @@ class HarnessClient:
         cwd: str,
         provider: str,
         model: str,
-        # 中文说明：变量 max_tokens 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+        reasoning_effort: str | None = None,
         max_tokens: int | None = None,
     ) -> InitializeResponse:
         # 中文说明：变量 payload 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
@@ -163,12 +170,29 @@ class HarnessClient:
             "provider": provider,
             "model": model,
         }
+        if reasoning_effort is not None:
+            payload["reasoningEffort"] = reasoning_effort
         if max_tokens is not None:
             payload["maxTokens"] = max_tokens
         try:
-            return self.request("initialize", payload, response_model=InitializeResponse)
-        except BaseException:
+            return self.request(
+                "initialize",
+                payload,
+                response_model=InitializeResponse,
+                timeout_seconds=self.config.initialize_timeout_seconds,
+            )
+        except TimeoutError as error:
             self.close()
+            raise TimeoutError(f"{error}\nselected dsh profile {self.config.profile!r}") from error
+        except BaseException as error:
+            self.close()
+            diagnostics = self._runtime_diagnostics()
+            if isinstance(error, JsonRpcError) and diagnostics:
+                raise JsonRpcError(
+                    error.code,
+                    f"{error.message}\n{diagnostics}",
+                    error.data,
+                ) from error
             raise
 
     # 中文说明：函数 session_prompt 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
@@ -550,40 +574,35 @@ class HarnessClient:
             parts.append("stderr tail:\n" + "\n".join(self._stderr_lines))
         return "\n".join(parts)
 
-    # 中文说明：函数 _default_launch_args 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
-    def _default_launch_args(self) -> tuple[str, ...]:
-        if self.config.runtime_bin is not None:
-            return (self.config.runtime_bin,)
-        if self.config.bridge_bin is not None:
-            return (self.config.bridge_bin,)
-        try:
-            from deepseek_harness_runtime import resolve_bundled_launch_args
-        except ImportError as exc:
-            raise FileNotFoundError(
-                "Unable to locate the bundled DeepSeek Harness SDK runtime. "
-                "Install deepseek-harness-runtime-bin or set HarnessConfig.runtime_bin."
-            ) from exc
-        return resolve_bundled_launch_args()
+    def _default_launch_args(self, env: dict[str, str]) -> tuple[str, ...]:
+        if self.config.dsh_bin is None:
+            try:
+                from deepseek_harness_runtime import resolve_bundled_launch_args
+            except ImportError as exc:
+                raise FileNotFoundError(
+                    "Unable to locate the bundled DeepSeek Harness dsh runtime. "
+                    "Install deepseek-harness-runtime-bin."
+                ) from exc
+            base = resolve_bundled_launch_args()
+        else:
+            base = (str(Path(self.config.dsh_bin).expanduser().resolve()),)
 
-    # 中文说明：函数 _inject_bundled_default_config 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
-    def _inject_bundled_default_config(self, env: dict[str, str]) -> None:
-        """Inject the default config for a bundled launch with no non-empty config.
+        if self.config.dsh_home is not None:
+            if not self.config.dsh_home.strip():
+                raise ValueError("HarnessConfig requires a non-empty dsh_home")
+            env["DSH_HOME"] = str(Path(self.config.dsh_home).expanduser().resolve())
+        elif not env.get("DSH_HOME", "").strip():
+            raise ValueError(
+                "HarnessConfig requires an explicit dsh_home or non-empty DSH_HOME; "
+                "the Python SDK never uses ~/.dsh implicitly"
+            )
 
-        Both bundled carriers require an explicit config. Explicit runtime,
-        launch-argument, and config channels remain untouched.
-        """
-        # 中文说明：变量 uses_bundled_runtime 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-        uses_bundled_runtime = (
-            self.config.launch_args_override is None
-            and self.config.runtime_bin is None
-            and self.config.bridge_bin is None
+        patches = tuple(
+            argument
+            for patch in self.config.patches
+            for argument in ("--patch", str(Path(patch).expanduser().resolve()))
         )
-        if not uses_bundled_runtime or env.get("DSH_CORDIS_CONFIG"):
-            return
-        # _default_launch_args already imported the package or raised its install error.
-        from deepseek_harness_runtime import bundled_default_config_path
-
-        env["DSH_CORDIS_CONFIG"] = str(bundled_default_config_path())
+        return (*base, "--profile", self.config.profile, *patches)
 
     # 中文说明：函数 _unsubscribe_notifications 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
     def _unsubscribe_notifications(self, subscription_id: str) -> None:

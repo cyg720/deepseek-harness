@@ -1,33 +1,6 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】TerminalBlock 背后的 ANSI 渲染模型：先用 anser 把 SGR（终端颜色/样式）序列
- *             拆成一段段 run，本模块把每个 run 的颜色与装饰解析成普通样式对象，并把 run
- *             按行折叠成 span 数组，让高度上限可以按整行切片。anser 无法转成颜色的序列
- *             （OSC、光标移动、其它 C0 控制符）在解析前被清除，绝不让它们以字面字符进入 DOM。
- * 【技术维度】正则逐类清除转义序列；自研"列缓冲"回放光标移动（\r、退格、清行 K），
- *             把当前 SGR 状态按单元（cell）保存；宽字符（CJK/emoji）占两列，零宽字符不占列。
- * 【产品维度】AI 执行命令后的终端输出必须与真实终端所见一致——进度条、spinner、彩色输出
- *             在对话卡片里原样复现，用户才能相信"这就是终端里跑出来的结果"。
- * 【逻辑维度】1) 颜色/装饰常量表（TOKEN_BY_BASIC_RGB、STYLE_BY_DECORATION）与转义正则；
- *             2) SgrState 状态 + foldSgr / openSgr / sameSgr 状态折叠；3) replayLine 按列
- *             回放一行光标移动；4) applyCursorMovements 逐行回放并跨行传递状态；
- *             5) sanitize 清除非颜色序列；6) resolveStyle 解析单 run 样式；
- *             7) 导出 parseAnsiLines 输出按行分组的 span。
- * 【关键边界】记录"当前状态"而非序列历史，避免 O(n^2) 输出（曾致 RangeError）；blink 动画
- *             不重现；reverse 由 anser 消费（交换前后景）；隐藏行数为 0 的样式返回 undefined；
- *             回放需要满足真实终端语义（如 100%\rOK 显示 OK0%）。
- * 【新手阅读建议】先看 parseAnsiLines 的输入输出，再读 replayLine 理解"列缓冲"为什么能
- *             正确还原 \r 重绘；状态折叠三个函数是理解 SGR 的关键。
- * ==========================================================================
- */
-// ANSI model behind TerminalBlock: anser splits the SGR runs, this module
-// resolves each run's colors and decorations into a plain style record and
-// folds the runs into per-line span arrays so a height cap can slice whole
-// lines. Sequences anser does not turn into color (OSC, cursor movement,
-// other C0 controls) are removed before parsing so they never reach the DOM
-// as literal characters.
-// 一句话概括：输入任意带 ANSI 转义序列的终端文本，输出"按行分组、带内联样式"的文本
-// 片段数组，且与真实终端的显示一致（含光标重绘、宽字符、颜色状态）。
+// Strip control sequences that anser does not consume before resolving SGR
+// runs, so they cannot reach the DOM as literal characters.
+
 import Anser from 'anser'
 import type { CSSProperties } from 'react'
 

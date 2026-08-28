@@ -24,7 +24,7 @@
  * ==========================================================================
  */
 
-import { MessageId, freezeMessage, type CallId } from '@deepseek-ai/dsh-llm'
+import { MessageId, freezeMessage, type ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { ToolResultMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from './types.ts'
 
@@ -58,9 +58,7 @@ export function interruptedTurnClosers(events: readonly SessionEvent[]): Session
   let openStep: number | null = null
   // Reset at each turn boundary so earlier calls cannot leak into tail repair.
   // Assistant blocks register calls; later `tool/call` events add their seqs to `sourceEventSeqs`.
-  // 每个 turn 边界重置，防止更早的调用泄漏进尾部修复。assistant 消息块登记调用；
-  // 后续 tool/call 事件把自己的 seq 补进 sourceEventSeqs。
-  const pendingCalls = new Map<CallId, { step: number; callSeq?: number }>()
+  const pendingCalls = new Map<ToolCallId, { step: number; callSeq?: number }>()
   for (const event of events) {
     switch (event.type) {
       case 'turn/start':

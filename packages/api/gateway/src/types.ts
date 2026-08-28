@@ -27,6 +27,9 @@
 // 英文模块注释的中文解释：本文件是与传输载体无关（carrier-independent）
 // 的 Typert 网关类型契约模块，集中放置请求、服务与错误三组类型定义。
 
+import type { Context } from '@deepseek-ai/cordis'
+import type { RemoteEventHostInfo } from './stream-protocol.ts'
+
 /** One Remote method request after a carrier has decoded its envelope. */
 // 中文：一条"远程方法调用请求"——传输载体（carrier）解码信封后，把端点
 // 信息与命名参数整理成这个结构交给网关分发。
@@ -45,6 +48,85 @@ export interface InvokeRemoteRequest {
   // 中文：取消信号（AbortSignal），由载体或直接调用方注入；只传给声明了
   // 支持取消的方法，不支持取消的方法不会收到它。
   readonly signal?: AbortSignal
+}
+
+/** One Host Cordis notification forwarded unchanged to Client Remote subscribers. */
+export interface TypertRemoteEventFrame {
+  /** Original Host Cordis event name. */
+  readonly event: string
+  /** Original event argument list after the owner validates it for JSON transport. */
+  readonly args: readonly unknown[]
+}
+
+/** Live Host values used to project one scoped Remote Event. */
+export interface TypertRemoteEventContext {
+  /** Live Host Context identified by the registered Host adapters. */
+  readonly value: Context
+  /** Agent object carried directly by the waterfall request. */
+  readonly subject: object
+}
+
+/** Result returned from a Client waterfall, or delegation back to the Host chain. */
+export type TypertRemoteEventOutcome =
+  | { readonly kind: 'result'; readonly value: unknown }
+  | { readonly kind: 'next' }
+
+/**
+ * One scoped waterfall invocation yielded by the application event source.
+ * The Gateway alone assigns transport ids and resolves the continuation after
+ * a Client result or explicit delegation.
+ */
+export interface TypertRemoteEventInvocation {
+  /** Original Host Cordis event name. */
+  readonly event: string
+  /** Sole request argument before the waterfall's `next()` callback. */
+  readonly request: object
+  readonly context: TypertRemoteEventContext
+  /** Resume the source's Cordis listener with a Client result or `next()`. */
+  readonly resolve: (outcome: TypertRemoteEventOutcome) => void
+  /** Reject the source's Cordis listener after cancellation, transport failure, or Client rejection. */
+  readonly reject: (reason: unknown) => void
+}
+
+/** Notification or scoped waterfall accepted from the sole Remote Event source. */
+export type TypertRemoteEventDispatch = TypertRemoteEventFrame | TypertRemoteEventInvocation
+
+/**
+ * Open the application-selected event stream for one Client carrier. The
+ * factory must attach all incremental Host listeners before it returns; the
+ * Gateway publishes its readiness item immediately afterward.
+ * @param signal - cancellation shared with the Client stream and registration.
+ * @returns the long-lived stream of notifications and scoped waterfall invocations.
+ */
+export type TypertRemoteEventSource = (
+  signal: AbortSignal,
+) => AsyncIterable<TypertRemoteEventDispatch>
+
+/** Carrier-facing access to decoded Remote streams and their stable failures. */
+export interface TypertGatewayWireStream {
+  /**
+   * Open one logical stream from its wire endpoint and payload.
+   * @param endpoint - canonical Remote endpoint or Gateway-owned stream name.
+   * @param payload - decoded carrier payload.
+   * @param signal - logical-stream cancellation.
+   * @returns validated stream values.
+   */
+  readonly open: (
+    endpoint: string,
+    payload: unknown,
+    signal: AbortSignal,
+  ) => Promise<AsyncIterable<unknown>>
+
+  /**
+   * Convert a stream failure to the carrier-safe Remote failure fields.
+   * @param error - failure raised while opening or consuming a stream.
+   * @returns stable code, message, and details for the Client.
+   */
+  readonly failure: (error: unknown) => {
+    readonly code: string
+    readonly message: string
+    readonly details: object
+  }
 }
 
 /** Stable infrastructure and boundary failures emitted before or after business execution. */
@@ -74,15 +156,36 @@ export type TypertGatewayErrorCode =
 // 中文：网关接口——被 Connection 适配器消费的 Host 端分发器（dispatcher），
 // 是远程调用到达 Host 后的统一入口；本文件只给签名，实现在 index.ts 中。
 export interface TypertGateway {
+  /** Carrier adapter shared by WebSocket and in-process transports. */
+  readonly wireStream: TypertGatewayWireStream
+
+  /**
+   * Register the application-selected forwarded-event source.
+   * @param source - stream factory installed by the Remote assembly.
+   * @param host - stable Host facts included in each Client generation's opening frame.
+   * @returns disposer removing this exact source and cancelling its active streams.
+   */
+  registerRemoteEvents(
+    source: TypertRemoteEventSource,
+    host: RemoteEventHostInfo,
+  ): () => Promise<void>
+
   /**
    * Invoke one live Remote method without assuming a carrier or response envelope.
    * @param request - decoded endpoint and named wire arguments.
-   * @returns the validated business result.
+   * @returns the business result without output decoding.
    * @throws {@link TypertGatewayError} for dispatch, provider, or boundary failures; lookup-policy and business errors retain identity.
    */
   // 中文：调用一个存活的 Remote 方法；本接口不假设任何具体载体或响应信封，
   // 由具体实现（TypertGatewayService）负责分发、参数解析与结果校验。
   invoke(request: InvokeRemoteRequest): Promise<unknown>
+
+  /**
+   * Open one live stream Remote method without assuming a physical carrier.
+   * @param request - decoded endpoint and named wire arguments.
+   * @returns a cancellation-aware iterable over the business results.
+   */
+  stream(request: InvokeRemoteRequest): Promise<AsyncIterable<unknown>>
 }
 
 declare module '@deepseek-ai/cordis' {

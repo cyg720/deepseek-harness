@@ -15,6 +15,7 @@ import {
   /** 中文说明：类型或类 TrajectoryCellProps 约束工具或轨迹数据职责。 */
   type TrajectoryCellProps,
 } from './trajectory-record.ts'
+import type { TrajectoryKey, TrajectoryTranslate } from './locales.ts'
 import css from './TrajectoryCell.module.css'
 
 export { formatElapsedSeconds }
@@ -25,15 +26,14 @@ export type {
 } from './trajectory-record.ts'
 
 /** Display label per kind (matches the design tags). */
-/* 中文说明：视图局部值 KIND_LABEL，由紧邻初始化决定。 */
-const KIND_LABEL: Record<TrajectoryCellKind, string> = {
-  system: 'System',
-  user: 'User',
-  context: 'Context',
-  compacted: 'Compacted',
-  message: 'Message',
-  tool: 'Tool',
-  subtool: 'Sub',
+const KIND_LABEL_KEY: Record<TrajectoryCellKind, TrajectoryKey> = {
+  system: 'kind.system',
+  user: 'kind.user',
+  context: 'kind.context',
+  compacted: 'kind.compacted',
+  message: 'kind.message',
+  tool: 'kind.tool',
+  subtool: 'kind.sub',
 }
 
 /** 中文说明：视图局部值 TAG_CLASS，由紧邻初始化决定。 */
@@ -54,6 +54,7 @@ const TAG_CLASS: Record<TrajectoryCellKind, string | undefined> = {
  */
 /* 中文说明：函数 TrajectoryCell 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function TrajectoryCell({
+  t,
   index,
   kind,
   text,
@@ -77,8 +78,7 @@ export function TrajectoryCell({
   selected = false,
   className,
   ...rest
-}: TrajectoryCellProps) {
-  /** 中文说明：视图局部值 rootClass，由紧邻初始化决定。 */
+}: TrajectoryCellProps & { t: TrajectoryTranslate }) {
   const rootClass = [
     css.root,
     selected ? css.selected : undefined,
@@ -90,7 +90,7 @@ export function TrajectoryCell({
     <div className={rootClass} data-kind={kind} data-selected={selected || undefined} {...rest}>
       <span className={css.index}>#{index}</span>
       <span className={css.tagSlot}>
-        <span className={[css.tag, TAG_CLASS[kind]].filter((c): c is string => c !== undefined).join(' ')}>{KIND_LABEL[kind]}</span>
+        <span className={[css.tag, TAG_CLASS[kind]].filter((c): c is string => c !== undefined).join(' ')}>{t(KIND_LABEL_KEY[kind])}</span>
       </span>
       <span className={css.text}>{text}</span>
       <span className={css.trailing}>
@@ -101,7 +101,7 @@ export function TrajectoryCell({
             <span className={css.metric}>{think ?? ''}</span>
           </>
         ) : null}
-        <span className={css.time}>{formatElapsedSeconds(timeSeconds)}</span>
+        <span className={css.time}>{formatElapsedSeconds(timeSeconds, t)}</span>
       </span>
     </div>
   )

@@ -20,9 +20,7 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景黄金快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/cold-blank-session', import.meta.url))
-/** 冷启动侧栏的 ARIA 快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/cold-blank-session', import.meta.url))
 const SIDEBAR_EXPECTED = join(SNAPSHOT_DIR, 'sidebar.expected.md')
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
@@ -59,7 +57,7 @@ describe('web e2e: cold blank Session visibility', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 

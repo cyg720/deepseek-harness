@@ -18,7 +18,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { TOOL_ABORTED_BEFORE_DISPATCH } from '@deepseek-ai/dsh-tools'
 import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
@@ -44,7 +44,7 @@ let callCounter = 0
 function call(name: string, args: unknown) {
   return ctx.tools.execute({
     signal: testToolSignal,
-    callId: CallId(`call-${++callCounter}`),
+    callId: ToolCallId(`call-${++callCounter}`),
     name,
     arguments: args,
     agent: { session } as never,
@@ -450,7 +450,7 @@ describe('per-session cwd', () => {
   const callIn = (sessionObj: object, name: string, args: unknown) =>
     ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId(`call-${++callCounter}`),
+      callId: ToolCallId(`call-${++callCounter}`),
       name,
       arguments: args,
       agent: { session: sessionObj } as never,
@@ -498,10 +498,9 @@ describe('signal, concurrency, and the fs/observed contract', () => {
   const session = { header: {} }
   /** 中文说明：测试局部值 callSig，由紧邻初始化决定。 */
   const callSig = (signal: AbortSignal, name: string, args: unknown) =>
-    ctx.tools.execute({ callId: CallId(`c-${++callCounter}`), name, arguments: args, agent: { session } as never, signal })
-  /** 中文说明：测试局部值 callOwned，由紧邻初始化决定。 */
+    ctx.tools.execute({ callId: ToolCallId(`c-${++callCounter}`), name, arguments: args, agent: { session } as never, signal })
   const callOwned = (name: string, args: unknown) =>
-    ctx.tools.execute({ signal: testToolSignal, callId: CallId(`c-${++callCounter}`), name, arguments: args, agent: { session } as never })
+    ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId(`c-${++callCounter}`), name, arguments: args, agent: { session } as never })
 
   it('a pre-aborted registry call skips read/write/edit with ABORTED_BEFORE_DISPATCH', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello')

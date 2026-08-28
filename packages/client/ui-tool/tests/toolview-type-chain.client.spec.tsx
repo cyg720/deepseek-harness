@@ -8,7 +8,7 @@
 // 新手阅读建议：先看两个 register 负例，再比较 overreaching 与 drifted 访问了哪些不属于 ToolCallViewProps 的字段。
 import { describe, expect, it } from 'vitest'
 import type { ReactNode } from 'react'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { ToolCallViewProps } from '../src/client/contract/slots.ts'
 
 // 工具视图类型负例测试套件；运行时只确认 negatives 仍是函数。

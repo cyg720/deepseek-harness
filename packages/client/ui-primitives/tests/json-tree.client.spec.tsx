@@ -10,7 +10,15 @@
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { JsonTree } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ComponentProps } from 'react'
+import { JsonTree as LocalizedJsonTree } from '@deepseek-ai/dsh-client-ui-primitives'
+import { jsonTreeLabels } from './labels.client.ts'
+
+function JsonTree(props: Omit<ComponentProps<typeof LocalizedJsonTree>, 'label' | 'labels'> & {
+  label?: string
+}) {
+  return <LocalizedJsonTree label="JSON" {...props} labels={jsonTreeLabels} />
+}
 
 /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let writeText: ReturnType<typeof vi.fn>

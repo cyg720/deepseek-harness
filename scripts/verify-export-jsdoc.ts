@@ -34,26 +34,17 @@ const PROTOCOL_EXPORTS = new Set(['Config', 'inject', 'name', 'reusable', 'apply
 /** Per-file walk state threaded through the scope recursion. */
 /* 中文说明：interface Walk 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface Walk {
-  /** Repo-relative path of the file being walked. */
   rel: string
-  /** The parsed source file. */
   sf: ts.SourceFile
-  /** Raw file text (rawJsDoc reads comment ranges out of it). */
   text: string
-  /** The program's checker, consulted only for heritage-member lookups. */
   checker: ts.TypeChecker
-  /** The aggregate violation list, appended in place. */
   violations: string[]
 }
 
-/** True when a statement carries the `export` modifier. */
-/* 中文说明：函数 isExported 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isExported(stmt: ts.Statement): boolean {
   return ts.canHaveModifiers(stmt) && (ts.getModifiers(stmt)?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false)
 }
 
-/** True for a class member a consumer cannot reach: `private`/`protected`/`#name`. */
-/* 中文说明：函数 isNonPublic 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isNonPublic(member: ts.ClassElement): boolean {
   /** 中文说明：变量 mods 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mods = ts.canHaveModifiers(member) ? ts.getModifiers(member) : undefined
@@ -61,16 +52,12 @@ function isNonPublic(member: ts.ClassElement): boolean {
     || ('name' in member && ts.isPrivateIdentifier(member.name))
 }
 
-/** True when a class member carries the `static` modifier. */
-/* 中文说明：函数 isStatic 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isStatic(member: ts.ClassElement): boolean {
   /** 中文说明：变量 mods 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mods = ts.canHaveModifiers(member) ? ts.getModifiers(member) : undefined
   return mods?.some(m => m.kind === ts.SyntaxKind.StaticKeyword) ?? false
 }
 
-/** The `this`-receiver exemption every function-like check shares. */
-/* 中文说明：函数 thisReceiver 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function thisReceiver(p: ts.ParameterDeclaration): boolean {
   return ts.isIdentifier(p.name) && p.name.text === 'this'
 }
@@ -742,7 +729,6 @@ function main(): void {
   process.exit(1)
 }
 
-// Run only when invoked as a script, not when imported by a test.
 if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   main()
 }

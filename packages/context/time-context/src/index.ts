@@ -255,7 +255,7 @@ export function apply(ctx: Context, config: Config): void {
       browser,
     )
     return {
-      kind: 'enter',
+      ...decision,
       messages: [
         ...decision.messages,
         createUserMessage({

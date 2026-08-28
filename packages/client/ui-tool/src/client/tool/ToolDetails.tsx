@@ -12,26 +12,30 @@ import type { ToolDetailsProps } from '../contract/slots.ts'
 import { diffCardModel } from './models/diff-card-model.ts'
 import { readCardModel } from './models/read-card-model.ts'
 import { searchCardModel } from './models/search-card-model.ts'
-import { terminalBlockLabels, terminalCardModel } from './models/terminal-card-model.ts'
+import {
+  localizeTerminalCardModel, terminalBlockLabels, terminalCardModel,
+} from './models/terminal-card-model.ts'
+import {
+  diffBlockLabels, readBlockLabels, searchBlockLabels, webBlockLabels,
+} from './models/primitive-labels.ts'
 import { resultText } from './models/tool-call-model.ts'
 import { webCardModel } from './models/web-card-model.ts'
 import css from './ToolDetails.module.css'
 
 /**
- * Render the selected Tool call's structured output when its presentation
- * intent is known, otherwise preserve the flattened result text.
+ * Render the selected Tool call's structured output when its raw fields form a
+ * supported root card, otherwise preserve the flattened result text.
  * @param props - selected call slice, workspace root, host home, and locale seat.
  * @returns the details output body.
  */
 /* 中文说明：函数 ToolDetails 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function ToolDetails({
-  block, cwd, useHostDescription, t,
-}: Pick<ToolDetailsProps, 'block' | 'cwd' | 'useHostDescription' | 't'>) {
-  /** 中文说明：视图局部值 home，由紧邻初始化决定。 */
-  const home = useHostDescription(description => description?.home)
-  /** 中文说明：视图局部值 terminal，由紧邻初始化决定。 */
-  const terminal = terminalCardModel(block, cwd)
-  if (terminal !== null) {
+  block, cwd, useConnectionGeneration, t,
+}: Pick<ToolDetailsProps, 'block' | 'cwd' | 'useConnectionGeneration' | 't'>) {
+  const home = useConnectionGeneration(generation => generation?.host.home)
+  const terminalModel = terminalCardModel(block, cwd)
+  if (terminalModel !== null) {
+    const terminal = localizeTerminalCardModel(terminalModel, t)
     return (
       <>
         {terminal.description !== undefined ? (
@@ -43,16 +47,14 @@ export function ToolDetails({
   }
   /** 中文说明：视图局部值 read，由紧邻初始化决定。 */
   const read = readCardModel(block, cwd, home)
-  if (read !== null) return <ReadBlock {...read} className={css.read} />
-  /** 中文说明：视图局部值 diff，由紧邻初始化决定。 */
+  if (read !== null) return <ReadBlock {...read} labels={readBlockLabels(t)} className={css.read} />
   const diff = diffCardModel(block)
-  if (diff !== null) return <DiffBlock {...diff.card} className={css.cardBody} />
-  /** 中文说明：视图局部值 search，由紧邻初始化决定。 */
+  if (diff !== null) return <DiffBlock {...diff.card} labels={diffBlockLabels(t)} className={css.cardBody} />
   const search = searchCardModel(block)
   if (search !== null) {
     return (
       <>
-        <SearchBlock {...search.card} className={css.cardBody} />
+        <SearchBlock {...search.card} labels={searchBlockLabels(t)} className={css.cardBody} />
         {search.recovery !== undefined ? <div className={css.recovery}>{search.recovery}</div> : null}
       </>
     )
@@ -64,7 +66,7 @@ export function ToolDetails({
     const body = 'kind' in block ? resultText(block) : ''
     return (
       <>
-        <WebBlock {...web} className={css.web} />
+        <WebBlock {...web} labels={webBlockLabels(t)} className={css.web} />
         {body !== '' ? <pre className={css.code}>{body}</pre> : null}
       </>
     )

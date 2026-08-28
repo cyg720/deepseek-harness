@@ -21,7 +21,7 @@
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { join, sep } from 'node:path'
-import { createUserMessage, CallId } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { TOOL_ABORTED_BEFORE_DISPATCH, type ToolExecution, type ToolExecutionToken } from '@deepseek-ai/dsh-tools'
 import { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
@@ -244,7 +244,7 @@ function call(
 ) {
   return ctx.tools.execute({
     signal: testToolSignal,
-    callId: CallId(`call-${++callCounter}`),
+    callId: ToolCallId(`call-${++callCounter}`),
     name,
     arguments: args,
     ...options.agent ? { agent: options.agent as never } : {},
@@ -530,8 +530,7 @@ describe('workdir derivation and signal forwarding', () => {
     /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort()
-    /** 中文说明：测试局部值 exec，由紧邻初始化决定。 */
-    const exec = { signal: controller.signal, name: 'glob', callId: CallId('direct-pre-abort') } as unknown as ToolExecution
+    const exec = { signal: controller.signal, name: 'glob', callId: ToolCallId('direct-pre-abort') } as unknown as ToolExecution
     await expect(runRipgrep(ctx, exec, 'glob', ['--files'], 1_000_000, 3_000, 64 * 1024)).rejects
       .toMatchObject({ name: 'SearchError', code: 'SEARCH_ABORTED' })
   })

@@ -24,22 +24,17 @@ import {
   type WebScaffold,
 } from './scaffold.ts'
 import {
-  connectFreshWorkspace, newEnglishPage, REPO_ROOT, saveFailureShot,
+  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, REPO_ROOT, saveFailureShot,
 } from './support.ts'
 
 /** 当前快照模式。 */
 const MODE = webSnapshotMode()
-/** 工作流运行中与完成后界面的快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/workflow-run', import.meta.url))
-/** 子工作流仍在运行时的预期快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/workflow-run', import.meta.url))
 const UI_LIVE_EXPECTED = join(SNAPSHOT_DIR, 'ui-live.expected.md')
 /** 工作流全部完成后的预期快照。 */
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
-/** 已录制的父工作流模型会话。 */
-const PARENT_FIXTURE = join(REPO_ROOT, 'examples/acp-agent/tests/snapshots/workflow-run/session.jsonl')
-/** 已录制的子代理模型会话。 */
-const CHILD_FIXTURE = join(REPO_ROOT, 'examples/acp-agent/tests/snapshots/workflow-run/session.1.jsonl')
-/** 子工作流 fixture 中的固定提示。 */
+const PARENT_FIXTURE = join(REPO_ROOT, 'snapshots/session/workflow-run/session.jsonl')
+const CHILD_FIXTURE = join(REPO_ROOT, 'snapshots/session/workflow-run/session.1.jsonl')
 const CHILD_PROMPT = 'Reply with exactly the word WF_CHILD_OK and nothing else.'
 
 describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () => {
@@ -70,11 +65,12 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
       replayFixture: PARENT_FIXTURE,
       replayChildFixtures: [CHILD_FIXTURE],
       paceMs: 50,
+      compareReplaySession: false,
     })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -87,7 +83,7 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
   it('shows the live member, opens its local child, then retains the settled record beside the tool row', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-workflow-run-live'))
     const settled = waitForParentSettlement()
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.fill(prompt)
     await input.press('Enter')
 
@@ -176,6 +172,7 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
     const sessions = page.getByRole('tree', { name: 'Sessions' })
     await sessions.getByRole('treeitem', { name: /Use the workflow tool exactly/ }).click()
     await settled
+    await expandTurnProcesses(page)
     await page.locator('[data-workflow-run][data-run-status="completed"]').waitFor()
 
     expect(await page.locator('[data-chat-flow-kind="tool-call"]').count()).toBeGreaterThanOrEqual(1)
@@ -201,6 +198,7 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
     onTestFailed(() => saveFailureShot(page, 'web-e2e-workflow-run-history'))
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+    await expandTurnProcesses(page)
     const workflow = page.getByRole('button', { name: /^snapshot-flow/ })
     await workflow.waitFor({ timeout: 15_000 })
     expect(await workflow.getAttribute('aria-expanded')).toBe('false')

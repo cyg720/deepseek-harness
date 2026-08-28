@@ -15,7 +15,7 @@
  */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { CallId } from '@deepseek-ai/dsh-llm'
+import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 
 /**
@@ -63,7 +63,7 @@ export interface SpillSource {
   /** The tool whose result was spilled (e.g. `web_fetch`). */
   toolName: string
   /** The model-issued call id the result belongs to. */
-  callId: CallId
+  callId: ToolCallId
   /** A short human label for the artifact (e.g. `result`). */
   label: string
 }

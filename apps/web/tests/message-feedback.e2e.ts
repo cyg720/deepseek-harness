@@ -24,10 +24,7 @@ import { newEnglishPage, saveFailureShot } from './support.ts'
 
 // Borrowed read-only: this scenario needs any settled assistant message to
 // address, not a new recording (message-actions / sidebar-scrollbar pattern).
-// 中文说明：只需任意已完成助手消息作为反馈目标，因此只读复用既有记录。
-/** 提供可评分助手消息的只读会话 fixture。 */
-const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
-/** 当前快照运行模式。 */
+const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.jsonl', import.meta.url))
 const MODE = webSnapshotMode()
 /** 注入借用会话时使用的稳定标识。 */
 const SEED_ID = 'message-feedback-web-e2e'
@@ -50,7 +47,7 @@ describe('web e2e: durable per-message feedback', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 

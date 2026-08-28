@@ -87,6 +87,7 @@ describe('gate graph validation', () => {
     'check-all',
     'hygiene',
     'doc-sync',
+    'doc-quick',
   ] as const)('constructs and executes preflight for a valid non-empty %s graph', async (mode) => {
     /** 中文说明：函数值 subject 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const subject = withPnpmEntrypoint(() => gatesForMode(mode))
@@ -103,14 +104,27 @@ describe('gate graph validation', () => {
     expect(ids).toContain('public-repository-links')
   })
 
+  it('keeps package-group subsystem ownership in the documentation gate', () => {
+    const ids = withPnpmEntrypoint(() => gatesForMode('doc-sync').map(subject => subject.id))
+
+    expect(ids).toContain('subsystem-pages')
+  })
+
+  it('derives the quick documentation aggregate from marked doc-sync leaves', () => {
+    const full = withPnpmEntrypoint(() => gatesForMode('doc-sync'))
+    const quick = withPnpmEntrypoint(() => gatesForMode('doc-quick'))
+
+    expect(quick).toEqual(full.filter(gate => gate.quick === true))
+  })
+
   it('keeps the hygiene aggregate aligned with the package script checks', () => {
     /** 中文说明：函数值 ids 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const ids = withPnpmEntrypoint(() => gatesForMode('hygiene').map(subject => subject.id))
 
     expect(ids).toEqual([
-      'rescope-vendor', 'knip', 'publint', 'constraints', 'dsh-package-licenses',
-      'package-invariants', 'built-package-invariants', 'node-next-types',
-      'optional-dependency-imports', 'client-packages', 'cordis-config',
+      'rescope-vendor', 'knip', 'publint', 'constraints', 'application-entrypoints',
+      'dsh-package-licenses', 'package-invariants', 'built-package-invariants', 'node-next-types',
+      'optional-dependency-imports', 'client-packages', 'client-ui-i18n', 'cordis-config',
       'runtime-closure', 'vendored-links',
     ])
     expect(defaultConcurrency('hygiene', ids.length, 8)).toEqual({
@@ -125,7 +139,7 @@ describe('gate graph validation', () => {
 
     expect(ids.slice(0, 10)).toEqual([
       'doc-typecheck', 'docs-site-build', 'doc-graphs', 'markdown-links', 'type-equivalence',
-      'cordis-catalog', 'mermaid', 'scoped-events', 'translation-pairing', 'markdown-wrap',
+      'cordis-catalog', 'cordis-inspect-catalog', 'mermaid', 'scoped-events', 'translation-pairing',
     ])
   })
 
@@ -161,8 +175,25 @@ describe('gate graph validation', () => {
     },
   )
 
-  it('keeps native Windows coverage blocking while retaining the observational inventory', () => {
-    /** 中文说明：函数值 complete 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+  it.each(['ci-primary', 'ci-static', 'check-all', 'hygiene'] as const)(
+    'keeps hard-coded Client UI copy enforcement in %s',
+    (mode) => {
+      const ids = withPnpmEntrypoint(() => gatesForMode(mode).map(subject => subject.id))
+
+      expect(ids).toContain('client-ui-i18n')
+    },
+  )
+
+  it.each(['ci-primary', 'ci-static', 'check-all', 'hygiene'] as const)(
+    'keeps application entrypoint enforcement in %s',
+    (mode) => {
+      const ids = withPnpmEntrypoint(() => gatesForMode(mode).map(subject => subject.id))
+
+      expect(ids).toContain('application-entrypoints')
+    },
+  )
+
+  it('keeps native Windows coverage blocking and behind the complete build', () => {
     const complete = withPnpmEntrypoint(() => gatesForMode('ci-windows-complete'))
     /** 中文说明：函数值 observational 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const observational = withPnpmEntrypoint(() => gatesForMode('ci-windows-observational'))
@@ -171,8 +202,13 @@ describe('gate graph validation', () => {
     const byId = new Map(complete.map(subject => [subject.id, subject]))
 
     expect(byId.get('coverage')?.allowFailure).not.toBe(true)
+    expect(byId.get('coverage')?.needs).toContain('build')
     expect(byId.get('coverage-exempt-heavy')?.allowFailure).not.toBe(true)
+    expect(byId.get('coverage')?.needs).toContain('build')
     expect(byId.get('coverage-exempt-heavy')?.needs).toContain('build')
+    expect(byId.get('coverage-exempt-heavy')?.args).toContain(
+      'packages/experimental/webworker-packer/tests/image-loadable.spec.ts',
+    )
     expect(observational).not.toHaveLength(0)
     /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const gate of observational) {
@@ -185,6 +221,20 @@ describe('gate graph validation', () => {
       ]))
       expect(completeGate?.needs).toEqual(gate.needs)
     }
+  })
+
+  it('runs the Windows built-bin smoke after other observational gates settle', () => {
+    const observational = withPnpmEntrypoint(() => gatesForMode('ci-windows-observational'))
+    const builtBin = observational.find(gate => gate.id === 'built-bin-smoke')
+
+    expect(builtBin?.after).toEqual(
+      observational.filter(gate => gate.id !== 'built-bin-smoke').map(gate => gate.id),
+    )
+
+    const completeBuiltBin = withPnpmEntrypoint(() => gatesForMode('ci-windows-complete'))
+      .find(gate => gate.id === 'built-bin-smoke')
+    expect(completeBuiltBin?.after).toContain('windows-site')
+    expect(completeBuiltBin?.after).not.toContain('docs-site-build')
   })
 
   it('applies one configured test and polling timeout to both coverage gates', () => {
@@ -228,6 +278,7 @@ describe('gate graph validation', () => {
     expect(coverage).toMatchObject({
       displayCommand: 'DSH_COVERAGE_PARTITIONS=3 pnpm run test:coverage:partitioned',
       args: ['/private/pnpm.cjs', 'run', 'test:coverage:partitioned'],
+      env: { DSH_COVERAGE_EXEMPT_HEAVY: '1' },
       streamOutput: true,
     })
   })
@@ -422,7 +473,7 @@ describe('Node 24 lane ownership', () => {
     const subject = withPnpmEntrypoint(() => gatesForMode('ci-consumers'))
 
     expect(defaultConcurrency('ci-consumers', subject.length, 4)).toEqual({
-      workers: 10,
+      workers: 11,
       source: 'ci-consumers gate count',
     })
     expect(subject.map(item => item.id)).toEqual([
@@ -432,6 +483,7 @@ describe('Node 24 lane ownership', () => {
       'built-package-invariants',
       'lint-and-duplication',
       'snapshot',
+      'expected-output',
       'web-snapshot',
       'doc-typecheck',
       'node-next-types',
@@ -449,6 +501,7 @@ describe('Node 24 lane ownership', () => {
     /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const id of [
       'snapshot',
+      'expected-output',
       'web-snapshot',
       'doc-typecheck',
       'node-next-types',
@@ -457,6 +510,7 @@ describe('Node 24 lane ownership', () => {
       expect(subject.find(item => item.id === id)?.needs).toEqual(['built-package-invariants'])
     }
     expect(subject.find(item => item.id === 'snapshot')?.env).toEqual({ DSH_EXAMPLE_MODE: 'lib' })
+    expect(subject.find(item => item.id === 'expected-output')?.env).toEqual({ DSH_EXAMPLE_MODE: 'lib' })
     expect(subject.find(item => item.id === 'doc-typecheck')?.env).toEqual({
       DSH_DOC_TYPECHECK_USE_BUILD_OUTPUT: '1',
     })
@@ -464,11 +518,21 @@ describe('Node 24 lane ownership', () => {
       expect.arrayContaining([
         'packages/subagent/subagent-codex/tests/loader-composition.e2e.ts',
         'packages/subagent/subagent-claude-code/tests/loader-composition.e2e.ts',
+        'packages/experimental/agent-team/tests/built-lib.e2e.ts',
       ]),
     )
     expect(subject.find(item => item.id === 'web-snapshot')).toMatchObject({
       displayCommand: 'DSH_SNAPSHOT=replay pnpm run test:web:built',
       env: { DSH_SNAPSHOT: 'replay' },
+      after: [
+        'publint',
+        'lint-and-duplication',
+        'snapshot',
+        'expected-output',
+        'doc-typecheck',
+        'node-next-types',
+        'built-bin-smoke',
+      ],
     })
   })
 })

@@ -29,7 +29,7 @@
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { CallId, ProviderRequestId, ReasoningEffortId } from './brand.ts'
+import type { ToolCallId, ProviderRequestId, ReasoningEffortId } from './brand.ts'
 import type { Message } from './message.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -108,7 +108,7 @@ export interface ReasoningBlock {
  * A durable raster image reference, valid in user or assistant content. The
  * block is deliberately role-neutral; assistant-side rendering is forward
  * compatibility — the current production adapters declare text-only output,
- * so only user content carries images today.
+ * so only user messages may carry images.
  */
 export interface ImageBlock {
   type: 'image'
@@ -122,8 +122,7 @@ export interface ImageBlock {
 export interface ToolCallBlock {
   type: 'tool-call'
   /** Provider-issued call id; correlates with the matching tool result. */
-  // 中文：provider 颁发的调用 id，与对应的工具结果相关联。
-  id: CallId
+  id: ToolCallId
   name: string
   /** Raw JSON string as produced by the model. */
   // 中文：模型产出的原始 JSON 参数字符串。
@@ -134,7 +133,7 @@ export interface ToolCallBlock {
 // 中文：工具调用的结果块，回传给模型。
 export interface ToolResultBlock {
   type: 'tool-result'
-  toolCallId: CallId
+  toolCallId: ToolCallId
   content: ContentBlock[]
   isError?: boolean
 }
@@ -200,12 +199,49 @@ export interface TokenUsage {
   inputTokens: number
   // 中文：输出 token 数。
   outputTokens: number
-  // 中文：读取缓存命中的 token 数（可选）。
+  /**
+   * Exact full-call total including aggregate prompt and output tokens.
+   *
+   * Adapters preserve a provider total or derive it from authoritative
+   * aggregate prompt/output counters; they omit it when unavailable or
+   * inconsistent.
+   */
+  totalTokens?: number
   cacheReadTokens?: number
   // 中文：写入缓存的 token 数（可选）。
   cacheWriteTokens?: number
   // 中文：推理（reasoning）token 数（可选）。
   reasoningTokens?: number
+}
+
+/**
+ * Request price of one ordered image occurrence under one exact model route's
+ * request projection. Every occurrence resolves to the pair the wire actually
+ * carries: provider visual tokens for a retained image, plus the model-visible
+ * text sent with or instead of it (request-preview handle, offload placeholder,
+ * or text-only substitution). The caller prices `text` with its own text
+ * estimator so provider pricing never fixes a text tokenization.
+ */
+export interface LlmImageRequestPrice {
+  /** Provider visual tokens for the retained request image; 0 when only text represents this occurrence. */
+  visualTokens: number
+  /** Model-visible text sent for this occurrence, to be priced by the caller's text estimator. */
+  text: string
+}
+
+/**
+ * Provider-side request-image pricing for one exact model route. Implemented
+ * by adapters whose provider charges visual tokens; consumers (the token
+ * meter) resolve it synchronously per measurement, so implementations must not
+ * perform I/O.
+ */
+export interface LlmImageRequestPricing {
+  /**
+   * Price every image occurrence of one request projection.
+   * @param images - durable image references in request order, one entry per occurrence.
+   * @returns one price per occurrence, aligned by index with `images`.
+   */
+  priceImages(images: readonly ImageAttachmentRef[]): readonly LlmImageRequestPrice[]
 }
 
 /** Display metadata for one registered provider route. */
@@ -310,15 +346,25 @@ export interface LlmModelDiscoveryRequest {
   /** Credential for this interrogation alone; the harness never stores it. */
   // 中文：仅用于本次探询的凭据；harness 绝不存储它。
   apiKey?: string
+}
+
+/** Provider-side discovery request with operation-local cancellation attached. */
+export interface LlmModelDiscoveryOperation extends LlmModelDiscoveryRequest {
   /** Caller cancellation; implementations must settle promptly after it aborts. */
   // 中文：调用方取消信号；实现必须在其 abort 后迅速收敛。
   signal?: AbortSignal
 }
 
-/*
- * （中文）端点自述的某个模型。除 id 外每个字段都可选——大多数 provider 的
- * 列表只披露 id 而无其他；采用这些模型之一的界面仍需补足其适配器所需的能力。
- */
+/** Stable failure returned by the `llm/discoverModels` Remote method. */
+export interface LlmModelDiscoveryError {
+  readonly code: 'model-discovery-failed'
+  readonly message: string
+  readonly details: {
+    readonly settingsNs: string
+    readonly baseURL?: string
+  }
+}
+
 /**
  * One model an endpoint reports about itself. Every field but the id is
  * optional because most provider listings disclose an id and nothing else;
@@ -468,7 +514,7 @@ export type StreamChunk =
   | { type: 'block-start'; index: number; blockType: ContentBlockType }
   | { type: 'text-delta'; index: number; text: string }
   | { type: 'reasoning-delta'; index: number; text: string }
-  | { type: 'tool-call-delta'; index: number; id: CallId; name?: string; argumentsDelta: string }
+  | { type: 'tool-call-delta'; index: number; id: ToolCallId; name?: string; argumentsDelta: string }
   | { type: 'block-end'; index: number; block: ContentBlock }
   | { type: 'usage'; usage: TokenUsage }
   | {

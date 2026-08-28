@@ -107,6 +107,7 @@ describe('FileSystem provider seam', () => {
     /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
     const fs = ctx.fs as FakeFileSystem
     expect(fs.sandboxMode).toBeUndefined()
+    expect(fs.processPathFromHostPath('/host/file')).toBeUndefined()
     fs.files.set('a.txt', 'hi')
     /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await fs.resolve('a.txt')

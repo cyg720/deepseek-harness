@@ -1,17 +1,3 @@
-// GenericToolCard: the default tool row — classifies the tool into a visual
-// variant and renders the summary row. Supplied by the Tool call tree as the
-// keyed atomic-view slot's render-site fallback (an
-// unregistered tool name lands here); registrants may also compose it as a
-// base, feeding the same owner payload through.
-/**
- * 文件职责：实现工具调用的 GenericToolCard 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示工具调用参数、结果和状态。
- * 逻辑维度：接收类型化数据，选择专用视图并渲染层级与详情。
- * 关键边界：组件不执行工具；未知或失败结果必须保留可诊断信息。
- * 新手阅读建议：先读 Props，再看视图选择、派生值和 JSX。
- */
-
 import type { ReactNode } from 'react'
 import {
   IconApiOutline14, IconBrowseOutline16, IconCodeOutline16, IconEditOutline16, IconSearchOutline16, IconSparkle16,
@@ -71,11 +57,8 @@ export function GenericToolCard({ toolName, block, cwd, home, openFile, inspect,
       variant={model.variant}
       toolName={toolName}
       icon={VARIANT_ICONS[model.variant]}
-      title={model.title}
-      // A terminal presenter's description is the contract's above-card text, so
-      // it outranks the args-derived summary here exactly as it does in BashRow;
-      // a search result view's replacement title outranks it the same way.
-      summary={terminal?.description ?? search?.title ?? model.summary}
+      title={t(model.titleKey)}
+      summary={model.summary}
       // Single-file tools never expose an args body — the path link is the only
       // args interaction. A card is not an args body: a read/write/edit row is
       // single-file AND carries a card, so the card expands under the path link.

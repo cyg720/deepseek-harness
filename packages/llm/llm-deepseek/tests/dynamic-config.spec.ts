@@ -7,7 +7,7 @@
  * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import { access, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -41,6 +41,18 @@ const IMAGE_REF: ImageAttachmentRef = {
   width: 1,
   height: 1,
 }
+const HOST_IMAGE_PATH = '/host/.dsh/attachments/objects/aa/object'
+const MODEL_IMAGE_PATH = '/model/.dsh/attachments/objects/aa/object'
+
+class MappedFileSystem extends Service {
+  constructor(ctx: Context) {
+    super(ctx, 'fs')
+  }
+
+  processPathFromHostPath(hostPath: string): string | undefined {
+    return hostPath === HOST_IMAGE_PATH ? MODEL_IMAGE_PATH : undefined
+  }
+}
 
 /** 中文说明：类型或类 StaticAttachmentStore 约束模型请求、认证或流事件职责。 */
 class StaticAttachmentStore extends AttachmentStore {
@@ -63,6 +75,10 @@ class StaticAttachmentStore extends AttachmentStore {
 
   readImage(ref: ImageAttachmentRef, _signal?: AbortSignal): Promise<StoredImageAttachment> {
     return Promise.resolve({ ref, data: Uint8Array.of(1, 2, 3) })
+  }
+
+  override imageHostPath(_ref: ImageAttachmentRef): string {
+    return HOST_IMAGE_PATH
   }
 
   override readImageRequest(
@@ -230,7 +246,7 @@ describe('request-level dynamic configuration', () => {
     ])
     /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: server.url })
-    /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
+    await ctx.plugin(MappedFileSystem)
     const messages = [createUserMessage({
       content: [
         { type: 'image', attachment: IMAGE_REF },
@@ -248,7 +264,8 @@ describe('request-level dynamic configuration', () => {
     /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = (server.requests[1] as { messages: Array<{ content: unknown }> }).messages[0]?.content
     expect(JSON.stringify(first).match(/"type":"file"/g)).toHaveLength(2)
-    expect(JSON.stringify(second)).toContain('[image omitted to keep the request within its image limit')
+    expect(JSON.stringify(second)).toContain('[image omitted to fit request image limits')
+    expect(JSON.stringify(second)).toContain(MODEL_IMAGE_PATH)
     expect(JSON.stringify(second).match(/"type":"file"/g)).toHaveLength(1)
   })
 

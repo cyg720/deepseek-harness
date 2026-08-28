@@ -1,24 +1,15 @@
 // @vitest-environment jsdom
-// TerminalBlock: the prompt label's cwd shortening, the running/empty/settled
-// arms, the prompt line's run-state dot, the exit-status pill, the head/tail height cap and its expand control,
-// and the copy control writing the raw output on both the accepted and the
-// refused clipboard paths. writeClipboard's own return contract is pinned here
-// too, since it is the return contract both copy controls in this package share; the
-// resolution of ANSI runs into styles is pinned in ansi.spec.ts, so only its
-// DOM consequence (which runs get a span wrapper) is asserted here.
-/**
- * 文件职责：验证UI 基础组件的 terminal-block.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
- * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
- * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
- * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
- * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { DEFAULT_TERMINAL_MAX_LINES, TerminalBlock } from '../src/index.ts'
+import type { ComponentProps } from 'react'
+import { DEFAULT_TERMINAL_MAX_LINES, TerminalBlock as LocalizedTerminalBlock } from '../src/index.ts'
 import { writeClipboard } from '../src/clipboard.ts'
+import { terminalBlockLabels } from './labels.client.ts'
+
+function TerminalBlock(props: Omit<ComponentProps<typeof LocalizedTerminalBlock>, 'labels'>) {
+  return <LocalizedTerminalBlock {...props} labels={terminalBlockLabels} />
+}
 
 /** 中文说明：测试局部值 ESC，由紧邻初始化决定。 */
 const ESC = '\u001b'
@@ -29,14 +20,10 @@ beforeEach(() => {
   vi.useRealTimers()
 })
 
-/** The rendered output rows, one string per visible line (CSS-module class prefix). */
-/* 中文说明：函数 outputLines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function outputLines(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
 }
 
-/** The prompt line's run-state dot: its StateDot state plus the hidden text label beside it. */
-/* 中文说明：函数 runStateOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function runStateOf(container: HTMLElement): { state: string | null; label: string | undefined } {
   /** 中文说明：测试局部值 dot，由紧邻初始化决定。 */
   const dot = container.querySelector('[class*="_runState_"][data-state]')
@@ -46,14 +33,10 @@ function runStateOf(container: HTMLElement): { state: string | null; label: stri
   }
 }
 
-/** The prompt rows as `<label><command>`, one per command line (the visual gap is CSS). */
-/* 中文说明：函数 promptRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function promptRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_promptLine_"]')].map(row => (row.textContent ?? '').trim())
 }
 
-/** `count` numbered output lines, without the terminating newline. */
-/* 中文说明：函数 body 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function body(count: number): string {
   return Array.from({ length: count }, (_value, index) => `line ${index + 1}`).join('\n')
 }

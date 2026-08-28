@@ -8,17 +8,27 @@
  */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import UserQuestionService, { type AskUserQuestionRequest } from '@deepseek-ai/dsh-user-questions'
+import UserQuestionService, {
+  type AskUserQuestionAnswer,
+  type AskUserQuestionRequest,
+} from '@deepseek-ai/dsh-user-questions'
 import * as toolAskUser from '@deepseek-ai/dsh-tool-ask-user'
 
 /** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
-/** 中文说明：类型或类 OptionSchemaShape 约束宿主、交互或任务数据职责。 */
+interface QuestionAnswerer {
+  ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer>
+}
+
+function registerQuestionAnswerer(ctx: Context, answerer: QuestionAnswerer): () => void {
+  return ctx.on('user-questions/request', request => answerer.ask(request))
+}
+
 interface OptionSchemaShape {
   properties: {
     questions: {
@@ -97,7 +107,7 @@ describe('ask_user_question tool', () => {
     const ctx = await setup()
     /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       async ask(request) {
         seen.push(request)
         return { answers: [{ id: 'pkg', selected: ['pnpm'] }] }
@@ -107,7 +117,7 @@ describe('ask_user_question tool', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ask-1'),
+      callId: ToolCallId('ask-1'),
       name: 'ask_user_question',
       arguments: {
         questions: [{
@@ -136,7 +146,7 @@ describe('ask_user_question tool', () => {
     const ctx = await setup()
     /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       async ask(request) {
         seen.push(request)
         return { answers: [{ id: 'pkg', selected: ['pnpm (Recommended)'] }] }
@@ -145,7 +155,7 @@ describe('ask_user_question tool', () => {
 
     await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ask-recommended'),
+      callId: ToolCallId('ask-recommended'),
       name: 'ask_user_question',
       arguments: {
         questions: [{
@@ -168,7 +178,7 @@ describe('ask_user_question tool', () => {
   it('projects custom answers and multi-select choices', async () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       async ask() {
         return {
           answers: [
@@ -183,7 +193,7 @@ describe('ask_user_question tool', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ask-multi'),
+      callId: ToolCallId('ask-multi'),
       name: 'ask_user_question',
       arguments: {
         questions: [
@@ -224,7 +234,7 @@ describe('ask_user_question tool', () => {
     const ctx = await setup()
     /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       async ask(request) {
         seen.push(request)
         return { answers: [{ id: 'continue', selected: ['ok'] }] }
@@ -234,7 +244,7 @@ describe('ask_user_question tool', () => {
     const controller = new AbortController()
 
     await ctx.tools.execute({
-      callId: CallId('ask-2'),
+      callId: ToolCallId('ask-2'),
       name: 'ask_user_question',
       arguments: { questions: [{ id: 'continue', question: 'Continue?' }] },
       signal: controller.signal,
@@ -248,7 +258,7 @@ describe('ask_user_question tool', () => {
     const ctx = await setup()
     /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       async ask(request) {
         seen.push(request)
         return { answers: [{ id: 'continue', selected: ['ok'] }] }
@@ -261,7 +271,7 @@ describe('ask_user_question tool', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ask-3'),
+      callId: ToolCallId('ask-3'),
       name: 'ask_user_question',
       arguments: { questions: [{ id: 'continue', header: 'Confirm', question: 'Continue?' }] },
       agent,
@@ -278,7 +288,7 @@ describe('ask_user_question tool', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ask-no-provider'),
+      callId: ToolCallId('ask-no-provider'),
       name: 'ask_user_question',
       arguments: { questions: [{ id: 'continue', question: 'Continue?' }] },
     })
@@ -294,7 +304,7 @@ describe('ask_user_question tool', () => {
     const ctx = await setup()
     /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: AskUserQuestionRequest[] = []
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       async ask(request) {
         seen.push(request)
         return { answers: [{ id: 'continue', selected: ['ok'] }] }
@@ -310,7 +320,7 @@ describe('ask_user_question tool', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ask-delegated'),
+      callId: ToolCallId('ask-delegated'),
       name: 'ask_user_question',
       arguments: { questions: [{ id: 'continue', question: 'Continue?' }] },
       agent: child,
@@ -334,7 +344,7 @@ describe('ask_user_question tool', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ask-empty'),
+      callId: ToolCallId('ask-empty'),
       name: 'ask_user_question',
       arguments: { questions: [] },
     })

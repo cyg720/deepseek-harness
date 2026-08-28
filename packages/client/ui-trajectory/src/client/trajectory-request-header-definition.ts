@@ -14,82 +14,47 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationMatch, ConversationNodeDefinition, ConversationPromptSnapshot,
-  RequestPromptChange,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  ConversationNodeDefinition, RequestPromptInspector,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { trajectoryNode } from './trajectory-definition-common.ts'
 import type { TrajectoryRequestHeaderState } from './trajectory-contract.ts'
 
-function requestPrompt(match: ConversationMatch): ConversationPromptSnapshot {
-  if (match.event.type !== 'request/header') {
-    throw new Error('trajectory-request-header start requires request/header')
-  }
-  const header = match.event.data.header
-  const tools: unknown = header.tools
-  return {
-    config: header.config,
-    system: header.system ?? '',
-    tools: Array.isArray(tools) ? tools as ConversationPromptSnapshot['tools'] : [],
-  }
-}
-
 /**
- * 计算本次请求头相对上次提示词快照的变更；无变化（或首次且非 initial）返回 undefined。
- * @param previous - 上一次的提示词快照（可能没有）。
- * @param prompt - 本次请求头的提示词快照。
- * @param match - 当前请求头事件匹配。
- * @returns 变更描述；无变更时不记录。
+ * Request-header fact Definition for the Trajectory target.
+ * @param inspect - the shared prompt interpretation, supplied by the
+ * uiConversation service (a client bundle cannot value-import it).
+ * @returns the Trajectory request-header Definition.
  */
-function promptChange(
-  previous: ConversationPromptSnapshot | undefined,
-  prompt: ConversationPromptSnapshot,
-  match: ConversationMatch,
-): RequestPromptChange | undefined {
-  if (match.event.type !== 'request/header') return undefined
-  if (previous === undefined && match.event.data.reason !== 'initial') return undefined
-  const systemChanged = previous !== undefined && previous.system !== prompt.system
-  const toolsChanged = previous !== undefined
-    && JSON.stringify(previous.tools) !== JSON.stringify(prompt.tools)
-  if (previous !== undefined && !systemChanged && !toolsChanged) return undefined
+function trajectoryRequestHeaderDefinition(inspect: RequestPromptInspector): ConversationNodeDefinition<TrajectoryRequestHeaderState> {
   return {
-    seq: match.event.seq,
-    time: match.event.time,
-    kind: previous === undefined
-      ? 'initial'
-      : systemChanged && toolsChanged
-        ? 'system-and-tools'
-        : systemChanged ? 'system' : 'tools',
-    ...(previous === undefined ? {} : { previous }),
+    kind: 'trajectory-request-header',
+    target: 'trajectory',
+    match: event => event.type === 'request/header'
+      ? { id: String(event.seq), role: 'start' }
+      : null,
+    start: (_context, match, reader) => {
+      if (match.event.type !== 'request/header') {
+        throw new Error('trajectory-request-header start requires request/header')
+      }
+      const previous = reader.previous<TrajectoryRequestHeaderState>('trajectory-request-header')
+        ?.state.prompt
+      const { prompt, change } = inspect(previous, match.event)
+      return {
+        seq: match.event.seq,
+        time: match.event.time,
+        prompt,
+        location: match.location,
+        ...(change === undefined ? {} : { change }),
+      }
+    },
+    update: context => context.state,
+    buildViewNode: context => context.state === undefined
+      ? null
+      : trajectoryNode(context, context.state.seq, {
+        kind: 'request-header',
+        header: context.state,
+      }),
   }
-}
-
-/** 轨迹请求头状态机：匹配 request/header，start 时计算提示词变更并产出视图节点。 */
-const trajectoryRequestHeaderDefinition: ConversationNodeDefinition<TrajectoryRequestHeaderState> = {
-  kind: 'trajectory-request-header',
-  target: 'trajectory',
-  match: event => event.type === 'request/header'
-    ? { id: String(event.seq), role: 'start' }
-    : null,
-  start: (_context, match, reader) => {
-    const prompt = requestPrompt(match)
-    const previous = reader.previous<TrajectoryRequestHeaderState>('trajectory-request-header')
-      ?.state.prompt
-    const change = promptChange(previous, prompt, match)
-    return {
-      seq: match.event.seq,
-      time: match.event.time,
-      prompt,
-      location: match.location,
-      ...(change === undefined ? {} : { change }),
-    }
-  },
-  update: context => context.state,
-  buildViewNode: context => context.state === undefined
-    ? null
-    : trajectoryNode(context, context.state.seq, {
-      kind: 'request-header',
-      header: context.state,
-    }),
 }
 
 /**
@@ -102,5 +67,7 @@ const trajectoryRequestHeaderDefinition: ConversationNodeDefinition<TrajectoryRe
  * @param ctx - 接收该 Definition 的插件上下文。
  */
 export function registerTrajectoryRequestHeaderDefinition(ctx: Context): void {
-  ctx.conversationEvents.register(trajectoryRequestHeaderDefinition)
+  ctx.uiConversation.events.register(trajectoryRequestHeaderDefinition(
+    (previous, event) => ctx.uiConversation.inspectRequestPrompt(previous, event),
+  ))
 }

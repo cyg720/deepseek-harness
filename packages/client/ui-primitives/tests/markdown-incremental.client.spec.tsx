@@ -14,7 +14,7 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Root, RootContent } from 'mdast'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText } from './markdown-test-components.tsx'
 import { IncrementalMarkdownParser } from '../src/markdown/incremental.ts'
 import { parseGfm } from '../src/markdown/parse.ts'
 
@@ -116,10 +116,13 @@ describe('incremental streaming rendering', () => {
   it('drops the streaming cache when the copy labels change identity', () => {
     /** 中文说明：测试局部值 doc，由紧邻初始化决定。 */
     const doc = ['```ts', 'const a = 1', '```', '', 'p1', '', 'p2', '', 'p3'].join('\n')
-    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
-    const live = render(<MarkdownText text={doc} streaming codeLabels={{ copyLabel: 'Copy' }} />)
+    const live = render(
+      <MarkdownText text={doc} streaming codeLabels={{ copyLabel: 'Copy', copiedLabel: 'Copied' }} />,
+    )
     expect([...live.container.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Copy'])
-    live.rerender(<MarkdownText text={doc} streaming codeLabels={{ copyLabel: 'Kopieren' }} />)
+    live.rerender(
+      <MarkdownText text={doc} streaming codeLabels={{ copyLabel: 'Kopieren', copiedLabel: 'Kopiert' }} />,
+    )
     expect([...live.container.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Kopieren'])
     live.unmount()
   })

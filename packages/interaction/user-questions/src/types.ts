@@ -1,17 +1,7 @@
-/**
- * Wire-safe question and answer types, free of cordis/service imports so browser
- * type chains (apiproxy api → client) can consume them without loading this
- * package's Context augmentation.
- * @module @deepseek-ai/dsh-user-questions/types
- */
-/*
- * 文件职责：实现交互与审批的 types.ts 模块。
- * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
- * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
- * 逻辑维度：注册能力，校验请求，更新状态并记录事件。
- * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
- * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
- */
+/** Client-safe question, answer, and event types. @module @deepseek-ai/dsh-user-questions/types */
+
+import type { Scoped } from '@deepseek-ai/dsh-scope'
+import type { Agent } from '@deepseek-ai/dsh-agent/types'
 
 /** One selectable answer offered to the user. */
 /* 中文说明：类型或类 AskUserQuestionOption 约束宿主、交互或任务数据职责。 */
@@ -76,4 +66,31 @@ export interface AskUserQuestionAnswerItem {
 export interface AskUserQuestionAnswer {
   /** Structured answers keyed by question id. */
   answers: AskUserQuestionAnswerItem[]
+}
+
+/** Client-safe payload declared for the user-question answerer waterfall. */
+export interface AskUserQuestionRequestEvent {
+  /** Questions to display. */
+  questions: AskUserQuestionItem[]
+  /** Agent identity projected to the corresponding Client Context in transit. */
+  agent?: Agent
+  /** Cancellation lifetime of the pending request. */
+  signal?: AbortSignal
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * Ask composed answerers for structured user input. Return an answer to
+     * claim the request or call `next()` to delegate. Scope-filtered dispatch
+     * (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+     * @param request - pending user-question request.
+     * @mode waterfall
+     */
+    'user-questions/request'(
+      this: Scoped<Agent>,
+      request: AskUserQuestionRequestEvent,
+      next: () => Promise<AskUserQuestionAnswer>,
+    ): Promise<AskUserQuestionAnswer>
+  }
 }

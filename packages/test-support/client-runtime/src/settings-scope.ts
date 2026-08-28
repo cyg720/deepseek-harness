@@ -9,7 +9,9 @@
  * - 新手阅读建议：先看 StubSettingsScope 的四项能力，再沿 stubSettingsScope 的返回对象理解状态传播。
  */
 import { vi } from 'vitest'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type {
+  SettingsScope, SettingsScopeSnapshot,
+} from '@deepseek-ai/dsh-client-ui-settings/client'
 
 /** Handle over one stubbed scope: the scope, its write spy, and publication controls. */
 /* 中文：一个设置作用域测试替身的完整操作句柄，供用例读取状态、检查写入并触发更新。 */
@@ -20,6 +22,8 @@ export interface StubSettingsScope<T> {
   /** Spy behind `scope.set`; resolves immediately. */
   /* 中文：记录 set 调用的探针；本替身中始终立即成功。 */
   set: ReturnType<typeof vi.fn>
+  /** Spy behind `scope.mutate`; resolves immediately. */
+  mutate: ReturnType<typeof vi.fn>
   /** Spy behind `scope.unset`; resolves immediately. */
   /* 中文：记录 unset 调用的探针；本替身中始终立即成功。 */
   unset: ReturnType<typeof vi.fn>
@@ -54,7 +58,7 @@ export function stubSettingsScope<T>(): StubSettingsScope<T> {
   const listeners = new Set<() => void>()
   /** set 写入探针；参数由 SettingsScope 类型约束，本替身不保存其值。 */
   const set = vi.fn(() => Promise.resolve())
-  /** unset 删除探针；本替身不改变快照，需由用例显式 publish Host 接受结果。 */
+  const mutate = vi.fn(() => Promise.resolve())
   const unset = vi.fn(() => Promise.resolve())
   return {
     scope: {
@@ -64,10 +68,12 @@ export function stubSettingsScope<T>(): StubSettingsScope<T> {
         listeners.add(listener)
         return () => { listeners.delete(listener) }
       },
+      mutate,
       set,
       unset,
     },
     set,
+    mutate,
     unset,
     listenerCount: () => listeners.size,
     publish: (next) => {

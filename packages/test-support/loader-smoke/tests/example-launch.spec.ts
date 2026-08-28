@@ -13,9 +13,7 @@ import {
   resolveExampleMode,
 } from '@deepseek-ai/dsh-loader-smoke'
 
-/** 中文说明：常量 SRC_BIN 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const SRC_BIN = '/repo/packages/examples/acp-demo/src/bin.ts'
-/** 中文说明：常量 TSCONFIG 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+const SRC_BIN = '/repo/apps/cli/src/bin.ts'
 const TSCONFIG = '/repo/tsconfig.json'
 
 /** 中文说明：变量 originalMode 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -68,6 +66,17 @@ describe('resolveExampleLaunch', () => {
     expect(() => resolveExampleLaunch({ srcBin: SRC_BIN, mode: 'src' })).toThrow(/needs tsconfigPath/)
   })
 
+  it('src mode: resolves an app-specific tsx import hook', () => {
+    const { args } = resolveExampleLaunch({
+      srcBin: SRC_BIN,
+      mode: 'src',
+      sourceImport: 'tsx/esm',
+      tsconfigPath: TSCONFIG,
+    })
+    expect(args[0]).toBe('--import')
+    expect(args[1]).toContain('/tsx/dist/esm/index.mjs')
+  })
+
   it('lib mode: plain node on the derived lib bin, no tsx and no paths env', () => {
     const { args, env } = resolveExampleLaunch({
       srcBin: SRC_BIN,
@@ -76,7 +85,7 @@ describe('resolveExampleLaunch', () => {
       env: { DSH_HOME: '/tmp/home' },
     })
     expect(args).not.toContain('--import')
-    expect(args).toContain('/repo/packages/examples/acp-demo/lib/bin.js')
+    expect(args).toContain('/repo/apps/cli/lib/bin.js')
     expect(args.slice(-2)).toEqual(['--config', './cordis.yml'])
     expect(env.TSX_TSCONFIG_PATH).toBeUndefined()
     expect(env.DSH_HOME).toBe('/tmp/home')
@@ -91,18 +100,18 @@ describe('resolveExampleLaunch', () => {
 
   it('lib mode: rewrites only the last /src/ segment', () => {
     const { args } = resolveExampleLaunch({
-      srcBin: '/repo/src/packages/examples/acp-demo/src/bin.ts',
+      srcBin: '/repo/src/apps/cli/src/bin.ts',
       mode: 'lib',
     })
-    expect(args).toContain('/repo/src/packages/examples/acp-demo/lib/bin.js')
+    expect(args).toContain('/repo/src/apps/cli/lib/bin.js')
   })
 
   it('lib mode: derives the built bin from a Windows source path', () => {
     const { args } = resolveExampleLaunch({
-      srcBin: String.raw`D:\repo\src\packages\examples\acp-demo\src\bin.ts`,
+      srcBin: String.raw`D:\repo\src\apps\cli\src\bin.ts`,
       mode: 'lib',
     })
-    expect(args).toContain(String.raw`D:\repo\src\packages\examples\acp-demo\lib\bin.js`)
+    expect(args).toContain(String.raw`D:\repo\src\apps\cli\lib\bin.js`)
   })
 
   it('lib mode: throws when the bin has no /src/ segment', () => {
@@ -112,6 +121,6 @@ describe('resolveExampleLaunch', () => {
   it('defaults the mode from the environment', () => {
     process.env[EXAMPLE_MODE_ENV] = 'lib'
     const { args } = resolveExampleLaunch({ srcBin: SRC_BIN })
-    expect(args).toContain('/repo/packages/examples/acp-demo/lib/bin.js')
+    expect(args).toContain('/repo/apps/cli/lib/bin.js')
   })
 })

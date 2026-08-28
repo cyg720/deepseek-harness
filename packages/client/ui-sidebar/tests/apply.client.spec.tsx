@@ -1,15 +1,7 @@
-/** Sidebar shell slot registration and its plain runtime/layout callbacks. */
-/*
- * 文件职责：验证侧栏的 apply.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
- * 产品维度：防止侧栏显示、导航或生命周期回归。
- * 逻辑维度：构造状态，触发交互并断言输出和清理。
- * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
- * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
- */
+/** Sidebar shell slot registration and its Session/layout callbacks. */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { SidebarRootInjected } from '@deepseek-ai/dsh-client-ui-sidebar/client'
@@ -21,13 +13,9 @@ async function bench(declare = true) {
   await ctx.plugin(SlotRegistry).await()
   /** 中文说明：测试局部值 layout，由紧邻初始化决定。 */
   const layout = { toggleSidebar: vi.fn() }
-  /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
-  const workspaces = { startSession: vi.fn() }
-  /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
-  const sessions = { open: vi.fn(), clear: vi.fn() }
+  const uiWorkspace = { startSession: vi.fn() }
   ctx.provide('layout', layout)
-  ctx.provide('sessions', sessions as never)
-  ctx.provide('workspaces', workspaces as never)
+  ctx.provide('uiWorkspace', uiWorkspace as never)
   ctx.provide('locale', new LocaleRuntime(ctx))
   /** 中文说明：测试局部值 slots，由紧邻初始化决定。 */
   const slots = ctx.get('slots') as SlotRegistry
@@ -37,12 +25,12 @@ async function bench(declare = true) {
       () => null,
     )
   }
-  return { ctx, slots, layout, workspaces, sessions }
+  return { ctx, slots, layout, uiWorkspace }
 }
 
 describe('ui-sidebar apply', () => {
   it('declares only the services it uses', () => {
-    expect(inject).toEqual(['slots', 'layout', 'sessions', 'workspaces', 'locale'])
+    expect(inject).toEqual(['slots', 'layout', 'uiWorkspace', 'locale'])
   })
 
   it('registers the shell and declares its child seats', async () => {
@@ -60,11 +48,11 @@ describe('ui-sidebar apply', () => {
     /** 中文说明：测试局部值 injected，由紧邻初始化决定。 */
     const injected = (b.slots.entries('sidebar')[0]!.inject as () => SidebarRootInjected)()
     expect(Object.keys(injected)).toEqual(['startSession', 'toggleSidebar'])
-    // Both arms delegate to the runtime's shared New Session action.
+    // Both arms delegate to the Workspace UI's shared New Session action.
     injected.startSession('workspace' as never)
-    expect(b.workspaces.startSession).toHaveBeenCalledWith('workspace')
+    expect(b.uiWorkspace.startSession).toHaveBeenCalledWith('workspace')
     injected.startSession()
-    expect(b.workspaces.startSession).toHaveBeenLastCalledWith(undefined)
+    expect(b.uiWorkspace.startSession).toHaveBeenLastCalledWith(undefined)
     injected.toggleSidebar()
     expect(b.layout.toggleSidebar).toHaveBeenCalledOnce()
   })

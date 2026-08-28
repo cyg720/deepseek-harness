@@ -42,8 +42,7 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景的几何关系快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/message-feedback-layout', import.meta.url))
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/message-feedback-layout', import.meta.url))
 /**
  * Committed golden of the popover relations at every stop. Booleans and counts
  * only, never absolute coordinates.
@@ -54,9 +53,7 @@ const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
 /** 当前快照模式。 */
 const MODE = webSnapshotMode()
 /** Borrowed read-only: this scenario needs any settled assistant message to rate. */
-/* 只读复用的已完成会话，提供可评分的助手消息。 */
-const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
-/** 注入会话时使用的稳定标识。 */
+const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.jsonl', import.meta.url))
 const SEED_ID = 'message-feedback-layout-e2e'
 /** Viewport widths from full-screen desktop down to a narrow window. */
 /* 从全屏桌面到窄窗口的视口宽度，单位为 CSS 像素。 */
@@ -230,7 +227,7 @@ describe('web e2e: the feedback note editor floats above the column', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser, 900)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 180_000)
 

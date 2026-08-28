@@ -2,8 +2,12 @@
  * SessionProjectionCache behavior: mandatory-point writes (turn/end, detach),
  * count/interval throttling between them, fail-soft durability (a failed
  * write logs and stays stale, never throws into the event path), and the
- * cold-read ladder (cached row + readFrom tail + registry restore +
- * write-back; version bump and shrunk-log rows degrade to a full re-read).
+ * synchronous cached listing read. The durable medium is the
+ * `session_projcache` storage domain in per-record layout: one
+ * version-stamped document per session under the json backend root at
+ * `<root>/session_projcache/sessions/<id>.json`. Reads never touch the
+ * medium — they come from the domain's in-memory tables, which writes mutate
+ * only after durability.
  */
 /*
  * 文件职责：验证 cache.spec.ts 覆盖的会话投影统计行为、持久化与生命周期。
@@ -15,22 +19,32 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { z } from 'zod'
-import Storage from '@deepseek-ai/dsh-storage'
-import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
-import { MemoryMediaPool, MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
+import Storage from '@deepseek-ai/dsh-storage'
+import {
+  apply as storageJsonApply, Config as storageJsonConfig, inject as storageJsonInject, name as storageJsonName,
+} from '@deepseek-ai/dsh-storage-json'
+import {
+  apply as storageDomainApply, Config as storageDomainConfig, inject as storageDomainInject, name as storageDomainName,
+} from '@deepseek-ai/dsh-storage-domain'
 import SessionProjectionCache from '../src/index.ts'
+import { checkpointRecord, projectionCacheDomainSpec } from '../src/spec.ts'
+import type { CheckpointRecord } from '../src/spec.ts'
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   /** 中文说明：interface SessionProjectionStateMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface SessionProjectionStateMap {
     'cache-test/marks': MarksState
     'cache-test/marks2': Map<string, string>
+    'cache-test/count': number
   }
   /** 中文说明：interface SessionProjectionMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface SessionProjectionMap {
@@ -65,62 +79,41 @@ const marksUnit = (stateVersion = 1) => ({
   stateVersion,
 }) satisfies ProjectionDefinition<'cache-test/marks', MarksState>
 
-/** A persistence double serving readFrom over a fixed per-id stored log (headers stamp createdAt 0). */
-/* 中文说明：函数 fakePersistence 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-function fakePersistence(logs: Map<string, SessionEvent[]>) {
-  /** 中文说明：函数值 readFrom 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-  const readFrom = vi.fn(async (id: SessionId, fromSeq: number) => {
-    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const events = logs.get(String(id))
-    if (events === undefined) throw new Error(`session "${id}" not found`)
-    return {
-      meta: { version: 0, id, createdAt: 0 },
-      events: events.filter(event => event.seq >= fromSeq),
-    }
-  })
-  return { readFrom }
-}
+/** One session's record document on the per-record medium. */
+const recordPath = (root: string, id: Session['id']): string =>
+  join(root, projectionCacheDomainSpec.name, 'sessions', `${String(id)}.json`)
 
-/** Header shape for cachedSnapshot calls (fake logs stamp createdAt 0, no cwd). */
-/* 中文说明：函数值 headerOf 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+/** Header shape for cachedSnapshot calls. */
 const headerOf = (id: SessionId, createdAt = 0, cwd?: string) =>
   ({ version: 0, id, createdAt, ...cwd === undefined ? {} : { cwd } })
 
 /** 中文说明：interface HarnessOptions 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
 interface HarnessOptions {
-  pool?: MemoryMediaPool
+  root?: string
   config?: { writeEveryEvents: number; writeIntervalMs: number }
   stateVersion?: number
-  logs?: Map<string, SessionEvent[]>
 }
 
 /** 中文说明：变量 contexts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const contexts: Context[] = []
+const roots: string[] = []
 
 /** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(options: HarnessOptions = {}) {
-  /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const pool = options.pool ?? new MemoryMediaPool()
-  /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const logs = options.logs ?? new Map<string, SessionEvent[]>()
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  const root = options.root ?? await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+  roots.push(root)
   const ctx = new Context()
   contexts.push(ctx)
+  // The cache opens its domain through the storage stack; the json backend
+  // lands the per-record tree under this tmp root.
   await ctx.plugin(Storage)
-  ctx.storage.backend.register('memory', new MemoryStorageBackend(pool))
-  /** 中文说明：变量 facility 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
-  ctx.storage.mount('domain', facility)
-  ctx.provide('storageDomain', facility)
+  await ctx.plugin({ name: storageJsonName, inject: storageJsonInject, apply: storageJsonApply, Config: storageJsonConfig }, { root })
+  await ctx.plugin({ name: storageDomainName, inject: storageDomainInject, apply: storageDomainApply, Config: storageDomainConfig }, { backend: 'json' })
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
   ctx.sessionProjections.register(marksUnit(options.stateVersion))
-  /** 中文说明：变量 persistence 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const persistence = fakePersistence(logs)
-  ctx.provide('sessionPersistence', persistence as never)
-  /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fiber = await ctx.plugin(SessionProjectionCache, options.config ?? { writeEveryEvents: 100, writeIntervalMs: 60_000 })
-  return { ctx, pool, logs, fiber, persistence, cache: ctx.sessionProjectionCache }
+  return { ctx, root, fiber, cache: ctx.sessionProjectionCache }
 }
 
 /** 中文说明：函数值 mark 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
@@ -131,48 +124,72 @@ const mark = (session: Session, marks: string[]): SessionEvent =>
 const endTurn = (session: Session): SessionEvent =>
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
-/** The stored medium record for one session id (undefined = never written). */
-/* 中文说明：函数 storedRecord 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-function storedRecord(pool: MemoryMediaPool, id: Session['id']) {
-  return pool.media.get('session_projcache')?.tables.get('sessions')?.get(String(id)) as
-    {
-      identity: { createdAt: number; cwd?: string }
-      rows: Record<string, { ver: number; seq: number; val: unknown }>
-    } | undefined
+/** The stored record for one session id (undefined = absent or unreadable). */
+async function storedRecord(root: string, id: Session['id']): Promise<CheckpointRecord | undefined> {
+  try {
+    const document = JSON.parse(await readFile(recordPath(root, id), 'utf8')) as { record: unknown }
+    return checkpointRecord.parse(document.record)
+  } catch {
+    return undefined
+  }
 }
 
-/** The stored medium rows for one session id (undefined = never written). */
-/* 中文说明：函数 storedRows 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-function storedRows(pool: MemoryMediaPool, id: Session['id']) {
-  return storedRecord(pool, id)?.rows
+/** The stored rows for one session id (undefined = absent or unreadable). */
+async function storedRows(root: string, id: Session['id']): Promise<CheckpointRecord['rows'] | undefined> {
+  return (await storedRecord(root, id))?.rows
 }
 
-/** Wait until queued fail-soft writes (event-listener fire-and-forget) drain. */
-/* 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-const settle = () => new Promise(resolve => setTimeout(resolve, 0))
+/** Pre-seed one session's record document with a stored checkpoint record. */
+async function seedRecord(
+  root: string,
+  id: string,
+  rows: CheckpointRecord['rows'],
+  identity: CheckpointRecord['identity'] = { createdAt: 0 },
+): Promise<void> {
+  const path = recordPath(root, SessionId(id))
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, JSON.stringify({ version: projectionCacheDomainSpec.version, record: { identity, rows } }))
+}
+
+/** Wait until queued fail-soft writes (event-listener fire-and-forget over real fs I/O) drain. */
+const settle = () => new Promise(resolve => setTimeout(resolve, 40))
 
 afterEach(async () => {
   vi.useRealTimers()
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
+  await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })))
 })
 
 describe('SessionProjectionCache write policy', () => {
   it('writes a durable checkpoint at turn/end (mandatory point)', async () => {
-    const { ctx, pool } = await harness()
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const { ctx, root } = await harness()
     const session = ctx.sessions.create(SessionId('turn-end'))
     mark(session, ['a'])
-    expect(storedRows(pool, session.id)).toBeUndefined() // throttled: no write yet
-    /** 中文说明：变量 end 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    // Creation already wrote the init cut; the mark is throttled, so the
+    // stored row is still the creation-time cut (no marks folded).
+    await settle()
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.seq).toBe(-1)
     const end = endTurn(session)
     await settle()
-    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const rows = storedRows(pool, session.id)
+    const rows = await storedRows(root, session.id)
     expect(rows?.['cache-test/marks']).toEqual({ ver: 1, seq: end.seq, val: { marks: ['a'] } })
   })
 
+  it('writes a checkpoint at session creation, capturing the seed-derived cut', async () => {
+    const { ctx, root } = await harness()
+    // A forked child seeded with its ancestor's title-like event: no
+    // conversation follows, yet the creation write must capture the fold so
+    // a crash or a live-held fork still lists the derived value.
+    const session = ctx.sessions.create(SessionId('seeded'), {
+      seed: [{ type: 'cache-test/mark', seq: 0, time: 1, data: { marks: ['seed'] } }] as SessionEvent[],
+    })
+    await settle()
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val)
+      .toEqual({ marks: ['seed'] })
+  })
+
   it('writes at session disposal (detach, the live-to-cold moment)', async () => {
-    const { ctx, pool } = await harness()
+    const { ctx, root } = await harness()
     // Sessions dispose with their owning fiber: create in a child plugin.
     /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let session: Session | undefined
@@ -184,42 +201,41 @@ describe('SessionProjectionCache write policy', () => {
     mark(session, ['live'])
     await owner.dispose()
     await settle()
-    expect(storedRows(pool, session.id)?.['cache-test/marks']?.val).toEqual({ marks: ['live'] })
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['live'] })
   })
 
   it('flushes when the in-turn event count reaches the configured threshold', async () => {
-    const { ctx, pool } = await harness({ config: { writeEveryEvents: 3, writeIntervalMs: 60_000 } })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const { ctx, root } = await harness({ config: { writeEveryEvents: 3, writeIntervalMs: 60_000 } })
     const session = ctx.sessions.create(SessionId('count'))
     mark(session, ['1'])
     mark(session, ['2'])
     await settle()
-    expect(storedRows(pool, session.id)).toBeUndefined()
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.seq).toBe(-1) // still the creation cut
     mark(session, ['3'])
     await settle()
-    expect(storedRows(pool, session.id)?.['cache-test/marks']?.val).toEqual({ marks: ['3'] })
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['3'] })
   })
 
   it('flushes on the configured interval when the count threshold is not reached', async () => {
+    const { ctx, cache } = await harness({ config: { writeEveryEvents: 100, writeIntervalMs: 20 } })
+    const write = vi.spyOn(cache, 'write').mockResolvedValue()
     vi.useFakeTimers()
-    const { ctx, pool } = await harness({ config: { writeEveryEvents: 100, writeIntervalMs: 250 } })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(SessionId('interval'))
+    write.mockClear()
     mark(session, ['slow'])
-    await vi.advanceTimersByTimeAsync(249)
-    expect(storedRows(pool, session.id)).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(19)
+    expect(write).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1)
-    await vi.advanceTimersByTimeAsync(0)
-    expect(storedRows(pool, session.id)?.['cache-test/marks']?.val).toEqual({ marks: ['slow'] })
+    expect(write).toHaveBeenCalledExactlyOnceWith(session)
   })
 
   it('write() on a never-dirty session checkpoints directly and rejects a non-JSON unit state', async () => {
-    const { ctx, pool } = await harness()
+    const { ctx, root } = await harness()
     // Never dirtied: no events — write() still lands the init-derived cut.
     /** 中文说明：变量 clean 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const clean = ctx.sessions.create(SessionId('clean-write'))
     await ctx.sessionProjectionCache.write(clean)
-    expect(storedRows(pool, clean.id)?.['cache-test/marks']).toEqual({ ver: 1, seq: -1, val: null })
+    expect((await storedRows(root, clean.id))?.['cache-test/marks']).toEqual({ ver: 1, seq: -1, val: null })
     // A unit whose state violates the plain-JSON contract fails the write loud.
     ctx.sessionProjections.register({
       key: 'cache-test/marks2',
@@ -233,8 +249,7 @@ describe('SessionProjectionCache write policy', () => {
 
   it('plugin disposal clears armed interval timers and leaves cleaned sessions alone', async () => {
     vi.useFakeTimers()
-    const { ctx, pool, fiber } = await harness({ config: { writeEveryEvents: 100, writeIntervalMs: 5000 } })
-    /** 中文说明：变量 armed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const { ctx, root, fiber } = await harness({ config: { writeEveryEvents: 100, writeIntervalMs: 5000 } })
     const armed = ctx.sessions.create(SessionId('armed'))
     /** 中文说明：变量 cleaned 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleaned = ctx.sessions.create(SessionId('cleaned'))
@@ -245,31 +260,105 @@ describe('SessionProjectionCache write policy', () => {
     await fiber.dispose()
     // The armed timer died with the plugin: advancing time writes nothing.
     await vi.advanceTimersByTimeAsync(10_000)
-    expect(storedRows(pool, armed.id)).toBeUndefined()
+    // Only the creation cut exists: the armed mark never wrote.
+    expect((await storedRows(root, armed.id))?.['cache-test/marks']?.seq).toBe(-1)
   })
 
   it('contains a durable write failure: logs a warning, event path unharmed, next write self-heals', async () => {
-    const { ctx, pool } = await harness()
-    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    const ctx = new Context()
+    contexts.push(ctx)
+    await ctx.plugin(Storage)
+    await ctx.plugin({ name: storageJsonName, inject: storageJsonInject, apply: storageJsonApply, Config: storageJsonConfig }, { root })
+    await ctx.plugin({ name: storageDomainName, inject: storageDomainInject, apply: storageDomainApply, Config: storageDomainConfig }, { backend: 'json' })
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionProjectionRegistry)
+    ctx.sessionProjections.register(marksUnit())
+    await ctx.plugin(SessionProjectionCache, { writeEveryEvents: 100, writeIntervalMs: 60_000 })
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    // A directory where the record document must land makes the atomic
+    // rename fail — including the creation write, so no row ever lands.
+    const blocker = recordPath(root, SessionId('fail-soft'))
+    await mkdir(blocker, { recursive: true })
     const session = ctx.sessions.create(SessionId('fail-soft'))
     mark(session, ['x'])
-    pool.failNextWrites = 1
     endTurn(session)
     await settle()
-    expect(storedRows(pool, session.id)).toBeUndefined()
+    expect(await storedRows(root, session.id)).toBeUndefined()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('turn/end write for "fail-soft" failed'))
-    // Self-heal: the next mandatory point writes the current cut.
+    // Self-heal: once the blocker clears, the next mandatory point writes.
+    await rm(recordPath(root, session.id), { recursive: true })
     mark(session, ['y'])
     endTurn(session)
     await settle()
-    expect(storedRows(pool, session.id)?.['cache-test/marks']?.val).toEqual({ marks: ['y'] })
+    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['y'] })
   })
 })
 
-describe('SessionProjectionCache cold read', () => {
-  /** 中文说明：函数值 storedLog 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+describe('SessionProjectionCache listing read', () => {
+  it('serves identity-matching rows with the cut watermark and refuses unrelated ones', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    await seedRecord(root, 'listed', { 'cache-test/marks': { ver: 1, seq: 4, val: { marks: ['t'] } } })
+    const { cache } = await harness({ root })
+    const id = SessionId('listed')
+    // Matching header: values plus the watermark the client seeds under.
+    expect(cache.cachedSnapshot(headerOf(id))).toEqual({ asOfSeq: 4, values: { 'cache-test/marks': { marks: ['t'] } } })
+    // A recreated id (different createdAt): the record is unrelated — no block.
+    expect(cache.cachedSnapshot(headerOf(id, 777))).toBeUndefined()
+    // Unknown id: no block.
+    expect(cache.cachedSnapshot(headerOf(SessionId('never-cached')))).toBeUndefined()
+  })
+
+  it('returns undefined when the stored record is version-mismatched', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    // A stale version-stamped document is discarded at open: absent record.
+    const path = recordPath(root, SessionId('all-stale'))
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, JSON.stringify({
+      version: projectionCacheDomainSpec.version + 1,
+      record: { identity: { createdAt: 0 }, rows: { 'cache-test/marks': { ver: 1, seq: 4, val: { marks: ['old'] } } } },
+    }))
+    const { cache } = await harness({ root })
+    expect(cache.cachedSnapshot(headerOf(SessionId('all-stale')))).toBeUndefined()
+  })
+
+  it('returns undefined when every stored row is version-mismatched', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    // A current document whose rows all fail the live unit's stateVersion:
+    // the listing view is empty, so no block is served.
+    await seedRecord(root, 'row-stale', { 'cache-test/marks': { ver: 99, seq: 4, val: { marks: ['old'] } } })
+    const { cache } = await harness({ root })
+    expect(cache.cachedSnapshot(headerOf(SessionId('row-stale')))).toBeUndefined()
+  })
+
+  it('binds identity on cwd too: a matching cwd serves, a moved session does not', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    await seedRecord(root, 'homed', { 'cache-test/marks': { ver: 1, seq: 2, val: { marks: ['w'] } } }, { createdAt: 0, cwd: '/work' })
+    const { cache } = await harness({ root })
+    const id = SessionId('homed')
+    expect(cache.cachedSnapshot(headerOf(id, 0, '/work'))?.values['cache-test/marks']).toEqual({ marks: ['w'] })
+    expect(cache.cachedSnapshot(headerOf(id, 0, '/elsewhere'))).toBeUndefined()
+    expect(cache.cachedSnapshot(headerOf(id, 0))).toBeUndefined()
+  })
+
+  it('returns undefined for a malformed record document (refold from the log on the caller side)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    const path = recordPath(root, SessionId('malformed'))
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, 'not json at all')
+    const { cache } = await harness({ root })
+    expect(cache.cachedSnapshot(headerOf(SessionId('malformed')))).toBeUndefined()
+  })
+})
+
+describe('SessionProjectionCache cold-read seeding', () => {
+  /** One session's event log: turn/start, one mark per group, turn/end. */
   const storedLog = (marks: string[][]): SessionEvent[] => {
     /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
@@ -283,205 +372,104 @@ describe('SessionProjectionCache cold read', () => {
     return events
   }
 
-  /** Pre-seed the medium with one stored checkpoint record (before the domain opens). */
-  /* 中文说明：函数 seedRow 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-  function seedRow(
-    pool: MemoryMediaPool,
-    id: string,
-    row: { ver: number; seq: number; val: unknown },
-    identity: { createdAt: number; cwd?: string } = { createdAt: 0 },
-  ): void {
-    pool.versions.set('session_projcache', 3)
-    pool.media.set('session_projcache', {
-      tables: new Map([['sessions', new Map([[id, { identity, rows: { 'cache-test/marks': row } }]])]]),
-      global: null,
+  it('hydratePrepared seeds from a matching row and retries from the exact log on a malformed one', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    // Records land on disk before the domain opens, so the in-memory table
+    // picks them up at init.
+    await seedRecord(root, 'prepared-seeded', {
+      'cache-test/marks': { ver: 1, seq: 1, val: { marks: ['cached'] } },
     })
-  }
+    await seedRecord(root, 'prepared-fallback', {
+      'cache-test/marks': { ver: 1, seq: 1, val: { marks: 'malformed' } },
+    })
+    const { cache } = await harness({ root })
+    const events = storedLog([['fresh']])
 
-  it('serves a cold session from the cache row plus a bounded tail read, and writes the refresh back', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logs = new Map([['cold', storedLog([['a'], ['a', 'b']])]])
-    // A warm-era checkpoint at watermark 1 (only ['a'] folded).
-    seedRow(pool, 'cold', { ver: 1, seq: 1, val: { marks: ['a'] } })
-    const { cache, persistence, pool: samePool } = await harness({ pool, logs })
-    /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const id = SessionId('cold')
-    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const snapshot = await cache.coldSnapshot(id)
-    expect(snapshot.values['cache-test/marks']).toEqual({ marks: ['a', 'b'] })
-    expect(snapshot.asOfSeq).toBe(3)
-    // The tail read was bounded by the anchored floor (watermark 1 -> floor 1), not 0.
-    expect(persistence.readFrom).toHaveBeenCalledWith(id, 1, undefined)
-    // Write-back: the stored row advanced to the served cut.
-    expect(storedRows(samePool, id)?.['cache-test/marks'])
-      .toEqual({ ver: 1, seq: 3, val: { marks: ['a', 'b'] } })
+    // A matching row hydrates the prepared Session without a persistence read.
+    const seeded = headerOf(SessionId('prepared-seeded'))
+    const seededSession = Session.create(seeded.id, events, seeded)
+    expect(cache.hydratePrepared(seededSession, seeded, events)).toEqual({
+      asOfSeq: 2,
+      values: { 'cache-test/marks': { marks: ['cached'] } },
+    })
+
+    // A malformed row cannot seed the fold; hydration falls back to the
+    // exact log so a valid Session stays readable.
+    const fallback = headerOf(SessionId('prepared-fallback'))
+    const fallbackSession = Session.create(fallback.id, events, fallback)
+    expect(cache.hydratePrepared(fallbackSession, fallback, events)).toEqual({
+      asOfSeq: 2,
+      values: { 'cache-test/marks': { marks: ['fresh'] } },
+    })
+
+    // No row at all: hydrate from init over the exact log.
+    const bare = headerOf(SessionId('prepared-bare'))
+    const bareSession = Session.create(bare.id, events, bare)
+    expect(cache.hydratePrepared(bareSession, bare, events)).toEqual({
+      asOfSeq: 2,
+      values: { 'cache-test/marks': { marks: ['fresh'] } },
+    })
   })
 
-  it('discards a version-mismatched row and refolds the full log', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logs = new Map([['bumped', storedLog([['a']])]])
-    seedRow(pool, 'bumped', { ver: 1, seq: 2, val: { marks: ['stale'] } })
-    const { cache, persistence } = await harness({ pool, logs, stateVersion: 2 })
-    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const snapshot = await cache.coldSnapshot(SessionId('bumped'))
-    expect(snapshot.values['cache-test/marks']).toEqual({ marks: ['a'] })
-    // Mismatch pulls the floor to 0: one full read, no second pass needed.
-    expect(persistence.readFrom).toHaveBeenCalledTimes(1)
-    expect(persistence.readFrom).toHaveBeenCalledWith(SessionId('bumped'), 0, undefined)
+  it('coldSnapshot traverses the full log but applies only the events after each cached watermark', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    // A cached row covering the prefix through seq 2 (three applies folded).
+    await seedRecord(root, 'cold-snap', {
+      'cache-test/count': { ver: 1, seq: 2, val: 3 },
+    }, { createdAt: 9 })
+    const { cache, ctx } = await harness({ root })
+    const apply = vi.fn((_state: number, _event: SessionEvent) => 1)
+    ctx.sessionProjections.register({
+      key: 'cache-test/count',
+      stateSchema: z.number().int().nonnegative(),
+      init: () => 0,
+      apply,
+      stateVersion: 1,
+    } satisfies ProjectionDefinition<'cache-test/count', number>)
+    const meta = headerOf(SessionId('cold-snap'), 9)
+    const events = Array.from({ length: 5 }, (_, seq) => ({
+      type: 'cache-test/mark', seq, time: seq, data: { marks: [`m${seq}`] },
+    })) as SessionEvent[]
+    const snapshot = cache.coldSnapshot(meta, events)
+    // The full log was traversed, but the fold applied only seqs 3 and 4.
+    expect(apply).toHaveBeenCalledTimes(2)
+    expect(apply.mock.calls.map(call => call[1].seq)).toEqual([3, 4])
+    expect(snapshot.asOfSeq).toBe(4)
+    // Host-only unit: folded but not served; the refreshed row is written
+    // back (fail-soft, fire-and-forget) once the write lands.
+    expect(Object.keys(snapshot.values)).not.toContain('cache-test/count')
+    await settle()
+    expect((await storedRows(root, meta.id))?.['cache-test/count']?.seq).toBe(4)
+    // No cached row yet: the first cold read folds from init over the full
+    // log and creates the cache row (the `?? {}` seed path).
+    const fresh = headerOf(SessionId('cold-fresh'), 10)
+    cache.coldSnapshot(fresh, events)
+    expect(apply).toHaveBeenCalledTimes(7) // 2 tail + 5 full
+    await settle()
+    expect((await storedRows(root, fresh.id))?.['cache-test/count']?.seq).toBe(4)
   })
 
-  it('detects a log shrunk below the row watermark and degrades to one full re-read', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logs = new Map([['shrunk', storedLog([['a']])]]) // seqs 0..2
-    seedRow(pool, 'shrunk', { ver: 1, seq: 9, val: { marks: ['ghost'] } })
-    const { cache, persistence } = await harness({ pool, logs })
-    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const snapshot = await cache.coldSnapshot(SessionId('shrunk'))
-    expect(snapshot.values['cache-test/marks']).toEqual({ marks: ['a'] })
-    expect(snapshot.asOfSeq).toBe(2)
-    // Anchored tail read (floor 9) came back empty -> full re-read from 0.
-    expect(persistence.readFrom).toHaveBeenNthCalledWith(1, SessionId('shrunk'), 9, undefined)
-    expect(persistence.readFrom).toHaveBeenNthCalledWith(2, SessionId('shrunk'), 0, undefined)
-  })
-
-  it('discards malformed persisted state and degrades to one full re-read', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logs = new Map([['malformed', storedLog([['real']])]])
-    seedRow(pool, 'malformed', { ver: 1, seq: 1, val: { marks: 'not-an-array' } })
-    const { cache, persistence } = await harness({ pool, logs })
-
-    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const snapshot = await cache.coldSnapshot(SessionId('malformed'))
-
-    expect(snapshot.values['cache-test/marks']).toEqual({ marks: ['real'] })
-    expect(persistence.readFrom).toHaveBeenNthCalledWith(1, SessionId('malformed'), 1, undefined)
-    expect(persistence.readFrom).toHaveBeenNthCalledWith(2, SessionId('malformed'), 0, undefined)
-  })
-
-  it('write-back failure is contained: the snapshot is still served', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logs = new Map([['soft', storedLog([['a']])]])
-    const { ctx, cache } = await harness({ pool, logs })
-    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+  it('coldSnapshot write-back is fail-soft: a failed durable write logs and never throws', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    const ctx = new Context()
+    contexts.push(ctx)
+    await ctx.plugin(Storage)
+    await ctx.plugin({ name: storageJsonName, inject: storageJsonInject, apply: storageJsonApply, Config: storageJsonConfig }, { root })
+    await ctx.plugin({ name: storageDomainName, inject: storageDomainInject, apply: storageDomainApply, Config: storageDomainConfig }, { backend: 'json' })
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionProjectionRegistry)
+    ctx.sessionProjections.register(marksUnit())
+    await ctx.plugin(SessionProjectionCache, { writeEveryEvents: 100, writeIntervalMs: 60_000 })
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-    pool.failNextWrites = 1
-    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const snapshot = await cache.coldSnapshot(SessionId('soft'))
-    expect(snapshot.values['cache-test/marks']).toEqual({ marks: ['a'] })
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cold-read write-back for "soft" failed'))
-  })
-
-  it('rejects for a session with no persisted log', async () => {
-    const { cache } = await harness()
-    await expect(cache.coldSnapshot(SessionId('absent'))).rejects.toThrow('not found')
-  })
-
-  it('discards a record bound to a different log lifecycle and refolds from the actual log', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logs = new Map([['reborn', storedLog([['real']])]]) // stored header stamps createdAt 0
-    // A checkpoint from a PRIOR lifecycle of the same id (different createdAt):
-    // its rows pass every watermark check, but the identity does not match.
-    seedRow(pool, 'reborn', { ver: 1, seq: 2, val: { marks: ['phantom'] } }, { createdAt: 999 })
-    const { cache, pool: samePool } = await harness({ pool, logs })
-    /** 中文说明：变量 snapshot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const snapshot = await cache.coldSnapshot(SessionId('reborn'))
-    expect(snapshot.values['cache-test/marks']).toEqual({ marks: ['real'] })
-    // The write-back rebinds the record to the actual log's identity.
-    expect(storedRecord(samePool, SessionId('reborn'))?.identity).toEqual({ createdAt: 0 })
-  })
-
-  it('cachedSnapshot returns undefined when every stored row is version-mismatched', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    seedRow(pool, 'all-stale', { ver: 99, seq: 4, val: { marks: ['old'] } })
-    const { cache } = await harness({ pool })
-    expect(cache.cachedSnapshot(headerOf(SessionId('all-stale')))).toBeUndefined()
-  })
-
-  it('binds identity on cwd too: a matching cwd serves, a moved session does not', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    seedRow(pool, 'homed', { ver: 1, seq: 2, val: { marks: ['w'] } }, { createdAt: 0, cwd: '/work' })
-    const { cache } = await harness({ pool })
-    /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const id = SessionId('homed')
-    expect(cache.cachedSnapshot(headerOf(id, 0, '/work'))?.values['cache-test/marks']).toEqual({ marks: ['w'] })
-    expect(cache.cachedSnapshot(headerOf(id, 0, '/elsewhere'))).toBeUndefined()
-    expect(cache.cachedSnapshot(headerOf(id, 0))).toBeUndefined()
-  })
-
-  it('dates an empty stored log at -1 in the zero-units topology', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logs = new Map([['empty', [] as SessionEvent[]]])
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
-    contexts.push(ctx)
-    await ctx.plugin(Storage)
-    ctx.storage.backend.register('memory', new MemoryStorageBackend(pool))
-    /** 中文说明：变量 facility 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
-    ctx.storage.mount('domain', facility)
-    ctx.provide('storageDomain', facility)
-    await ctx.plugin(SessionStore)
-    await ctx.plugin(SessionProjectionRegistry)
-    ctx.provide('sessionPersistence', fakePersistence(logs) as never)
-    await ctx.plugin(SessionProjectionCache, { writeEveryEvents: 100, writeIntervalMs: 60_000 })
-    await expect(ctx.sessionProjectionCache.coldSnapshot(SessionId('empty')))
-      .resolves.toEqual({ asOfSeq: -1, values: {} })
-  })
-
-  it('cachedSnapshot serves identity-matching rows with the cut watermark and refuses unrelated ones', async () => {
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    seedRow(pool, 'listed', { ver: 1, seq: 4, val: { marks: ['t'] } })
-    const { cache } = await harness({ pool })
-    /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const id = SessionId('listed')
-    // Matching header: values plus the watermark the client seeds under.
-    expect(cache.cachedSnapshot(headerOf(id))).toEqual({ asOfSeq: 4, values: { 'cache-test/marks': { marks: ['t'] } } })
-    // A recreated id (different createdAt): the record is unrelated — no block.
-    expect(cache.cachedSnapshot(headerOf(id, 777))).toBeUndefined()
-    // Unknown id: no block.
-    expect(cache.cachedSnapshot(headerOf(SessionId('never-cached')))).toBeUndefined()
-  })
-
-  it('holds the not-found contract with zero registered units, and dates the empty cut for a present log', async () => {
-    // Same composition minus any registered unit: restoreFloor is undefined,
-    // yet coldSnapshot must still reject for an absent log (probe read) and
-    // serve an empty cut at the stored end for a present one.
-    /** 中文说明：变量 pool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const pool = new MemoryMediaPool()
-    /** 中文说明：变量 logs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logs = new Map([['bare', storedLog([['a']])]]) // seqs 0..2
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
-    contexts.push(ctx)
-    await ctx.plugin(Storage)
-    ctx.storage.backend.register('memory', new MemoryStorageBackend(pool))
-    /** 中文说明：变量 facility 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const facility = new DomainFacility(ctx, { backend: 'memory', routes: {} })
-    ctx.storage.mount('domain', facility)
-    ctx.provide('storageDomain', facility)
-    await ctx.plugin(SessionStore)
-    await ctx.plugin(SessionProjectionRegistry)
-    ctx.provide('sessionPersistence', fakePersistence(logs) as never)
-    await ctx.plugin(SessionProjectionCache, { writeEveryEvents: 100, writeIntervalMs: 60_000 })
-    await expect(ctx.sessionProjectionCache.coldSnapshot(SessionId('absent'))).rejects.toThrow('not found')
-    await expect(ctx.sessionProjectionCache.coldSnapshot(SessionId('bare')))
-      .resolves.toEqual({ asOfSeq: 2, values: {} })
+    // A directory where the record document must land makes the write-back
+    // fail; the cold read itself still succeeds and never throws.
+    const meta = headerOf(SessionId('cold-fail'))
+    await mkdir(recordPath(root, meta.id), { recursive: true })
+    expect(ctx.sessionProjectionCache.coldSnapshot(meta, [])).toBeDefined()
+    await settle()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cold-read write-back for "cold-fail" failed'))
   })
 })

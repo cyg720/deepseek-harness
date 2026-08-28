@@ -70,8 +70,7 @@ export interface Config {
    * 至少一个 pollIntervalMs。
    */
   handoffGraceMs?: number
-  /** Absolute send wait bound. */
-  /* 发送等待的绝对上限。 */
+  /** Absolute bound for one send and the complete pwsh startup sequence. */
   timeoutMs?: number
   /** Grace before teardown escalates to `SIGKILL`. */
   /* 拆解升级到 SIGKILL 前的宽限期。 */

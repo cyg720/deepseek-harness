@@ -16,7 +16,7 @@ import ToolRuntime from '@deepseek-ai/dsh-tools'
 import type { PreToolDecision, ToolDefinition, ToolExecution, ToolExecutionInput, ToolExecutionToken } from '@deepseek-ai/dsh-tools'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 
 /** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
@@ -66,7 +66,7 @@ async function run(ctx: Context, name: string, agent?: Agent): Promise<string> {
   /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
   const result = await ctx.tools.execute({
     signal: testToolSignal,
-    callId: CallId('c1'),
+    callId: ToolCallId('c1'),
     name,
     arguments: {},
     ...agent ? { agent } : {},
@@ -503,7 +503,7 @@ describe('scoped execution dispatch', () => {
     /** 中文说明：测试局部值 safeResult，由紧邻初始化决定。 */
     const safeResult = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('safe-call'),
+      callId: ToolCallId('safe-call'),
       name: 'safe',
       arguments: callerArguments,
       agent: key,
@@ -554,7 +554,7 @@ describe('scoped execution dispatch', () => {
       if (exec.name === 'parent') parent = exec.token
       return next()
     })
-    await ctx.tools.execute({ signal: testToolSignal, callId: CallId('parent'), name: 'parent', arguments: {} })
+    await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('parent'), name: 'parent', arguments: {} })
     stopCapture()
     policyCalls = 0
     /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
@@ -573,7 +573,7 @@ describe('scoped execution dispatch', () => {
 
     /** 中文说明：测试局部值 scopedResult，由紧邻初始化决定。 */
     const scopedResult = await ctx.tools.execute({
-      callId: CallId('non-cloneable'),
+      callId: ToolCallId('non-cloneable'),
       name: 't',
       arguments: callerArguments,
       agent: key,
@@ -583,7 +583,7 @@ describe('scoped execution dispatch', () => {
     /** 中文说明：测试局部值 subjectlessResult，由紧邻初始化决定。 */
     const subjectlessResult = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('non-cloneable-subjectless'),
+      callId: ToolCallId('non-cloneable-subjectless'),
       name: 't',
       arguments: { invalid: () => undefined },
     })
@@ -627,7 +627,7 @@ describe('scoped execution dispatch', () => {
     let parentReads = 0
     /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
-      callId: CallId('stateful-parent'),
+      callId: ToolCallId('stateful-parent'),
       name: 't',
       arguments: {},
       signal: testToolSignal,
@@ -661,7 +661,7 @@ describe('scoped execution dispatch', () => {
       if (exec.name === 'parent') parent = exec.token
       return next()
     })
-    await ctx.tools.execute({ signal: testToolSignal, callId: CallId('parent'), name: 'parent', arguments: {} })
+    await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('parent'), name: 'parent', arguments: {} })
     stopCapture()
     /** 中文说明：测试局部值 acceptedSignal，由紧邻初始化决定。 */
     const acceptedSignal = new AbortController().signal
@@ -673,7 +673,7 @@ describe('scoped execution dispatch', () => {
     const reads = { callId: 0, name: 0, arguments: 0, agent: 0, parent: 0, signal: 0 }
     /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
-      get callId() { reads.callId += 1; return CallId('unstable-error') },
+      get callId() { reads.callId += 1; return ToolCallId('unstable-error') },
       get name() { reads.name += 1; return 't' },
       get arguments(): unknown { reads.arguments += 1; return { invalid: () => undefined } },
       get agent() { reads.agent += 1; return reads.agent === 1 ? key : driftAgent },
@@ -694,7 +694,7 @@ describe('scoped execution dispatch', () => {
     expect(reads).toEqual({ callId: 1, name: 1, arguments: 1, agent: 1, parent: 1, signal: 1 })
     expect(scopedObserved).toBe(1)
     expect(observed).toMatchObject({
-      callId: CallId('unstable-error'),
+      callId: ToolCallId('unstable-error'),
       name: 't',
       agent: key,
       parent,
@@ -718,7 +718,7 @@ describe('scoped execution dispatch', () => {
     })
     /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = {
-      callId: CallId('throwing-arguments'),
+      callId: ToolCallId('throwing-arguments'),
       name: 't',
       signal: testToolSignal,
       get arguments(): unknown {
@@ -768,7 +768,7 @@ describe('scoped execution dispatch', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('bad-arguments'), name: 't', arguments: argumentsValue,
+      callId: ToolCallId('bad-arguments'), name: 't', arguments: argumentsValue,
     })
 
     expect(result.isError).toBe(true)
@@ -793,7 +793,7 @@ describe('scoped execution dispatch', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('unstable-arguments'), name: 't', arguments: argumentsValue,
+      callId: ToolCallId('unstable-arguments'), name: 't', arguments: argumentsValue,
     })
 
     expect(reads).toBe(1)
@@ -840,8 +840,7 @@ describe('scoped execution dispatch', () => {
     ctx.on('tools/result', () => Promise.reject(new Error('async observer failure')) as never)
     ctx.on('tools/result', (_exec, result) => { seen.push(result.isError) })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-    const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('final'), name: 't', arguments: {}, agent: key })
+    const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('final'), name: 't', arguments: {}, agent: key })
     await Promise.resolve()
     expect(result).toMatchObject({ isError: true, content: [{ type: 'text', text: 'outer failure' }] })
     expect(seen).toEqual([true, true])

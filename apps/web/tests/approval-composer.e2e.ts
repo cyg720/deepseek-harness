@@ -1,25 +1,5 @@
-// Web e2e scenario: the composer-takeover approval panel under a long
-// command. The shipped composition confines bash through the sandbox policy
-// and routes its escalation through the approval seam, so a read-only session
-// asked to write a file produces a REAL pending approval — the panel renders
-// in the browser, the test measures its geometry, answers through it, and the
-// escalated command then runs. Replay is deterministic: the denial, the
-// escalation retry and its command text arrive from replayed chunks, and the
-// answer click is the test's own gesture (the same sanctioned reaction to
-// model content as the question composer: the turn cannot complete without it).
-//
-// Geometry is the point of the scenario. The command is unbounded model text,
-// and an uncapped card grows with it until the refuse/allow buttons leave the
-// viewport — an approval the user could see and not answer.
-// 命令文本无长度上限，若卡片不限制高度，操作按钮可能被推到视口外而无法回答。
-/**
- * 文件职责：端到端验证长命令审批接管编辑器时的高度限制、操作可达性和批准执行结果。
- * 技术维度：使用 Playwright、真实沙箱审批链、模型回放夹具、几何测量和 ARIA 快照。
- * 产品维度：即使模型生成很长命令，用户仍能看到并操作拒绝/允许按钮，批准后命令正常执行。
- * 逻辑维度：发起只读写文件请求，等待真实审批，比较面板快照，在两种视口测量后允许一次。
- * 关键边界：记录模式会重录模型夹具；跨平台拒绝文本不同，因此完成态用文件和事件验证。
- * 新手阅读建议：先看 TOKENS 为何必须足够长，再读编辑器高度探针与审批面板几何对比。
- */
+// Browser geometry for a pending approval whose model-supplied command would
+// push the actions outside the viewport without a capped text region.
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -32,31 +12,20 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 // 空类型导入让审批包的会话事件声明合并生效，下面可按真实联合类型检查结果。
 import type {} from '@deepseek-ai/dsh-user-approval'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
+  assertFinalWorkspaceSnapshot, assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景夹具和黄金文件目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/approval-composer', import.meta.url))
-/** 确定性模型回放会话夹具。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/approval-composer', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
-// The scenario's one golden: the waiting panel. Everything the answered state
-// proves is asserted directly — see the world-state block at the end.
-// 唯一黄金文件只固定等待面板；回答后的状态由文件、事件和 DOM 直接验证。
-/** 等待用户回答时的审批面板 ARIA 快照。 */
+// The golden covers the stable waiting panel; direct assertions cover its answer.
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 
-// Irreducible payload: the command has to be long enough to pass the card's
-// height cap, which is the only command length that reproduces an action row pushed off
-// screen. Unrelated tokens, not a repeated word — a repeated word is what the
-// model compressed into `printf 'alpha %.0s' {1..400}` while recording, and a
-// short command proves nothing here. The formula keeps the source small; the
-// model receives the expanded literal it has to put in the command.
-// 载荷必须超过卡片高度上限，且使用不同词元避免模型把重复词压缩成短命令。
-/** 生成足够长且不易压缩的命令文本内容。 */
+// Unrelated tokens keep the recorded model from compressing the payload into a
+// short shell loop that would not overflow the card.
 const TOKENS = Array.from({ length: 220 }, (_, index) => `tok${((index + 1) * 7919 % 99991).toString(36)}`).join(' ')
 /** 要求模型用单条 Bash 命令写入长文本的用户提示。 */
 const PROMPT = `Write a file named notes.txt in the workspace containing exactly this text on one line: ${TOKENS}. Use one bash command with the literal text inline. Then reply with the single word DONE and stop.`
@@ -78,12 +47,12 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {
-    scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15 })
+    scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15, compareReplaySession: true })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -98,22 +67,15 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
     if (MODE !== 'record') {
       expect(fixtureUserPrompts(await readFile(FIXTURE, 'utf8'))).toEqual([PROMPT])
     }
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
 
-    // The composer's own text cap, measured on the live draft scrollport before
-    // the takeover replaces it — the box that carries the cap, while the
-    // textarea inside it is as tall as the whole draft. The panel's scroll
-    // region must stop at the same height (the designer's requirement: one cap
-    // for the composer seat), and measuring it here keeps the assertion free of
-    // the px value itself.
+    // Derive the expected cap from the live composer instead of duplicating its pixel value.
     await input.fill(CAP_PROBE)
     const composerCap = await input.evaluate(el => el.closest('[data-input-scroll]')?.clientHeight ?? 0)
     expect(composerCap).toBeGreaterThan(0)
     await input.fill('')
 
-    // Read-only: the mode whose denial the model escalates from. Switched
-    // through the shipped access-mode chip, not a test-only override.
     await page.locator('[aria-label^="Access mode"]').click()
     await page.getByRole('menuitem', { name: 'Read Only' }).click()
     await expect.poll(
@@ -125,22 +87,15 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
     await input.fill(PROMPT)
     await input.press('Enter')
 
-    // The panel takes over the input area while the tool blocks. Its presence
-    // is a STABLE waiting state (it stays until answered), so waitFor is
-    // race-free.
     const panel = page.locator('[data-approval-key]')
     await panel.waitFor({ timeout: MODE === 'record' ? 180_000 : 60_000 })
     const scroll = panel.locator('[data-approval-scroll]')
     await expect.poll(() => scroll.getByText(/tok/).count(), { timeout: 15_000 }).toBeGreaterThan(0)
 
     if (MODE !== 'record') {
-      // This golden owns the stable waiting surface; the answered golden below
-      // owns the resulting transcript.
       const snapshot = await captureStableAria(page, '[data-approval-key]', scaffold.workspaceCwd)
       await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
 
-      // The uncapped-card hazard the header names, measured at the lane
-      // baseline and at a short viewport, on the live panel.
       const original = page.viewportSize() ?? { width: 1680, height: 1000 }
       for (const height of [1000, 700]) {
         await page.setViewportSize({ width: 900, height })
@@ -164,11 +119,8 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
         })
         expect(geometry.buttons).toBe(2)
         expect(geometry.scrolls).toBe(true)
-        // One cap for the seat: the panel's text region stops where the
-        // composer draft does (sub-pixel tolerance for the shared padding).
+        // The panel and composer share one cap; allow sub-pixel layout variance.
         expect(Math.abs(geometry.capped - composerCap)).toBeLessThan(1)
-        // Both buttons stay inside the card AND inside the viewport — the
-        // answerable state the cap exists to guarantee.
         expect(geometry.actionsTop).toBeGreaterThan(0)
         expect(geometry.actionsBottom).toBeLessThanOrEqual(geometry.viewport)
         expect(geometry.actionsBottom).toBeLessThanOrEqual(geometry.cardBottom)
@@ -181,26 +133,24 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
     const sessionId = await settled
     if (MODE === 'record') {
       await recordFixture(scaffold, sessionId, FIXTURE)
+      await assertFinalWorkspaceSnapshot(SNAPSHOT_DIR, join(scaffold.workspaceCwd, 'workspace'))
       return
     }
-    // World state: the granted escalation is what let the command run, and the
-    // panel leaves with the regular composer restored. Asserted on the world
-    // and the DOM rather than through a transcript golden — the denied first
-    // attempt renders the OS's own refusal ("Operation not permitted" on
-    // macOS, "Read-only file system" on Linux), so the answered transcript is
-    // not a platform-neutral golden surface.
+    // Direct state and DOM assertions cover the answered outcome beyond the
+    // pending panel's expected output.
     expect(JSON.stringify(sessionEvents.filter(e => e.type === 'approval/decided').at(-1)))
       .toContain('allowed-once')
     const written = await readFile(join(scaffold.workspaceCwd, 'workspace', 'notes.txt'), 'utf8')
     expect(written).toContain(TOKENS.slice(0, 64))
+    await assertFinalWorkspaceSnapshot(SNAPSHOT_DIR, join(scaffold.workspaceCwd, 'workspace'))
     await expect.poll(() => page.getByText('DONE', { exact: true }).count(), { timeout: 20_000 }).toBeGreaterThanOrEqual(1)
     expect(await page.locator('[data-approval-key]').count()).toBe(0)
-    await expect.poll(() => page.locator('textarea').first().isEnabled(), { timeout: 10_000 }).toBe(true)
+    await expect.poll(() => page.locator('[data-composer-input]').first().isEnabled(), { timeout: 10_000 }).toBe(true)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   }, 300_000)
 
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, ['session.jsonl', 'ui.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['session.jsonl', 'ui.expected.md', 'workspace.expected'])
   })
 })

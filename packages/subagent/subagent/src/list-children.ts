@@ -20,14 +20,14 @@
 
 /**
  * Read-only enumeration of durable subagent children and descendant trees
- * straight from the live session store and optional session persistence — no
- * query service. Candidates come from one live-preferred corpus; each child's
- * mode/label is the registered `subagent` projection unit's value, resolved
+ * through the Session query service. Candidates come from one live-preferred
+ * corpus; each child's mode/label is the registered `subagent` projection
+ * unit's value, resolved
  * down a three-rung ladder: the registry's watermark cache for a live child,
  * a durable projection-cache row when it serves an own-suffix identity (the
- * seq gate), and one persistence inspection folded through the registry
- * otherwise, validated against the enumerated lifecycle. The projection fold
- * is the single classification authority — this module parses no descriptor
+ * seq gate), and one shared Session observation otherwise, validated against
+ * the enumerated lifecycle. The projection fold is the single classification
+ * authority — this module parses no descriptor
  * itself. Absent persistence, enumeration is live-only: a cold child is
  * unreachable for resume anyway, so its absence is capability absence, not an
  * error. The module owns no catalog state and does not consult Activation,
@@ -37,79 +37,22 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { Session, SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
+import type { Session, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
 import type { SessionProjectionCache } from '@deepseek-ai/dsh-session-projection-cache'
+import type { SessionObservation, SessionQueryEngine } from '@deepseek-ai/dsh-session-query'
+import type { SubagentListEntry } from './control-types.ts'
 import { SubagentError } from './error.ts'
 import type { SubagentIdentityProjection } from './projection-types.ts'
 
-/**
- * Concurrent cold inspections per listing; a constant because it bounds one
- * read-only scan of local media, not deployment behavior. Should a networked
- * persistence backend appear, promote it to a validated `Config` field.
- */
-const COLD_READ_CONCURRENCY = 4
-// 中文：单次列表并发执行的冷检查数上限。它是常量而非配置：只约束一次本地介质上的
-// 只读扫描；若出现网络化持久化后端，应提升为可校验的 Config 字段。
+export type { SubagentListEntry } from './control-types.ts'
 
 /**
- * One entry of a {@link listChildren} result, ordered by header `createdAt`
- * with ties broken on id. Only a candidate whose durable header has
- * `origin: 'subagent'` is interpreted. A served `subagent` projection value
- * produces a `child`; a settled candidate whose fold served no identity
- * produces a `diagnostic`; a running candidate without one is omitted — its
- * descriptor may not be appended yet (the creation window). Diagnostics
- * relay the projection fold's outcome or a failed read, never a per-child
- * event scan, and never expose model-hidden descriptor content.
+ * Concurrent cold observations per explicit catalog listing. Current Session
+ * persistence providers are local; a networked provider must promote this to
+ * a validated deployment setting.
  */
-// 中文：列表结果条目（union）：kind:'child' 携带身份与活动状态；kind:'diagnostic'
-// 说明某候选为何没有 child 行——corrupt 是确定的数据损坏、unavailable 是本次读取
-// 失败可下次重试、unsupported 留给消费者路由但本模块从不产生。
-export type SubagentListEntry =
-  | {
-    readonly kind: 'child'
-    /** The durable child session id, stable across Activations. */
-    readonly id: SessionId
-    /**
-     * Store snapshot activity: `running` means the logical record is live in
-     * `ctx.sessions`; `inactive` means it exists only in persistence. Neither
-     * encodes a durable outcome, and a continuable child may still reject
-     * delivery as an ownership conflict.
-     */
-    readonly activity: 'running' | 'inactive'
-    /** Whether a direct descendant has durable `origin: 'subagent'`. */
-    readonly hasChildren: boolean
-  } & (
-    | {
-      /** A terminal one-shot child. */
-      readonly mode: 'one-shot'
-      /** Optional durable creation label from the child's descriptor. */
-      readonly label?: string
-    }
-    | {
-      /** A resumable conversation. */
-      readonly mode: 'continuable'
-      /** Durable creation label from the child's descriptor. */
-      readonly label: string
-    }
-  )
-  | {
-    readonly kind: 'diagnostic'
-    /** The candidate's session id. */
-    readonly id: SessionId
-    /**
-     * Why the candidate has no `child` row: `corrupt` for a settled candidate
-     * whose projection fold served no identity (a missing, malformed, or
-     * unrecognized-version descriptor — deliberately undistinguished), and
-     * for any candidate whose log makes a registered unit's fold or schema
-     * throw (deterministic data damage, contained per child); `unavailable`
-     * when the candidate's persistence inspection failed (retried on the
-     * next listing). `unsupported` is never produced; it remains in the
-     * union for consumers that route on it.
-     */
-    readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
-  }
+const COLD_READ_CONCURRENCY = 4
 
 /**
  * One entry of a descendant listing: the interpreted subagent facts plus its
@@ -131,7 +74,7 @@ type CorpusRecord = { readonly header: SessionHeader; readonly live: Session | u
 // live 优先合并后的语料、以及"是某子代理的父"的 ID 集合（用于 hasChildren 标记）。
 interface ListingRuntime {
   readonly projections: SessionProjectionRegistry
-  readonly persistence: SessionPersistence | undefined
+  readonly query: SessionQueryEngine
   readonly cache: SessionProjectionCache | undefined
   readonly corpus: ReadonlyMap<SessionId, CorpusRecord>
   readonly subagentParents: ReadonlySet<SessionId>
@@ -150,8 +93,7 @@ interface PositionedCandidate {
  * serving each identity from the `subagent` projection unit: the registry's
  * watermark snapshot for a live child; for a cold one, a durable
  * projection-cache row when it serves an own-suffix identity (the seq gate),
- * else one bounded-concurrency persistence inspection folded through the
- * registry.
+ * else one bounded-concurrency shared Session observation.
  * @see SubagentRuntime.listChildren for the public cancellation and failure contract.
  * @param ctx - context carrying the session store, the projection registry,
  *   optional persistence, and the optional projection cache.
@@ -242,29 +184,34 @@ async function prepareListing(
     )
   }
   assertListingNotCancelled(signal)
-  const persistence = ctx.get('sessionPersistence')
+  const query = ctx.get('sessionQuery')
+  if (query === undefined) {
+    throw new SubagentError(
+      'listing subagents requires the sessionQuery service (load @deepseek-ai/dsh-session-query)',
+      'SUBAGENT_CONTROL_QUERY_UNAVAILABLE',
+    )
+  }
   // Optional acceleration only: an absent cache service just means every
   // cold candidate takes the authoritative preparation rung, so it carries
   // no error code and no configuration check.
   const cache = ctx.get('sessionProjectionCache')
-  let persistedHeaders: readonly SessionHeader[] = []
-  if (persistence !== undefined) {
-    try {
-      persistedHeaders = await persistence.list(signal)
-    } catch (error: unknown) {
-      // The backend may reject with its own abort failure after observing the
-      // forwarded signal; cancellation stays a stable subagent failure.
-      assertListingNotCancelled(signal)
-      throw error
-    }
+  let records: Awaited<ReturnType<SessionQueryEngine['listSessions']>>
+  try {
+    records = await query.listSessions(signal)
+  } catch (error: unknown) {
     assertListingNotCancelled(signal)
+    throw error
   }
+  assertListingNotCancelled(signal)
   // Live-preferred merge without header reconciliation: a live record wins
   // its id wholesale, exactly as a live-preferred corpus would serve it.
   const corpus = new Map<SessionId, CorpusRecord>()
-  for (const header of persistedHeaders) corpus.set(header.id, { header, live: undefined })
-  for (const session of sessions.list()) {
-    corpus.set(session.header.id, { header: session.header, live: session })
+  for (const record of records) {
+    const live = sessions.get(record.header.id)
+    corpus.set(record.header.id, {
+      header: live?.header ?? record.header,
+      live,
+    })
   }
   const subagentParents = new Set<SessionId>()
   for (const record of corpus.values()) {
@@ -272,7 +219,7 @@ async function prepareListing(
       subagentParents.add(record.header.parentSession)
     }
   }
-  return { projections, persistence, cache, corpus, subagentParents }
+  return { projections, query, cache, corpus, subagentParents }
 }
 
 /** Resolve projection-backed rows for aligned candidates with bounded cold reads. */
@@ -283,7 +230,7 @@ async function resolveCandidateRows(
   listing: ListingRuntime,
   signal: AbortSignal | undefined,
 ): Promise<(SubagentListEntry | undefined)[]> {
-  const { projections, persistence, cache, subagentParents } = listing
+  const { projections, query, cache, subagentParents } = listing
   const rows: (SubagentListEntry | undefined)[] = Array.from({ length: candidates.length })
   const coldReads: { index: number; header: SessionHeader }[] = []
   candidates.forEach((candidate, index) => {
@@ -292,36 +239,33 @@ async function resolveCandidateRows(
       coldReads.push({ index, header: candidate.header })
       return
     }
-    // The registry's watermark cache serves the live value with zero log
-    // reads; a live child without an identity yet is the creation window
-    // before the establishing provider appends its descriptor.
+    // Read only the identity unit. A live child without an identity yet is the
+    // creation window before the establishing provider appends its descriptor.
     let identity: SubagentIdentityProjection | null | undefined
     try {
-      identity = projections.snapshot(candidate.live).values.subagent
+      identity = projections.snapshot(candidate.live, ['subagent']).values.subagent
     } catch {
-      // The snapshot folds EVERY registered unit over this child's log, so
-      // any unit's fold or schema can reject damaged payloads. That is
-      // deterministic data damage in this one child; it degrades to one
-      // corrupt diagnostic instead of failing the whole listing.
+      // A rejecting identity fold is deterministic data damage in this child;
+      // contain it as one diagnostic instead of failing the whole listing.
       rows[index] = { kind: 'diagnostic', id: childId, reason: 'corrupt' }
       return
     }
     // The unit's serializable no-value sentinel is `null`; `undefined` can
     // only mean the key was dropped at a JSON boundary. Both are no value.
-    if (identity === undefined || identity === null) return
+    if (identity === undefined || identity === null
+      || identity.seq < (candidate.header.seedLength ?? 0)) return
     rows[index] = childRow(childId, identity, 'running', subagentParents.has(childId))
   })
 
-  // Cold candidates exist only when persistence listed them, so the narrow
-  // re-check is about types, not reachability.
-  if (persistence !== undefined && coldReads.length > 0) {
+  // Cold candidates came from the query corpus and are resolved concurrently.
+  if (coldReads.length > 0) {
     const queue = [...coldReads]
     await Promise.all(Array.from(
       { length: Math.min(COLD_READ_CONCURRENCY, queue.length) },
       async () => {
         for (let job = queue.shift(); job !== undefined; job = queue.shift()) {
           rows[job.index] = await resolveColdIdentity(
-            persistence, projections, cache, job.header,
+            query, cache, job.header,
             subagentParents.has(job.header.id), signal,
           )
         }
@@ -379,18 +323,16 @@ function compareCorpusRecords(a: CorpusRecord, b: CorpusRecord): number {
 /**
  * Resolve one cold candidate down the remaining ladder: a durable
  * projection-cache row when it serves an own-suffix identity (the seq gate),
- * otherwise one persistence inspection folded through the projection
- * registry (the same detached recipe the API proxy uses for detached session
- * projections). A failed inspection is one transient `unavailable` row
- * retried on the next listing; an inspection naming another lifecycle, and a
+ * otherwise one shared Session observation. An absent or transiently failed
+ * observation is one `unavailable` row retried on the next listing; an observation
+ * source naming another lifecycle, and a
  * settled log the fold cannot identify — or that makes any registered unit
  * throw — are final, so they report `corrupt`.
  */
 // 中文：沿剩余梯子解析一个冷候选：投影缓存行（seq 门槛证明来自自己日志后缀）→ 否则
 // 一次持久化 inspect 并经注册表重新折叠；失败按"可重试/确定性损坏"分类成诊断行。
 async function resolveColdIdentity(
-  persistence: SessionPersistence,
-  projections: SessionProjectionRegistry,
+  query: SessionQueryEngine,
   cache: SessionProjectionCache | undefined,
   header: SessionHeader,
   hasChildren: boolean,
@@ -400,7 +342,7 @@ async function resolveColdIdentity(
   if (cache !== undefined) {
     let cached: SubagentIdentityProjection | null | undefined
     try {
-      cached = cache.cachedSnapshot(header)?.values.subagent
+      cached = cache.cachedSnapshot(header, ['subagent'])?.values.subagent
     } catch {
       // Unlike the preparation fold below, a throwing cache read renders no
       // verdict: the cache is derived data, so its damage (a poisoned stored
@@ -420,32 +362,35 @@ async function resolveColdIdentity(
     }
   }
   assertListingNotCancelled(signal)
-  let inspected: { meta: SessionHeader; events: readonly SessionEvent[] }
+  let observation: SessionObservation
   try {
-    inspected = await persistence.inspect(childId, signal)
-  } catch {
-    // Per-child isolation: the child vanished or its backend read failed —
-    // one diagnostic row, and the listing itself still succeeds.
+    observation = await query.observeSession(childId, {
+      ...(signal === undefined ? {} : { signal }),
+    })
+  } catch (error: unknown) {
+    // Per-child isolation: durable corruption is stable; absence and backend
+    // failures remain retryable. Either way, the listing itself still succeeds.
     assertListingNotCancelled(signal)
-    return { kind: 'diagnostic', id: childId, reason: 'unavailable' }
+    return {
+      kind: 'diagnostic',
+      id: childId,
+      reason: sessionQueryCode(error) === 'SESSION_QUERY_CORRUPT_SESSION'
+        || sessionQueryCode(error) === 'SESSION_QUERY_SOURCE_CONFLICT'
+        ? 'corrupt'
+        : 'unavailable',
+    }
   }
+  using ownedObservation = observation
   assertListingNotCancelled(signal)
   // A session id names a slot, not a lifecycle: a child deleted and
   // re-published under another owner between the enumeration and this read
   // must not leak into the old parent's listing.
-  if (!sameLifecycle(inspected.meta, header)) {
+  if (!sameLifecycle(ownedObservation.header, header)) {
     return { kind: 'diagnostic', id: childId, reason: 'corrupt' }
   }
-  let identity: SubagentIdentityProjection | null | undefined
-  try {
-    identity = projections.restore({}, inspected.events, 0).snapshot.values.subagent
-  } catch {
-    // The restore folds EVERY registered unit over this child's log, so any
-    // unit's fold or schema can reject damaged payloads — deterministic data
-    // damage in this one child, contained as its own corrupt diagnostic.
-    return { kind: 'diagnostic', id: childId, reason: 'corrupt' }
-  }
-  if (identity === undefined || identity === null) {
+  const identity = ownedObservation.projections?.values.subagent
+  if (identity === undefined || identity === null
+    || identity.seq < (header.seedLength ?? 0)) {
     return { kind: 'diagnostic', id: childId, reason: 'corrupt' }
   }
   return childRow(childId, identity, 'inactive', hasChildren)
@@ -484,6 +429,7 @@ function childRow(
 // inspect 回来的 meta 与枚举时的 header 在这些字段上必须一致。
 const LIFECYCLE_WITNESS_KEYS = [
   'version', 'id', 'createdAt', 'cwd', 'parentSession', 'seedLength', 'delegationDepth',
+  'origin', 'agentPreset',
 ] as const
 
 /** Whether an inspected log still belongs to the enumerated lifecycle. */
@@ -499,4 +445,8 @@ function assertListingNotCancelled(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
     throw new SubagentError('subagent listing was cancelled', 'CANCELLED')
   }
+}
+
+function sessionQueryCode(error: unknown): unknown {
+  return error instanceof Error && 'code' in error ? error.code : undefined
 }

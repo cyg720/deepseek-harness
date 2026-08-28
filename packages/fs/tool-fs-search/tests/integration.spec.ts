@@ -23,7 +23,7 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { TOOL_ABORTED_BEFORE_DISPATCH } from '@deepseek-ai/dsh-tools'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
@@ -43,7 +43,7 @@ let callCounter = 0
 function call(name: string, args: unknown, agentObj?: object) {
   return ctx.tools.execute({
     signal: testToolSignal,
-    callId: CallId(`it-${++callCounter}`),
+    callId: ToolCallId(`it-${++callCounter}`),
     name,
     arguments: args,
     ...agentObj ? { agent: agentObj as never } : {},
@@ -215,7 +215,7 @@ describe('search tools over the real subprocess service + the packaged rg', () =
       controller.abort()
       /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
-        callId: CallId(`it-${++callCounter}`),
+        callId: ToolCallId(`it-${++callCounter}`),
         name: 'grep',
         arguments: { pattern: 'x' },
         signal: controller.signal,

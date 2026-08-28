@@ -18,6 +18,7 @@
 /** Operation-sequence and recorded-time projections for the trajectory overview. */
 
 import type { TrajectoryTurnModel } from './layout.ts'
+import type { TrajectoryTranslate } from './locales.ts'
 import { formatDurationMillis } from './trajectory-record.ts'
 import type { TrajectoryCellKind, TrajectoryCellProps } from './trajectory-record.ts'
 
@@ -62,15 +63,14 @@ export interface TrajectoryTimelineModel extends TrajectoryTimeRange {
 /**
  * Format a timeline duration as an integer-millisecond label.
  * @param milliseconds - Non-negative duration in milliseconds.
+ * @param t - Trajectory locale translator.
  * @returns Millisecond label with thousands separators.
  */
-/*
- * 把时间线时长格式化成整数毫秒标签（带千分位），复用于偏移显示。
- * @param milliseconds - 非负毫秒时长。
- * @returns 带千分位的毫秒标签。
- */
-export function formatTimelineOffset(milliseconds: number): string {
-  return formatDurationMillis(milliseconds)
+export function formatTimelineOffset(
+  milliseconds: number,
+  t: TrajectoryTranslate,
+): string {
+  return formatDurationMillis(milliseconds, t)
 }
 
 // 车道分配：工具 / 子工具在第 2 道，消息 / 压缩在第 1 道，其余（系统等）在第 0 道。

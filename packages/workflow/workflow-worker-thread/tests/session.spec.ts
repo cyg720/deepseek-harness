@@ -59,9 +59,7 @@ interface FakeHostOptions {
 /**
  * Drive runWorkerSession IN-PROCESS over a MessageChannel: this is where the
  * worker-side files earn their coverage — code inside a real Worker is
- * invisible to main-process coverage. The fake host mirrors the real host's
- * protocol discipline (one started/start-error per start; settled/disposed
- * follow).
+ * invisible to main-process coverage.
  */
 /* 中文说明：函数 fakeHost 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeHost(options?: FakeHostOptions): FakeHost {
@@ -284,7 +282,6 @@ describe('runWorkerSession over an in-process MessageChannel', () => {
     const callId = host.ofType(WorkerToHostType.ChildStart)[0]!.callId
     host.send({ type: HostToWorkerType.ChildStarted, callId, childId: 'child-0' })
     host.send({ type: HostToWorkerType.Cancel, reason: 'stop everything' })
-    // The real host settles the aborted child; mirror it.
     host.send({ type: HostToWorkerType.ChildSettled, callId, result: { output: [], stopReason: 'aborted' } })
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await host.result()

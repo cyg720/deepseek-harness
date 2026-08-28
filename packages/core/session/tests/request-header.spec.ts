@@ -173,7 +173,9 @@ describe('Session.requestContext', () => {
     /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('incremental-capacity'), seedWith(CAPACITY))
     expect(session.requestContext()).toEqual(CAPACITY)
-    session.append('todo/write', { todos: [] })
+    session.append('user/message', createUserMessage({
+      content: [{ type: 'text', text: 'unrelated' }], source: { kind: 'user' },
+    }), { surfaceOp: 'append' })
     expect(session.requestContext()).toEqual(CAPACITY)
     session.append('request/context', { ...CAPACITY, model: 'next', contextWindow: 64_000 })
     expect(session.requestContext()).toEqual({ provider: 'mock', model: 'next', contextWindow: 64_000 })
@@ -186,7 +188,9 @@ describe('Session.requestContext', () => {
     const session = Session.create(SessionId('batched-capacity'), seedWith(CAPACITY))
     expect(session.requestContext()).toEqual(CAPACITY)
     session.append('request/context', { ...CAPACITY, contextWindow: 200_000 })
-    session.append('todo/write', { todos: [] })
+    session.append('user/message', createUserMessage({
+      content: [{ type: 'text', text: 'unrelated' }], source: { kind: 'user' },
+    }), { surfaceOp: 'append' })
     session.append('request/context', { ...CAPACITY, contextWindow: 300_000 })
     expect(session.requestContext()?.contextWindow).toBe(300_000)
   })

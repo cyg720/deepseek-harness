@@ -9,7 +9,7 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
-import LlmRuntime, { createUserMessage, CallId, EMPTY_RESPONSE_CODE, LlmAdapter, LlmError, resolveRetryPolicy  } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { createUserMessage, ToolCallId, EMPTY_RESPONSE_CODE, LlmAdapter, LlmError, resolveRetryPolicy  } from '@deepseek-ai/dsh-llm'
 import type {
   AlwaysRetryPolicyConfig,
   BackoffConfig,
@@ -71,8 +71,7 @@ class ScriptedAdapter extends LlmAdapter {
 }
 
 async function* partialToolFailure(error: Error): AsyncGenerator<StreamChunk> {
-  /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const id = CallId('discarded-call')
+  const id = ToolCallId('discarded-call')
   yield { type: 'block-start', index: 0, blockType: 'text' }
   yield { type: 'text-delta', index: 0, text: 'discarded partial output' }
   yield { type: 'block-end', index: 0, block: { type: 'text', text: 'discarded partial output' } }

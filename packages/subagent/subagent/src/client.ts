@@ -10,10 +10,10 @@
  */
 
 /**
- * Browser-safe subagent projection vocabulary.
+ * Browser-safe subagent projection and control vocabulary.
  *
  * @module @deepseek-ai/dsh-subagent/client
  */
 
-// 中文：浏览器安全（无 Node 依赖）的投影类型入口，仅转发类型，不引入任何运行时值。
+export type * from './control-types.ts'
 export type { SubagentIdentityProjection, SubagentTimingProjection } from './projection-types.ts'

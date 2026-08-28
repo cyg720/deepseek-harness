@@ -21,7 +21,17 @@
 // 英文模块注释的中文解释：本文件是 Host BFF 的入口与"远程贡献装配"的
 // Loader 壳：负责聚合导出与白名单的形状校验。
 
-import type { TypertForwardableEvent } from '@deepseek-ai/dsh-typert-protocol'
+import { homedir } from 'node:os'
+import type { Context } from '@deepseek-ai/cordis'
+import type {
+  TypertRemoteEventDispatch,
+  TypertRemoteEventInvocation,
+  TypertRemoteEventOutcome,
+  TypertRemoteEventSource,
+} from '@deepseek-ai/dsh-api-gateway'
+import { carrierKeyOf } from '@deepseek-ai/dsh-scope'
+import { isJsonValue } from '@deepseek-ai/dsh-session'
+import type { JsonValue } from '@deepseek-ai/dsh-session'
 import { API_REMOTE_FORWARDED_EVENTS } from './remote-events.ts'
 
 // The owner packages' client-safe `./types` exports carry the cordis `Events`
@@ -37,43 +47,143 @@ import type {} from '@deepseek-ai/dsh-credentials/types'
 import type {} from '@deepseek-ai/dsh-llm/types'
 import type {} from '@deepseek-ai/dsh-agent-presets/types'
 import type {} from '@deepseek-ai/dsh-settings/types'
+import type {} from '@deepseek-ai/dsh-user-approval'
+import type {} from '@deepseek-ai/dsh-user-questions'
+export type {} from '@deepseek-ai/dsh-api-session-controller/types'
 
-// 中文：聚合导出 agent-lookup.ts 的会话 / Agent 解析能力，供 Host 侧
-// 装配与 legacy API 使用。
-export {
-  ApiRemoteSessionNotFound,
-  ApiRemoteSubagentSessionOwnership,
-  apiRemoteSubagentOwnershipError,
-  createApiRemoteAgentResolver,
-  hasApiRemoteSubagentOwner,
-  inspectApiRemoteSession,
-} from './agent-lookup.ts'
-export type {
-  ApiRemoteAgentOptions,
-  ApiRemoteAgentResult,
-  ApiRemoteLookupError,
-} from './agent-lookup.ts'
-// 中文：转发白名单的值与类型投影的再导出，让消费方从本入口一并取到。
 export { API_REMOTE_FORWARDED_EVENTS } from './remote-events.ts'
 export type { ApiRemoteForwardedEvent } from './types.ts'
 
-// Shape gate over the allowlist, kept in the Host face because the Host's event
-// vocabulary is the authoritative one. It pins three things at compile time:
-// every entry NAMES a declared event (the predicate is keyed on `keyof
-// Events`), no entry BINDS a Scope (a scoped event's `ThisParameterType` is not
-// `unknown`, which is how "must not depend on AgentScope" is stated statically),
-// and every entry is ONE-WAY (a waterfall or bail shape returns something other
-// than void and is excluded). Widening the array to an event that fails any of
-// these fails here, not on the wire.
-// 中文：白名单的形状门检查，放在 Host 面是因为 Host 的事件词汇表才是权威。
-// 它在编译期钉住三件事：每个条目必须命名一个已声明事件（谓词以 keyof
-// Events 为键）；不能绑定 Scope（scoped 事件的 ThisParameterType 不是
-// unknown，这正是"不得依赖 AgentScope"的静态表述）；必须单向（waterfall
-// 或 bail 形状返回非 void 而被排除）。若把数组扩到违反任一约束的事件，
-// 会在编译期失败，而不是等它上线才暴露。
-API_REMOTE_FORWARDED_EVENTS satisfies readonly TypertForwardableEvent[]
+/** Required Host service: the Gateway owns the physical Remote stream mux. */
+export const inject = ['typertGateway']
 
-/** Host plugin body; the selected contributions mount only in Client environments. */
-// 中文：Host 插件体（空实现）：被选中的贡献集只会在 Client 环境中挂载，
-// Host 面无需安装任何远程方法。
-export function apply(): void {}
+/** Host plugin body registering this application's selected Cordis event source. */
+export function apply(ctx: Context): void {
+  ctx.effect(
+    () => ctx.typertGateway.registerRemoteEvents(remoteEventSource(ctx), { home: homedir() }),
+    'api-remotes: forwarded Cordis event source',
+  )
+}
+
+/** Create the sole queue and listener set consumed by the registered Gateway. */
+function remoteEventSource(ctx: Context): TypertRemoteEventSource {
+  return (signal) => {
+    const queue = new RemoteEventQueue()
+    const disposers = API_REMOTE_FORWARDED_EVENTS.map(({ event, mode }) => {
+      if (mode === 'emit') {
+        return ctx.on(event as never, ((...args: unknown[]) => {
+          queue.push({ event, args: assertJsonArgs(event, args) })
+        }) as never)
+      }
+      return ctx.on(event as never, (function (
+        this: unknown,
+        request: object,
+        next: () => unknown,
+      ) {
+        const subject = carrierKeyOf(this)
+        if (subject === undefined) return next()
+        const value = Reflect.get(subject, 'ctx') as unknown
+        if (typeof value !== 'object' || value === null) {
+          throw new TypeError(`forwarded scoped event ${JSON.stringify(event)} has no live Context`)
+        }
+        return forwardWaterfall(
+          queue,
+          event,
+          request,
+          { value: value as Context, subject },
+          next,
+        )
+      }) as never)
+    })
+    return queue.iterate(signal, () => {
+      for (const dispose of disposers) dispose()
+    })
+  }
+}
+
+/** One pull-driven queue bridging synchronous Cordis listeners to an AsyncIterable. */
+class RemoteEventQueue {
+  private readonly buffer: TypertRemoteEventDispatch[] = []
+  private waiter: (() => void) | undefined
+  private done = false
+
+  push(frame: TypertRemoteEventDispatch): boolean {
+    if (this.done) return false
+    this.buffer.push(frame)
+    this.waiter?.()
+    return true
+  }
+
+  private end(reason: unknown): void {
+    if (this.done) return
+    this.done = true
+    const buffered = this.buffer.splice(0)
+    for (const dispatch of buffered) {
+      if ('context' in dispatch) dispatch.reject(reason)
+    }
+    this.waiter?.()
+  }
+
+  async *iterate(signal: AbortSignal, cleanup: () => void): AsyncGenerator<TypertRemoteEventDispatch> {
+    const abort = (): void => { this.end(remoteEventSourceEndReason(signal)) }
+    signal.addEventListener('abort', abort, { once: true })
+    try {
+      while (true) {
+        if (this.done || signal.aborted) return
+        while (this.buffer.length > 0) yield this.buffer.shift() as TypertRemoteEventDispatch
+        await new Promise<void>((resolve) => { this.waiter = resolve })
+        this.waiter = undefined
+      }
+    } finally {
+      signal.removeEventListener('abort', abort)
+      this.end(remoteEventSourceEndReason(signal))
+      cleanup()
+    }
+  }
+}
+
+/**
+ * Normalize an event-source shutdown for pending Host waterfalls.
+ * @param signal - source lifetime whose reason wins after cancellation.
+ * @returns the cancellation reason or an unexpected-end failure.
+ */
+function remoteEventSourceEndReason(signal: AbortSignal): unknown {
+  if (signal.aborted) return signal.reason
+  return new Error('api-remotes: forwarded Remote event source ended')
+}
+
+/** Bridge one Cordis waterfall listener through the Gateway-owned pending event. */
+function forwardWaterfall(
+  queue: RemoteEventQueue,
+  event: string,
+  request: object,
+  context: TypertRemoteEventInvocation['context'],
+  next: () => unknown,
+): Promise<unknown> {
+  const settled = Promise.withResolvers<unknown>()
+  const dispatch: TypertRemoteEventInvocation = {
+    event,
+    request,
+    context,
+    resolve: (outcome: TypertRemoteEventOutcome) => {
+      if (outcome.kind === 'result') {
+        settled.resolve(outcome.value)
+        return
+      }
+      void Promise.resolve().then(next).then(settled.resolve, settled.reject)
+    },
+    reject: settled.reject,
+  }
+  if (!queue.push(dispatch)) void Promise.resolve().then(next).then(settled.resolve, settled.reject)
+  return settled.promise
+}
+
+/** Reject an allowlisted event whose runtime arguments are not lossless JSON data. */
+function assertJsonArgs(event: string, args: readonly unknown[]): JsonValue[] {
+  for (const [index, arg] of args.entries()) {
+    if (!isJsonValue(arg)) {
+      throw new Error(`forwarded host event "${event}" argument ${String(index)} is not lossless JSON data`)
+    }
+  }
+  return args as JsonValue[]
+}

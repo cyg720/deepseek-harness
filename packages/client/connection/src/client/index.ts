@@ -1,7 +1,6 @@
 /**
  * Browser wire client. The plugin selects fixture or HTTP transport, provides
- * the shared API client, and lets the runtime object layer start the stream
- * controller with its sinks.
+ * the shared API client, and lets API Gateway own the connection loop.
  */
 /*
  * 文件职责：选择fixture、页面HTTP/WebSocket或宿主注入传输，并向浏览器Cordis树提供统一connection服务。
@@ -12,52 +11,61 @@
  * 新手阅读建议：先看ClientTransportHooks与ConnectionHandle，再读apply中的传输选择，最后跟踪start如何包装回调。
  */
 import type { Context } from '@deepseek-ai/cordis'
-import type { HostDescription, IApiClient } from './api.ts'
-import { ConnectionController, type ConnectionConfig, type ConnectionSinks, type ConnectionState } from './connection.ts'
-import { FixtureApiClient } from './fixture.ts'
-import { WebApiClient } from './web-api-client.ts'
-import { createWebConnectionRpc, type RpcFetch } from './rpc.ts'
+import {
+  ConnectionController,
+  type ConnectionConfig,
+  type ConnectionGeneration,
+  type ConnectionGenerationSource,
+  type ConnectionSinks,
+} from './connection.ts'
+import { createFixtureConnectionRpc } from './fixture.ts'
+import { createWebConnectionRpc, type RpcFetch, type RpcStreamOpen } from './rpc.ts'
 import { isLoopbackHostname } from '../loopback-hostname.ts'
 import type { ClientConnectionRpc } from '../rpc.ts'
 
-// ---- Contract re-exports (browser-safe apiproxy channels + core types) ----
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * A connection generation was established. Wire-derived caches must
+     * repull; long-lived streams own their own resume and baseline lifecycle.
+     * @mode emit
+     */
+    'connection/reset'(): void
+  }
+}
+
+// ---- Browser-safe protocol and shared value re-exports ----
 export type {
-  ApiProxy, SessionsApi, SessionSearchItem, SessionSummary, PromptContentPart, HostApi, EventsApi, MuxFrame, HostFrame,
-  ApprovalResponsePayload, QuestionResponsePayload, HistoryEntry, ToolEventView,
-  DirectoryEntry, DirectoryListing,
-  ToolCallView, ToolResultView, WorkspaceApi, WorkspaceId, WorkspaceView,
-  SkillsApi, SkillEntry,
-  ModelCatalogFailure, ModelCatalogModel, ModelProviderGroup, ModelReasoning,
-  MessageId, ModelReasoningEffort, ModelSelection, QueueAction, QueuedInboxItem, SessionModels,
-  SubagentsApi, SubagentAddress, SubagentCatalog, SubagentListEntry, SubagentPromptReceipt,
-  JobView,
+  MessageId,
   RpcRequest, RpcResponse, RpcResult, RpcError, RpcErrorCode,
-  ClientRequest, ServerResponse, ServerRequest, ClientResponse, RpcMessage, RpcReceipt,
-  HostDescription, IApiClient, SessionId, SessionEvent, ContentBlock, StreamChunk,
-  GoalsApi, GoalRef,
-  SettingsApi, SettingsNamespaceView, SettingsPathOpView, SettingsSecretView,
-  CredentialsApi, CredentialView, ConfigurableProviderView, DiscoveredModelView, LlmApi,
+  ClientRequest, ServerResponse, RpcMessage,
+  SessionId, SessionEvent, ContentBlock, StreamChunk,
 } from './api.ts'
 export {
   RpcId,
-  AbstractApiClient,
   transportError,
 } from './api.ts'
 
 // Connection loop types are public through ConnectionHandle.start; the
 // controller remains package-internal.
-export type { ConnectionConfig, ConnectionSinks, ConnectionState }
-export type { ClientConnectionRpc } from '../rpc.ts'
+export type {
+  ConnectionConfig,
+  ConnectionGeneration,
+  ConnectionGenerationSource,
+  ConnectionHostInfo,
+  ConnectionSinks,
+  ConnectionState,
+} from './connection.ts'
+export type {
+  ClientConnectionRpc, ConnectionRpcFailure, ConnectionRpcResult,
+} from '../rpc.ts'
 export type { RpcFetch } from './rpc.ts'
 
-/** Observable Host description published by each completed connection handshake. */
-/* 每次完整连接握手发布的可订阅Host描述源。 */
-export interface HostDescriptionSource {
-  /** Latest connected-generation description; absent before connect and while reconnecting. */
-  /* 读取最近已连接代际描述；初次连接前和重连中为空。 */
-  getSnapshot(): HostDescription | undefined
-  /** Subscribe to description replacement and connection loss. */
-  /* 订阅描述替换和连接丢失，并返回注销器。 */
+/** Observable identity and Host facts for the active connection generation. */
+export interface ConnectionGenerationState {
+  /** Active generation, or undefined before readiness and while reconnecting. */
+  getSnapshot(): ConnectionGeneration | undefined
+  /** Subscribe to generation establishment, replacement, and loss. */
   subscribe(listener: () => void): () => void
 }
 
@@ -72,12 +80,11 @@ export const inject: string[] = []
  * provides both halves here instead of forking this plugin.
  */
 export interface ClientTransportHooks {
-  /** Build the API carrier: unary calls plus the two downstream event streams. */
-  /* 创建同时承载一元调用和两条下行事件流的API客户端。 */
-  createApiClient(): IApiClient
   /** Transport for generic unary RPC channels (the Typert gateway). */
   /* Typert网关等通用一元RPC频道使用的fetch式传输。 */
   fetch: RpcFetch
+  /** Worker-local Gateway stream carrier; absent when the page uses the Gateway WebSocket. */
+  openStream?: RpcStreamOpen
   /**
    * Bundle transport for the module system, present when the carrier also owns
    * bundle bytes (the worker tunnel). Absent in the served web app, whose
@@ -85,6 +92,15 @@ export interface ClientTransportHooks {
    */
   /* 可选Bundle字节加载器；Worker隧道提供，普通页面通过HTTP加载时省略。 */
   loadBundle?(url: string): Promise<void>
+  /**
+   * The transport owner declares the page owns the Host outright: the Host
+   * runs inside a worker this page spawned, so no other party can reach it and
+   * the loopback stand-in for "the operator's own machine" is vacuous.
+   * `ctx.connection.isLoopback` then reports the privileged surface reachable
+   * regardless of the page authority. Only a shell that assembles its own
+   * transport can set this; served pages never carry the global at all.
+   */
+  ownsHost?: boolean
 }
 
 /** Page global carrying {@link ClientTransportHooks}; absent in the served web app. */
@@ -95,32 +111,43 @@ interface ClientTransportGlobal {
 }
 
 /**
- * The ctx.connection service API: the API client plus a one-shot
- * controller starter (the runtime plugin supplies sinks when its object layer
- * is ready — connection stays consumer-agnostic).
+ * The ctx.connection service API: the API client plus a one-shot controller
+ * starter. API Gateway supplies generation readiness and reset callbacks;
+ * Connection stays independent of downstream domain state.
  */
 export interface ConnectionHandle {
-  /** Shared api client (fixture or real, decided at boot from the page URL). */
-  /* 启动时由页面模式选定并共享的API客户端。 */
-  readonly api: IApiClient
-  /** Whether the current page authority is loopback; non-browser contexts default to true. */
-  /* 当前页面authority是否为回环；无浏览器location时默认为true。 */
+  /**
+   * Whether the privileged surface is reachable: the page authority is
+   * loopback, the transport declares the page owns the Host
+   * ({@link ClientTransportHooks.ownsHost}), or the context is not a browser.
+   */
   readonly isLoopback: boolean
-  /** Generation-scoped Host facts, including the account home and native path-open capability. */
-  /* 代际范围内的Host事实订阅源，包括账户主目录和本地打开能力。 */
-  readonly hostDescription: HostDescriptionSource
+  /** Current Remote event generation and the Host facts carried by its opening frame. */
+  readonly generation: ConnectionGenerationState
   /** Generic logical RPC channels over the same Connection transport. */
   /* 复用同一Connection载体的通用逻辑RPC频道。 */
   readonly rpc: ClientConnectionRpc
   /**
-   * Start the connect/pump/reconnect loop with the consumer's frame sinks.
-   * One consumer owns the streams (the runtime object layer); a second call
-   * throws.
-   * @param sinks - frame/state callbacks.
+   * Register the sole source defining Host generations. The source reports
+   * ready only after its incremental listeners are attached.
+   * @param source - long-lived generation source owned by the push carrier.
+   * @returns disposer withdrawing the source and stopping an active loop.
+   */
+  registerGenerationSource(source: ConnectionGenerationSource): () => void
+  /**
+   * Start the connect/reconnect loop with the consumer's state callbacks.
+   * API Gateway owns the loop; a second call throws.
+   * @param sinks - connection-state callbacks.
    * @param config - reconnect/backoff tunables.
    * @returns stop handle for the loop.
    */
   start(sinks: ConnectionSinks, config?: ConnectionConfig): { stop(): void }
+}
+
+interface ConnectionOwner {
+  readonly token: object
+  readonly source: ConnectionGenerationSource
+  readonly controller: ConnectionController
 }
 
 /**
@@ -132,70 +159,80 @@ export function apply(ctx: Context): void {
   const pageLocation = typeof location === 'undefined' ? undefined : location
   // URL查询参数是否要求使用确定性fixture客户端。
   const fixture = pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
-  // fixture模式下创建的内存API客户端。
-  const fixtureClient = fixture ? new FixtureApiClient() : undefined
-  // Worker预览等宿主在全局注入的可选物理传输钩子。
+  const fixtureRpc = fixture ? createFixtureConnectionRpc() : undefined
   const transport = (globalThis as ClientTransportGlobal).__DSH_TRANSPORT__
-  // 按fixture、宿主传输、普通Web顺序选择的一元与流API客户端。
-  const api: IApiClient = fixtureClient ?? transport?.createApiClient() ?? new WebApiClient()
-  // 与所选载体一致的通用RPC调用器。
-  const rpc = fixtureClient?.rpc ?? createWebConnectionRpc(transport?.fetch)
-  // 是否已经把唯一事件流所有权交给消费者。
-  let started = false
-  // 当前已连接代际公布的Host描述。
-  let description: HostDescription | undefined
-  // Host描述变化的订阅监听器集合。
-  const descriptionListeners = new Set<() => void>()
-  /** 发布或撤回Host描述，并隔离每个监听器异常。 */
-  const publishDescription = (next: HostDescription | undefined): void => {
-    if (Object.is(description, next)) return
-    description = next
-    for (const listener of [...descriptionListeners]) {
+  const rpc = fixtureRpc ?? createWebConnectionRpc(transport?.fetch, transport?.openStream)
+  let generationSource: ConnectionGenerationSource | undefined
+  let owner: ConnectionOwner | undefined
+  let generationId = 0
+  let generation: ConnectionGeneration | undefined
+  const generationListeners = new Set<() => void>()
+  const publishGeneration = (next: ConnectionGeneration | undefined): void => {
+    if (Object.is(generation, next)) return
+    generation = next
+    for (const listener of [...generationListeners]) {
       try {
         listener()
       } catch (error) {
-        console.error('[web-runtime] host-description listener threw:', error)
+        console.error('[connection] generation listener threw:', error)
       }
     }
   }
-  // 最终提供给浏览器Cordis树的connection服务对象。
+  const releaseOwner = (current: ConnectionOwner): void => {
+    if (owner !== current) return
+    owner = undefined
+    current.controller.stop()
+    publishGeneration(undefined)
+  }
   const handle: ConnectionHandle = {
-    api,
-    isLoopback: pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
-    hostDescription: {
-      getSnapshot: () => description,
+    isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
+    generation: {
+      getSnapshot: () => generation,
       subscribe: (listener) => {
-        descriptionListeners.add(listener)
-        return () => { descriptionListeners.delete(listener) }
+        generationListeners.add(listener)
+        return () => { generationListeners.delete(listener) }
       },
     },
     rpc,
+    registerGenerationSource(source) {
+      if (generationSource !== undefined) {
+        throw new Error('connection: a generation source is already registered')
+      }
+      generationSource = source
+      return () => {
+        if (generationSource !== source) return
+        generationSource = undefined
+        const current = owner
+        if (current?.source === source) releaseOwner(current)
+      }
+    },
     start(sinks, config) {
-      if (started) throw new Error('connection: the stream loop is already owned by another consumer')
-      started = true
-      // 当前唯一消费者拥有的物理流控制器。
-      const controller = new ConnectionController(api, {
+      if (owner !== undefined) throw new Error('connection: the stream loop is already owned by another consumer')
+      const source = generationSource
+      if (source === undefined) throw new Error('connection: no generation source is registered')
+      const token = {}
+      const ownsGeneration = (): boolean => owner?.token === token
+      const controller = new ConnectionController(source, {
         ...sinks,
-        onConnected: (next) => {
-          publishDescription(next)
-          // A description subscriber may synchronously stop the loop. In that
-          // case publishDescription(undefined) has already retracted this
-          // generation, so do not leak its stale connected notification to
-          // the consumer sink afterward.
-          if (!Object.is(description, next)) return
-          sinks.onConnected?.(next)
+        onConnected: (host) => {
+          const nextGeneration = { id: ++generationId, host }
+          publishGeneration(nextGeneration)
+          if (!ownsGeneration() || !Object.is(generation, nextGeneration)) return
+          sinks.onConnected?.(host)
         },
         onStateChange: (state) => {
-          if (state === 'reconnecting') publishDescription(undefined)
+          if (state === 'reconnecting') {
+            publishGeneration(undefined)
+          }
+          if (!ownsGeneration()) return
           sinks.onStateChange?.(state)
         },
       }, config ?? {})
+      const current = { token, source, controller }
+      owner = current
       controller.start()
       return {
-        stop: () => {
-          controller.stop()
-          publishDescription(undefined)
-        },
+        stop: () => { releaseOwner(current) },
       }
     },
   }

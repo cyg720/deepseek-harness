@@ -9,7 +9,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef, ImageMediaType, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
-import { createUserMessage, CallId, ReasoningEffortId, createMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId, ReasoningEffortId, createMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, Message } from '@deepseek-ai/dsh-llm'
 import {
   serializeMessages,
@@ -73,7 +73,7 @@ function imageOptions(
   refs: readonly ImageAttachmentRef[],
   resolveFileId: FileResolver = fileResolver(),
   maxRequestImageBytes = 20 * 1024 * 1024,
-) {
+): ImageSerializationOptions {
   return {
     representation: { kind: 'file' as const, resolveFileId },
     requestImages: new Map(refs.map(ref => [ref.attachmentId, requestVersion(ref)])),
@@ -143,7 +143,7 @@ describe('serializeMessages', () => {
         role: 'assistant',
         content: [
           { type: 'reasoning', text: 'I should check the weather.' },
-          { type: 'tool-call', id: CallId('call-1'), name: 'get_weather', arguments: '{"city":"Paris"}' },
+          { type: 'tool-call', id: ToolCallId('call-1'), name: 'get_weather', arguments: '{"city":"Paris"}' },
         ],
         source: { kind: 'plugin', plugin: 'test' },
       }),
@@ -164,8 +164,8 @@ describe('serializeMessages', () => {
       createMessage({
         role: 'assistant',
         content: [
-          { type: 'tool-call', id: CallId('a'), name: 'one', arguments: '{}' },
-          { type: 'tool-call', id: CallId('b'), name: 'two', arguments: '{}' },
+          { type: 'tool-call', id: ToolCallId('a'), name: 'one', arguments: '{}' },
+          { type: 'tool-call', id: ToolCallId('b'), name: 'two', arguments: '{}' },
         ],
         source: { kind: 'plugin', plugin: 'test' },
       }),
@@ -181,7 +181,7 @@ describe('serializeMessages', () => {
       createUserMessage({
         content: [{
           type: 'tool-result',
-          toolCallId: CallId('call-1'),
+          toolCallId: ToolCallId('call-1'),
           content: [{ type: 'text', text: 'Sunny 22C' }],
         }],
         source: { kind: 'plugin', plugin: 'test' },
@@ -194,7 +194,7 @@ describe('serializeMessages', () => {
     /** 中文说明：测试局部值 wire，由紧邻初始化决定。 */
     const wire = serializeMessages([
       createUserMessage({
-        content: [{ type: 'tool-result', toolCallId: CallId('call-1'), content: [] }],
+        content: [{ type: 'tool-result', toolCallId: ToolCallId('call-1'), content: [] }],
         source: { kind: 'plugin', plugin: 'test' },
       }),
     ])
@@ -207,7 +207,7 @@ describe('serializeMessages', () => {
       createUserMessage({
         content: [
           { type: 'text', text: 'context note' },
-          { type: 'tool-result', toolCallId: CallId('call-1'), content: [{ type: 'text', text: 'ok' }] },
+          { type: 'tool-result', toolCallId: ToolCallId('call-1'), content: [{ type: 'text', text: 'ok' }] },
         ],
         source: { kind: 'plugin', plugin: 'test' },
       }),
@@ -410,7 +410,7 @@ describe('image serialization', () => {
       role: 'user',
       content: [
         { type: 'text', text: 'before' },
-        { type: 'text', text: expect.stringContaining(`Image ${ref.attachmentId}; request image 1x1px`) as string },
+        { type: 'text', text: expect.stringContaining(`Image ${ref.attachmentId}; request preview 1x1px`) as string },
         { type: 'file', file_id: 'file-api-image' },
         { type: 'text', text: 'after' },
       ],
@@ -437,7 +437,7 @@ describe('image serialization', () => {
     expect(wire.messages).toEqual([{
       role: 'user',
       content: [
-        { type: 'text', text: `Image ${ref.attachmentId}; request image 1x1px.` },
+        { type: 'text', text: expect.stringContaining(`Image ${ref.attachmentId}; request preview 1x1px`) as string },
         { type: 'image_url', image_url: { url } },
       ],
     }])
@@ -458,10 +458,39 @@ describe('image serialization', () => {
     expect(wire.messages).toEqual([{
       role: 'user',
       content: [
-        { type: 'text', text: `Image ${ref.attachmentId}; request image 1x1px.` },
+        {
+          type: 'text',
+          text: `Image ${ref.attachmentId}; request preview 1x1px. It may be resized or re-encoded; source dimensions, format, and byte size may differ.`,
+        },
         { type: 'file', file_id: 'file-api-image' },
       ],
     }])
+  })
+
+  it('includes provider-resolved normalized access in a retained image handle', async () => {
+    const ref = { ...imageRef(), name: 'diagram.png', width: 2048, height: 1024 }
+    const images = imageOptions([ref])
+    const version = images.requestImages.get(ref.attachmentId) as RequestImageAttachment
+    version.width = 1130
+    version.height = 565
+    images.resolveImageAccess = () => ({ readonlyPath: '/tmp/dsh/objects/aa/object' })
+    const wire = await serializeRequestWithImages(request({
+      model: 'deepseek-v4-flash-vision-exp',
+      messages: [createUserMessage({
+        content: [{ type: 'image', attachment: ref }],
+        source: { kind: 'plugin', plugin: 'test' },
+      })],
+    }), images)
+
+    expect(wire.messages[0]).toMatchObject({
+      role: 'user',
+      content: [{
+        type: 'text',
+        text: expect.stringContaining('Image "diagram.png"') as string,
+      }, { type: 'file' }],
+    })
+    expect(JSON.stringify(wire.messages[0])).toContain('/tmp/dsh/objects/aa/object')
+    expect(JSON.stringify(wire.messages[0])).toContain('request preview 1130x565px')
   })
 
   it('rejects an image whose prepared request version is absent', async () => {
@@ -479,7 +508,7 @@ describe('image serialization', () => {
       createUserMessage({
         content: [{
           type: 'tool-result',
-          toolCallId: CallId('first'),
+          toolCallId: ToolCallId('first'),
           content: [{ type: 'image', attachment: imageRef() }],
         }],
         source: { kind: 'plugin', plugin: 'test' },
@@ -487,7 +516,7 @@ describe('image serialization', () => {
       createUserMessage({
         content: [{
           type: 'tool-result',
-          toolCallId: CallId('second'),
+          toolCallId: ToolCallId('second'),
           content: [
             { type: 'text', text: 'caption' },
             { type: 'image', attachment: imageRef('image/jpeg') },
@@ -534,7 +563,7 @@ describe('image serialization', () => {
         { type: 'chart', data: 'ignored' } as unknown as ContentBlock,
         {
           type: 'tool-result',
-          toolCallId: CallId('result'),
+          toolCallId: ToolCallId('result'),
           content: [{ type: 'text', text: 'ok' }],
         },
       ],
@@ -552,14 +581,14 @@ describe('image serialization', () => {
       content: [
         {
           type: 'tool-result',
-          toolCallId: CallId('nested'),
+          toolCallId: ToolCallId('nested'),
           content: [{
             type: 'tool-result',
-            toolCallId: CallId('inner'),
+            toolCallId: ToolCallId('inner'),
             content: [{ type: 'text', text: 'inside' }],
           }],
         },
-        { type: 'tool-result', toolCallId: CallId('empty'), content: [] },
+        { type: 'tool-result', toolCallId: ToolCallId('empty'), content: [] },
       ],
       source: { kind: 'plugin', plugin: 'test' },
     })]
@@ -575,7 +604,7 @@ describe('image serialization', () => {
     const imageResult = (id: string) => createUserMessage({
       content: [{
         type: 'tool-result',
-        toolCallId: CallId(id),
+        toolCallId: ToolCallId(id),
         content: [{ type: 'image', attachment: imageRef() }],
       }],
       source: { kind: 'plugin' as const, plugin: 'test' },
@@ -602,14 +631,14 @@ describe('image serialization', () => {
       {
         role: 'tool',
         tool_call_id: 'before-system',
-        content: expect.stringContaining('request image 1x1px') as string,
+        content: expect.stringContaining('request preview 1x1px') as string,
       },
       expect.objectContaining({ role: 'user' }),
       { role: 'system', content: 'system history' },
       {
         role: 'tool',
         tool_call_id: 'before-assistant',
-        content: expect.stringContaining('request image 1x1px') as string,
+        content: expect.stringContaining('request preview 1x1px') as string,
       },
       expect.objectContaining({ role: 'user' }),
       { role: 'assistant', content: 'assistant history' },
@@ -623,7 +652,10 @@ describe('image serialization', () => {
     const png = imageRef('image/png', 3)
     /** 中文说明：测试局部值 jpeg，由紧邻初始化决定。 */
     const jpeg = imageRef('image/jpeg', 3)
-    /** 中文说明：测试局部值 wire，由紧邻初始化决定。 */
+    const images = imageOptions([png, jpeg], resolveFileId, 4)
+    images.resolveImageAccess = ref => ref.mediaType === 'image/png'
+      ? { readonlyPath: '/tmp/dsh/objects/png' }
+      : undefined
     const wire = await serializeRequestWithImages(request({
       model: 'deepseek-v4-flash-vision-exp',
       messages: [createUserMessage({
@@ -633,12 +665,15 @@ describe('image serialization', () => {
         ],
         source: { kind: 'plugin', plugin: 'test' },
       })],
-    }), imageOptions([png, jpeg], resolveFileId, 4))
+    }), images)
 
     expect(wire.messages[0]).toMatchObject({
       role: 'user',
       content: [
-        { type: 'text', text: expect.stringContaining('older images are omitted first') as string },
+        {
+          type: 'text',
+          text: expect.stringContaining(`image omitted to fit request image limits; ${png.attachmentId}. Normalized copy (read-only; may be resized or re-encoded): "/tmp/dsh/objects/png"`) as string,
+        },
         { type: 'text', text: expect.stringContaining(`Image ${jpeg.attachmentId}`) as string },
         { type: 'file', file_id: 'file-api-image' },
       ],
@@ -661,7 +696,7 @@ describe('image serialization', () => {
 
     /** 中文说明：测试局部值 content，由紧邻初始化决定。 */
     const content = wire.messages[0]?.content
-    expect(JSON.stringify(content).match(/older images are omitted first/g)).toHaveLength(11)
+    expect(JSON.stringify(content).match(/image omitted to fit request image limits/g)).toHaveLength(11)
     expect(JSON.stringify(content).match(/"type":"image_url"/g)).toHaveLength(10)
   })
 
@@ -773,7 +808,7 @@ describe('review fixes: assistant content shapes', () => {
     /** 中文说明：测试局部值 wire，由紧邻初始化决定。 */
     const wire = serializeMessages([createMessage({
       role: 'assistant',
-      content: [{ type: 'tool-call', id: CallId('c'), name: 'f', arguments: '{}' }],
+      content: [{ type: 'tool-call', id: ToolCallId('c'), name: 'f', arguments: '{}' }],
       source: { kind: 'plugin', plugin: 'test' },
     })])
     expect(wire[0]).toMatchObject({ content: '' })

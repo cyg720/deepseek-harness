@@ -11,6 +11,13 @@
  * path refuses the name while no surface shows anything to delete — and a
  * malformed composition would otherwise read as an ordinary preset until the
  * first session fails to mount it.
+ *
+ * Health is what every consumer reads before offering a preset — the pickers
+ * drop a broken row rather than defer the discovery to a failed session
+ * start — so it covers the way an authored preset actually rots: a row naming
+ * a package that was renamed or uninstalled. Resolving those names is a
+ * separate pass from the shape check and stops short of importing anything,
+ * so a composition is judged without running a line of plugin code.
  * @module @deepseek-ai/dsh-agent-presets/discovery
  */
 /*
@@ -22,13 +29,17 @@
  * 新手阅读建议：先看导出类型和配置，再读插件入口与事件处理，最后关注校验和清理。
  */
 
+import { existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { isBuiltin } from 'node:module'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { load } from 'js-yaml'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { expandHomePath } from '@deepseek-ai/dsh-home-paths'
 import { readPresetMetadata } from './metadata.ts'
 import { PRESET_ID, type AgentPreset, type PresetRoot } from './preset.ts'
+import { classifyRowSpecifier, type RowSpecifier } from './specifier.ts'
 
 /** The composition file that makes a directory a preset. */
 /* 中文说明：常量 COMPOSITION_FILE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
@@ -38,10 +49,9 @@ export const COMPOSITION_FILE = 'agent.cordis.yml'
  * Harness-home directory holding locally authored presets.
  *
  * This package owns the writable root the way `dsh-skill-filesystem` owns
- * `<dshHome>/skills`. An app must assemble the SHIPPED root, whose path only
- * the installed app can resolve; where a person's own presets go is the same
- * place in every deployment that does not say otherwise, so a launcher that
- * forgets to configure one still finds them.
+ * `<dshHome>/skills`: where a person's own presets go is the same place in
+ * every deployment that does not say otherwise, so a launcher that forgets to
+ * configure one still finds them.
  *
  * Package-internal on purpose: no consumer outside this package addresses the
  * directory by name, and a test that imported it could not catch this value
@@ -49,6 +59,15 @@ export const COMPOSITION_FILE = 'agent.cordis.yml'
  */
 /* 中文说明：常量 USER_PRESET_DIR 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const USER_PRESET_DIR = '.agent-presets'
+
+/**
+ * The shipped presets, bundled inside this package: the roster's built-in
+ * compositions travel with the machinery that mounts them, the way each
+ * preset's own skills travel inside its directory. Resolved relative to this
+ * module so both launch layouts work — `src/` under tsx and the bundled
+ * `lib/` sit one level below the package root.
+ */
+export const SHIPPED_PRESET_ROOT = fileURLToPath(new URL('../presets/', import.meta.url))
 
 /**
  * Why `rows` cannot be an entry list, or undefined when it can.
@@ -90,16 +109,131 @@ function entryListProblem(rows: unknown, at = ''): string | undefined {
 }
 
 /**
+ * Whether a package name is installed anywhere above `base`.
+ *
+ * Node's own upward `node_modules` walk, stopping at the package directory:
+ * the question is whether the package is there at all, which is what a row
+ * naming a package a rename or an uninstall took away gets wrong. A pnpm
+ * store link answers through the symlink, and a link left dangling by a
+ * deleted checkout answers false — the shape a stale profile install leaves.
+ *
+ * `existsSync` rather than the async `stat`: the walk is a handful of lookups
+ * per package and runs on every roster read, where 150 promise round-trips
+ * cost more than the lookups they wrap.
+ * @param name - the package specifier, possibly carrying a subpath.
+ * @param base - the URL to walk up from.
+ * @returns true when the package directory is installed above `base`.
+ */
+function packageInstalled(name: string, base: string): boolean {
+  // A scoped name spends two segments on the package; anything after either
+  // form is a subpath export, which lives inside the package directory.
+  const pkg = name.split('/').slice(0, name.startsWith('@') ? 2 : 1).join('/')
+  let dir = fileURLToPath(base)
+  for (;;) {
+    if (existsSync(join(dir, 'node_modules', pkg, 'package.json'))) return true
+    const parent = dirname(dir)
+    if (parent === dir) return false
+    dir = parent
+  }
+}
+
+/**
+ * Whether one classified row names a module that exists, importing nothing.
+ *
+ * Each kind is checked by what actually answers it. A package name is looked
+ * up on disk — the same upward walk Node's own resolver starts with — and a
+ * relative or `file:` specifier is statted, because both name one file.
+ * Nothing is evaluated either way, so a row is judged without its plugin
+ * observing that discovery looked.
+ *
+ * `import.meta.resolve` is deliberately not the fallback for a name the disk
+ * lookup misses. Its `parentURL` argument only takes effect under
+ * `--experimental-import-meta-resolve`, which no launch passes, so it would
+ * resolve from THIS module rather than from the harness — reporting a
+ * dependency visible only to this package as healthy, and a plugin the mount
+ * can import as broken. The resolver that does honour an explicit parent is
+ * the Loader's internal one, whose `resolveSync` signature differs between
+ * Node 22 and 24 (`ModuleLoader.fromInternal` tags the raw object rather than
+ * normalising it); reaching into that for a case the walk already covers buys
+ * nothing a supported deployment needs, because every plugin a preset names
+ * is installed beside the roster.
+ *
+ * What that gives up: a package resolvable ONLY through a loader hook — an
+ * import map, or a tree with no `node_modules` at all — is reported broken.
+ * No supported install produces one.
+ * @param row - the classified specifier, from {@link classifyRowSpecifier}.
+ * @param presetBase - directory URL a preset-relative specifier resolves against.
+ * @param harnessBase - base URL a package name resolves against.
+ * @returns true when the row names something that can be imported.
+ */
+async function rowResolves(row: RowSpecifier, presetBase: string, harnessBase: string): Promise<boolean> {
+  if (row.kind === 'builtin') return true
+  if (row.kind === 'package') return isBuiltin(row.specifier) || packageInstalled(row.specifier, harnessBase)
+  const url = row.kind === 'file' ? new URL(row.specifier) : new URL(row.specifier, presetBase)
+  return await isFile(fileURLToPath(url))
+}
+
+/** One row that names a module no resolver can find. */
+interface UnresolvableRow {
+  /** `row "id"`, or the row's position when it declares none. */
+  readonly label: string
+  /** The specifier exactly as the row wrote it. */
+  readonly name: string
+}
+
+/**
+ * Rows whose module cannot be resolved.
+ *
+ * Only rows that will certainly be started are checked, and the test is the
+ * Loader's own: it starts a row when `Boolean(options.disabled)` is false, so
+ * `disabled: 0` names a row that DOES start and must be checked. A `!!js`
+ * expression is an object and therefore truthy, which skips exactly the rows
+ * whose value only the loader context can decide. Skipping those trades a
+ * missed name for the failure that matters more: calling a usable preset
+ * broken makes it unselectable and uncopyable, which is worse than reporting
+ * the same stale row at mount time as before.
+ *
+ * Shape is the caller's precondition: {@link entryListProblem} has already
+ * proven every row is a map carrying a `name` string, and groups recurse the
+ * same way it does.
+ * @param rows - the parsed composition rows.
+ * @param presetBase - directory URL a preset-relative specifier resolves against.
+ * @param harnessBase - base URL a package name resolves against.
+ * @param at - row-path prefix for nested diagnostics, empty at the top level.
+ * @returns one entry per unresolvable row, in composition order.
+ */
+async function unresolvableRows(
+  rows: readonly unknown[],
+  presetBase: string,
+  harnessBase: string,
+  at = '',
+): Promise<UnresolvableRow[]> {
+  const found: UnresolvableRow[] = []
+  for (const [index, entry] of rows.entries()) {
+    const row = entry as { id?: unknown; name: string; group?: unknown; config?: unknown; disabled?: unknown }
+    if (Boolean(row.disabled)) continue
+    const positional = at === '' ? `row ${String(index + 1)}` : `${at} row ${String(index + 1)}`
+    if (row.group === true) {
+      found.push(...await unresolvableRows(row.config as readonly unknown[], presetBase, harnessBase, positional))
+      continue
+    }
+    if (await rowResolves(classifyRowSpecifier(row.name), presetBase, harnessBase)) continue
+    const label = typeof row.id === 'string' && row.id !== '' ? `row "${row.id}"` : positional
+    found.push({ label, name: row.name })
+  }
+  return found
+}
+
+/**
  * Why the composition at `path` cannot mount, or undefined when it looks
  * loadable. Parsed with the loader's own YAML dialect ({@link entryListSchema},
  * the one carrying `!!js`), so health can never call a composition broken
  * that the loader would accept.
  * @param path - absolute path of the composition file.
+ * @param harnessBase - base URL a row's package name resolves against.
  * @returns one human-readable reason, or undefined when the file is loadable.
  */
-/* 中文说明：函数 compositionProblem 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-async function compositionProblem(path: string): Promise<string | undefined> {
-  /** 中文说明：变量 content 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+async function compositionProblem(path: string, harnessBase: string): Promise<string | undefined> {
   let content: string
   try {
     content = await readFile(path, 'utf8')
@@ -120,7 +254,19 @@ async function compositionProblem(path: string): Promise<string | undefined> {
     // the reason is displayed on a roster card, not in a terminal.
     return `the composition is not valid YAML: ${full.replace(/\n[\s\S]*$/, '')}`
   }
-  return entryListProblem(rows)
+  const shape = entryListProblem(rows)
+  if (shape !== undefined) return shape
+  // The composition's own directory, exactly as `Include` derives it, so a
+  // row naming a file the preset ships resolves the way the mount will.
+  const presetBase = new URL('.', pathToFileURL(path)).href
+  const unresolvable = await unresolvableRows(rows as readonly unknown[], presetBase, harnessBase)
+  const [first] = unresolvable
+  if (first === undefined) return undefined
+  if (unresolvable.length === 1) {
+    return `${first.label} names a plugin that cannot be resolved: ${first.name}`
+  }
+  return `${String(unresolvable.length)} rows name plugins that cannot be resolved:\n`
+    + unresolvable.map(row => `- ${row.label}: ${row.name}`).join('\n')
 }
 
 /**
@@ -153,15 +299,11 @@ async function isFile(path: string): Promise<boolean> {
  * so it blocks nothing, and reporting `.DS_Store`-grade residue as broken
  * presets would teach users to ignore the marker.
  * @param root - the directory and the trust its presets inherit.
+ * @param harnessBase - base URL a row's package name resolves against; the
+ * caller's own `ctx.baseUrl`, which is where the installed harness lives.
  * @returns the root's presets ordered by id.
  */
-/*
- * 中文说明：函数 scanRoot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param root 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
-export async function scanRoot(root: PresetRoot): Promise<AgentPreset[]> {
-  /** 中文说明：变量 dir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+export async function scanRoot(root: PresetRoot, harnessBase: string): Promise<AgentPreset[]> {
   const dir = resolve(expandHomePath(root.path))
   /** 中文说明：变量 children 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let children
@@ -182,7 +324,7 @@ export async function scanRoot(root: PresetRoot): Promise<AgentPreset[]> {
     const path = join(directory, COMPOSITION_FILE)
     /** 中文说明：变量 broken 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const broken = await isFile(path)
-      ? await compositionProblem(path)
+      ? await compositionProblem(path, harnessBase)
       : `the composition file ${COMPOSITION_FILE} is missing — the directory still occupies the id; delete it or restore the file`
     // Display text only, and never fatal: a preset with unreadable metadata
     // still mounts, it just shows its id.
@@ -205,20 +347,17 @@ export async function scanRoot(root: PresetRoot): Promise<AgentPreset[]> {
 /**
  * Scan every root in precedence order.
  * @param roots - roots in precedence order; an earlier root wins a duplicate id.
+ * @param harnessBase - base URL a row's package name resolves against.
  * @returns every discovered preset, first-root-wins per id.
  */
-/*
- * 中文说明：函数 discoverPresets 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param roots 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
-export async function discoverPresets(roots: readonly PresetRoot[]): Promise<AgentPreset[]> {
-  /** 中文说明：变量 byId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+export async function discoverPresets(
+  roots: readonly PresetRoot[],
+  harnessBase: string,
+): Promise<AgentPreset[]> {
   const byId = new Map<string, AgentPreset>()
   /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const root of roots) {
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
-    for (const preset of await scanRoot(root)) {
+    for (const preset of await scanRoot(root, harnessBase)) {
       if (byId.has(preset.id)) continue
       byId.set(preset.id, preset)
     }

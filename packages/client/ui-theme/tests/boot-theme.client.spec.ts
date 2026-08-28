@@ -21,10 +21,8 @@ function mockSystemDark(matches: boolean): void {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches }) as MediaQueryList))
 }
 
-/** 中文说明：函数 executeBootstrap 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function executeBootstrap(preference?: ThemePreference): void {
-  /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
-  const row = bootThemeInjection(preference)
+function executeBootstrap(preference?: ThemePreference, fontSize?: number): void {
+  const row = bootThemeInjection(preference, fontSize)
   if (row.kind !== 'script') throw new Error('theme bootstrap row is not a script')
   runInNewContext(row.text, { document, matchMedia: globalThis.matchMedia })
 }
@@ -34,6 +32,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
   document.documentElement.style.removeProperty('color-scheme')
   document.body.removeAttribute(DARK_ATTRIBUTE)
+  document.body.style.removeProperty('--dsh-content-font-size')
 })
 
 describe('theme bootstrap row', () => {
@@ -70,5 +69,13 @@ describe('theme bootstrap row', () => {
     executeBootstrap()
     expect(document.documentElement.style.colorScheme).toBe('light')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
+  })
+
+  it('writes the durable content font size and defaults it to 14px', () => {
+    mockSystemDark(false)
+    executeBootstrap('light', 17)
+    expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('17px')
+    executeBootstrap('light')
+    expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('14px')
   })
 })

@@ -20,7 +20,7 @@ import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import {
-  CallId,
+  ToolCallId,
   createAssistantMessage,
   createToolResultMessage,
   createUserMessage,
@@ -285,9 +285,7 @@ function appendToolStep(
 ): void {
   /** 当前工具轮生成的调用编号、顺序和参数。 */
   const calls = Array.from({ length: toolCount }, (_, index) => {
-    /** 当前合成工具调用的稳定编号。 */
-    const callId = CallId(`perf-call-${String(turn)}-${String(index)}`)
-    /** 当前工具调用的确定性 JSON 参数。 */
+    const callId = ToolCallId(`perf-call-${String(turn)}-${String(index)}`)
     const args = JSON.stringify({
       turn,
       index,
@@ -521,7 +519,7 @@ function soakTurn(index: number): ConversationTurnSpec {
 }
 
 function toolStream(index: number, marker: string): StreamChunk[] {
-  const callId = CallId(`performance-tool-${marker.toLowerCase()}-${String(index)}`)
+  const callId = ToolCallId(`performance-tool-${marker.toLowerCase()}-${String(index)}`)
   const args = JSON.stringify({
     command: `printf '${marker}\\n'`,
     description: `Emit performance marker ${String(index)}`,
@@ -961,7 +959,7 @@ async function openPerformancePage(
   world: PerformanceWorld,
   expectedSessions: number,
 ): Promise<Locator> {
-  await world.page.goto(world.scaffold.baseUrl, { waitUntil: 'load' })
+  await world.page.goto(world.scaffold.authenticatedUrl, { waitUntil: 'load' })
   await world.page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   const group = world.page.getByRole('treeitem').first()
   await expect.poll(() => group.textContent(), { timeout: 30_000 })
@@ -990,7 +988,7 @@ async function continueConversation(
     readonly checkpointInterval?: number
   },
 ): Promise<ConversationReport> {
-  const composer = world.page.locator('textarea:enabled').last()
+  const composer = world.page.locator('[data-composer-input][contenteditable="true"]').last()
   await composer.waitFor({ timeout: 15_000 })
   const retainedBefore = await retainedBrowserState(cdp, world.page)
   const checkpoints: RetainedCheckpoint[] = [{ turns: options.startingTurns, state: retainedBefore }]
@@ -1001,8 +999,8 @@ async function continueConversation(
     const spec = options.turnSpec(index)
     const composerFill = await measure(cdp, async () => {
       await composer.fill(spec.prompt)
-      await expect.poll(() => composer.inputValue()).toBe(spec.prompt)
-      return (await composer.inputValue()).length
+      await expect.poll(() => composer.textContent()).toBe(spec.prompt)
+      return ((await composer.textContent()) ?? '').length
     })
     expect(composerFill.value).toBe(spec.prompt.length)
 
@@ -1118,11 +1116,11 @@ async function measurePostSoakUserRender(
   if (spec.toolResultMarker !== undefined) {
     throw new Error('post-soak render probe must remain a text-only turn')
   }
-  const composer = world.page.locator('textarea:enabled').last()
+  const composer = world.page.locator('[data-composer-input][contenteditable="true"]').last()
   const composerFill = await measure(cdp, async () => {
     await composer.fill(spec.prompt)
-    await expect.poll(() => composer.inputValue()).toBe(spec.prompt)
-    return (await composer.inputValue()).length
+    await expect.poll(() => composer.textContent()).toBe(spec.prompt)
+    return ((await composer.textContent()) ?? '').length
   })
   expect(composerFill.value).toBe(spec.prompt.length)
 
@@ -1443,7 +1441,7 @@ describe('manual web performance: complex workspace and history', () => {
     })
     let testFailure: unknown
     try {
-      await world.page.goto(world.scaffold.baseUrl, { waitUntil: 'load' })
+      await world.page.goto(world.scaffold.authenticatedUrl, { waitUntil: 'load' })
       await world.page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
       await connectFreshWorkspace(world.page, world.scaffold.workspaceCwd, 'continuous-conversation-perf')
       const cdp = await world.page.context().newCDPSession(world.page)

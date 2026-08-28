@@ -48,11 +48,12 @@ export const inject = ['subagents', 'subprocess']
 /** 中文说明：常量 DEFAULT_PROVIDER_NAME 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEFAULT_PROVIDER_NAME = 'codex'
 
-/** Deployment-owned permission, environment, and process-release settings. */
-/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理场景。 */
+/** Deployment-owned model, permission, environment, and process-release settings. */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `codex`). */
   providerName?: string
+  /** Native Codex model fixed for this instance; omitted to inherit Codex settings. */
+  model?: string
   /**
    * Explicit environment entries layered over the subprocess seam's
    * credential-scrubbed parent environment.
@@ -67,14 +68,14 @@ export interface Config {
 /** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   providerName: z.string().min(1).default(DEFAULT_PROVIDER_NAME),
+  model: z.string().min(1),
   env: z.dict(z.string()).default({}),
   permissionMode: z.union([...CODEX_PERMISSION_MODES])
     .default(DEFAULT_CODEX_PERMISSION_MODE),
   disposeGraceMs: z.number().default(DEFAULT_DISPOSE_GRACE_MS),
 })
 
-/** 中文说明：type ResolvedConfig 定义本模块所需的数据或行为，用于表达子代理场景。 */
-type ResolvedConfig = Required<Config>
+type ResolvedConfig = Omit<Required<Config>, 'model'> & Pick<Config, 'model'>
 
 /** 中文说明：class CodexProvider 定义本模块所需的数据或行为，用于表达子代理场景。 */
 class CodexProvider implements SubagentProvider {
@@ -114,6 +115,7 @@ class CodexProvider implements SubagentProvider {
     /** 中文说明：变量 spec 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec: CodexRunSpec = {
       cwd,
+      ...this.config.model === undefined ? {} : { model: this.config.model },
       permissionMode: this.config.permissionMode,
       env: this.config.env,
       disposeGraceMs: this.config.disposeGraceMs,
@@ -131,13 +133,14 @@ class CodexProvider implements SubagentProvider {
 /**
  * Register one Profile-named Codex provider.
  * @param ctx - context carrying shared subagent and subprocess services.
- * @param config - registry name, permission mode, child environment, and disposal grace.
+ * @param config - registry name, optional model, permission mode, child environment, and disposal grace.
  */
 /* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved: ResolvedConfig = {
     providerName: config.providerName ?? DEFAULT_PROVIDER_NAME,
+    ...config.model === undefined ? {} : { model: config.model },
     env: config.env as Record<string, string>,
     permissionMode: config.permissionMode ?? DEFAULT_CODEX_PERMISSION_MODE,
     disposeGraceMs: config.disposeGraceMs as number,

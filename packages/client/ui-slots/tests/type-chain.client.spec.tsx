@@ -19,7 +19,7 @@ import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 
 // Only package-unique SlotMap keys are merged here. The standard-kit
 // interfaces (SessionStandardProps/GlobalStandardProps) are NOT re-merged:
-// the runtime package owns the real members, and in the client aggregate
+// the owning UI adapters provide the real members, and in the client aggregate
 // program a toy merge would collide with them — samples below stay
 // shape-agnostic about kit member payloads for the same reason.
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -160,8 +160,8 @@ describe('terminal-design type chain', () => {
       core.register({ name: 'chain.conv', store: chat }, Details)
 
       // Owner + store shares arrive typed on the component face. Standard-kit
-      // member payloads are the runtime merge's property — not probed here
-      // (the runtime package's own tests cover them).
+      // member payloads are the owning adapters' property — not probed here
+      // (their package tests cover them).
       fp.renderSlot('chain.side', { collapsed: false, width: 280 })
       /** 中文说明：测试局部值 draft，由紧邻初始化决定。 */
       const draft: string = cp.useStore(s => s.draft)
@@ -311,8 +311,7 @@ describe('terminal-design type chain', () => {
       acts.setDraft(1)
 
       // SessionProvider seat: derives from a session-scope child declaration.
-      fp.SessionProvider({ empty: () => null, children: () => null })
-      /** 中文说明：测试局部值 sideOnly，由紧邻初始化决定。 */
+      fp.SessionProvider({ empty: () => null, children: null })
       const sideOnly: PropsRenderSlots<'chain.side'> = null as never
       // @ts-expect-error only root-scope children declared → no SessionProvider seat
       void sideOnly.SessionProvider

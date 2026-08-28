@@ -28,27 +28,37 @@
 // 中文：导入各属主包生成的远程贡献集（每个 remote 模块暴露一个描述符贡献
 // 对象），以及客户端远程服务的类型。挂载动作发生在下方 apply 中。
 import type { Context } from '@deepseek-ai/cordis'
+import agentPresetsRemote from '@deepseek-ai/dsh-agent-presets/remote'
 import commandsRemote from '@deepseek-ai/dsh-commands/remote'
+import settingsControllerRemote from '@deepseek-ai/dsh-api-settings-controller/remote'
 import goalsRemote from '@deepseek-ai/dsh-goal/remote'
+import llmRemote from '@deepseek-ai/dsh-llm/remote'
 import dynamicRemote from '@deepseek-ai/dsh-cordis-host-runner/remote'
-import fileReferencesRemote from '@deepseek-ai/dsh-file-reference/remote'
 import pluginInventoryRemote from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 import messageFeedbackRemote from '@deepseek-ai/dsh-message-feedback/remote'
 import sessionReferencesRemote from '@deepseek-ai/dsh-session-reference/remote'
-import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
+import subagentsRemote from '@deepseek-ai/dsh-subagent/remote'
+import sessionRemote from '@deepseek-ai/dsh-api-session-controller/remote'
+import workspaceRemote from '@deepseek-ai/dsh-api-workspace-controller/remote'
+import type { ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
 
-// 中文：远程服务的核心类型再导出：ClientRemote（即 ctx.remote 的类型）与
-// 插件清单快照类型，供业务包直接命名。
-export type { TypertClientRemote as ClientRemote } from '@deepseek-ai/dsh-typert-protocol'
+export type { ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
 export type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory/types'
-// 中文：各贡献集自身的类型副作用再导出：把它们声明的命名空间类型并入
-// 本编译面，业务包即可直接使用这些命名空间的类型。
+export type {} from '@deepseek-ai/dsh-agent-presets/remote'
 export type {} from '@deepseek-ai/dsh-commands/remote'
-export type {} from '@deepseek-ai/dsh-file-reference/remote'
+export type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
 export type {} from '@deepseek-ai/dsh-goal/remote'
+export type {} from '@deepseek-ai/dsh-llm/remote'
 export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-message-feedback/remote'
 export type {} from '@deepseek-ai/dsh-session-reference/remote'
+export type {} from '@deepseek-ai/dsh-subagent/remote'
+export type * from '@deepseek-ai/dsh-subagent/client'
+export type {} from '@deepseek-ai/dsh-api-session-controller/remote'
+export type * from '@deepseek-ai/dsh-api-session-controller/types'
+export type {} from '@deepseek-ai/dsh-api-workspace-controller/remote'
+export type * from '@deepseek-ai/dsh-api-workspace-controller/types'
+export type { SessionJob as JobView } from '@deepseek-ai/dsh-api-session-controller/types'
 // The forwarded-event allowlist's selection seat: without it in the consumer's
 // compilation face `TypertRemoteEvent` is `never` and every `$on` call fails.
 // 中文：转发事件白名单的选择座位：若消费者编译面缺少它，TypertRemoteEvent
@@ -65,6 +75,9 @@ export type {} from '@deepseek-ai/dsh-credentials/types'
 export type {} from '@deepseek-ai/dsh-llm/types'
 export type {} from '@deepseek-ai/dsh-agent-presets/types'
 export type {} from '@deepseek-ai/dsh-settings/types'
+export type {} from '@deepseek-ai/dsh-user-approval/types'
+export type {} from '@deepseek-ai/dsh-user-questions/types'
+export type {} from '@deepseek-ai/dsh-api-session-controller/types'
 
 /**
  * The carrier's Client-facing types, re-exported so a business package names one
@@ -75,14 +88,10 @@ export type {} from '@deepseek-ai/dsh-settings/types'
 // 依赖本门面与 Connection 插件；仅类型导出，载体的运行时值留在其模块边界
 // 之后，不被拉进客户端。
 export type {
-  ClientResponse, ConfigurableProviderView, ConnectionHandle, ConnectionSinks, ContentBlock,
-  CredentialView, DirectoryListing, DiscoveredModelView, HistoryEntry, HostFrame, IApiClient,
-  MessageId, ModelCatalogFailure, ModelProviderGroup, ModelReasoningEffort, ModelSelection,
-  MuxFrame, PromptContentPart, QuestionResponsePayload, QueueAction, RpcError, RpcId, RpcReceipt,
-  RpcRequest, RpcResponse, RpcResult, SessionId, SessionModels, SessionSearchItem,
-  SessionSummary, SettingsNamespaceView, SettingsPathOpView, SkillEntry, StreamChunk,
-  SubagentAddress, SubagentCatalog, JobView, ToolCallView, ToolEventView, ToolResultView,
-  WorkspaceId, WorkspaceView,
+  ConnectionHandle, ConnectionSinks, ContentBlock,
+  MessageId,
+  RpcError, RpcId, RpcRequest, RpcResponse, RpcResult, SessionId,
+  StreamChunk,
 } from '@deepseek-ai/dsh-client-connection/client'
 // 中文：把网关客户端与 host-runner 远程的类型副作用并入本编译面。
 export type {} from '@deepseek-ai/dsh-api-gateway/client'
@@ -133,6 +142,18 @@ export type {
 // 中文：这些载荷所基于的 JSON 词汇再导出，理由同上：客户端贡献者命名发送
 // 内容时无需导入 Host 包。
 export type { JsonValue } from '@deepseek-ai/dsh-session/types'
+// Credential state vocabulary for the credentials namespace (values never ride it).
+export type { CredentialInfo } from '@deepseek-ai/dsh-credentials/types'
+// Redacted namespace vocabulary for the settings namespace (secrets never ride
+// it). It travels with its seam, whose `./types` the Client face already reads.
+export type {
+  SettingsDescribeValue, SettingsNamespaceView, SettingsPathOpView, SettingsSecretView,
+} from '@deepseek-ai/dsh-settings/types'
+// Provider registry and discovery vocabulary for the llm namespace.
+export type {
+  LlmConfigurableProvider, LlmDiscoveredModel, LlmModelDiscoveryError,
+  LlmModelDiscoveryRequest, LlmProviderInfo,
+} from '@deepseek-ai/dsh-llm/types'
 // Reference-discovery result vocabulary for the fileReferences and
 // sessionReferenceResolver namespaces.
 // 中文：引用发现结果词汇再导出，供 fileReferences 与 sessionReferenceResolver
@@ -140,13 +161,26 @@ export type { JsonValue } from '@deepseek-ai/dsh-session/types'
 export type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
 export type { SessionReferenceMentionCandidate } from '@deepseek-ai/dsh-session-reference/types'
 
-// 中文：声明合并：把客户端远程服务挂到 Cordis Context 上（类型层面），
-// 运行时由 gateway/client 的 ClientRemoteService 提供。
+/** Failure vocabulary exposed by the assembled Client data layer. */
+export type ClientFailure =
+  | import('@deepseek-ai/dsh-client-connection/client').RpcError
+  | import('@deepseek-ai/dsh-agent-presets/types').AgentPresetError
+  | import('@deepseek-ai/dsh-api-session-controller/types').SessionError
+  | import('@deepseek-ai/dsh-api-settings-controller/types').CredentialError
+  | import('@deepseek-ai/dsh-api-settings-controller/types').SettingsError
+  | import('@deepseek-ai/dsh-llm/types').LlmModelDiscoveryError
+  | import('@deepseek-ai/dsh-subagent/client').SubagentControlError
+  | import('@deepseek-ai/dsh-api-workspace-controller/types').WorkspaceError
+
+/** Success or failure returned by Client operations spanning both API families. */
+export type ClientResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: ClientFailure }
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** Generated Remote namespaces selected by this Client assembly. */
-    // 中文：由本客户端装配选择的生成式远程命名空间集合。
-    remote: TypertClientRemote
+    remote: ClientRemote
   }
 }
 
@@ -166,8 +200,9 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const disposers: Array<() => Promise<void>> = [] // 中文：已挂载贡献集的注销函数列表（用于回滚）
   try {
     for (const contribution of [
-      commandsRemote, goalsRemote, dynamicRemote, fileReferencesRemote,
+      agentPresetsRemote, commandsRemote, settingsControllerRemote, goalsRemote, llmRemote, dynamicRemote,
       pluginInventoryRemote, messageFeedbackRemote, sessionReferencesRemote,
+      subagentsRemote, sessionRemote, workspaceRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

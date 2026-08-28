@@ -37,9 +37,7 @@
 import type { API_REMOTE_FORWARDED_EVENTS } from './remote-events.ts'
 
 /** Type projection of the allowlist; the consumer and the Host read this one. */
-// 中文：白名单的类型投影——由数组常量推导出的联合类型（每个事件名是一个
-// 字面量），消费者与 Host 两侧都读这一份。
-export type ApiRemoteForwardedEvent = typeof API_REMOTE_FORWARDED_EVENTS[number]
+export type ApiRemoteForwardedEvent = typeof API_REMOTE_FORWARDED_EVENTS[number]['event']
 
 // 中文：声明合并：把每个允许转发的事件名标记进 TypertRemoteEventSelection，
 // 使 typert 协议层知道"这些事件对消费者可见"，$on 的键集合与白名单绑定。

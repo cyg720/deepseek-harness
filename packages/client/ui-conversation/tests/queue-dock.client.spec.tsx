@@ -14,17 +14,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
-import {
-  EMPTY_CHAT_SNAPSHOT, EMPTY_CONVERSATION_VIEWS,
-} from '@deepseek-ai/dsh-client-runtime/client'
 import type {
-  ConversationSnapshot, QueuedMessage, SessionId, SessionListState,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  QueuedMessage, SessionListState, SessionSnapshot,
+} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import {
+  bindSnapshotSelector, conversationSnapshot, makeTranslate,
+} from '@deepseek-ai/dsh-client-test-runtime'
+import type { SessionPendingInteractionSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { QueueItemId } from '../src/client/contract/queue.ts'
-import type { InputState } from '../src/client/input/contract.ts'
+import type { InputState } from '../src/client/contract/input.ts'
 import { zh } from '../src/client/locales.ts'
 import { QueueDock, queueDockEntry, type QueueDockInjected, type QueueDockProps } from '../src/client/queue/QueueDock.tsx'
 
@@ -44,25 +46,21 @@ function row(id: string, text: string | null, preview = text ?? '[image]'): Queu
   }
 }
 
-/** 中文说明：函数 snapshotWith 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function snapshotWith(queue: QueuedMessage[]): ConversationSnapshot {
+function snapshotWith(queue: QueuedMessage[]): SessionSnapshot {
   return {
-    sessionId: SID, views: EMPTY_CONVERSATION_VIEWS, chat: EMPTY_CHAT_SNAPSHOT,
-    nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [],
-    pending: [], queue, running: true, composerPhase: 'active', removed: false, openState: 'open', openError: null,
-    hasMore: false, loadingOlder: false, promptError: null, blank: false, subagent: null, lastAgentError: null,
+    sessionId: SID, queue, running: true, removed: false, openState: 'open', openError: null,
+    hasMore: false, loadingOlder: false, promptError: null, blank: false, subagent: null,
+    pendingSubmissions: [],
+    lastAgentError: null, promptAttempted: true, awaitingFirstTurn: false,
   }
 }
 
 /** Minimal live source backing the useSession stub. */
-/* 中文说明：函数 liveSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function liveSession(initial: ConversationSnapshot) {
-  /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
+function liveSession(initial: SessionSnapshot) {
   let snapshot = initial
   /** 中文说明：测试局部值 listeners，由紧邻初始化决定。 */
   const listeners = new Set<() => void>()
-  /** 中文说明：测试局部值 useSession，由紧邻初始化决定。 */
-  const useSession: SnapshotSelectorHook<ConversationSnapshot> = selector =>
+  const useSession: SnapshotSelectorHook<SessionSnapshot> = selector =>
     useSyncExternalStore(
       (listener) => {
         listeners.add(listener)
@@ -72,7 +70,7 @@ function liveSession(initial: ConversationSnapshot) {
     )
   return {
     useSession,
-    push(next: ConversationSnapshot): void {
+    push(next: SessionSnapshot): void {
       snapshot = next
       /** 中文说明：测试局部值 listener，由紧邻初始化决定。 */
       for (const listener of [...listeners]) listener()
@@ -80,22 +78,23 @@ function liveSession(initial: ConversationSnapshot) {
   }
 }
 
-/** InputZone owner stub (the dock reads useSession only; the zone fields satisfy the owner share). */
-/* 中文说明：测试局部值 INPUT_STATE，由紧邻初始化决定。 */
 const INPUT_STATE: InputState = { draft: '', imageIds: [], draftRev: 0, phase: 'plain', occurrences: [], queue: [] }
 
-// Standard locale seat stub mirroring the real ns → common → key chain.
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: QueueDockProps['t'] = makeTranslate(zh, commonZh)
 
-/** 中文说明：函数 kitFor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function kitFor(snapshot: ConversationSnapshot, injected: Partial<QueueDockInjected> = {}) {
+function kitFor(snapshot: SessionSnapshot, injected: Partial<QueueDockInjected> = {}) {
   return {
     sessionId: SID,
     t,
     useSessions: (() => { throw new Error('unused') }) as unknown as SnapshotSelectorHook<SessionListState>,
+    useSessionPendingInteraction: bindSnapshotSelector(
+      createSnapshotStore<SessionPendingInteractionSnapshot>(new Map()),
+    ),
     useWorkspaces: (() => { throw new Error('unused') }) as never,
     useProjection: (() => undefined) as never,
+    useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot())),
+    useChat: (() => { throw new Error('unused') }) as QueueDockProps['useChat'],
+    useTrajectory: (() => { throw new Error('unused') }) as QueueDockProps['useTrajectory'],
     useInput: (() => { throw new Error('unused') }) as never,
     inputActions: { setDraft: () => {}, submit: () => {} } as never,
     session: snapshot,

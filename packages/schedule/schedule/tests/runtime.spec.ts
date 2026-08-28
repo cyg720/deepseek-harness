@@ -791,9 +791,9 @@ describe('Schedule runtime failure and teardown boundaries', () => {
     /** 中文说明：变量 runFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runFailure = await harness()
     appendAfter(runFailure, 'schedule-1', 1, Date.now() - 1_000)
-    /** 中文说明：函数值 uuidSpy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-    const uuidSpy = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() => { throw 'message failed' })
-    /** 中文说明：变量 failingRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    // The reminder message mints its id through dsh-util-crypto, whose
+    // entropy source is getRandomValues — the failure injection follows it.
+    const uuidSpy = vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation(() => { throw 'message failed' })
     const failingRuntime = runtimeFor(runFailure)
     failingRuntime.start()
     /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
@@ -806,8 +806,7 @@ describe('Schedule runtime failure and teardown boundaries', () => {
     /** 中文说明：变量 departedRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const departedRun = await harness()
     appendAfter(departedRun, 'schedule-1', 1, Date.now() - 1_000)
-    /** 中文说明：函数值 departedUuidSpy 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-    const departedUuidSpy = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() => {
+    const departedUuidSpy = vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation(() => {
       departedRun.disposeAgent()
       throw 'message failed after detach'
     })

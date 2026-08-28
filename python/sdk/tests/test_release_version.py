@@ -76,6 +76,15 @@ def test_pep440_version_spells_a_prerelease_the_python_way() -> None:
 # 中文说明：函数 test_macos_wheel_tag_does_not_claim_unsupported_node_platforms 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def test_macos_wheel_tag_does_not_claim_unsupported_node_platforms() -> None:
     assert build_python_release.PLATFORMS["macos-arm64"][0] == "macosx_14_0_arm64"
+    assert build_python_release.PLATFORMS["macos-arm64"][1] == "deepseek-harness-sdk-runtime-macos-arm64"
+
+
+def test_windows_wheel_tag_and_payload_are_x64_only() -> None:
+    assert build_python_release.PLATFORMS["win-x64"] == (
+        "win_amd64",
+        "deepseek-harness-sdk-runtime-win-x64.exe",
+    )
+    assert not any(name.startswith("win-") and name != "win-x64" for name in build_python_release.PLATFORMS)
 
 
 # 中文说明：函数 test_platform_manifest_rejects_incomplete_entries 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
@@ -106,19 +115,23 @@ def test_stage_sdk_keeps_distribution_module_and_runtime_pin_distinct(tmp_path: 
     assert (destination / "src" / "deepseek_harness" / "__init__.py").is_file()
 
 
-@pytest.mark.parametrize(("target", "with_helper"), [("linux-x64", False), ("macos-arm64", True)])
-# 中文说明：函数 test_stage_runtime_copies_platform_payload 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
+@pytest.mark.parametrize(
+    ("target", "with_helper"),
+    [("linux-x64", False), ("macos-arm64", True), ("win-x64.exe", False)],
+)
 def test_stage_runtime_copies_platform_payload(
     tmp_path: Path, target: str, with_helper: bool
 ) -> None:
-    # 中文说明：变量 executable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    executable = tmp_path / f"dsh-jsonrpc-agent-pkg-{target}"
+    executable = tmp_path / f"deepseek-harness-sdk-runtime-{target}"
     executable.write_bytes(b"runtime")
     executable.chmod(0o755)
     # 中文说明：变量 expected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     expected = {executable.name: b"runtime"}
-    # 中文说明：变量 ripgrep 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    ripgrep = Path(f"{executable}-rg")
+    ripgrep = (
+        executable.with_name(f"{executable.stem}-rg.exe")
+        if executable.suffix == ".exe"
+        else Path(f"{executable}-rg")
+    )
     ripgrep.write_bytes(b"ripgrep")
     ripgrep.chmod(0o755)
     expected[ripgrep.name] = b"ripgrep"
@@ -135,11 +148,14 @@ def test_stage_runtime_copies_platform_payload(
 
     # 中文说明：变量 runtime_dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     runtime_dir = destination / "src" / "deepseek_harness_runtime" / "runtime"
-    assert {path.name: path.read_bytes() for path in runtime_dir.glob("dsh-jsonrpc-agent-pkg-*")} == expected
-    # 中文说明：变量 pyproject 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+    assert {
+        path.name: path.read_bytes()
+        for path in runtime_dir.glob("deepseek-harness-sdk-runtime-*")
+    } == expected
     pyproject = (destination / "pyproject.toml").read_text()
     assert 'license = "MIT"' in pyproject
     assert 'license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]' in pyproject
+    assert 'dsh = "deepseek_harness_runtime:main"' in pyproject
     assert (destination / "platforms.json").read_bytes() == (
         ROOT / "python" / "sdk-runtime" / "platforms.json"
     ).read_bytes()
@@ -147,3 +163,16 @@ def test_stage_runtime_copies_platform_payload(
     assert (destination / "THIRD_PARTY_NOTICES.md").read_bytes() == (
         ROOT / "THIRD_PARTY_NOTICES.md"
     ).read_bytes()
+
+
+def test_stage_runtime_rejects_a_noncanonical_executable_name(tmp_path: Path) -> None:
+    executable = tmp_path / "renamed.exe"
+    executable.write_bytes(b"runtime")
+
+    with pytest.raises(ValueError, match="must be named deepseek-harness-sdk-runtime-win-x64.exe"):
+        build_python_release.stage_runtime(
+            tmp_path / "staging",
+            "1.2.3",
+            executable,
+            "deepseek-harness-sdk-runtime-win-x64.exe",
+        )

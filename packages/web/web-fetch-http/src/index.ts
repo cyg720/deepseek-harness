@@ -14,10 +14,8 @@
  * ==========================================================================
  */
 /**
- * `@deepseek-ai/dsh-web-fetch-http`: registers an anonymous public HTTP(S)
- * `WebFetchProvider` with `ctx.web`. A function/namespace plugin (NOT a
- * default-export service): it registers INTO the seam's fetch registry, like the
- * search providers register into the search registry.
+ * Anonymous public HTTP(S) `WebFetchProvider` plugin. It contributes to the
+ * `ctx.web` registry without owning the service.
  *
  * @module @deepseek-ai/dsh-web-fetch-http
  */
@@ -35,7 +33,7 @@ export {
   LOCAL_FETCH_PROVIDER_ID,
   HttpFetchProvider,
 } from './provider.ts'
-export type { HttpFetchLimits } from './provider.ts'
+export type { HttpFetchLimits, HttpFetchResolver } from './provider.ts'
 
 /** Default `User-Agent`: an explicit product agent, never a browser disguise. */
 // 默认 User-Agent：明确的"产品代理"身份，绝不伪装成浏览器。
@@ -52,9 +50,6 @@ export const inject = ['web']
 /** Plugin config: the provider's transport and size limits plus its `User-Agent` (all defaulted). */
 // 插件配置：传输与大小限额、User-Agent（全部有默认值）。
 export interface Config {
-  /** Maximum accepted request URL length. */
-  // 请求 URL 的最大长度。
-  maxUrlLength?: number
   /** Maximum response body size in bytes. */
   // 响应体最大字节数。
   maxResponseBytes?: number
@@ -74,7 +69,6 @@ export interface Config {
 
 // schemastery 配置 schema：为 Config 提供校验与默认值。
 export const Config: z<Config> = z.object({
-  maxUrlLength: z.number().default(2048),
   maxResponseBytes: z.number().default(5_000_000),
   maxBodyChars: z.number().default(100_000),
   timeoutMs: z.number().default(30_000),
@@ -117,13 +111,11 @@ export function apply(ctx: Context, config: Config): void {
   // schemastery (Config) has already filled every defaulted field.
   // schemastery 已经填好全部默认字段，这里直接按完整配置使用。
   const resolved = config as ResolvedConfig
-  assertPositiveFinite('maxUrlLength', resolved.maxUrlLength)
   assertPositiveFinite('maxResponseBytes', resolved.maxResponseBytes)
   assertPositiveFinite('maxBodyChars', resolved.maxBodyChars)
   assertTimeoutMs(resolved.timeoutMs)
   assertNonNegativeInteger('maxRedirects', resolved.maxRedirects)
   const limits: HttpFetchLimits = {
-    maxUrlLength: resolved.maxUrlLength,
     maxResponseBytes: resolved.maxResponseBytes,
     maxBodyChars: resolved.maxBodyChars,
     timeoutMs: resolved.timeoutMs,

@@ -1,25 +1,37 @@
-/**
- * 文件职责：验证文件引用上下文的 search.spec.ts 行为。
- * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
- * 产品维度：防止文件引用上下文改变模型可见内容或生命周期语义。
- * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
- * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
- * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
- */
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   activeAtToken,
+  DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES,
   formatFileMention,
   WorkspaceFileSearch,
 } from '../src/search.ts'
 
-/** 中文说明：测试局部值 searches，由紧邻初始化决定。 */
+const fsControl = vi.hoisted(() => ({
+  /** Absolute path whose `readdir` rejects; the injectable stand-in for chmod 0. */
+  denyReaddir: undefined as string | undefined,
+}))
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return {
+    ...actual,
+    readdir: (async (path: unknown, ...rest: never[]) => {
+      if (fsControl.denyReaddir !== undefined && String(path) === fsControl.denyReaddir) {
+        throw Object.assign(new Error('EACCES: injected unreadable directory'), { code: 'EACCES' })
+      }
+      return (actual.readdir as (path: unknown, ...args: never[]) => Promise<unknown>)(path, ...rest)
+    }) as typeof actual.readdir,
+  }
+})
+
 const searches: WorkspaceFileSearch[] = []
 /** 中文说明：测试局部值 roots，由紧邻初始化决定。 */
 const roots: string[] = []
+/** Permission-stripped directories; restored before cleanup can remove them. */
+const locks: string[] = []
 
 /** 中文说明：函数 workspace 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function workspace(): Promise<string> {
@@ -58,7 +70,7 @@ function search(root: string, overrides: Partial<ConstructorParameters<typeof Wo
 }
 
 afterEach(async () => {
-  /** 中文说明：测试局部值 instance，由紧邻初始化决定。 */
+  for (const locked of locks.splice(0)) await chmod(locked, 0o700).catch(() => undefined)
   for (const instance of searches.splice(0)) instance.dispose()
   await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })))
 })
@@ -176,29 +188,124 @@ describe('WorkspaceFileSearch', () => {
     ])
   })
 
-  it('invalidates cached traversal, enforces the entry cap, and settles disposal', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
+  it('serves an invalidated index while its replacement builds, then swaps it in', async () => {
     const root = await workspace()
-    /** 中文说明：测试局部值 capped，由紧邻初始化决定。 */
-    const capped = search(root, { maxEntries: 2 })
-    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
-    const signal = new AbortController().signal
-    expect(await capped.list('README', signal)).toEqual([
-      { path: 'README.md', kind: 'file' },
-    ])
-
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = search(root)
+    const signal = new AbortController().signal
     expect(await files.list('fresh-file', signal)).toEqual([])
     await writeFile(join(root, 'fresh-file.ts'), 'fresh')
+    // No invalidation: the settled traversal is still the answer.
     expect(await files.list('fresh-file', signal)).toEqual([])
     files.invalidate()
-    expect(await files.list('fresh-file', signal)).toEqual([
-      { path: 'fresh-file.ts', kind: 'file' },
-    ])
+    // The stale entries answer this query; the rebuild runs behind the caret.
+    expect(await files.list('fresh-file', signal)).toEqual([])
+    await vi.waitFor(async () => {
+      expect(await files.list('fresh-file', signal)).toEqual([
+        { path: 'fresh-file.ts', kind: 'file' },
+      ])
+    })
     files.dispose()
     expect(await files.list('fresh-file', signal)).toEqual([])
     files.dispose()
+  })
+
+  it('keeps the stale entries when the workspace root is unreadable, and retries once it returns', async () => {
+    const root = await workspace()
+    const files = search(root)
+    const signal = new AbortController().signal
+    expect(await files.list('README', signal)).toEqual([{ path: 'README.md', kind: 'file' }])
+
+    // A root that vanishes under a live index: an unreadable branch costs its
+    // own candidates, but an unreadable root must not be published as an
+    // empty workspace over entries that are still good.
+    await rm(root, { recursive: true, force: true })
+    files.invalidate()
+    expect(await files.list('README', signal)).toEqual([{ path: 'README.md', kind: 'file' }])
+    await new Promise((resolve) => { setTimeout(resolve, 50) })
+    expect(await files.list('README', signal)).toEqual([{ path: 'README.md', kind: 'file' }])
+
+    // The failed attempt left the index stale, so its return is picked up
+    // without waiting for another invalidation.
+    await mkdir(root, { recursive: true })
+    await writeFile(join(root, 'restored.ts'), 'restored')
+    await vi.waitFor(async () => {
+      expect(await files.list('restored', signal)).toEqual([{ path: 'restored.ts', kind: 'file' }])
+    })
+  })
+
+  // chmod 0 can only deny directory reads on POSIX to a non-root owner:
+  // Windows exposes no directory permission bits for readdir, and root
+  // bypasses them. Where the fixture stays readable the sealed candidate is
+  // indexed, so the unreadable-branch behavior is pinned on POSIX non-root.
+  it.runIf(
+    process.getuid !== undefined && process.getuid() !== 0,
+  )('lets an unreadable subtree cost only its own candidates', async () => {
+    const root = await workspace()
+    const locked = join(root, 'locked')
+    await mkdir(locked, { recursive: true })
+    await writeFile(join(locked, 'sealed.ts'), 'sealed')
+    await chmod(locked, 0o000)
+    locks.push(locked)
+    const files = search(root)
+    const signal = new AbortController().signal
+
+    // The branch itself yields nothing, and the rest of the tree still does.
+    expect(await files.list('sealed', signal)).toEqual([])
+    expect(await files.list('README', signal)).toEqual([{ path: 'README.md', kind: 'file' }])
+    // The directory is still offered: only reading through it fails.
+    expect(await files.list('locked', signal)).toEqual([{ path: 'locked', kind: 'directory' }])
+  })
+
+  // The chmod-0 fixture above cannot be built on Windows (no directory
+  // permission bits) or as root (bits are bypassed). An injected readdir
+  // failure keeps the unreadable-branch behavior covered on every platform.
+  it('lets an injected readdir failure cost only its own candidates', async () => {
+    const root = await workspace()
+    const locked = join(root, 'locked')
+    await mkdir(locked, { recursive: true })
+    await writeFile(join(locked, 'sealed.ts'), 'sealed')
+    fsControl.denyReaddir = locked
+    try {
+      const files = search(root)
+      const signal = new AbortController().signal
+
+      // The branch itself yields nothing, and the rest of the tree still does.
+      expect(await files.list('sealed', signal)).toEqual([])
+      expect(await files.list('README', signal)).toEqual([{ path: 'README.md', kind: 'file' }])
+      // The directory is still offered: only reading through it fails.
+      expect(await files.list('locked', signal)).toEqual([{ path: 'locked', kind: 'directory' }])
+    } finally {
+      fsControl.denyReaddir = undefined
+    }
+  })
+
+  it('enforces the entry cap', async () => {
+    const root = await workspace()
+    const capped = search(root, { maxEntries: 2 })
+    expect(await capped.list('README', new AbortController().signal)).toEqual([
+      { path: 'README.md', kind: 'file' },
+    ])
+  })
+
+  it('never traverses an excluded build output, so generated twins cannot outrank sources', async () => {
+    const root = await workspace()
+    await mkdir(join(root, 'dist'), { recursive: true })
+    await writeFile(join(root, 'dist', 'terminal-view.js'), 'built')
+    const files = search(root, { excludedDirectories: [...DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES] })
+    expect(await files.list('terminal-view', new AbortController().signal)).toEqual([
+      { path: 'src/terminal-view.ts', kind: 'file' },
+    ])
+    expect(await files.list('dist/', new AbortController().signal)).toEqual([])
+  })
+
+  it('still offers a `lib` tree, where several ecosystems keep their sources', async () => {
+    const root = await workspace()
+    await mkdir(join(root, 'lib'), { recursive: true })
+    await writeFile(join(root, 'lib', 'gem-entry.rb'), 'source')
+    const files = search(root, { excludedDirectories: [...DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES] })
+    expect(await files.list('gem-entry', new AbortController().signal)).toEqual([
+      { path: 'lib/gem-entry.rb', kind: 'file' },
+    ])
   })
 
   it('cancels individual callers, skips missing directories, and validates limits', async () => {

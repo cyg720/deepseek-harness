@@ -17,12 +17,12 @@ import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-l
 // topology: local fixture source plus bare plugins owned by the examples workspace.
 /** 中文说明：测试局部值 driver，由紧邻初始化决定。 */
 const driver = fileURLToPath(new URL(
-  '../../../../examples/headless-agent/tests/fixtures/time-context-driver.ts',
+  './fixtures/driver.ts',
   import.meta.url,
 ))
 /** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
 const configPath = fileURLToPath(new URL(
-  '../../../../examples/headless-agent/tests/fixtures/time-context.cordis.yml',
+  './fixtures/cordis.yml',
   import.meta.url,
 ))
 /** 中文说明：测试局部值 repoTsconfig，由紧邻初始化决定。 */

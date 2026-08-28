@@ -1,7 +1,7 @@
 // Web e2e scenario: the composer's independent Stop interrupts a running
 // continuable child. The child holds its model turn open through a replay
 // hang entry; the browser proves Send and Stop coexist, the parent-offline
-// disabled-Send-with-Stop composer, the subagent.interrupt
+// disabled-Send-with-Stop composer, the subagents/interruptByParent
 // (never session.cancel) transport, the parked follow-up, and the FIFO resume
 // on a waking send.
 //
@@ -35,12 +35,9 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 派生父会话完成脚本的基础单回合 fixture。 */
-const BASE_FIXTURE = fileURLToPath(new URL('./snapshots/live-interactions/session.jsonl', import.meta.url))
+const BASE_FIXTURE = fileURLToPath(new URL('../../../snapshots/web/live-interactions/session.jsonl', import.meta.url))
 
-/** 子代理停止场景的快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/subagent-interrupt', import.meta.url))
-/** 父代理离线时子会话编辑器状态的预期快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/subagent-interrupt', import.meta.url))
 const OFFLINE_COMPOSER_EXPECTED = join(SNAPSHOT_DIR, 'offline-composer.expected.md')
 /** 当前快照模式。 */
 const MODE = webSnapshotMode()
@@ -150,7 +147,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
       if (path.startsWith('/api/')) apiCalls.push(path)
     })
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
 
@@ -170,7 +167,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     // One prompted parent turn makes the parent non-blank so the session
     // header (and its subagent catalog action) renders.
     const parentSettled = scaffold.whenTurnSettled()
-    const parentInput = page.locator('textarea:enabled').first()
+    const parentInput = page.locator('[data-composer-input][contenteditable="true"]').first()
     await parentInput.fill('Ask a research subagent to explain event sourcing.')
     await parentInput.press('Enter')
     expect(await parentSettled).toBe(parent.id)
@@ -203,7 +200,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     // parentAvailable: false while the child Activation stays live (the
     // interrupt RPC itself needs no live parent — covered host-side by
     // subagent-interrupt.e2e.ts).
-    const pattern = '**/api/subagent.list'
+    const pattern = '**/api/subagents/list'
     await page.route(pattern, async (route) => {
       const response = await route.fetch()
       const body = await response.json() as {
@@ -219,6 +216,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
         name: 'Parent session offline; sending is unavailable but you can still stop the run',
       })
       await input.waitFor({ timeout: 15_000 })
+      await page.getByText(INITIAL, { exact: true }).waitFor({ timeout: 15_000 })
       expect(await input.isDisabled()).toBe(true)
       const stop = page.getByRole('button', { name: 'Stop generating' })
       expect(await stop.count()).toBe(1)
@@ -243,12 +241,12 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
       )
       const aborted = waitForAbortedTurn(scaffold, childId)
       const interruptResponse = page.waitForResponse(response =>
-        new URL(response.url()).pathname === '/api/subagent.interrupt')
+        new URL(response.url()).pathname === '/api/subagents/interruptByParent')
       await stop.click()
       expect(((await (await interruptResponse).json()) as {
         result: { ok: boolean; value?: { accepted: boolean } }
       }).result).toMatchObject({ ok: true, value: { accepted: true } })
-      expect(apiCalls.filter(path => path === '/api/session.cancel')).toEqual([])
+      expect(apiCalls.filter(path => path === '/api/session/cancel')).toEqual([])
       await aborted
       await expect.poll(() => scaffold.ctx.agents.get(childId)?.status, { timeout: 15_000 }).toBe('idle')
 
@@ -263,24 +261,24 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
       await waitFor(() => existsSync(rearmedReadyFile), 'the re-armed child turn to open')
       expect(scaffold.ctx.agents.get(childId)?.status).toBe('running')
     } finally {
-      await page.unroute(pattern)
+      await page.unrouteAll({ behavior: 'wait' })
     }
   }, 60_000)
 
-  it('interrupts through subagent.interrupt, parks the follow-up, and resumes it FIFO', async () => {
+  it('interrupts through subagents/interruptByParent, parks the follow-up, and resumes it FIFO', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-interrupt-flow'))
     // Reselect the child with the truthful catalog: parent available again.
     await page.getByRole('navigation', { name: 'Session hierarchy' })
       .getByRole('button').first().click()
     await page.getByRole('button', { name: /1 subagent/ }).click()
     await page.getByRole('treeitem', { name: new RegExp(LABEL) }).click()
-    const input = page.getByRole('textbox', { name: 'Message the agent' })
+    const input = page.getByRole('textbox', { name: 'Message or run a task... / commands, @ files or sessions' })
     await input.waitFor({ timeout: 15_000 })
     expect(await input.isDisabled()).toBe(false)
 
     // Queue a follow-up through Send while independent Stop remains available.
     const promptResponse = page.waitForResponse(response =>
-      new URL(response.url()).pathname === '/api/subagent.prompt')
+      new URL(response.url()).pathname === '/api/subagents/prompt')
     await input.fill(FOLLOWUP)
     await page.getByRole('button', { name: 'Send message' }).click()
     expect(((await (await promptResponse).json()) as { result: { ok: boolean } }).result)
@@ -290,13 +288,13 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     const stop = page.getByRole('button', { name: 'Stop generating' })
     expect(await stop.count()).toBe(1)
     const interruptResponse = page.waitForResponse(response =>
-      new URL(response.url()).pathname === '/api/subagent.interrupt')
+      new URL(response.url()).pathname === '/api/subagents/interruptByParent')
     await stop.click()
     expect(((await (await interruptResponse).json()) as {
       result: { ok: boolean; value?: { accepted: boolean } }
     }).result).toMatchObject({ ok: true, value: { accepted: true } })
     // The addressed child stops through its own RPC, never the generic one.
-    expect(apiCalls.filter(path => path === '/api/session.cancel')).toEqual([])
+    expect(apiCalls.filter(path => path === '/api/session/cancel')).toEqual([])
     await aborted
 
     // Parked: the Activation stays resident and idle with the retained

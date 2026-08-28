@@ -10,11 +10,12 @@
 import { Context } from '@deepseek-ai/cordis'
 import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { describe, expect, it } from 'vitest'
-import {
-  SlotRegistry, type ConversationSnapshot, type SessionId, type SessionListState,
-  /** 中文说明：类型或类 SessionSummary 约束模块数据或组件职责。 */
-  type SessionSummary, type SubagentAddress,
-} from '@deepseek-ai/dsh-client-runtime/client'
+import type {
+  SessionListState, SessionSnapshot, SessionSummary,
+} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ComposerChainProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
 import {
@@ -143,13 +144,14 @@ describe('apply', () => {
     const select = composerEntry.select as (owner: ComposerChainProps) => SubagentReadOnlyMatch | null
     /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = (
-      subagent: ConversationSnapshot['subagent'] | undefined,
+      subagent: SessionSnapshot['subagent'] | undefined,
       running = false,
     ): ComposerChainProps => ({
-      interactions: [],
+      sessionId: subagent?.address.childSessionId,
       session: subagent === undefined
         ? undefined
-        : ({ subagent, running } as unknown as ConversationSnapshot),
+        : ({ subagent, running } as SessionSnapshot),
+      pendingInteraction: undefined,
     })
     expect(select(owner(undefined))).toBeNull()
     expect(select(owner(null))).toBeNull()
@@ -158,6 +160,7 @@ describe('apply', () => {
     // One-shot stays read-only even while running: it has no stop action.
     expect(select(owner({ address: { ...address, mode: 'one-shot' }, parentAvailable: true }, true)))
       .toEqual({ reason: 'one-shot' })
+    expect(select(owner({ address }))).toBeNull()
     expect(select(owner({ address, parentAvailable: true }))).toBeNull()
     expect(select(owner({ address, parentAvailable: false })))
       .toEqual({ reason: 'parent-unavailable' })

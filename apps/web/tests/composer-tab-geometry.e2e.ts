@@ -1,56 +1,6 @@
-// Web e2e scenario: the input card holds one horizontal position across the
-// Chat and Trajectory tabs.
-//
-// The composer seat is the same node in both tabs, but it measures itself
-// against a different edge in each (see
-// packages/client/ui-conversation/src/client/skeleton/ConversationRoot.module.css).
-// In Chat it is a sticky CHILD of the column's scroller, so it rides that
-// scroller's content box — the box a space-consuming scrollbar shortens. A view
-// that opts into a composer overlay (`data-conversation-composer-overlay`, which
-// Trajectory declares and which moves the column's own scrolling into the view)
-// gets an absolutely positioned seat instead, laid out against the padding box,
-// which the scrollbar never reduces.
-//
-// The column handles the two edges without reserving the gutter on both: Chat
-// keeps `scrollbar-gutter: stable` so its seat's content box never jumps as the
-// transcript starts to scroll; the overlay branch does NOT reserve (the view
-// owns its own scrollers, so a reserved gutter would only narrow the view's
-// content by the bar's width), and the overlay seat instead gives back the
-// bar's width (`right: var(--dsh-scrollbar-width)`) so both seats measure the
-// same width and the card does not move.
-//
-// Only a real engine can show this. The seat's geometry is layout: jsdom gives
-// every element a zero-sized box and reports no scrollbar at all, so a unit spec
-// can assert the declarations exist but not that the two states land in the same
-// place. What is asserted here is the user-visible fact — the card does not move
-// — measured as the distance between the two tabs' card rectangles.
-//
-// The browser is launched WITHOUT Playwright's default `--hide-scrollbars`,
-// which is load-bearing rather than incidental. Under that argument a scroll
-// container's bar consumes no layout width at all, so the two tabs agree with
-// and without the compensation and every comparison below holds vacuously —
-// measured: the uncompensated cascade leaves both tabs' bands at 0 there,
-// against 8 and 0 with the argument dropped. Dropping it is also the faithful
-// configuration: ui-theme's scrollbar.css gives `::-webkit-scrollbar` a width,
-// and a bar that occupies layout space is what the product actually draws.
-//
-// The scenario runs that uncompensated cascade in the page — the overlay seat's
-// `right` compensation dropped to 0 — and measures the same two tabs through
-// it, which is what keeps the equal rectangles above from being explained by a
-// tab switch that never reached the layout. It is the reported symptom as a
-// number: the card moves 4px, half the 8px band, on each edge.
-//
-// Zero model calls: a seeded cold session renders from its log, and switching
-// tabs asks the host for nothing. A stray stream would fail loud with NO_ADAPTER.
-// 冷会话仅切换标签，不请求主机模型；任何意外流请求都会以 NO_ADAPTER 失败。
-/**
- * 文件职责：验证聊天与轨迹标签中的编辑器卡片在宽窄视口下保持相同水平位置和宽度。
- * 技术维度：使用 Playwright、真实滚动条布局、CSS 变更对照和跨标签矩形几何测量。
- * 产品维度：用户切换聊天/轨迹或改变窗口宽度时，底部输入卡不会因滚动条边带左右跳动。
- * 逻辑维度：播种长会话，稳定响应式布局，测量两标签，再注入取消补偿 CSS 证明场景有效。
- * 关键边界：必须显示真实滚动条且禁用 Playwright hide-scrollbars；黄金只记录标签间相对位移。
- * 新手阅读建议：先理解 Chat sticky 与 Trajectory overlay 两种定位，再读 compareTabs 和对照样式。
- */
+// Browser geometry for the input card across Chat and Trajectory. The browser
+// must expose layout-consuming scrollbars, and an uncompensated control keeps
+// equal rectangles from passing vacuously.
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
@@ -63,20 +13,8 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-tab-geometry', import.meta.url))
-/**
- * Committed golden of where the input card sits in each tab, at a wide viewport
- * (card at its width cap) and a narrow one (card shrinking with the column).
- *
- * Absolute coordinates are deliberately absent: they depend on the sidebar's
- * laid-out width and on font metrics, so committing them would produce a fixture
- * that has to be re-recorded per platform. What is recorded is the distance
- * between the two tabs' rectangles, which is zero when the compensation holds and
- * the bar's width when it does not — including under the control, so the golden
- * carries the shift the uncompensated cascade produces rather than only its absence.
- */
-/* 记录宽窄视口中两标签卡片相对几何与无补偿对照的黄金文件。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/composer-tab-geometry', import.meta.url))
+/** Records platform-neutral distances between the two tabs' card rectangles. */
 const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
@@ -151,21 +89,13 @@ const CONTROL_CSS = `
 /** The column scroller and the input card as the browser lays them out, in one tab. */
 /* 单个标签下中心列滚动样式和编辑器卡片矩形指标。 */
 interface TabMetrics {
-  /** Resolved `scrollbar-gutter` on the column's scroller. */
   gutter: string
-  /** Resolved `overflow-x`: `hidden` in both states, so neither grows a horizontal bar. */
   overflowX: string
-  /** Resolved `overflow-y`: `auto` in both states, which is the form WebKit honours the gutter on. */
   overflowY: string
-  /** Border-box width minus client width: the space the scrollbar takes out of the content area. */
   band: number
-  /** True when the column's scroller actually scrolls — only Chat does. */
   scrolls: boolean
-  /** Left edge of the input card in viewport coordinates. */
   cardLeft: number
-  /** Right edge of the input card. */
   cardRight: number
-  /** Width of the input card, capped at the composer card max width. */
   cardWidth: number
 }
 
@@ -174,11 +104,8 @@ interface TabMetrics {
 interface TabComparison {
   chat: TabMetrics
   trajectory: TabMetrics
-  /** Distance between the two tabs' card left edges: 0 when the card holds its position. */
   leftShift: number
-  /** Distance between the two tabs' card right edges. */
   rightShift: number
-  /** Difference between the two tabs' card widths. */
   widthShift: number
 }
 
@@ -222,7 +149,7 @@ function measureTab(page: Page): Promise<TabMetrics> {
 async function showTab(page: Page, tab: 'Chat' | 'Trajectory'): Promise<void> {
   await page.getByRole('tab', { name: tab, exact: true }).click()
   if (tab === 'Trajectory') await page.getByLabel('Trajectory timeline').waitFor({ timeout: 30_000 })
-  else await page.locator('[data-conversation-scroll] [data-chat-anchor-key]').first().waitFor({ timeout: 30_000 })
+  else await page.locator('[data-conversation-scroll] [data-chat-anchor-key]:visible').first().waitFor({ timeout: 30_000 })
   // Both measurements are taken after a paint, so a rectangle read mid-transition
   // cannot be reported as a shift the cascade did not cause.
   // 两次测量都跨过两个绘制帧，避免把标签过渡中的矩形误报为位移。
@@ -340,12 +267,11 @@ describe('web e2e: input card position across view tabs', () => {
   beforeAll(async () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, FIXTURE.log, SEED_ID)
-    // Scrollbars must take layout space here or the scenario proves nothing;
-    // see the file header for the measurement behind dropping this argument.
+    // Scrollbars must take layout space here or the comparison is vacuous.
     browser = await chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] })
     page = await newEnglishPage(browser, WIDE_VIEWPORT.height)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await openSeededSession(page)
     await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 30_000 })

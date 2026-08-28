@@ -1,15 +1,4 @@
 // @vitest-environment jsdom
-// AttachmentRail behavior in the jsdom lane: item rendering and callbacks,
-// arrow paging over stubbed scroll geometry (jsdom lays nothing out), the
-// exclusive vertical-wheel pan, and the new-item end reveal.
-/**
- * 文件职责：验证附件的 attachment-rail.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染和可控替身。
- * 产品维度：防止附件用户流程发生回归。
- * 逻辑维度：构造输入、触发交互并断言输出与清理。
- * 关键边界：全局替身和异步任务必须在用例后清理。
- * 新手阅读建议：先读辅助函数，再按测试场景顺序阅读。
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'

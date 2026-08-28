@@ -32,7 +32,7 @@ async function setup(): Promise<Context> {
 /** 中文说明：函数值 provider 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const provider = (name: string): SubagentProvider => ({
   name,
-  capabilities: { outputSchema: false, depthLimit: false, toolFilter: false, persona: false },
+  capabilities: { agentOptions: false, outputSchema: false, depthLimit: false, toolFilter: false, persona: false },
   inheritsParentContext: false,
   start: async () => { throw new Error('not used') },
 })

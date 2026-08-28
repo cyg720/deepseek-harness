@@ -15,10 +15,10 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  AssistantMessageNode, ConversationNode, ConversationPromptSnapshot,
-  ConversationViewBuilder, ConversationViewDefinition, RequestView,
-  ToolCallBlock,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  AssistantMessageNode, ConversationNode, ConversationPromptSnapshot, ConversationViewBuilder,
+  ConversationViewDefinition, RequestPromptChange, RequestView, ToolCallBlock,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { COMPACTION_INTERRUPTED_ERROR } from './copy-codes.ts'
 import type {
   TrajectoryConversationViewNode, TrajectoryRequestHeaderState,
   TrajectorySnapshot,
@@ -53,28 +53,39 @@ function headerStepKey(header: TrajectoryRequestHeaderState): string | undefined
     : undefined
 }
 
-// 为一次 assistant 请求找它应挂的请求头：优先同 step 的，否则用更早的最近请求头。
+interface StepHeaders {
+  /** Latest full request snapshot in the step. */
+  latest: TrajectoryRequestHeaderState
+  /** Latest actual prompt change in the step, retained across a later series snapshot. */
+  change?: RequestPromptChange
+}
+
 function headerFor(
   request: AssistantRequest,
-  headersByStep: ReadonlyMap<string, TrajectoryRequestHeaderState>,
+  headersByStep: ReadonlyMap<string, StepHeaders>,
   previous: TrajectoryRequestHeaderState | undefined,
-): TrajectoryRequestHeaderState | undefined {
+): StepHeaders | undefined {
   return headersByStep.get(stepKey(request.turn, request.step))
-    ?? (previous !== undefined && previous.seq < request.startSeq ? previous : undefined)
+    ?? (previous !== undefined && previous.seq < request.startSeq
+      ? {
+        latest: previous,
+        ...(previous.change === undefined ? {} : { change: previous.change }),
+      }
+      : undefined)
 }
 
 // 把请求头快照应用到请求上（覆盖 prompt / requestConfig，可选附上 promptChange）。
 function applyHeader(
   request: AssistantRequest,
-  header: TrajectoryRequestHeaderState | undefined,
+  header: StepHeaders | undefined,
   includeChange: boolean,
 ): AssistantRequest {
   return header === undefined
     ? request
     : {
       ...request,
-      prompt: header.prompt,
-      requestConfig: header.prompt.config,
+      prompt: header.latest.prompt,
+      requestConfig: header.latest.prompt.config,
       ...(includeChange && header.change !== undefined ? { promptChange: header.change } : {}),
     }
 }
@@ -127,7 +138,7 @@ function interruptCompactions(
       ...request,
       completedAt: boundary.time,
       status: 'error',
-      error: 'Compaction was interrupted before completion.',
+      error: COMPACTION_INTERRUPTED_ERROR,
     }
   }
 }
@@ -135,7 +146,7 @@ function interruptCompactions(
 /** 把回合结束事件携带的错误挂到该回合最后一次 assistant 请求上。 */
 function applyTurnErrors(
   requests: RequestView[],
-  endings: readonly { turn: number; time: number; error?: string }[],
+  endings: readonly { turn: number; time: number; error?: string; errorCode?: string }[],
 ): void {
   const lastAssistantByTurn = new Map<number, number>()
   for (const [index, request] of requests.entries()) {
@@ -152,6 +163,7 @@ function applyTurnErrors(
       completedAt: request.completedAt ?? ending.time,
       status: 'error',
       error: ending.error,
+      ...(ending.errorCode === undefined ? {} : { errorCode: ending.errorCode }),
     }
   }
 }
@@ -204,17 +216,29 @@ export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
   }
 
   private snapshot(): TrajectorySnapshot {
-    const headersByStep = new Map<string, TrajectoryRequestHeaderState>()
+    const headersByStep = new Map<string, StepHeaders>()
     for (const contribution of this.contributions) {
       if (contribution.data.kind !== 'request-header') continue
       const key = headerStepKey(contribution.data.header)
-      if (key !== undefined) headersByStep.set(key, contribution.data.header)
+      if (key === undefined) continue
+      const previous = headersByStep.get(key)
+      headersByStep.set(key, {
+        latest: contribution.data.header,
+        ...(contribution.data.header.change !== undefined
+          ? { change: contribution.data.header.change }
+          : previous?.change === undefined ? {} : { change: previous.change }),
+      })
     }
     const finalized: ConversationNode[] = []
     const eventLocations = new Map<number, TrajectoryConversationViewNode['location']>()
     const requests: RequestView[] = []
     const boundaries: { seq: number; time: number }[] = []
-    const turnEndings: { turn: number; time: number; error?: string }[] = []
+    const turnEndings: {
+      turn: number
+      time: number
+      error?: string
+      errorCode?: string
+    }[] = []
     const callSchemas = new Map<string, ToolSchema>()
     const consumedPromptChanges = new Set<number>()
     let previousHeader: TrajectoryRequestHeaderState | undefined
@@ -238,13 +262,14 @@ export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
         const header = data.request === undefined
           ? undefined
           : headerFor(data.request, headersByStep, previousHeader)
-        if (data.node !== undefined) finalized.push(withRequestConfig(data.node, header?.prompt))
+        if (data.node !== undefined) finalized.push(withRequestConfig(data.node, header?.latest.prompt))
         if (data.partial !== null) partial = data.partial
         if (data.request !== undefined) {
-          const includeChange = header?.change !== undefined
-            && !consumedPromptChanges.has(header.seq)
+          const change = header?.change
+          const includeChange = change !== undefined
+            && !consumedPromptChanges.has(change.seq)
           requests.push(applyHeader(data.request, header, includeChange))
-          if (includeChange) consumedPromptChanges.add(header.seq)
+          if (includeChange) consumedPromptChanges.add(change.seq)
         }
         continue
       }
@@ -268,6 +293,7 @@ export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
         turn: data.turn,
         time: data.time,
         ...(data.error === undefined ? {} : { error: data.error }),
+        ...(data.errorCode === undefined ? {} : { errorCode: data.errorCode }),
       })
     }
 
@@ -316,5 +342,5 @@ export const trajectoryViewDefinition: ConversationViewDefinition<
  * @param ctx - 接收该视图 Definition 的插件上下文。
  */
 export function registerTrajectoryConversationView(ctx: Context): void {
-  ctx.conversationViews.register(trajectoryViewDefinition)
+  ctx.uiConversation.views.register(trajectoryViewDefinition)
 }

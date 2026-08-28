@@ -392,10 +392,9 @@ describe.skipIf(!isWin32 || !pwshAvailable())('windows-acl runner', () => {
     // workspace-write keeps the ACE standing for the server lifetime. After
     // switching to read-only, the restricted token's read-only list must carry NO
     // capability SID — the standing ACE stays but the pass-2 check cannot use
-    // it, so the workspace write is denied (previously it LEAKED). The
-    // switch back reuses the SAME standing ACE: the re-upgrade write lands
-    // without any re-grant.
-    /** 中文说明：变量 writeSid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    // it, so the workspace write is denied instead of leaking through the
+    // standing ACE. The switch back reuses the SAME standing ACE: the
+    // re-upgrade write lands without any re-grant.
     const writeSid = workspaceWriteSid(writableDir)
     /** 中文说明：变量 privateTemp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const privateTemp = join(isolatedTemp, 'mode-switch-temp')

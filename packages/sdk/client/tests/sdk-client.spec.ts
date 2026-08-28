@@ -17,7 +17,8 @@ import { mkdir, mkdtemp, readFile, realpath, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import {
   DeepSeekHarness,
   HarnessClient,
@@ -29,7 +30,9 @@ import {
   /** 中文说明：type HarnessNotification 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
   type HarnessNotification,
 } from '../src/index.ts'
-import { finalResponse, normalizeInput } from '../src/api.ts'
+import { createProcessDeepSeekHarness, finalResponse, normalizeInput } from '../src/api.ts'
+import { createProcessHarnessClient } from '../src/client.ts'
+import type { RuntimeProcessOptions } from '../src/launch.ts'
 
 /** 中文说明：变量 fakeRuntime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeRuntime = fileURLToPath(new URL('./fake-runtime.ts', import.meta.url))
@@ -41,24 +44,26 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
 })
 
-/** 中文说明：type LaunchOverrides 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
-type LaunchOverrides = Partial<ConstructorParameters<typeof HarnessClient>[0]>
+type LaunchOverrides = Partial<RuntimeProcessOptions>
 
 /** Launch options running the fake runtime on the current node (type stripping). */
-/* 中文说明：函数 fakeLaunch 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-function fakeLaunch(env: Record<string, string> = {}, extra: LaunchOverrides = {}) {
+function fakeLaunch(env: Record<string, string> = {}, extra: LaunchOverrides = {}): RuntimeProcessOptions {
   return {
     command: process.execPath,
     args: [fakeRuntime],
-    env: { ...process.env as Record<string, string>, ...env },
+    environment: () => ({ ...process.env as Record<string, string>, ...env }),
+    description: 'scripted fake runtime',
+    initializeTimeoutMs: 5_000,
     ...extra,
   }
 }
 
-/** 中文说明：函数 harnessWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+function processClient(options: RuntimeProcessOptions): HarnessClient {
+  return createProcessHarnessClient(options)
+}
+
 function harnessWith(env: Record<string, string> = {}, extra: LaunchOverrides = {}): DeepSeekHarness {
-  /** 中文说明：变量 harness 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const harness = new DeepSeekHarness({ launch: fakeLaunch(env, extra) })
+  const harness = createProcessDeepSeekHarness(fakeLaunch(env, extra))
   cleanups.push(() => harness.close())
   return harness
 }
@@ -177,17 +182,15 @@ describe('DeepSeekHarness', () => {
     await harness.close()
   })
 
-  it('sends the configured cwd/provider/model/maxTokens in the handshake exactly once', async () => {
-    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('sends the configured cwd/provider/model/reasoningEffort/maxTokens in the handshake exactly once', async () => {
     const dir = await tempDir('sdk-client-init-')
     /** 中文说明：变量 recordFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recordFile = join(dir, 'init.jsonl')
-    /** 中文说明：变量 harness 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const harness = new DeepSeekHarness({
-      launch: fakeLaunch({ FAKE_RECORD_INIT: recordFile }),
+    const harness = createProcessDeepSeekHarness(fakeLaunch({ FAKE_RECORD_INIT: recordFile }), {
       cwd: dir,
       provider: 'custom-provider',
       model: 'custom-model',
+      reasoningEffort: ReasoningEffortId('max'),
       maxTokens: 4096,
     })
     cleanups.push(() => harness.close())
@@ -200,6 +203,7 @@ describe('DeepSeekHarness', () => {
       cwd: dir,
       provider: 'custom-provider',
       model: 'custom-model',
+      reasoningEffort: 'max',
       maxTokens: 4096,
     }])
   })
@@ -218,10 +222,9 @@ describe('DeepSeekHarness', () => {
     /** 中文说明：变量 relativeCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const relativeCwd = relative(process.cwd(), inner)
     expect(isAbsolute(relativeCwd)).toBe(false)
-    /** 中文说明：变量 harness 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const harness = new DeepSeekHarness({
-      launch: fakeLaunch({ FAKE_RECORD_INIT: recordFile, FAKE_ECHO_CWD_IN_INIT: '1' }, { cwd: relativeCwd }),
-    })
+    const harness = createProcessDeepSeekHarness(
+      fakeLaunch({ FAKE_RECORD_INIT: recordFile, FAKE_ECHO_CWD_IN_INIT: '1' }, { cwd: relativeCwd }),
+    )
     cleanups.push(() => harness.close())
     await harness.start()
     /** 中文说明：变量 identity 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -249,6 +252,48 @@ describe('DeepSeekHarness', () => {
     expect(failure).toMatchObject({ code: 7, message: 'scripted init failure', data: { hint: 'fake' } })
     // The failed handshake reset lets a later start retry instead of wedging.
     await expect(harness.run('later')).rejects.toThrow()
+  })
+
+  it('preserves both initialize and SDK-owned cleanup failures', async () => {
+    const initializeError = new SdkProtocolError('malformed initialize')
+    const cleanupError = new Error('cleanup failed')
+    const start = vi.spyOn(HarnessClient.prototype, 'start').mockImplementation(() => {})
+    const initialize = vi.spyOn(HarnessClient.prototype, 'initialize').mockRejectedValue(initializeError)
+    const close = vi.spyOn(HarnessClient.prototype, 'close').mockRejectedValue(cleanupError)
+    try {
+      const harness = createProcessDeepSeekHarness(fakeLaunch())
+      const failedClient = harness.client
+      const failure = await harness.start().catch((error: unknown) => error)
+      expect(failure).toBeInstanceOf(AggregateError)
+      expect((failure as AggregateError).errors).toEqual([initializeError, cleanupError])
+      expect((failure as Error).message).toBe('DeepSeek Harness initialization and cleanup failed')
+      expect(harness.client).toBe(failedClient)
+    } finally {
+      start.mockRestore()
+      initialize.mockRestore()
+      close.mockRestore()
+    }
+  })
+
+  it('does not replace the client after terminal close wins a failed handshake', async () => {
+    let rejectInitialize!: (error: Error) => void
+    const initializeResult = new Promise<never>((_resolve, reject) => { rejectInitialize = reject })
+    const start = vi.spyOn(HarnessClient.prototype, 'start').mockImplementation(() => {})
+    const initialize = vi.spyOn(HarnessClient.prototype, 'initialize').mockReturnValue(initializeResult)
+    const close = vi.spyOn(HarnessClient.prototype, 'close').mockResolvedValue()
+    try {
+      const harness = createProcessDeepSeekHarness(fakeLaunch())
+      const original = harness.client
+      const pending = harness.start()
+      await harness.close()
+      rejectInitialize(new SdkProtocolError('late initialize failure'))
+      await expect(pending).rejects.toThrow('late initialize failure')
+      expect(harness.client).toBe(original)
+    } finally {
+      start.mockRestore()
+      initialize.mockRestore()
+      close.mockRestore()
+    }
   })
 
   it('retries a failed handshake with a fresh runtime process', async () => {
@@ -282,7 +327,7 @@ describe('DeepSeekHarness', () => {
     /** 中文说明：变量 captured 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let captured: DeepSeekHarness
     {
-      await using harness = new DeepSeekHarness({ launch: fakeLaunch() })
+      await using harness = createProcessDeepSeekHarness(fakeLaunch())
       captured = harness
       /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await harness.run('scoped')
@@ -291,22 +336,45 @@ describe('DeepSeekHarness', () => {
     // After scope exit the runtime is closed: reuse fails loudly.
     await expect(captured.run('after')).rejects.toThrow(TransportClosedError)
   })
+
+  it('constructs the public dsh-backed client lazily', async () => {
+    const harness = new DeepSeekHarness()
+    expect(harness.client).toBeInstanceOf(HarnessClient)
+    await harness.close()
+  })
 })
 
 describe('HarnessClient', () => {
+  it('bounds profile initialization and names the selected profile in its diagnostic', async () => {
+    const client = processClient(fakeLaunch(
+      { FAKE_HANG_INIT: '1' },
+      {
+        description: 'dsh profile "profile-without-sdk-server"',
+        initializeTimeoutMs: 50,
+        disposeEofGraceMs: 100,
+        disposeGraceMs: 100,
+      },
+    ))
+    cleanups.push(() => client.close())
+    await expect(client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }))
+      .rejects.toThrow(/initialize timed out after 50ms waiting for dsh profile "profile-without-sdk-server"/)
+    await client.close()
+  })
+
   it('times out a hung request at the per-call bound', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch({ FAKE_HANG_PROMPT: '1' }))
+    const client = processClient(fakeLaunch({
+      FAKE_HANG_PROMPT: '1',
+      FAKE_STDERR: 'runtime accepted initialize but hung the prompt',
+    }))
     cleanups.push(() => client.close())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     await expect(client.request('session/prompt', { sessionId: 's', contentBlocks: normalizeInput('hi') }, 200))
-      .rejects.toThrow(RequestTimeoutError)
+      .rejects.toThrow(/session\/prompt timed out.*stderr tail:\nruntime accepted initialize but hung the prompt/s)
     await client.close()
   })
 
   it('a timed-out request leaves no pending transport state', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch({ FAKE_HANG_PROMPT: '1' }))
+    const client = processClient(fakeLaunch({ FAKE_HANG_PROMPT: '1' }))
     cleanups.push(() => client.close())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
@@ -324,8 +392,7 @@ describe('HarnessClient', () => {
   })
 
   it('applies the client-wide request timeout when no per-call bound is given', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch({ FAKE_HANG_PROMPT: '1' }, { requestTimeoutMs: 400 }))
+    const client = processClient(fakeLaunch({ FAKE_HANG_PROMPT: '1' }, { requestTimeoutMs: 400 }))
     cleanups.push(() => client.close())
     // The bound applies from send, so it holds regardless of runtime boot time.
     await expect(client.prompt('s', normalizeInput('hi'))).rejects.toThrow(RequestTimeoutError)
@@ -333,16 +400,14 @@ describe('HarnessClient', () => {
   })
 
   it('rejects a malformed prompt acceptance as a protocol error', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch({ FAKE_MALFORMED: '1' }))
+    const client = processClient(fakeLaunch({ FAKE_MALFORMED: '1' }))
     cleanups.push(() => client.close())
     await expect(client.prompt('s', normalizeInput('hi'))).rejects.toThrow(SdkProtocolError)
     await client.close()
   })
 
   it('fails pending requests with exit code and stderr tail when the runtime dies', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch({ FAKE_EXIT_BEFORE_INIT: '1', FAKE_STDERR: 'fatal: scripted death' }))
+    const client = processClient(fakeLaunch({ FAKE_EXIT_BEFORE_INIT: '1', FAKE_STDERR: 'fatal: scripted death' }))
     cleanups.push(() => client.close())
     /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }).then(
@@ -357,8 +422,7 @@ describe('HarnessClient', () => {
   })
 
   it('flushes an unterminated stderr line into the tail at close', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch({ FAKE_STDERR_NO_NEWLINE: 'no trailing newline', FAKE_EXIT_BEFORE_INIT: '1' }))
+    const client = processClient(fakeLaunch({ FAKE_STDERR_NO_NEWLINE: 'no trailing newline', FAKE_EXIT_BEFORE_INIT: '1' }))
     cleanups.push(() => client.close())
     /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }).then(
@@ -368,23 +432,30 @@ describe('HarnessClient', () => {
     expect(String(failure)).toContain('no trailing newline')
   })
 
-  it('fails fast when the command does not exist', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient({ command: join(tmpdir(), 'dsh-no-such-runtime-bin') })
+  it('fails when the configured dsh CLI module does not exist', async () => {
+    const client = new HarnessClient({ dshBin: join(tmpdir(), 'dsh-no-such-runtime-bin') })
     cleanups.push(() => client.close())
     await expect(client.request('initialize', {}, 1_000)).rejects.toThrow(TransportClosedError)
   })
 
+  it('reports a generic process spawn failure to internal transports', async () => {
+    const client = processClient(fakeLaunch({}, {
+      command: join(tmpdir(), 'dsh-no-such-process-command'),
+      args: [],
+    }))
+    cleanups.push(() => client.close())
+    await expect(client.request('initialize', {}, 1_000))
+      .rejects.toThrow(/spawn error:.*ENOENT/s)
+  })
+
   it('close() is idempotent, reaps the child, and fails later use', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch())
+    const client = processClient(fakeLaunch())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     await Promise.all([client.close(), client.close()])
     expect(() => { client.start() }).toThrow(TransportClosedError)
     await expect(client.request('anything')).rejects.toThrow(TransportClosedError)
     // Close with no child ever spawned is a no-op.
-    /** 中文说明：变量 untouched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const untouched = new HarnessClient(fakeLaunch())
+    const untouched = processClient(fakeLaunch())
     await untouched.close()
   })
 
@@ -393,8 +464,7 @@ describe('HarnessClient', () => {
     const dir = await tempDir('sdk-client-ladder-')
     /** 中文说明：变量 sigtermFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sigtermFile = join(dir, 'sigterm.txt')
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch(
+    const client = processClient(fakeLaunch(
       { FAKE_IGNORE_EOF: '1', FAKE_SIGTERM_FILE: sigtermFile },
       { shutdownTimeoutMs: 100, disposeEofGraceMs: 100, disposeGraceMs: 1_000 },
     ))
@@ -408,8 +478,7 @@ describe('HarnessClient', () => {
   })
 
   it('escalates to SIGKILL when the runtime traps SIGTERM too', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch(
+    const client = processClient(fakeLaunch(
       { FAKE_IGNORE_EOF: '1', FAKE_TRAP_SIGTERM: '1' },
       { shutdownTimeoutMs: 100, disposeEofGraceMs: 100, disposeGraceMs: 300 },
     ))
@@ -419,8 +488,7 @@ describe('HarnessClient', () => {
   })
 
   it('delivers notifications to unfiltered and filtered subscriptions in wire order', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch())
+    const client = processClient(fakeLaunch())
     cleanups.push(() => client.close())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
 
@@ -462,8 +530,7 @@ describe('HarnessClient', () => {
   })
 
   it('contains a throwing filter to its own subscription', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch())
+    const client = processClient(fakeLaunch())
     cleanups.push(() => client.close())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
 
@@ -486,8 +553,7 @@ describe('HarnessClient', () => {
   })
 
   it('close() drops queued notifications; runtime death keeps them drainable', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch())
+    const client = processClient(fakeLaunch())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const closed = client.subscribe()
@@ -506,23 +572,20 @@ describe('HarnessClient', () => {
   })
 
   it('subscriptions created after termination are born failed', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch())
+    const client = processClient(fakeLaunch())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     await client.close()
     // No producer can ever feed this subscription; next() must not park forever.
     await expect(client.subscribe().next()).rejects.toThrow(TransportClosedError)
 
-    /** 中文说明：变量 dead 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const dead = new HarnessClient(fakeLaunch({ FAKE_EXIT_BEFORE_INIT: '1' }))
+    const dead = processClient(fakeLaunch({ FAKE_EXIT_BEFORE_INIT: '1' }))
     cleanups.push(() => dead.close())
     await dead.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }).catch(() => {})
     await expect(dead.subscribe().next()).rejects.toThrow(TransportClosedError)
   })
 
   it('closes subscriptions with the runtime and rejects parked waiters', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch())
+    const client = processClient(fakeLaunch())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     /** 中文说明：变量 subscription 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const subscription = client.subscribe()
@@ -533,8 +596,7 @@ describe('HarnessClient', () => {
   })
 
   it('scopes the session tree across multi-hop lineage and ignores foreign sessions', async () => {
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch())
+    const client = processClient(fakeLaunch())
     cleanups.push(() => client.close())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
 
@@ -586,14 +648,25 @@ describe('wire payload validation', () => {
     await expect(harness.run('no-data')).rejects.toThrow(SdkProtocolError)
   })
 
+  it.each(['1', 'aborted', 'abort-unknown', 'hook', 'no-data'])('rejects malformed turn/end input %s as a protocol error', async (mode) => {
+    const harness = harnessWith({ FAKE_MALFORMED_REASON: mode })
+    await expect(harness.run('bad-reason')).rejects.toThrow(SdkProtocolError)
+  })
+
+  it('accepts the complete hook cancellation cause', async () => {
+    const harness = harnessWith({ FAKE_REASON_KIND: 'aborted', FAKE_ABORT_REASON_KIND: 'hook' })
+    const result = await harness.run('hook-abort')
+    const end = result.events.findLast(event => event.type === 'turn/end')
+    expect(end?.data.reason).toEqual({ kind: 'aborted', reason: { kind: 'hook', reason: 'scripted hook abort' } })
+  })
+
 })
 
 describe('stderr tail bound', () => {
   it('keeps only the newest lines up to the limit', async () => {
     /** 中文说明：函数值 manyLines 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const manyLines = Array.from({ length: 450 }, (_, i) => `line-${i}`).join('\n')
-    /** 中文说明：变量 client 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const client = new HarnessClient(fakeLaunch({ FAKE_STDERR: manyLines, FAKE_EXIT_BEFORE_INIT: '1' }))
+    const client = processClient(fakeLaunch({ FAKE_STDERR: manyLines, FAKE_EXIT_BEFORE_INIT: '1' }))
     cleanups.push(() => client.close())
     /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }).then(

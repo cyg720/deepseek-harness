@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { CodeRuntime } from '@deepseek-ai/dsh-code-runtime'
 import type { CodeRunRequest, CodeRunResult } from '@deepseek-ai/dsh-code-runtime'
-import { CallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmModelInfo, LlmResolvedModelInfo, Message, StreamChunk } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { RUN_CODE_NAME } from '@deepseek-ai/dsh-tools'
@@ -78,8 +78,7 @@ class CatalogAdapter extends LlmAdapter {
   }
 }
 
-/** In-process Code Mode seam fake that invokes the real registry bindings. */
-/* 中文说明：类型或类 FakeRuntime 约束文件或目标数据职责。 */
+/** In-process PTC mode seam fake that invokes the real registry bindings. */
 class FakeRuntime extends CodeRuntime {
   readonly language = 'typescript'
   readonly isolation = 'fake'
@@ -120,7 +119,7 @@ async function setup(options: SetupOptions = {}) {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime, { mode: options.toolMode ?? 'native' })
-  if (options.toolMode === 'code' || options.toolMode === 'both') {
+  if (options.toolMode === 'ptc' || options.toolMode === 'both') {
     await ctx.plugin(FakeRuntime)
   }
   await ctx.plugin(LocalFileSystem, { cwd: dir })
@@ -160,7 +159,7 @@ let callCounter = 0
 function call(ctx: Context, name: string, args: unknown, agent?: object) {
   return ctx.tools.execute({
     signal: testToolSignal,
-    callId: CallId(`img-call-${++callCounter}`),
+    callId: ToolCallId(`img-call-${++callCounter}`),
     name,
     arguments: args,
     ...agent ? { agent: agent as never } : {},
@@ -261,11 +260,9 @@ describe('read_image happy path', () => {
     expect(result.isError).toBe(false)
   })
 
-  it('forwards a nested Code Mode image through the outer run_code context', async () => {
+  it('forwards a nested PTC mode image through the outer run_code context', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
-    const ctx = await setup({ toolMode: 'code' })
-    /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
+    const ctx = await setup({ toolMode: 'ptc' })
     const runtime = ctx.codeRuntime as FakeRuntime
     runtime.behavior = async (request) => {
       /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
@@ -276,7 +273,7 @@ describe('read_image happy path', () => {
     /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await call(ctx, RUN_CODE_NAME, {
       code: 'return await tools.read_image({ file_path: "red.png" })',
-      description: 'Read the image through Code Mode',
+      description: 'Read the image through PTC mode',
     }, agentOn('vision-model'))
 
     expect(result.isError).toBe(false)
@@ -680,7 +677,7 @@ describe('registration surface', () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
     expect(ctx.tools.executionMode({
-      signal: testToolSignal, callId: CallId('img-parallel'), name: 'read_image', arguments: { file_path: 'a.png' },
+      signal: testToolSignal, callId: ToolCallId('img-parallel'), name: 'read_image', arguments: { file_path: 'a.png' },
     })).toEqual({ kind: 'parallel' })
     expect(ctx.tools.get('read_image')?.presentCall?.({ file_path: 'shot.png' })).toEqual({
       card: 'generic',

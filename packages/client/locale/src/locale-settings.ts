@@ -25,13 +25,18 @@ export const LOCALE_SETTINGS_NAMESPACE = 'locale'
 /* 携带显式语言选择的字段；缺失时委托给浏览器。 */
 export const LOCALE_PREFERENCE_FIELD = 'preference'
 
+/** Accepted BCP 47-style language ids. */
+export const LOCALE_ID_PATTERN = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u
+
 /** Locale identifiers shipped by the browser client. */
 /* 浏览器客户端发货的语言标识符。 */
 export const LOCALE_IDS = ['zh', 'en'] as const
 
-/** Shipped locale identifier. */
-/* 发货语言标识符。 */
-export type LocaleId = typeof LOCALE_IDS[number]
+/** Locale identifier shipped by the browser client. */
+export type BuiltInLocaleId = typeof LOCALE_IDS[number]
+
+/** Open locale identifier accepted from language-pack plugins. */
+export type LocaleId = string
 
 /** Durable locale section shared by the Host schema and the browser scope. */
 /* Host schema 与浏览器作用域共享的持久化语言段。 */
@@ -44,5 +49,5 @@ export interface LocaleSettings {
 /** Durable locale schema; also the wire envelope the browser scope validates against. */
 /* 持久化语言 schema；也是浏览器作用域校验的线信封。 */
 export const LocaleSettingsSchema: z<LocaleSettings> = z.object({
-  [LOCALE_PREFERENCE_FIELD]: z.union([...LOCALE_IDS]).required(false),
+  [LOCALE_PREFERENCE_FIELD]: z.string().pattern(LOCALE_ID_PATTERN).required(false),
 })

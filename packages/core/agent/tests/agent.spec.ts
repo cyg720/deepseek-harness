@@ -183,7 +183,7 @@ describe('AgentRegistry', () => {
     await ctx.plugin(TypertRegistry)
     /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = stubAgent('remote-agent')
-    /** 中文说明：测试局部值 disposeAgent，由紧邻初始化决定，仅在当前场景使用。 */
+    Object.defineProperty(agent, 'ctx', { value: agent.ctx.extend({ agent }) })
     const disposeAgent = ctx.agents.register(agent)
 
     /** 中文说明：测试局部值 lookup，由紧邻初始化决定，仅在当前场景使用。 */
@@ -195,7 +195,10 @@ describe('AgentRegistry', () => {
       wireTypeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
     })
     expect(lookup?.resolve(agent.id)).toBe(agent)
-    expect(ctx.typert.contexts.getHost('agent')?.resolve(agent.id)).toBe(agent.ctx)
+    const context = ctx.typert.contexts.getHost('agent')
+    expect(context?.identity(agent.ctx)).toBe(agent.id)
+    expect(context?.identity(ctx)).toBeUndefined()
+    expect(context?.resolve(agent.id)).toBe(agent.ctx)
 
     disposeAgent()
     expect(lookup?.resolve(agent.id)).toBeUndefined()

@@ -24,6 +24,7 @@ import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import TeamService, { foldTeam, TeamId, TeamMessageId } from '../src/index.ts'
 import type { TeamMemberSnapshot, TeamMessageSnapshot, TeamTaskSnapshot } from '../src/index.ts'
+import { TestSessionQuery } from './test-session-query.ts'
 
 /** 中文说明：测试局部值 SIGNAL，由紧邻初始化决定。 */
 const SIGNAL = new AbortController().signal
@@ -116,6 +117,7 @@ async function stack(
   contexts.add(ctx)
   await mountAgentLoopTestDependencies(ctx)
   await backend.mount(ctx, root)
+  await ctx.plugin(TestSessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(SubagentService)
   await ctx.plugin(SubagentSpawn, { providerName: 'spawn' })

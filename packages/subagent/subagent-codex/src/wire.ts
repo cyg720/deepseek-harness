@@ -1,5 +1,5 @@
 /**
- * Minimal Codex app-server 0.147.0 protocol adapter. The shared JSON-RPC
+ * Minimal Codex app-server 0.149.1 protocol adapter. The shared JSON-RPC
  * transport owns framing and request correlation; this module owns only the
  * product methods, current thread/turn association, unattended approval
  * responses, and terminal-answer selection.
@@ -28,7 +28,14 @@ type JsonObject = Record<string, unknown>
 /* 中文说明：interface CodexWireFailureFacts 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface CodexWireFailureFacts {
   readonly stage: 'turn-start' | 'turn'
-  readonly category: string
+  readonly category:
+    | 'limit'
+    | 'access-policy'
+    | 'service'
+    | 'transport'
+    | 'product-error'
+    | 'invalid-result'
+    | 'unknown'
   readonly httpStatus?: number | undefined
 }
 
@@ -46,47 +53,6 @@ const THREAD_PERMISSION_PARAMS: Readonly<Record<CodexPermissionMode, JsonObject>
   },
 }
 
-/** 中文说明：常量 STDERR_PERMISSION_SIGNATURES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const STDERR_PERMISSION_SIGNATURES = [
-  {
-    text: 'approval policy is Never; reject command',
-    request: 'command execution',
-    decision: 'denied',
-    reason: 'Codex rejected an escalation because the selected policy never asks for approval',
-  },
-  {
-    text: 'recorded sandbox violation:',
-    request: 'sandbox execution',
-    decision: 'failed',
-    reason: 'Codex reported a sandbox violation',
-  },
-] as const
-
-/** 中文说明：常量 STDERR_SIGNATURE_TAIL_CHARS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const STDERR_SIGNATURE_TAIL_CHARS = Math.max(
-  ...STDERR_PERMISSION_SIGNATURES.map(signature => signature.text.length),
-) - 1
-
-/** 中文说明：函数 stderrSignatureTail 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function stderrSignatureTail(value: string): string {
-  /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
-  for (
-    /** 中文说明：变量 length 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    let length = Math.min(STDERR_SIGNATURE_TAIL_CHARS, value.length)
-    ; length > 0
-    ; length -= 1
-  ) {
-    /** 中文说明：变量 tail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const tail = value.slice(-length)
-    if (STDERR_PERMISSION_SIGNATURES.some(signature =>
-      tail.length < signature.text.length && signature.text.startsWith(tail))) {
-      return tail
-    }
-  }
-  return ''
-}
-
-/** 中文说明：函数 object 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function object(value: unknown, label: string): JsonObject {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`subagent-codex: app-server returned invalid ${label}`)
@@ -124,12 +90,14 @@ function numericHttpStatus(value: unknown): number | undefined {
     : undefined
 }
 
-/** 中文说明：函数 objectFailureInfo 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function objectFailureInfo(value: JsonObject): {
-  readonly category: string
+interface ParsedFailureInfo {
+  readonly category: CodexWireFailureFacts['category']
   readonly httpStatus?: number | undefined
-} {
-  /** 中文说明：变量 keys 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  readonly maxTokens?: true
+  readonly sandboxFailure?: true
+}
+
+function objectFailureInfo(value: JsonObject): ParsedFailureInfo {
   const keys = Object.keys(value)
   /** 中文说明：变量 category 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const category = keys[0]
@@ -152,21 +120,17 @@ function objectFailureInfo(value: JsonObject): {
       /** 中文说明：变量 httpStatus 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const httpStatus = numericHttpStatus(fields.httpStatusCode)
       return httpStatus === undefined
-        ? { category }
-        : { category, httpStatus }
+        ? { category: 'transport' }
+        : { category: 'transport', httpStatus }
     }
     case 'activeTurnNotSteerable':
-      return { category }
+      return { category: 'product-error' }
     default:
       return { category: 'unknown' }
   }
 }
 
-/** 中文说明：函数 failureInfo 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function failureInfo(turn: JsonObject): {
-  readonly category: string
-  readonly httpStatus?: number | undefined
-} {
+function failureInfo(turn: JsonObject): ParsedFailureInfo {
   if (turn.status !== 'failed') return { category: 'unknown' }
   /** 中文说明：变量 error 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const error = turn.error
@@ -178,17 +142,23 @@ function failureInfo(turn: JsonObject): {
   if (typeof info === 'string') {
     switch (info) {
       case 'contextWindowExceeded':
+        return { category: 'limit', maxTokens: true }
       case 'sessionBudgetExceeded':
       case 'usageLimitExceeded':
+        return { category: 'limit' }
       case 'serverOverloaded':
-      case 'cyberPolicy':
       case 'internalServerError':
+        return { category: 'service' }
+      case 'cyberPolicy':
+      case 'misalignmentPolicyViolation':
       case 'unauthorized':
+        return { category: 'access-policy' }
       case 'badRequest':
       case 'threadRollbackFailed':
-      case 'sandboxError':
       case 'other':
-        return { category: info }
+        return { category: 'product-error' }
+      case 'sandboxError':
+        return { category: 'access-policy', sandboxFailure: true }
       default:
         return { category: 'unknown' }
     }
@@ -275,7 +245,6 @@ export class CodexAppServerWire {
     readonly decision: Parameters<typeof unattendedDiagnostic>[2]
     readonly reason: string
   } | undefined
-  private stderrTail = ''
   private inputEnded = false
   private terminalObserved = false
   private closed = false
@@ -284,6 +253,7 @@ export class CodexAppServerWire {
     private readonly input: Readable,
     output: Writable,
     private readonly permissionMode: CodexPermissionMode,
+    private readonly model?: string,
   ) {
     this.transport = new JsonRpcLineTransport(input, output)
     // Fatal protocol state can arrive after the current guarded operation has
@@ -349,6 +319,7 @@ export class CodexAppServerWire {
     const response = object(await this.guarded(this.transport.request('thread/start', {
       cwd,
       ephemeral: true,
+      ...this.model === undefined ? {} : { model: this.model },
       ...THREAD_PERMISSION_PARAMS[this.permissionMode],
     }, signal), signal), 'thread/start response')
     /** 中文说明：变量 thread 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -420,7 +391,7 @@ export class CodexAppServerWire {
           category: parsed.category,
           httpStatus: parsed.httpStatus,
         })
-      if (parsed.category === 'sandboxError') {
+      if (parsed.sandboxFailure) {
         this.recordDiagnostic(
           'sandbox execution',
           'failed',
@@ -428,7 +399,7 @@ export class CodexAppServerWire {
           completed.order,
         )
       }
-      if (parsed.category === 'contextWindowExceeded') {
+      if (parsed.maxTokens) {
         return { output: this.collectOutput(), stopReason: 'max-tokens' }
       }
       /** 中文说明：变量 detail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -438,7 +409,7 @@ export class CodexAppServerWire {
     /** 中文说明：变量 output 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = this.collectOutput()
     if (output.length === 0) {
-      this.recordFailure({ stage: 'turn', category: 'unknown' })
+      this.recordFailure({ stage: 'turn', category: 'invalid-result' })
       throw new Error('subagent-codex: Codex completed without a final answer')
     }
     return { output, stopReason: 'completed' }
@@ -483,33 +454,6 @@ export class CodexAppServerWire {
    */
   collectFailure(): CodexWireFailureFacts {
     return this.failure as CodexWireFailureFacts
-  }
-
-  /**
-   * Observe product stderr while retaining only enough tail to recognize fixed
-   * permission signatures. The raw text is never copied into the diagnostic.
-   * @param chunk - one decoded stderr chunk already forwarded to the host.
-   */
-  observeStderr(chunk: string): void {
-    /** 中文说明：变量 observed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const observed = `${this.stderrTail}${chunk}`
-    /** 中文说明：变量 latestIndex 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    let latestIndex = -1
-    /** 中文说明：变量 latest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    let latest: (typeof STDERR_PERMISSION_SIGNATURES)[number] | undefined
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
-    for (const signature of STDERR_PERMISSION_SIGNATURES) {
-      /** 中文说明：变量 index 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-      const index = observed.lastIndexOf(signature.text)
-      if (index > latestIndex) {
-        latestIndex = index
-        latest = signature
-      }
-    }
-    if (latest !== undefined) {
-      this.recordDiagnostic(latest.request, latest.decision, latest.reason)
-    }
-    this.stderrTail = stderrSignatureTail(observed)
   }
 
   /** Detach JSON-RPC listeners and reject outstanding requests. Idempotent. */

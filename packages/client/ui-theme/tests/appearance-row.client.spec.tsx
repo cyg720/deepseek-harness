@@ -1,17 +1,9 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证主题与设计系统的 appearance-row.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
- * 产品维度：防止主题与设计系统显示、导航或生命周期回归。
- * 逻辑维度：构造状态，触发交互并断言输出和清理。
- * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
- * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
- */
-/** AppearanceRow behavior: three cubes, selection follows the persisted
- * preference, clicks drive setTheme. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { createSnapshotStore, type SessionListState, type WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { AppearanceRow } from '../src/client/AppearanceRow.tsx'
 import type { AppearanceRowComponentProps } from '../src/client/AppearanceRow.tsx'
@@ -28,8 +20,6 @@ const COPY: Record<string, string> = {
   'appearance.system': 'System',
 }
 
-/** Empty global standard-kit hooks (the row reads neither). */
-/* 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emptySessions() {
   /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<SessionListState>(
@@ -38,15 +28,16 @@ function emptySessions() {
 }
 /** 中文说明：函数 emptyWorkspaces 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emptyWorkspaces() {
-  /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
-  const store = createSnapshotStore<WorkspaceListState>({
+  const store = createSnapshotStore<WorkspaceSnapshot>({
     items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-    baselinesReady: true, recentWorkspaceId: undefined,
   })
   return bindSnapshotSelector(store)
 }
 
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+type AttentionSnapshot = Parameters<Parameters<AppearanceRowComponentProps['useSessionPendingInteraction']>[0]>[0]
+const noAttention: AttentionSnapshot = new Map()
+const useSessionPendingInteraction: AppearanceRowComponentProps['useSessionPendingInteraction'] = selector => selector(noAttention)
+
 function mount(preference: ThemePreference = 'system') {
   // Real store instance — the sanctioned zero-machinery path for tests.
   /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
@@ -57,6 +48,7 @@ function mount(preference: ThemePreference = 'system') {
   /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props: AppearanceRowComponentProps = {
     useSessions: emptySessions(),
+    useSessionPendingInteraction,
     useWorkspaces: emptyWorkspaces(),
     useStore: bindSnapshotSelector(store),
     actions: store.actions,

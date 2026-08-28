@@ -16,7 +16,8 @@ import { StrictMode } from 'react'
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type * as Md from 'mdast'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText } from './markdown-test-components.tsx'
+import { markdownLabels } from './labels.client.ts'
 import {
   collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection,
 } from '../src/markdown/render.tsx'
@@ -28,7 +29,7 @@ afterEach(cleanup)
 function makeContext(): MarkdownRenderContext {
   return {
     streaming: false,
-    codeLabels: undefined,
+    labels: markdownLabels,
     fileMentions: undefined,
     targets: createReferenceTargets(),
     footnoteOrder: [],

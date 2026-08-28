@@ -421,6 +421,19 @@ describe('Zstandard frame structure', () => {
 })
 
 describe('JsonlSessionPersistence: default Zstandard encoding', () => {
+  it('materializes an explicitly durable empty session as one header frame', async () => {
+    const root = await freshRoot()
+    const ctx = await mount(root)
+    const session = ctx.sessions.create(SessionId('empty-zstd'), { meta: { cwd: '/work' } })
+
+    await ctx.sessionPersistence.ensureMaterialized(session)
+
+    const buffer = await readFile(logPath(root, '/work', session.id, 'zstd'))
+    expect(scanZstdFrames(buffer).frames).toHaveLength(1)
+    expect((await decodeCompleteFrames(buffer)).toString()).toBe(`${JSON.stringify(toHeaderLine(session.header))}\n`)
+    await expect(ctx.sessionPersistence.load(session.id)).resolves.toEqual({ meta: session.header, events: [] })
+  })
+
   it('writes .jsonl.zstd by default with one header frame and one first-batch frame', async () => {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await freshRoot()
@@ -699,6 +712,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('recover-torn', '/proj')
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
     await ctx.sessionPersistence.create(header)
     await ctx.sessionPersistence.append(header.id, oneTurnLog())
     /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -729,6 +743,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     expect(loaded.events.some(event => event.type === 'assistant/chunk' && event.seq === 8)).toBe(false)
     expect(loaded.events[8]?.type).toBe('step/end')
     expect(loaded.events[9]?.type).toBe('turn/end')
+    expect(warn).toHaveBeenCalledWith('session-persistence-jsonl: session "recover-torn" recovered from a torn tail; incomplete tail bytes were discarded')
 
     /** 中文说明：变量 repaired 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const repaired = await readFile(path)

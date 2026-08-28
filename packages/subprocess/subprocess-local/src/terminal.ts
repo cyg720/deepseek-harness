@@ -31,7 +31,7 @@ import type {
   SubprocessTerminalHandle,
   SubprocessTerminalSignal,
 } from '@deepseek-ai/dsh-subprocess'
-import type { ProcessIdentity, ProcessInspector } from './process-inspector.ts'
+import type { ProcessIdentity, ProcessInspector, ProcessSnapshot } from './process-inspector.ts'
 
 /** 简单延时工具（拆解等待用）。 */
 function delay(ms: number): Promise<void> {
@@ -89,7 +89,7 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
     private readonly platform: NodeJS.Platform = process.platform,
   ) {
     this.pid = terminal.pid
-    this.rootIdentity = inspector.processTree(this.pid).find(member => member.pid === this.pid)
+    this.rootIdentity = inspector.snapshot().tree(this.pid).find(member => member.pid === this.pid)
     this.done = this.outcome.promise
     // 输出转发：node-pty 的 onData 写到 PassThrough 流。
     this.dataDisposable = terminal.onData((data) => { this.output.write(Buffer.from(data, 'utf8')) })
@@ -117,12 +117,12 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
   // 本地检查是同步的；契约返回 promise 是为远程传输保留（注释置于 pragma 上方）。
   // oxlint-disable-next-line typescript/require-await -- Preserve promise rejection semantics at the async provider contract.
   async inspectForeground(): Promise<SubprocessTerminalForeground | undefined> {
-    this.descendants()
+    this.descendants(this.inspector.snapshot())
     const processGroupId = this.inspector.foregroundPgid(this.pid)
     if (processGroupId === undefined) return undefined
     return {
       processGroupId,
-      inputWaiting: this.inspector.isStdinWaiting(processGroupId),
+      inputWaiting: this.inspector.isStdinWaiting(processGroupId, this.pid),
     }
   }
 
@@ -197,44 +197,36 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
     }
   }
 
-  /** 过滤出仍然存活的成员（按身份复核）。 */
-  private survivors(members: ProcessIdentity[]): ProcessIdentity[] {
-    return members.filter(member => this.inspector.isAlive(member))
+  private survivors(members: ProcessIdentity[], observed: ProcessSnapshot): ProcessIdentity[] {
+    return members.filter(member => observed.alive(member))
   }
 
-  /**
-   * 收养后代：仅当数值根 pid 仍携带被 spawn shell 的启动身份时才收养新扫描到的成员
-   * （shell 死后，被复用的 pid 的树/会话不得把无关进程的孩子捐给本会话的信号）；
-   * 已收养成员保留自己的启动身份，每次发信号都复核。
-   */
-  private descendants(): ProcessIdentity[] {
+  private descendants(observed: ProcessSnapshot): ProcessIdentity[] {
     // Adopt newly scanned members only while the numeric root pid provably
     // still carries the spawned shell's start identity: after the shell dies,
     // a recycled pid's tree and session must not donate an unrelated
     // process's children to this session's signalling. Already-adopted
     // members keep their own start identities, which every signal rechecks.
-    // 仅当数值根 pid 可证明仍携带被 spawn shell 的启动身份时才收养新成员：shell 死后，
-    // 被复用的 pid 的树与会话不得把无关进程的孩子捐给本会话的信号；已收养成员保留
-    // 自己的启动身份，每次信号都会复核。
-    const tree = this.inspector.processTree(this.pid)
+    const tree = observed.tree(this.pid)
     const root = tree.find(member => member.pid === this.pid)
     const rootVerified = this.rootIdentity !== undefined
       && root !== undefined
       && root.started === this.rootIdentity.started
     this.trackedDescendants = this.survivors(this.unionMembers(
       this.trackedDescendants,
-      ...rootVerified ? [tree, this.inspector.processSession(this.pid)] : [],
-    ).filter(member => member.pid !== this.pid))
+      ...rootVerified ? [tree, observed.session(this.pid)] : [],
+    ).filter(member => member.pid !== this.pid), observed)
     return this.trackedDescendants
   }
 
   /** 在宽限期内轮询等待成员退出，返回仍存活的成员。 */
   private async waitForMembers(members: ProcessIdentity[]): Promise<ProcessIdentity[]> {
+    if (members.length === 0) return []
     const until = Date.now() + this.graceMs
-    let survivors = this.survivors(members)
+    let survivors = this.survivors(members, this.inspector.snapshot())
     while (survivors.length > 0 && Date.now() < until) {
       await delay(Math.min(25, Math.max(1, until - Date.now())))
-      survivors = this.survivors(members)
+      survivors = this.survivors(members, this.inspector.snapshot())
     }
     return survivors
   }
@@ -243,6 +235,8 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
   private signalMembers(members: ProcessIdentity[], signal: 'SIGTERM' | 'SIGKILL'): void {
     for (const member of members) {
       try {
+        // Each signal reads its own identity fence, inside this try: a failed
+        // read must cost one target, never the rest of a teardown round.
         this.inspector.signalProcess(member, signal)
       } catch (_alreadyExitedDuringSignal) {
         // The exact process identity is rechecked; a same-tick exit is success.
@@ -255,7 +249,7 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
   private forceStopDescendants(): void {
     let members = this.trackedDescendants
     try {
-      members = this.descendants()
+      members = this.descendants(this.inspector.snapshot())
     } catch (_processTableUnavailableDuringHostExit) {
       // Preserve already-captured identities when a final process-table scan fails.
       // 最后一次进程表扫描失败时，保留已捕获的身份。
@@ -280,13 +274,14 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
 
   /** 后代终止：SIGTERM → 等待 → 新收养 → SIGKILL → 等待，返回最终幸存者。 */
   private async stopDescendants(): Promise<ProcessIdentity[]> {
-    const captured = this.descendants()
+    const captured = this.descendants(this.inspector.snapshot())
     this.signalMembers(captured, 'SIGTERM')
     const capturedSurvivors = await this.waitForMembers(captured)
-    const members = this.unionMembers(capturedSurvivors, this.descendants())
+    const members = this.unionMembers(capturedSurvivors, this.descendants(this.inspector.snapshot()))
     this.signalMembers(members, 'SIGKILL')
     const survivors = await this.waitForMembers(members)
-    return this.survivors(this.unionMembers(survivors, this.descendants()))
+    const observed = this.inspector.snapshot()
+    return this.survivors(this.unionMembers(survivors, this.descendants(observed)), observed)
   }
 
   /** shell 终止：POSIX 按 SIGTERM → 等待 → SIGKILL → 等待；Windows 走 stopShellWindows。 */

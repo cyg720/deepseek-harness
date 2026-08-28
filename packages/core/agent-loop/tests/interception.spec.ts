@@ -8,7 +8,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { createUserMessage, CallId  } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { createUserMessage, ToolCallId  } from '@deepseek-ai/dsh-llm'
 import SessionStore, {
   SessionId,
   /** 中文说明：测试类型或类 SessionEvent 约束夹具数据和行为。 */
@@ -740,9 +740,9 @@ describe('tool additionalContexts buffering across a step', () => {
     /** 中文说明：测试局部值 twoCalls，由紧邻初始化决定，仅在当前场景使用。 */
     const twoCalls = [
       { type: 'block-start' as const, index: 0, blockType: 'tool-call' as const },
-      { type: 'block-end' as const, index: 0, block: { type: 'tool-call' as const, id: CallId('c1'), name: 'echo', arguments: '{"text":"a"}' } },
+      { type: 'block-end' as const, index: 0, block: { type: 'tool-call' as const, id: ToolCallId('c1'), name: 'echo', arguments: '{"text":"a"}' } },
       { type: 'block-start' as const, index: 1, blockType: 'tool-call' as const },
-      { type: 'block-end' as const, index: 1, block: { type: 'tool-call' as const, id: CallId('c2'), name: 'echo', arguments: '{"text":"b"}' } },
+      { type: 'block-end' as const, index: 1, block: { type: 'tool-call' as const, id: ToolCallId('c2'), name: 'echo', arguments: '{"text":"b"}' } },
       { type: 'usage' as const, usage: { inputTokens: 5, outputTokens: 5 } },
       { type: 'finish' as const, reason: { kind: 'tool-calls' as const } },
     ]

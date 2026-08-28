@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -150,7 +150,7 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
     /** 中文说明：函数值 execute 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const execute = (id: string, command: string) => context!.tools.execute({
       signal,
-      callId: CallId(id),
+      callId: ToolCallId(id),
       name: 'bash',
       arguments: { command },
       agent: owner,
@@ -178,7 +178,12 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
     ))
     expect(heredoc).toBe('alpha\nbeta')
 
-    /** 中文说明：变量 large 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const pipeline = text(await execute(
+      'pipeline',
+      '{ sleep 0.1; printf "delayed\\n"; } | cat',
+    ))
+    expect(pipeline).toBe('delayed')
+
     const large = text(await execute('large-output', 'seq 1 12050'))
     expect(large.startsWith('1\n2\n3\n')).toBe(true)
     expect(large).toContain('<response clipped>')

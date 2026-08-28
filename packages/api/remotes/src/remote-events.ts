@@ -28,28 +28,30 @@
 // 两个编译面都列出本文件，使 Host 转发循环与消费者 $on 的键面读同一份声明，
 // 而不是两份可能漂移的拷贝；types.ts 从它推导类型投影并保持纯类型。
 
+import { SESSION_CONTROLLER_REMOTE_EVENTS } from '@deepseek-ai/dsh-api-session-controller/remote-events'
+import type { TypertForwardableEventEntry } from '@deepseek-ai/dsh-typert-protocol'
+
 /**
- * Host events this application forwards to consumers verbatim: no projection,
- * no redaction, no renaming. The wire name is the Host cordis event name and
- * the payload is its argument list, so this array is simultaneously the whole
- * control point over what a consumer can receive and the legal key set of
- * `ctx.remote.$on`. Forwarding one more event is an entry here and nothing
- * else.
+ * Host events this application forwards without renaming. The explicit mode is
+ * both the Host dispatch strategy and the legal key set of `ctx.remote.$on`.
  */
 // 中文：本应用原样转发给消费者的 Host 事件列表：不做投影、不打码、不改名。
 // 线上事件名就是 Host 的 cordis 事件名，载荷就是它的参数列表；因此这个数组
 // 同时是"消费者能收到什么"的完整控制点，也是 ctx.remote.$on 的合法键集合。
 // 想多转发一个事件，只需在此加一项，别无他处。
 export const API_REMOTE_FORWARDED_EVENTS = [
-  'agent-preset/selected',
-  'commands/change',
-  'credentials/reference-updated',
-  'cordis/request-run',
-  'cordis/request-run-resolved',
-  'cordis/dynamic-package',
-  'cordis/dynamic-retract',
-  'cordis/inspect-query',
-  'cordis/inspect-query-resolved',
-  'llm/adapters-updated',
-  'settings/document-updated',
-] as const
+  { event: 'agent-preset/selected', mode: 'emit' },
+  { event: 'approval/request', mode: 'waterfall' },
+  ...SESSION_CONTROLLER_REMOTE_EVENTS.map(event => ({ event, mode: 'emit' as const })),
+  { event: 'commands/change', mode: 'emit' },
+  { event: 'credentials/reference-updated', mode: 'emit' },
+  { event: 'cordis/request-run', mode: 'emit' },
+  { event: 'cordis/request-run-resolved', mode: 'emit' },
+  { event: 'cordis/dynamic-package', mode: 'emit' },
+  { event: 'cordis/dynamic-retract', mode: 'emit' },
+  { event: 'cordis/inspect-query', mode: 'emit' },
+  { event: 'cordis/inspect-query-resolved', mode: 'emit' },
+  { event: 'llm/adapters-updated', mode: 'emit' },
+  { event: 'settings/document-updated', mode: 'emit' },
+  { event: 'user-questions/request', mode: 'waterfall' },
+] as const satisfies readonly TypertForwardableEventEntry[]

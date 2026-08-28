@@ -8,7 +8,7 @@
  */
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { createUserMessage, CallId, createMessage, createToolResultMessage, MessageId, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId, createMessage, createToolResultMessage, MessageId, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import SessionStore, {
   adoptSessionEvent,
   SESSION_FORMAT_VERSION,
@@ -17,7 +17,7 @@ import SessionStore, {
   SessionId,
   snapshotSessionEvent,
 } from '@deepseek-ai/dsh-session'
-import type { CreateSessionOptions, SessionEventType, SessionHeader, SessionSurface, TodoItem } from '@deepseek-ai/dsh-session'
+import type { CreateSessionOptions, SessionEventType, SessionHeader, SessionSurface } from '@deepseek-ai/dsh-session'
 
 describe('Session', () => {
   it('exposes one stable readonly surface view', () => {
@@ -44,7 +44,7 @@ describe('Session', () => {
         role: 'assistant',
         content: [
           { type: 'text', text: 'let me check' },
-          { type: 'tool-call', id: CallId('c1'), name: 'echo', arguments: '{}' },
+          { type: 'tool-call', id: ToolCallId('c1'), name: 'echo', arguments: '{}' },
         ],
         source: {
           kind: 'model',
@@ -55,7 +55,7 @@ describe('Session', () => {
     session.append('tool/result', {
       turn: 1, step: 1,
       message: createToolResultMessage({
-        callId: CallId('c1'),
+        callId: ToolCallId('c1'),
         content: [{ type: 'text', text: 'ok' }],
         isError: false,
       }),
@@ -67,7 +67,7 @@ describe('Session', () => {
     expect(messages.map(m => m.role)).toEqual(['user', 'assistant', 'user'])
     // raw chunks must NOT appear in derived history
     expect(messages[1]!.content).toHaveLength(2)
-    expect(messages[2]!.content[0]).toMatchObject({ type: 'tool-result', toolCallId: CallId('c1') })
+    expect(messages[2]!.content[0]).toMatchObject({ type: 'tool-result', toolCallId: ToolCallId('c1') })
   })
 
   it('accepts and round-trips a max-tokens turn/end reason', () => {
@@ -492,7 +492,7 @@ describe('Session', () => {
     session.append('tool/result', {
       turn: 1, step: 1,
       message: createToolResultMessage({
-        callId: CallId('c1'),
+        callId: ToolCallId('c1'),
         content: [{ type: 'text', text: 'tool out' }],
         isError: false,
       }),
@@ -888,8 +888,7 @@ describe('Session', () => {
       },
     })
 
-    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
-    const event = session.append('todo/write', data as never)
+    const event = session.append('request/context', data as never)
 
     expect(reads).toBe(1)
     expect(event.data).toEqual({ value: 'accepted' })
@@ -1032,15 +1031,14 @@ describe('Session', () => {
 
     /** 中文说明：测试局部值 appended，由紧邻初始化决定。 */
     const appended = Session.create(SessionId('append-frozen'))
-    /** 中文说明：测试局部值 appendedEvent，由紧邻初始化决定。 */
-    const appendedEvent = appended.append('todo/write', {
-      todos: [{ content: 'first', status: 'pending' }],
-    })
+    const appendedEvent = appended.append('user/message', createUserMessage({
+      content: [{ type: 'text', text: 'first' }], source: { kind: 'user' },
+    }), { surfaceOp: 'append' })
     expect(Object.isFrozen(appendedEvent)).toBe(true)
     expect(Object.isFrozen(appendedEvent.data)).toBe(true)
-    expect(Object.isFrozen(appendedEvent.data.todos)).toBe(true)
-    expect(Object.isFrozen(appendedEvent.data.todos[0])).toBe(true)
-    expect(() => { appendedEvent.data.todos[0]!.content = 'mutated' }).toThrow(TypeError)
+    expect(Object.isFrozen(appendedEvent.data.content)).toBe(true)
+    expect(Object.isFrozen(appendedEvent.data.content[0])).toBe(true)
+    expect(() => { (appendedEvent.data.content[0] as { text: string }).text = 'mutated' }).toThrow(TypeError)
   })
 
   it('iteratively freezes deeply nested restored event data', () => {
@@ -1214,8 +1212,6 @@ describe('Session', () => {
       { ...base, time: '1' },
       { ...base, time: 0.5 },
       { type: base.type, seq: base.seq, time: base.time },
-      { ...base, ignorable: false },
-      { ...base, ignorable: 'yes' },
     ]
 
     /** 中文说明：测试局部值 [index，由紧邻初始化决定。 */
@@ -1223,13 +1219,6 @@ describe('Session', () => {
       expect(() => Session.create(SessionId(`bad-envelope-${index}`), [event as SessionEvent]))
         .toThrow(/invalid event envelope/)
     }
-
-    // `ignorable: true` is the one accepted marker value (unknown-type skip contract).
-    /** 中文说明：测试局部值 marked，由紧邻初始化决定。 */
-    const marked = Session.create(SessionId('ignorable-envelope'), [
-      { ...base, ignorable: true } as SessionEvent,
-    ])
-    expect(marked.events[0]?.ignorable).toBe(true)
   })
 })
 
@@ -1751,7 +1740,7 @@ describe('SessionStore', () => {
     /** 中文说明：测试局部值 heard，由紧邻初始化决定。 */
     const heard: SessionEvent[] = []
     ctx.on('session/event', (observedSession) => {
-      observedSession.append('todo/write', { todos: [] })
+      observedSession.append('request/context', { provider: 'mock', model: 'mock' })
     })
     ctx.on('session/event', (_observedSession, event) => { heard.push(event) })
 
@@ -1909,79 +1898,5 @@ describe('SessionStore', () => {
     detach()
 
     expect(heard).toEqual([session])
-  })
-})
-
-describe('todo/write event', () => {
-  it('appends the whole-list snapshot and isolates the log from later mutation', () => {
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
-    const session = Session.create(SessionId('t1'))
-    /** 中文说明：测试局部值 todos，由紧邻初始化决定。 */
-    const todos: TodoItem[] = [
-      { content: 'plan the work', status: 'in_progress' },
-      { content: 'write the code', status: 'pending' },
-    ]
-    session.append('todo/write', { todos })
-
-    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
-    const event = session.events.findLast(e => e.type === 'todo/write')!
-    expect(event.type).toBe('todo/write')
-    expect(event.data.todos).toEqual(todos)
-
-    // The append snapshots its input: mutating the caller's array afterward must
-    // not change what the log holds (the durable-source-of-truth contract).
-    todos.push({ content: 'sneak in', status: 'pending' })
-    todos[0]!.status = 'completed'
-    expect(event.data.todos).toEqual([
-      { content: 'plan the work', status: 'in_progress' },
-      { content: 'write the code', status: 'pending' },
-    ])
-  })
-
-  it('is last-write-wins: the current list is the most recent todo/write', () => {
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
-    const session = Session.create(SessionId('t2'))
-    session.append('todo/write', { todos: [{ content: 'first', status: 'pending' }] })
-    session.append('todo/write', { todos: [
-      { content: 'first', status: 'completed' },
-      { content: 'second', status: 'in_progress' },
-    ] })
-
-    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
-    const current = session.events.findLast(e => e.type === 'todo/write')!.data.todos
-    expect(current).toEqual([
-      { content: 'first', status: 'completed' },
-      { content: 'second', status: 'in_progress' },
-    ])
-  })
-
-  it('is NOT a surface event: it produces no derived message and joins no surface node', () => {
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
-    const session = Session.create(SessionId('t3'))
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'q' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
-    const before = session.deriveMessages().length
-    session.append('todo/write', { todos: [{ content: 'a task', status: 'pending' }] })
-    // The todo event must not add a message to the derived history…
-    expect(session.deriveMessages()).toHaveLength(before)
-    // …and must not appear on the ordered surface.
-    expect(session.surface.nodes).not.toContain(session.seq - 1)
-  })
-
-  it('round-trips through a seeded replay identically (durable, no surfaceOp needed)', () => {
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
-    const original = Session.create(SessionId('t4'))
-    original.append('turn/start', { turn: 1 })
-    original.append('todo/write', { todos: [{ content: 'only', status: 'completed' }] })
-    original.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
-    // Seeding a non-surface event with no surfaceOp must not throw.
-    /** 中文说明：测试局部值 replayed，由紧邻初始化决定。 */
-    const replayed = Session.create(SessionId('t4-replay'), [...original.events])
-    expect(replayed.events.findLast(e => e.type === 'todo/write')!.data.todos)
-      .toEqual([{ content: 'only', status: 'completed' }])
-    expect(replayed.events.slice(0, original.seq)).toEqual(original.events)
-    expect(replayed.firstLiveSeq).toBe(original.seq)
   })
 })

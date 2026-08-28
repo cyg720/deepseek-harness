@@ -110,8 +110,7 @@ export interface ImageRequestPolicy {
   /** Maximum width multiplied by height after aspect-preserving projection. */
   /* 保持宽高比投影后允许的最大宽乘高。 */
   maxPixels: number
-  /** Encoded-byte cap before base64 expansion or Files API upload. */
-  /* Base64扩张或Files API上传前的编码字节上限。 */
+  /** Encoded-byte target before base64 expansion or Files API upload; the smallest quality-ladder output is kept when no quality fits. */
   maxBytes: number
 }
 

@@ -70,9 +70,11 @@ function displayName(name: string): string {
   return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }
 
-/** 中文说明：函数 optionLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
-function optionLabel(option: PermissionSelectValue['options'][number]): string {
-  return option.value === FULL_ACCESS ? 'Full access' : displayName(option.name)
+function optionLabel(
+  option: PermissionSelectValue['options'][number],
+  t: ComposerBarProps['t'],
+): string {
+  return option.value === FULL_ACCESS ? t('access.fullLabel') : displayName(option.name)
 }
 
 /** 中文说明：类型或类 PermissionSelectProps 约束本文件的数据或组件职责。 */
@@ -117,7 +119,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
     .map((option) => {
       /** 中文说明：组件局部值 icon，取值由紧邻初始化决定。 */
       const icon = permissionGlyph(option.value)
-      return { id: option.value, label: optionLabel(option), ...icon === undefined ? {} : { icon } }
+      return { id: option.value, label: optionLabel(option, t), ...icon === undefined ? {} : { icon } }
     })
 
   /** 中文说明：组件局部值 submit，取值由紧邻初始化决定。 */
@@ -168,7 +170,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
           <button
             type="button"
             className={css.trigger}
-            aria-label={t('input.accessMode', { name: current === undefined ? displayName(currentValue) : optionLabel(current) })}
+            aria-label={t('input.accessMode', { name: current === undefined ? displayName(currentValue) : optionLabel(current, t) })}
             title={current?.description}
             disabled={locked || busy}
             onClick={() => { setOpen(!open) }}
@@ -176,8 +178,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
             {permissionGlyph(currentValue) !== undefined && (
               <span className={css.triggerIcon} aria-hidden>{permissionGlyph(currentValue)}</span>
             )}
-            <span className={css.triggerLabel}>{current === undefined ? displayName(currentValue) : optionLabel(current)}</span>
-            {/* Same glyph + open rotation as the sibling ModelSelect trigger. */}
+            <span className={css.triggerLabel}>{current === undefined ? displayName(currentValue) : optionLabel(current, t)}</span>
             <span className={clsx(css.chevron, open && css.chevronOpen)} aria-hidden>
               <IconChevronDownOutline14 />
             </span>
@@ -190,6 +191,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
         description={t('access.confirm.description')}
         acknowledgeLabel={t('access.confirm.acknowledge')}
         cancelLabel={t('access.confirm.cancel')}
+        closeLabel={t('close')}
         confirmLabel={t('access.confirm.enable')}
         acknowledged={acknowledged}
         disabled={locked}

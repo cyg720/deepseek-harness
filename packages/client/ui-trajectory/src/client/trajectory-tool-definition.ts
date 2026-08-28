@@ -19,9 +19,9 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
-  RunningToolCall, ToolCallBlock, ToolResultNode,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, RunningToolCall,
+  ToolCallBlock, ToolResultNode,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-tools/types'
 import { trajectoryNode } from './trajectory-definition-common.ts'
 
@@ -61,7 +61,6 @@ function rootCall(match: ConversationMatch): RunningToolCall {
     turn: match.event.data.turn,
     step: match.event.data.step,
     time: match.event.time,
-    callView: match.view?.for === 'call' ? match.view.view : null,
     subCalls: [],
   }
 }
@@ -83,8 +82,6 @@ function rootResult(
     isError: result.isError === true,
     ...(match.event.data.error === undefined ? {} : { error: match.event.data.error }),
     meta: match.event.data.meta,
-    callView: previous?.callView ?? null,
-    resultView: match.view?.for === 'result' ? match.view.view : null,
     subCalls: [],
   }
 }
@@ -102,12 +99,12 @@ function locationStep(match: ConversationMatch): number {
 function childCall(match: ConversationMatch, data: DispatchData): RunningToolCall {
   return {
     callId: data.subCallId,
+    parentCallId: data.parentCallId,
     name: data.name,
     argsRaw: JSON.stringify(data.arguments),
     turn: locationTurn(match),
     step: locationStep(match),
     time: match.event.time,
-    callView: null,
     subCalls: [],
   }
 }
@@ -122,12 +119,11 @@ function childResult(
     seq: match.event.seq,
     time: match.event.time,
     callId: data.subCallId,
+    parentCallId: data.parentCallId,
     call: { name: data.name, argsRaw: JSON.stringify(data.arguments) },
     callTime: previous === undefined || 'kind' in previous ? null : previous.time,
     content: data.content ?? [],
     isError: data.isError === true,
-    callView: null,
-    resultView: null,
     subCalls: [],
   }
 }
@@ -214,13 +210,12 @@ function projectCall(
     seq: interruptedAt.seq - 0.8,
     time: interruptedAt.time,
     callId: block.callId,
+    ...block.parentCallId === undefined ? {} : { parentCallId: block.parentCallId },
     call: { name: block.name, argsRaw: block.argsRaw },
     callTime: block.time,
     content: [],
     isError: true,
     error: { name: 'Interrupted', code: 'interrupted' },
-    callView: block.callView,
-    resultView: null,
     subCalls,
   }
 }
@@ -298,5 +293,5 @@ const trajectoryToolDefinition: ConversationNodeDefinition<ToolState> = {
  * @param ctx - 接收该 Definition 的插件上下文。
  */
 export function registerTrajectoryToolDefinition(ctx: Context): void {
-  ctx.conversationEvents.register(trajectoryToolDefinition)
+  ctx.uiConversation.events.register(trajectoryToolDefinition)
 }

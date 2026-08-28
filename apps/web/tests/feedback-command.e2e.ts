@@ -24,18 +24,17 @@ import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
+  assertFixtureInventory, captureExpandedTurnProcessAria, captureStableAria,
+  compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景夹具与黄金文件目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/feedback-command', import.meta.url))
-/** 激活会话的确定性回放夹具。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/feedback-command', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 /** 反馈确认行的 ARIA 快照。 */
 const ACK_EXPECTED = join(SNAPSHOT_DIR, 'ack.expected.md')
-/** 当前快照运行模式。 */
+const ACK_EXPANDED_EXPECTED = join(SNAPSHOT_DIR, 'ack-expanded.expected.md')
 const MODE = webSnapshotMode()
 // Discard port: loopback listener never binds, so FULL telemetry discloses
 // the shipped default policy without any record reaching a collector.
@@ -59,12 +58,13 @@ describe('web e2e: /feedback command acknowledgement', () => {
   beforeAll(async () => {
     scaffold = await launchWebScaffold({
       telemetryUrl: TELEMETRY_URL,
+      compareReplaySession: true,
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE }),
     })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     // Fresh world: connecting a workspace births the blank session whose
     // live composer accepts the slash line.
@@ -84,8 +84,7 @@ describe('web e2e: /feedback command acknowledgement', () => {
       // 漂移防护：已提交夹具必须只含驱动提示。
       expect(fixtureUserPrompts(await readFile(FIXTURE, 'utf8'))).toEqual([PROMPT])
     }
-    /** 当前聊天编辑器。 */
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
     // Arm the turn-boundary waiter BEFORE sending, so a burst replay cannot
     // miss the turn/end that settles the recorded turn.
@@ -108,8 +107,7 @@ describe('web e2e: /feedback command acknowledgement', () => {
     // the replayed reply is on screen.
     // 已结束回放轮次使会话进入活动状态，命令行才能作为持久行渲染。
     await page.getByText('LIGHTHOUSE', { exact: true }).waitFor({ timeout: 15_000 })
-    /** 提交反馈命令的当前编辑器。 */
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.fill('/feedback the diff view is unreadable')
     await input.press('Enter')
     // The command plane settles without a model turn: the ack row names the
@@ -120,12 +118,20 @@ describe('web e2e: /feedback command acknowledgement', () => {
     /** 反馈确认后的中心列 ARIA 树。 */
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(ACK_EXPECTED, snapshot, MODE)
+    const expanded = await captureExpandedTurnProcessAria(
+      page,
+      '[class*="centerCol"]',
+      scaffold.workspaceCwd,
+    )
+    await compareOrRefreshGolden(ACK_EXPANDED_EXPECTED, expanded, MODE)
 
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   }, 60_000)
 
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, ['session.jsonl', 'ack.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, [
+      'session.jsonl', 'ack.expected.md', 'ack-expanded.expected.md',
+    ])
   })
 })

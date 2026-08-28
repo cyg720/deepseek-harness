@@ -1,25 +1,5 @@
 /**
- * ================================ 文件注释 ================================
- * 【文件职责】Code Mode 的 TypeScript 代码生成：把注册工具的 schema 纯投影为模型
- *   编程所用的 TypeScript SDK 文本（即提示词里的 `tools:sdk` 段，含 `declare const
- *   tools` 声明）。
- * 【技术维度】两阶段渲染：先用 assertSupportedJsonSchema 校验 schema，再用显式帧栈
- *   （SchemaRenderFrame）遍历并组装"可拼接的类型文档"（TypeDocument），避免递归与
- *   深链字符串的平方级开销；非法/不支持输入降级为 `unknown` 而不抛错。
- * 【产品维度】在 code 模式下原生工具 schema 不随请求下发，这份生成文本是模型了解
- *   每个工具参数名、类型、必填性与返回形状的唯一来源。
- * 【逻辑维度】类型定义 → 键名/缩进/JSDoc 行等小工具函数 → 标量与字面量约束渲染 →
- *   类型文档结构及其展平 → 帧式 schema 遍历器 renderSupportedSchema → 导出入口
- *   jsonSchemaToTs 与整段 SDK 渲染器 renderToolsSdk。
- * 【关键边界】输出是确定性文本（工具按字典序输出），同集合必得逐字节相同结果；
- *   生成的 TS 只作提示词、不做类型检查，因此宽松优先于严格。
- * 【新手阅读建议】先读 jsonSchemaToTs 了解输入输出，再对照 renderSupportedSchema 的
- *   phase='start'/'children' 两阶段理解帧遍历；最后看 renderToolsSdk 如何拼装整段。
- * ==========================================================================
- */
-
-/**
- * Code Mode codegen: the pure projection from registered tool schemas to the TypeScript SDK
+ * PTC mode codegen: the pure projection from registered tool schemas to the TypeScript SDK
  * text the model programs against (the `tools:sdk` prompt section). Sibling of
  * `json-schema.ts` — `schemas()` (native function calling) and this module (the generated
  * `declare const tools` API) are two projections of the same store.
@@ -29,11 +9,7 @@
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 import { assertSupportedJsonSchema } from './json-schema.ts'
 import type { JsonSchemaNode, JsonSchemaScalar } from './json-schema.ts'
-/** Internal Code Mode projection: the model-facing schema plus the canonical output schema. */
-/*
- * 【中文】Code Mode 内部使用的投影类型：在模型可见 schema 之上追加该工具的
- *   "规范输出 schema"（工具绑定返回的、已验证的规范值形状），供生成返回类型。
- */
+/** Internal PTC mode projection: the model-facing schema plus the canonical output schema. */
 export interface ToolSdkSchema extends ToolSchema {
   /** Validated canonical value returned by the tool binding. */
   /* 【中文】工具绑定返回的已验证规范值 schema。 */
@@ -338,23 +314,41 @@ export function jsonSchemaToTs(schema: unknown, indent = 0): string {
   }
 }
 
-/** The fixed model-facing usage contract rendered above the declarations (see the Code Mode Agent Note's "What the model sees"). */
-/*
- * 【中文】固定不变的模型侧使用说明，渲染在类型声明之前：run_code 的两个必填参数、
- *   tools.name(args) 调用方式、ToolCallError 的 try/catch、Promise.all 的并发规则、
- *   以及"只有 print/return 的内容才算程序输出"的策展要求。文本逐字固定（模型可见
- *   文本需快照钉住），不要随意改动措辞。
- */
+/** The fixed model-facing usage contract rendered above the declarations (see the PTC mode Agent Note's "What the model sees"). */
 const SDK_INSTRUCTIONS = `## Writing code for run_code
 
-\`run_code\` takes two required arguments: \`code\` — the body of an async TypeScript function (erasable syntax only — no \`enum\` or namespaces; type annotations are advisory, the code runs type-stripped) — and \`description\`, a short summary of what the program does. Inside the program:
+\`run_code\` takes two required arguments: \`code\` — the body of an async TypeScript function (erasable syntax only — no \`enum\` or namespaces; type annotations are advisory, the code runs type-stripped) — and \`description\`, a short summary of what the program does. The declarations below are SDK bindings for this program. A declaration does not make its name a directly callable tool; only names supplied as separate tool schemas may be called directly.`
+
+const SDK_PROGRAM_INSTRUCTIONS = `Inside the program:
 
 - Call tools as \`await tools.name(args)\` — quoted access for exotic names: \`tools["my-tool"](args)\`. Every call resolves to the tool's typed canonical JSON value. Tool arguments must be lossless JSON.
 - A FAILED tool call rejects with \`ToolCallError\`, whose \`toolName\` identifies the failed tool and whose \`message\` is human-readable — \`try/catch\` it to handle and continue.
 - Independent read-only calls MAY overlap under \`Promise.all\` (safe calls run concurrently; mutating calls run alone, in submission order). Sequence dependent work with \`await\`.
 - Emit results with \`return\` and/or \`console.log(...)\`. Only what you print or return is program output. A successful tool result containing an image is attached after the run so you can inspect it on the next step; every other intermediate result stays out of the conversation, so extract just what you need.
 
-The available tools:`
+Program-only SDK bindings:`
+
+/** Whether one string schema accepts the literal used by the bash example. */
+function acceptsExampleString(schema: JsonSchemaNode | undefined, value: string): boolean {
+  return schema?.type === 'string'
+    && (schema.const === undefined || schema.const === value)
+    && (schema.enum === undefined || schema.enum.includes(value))
+}
+
+/** Render the bash example only when its literal arguments satisfy the current parameter schema. */
+function renderBashExample(schemas: ToolSdkSchema[]): string {
+  const bash = schemas.find(schema => schema.name === 'bash')
+  if (bash === undefined) return ''
+  const parameters = bash.parameters as JsonSchemaNode
+  if (parameters.type !== 'object') return ''
+  const required = parameters.required ?? []
+  if (required.some(name => name !== 'command' && name !== 'description')) return ''
+  if (!acceptsExampleString(parameters.properties?.command, 'pwd')) return ''
+  const needsDescription = required.includes('description')
+  if (needsDescription && !acceptsExampleString(parameters.properties?.description, 'Show current directory')) return ''
+  const description = needsDescription ? ", description: 'Show current directory'" : ''
+  return ` When no separate \`bash\` schema is supplied, invoke a declared \`bash\` binding inside \`run_code\`:\n\n\`run_code({ code: "return await tools.bash({ command: 'pwd'${description} })", description: "Show current directory" })\``
+}
 
 /**
  * Render the full `tools:sdk` prompt section: the fixed usage instructions
@@ -392,5 +386,5 @@ export function renderToolsSdk(schemas: ToolSdkSchema[]): string {
     ['declare const tools: {', '  [K in ToolName]: (args: ToolArgsMap[K]) => Promise<ToolOutputMap[K]>;', '}'].join('\n'),
   ].join('\n\n')
   const jsonValue = 'type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }'
-  return `${SDK_INSTRUCTIONS}\n\n\`\`\`ts\n${jsonValue}\n\n${declaration}\n\`\`\``
+  return `${SDK_INSTRUCTIONS}${renderBashExample(sorted)}\n\n${SDK_PROGRAM_INSTRUCTIONS}\n\n\`\`\`ts\n${jsonValue}\n\n${declaration}\n\`\`\``
 }

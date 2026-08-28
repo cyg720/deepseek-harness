@@ -17,7 +17,7 @@
  */
 
 import { existsSync, globSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import * as yaml from 'js-yaml'
 import { parse as parseToml, type TomlTableWithoutBigInt, type TomlValueWithoutBigInt } from 'smol-toml'
 import parseSpdx from 'spdx-expression-parse'
@@ -36,8 +36,8 @@ const ALL_KINDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'p
 
 /**
  * Workspace areas that never reach a user: repository tooling and gates (the
- * root manifest), test infrastructure, the documentation site, the runnable
- * demo leaves, and the native launcher's build workspace. A runtime
+ * root manifest), test infrastructure, the documentation site, and the native
+ * launcher's build workspace. A runtime
  * declaration by anything outside these areas is a disclosure-relevant
  * runtime dependency because any plugin package can be mounted from a user's
  * `cordis.yml`.
@@ -48,7 +48,6 @@ const DEV_ONLY_AREAS = [
   'packages/test-support/',
   'packages/test-support/client-runtime/',
   'website/',
-  'examples/',
   'native/',
 ] as const
 
@@ -162,9 +161,6 @@ export function manifestPatterns(rootMembers: readonly string[]): string[] {
   return [
     'package.json',
     ...rootMembers.map(member => `${member}/package.json`),
-    // The demo leaves join the workspace through `examples/package.json`, so
-    // their own manifests are members of nothing and no glob above reaches them.
-    'examples/*/package.json',
   ]
 }
 
@@ -297,33 +293,57 @@ export function claudeDistributionFromManifest(
  *
  * @param virtual - the `.pnpm` virtual store directory to scan.
  * @param name - the external package name, exactly as `node_modules` spells it.
+ * @param expectedVersion - exact version required when the store retains more than one.
  * @returns the parsed manifest, or `undefined` when neither the prefix match
- *   nor the content scan finds the package's `package.json`.
+ *   nor the content scan finds the requested package version.
  */
-/* 中文说明：函数 virtualManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-export function virtualManifest(virtual: string, name: string): VirtualManifest | undefined {
-  /** 中文说明：变量 prefix 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+export function virtualManifest(
+  virtual: string,
+  name: string,
+  expectedVersion?: string,
+): VirtualManifest | undefined {
   const prefix = `${name.replace('/', '+')}@`
-  /** 中文说明：函数值 entry 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-  const entry = readdirSync(virtual).find(dir => dir.startsWith(prefix))
-  if (entry !== undefined) {
-    return JSON.parse(readFileSync(resolve(virtual, entry, 'node_modules', name, 'package.json'), 'utf8')) as VirtualManifest
+  const entries = readdirSync(virtual)
+  for (const entry of entries.filter(dir => dir.startsWith(prefix))) {
+    const manifest = JSON.parse(readFileSync(resolve(virtual, entry, 'node_modules', name, 'package.json'), 'utf8')) as VirtualManifest
+    if (expectedVersion === undefined || manifest.version === expectedVersion) return manifest
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
-  for (const dir of readdirSync(virtual)) {
-    /** 中文说明：变量 candidate 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  for (const dir of entries) {
     const candidate = resolve(virtual, dir, 'node_modules', name, 'package.json')
     if (existsSync(candidate)) {
-      return JSON.parse(readFileSync(candidate, 'utf8')) as VirtualManifest
+      const manifest = JSON.parse(readFileSync(candidate, 'utf8')) as VirtualManifest
+      if (expectedVersion === undefined || manifest.version === expectedVersion) return manifest
     }
   }
   return undefined
 }
 
+const workspaceLinkedManifestCache = new Map<string, VirtualManifest | undefined>()
+
+/**
+ * Resolve the package version selected for a declaring workspace instead of an
+ * unrelated historical version that still occupies the shared virtual store.
+ * @param name - external package identity.
+ * @returns the first current workspace link for that package, when installed.
+ */
+function workspaceLinkedManifest(name: string): VirtualManifest | undefined {
+  if (workspaceLinkedManifestCache.has(name)) return workspaceLinkedManifestCache.get(name)
+  for (const [path, manifest] of loadWorkspaceManifests().manifests) {
+    if (!ALL_KINDS.some(kind => name in (manifest[kind] ?? {}))) continue
+    const linked = resolve(root, dirname(path), 'node_modules', name, 'package.json')
+    if (!existsSync(linked)) continue
+    const found = JSON.parse(readFileSync(linked, 'utf8')) as VirtualManifest
+    workspaceLinkedManifestCache.set(name, found)
+    return found
+  }
+  workspaceLinkedManifestCache.set(name, undefined)
+  return undefined
+}
+
 /** Resolve one installed external package manifest from either pnpm store. */
-/* 中文说明：函数 installedManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-function installedManifest(name: string): VirtualManifest | undefined {
-  /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+function installedManifest(name: string, expectedVersion?: string): VirtualManifest | undefined {
+  const linked = workspaceLinkedManifest(name)
+  if (linked !== undefined && (expectedVersion === undefined || linked.version === expectedVersion)) return linked
   let manifest: (Manifest & { license?: string; repository?: string | { url?: string }; homepage?: string }) | undefined
   // Workspace-local link farms can expose a dependency that is not linked at
   // the repository root; both are backed by the root workspace's lockfile.
@@ -332,13 +352,16 @@ function installedManifest(name: string): VirtualManifest | undefined {
     /** 中文说明：变量 direct 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const direct = resolve(root, store, name, 'package.json')
     if (existsSync(direct)) {
-      manifest = JSON.parse(readFileSync(direct, 'utf8')) as typeof manifest
-      break
+      const candidate = JSON.parse(readFileSync(direct, 'utf8')) as typeof manifest
+      if (expectedVersion === undefined || candidate?.version === expectedVersion) {
+        manifest = candidate
+        break
+      }
     }
     /** 中文说明：变量 virtual 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const virtual = resolve(root, store, '.pnpm')
     if (!existsSync(virtual)) continue
-    manifest = virtualManifest(virtual, name)
+    manifest = virtualManifest(virtual, name, expectedVersion)
     if (manifest !== undefined) break
   }
   return manifest
@@ -378,8 +401,7 @@ function collectClaudeDistribution(): ClaudeDistribution {
   let installedPayloads = 0
   /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const payload of distribution.payloads) {
-    /** 中文说明：变量 installed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const installed = installedManifest(payload.name)
+    const installed = installedManifest(payload.name, payload.version)
     if (installed === undefined) continue
     installedPayloads += 1
     if (
@@ -916,7 +938,6 @@ function main(): void {
   console.log(`gen-third-party-notices: wrote ${OUT}.`)
 }
 
-// Run only when invoked as a script, not when imported by a test.
 if (process.argv[1] !== undefined && import.meta.filename === resolve(process.argv[1])) {
   main()
 }

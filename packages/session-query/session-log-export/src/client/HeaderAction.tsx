@@ -23,9 +23,7 @@ import css from './HeaderAction.module.css'
  * @example <SessionLogDownloadHeaderAction {...props} />。
  */
 export function SessionLogDownloadHeaderAction(props: SessionLogDownloadDialogProps): ReactNode {
-  // 当前会话标识、状态 hook 和请求函数；均由下载对话框的公共属性提供。
-  const { sessionId, useSessionLogDownload, request } = props
-  // 当前会话的下载记录；尚未发起下载时为 undefined。
+  const { sessionId, useSessionLogDownload, request, t } = props
   const entry = useSessionLogDownload(state => state.bySession[String(sessionId)])
   // 是否正在下载；只在状态严格等于 downloading 时禁用按钮。
   const busy = entry?.status === 'downloading'
@@ -39,7 +37,7 @@ export function SessionLogDownloadHeaderAction(props: SessionLogDownloadDialogPr
         aria-busy={busy}
         onClick={() => { void request(sessionId) }}
       >
-        <span>Session log</span>
+        <span>{t('header.action')}</span>
         <IconDownloadOutline16 size={12} />
       </button>
       <SessionLogDownloadDialog {...props} />

@@ -14,9 +14,10 @@ import type {
   ImageRequestPolicy,
   RequestImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
-import { CallId, createMessage, createUserMessage, OFFLOADED_IMAGE_TEXT } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createMessage, createUserMessage, offloadedImageText } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, Message } from '@deepseek-ai/dsh-llm'
 import { toPiContext } from '../src/context.ts'
+import type { PiImageRequestContext } from '../src/context.ts'
 import { toPiAssistant } from '../src/replay.ts'
 
 /** 中文说明：测试局部值 ref，由紧邻初始化决定。 */
@@ -54,13 +55,19 @@ function projectionStore(
     Promise.resolve(requestImage(value, Uint8Array.of(1)))
   )),
 ): AttachmentStore {
-  return { readImageRequest } as unknown as AttachmentStore
+  return { readImageRequest, imageHostPath: () => undefined } as unknown as AttachmentStore
 }
 
 /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
 const attachments = projectionStore()
 
-/** 中文说明：函数 request 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
+function imageContext(
+  store: AttachmentStore,
+  overrides: Partial<Omit<PiImageRequestContext, 'attachments'>> = {},
+): PiImageRequestContext {
+  return { attachments: store, resolveImageAccess: () => undefined, ...overrides }
+}
+
 function request(messages: GenerateOptions['messages']): GenerateOptions {
   return {
     provider: 'openai',
@@ -90,8 +97,7 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('converts complete text-only history and rejects nested images without storage', () => {
-    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
-    const callId = CallId('call-1')
+    const callId = ToolCallId('call-1')
     expect(toPiContext(request([
       history('system', [{ type: 'text', text: 'history system' }]),
       history('assistant', [{ type: 'tool-call', id: callId, name: 'lookup', arguments: '{}' }]),
@@ -128,11 +134,8 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('resolves user and tool-result images while preserving explicit fallbacks', async () => {
-    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
-    const callId = CallId('missing-call')
-    /** 中文说明：测试局部值 knownCallId，由紧邻初始化决定。 */
-    const knownCallId = CallId('known-call')
-    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
+    const callId = ToolCallId('missing-call')
+    const knownCallId = ToolCallId('known-call')
     const context = await toPiContext(request([
       user([{ type: 'text', text: '' }]),
       history('assistant', [
@@ -158,7 +161,7 @@ describe('pi-ai request context conversion', () => {
           { type: 'image', attachment: ref },
         ],
       }]),
-    ]), attachments)
+    ]), imageContext(attachments))
 
     expect(context.messages).toEqual([
       { role: 'user', content: '', timestamp: 0 },
@@ -194,10 +197,29 @@ describe('pi-ai request context conversion', () => {
     ])
   })
 
+  it('uses the shared normalized-path description for retained images', async () => {
+    const named = { ...ref, name: 'chart.png', width: 2048, height: 1024 }
+    const store = projectionStore(value => Promise.resolve({
+      ...requestImage(value, Uint8Array.of(1)),
+      width: 1130,
+      height: 565,
+    }))
+    const context = await toPiContext(request([user([{ type: 'image', attachment: named }])]), imageContext(store, {
+      resolveImageAccess: () => ({ readonlyPath: '/tmp/dsh/objects/aa/object' }),
+    }))
+    expect(context.messages[0]).toMatchObject({
+      role: 'user',
+      content: [
+        { type: 'text', text: expect.stringContaining('Image "chart.png"') as string },
+        { type: 'image' },
+      ],
+    })
+    expect(JSON.stringify(context.messages[0])).toContain('/tmp/dsh/objects/aa/object')
+    expect(JSON.stringify(context.messages[0])).toContain('request preview 1130x565px')
+  })
+
   it('recursively converts nested tool-result text and images', async () => {
-    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
-    const callId = CallId('nested-call')
-    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
+    const callId = ToolCallId('nested-call')
     const context = await toPiContext(request([user([{
       type: 'tool-result',
       toolCallId: callId,
@@ -213,7 +235,7 @@ describe('pi-ai request context conversion', () => {
           content: [{ type: 'image', attachment: ref }],
         },
       ],
-    }])]), attachments)
+    }])]), imageContext(attachments))
 
     expect(context.messages).toEqual([{
       role: 'toolResult',
@@ -230,8 +252,7 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('flattens nested text-only tool results and ignores other block types without storage', () => {
-    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
-    const callId = CallId('nested-text')
+    const callId = ToolCallId('nested-text')
     expect(toPiContext(request([user([{
       type: 'tool-result',
       toolCallId: callId,
@@ -260,8 +281,7 @@ describe('pi-ai request context conversion', () => {
     const store = projectionStore(readImageRequest)
     /** 中文说明：测试局部值 sized，由紧邻初始化决定。 */
     const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
-    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
-    const callId = CallId('shot-call')
+    const callId = ToolCallId('shot-call')
     // Three 3-byte images cost 4 base64 characters each (12 total); a bound of
     // 8 forces exactly the oldest one out, including one nested in a tool result.
     /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
@@ -273,14 +293,14 @@ describe('pi-ai request context conversion', () => {
       }]),
       user([{ type: 'image', attachment: sized }, { type: 'text', text: 'newer' }]),
       user([{ type: 'image', attachment: sized }]),
-    ]), store, undefined, 8)
+    ]), imageContext(store, { maxRequestImageBytes: 8 }))
 
     expect(context.messages).toEqual([
       {
         role: 'toolResult',
         toolCallId: 'shot-call',
         toolName: 'unknown',
-        content: [{ type: 'text', text: OFFLOADED_IMAGE_TEXT }],
+        content: [{ type: 'text', text: offloadedImageText(sized) }],
         isError: false,
         timestamp: 0,
       },
@@ -320,18 +340,40 @@ describe('pi-ai request context conversion', () => {
     const context = await toPiContext(request([user([
       { type: 'image', attachment: old },
       { type: 'image', attachment: recent },
-    ])]), projectionStore(readImageRequest), undefined, 4)
+    ])]), imageContext(projectionStore(readImageRequest), { maxRequestImageBytes: 4 }))
 
     expect(context.messages[0]).toMatchObject({
       role: 'user',
       content: [
-        { type: 'text', text: OFFLOADED_IMAGE_TEXT },
+        { type: 'text', text: offloadedImageText(old) },
         { type: 'text', text: expect.stringContaining(String(recent.attachmentId)) as string },
         { type: 'image' },
       ],
     })
     expect(readImageRequest).toHaveBeenCalledTimes(1)
     expect(readImageRequest.mock.calls[0]?.[0]).toEqual(recent)
+  })
+
+  it('uses independently resolved access when exact encoded bytes require offload', async () => {
+    const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
+    const access = { readonlyPath: '/tmp/dsh-normalized-image' }
+    const readImageRequest = vi.fn((value: ImageAttachmentRef) => Promise.resolve({
+      ...requestImage(value, Uint8Array.of(1, 2, 3, 4)),
+    }))
+
+    const context = await toPiContext(request([
+      user([{ type: 'image', attachment: sized }]),
+    ]), imageContext(projectionStore(readImageRequest), {
+      maxRequestImageBytes: 4,
+      resolveImageAccess: () => access,
+    }))
+
+    expect(context.messages).toEqual([{
+      role: 'user',
+      content: offloadedImageText(sized, access),
+      timestamp: 0,
+    }])
+    expect(readImageRequest).toHaveBeenCalledTimes(1)
   })
 
   it('keeps every image at exactly the payload bound and drops all of them when even the newest cannot fit', async () => {
@@ -341,7 +383,7 @@ describe('pi-ai request context conversion', () => {
     const exact = await toPiContext(request([
       user([{ type: 'image', attachment: sized }]),
       user([{ type: 'image', attachment: sized }]),
-    ]), attachments, undefined, 8)
+    ]), imageContext(attachments, { maxRequestImageBytes: 8 }))
     expect(exact.messages).toEqual([
       {
         role: 'user',
@@ -364,10 +406,10 @@ describe('pi-ai request context conversion', () => {
     /** 中文说明：测试局部值 oversized，由紧邻初始化决定。 */
     const oversized = await toPiContext(request([
       user([{ type: 'image', attachment: { ...ref, bytes: 300 } }]),
-    ]), store, undefined, 8)
+    ]), imageContext(store, { maxRequestImageBytes: 8 }))
     // All-text content collapses to the string form; the placeholder still reaches the model.
     expect(oversized.messages).toEqual([
-      { role: 'user', content: OFFLOADED_IMAGE_TEXT, timestamp: 0 },
+      { role: 'user', content: offloadedImageText({ ...ref, bytes: 300 }), timestamp: 0 },
     ])
     expect(readImageRequest).not.toHaveBeenCalled()
   })
@@ -383,19 +425,20 @@ describe('pi-ai request context conversion', () => {
     ))
     /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = projectionStore(readImageRequest)
-    /** 中文说明：测试局部值 aliased，由紧邻初始化决定。 */
-    const aliased = await toPiContext(request([user([shared, shared])]), store, undefined, 4)
-    /** 中文说明：测试局部值 replayed，由紧邻初始化决定。 */
+    const aliased = await toPiContext(
+      request([user([shared, shared])]),
+      imageContext(store, { maxRequestImageBytes: 4 }),
+    )
     const replayed = await toPiContext(request([user([
       { type: 'image', attachment: { ...sized } },
       { type: 'image', attachment: { ...sized } },
-    ])]), store, undefined, 4)
+    ])]), imageContext(store, { maxRequestImageBytes: 4 }))
 
     /** 中文说明：测试局部值 expected，由紧邻初始化决定。 */
     const expected = [{
       role: 'user',
       content: [
-        { type: 'text', text: OFFLOADED_IMAGE_TEXT },
+        { type: 'text', text: offloadedImageText(sized) },
         { type: 'text', text: expect.stringContaining(`Image ${sized.attachmentId}`) as string },
         { type: 'image', data: 'AQID', mimeType: 'image/png' },
       ],
@@ -407,13 +450,12 @@ describe('pi-ai request context conversion', () => {
   })
 
   it('keeps empty text-only users while separating result-only messages', () => {
-    /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
-    const callId = CallId('unknown-call')
+    const callId = ToolCallId('unknown-call')
     expect(toPiContext(request([
       user([]),
       history('assistant', [
         { type: 'text', text: 'answer' },
-        { type: 'tool-call', id: CallId('other-call'), name: 'lookup', arguments: '{}' },
+        { type: 'tool-call', id: ToolCallId('other-call'), name: 'lookup', arguments: '{}' },
       ]),
       user([{
         type: 'tool-result',
@@ -438,7 +480,7 @@ describe('pi-ai request context conversion', () => {
       const store = projectionStore(readImageRequest)
       await expect(toPiContext(request([
         history(role, [{ type: 'image', attachment: ref }]),
-      ]), store, undefined, 1)).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
+      ]), imageContext(store, { maxRequestImageBytes: 1 }))).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
       expect(readImageRequest).not.toHaveBeenCalled()
     }
 
@@ -446,7 +488,7 @@ describe('pi-ai request context conversion', () => {
       history('system', [{ type: 'text', text: 'history system' }]),
       history('assistant', [{ type: 'text', text: 'answer' }]),
       user([{ type: 'text', text: 'plain' }]),
-    ]), attachments)).resolves.toMatchObject({
+    ]), imageContext(attachments))).resolves.toMatchObject({
       messages: [
         { role: 'user', content: 'history system' },
         { role: 'assistant' },

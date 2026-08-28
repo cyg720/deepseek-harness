@@ -786,23 +786,21 @@ export function runCoordinatorContract(name: string, makeFixture: () => Promise<
             .rejects.toThrow('lacks an identified message')
         }
 
-        // An out-of-repo event type passes only with the envelope's ignorable
-        // marker (unknown-type refusal otherwise), and its non-object data is
-        // not message-validated.
-        /** 中文说明：变量 pluginId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-        const pluginId = SessionId('non-object-plugin-event')
-        await ctx.sessionPersistence.create(meta(pluginId, WORK))
-        await ctx.sessionPersistence.append(pluginId, [{
-          type: 'plugin/test',
+        // A known log-only event with non-object data is not a legacy message
+        // candidate; both whole-log and seek reads preserve it unchanged.
+        const primitiveId = SessionId('non-object-log-only-event')
+        const primitive = {
+          type: 'session/end-seed',
           seq: 0,
           time: 1,
           data: null,
-          ignorable: true,
-        } as unknown as SessionEvent])
-        await expect(ctx.sessionPersistence.inspect(pluginId))
-          .resolves.toMatchObject({ events: [{ type: 'plugin/test', data: null, ignorable: true }] })
-        await expect(ctx.sessionPersistence.readFrom(pluginId, 0))
-          .resolves.toMatchObject({ events: [{ type: 'plugin/test', data: null, ignorable: true }] })
+        } as unknown as SessionEvent
+        await ctx.sessionPersistence.create(meta(primitiveId, WORK))
+        await ctx.sessionPersistence.append(primitiveId, [primitive])
+        await expect(ctx.sessionPersistence.inspect(primitiveId))
+          .resolves.toMatchObject({ events: [primitive] })
+        await expect(ctx.sessionPersistence.readFrom(primitiveId, 0))
+          .resolves.toMatchObject({ events: [primitive] })
 
         /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
         for (const type of ['user/message', 'assistant/message'] as const) {
@@ -1541,8 +1539,7 @@ export function runCoordinatorContract(name: string, makeFixture: () => Promise<
       }
     })
 
-    it('rejects an unknown event type on load unless the event is marked ignorable', async () => {
-      /** 中文说明：变量 fix 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    it('rejects an unknown event type on load', async () => {
       const fix = await makeFixture()
       const { ctx, fiber } = await freshCtx(fix)
       try {
@@ -1556,18 +1553,7 @@ export function runCoordinatorContract(name: string, makeFixture: () => Promise<
         /** 中文说明：函数值 failure 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const failure = await ctx.sessionPersistence.load(required.id).then(() => undefined, (error: unknown) => error as Error)
         expect(failure?.name).toBe('SessionFormatUnsupportedError')
-        expect(failure?.message).toMatch(/event type "future\/event".*not marked ignorable/)
-
-        /** 中文说明：变量 skippable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-        const skippable = meta('unknown-ignorable', WORK)
-        await ctx.sessionPersistence.create(skippable)
-        await ctx.sessionPersistence.append(skippable.id, [
-          ...oneTurnLog(),
-          { type: 'future/event', seq: oneTurnLog().length, time: 99, data: { payload: 1 }, ignorable: true } as unknown as SessionEvent,
-        ])
-        /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-        const loaded = await ctx.sessionPersistence.load(skippable.id)
-        expect(loaded.events.some(event => (event.type as string) === 'future/event')).toBe(true)
+        expect(failure?.message).toMatch(/event type "future\/event".*unknown to this harness/)
       } finally {
         await fiber.dispose()
         await fix.cleanup()

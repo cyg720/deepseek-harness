@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
+import Group from '@deepseek-ai/cordis-plugin-group'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -49,13 +50,15 @@ const ROOTS = [
  * @param roster - roster config, defaulting to the fixture roots.
  * @returns the booted context.
  */
-/* 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-async function harness(roster: Config = { default: 'standard', roots: ROOTS, includeUserRoot: false }): Promise<Context> {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+async function harness(roster: Config = { default: 'standard', roots: ROOTS, includeShippedRoot: false, includeUserRoot: false }): Promise<Context> {
   const ctx = new Context()
   ctx.baseUrl = pathToFileURL(FIXTURES).href + '/'
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
+  // A preset outside this workspace cannot resolve `cordis-plugin-group` by
+  // name, so the app registers it as a builtin; the fixtures compose the same
+  // way real presets do, which needs it here too.
+  ctx.loader.builtins.group = Group
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
   await ctx.plugin(SystemPrompt, { persona: '' })
@@ -66,8 +69,6 @@ async function harness(roster: Config = { default: 'standard', roots: ROOTS, inc
   return ctx
 }
 
-/** Create one agent composed from `presetId`, exactly as a factory `setup` would. */
-/* 中文说明：函数 agentOn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function agentOn(ctx: Context, id: string, presetId?: string): Promise<Agent> {
   /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle = await ctx.agents.create({
@@ -118,9 +119,7 @@ describe('composing an agent from a preset', () => {
       join(presetDir, COMPOSITION_FILE),
       `- id: only\n  name: ${plugin}\n  config:\n    tool: absolute\n`,
     )
-    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const scoped = await harness({ default: 'absolute', roots: [{ path: root, trust: 'user' }], includeUserRoot: false })
-    /** 中文说明：变量 imported 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const scoped = await harness({ default: 'absolute', roots: [{ path: root, trust: 'user' }], includeShippedRoot: false, includeUserRoot: false })
     const imported = vi.spyOn(scoped.loader.internal!, 'import')
 
     await agentOn(scoped, 'sess-absolute-plugin')
@@ -296,7 +295,16 @@ describe('rejecting a composition that cannot be used', () => {
     // message names none of them; unflattened, the operator is told only that
     // "loader entries failed to apply" and has nothing to act on.
     await expect(agentOn(ctx, 'sess-two-broken', 'two-broken'))
-      .rejects.toThrow(/first-missing[\s\S]*second-missing/)
+      .rejects.toThrow(/first-refuses[\s\S]*second-refuses/)
+  })
+
+  it('names the rows inside a failed group, not the group alone', async () => {
+    // The Loader's per-row wrapper keeps only `cause.message`, so a group's
+    // own AggregateError arrives with its `errors` reachable through `cause`
+    // alone. Reading the message stops at "loader entries failed to apply"
+    // and names neither row that actually refused.
+    await expect(agentOn(ctx, 'sess-nested-broken', 'nested-broken'))
+      .rejects.toThrow(/outer[\s\S]*inner-first[\s\S]*inner-second/)
   })
 
   it('names the unresolved service when a row never activates', async () => {
@@ -392,7 +400,7 @@ describe('the preset roster', () => {
 
     // `not-a-preset` is the fixture ghost: no composition file, listed broken.
     expect(listed.map(preset => preset.id).sort())
-      .toEqual(['broken', 'isolated', 'late', 'leaky', 'minimal', 'not-a-preset', 'pending', 'standard', 'two-broken'])
+      .toEqual(['broken', 'isolated', 'late', 'leaky', 'minimal', 'nested-broken', 'not-a-preset', 'pending', 'standard', 'two-broken'])
     expect(listed.find(preset => preset.id === 'standard')?.trust).toBe('system')
     expect(listed.find(preset => preset.id === 'not-a-preset')?.broken).toMatch(/is missing/)
   })
@@ -410,7 +418,7 @@ describe('composing from a broken preset', () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-broken-'))
     await mkdir(join(root, 'damaged'))
     await writeFile(join(root, 'damaged', COMPOSITION_FILE), composition)
-    return await harness({ default: 'damaged', roots: [{ path: root, trust: 'user' as const }], includeUserRoot: false })
+    return await harness({ default: 'damaged', roots: [{ path: root, trust: 'user' as const }], includeShippedRoot: false, includeUserRoot: false })
   }
 
   it('refuses the mount up front with the discovery-reported reason', async () => {
@@ -446,11 +454,27 @@ describe('a roster with nothing in it', () => {
   it('says so instead of naming an empty list of candidates', async () => {
     /** 中文说明：变量 bare 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bare = new Context()
+    bare.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await bare.plugin(Loader)
-    await bare.plugin(AgentPresets, { default: 'standard', roots: [], includeUserRoot: false })
+    await bare.plugin(AgentPresets, { default: 'standard', roots: [], includeShippedRoot: false, includeUserRoot: false })
 
     await expect(bare.agentPresets.resolve())
       .rejects.toThrow(/preset "standard" not found \(available: none\)/)
+  })
+})
+
+describe('a roster with no base to resolve from', () => {
+  it('refuses at load rather than calling every preset broken', async () => {
+    // Health answers "can this row be imported?", and the same package name
+    // fails from a preset's own directory while resolving from the installed
+    // harness. Without the base there is no answer, and the silent one is
+    // exactly the failure the check exists to report.
+    const baseless = new Context()
+    await baseless.plugin(Loader)
+
+    await expect(baseless.plugin(AgentPresets, {
+      default: 'standard', roots: ROOTS, includeShippedRoot: false, includeUserRoot: false,
+    })).rejects.toThrow(/needs `ctx\.baseUrl`/)
   })
 })
 
@@ -484,13 +508,14 @@ describe('the preset file is an input, never a persistence target', () => {
     scoped.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await scoped.plugin(Loader)
     scoped.loader.builtins.include = Include
+    scoped.loader.builtins.group = Group
     await scoped.plugin(LlmRuntime)
     await scoped.plugin(SessionStore)
     await scoped.plugin(SystemPrompt, { persona: '' })
     await scoped.plugin(ToolRuntime)
     await scoped.plugin(AgentRegistry)
     await scoped.plugin(AgentLoop, { agents: [] })
-    await scoped.plugin(AgentPresets, { default: 'self-disposing', roots: [{ path: root, trust: 'user' as const }], includeUserRoot: false })
+    await scoped.plugin(AgentPresets, { default: 'self-disposing', roots: [{ path: root, trust: 'user' as const }], includeShippedRoot: false, includeUserRoot: false })
 
     await scoped.agents.create({
       sessionId: SessionId('sess-self-dispose'),
@@ -562,6 +587,27 @@ describe('replacing a composition', () => {
     expect(toolNames(ctx)).toEqual([])
   })
 
+  it('notifies tool views after reparenting and contains notification failures', async () => {
+    const handle = await ctx.agents.create({
+      sessionId: SessionId('sess-tool-change'),
+      setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'standard'),
+    })
+    await ctx.agentPresets.standingKeyFor('minimal')
+    let changes = 0
+    const stopCounting = ctx.on('tools/change', () => { changes += 1 })
+    await ctx.agentPresets.recompose(handle.agent.ctx, 'minimal')
+    expect(changes).toBe(1)
+    stopCounting()
+
+    const warnings: string[] = []
+    ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    const stopThrowing = ctx.on('tools/change', () => { throw new Error('listener failed') })
+    await expect(ctx.agentPresets.recompose(handle.agent.ctx, 'standard')).resolves.toMatchObject({ id: 'standard' })
+    expect(ctx.agentPresets.composedPreset(handle.agent.ctx)).toBe('standard')
+    expect(warnings).toEqual([expect.stringContaining('tools/change listener failed')])
+    stopThrowing()
+  })
+
   it('leaves the agent on its previous composition when the new one is unknown', async () => {
     /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({
@@ -615,9 +661,7 @@ describe('replacing a composition', () => {
     // exactly right there and the diagnostic must stay silent. Opting out is
     // what makes this rosterless — empty `roots` alone would still derive the
     // harness-home root, which is a roster like any other.
-    /** 中文说明：变量 rosterless 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const rosterless = await harness({ default: 'standard', roots: [], includeUserRoot: false })
-    /** 中文说明：变量 warnings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const rosterless = await harness({ default: 'standard', roots: [], includeShippedRoot: false, includeUserRoot: false })
     const warnings: string[] = []
     rosterless.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof rosterless.logger.warn
 
@@ -654,9 +698,7 @@ describe('replacing a composition', () => {
     // cannot disturb the shipped fixtures.
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-restore-'))
-    /** 中文说明：变量 seeded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const seeded: [string, string][] = [['first', `- id: only\n  name: ${join(FIXTURES, 'plugins', 'contribute.js')}\n  config:\n    tool: only\n`], ['broken', '- id: nope\n  name: ./does-not-exist.js\n']]
-    /** 中文说明：该循环依次处理预设数据；循环变量仅在当前循环中有效。 */
+    const seeded: [string, string][] = [['first', `- id: only\n  name: ${join(FIXTURES, 'plugins', 'contribute.js')}\n  config:\n    tool: only\n`], ['broken', `- id: nope\n  name: ${join(FIXTURES, 'plugins', 'throws.js')}\n  config:\n    message: refuses\n`]]
     for (const [id, body] of seeded) {
       await mkdir(join(root, id))
       await writeFile(join(root, id, COMPOSITION_FILE), body)
@@ -666,14 +708,14 @@ describe('replacing a composition', () => {
     scoped.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await scoped.plugin(Loader)
     scoped.loader.builtins.include = Include
+    scoped.loader.builtins.group = Group
     await scoped.plugin(LlmRuntime)
     await scoped.plugin(SessionStore)
     await scoped.plugin(SystemPrompt, { persona: '' })
     await scoped.plugin(ToolRuntime)
     await scoped.plugin(AgentRegistry)
     await scoped.plugin(AgentLoop, { agents: [] })
-    await scoped.plugin(AgentPresets, { default: 'first', roots: [{ path: root, trust: 'user' as const }], includeUserRoot: false })
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    await scoped.plugin(AgentPresets, { default: 'first', roots: [{ path: root, trust: 'user' as const }], includeShippedRoot: false, includeUserRoot: false })
     const handle = await scoped.agents.create({
       sessionId: SessionId('sess-restore-gone'),
       setup: async (agentCtx: Context) => void await scoped.agentPresets.mount(agentCtx, 'first'),
@@ -717,8 +759,7 @@ describe('editing a composition file', () => {
     /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = join(root, id, COMPOSITION_FILE)
     await writeFile(path, rowFor('before'))
-    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const scoped = await harness({ default: id, roots: [{ path: root, trust: 'user' as const }], includeUserRoot: false })
+    const scoped = await harness({ default: id, roots: [{ path: root, trust: 'user' as const }], includeShippedRoot: false, includeUserRoot: false })
     return { scoped, path }
   }
 

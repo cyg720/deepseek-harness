@@ -72,15 +72,14 @@ const experimentalPackageNamePrefix = '@deepseek-ai/dsh-experimental-'
 /** Directories whose packages this repository publishes: one release member each. */
 /* 中文说明：变量 releaseMemberDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const releaseMemberDirectory = /^(?:packages\/(?!experimental\/)[^/]+\/[^/]+|apps\/[^/]+|vendor\/[^/]+)$/
-
-/** 中文说明：变量 localArtifactDirs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const localArtifactDirs = new Set(['node_modules'])
 /** 中文说明：变量 appPackageFiles 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
-  '@deepseek-ai/dsh': ['lib/*.js', 'config'],
-  // The Web build emits sourcemaps for browser debugging; publishing them is
-  // what the payload policy forbids, so the bundle ships without them.
-  '@deepseek-ai/dsh-web-frontend': ['dist', '!dist/**/*.map'],
+  '@deepseek-ai/dsh': ['lib/*.js'],
+  // Sourcemaps stay out by payload policy; the worker-preview surface
+  // (dist/preview.html and dist/preview/) backs private experimental
+  // packages and is not published.
+  '@deepseek-ai/dsh-web-frontend': ['dist', '!dist/**/*.map', '!dist/preview.html', '!dist/preview'],
 }
 
 /** The subset of package.json fields this constraint check cares about. */
@@ -184,16 +183,26 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh-client-ui-theme': ['lib/styles'],
   // The CPython side ships as source .py files, published as-is rather than built.
   '@deepseek-ai/dsh-code-runtime-python': ['py/**/*.py'],
-  // The Python runtime uses a distinct closed-resolution bin; the public CLI
-  // keeps config-owned bare-package resolution through lib/bin.js.
-  '@deepseek-ai/dsh-sdk-jsonrpc-demo': ['lib/packaged-bin.js'],
+  // The shipped preset compositions travel inside the roster package.
+  '@deepseek-ai/dsh-agent-presets': ['presets'],
+  // The Web Host mounts the default-off settings owner independently of each
+  // Agent-scoped delegation-tool instance.
+  '@deepseek-ai/dsh-tool-subagent': ['lib/model-selection-settings.js'],
   // The argv-prefix runner entry ships beside the lib as its own bundle;
   // sandbox-local resolves it through the package's ./runner export. tsdown
   // also shares its generated FFI code through a hashed runtime chunk.
   '@deepseek-ai/dsh-sandbox-windows-acl': ['lib/runner.js', 'lib/types-*.js'],
-  // SQLite loads every statement from immutable package resources at runtime.
-  '@deepseek-ai/dsh-session-persistence-sqlite': ['resources/sql/**/*.sql'],
+  // SQLite loads its compression dictionary and every statement from immutable
+  // package resources at runtime.
+  '@deepseek-ai/dsh-session-persistence-sqlite': [
+    'resources/zstd-dictionary.bin',
+    'resources/sql/**/*.sql',
+  ],
   '@deepseek-ai/dsh-skill-badge': ['assets'],
+  // tsdown shares the repository/pack code between the lib entry and the bin
+  // through a hashed chunk. The committed bin.js is the link target pnpm can
+  // resolve at install time, before the build produces lib/bin.js.
+  '@deepseek-ai/dsh-experimental-webworker-packer': ['bin.js', 'lib/repository-*.js'],
   '@deepseek-ai/dsh-subprocess-local': ['scripts/ensure-spawn-helper.mjs'],
 }
 
@@ -202,9 +211,7 @@ function sameStringList(actual: readonly string[] | undefined, expected: readonl
   return !!actual && actual.length === expected.length && actual.every((value, index) => value === expected[index])
 }
 
-/** 中文说明：函数 expectedDshPackageFiles 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function expectedDshPackageFiles(manifest: PackageManifest): readonly string[] {
-  /** 中文说明：变量 declaredPatch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+export function expectedDshPackageFiles(manifest: PackageManifest): readonly string[] {
   const declaredPatch = manifest.dsh?.bundle?.patch
   /** 中文说明：变量 bundleFiles 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bundleFiles = declaredPatch === undefined ? [] : [declaredPatch.replace(/^\.\//, '')]
@@ -219,10 +226,14 @@ function expectedDshPackageFiles(manifest: PackageManifest): readonly string[] {
     // bundle; the package-invariant gate validates the companion itself.
     'lib/invariant.js',
     ...manifest.bin ? ['lib/bin.js'] : [],
-    ...manifest.exports?.['./worker'] ? ['lib/worker.cjs'] : [],
+    // Worker-thread packages ship a CJS worker entry; the browser worker
+    // bundle is an ES module a page loads with `new Worker(type: 'module')`.
+    // Keyed on the artifact path, like ./client below.
+    ...exportDefault(manifest, './worker') === './lib/worker.cjs' ? ['lib/worker.cjs'] : [],
+    ...exportDefault(manifest, './worker') === './lib/worker.js' ? ['lib/worker.js'] : [],
     // UI plugin packages ship their browser bundle beside the node lib
     // (single-artifact ruling: dist/ retired, ./client resolves lib/client.js).
-    // Keyed on the artifact path, not the subpath name: apiproxy's ./client is
+    // Keyed on the artifact path, not the subpath name: a package's ./client is
     // a browser-safe source channel, not a bundle.
     ...exportDefault(manifest, './client') === './lib/client.js' ? ['lib/client.js'] : [],
     // runtime's shell-held loader subpath ships as its own bundle beside the client half.
@@ -300,9 +311,12 @@ export function checkExperimentalManifest({ dir, manifest }: WorkspaceManifest):
   return errors
 }
 
-/** 中文说明：函数 checkWorkspace 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function checkWorkspace({ dir, manifest }: WorkspaceManifest): string[] {
-  /** 中文说明：变量 errors 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/**
+ * Check one workspace manifest against publication and dsh-package policy.
+ * @param workspace - package directory and parsed manifest.
+ * @returns path-qualified policy violations.
+ */
+export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): string[] {
   const errors = checkExperimentalManifest({ dir, manifest })
   /** 中文说明：变量 label 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const label = manifest.name ?? dir
@@ -563,7 +577,7 @@ export function main(): void {
   /** 中文说明：变量 errors 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const errors = [
     ...checkRepositoryVersion(),
-    ...manifests.flatMap(checkWorkspace),
+    ...manifests.flatMap(checkWorkspaceManifest),
     ...checkWorkspaceProtocol(manifests),
     ...checkExperimentalDependencyIsolation(dependencyManifests),
     ...checkHierarchyShape(),

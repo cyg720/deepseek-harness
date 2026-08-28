@@ -23,32 +23,19 @@
  * preference row into the settings General section — the locale feature owns
  * its own settings surface.
  */
-/*
- * 浏览器侧 locale 注册表。绑定翻译函数为注入消费方保持稳定身份。插件还把
- * "语言"偏好行注册进设置 General 段——locale 功能拥有自己的设置面。
- */
-/* oxlint-disable typescript/no-redundant-type-constituents --
- * `keyof LocaleNamespaceMap & string` is the declare-merge key pattern (see
- * ui-slots): in THIS unit the map holds only this package's own merges, but
- * consumers merge more namespaces in and the intersection keeps them
- * string-typed. The rule fires on the narrow-map view, not real redundancy. */
-/* oxlint 禁用说明：`keyof LocaleNamespaceMap & string` 是声明合并键模式
- * （见 ui-slots）：本单元中该映射只含本包自己的合并，但消费方会合并进更多
- * 命名空间，交集使它们保持 string 类型。规则在窄映射视图上触发，并非真正
- * 冗余。*/
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import {
   type BoundActions, type LocaleDictOf, type LocaleNamespaceMap, type Translate, type TranslateNS,
 } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: the ctx.settingsScope Context merge and the settings slot types.
 // Cross-plugin collaboration goes through the service, never a value import
 // (client bundle purity gate).
-// 仅类型：ctx.settingsScope 的 Context 合并与设置槽位类型。跨插件协作经
-// 服务进行，绝不值导入（客户端 bundle 纯净门）。
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: pulls the SlotRegistry service merge (ctx.slots).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import {
-  LOCALE_PREFERENCE_FIELD, LOCALE_SETTINGS_NAMESPACE, type LocaleId, type LocaleSettings,
+  LOCALE_ID_PATTERN, LOCALE_IDS, LOCALE_PREFERENCE_FIELD, LOCALE_SETTINGS_NAMESPACE,
+  type BuiltInLocaleId, type LocaleId, type LocaleSettings,
 } from '../locale-settings.ts'
 import { en, zh, type CommonKey } from '../locales/index.ts'
 import {
@@ -61,7 +48,7 @@ import { createLanguageRowStore } from './settings-store.ts'
 export type { LanguageRowComponentProps, LanguageRowInjected } from './LanguageRow.tsx'
 export type { LanguageOptionRow, LanguageRowState } from './settings-store.ts'
 export type { CommonKey } from '../locales/index.ts'
-export type { LocaleId, LocaleSettings } from '../locale-settings.ts'
+export type { BuiltInLocaleId, LocaleId, LocaleSettings } from '../locale-settings.ts'
 
 // The translate currency lives in ui-slots (the render machinery synthesizes
 // the seat); re-exported here so dictionary owners import one package.
@@ -85,15 +72,24 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /* 语言词典：扁平键到模板字符串（{name} 占位符）。 */
 export type LocaleDict = Record<string, string>
 
-/** One selectable locale: id plus its self-described display name. */
-/* 一个可选语言：id + 其自述显示名。 */
-export interface LocaleDefinition {
-  /** Locale id (persisted; the setLocale argument). */
-  /* 语言 id（持久化；setLocale 的参数）。 */
+/** Input accepted when a language-pack plugin adds a selectable language. */
+export interface LanguageRegistration {
+  /** Stable BCP 47-style id stored as the locale preference. */
   id: LocaleId
-  /** Display name in its own language (中文 / English). */
-  /* 以其自身语言显示的标签（中文 / English）。 */
+  /** Display name written in the represented language. */
   label: string
+  /** Registered language consulted when this language lacks a dictionary key. */
+  fallback: LocaleId
+}
+
+/** One normalized selectable locale published in snapshots. */
+export interface LocaleDefinition {
+  /** Stable id persisted by {@link LocaleRuntime.setLocale}. */
+  readonly id: LocaleId
+  /** Display name written in the represented language. */
+  readonly label: string
+  /** Next language in the per-key fallback chain; absent only for English. */
+  readonly fallback?: LocaleId
 }
 
 /** Immutable locale state published on every change. */
@@ -135,21 +131,15 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /**
- * English is both the locale the UI opens in when the browser names no shipped
+ * English is both the locale the UI opens in when the browser names no registered
  * language (and for non-browser runs), and the dictionary consulted after the
  * active locale misses a key. One constant serves both because the shipped
  * `zh`/`en` dictionaries carry identical key sets, so neither direction can
  * leave a key unresolved; the residual case points at English rather than
- * zh because a browser naming neither shipped language is the reader least
+ * zh because a browser naming no registered language is the reader least
  * likely to read Chinese.
  */
-/*
- * English 既是浏览器不命名任何发货语言时 UI 打开的语言（以及非浏览器
- * 运行），也是激活语言未命中键后咨询的字典。一个常量服务两种用途，因为
- * 发货的 zh/en 字典携带相同键集，任一方向都不会留下未解析键；残余情形
- * 指向英文而非中文，因为命名非发货语言的浏览器读者最不可能读中文。
- */
-export const FALLBACK_LOCALE: LocaleId = 'en'
+export const FALLBACK_LOCALE: BuiltInLocaleId = 'en'
 
 /** Shared namespace for shell-level texts. */
 /* shell 级文本的共享命名空间。 */
@@ -159,56 +149,52 @@ export const COMMON_NS = 'common'
 /* 拥有本功能设置行文案的命名空间。 */
 export const SETTINGS_NS = 'settings.locale'
 
-/** The two shipped locales. */
-/* 两个发货语言。 */
-const LOCALES: readonly LocaleDefinition[] = Object.freeze([
-  { id: 'zh', label: '中文' },
-  { id: 'en', label: 'English' },
-])
+/** The two locales and dictionaries shipped by this package. */
+const BUILT_IN_LOCALE_METADATA = {
+  zh: { label: '中文', fallback: 'en' },
+  en: { label: 'English' },
+} as const satisfies Record<BuiltInLocaleId, Omit<LocaleDefinition, 'id'>>
+const BUILT_IN_LOCALES: readonly LocaleDefinition[] = Object.freeze(
+  LOCALE_IDS.map(id => Object.freeze({ id, ...BUILT_IN_LOCALE_METADATA[id] })),
+)
 
-/**
- * `<html lang>` tag per shipped locale. The locale id is the app's own
- * vocabulary (primary subtag); the document attribute wants a BCP 47 tag,
- * which assistive technology and browser features (pronunciation rules,
- * translation offers, font fallback, spell check) read to pick their own
- * behavior. `zh` alone leaves the script ambiguous, so the shipped Chinese
- * copy names the variant it actually is.
- */
-/*
- * 每个发货语言的 <html lang> 标签。语言 id 是应用自己的词汇（主子标签）；
- * 文档属性要 BCP 47 标签——辅助技术与浏览器功能（发音规则、翻译提供、
- * 字体回退、拼写检查）读取它以选择自身行为。单独 zh 使脚本歧义，因此
- * 发货中文文案命名它实际所在的变体。
- */
-const DOCUMENT_LANGUAGE: Record<LocaleId, string> = { zh: 'zh-CN', en: 'en' }
+/** Case-insensitive key for BCP 47-style ids. */
+function localeKey(value: string): string {
+  return value.toLowerCase()
+}
 
-/**
- * Point `<html lang>` at the active locale. Called on every locale change,
- * so the attribute tracks the UI instead of standing at whatever the served
- * markup happened to declare.
- * @param active - the active locale id.
- */
-/*
- * 把 <html lang> 指向激活语言。每次语言变更都调用，使属性跟随 UI，而非
- * 停留在服务标记碰巧声明的值。
- * @param active 激活语言 id。
- */
-function syncDocumentLanguage(active: LocaleId): void {
-  // Non-browser runs (node boots of the client tree) have no document.
-  // 非浏览器运行（客户端树的 node 启动）没有 document。
-  if (typeof document === 'undefined') return
-  document.documentElement.lang = DOCUMENT_LANGUAGE[active]
+/** Validate and detach a language-pack contribution from its mutable input. */
+function normalizeLanguage(input: LanguageRegistration): Readonly<LanguageRegistration> {
+  if (!LOCALE_ID_PATTERN.test(input.id)) {
+    throw new Error(`locale id "${input.id}" is not a BCP 47-style tag`)
+  }
+  if (input.label.trim() === '') throw new Error('locale label must not be empty')
+  if (!LOCALE_ID_PATTERN.test(input.fallback)) {
+    throw new Error(`locale fallback "${input.fallback}" is not a BCP 47-style tag`)
+  }
+  return Object.freeze({ id: input.id, label: input.label, fallback: input.fallback })
 }
 
 /**
- * Dictionary registry plus locale preference. Lookup chain per key: the
- * entry's namespace in the active locale -> that namespace's en fallback ->
- * the shared common namespace (active, then en) -> the key itself (missing
- * text stays visible, fail loud in the UI rather than blank). Reads go
- * through {@link getLocale}; writes only through {@link setLocale};
- * continuous sync through the `locale/change` event, or through the
- * LocaleFace getSnapshot/subscribe pair the render machinery consumes
- * (installed via `ctx.slots.installLocale`).
+ * Point `<html lang>` at the active locale, keeping the served document in
+ * sync with locale snapshot changes.
+ * @param snapshot - current locale state, including the active definition.
+ */
+function syncDocumentLanguage(snapshot: LocaleSnapshot): void {
+  // Non-browser runs (node boots of the client tree) have no document.
+  if (typeof document === 'undefined') return
+  document.documentElement.lang = snapshot.active === 'zh' ? 'zh-CN' : snapshot.active
+}
+
+/**
+ * Dictionary registry plus locale preference. Lookup walks the active
+ * language's declared fallback chain in the entry namespace, then repeats it
+ * in the shared common namespace before showing the key itself. Reads go
+ * through {@link getLocale}; preferences change only through
+ * {@link setLocale}, while language packs extend the catalog through
+ * {@link addLanguage}. Continuous sync uses the `locale/change` event or
+ * the LocaleFace getSnapshot/subscribe pair installed through
+ * `ctx.slots.installLocale`.
  */
 /*
  * 字典注册表 + 语言偏好。每键查找链：激活语言下的条目命名空间 -> 该命名
@@ -218,15 +204,18 @@ function syncDocumentLanguage(active: LocaleId): void {
  * getSnapshot/subscribe 对（经 ctx.slots.installLocale 安装）。
  */
 export class LocaleRuntime {
-  private dicts = new Map<string, Map<string, LocaleDict>>() // 命名空间 -> (语言 -> 词典)
-  private bound = new Map<string, Translate>() // 命名空间 -> 绑定翻译函数（身份稳定）
-  private snapshot: LocaleSnapshot // 当前不可变快照
-  private listeners = new Set<() => void>() // LocaleFace 订阅者
-  private readonly ctx: Context
-  private readonly host: SettingsScope<LocaleSettings> | undefined // 持久偏好作用域
+  private dicts = new Map<string, Map<string, LocaleDict>>()
+  private bound = new Map<string, Translate>()
+  private catalog = new Map<string, LocaleDefinition>()
+  private fallbackChains = new Map<string, readonly LocaleId[]>()
+  private snapshot: LocaleSnapshot
+  private listeners = new Set<() => void>()
+  private readonly ctx: ClientContext
+  private readonly host: SettingsScope<LocaleSettings> | undefined
   /** Browser-derived locale standing wherever no explicit Host selection does. */
-  /* 浏览器推导语言；无显式 Host 选择处站桩。 */
-  private readonly provisional: LocaleId
+  private provisional: LocaleId
+  /** Last explicit selection, including one awaiting an external registration. */
+  private preference: LocaleId | undefined
 
   /**
    * @param ctx - owning context (change events are emitted on it; the scope
@@ -234,17 +223,13 @@ export class LocaleRuntime {
    * @param host - durable preference scope owned by the providing plugin;
    * absent compositions (standalone dictionary registries) stay process-local.
    */
-  /*
-   * @param ctx 属主上下文（变更事件在其上发射；作用域监听器在销毁时经
-   *   ctx.effect 释放）。
-   * @param host 提供插件拥有的持久偏好作用域；缺失组合（独立字典注册表）
-   *   保持进程本地。
-   */
-  constructor(ctx: Context, host?: SettingsScope<LocaleSettings>) {
+  constructor(ctx: ClientContext, host?: SettingsScope<LocaleSettings>) {
     this.ctx = ctx
     this.host = host
-    this.provisional = resolveInitialLocale()
-    this.snapshot = Object.freeze({ active: this.provisional, locales: LOCALES, revision: 0 })
+    for (const locale of BUILT_IN_LOCALES) this.catalog.set(localeKey(locale.id), locale)
+    const locales = this.localeList()
+    this.provisional = resolveInitialLocale(locales)
+    this.snapshot = Object.freeze({ active: this.provisional, locales, revision: 0 })
     if (host !== undefined) {
       ctx.effect(() => host.subscribe(() => { this.adopt(host) }), 'locale: settings scope adoption')
       this.adopt(host)
@@ -280,7 +265,7 @@ export class LocaleRuntime {
   /**
    * LocaleFace subscribe: notified on every snapshot change (locale switch
    * or dictionary registration — registrations bump the revision so already
-   * rendered outlets pick up late-arriving dictionaries).
+   * rendered outlets pick up late-arriving dictionaries and locale definitions).
    * @param fn - change callback.
    * @returns unsubscribe.
    */
@@ -317,10 +302,47 @@ export class LocaleRuntime {
    * @param id 已注册语言 id；未知 id 抛错。
    */
   setLocale(id: string): void {
-    const match = this.snapshot.locales.find(l => l.id === id)
+    const match = this.catalog.get(localeKey(id))
     if (match === undefined) throw new Error(`locale "${id}" is not registered`)
+    this.preference = match.id
     if (this.snapshot.active !== match.id) this.publish(match.id, true)
     void this.host?.set(LOCALE_PREFERENCE_FIELD, match.id)
+  }
+
+  /**
+   * Add one selectable language to the shared catalog. Its fallback must
+   * already be registered, and following fallback definitions must terminate
+   * at English. Dictionaries may register before or after this definition.
+   * Registration rechecks an unresolved Host preference and the browser's
+   * ordered language list. The caller owns the returned disposer; removing an
+   * active language falls back without clearing the stored id.
+   * @param input - stable id, self-described label, and fallback language id.
+   * @returns idempotent disposer removing this exact definition.
+   * @throws when fields are malformed, the id is occupied, or the fallback
+   * target is unknown or creates a cycle.
+   */
+  addLanguage(input: LanguageRegistration): () => void {
+    const candidate = normalizeLanguage(input)
+    const key = localeKey(candidate.id)
+    if (this.catalog.has(key)) throw new Error(`locale "${candidate.id}" is already registered`)
+    const fallback = this.catalog.get(localeKey(candidate.fallback))
+    if (fallback === undefined) {
+      throw new Error(`locale fallback "${candidate.fallback}" is not registered`)
+    }
+    const language = Object.freeze({ ...candidate, fallback: fallback.id })
+    this.catalog.set(key, language)
+    try {
+      this.assertFallbackChain(language.id)
+    } catch (error) {
+      this.catalog.delete(key)
+      throw error
+    }
+    this.publishCatalog()
+    return () => {
+      if (this.catalog.get(key) !== language) return
+      this.catalog.delete(key)
+      this.publishCatalog()
+    }
   }
 
   /**
@@ -335,9 +357,74 @@ export class LocaleRuntime {
   private adopt(host: SettingsScope<LocaleSettings>): void {
     const section = host.getSnapshot().value
     if (section === undefined) return
-    const target = section.preference ?? this.provisional
+    this.preference = section.preference
+    const target = this.resolveActive()
     if (this.snapshot.active === target) return
     this.publish(target, true)
+  }
+
+  /** Recompute browser fallback and publish the current catalog. */
+  private publishCatalog(): void {
+    this.fallbackChains.clear()
+    const locales = this.localeList()
+    this.provisional = resolveInitialLocale(locales)
+    const active = this.resolveActive()
+    this.publish(active, active !== this.snapshot.active, locales)
+  }
+
+  /** Resolve an explicit preference only while its definition is available. */
+  private resolveActive(): LocaleId {
+    if (this.preference === undefined) return this.provisional
+    return this.catalog.get(localeKey(this.preference))?.id ?? this.provisional
+  }
+
+  /** Snapshot the catalog in registration order. */
+  private localeList(): readonly LocaleDefinition[] {
+    return Object.freeze([...this.catalog.values()])
+  }
+
+  /** Fail a new definition whose complete fallback path does not reach English. */
+  private assertFallbackChain(start: LocaleId): void {
+    const seen = new Set<string>()
+    let current = this.catalog.get(localeKey(start))
+    while (current !== undefined) {
+      const key = localeKey(current.id)
+      if (seen.has(key)) throw new Error(`locale fallback cycle includes "${current.id}"`)
+      seen.add(key)
+      if (key === localeKey(FALLBACK_LOCALE)) return
+      /* v8 ignore next -- English is the only built-in terminal and every
+       * language accepted by addLanguage has a required fallback. */
+      if (current.fallback === undefined) {
+        throw new Error(`locale "${current.id}" fallback chain does not reach "${FALLBACK_LOCALE}"`)
+      }
+      const next = this.catalog.get(localeKey(current.fallback))
+      if (next === undefined) {
+        throw new Error(`locale fallback "${current.fallback}" is not registered`)
+      }
+      current = next
+    }
+  }
+
+  /** Resolve a lookup chain, falling directly to English across an unload gap. */
+  private fallbackChain(start: LocaleId): readonly LocaleId[] {
+    const startKey = localeKey(start)
+    const cached = this.fallbackChains.get(startKey)
+    if (cached !== undefined) return cached
+    const chain: LocaleId[] = []
+    const seen = new Set<string>()
+    let current = this.catalog.get(startKey)
+    while (current !== undefined && !seen.has(localeKey(current.id))) {
+      const key = localeKey(current.id)
+      seen.add(key)
+      chain.push(current.id)
+      current = current.fallback === undefined
+        ? undefined
+        : this.catalog.get(localeKey(current.fallback))
+    }
+    if (!seen.has(localeKey(FALLBACK_LOCALE))) chain.push(FALLBACK_LOCALE)
+    const resolved = Object.freeze(chain)
+    this.fallbackChains.set(startKey, resolved)
+    return resolved
   }
 
   /**
@@ -349,27 +436,18 @@ export class LocaleRuntime {
    * namespace's texts have one owner). Registration bumps the revision so
    * mounted outlets pick up late-arriving dictionaries.
    * @param ns - a namespace merged into LocaleNamespaceMap.
-   * @param dicts - complete dictionaries keyed by locale id.
+   * @param dicts - complete dictionaries keyed by built-in locale id.
    * @returns disposer removing every locale registered by this call (idempotent).
    */
-  /*
-   * 一次调用注册一个声明命名空间的所有语言字典——类型化形式：每个字典
-   * 对照该命名空间的 LocaleNamespaceMap 键联合检查（缺失或多余键是编译
-   * 错误），且每个发货语言都必须提供（注册时强制双语平衡）。重复
-   * (ns, locale) 抛错（单占位者；命名空间文本只有一个属主）。注册提升
-   * 修订号，使已挂载输出口拾取迟到字典。
-   * @param ns 已合并进 LocaleNamespaceMap 的命名空间。
-   * @param dicts 按语言 id 键控的完整字典。
-   * @returns 移除本次调用注册的所有语言的销毁函数（幂等）。
-   */
-  register<N extends keyof LocaleNamespaceMap & string>(ns: N, dicts: Record<LocaleId, LocaleDictOf<N>>): () => void
+  register<N extends Extract<keyof LocaleNamespaceMap, string>>(ns: N, dicts: Record<BuiltInLocaleId, LocaleDictOf<N>>): () => void
   /**
-   * Single-locale untyped form for namespaces outside the merge table
-   * (dynamic composition, tests).
+   * Single-locale untyped form for language-pack contributions and namespaces
+   * outside the merge table.
    * @param ns - namespace.
    * @param locale - locale tag.
    * @param dict - dictionary.
    * @returns disposer (idempotent).
+   * @throws when locale is not a BCP 47-style tag.
    */
   /*
    * 合并表外命名空间（动态组合、测试）的单语言无类型形式。
@@ -385,16 +463,23 @@ export class LocaleRuntime {
       // 重载保证单语言臂上有 dict。
       ? [[localeOrDicts, dict as LocaleDict]]
       : Object.entries(localeOrDicts)
+    for (const [locale] of pairs) {
+      if (!LOCALE_ID_PATTERN.test(locale)) {
+        throw new Error(`locale id "${locale}" is not a BCP 47-style tag`)
+      }
+    }
     let locales = this.dicts.get(ns)
     if (!locales) {
       locales = new Map()
       this.dicts.set(ns, locales)
     }
     for (const [locale] of pairs) {
-      if (locales.has(locale)) throw new Error(`locale namespace "${ns}" already has locale "${locale}"`)
+      if (locales.has(localeKey(locale))) {
+        throw new Error(`locale namespace "${ns}" already has locale "${locale}"`)
+      }
     }
-    for (const [locale, entries] of pairs) locales.set(locale, entries)
-    this.publish(this.snapshot.active, false) // 注册升 revision，不发 locale/change
+    for (const [locale, entries] of pairs) locales.set(localeKey(locale), entries)
+    this.publish(this.snapshot.active, false)
     return () => {
       const owner = this.dicts.get(ns)
       /* v8 ignore next -- defensive: a namespace's locales map is created on
@@ -402,8 +487,9 @@ export class LocaleRuntime {
       if (!owner) return
       let removed = false
       for (const [locale, entries] of pairs) {
-        if (owner.get(locale) === entries) {
-          owner.delete(locale)
+        const key = localeKey(locale)
+        if (owner.get(key) === entries) {
+          owner.delete(key)
           removed = true
         }
       }
@@ -420,14 +506,7 @@ export class LocaleRuntime {
    * @param ns - a namespace merged into LocaleNamespaceMap.
    * @returns the typed translate function (reads the active locale at call time).
    */
-  /*
-   * 把声明命名空间绑定到按其字典键联合类型化的翻译函数（加共享公共
-   * 词汇）——与框架注入 t 座位携带的键域相同。返回引用按命名空间稳定
-   * （重复 bind 返回同一函数），因此可乘注入面而不破坏记忆化。
-   * @param ns 已合并进 LocaleNamespaceMap 的命名空间。
-   * @returns 类型化翻译函数（调用时读取激活语言）。
-   */
-  bind<N extends keyof LocaleNamespaceMap & string>(ns: N): TranslateNS<N>
+  bind<N extends Extract<keyof LocaleNamespaceMap, string>>(ns: N): TranslateNS<N>
   /**
    * Untyped form for namespaces outside the merge table (dynamic
    * composition, tests).
@@ -452,18 +531,22 @@ export class LocaleRuntime {
 
   /** 解析单键：条目命名空间（激活/回退）-> common 命名空间 -> 键本身；占位符替换。 */
   private translate(ns: string, key: string, params?: Record<string, unknown>): string {
-    const template = this.lookup(ns, key)
-      ?? (ns !== COMMON_NS ? this.lookup(COMMON_NS, key) : undefined)
+    const chain = this.fallbackChain(this.snapshot.active)
+    const template = this.lookup(ns, key, chain)
+      ?? (ns !== COMMON_NS ? this.lookup(COMMON_NS, key, chain) : undefined)
       ?? key
     if (!params) return template
     return template.replace(/\{(\w+)\}/g, (match, name: string) =>
       name in params ? String(params[name]) : match)
   }
 
-  /** 查找链：激活语言 -> en 回退。 */
-  private lookup(ns: string, key: string): string | undefined {
+  private lookup(ns: string, key: string, chain: readonly LocaleId[]): string | undefined {
     const locales = this.dicts.get(ns)
-    return locales?.get(this.snapshot.active)?.[key] ?? locales?.get(FALLBACK_LOCALE)?.[key]
+    for (const locale of chain) {
+      const value = locales?.get(localeKey(locale))?.[key]
+      if (value !== undefined) return value
+    }
+    return undefined
   }
 
   /**
@@ -473,15 +556,14 @@ export class LocaleRuntime {
    * registration-heavy boot cannot storm event listeners (which may
    * re-register slots in response).
    */
-  /*
-   * 推进快照修订号并通知 LocaleFace 订阅者（渲染刷新）。只有激活语言切换
-   * 才额外发射 locale/change——字典注册保持离线事件，使注册密集的启动
-   * 不会风暴事件监听器（它们可能响应式重新注册槽位）。
-   */
-  private publish(active: LocaleId, localeChanged: boolean): void {
+  private publish(
+    active: LocaleId,
+    localeChanged: boolean,
+    locales: readonly LocaleDefinition[] = this.snapshot.locales,
+  ): void {
     this.snapshot = Object.freeze({
       active,
-      locales: this.snapshot.locales,
+      locales,
       revision: this.snapshot.revision + 1,
     })
     if (localeChanged) this.ctx.emit('locale/change', this.snapshot)
@@ -503,42 +585,32 @@ export class LocaleRuntime {
  * The browser's own language wins over {@link FALLBACK_LOCALE}; an explicit
  * Host preference may replace this provisional value after plugin activation.
  */
-/*
- * 浏览器自身语言优先于 FALLBACK_LOCALE；显式 Host 偏好可在插件激活后替换
- * 该临时值。
- */
-function resolveInitialLocale(): LocaleId {
-  return detectBrowserLocale() ?? FALLBACK_LOCALE
+function resolveInitialLocale(locales: readonly LocaleDefinition[]): LocaleId {
+  return detectBrowserLocale(locales) ?? FALLBACK_LOCALE
 }
 
 /**
- * The first shipped locale the browser asks for, matched on the primary
- * subtag so every regional variant lands on its language (`zh-Hans-CN` -> zh,
- * `en-GB` -> en). `window` is the browser test, not `navigator`: Node exposes
- * a global `navigator` reporting the machine's own language, which would
- * otherwise decide the locale for non-browser runs (node e2e booting the
- * client tree). `navigator.language` trails the ordered `languages` list and
- * covers its absence on hosts that expose only the single tag.
+ * The first registered locale the browser asks for. Each browser tag first
+ * matches a locale id exactly, then its primary subtag, so an exact regional
+ * registration wins before a language-wide fallback.
+ * `window` is the browser test, not `navigator`: Node exposes a global
+ * `navigator` reporting the machine's own language, which must not decide the
+ * locale for non-browser runs. `navigator.language` trails the ordered
+ * `languages` list and covers hosts exposing only the single tag.
+ * @param locales - definitions currently available to the browser.
+ * @returns the first matching locale id, or undefined.
  */
-/*
- * 浏览器要求的第一个发货语言，按主子标签匹配，使每个地区变体落到其语言
- * （zh-Hans-CN -> zh，en-GB -> en）。用 window 做浏览器测试而非 navigator：
- * Node 暴露报告机器自身语言的全局 navigator，否则会为非浏览器运行
- * （启动客户端树的 node e2e）决定语言。navigator.language 跟在有序
- * languages 列表之后，覆盖只暴露单标签的宿主上该列表的缺失。
- */
-function detectBrowserLocale(): LocaleId | undefined {
+function detectBrowserLocale(locales: readonly LocaleDefinition[]): LocaleId | undefined {
   if (typeof window === 'undefined') return undefined
-  /* oxlint 禁用说明：DOM lib 把 languages 类型化为总是存在；嵌入器与旧
-   * WebView 的 Navigator 没有它，展开 undefined 会在启动时抛错。*/
-  /* oxlint-disable-next-line typescript/no-unnecessary-condition --
-   * The DOM lib types `languages` as always present; embedders and older
-   * WebViews ship a Navigator without it, and spreading undefined would
-   * throw at boot. */
-  for (const tag of [...(navigator.languages ?? []), navigator.language]) {
-    const primary = tag.toLowerCase().split('-')[0]
-    const match = LOCALES.find(locale => locale.id === primary)
-    if (match) return match.id
+  // Embedders and older WebViews may omit the DOM-typed `languages` property.
+  const languages = (navigator as { readonly languages?: readonly string[] }).languages
+  for (const tag of [...(languages ?? []), navigator.language]) {
+    const requested = localeKey(tag)
+    const exact = locales.find(locale => localeKey(locale.id) === requested)
+    if (exact !== undefined) return exact.id
+    const primary = requested.split('-')[0]
+    const match = locales.find(locale => localeKey(locale.id).split('-')[0] === primary)
+    if (match !== undefined) return match.id
   }
   return undefined
 }
@@ -572,28 +644,25 @@ export function apply(ctx: ClientContext): void {
 
   const store = createLanguageRowStore()
   let bound: BoundActions<typeof store> | undefined
-  const sync = (snapshot: LocaleSnapshot): void => {
-    syncDocumentLanguage(snapshot.active)
+  const sync = (): void => {
+    const snapshot = locale.getSnapshot()
+    syncDocumentLanguage(snapshot)
     bound?.sync(
       snapshot.active,
       snapshot.locales.map(l => ({ id: l.id, label: l.label })),
       snapshot.revision,
     )
   }
-  ctx.on('locale/change', sync)
+  ctx.effect(() => locale.subscribe(sync), 'locale: language row and document synchronization')
   // The served markup declares one language; the resolved locale may differ
   // (browser detection, or a stored preference adopted after activation), so
   // state it once at activation rather than waiting for the first change.
-  // 服务标记声明一种语言；解析出的语言可能不同（浏览器检测，或激活后
-  // 采纳的存储偏好），因此在激活时声明一次，而非等首次变更。
-  syncDocumentLanguage(locale.getLocale().active)
+  sync()
   const injected = (actions: BoundActions<typeof store>): LanguageRowInjected => {
     bound = actions
     // Re-sync from the getter so no event is lost between registration and
     // first render (the store's revision guard drops stale duplicates).
-    // 从 getter 重新同步，使注册与首次渲染之间不丢事件（存储修订号守卫
-    // 丢弃陈旧重复）。
-    sync(locale.getLocale())
+    sync()
     return {
       setLocale: (id) => { locale.setLocale(id) },
     }

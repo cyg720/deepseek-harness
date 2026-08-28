@@ -1,18 +1,3 @@
-/* Settings shell (figma 501:29904 mask context / 501:29947 panel): sidebar
-   foot trigger row + centered 1080x700 modal panel. The trigger uses the
-   sidebar foot's 42px row / 36px rail circle rhythm; the
-   panel is a two-column layout — 188px nav rail + content column with a
-   54px header and the 24px-padded options area. */
-/**
- * 文件职责：定义 SettingsRoot 的局部样式。
- * 技术维度：CSS Modules、主题变量和响应式布局。
- * 产品维度：保持通用设置界面清晰一致。
- * 逻辑维度：按容器、导航、内容与状态组织规则。
- * 关键边界：类名须与组件同步并支持滚动和窄屏。
- * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
- */
-
-/* Trigger row: the 42px foot-row box shared with the Cordis footer action. */
 .trigger {
   flex: none;
   display: flex;

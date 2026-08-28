@@ -28,9 +28,11 @@
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { CredentialKey, CredentialRecord, CredentialRef } from './types.ts'
+import type { CredentialInfo, CredentialKey, CredentialRecord, CredentialRef } from './types.ts'
 
-export type { ApiKeyRecord, CredentialKey, CredentialRecord, CredentialRef, GrantRecord } from './types.ts'
+export type {
+  ApiKeyRecord, CredentialInfo, CredentialKey, CredentialRecord, CredentialRef, GrantRecord,
+} from './types.ts'
 
 // 引用名合法性正则：形如 POSIX 环境变量名（字母或下划线开头，可含字母/数字/下划线）。
 const REF_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -148,18 +150,6 @@ export interface ResolvedCredential {
   source: string
 }
 
-// 单个引用的"配置与否/可写与否"事实，供配置 UI 使用——绝不携带值本身。
-/** Source and writability facts for one reference, safe for configuration UIs — never the value. */
-export interface CredentialInfo {
-  /** Whether {@link CredentialProvider.resolve} would currently return a value. */
-  configured: boolean
-  /** Source layer currently supplying the value; absent while unconfigured. */
-  source?: string
-  /** Whether {@link CredentialProvider.set} would currently succeed for this reference. */
-  writable: boolean
-}
-
-// 单个记录的存在性与可写性事实；对记录而言"有没有记录"本身就回答了配置与否（由 kind 判别）。
 /** Presence and writability facts for one record, safe for configuration UIs — never the value. */
 export interface CredentialRecordInfo {
   /**

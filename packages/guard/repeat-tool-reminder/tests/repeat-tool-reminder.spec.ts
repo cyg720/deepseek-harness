@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { createUserMessage, CallId  } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId  } from '@deepseek-ai/dsh-llm'
 import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -352,8 +352,7 @@ describe('chain semantics', () => {
   it('ignores direct executes with no agent (they neither crash nor advance any chain)', async () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ thresholds: [2] })
-    /** 中文说明：测试局部值 direct，由紧邻初始化决定。 */
-    const direct = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('d1'), name: 'probe', arguments: { q: 1 } })
+    const direct = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('d1'), name: 'probe', arguments: { q: 1 } })
     expect(direct.isError).toBe(false)
 
     ctx.llm.registerAdapter(['mock'], new MockAdapter([

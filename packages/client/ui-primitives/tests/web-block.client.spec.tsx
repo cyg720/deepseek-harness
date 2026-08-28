@@ -1,28 +1,33 @@
 // @vitest-environment jsdom
-// WebBlock: both kinds of the web card. The search card's answer, its citation
-// list with the title-or-hostname label fallback and optional snippet/date, the
-// full source list under one <ol>, and the truncated indicator; the fetch
-// card's linked URL, status, and truncation. Safe-link
-// attributes on both kinds: an http(s) URL becomes an external anchor
-// (target/rel), any other URL renders as plain text with no href.
-/**
- * 文件职责：验证UI 基础组件的 web-block.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
- * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
- * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
- * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
- * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
- */
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { WebBlock } from '../src/index.ts'
-import type { WebSourceView } from '../src/index.ts'
+import { WebBlock as LocalizedWebBlock } from '../src/index.ts'
+import type {
+  WebFetchBlockProps, WebSearchBlockProps, WebSourceView,
+} from '../src/index.ts'
+import { webBlockLabels } from './labels.client.ts'
+
+type WebBlockProps =
+  | Omit<WebSearchBlockProps, 'labels'>
+  | Omit<WebFetchBlockProps, 'labels'>
+
+function WebSearchBlock(props: Omit<WebSearchBlockProps, 'labels'>) {
+  return <LocalizedWebBlock {...props} labels={webBlockLabels} />
+}
+
+function WebFetchBlock(props: Omit<WebFetchBlockProps, 'labels'>) {
+  return <LocalizedWebBlock {...props} labels={webBlockLabels} />
+}
+
+function WebBlock(props: WebBlockProps) {
+  return props.kind === 'search'
+    ? <WebSearchBlock {...props} />
+    : <WebFetchBlock {...props} />
+}
 
 afterEach(cleanup)
 
-/** `count` sources with sequential hostnames, so each row reads distinctly. */
-/* 中文说明：函数 sources 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sources(count: number): WebSourceView[] {
   return Array.from({ length: count }, (_value, index) => ({
     url: `https://site-${index}.example.com/page`,

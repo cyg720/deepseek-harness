@@ -9,7 +9,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { carrierKeyOf, createScope } from '@deepseek-ai/dsh-scope'
 import type { Scope } from '@deepseek-ai/dsh-scope'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -80,8 +80,7 @@ describe('ApprovalService.request', () => {
     /** 中文说明：测试局部值 { agent, appended }，由紧邻初始化决定。 */
     const { agent, appended } = fakeAgent()
 
-    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
-    const outcome = await ctx.approval.request(requestOf(agent, { callId: CallId('call-1'), reason: 'hook says ask' }))
+    const outcome = await ctx.approval.request(requestOf(agent, { callId: ToolCallId('call-1'), reason: 'hook says ask' }))
 
     expect(outcome).toBe('unavailable')
     expect(appended.map(e => e.type)).toEqual(['approval/asked', 'approval/decided'])
@@ -126,7 +125,7 @@ describe('ApprovalService.request', () => {
     /** 中文说明：测试局部值 request，由紧邻初始化决定。 */
     const request = requestOf(agent, {
       toolName: 'scoped-tool',
-      callId: CallId('scoped-call'),
+      callId: ToolCallId('scoped-call'),
       reason: 'scoped reason',
     })
 

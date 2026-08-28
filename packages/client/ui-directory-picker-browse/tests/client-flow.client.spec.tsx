@@ -10,8 +10,8 @@
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
-import type { DirectoryListing } from '@deepseek-ai/dsh-client-runtime/client'
+import type { DirectoryListing } from '@deepseek-ai/dsh-api-remotes/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import type { DirectoryFlowOwnerProps } from '@deepseek-ai/dsh-client-ui-workspace/client'
@@ -49,8 +49,7 @@ async function bench() {
   const listDirectory = vi.fn(async (): Promise<DirectoryListing> => homeListing)
   /** 中文说明：测试局部值 createDirectory，由紧邻初始化决定。 */
   const createDirectory = vi.fn(async (path: string, name: string) => `${path}/${name}`)
-  ctx.provide('workspaces', { listDirectory, createDirectory } as never)
-  /** 中文说明：测试局部值 slots，由紧邻初始化决定。 */
+  ctx.provide('uiWorkspace', { listDirectory, createDirectory } as never)
   const slots = ctx.get('slots') as SlotRegistry
   /** 中文说明：测试局部值 declare，由紧邻初始化决定。 */
   const declare = () => slots.register({
@@ -71,7 +70,7 @@ function owner(overrides: Partial<DirectoryFlowOwnerProps> = {}): DirectoryFlowO
 
 describe('directory-picker-browse client half', () => {
   it('declares the services it drives', () => {
-    expect(inject).toEqual(['slots', 'workspaces', 'locale'])
+    expect(inject).toEqual(['slots', 'uiWorkspace', 'locale'])
   })
 
   it('fills both directory-flow holes for declarations before or after apply, and leaves with its fiber', async () => {

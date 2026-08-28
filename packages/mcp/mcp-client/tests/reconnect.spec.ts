@@ -16,7 +16,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { Config } from '@deepseek-ai/dsh-mcp-client'
 
 // ---- Mock MCP SDK ----
@@ -143,9 +143,8 @@ function listing(...names: string[]): { tools: { name: string; inputSchema: { ty
 
 /** 中文说明：变量 callSeq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let callSeq = 0
-/** 中文说明：函数 nextCallId 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-function nextCallId(): CallId {
-  return CallId(`reconnect-${++callSeq}`)
+function nextCallId(): ToolCallId {
+  return ToolCallId(`reconnect-${++callSeq}`)
 }
 
 // ---- Tests ----

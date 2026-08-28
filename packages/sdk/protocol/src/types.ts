@@ -16,7 +16,7 @@
  * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
  */
 
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SubagentStopReason } from '@deepseek-ai/dsh-subagent'
 
@@ -29,6 +29,8 @@ export interface InitializeParams {
   provider: string
   /** Model name every SDK-created agent runs on (the server may mount a fallback adapter; see `HarnessSdkJsonRpcServer.initialize`). */
   model: string
+  /** Optional adapter-owned reasoning effort for the selected provider/model route. */
+  reasoningEffort?: ReasoningEffortId
   /** Optional positive output-token cap inherited by SDK-created agents and their in-process descendants. */
   maxTokens?: number
 }
@@ -46,8 +48,20 @@ export interface SessionPromptParams {
   /** The SDK-side session id; an unknown id lazily creates the agent+session pair. */
   sessionId: string
   /** The prompt content blocks, sent verbatim as the user message. */
-  contentBlocks: ContentBlock[]
+  contentBlocks: SdkPromptContentBlock[]
 }
+
+/** Inline raster input admitted into the runtime's durable attachment store. */
+export interface SdkEncodedImageBlock {
+  type: 'image'
+  /** Canonical base64-encoded raster bytes. */
+  data: string
+  /** Declared raster MIME type, verified during admission. */
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+}
+
+/** SDK prompt input: ordinary durable blocks plus inline images awaiting admission. */
+export type SdkPromptContentBlock = ContentBlock | SdkEncodedImageBlock
 
 /** Durable enqueue receipt for one prompt. */
 /* 中文说明：interface SessionPromptResult 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */

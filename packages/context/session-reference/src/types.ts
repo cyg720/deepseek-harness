@@ -81,6 +81,12 @@ export interface SessionReferenceCandidate {
   /** Source session working directory, when recorded. */
   /* 来源会话的工作目录（若已记录）。 */
   cwd?: string
+  /**
+   * True when {@link SessionReferenceCandidate.cwd} is recorded and equals the
+   * requesting agent's. Hosts that only surface a distinguishing location
+   * read this instead of comparing paths they never received.
+   */
+  sameWorkspace: boolean
   /** Source session creation time in Unix epoch milliseconds. */
   /* 来源会话的创建时间（Unix 毫秒时间戳）。 */
   createdAt: number

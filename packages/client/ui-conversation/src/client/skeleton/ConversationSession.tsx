@@ -8,12 +8,14 @@
  * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
  */
 
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect } from 'react'
 import clsx from 'clsx'
-import type { SessionId, SessionListState, SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   ConversationSessionHeaderSlotProps, ConversationSessionSlotProps,
 } from '../contract/slots.ts'
+import { conversationPhase } from '../contract/snapshot.ts'
 import type { ViewTab } from '../contract/views.ts'
 import css from './ConversationRoot.module.css'
 
@@ -35,13 +37,10 @@ interface Breadcrumb {
 /** 中文说明：组件局部值 DEFAULT_VIEW_ID，取值由紧邻初始化决定。 */
 const DEFAULT_VIEW_ID = 'chat'
 
-/** Resolve by id and keep stale persisted selections on the stable Chat fallback. */
-/* 中文说明：函数 resolveActiveView 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
+/** Resolve a persisted selection, then registered Chat, without choosing another View. */
 function resolveActiveView(tabs: readonly ViewTab[], selectedId: string | null): ViewTab | undefined {
-  /** 中文说明：组件局部值 requestedId，取值由紧邻初始化决定。 */
-  const requestedId = selectedId ?? DEFAULT_VIEW_ID
-  return tabs.find(view => view.id === requestedId)
-    ?? tabs.find(view => view.id === DEFAULT_VIEW_ID)
+  const selected = selectedId === null ? undefined : tabs.find(view => view.id === selectedId)
+  return selected ?? tabs.find(view => view.id === DEFAULT_VIEW_ID)
 }
 
 /** 中文说明：函数 deriveAncestry 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
@@ -86,24 +85,18 @@ function equalBreadcrumbs(left: readonly Breadcrumb[], right: readonly Breadcrum
  */
 /* 中文说明：函数 ConversationSessionHeader 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function ConversationSessionHeader({
-  sessionId, useSession, useSessions, useStore, actions,
-  renderSlot, views, open, t,
+  sessionId, useSession, useSessions, useConversation, useConversationViews, useStore, actions,
+  renderSlot, open, t,
 }: ConversationSessionHeaderProps) {
-  useSyncExternalStore(views.subscribe, views.version)
-  /** 中文说明：组件局部值 tabs，取值由紧邻初始化决定。 */
-  const tabs = views.list()
-  /** 中文说明：组件局部值 selectedId，取值由紧邻初始化决定。 */
+  const tabs = useConversationViews(value => value)
   const selectedId = useStore(s => s.view)
   /** 中文说明：组件局部值 active，取值由紧邻初始化决定。 */
   const active = resolveActiveView(tabs, selectedId)
   /** 中文说明：组件局部值 ancestry，取值由紧邻初始化决定。 */
   const ancestry = useSessions(s => deriveAncestry(s, sessionId), equalBreadcrumbs)
-  /** 中文说明：组件局部值 composerPhase，取值由紧邻初始化决定。 */
-  const composerPhase = useSession(s => s.composerPhase)
-  /** 中文说明：组件局部值 blank，取值由紧邻初始化决定。 */
-  const blank = useSession(s => s.blank)
-  /** 中文说明：组件局部值 hideChrome，取值由紧邻初始化决定。 */
-  const hideChrome = blank && composerPhase === 'blank'
+  const session = useSession(s => s)
+  const conversation = useConversation(s => s)
+  const hideChrome = session.blank && conversationPhase(session, conversation) === 'blank'
 
   return (
     <header
@@ -205,27 +198,19 @@ export function ConversationSessionHeader({
  */
 /* 中文说明：函数 ConversationSession 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function ConversationSession({
-  sessionId, useSession, useInput, inputActions, useStore, actions,
-  renderSlot, views, bindDraftMirror, releaseSessionImages,
+  useSession, useConversation, useConversationViews, useInput, inputActions, useStore, actions,
+  renderSlot, bindDraftMirror,
 }: ConversationSessionProps) {
-  useSyncExternalStore(views.subscribe, views.version)
-  /** 中文说明：组件局部值 tabs，取值由紧邻初始化决定。 */
-  const tabs = views.list()
-  /** 中文说明：组件局部值 selectedId，取值由紧邻初始化决定。 */
+  const tabs = useConversationViews(value => value)
   const selectedId = useStore(s => s.view)
   /** 中文说明：组件局部值 active，取值由紧邻初始化决定。 */
   const active = resolveActiveView(tabs, selectedId)
-  /** 中文说明：组件局部值 composerPhase，取值由紧邻初始化决定。 */
-  const composerPhase = useSession(s => s.composerPhase)
-  /** 中文说明：组件局部值 blank，取值由紧邻初始化决定。 */
-  const blank = useSession(s => s.blank)
-  /** 中文说明：状态快照 inputState，取值由紧邻初始化决定。 */
+  const session = useSession(s => s)
+  const conversation = useConversation(s => s)
   const inputState = useInput(s => s)
   /** 中文说明：状态快照 storedDraft，取值由紧邻初始化决定。 */
   const storedDraft = useStore(s => s.draft)
-  // `?? null`: persisted snapshots from before the inspect field rehydrate without it.
-  /** 中文说明：组件局部值 inspect，取值由紧邻初始化决定。 */
-  const inspect = useStore(s => s.inspect ?? null)
+  const viewRequest = useStore(s => s.viewRequest ?? null)
 
   useEffect(() => {
     if (inputState.draft === '' && storedDraft !== '') inputActions.setDraft(storedDraft)
@@ -236,16 +221,13 @@ export function ConversationSession({
     // the machine mirror, not this seed effect.
   }, [inputActions])
 
-  useEffect(() => () => {
-    releaseSessionImages(sessionId)
-  }, [releaseSessionImages, sessionId])
-
-  if (blank && composerPhase === 'blank') return null
+  if (session.blank && conversationPhase(session, conversation) === 'blank') return null
   return (
     <div className={css.viewArea}>
       {active !== undefined && renderSlot('conversation.view', {
-        inspect,
-        onInspectDone: () => { actions.setInspect(null) },
+        viewRequest,
+        openView: actions.openView,
+        completeViewRequest: actions.completeViewRequest,
       }, { only: active.id })}
     </div>
   )

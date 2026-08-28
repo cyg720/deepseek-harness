@@ -7,7 +7,7 @@
  * 新手阅读建议：先读 mock/辅助函数，再按成功、错误、恢复和生命周期场景阅读。
  */
 import type { GenerateOptions, LlmModelReasoningInfo, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { CallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
 
 /** Helpers to write scripted responses tersely. */
 /* 中文说明：测试辅助函数 textResponse 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
@@ -39,9 +39,7 @@ export function maxTokensResponse(text: string): StreamChunk[] {
 
 /** 中文说明：测试辅助函数 toolCallResponse 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 export function toolCallResponse(rawCallId: string, name: string, args: object, text?: string): StreamChunk[] {
-  /** 中文说明：测试局部值 callId，由紧邻初始化决定，仅在当前场景使用。 */
-  const callId = CallId(rawCallId)
-  /** 中文说明：测试局部值 argumentsJson，由紧邻初始化决定，仅在当前场景使用。 */
+  const callId = ToolCallId(rawCallId)
   const argumentsJson = JSON.stringify(args)
   /** 中文说明：测试局部值 chunks，由紧邻初始化决定，仅在当前场景使用。 */
   const chunks: StreamChunk[] = []

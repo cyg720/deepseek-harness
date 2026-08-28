@@ -5,9 +5,9 @@
  * activate, against that plugin context) and the entry `disabled` field (at
  * every mount decision, against the loader context). Every other entry
  * metadata field stays static, so an expression there remains truthy data and
- * silently changes composition. Example configs and the dsh Web composition
- * resolve named plugins from their owning workspace manifests. Local example
- * packages must also be in the root TypeScript project graph.
+ * silently changes composition. Shipped and test-only dsh overlays resolve
+ * named plugins from the CLI application's owning manifest; package-owned
+ * Loader fixtures resolve from their package manifest.
  */
 /*
  * 文件职责：实现 verify-cordis-config.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
@@ -29,6 +29,7 @@ import { isCordisGroupEntry, isJsExpr, loadCordisYaml } from './cordis-yaml.ts'
 export interface PackageManifest {
   name?: string
   dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
   dsh?: { bundle?: { patch?: string } }
 }
@@ -41,13 +42,10 @@ export interface PluginReference {
 
 /** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
-// These example files are overlays consumed by the built dsh app, so their bare
-// specifiers resolve from apps/cli rather than the examples workspace.
-/** 中文说明：变量 appOverlayFiles 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+// These overlays are consumed by the built dsh app, so their bare specifiers
+// resolve from apps/cli.
 const appOverlayFiles = new Set([
-  'examples/web-cordis/cordis.yml',
-  'examples/web-schedule/cordis.yml',
-  ...globSync('examples/mcp-memory/*.cordis.yml', { cwd: root }),
+  ...globSync('apps/cli/config/examples/**/*.yml', { cwd: root }),
 ])
 /** 中文说明：变量 metadataFields 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const metadataFields = ['id', 'name', 'group', 'inject', 'intercept', 'isolate'] as const
@@ -93,8 +91,9 @@ if (import.meta.main) {
     }
   }
 
-  errors.push(...validateExampleResolution())
   errors.push(...validateAppResolution())
+  errors.push(...validatePackageTestResolution())
+  errors.push(...packageTestFixtureDependencyErrors())
   errors.push(...validateSourcePlaneResolution())
   errors.push(...validatePresetPlaneSeparation())
   errors.push(...validateClientHalvesDeclared())
@@ -182,9 +181,7 @@ function validatePresetPlaneSeparation(): string[] {
   // The overlay's own inserts are host-plane too; its disables take them back out.
   /** 中文说明：函数值 active 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const active = new Set([...hostRows, ...rowIds(overlayFile)].filter(id => !disabled.has(id)))
-  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
-  for (const file of globSync('apps/cli/config/agent-presets/*/agent.cordis.yml', { cwd: root })) {
-    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
+  for (const file of globSync('packages/preset/agent-presets/presets/*/agent.cordis.yml', { cwd: root })) {
     for (const id of rowIds(file)) {
       if (!active.has(id)) continue
       problems.push(
@@ -276,43 +273,6 @@ function recordPlugin(entry: Record<string, unknown>, file: string): void {
   if (typeof entry.name === 'string') pluginReferences.push({ file, name: entry.name })
 }
 
-/** 中文说明：函数 validateExampleResolution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-function validateExampleResolution(): string[] {
-  /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const violations: string[] = []
-  /** 中文说明：变量 exampleManifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const exampleManifest = readManifest('examples/package.json')
-  /** 中文说明：变量 dependencies 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const dependencies = exampleManifest.dependencies ?? {}
-  /** 中文说明：变量 localPackages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const localPackages = localPackageDirectories()
-  /** 中文说明：变量 rootReferences 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const rootReferences = rootProjectReferences()
-  /** 中文说明：函数值 exampleReferences 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-  const exampleReferences = pluginReferences.filter(reference => reference.file.startsWith('examples/') && !appOverlayFiles.has(reference.file))
-  violations.push(...missingPluginDependencies(exampleReferences, dependencies, 'examples/package.json'))
-  /** 中文说明：函数值 requiredPackages 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-  const requiredPackages = new Set(exampleReferences.map(reference => packageNameFromSpecifier(reference.name)))
-
-  /** 中文说明：变量 localExamplePackages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const localExamplePackages = new Set([
-    ...Object.keys(dependencies),
-    ...[...requiredPackages].filter(packageName => packageName !== undefined),
-  ])
-  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
-  for (const packageName of localExamplePackages) {
-    /** 中文说明：变量 packageDirectory 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const packageDirectory = localPackages.get(packageName)
-    if (packageDirectory === undefined || rootReferences.has(packageDirectory)) continue
-    /** 中文说明：变量 repoPath 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const repoPath = relative(root, packageDirectory).replaceAll('\\', '/')
-    violations.push(`tsconfig.json: missing project reference for ${packageName} (${repoPath})`)
-  }
-
-  return violations
-}
-
-/** 中文说明：函数 validateAppResolution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateAppResolution(): string[] {
   /** 中文说明：变量 violations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const violations: string[] = []
@@ -320,9 +280,9 @@ function validateAppResolution(): string[] {
   const bundleManifests = bundleManifestPaths()
   // App overlays (and any config left under apps/cli/config) resolve from the
   // dsh app's own dependency surface — the profile module fallback mirrors it.
-  /** 中文说明：变量 appDependencies 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  const appManifest = readManifest('apps/cli/package.json')
   const appDependencies = {
-    ...readManifest('apps/cli/package.json').dependencies,
+    ...appManifest.dependencies,
     // The fallback also links every in-box bundle's own dependencies
     // (healProfilesModuleFallback). Optional Profile bundles stay outside the
     // app installation until that Profile installs them.
@@ -334,7 +294,17 @@ function validateAppResolution(): string[] {
     .map(file => `apps/cli/config/${file}`))
   /** 中文说明：函数值 appReferences 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const appReferences = pluginReferences.filter(reference => shipped.has(reference.file) || appOverlayFiles.has(reference.file))
-  violations.push(...missingPluginDependencies(appReferences, appDependencies, 'apps/cli/package.json or a bundle manifest'))
+  violations.push(...missingPluginDependencies(
+    appReferences,
+    appDependencies,
+    'apps/cli/package.json dependencies or a bundle manifest',
+  ))
+  const appTestReferences = pluginReferences.filter(reference => reference.file.startsWith('apps/cli/tests/'))
+  violations.push(...missingPluginDependencies(
+    appTestReferences,
+    { ...appManifest.dependencies, ...appManifest.devDependencies },
+    'apps/cli/package.json dependencies or devDependencies',
+  ))
   // Each bundle's patch rows must resolve from that bundle's own dependencies:
   // per-layer resolution anchors on the bundle package directory.
   /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
@@ -353,6 +323,95 @@ function validateAppResolution(): string[] {
     violations.push(...bundlePluginDependencyErrors(manifestPath, manifest, references))
   }
   return violations
+}
+
+/**
+ * Package-owned Loader fixtures resolve named plugins from their package's
+ * dependency surface, not from a repository-level test umbrella.
+ * @returns one violation per configured package absent from the owner manifest.
+ */
+function validatePackageTestResolution(): string[] {
+  const referencesByManifest = new Map<string, PluginReference[]>()
+  for (const reference of pluginReferences) {
+    const manifestPath = packageTestManifestPath(reference.file)
+    if (manifestPath === undefined) continue
+    const references = referencesByManifest.get(manifestPath) ?? []
+    references.push(reference)
+    referencesByManifest.set(manifestPath, references)
+  }
+  return [...referencesByManifest].flatMap(([manifestPath, references]) =>
+    packageTestPluginDependencyErrors(manifestPath, readManifest(manifestPath), references))
+}
+
+/**
+ * Validate the named plugins one package-owned Loader fixture resolves.
+ * Self-references use Node package self-resolution; every other package must
+ * be an ordinary production or test dependency of the owner.
+ * @param manifestPath Repository-relative owner manifest path.
+ * @param manifest Parsed owner manifest.
+ * @param references Named plugin references from owner-local test configs.
+ * @returns Missing dependency diagnostics.
+ */
+export function packageTestPluginDependencyErrors(
+  manifestPath: string,
+  manifest: PackageManifest,
+  references: readonly PluginReference[],
+): string[] {
+  return missingPluginDependencies(
+    references.filter(reference => packageNameFromSpecifier(reference.name) !== manifest.name),
+    { ...manifest.dependencies, ...manifest.devDependencies },
+    `${manifestPath} dependencies or devDependencies`,
+  )
+}
+
+/**
+ * Validate imports made by fixture modules adjacent to package-owned Loader
+ * configs. These files execute as plain Node/tsx children, so a stale root
+ * `node_modules` link must not hide an undeclared dependency.
+ * @param repoRoot Repository root to scan.
+ * @returns Missing dependency diagnostics.
+ */
+export function packageTestFixtureDependencyErrors(repoRoot: string = root): string[] {
+  const fixtureDirectories = new Set(cordisConfigFiles(repoRoot)
+    .filter(file => packageTestManifestPath(file) !== undefined)
+    .map(file => dirname(file).replaceAll('\\', '/')))
+  if (fixtureDirectories.size === 0) {
+    return ['package test fixture dependency scan found no package-owned Loader configs']
+  }
+  const referencesByManifest = new Map<string, PluginReference[]>()
+  let fixtureModuleCount = 0
+  for (const fixtureDirectory of fixtureDirectories) {
+    const files = globSync([
+      `${fixtureDirectory}/**/*.ts`,
+      `${fixtureDirectory}/**/*.mjs`,
+    ], { cwd: repoRoot })
+    fixtureModuleCount += files.length
+    for (const file of files) {
+      const manifestPath = packageTestManifestPath(file)
+      if (manifestPath === undefined) continue
+      const references = referencesByManifest.get(manifestPath) ?? []
+      const source = readFileSync(resolve(repoRoot, file), 'utf8')
+      for (const imported of ts.preProcessFile(source, true, true).importedFiles) {
+        references.push({ file: file.replaceAll('\\', '/'), name: imported.fileName })
+      }
+      referencesByManifest.set(manifestPath, references)
+    }
+  }
+  if (fixtureModuleCount === 0) {
+    return ['package test fixture dependency scan found no fixture modules beside Loader configs']
+  }
+  return [...referencesByManifest].flatMap(([manifestPath, references]) =>
+    packageTestPluginDependencyErrors(
+      manifestPath,
+      readManifest(manifestPath, repoRoot),
+      references,
+    ))
+}
+
+/** Owner manifest for a package-local test path. */
+function packageTestManifestPath(file: string): string | undefined {
+  const match = /^(packages\/[^/]+\/[^/]+)\/tests(?:\/|$)/.exec(file.replaceAll('\\', '/'))
+  return match?.[1] === undefined ? undefined : `${match[1]}/package.json`
 }
 
 /**
@@ -385,7 +444,7 @@ export function bundlePluginDependencyErrors(
     // A Bundle may mount its own package (for example, its provider or runtime row).
     references.filter(reference => packageNameFromSpecifier(reference.name) !== manifest.name),
     manifest.dependencies ?? {},
-    manifestPath,
+    `${manifestPath} dependencies`,
   )
 }
 
@@ -457,7 +516,7 @@ function validateSourcePlaneResolution(): string[] {
 function missingPluginDependencies(
   references: readonly PluginReference[],
   dependencies: Readonly<Record<string, string>>,
-  manifestPath: string,
+  dependencyOwner: string,
 ): string[] {
   /** 中文说明：变量 requiredPackages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const requiredPackages = new Map<string, Set<string>>()
@@ -481,7 +540,7 @@ function missingPluginDependencies(
   }
   return [...requiredPackages].flatMap(([packageName, locations]) => packageName in dependencies
     ? []
-    : `${[...locations].join(', ')}: ${packageName} must be declared in ${manifestPath} dependencies`)
+    : `${[...locations].join(', ')}: ${packageName} must be declared in ${dependencyOwner}`)
 }
 
 /** 中文说明：函数 readManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
@@ -504,43 +563,6 @@ function localPackageDirectories(): Map<string, string> {
   return packages
 }
 
-/** 中文说明：函数 rootProjectReferences 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-function rootProjectReferences(): Set<string> {
-  // The root solution references the host and client aggregates (the two
-  // sides merge cordis Context under the same keys, so one program cannot see
-  // both — but this BFS only collects reference paths, it never forms a
-  // program). Seed the solution and follow nested aggregate references to
-  // collect the covered leaf project set.
-  /** 中文说明：变量 collected 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const collected = new Set<string>()
-  /** 中文说明：变量 queue 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const queue = [resolve(root, 'tsconfig.json')]
-  /** 中文说明：变量 seen 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const seen = new Set<string>()
-  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
-  for (let file = queue.pop(); file !== undefined; file = queue.pop()) {
-    if (seen.has(file)) continue
-    seen.add(file)
-    /** 中文说明：函数值 config 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-    const config = ts.readConfigFile(file, path => ts.sys.readFile(path))
-    if (config.error !== undefined) {
-      throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
-    }
-    /** 中文说明：变量 references 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const references = (config.config as { references?: Array<{ path?: unknown }> }).references ?? []
-    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
-    for (const reference of references) {
-      if (typeof reference.path !== 'string') continue
-      /** 中文说明：变量 target 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-      const target = resolve(dirname(file), reference.path)
-      if (target.endsWith('.json')) queue.push(target)
-      else collected.add(target)
-    }
-  }
-  return collected
-}
-
-/** 中文说明：函数 packageNameFromSpecifier 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function packageNameFromSpecifier(specifier: string): string | undefined {
   if (specifier.startsWith('.') || specifier.startsWith('/') || /^[a-z][a-z+.-]*:/i.test(specifier)) return undefined
   /** 中文说明：变量 segments 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

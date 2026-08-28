@@ -1,12 +1,4 @@
-/**
- * 文件职责：验证Agent Loop的 cancel.spec.ts 行为与不变量。
- * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
- * 产品维度：防止Agent Loop在取消、恢复、错误或并发场景中产生回归。
- * 逻辑维度：构造服务与事件，驱动执行流程，再断言日志、请求、状态和清理。
- * 关键边界：测试后台任务必须结束；模型可见输入必须可从日志重建；工具调用顺序不可破坏。
- * 新手阅读建议：先读 mock/辅助函数，再按成功、错误、恢复和生命周期场景阅读。
- */
-import { CallId, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
 /**
  * Tests for the queue-aware `Agent.cancel()` primitive. The default clears
  * queued and steering work, while `keepInbox` preserves pending input for a
@@ -641,7 +633,7 @@ describe('Agent.cancel()', () => {
         { type: 'text-delta', index: 0, text: 'reading the file' },
         { type: 'block-end', index: 0, block: { type: 'text', text: 'reading the file' } },
         { type: 'block-start', index: 1, blockType: 'tool-call' },
-        { type: 'tool-call-delta', index: 1, id: CallId('c1'), name: 'read', argumentsDelta: '{"pa' },
+        { type: 'tool-call-delta', index: 1, id: ToolCallId('c1'), name: 'read', argumentsDelta: '{"pa' },
       ],
     }])
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
@@ -732,7 +724,7 @@ describe('Agent.cancel()', () => {
     const adapter = new MockAdapter([{
       hangAfter: [
         { type: 'block-start', index: 0, blockType: 'tool-call' },
-        { type: 'tool-call-delta', index: 0, id: CallId('c1'), name: 'read', argumentsDelta: '{"pa' },
+        { type: 'tool-call-delta', index: 0, id: ToolCallId('c1'), name: 'read', argumentsDelta: '{"pa' },
       ],
     }])
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */

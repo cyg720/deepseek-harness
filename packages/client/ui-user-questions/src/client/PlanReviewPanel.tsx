@@ -1,27 +1,4 @@
-// PlanReviewPanel: the composer takeover for a question carrying the
-// `plan-review` presentation intent. A plan under review is one decision over
-// one body of markdown, so it takes the waiting-approval card shape — tinted
-// strip, content, right-aligned action row — instead of the generic question
-// flow's pager, numbered options, skip and custom-answer affordances, which
-// read as a quiz the user is being graded on.
-//
-// The three actions are the whole decision surface: approve and decline answer
-// the question with the option labels the asker offered (localised copy on the
-// buttons, the asker's descriptions as their tooltips), while "discuss"
-// dismisses the request so the composer returns and the user can simply say
-// what they want. Dismissal is the generic flow's own cancel verb, promoted to
-// a labelled button because in a two-outcome decision it is the third real
-// answer, not an escape hatch.
-/**
- * 文件职责：实现用户提问与计划复审的 PlanReviewPanel 组件。
- * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
- * 产品维度：支持用户查看或操作用户提问与计划复审。
- * 逻辑维度：读取状态，派生展示数据，处理操作并渲染界面。
- * 关键边界：异步状态、空状态、虚拟滚动和可访问性必须一致。
- * 新手阅读建议：先读 Props，再看状态选择、事件和 JSX。
- */
-
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button, IconEditOutline16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PendingQuestion, PlanReview, QuestionComposerProps } from './contract/slots.ts'
 import css from './PlanReviewPanel.module.css'
@@ -51,11 +28,12 @@ function tooltip(description: string | undefined): { title?: string } {
  */
 /* 中文说明：函数 PlanReviewPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function PlanReviewPanel({ pending, review, t }: PlanReviewPanelProps) {
-  // One-shot latch shaped like the approval takeover's: the panel leaves only
-  // when the host's resolved frame lands, so until then a second click must
-  // not re-fire. A failed send (rejected receipt / transport) re-arms it and
-  // shows why, since nothing else would tell the user the click was lost.
-  /** 中文说明：组件局部值 [busy, setBusy]，由紧邻初始化决定。 */
+  const markdownLabels = useMemo(() => ({
+    code: { copyLabel: t('copy'), copiedLabel: t('copied') },
+    footnotes: t('markdown.footnotes'),
+  }), [t])
+  // The panel waits for the host's resolved frame before leaving, so repeated
+  // clicks must not resubmit. A failed send re-enables it and shows the error.
   const [busy, setBusy] = useState(false)
   /** 中文说明：组件局部值 [error, setError]，由紧邻初始化决定。 */
   const [error, setError] = useState<string | null>(null)
@@ -83,7 +61,7 @@ export function PlanReviewPanel({ pending, review, t }: PlanReviewPanelProps) {
           {t('plan.header')}
         </div>
         <div className={css.body} data-plan-review-scroll>
-          <MarkdownText text={review.plan} />
+          <MarkdownText text={review.plan} labels={markdownLabels} />
         </div>
         <div className={css.footer}>
           <div className={css.feedback} role="status">{error}</div>

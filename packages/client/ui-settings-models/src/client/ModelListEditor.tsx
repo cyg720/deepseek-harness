@@ -24,19 +24,17 @@
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import type { DiscoveredModelView, IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
+import type { LlmDiscoveredModel } from '@deepseek-ai/dsh-api-remotes/client'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatCapacity, parseCapacity } from './DeepSeekModelsEditor.tsx'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
-import { messageOf } from './store.ts'
+import { messageOf, type ModelsWire } from './store.ts'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /**
- * One configured model row. Structurally open, exactly like the DeepSeek
- * catalog editor's rows: a profile field this card does not edit — one a future
- * schema adds, or one hand-written in `settings.yaml` — has to survive being
- * edited here rather than being dropped by a rebuild.
+ * One configured model row. Fields this card does not edit must survive an
+ * edit rather than being dropped by a rebuild.
  */
 /* 中文说明：类型或类 ModelDraft 约束设置数据或组件职责。 */
 export type ModelDraft = DeepSeekModelDraft
@@ -97,7 +95,7 @@ export interface ModelListEditorProps {
    */
   probeBlocked?: keyof typeof en | undefined
   /** Wire face the fetch action calls. */
-  api: Pick<IApiClient, 'llm'>
+  api: Pick<ModelsWire, 'llm'>
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable every control (read-only deployment or a pending write). */
@@ -164,8 +162,7 @@ function capacitySpelling(value: number | undefined): string {
 }
 
 /** Adopt a candidate, keeping whatever capacities the provider disclosed. */
-/* 中文说明：函数 adopt 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
-function adopt(candidate: DiscoveredModelView): ModelDraft {
+function adopt(candidate: LlmDiscoveredModel): ModelDraft {
   return {
     id: candidate.id,
     ...candidate.name === undefined ? {} : { name: candidate.name },
@@ -187,9 +184,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const [busy, setBusy] = useState(false)
   /** 中文说明：设置局部值 [failure, setFailure]，由紧邻初始化决定。 */
   const [failure, setFailure] = useState<string | undefined>(undefined)
-  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
-  const [candidates, setCandidates] = useState<readonly DiscoveredModelView[] | undefined>(undefined)
-  /** 中文说明：设置局部值 [picked, setPicked]，由紧邻初始化决定。 */
+  const [candidates, setCandidates] = useState<readonly LlmDiscoveredModel[] | undefined>(undefined)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   // Rows carry an id and a name; capacities are the exception, so they stay
   // folded until asked for rather than crowding every row with four inputs.
@@ -272,20 +267,17 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     setBusy(true)
     setFailure(undefined)
     try {
-      /** 中文说明：设置局部值 response，由紧邻初始化决定。 */
-      const response = await api.llm.discoverModels({
-        settingsNs: probe.settingsNs,
+      const response = await api.llm.discoverModels(probe.settingsNs, {
         ...probe.provider === undefined ? {} : { provider: probe.provider },
         ...probe.baseURL === undefined || probe.baseURL.length === 0 ? {} : { baseURL: probe.baseURL },
         ...probe.api === undefined ? {} : { api: probe.api },
         ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
       })
-      if (!response.result.ok) {
-        setFailure(response.result.error.message)
+      if (!response.ok) {
+        setFailure(response.error.message)
         return
       }
-      /** 中文说明：设置局部值 found，由紧邻初始化决定。 */
-      const found = response.result.value.models
+      const found = response.value
       if (found.length === 0) {
         setFailure(t('fetchEmpty'))
         return

@@ -12,8 +12,8 @@
  * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
  */
 
-import { CallId, contentHasImage, LlmError, offloadRequestImagesWithPolicy, requestImageHandleText } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, GenerateOptions, Message } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, contentHasImage, LlmError, offloadedImageText, offloadRequestImagesWithPolicy, requestImageHandleText } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, GenerateOptions, ImageAttachmentAccessResolver, Message } from '@deepseek-ai/dsh-llm'
 import type {
   AttachmentId,
   AttachmentStore,
@@ -61,6 +61,7 @@ function assertSupportedImageRoles(messages: readonly Message[]): void {
 async function userContent(
   blocks: readonly ContentBlock[],
   requestImages: ReadonlyMap<AttachmentId, RequestImageAttachment>,
+  resolveImageAccess: ImageAttachmentAccessResolver,
 ): Promise<string | (TextContent | ImageContent)[]> {
   /** 中文说明：适配器局部值 content，由紧邻初始化决定。 */
   const content: (TextContent | ImageContent)[] = []
@@ -73,7 +74,10 @@ async function userContent(
       case 'image': {
         /** 中文说明：适配器局部值 version，由紧邻初始化决定。 */
         const version = requestImages.get(block.attachment.attachmentId) as RequestImageAttachment
-        content.push({ type: 'text', text: requestImageHandleText(version) })
+        content.push({
+          type: 'text',
+          text: requestImageHandleText(block.attachment, version, resolveImageAccess(block.attachment)),
+        })
         content.push({
           type: 'image',
           data: Buffer.from(version.data).toString('base64'),
@@ -83,8 +87,7 @@ async function userContent(
       }
       case 'tool-result':
         {
-          /** 中文说明：适配器局部值 nested，由紧邻初始化决定。 */
-          const nested = await userContent(block.content, requestImages)
+          const nested = await userContent(block.content, requestImages, resolveImageAccess)
           if (typeof nested === 'string') {
             if (nested.length > 0) content.push({ type: 'text', text: nested })
           } else {
@@ -164,9 +167,7 @@ function piContext(options: GenerateOptions, messages: PiMessage[]): PiContext {
 
 /** 中文说明：函数 textOnlyContext 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function textOnlyContext(options: GenerateOptions, onReplayDegrade?: (reason: string) => void): PiContext {
-  /** 中文说明：适配器局部值 toolNames，由紧邻初始化决定。 */
-  const toolNames = new Map<CallId, string>()
-  /** 中文说明：适配器局部值 messages，由紧邻初始化决定。 */
+  const toolNames = new Map<ToolCallId, string>()
   const messages: PiMessage[] = []
   /** 中文说明：适配器局部值 message，由紧邻初始化决定。 */
   for (const message of options.messages) {
@@ -180,8 +181,7 @@ function textOnlyContext(options: GenerateOptions, onReplayDegrade?: (reason: st
     if (message.role === 'assistant') {
       /** 中文说明：适配器局部值 assistant，由紧邻初始化决定。 */
       const assistant = toPiAssistant(message, onReplayDegrade)
-      /** 中文说明：适配器局部值 block，由紧邻初始化决定。 */
-      for (const block of assistant.content) if (block.type === 'toolCall') toolNames.set(CallId(block.id), block.name)
+      for (const block of assistant.content) if (block.type === 'toolCall') toolNames.set(ToolCallId(block.id), block.name)
       messages.push(assistant)
       continue
     }
@@ -208,11 +208,23 @@ function textOnlyContext(options: GenerateOptions, onReplayDegrade?: (reason: st
   return piContext(options, messages)
 }
 
+/** Inputs that bind deterministic request images to one current tool execution world. */
+export interface PiImageRequestContext {
+  /** Durable provider that resolves request-image bytes and provider-owned host objects. */
+  attachments: AttachmentStore
+  /** Resolve current tool access separately from deterministic request-image versions. */
+  resolveImageAccess: ImageAttachmentAccessResolver
+  /** Request-level bound on base64-encoded image payload; omission leaves every image in place. */
+  maxRequestImageBytes?: number
+  /** Route pixel and raw encoded-byte budgets. */
+  requestImagePolicy?: ImageRequestPolicy
+}
+
 /**
  * Convert text-only harness history to a synchronous pi-ai Context. Tool
  * result names are recovered from preceding assistant tool calls.
  * @param options - the harness request; `options.system` maps to pi-ai's single `systemPrompt` slot.
- * @param attachments - absent; selects the synchronous conversion.
+ * @param images - absent; selects the synchronous conversion.
  * @param onReplayDegrade - forwarded to {@link toPiAssistant} for each assistant message.
  * @returns the pi-ai context; `tools` is omitted when the request declares none.
  */
@@ -225,7 +237,7 @@ function textOnlyContext(options: GenerateOptions, onReplayDegrade?: (reason: st
  */
 export function toPiContext(
   options: GenerateOptions,
-  attachments?: undefined,
+  images?: undefined,
   onReplayDegrade?: (reason: string) => void,
 ): PiContext
 /**
@@ -235,10 +247,8 @@ export function toPiContext(
  * oldest images are replaced by text placeholders until the request fits, so
  * an image-heavy session keeps clearing gateway request-size caps.
  * @param options - the harness request; `options.system` maps to pi-ai's single `systemPrompt` slot.
- * @param attachments - durable byte resolver for image references.
+ * @param images - attachment provider, current path resolver, and request limits.
  * @param onReplayDegrade - forwarded to {@link toPiAssistant} for each assistant message.
- * @param maxRequestImageBytes - request-level bound on base64-encoded image payload; omission leaves every image in place.
- * @param requestImagePolicy - route pixel and raw encoded-byte budgets.
  * @returns the asynchronously resolved pi-ai context.
  */
 /*
@@ -252,35 +262,31 @@ export function toPiContext(
  */
 export function toPiContext(
   options: GenerateOptions,
-  attachments: AttachmentStore,
+  images: PiImageRequestContext,
   onReplayDegrade?: (reason: string) => void,
-  maxRequestImageBytes?: number,
-  requestImagePolicy?: ImageRequestPolicy,
 ): Promise<PiContext>
 /** 中文说明：函数 toPiContext 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 export function toPiContext(
   options: GenerateOptions,
-  attachments?: AttachmentStore,
+  images?: PiImageRequestContext,
   onReplayDegrade?: (reason: string) => void,
-  maxRequestImageBytes?: number,
-  requestImagePolicy?: ImageRequestPolicy,
 ): PiContext | Promise<PiContext> {
-  return attachments === undefined
+  return images === undefined
     ? textOnlyContext(options, onReplayDegrade)
-    : toPiContextWithImages(options, attachments, onReplayDegrade, maxRequestImageBytes, requestImagePolicy)
+    : toPiContextWithImages(options, images, onReplayDegrade)
 }
 
 /** 中文说明：函数 toPiContextWithImages 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function toPiContextWithImages(
   options: GenerateOptions,
-  attachments: AttachmentStore,
+  images: PiImageRequestContext,
   onReplayDegrade?: (reason: string) => void,
-  maxRequestImageBytes?: number,
-  requestImagePolicy: ImageRequestPolicy = {
+): Promise<PiContext> {
+  const { attachments, resolveImageAccess, maxRequestImageBytes } = images
+  const requestImagePolicy = images.requestImagePolicy ?? {
     maxPixels: DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET,
     maxBytes: DEFAULT_REQUEST_IMAGE_MAX_BYTES,
-  },
-): Promise<PiContext> {
+  }
   assertSupportedImageRoles(options.messages)
   /** 中文说明：适配器局部值 requestMessages，由紧邻初始化决定。 */
   const requestMessages = offloadRequestImagesWithPolicy(options.messages, {
@@ -288,6 +294,7 @@ async function toPiContextWithImages(
     ...maxRequestImageBytes === undefined ? {} : { maxBytes: maxRequestImageBytes },
     byteQuantum: 1,
     byteLength: ref => Math.min(ref.bytes, requestImagePolicy.maxBytes),
+    placeholder: ref => offloadedImageText(ref, resolveImageAccess(ref)),
   })
   /** 中文说明：适配器局部值 requestImages，由紧邻初始化决定。 */
   const requestImages = await prepareRequestImages(requestMessages, attachments, requestImagePolicy, options.signal)
@@ -297,10 +304,9 @@ async function toPiContextWithImages(
     ...maxRequestImageBytes === undefined ? {} : { maxBytes: maxRequestImageBytes },
     byteQuantum: 1,
     byteLength: ref => (requestImages.get(ref.attachmentId) as RequestImageAttachment).bytes,
+    placeholder: ref => offloadedImageText(ref, resolveImageAccess(ref)),
   })
-  /** 中文说明：适配器局部值 toolNames，由紧邻初始化决定。 */
-  const toolNames = new Map<CallId, string>()
-  /** 中文说明：适配器局部值 messages，由紧邻初始化决定。 */
+  const toolNames = new Map<ToolCallId, string>()
   const messages: PiMessage[] = []
 
   /** 中文说明：适配器局部值 message，由紧邻初始化决定。 */
@@ -317,7 +323,7 @@ async function toPiContextWithImages(
       const assistant = toPiAssistant(message, onReplayDegrade)
       /** 中文说明：适配器局部值 block，由紧邻初始化决定。 */
       for (const block of assistant.content) {
-        if (block.type === 'toolCall') toolNames.set(CallId(block.id), block.name)
+        if (block.type === 'toolCall') toolNames.set(ToolCallId(block.id), block.name)
       }
       messages.push(assistant)
       continue
@@ -325,9 +331,7 @@ async function toPiContextWithImages(
     // user role: text + tool results (each result becomes its own message).
     /** 中文说明：适配器局部值 regular，由紧邻初始化决定。 */
     const regular = message.content.filter(block => block.type !== 'tool-result')
-    /** 中文说明：适配器局部值 content，由紧邻初始化决定。 */
-    const content = await userContent(regular, requestImages)
-    /** 中文说明：适配器局部值 results，由紧邻初始化决定。 */
+    const content = await userContent(regular, requestImages, resolveImageAccess)
     const results = message.content.filter((block): block is Extract<ContentBlock, { type: 'tool-result' }> => (
       block.type === 'tool-result'
     ))
@@ -336,8 +340,7 @@ async function toPiContextWithImages(
     }
     /** 中文说明：适配器局部值 result，由紧邻初始化决定。 */
     for (const result of results) {
-      /** 中文说明：适配器局部值 resultContent，由紧邻初始化决定。 */
-      const resultContent = await userContent(result.content, requestImages)
+      const resultContent = await userContent(result.content, requestImages, resolveImageAccess)
       messages.push({
         role: 'toolResult',
         toolCallId: result.toolCallId,

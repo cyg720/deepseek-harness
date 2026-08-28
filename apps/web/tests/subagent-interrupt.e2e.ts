@@ -1,19 +1,11 @@
-// Web e2e scenario (browserless): the subagent.interrupt RPC against the real
+// Web e2e scenario (browserless): the subagents interrupt Remote against the real
 // composition. A live continuable child holds its model turn open through a
 // replay hang entry; plain HTTP queues a follow-up, interrupts the turn, and
 // proves from the real session state that the turn aborted, the follow-up
 // parked without auto-starting a new turn, and a later waking send resumed the
 // preserved FIFO order. No browser: the RPC surface is the product surface
 // under test, and subagent-interrupt-ui.e2e.ts owns the composer interaction.
-// 中文说明：不启动浏览器，直接通过真实 HTTP 产品接口验证子代理中止、跟进停放和后续先进先出恢复。
-/**
- * 文件职责：验证 subagent.interrupt RPC 能中止可续接子代理当前回合而保留已排队跟进。
- * 技术维度：使用 Vitest、真实 Web 组合、HTTP RPC、挂起模型回放、会话状态和临时覆盖文件。
- * 产品维度：让外部客户端可靠停止子代理，并在稍后唤醒时继续未丢失的工作。
- * 逻辑维度：创建挂起子代理，HTTP 排入跟进并中止，检查回合状态，再发送唤醒消息验证执行顺序。
- * 关键边界：场景测试 RPC 而非浏览器；中止后队列不得自动开始；录制模式跳过并严格清理临时目录。
- * 新手阅读建议：先读 RpcResult 与 rpc，再看 waitFor 和 textCompletion，最后跟踪主场景的状态转换。
- */
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -35,21 +27,29 @@ const WAKING = 'And add one concrete example.'
 /** 一元 RPC 的成功值或带代码与消息的失败结果。 */
 type RpcResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
 
-/** POST one unary RPC through the real HTTP carrier and unwrap its result. */
-/* 向 baseUrl 的 method 发送 payload 并返回业务结果。示例：await rpc(url, 'subagent.interrupt', payload)。 */
-async function rpc<T>(baseUrl: string, method: string, payload: unknown): Promise<RpcResult<T>> {
-  const response = await fetch(`${baseUrl}/api/${method}`, {
+/** POST one generated Remote unary through the API Gateway carrier. */
+async function remote<T>(
+  scaffold: WebScaffold,
+  endpoint: string,
+  args: Readonly<Record<string, unknown>>,
+): Promise<RpcResult<T>> {
+  const response = await scaffold.hostFetch(`/api/${endpoint}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       type: 'client-request',
-      rpcId: `interrupt-e2e-${method}-${crypto.randomUUID()}`,
-      method,
-      payload,
+      rpcId: `interrupt-e2e-${endpoint}-${randomUUID()}`,
+      method: endpoint,
+      payload: { args },
     }),
   })
-  if (!response.ok) throw new Error(`${method} failed over HTTP ${response.status}: ${await response.text()}`)
+  if (!response.ok) throw new Error(`${endpoint} failed over HTTP ${response.status}: ${await response.text()}`)
   return (await response.json() as { result: RpcResult<T> }).result
+}
+
+/** POST one generated Session Remote unary through the API Gateway carrier. */
+function sessionRemote<T>(scaffold: WebScaffold, method: string, request: unknown): Promise<RpcResult<T>> {
+  return remote<T>(scaffold, `session/${method}`, { request })
 }
 
 /** Poll a synchronous condition (hook-safe; expect.poll is test-body only). */
@@ -77,7 +77,7 @@ function textCompletion(text: string): object {
   }
 }
 
-describe.skipIf(MODE === 'record')('web e2e: subagent.interrupt over the real composition', () => {
+describe.skipIf(MODE === 'record')('web e2e: subagents/interruptByParent over the real composition', () => {
   let scaffold: WebScaffold
   let sidecarRoot: string
   let readyFile: string
@@ -107,7 +107,7 @@ describe.skipIf(MODE === 'record')('web e2e: subagent.interrupt over the real co
     })
 
     // A live parent Agent through the real API; no workspace or browser.
-    const created = await rpc<{ sessionId: string }>(scaffold.baseUrl, 'session.create', {
+    const created = await sessionRemote<{ sessionId: string }>(scaffold, 'create', {
       cwd: scaffold.workspaceCwd,
     })
     if (!created.ok) throw new Error(`session.create failed: ${created.error.code}`)
@@ -137,18 +137,21 @@ describe.skipIf(MODE === 'record')('web e2e: subagent.interrupt over the real co
 
   it('parks a queued follow-up on interrupt and resumes it FIFO on a waking send', async () => {
     // Queue the follow-up while the turn is still open, then interrupt.
-    const queued = await rpc<{ messageId: string }>(scaffold.baseUrl, 'subagent.prompt', {
-      parentSessionId: parentId,
-      childSessionId: childId,
-      mode: 'continuable',
-      content: [{ type: 'text', text: FOLLOWUP }],
+    const queued = await remote<{ messageId: string }>(scaffold, 'subagents/prompt', {
+      request: {
+        requestId: randomUUID(),
+        parentSessionId: parentId,
+        childSessionId: childId,
+        mode: 'continuable',
+        content: [{ type: 'text', text: FOLLOWUP }],
+      },
     })
     expect(queued).toMatchObject({ ok: true })
 
     const settled = scaffold.whenTurnSettled()
-    const interrupted = await rpc<{ accepted: true }>(scaffold.baseUrl, 'subagent.interrupt', {
-      parentSessionId: parentId,
+    const interrupted = await remote<{ accepted: true }>(scaffold, 'subagents/interruptByParent', {
       childSessionId: childId,
+      parentSessionId: parentId,
       mode: 'continuable',
     })
     expect(interrupted).toMatchObject({ ok: true, value: { accepted: true } })
@@ -168,11 +171,14 @@ describe.skipIf(MODE === 'record')('web e2e: subagent.interrupt over the real co
 
     // Only an explicit waking send resumes the parked queue, FIFO, then the
     // child runs both turns to completion and settles.
-    const waking = await rpc<{ messageId: string }>(scaffold.baseUrl, 'subagent.prompt', {
-      parentSessionId: parentId,
-      childSessionId: childId,
-      mode: 'continuable',
-      content: [{ type: 'text', text: WAKING }],
+    const waking = await remote<{ messageId: string }>(scaffold, 'subagents/prompt', {
+      request: {
+        requestId: randomUUID(),
+        parentSessionId: parentId,
+        childSessionId: childId,
+        mode: 'continuable',
+        content: [{ type: 'text', text: WAKING }],
+      },
     })
     expect(waking).toMatchObject({ ok: true })
     await expect.poll(() => scaffold.ctx.agents.get(childId), { timeout: 60_000 }).toBeUndefined()

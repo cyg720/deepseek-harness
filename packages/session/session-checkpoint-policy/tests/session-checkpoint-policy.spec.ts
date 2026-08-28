@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
-import LlmRuntime, { CallId, type GenerateOptions, LlmAdapter, type StreamChunk } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { ToolCallId, type GenerateOptions, LlmAdapter, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import SessionPersistence from '@deepseek-ai/dsh-session-persistence'
@@ -32,6 +32,9 @@ class TestPersistence extends SessionPersistence {
     return Promise.reject(new Error('not used'))
   }
   inspect(_id: SessionId): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
+    return Promise.reject(new Error('not used'))
+  }
+  borrowSession(_id: SessionId, _signal?: AbortSignal): ReturnType<SessionPersistence['borrowSession']> {
     return Promise.reject(new Error('not used'))
   }
   readFrom(_id: SessionId, _fromSeq: number): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
@@ -168,7 +171,7 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
 
     /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.tools.execute({
-      callId: CallId('write-1'), name: 'write', arguments: {}, agent,
+      callId: ToolCallId('write-1'), name: 'write', arguments: {}, agent,
       signal: new AbortController().signal,
     })
     await Promise.resolve()
@@ -204,7 +207,7 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
 
     /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.tools.execute({
-      callId: CallId('write-cancelled'), name: 'write', arguments: {}, agent,
+      callId: ToolCallId('write-cancelled'), name: 'write', arguments: {}, agent,
       signal: controller.signal,
     })
     await Promise.resolve()
@@ -240,7 +243,7 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
     })
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
-      callId: CallId('write-2'), name: 'write', arguments: {}, agent,
+      callId: ToolCallId('write-2'), name: 'write', arguments: {}, agent,
       signal: new AbortController().signal,
     })
     expect(result.isError).toBe(true)
@@ -264,7 +267,7 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
       execute: async () => null,
     })
     await ctx.tools.execute({
-      callId: CallId('nested-1'), name: 'nested', arguments: {}, agent,
+      callId: ToolCallId('nested-1'), name: 'nested', arguments: {}, agent,
       parent: Symbol('outer') as never,
       signal: new AbortController().signal,
     })

@@ -11,7 +11,7 @@
  * 新手阅读建议：先读辅助函数，再按 describe/it 阅读核心与异常场景。
  */
 import {
-  CallId,
+  ToolCallId,
   createAssistantMessage,
   createToolResultMessage,
   createUserMessage,
@@ -129,9 +129,7 @@ function appendToolStep(
   const calls = [1, 2].map((index) => {
     /** 中文说明：变量 marker 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const marker = markers.tool(turn, index)
-    /** 中文说明：变量 callId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const callId = CallId(`chat-scroll-${suffix(turn)}-${String(index)}`)
-    /** 中文说明：变量 args 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const callId = ToolCallId(`chat-scroll-${suffix(turn)}-${String(index)}`)
     const args = JSON.stringify({
       command: `printf '${marker}\\n'`,
       description: marker,

@@ -1,19 +1,12 @@
 // @vitest-environment jsdom
-// Tool presentation branch tails not reached by the main acceptance specs.
-/**
- * 文件职责：验证工具调用的 coverage-tails.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
- * 产品维度：防止工具调用展示与展开交互回归。
- * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
- * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
- * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
- */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import type { RunningToolCall, SessionId, SessionListState, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { RunningToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { GenericToolCard, type GenericToolCardProps } from '../src/client/tool/toolviews/GenericToolCard.tsx'
@@ -24,8 +17,6 @@ import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.t
 /** 中文说明：类型或类 BashRowProps 约束工具或轨迹数据职责。 */
 type BashRowProps = Parameters<typeof BashRow>[0]
 
-// Mirrors the real lookup chain (conversation namespace, then common).
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: GenericToolCardProps['t'] = makeTranslate(zh, commonZh)
 
 afterEach(cleanup)
@@ -72,7 +63,7 @@ describe('Tool presentation tails', () => {
       kind: 'tool-result', seq: 2, time: 2_000, callId: 'c5',
       call: { name: 'todo_write', argsRaw: '{"note":"x"}' },
       callTime: 1_000,
-      content: [], isError: false, callView: null, resultView: null, subCalls: [],
+      content: [], isError: false, subCalls: [],
     }
     /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
     const props: GenericToolCardProps = {
@@ -90,7 +81,7 @@ describe('Tool presentation tails', () => {
       kind: 'tool-result', seq: 3, time: 3_000, callId: 'c1',
       call: { name: 'bash', argsRaw: '{"command":"make build","description":"Build"}' },
       callTime: 2_000,
-      content: [], isError: false, callView: null, resultView: null, subCalls: [],
+      content: [], isError: false, subCalls: [],
     }
     /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<BashRow {...bashProps(settled)} />)
@@ -105,14 +96,14 @@ describe('Tool presentation tails', () => {
     /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running: RunningToolCall = {
       callId: 'c1', name: 'bash', argsRaw: '{"command":"ls","description":"List"}',
-      turn: 1, step: 1, time: 1_000, callView: null, subCalls: [],
+      turn: 1, step: 1, time: 1_000, subCalls: [],
     }
     /** 中文说明：测试局部值 errorResult，由紧邻初始化决定。 */
     const errorResult: ToolResultNode = {
       kind: 'tool-result', seq: 1, time: 1_000, callId: 'c1',
       call: { name: 'bash', argsRaw: '{"command":"boom"}' },
       callTime: 500,
-      content: [], isError: true, callView: null, resultView: null, subCalls: [],
+      content: [], isError: true, subCalls: [],
     }
     /** 中文说明：测试局部值 stoppedResult，由紧邻初始化决定。 */
     const stoppedResult: ToolResultNode = {

@@ -25,9 +25,7 @@ import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import E2BSubprocessRuntime from '@deepseek-ai/dsh-subprocess-e2b'
 
-/** 中文说明：测试局部值 fixtureRoot，由紧邻初始化决定。 */
-const fixtureRoot = fileURLToPath(new URL('../../../../examples/headless-agent/tests/fixtures/e2b/e2b/', import.meta.url))
-/** 中文说明：测试局部值 binScript，由紧邻初始化决定。 */
+const fixtureRoot = fileURLToPath(new URL('./fixtures/composition/', import.meta.url))
 const binScript = join(fixtureRoot, 'bin.ts')
 /** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
 const configPath = join(fixtureRoot, 'cordis.yml')

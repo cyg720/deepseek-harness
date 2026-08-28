@@ -29,9 +29,7 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 技能调用策略菜单的快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skill-invocation-policy', import.meta.url))
-/** 四象限技能菜单的预期快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/skill-invocation-policy', import.meta.url))
 const MENU_EXPECTED = join(SNAPSHOT_DIR, 'menu.expected.md')
 /** 当前快照模式。 */
 const MODE = webSnapshotMode()
@@ -100,7 +98,7 @@ describe('web e2e: skill invocation policy through the real host', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -112,7 +110,7 @@ describe('web e2e: skill invocation policy through the real host', () => {
 
   it('renders every user-invocable skill and marks the user-only entry', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-skill-invocation-policy'))
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.fill('/policy')
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
     await expect.poll(

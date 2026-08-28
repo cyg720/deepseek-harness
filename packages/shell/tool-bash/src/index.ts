@@ -37,7 +37,7 @@ import { defineTool, TOOL_ABORTED } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, TerminalCallView, ToolExecution, ToolResult, ToolResultView } from '@deepseek-ai/dsh-tools'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-system-prompt'
+import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-jobs'
 import type {} from '@deepseek-ai/dsh-user-approval'
 import type {} from '@deepseek-ai/dsh-shell-env'
@@ -298,7 +298,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   // 跨调用的行为指引放进系统提示词，而不是每次调用的 schema 描述里。
   ctx.systemPrompt.section({
     name: 'tool:bash',
-    order: 105,
+    order: FIRST_PARTY_SECTION_ORDER.TOOL_BASH,
     text: 'Check the [exit code: N] marker on every bash result; investigate failures before moving on.',
   })
 

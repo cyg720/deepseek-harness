@@ -14,11 +14,9 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { decodeGoalChange } from '@deepseek-ai/dsh-goal'
 import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 
-/** 中文说明：测试局部值 binScript，由紧邻初始化决定。 */
-const binScript = fileURLToPath(new URL('../../../../examples/headless-agent/tests/fixtures/headless-driver.ts', import.meta.url))
-/** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
+const binScript = fileURLToPath(new URL('../../../test-support/loader-smoke/tests/fixtures/headless-driver.ts', import.meta.url))
 const configPath = fileURLToPath(new URL(
-  '../../../../examples/headless-agent/tests/fixtures/goal-domain/cordis.yml',
+  './fixtures/domain/cordis.yml',
   import.meta.url,
 ))
 /** 中文说明：测试局部值 repoTsconfig，由紧邻初始化决定。 */

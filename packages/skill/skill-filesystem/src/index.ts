@@ -75,8 +75,7 @@ export const inject = ['skills']
 /** Local filesystem skill provider configuration. */
 // 本地文件系统技能提供方配置。
 export interface Config {
-  /** Unique provider name. Defaults to `local`. */
-  // 提供方唯一名；缺省为 filesystem。
+  /** Unique provider name. Defaults to `filesystem`. */
   providerName?: string
   /** Whether project and user roots are included around custom roots. */
   // 是否在自定义根之外再包含项目根与用户根。

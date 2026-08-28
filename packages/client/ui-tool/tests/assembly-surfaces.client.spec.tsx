@@ -11,12 +11,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import type { ISession, SessionId, TodoItem, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { TodoItem } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import {
+  apply as applyChat, inject as injectChat, type ToolResultNode,
+} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, TestRemote, usePinnedBrowserLanguages, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applyConversation, inject as injectConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { apply as applyTool, inject as injectTool } from '../src/client/apply.ts'
-import { toolChatSnapshot } from './tool-details-render.client.tsx'
+import { toolSessionEvents } from './tool-details-render.client.tsx'
 
 // The service reads its initial locale from the browser; these specs assert
 // the shipped Chinese copy, so they state the browser they assume.
@@ -53,7 +58,7 @@ const todoResult = (seq: number): ToolResultNode => ({
   kind: 'tool-result', seq, time: seq * 1_000, callId: `todo-${seq}`,
   call: { name: 'todo_write', argsRaw: JSON.stringify({ todos: TODOS }) },
   callTime: seq * 1_000 - 500,
-  content: [], isError: false, callView: null, resultView: null, subCalls: [],
+  content: [], isError: false, subCalls: [],
 })
 
 /** 中文说明：测试局部值 bashResult，由紧邻初始化决定。 */
@@ -62,8 +67,6 @@ const bashResult = (seq: number, callId: string, over?: Partial<ToolResultNode>)
   call: { name: 'bash', argsRaw: '{"command":"ls -la","description":"List files"}' },
   callTime: seq * 1_000 - 500,
   content: [{ type: 'text', text: 'total 2\ndemo.txt\n' }], isError: false,
-  callView: { card: 'terminal', title: 'ls -la', description: 'List files' },
-  resultView: { card: 'terminal', output: 'total 2\ndemo.txt\n', exitCode: 0 },
   subCalls: [],
   ...over,
 })
@@ -86,23 +89,27 @@ const LAYOUT_CHILDREN = {
 async function bench(nodes: ToolResultNode[]) {
   /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()
-  runtime.provide('connection', {
-    api: { settings: {} },
+  runtime.ctx.provide('connection', {
     isLoopback: false,
-    hostDescription: { getSnapshot: () => undefined, subscribe: () => () => {} },
+    generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
   })
-  // ui-theme's Appearance row binds a durable scope through these two.
-  runtime.provide('remote', { $on: () => () => {} })
-  runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
-  runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-  /** 中文说明：测试局部值 locale，由紧邻初始化决定。 */
+  new TestRemote(runtime.ctx, {
+    session: {
+      openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })),
+    },
+  })
+  runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
+  runtime.ctx.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
+  runtime.ctx.provide('uiWorkspace', {
+    connectWorkspace: vi.fn(async () => SID),
+  } as never)
   const locale = new LocaleRuntime(runtime.ctx)
-  runtime.provide('locale', locale)
+  runtime.ctx.provide('locale', locale)
   runtime.slots.installLocale(locale)
   await runtime.sessions.add({
     id: SID,
     summary: { title: 'S', displayTitle: 'S', cwd: '/proj' },
-    snapshot: { nodes, chat: toolChatSnapshot(nodes) },
+    events: toolSessionEvents(nodes),
     session: {
       loadOlder: vi.fn<ISession['loadOlder']>(),
       prompt: vi.fn<ISession['prompt']>(async () => ({ ok: true, value: { accepted: true } })),
@@ -110,6 +117,7 @@ async function bench(nodes: ToolResultNode[]) {
   })
   await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
   await runtime.mount({ inject: [...injectConversation], apply: applyConversation })
+  await runtime.mount({ inject: [...injectChat], apply: applyChat })
   await runtime.mount({ inject: [...injectTool], apply: applyTool })
   return runtime
 }
@@ -156,8 +164,10 @@ describe('terminal card assembly', () => {
     /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
     const runtime = await bench([
       bashResult(3, 'c-keyed'),
-      // An unregistered tool with terminal views: GenericToolCard fallback.
-      bashResult(4, 'c-fallback', { call: { name: 'fx-bash', argsRaw: '{"command":"ls -la"}' } }),
+      // pwsh has no package-local keyed row, so GenericToolCard owns its raw terminal card.
+      bashResult(4, 'c-fallback', {
+        call: { name: 'pwsh', argsRaw: '{"command":"ls -la","description":"List files"}' },
+      }),
     ])
     /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = runtime.renderRoot()
@@ -174,8 +184,7 @@ describe('terminal card assembly', () => {
     })
 
     // Fallback row: same unified expand interaction.
-    /** 中文说明：测试局部值 fallback，由紧邻初始化决定。 */
-    const fallback = view.container.querySelector('[data-tool="fx-bash"]')
+    const fallback = view.container.querySelector('[data-tool="pwsh"]')
     expect(fallback).not.toBeNull()
     expect(fallback!.querySelector('[data-terminal]')).toBeNull()
     fireEvent.click(fallback!.querySelector('[data-expandable]')!)

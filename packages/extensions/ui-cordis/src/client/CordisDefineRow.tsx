@@ -192,7 +192,7 @@ export function CordisDefineRow({
           {inspect !== undefined && (
             <button type="button" className={css.inspectButton} onClick={inspect}>
               <IconInspectOutline12 />
-              Inspect
+              {t('action.inspect')}
             </button>
           )}
         </div>

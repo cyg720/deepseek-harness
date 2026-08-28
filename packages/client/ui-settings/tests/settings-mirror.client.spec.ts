@@ -7,26 +7,20 @@
  * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { RpcResponse, SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import { SettingsDescribeMirror, type SettingsDescribeView } from '../src/client/settings-mirror.ts'
 
-/** 中文说明：测试局部值 rpc，由紧邻初始化决定。 */
-let rpc = 0
+/** What a Remote call answers with: no carrier envelope, and a free-form failure code. */
+type Answer<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: { code: string; message: string; details: object } }
 
-/** 中文说明：函数 ok 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function ok<T>(value: T): RpcResponse<T> {
-  return { rpcId: `mirror-${rpc++}` as never, result: { ok: true, value } }
+function ok<T>(value: T): Answer<T> {
+  return { ok: true, value }
 }
 
-/** 中文说明：函数 rejected 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function rejected<T>(message: string): RpcResponse<T> {
-  return {
-    rpcId: `mirror-${rpc++}` as never,
-    result: {
-      ok: false,
-      error: { code: 'settings-rejected', message, details: { ns: 'theme' } },
-    },
-  }
+function rejected<T>(message: string): Answer<T> {
+  return { ok: false, error: { code: 'settings-rejected', message, details: { ns: 'theme' } } }
 }
 
 /** 中文说明：函数 view 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
@@ -34,8 +28,7 @@ function view(ns: string, revision = 0): SettingsNamespaceView {
   return { ns, schema: {}, value: { field: ns }, applies: 'live', secrets: [], revision }
 }
 
-/** 中文说明：函数 described 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function described(namespaces: SettingsNamespaceView[]): RpcResponse<SettingsDescribeView> {
+function described(namespaces: SettingsNamespaceView[]): Answer<SettingsDescribeView> {
   return ok({ writable: true, hasDocument: true, namespaces })
 }
 
@@ -50,9 +43,7 @@ function deferred<T>() {
 
 describe('SettingsDescribeMirror', () => {
   it('folds loads before the wire read into it, and mid-flight loads into one rerun', async () => {
-    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
-    const gate = deferred<RpcResponse<SettingsDescribeView>>()
-    /** 中文说明：测试局部值 describeCall，由紧邻初始化决定。 */
+    const gate = deferred<Answer<SettingsDescribeView>>()
     const describeCall = vi.fn()
       .mockReturnValueOnce(gate.promise)
       .mockResolvedValue(described([view('theme', 1)]))
@@ -185,9 +176,7 @@ describe('SettingsDescribeMirror', () => {
   })
 
   it('starts no second run for a load issued inside the loading publish', async () => {
-    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
-    const gate = deferred<RpcResponse<SettingsDescribeView>>()
-    /** 中文说明：测试局部值 describeCall，由紧邻初始化决定。 */
+    const gate = deferred<Answer<SettingsDescribeView>>()
     const describeCall = vi.fn().mockReturnValue(gate.promise)
     /** 中文说明：测试局部值 mirror，由紧邻初始化决定。 */
     const mirror = new SettingsDescribeMirror({ settings: { describe: describeCall } } as never)
@@ -230,9 +219,7 @@ describe('SettingsDescribeMirror', () => {
   })
 
   it('re-reads after a folded write invalidates an in-flight document', async () => {
-    /** 中文说明：测试局部值 slow，由紧邻初始化决定。 */
-    const slow = deferred<RpcResponse<SettingsDescribeView>>()
-    /** 中文说明：测试局部值 describeCall，由紧邻初始化决定。 */
+    const slow = deferred<Answer<SettingsDescribeView>>()
     const describeCall = vi.fn()
       .mockResolvedValueOnce(described([view('theme', 4), view('locale', 1)]))
       .mockReturnValueOnce(slow.promise)
@@ -253,9 +240,7 @@ describe('SettingsDescribeMirror', () => {
   })
 
   it('re-reads after a pre-answer write invalidates the in-flight document', async () => {
-    /** 中文说明：测试局部值 slow，由紧邻初始化决定。 */
-    const slow = deferred<RpcResponse<SettingsDescribeView>>()
-    /** 中文说明：测试局部值 describeCall，由紧邻初始化决定。 */
+    const slow = deferred<Answer<SettingsDescribeView>>()
     const describeCall = vi.fn()
       .mockReturnValueOnce(slow.promise)
       .mockResolvedValueOnce(described([view('theme', 2)]))

@@ -7,7 +7,7 @@
  * the provider editor with extra fields: the route id is being *chosen* here,
  * and the settings address does not exist until it is. One `settings.mutate`
  * sets the whole profile at `providers.<route>`; the key travels separately
- * through `credentials.set` under the reference the profile records, exactly as
+ * through `credentials/set` under the reference the profile records, exactly as
  * an existing provider's key does.
  *
  * The three fields a hand-declared route cannot default — endpoint, protocol,
@@ -31,13 +31,14 @@
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
+import type { JsonValue } from '@deepseek-ai/dsh-api-remotes/client'
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { validateDeepSeekModels } from './DeepSeekModelsEditor.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
 import type { ModelDraft } from './ModelListEditor.tsx'
 import { deriveKeyRef, messageOf } from './store.ts'
+import type { ModelsWire } from './store.ts'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
@@ -70,7 +71,7 @@ export interface CustomProviderCardProps {
    */
   revision: number
   /** Wire faces for the write and for interrogating the endpoint. */
-  api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  api: ModelsWire
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable writes (read-only settings provider). */
@@ -88,9 +89,7 @@ export interface CustomProviderCardProps {
 export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const { taken, protocols, api, t } = props
-  // Captured at mount, like the editor's: the write must be judged against the
-  // section this card was drafted over, not whatever it grew into meanwhile.
-  /** 中文说明：设置局部值 [openedAt]，由紧邻初始化决定。 */
+  // The write is checked against the revision on which this draft was opened.
   const [openedAt] = useState(() => props.revision)
   /** 中文说明：设置局部值 [route, setRoute]，由紧邻初始化决定。 */
   const [route, setRoute] = useState('')
@@ -180,16 +179,15 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         baseURL,
         models: models.map(model => ({ ...model })),
       }
-      /** 中文说明：设置局部值 response，由紧邻初始化决定。 */
-      const response = await api.settings.mutate({
-        ns: NS,
-        ops: [{ op: 'set', path: ['providers', route], value: profile }],
-        // `taken` is a snapshot too, so the id check alone cannot see a route
-        // declared after this card opened; the revision makes that race a
-        // `settings-conflict` instead of a write over the other profile.
-        expectedRevision: openedAt,
-      })
-      if (!response.result.ok) return response.result.error.message
+      // `taken` is a snapshot too, so the id check alone cannot see a route
+      // declared after this card opened; the revision makes that race a
+      // `settings-conflict` instead of a write over the other profile.
+      const response = await api.settings.mutate(
+        NS,
+        [{ op: 'set', path: ['providers', route], value: profile as JsonValue }],
+        openedAt,
+      )
+      if (!response.ok) return response.error.message
       // The provider now exists. A retry after the key write below fails must
       // not re-run this mutate: the revision it holds is the one this write
       // just superseded, so the Host would answer `settings-conflict` and the
@@ -197,11 +195,10 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       setCommitted(true)
     }
     if (storesKey) {
-      /** 中文说明：设置局部值 stored，由紧邻初始化决定。 */
-      const stored = await api.credentials.set({ ref: keyRef, value: keyValue })
+      const stored = await api.credentials.set(keyRef, keyValue)
       // The profile landed; saying the key did not is the only honest report,
       // and the retry above now goes straight back to this write.
-      if (!stored.result.ok) return stored.result.error.message
+      if (!stored.ok) return stored.error.message
     }
     return undefined
   }
@@ -267,7 +264,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           className={styles['input']}
           type="text"
           value={baseURL}
-          placeholder="https://gateway.example/v1"
+          placeholder={t('customBaseUrlPlaceholder')}
           aria-label={t('baseUrl')}
           disabled={profileDisabled}
           onChange={(event) => { setBaseURL(event.target.value) }}
@@ -326,8 +323,8 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         t={t}
         busy={busy}
         submitDisabled={disabled || !ready}
-        submitLabel="create"
-        submitBusyLabel="creating"
+        submitLabelKey="create"
+        submitBusyLabelKey="creating"
         onCancel={() => { props.onClose(committed) }}
         onSubmit={() => { void create() }}
       />

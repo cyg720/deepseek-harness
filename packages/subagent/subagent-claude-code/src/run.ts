@@ -83,10 +83,6 @@ const SUPPORTED_UNATTENDED_DIALOG_KINDS = [
   'refusal_fallback_prompt',
 ] satisfies NonNullable<Options['supportedDialogKinds']>
 
-/** 中文说明：type ClaudeCodeErrorSubtype 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
-type ClaudeCodeErrorSubtype = Exclude<SDKResultMessage['subtype'], 'success'>
-
-/** 中文说明：type ClaudeCodeFailureStage 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 type ClaudeCodeFailureStage =
   | 'query-start'
   | 'query-run'
@@ -95,10 +91,10 @@ type ClaudeCodeFailureStage =
 
 /** 中文说明：type ClaudeCodeFailureCategory 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 type ClaudeCodeFailureCategory =
-  | ClaudeCodeErrorSubtype
-  | 'invalid-success'
-  | 'missing-result'
-  | 'process-exit'
+  | 'limit'
+  | 'product-error'
+  | 'invalid-result'
+  | 'process'
   | 'unknown'
 
 /** 中文说明：interface ClaudeCodeFailureFacts 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
@@ -146,13 +142,14 @@ class ClaudeCodeFailure extends Error {
 /** 中文说明：函数 sdkFailureCategory 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function sdkFailureCategory(
   subtype: string,
-): ClaudeCodeErrorSubtype | 'unknown' {
+): ClaudeCodeFailureCategory {
   switch (subtype) {
-    case 'error_during_execution':
     case 'error_max_turns':
     case 'error_max_budget_usd':
     case 'error_max_structured_output_retries':
-      return subtype
+      return 'limit'
+    case 'error_during_execution':
+      return 'product-error'
     default:
       return 'unknown'
   }
@@ -192,6 +189,8 @@ function unattendedDiagnostic(
 export interface ClaudeCodeRunSpec {
   /** Parent Session workspace supplied to the SDK and real CLI. */
   readonly cwd: string
+  /** Profile-selected native model; omitted to preserve Claude settings. */
+  readonly model?: string
   /** Profile-selected native non-interactive permission mode. */
   readonly permissionMode: ClaudeCodePermissionMode
   /** Explicit deployment/test environment layered after shared scrubbing. */
@@ -275,7 +274,7 @@ export function successfulResult(message: SDKResultMessage): string {
   if (message.is_error || message.result.trim().length === 0) {
     throw new ClaudeCodeFailure({
       stage: 'query-run',
-      category: 'invalid-success',
+      category: 'invalid-result',
     })
   }
   return message.result
@@ -316,7 +315,7 @@ export async function consumeClaudeQuery(
   if (answer === undefined) {
     throw new ClaudeCodeFailure({
       stage: 'query-run',
-      category: 'missing-result',
+      category: 'invalid-result',
     })
   }
   return {
@@ -403,6 +402,7 @@ export function claudeQueryOptions(
   return {
     abortController: controller,
     cwd: spec.cwd,
+    ...spec.model === undefined ? {} : { model: spec.model },
     env: { ...scrubbedParentEnv(), ...spec.env },
     persistSession: false,
     disallowedTools: spec.permissionMode === 'plan'
@@ -679,7 +679,7 @@ export async function startClaudeCodeRun(
         } else if (processOutcome !== undefined && !receivedResult) {
           facts = {
             stage: 'process',
-            category: 'process-exit',
+            category: 'process',
             outcome: processOutcome,
           }
         } else {

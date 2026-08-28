@@ -11,16 +11,10 @@
  * 新手阅读建议：先区分值导入与类型导入，再查看构建配置如何把 node:module 指向这里。
  */
 
-/** Throwing stand-in for node:module's createRequire (never reached in the browser boot). */
-/*
- * 浏览器中的 createRequire 替身；无参数且始终抛错。
- * @returns 永不返回，返回类型为 never。
- * @example 任何 `createRequire()` 调用都会抛出“node:module 不可用于浏览器”。
- */
+/** Fail if browser boot reaches Node's module loader. */
 export const createRequire = (): never => {
   throw new Error('node:module is not available in the browser')
 }
 
-/** Erased type peer for the vendored loader's type-only LoadHookContext import. */
-/* 仅供类型检查的空类型；编译后被擦除，不能构造或在运行时读取。 */
+/** Type-only peer for the vendored loader. */
 export type LoadHookContext = never

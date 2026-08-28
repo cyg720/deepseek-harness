@@ -17,7 +17,7 @@ import {
 
 /** 中文说明：变量 fixtureDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fixtureDir = fileURLToPath(new URL(
-  '../../../../examples/acp-agent/tests/fixtures/subagent/subagent-codex/',
+  './fixtures/loader/',
   import.meta.url,
 ))
 /** 中文说明：变量 driver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -61,6 +61,7 @@ describe('Codex provider public Loader composition', () => {
         {
           name: 'codex',
           capabilities: {
+            agentOptions: false,
             outputSchema: false,
             depthLimit: false,
             toolFilter: false,
@@ -71,6 +72,7 @@ describe('Codex provider public Loader composition', () => {
         {
           name: 'codex-primary',
           capabilities: {
+            agentOptions: false,
             outputSchema: false,
             depthLimit: false,
             toolFilter: false,
@@ -81,6 +83,7 @@ describe('Codex provider public Loader composition', () => {
         {
           name: 'codex-secondary',
           capabilities: {
+            agentOptions: false,
             outputSchema: false,
             depthLimit: false,
             toolFilter: false,

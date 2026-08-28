@@ -1,20 +1,3 @@
-// todo_write toolview: plan-flavored summary row replacing the generic
-// "Tool call" card, registered into the keyed 'tool.call.toolview'
-// hole like the bash sample (a product registration, not a sample). The row
-// composes ToolRow (chrome, running sweep, whole-row expand) and swaps in a
-// summary of the written list (counts + active items) from the call args, with
-// the parallel-active count riding ToolRow's non-shrinking summary suffix so a
-// narrow row never clips it; the durable list itself renders in the TodoPanel
-// above the composer, so the row stays one line until expanded.
-/**
- * 文件职责：实现工具调用的 todo-row 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示工具调用参数、结果和状态。
- * 逻辑维度：接收类型化数据，选择专用视图并渲染层级与详情。
- * 关键边界：组件不执行工具；未知或失败结果必须保留可诊断信息。
- * 新手阅读建议：先读 Props，再看视图选择、派生值和 JSX。
- */
-
 import { IconChecklistOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '@deepseek-ai/cordis'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
@@ -24,8 +7,6 @@ import { ToolRow } from '../components/ToolRow.tsx'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
 import { planSummary, type PlanItemLike } from './plan-summary.ts'
 
-/** Todo row props: the toolview runtime share plus the standard locale seat. */
-/* 中文说明：类型或类 TodoRowProps 约束工具或轨迹数据职责。 */
 type TodoRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /** 中文说明：函数 isItem 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
@@ -70,11 +51,7 @@ function summarize(argsRaw: string, t: TodoRowProps['t']): RowSummary | null {
   }
 }
 
-/** One-line plan update row (the whole row toggles the call's Input/Output
- *  sections, ToolRow's unified expand). Non-ok execution states keep the
- *  shared row's dot semantics — a cancelled call wrote no todo/write, so it
- *  must not read as a completed update. */
-/* 中文说明：函数 TodoRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
+/** Summarizes a plan update without presenting a cancelled call as completed. */
 export function TodoRow({ toolName, block, inspect, t }: TodoRowProps) {
   /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
@@ -100,18 +77,10 @@ export function TodoRow({ toolName, block, inspect, t }: TodoRowProps) {
   )
 }
 
-/**
- * The todo row as a plain registrant plugin following the atomic Tool-view
- * declaration across independent activation and reload lifetimes.
- */
-/* 中文说明：视图局部值 todoToolview，由紧邻初始化决定。 */
+/** Registers the todo conversation row. */
 export const todoToolview = {
   name: 'todo-toolview',
   inject: ['slots'],
-  /**
-   * Register the todo row into the Tool-owned keyed view slot.
-   * @param ctx - registrant context (disposal rides ctx.effect inside slots.register).
-   */
   apply(ctx: Context): void {
     ctx.slots.inject('tool.call.toolview', () =>
       ctx.slots.register({ name: 'tool.call.toolview', key: 'todo_write', locale: NS }, TodoRow))

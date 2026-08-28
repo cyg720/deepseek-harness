@@ -15,8 +15,8 @@
 /** Public Agent Teams identities, durable records, and service request values. */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Identifies the implicit team rooted at one top-level Session. */
 export type TeamId = Branded<'TeamId'>
@@ -108,6 +108,12 @@ export interface TeamTaskView {
   readonly ownerName?: string
   readonly ready: boolean
   readonly writeScopeWarnings: string[]
+}
+
+/** Point-in-time roster and task-board projection returned to browser clients. */
+export interface TeamView {
+  readonly members: TeamMemberView[]
+  readonly tasks: TeamTaskView[]
 }
 
 /** One peer message retained until its target Session records it. */
@@ -208,6 +214,17 @@ export interface UpdateTeamTaskRequest {
   readonly writeScopes?: readonly string[]
   readonly owner?: string
 }
+
+/** Browser task mutation result with stale revisions kept distinct from other Team rejections. */
+export type TeamTaskMutationResult =
+  | { readonly ok: true; readonly value: TeamTaskView }
+  | {
+    readonly ok: false
+    readonly error: {
+      readonly code: 'team-task-conflict' | 'team-rejected'
+      readonly message: string
+    }
+  }
 
 /** Result of waiting for Team activity. */
 export interface TeamWaitResult {

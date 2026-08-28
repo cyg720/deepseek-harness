@@ -1,12 +1,4 @@
-/**
- * 文件职责：把历史消息中的图片数据接入通用图片画廊组件。
- * 技术维度：使用 React 函数组件、会话插槽 props 类型和本地化标签工厂。
- * 产品维度：用户可在聊天历史中查看消息携带的多张图片。
- * 逻辑维度：接收图片、加载器、对齐方式和翻译函数，再组装 ImageGallery 属性。
- * 关键边界：组件不自行读取图片；实际加载由上游传入的 `loadImage` 完成。
- * 新手阅读建议：先看 props 类型，再按标签生成与 ImageGallery 调用顺序阅读。
- */
-import type { MessageImagesProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { MessageImagesProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { ImageGallery } from '../MessageImage.tsx'
 import { messageImageLabels } from './labels.ts'
 

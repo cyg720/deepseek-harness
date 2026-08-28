@@ -1,16 +1,3 @@
-// DeepSeek Harness brand wordmark (figma 356:14644, exact extract): whale +
-// "deepseek-official" letterforms + HARNESS badge plate in one svg. Native 182x24.
-// Ink rides currentColor; the badge text is knocked out in the inverted
-// label color so the plate stays legible in both themes.
-/**
- * 文件职责：实现品牌和通用界面相关的 BrandWordmark 基础组件。
- * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
- * 产品维度：为上层产品界面提供一致的品牌和通用界面展示。
- * 逻辑维度：接收属性，派生展示结构并处理局部交互。
- * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
- * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
- */
-
 import type { IconProps } from './icons/props.ts'
 
 /** Display options for the official brand wordmark. */

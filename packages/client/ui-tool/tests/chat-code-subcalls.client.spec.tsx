@@ -1,37 +1,20 @@
 // @vitest-environment jsdom
-// Code Mode sub-call acceptance on the REAL machinery stack (same bench as
-// chat-toolview-slot.spec): a run_code result renders the 'code' variant row
-// (description summary, program body), its logged sub-dispatches render as
-// always-visible nested rows through the SAME keyed toolview hole — the bash
-// sub-call lands in the bash sample plugin's registration exactly like a
-// top-level bash row, unregistered sub-tools fall back to GenericToolCard —
-// and a file sub-row click opens the host path. Running parents
-// (runningCalls) nest their so-far dispatches the same way.
-/**
- * 文件职责：验证工具调用的 chat-code-subcalls.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
- * 产品维度：防止工具调用展示与展开交互回归。
- * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
- * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
- * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
- */
 
-import { Context } from '@deepseek-ai/cordis'
-import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render } from '@testing-library/react'
-import {
-  ConversationEventRegistry, ConversationViewRegistry, createSnapshotStore,
-  EMPTY_CONVERSATION_VIEWS, SlotRegistry,
-} from '@deepseek-ai/dsh-client-runtime/client'
+import { cleanup, fireEvent } from '@testing-library/react'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  ConversationSnapshot, RunningToolCall, SessionId, SessionListState,
-  ToolCallBlock, ToolResultNode, WorkspaceListState,
-} from '@deepseek-ai/dsh-client-runtime/client'
-import { createSlotRenderer } from '@deepseek-ai/dsh-client-test-runtime'
+  ChatSnapshot, RunningToolCall, ToolCallBlock, ToolResultNode,
+} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { SlotTestRuntime, TestRemote, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { apply as applyConversation, inject as injectConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import {
+  ConversationEventRegistry, ConversationViewRegistry, type ConvViewOwnerProps,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { en as conversationEn, NS as CONVERSATION_NS, zh as conversationZh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
+import { apply as applyChat, inject as injectChat } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { apply as applyTool, inject as injectTool } from '../src/client/apply.ts'
 import { toolChatSnapshot } from './tool-details-render.client.tsx'
 
@@ -46,9 +29,12 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 
-afterEach(() => {
+const runtimes: SlotTestRuntime[] = []
+
+afterEach(async () => {
   cleanup()
   vi.unstubAllGlobals()
+  for (const runtime of runtimes.splice(0)) await runtime.dispose()
 })
 beforeEach(() => {
   localStorage.clear()
@@ -65,13 +51,13 @@ const codeResult = (seq: number, callId: string): ToolResultNode => ({
   kind: 'tool-result', seq, time: seq * 1_000, callId,
   call: { name: 'run_code', argsRaw: RUN_CODE_ARGS },
   callTime: seq * 1_000 - 500,
-  content: [{ type: 'text', text: 'demo.txt' }], isError: false, callView: null, resultView: null,
+  content: [{ type: 'text', text: 'demo.txt' }], isError: false,
   subCalls: [],
 })
 
 /** 中文说明：测试局部值 runningCode，由紧邻初始化决定。 */
 const runningCode = (callId: string): RunningToolCall => ({
-  callId, name: 'run_code', argsRaw: RUN_CODE_ARGS, turn: 9, step: 0, time: 9_000, callView: null,
+  callId, name: 'run_code', argsRaw: RUN_CODE_ARGS, turn: 9, step: 0, time: 9_000,
   subCalls: [],
 })
 
@@ -81,9 +67,10 @@ const subCall = (
 ): ToolCallBlock => ({
   kind: 'tool-result', seq, time: seq * 1_000,
   callId: `${parent}:code:${n}`,
+  parentCallId: parent,
   call: { name, argsRaw: JSON.stringify(args) },
   callTime: seq * 1_000,
-  content: [{ type: 'text', text: resultText }], isError, callView: null, resultView: null,
+  content: [{ type: 'text', text: resultText }], isError,
   subCalls: [],
 })
 
@@ -92,139 +79,73 @@ function snapshotWith(
   nodes: ToolResultNode[],
   subCalls: readonly ToolCallBlock[],
   runningCalls: RunningToolCall[] = [],
-): ConversationSnapshot {
-  /** 中文说明：测试局部值 nestedNodes，由紧邻初始化决定。 */
+): ChatSnapshot {
   const nestedNodes = nodes.map(node => ({ ...node, subCalls }))
   /** 中文说明：测试局部值 nestedRunningCalls，由紧邻初始化决定。 */
   const nestedRunningCalls = runningCalls.map(call => ({ ...call, subCalls }))
-  return {
-    sessionId: SID, views: EMPTY_CONVERSATION_VIEWS,
-    chat: toolChatSnapshot(nestedNodes, nestedRunningCalls),
-    nodes: nestedNodes, turnTimings: new Map(), turnEnds: new Map(), partial: null,
-    runningCalls: nestedRunningCalls,
-    pending: [], queue: [], running: runningCalls.length > 0, composerPhase: 'active', removed: false,
-    openState: 'open', openError: null,
-    hasMore: false, loadingOlder: false, promptError: null, blank: false, subagent: null, lastAgentError: null,
-  }
+  return toolChatSnapshot(nestedNodes, nestedRunningCalls)
 }
 
-/** Test-owned AppFrame role: declares and renders the resident conversation area. */
-/* 中文说明：类型或类 AppRootProps 约束工具或轨迹数据职责。 */
-type AppRootProps = PropsRenderSlots<'conversation' | 'details'>
-/** 中文说明：函数 AppRoot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
-function AppRoot({ renderSlot }: AppRootProps) {
-  return <>{renderSlot('conversation', {})}</>
+/** Test-owned AppFrame role: declares and renders the Chat view list. */
+type AppRootProps = PropsRenderSlots<'conversation.view'>
+const VIEW_OWNER: ConvViewOwnerProps = {
+  viewRequest: null,
+  openView: () => {},
+  completeViewRequest: () => {},
 }
+function AppRoot({ renderSlot }: AppRootProps) {
+  return <>{renderSlot('conversation.view', VIEW_OWNER, { only: 'chat' })}</>
+}
+
+const ROOT_CHILDREN = {
+  'conversation.view': { kind: 'list', scope: 'session' },
+} as const
 
 /**
- * Same real-stack bench as the toolview-slot spec: SlotRegistry + renderer +
- * both owning package applies; fakes only at service boundaries.
+ * Same real-stack bench as the toolview-slot spec: renderer, Chat target, and
+ * Tool registrations; fakes only at service boundaries.
  */
-/* 中文说明：函数 bench 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
-async function bench(snapshot: ConversationSnapshot) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
-  const ctx = new Context()
-  /** 中文说明：测试局部值 slotsFiber，由紧邻初始化决定。 */
-  const slotsFiber = ctx.plugin(SlotRegistry)
-  await slotsFiber.await()
-  await ctx.plugin(ConversationEventRegistry).await()
-  await ctx.plugin(ConversationViewRegistry).await()
-  /** 中文说明：测试局部值 slots，由紧邻初始化决定。 */
-  const slots = ctx.get('slots') as SlotRegistry
-
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
-  const session = createSnapshotStore<ConversationSnapshot>(snapshot)
-  /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
-  const list = createSnapshotStore<SessionListState>({
-    ids: [SID],
-    byId: { [SID]: { id: SID, title: 'S', displayTitle: 'S', running: false, blank: false, updatedAt: 1 } },
-    current: SID,
-    phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined,
-  })
-  /** 中文说明：测试局部值 scoped，由紧邻初始化决定。 */
-  const scoped = { send: vi.fn(async () => {}), cancel: vi.fn(async () => {}) }
-  /** 中文说明：测试局部值 layout，由紧邻初始化决定。 */
-  const layout = { openDetails: vi.fn(), closeDetails: vi.fn() }
-  // Provide-channel contributions land in this bundle the way the runtime
-  // materializes them; the renderer host serves it through provideInfo.
-  /** 中文说明：测试局部值 provided，由紧邻初始化决定。 */
-  const provided: { hooks: Record<string, unknown>; props: Record<string, unknown> } = { hooks: {}, props: {} }
-  // Identity-stable currentProvideInfo snapshot (uSES getSnapshot contract),
-  // materialized on first render after the provide contributions landed.
-  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
-  let infoCell: { sessionId: SessionId; hooks: Record<string, unknown>; props: Record<string, unknown> } | undefined
-  /** 中文说明：测试局部值 sessionsFake，由紧邻初始化决定。 */
-  const sessionsFake = {
-    list,
-    binding: (id: SessionId) => (id === SID
-      ? { sessionId: SID, session, ctx: { effect: () => {}, on: () => () => {} } }
-      : undefined),
-    scope: () => ({ get: () => scoped }),
-    scopeOf: () => SID,
-    provide: (descriptor: { resolve: (binding: unknown) => { hooks?: Record<string, unknown>; props?: Record<string, unknown> } }) => {
-      /** 中文说明：测试局部值 contribution，由紧邻初始化决定。 */
-      const contribution = descriptor.resolve(sessionsFake.binding(SID))
-      Object.assign(provided.hooks, contribution.hooks ?? {})
-      Object.assign(provided.props, contribution.props ?? {})
-      return () => {}
-    },
-    provideInfo: (id: string) => (id === SID
-      ? { sessionId: SID, hooks: { session, ...provided.hooks }, props: provided.props }
-      : undefined),
-    currentProvideInfo: {
-      getSnapshot: () => infoCell ??= { sessionId: SID, hooks: { session, ...provided.hooks }, props: provided.props },
-      subscribe: () => () => {},
-    },
-    create: vi.fn(),
-    open: vi.fn(),
-  }
-  ctx.provide('sessions', sessionsFake)
-  /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
-  const workspaces = {
-    list: createSnapshotStore<WorkspaceListState>({
-      items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-      baselinesReady: true, recentWorkspaceId: undefined,
-    }),
-    startSession: vi.fn(),
-    sendSession: vi.fn(),
-    openPath: vi.fn(async () => {}),
-  }
-  ctx.provide('workspaces', workspaces)
-  ctx.provide('layout', layout)
-  ctx.provide('connection', {
-    api: { settings: {} },
-    isLoopback: false,
-    hostDescription: { getSnapshot: () => undefined, subscribe: () => () => {} },
-  } as never)
-  // ui-theme's Appearance row binds a durable scope through these two.
-  ctx.provide('remote', { $on: () => () => {} } as never)
+async function bench(snapshot: ChatSnapshot) {
+  const runtime = await SlotTestRuntime.create()
+  runtimes.push(runtime)
+  const ctx = runtime.ctx
+  const chat = createSnapshotStore(snapshot)
+  const events = new ConversationEventRegistry(ctx)
+  const views = new ConversationViewRegistry(ctx)
   ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
-  /** 中文说明：测试局部值 locale，由紧邻初始化决定。 */
+  ctx.provide('uiConversation', {
+    events,
+    views,
+    binding: () => ({ target: () => chat }),
+  } as never)
+
+  await runtime.sessions.add({
+    id: SID,
+    summary: { title: 'S', displayTitle: 'S' },
+    snapshot: { running: snapshot.legacy.runningCalls.length > 0 },
+  })
+  const layout = { openDetails: vi.fn(), closeDetails: vi.fn() }
+  const openWorkspacePath = vi.fn(async () => ({ ok: true, value: { opened: true } }))
+  ctx.provide('layout', layout as never)
+  ctx.provide('uiWorkspace', {} as never)
+  new TestRemote(ctx, { session: { openWorkspacePath } })
+  ctx.provide('connection', {
+    isLoopback: false,
+    generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
+  } as never)
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)
-  slots.installLocale(locale)
+  locale.register(CONVERSATION_NS, { zh: conversationZh, en: conversationEn })
+  runtime.slots.installLocale(locale)
 
-  slots.install(createSlotRenderer())
-  slots.register({
-    name: 'root',
-    children: {
-      'conversation': { kind: 'single', scope: 'session-maybe' },
-      'details': { kind: 'single', scope: 'session' },
-    },
-  }, AppRoot)
-
-  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
-  const fiber = ctx.plugin({ inject: [...injectConversation], apply: applyConversation })
-  await fiber.await()
-  /** 中文说明：测试局部值 toolFiber，由紧邻初始化决定。 */
-  const toolFiber = ctx.plugin({ inject: [...injectTool], apply: applyTool })
-  await toolFiber.await()
-  return { ctx, slots, fiber, toolFiber, session, layout, workspaces }
+  await runtime.root.declare(ROOT_CHILDREN, AppRoot)
+  await runtime.mount({ inject: [...injectChat], apply: applyChat })
+  await runtime.mount({ inject: [...injectTool], apply: applyTool })
+  return { runtime, layout, openWorkspacePath }
 }
 
-/** 中文说明：函数 mountApp 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
-function mountApp(slots: SlotRegistry) {
-  return render(<>{slots.renderSlot('root', {})}</>)
+function mountApp(runtime: SlotTestRuntime) {
+  return runtime.renderRoot()
 }
 
 describe('run_code sub-calls through the real chat machinery', () => {
@@ -238,8 +159,7 @@ describe('run_code sub-calls through the real chat machinery', () => {
     ]
     /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = mountApp(b.slots)
+    const view = mountApp(b.runtime)
 
     // Parent row: the code variant with the model-authored description.
     /** 中文说明：测试局部值 codeRoot，由紧邻初始化决定。 */
@@ -248,11 +168,6 @@ describe('run_code sub-calls through the real chat machinery', () => {
     expect(view.getByText('Code')).toBeTruthy()
     expect(view.getByText('List the notes directory')).toBeTruthy()
 
-    // Nested rows are ALWAYS visible (no parent expand needed): the bash
-    // sub-call landed in the bash sample plugin's keyed registration — Bash ·
-    // description chrome, same as a top-level bash row — and the unregistered
-    // sub-tool fell back to GenericToolCard at the same render site.
-    /** 中文说明：测试局部值 nest，由紧邻初始化决定。 */
     const nest = view.container.querySelector('[data-subcalls]')
     expect(nest).not.toBeNull()
     expect(nest!.querySelector('[data-sample="bash"]')).not.toBeNull()
@@ -272,9 +187,7 @@ describe('run_code sub-calls through the real chat machinery', () => {
     ]
     /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = mountApp(b.slots)
-    /** 中文说明：测试局部值 nest，由紧邻初始化决定。 */
+    const view = mountApp(b.runtime)
     const nest = view.container.querySelector('[data-subcalls]')!
 
     // Each run-control verb names its act and shows the package id; without the
@@ -292,8 +205,7 @@ describe('run_code sub-calls through the real chat machinery', () => {
     const parent = 'call-64'
     /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], []))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = mountApp(b.slots)
+    const view = mountApp(b.runtime)
     // The code row is expandable via the whole summary row (body = the program).
     /** 中文说明：测试局部值 toggle，由紧邻初始化决定。 */
     const toggle = view.container.querySelector('[data-variant="code"] [data-expandable]')
@@ -317,9 +229,7 @@ describe('run_code sub-calls through the real chat machinery', () => {
     ]
     /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = mountApp(b.slots)
-    /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
+    const view = mountApp(b.runtime)
     const nested = view.container.querySelector('[data-subcalls] [data-variant][data-state="error"]')
     expect(nested).not.toBeNull()
   })
@@ -334,12 +244,11 @@ describe('run_code sub-calls through the real chat machinery', () => {
     ]
     /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = mountApp(b.slots)
+    const view = mountApp(b.runtime)
     view.getByText('notes/demo.txt').click()
     expect(b.layout.openDetails).not.toHaveBeenCalled()
     await vi.waitFor(() => {
-      expect(b.workspaces.openPath).toHaveBeenCalledWith('notes/demo.txt')
+      expect(b.openWorkspacePath).toHaveBeenCalledWith({ path: 'notes/demo.txt' })
     })
     view.getByText('List notes').click()
     expect(b.layout.openDetails).not.toHaveBeenCalled()
@@ -354,9 +263,7 @@ describe('run_code sub-calls through the real chat machinery', () => {
     ]
     /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([], subCalls, [runningCode(parent)]))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = mountApp(b.slots)
-    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
+    const view = mountApp(b.runtime)
     const running = view.container.querySelector('[data-variant="code"][data-state="running"]')
     expect(running).not.toBeNull()
     /** 中文说明：测试局部值 nest，由紧邻初始化决定。 */
@@ -371,12 +278,12 @@ describe('run_code sub-calls through the real chat machinery', () => {
     /** 中文说明：测试局部值 runningSub，由紧邻初始化决定。 */
     const runningSub: ToolCallBlock = {
       callId: `${parent}:code:1`, name: 'grep', argsRaw: '{"pattern":"todo"}',
-      turn: 0, step: 0, time: 21_000, callView: null, subCalls: [],
+      parentCallId: parent,
+      turn: 0, step: 0, time: 21_000, subCalls: [],
     }
     /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([], [runningSub], [runningCode(parent)]))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = mountApp(b.slots)
+    const view = mountApp(b.runtime)
     // The nested row derives 'running' from the RunningToolCall shape — the
     // same data-state chrome (row sweep) a native in-flight row wears.
     /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
@@ -392,12 +299,11 @@ describe('run_code sub-calls through the real chat machinery', () => {
       kind: 'tool-result', seq: 10, time: 10_000, callId: parent,
       call: { name: 'mystery', argsRaw: '{"n":1}' },
       callTime: 9_500,
-      content: [], isError: false, callView: null, resultView: null, subCalls: [],
+      content: [], isError: false, subCalls: [],
     }
     /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([plain], []))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = mountApp(b.slots)
+    const view = mountApp(b.runtime)
     expect(view.container.querySelector('[data-subcalls]')).toBeNull()
   })
 })

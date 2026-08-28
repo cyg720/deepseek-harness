@@ -13,21 +13,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   assertFixtureInventory,
   compareOrRefreshGolden,
+  fixtureIdentity,
   launchWebScaffold,
   seedSession,
   type WebScaffold,
 } from './scaffold.ts'
 
-/** 协议 fixture 与预期 JSON 所在目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/message-feedback-protocol', import.meta.url))
-/** 提供目标消息的固定会话日志。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/message-feedback-protocol', import.meta.url))
 const SESSION_FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 /** 归一化协议交换的预期快照。 */
 const PROTOCOL_EXPECTED = join(SNAPSHOT_DIR, 'protocol.expected.json')
 /** 注入主机时使用的稳定会话标识。 */
 const SESSION_ID = 'message-feedback-protocol'
-/** fixture 中被评分的稳定消息 UUID。 */
-const MESSAGE_ID = '11111111-1111-4111-8111-111111111111'
+const MESSAGE_ID = fixtureIdentity('message', 2)
 
 /** 记录一次 HTTP 协议调用的端点、请求、状态码和响应。 */
 interface ProtocolExchange {
@@ -58,6 +56,7 @@ function createdVersion(response: unknown): string {
 /* 仅替换 version 和时间运行值并返回 JSON；其余协议字段保持精确。示例：normalizeProtocol(items, version)。 */
 function normalizeProtocol(exchanges: readonly ProtocolExchange[], version: string): string {
   return JSON.stringify(exchanges, (key, value: unknown) => {
+    if (key === 'messageId' && value === MESSAGE_ID) return '{{message:2}}'
     if ((key === 'version' || key === 'ifVersion') && value === version) return '{{version}}'
     if ((key === 'createdAt' || key === 'updatedAt') && typeof value === 'number') return '{{timestamp}}'
     return value
@@ -84,7 +83,7 @@ describe('message feedback Host Remote protocol', () => {
     const invoke = async (rpcId: string, endpoint: string, request: unknown): Promise<unknown> => {
       /** Host Remote 要求的 args.request 外层载荷。 */
       const payload = { args: { request } }
-      const response = await fetch(`${scaffold.baseUrl}/api/${endpoint}`, {
+      const response = await scaffold.hostFetch(`/api/${endpoint}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

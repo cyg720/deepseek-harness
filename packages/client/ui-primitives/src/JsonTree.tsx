@@ -7,7 +7,7 @@
  * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
  */
 import clsx from 'clsx'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
@@ -28,9 +28,7 @@ const PREVIEW_DEPTH_LIMIT = 2
 
 /**
  * Display copy for the tree's copy affordance; the owner passes localized
- * labels (this package is cordis-free, so copy arrives via props). Every
- * field defaults to the current built-in value, so existing consumers render
- * unchanged.
+ * labels (this package is cordis-free, so copy arrives via props).
  */
 /* 中文说明：类型或类 JsonTreeLabels 约束基础组件的数据或职责。 */
 export interface JsonTreeLabels {
@@ -56,21 +54,6 @@ export interface JsonTreeLabels {
   copyButtonTitle: (action: string) => string
 }
 
-/** 中文说明：组件局部值 DEFAULT_LABELS，由紧邻初始化决定。 */
-const DEFAULT_LABELS: JsonTreeLabels = {
-  copyValue: 'Copy value',
-  copyJson: 'Copy JSON',
-  copyPath: 'Copy property path',
-  copyPrettyJson: 'Copy pretty JSON',
-  copyCompactJson: 'Copy compact JSON',
-  copied: 'Copied',
-  copyFailed: 'Copy failed',
-  collapseNode: 'Collapse JSON node',
-  expandNode: 'Expand JSON node',
-  copyButtonTitle: action => `${action}; right-click for copy options`,
-}
-
-/** 中文说明：函数 valueCopyMenuItems 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function valueCopyMenuItems(labels: JsonTreeLabels): readonly MenuEntry[] {
   return [
     { id: 'value', label: labels.copyValue },
@@ -443,15 +426,15 @@ export interface JsonTreeProps {
   /** Parsed JSON object or array. */
   data: object | unknown[]
   /** Accessible label for the tree. */
-  label?: string
+  label: string
   /** Optional positioning class owned by the caller. */
   className?: string | undefined
   /** Whether JSON rows expose copy actions. */
   copyable?: boolean
   /** Whether the top-level object or array is always expanded. */
   expandTopLevel?: boolean
-  /** Localized display copy; omitted fields keep the built-in defaults. */
-  labels?: Partial<JsonTreeLabels> | undefined
+  /** Localized display copy supplied by the owning render site. */
+  labels: JsonTreeLabels
 }
 
 /**
@@ -462,18 +445,12 @@ export interface JsonTreeProps {
 /* 中文说明：函数 JsonTree 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function JsonTree({
   data,
-  label = 'JSON',
+  label,
   className,
   copyable = true,
   expandTopLevel = true,
   labels,
 }: JsonTreeProps) {
-  /** 中文说明：组件局部值 copyLabels，由紧邻初始化决定。 */
-  const copyLabels = useMemo<JsonTreeLabels>(
-    () => (labels === undefined ? DEFAULT_LABELS : { ...DEFAULT_LABELS, ...labels }),
-    [labels],
-  )
-  /** 中文说明：组件局部值 rootEntries，由紧邻初始化决定。 */
   const rootEntries = entriesOf(data)
   /** 中文说明：组件局部值 firstExpandableIndex，由紧邻初始化决定。 */
   const firstExpandableIndex = rootEntries.findIndex(([, value]) => (
@@ -635,10 +612,10 @@ export function JsonTree({
   const defaultCopyMode = copyTargetIsObject ? 'prettyJson' : 'value'
   /** 中文说明：组件局部值 copyTitle，由紧邻初始化决定。 */
   const copyTitle = copyState === 'copied'
-    ? copyLabels.copied
+    ? labels.copied
     : copyState === 'failed'
-      ? copyLabels.copyFailed
-      : copyTargetIsObject ? copyLabels.copyPrettyJson : copyLabels.copyValue
+      ? labels.copyFailed
+      : copyTargetIsObject ? labels.copyPrettyJson : labels.copyValue
 
   return (
     <div
@@ -674,7 +651,7 @@ export function JsonTree({
                   field={key}
                   value={value}
                   path={[Array.isArray(data) ? index : key]}
-                  labels={copyLabels}
+                  labels={labels}
                   lastElement={index === rootEntries.length - 1}
                   initialExpanded={false}
                   tabStopId={tabStopId}
@@ -693,7 +670,7 @@ export function JsonTree({
             <JsonTreeNode
               value={data}
               path={[]}
-              labels={copyLabels}
+              labels={labels}
               lastElement
               initialExpanded
               tabStopId={tabStopId}
@@ -721,7 +698,7 @@ export function JsonTree({
                 data-json-copy-button
                 data-state={copyState}
                 aria-label={copyTitle}
-                title={copyLabels.copyButtonTitle(copyTitle)}
+                title={labels.copyButtonTitle(copyTitle)}
                 onClick={() => void copy(defaultCopyMode)}
                 onContextMenu={(event) => {
                   event.preventDefault()
@@ -735,7 +712,7 @@ export function JsonTree({
                   : <IconCopyOutline16 size={12} />}
               </button>
             )}
-            items={copyTargetIsObject ? objectCopyMenuItems(copyLabels) : valueCopyMenuItems(copyLabels)}
+            items={copyTargetIsObject ? objectCopyMenuItems(labels) : valueCopyMenuItems(labels)}
             onSelect={(id) => {
               void copy(id as 'json' | 'path' | 'prettyJson' | 'value')
               copyMenuOpenRef.current = false

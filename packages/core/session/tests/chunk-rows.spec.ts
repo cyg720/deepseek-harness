@@ -14,9 +14,10 @@
 
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import { decodeStorageRecord, packChunkRuns } from '@deepseek-ai/dsh-session'
+import { chunkRowLength, isChunkRow } from '@deepseek-ai/dsh-session/chunk-rows'
 import type { ChunkRow, SessionEvent, StorageRecord } from '@deepseek-ai/dsh-session'
 
 /** Build an `assistant/chunk` event with the exact live-append shape. */
@@ -51,6 +52,9 @@ describe('packChunkRuns', () => {
     expect(row.seq0).toBe(0)
     expect(row.time0).toBe(1000)
     expect(row.data).toMatchObject({ turn: 1, step: 1, index: 0, dt: [10, 10, 10, 10], texts: ['t0', 't1', 't2', 't3', 't4'] })
+    expect(isChunkRow(row)).toBe(true)
+    expect(chunkRowLength(row)).toBe(5)
+    expect(isChunkRow(events[0] as SessionEvent)).toBe(false)
     expect(decodeAll(packed)).toStrictEqual(events)
   })
 
@@ -59,21 +63,20 @@ describe('packChunkRuns', () => {
     const reasoning = deltaRun('reasoning-delta', 3)
     /** 中文说明：测试局部值 toolCall，由紧邻初始化决定，仅在当前场景使用。 */
     const toolCall = [4, 5, 6].map(seq =>
-      chunkEvent(seq, 1000 + seq, { type: 'tool-call-delta', index: 1, id: CallId('c1'), name: 'write', argumentsDelta: `a${seq}` }))
-    /** 中文说明：测试局部值 packed，由紧邻初始化决定，仅在当前场景使用。 */
+      chunkEvent(seq, 1000 + seq, { type: 'tool-call-delta', index: 1, id: ToolCallId('c1'), name: 'write', argumentsDelta: `a${seq}` }))
     const packed = packChunkRuns([...reasoning, ...toolCall])
     expect(packed.map(r => (r as ChunkRow).type)).toStrictEqual(['reasoning-chunks', 'tool-call-chunks'])
     /** 中文说明：测试局部值 row，由紧邻初始化决定，仅在当前场景使用。 */
     const row = packed[1] as ChunkRow & { type: 'tool-call-chunks' }
     expect(row.data).toMatchObject({ id: 'c1', name: 'write', args: ['a4', 'a5', 'a6'] })
+    expect(chunkRowLength(row)).toBe(3)
     expect(decodeAll(packed)).toStrictEqual([...reasoning, ...toolCall])
   })
 
   it('packs a name-less tool-call run and round-trips field absence', () => {
     /** 中文说明：测试局部值 events，由紧邻初始化决定，仅在当前场景使用。 */
     const events = [0, 1, 2].map(seq =>
-      chunkEvent(seq, 1000, { type: 'tool-call-delta', index: 0, id: CallId('c1'), argumentsDelta: `a${seq}` }))
-    /** 中文说明：测试局部值 packed，由紧邻初始化决定，仅在当前场景使用。 */
+      chunkEvent(seq, 1000, { type: 'tool-call-delta', index: 0, id: ToolCallId('c1'), argumentsDelta: `a${seq}` }))
     const packed = packChunkRuns(events)
     expect(packed).toHaveLength(1)
     expect(Object.hasOwn((packed[0] as ChunkRow).data, 'name')).toBe(false)
@@ -116,8 +119,7 @@ describe('packChunkRuns', () => {
   it('breaks a tool-call run on call-id or name change', () => {
     /** 中文说明：测试局部值 call，由紧邻初始化决定，仅在当前场景使用。 */
     const call = (seq: number, id: string, name?: string): SessionEvent =>
-      chunkEvent(seq, 1000, { type: 'tool-call-delta', index: 0, id: CallId(id), ...name !== undefined ? { name } : {}, argumentsDelta: 'a' })
-    /** 中文说明：测试局部值 idSwitch，由紧邻初始化决定，仅在当前场景使用。 */
+      chunkEvent(seq, 1000, { type: 'tool-call-delta', index: 0, id: ToolCallId(id), ...name !== undefined ? { name } : {}, argumentsDelta: 'a' })
     const idSwitch = [call(0, 'c1', 'w'), call(1, 'c1', 'w'), call(2, 'c2', 'w')]
     expect(packChunkRuns(idSwitch)).toStrictEqual(idSwitch)
     /** 中文说明：测试局部值 namePresence，由紧邻初始化决定，仅在当前场景使用。 */
@@ -205,7 +207,7 @@ describe('decodeStorageRecord', () => {
     ['a dt arity mismatch', { type: 'text-chunks', seq0: 0, time0: 1, data: { turn: 1, step: 1, index: 0, dt: [1, 2], texts: ['a', 'b'] } }],
     ['a non-finite dt gap', { type: 'text-chunks', seq0: 0, time0: 1, data: { turn: 1, step: 1, index: 0, dt: [NaN], texts: ['a', 'b'] } }],
     ['a fractional dt gap', { type: 'text-chunks', seq0: 0, time0: 1, data: { turn: 1, step: 1, index: 0, dt: [0.5], texts: ['a', 'b'] } }],
-    ['a member seq leaving safe range', { type: 'text-chunks', seq0: Number.MAX_SAFE_INTEGER, time0: 1, data: { turn: 1, step: 1, index: 0, dt: [0, 0], texts: ['a', 'b', 'c'] } }],
+    ['a member seq leaving safe range', { type: 'text-chunks', seq0: Number.MAX_SAFE_INTEGER, time0: 1, data: { turn: 1, step: 1, index: 0, dt: [0], texts: ['a', 'b'] } }],
     ['a member time leaving safe range', { type: 'text-chunks', seq0: 0, time0: Number.MAX_SAFE_INTEGER, data: { turn: 1, step: 1, index: 0, dt: [1], texts: ['a', 'b'] } }],
     ['a non-numeric turn', { type: 'text-chunks', seq0: 0, time0: 1, data: { turn: 'x', step: 1, index: 0, dt: [], texts: ['a'] } }],
     ['a tool-call row without id', { type: 'tool-call-chunks', seq0: 0, time0: 1, data: { turn: 1, step: 1, index: 0, dt: [], args: ['a'] } }],
@@ -225,13 +227,13 @@ const deltaChunkArb: fc.Arbitrary<StreamChunk> = fc.oneof(
   fc.record({
     type: fc.constant<'tool-call-delta'>('tool-call-delta'),
     index: fc.nat(2),
-    id: fc.constantFrom(CallId('c1'), CallId('c2')),
+    id: fc.constantFrom(ToolCallId('c1'), ToolCallId('c2')),
     argumentsDelta: fc.string(),
   }),
   fc.record({
     type: fc.constant<'tool-call-delta'>('tool-call-delta'),
     index: fc.nat(2),
-    id: fc.constantFrom(CallId('c1'), CallId('c2')),
+    id: fc.constantFrom(ToolCallId('c1'), ToolCallId('c2')),
     name: fc.constantFrom('write', 'read'),
     argumentsDelta: fc.string(),
   }),

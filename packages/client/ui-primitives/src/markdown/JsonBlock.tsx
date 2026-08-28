@@ -14,19 +14,12 @@ import css from './JsonBlock.module.css'
 /** 中文说明：组件局部值 MAX_CHARS，由紧邻初始化决定。 */
 const MAX_CHARS = 20_000
 
-/** Default truncation footer; the owner passes a localized formatter. */
-/* 中文说明：函数 defaultTruncatedLabel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function defaultTruncatedLabel(total: number): string {
-  return `… 已截断，共 ${total} 字符`
-}
-
-/** 中文说明：函数 JsonBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-export function JsonBlock({ label, payload, defaultOpen = false, truncatedLabel = defaultTruncatedLabel }: {
+export function JsonBlock({ label, payload, defaultOpen = false, truncatedLabel }: {
   label: string
   payload: unknown
   defaultOpen?: boolean
   /** Footer appended when the body exceeds the char cap, given the full length (this package is cordis-free, so copy arrives via props). */
-  truncatedLabel?: ((total: number) => string) | undefined
+  truncatedLabel: (total: number) => string
 }) {
   /** 中文说明：组件局部值 [open, setOpen]，由紧邻初始化决定。 */
   const [open, setOpen] = useState(defaultOpen)

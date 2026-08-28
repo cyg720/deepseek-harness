@@ -58,25 +58,21 @@ describe('web e2e: the composer model switch is the default for later sessions',
   /** Create one session and its agent through the same wire face the browser uses. */
   /* 通过浏览器使用的同一 RPC 创建会话和代理，并返回会话编号。 */
   const createSession = async (sessionId: string): Promise<string> => {
-    /** session.create RPC 响应。 */
-    const response = await scaffold.ctx.apiProxy.sessions.create({
-      rpcId: `default-model-create-${sessionId}` as never,
-      payload: { sessionId: SessionId(sessionId), cwd: scaffold.workspaceCwd },
+    const response = await scaffold.ctx.sessionController.create({
+      sessionId: SessionId(sessionId),
+      cwd: scaffold.workspaceCwd,
     })
-    if (!response.result.ok) throw new Error(`session.create failed: ${response.result.error.message}`)
-    return response.result.value.sessionId
+    return response.sessionId
   }
 
-  /** The route the gateway reports for one session, through the real wire face. */
-  /* 通过真实 session.models RPC 读取一个会话当前解析出的模型线路。 */
-  const currentOf = async (sessionId: string): Promise<unknown> => {
-    /** session.models RPC 响应。 */
-    const response = await scaffold.ctx.apiProxy.sessions.models({
-      rpcId: `default-model-${sessionId}` as never,
-      payload: { sessionId: SessionId(sessionId) },
-    })
-    if (!response.result.ok) throw new Error(`session.models failed: ${response.result.error.message}`)
-    return response.result.value.current
+  /** The route the Client derives from the Session projection and Host default. */
+  const currentOf = (sessionId: string): Promise<unknown> => {
+    const session = scaffold.ctx.sessions.get(SessionId(sessionId))
+    if (session === undefined) throw new Error(`session "${sessionId}" is not live`)
+    return Promise.resolve(
+      scaffold.ctx.sessionProjections.snapshot(session).values.modelSelection?.next
+        ?? scaffold.ctx.agentDefaultModel.currentSelection(),
+    )
   }
 
   beforeAll(async () => {
@@ -105,7 +101,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     // The composer's seats only exist once a workspace is connected: without
     // one the input is the locked placeholder and no session scope is open.
@@ -160,8 +156,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
 
   it('goes inert when the route the default names stops being served', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-default-model-blocked'))
-    /** 当前编辑器 textarea；线路失效后应禁用。 */
-    const box = page.locator('textarea[data-input-phase], textarea').first()
+    const box = page.locator('[data-composer-input]').first()
     await expect.poll(async () => box.isEnabled(), { timeout: 10_000 }).toBe(true)
 
     // What removing the provider on the Models page leaves behind: the saved
@@ -172,21 +167,16 @@ describe('web e2e: the composer model switch is the default for later sessions',
     await scaffold.ctx.settings.replace(settingsNamespace('llm-pi-ai'), { providers: {} })
 
     await expect.poll(async () => box.isEnabled(), { timeout: 15_000 }).toBe(false)
-    expect(await box.getAttribute('placeholder')).toBe('当前模型不可用，请先选择模型')
+    expect(await box.getAttribute('data-placeholder')).toBe('当前模型不可用，请先选择模型')
 
     // The block is an affordance; the refusal is the Host's. A client that
     // never disabled anything still cannot start a turn on a dead route.
-    // 禁用是客户端提示，主机仍需独立拒绝不可用线路上的提示请求。
-    /** 主机对失效默认线路提示请求的拒绝响应。 */
-    const refused = await scaffold.ctx.apiProxy.sessions.prompt({
-      rpcId: 'default-model-refused' as never,
-      payload: {
-        sessionId: SessionId(await createSession('default-model-refusal')),
-        mode: 'queue' as const,
-        content: [{ type: 'text' as const, text: 'hi' }],
-      },
-    })
-    expect(refused.result).toMatchObject({ ok: false, error: { code: 'model-unavailable' } })
+    await expect(scaffold.ctx.sessionController.prompt({
+      requestId: 'default-model-refused' as never,
+      sessionId: SessionId(await createSession('default-model-refusal')),
+      mode: 'queue',
+      content: [{ type: 'text', text: 'hi' }],
+    }, new AbortController().signal)).rejects.toMatchObject({ failure: { code: 'model-unavailable' } })
 
     // The way out stays open. Locking the model seat with everything else
     // would leave the composer asking for the one thing it prevents.

@@ -1,17 +1,5 @@
-// Web e2e scenario: the session-header background-job list over the real
-// host. No model call is involved — a genuine `run_in_background` bash call
-// registers with `ctx.jobs`, and the assertion chain is the whole delivery
-// path: registry change feed → api-proxy `session/jobs` frame → the client's
-// `jobsBySession` mirror → the header action.
-// 完整链路为任务注册表变更、API 推送、客户端会话任务镜像，最后到会话头操作入口。
-/**
- * 文件职责：端到端验证后台 Bash 任务从主机注册到浏览器会话头列表的实时展示与结算。
- * 技术维度：使用真实工具执行、Jobs 注册表、Playwright、ARIA 快照和已播种会话。
- * 产品维度：用户无需刷新即可查看运行中的后台任务，并在取消后立即看到最终状态。
- * 逻辑维度：打开播种会话获得真实 Agent，启动后台命令，检查运行列表，再取消任务并检查结算列表。
- * 关键边界：记录模式跳过；命令特意运行足够久并由测试主动终止，避免自然退出竞争。
- * 新手阅读建议：先看 liveAgent 如何取得会话所有者，再跟随运行、提取 JobId、取消和快照流程。
- */
+// Session-header background jobs driven by a real `ctx.jobs` entry. No model
+// call is involved.
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -19,7 +7,7 @@ import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { JobId } from '@deepseek-ai/dsh-jobs'
 import {
@@ -28,11 +16,8 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 用于打开稳定会话的已有回放夹具。 */
-const FIXTURE = fileURLToPath(new URL('./snapshots/fresh-round-trip/session.jsonl', import.meta.url))
-/** 后台任务列表场景的快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/background-job-list', import.meta.url))
-/** 任务运行中菜单的 ARIA 快照。 */
+const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/fresh-round-trip/session.jsonl', import.meta.url))
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/background-job-list', import.meta.url))
 const RUNNING_EXPECTED = join(SNAPSHOT_DIR, 'running.expected.md')
 /** 任务取消结算后菜单的 ARIA 快照。 */
 const SETTLED_EXPECTED = join(SNAPSHOT_DIR, 'settled.expected.md')
@@ -47,7 +32,7 @@ const SEED_ID = 'background-job-list-web-e2e'
 const COMMAND = 'sleep 45'
 
 /**
- * Wait for the Host to publish the live Agent that opening a session resumes.
+ * Wait for opening a session to publish its live Agent.
  * @param scaffold - the booted web scaffold.
  * @param sessionId - the opened session's identity.
  * @returns the registered Agent instance.
@@ -91,7 +76,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
 
     /** 左侧会话树的分组行。 */
@@ -117,18 +102,14 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
 
   it('shows a running background job in the session header without a refresh', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-background-job-running'))
-    // Point assertion, not a poll: `expect.poll` retries until a predicate
-    // holds, so polling for zero passes at t=0 and proves nothing. The
-    // "renders nothing without a task" branch is owned by the component suite.
-    // 这里用即时零计数断言，避免 expect.poll 在初始时刻通过而没有证明实时更新。
-    /** 任务启动后才应出现的会话头入口。 */
+    // Polling for zero would pass at t=0 before delivery and prove nothing.
     const trigger = page.getByRole('button', { name: '1 background job running' })
     expect(await trigger.count()).toBe(0)
 
     /** 真实 bash 工具启动后台命令后返回的工具结果。 */
     const started = await scaffold.ctx.tools.execute({
       signal: new AbortController().signal,
-      callId: CallId('background-job-list-e2e'),
+      callId: ToolCallId('background-job-list-e2e'),
       name: 'bash',
       arguments: { command: COMMAND, description: 'Hold a background slot open', run_in_background: true },
       agent,
@@ -158,10 +139,6 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-background-job-settled'))
     expect(scaffold.ctx.jobs.kill(jobId, agent, 'web e2e cancellation')).toBe('requested')
 
-    // The trigger drops its live count once the task leaves running/stopping,
-    // which is also the proof that settlement reached the browser unprompted.
-    // 任务离开运行/停止中状态后入口去掉 live 计数，也证明结算主动推送到了浏览器。
-    /** 任务结算后保留历史数量但不显示运行中的入口。 */
     const idle = page.getByRole('button', { name: '1 background job' })
     await idle.waitFor({ timeout: 20_000 })
 

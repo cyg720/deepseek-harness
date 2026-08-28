@@ -9,7 +9,8 @@
  * it is required outright by the repo's model-visible ⟺ logged rule, since the
  * preset decides the tool schemas and prompt sections the model sees.
  *
- * Reconstruction reads {@link resolveSessionPreset}, never the header alone.
+ * Reconstruction reads the `agentPreset` Session projection, never the header
+ * alone.
  * @module @deepseek-ai/dsh-agent-presets/session
  */
 /*
@@ -21,7 +22,8 @@
  * 新手阅读建议：先区分 header 的创建事实与 events 的后续变化，再看逆序循环的优先级。
  */
 
-import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
+import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
+import { z } from 'zod'
 
 /** 为会话事件映射补充创建后选择代理预设的日志事件。 */
 declare module '@deepseek-ai/dsh-session/types' {
@@ -38,39 +40,16 @@ declare module '@deepseek-ai/dsh-session/types' {
   }
 }
 
-/** The minimum a caller must supply to resolve a session's preset. */
-/* 调用方解析会话实际预设时必须提供的最小数据集合。 */
-export interface PresetBearingSession {
-  /** The session's creation header. */
-  /* 会话创建头，包含创建时选择的预设。 */
-  readonly header: SessionHeader
-  /** The session's event log, oldest first. */
-  /* 按时间从旧到新排列的会话事件日志。 */
-  readonly events: readonly SessionEvent[]
-}
+const agentPresetSchema = z.union([z.string(), z.null()])
 
-/**
- * The preset a session actually runs, newest selection winning.
- *
- * The header supplies the creation-time value; every later selection is a
- * logged event, so the last one is the answer. Reading the header alone
- * rebuilds a switched session under the composition it was created with, not
- * the one its history was produced under.
- * @param session - the session's header and event log.
- * @returns the preset id, or `undefined` when the deployment composes none.
- */
-/*
- * 解析会话实际运行的预设，优先采用日志中最后一次选择，否则使用创建头。
- * @param session 包含创建头和事件日志的最小会话对象。
- * @returns 预设编号；部署未组合预设时返回 undefined。
- * @example `resolveSessionPreset({ header, events })`
- */
-export function resolveSessionPreset(session: PresetBearingSession): string | undefined {
-  /** 从最后一个事件开始向前移动的索引，确保最新选择优先。 */
-  for (let index = session.events.length - 1; index >= 0; index -= 1) {
-    /** 当前索引对应的会话事件；稀疏数组位置可能为 undefined。 */
-    const event = session.events[index]
-    if (event?.type === 'agent-preset/selected') return event.data.agentPreset
-  }
-  return session.header.agentPreset
-}
+/** Current Session preset, initialized from its header and advanced by selection events. */
+export const agentPresetProjectionDefinition = {
+  key: 'agentPreset',
+  stateSchema: agentPresetSchema,
+  init: header => header.agentPreset ?? null,
+  apply: (state, event) => event.type === 'agent-preset/selected'
+    ? event.data.agentPreset
+    : state,
+  wire: { viewSchema: agentPresetSchema, view: state => state },
+  stateVersion: 1,
+} satisfies ProjectionDefinition<'agentPreset', string | null>

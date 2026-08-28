@@ -9,12 +9,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  AssistantBlock, AssistantMessageNode, ConversationSnapshot,
-  SnapshotStore,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  AssistantBlock, AssistantMessageNode, ConvViewProps, MessageImageLoader, RenderMessageImages,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { InjectFace, PropsLocale, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
   TrajectoryTable,
   /** 中文说明：类型或类 TrajectoryRequestNumber 约束模块数据或组件职责。 */
@@ -38,7 +37,7 @@ import {
 } from './timeline.ts'
 import { trajectoryRecordId } from './trajectory-record.ts'
 import { TrajectorySearchIndex } from './trajectory-search-index.ts'
-import { EMPTY_TRAJECTORY_SNAPSHOT } from './trajectory-snapshot-builder.ts'
+import type { TrajectorySnapshot } from './trajectory-contract.ts'
 import css from './views.module.css'
 
 /** 中文说明：组件局部值 EMPTY_TURN_IDS，由紧邻初始化决定。 */
@@ -79,8 +78,7 @@ function timelineBlock(block: AssistantBlock): AssistantBlock {
   }
 }
 
-/** 中文说明：函数 partialStructureSignature 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function partialStructureSignature(partial: ConversationSnapshot['partial']): string {
+function partialStructureSignature(partial: TrajectorySnapshot['partial']): string {
   if (partial === null) return ''
   return partial.blocks.map(block => block.kind === 'tool-call'
     ? `${block.kind}:${block.callId}:${block.name}`
@@ -94,6 +92,7 @@ export interface TrajectoryViewInjected {
     duration: SnapshotStore<boolean>
   }
   loadOlder: () => Promise<boolean>
+  loadImage: MessageImageLoader
   setActualDuration: (actualDuration: boolean) => void
 }
 
@@ -147,12 +146,17 @@ function addUsage(
 
 /** 中文说明：函数 TrajectoryView 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function TrajectoryView({
-  useSession, useDuration, loadOlder, setActualDuration,
-  inspect, onInspectDone, t,
-}: ConvViewProps & InjectFace<TrajectoryViewInjected> & PropsLocale<'trajectory'>) {
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
+  useSession, useTrajectory, useDuration, loadOlder, loadImage, setActualDuration,
+  viewRequest, completeViewRequest, renderSlot, t,
+}: ConvViewProps
+  & PropsRenderSlots<'conversation.trajectory.images'>
+  & InjectFace<TrajectoryViewInjected>
+  & PropsLocale<'trajectory'>) {
   const [collapsedTurns, setCollapsedTurns] = useState<ReadonlySet<number>>(EMPTY_TURN_IDS)
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
+  const renderImages = useCallback<RenderMessageImages>(
+    owner => renderSlot('conversation.trajectory.images', { ...owner, loadImage }),
+    [loadImage, renderSlot],
+  )
   const [collapsedAssistants, setCollapsedAssistants] =
     useState<ReadonlySet<string>>(EMPTY_RECORD_IDS)
   /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
@@ -181,10 +185,7 @@ export function TrajectoryView({
   const [timelineRecordFocus, setTimelineRecordFocus] = useState<{
     readonly index: number
   } | null>(null)
-  /** 中文说明：组件局部值 inspection，由紧邻初始化决定。 */
-  const inspection = useSession(snapshot =>
-    snapshot.views.get('trajectory') ?? EMPTY_TRAJECTORY_SNAPSHOT)
-  /** 中文说明：组件局部值 historyLoading，由紧邻初始化决定。 */
+  const inspection = useTrajectory(snapshot => snapshot)
   const historyLoading = useSession(snapshot => snapshot.openState === 'loading')
   /** 中文说明：组件局部值 olderHistoryLoading，由紧邻初始化决定。 */
   const olderHistoryLoading = useSession(snapshot => snapshot.loadingOlder)
@@ -204,7 +205,7 @@ export function TrajectoryView({
   const requests = inspection.requests
   /** 中文说明：组件局部值 callSchemas，由紧邻初始化决定。 */
   const callSchemas = inspection.callSchemas
-  /** 中文说明：组件局部值 requestNumbers，由紧邻初始化决定。 */
+  const inspectCallId = viewRequest?.view === 'trajectory' ? viewRequest.focus : null
   const requestNumbers = useMemo<readonly TrajectoryRequestNumber[]>(() => {
     /** 中文说明：组件局部值 assistantsByStep，由紧邻初始化决定。 */
     const assistantsByStep = new Map<string, AssistantMessageNode>()
@@ -270,12 +271,13 @@ export function TrajectoryView({
           seq: entry.seq,
           turn,
           step,
-          group: `Step ${step}`,
+          group: t('group.step', { step }),
           number: index + 1,
           ...(request?.status === undefined ? {} : { status: request.status }),
           ...(request?.startedAt === undefined ? {} : { startedAt: request.startedAt }),
           ...(request?.completedAt === undefined ? {} : { completedAt: request.completedAt }),
           ...(request?.error === undefined ? {} : { error: request.error }),
+          ...(request?.errorCode === undefined ? {} : { errorCode: request.errorCode }),
           ...(request?.resultSeq === undefined ? {} : { resultSeq: request.resultSeq }),
           ...(request?.retry === undefined ? {} : { retry: request.retry }),
           ...(request?.maxRetries === undefined ? {} : { maxRetries: request.maxRetries }),
@@ -296,13 +298,14 @@ export function TrajectoryView({
         seq: request.startSeq,
         turn: request.turn,
         step: 0,
-        group: `Compaction ${request.startSeq}`,
+        group: t('group.compaction', { seq: request.startSeq }),
         number: index + 1,
         purpose: 'compaction',
         status: request.status,
         startedAt: request.startedAt,
         completedAt: request.completedAt,
         ...(request.error === undefined ? {} : { error: request.error }),
+        ...(request.errorCode === undefined ? {} : { errorCode: request.errorCode }),
         resultSeq: request.startSeq,
         ...(request.provenance?.provider === undefined
           ? {}
@@ -318,7 +321,7 @@ export function TrajectoryView({
 
     return numbered
   }, [
-    nodes, requests,
+    nodes, requests, t,
   ])
   /** 中文说明：组件局部值 partialTurn，由紧邻初始化决定。 */
   const partialTurn = partial?.turn ?? null
@@ -336,16 +339,15 @@ export function TrajectoryView({
       runningCalls,
       requests,
       callSchemas,
-    })
+    }, t)
     return { turns, lastIndex: lastCellIndex(turns) }
   }, [
     nodes, eventLocations, partialTurn, partialStep,
-    runningCalls, requests, callSchemas,
+    runningCalls, requests, callSchemas, t,
   ])
   /** 中文说明：组件局部值 timelinePartialSignature，由紧邻初始化决定。 */
   const timelinePartialSignature = partialStructureSignature(partial)
-  /** 中文说明：组件局部值 timelinePartial，由紧邻初始化决定。 */
-  const timelinePartial = useMemo<ConversationSnapshot['partial']>(() => partial === null
+  const timelinePartial = useMemo<TrajectorySnapshot['partial']>(() => partial === null
     ? null
     : {
       turn: partial.turn,
@@ -355,8 +357,8 @@ export function TrajectoryView({
   [partialStep, partialTurn, timelinePartialSignature])
   /** 中文说明：组件局部值 timelineTurns，由紧邻初始化决定。 */
   const timelineTurns = useMemo(
-    () => appendTrajectoryPartialLayout(finalized.turns, timelinePartial, finalized.lastIndex),
-    [finalized, timelinePartial],
+    () => appendTrajectoryPartialLayout(finalized.turns, timelinePartial, finalized.lastIndex, t),
+    [finalized, timelinePartial, t],
   )
   /** 中文说明：组件局部值 timelineMode，由紧邻初始化决定。 */
   const timelineMode: TrajectoryTimelineMode = actualDuration
@@ -364,8 +366,8 @@ export function TrajectoryView({
     : actualTime ? 'time' : 'sequence'
   /** 中文说明：组件局部值 partialSearchTurns，由紧邻初始化决定。 */
   const partialSearchTurns = useMemo(
-    () => appendTrajectoryPartialLayout([], partial, finalized.lastIndex),
-    [finalized.lastIndex, partial],
+    () => appendTrajectoryPartialLayout([], partial, finalized.lastIndex, t),
+    [finalized.lastIndex, partial, t],
   )
   /** 中文说明：组件局部值 searchLayouts，由紧邻初始化决定。 */
   const searchLayouts = useMemo(
@@ -583,6 +585,7 @@ export function TrajectoryView({
         t={t}
       />
       <TrajectoryTimeline
+        t={t}
         turns={timelineTurns}
         mode={timelineMode}
         range={timelineRange}
@@ -596,6 +599,8 @@ export function TrajectoryView({
       />
       <div className={css.ledger}>
         <TrajectoryTable
+          t={t}
+          renderImages={renderImages}
           requestNumbers={requestNumbers}
           turns={timelineTurns}
           streamingCells={streamingCells}
@@ -615,8 +620,8 @@ export function TrajectoryView({
           onToggleTurn={toggleTurn}
           collapsedAssistants={collapsedAssistants}
           onToggleAssistant={toggleAssistant}
-          inspectCallId={inspect?.callId ?? null}
-          onInspectApplied={onInspectDone}
+          inspectCallId={inspectCallId}
+          onInspectApplied={completeViewRequest}
         />
       </div>
     </div>

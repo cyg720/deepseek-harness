@@ -13,7 +13,7 @@ import AgentRegistry, { agentEvents, Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentStatus } from '@deepseek-ai/dsh-agent'
 import GoalService, { GoalId } from '@deepseek-ai/dsh-goal'
 import type { GoalRef } from '@deepseek-ai/dsh-goal'
-import { createUserMessage, CallId } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -117,7 +117,7 @@ async function execute(
   /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
   const run = () => ctx.tools.execute({
     signal: testToolSignal,
-    callId: CallId(`call-${Math.random()}`),
+    callId: ToolCallId(`call-${Math.random()}`),
     name,
     arguments: args,
     ...agent === undefined ? {} : { agent },
@@ -156,7 +156,7 @@ describe('goal tool registration and presentation', () => {
       .toEqual(['create_goal', 'get_goal', 'update_goal'])
     /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of ['create_goal', 'get_goal', 'update_goal']) {
-      expect(ctx.tools.executionMode({ signal: testToolSignal, callId: CallId(name), name, arguments: {} }))
+      expect(ctx.tools.executionMode({ signal: testToolSignal, callId: ToolCallId(name), name, arguments: {} }))
         .toEqual({ kind: 'exclusive' })
     }
     /** 中文说明：测试局部值 section，由紧邻初始化决定。 */
@@ -261,7 +261,7 @@ describe('goal tool execution authority', () => {
     /** 中文说明：测试局部值 driverless，由紧邻初始化决定。 */
     const driverless = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('call-driverless'),
+      callId: ToolCallId('call-driverless'),
       name: 'get_goal',
       arguments: {},
       agent: root.agent,

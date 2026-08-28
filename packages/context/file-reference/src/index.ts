@@ -24,9 +24,8 @@
  * @module @deepseek-ai/dsh-file-reference
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import { Service, type Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
 import type { FileReferenceCandidate } from './types.ts'
 
@@ -35,8 +34,7 @@ export type { ActiveAtToken } from './grammar.ts'
 export type { FileReferenceCandidate } from './types.ts'
 
 /** Model guidance for path-only references selected by a user interface. */
-/* 模型侧指导语：@ 前缀的路径是用户显式引用的文件，需要内容时应使用 read 工具。 */
-export const FILE_REFERENCE_PROMPT = 'Paths prefixed with @ are files explicitly referenced by the user. Use the read tool when their contents are needed; do not claim to have inspected a file before reading it.'
+export const FILE_REFERENCE_PROMPT = 'Tokens prefixed with @ are workspace paths the user explicitly referenced, relative to the workspace root. A trailing slash marks a directory: list it when its contents matter. Anything else is a file: use the read tool when its contents are needed, and do not claim to have inspected it before reading. @"..." quotes a path containing spaces.'
 
 /** 声明 Cordis Context 上的服务挂载点：其他插件可通过 ctx.fileReferences 访问本服务。 */
 declare module '@deepseek-ai/cordis' {
@@ -46,9 +44,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Host capability for cancellable file-reference discovery. */
-/* Host 端能力：可取消的文件引用发现服务。终端/Web 客户端远程调用，Host 侧提供实现。 */
-export abstract class FileReferenceService extends TypertRemoteService {
-  /** 注册远程服务：super(ctx, 'fileReferences') 把自身登记为 Cordis 的远程服务。 */
+export abstract class FileReferenceService extends Service {
   constructor(ctx: Context) {
     super(ctx, 'fileReferences')
   }
@@ -72,31 +68,6 @@ export abstract class FileReferenceService extends TypertRemoteService {
     query: string,
     signal: AbortSignal,
   ): Promise<FileReferenceCandidate[]>
-
-  /**
-   * Remote face of {@link list}; the decorator cannot mark the abstract
-   * member, so this concrete adapter carries the identical contract.
-   * @param agent - target agent whose session cwd bounds discovery.
-   * @param query - path text following `@` or `@"`.
-   * @param signal - caller cancellation.
-   * @returns deterministic path-only candidates.
-   */
-  /*
-   * list 的远程暴露面：装饰器无法直接标注抽象成员，因此用这个具体适配方法
-   * 承载完全相同的契约，客户端通过它跨进程调用 list。
-   * @param agent 目标 agent，其会话 cwd 决定了发现范围
-   * @param query @ 或 @" 之后的路径文本（补全关键字）
-   * @param signal 调用方的取消信号
-   * @returns 确定性的路径候选列表
-   */
-  @Remote('list')
-  remoteExportList(
-    agent: Agent,
-    query: string,
-    signal: AbortSignal,
-  ): Promise<FileReferenceCandidate[]> {
-    return this.list(agent, query, signal)
-  }
 }
 
 export default FileReferenceService

@@ -41,14 +41,13 @@ const CLIENT_WEB = '@deepseek-ai/dsh-client-web'
 /** One workspace package's browser-module declaration. */
 /* 中文说明：interface ClientDeclaration 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface ClientDeclaration {
-  /** npm package name. */
   readonly name: string
-  /** Repository-relative package manifest. */
   readonly manifest: string
-  /** Whether the manifest declares a dynamic dsh.client row. */
   readonly dynamic: boolean
-  /** Exact module-table specifiers requested by the row. */
   readonly external: readonly string[]
+  readonly runtimeSourceUses: Readonly<Record<string, readonly string[]>>
+  /** Exact runtime specifiers used to validate `dsh.client.external` declarations. */
+  readonly runtimeSourceSpecifiers: Readonly<Record<string, readonly string[]>>
   /** Informational package dependencies declared by the row. */
   readonly inject: readonly string[]
 }
@@ -56,45 +55,29 @@ export interface ClientDeclaration {
 /** One package directly under packages/client. */
 /* 中文说明：interface ClientPackage 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface ClientPackage extends ClientDeclaration {
-  /** Whether its build config uses the staticLinked preset. */
   readonly staticLinked: boolean
-  /** Production source locations grouped by imported package name. */
   readonly sourceUses: Readonly<Record<string, readonly string[]>>
-  /** Production source locations grouped by runtime-imported package name. */
-  readonly runtimeSourceUses: Readonly<Record<string, readonly string[]>>
-  /** Installed implementation dependencies. */
   readonly dependencies: Readonly<Record<string, string>>
-  /** Consumer-supplied dependencies. */
   readonly peerDependencies: Readonly<Record<string, string>>
-  /** Dependencies available while developing the package. */
   readonly devDependencies: Readonly<Record<string, string>>
 }
 
 /** Complete source-plane input to the client package verifier. */
 /* 中文说明：interface ClientPackageFacts 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface ClientPackageFacts {
-  /** Packages directly under packages/client. */
   readonly packages: readonly ClientPackage[]
-  /** Every workspace package, including packages without a browser row. */
   readonly declarations: readonly ClientDeclaration[]
-  /** Packages whose build config uses the staticLinked preset. */
   readonly staticLinkedPackages: ReadonlySet<string>
-  /** Specifiers the web shell seeds into the module table. */
   readonly platformModules: readonly string[]
-  /** Dynamic factories the HTML parser loads before shell boot. */
   readonly preloadedExternals: readonly string[]
-  /** Package rows whose bundles the HTML parser executes before shell boot. */
   readonly parserPreloadIds: readonly string[]
-  /** Manifest field errors found while reading declarations. */
   readonly malformed: readonly string[]
 }
 
 /** Result of reading every workspace browser-module declaration. */
 /* 中文说明：interface ClientDeclarations 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 export interface ClientDeclarations {
-  /** One declaration record per named workspace manifest. */
   readonly declarations: ClientDeclaration[]
-  /** Manifest field errors that prevent a reliable declaration. */
   readonly malformed: string[]
 }
 
@@ -108,7 +91,7 @@ export interface ClientDeclarations {
 export function collectSourcePackageUses(path: string, source: string): Set<string> {
   /** 中文说明：变量 sourceFile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true)
-  return collectSourceFilePackageUses(sourceFile, false)
+  return collectSourceFileUses(sourceFile, false, 'package')
 }
 
 /**
@@ -121,7 +104,18 @@ export function collectSourcePackageUses(path: string, source: string): Set<stri
 export function collectRuntimeSourcePackageUses(path: string, source: string): Set<string> {
   /** 中文说明：变量 sourceFile 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true)
-  return collectSourceFilePackageUses(sourceFile, true)
+  return collectSourceFileUses(sourceFile, true, 'package')
+}
+
+/**
+ * Collect exact bare specifiers retained by one production source file.
+ * @param path - File path used to select TypeScript's parser mode.
+ * @param source - Source text to inspect.
+ * @returns Exact specifiers retained by runtime imports, exports, requires, or JSX.
+ */
+export function collectRuntimeSourceSpecifiers(path: string, source: string): Set<string> {
+  const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true)
+  return collectSourceFileUses(sourceFile, true, 'specifier')
 }
 
 /** 中文说明：函数 importCarriesRuntimeValue 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
@@ -148,15 +142,17 @@ function exportCarriesRuntimeValue(node: ts.ExportDeclaration): boolean {
   return clause.elements.length === 0 || clause.elements.some(element => !element.isTypeOnly)
 }
 
-/** 中文说明：函数 collectSourceFilePackageUses 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-function collectSourceFilePackageUses(sourceFile: ts.SourceFile, runtimeOnly: boolean): Set<string> {
-  /** 中文说明：变量 uses 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+function collectSourceFileUses(
+  sourceFile: ts.SourceFile,
+  runtimeOnly: boolean,
+  key: 'package' | 'specifier',
+): Set<string> {
   const uses = new Set<string>()
 
   /** 中文说明：函数值 add 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const add = (specifier: ts.Expression | undefined): void => {
     if (specifier === undefined || !ts.isStringLiteral(specifier) || !isBareSpecifier(specifier.text)) return
-    uses.add(packageNameOf(specifier.text))
+    uses.add(key === 'package' ? packageNameOf(specifier.text) : specifier.text)
   }
   /** 中文说明：函数值 visit 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const visit = (node: ts.Node): void => {
@@ -725,6 +721,20 @@ function collectModuleViolations(facts: ClientPackageFacts): string[] {
       if (supplier === pkg.name) {
         violations.push(pkg.manifest + ': dsh.client.external names its own row ' + JSON.stringify(specifier))
       } else if (supplier !== undefined) {
+        if (pkg.manifest.startsWith('packages/client/')) {
+          violations.push(
+            pkg.manifest + ': client feature package requests runtime external ' + JSON.stringify(specifier)
+            + '; import shared types only or call an injected Cordis service',
+          )
+          continue
+        }
+        if (pkg.runtimeSourceSpecifiers[specifier] === undefined) {
+          violations.push(
+            pkg.manifest + ': dsh.client.external ' + JSON.stringify(specifier)
+            + ' has no runtime import or re-export in production source; remove the stale declaration',
+          )
+          continue
+        }
         edges.push({ from: pkg.name, to: supplier, specifier })
       } else {
         /** 中文说明：变量 owner 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -842,11 +852,17 @@ function readDeclaration(
   /** 中文说明：变量 rawClient 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rawClient = dsh?.client
   if (rawClient === undefined) {
-    return { name: manifest.name, manifest: manifestPath, dynamic: false, external: [], inject: [] }
+    return {
+      name: manifest.name, manifest: manifestPath, dynamic: false, external: [], inject: [],
+      runtimeSourceUses: {}, runtimeSourceSpecifiers: {},
+    }
   }
   if (!isRecord(rawClient)) {
     malformed.push(manifestPath + ': ' + manifest.name + ' dsh.client must be an object')
-    return { name: manifest.name, manifest: manifestPath, dynamic: false, external: [], inject: [] }
+    return {
+      name: manifest.name, manifest: manifestPath, dynamic: false, external: [], inject: [],
+      runtimeSourceUses: {}, runtimeSourceSpecifiers: {},
+    }
   }
   return {
     name: manifest.name,
@@ -854,6 +870,8 @@ function readDeclaration(
     dynamic: true,
     external: stringArray(rawClient.external, manifest.name, manifestPath, 'external', malformed),
     inject: stringArray(rawClient.inject, manifest.name, manifestPath, 'inject', malformed),
+    runtimeSourceUses: {},
+    runtimeSourceSpecifiers: {},
   }
 }
 
@@ -959,14 +977,43 @@ function readStringLiteralArray(root: string, sourcePath: string, name: string):
 
 /** 中文说明：函数 readFacts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function readFacts(root: string): Promise<ClientPackageFacts> {
-  const { declarations, malformed } = readClientDeclarations(root)
-  /** 中文说明：函数值 byManifest 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-  const byManifest = new Map(declarations.map(entry => [entry.manifest, entry]))
-  /** 中文说明：变量 staticLinkedPackages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  const { declarations: bareDeclarations, malformed } = readClientDeclarations(root)
   const staticLinkedPackages = await readStaticLinkedRoster(root)
   /** 中文说明：变量 project 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const project = new TypeScriptProject(root, 'client')
-  /** 中文说明：变量 packages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  const sourceFiles = project.sourceFiles()
+  const declarations = bareDeclarations.map((declaration): ClientDeclaration => {
+    const runtimeSourceUses = new Map<string, Set<string>>()
+    const runtimeSourceSpecifiers = new Map<string, Set<string>>()
+    const sourcePrefix = dirname(declaration.manifest) + '/src/'
+    for (const sourceFile of sourceFiles) {
+      if (sourceFile.isDeclarationFile) continue
+      const file = project.relativePath(sourceFile)
+      if (!file.startsWith(sourcePrefix)) continue
+      for (const name of collectSourceFileUses(sourceFile, true, 'package')) {
+        const locations = runtimeSourceUses.get(name) ?? new Set<string>()
+        locations.add(file)
+        runtimeSourceUses.set(name, locations)
+      }
+      for (const specifier of collectSourceFileUses(sourceFile, true, 'specifier')) {
+        const locations = runtimeSourceSpecifiers.get(specifier) ?? new Set<string>()
+        locations.add(file)
+        runtimeSourceSpecifiers.set(specifier, locations)
+      }
+    }
+    return {
+      ...declaration,
+      runtimeSourceUses: Object.fromEntries(
+        [...runtimeSourceUses].sort(([left], [right]) => left.localeCompare(right))
+          .map(([name, locations]) => [name, [...locations].sort()]),
+      ),
+      runtimeSourceSpecifiers: Object.fromEntries(
+        [...runtimeSourceSpecifiers].sort(([left], [right]) => left.localeCompare(right))
+          .map(([specifier, locations]) => [specifier, [...locations].sort()]),
+      ),
+    }
+  })
+  const byManifest = new Map(declarations.map(entry => [entry.manifest, entry]))
   const packages: ClientPackage[] = []
 
   /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
@@ -985,22 +1032,17 @@ async function readFacts(root: string): Promise<ClientPackageFacts> {
     const packageDirectory = dirname(manifestPath)
     /** 中文说明：变量 sourcePrefix 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourcePrefix = packageDirectory + '/src/'
-    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
-    for (const sourceFile of project.sourceFiles()) {
+    for (const sourceFile of sourceFiles) {
       if (sourceFile.isDeclarationFile) continue
       /** 中文说明：变量 file 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const file = project.relativePath(sourceFile)
       if (!file.startsWith(sourcePrefix)) continue
-      /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
-      for (const name of collectSourceFilePackageUses(sourceFile, false)) {
-        /** 中文说明：变量 locations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+      for (const name of collectSourceFileUses(sourceFile, false, 'package')) {
         const locations = sourceUses.get(name) ?? new Set<string>()
         locations.add(file)
         sourceUses.set(name, locations)
       }
-      /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
-      for (const name of collectSourceFilePackageUses(sourceFile, true)) {
-        /** 中文说明：变量 locations 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+      for (const name of collectSourceFileUses(sourceFile, true, 'package')) {
         const locations = runtimeSourceUses.get(name) ?? new Set<string>()
         locations.add(file)
         runtimeSourceUses.set(name, locations)

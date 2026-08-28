@@ -131,7 +131,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Entry, Loader } from '@deepseek-ai/cordis-plugin-loader'
 import type { PluginsEventFrame } from '../events.ts'
-import { EVENTS_ENDPOINT } from '../events.ts'
+import { EVENTS_ENDPOINT, parsePluginsEventFrame } from '../events.ts'
 
 export type { PluginsEventFrame } from '../events.ts'
 export { EVENTS_ENDPOINT } from '../events.ts'
@@ -178,7 +178,7 @@ export function apply(ctx: Context): void {
   const modLoader = ctx.modules
   const loader: Loader = ctx.loader
 
-  async function reload(id: string): Promise<void> {
+  async function reload(id: string, rev: string): Promise<void> {
     const entry = findEntry(loader, id)
     if (entry === undefined) {
       ctx.logger.warn(`client-hmr: rebuilt frame for unknown entry "${id}" (not in the loader tree)`)
@@ -189,10 +189,7 @@ export function apply(ctx: Context): void {
     // async half while the old fiber still serves: script loading registers
     // the fresh factory with zero side effects (lazy CJS — module bodies run
     // at materialization, not execution).
-    // 先 invalidate（丢弃陈旧工厂 + 记录——活跃工厂使 prefetch 空操作且
-    // 重注册是响亮重复），然后在旧 fiber 仍服务时运行异步半边：脚本加载
-    // 以零副作用注册新工厂（懒 CJS——模块体在物化而非执行时运行）。
-    modLoader.invalidate(id)
+    modLoader.invalidate(id, rev)
     await modLoader.prefetch(id)
 
     const oldFiber = entry.fiber
@@ -235,19 +232,15 @@ export function apply(ctx: Context): void {
   const handle = (frame: PluginsEventFrame): void => {
     switch (frame.type) {
       case 'rebuilt':
-        queue = queue.then(() => reload(frame.id)).catch((error: unknown) => {
+        queue = queue.then(() => reload(frame.id, frame.rev)).catch((error: unknown) => {
           ctx.logger.error(`client-hmr: reload of "${frame.id}" failed`)
           ctx.logger.error(error)
         })
         break
       case 'graph':
-        // Connect-time snapshot, unused. The loader's cached graph rev
-        // goes stale after rebuilds — harmless, since prefetch hits the
-        // network anyway (host serves bundles no-cache); graph rev refresh
-        // lands with the reconnect-handshake mechanism.
-        // 连接时快照，未使用。loader 缓存的图 rev 在重建后会陈旧——无害，
-        // 因为 prefetch 反正走网络（Host 无缓存地提供 bundle）；图 rev 的
-        // 刷新随重连握手机制落地。
+        // Connect-time snapshot, unused. Each rebuilt frame carries the
+        // revision that selects the immutable single-resource combo script; the boot
+        // graph remains the initial-load record until a page reload.
         break
       default:
         // Merge-extensible frame union: unknown frame types from newer hosts
@@ -260,16 +253,21 @@ export function apply(ctx: Context): void {
   ctx.effect(() => {
     const source = new EventSource(EVENTS_ENDPOINT)
     source.addEventListener('message', (event: MessageEvent<string>) => {
-      let frame: PluginsEventFrame
+      let value: unknown
       try {
-        frame = JSON.parse(event.data) as PluginsEventFrame
+        value = JSON.parse(event.data) as unknown
       } catch {
         // Wire boundary: a malformed dev-channel frame is dropped loudly.
         // 线上边界：畸形开发通道帧被响亮丢弃。
         ctx.logger.warn(`client-hmr: unparseable event frame: ${event.data}`)
         return
       }
-      handle(frame)
+      const parsed = parsePluginsEventFrame(value)
+      if (parsed.kind === 'invalid') {
+        ctx.logger.warn(`client-hmr: invalid event frame: ${event.data}`)
+      } else if (parsed.kind === 'frame') {
+        handle(parsed.frame)
+      }
     })
     return () => { source.close() }
   }, 'client-hmr: event source')

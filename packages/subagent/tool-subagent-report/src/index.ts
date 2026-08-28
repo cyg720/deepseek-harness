@@ -19,7 +19,7 @@ import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { SubagentReportDelivery } from '@deepseek-ai/dsh-subagent'
-import type {} from '@deepseek-ai/dsh-system-prompt'
+import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
 /** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -31,8 +31,7 @@ export const name = 'tool-subagent-report'
 export const inject = ['subagents', 'tools', 'systemPrompt']
 
 /** Guidance order after every per-tool section a continuable child can carry. */
-/* 中文说明：常量 REPORT_SECTION_ORDER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const REPORT_SECTION_ORDER = 117
+const REPORT_SECTION_ORDER = FIRST_PARTY_SECTION_ORDER.TOOL_REPORT
 
 /** Config: how accepted reports are scheduled on the parent. */
 /* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理工具场景。 */

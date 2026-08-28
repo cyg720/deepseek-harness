@@ -1,15 +1,7 @@
-/**
- * 文件职责：验证 discovery.spec.ts 覆盖的 Agent 预设发现、装载与会话行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和临时配置目录。
- * 产品维度：保障用户选择的 Agent 预设能稳定生效并保持会话一致。
- * 逻辑维度：准备预设配置，装载插件，触发会话流程，再核对状态与错误。
- * 关键边界：配置来源和优先级必须明确；临时资源必须在用例结束时释放。
- * 新手阅读建议：先看夹具与辅助函数，再按发现、装载、会话顺序阅读用例。
- */
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { COMPOSITION_FILE, discoverPresets, scanRoot } from '@deepseek-ai/dsh-agent-presets'
 
@@ -37,7 +29,9 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 
 /** 中文说明：常量 FIXTURES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
-/** 中文说明：常量 SYSTEM 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+// Standing in for the installed harness: a row's package name resolves from
+// here, and this directory's upward `node_modules` walk reaches the workspace.
+const HARNESS = new URL('.', import.meta.url).href
 const SYSTEM = { path: join(FIXTURES, 'system'), trust: 'system' as const }
 /** 中文说明：常量 USER 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const USER = { path: join(FIXTURES, 'user'), trust: 'user' as const }
@@ -62,8 +56,7 @@ describe('display order', () => {
       await writeFile(join(root, id, COMPOSITION_FILE), '[]\n')
     }
 
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot({ path: root, trust: 'system' })
+    const found = await scanRoot({ path: root, trust: 'system' }, HARNESS)
 
     // The shipped set reads by capability; presets that declare nothing stay
     // alphabetical behind them rather than interleaving unpredictably.
@@ -80,8 +73,7 @@ describe('display order', () => {
       await writeFile(join(root, id, 'preset.yml'), 'order: 1\n')
     }
 
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot({ path: root, trust: 'system' })
+    const found = await scanRoot({ path: root, trust: 'system' }, HARNESS)
 
     // Two presets claiming the same slot must still list in a stable order:
     // a directory-scan order would reshuffle the picker between reads.
@@ -91,8 +83,7 @@ describe('display order', () => {
 
 describe('preset discovery', () => {
   it('reports one preset per directory holding a composition, ordered by id', async () => {
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot(SYSTEM)
+    const found = await scanRoot(SYSTEM, HARNESS)
 
     expect(found.map(preset => preset.id)).toEqual(['minimal', 'standard'])
     expect(found[0]).toEqual({
@@ -103,8 +94,7 @@ describe('preset discovery', () => {
   })
 
   it('reports a directory with no composition as a broken preset slot', async () => {
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot(USER)
+    const found = await scanRoot(USER, HARNESS)
 
     // The directory still occupies its id — a copy to that name is refused —
     // so hiding it would leave nothing to see or delete. It surfaces broken.
@@ -121,8 +111,7 @@ describe('preset discovery', () => {
     await mkdir(join(root, 'usable'))
     await writeFile(join(root, 'usable', COMPOSITION_FILE), '[]\n')
 
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot({ path: root, trust: 'user' })
+    const found = await scanRoot({ path: root, trust: 'user' }, HARNESS)
 
     // `.hidden` and `Has_Caps` cannot collide with any copy target, so
     // reporting tool residue as broken presets would only train users to
@@ -131,15 +120,13 @@ describe('preset discovery', () => {
   })
 
   it('records the root trust on every preset it discovers', async () => {
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot(USER)
+    const found = await scanRoot(USER, HARNESS)
 
     expect(found.every(preset => preset.trust === 'user')).toBe(true)
   })
 
   it('lets the earlier root win a duplicate id', async () => {
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await discoverPresets([SYSTEM, USER])
+    const found = await discoverPresets([SYSTEM, USER], HARNESS)
 
     /** 中文说明：函数值 standard 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const standard = found.filter(preset => preset.id === 'standard')
@@ -148,8 +135,7 @@ describe('preset discovery', () => {
   })
 
   it('treats an absent root as supplying no presets', async () => {
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot({ path: join(FIXTURES, 'no-such-root'), trust: 'user' })
+    const found = await scanRoot({ path: join(FIXTURES, 'no-such-root'), trust: 'user' }, HARNESS)
 
     expect(found).toEqual([])
   })
@@ -161,8 +147,7 @@ describe('preset discovery', () => {
     await mkdir(join(root, 'real'))
     await writeFile(join(root, 'real', COMPOSITION_FILE), '[]\n')
 
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot({ path: root, trust: 'user' })
+    const found = await scanRoot({ path: root, trust: 'user' }, HARNESS)
 
     expect(found.map(preset => preset.id)).toEqual(['real'])
   })
@@ -174,29 +159,35 @@ describe('preset discovery', () => {
     const notADirectory = join(root, 'file-as-root')
     await writeFile(notADirectory, 'not a directory\n')
 
-    await expect(scanRoot({ path: notADirectory, trust: 'user' }))
+    await expect(scanRoot({ path: notADirectory, trust: 'user' }, HARNESS))
       .rejects.toThrow(/cannot read preset root/)
   })
 
   it('expands a leading tilde in a root path', async () => {
     // `~` alone resolves to the home directory, which exists but holds no
     // preset directories; the point is that it did not throw on a literal `~`.
-    /** 中文说明：变量 found 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const found = await scanRoot({ path: '~/.dsh-agent-presets-absent', trust: 'user' })
+    const found = await scanRoot({ path: '~/.dsh-agent-presets-absent', trust: 'user' }, HARNESS)
 
     expect(found).toEqual([])
   })
 })
 
 describe('composition health', () => {
-  /** One directory under a fresh root holding `composition`, scanned. */
-  /* 中文说明：函数 scanned 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+  /**
+   * One directory under a fresh root holding `composition`, scanned.
+   *
+   * Rows that exist only to carry a shape name `js-yaml`, a package the
+   * harness base really resolves: health resolves every enabled row's module,
+   * so an invented name would answer the wrong check.
+   * @param composition - the composition file's contents.
+   * @returns the reported reason, or undefined when the composition is healthy.
+   */
   async function scanned(composition: string): Promise<string | undefined> {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-health-'))
     await mkdir(join(root, 'probe'))
     await writeFile(join(root, 'probe', COMPOSITION_FILE), composition)
-    const [preset] = await scanRoot({ path: root, trust: 'user' })
+    const [preset] = await scanRoot({ path: root, trust: 'user' }, HARNESS)
     return preset?.broken
   }
 
@@ -209,7 +200,7 @@ describe('composition health', () => {
   })
 
   it('reports the first row that names no plugin, by position', async () => {
-    expect(await scanned('- id: ok\n  name: some-plugin\n- id: broken\n'))
+    expect(await scanned('- id: ok\n  name: js-yaml\n- id: broken\n'))
       .toMatch(/row 2 names no plugin/)
   })
 
@@ -230,8 +221,7 @@ describe('composition health', () => {
   })
 
   it('accepts a group whose own list is healthy', async () => {
-    /** 中文说明：变量 composition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const composition = '- id: grp\n  name: cordis:group\n  group: true\n  config:\n    - id: inner\n      name: some-plugin\n'
+    const composition = '- id: grp\n  name: cordis:group\n  group: true\n  config:\n    - id: inner\n      name: js-yaml\n'
     expect(await scanned(composition)).toBeUndefined()
   })
 
@@ -244,7 +234,7 @@ describe('composition health', () => {
     await writeFile(path, '[]\n')
     fsHarness.nextReadError = Object.assign(new Error('EACCES: injected read failure'), { code: 'EACCES' })
 
-    const [preset] = await scanRoot({ path: root, trust: 'user' })
+    const [preset] = await scanRoot({ path: root, trust: 'user' }, HARNESS)
 
     expect(fsHarness.nextReadError).toBeUndefined()
     expect(preset?.broken).toMatch(/cannot be read/)
@@ -253,12 +243,133 @@ describe('composition health', () => {
   it('accepts the loader dialect, !!js scalars included', async () => {
     // Health must never call a composition broken that the loader accepts:
     // `!!js` is the loader's own extension, so it parses here too.
-    /** 中文说明：变量 composition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const composition = '- id: x\n  name: some-plugin\n  config:\n    value: !!js "1 + 1"\n'
+    const composition = '- id: x\n  name: js-yaml\n  config:\n    value: !!js "1 + 1"\n'
     expect(await scanned(composition)).toBeUndefined()
   })
 
   it('accepts an empty list', async () => {
     expect(await scanned('[]\n')).toBeUndefined()
+  })
+})
+
+describe('rows naming a plugin that cannot be resolved', () => {
+  /** One directory under a fresh root holding `composition`, scanned. */
+  async function scanned(composition: string): Promise<string | undefined> {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-presets-resolve-'))
+    await mkdir(join(root, 'probe'))
+    await writeFile(join(root, 'probe', COMPOSITION_FILE), composition)
+    const [preset] = await scanRoot({ path: root, trust: 'user' }, HARNESS)
+    return preset?.broken
+  }
+
+  it('reports a package the harness cannot resolve, with the row and the name', async () => {
+    // The way an authored preset actually rots: it named a package that a
+    // later release renamed, so the composition still parses and still cannot
+    // compose a session.
+    expect(await scanned('- id: stale\n  name: \'@deepseek-ai/dsh-no-such-package\'\n'))
+      .toBe('row "stale" names a plugin that cannot be resolved: @deepseek-ai/dsh-no-such-package')
+  })
+
+  it('names every unresolvable row rather than only the first', async () => {
+    // Unlike a parse failure, one unresolvable name tells you nothing about
+    // the next: fixing them one reload at a time is the avoidable part.
+    const composition = '- id: a\n  name: no-such-a\n- id: b\n  name: no-such-b\n'
+
+    expect(await scanned(composition)).toBe(
+      '2 rows name plugins that cannot be resolved:\n- row "a": no-such-a\n- row "b": no-such-b')
+  })
+
+  it('falls back to the row position when a row declares no id', async () => {
+    // One `row` prefix, not two: the label carries it either way.
+    expect(await scanned('- name: no-such-plugin\n'))
+      .toBe('row 1 names a plugin that cannot be resolved: no-such-plugin')
+  })
+
+  it('descends into a group and keeps the group in the label', async () => {
+    const composition = '- id: grp\n  name: cordis:group\n  group: true\n  config:\n    - name: no-such-plugin\n'
+
+    expect(await scanned(composition)).toMatch(/row 1 row 1 names a plugin that cannot be resolved/)
+  })
+
+  it('resolves a preset-relative row against the preset\'s own directory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-presets-relative-'))
+    await mkdir(join(root, 'probe'))
+    await writeFile(join(root, 'probe', 'own-plugin.mjs'), 'export function apply() {}\n')
+    await writeFile(join(root, 'probe', COMPOSITION_FILE), '- id: own\n  name: ./own-plugin.mjs\n- id: gone\n  name: ./deleted.mjs\n')
+
+    const [preset] = await scanRoot({ path: root, trust: 'user' }, HARNESS)
+
+    // A file the preset ships resolves beside its composition, not from the
+    // harness — the same split the mount's import override makes.
+    expect(preset?.broken).toBe('row "gone" names a plugin that cannot be resolved: ./deleted.mjs')
+  })
+
+  it('skips a row the loader may never start', async () => {
+    // `disabled` is the one entry field the Loader interpolates, so a `!!js`
+    // row cannot be judged from the file; calling a usable preset broken is
+    // worse than leaving a switched-off row to fail at mount as before.
+    const composition = '- id: off\n  name: no-such-plugin\n  disabled: true\n'
+      + '- id: maybe\n  name: no-such-either\n  disabled: !!js process.platform === \'win32\'\n'
+
+    expect(await scanned(composition)).toBeUndefined()
+  })
+
+  it.each(['false', '0', "''"])('checks a row the loader would start (disabled: %s)', async (value) => {
+    // The Loader starts a row when `Boolean(options.disabled)` is false, so a
+    // falsy-but-present value names a row that does run.
+    expect(await scanned(`- id: on\n  name: no-such-plugin\n  disabled: ${value}\n`))
+      .toMatch(/cannot be resolved/)
+  })
+
+  it('reports a file: URL whose target is not there', async () => {
+    // The Loader accepts a `file:` URL for the same thing an absolute path
+    // names; a resolver handed one only normalizes it and never looks.
+    const missing = pathToFileURL(join(tmpdir(), 'dsh-presets-absent', 'nope.mjs')).href
+    expect(await scanned(`- id: url\n  name: '${missing}'\n`)).toMatch(/cannot be resolved/)
+  })
+
+  it('reads an installed package off disk without asking the resolver', async () => {
+    // The fast path, and the one that has to answer alone: this package has a
+    // directory and nothing to import, so a resolver would reject it.
+    const home = await mkdtemp(join(tmpdir(), 'dsh-presets-installed-'))
+    await mkdir(join(home, 'node_modules', '@scope', 'pkg'), { recursive: true })
+    await writeFile(join(home, 'node_modules', '@scope', 'pkg', 'package.json'), '{"name":"@scope/pkg"}\n')
+    await mkdir(join(home, 'presets', 'probe'), { recursive: true })
+    await writeFile(join(home, 'presets', 'probe', COMPOSITION_FILE), "- id: p\n  name: '@scope/pkg'\n")
+
+    const [preset] = await scanRoot(
+      { path: join(home, 'presets'), trust: 'user' }, pathToFileURL(join(home, 'app/')).href)
+
+    expect(preset?.broken).toBeUndefined()
+  })
+
+  it('reports a package whose install link dangles', async () => {
+    // What a stale profile install leaves behind: the name is still in
+    // `node_modules`, pointing at a checkout that is gone.
+    const home = await mkdtemp(join(tmpdir(), 'dsh-presets-dangling-'))
+    await mkdir(join(home, 'node_modules', '@scope'), { recursive: true })
+    await symlink(join(home, 'deleted-checkout'), join(home, 'node_modules', '@scope', 'pkg'))
+    await mkdir(join(home, 'presets', 'probe'), { recursive: true })
+    await writeFile(join(home, 'presets', 'probe', COMPOSITION_FILE), "- id: p\n  name: '@scope/pkg'\n")
+
+    const [preset] = await scanRoot(
+      { path: join(home, 'presets'), trust: 'user' }, pathToFileURL(join(home, 'app/')).href)
+
+    expect(preset?.broken).toBe('row "p" names a plugin that cannot be resolved: @scope/pkg')
+  })
+
+  it('leaves a node builtin alone', async () => {
+    // Nothing installs `node:fs`, so the disk walk finds nothing; calling a
+    // composition broken over a name Node always supplies would be a false
+    // report, which costs more than the row it would have caught.
+    expect(await scanned('- id: b\n  name: node:fs\n')).toBeUndefined()
+  })
+
+  it('leaves a cordis builtin alone', async () => {
+    // A `cordis:` name is supplied by the Loader itself, so there is nothing
+    // to resolve — as a row of its own, and as the group it recurses into.
+    expect(await scanned('- id: inc\n  name: cordis:include\n  config:\n    path: ./nested.cordis.yml\n'))
+      .toBeUndefined()
+    expect(await scanned('- id: grp\n  name: cordis:group\n  group: true\n  config: []\n')).toBeUndefined()
   })
 })

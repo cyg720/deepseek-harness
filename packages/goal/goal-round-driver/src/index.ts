@@ -477,7 +477,7 @@ export function apply(ctx: Context): void {
         requestDrive(state)
         return { kind: 'reject' }
       }
-      return decision
+      return { ...decision, startsRequestSeries: true }
     })
 
     // Loading a lifecycle driver over existing agents never inherits hidden

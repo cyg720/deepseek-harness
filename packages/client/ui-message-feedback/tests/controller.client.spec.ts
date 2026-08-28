@@ -431,8 +431,7 @@ describe('MessageFeedbackController', () => {
     expect(controller.getSnapshot().status).not.toBe('error')
   })
 
-  it('describes a non-Error list rejection with a stable message', async () => {
-    /** 中文说明：测试局部值 { remote }，由紧邻初始化决定。 */
+  it('preserves a non-Error list rejection as a diagnostic string', async () => {
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the non-Error rejection is the scenario under test.
     const { remote } = fakeRemote({ list: () => Promise.reject('socket string') })
     /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
@@ -440,12 +439,11 @@ describe('MessageFeedbackController', () => {
 
     expect(await controller.ensure()).toEqual({
       ok: false,
-      error: { code: 'transport', message: 'message feedback list failed' },
+      error: { code: 'transport', message: 'socket string' },
     })
   })
 
-  it('describes a non-Error mutation rejection with a stable message', async () => {
-    /** 中文说明：测试局部值 { remote }，由紧邻初始化决定。 */
+  it('preserves a non-Error mutation rejection as a diagnostic string', async () => {
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the non-Error rejection is the scenario under test.
     const { remote } = fakeRemote({ put: () => Promise.reject('nope') })
     /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
@@ -453,7 +451,7 @@ describe('MessageFeedbackController', () => {
 
     expect(await controller.rate(MSG, 'positive')).toEqual({
       ok: false,
-      error: { code: 'transport', message: 'message feedback mutation failed' },
+      error: { code: 'transport', message: 'nope' },
     })
   })
 

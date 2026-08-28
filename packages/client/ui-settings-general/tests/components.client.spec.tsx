@@ -37,8 +37,10 @@ const t: TriggerContentProps['t'] = key => (en as Record<string, string>)[key] ?
 // Global standard kit stubs: none of these components consume the hooks.
 /** 中文说明：测试局部值 unusedHook，由紧邻初始化决定。 */
 const unusedHook = (() => { throw new Error('unused by settings-general components') }) as never
-/** 中文说明：测试局部值 kit，由紧邻初始化决定。 */
-const kit = { useSessions: unusedHook, useWorkspaces: unusedHook }
+type AttentionSnapshot = Parameters<Parameters<TriggerContentProps['useSessionPendingInteraction']>[0]>[0]
+const noAttention: AttentionSnapshot = new Map()
+const useSessionPendingInteraction: TriggerContentProps['useSessionPendingInteraction'] = selector => selector(noAttention)
+const kit = { useSessions: unusedHook, useSessionPendingInteraction, useWorkspaces: unusedHook }
 
 describe('chrome content', () => {
   it('TriggerContent renders the icon with the label in the wide column', () => {
@@ -89,20 +91,16 @@ describe('SettingsDocumentAction', () => {
   it('appears only for a file-backed provider and requests its Host-owned document', async () => {
     /** 中文说明：测试局部值 openDocument，由紧邻初始化决定。 */
     const openDocument = vi.fn(() => Promise.resolve({
-      rpcId: 'document-open' as never,
-      result: { ok: true as const, value: { opened: true as const } },
+      ok: true as const, value: { opened: true as const },
     }))
     /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = derivedDocumentStore({
       settings: {
         describe: vi.fn(() => Promise.resolve({
-          rpcId: 'document-action' as never,
-          result: {
-            ok: true as const,
-            value: { writable: true, hasDocument: true, namespaces: [] },
-          },
+          ok: true as const,
+          value: { writable: true, hasDocument: true, namespaces: [] },
         })),
-        openDocument,
+        openSettingsDocument: openDocument,
       },
     })
     render(<SettingsDocumentAction
@@ -114,23 +112,15 @@ describe('SettingsDocumentAction', () => {
     /** 中文说明：测试局部值 action，由紧邻初始化决定。 */
     const action = await screen.findByRole('button', { name: 'Open configuration file' })
     fireEvent.click(action)
-    await waitFor(() => { expect(openDocument).toHaveBeenCalledWith({}) })
+    await waitFor(() => { expect(openDocument).toHaveBeenCalledWith() })
   })
 
   it('stays absent without a document and follows a mirror refresh to available', async () => {
     /** 中文说明：测试局部值 describe，由紧邻初始化决定。 */
     const describe = vi.fn()
-      .mockResolvedValueOnce({
-        rpcId: 'document-action-absent' as never,
-        result: { ok: true as const, value: { writable: true, hasDocument: false, namespaces: [] } },
-      })
-      .mockResolvedValueOnce({
-        rpcId: 'document-action-ready' as never,
-        result: { ok: true as const, value: { writable: true, hasDocument: true, namespaces: [] } },
-      })
-    /** 中文说明：测试局部值 wire，由紧邻初始化决定。 */
-    const wire = { settings: { describe, openDocument: vi.fn() } } as never
-    /** 中文说明：测试局部值 mirror，由紧邻初始化决定。 */
+      .mockResolvedValueOnce({ ok: true as const, value: { writable: true, hasDocument: false, namespaces: [] } })
+      .mockResolvedValueOnce({ ok: true as const, value: { writable: true, hasDocument: true, namespaces: [] } })
+    const wire = { settings: { describe, openSettingsDocument: vi.fn() } } as never
     const mirror = new SettingsDescribeMirror(wire)
     /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new SettingsDocumentStore(wire, mirror)
@@ -164,15 +154,12 @@ describe('SettingsDocumentAction', () => {
     const controller = derivedDocumentStore({
       settings: {
         describe: vi.fn(() => Promise.resolve({
-          rpcId: 'document-action' as never,
-          result: {
-            ok: true as const,
-            value: { writable: true, hasDocument: true, namespaces: [] },
-          },
+          ok: true as const,
+          value: { writable: true, hasDocument: true, namespaces: [] },
         })),
-        openDocument: vi.fn(() => Promise.resolve({
-          rpcId: 'document-open-failed' as never,
-          result: { ok: false as const, error: { code: 'internal' as const, message: 'xdg-open missing', details: {} } },
+        openSettingsDocument: vi.fn(() => Promise.resolve({
+          ok: false as const,
+          error: { code: 'internal' as const, message: 'xdg-open missing', details: {} },
         })),
       },
     })

@@ -1,18 +1,3 @@
-// StateDot: session state indicator (figma nodes 14:3303/3305/3312, 122:9182).
-// done/warning/error: 10x10 halo (same color, 10% opacity) around a 6x6 solid
-// core. ongoing: a pixel-art chase — the 8 outer cells of a 3x3 matrix light
-// up clockwise with a stepped trail. Colors resolve through --dsw-* tokens only.
-// 中文：完成、警告、错误状态使用光晕加实心圆；进行中状态让 3×3 外圈八格顺时针追逐，颜色只取设计令牌。
-/**
- * 中文说明：
- * - 文件职责：渲染完成、需关注、进行中和错误四种会话状态点。
- * - 技术维度：使用 React、CSS Modules、clsx、SVG 像素矩阵和错相动画。
- * - 产品维度：以紧凑图形提示会话或任务当前状态，适合列表和标题等狭窄位置。
- * - 逻辑维度：进行中分支绘制八个 SVG 单元，其他状态渲染由 CSS 着色的 span。
- * - 关键边界：组件 aria-hidden，必须与可读文字搭配；默认尺寸和 SVG viewBox 均以 10px 设计。
- * - 新手阅读建议：先看 StateDotState 与 MATRIX_CELLS，再比较 ongoing 和静态状态的两个返回分支。
- */
-
 import clsx from 'clsx'
 import css from './StateDot.module.css'
 

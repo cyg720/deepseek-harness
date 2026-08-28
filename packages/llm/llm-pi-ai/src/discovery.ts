@@ -31,7 +31,7 @@
  */
 
 import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@deepseek-ai/dsh-llm'
-import type { LlmDiscoveredModel, LlmModelDiscoveryRequest } from '@deepseek-ai/dsh-llm'
+import type { LlmDiscoveredModel, LlmModelDiscoveryOperation } from '@deepseek-ai/dsh-llm'
 import { attributionHeaders } from '@deepseek-ai/dsh-llm'
 import { catalogModels } from './catalog.ts'
 
@@ -236,7 +236,7 @@ function usableProbeKey(raw: string): string {
  * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export async function discoverModels(
-  request: LlmModelDiscoveryRequest,
+  request: LlmModelDiscoveryOperation,
   storedApiKey?: () => Promise<string | undefined>,
 ): Promise<readonly LlmDiscoveredModel[]> {
   // A catalog route already has its answer, and a better one: the installed

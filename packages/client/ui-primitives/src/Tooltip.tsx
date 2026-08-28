@@ -1,20 +1,5 @@
-// Hover/focus label bubble (figma tooltip pill: dark plate, white text).
-// TODO: interaction is a placeholder (horizontal overflow clamps and a
-// vertical collision flips the bubble to the other side, but there is no
-// arrow) — visuals and behavior get a proper pass later.
-// The anchor is the child element itself (cloneElement, no wrapper node), so
-// attaching a tooltip never changes the anchor's layout context. The bubble is
-// position:fixed and coordinates come from the anchor's rect at show time, so
-// it escapes ancestor overflow clipping (the sidebar rail clips its column)
-// without a portal.
-/**
- * 文件职责：实现浮层与反馈相关的 Tooltip 基础组件。
- * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
- * 产品维度：为上层产品界面提供一致的浮层与反馈展示。
- * 逻辑维度：接收属性，派生展示结构并处理局部交互。
- * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
- * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
- */
+// Cloning the anchor preserves its layout context. Fixed positioning lets the
+// bubble escape ancestor overflow clipping without a portal.
 
 import { cloneElement, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FocusEventHandler, MouseEventHandler, MutableRefObject, ReactElement, Ref } from 'react'

@@ -45,6 +45,17 @@ export const ROLE_OVERHEAD = 4
  * @returns 启发式 token 数（含每块结构开销）。
  */
 /**
+ * Structural JSON price of one block outside the typed pricing arms: the
+ * fixed heuristic for merge-extended blocks and for image references, whose
+ * request price is route-owned rather than fixed.
+ * @param block - block to price without mutation.
+ * @returns heuristic tokens for the block's JSON structure.
+ */
+export function estimateStructuralBlock(block: ContentBlock): number {
+  return BLOCK_OVERHEAD + Math.ceil(JSON.stringify(block).length / CHARS_PER_TOKEN)
+}
+
+/**
  * Price content blocks recursively under the fixed density heuristic.
  * @param blocks - content blocks to price without mutation.
  * @returns heuristic tokens including per-block structural overhead.
@@ -66,11 +77,10 @@ export function estimateContent(blocks: readonly ContentBlock[]): number {
         tokens += estimateContent(block.content) + BLOCK_OVERHEAD
         break
       default:
-        // ContentBlockMap is merge-extensible; unknown blocks retain a
+        // ContentBlockMap is merge-extensible; unknown blocks (and image
+        // references, whose request price is route-owned) retain a
         // conservative structural JSON price under the fixed heuristic.
-        // 中文：ContentBlockMap 可合并扩展；未知块在固定启发式下按结构 JSON
-        // 长度保守定价。
-        tokens += BLOCK_OVERHEAD + Math.ceil(JSON.stringify(block).length / CHARS_PER_TOKEN)
+        tokens += estimateStructuralBlock(block)
     }
   }
   return tokens

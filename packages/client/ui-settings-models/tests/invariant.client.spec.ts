@@ -11,6 +11,7 @@ import { Context } from '@deepseek-ai/cordis'
 import * as ModelsInvariant from '@deepseek-ai/dsh-client-ui-settings-models/invariant'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import { ModelsSection } from '../src/client/ModelsSection.tsx'
+import type { ModelsSectionProps } from '../src/client/ModelsSection.tsx'
 
 // 测试组：描述模型设置包在不同装配阶段的安全行为。
 describe('invariant companion', () => {
@@ -33,6 +34,6 @@ describe('invariant companion', () => {
 
   /** 功能描述：确认壳依赖未注入时返回 null；参数：无；返回：无可见节点；示例：ModelsSection({})。 */
   it('renders null until the shell injects the section dependencies', () => {
-    expect(ModelsSection({})).toBeNull()
+    expect(ModelsSection({} as ModelsSectionProps)).toBeNull()
   })
 })

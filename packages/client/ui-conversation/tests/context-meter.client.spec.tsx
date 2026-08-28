@@ -1,27 +1,16 @@
 // @vitest-environment jsdom
-// ContextMeter (composer trailing control): occupancy ring gating, the
-// click-open breakdown panel, and its close gestures.
-/**
- * 文件职责：验证会话界面的 context-meter.client.spec.tsx 行为和边界。
- * 技术维度：Vitest、React 测试渲染、事件模拟与可控服务替身。
- * 产品维度：防止会话界面交互和展示在扩展后回归。
- * 逻辑维度：构造状态，触发渲染或交互，再断言输出和清理。
- * 关键边界：全局替身、计时器和异步任务必须在用例后恢复。
- * 新手阅读建议：先读辅助夹具，再按 describe 场景顺序阅读。
- */
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn, zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/index.ts'
 import { ContextMeter, type ContextMeterProps } from '../src/client/skeleton/ContextMeter.tsx'
+import { contextOccupancy } from '../src/client/context-occupancy.ts'
 import css from '../src/client/skeleton/ContextMeter.module.css'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-// Mirrors the real lookup chain (conversation namespace, then common).
-/** 中文说明：测试局部值 t，取值由紧邻初始化决定。 */
 const t = makeTranslate(zh, commonZh) as ContextMeterProps['t']
 /** 中文说明：测试局部值 tEn，取值由紧邻初始化决定。 */
 const tEn = makeTranslate(en, commonEn) as ContextMeterProps['t']
@@ -33,8 +22,6 @@ const BREAKDOWN = { systemTokens: 120, toolsTokens: 21_500, messageTokens: 477_0
 const segmentClass = css.segment
 if (segmentClass === undefined) throw new Error('segment class missing from ContextMeter.module.css')
 
-/** Stub the projection seat: a key-addressed table of whole values. */
-/* 中文说明：函数 projections 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function projections(values: Record<string, unknown>): ContextMeterProps['useProjection'] {
   return (key: string) => values[key]
 }
@@ -45,6 +32,17 @@ function meter(values: Record<string, unknown>, translate: ContextMeterProps['t'
 }
 
 describe('ContextMeter', () => {
+  it('computes occupancy only when both a numerator and capacity are known', () => {
+    expect(contextOccupancy({ pressureTokens: 32_000, projectedTokens: 6_000, contextWindow: 128_000 }))
+      .toEqual({ percent: 5, usedTokens: 6_000, contextWindow: 128_000 })
+    expect(contextOccupancy({ pressureTokens: 32_000, contextWindow: 128_000 }))
+      .toEqual({ percent: 25, usedTokens: 32_000, contextWindow: 128_000 })
+    expect(contextOccupancy({ pressureTokens: 32_000 })).toBeNull()
+    expect(contextOccupancy({ contextWindow: 128_000 })).toBeNull()
+    expect(contextOccupancy(undefined)).toBeNull()
+    expect(contextOccupancy({ pressureTokens: 300_000, contextWindow: 128_000 })?.percent).toBe(100)
+  })
+
   it('renders nothing until both pressure and capacity are known', () => {
     expect(meter({}).container.textContent).toBe('')
     expect(meter({ contextPressure: { pressureTokens: 32_000 } }).container.textContent).toBe('')

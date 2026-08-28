@@ -18,9 +18,10 @@
 
 /** Message value types, identity, and immutable construction helpers. */
 
-import { MessageId, type CallId } from './brand.ts'
+import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
+import { MessageId, type ToolCallId } from './brand.ts'
 import { deepFreeze } from './call-config.ts'
-import type { ContentBlock, StreamChunk, ToolResultBlock } from './types.ts'
+import type { ContentBlock, ToolResultBlock } from './types.ts'
 
 /** Provider/model identity and adapter-private replay data for an assistant message. */
 /*
@@ -59,7 +60,7 @@ export interface ModelMessageSource extends AssistantProvenance {
  */
 export interface ToolMessageSource {
   kind: 'tool'
-  callId: CallId
+  callId: ToolCallId
 }
 
 /*
@@ -289,7 +290,7 @@ export function createMessage<T extends NewMessage>(
 ): T & Pick<Message, 'id'> {
   return freezeMessage({
     ...input,
-    id: MessageId(crypto.randomUUID()),
+    id: MessageId(randomUUID()),
   })
 }
 
@@ -341,7 +342,7 @@ export function createAssistantMessage(
  * （中文）创建工具结果消息所需的输入：调用关联、结果块与成败标记。
  */
 export interface ToolResultMessageInput {
-  readonly callId: CallId
+  readonly callId: ToolCallId
   readonly content: ContentBlock[]
   readonly isError: boolean
 }
@@ -367,31 +368,4 @@ export function createToolResultMessage(input: ToolResultMessageInput): ToolResu
       isError: input.isError,
     }],
   })
-}
-
-/*
- * （中文）判断一个流块是否携带可见的模型输出（客户端步骤计时与整份日志的
- * sessionStats 投影共享的"首个 token"边界）。空 delta（心跳、空工具调用帧）
- * 不视为首个 token。
- * @param chunk 要判定的流块。
- * @returns 当块包含非空 text/reasoning/tool delta 时返回 true。
- */
-/**
- * Whether a stream chunk carries visible model output (the first-token
- * boundary shared by client step timing and the whole-log sessionStats
- * projection). Empty deltas (heartbeats, empty tool-call frames) do not count
- * as a first token.
- * @param chunk - the stream chunk to test.
- * @returns true when the chunk contains a non-empty text/reasoning/tool delta.
- */
-export function isTokenDelta(chunk: StreamChunk): boolean {
-  switch (chunk.type) {
-    case 'text-delta':
-    case 'reasoning-delta':
-      return chunk.text !== ''
-    case 'tool-call-delta':
-      return chunk.argumentsDelta !== '' || chunk.name !== undefined
-    default:
-      return false
-  }
 }

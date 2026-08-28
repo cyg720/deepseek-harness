@@ -19,7 +19,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
-import { createUserMessage, CallId } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -71,7 +71,7 @@ function exec(name: string, session = 's1'): ToolExecution {
   // Only agent.session.header.id is read by the policy; a structural stub suffices.
   /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = { session: { header: { id: SessionId(session) } } }
-  return { callId: CallId(`call-${name}`), name, arguments: {}, agent, signal: testToolSignal } as unknown as ToolExecution
+  return { callId: ToolCallId(`call-${name}`), name, arguments: {}, agent, signal: testToolSignal } as unknown as ToolExecution
 }
 
 /**
@@ -215,12 +215,12 @@ describe('oversized plain-text replacement', () => {
   })
 })
 
-describe('outer Code Mode failure capture', () => {
+describe('outer PTC mode failure capture', () => {
   it('spills the bounded output-limit diagnostic through the ordinary outer-result policy', async () => {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime, { mode: 'code' })
+    await ctx.plugin(ToolRuntime, { mode: 'ptc' })
     await ctx.plugin(StubStore)
     await ctx.plugin(SpillPolicy, { maxInlineBytes: 200 })
     await ctx.plugin(WorkerThreadCodeRuntime, { maxOutputBytes: 500 })
@@ -237,7 +237,7 @@ describe('outer Code Mode failure capture', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('code-output-limit'),
+      callId: ToolCallId('code-output-limit'),
       name: 'run_code',
       arguments: {
         code: 'console.log("HEAD-" + "x".repeat(300)); console.log("TAIL-" + "y".repeat(300)); return "unreachable";',
@@ -276,7 +276,7 @@ describe('the durable dispatch-log arm', () => {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime, { mode: 'code' })
+    await ctx.plugin(ToolRuntime, { mode: 'ptc' })
     await ctx.plugin(StubStore)
     await ctx.plugin(SpillPolicy, { maxInlineBytes })
     await ctx.plugin(WorkerThreadCodeRuntime, {})
@@ -296,7 +296,7 @@ describe('the durable dispatch-log arm', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('parent-1'),
+      callId: ToolCallId('parent-1'),
       name: 'run_code',
       arguments: { code: program, description: 'Drive dispatch-log spilling' },
       agent: agent as never,
@@ -361,7 +361,7 @@ describe('the durable dispatch-log arm', () => {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime, { mode: 'code' })
+    await ctx.plugin(ToolRuntime, { mode: 'ptc' })
     await ctx.plugin(StubStore)
     await ctx.plugin(SpillPolicy, { maxInlineBytes: 100 })
     await ctx.plugin(WorkerThreadCodeRuntime, {})
@@ -394,7 +394,7 @@ describe('the durable dispatch-log arm', () => {
     /** 中文说明：变量 runPromise 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runPromise = ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('parent-3'),
+      callId: ToolCallId('parent-3'),
       name: 'run_code',
       arguments: {
         // The program takes BOTH values while the spill backend hangs: the
@@ -436,7 +436,7 @@ describe('the durable dispatch-log arm', () => {
     // lane holds inside the second commit, so the THIRD dispatch cannot start
     // until a pending save drains — the bound is observable as its missing
     // start event.
-    await ctx.plugin(ToolRuntime, { mode: 'code', maxParallelSubCalls: 1 })
+    await ctx.plugin(ToolRuntime, { mode: 'ptc', maxParallelSubCalls: 1 })
     await ctx.plugin(StubStore)
     await ctx.plugin(SpillPolicy, { maxInlineBytes: 100 })
     await ctx.plugin(WorkerThreadCodeRuntime, {})
@@ -461,7 +461,7 @@ describe('the durable dispatch-log arm', () => {
     /** 中文说明：变量 runPromise 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runPromise = ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('parent-bound'),
+      callId: ToolCallId('parent-bound'),
       name: 'run_code',
       arguments: {
         code: 'await tools.huge_read({}); await tools.huge_read({}); await tools.huge_read({}); return "done"',
@@ -497,7 +497,7 @@ describe('the durable dispatch-log arm', () => {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime, { mode: 'code' })
+    await ctx.plugin(ToolRuntime, { mode: 'ptc' })
     await ctx.plugin(StubStore)
     await ctx.plugin(SpillPolicy, { maxInlineBytes: 100 })
     await ctx.plugin(WorkerThreadCodeRuntime, {})
@@ -517,7 +517,7 @@ describe('the durable dispatch-log arm', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('parent-2'),
+      callId: ToolCallId('parent-2'),
       name: 'run_code',
       arguments: { code: 'return (await tools.huge_read({}))[0].text.length', description: 'Fail the spill backend' },
       agent: agent as never,
@@ -578,8 +578,7 @@ describe('best-effort fallback', () => {
     /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     ctx.tools.register(textTool('big', 'x'.repeat(1000)))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c'), name: 'big', arguments: {} })
+    const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c'), name: 'big', arguments: {} })
     expect(textOf(result.content)).toBe('x'.repeat(1000))
     expect(spill?.saves).toHaveLength(0)
     expect(warn).toHaveBeenCalled()

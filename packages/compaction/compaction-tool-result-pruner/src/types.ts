@@ -1,12 +1,4 @@
-/**
- * 文件职责：定义工具结果裁剪策略、已校验配置、单条替换记录和汇总结果类型。
- * 技术维度：使用 TypeScript 接口、只读字段和品牌化 CallId 描述确定性裁剪数据。
- * 产品维度：在保留首尾关键信息的同时减少模型上下文中的过长工具输出。
- * 逻辑维度：原始配置允许缺省；解析后配置完全只读；PrunedEntry 记录替换，PruneResult 汇总批次。
- * 关键边界：长度单位统一为 Unicode 码点而非 UTF-16 单元；替换必须保持原调用 id。
- * 新手阅读建议：先比较 ToolResultPruneConfig 与 ResolvedConfig，再看单条 PrunedEntry 和整体 PruneResult。
- */
-import type { CallId } from '@deepseek-ai/dsh-llm'
+import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 
 /** Character-budget policy for deterministic tool-result pruning. */
 /* 确定性工具结果裁剪的字符预算策略；省略字段时使用实现默认值。 */
@@ -43,8 +35,7 @@ export interface PrunedEntry {
   /* 新追加的裁剪后工具结果事件序号。 */
   readonly replacementSeq: number
   /** Tool call shared by the original and replacement. */
-  /* 原事件和替换事件共同引用的品牌化工具调用 id。 */
-  readonly callId: CallId
+  readonly callId: ToolCallId
   /** Original text size in Unicode code points. */
   /* 原始文本的 Unicode 码点数。 */
   readonly charsBefore: number

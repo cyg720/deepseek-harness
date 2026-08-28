@@ -77,8 +77,7 @@ const BOOT = { maxOutputBytes: 65_536 }
 /** 中文说明：测试局部值 TOOL_ERROR_CLASS，由紧邻初始化决定。 */
 const TOOL_ERROR_CLASS = { name: 'ToolCallError', memberNameProperty: 'toolName' } as const
 
-/** One worker declaration for the Code Mode tools namespace. */
-/* 中文说明：函数 toolNamespace 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/** One worker declaration for the PTC mode tools namespace. */
 function toolNamespace(names: string[]) {
   return { global: 'tools', names, errorClass: TOOL_ERROR_CLASS }
 }

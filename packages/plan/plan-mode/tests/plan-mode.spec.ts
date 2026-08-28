@@ -8,14 +8,14 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { createUserMessage, CallId } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { RUN_CODE_NAME, defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import { Session, SessionId, type UserMessage } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import UserQuestionService, {
-  UserQuestionError, type AskUserQuestionRequest,
+  UserQuestionError, type AskUserQuestionAnswer, type AskUserQuestionRequest,
 } from '@deepseek-ai/dsh-user-questions'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
 import { CodeRuntime, type CodeRunRequest, type CodeRunResult } from '@deepseek-ai/dsh-code-runtime'
@@ -26,6 +26,14 @@ import type { PlanModeConfig } from '../src/index.ts'
 const TEST_PLAN_SECTION = 'Test plan mode instructions.'
 /** 中文说明：常量 PLAN_CONFIG 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PLAN_CONFIG = { section: TEST_PLAN_SECTION } satisfies PlanModeConfig
+
+interface QuestionAnswerer {
+  ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer>
+}
+
+function registerQuestionAnswerer(ctx: Context, answerer: QuestionAnswerer): () => void {
+  return ctx.on('user-questions/request', request => answerer.ask(request))
+}
 
 /**
  * Drives the REAL plugin: mounts `dsh-plan-mode` beside real `SystemPrompt` and
@@ -75,8 +83,6 @@ async function agentWithSession(
   return agent
 }
 
-/** Assemble exactly as the loop does: the agent is both subject and scope. */
-/* 中文说明：函数 assembleFor 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function assembleFor(ctx: Context, agent: Agent) {
   return ctx.systemPrompt.assemble({ agent, scope: agent })
 }
@@ -162,8 +168,7 @@ function registerNamedTools(ctx: Context, names: string[]): void {
   }
 }
 
-/** Assert the mapped Code Mode SDK includes the stable plan exit binding and test tools. */
-/* 中文说明：函数 expectPlanCodeSdkBindings 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/** Assert the mapped PTC mode SDK includes the stable plan exit binding and test tools. */
 function expectPlanCodeSdkBindings(sdk: string): void {
   expect(sdk).toContain('interface ToolArgsMap {')
   expect(sdk).toContain('read: Record<string, JsonValue>;')
@@ -178,7 +183,7 @@ let callCounter = 0
 /** 中文说明：函数 execute 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function execute(ctx: Context, name: string, agent?: Agent) {
   return ctx.tools.execute({
-    callId: CallId(`call-${++callCounter}`),
+    callId: ToolCallId(`call-${++callCounter}`),
     name,
     arguments: {},
     signal: new AbortController().signal,
@@ -540,10 +545,9 @@ describe('the soft layer', () => {
       .toEqual(['exit_plan_mode', 'read', 'added-later'])
   })
 
-  it('keeps run_code the only wire tool in plan mode under the registry Code Mode; the SDK gains the exit binding', async () => {
+  it('keeps run_code the only wire tool in plan mode under the registry PTC mode; the SDK gains the exit binding', async () => {
     // Minimal scriptable runtime: the SDK section resolves ctx.codeRuntime at
-    // assembly time (the code-mode.spec fake's shape).
-    /** 中文说明：class FakeRuntime 定义本测试所需的数据或行为，用于表达当前功能场景。 */
+    // assembly time (the ptc.spec fake's shape).
     class FakeRuntime extends CodeRuntime {
       readonly language = 'typescript'
       readonly isolation = 'fake'
@@ -552,7 +556,7 @@ describe('the soft layer', () => {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime, { mode: 'code' })
+    await ctx.plugin(ToolRuntime, { mode: 'ptc' })
     await ctx.plugin(FakeRuntime)
     await ctx.plugin(PlanModeController, PLAN_CONFIG)
     registerNamedTools(ctx, ['read', 'write'])
@@ -594,8 +598,7 @@ describe('the soft layer', () => {
     expectPlanCodeSdkBindings(sdk)
   })
 
-  it('keeps the Code Mode SDK byte-identical across mode switches', async () => {
-    /** 中文说明：class FakeRuntime 定义本测试所需的数据或行为，用于表达当前功能场景。 */
+  it('keeps the PTC mode SDK byte-identical across mode switches', async () => {
     class FakeRuntime extends CodeRuntime {
       readonly language = 'typescript'
       readonly isolation = 'fake'
@@ -604,7 +607,7 @@ describe('the soft layer', () => {
     /** 中文说明：变量 withPlanMode 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const withPlanMode = new Context()
     await withPlanMode.plugin(SystemPrompt)
-    await withPlanMode.plugin(ToolRuntime, { mode: 'code' })
+    await withPlanMode.plugin(ToolRuntime, { mode: 'ptc' })
     await withPlanMode.plugin(FakeRuntime)
     await withPlanMode.plugin(PlanModeController, PLAN_CONFIG)
     registerNamedTools(withPlanMode, ['read', 'write'])
@@ -623,7 +626,7 @@ describe('the soft layer', () => {
     /** 中文说明：变量 bare 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bare = new Context()
     await bare.plugin(SystemPrompt)
-    await bare.plugin(ToolRuntime, { mode: 'code' })
+    await bare.plugin(ToolRuntime, { mode: 'ptc' })
     await bare.plugin(FakeRuntime)
     registerNamedTools(bare, ['read', 'write'])
     /** 中文说明：函数值 bareSdk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
@@ -889,7 +892,7 @@ describe('exit_plan_mode', () => {
     /** 中文说明：变量 asked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const asked: AskUserQuestionRequest[] = []
     if (answer !== undefined) {
-      ctx.userQuestions.registerProvider({
+      registerQuestionAnswerer(ctx, {
         ask: (request) => {
           asked.push(request)
           return Promise.resolve({ answers: [{ id: 'plan-review', ...answer }] })
@@ -904,7 +907,7 @@ describe('exit_plan_mode', () => {
   /** 中文说明：函数 callExit 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function callExit(ctx: Context, agent: Agent | undefined, plan = '# The plan\n\ndo things') {
     return ctx.tools.execute({
-      callId: CallId(`call-exit-${++callCounter}`),
+      callId: ToolCallId(`call-exit-${++callCounter}`),
       name: EXIT_PLAN_MODE,
       arguments: { plan },
       signal: new AbortController().signal,
@@ -975,7 +978,7 @@ describe('exit_plan_mode', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
-    expect(result.content).toEqual([{ type: 'text', text: 'Error: no user-questions provider is registered' }])
+    expect(result.content).toEqual([{ type: 'text', text: 'Error: no user-questions answerer accepted the request' }])
     expect(foldPlanMode(agent.session.events)).toBe(true)
   })
 
@@ -986,8 +989,7 @@ describe('exit_plan_mode', () => {
     await ctx.plugin(UserQuestionService)
     /** 中文说明：函数值 ask 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const ask = vi.fn(async () => ({ answers: [{ id: 'plan-review', selected: ['Approve'] }] }))
-    ctx.userQuestions.registerProvider({ ask })
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    registerQuestionAnswerer(ctx, { ask })
     const root = await agentWithSession(ctx, 'review-root')
     /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = await agentWithSession(ctx, 'review-child', { active: true, owner: root })
@@ -1024,10 +1026,8 @@ describe('exit_plan_mode', () => {
     expect(asked[0]?.questions[0]?.options?.map(option => option.label)).toEqual(['Approve', 'Keep planning'])
   })
 
-  it('carries the exact plan through a Code Mode review and logs the nested dispatch', async () => {
-    /** 中文说明：变量 plan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const plan = '# Code Mode plan\n\nUse the existing seam.'
-    /** 中文说明：class ExitRuntime 定义本测试所需的数据或行为，用于表达当前功能场景。 */
+  it('carries the exact plan through a PTC mode review and logs the nested dispatch', async () => {
+    const plan = '# PTC mode plan\n\nUse the existing seam.'
     class ExitRuntime extends CodeRuntime {
       readonly language = 'typescript'
       readonly isolation = 'fake'
@@ -1041,25 +1041,24 @@ describe('exit_plan_mode', () => {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime, { mode: 'code' })
+    await ctx.plugin(ToolRuntime, { mode: 'ptc' })
     await ctx.plugin(ExitRuntime)
     await ctx.plugin(PlanModeController, PLAN_CONFIG)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(UserQuestionService)
     /** 中文说明：变量 asked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const asked: AskUserQuestionRequest[] = []
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       ask: (request) => {
         asked.push(request)
         return Promise.resolve({ answers: [{ id: 'plan-review', selected: ['Approve'] }] })
       },
     })
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const agent = await agentWithSession(ctx, 'code-mode-exit', { active: true })
+    const agent = await agentWithSession(ctx, 'ptc-exit', { active: true })
 
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
-      callId: CallId(`call-exit-${++callCounter}`),
+      callId: ToolCallId(`call-exit-${++callCounter}`),
       name: RUN_CODE_NAME,
       arguments: { code: `return await tools.${EXIT_PLAN_MODE}({ plan: ${JSON.stringify(plan)} })`, description: 'Submit the plan for review' },
       signal: new AbortController().signal,
@@ -1157,7 +1156,7 @@ describe('exit_plan_mode', () => {
 
   it('treats duplicate review answer items as non-consent', async () => {
     const { ctx, agent } = await setupWithReview()
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       ask: () => Promise.resolve({ answers: [
         { id: 'plan-review', selected: ['Approve'] },
         { id: 'plan-review', selected: ['Keep planning'] },
@@ -1172,8 +1171,7 @@ describe('exit_plan_mode', () => {
 
   it('a missing answer item reads as keep-planning', async () => {
     const { ctx, agent } = await setupWithReview()
-    ctx.userQuestions.registerProvider({ ask: () => Promise.resolve({ answers: [] }) })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    registerQuestionAnswerer(ctx, { ask: () => Promise.resolve({ answers: [] }) })
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: The user chose to keep planning; revise the plan and present it again.' }])
@@ -1192,9 +1190,11 @@ describe('exit_plan_mode', () => {
 
   it('reads a dismissed review as the user taking the turn back, not as a failure', async () => {
     const { ctx, agent } = await setupWithReview()
-    ctx.userQuestions.registerProvider({
-      ask: () => Promise.reject(new UserQuestionError(
-        'the user cancelled ask_user_question', 'ASK_CANCELLED')),
+    registerQuestionAnswerer(ctx, {
+      ask: () => Promise.reject(Object.assign(
+        new Error('the user cancelled ask_user_question'),
+        { name: 'UserQuestionError', code: 'ASK_CANCELLED' },
+      )),
     })
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callExit(ctx, agent)
@@ -1205,7 +1205,7 @@ describe('exit_plan_mode', () => {
 
   it('leaves every other review failure its own message', async () => {
     const { ctx, agent } = await setupWithReview()
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       ask: () => Promise.reject(new UserQuestionError(
         'ask_user_question was aborted before the user answered', 'ASK_ABORTED')),
     })
@@ -1222,7 +1222,7 @@ describe('exit_plan_mode', () => {
     const controller = new AbortController()
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
-      callId: CallId(`call-exit-${++callCounter}`),
+      callId: ToolCallId(`call-exit-${++callCounter}`),
       name: EXIT_PLAN_MODE,
       arguments: { plan: '# P' },
       agent,
@@ -1243,7 +1243,7 @@ describe('exit_plan_mode', () => {
     await ctx.plugin(UserQuestionService)
     /** 中文说明：函数值 answer 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let answer!: (value: { answers: { id: string; selected: string[] }[] }) => void
-    ctx.userQuestions.registerProvider({
+    registerQuestionAnswerer(ctx, {
       ask: () => new Promise((resolve) => { answer = resolve }),
     })
     /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -1265,8 +1265,7 @@ describe('exit_plan_mode', () => {
 
   it('a throwing provider surfaces as the corrective isError and the mode stays plan', async () => {
     const { ctx, agent } = await setupWithReview()
-    ctx.userQuestions.registerProvider({ ask: () => { throw new Error('review aborted') } })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    registerQuestionAnswerer(ctx, { ask: () => { throw new Error('review aborted') } })
     const result = await callExit(ctx, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([{ type: 'text', text: 'Error: review aborted' }])

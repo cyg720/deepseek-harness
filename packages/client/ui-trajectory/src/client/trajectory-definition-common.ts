@@ -1,16 +1,4 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】轨迹目标（target: 'trajectory'）各状态机共用的节点封装函数 trajectoryNode：
- *             把业务 Context 与贡献载荷包成 Trajectory 视图节点信封。
- * 【技术维度】纯函数；把 ConversationNodeContext 的 key / kind / id / location 与业务
- *             payload 合成 ConversationViewNode 兼容对象。
- * 【产品维度】统一各 Definition 产出视图节点的格式，供快照构建器消费。
- * 【逻辑维度】单函数封装；anchorSeq 决定跨贡献的排序。
- * 【关键边界】location 缺失时回退为 'unresolved'。
- * 【新手阅读建议】这是"Definition 产出 → 视图节点"的边界适配层。
- * ==========================================================================
- */
-import type { ConversationNodeContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ConversationNodeContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
   TrajectoryContribution, TrajectoryConversationViewNode,
 } from './trajectory-contract.ts'

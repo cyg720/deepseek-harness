@@ -11,19 +11,20 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  indexSubagentDescendants, type SessionId, type SessionListState, type SessionProjectionMap,
-  /** 中文说明：类型或类 SessionSummary 约束模块数据或组件职责。 */
-  type SessionSummary, type SubagentAddress, type SubagentCatalogSnapshot,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  type SessionListState, type SessionProjectionMap, type SessionSummary,
+  type SubagentCatalogSnapshot,
+} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
   IconChevronDownOutline14, IconChevronRightOutline14, IconRefreshOutline14, StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { NS } from './locales.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {} from '@deepseek-ai/dsh-subagent/client'
 import type {} from '@deepseek-ai/dsh-token-meter/client'
 import css from './SubagentHeaderLineage.module.css'
+import { indexSubagentDescendants } from './subagent-lineage.ts'
 
 /** 中文说明：类型或类 CatalogEntry 约束模块数据或组件职责。 */
 type CatalogEntry = SubagentCatalogSnapshot['entries'][number]
@@ -79,15 +80,13 @@ function treeItems(root: HTMLDivElement | null): HTMLElement[] {
 }
 
 /** Compact token count shared in shape with the conversation stats strip. */
-/* 中文说明：函数 formatTokens 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function formatTokens(value: number): string {
-  /** 中文说明：组件局部值 scaled，由紧邻初始化决定。 */
+function formatTokens(value: number, t: TranslateNS<typeof NS>): string {
   const scaled = (next: number): string => next >= 100
     ? String(Math.round(next))
     : String(Math.round(next * 10) / 10)
   if (value < 1_000) return String(value)
-  if (value < 1_000_000) return `${scaled(value / 1_000)}K`
-  return `${scaled(value / 1_000_000)}M`
+  if (value < 1_000_000) return t('tokens.thousand', { value: scaled(value / 1_000) })
+  return t('tokens.million', { value: scaled(value / 1_000_000) })
 }
 
 /** Sum the four disjoint durable provider-usage buckets. */
@@ -366,8 +365,7 @@ function CatalogRows({
         /** 中文说明：组件局部值 tokenMetric，由紧邻初始化决定。 */
         const tokenMetric = totalTokens === undefined
           ? undefined
-          : `${formatTokens(totalTokens)} tok`
-        /** 中文说明：组件局部值 durationMetric，由紧邻初始化决定。 */
+          : t('tokens.total', { value: formatTokens(totalTokens, t) })
         const durationMetric = durationMs === undefined
           ? undefined
           : {
@@ -578,9 +576,6 @@ function CatalogDropdown({
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   /** 中文说明：组件局部值 observedCatalogs，由紧邻初始化决定。 */
   const observedCatalogs = useRef(new Set<SessionId>())
-  /** 中文说明：组件局部值 requestedInitialCatalog，由紧邻初始化决定。 */
-  const requestedInitialCatalog = useRef<SessionId>()
-  /** 中文说明：组件局部值 setCatalogOpenRef，由紧邻初始化决定。 */
   const setCatalogOpenRef = useRef(setCatalogOpen)
   setCatalogOpenRef.current = setCatalogOpen
   /** 中文说明：组件局部值 currentEntry，由紧邻初始化决定。 */
@@ -621,17 +616,6 @@ function CatalogDropdown({
     }
     : catalog
 
-  useEffect(() => {
-    if (
-      variant !== 'switcher'
-      || catalog !== undefined
-      || requestedInitialCatalog.current === rootSessionId
-    ) return
-    requestedInitialCatalog.current = rootSessionId
-    refresh(rootSessionId)
-  }, [catalog, refresh, rootSessionId, variant])
-
-  /** 中文说明：组件局部值 observeCatalog，由紧邻初始化决定。 */
   const observeCatalog = (parentSessionId: SessionId, next: boolean): void => {
     if (next) observedCatalogs.current.add(parentSessionId)
     else observedCatalogs.current.delete(parentSessionId)

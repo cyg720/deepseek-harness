@@ -50,6 +50,11 @@ interface TypertPlugin {
 // 命中才值得走转译，避免对每个 ts 文件都调用 transpileModule。
 const DECORATOR_SYNTAX = /^\s*@[A-Za-z_$][\w$]*/m
 
+// This plugin consumes tsc-emitted `lib/types` output, so every project it
+// would re-diagnose has already passed the workspace tsc build in the same
+// orchestration; the generator skips its per-package diagnostic pass here.
+const TSC_VERIFIED_INPUT = { checkDiagnostics: false } as const
+
 /** Generation scope selected by a tsdown build phase. */
 // 中文：tsdown 构建阶段选用的生成范围。
 export interface TypertPluginOptions {
@@ -122,8 +127,7 @@ export function typertPlugin(pluginOptions: TypertPluginOptions = {}): TypertPlu
       if (manifest.name === undefined || !hasTypertExport(manifest.exports)) return
       let artifacts = artifactsByRoot.get(root)
       if (artifacts === undefined) {
-        // 中文：首次遇到该工作区才真正生成，之后复用缓存，避免重复分析。
-        const generator = new WorkspaceTypertGenerator(root)
+        const generator = new WorkspaceTypertGenerator(root, TSC_VERIFIED_INPUT)
         artifacts = pluginOptions.faces === undefined
           ? generator.generate()
           : generator.generate(undefined, pluginOptions.faces)
@@ -136,7 +140,7 @@ export function typertPlugin(pluginOptions: TypertPluginOptions = {}): TypertPlu
 
   // 中文：workspace 模式发射：发现所有"有 typert 导出"的包，为每个包生成并落盘产物。
   function emitWorkspace(root: string, faces: readonly TypertFace[] | undefined): void {
-    const generator = new WorkspaceTypertGenerator(root)
+    const generator = new WorkspaceTypertGenerator(root, TSC_VERIFIED_INPUT)
     const packages = generator.discover(faces)
       .filter(candidate => hasTypertExport(readManifest(join(root, candidate.root)).exports))
       .map(candidate => candidate.package)

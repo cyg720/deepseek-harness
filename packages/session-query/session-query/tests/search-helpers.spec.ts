@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { createUserMessage, CallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, {
   SESSION_FORMAT_VERSION,
   SessionId,
@@ -43,9 +43,7 @@ function expectCode(code: SessionQueryErrorCode): Error {
 
 describe('session-query semantic extraction', () => {
   it('extracts first-party message, tool, todo, and failure detail', () => {
-    /** 中文说明：变量 callId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const callId = CallId('call')
-    /** 中文说明：变量 messageContent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const callId = ToolCallId('call')
     const messageContent: SessionEvent<'user/message'>['data']['content'] = [
       { type: 'text', text: ' visible ' },
       { type: 'reasoning', text: 'thought' },

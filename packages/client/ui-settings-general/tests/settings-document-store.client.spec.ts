@@ -7,7 +7,7 @@
  * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { RpcResponse } from '@deepseek-ai/dsh-api-remotes/client'
+import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { SettingsDocumentStore } from '../src/client/settings-document-store.ts'
 
@@ -19,35 +19,16 @@ function derivedDocumentStore(api: object) {
   return new SettingsDocumentStore(wire, new SettingsDescribeMirror(wire))
 }
 
-/** 中文说明：函数 response 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function response(hasDocument = false): RpcResponse<{
-  writable: boolean
-  hasDocument: boolean
-  namespaces: []
-}> {
-  return {
-    rpcId: 'settings-document' as never,
-    result: {
-      ok: true,
-      value: { writable: true, hasDocument, namespaces: [] },
-    },
-  }
+function response(hasDocument = false) {
+  return { ok: true, value: { writable: true, hasDocument, namespaces: [] } }
 }
 
-/** 中文说明：函数 opened 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function opened(): RpcResponse<{ opened: true }> {
-  return {
-    rpcId: 'settings-open' as never,
-    result: { ok: true, value: { opened: true } },
-  }
+function opened(): RemoteResult<{ opened: true }> {
+  return { ok: true, value: { opened: true } }
 }
 
-/** 中文说明：函数 describeFailed 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function describeFailed(message: string): RpcResponse<never> {
-  return {
-    rpcId: 'settings-document-failed' as never,
-    result: { ok: false, error: { code: 'internal', message, details: {} } },
-  }
+function describeFailed(message: string) {
+  return { ok: false as const, error: { code: 'internal', message, details: {} } }
 }
 
 describe('SettingsDocumentStore', () => {
@@ -56,14 +37,13 @@ describe('SettingsDocumentStore', () => {
     const describe = vi.fn(() => Promise.resolve(response(true)))
     /** 中文说明：测试局部值 openDocument，由紧邻初始化决定。 */
     const openDocument = vi.fn(() => Promise.resolve(opened()))
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
-    const controller = derivedDocumentStore({ settings: { describe, openDocument } })
+    const controller = derivedDocumentStore({ settings: { describe, openSettingsDocument: openDocument } })
     await controller.load()
     expect(controller.store.getSnapshot()).toEqual({
       status: 'ready', opening: false, error: null,
     })
     await controller.open()
-    expect(openDocument).toHaveBeenCalledWith({})
+    expect(openDocument).toHaveBeenCalledWith()
   })
 
   it('marks absent or failed metadata unavailable without opening anything', async () => {
@@ -71,7 +51,7 @@ describe('SettingsDocumentStore', () => {
     const openDocument = vi.fn(() => Promise.resolve(opened()))
     /** 中文说明：测试局部值 absent，由紧邻初始化决定。 */
     const absent = derivedDocumentStore({
-      settings: { describe: () => Promise.resolve(response()), openDocument },
+      settings: { describe: () => Promise.resolve(response()), openSettingsDocument: openDocument },
     })
     await absent.load()
     await absent.open()
@@ -80,14 +60,14 @@ describe('SettingsDocumentStore', () => {
 
     /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = derivedDocumentStore({
-      settings: { describe: () => Promise.reject(new Error('offline')), openDocument },
+      settings: { describe: () => Promise.reject(new Error('offline')), openSettingsDocument: openDocument },
     })
     await failed.load()
     expect(failed.store.getSnapshot()).toMatchObject({ status: 'unavailable', error: 'offline' })
 
     /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = derivedDocumentStore({
-      settings: { describe: () => Promise.resolve(describeFailed('provider failed')), openDocument },
+      settings: { describe: () => Promise.resolve(describeFailed('provider failed')), openSettingsDocument: openDocument },
     })
     await rejected.load()
     expect(rejected.store.getSnapshot()).toMatchObject({
@@ -96,13 +76,10 @@ describe('SettingsDocumentStore', () => {
   })
 
   it('collapses concurrent open gestures and recovers after a failure', async () => {
-    /** 中文说明：测试局部值 resolveOpen，由紧邻初始化决定。 */
-    let resolveOpen!: (response: RpcResponse<{ opened: true }>) => void
-    /** 中文说明：测试局部值 openDocument，由紧邻初始化决定。 */
-    const openDocument = vi.fn(() => new Promise<RpcResponse<{ opened: true }>>((resolve) => { resolveOpen = resolve }))
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
+    let resolveOpen!: (response: RemoteResult<{ opened: true }>) => void
+    const openDocument = vi.fn(() => new Promise<RemoteResult<{ opened: true }>>((resolve) => { resolveOpen = resolve }))
     const controller = derivedDocumentStore({
-      settings: { describe: () => Promise.resolve(response(true)), openDocument },
+      settings: { describe: () => Promise.resolve(response(true)), openSettingsDocument: openDocument },
     })
     await controller.load()
     /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
@@ -110,10 +87,7 @@ describe('SettingsDocumentStore', () => {
     /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = controller.open()
     expect(openDocument).toHaveBeenCalledOnce()
-    resolveOpen({
-      rpcId: 'settings-open-failed' as never,
-      result: { ok: false, error: { code: 'internal', message: 'no default editor', details: {} } },
-    })
+    resolveOpen({ ok: false, error: { code: 'internal', message: 'no default editor', details: {} } })
     await Promise.all([first, second])
     expect(controller.store.getSnapshot()).toMatchObject({
       status: 'ready', opening: false, error: 'no default editor',
@@ -127,7 +101,7 @@ describe('SettingsDocumentStore', () => {
     const controller = derivedDocumentStore({
       settings: {
         describe: vi.fn(() => Promise.resolve(response(true))),
-        openDocument: () => new Promise((_, reject) => { rejectOpen = reject }),
+        openSettingsDocument: () => new Promise((_, reject) => { rejectOpen = reject }),
       },
     })
     await controller.load()
@@ -148,7 +122,7 @@ describe('SettingsDocumentStore', () => {
         describe: vi.fn()
           .mockRejectedValueOnce(new Error('offline'))
           .mockResolvedValueOnce(response(true)),
-        openDocument: vi.fn(),
+        openSettingsDocument: vi.fn(),
       },
     } as never
     /** 中文说明：测试局部值 mirror，由紧邻初始化决定。 */

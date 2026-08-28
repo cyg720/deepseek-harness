@@ -1,0 +1,30 @@
+/* Session stats row: 13/20 tertiary text (the secondary content tier) under
+   the flow, aligned to the shared message column axis
+   (--dsh-chat-content-width). */
+
+/* root：统计行根元素，居中对齐共享消息列并对过长内容显示省略号。 */
+.root {
+  /* Block, not flex: text-overflow only elides a block's inline content, so
+     an overlong line ends in … instead of a mid-glyph clip. */
+  /* 使用块布局而非 Flex，使 text-overflow 能在行尾显示省略号而不是直接裁断字形。 */
+  display: block;
+  text-align: center;
+  max-width: var(--dsh-chat-content-width);
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 4px calc(var(--dsh-composer-side-clearance) + 16px) 0px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* sep：统计项目分隔符，使用分隔色并承担原 Flex gap 的水平间距。 */
+.sep {
+  color: var(--dsw-alias-separator-primary);
+  margin: 0 10px; /* carries the former flex gap */
+  /* 左右各 10 像素间距替代此前 Flex 布局的 gap。 */
+}

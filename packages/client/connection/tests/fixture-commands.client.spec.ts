@@ -8,16 +8,12 @@
  */
 /**
  * Fixture commands/skills domains: session-addressed catalogs, execute
- * parse/dispatch and its logged lifecycle pair, skill.list session resolution,
- * and the FixtureApiClient dispatch rows. Commands answer on the Remote face
- * and skills on the legacy API face, so both are driven here.
+ * parse/dispatch and its logged lifecycle pair, and skills/list Session resolution.
  */
 /* 文件职责：验证夹具命令、目标和技能调用。技术维度：类型化 RPC 与固定夹具。产品维度：保持回放接口可用。逻辑维度：调用端点并核对结果。关键边界：预置数据变化需同步期望。新手阅读建议：按 goals、skills、commands 阅读。 */
 import { describe, expect, it } from 'vitest'
 import type { SessionId } from '../src/client/api.ts'
-import { RpcId } from '../src/client/api.ts'
-import type { RpcRequest } from '../src/client/api.ts'
-import { FixtureApiClient, createFixtureApi, createFixtureFaces } from '../src/client/fixture.ts'
+import { createFixtureFaces } from '../src/client/fixture.ts'
 
 /** Drive one commands Remote endpoint against the fixture state graph. */
 /* 中文说明：测试辅助函数 `callRemote`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
@@ -34,10 +30,6 @@ async function callRemote<T>(
 
 /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `sid` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
 const sid = (id: string): SessionId => id as SessionId
-/** 中文说明：用于记录次数、编号或状态码的标量值；变量 `reqCount` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-let reqCount = 0
-/** 中文说明：当前场景构造或发出的请求对象；变量 `req` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-const req = <P>(payload: P): RpcRequest<P> => ({ rpcId: RpcId(`t-${reqCount++}`), payload })
 
 describe('createFixtureApi commands/skills', () => {
   it('serves the addressed session catalog', async () => {
@@ -64,21 +56,20 @@ describe('createFixtureApi commands/skills', () => {
     expect(result).toMatchObject({ ok: false, error: { code: 'session-not-found' } })
   })
 
-  it('executes a known command line: pure admission plus a mux-broadcast lifecycle pair', async () => {
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `{ api, rpc }` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const { api, rpc } = createFixtureFaces()
-    /** 中文说明：当前场景输入、传输或校验的数据；变量 `frames` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
+  it('executes a known command line: pure admission plus a followed lifecycle pair', async () => {
+    const { rpc } = createFixtureFaces()
     const frames: unknown[] = []
     /** 中文说明：控制或记录异步操作取消状态的对象；变量 `abort` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `stream` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const stream = api.events.mux(req({}), abort.signal)
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `pump` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
+    const stream = rpc.open?.('/api', 'session/follow', {
+      args: { request: { address: { kind: 'session', sessionId: sid('fx-alpha') } } },
+    }, abort.signal)
+    if (stream === undefined) throw new Error('fixture session follow stream is unavailable')
     const pump = (async () => {
       /** 中文说明：当前场景输入、传输或校验的数据；变量 `frame` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       for await (const frame of stream) {
-        frames.push(frame.payload)
-        if (frames.filter(f => (f as { type: string }).type === 'session/event').length >= 2) abort.abort()
+        frames.push(frame)
+        if (frames.filter(f => (f as { type: string }).type === 'event').length >= 2) abort.abort()
       }
     })()
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `execution` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
@@ -88,7 +79,7 @@ describe('createFixtureApi commands/skills', () => {
     await pump
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `events` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const events = frames
-      .filter((f): f is { type: string; event: { type: string; data: Record<string, unknown> } } => (f as { type: string }).type === 'session/event')
+      .filter((f): f is { type: string; event: { type: string; data: Record<string, unknown> } } => (f as { type: string }).type === 'event')
       .map(f => f.event)
     expect(events).toMatchObject([
       { type: 'command/run', data: { name: 'echo', args: ' hello world', source: { kind: 'user' } } },
@@ -113,20 +104,19 @@ describe('createFixtureApi commands/skills', () => {
   })
 
   it('refuses an image-carrying execute for a non-declaring command with a logged error pair', async () => {
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `{ api, rpc }` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const { api, rpc } = createFixtureFaces()
-    /** 中文说明：当前场景输入、传输或校验的数据；变量 `frames` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
+    const { rpc } = createFixtureFaces()
     const frames: unknown[] = []
     /** 中文说明：控制或记录异步操作取消状态的对象；变量 `abort` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `stream` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const stream = api.events.mux(req({}), abort.signal)
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `pump` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
+    const stream = rpc.open?.('/api', 'session/follow', {
+      args: { request: { address: { kind: 'session', sessionId: sid('fx-alpha') } } },
+    }, abort.signal)
+    if (stream === undefined) throw new Error('fixture session follow stream is unavailable')
     const pump = (async () => {
       /** 中文说明：当前场景输入、传输或校验的数据；变量 `frame` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       for await (const frame of stream) {
-        frames.push(frame.payload)
-        if (frames.filter(f => (f as { type: string }).type === 'session/event').length >= 2) abort.abort()
+        frames.push(frame)
+        if (frames.filter(f => (f as { type: string }).type === 'event').length >= 2) abort.abort()
       }
     })()
     /** 中文说明：当前场景输入、传输或校验的数据；变量 `png` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
@@ -139,7 +129,7 @@ describe('createFixtureApi commands/skills', () => {
     await pump
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `events` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const events = frames
-      .filter((f): f is { type: string; event: { type: string; data: Record<string, unknown> } } => (f as { type: string }).type === 'session/event')
+      .filter((f): f is { type: string; event: { type: string; data: Record<string, unknown> } } => (f as { type: string }).type === 'event')
       .map(f => f.event)
     expect(events).toMatchObject([
       { type: 'command/run', data: { name: 'echo', args: ' hi', source: { kind: 'user' } } },
@@ -208,33 +198,31 @@ describe('createFixtureApi commands/skills', () => {
   })
 
   it('serves the skill catalog for the addressed session and rejects unknown sessions', async () => {
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `api` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const api = createFixtureApi()
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `response` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const response = await api.skills.list(req({ sessionId: sid('fx-alpha') }))
-    if (!response.result.ok) throw new Error('skill list failed')
-    expect(response.result.value.skills[0]?.name).toBe('fixture-demo')
+    const { rpc } = createFixtureFaces()
+    const skills = await callRemote<{ skills: Array<{ name: string }> }>(
+      rpc, 'skills/list', { request: { sessionId: sid('fx-alpha') } },
+    )
+    expect(skills.skills[0]?.name).toBe('fixture-demo')
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `missingSession` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const missingSession = await api.skills.list(req({ sessionId: sid('fx-nope') }))
-    expect(missingSession.result).toMatchObject({ ok: false, error: { code: 'session-not-found' } })
+    const missingSession = await rpc.call('/api', 'skills/list', {
+      args: { request: { sessionId: sid('fx-nope') } },
+    })
+    expect(missingSession).toMatchObject({ ok: false, error: { code: 'session-not-found' } })
   })
 })
 
-describe('FixtureApiClient command/skill dispatch', () => {
-  it('routes the Remote commands face and the legacy skill row through one state graph', async () => {
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `client` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const client = new FixtureApiClient()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `commands` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const commands = await callRemote<{ name: string }[]>(client.rpc, 'commands/list', { agentId: sid('fx-alpha') })
+describe('fixture Connection command/skill dispatch', () => {
+  it('routes the Remote command and skill rows through one state graph', async () => {
+    const { rpc } = createFixtureFaces()
+    const commands = await callRemote<{ name: string }[]>(rpc, 'commands/list', { agentId: sid('fx-alpha') })
     expect(commands.length).toBeGreaterThan(0)
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `executed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const executed = await callRemote<{ commandId: string } | undefined>(
-      client.rpc, 'commands/execute', { agentId: sid('fx-alpha'), line: '/compact' })
+      rpc, 'commands/execute', { agentId: sid('fx-alpha'), line: '/compact' })
     expect(executed?.commandId).toBeTruthy()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `skills` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const skills = await client.skills.list({ sessionId: sid('fx-alpha') })
-    if (!skills.result.ok) throw new Error('skill.list failed')
-    expect(skills.result.value.skills.length).toBeGreaterThan(0)
+    const skills = await callRemote<{ skills: unknown[] }>(
+      rpc, 'skills/list', { request: { sessionId: sid('fx-alpha') } },
+    )
+    expect(skills.skills.length).toBeGreaterThan(0)
   })
 })

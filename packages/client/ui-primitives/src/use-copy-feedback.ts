@@ -1,26 +1,3 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】提供 useCopyFeedback Hook：把文本写入剪贴板，并在成功后短暂点亮 copied 标志，
- *             供调用方渲染"复制成功"提示。被 TerminalBlock、SearchBlock 等块状组件共用。
- * 【技术维度】React Hook（useState + useCallback）；异步调用 writeClipboard()，成功后用
- *             setTimeout 在 1000ms 后自动熄灭标志。
- * 【产品维度】用户在查看终端输出、搜索结果时一键复制；界面需要明确反馈"已复制"，
- *             避免用户以为没点中而重复点击。
- * 【逻辑维度】1) 定义 COPIED_FEEDBACK_MS 时长常量；2) 定义 CopyFeedback 返回值接口；
- *             3) useCopyFeedback 维护 copied 状态并返回 onCopy 处理器。
- * 【关键边界】copied 为 true 期间 onCopy 直接忽略新请求（防重复触发）；写入被宿主拒绝
- *             （返回 false）时不点亮标志，绝不对用户谎报复制成功。
- * 【新手阅读建议】重点看 onCopy 内部"防重入 + 异步回调 + 定时复位"的三步流程。
- * ==========================================================================
- */
-// The copy-to-clipboard-with-feedback hook shared by the block primitives
-// (TerminalBlock, SearchBlock): write the given text, and on success flip a
-// transient `copied` flag that the caller renders as a "复制成功" label for one
-// second. A refused write leaves the flag untouched, so the control never claims
-// a copy the host declined.
-// 本文件实现 useCopyFeedback：写入剪贴板，成功时短暂点亮 copied 标志供界面显示
-// "复制成功"；写入被宿主拒绝时不点亮，绝不谎报成功。
-
 import { useCallback, useState } from 'react'
 import { writeClipboard } from './clipboard.ts'
 

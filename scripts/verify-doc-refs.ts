@@ -21,8 +21,7 @@ import { findReferenceViolations, uniqueRepoFiles, type ReferenceViolation as Vi
 const root = resolve(import.meta.dirname, '..')
 
 /** Repo-authored TypeScript that may cite docs in comments. */
-/* 可能在注释中引用文档的仓库 TypeScript glob。 */
-const PATTERNS = ['packages/**/*.ts', 'examples/**/*.ts']
+const PATTERNS = ['packages/**/*.ts']
 
 /** Paths excluded from the scan: built output and vendored upstream source. */
 /* 判断扫描排除路径。@param p 根相对正斜杠路径。@returns 是否为构建物、声明或 vendored 源码。 */

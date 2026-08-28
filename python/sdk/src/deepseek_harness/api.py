@@ -30,23 +30,18 @@ class DeepSeekHarnessConfig:
     provider: str = "deepseek-official"
     # 中文说明：变量 model 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     model: str = "deepseek-v4-flash"
-    # 中文说明：变量 max_tokens 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+    reasoning_effort: str | None = None
     max_tokens: int | None = None
     # 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     cwd: str | None = None
     # 中文说明：变量 runtime_cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     runtime_cwd: str | None = None
-    # 中文说明：变量 session_root 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    session_root: str | None = None
-    # 中文说明：变量 cordis 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    cordis: str | None = None
-    # 中文说明：变量 env 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+    dsh_bin: str | None = None
+    profile: str = "sdk"
+    patches: tuple[str, ...] = ()
+    dsh_home: str | None = None
     env: dict[str, str] = field(default_factory=dict)
-    # 中文说明：变量 runtime_bin 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    runtime_bin: str | None = None
-    # 中文说明：变量 launch_args_override 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    launch_args_override: tuple[str, ...] | None = None
-    # 中文说明：变量 request_timeout_seconds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+    initialize_timeout_seconds: float = 30.0
     request_timeout_seconds: float | None = None
     # 中文说明：变量 shutdown_timeout_seconds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     shutdown_timeout_seconds: float | None = 1.0
@@ -64,8 +59,6 @@ class RunResult:
     finish_reason: str | None
     events: list[JsonObject]
     notifications: list[Notification]
-    # 中文说明：变量 session_root 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    session_root: str | None = None
 
 
 # 中文说明：类 DeepSeekHarness 封装本模块所需的数据和行为，用于表达Python SDK 与捆绑运行时场景。
@@ -77,8 +70,13 @@ class DeepSeekHarness:
     :meth:`close` explicitly when finished, so the subprocess is always reaped.
     """
 
-    # 中文说明：函数 __init__ 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
-    def __init__(self, config: DeepSeekHarnessConfig | None = None, **kwargs: object) -> None:
+    def __init__(
+        self,
+        config: DeepSeekHarnessConfig | None = None,
+        *,
+        _launch_args: tuple[str, ...] | None = None,
+        **kwargs: object,
+    ) -> None:
         if config is not None and kwargs:
             raise TypeError("pass either DeepSeekHarnessConfig or keyword options, not both")
         self.config = config or DeepSeekHarnessConfig(**kwargs)
@@ -89,11 +87,6 @@ class DeepSeekHarness:
         self._cwd = cwd
         # 中文说明：变量 env 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         env = dict(self.config.env)
-        if self.config.session_root is not None:
-            env["DSH_SESSION_ROOT"] = self.config.session_root
-        if self.config.cordis is not None:
-            env["DSH_CORDIS_CONFIG"] = self.config.cordis
-        env["DSH_CWD"] = cwd
         if self.config.base_url is not None:
             env["DEEPSEEK_BASE_URL"] = self.config.base_url
         if self.config.api_key is not None:
@@ -101,19 +94,19 @@ class DeepSeekHarness:
 
         self._client = HarnessClient(
             HarnessConfig(
-                # 中文说明：变量 runtime_bin 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-                runtime_bin=self.config.runtime_bin,
-                # 中文说明：变量 launch_args_override 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-                launch_args_override=self.config.launch_args_override,
-                # 中文说明：变量 cwd 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+                dsh_bin=self.config.dsh_bin,
+                profile=self.config.profile,
+                patches=self.config.patches,
+                dsh_home=self.config.dsh_home,
                 cwd=runtime_cwd,
                 # 中文说明：变量 env 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
                 env=env,
-                # 中文说明：变量 request_timeout_seconds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+                initialize_timeout_seconds=self.config.initialize_timeout_seconds,
                 request_timeout_seconds=self.config.request_timeout_seconds,
                 # 中文说明：变量 shutdown_timeout_seconds 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
                 shutdown_timeout_seconds=self.config.shutdown_timeout_seconds,
-            )
+            ),
+            _launch_args=_launch_args,
         )
         self._initialized = False
 
@@ -143,7 +136,7 @@ class DeepSeekHarness:
             provider=self.config.provider,
             # 中文说明：变量 model 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             model=self.config.model,
-            # 中文说明：变量 max_tokens 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+            reasoning_effort=self.config.reasoning_effort,
             max_tokens=self.config.max_tokens,
         )
         self._initialized = True
@@ -245,8 +238,6 @@ class Session:
             events=events,
             # 中文说明：变量 notifications 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             notifications=notifications,
-            # 中文说明：变量 session_root 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-            session_root=self.harness.config.session_root,
         )
 
 

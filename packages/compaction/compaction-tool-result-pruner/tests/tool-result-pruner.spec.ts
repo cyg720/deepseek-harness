@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
+import { ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import SessionStore, {
   Session,
@@ -57,8 +57,7 @@ function appendToolStep(
   content: ContentBlock[],
   extra: Record<string, unknown> = {},
 ): number {
-  /** 中文说明：测试局部值 callId，由紧邻初始化决定。 */
-  const callId = CallId(call)
+  const callId = ToolCallId(call)
   session.append('turn/start', {
     turn,
   })
@@ -153,7 +152,7 @@ describe('ToolResultPruner content transform', () => {
     /** 中文说明：测试局部值 call，由紧邻初始化决定。 */
     const call: ContentBlock = {
       type: 'tool-call',
-      id: CallId('nested'),
+      id: ToolCallId('nested'),
       name: 'nested',
       arguments: '{}',
     }
@@ -212,7 +211,7 @@ describe('ToolResultPruner session transaction', () => {
     expect(result.charsRemoved).toBeGreaterThan(0)
     /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     const entry = result.pruned[0]!
-    expect(entry).toMatchObject({ originalSeq, callId: CallId('one'), charsBefore: 100 })
+    expect(entry).toMatchObject({ originalSeq, callId: ToolCallId('one'), charsBefore: 100 })
     expect(entry.charsAfter).toBeLessThanOrEqual(50)
 
     /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
@@ -237,7 +236,7 @@ describe('ToolResultPruner session transaction', () => {
         step: 1,
         isError: true,
         message: {
-          source: { kind: 'tool', callId: CallId('one') },
+          source: { kind: 'tool', callId: ToolCallId('one') },
         },
         error: { name: 'ExitError', code: 'EXIT_1' },
         meta: { diff: ['a', 'b'] },
@@ -276,7 +275,7 @@ describe('ToolResultPruner session transaction', () => {
     const first = prune.pruneSession(session)
     /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = prune.pruneSession(session)
-    expect(first.pruned.map(entry => entry.callId)).toEqual([CallId('a'), CallId('c')])
+    expect(first.pruned.map(entry => entry.callId)).toEqual([ToolCallId('a'), ToolCallId('c')])
     expect(first.charsRemoved).toBe(
       first.pruned.reduce((sum, entry) => sum + entry.charsBefore - entry.charsAfter, 0),
     )

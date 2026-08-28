@@ -1,21 +1,3 @@
-// Menu: minimal controlled dropdown (group-by pickers, project selectors).
-// Default: pure CSS positioning relative to the anchor wrapper — no popper.
-// Opt-in `portal` renders the list into document.body, fixed-positioned from
-// the anchor rect, for anchors inside overflow-clipping containers (sidebar).
-// The owner controls `open`; outside-click closing uses one document listener
-// active only while open. Submenus open on hover/focus inside the same root.
-// Entries also cover non-interactive `label` headings and `danger` rows.
-// Lists keep 12px clearance to the viewport's top/bottom edges and scroll
-// internally past that; submenu-bearing menus are exempt (see .scrollable).
-/**
- * 文件职责：实现浮层与反馈相关的 Menu 基础组件。
- * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
- * 产品维度：为上层产品界面提供一致的浮层与反馈展示。
- * 逻辑维度：接收属性，派生展示结构并处理局部交互。
- * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
- * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
- */
-
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'

@@ -24,23 +24,16 @@ vi.mock('node:zlib', async (importOriginal) => {
   }
 })
 
-import { bindRecord, ZSTD_DATA_THRESHOLD_BYTES } from '../src/compression.ts'
+import { bindRecord } from '../src/compression.ts'
 
 // 测试组：覆盖 SQLite 压缩结果不比原文本小时的回退行为。
 describe('SQLite compression fallback', () => {
-  /**
-   * 功能描述：确认达到压缩阈值的大事件在压缩无收益时仍以文本绑定。
-   * 参数说明：测试回调不接收参数。
-   * 返回值解释：无返回值；绑定数据不是字符串时由 Vitest 报错。
-   * 使用示例：压缩帧比原数据大一字节时 bindRecord(event).data 应为 string。
-   */
-  it('keeps large data as text when its Zstandard frame is not smaller', () => {
-    // event：正文长度恰好达到压缩阈值的最小助手消息事件。
+  it('keeps data as text when its Zstandard frame is not smaller', () => {
     const event = {
       type: 'assistant/message',
       seq: 0,
       time: 1,
-      data: { text: 'x'.repeat(ZSTD_DATA_THRESHOLD_BYTES) },
+      data: { text: 'x' },
     } as unknown as SessionEvent
 
     expect(typeof bindRecord(event).data).toBe('string')

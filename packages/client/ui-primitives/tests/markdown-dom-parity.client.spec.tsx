@@ -1,31 +1,13 @@
 // @vitest-environment jsdom
-// DOM-parity contract for MarkdownText: every corpus document's rendered DOM
-// is pinned as a file snapshot. The fixtures were recorded from the
-// react-markdown implementation this renderer replaced; the custom mdast
-// renderer must reproduce them byte-for-byte (after whitespace
-// normalization), so a fixture diff means a user-visible markdown style
-// change and must be reviewed as such — never re-record to silence a
-// refactor.
-//
-// The fixture source is reproducible: the replaced pipeline last lived at commit
-// 9e8101b800 (origin/master before the renderer swap merged). Checking out
-// that ref in a worktree, copying this spec, and running it records all
-// fixtures from react-markdown byte-identical to the ones committed here:
-//   git worktree add /tmp/parity origin/master --detach && cd /tmp/parity
-//   pnpm install && cp <this spec> packages/client/ui-primitives/tests/
-//   npx vitest run packages/client/ui-primitives/tests/markdown-dom-parity.spec.tsx
-//   diff -r <recorded fixtures> <this branch's fixtures>   # byte-identical
-/**
- * 文件职责：验证UI 基础组件的 markdown-dom-parity.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
- * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
- * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
- * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
- * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
- */
+// The fixture corpus is a DOM compatibility baseline; review diffs as
+// user-visible Markdown changes rather than regenerating them for refactors.
+// One intentional divergence from the original react-markdown recording:
+// streaming fences highlight (with their banner language visible) since the
+// incremental fence-highlight decision, so `*.streaming.txt` fixtures with
+// fenced code pin shiki span trees where react-markdown had the plain arm.
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText } from './markdown-test-components.tsx'
 
 afterEach(cleanup)
 
@@ -80,8 +62,6 @@ function serializeChildren(element: Element, indent: string, inPre: boolean): st
   return out
 }
 
-/** Render one markdown source through MarkdownText and serialize the DOM. */
-/* 中文说明：函数 renderCase 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function renderCase(text: string, streaming: boolean): string {
   /** 中文说明：测试局部值 { container, unmount }，由紧邻初始化决定。 */
   const { container, unmount } = render(<MarkdownText text={text} streaming={streaming} />)

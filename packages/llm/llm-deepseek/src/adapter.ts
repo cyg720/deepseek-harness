@@ -29,10 +29,11 @@
  * @module dsh-llm-deepseek/adapter
  */
 
-import { attributionHeaders, contentHasImage, CONTEXT_WINDOW_EXCEEDED_CODE, isContextWindowExceededError, isQuotaExceededError, LlmAdapter, LlmError, offloadRequestImagesWithPolicy, ProviderRequestId, QUOTA_EXCEEDED_CODE, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import { attributionHeaders, contentHasImage, CONTEXT_WINDOW_EXCEEDED_CODE, isContextWindowExceededError, isQuotaExceededError, LlmAdapter, LlmError, offloadedImageText, offloadRequestImagesWithPolicy, ProviderRequestId, QUOTA_EXCEEDED_CODE, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type {
   ContentBlock,
   GenerateOptions,
+  ImageAttachmentAccess,
   LlmModelInfo,
   LlmProviderInfo,
   PreparedAdapterCall,
@@ -45,14 +46,19 @@ import type {
   AttachmentId,
   AttachmentStore,
   ImageAttachmentRef,
-  ImageRequestPolicy,
   RequestImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { deadline, idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
+import type {
+  DeepSeekLlmApiExtensionRequest,
+  DeepSeekLlmApiJson,
+  PreparedDeepSeekLlmApiExtensions,
+} from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
 import { serializeRequest, serializeRequestWithImages } from './serialize.ts'
 import type { ImageWireLocation, RequestDefaults } from './serialize.ts'
+import { deepSeekImageRequestPricing, resolveRequestImagePolicy } from './request-pricing.ts'
 import { DeepSeekFileStore } from './file-store.ts'
 import type { DeepSeekFilePolicy } from './file-store.ts'
 import type { DeepSeekFileId } from './file-id.ts'
@@ -83,15 +89,10 @@ export interface DeepSeekCatalogModel {
   /** Accepted request modalities; omission is text-only. */
   // 中文：接受的请求模态；省略表示纯文本。
   inputModalities?: ModelModality[]
-  /** Total-pixel budget for one deterministic request preview. */
-  // 中文：单次确定性请求预览的总像素预算。
-  imagePixelBudget?: number
-  /** Encoded-byte cap for one deterministic request preview. */
-  // 中文：单次确定性请求预览的编码字节上限。
+  /** Total-pixel budget for one deterministic request preview, or the 512-by-512 `low` preset. */
+  imagePixelBudget?: number | 'low'
+  /** Encoded-byte target for one deterministic request preview; the smallest quality-ladder output is used when no quality fits. */
   imageMaxBytes?: number
-  /** Provider detail tier; `low` uses the 512-by-512 total-pixel default. */
-  // 中文：provider 细节档位；low 使用 512x512 总像素默认值。
-  imageDetail?: 'auto' | 'low'
 }
 
 /**
@@ -187,9 +188,13 @@ export interface DeepSeekAdapterOptions {
   /** Resolve the current durable attachment service; absence rejects image input. */
   // 中文：解析当前持久附件服务；缺省则拒绝图片输入。
   resolveAttachments?: () => AttachmentStore | undefined
+  /** Bridge one attachment reference into the current model-tool execution world. */
+  resolveImageAccess?: (attachments: AttachmentStore, ref: ImageAttachmentRef) => ImageAttachmentAccess | undefined
   /** Resolve the process-wide upload reuse store. */
   // 中文：解析进程级上传复用存储。
   resolveFiles?: () => DeepSeekFileStore
+  /** Prepare the official API's plugin-contributed top-level fields for one exact wire request. */
+  prepareExtensions: (request: DeepSeekLlmApiExtensionRequest) => Promise<PreparedDeepSeekLlmApiExtensions>
 }
 
 /** Default maximum idle interval while an adapter stream read is outstanding. */
@@ -201,24 +206,9 @@ export const DEFAULT_CONTEXT_WINDOW = 1_000_000
 /** Default per-request output-token cap. */
 // 中文：默认每请求输出 token 上限。
 export const DEFAULT_MAX_TOKENS = 256_000
-/** Default bound on accumulated file-referenced image bytes per request. */
-// 中文：每请求累计文件引用图片字节的默认上限（128 MiB）。
-export const DEFAULT_MAX_REQUEST_FILES_BYTES = 128 * 1024 * 1024
 /** Default bound on accumulated base64 image payload after Files API fallback. */
 // 中文：Files API 回退后累计 base64 图片载荷的默认上限（20 MiB）。
 export const DEFAULT_MAX_INLINE_REQUEST_IMAGE_BYTES = 20 * 1024 * 1024
-/** Provider request image-count limit. */
-// 中文：provider 每请求图片数量上限。
-export const DEFAULT_MAX_IMAGES_PER_REQUEST = 600
-/** Total-pixel budget matching DeepSeek's normal vision projection. */
-// 中文：与 DeepSeek 常规视觉投影匹配的总像素预算。
-export const DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET = 640_000
-/** Total-pixel budget matching provider low-detail image input. */
-// 中文：与 provider 低细节图片输入匹配的总像素预算。
-export const DEFAULT_LOW_DETAIL_IMAGE_PIXEL_BUDGET = 512 * 512
-/** Encoded-byte cap for one deterministic model-request image. */
-// 中文：单张确定性模型请求图片的编码字节上限。
-export const DEFAULT_REQUEST_IMAGE_MAX_BYTES = 1024 * 1024
 /** Deterministic raw-byte removal step. */
 // 中文：确定性的原始字节移除步长（64 MiB）。
 export const DEFAULT_IMAGE_OFFLOAD_BYTE_QUANTUM = 64 * 1024 * 1024
@@ -250,14 +240,34 @@ const LOW_REASONING_EFFORT = ReasoningEffortId('low')
 const HIGH_REASONING_EFFORT = ReasoningEffortId('high')
 const MAX_REASONING_EFFORT = ReasoningEffortId('max')
 const REASONING_EFFORTS = [
-  { id: OFF_REASONING_EFFORT, name: 'Off' },
-  { id: LOW_REASONING_EFFORT, name: 'Low' },
-  { id: HIGH_REASONING_EFFORT, name: 'High' },
-  { id: MAX_REASONING_EFFORT, name: 'Max' },
+  {
+    id: OFF_REASONING_EFFORT,
+    name: 'Off',
+    description: 'Use for simple tasks that do not need reasoning.',
+  },
+  {
+    id: LOW_REASONING_EFFORT,
+    name: 'Low',
+    description: 'Prefer for routine or latency-sensitive tasks.',
+  },
+  {
+    id: HIGH_REASONING_EFFORT,
+    name: 'High',
+    description: 'The default balance for most tasks.',
+  },
+  {
+    id: MAX_REASONING_EFFORT,
+    name: 'Max',
+    description: 'Reserve for the hardest quality-first tasks.',
+  },
 ] as const
 // 中文：部署禁用思考时只暴露 Off 一个强度。
 const OFF_ONLY_REASONING_EFFORTS = [
-  { id: OFF_REASONING_EFFORT, name: 'Off' },
+  {
+    id: OFF_REASONING_EFFORT,
+    name: 'Off',
+    description: 'Use for simple tasks that do not need reasoning.',
+  },
 ] as const
 
 /** Marks a failed file-id resolution that may be retried as an inline request. */
@@ -281,32 +291,6 @@ function collectImageRefs(
   }
 }
 
-/**
- * （中文）解析某条 DeepSeek 模型路由拥有的请求图片预算。
- * @param model 宣传的模型路由及其可选图片覆盖项。
- * @returns 完整的像素与编码字节预算。
- */
-/**
- * Resolve the request-image budgets owned by one DeepSeek model route.
- * @param model - Advertised model route and its optional image overrides.
- * @returns Complete pixel and encoded-byte budgets.
- * @internal
- */
-export function resolveRequestImagePolicy(model: DeepSeekCatalogModel): ImageRequestPolicy {
-  let maxPixels: number
-  if (model.imagePixelBudget !== undefined) maxPixels = model.imagePixelBudget
-  else if (model.imageDetail === 'low') maxPixels = DEFAULT_LOW_DETAIL_IMAGE_PIXEL_BUDGET
-  else maxPixels = DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET
-  return {
-    maxPixels,
-    maxBytes: model.imageMaxBytes === undefined
-      ? DEFAULT_REQUEST_IMAGE_MAX_BYTES
-      : model.imageMaxBytes,
-  }
-}
-
-// 中文：为请求中的每张图片解析"请求版本"（按附件 id 映射；读取请求图片可能
-// 触发规范化/裁剪）。
 async function prepareRequestImages(
   options: GenerateOptions,
   attachments: AttachmentStore,
@@ -495,7 +479,18 @@ export class DeepSeekAdapter extends LlmAdapter {
     return this.config.options().retryPolicy
   }
 
-  // 中文：目录模型即建议模型列表。
+  override imageRequestPricing(_provider: string, model: string): ReturnType<LlmAdapter['imageRequestPricing']> {
+    // The same access resolution the serializer uses, so priced handle and
+    // placeholder text matches what the request actually sends.
+    const attachments = this.config.resolveAttachments?.()
+    const resolveAccess = attachments === undefined
+      ? undefined
+      : (ref: ImageAttachmentRef): ImageAttachmentAccess | undefined => (
+        this.config.resolveImageAccess?.(attachments, ref)
+      )
+    return deepSeekImageRequestPricing(this.config.options(), model, resolveAccess)
+  }
+
   override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
     return Promise.resolve(this.config.options().models.map(model => modelInfo(provider, model)))
   }
@@ -685,7 +680,10 @@ export class DeepSeekAdapter extends LlmAdapter {
     const fileConnection = { baseURL: connection.baseURL, apiKey }
     const model = connection.models.find(entry => entry.id === options.model)
     const policy = model === undefined ? undefined : resolveRequestImagePolicy(model)
-    // 中文：先按原始字节做文件引用上限的超限卸载（数量与字节量化步长）。
+    const resolveImageAccess = attachments === undefined
+      ? undefined
+      : (ref: ImageAttachmentRef): ImageAttachmentAccess | undefined => this.config.resolveImageAccess?.(attachments, ref)
+    const imageAccessOptions = resolveImageAccess === undefined ? {} : { resolveImageAccess }
     const requestMessages = policy === undefined ? options.messages : offloadRequestImagesWithPolicy(options.messages, {
       representation: 'raw',
       maxBytes: connection.maxRequestFilesBytes,
@@ -693,6 +691,7 @@ export class DeepSeekAdapter extends LlmAdapter {
       byteQuantum: connection.imageOffloadByteQuantum,
       countQuantum: connection.imageOffloadCountQuantum,
       byteLength: ref => Math.min(ref.bytes, policy.maxBytes),
+      placeholder: ref => offloadedImageText(ref, resolveImageAccess?.(ref)),
     })
     const requestOptions = requestMessages === options.messages ? options : { ...options, messages: [...requestMessages] }
     // 中文：为每张保留图片解析请求版本（规范化后的字节与元数据）。
@@ -713,6 +712,7 @@ export class DeepSeekAdapter extends LlmAdapter {
         body = await serializeRequestWithImages(requestOptions, {
           representation: { kind: 'base64' },
           requestImages,
+          ...imageAccessOptions,
           maxRequestImageBytes: connection.maxInlineRequestImageBytes,
           maxImagesPerRequest: connection.maxImagesPerRequest,
           byteQuantum: connection.inlineImageOffloadByteQuantum,
@@ -745,6 +745,7 @@ export class DeepSeekAdapter extends LlmAdapter {
               },
             },
             requestImages,
+            ...imageAccessOptions,
             maxRequestImageBytes: connection.maxRequestFilesBytes,
             maxImagesPerRequest: connection.maxImagesPerRequest,
             byteQuantum: connection.imageOffloadByteQuantum,
@@ -757,7 +758,25 @@ export class DeepSeekAdapter extends LlmAdapter {
           continue
         }
       }
-      const payload = JSON.stringify(body)
+      let extensions: PreparedDeepSeekLlmApiExtensions
+      try {
+        extensions = await this.config.prepareExtensions({
+          body: body as unknown as Readonly<Record<string, DeepSeekLlmApiJson>>,
+          signal,
+          ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
+          ...options.purpose === undefined ? {} : { purpose: options.purpose },
+        })
+      } catch (error) {
+        throw new LlmError('DeepSeek request extension preparation failed', 'REQUEST_EXTENSION', { cause: error })
+      }
+      for (const field of Object.keys(extensions.fields)) {
+        if (Object.hasOwn(body, field)) {
+          throw new LlmError(`DeepSeek request extension field ${JSON.stringify(field)} collides with the base request`, 'REQUEST_EXTENSION')
+        }
+      }
+      // Prepared outside the try so the TRANSPORT label below covers exactly the
+      // transport boundary, never a serialization failure.
+      const payload = JSON.stringify({ ...body, ...extensions.fields })
 
       // TODO(http): adopt the Cordis HTTP service when shared transport configuration
       // outweighs its additional runtime dependencies.
@@ -819,6 +838,11 @@ export class DeepSeekAdapter extends LlmAdapter {
           ...delay === undefined ? {} : { providerRetryAfterMs: delay },
           ...id === undefined ? {} : { requestId: id },
         })
+      }
+      try {
+        await extensions.accept()
+      } catch (error) {
+        throw new LlmError('DeepSeek request extension acceptance failed', 'REQUEST_EXTENSION', { cause: error })
       }
       if (!response.body) {
         throw new LlmError('DeepSeek API returned no response body', 'EMPTY_RESPONSE')

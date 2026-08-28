@@ -22,7 +22,7 @@
  * 新手阅读建议：先读 Props 和状态类型，再看事件处理与 JSX。
  */
 
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CardShell } from './card-form.ts'
@@ -57,8 +57,19 @@ export interface PluginCardProps {
 export function PluginCard(props: PluginCardProps) {
   /** 中文说明：设置局部值 [open, setOpen]，由紧邻初始化决定。 */
   const [open, setOpen] = useState(false)
-  /** 中文说明：设置局部值 { state }，由紧邻初始化决定。 */
+  const saveStarted = useRef(false)
   const { state } = props
+  // Collapse only after Host-confirmed settlement; a rejected write keeps its
+  // diagnostics and retained drafts visible for correction.
+  useEffect(() => {
+    if (state.saving) {
+      saveStarted.current = true
+      return
+    }
+    if (!saveStarted.current) return
+    saveStarted.current = false
+    if (!state.dirty && !state.failed) setOpen(false)
+  }, [state.dirty, state.failed, state.saving])
   if (!state.available) return null
   /** 中文说明：设置局部值 title，由紧邻初始化决定。 */
   const title = props.t(props.titleKey)

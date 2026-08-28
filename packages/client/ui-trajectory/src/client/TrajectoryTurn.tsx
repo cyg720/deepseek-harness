@@ -8,6 +8,7 @@
 
 import type { ReactNode } from 'react'
 import { TrajectoryTurnHeader } from './TrajectoryTurnHeader.tsx'
+import type { TrajectoryTranslate } from './locales.ts'
 import css from './TrajectoryTurn.module.css'
 
 /** 单轮轨迹组件属性，包含从 1 开始的轮次号和可选正文节点。 */
@@ -18,6 +19,8 @@ export interface TrajectoryTurnProps {
   /** Message / Step headers and TrajectoryCell rows. */
   /* 可选的消息组、步骤组标题和 TrajectoryCell 行。 */
   children?: ReactNode
+  /** Trajectory locale seat. */
+  t: TrajectoryTranslate
 }
 
 /**
@@ -25,16 +28,10 @@ export interface TrajectoryTurnProps {
  * @param props - turn index and body children.
  * @returns the turn section element.
  */
-/*
- * 渲染一轮轨迹的粘性标题与正文。
- * @param props - turn 是从 1 开始的轮次号；children 是该轮消息或步骤内容。
- * @returns 带 data-turn 标记的 section 元素树。
- * @example <TrajectoryTurn turn={1}>内容</TrajectoryTurn>
- */
-export function TrajectoryTurn({ turn, children }: TrajectoryTurnProps) {
+export function TrajectoryTurn({ turn, children, t }: TrajectoryTurnProps) {
   return (
     <section className={css.root} data-turn={turn}>
-      <TrajectoryTurnHeader turn={turn} />
+      <TrajectoryTurnHeader turn={turn} t={t} />
       <div className={css.body}>{children}</div>
     </section>
   )

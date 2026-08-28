@@ -28,7 +28,7 @@
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { BlockAssembler, deepFreeze } from '@deepseek-ai/dsh-llm'
-import type { Message, TokenUsage } from '@deepseek-ai/dsh-llm'
+import type { LlmImageRequestPricing, Message, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { EpochHeader, Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import { canonicalHeader, headerEquals, isSurfaceEvent } from '@deepseek-ai/dsh-session'
 // Type-only: resolves the optional projection registry Context declaration.
@@ -38,21 +38,29 @@ import type {
   TokenMeasurement,
   TokenMeasurementBaseline,
   TokenMeterConfig,
-  TokenSurfaceNode,
 } from './types.ts'
 import { contextBreakdownProjectionDefinition } from './breakdown-projection.ts'
 import { contextPressureProjectionDefinition, tokenUsageProjectionDefinition } from './usage-projection.ts'
 import { estimateContent, estimateHeader, estimateMessage, ROLE_OVERHEAD } from './estimate.ts'
-import { foldSurfaceTokens } from './surface-fold.ts'
+import { commitSurfaceTokens, planSurfaceTokens } from './surface-fold.ts'
+import type { MeterSurfaceNode } from './surface-fold.ts'
+import { priceSurface } from './route-pricing.ts'
 
 export type * from './types.ts'
 
-// 中文：测量锚点：一次"被捕获的请求头 + 当时表面总量 + 基线"快照，供后续
-// 表面增量相对它计算。
+/**
+ * Raw anchor facts captured at the latest successful call; the baseline is
+ * derived per measurement so the anchored surface reprices under the same
+ * route pricing as the current surface it is compared with.
+ */
 interface MeasurementAnchor {
   readonly header: EpochHeader | undefined
-  readonly surfaceTokens: number
-  readonly baseline: Exclude<TokenMeasurementBaseline, { kind: 'none' }>
+  /** Surface snapshot the anchored request was derived from. */
+  readonly nodes: readonly MeterSurfaceNode[]
+  /** Fixed-heuristic price of the call's provider output. */
+  readonly assistantTokens: number
+  /** Provider usage of the call, when it reported one under a known header. */
+  readonly usage: TokenUsage | undefined
 }
 
 // 中文：每个会话的回放状态：已消费事件数、当前请求头、当前表面节点与总量、
@@ -60,9 +68,8 @@ interface MeasurementAnchor {
 interface ReplayState {
   consumedEvents: number
   header: EpochHeader | undefined
-  surface: TokenSurfaceNode[]
-  surfaceTokens: number
-  stepStart: { turn: number; step: number; surfaceTokens: number } | undefined
+  surface: MeterSurfaceNode[]
+  stepStart: { turn: number; step: number; nodes: readonly MeterSurfaceNode[] } | undefined
   anchor: MeasurementAnchor | undefined
 }
 
@@ -151,14 +158,18 @@ export class TokenMeter extends Service {
   /**
    * Measure current request pressure and surface through the durable tail.
    *
-   * Provider usage is reused only when the latest successful call's canonical
-   * request envelope matches `requestHeader` and its total is no lower than
-   * that call's full heuristic anchor; otherwise the complete envelope and
-   * surface are heuristically repriced.
+   * The effective envelope's routed provider/model selects the request-image
+   * pricing every node is priced under: a route whose adapter declares image
+   * pricing charges each retained image its visual tokens plus its
+   * model-visible text, while other routes keep the fixed heuristic. Provider
+   * usage is reused only when the latest successful call's canonical request
+   * envelope matches `requestHeader` and its total is no lower than that
+   * call's full route-priced anchor; otherwise the complete envelope and
+   * surface are repriced.
    *
-   * `requestHeader` affects request pressure only; surface fields always
-   * describe the current session surface. Every call clones those positional
-   * nodes, so measurement is O(surface).
+   * `requestHeader` replaces the latest logged envelope for pressure and node
+   * pricing; the node set always describes the current session surface. Every
+   * call clones those positional nodes, so measurement is O(surface).
    *
    * @param session - session to replay through its current durable tail.
    * @param requestHeader - optional effective request envelope replacing the latest logged header.
@@ -169,23 +180,34 @@ export class TokenMeter extends Service {
     const header = requestHeader === undefined
       ? state.header
       : canonicalHeader(requestHeader)
+    const pricing = this._routeImagePricing(header)
+    const surface = priceSurface(state.surface, pricing)
     const anchor = state.anchor
 
     let baseline: TokenMeasurementBaseline
     let surfaceDeltaTokens: number
     if (anchor !== undefined && optionalHeaderEquals(anchor.header, header)) {
-      // 中文：锚点可用且请求头一致：复用锚点基线，表面增量 = 当前表面 - 锚点表面。
-      baseline = anchor.baseline
-      surfaceDeltaTokens = state.surfaceTokens - anchor.surfaceTokens
-    } else if (header === undefined && state.surfaceTokens === 0) {
-      // 中文：还没有任何请求与内容：none 基线、零增量。
+      // Matching headers share one route, so the anchored snapshot reprices
+      // under the same pricing as the current surface and the signed delta
+      // compares like with like.
+      const anchorSurfaceTokens = priceSurface(anchor.nodes, pricing).surfaceTokens
+        + anchor.assistantTokens
+      const estimatedAnchorTokens = estimateHeader(header) + anchorSurfaceTokens
+      const usage = anchor.usage
+      // Signed heuristic deltas remain conservative only from an anchor
+      // that is at least as large as the matching full heuristic price.
+      baseline = usage !== undefined && usageTokens(usage) >= estimatedAnchorTokens
+        ? { kind: 'usage', tokens: usageTokens(usage), usage }
+        : { kind: 'estimated', tokens: estimatedAnchorTokens }
+      surfaceDeltaTokens = surface.surfaceTokens - anchorSurfaceTokens
+    } else if (header === undefined && surface.surfaceTokens === 0) {
       baseline = { kind: 'none', tokens: 0 }
       surfaceDeltaTokens = 0
     } else {
       // 中文：无法复用锚点：整包络 + 当前表面重新启发式定价。
       baseline = {
         kind: 'estimated',
-        tokens: estimateHeader(header) + state.surfaceTokens,
+        tokens: estimateHeader(header) + surface.surfaceTokens,
       }
       surfaceDeltaTokens = 0
     }
@@ -195,17 +217,18 @@ export class TokenMeter extends Service {
       baseline,
       surfaceDeltaTokens,
       totalTokens: Math.max(0, baseline.tokens + surfaceDeltaTokens),
-      surfaceTokens: state.surfaceTokens,
-      nodes: state.surface,
+      surfaceTokens: surface.surfaceTokens,
+      nodes: surface.nodes,
     }))
   }
 
-  /*
-   * （中文）启发式定价一条模型可见消息（estimate.ts 中纯函数 estimateMessage
-   * 的实例面）。
-   * @param message 要定价的消息（不改写）。
-   * @returns 固定服务启发式下的内容 + 角色框架 token 数。
-   */
+  /** Resolve the routed model's image pricing, when the llm service and route declare one. */
+  private _routeImagePricing(header: EpochHeader | undefined): LlmImageRequestPricing | undefined {
+    const config = header?.config
+    if (config === undefined) return undefined
+    return this.ctx.get('llm')?.imageRequestPricing(config.provider, config.model)
+  }
+
   /**
    * Heuristically price one model-visible message (instance face of the pure
    * `estimateMessage` export from `estimate.ts`).
@@ -226,7 +249,6 @@ export class TokenMeter extends Service {
         consumedEvents: 0,
         header: undefined,
         surface: [],
-        surfaceTokens: 0,
         stepStart: undefined,
         anchor: undefined,
       }
@@ -248,9 +270,9 @@ export class TokenMeter extends Service {
    * 每次重试时保持未读，而不是把同一改动部分应用多次。
    */
   /**
-   * Validate and prepare every fallible part before mutating replay state.
-   * A malformed event remains unread on every retry instead of partially
-   * applying the same mutation more than once.
+   * Run every fallible step — surface plan and anchor validation — before
+   * mutating replay state, so a malformed event remains unread on every
+   * retry instead of half-applying.
    */
   private _foldEvent(session: Session, state: ReplayState, event: SessionEvent): void {
     // 中文：先计算"下一步"值（校验全部通过才提交），保证失败不污染状态。
@@ -269,7 +291,7 @@ export class TokenMeter extends Service {
             `token meter: step/start at seq ${event.seq} arrived before turn ${state.stepStart.turn}/step ${state.stepStart.step} ended`,
           )
         }
-        nextStepStart = { ...event.data, surfaceTokens: state.surfaceTokens }
+        nextStepStart = { ...event.data, nodes: [...state.surface] }
         break
       case 'step/end':
         // 中文：step/end 必须匹配打开的 step/start。
@@ -284,9 +306,8 @@ export class TokenMeter extends Service {
         break
     }
 
-    // 中文：表面事件做位置化折叠（拿到新节点与增量）。
-    const surface = isSurfaceEvent(event)
-      ? foldSurfaceTokens(state.surface, event)
+    const plan = isSurfaceEvent(event)
+      ? planSurfaceTokens(state.surface, event)
       : undefined
 
     if (event.type === 'assistant/message') {
@@ -301,39 +322,20 @@ export class TokenMeter extends Service {
       // assistant/message is surface-mandatory at every append/seed boundary.
       // 中文：assistant/message 在每个追加/播种边界都是必带表面的。
       // oxlint-disable-next-line typescript/no-non-null-assertion
-      const eventTokens = surface!.tokens
+      const eventTokens = plan!.tokens
       if (event.data.usage !== undefined && nextHeader !== undefined) {
-        // 中文：有 provider 用量且有请求头：从精确引用的 chunk seq 重装
-        // provider 输出定价，建立 usage 或 estimated 锚点。
-        const providerAssistantTokens = this._estimateProviderAssistant(
-          session,
-          event,
-          eventTokens,
-        )
-        const anchorSurfaceTokens = stepStart.surfaceTokens + providerAssistantTokens
-        const providerTokens = usageTokens(event.data.usage)
-        const estimatedAnchorTokens = estimateHeader(nextHeader) + anchorSurfaceTokens
         nextAnchor = {
           header: nextHeader,
-          surfaceTokens: anchorSurfaceTokens,
-          // Signed heuristic deltas remain conservative only from an anchor
-          // that is at least as large as the matching full heuristic price.
-          // 中文：有符号启发式增量只有在锚点不小于对应完整启发式价格时才
-          // 保持保守。
-          baseline: providerTokens >= estimatedAnchorTokens
-            ? { kind: 'usage', tokens: providerTokens, usage: event.data.usage }
-            : { kind: 'estimated', tokens: estimatedAnchorTokens },
+          nodes: stepStart.nodes,
+          assistantTokens: this._estimateProviderAssistant(session, event, eventTokens),
+          usage: event.data.usage,
         }
       } else {
-        // 中文：无 provider 用量：纯启发式锚点（包络 + 锚点表面）。
-        const anchorSurfaceTokens = stepStart.surfaceTokens + eventTokens
         nextAnchor = {
           header: nextHeader,
-          surfaceTokens: anchorSurfaceTokens,
-          baseline: {
-            kind: 'estimated',
-            tokens: estimateHeader(nextHeader) + anchorSurfaceTokens,
-          },
+          nodes: stepStart.nodes,
+          assistantTokens: eventTokens,
+          usage: undefined,
         }
       }
     }
@@ -341,9 +343,8 @@ export class TokenMeter extends Service {
     // 中文：全部校验通过后一次性提交。
     state.header = nextHeader
     state.stepStart = nextStepStart
-    if (surface !== undefined) {
-      state.surface = surface.nodes
-      state.surfaceTokens += surface.deltaTokens
+    if (plan !== undefined) {
+      commitSurfaceTokens(state.surface, plan)
     }
     state.anchor = nextAnchor
   }

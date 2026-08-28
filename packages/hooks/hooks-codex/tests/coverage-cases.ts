@@ -615,10 +615,8 @@ export function defineCoverageCases(groups: CoverageGroup | readonly CoverageGro
       /** 中文说明：测试局部值 ran，由紧邻初始化决定。 */
       let ran = false
       ctx.tools.register(defineContentToolFixture({ name: 'Bash', description: 'b', parameters: { command: { type: 'string' } }, async execute() { ran = true; return [{ type: 'text', text: 'x' }] } }))
-      /** 中文说明：测试局部值 { CallId }，由紧邻初始化决定。 */
-      const { CallId } = await import('@deepseek-ai/dsh-llm')
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-      const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'Bash', arguments: { command: 'x' } })
+      const { ToolCallId } = await import('@deepseek-ai/dsh-llm')
+      const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'Bash', arguments: { command: 'x' } })
       expect(ran).toBe(false) // denied
       expect(result.isError).toBe(true)
     })
@@ -630,10 +628,8 @@ export function defineCoverageCases(groups: CoverageGroup | readonly CoverageGro
       /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = await harness(join(d, 'hooks.json'), new MockAdapter([]))
       ctx.tools.register(defineContentToolFixture({ name: 'Bash', description: 'b', parameters: { command: { type: 'string' } }, async execute() { return [{ type: 'text', text: 'ok' }] } }))
-      /** 中文说明：测试局部值 { CallId }，由紧邻初始化决定。 */
-      const { CallId } = await import('@deepseek-ai/dsh-llm')
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-      const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'Bash', arguments: { command: 'x' } })
+      const { ToolCallId } = await import('@deepseek-ai/dsh-llm')
+      const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'Bash', arguments: { command: 'x' } })
       expect(result.isError).toBeFalsy()
       expect(result.additionalContexts?.[0]?.content.some(b => b.type === 'text' && b.text === 'x')).toBe(true)
     })

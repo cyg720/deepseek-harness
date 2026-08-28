@@ -1,12 +1,41 @@
-/** Shared lazy candidate execution for normalization and request-image encoders. */
-/*
- * 文件职责：按偏好顺序惰性执行图片编码候选，并选择首个满足字节上限的结果。
- * 技术维度：使用 TypeScript 泛型、异步函数和类型谓词跟踪候选与穷尽结果。
- * 产品维度：优先保留较好图片表示，在都超限时提供最小候选供后续缩放或报错决策。
- * 逻辑维度：先执行首项建立 smallest；依次尝试剩余项，命中上限立即返回，否则持续更新最小项。
- * 关键边界：attempts 至少一项，maxBytes 应为正数；候选只在需要时执行且按声明顺序。
- * 新手阅读建议：先看两个接口，再沿 first、smallest、remaining 循环和最终 { smallest } 阅读。
+/** Shared quality ladder and lazy candidate execution for normalization and request-image encoders. */
+
+import type { Sharp } from 'sharp'
+
+/** Shared ladder for both encoders: spaced so each step buys a real size reduction. */
+export const IMAGE_ENCODING_QUALITIES = [85, 75, 60] as const
+/** Fixed lossy-WebP effort; deeper search costs 3-4x encode time for about 5% size. */
+export const WEBP_ENCODING_EFFORT = 0
+
+/** One ladder output carrying its complete bytes and exact facts. */
+export interface EncodedImage {
+  data: Uint8Array
+  mediaType: 'image/jpeg' | 'image/webp'
+  width: number
+  height: number
+}
+
+async function encode(pipeline: Sharp, mediaType: EncodedImage['mediaType'], quality: number): Promise<EncodedImage> {
+  const encoded = mediaType === 'image/webp'
+    ? pipeline.webp({ quality, effort: WEBP_ENCODING_EFFORT })
+    : pipeline.jpeg({ quality })
+  const { data, info } = await encoded.toBuffer({ resolveWithObject: true })
+  return { data: new Uint8Array(data), mediaType, width: info.width, height: info.height }
+}
+
+/**
+ * Build the lazy quality ladder for one prepared pipeline: WebP keeps a source
+ * alpha channel, everything else is JPEG.
+ * @param prepared - sized sRGB pipeline; cloned per candidate.
+ * @param hasAlpha - decoded source alpha fact selecting the codec.
+ * @returns encoders ordered from highest to lowest ladder quality.
  */
+export function encodingLadder(prepared: Sharp, hasAlpha: boolean): Array<() => Promise<EncodedImage>> {
+  const mediaType = hasAlpha ? 'image/webp' : 'image/jpeg'
+  return IMAGE_ENCODING_QUALITIES.map(quality => (
+    () => encode(prepared.clone(), mediaType, quality)
+  ))
+}
 
 /** One encoded candidate carrying its complete bytes. */
 /* 一个携带完整编码字节的候选结果。 */
@@ -25,7 +54,7 @@ export interface ExhaustedEncoding<T extends EncodedCandidate> {
 /**
  * Execute encoding candidates in preference order and stop after the first fitting output.
  * @param attempts - lazy encoders ordered from preferred to fallback representation.
- * @param maxBytes - positive encoded-byte cap.
+ * @param maxBytes - positive encoded-byte target.
  * @returns the first fitting candidate, otherwise the smallest completed fallback.
  */
 /*
@@ -59,7 +88,7 @@ export async function encodeFirstWithinLimit<T extends EncodedCandidate>(
 /**
  * Whether a lazy encoding result exhausted every candidate at one size.
  * @param result - first fitting candidate or exhausted result.
- * @returns whether every candidate exceeded the byte cap.
+ * @returns whether every candidate exceeded the byte target.
  */
 /*
  * 判断是否已穷尽候选。@param result 编码结果。@returns 含 smallest 时为 true。@example isExhaustedEncoding(result)。

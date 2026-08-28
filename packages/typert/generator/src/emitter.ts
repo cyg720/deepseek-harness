@@ -353,7 +353,7 @@ export class FaceModelEmitter {
     if (invocation.implementation !== undefined) {
       lines.push(`  implementation: ${quote(invocation.implementation)},`)
     }
-    // 中文：接收者选择方式：direct 一行输出；context 则带 context / wire / codec。
+    if (invocation.mode !== undefined) lines.push(`  mode: ${quote(invocation.mode)},`)
     if (invocation.invocation.kind === 'direct') {
       lines.push('  invocation: { kind: \'direct\' },')
     } else {
@@ -562,11 +562,11 @@ export class FaceModelEmitter {
       `${safeIdentifier(parameter.wire)}${parameter.optional === true ? '?' : ''}: ${this.renderer.renderType(parameter.boundary.type, referenceNames)}`)
     if (invocation.cancellation !== undefined) parameters.push('signal?: AbortSignal')
     const result = this.renderer.renderType(invocation.result.type, referenceNames)
-    // The Client Remote face delivers the carrier's outcome, so every generated
-    // consumer signature resolves to a result the caller reads instead of a
-    // value it must guard with its own try/catch.
-    // 中文：Client Remote 面会把 carrier 的结果折叠成 RemoteResult，因此生成的消费端
-    // 签名直接返回"可读的结果信封"，调用方无需再包一层 try/catch 去接 carrier 异常。
+    if (invocation.mode === 'stream') {
+      return `(${parameters.join(', ')}) => AsyncIterable<${result}>`
+    }
+    // The unary Client Remote face delivers the carrier's outcome, so every
+    // generated consumer signature resolves to a result the caller reads.
     return `(${parameters.join(', ')}) => Promise<RemoteResult<${result}>>`
   }
 }

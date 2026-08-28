@@ -1,20 +1,4 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证客户端模块加载器的依赖排序、动态导入、失败隔离和卸载。
- * 技术维度：Cordis、Vitest、动态 import、依赖图与可控模块清单。
- * 产品维度：保证宿主声明的前端模块能够按依赖安全启动，并在变化时正确更新。
- * 逻辑维度：构造模块描述与导入结果，运行加载器，检查应用顺序、错误报告和清理。
- * 关键边界：循环或缺失依赖必须失败；模块 effect 的归属和销毁顺序不可泄漏。
- * 新手阅读建议：先读夹具模块与装载辅助函数，再按排序、变化、失败和清理分组阅读。
- */
-/**
- * ClientModuleSystem behavior: lazy CJS arrival (bundle execution only
- * registers the factory), materialization on first import/require with
- * memoization and recursive self-sequencing, the resolution branch order,
- * shared in-flight arrival, invalidate-refetch (HMR), style claiming, the
- * default transport hook, and the loud failure modes (duplicate
- * registration, cycles, table misses, double boot).
- */
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -27,7 +11,11 @@ import {
 
 /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `MODULES_ID` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
 const MODULES_ID = '@deepseek-ai/dsh-client-modules'
-/** 中文说明：当前测试场景使用的局部状态或中间值；变量 `win` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
+
+const comboUrl = (ids: readonly string[], rev: string): string =>
+  `/plugins/??${ids.map(id => `${id}/client.js`).join(',')}&rev=${rev}`
+const BOOTSTRAP_URL = comboUrl([MODULES_ID], 'bootstrap')
+const APPLICATION_URL = comboUrl(['a', 'b'], 'application')
 const win = globalThis as DshWindow
 /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `bootstrapExports` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
 const bootstrapExports = { apply, createClientModuleSystem }
@@ -44,7 +32,15 @@ afterEach(() => {
 
 /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `row` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
 const row = (id: string, fields: Partial<BootModuleRow> = {}): BootModuleRow =>
-  ({ id, url: `/plugins/${id}/client.js?rev=0`, rev: '0', external: [], ...fields })
+  ({
+    id,
+    url: comboUrl([id], '0'),
+    initialUrl: id === MODULES_ID ? BOOTSTRAP_URL : APPLICATION_URL,
+    rev: '0',
+    inject: [],
+    external: [],
+    ...fields,
+  })
 
 /** 中文说明：类型 `Bench` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface Bench {
@@ -101,16 +97,41 @@ function bench(
     if (opts.gated?.includes(url) === true) {
       await new Promise<void>((resolve) => { gates.set(url, resolve) })
     }
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `id` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const id = /\/plugins\/(.+)\/client\.js/.exec(url)?.[1]
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `factory` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const factory = id === undefined ? undefined : bundles[id]
-    if (factory == null || id === undefined) return
-    win.__ModuleLoader__?.load({ id, factory })
+    const batchIds = url === BOOTSTRAP_URL
+      ? entries.filter(entry => entry.initialUrl === BOOTSTRAP_URL).map(entry => entry.id)
+      : url === APPLICATION_URL
+        ? entries.filter(entry => entry.initialUrl === APPLICATION_URL).map(entry => entry.id)
+        : undefined
+    const parsed = new URL(url, 'http://dsh.invalid')
+    const combo = parsed.search.startsWith('??') ? parsed.search.slice(2).split('&', 1)[0] : undefined
+    const singleId = combo?.split(',').length === 1 && combo.endsWith('/client.js')
+      ? combo.slice(0, -'/client.js'.length)
+      : undefined
+    for (const id of batchIds ?? (singleId === undefined ? [] : [singleId])) {
+      const factory = bundles[id]
+      if (factory != null) win.__ModuleLoader__?.load({ id, factory })
+    }
   }
-  /** 中文说明：当前流程调用的客户端服务或测试替身；变量 `loader` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
+  const bootstrapEntries = entries.filter(entry => entry.initialUrl === BOOTSTRAP_URL).map(entry => entry.id)
+  const applicationEntries = entries.filter(entry => entry.initialUrl === APPLICATION_URL).map(entry => entry.id)
+  const batches = [
+    ...(bootstrapEntries.length === 0 ? [] : [{
+      phase: 'bootstrap' as const, url: BOOTSTRAP_URL, rev: 'bootstrap', entries: bootstrapEntries,
+    }]),
+    ...(applicationEntries.length === 0 ? [] : [{
+      phase: 'application' as const, url: APPLICATION_URL, rev: 'application', entries: applicationEntries,
+    }]),
+  ]
   const loader = target.create({
-    boot: { rev: 'graph', entries },
+    boot: {
+      rev: 'graph',
+      entries: entries.map(({ initialUrl: _initialUrl, inject, external, ...entry }) => ({
+        ...entry,
+        ...(inject.length === 0 ? {} : { inject }),
+        ...(external.length === 0 ? {} : { external }),
+      })),
+      batches,
+    },
     staticModules: opts.seed ?? {},
     ...(opts.defaultTransport === true ? {} : { loadBundle }),
   })
@@ -144,7 +165,7 @@ describe('lazy CJS arrival', () => {
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `b` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const b = bench([row('a')], { a: () => { ran.push('a'); return {} } })
     await b.loader.prefetch('a')
-    expect(b.fetched).toEqual(['/plugins/a/client.js?rev=0'])
+    expect(b.fetched).toEqual([APPLICATION_URL])
     expect(ran).toEqual([])
     expect(b.loader.loadCache.has('a')).toBe(false)
   })
@@ -187,20 +208,28 @@ describe('lazy CJS arrival', () => {
       provider: { marker: string }
       react: { marker: string }
     }
-    expect(b.fetched).toEqual([
-      '/plugins/provider/client.js?rev=0',
-      '/plugins/consumer/client.js?rev=0',
-    ])
+    expect(b.fetched).toEqual([APPLICATION_URL])
     expect(exports.provider.marker).toBe('provider')
     expect(exports.react.marker).toBe('react')
+  })
+
+  it('registers injected package factories before materializing a consumer', async () => {
+    const b = bench([
+      row('consumer', { inject: ['provider'] }),
+      row('provider', { inject: ['consumer'] }),
+    ], {
+      consumer: req => ({ provider: req('provider/client') }),
+      provider: () => ({ marker: 'provider' }),
+    })
+    const exports = await b.loader.import('consumer', '', {}) as { provider: { marker: string } }
+    expect(b.fetched).toEqual([APPLICATION_URL])
+    expect(exports.provider.marker).toBe('provider')
   })
 
   it('concurrent callers share one in-flight arrival and materialize once', async () => {
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `ran` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const ran: string[] = []
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `url` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const url = '/plugins/a/client.js?rev=0'
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `b` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
+    const url = APPLICATION_URL
     const b = bench([row('a')], { a: () => { ran.push('a'); return { marker: 'a' } } }, { gated: [url] })
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `first` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const first = b.loader.import('a', '', {})
@@ -310,7 +339,7 @@ describe('bootstrap module', () => {
     const exports = await b.loader.import('consumer', '', {}) as { dep: unknown }
     expect(exports.dep).toBe(bootstrapExports)
     expect(await b.loader.import(`${MODULES_ID}/client`, '', {})).toBe(bootstrapExports)
-    expect(b.fetched).toEqual(['/plugins/consumer/client.js?rev=0'])
+    expect(b.fetched).toEqual([APPLICATION_URL])
   })
 
   it('publishes the same closed-over system when the modules Cordis plugin activates', () => {
@@ -373,7 +402,7 @@ describe('failure modes', () => {
     const b = bench([])
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `options` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const options: ClientModuleCreateOptions = {
-      boot: { rev: 'graph', entries: [] },
+      boot: { rev: 'graph', entries: [], batches: [] },
       staticModules: {},
     }
     expect(() => b.target.create(options)).toThrow('create called after module-system boot')
@@ -386,13 +415,14 @@ describe('boot manifest wire', () => {
     const manifest = parseBootManifest({
       rev: 'graph',
       entries: [
-        { id: 'a', url: '/plugins/a/client.js', rev: '1' },
+        { id: 'a', url: '/plugins/a/client.js', rev: '1', inject: ['b'] },
         { id: 'b', url: '/plugins/b/client.js', rev: '2', external: ['react'] },
       ],
+      batches: [{ phase: 'application', url: '/batch.js', rev: 'batch', entries: ['a', 'b'] }],
     })
     expect(manifest.modules).toEqual([
-      { id: 'a', url: '/plugins/a/client.js', rev: '1', external: [] },
-      { id: 'b', url: '/plugins/b/client.js', rev: '2', external: ['react'] },
+      { id: 'a', url: '/plugins/a/client.js', initialUrl: '/batch.js', rev: '1', inject: ['b'], external: [] },
+      { id: 'b', url: '/plugins/b/client.js', initialUrl: '/batch.js', rev: '2', inject: [], external: ['react'] },
     ])
   })
 
@@ -400,7 +430,86 @@ describe('boot manifest wire', () => {
     expect(() => parseBootManifest({
       rev: 'graph',
       entries: [{ id: 'a', url: '/a', rev: '1', external: 'react' }],
+      batches: [{ phase: 'application', url: '/batch.js', rev: 'batch', entries: ['a'] }],
     })).toThrow('client-modules: boot manifest entry "a" external must be a string array')
+  })
+
+  it('requires the batch table', () => {
+    expect(() => parseBootManifest({ rev: 'graph', entries: [] }))
+      .toThrow('client-modules: boot manifest batches must be an array')
+  })
+
+  it('rejects malformed batch phases', () => {
+    const entry = { id: 'a', url: '/a.js', rev: '1' }
+    expect(() => parseBootManifest({ rev: 'graph', entries: [entry], batches: [null] }))
+      .toThrow('client-modules: boot manifest batch is not an object')
+    expect(() => parseBootManifest({
+      rev: 'graph', entries: [entry], batches: [{ phase: 'idle', url: '/b.js', rev: 'b', entries: ['a'] }],
+    })).toThrow('boot manifest batch phase must be "bootstrap" or "application"')
+  })
+
+  it('rejects duplicate batch URLs', () => {
+    expect(() => parseBootManifest({
+      rev: 'graph',
+      entries: [
+        { id: 'a', url: '/a.js', rev: '1' },
+        { id: 'b', url: '/b.js', rev: '2' },
+      ],
+      batches: [
+        { phase: 'application', url: '/combo.js', rev: '1', entries: ['a'] },
+        { phase: 'application', url: '/combo.js', rev: '2', entries: ['b'] },
+      ],
+    })).toThrow('boot manifest carries duplicate batch URL "/combo.js"')
+  })
+
+  it('allows several batches in one scheduling phase', () => {
+    const manifest = parseBootManifest({
+      rev: 'graph',
+      entries: [
+        { id: 'a', url: '/a.js', rev: '1' },
+        { id: 'b', url: '/b.js', rev: '2' },
+      ],
+      batches: [
+        { phase: 'application', url: '/b.js', rev: '1', entries: ['a'] },
+        { phase: 'application', url: '/c.js', rev: '2', entries: ['b'] },
+      ],
+    })
+    expect(manifest.modules.map(row => row.initialUrl)).toEqual(['/b.js', '/c.js'])
+  })
+
+  it('requires complete batch fields and non-empty entries', () => {
+    const entry = { id: 'a', url: '/a.js', rev: '1' }
+    expect(() => parseBootManifest({
+      rev: 'graph', entries: [entry], batches: [{ phase: 'application', entries: ['a'] }],
+    })).toThrow('boot manifest application batch must carry string url/rev')
+    expect(() => parseBootManifest({
+      rev: 'graph', entries: [entry], batches: [{ phase: 'application', url: '/b.js', rev: 'b', entries: [] }],
+    })).toThrow('boot manifest application batch entries must be a non-empty string array')
+  })
+
+  it('requires a one-to-one batch assignment over graph entries', () => {
+    const entries = [
+      { id: 'a', url: '/a.js', rev: '1' },
+      { id: 'b', url: '/b.js', rev: '2' },
+    ]
+    expect(() => parseBootManifest({
+      rev: 'graph',
+      entries,
+      batches: [{ phase: 'application', url: '/batch.js', rev: 'b', entries: ['ghost'] }],
+    })).toThrow('boot manifest application batch names unknown entry "ghost"')
+    expect(() => parseBootManifest({
+      rev: 'graph',
+      entries,
+      batches: [
+        { phase: 'bootstrap', url: '/boot.js', rev: 'boot', entries: ['a'] },
+        { phase: 'application', url: '/batch.js', rev: 'app', entries: ['a', 'b'] },
+      ],
+    })).toThrow('boot manifest entry "a" belongs to more than one batch')
+    expect(() => parseBootManifest({
+      rev: 'graph',
+      entries,
+      batches: [{ phase: 'application', url: '/batch.js', rev: 'b', entries: ['a'] }],
+    })).toThrow('boot manifest entry "b" belongs to no initial-load batch')
   })
 })
 
@@ -412,14 +521,42 @@ describe('HMR reset', () => {
     const b = bench([row('a')], { a: () => ({ generation: ++generation }) })
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `first` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const first = await b.loader.import('a', '', {})
-    b.loader.invalidate('a')
+    b.loader.invalidate('a', '1')
     expect(b.loader.loadCache.has('a')).toBe(false)
     await b.loader.prefetch('a')
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `second` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const second = await b.loader.import('a', '', {})
-    expect(b.fetched).toHaveLength(2)
+    expect(b.fetched).toEqual([APPLICATION_URL, comboUrl(['a'], '1')])
     expect((first as { generation: number }).generation).toBe(1)
     expect((second as { generation: number }).generation).toBe(2)
+  })
+
+  it('preserves an absolute combo endpoint when applying the rebuilt revision', async () => {
+    const b = bench([
+      row('a', { url: 'https://plugins.example.test/plugins/??a/client.js&rev=0' }),
+    ], { a: () => ({}) })
+    await b.loader.import('a', '', {})
+    b.loader.invalidate('a', 'next')
+    await b.loader.prefetch('a')
+    expect(b.fetched.at(-1)).toBe('https://plugins.example.test/plugins/??a/client.js&rev=next')
+  })
+
+  it('preserves a protocol-relative combo endpoint when applying the rebuilt revision', async () => {
+    const b = bench([
+      row('a', { url: '//plugins.example.test/plugins/??a/client.js&rev=0' }),
+    ], { a: () => ({}) })
+    await b.loader.import('a', '', {})
+    b.loader.invalidate('a', 'next')
+    await b.loader.prefetch('a')
+    expect(b.fetched.at(-1)).toBe('//plugins.example.test/plugins/??a/client.js&rev=next')
+  })
+
+  it('uses the current plugin revision when a graph-row invalidation omits an override', async () => {
+    const b = bench([row('a')], { a: () => ({}) })
+    await b.loader.import('a', '', {})
+    b.loader.invalidate('a')
+    await b.loader.prefetch('a')
+    expect(b.fetched).toEqual([APPLICATION_URL, comboUrl(['a'], '0')])
   })
 })
 
@@ -468,7 +605,7 @@ describe('default transport seam', () => {
       const script = nodes[0]
       if (!(script instanceof HTMLScriptElement)) throw new Error('expected script node')
       expect(script.async).toBe(true)
-      expect(script.getAttribute('src')).toBe('/plugins/dee/client.js?rev=0')
+      expect(script.getAttribute('src')).toBe(APPLICATION_URL)
       queueMicrotask(() => {
         win.__ModuleLoader__?.load({ id: 'dee', factory: () => ({ marker: 'via-script' }) })
         script.dispatchEvent(new Event('load'))
@@ -493,7 +630,7 @@ describe('default transport seam', () => {
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `b` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const b = bench([row('dee')], {}, { defaultTransport: true })
     await expect(b.loader.prefetch('dee')).rejects.toThrow(
-      'bundle script /plugins/dee/client.js?rev=0 failed to load',
+      `bundle script ${APPLICATION_URL} failed to load`,
     )
     expect([...document.querySelectorAll('script')]).toEqual([])
   })

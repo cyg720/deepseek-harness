@@ -1,15 +1,4 @@
 // @vitest-environment jsdom
-// GoalBar behavior: the docked strip above the composer — phase labels,
-// inline edit form, and resume/clear icon actions — driven purely through
-// props, no wire. Loading, absent, and complete goals render nothing.
-/**
- * 文件职责：验证目标进度的 goalbar.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
- * 产品维度：防止目标进度用户流程回归。
- * 逻辑维度：构造状态，触发行为并断言结果和清理。
- * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
- * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
- */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -20,8 +9,6 @@ import { GoalBar } from '../src/client/GoalBar.tsx'
 import type { GoalActionResult, GoalBarActions } from '../src/client/slots.ts'
 import { zh } from '../src/client/locales.ts'
 
-// The framework-injected t seat, stubbed over the zh dictionaries (the default locale).
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: Parameters<typeof GoalBar>[0]['t'] = makeTranslate(zh, commonZh)
 
 afterEach(cleanup)

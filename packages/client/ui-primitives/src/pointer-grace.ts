@@ -1,29 +1,3 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】提供"指针弹出层延迟关闭"机制 usePointerGrace：HoverCard、Menu 等悬停弹出
- *             组件在指针离开后不立即关闭，而是给 200ms 宽限期，让指针来得及跨过锚点与
- *             弹层之间的空隙。
- * 【技术维度】React Hook（useCallback + useRef + useEffect）；用 setTimeout 实现可取消的
- *             延迟回调；close 回调存入 ref，保证每次渲染都能取到最新闭包。
- * 【产品维度】悬浮卡片/菜单这类"移开即关"的交互如果反应太快，鼠标在途中弹层就消失了，
- *             体验割裂；宽限期是桌面 UI 弹层的常见设计。
- * 【逻辑维度】1) 定义 POINTER_GRACE_MS 常量；2) 定义 PointerGrace 句柄接口；
- *             3) usePointerGrace 用 timerRef 管理定时器：arm 重新计时、cancel 取消，
- *                组件卸载时自动取消挂起的关闭。
- * 【关键边界】宽限期结束仍未返回才真正触发 close；挂起定时器在卸载时被丢弃，避免对
- *             已卸载组件回调。
- * 【新手阅读建议】先理解"为什么需要宽限期"（锚点与弹层之间的地面空隙），再看 arm/cancel
- *             如何协作替换旧的挂起计时。
- * ==========================================================================
- */
-// Shared close timing for pointer-dismissed popups (HoverCard, hover-closing
-// Menu). Both float free of their anchor, so the pointer has to cross ground
-// that belongs to neither on its way in; closing on the first pointerleave
-// makes the popup unreachable. The grace turns that transit into a cancelable
-// pending close.
-// 本文件实现"指针弹出层延迟关闭"机制：HoverCard、Menu 等弹层与锚点之间存在地面空隙，
-// 鼠标一离开就关闭会让弹层根本无法到达；宽限期把"关闭"变成可取消的挂起动作。
-
 import { useCallback, useEffect, useRef } from 'react'
 
 /**

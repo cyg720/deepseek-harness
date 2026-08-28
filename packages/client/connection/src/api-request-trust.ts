@@ -21,18 +21,10 @@
  * 新手阅读建议：先看parseAuthority与canonicalAuthority，再看配置校验，最后按isTrustedApiRequest中的三道围栏阅读。
  */
 
-import type { IncomingHttpHeaders } from 'node:http'
 import { isLoopbackHostname } from './loopback-hostname.ts'
+import type { ConnectionTrustRequest } from './rpc.ts'
 
-/** The request facts the fence reads from either HTTP representation. */
-/* 信任围栏从Node HTTP或Fetch表示中读取的最小请求事实。 */
-interface ApiTrustRequest {
-  /** Node IncomingHttpHeaders或浏览器Headers对象。 */
-  headers: IncomingHttpHeaders | Headers
-}
-
-/** 从两种请求头表示中读取单值字符串。 */
-function header(headers: IncomingHttpHeaders | Headers, name: string): string | undefined {
+function header(headers: ConnectionTrustRequest['headers'], name: string): string | undefined {
   if (headers instanceof Headers) return headers.get(name) ?? undefined
   const value = headers[name]
   return typeof value === 'string' ? value : undefined
@@ -107,7 +99,7 @@ function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[]): bool
  * @param trustedHosts - non-loopback authorities this deployment serves: exact `host:port`, or port-less `host` matching any port.
  * @returns true when the Host is ours (loopback or trusted) and any attached browser markers are same-origin.
  */
-export function isTrustedApiRequest(request: ApiTrustRequest, trustedHosts: readonly string[]): boolean {
+export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHosts: readonly string[]): boolean {
   // Host fence (DNS-rebinding defense), applied to every request: the browser
   // fills Host from the URL it believes it is talking to, so a rebound page
   // carries the attacker's domain here even though the socket lands on this

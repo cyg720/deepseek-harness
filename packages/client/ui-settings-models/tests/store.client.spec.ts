@@ -24,7 +24,17 @@ function fail<T>(message: string): RpcResponse<T> {
   return { rpcId: `r-${nextRpc++}` as never, result: { ok: false, error: { code: 'internal', message, details: {} } } }
 }
 
-/** 中文说明：测试局部值 DIRECTORY，由紧邻初始化决定。 */
+/** Credentials answers over the Remote carrier, which has no envelope. */
+type RemoteAnswer<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: { code: string; message: string; details: object } }
+function remoteOk<T>(value: T): RemoteAnswer<T> {
+  return { ok: true, value }
+}
+function remoteFail<T>(message: string): RemoteAnswer<T> {
+  return { ok: false, error: { code: 'internal', message, details: {} } }
+}
+
 const DIRECTORY = [
   { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
   { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true },
@@ -57,31 +67,53 @@ const NAMESPACES = [
 /** 中文说明：函数 api 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function api(overrides: {
   providers?: () => Promise<RpcResponse<{ providers: typeof DIRECTORY }>>
-  describeSettings?: () => Promise<RpcResponse<{ writable: boolean; namespaces: typeof NAMESPACES }>>
-  describeCredentials?: (refs: string[]) => Promise<RpcResponse<{ credentials: Record<string, unknown> }>>
+  describeSettings?: () => Promise<RemoteAnswer<{ writable: boolean; hasDocument: boolean; namespaces: typeof NAMESPACES }>>
+  describeCredentials?: (refs: readonly string[]) => Promise<RemoteAnswer<Record<string, unknown>>>
 } = {}) {
   /** 中文说明：测试局部值 seenRefs，由紧邻初始化决定。 */
   const seenRefs: string[][] = []
-  /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
+  const providers = overrides.providers ?? (() => Promise.resolve(ok({ providers: DIRECTORY })))
+  let providerBatch: Promise<RpcResponse<{ providers: typeof DIRECTORY }>> | undefined
+  let providerBatchReads = 0
+  const readProviderBatch = (): Promise<RpcResponse<{ providers: typeof DIRECTORY }>> => {
+    providerBatch ??= providers()
+    const current = providerBatch
+    providerBatchReads += 1
+    if (providerBatchReads % 2 === 0) providerBatch = undefined
+    return current
+  }
+  const mapProviderBatch = async <T>(
+    project: (rows: typeof DIRECTORY) => T,
+  ): Promise<RemoteAnswer<T>> => {
+    const response = await readProviderBatch()
+    return response.result.ok
+      ? remoteOk(project(response.result.value.providers))
+      : remoteFail(response.result.error.message)
+  }
   const face = {
     llm: {
-      providers: overrides.providers ?? (() => Promise.resolve(ok({ providers: DIRECTORY }))),
-      models: () => Promise.resolve(ok({ groups: [], failures: [] })),
+      listProviders: () => mapProviderBatch(rows => rows
+        .filter(row => row.active)
+        .map(row => ({ id: row.provider, name: row.displayName }))),
+      listConfigurableProviders: () => mapProviderBatch(rows => rows
+        .filter(row => row.settingsNs !== '')
+        .map(({ active: _active, ...row }) => row)),
+      discoverModels: () => Promise.resolve(remoteOk([])),
     },
     settings: {
-      describe: overrides.describeSettings ?? (() => Promise.resolve(ok({ writable: true, hasDocument: false, namespaces: NAMESPACES }))),
-      update: () => Promise.resolve(fail('unused')),
-      replace: () => Promise.resolve(fail('unused')),
+      describe: overrides.describeSettings
+        ?? (() => Promise.resolve(remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES }))),
+      mutate: () => Promise.resolve(remoteFail('the store spec issues no writes')),
     },
     credentials: {
-      describe: (payload: { refs: string[] }) => {
-        seenRefs.push(payload.refs)
-        return (overrides.describeCredentials ?? (refs => Promise.resolve(ok({
-          credentials: Object.fromEntries(refs.map(ref => [ref, { configured: ref === 'OPENAI_API_KEY', writable: true }])),
-        }))))(payload.refs)
+      describe: (refs: readonly string[]) => {
+        seenRefs.push([...refs])
+        return (overrides.describeCredentials ?? (asked => Promise.resolve(remoteOk(
+          Object.fromEntries(asked.map(ref => [ref, { configured: ref === 'OPENAI_API_KEY', writable: true }])),
+        ))))(refs)
       },
-      set: () => Promise.resolve(ok({})),
-      unset: () => Promise.resolve(ok({})),
+      set: () => Promise.resolve(remoteOk(undefined)),
+      unset: () => Promise.resolve(remoteOk(undefined)),
     },
   }
   /** 中文说明：测试局部值 wire，由紧邻初始化决定。 */
@@ -101,8 +133,9 @@ describe('ModelsSettingsStore', () => {
     expect(state.status).toBe('ready')
     expect(state.writable).toBe(true)
     expect(state.credentialError).toBeNull()
-    expect(seenRefs).toEqual([['DEEPSEEK_API_KEY', 'OPENAI_API_KEY']])
-    /** 中文说明：测试局部值 byProvider，由紧邻初始化决定。 */
+    // Named references first (rows order), then the derived <ROUTE>_API_KEY
+    // of every row whose profile names none — one batched describe.
+    expect(seenRefs).toEqual([['DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GHOST_API_KEY']])
     const byProvider = new Map(state.rows.map(row => [row.entry.provider, row]))
     expect(byProvider.get('deepseek-official')).toMatchObject({
       configured: true,
@@ -123,9 +156,7 @@ describe('ModelsSettingsStore', () => {
   })
 
   it('degrades the credential badge, not the page, when the credential domain fails', async () => {
-    /** 中文说明：测试局部值 { face, mirror }，由紧邻初始化决定。 */
-    const { face, mirror } = api({ describeCredentials: () => Promise.resolve(fail('no provider')) })
-    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
+    const { face, mirror } = api({ describeCredentials: () => Promise.resolve(remoteFail('no provider')) })
     const store = new ModelsSettingsStore(face, settingsSchema, mirror)
     await store.load()
     /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
@@ -177,6 +208,21 @@ describe('ModelsSettingsStore', () => {
     expect(store.store.getSnapshot().status).toBe('ready')
   })
 
+  it('surfaces a configurable-provider directory failure', async () => {
+    const { face, mirror } = api()
+    const llm = (face as unknown as {
+      llm: { listConfigurableProviders: () => Promise<RemoteAnswer<never>> }
+    }).llm
+    llm.listConfigurableProviders = () => Promise.resolve(remoteFail<never>('configuration directory down'))
+    const store = new ModelsSettingsStore(face, settingsSchema, mirror)
+
+    await store.load()
+
+    expect(store.store.getSnapshot()).toMatchObject({
+      status: 'error', error: 'configuration directory down',
+    })
+  })
+
   it('lets the newest load win over a stale slow response', async () => {
     /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     let release: (() => void) | undefined
@@ -211,7 +257,7 @@ describe('edge joins', () => {
   it('treats a non-object profile as having no credential reference', async () => {
     /** 中文说明：测试局部值 { face, mirror }，由紧邻初始化决定。 */
     const { face, mirror } = api({
-      describeSettings: () => Promise.resolve(ok({
+      describeSettings: () => Promise.resolve(remoteOk({
         writable: true,
         hasDocument: false,
         namespaces: [{
@@ -238,10 +284,9 @@ describe('edge joins', () => {
     expect(state.rows[0]?.apiKeyEnv).toBeUndefined()
   })
 
-  it('skips the credential describe entirely when no row names a reference', async () => {
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
+  it('describes the derived reference for a row whose profile names none', async () => {
     const { face, mirror, seenRefs } = api({
-      describeSettings: () => Promise.resolve(ok({
+      describeSettings: () => Promise.resolve(remoteOk({
         writable: true,
         hasDocument: false,
         namespaces: [{ ns: 'llm-pi-ai', schema: {}, value: { providers: {} }, applies: 'live' as const, secrets: [], revision: 0 }] as never,
@@ -251,18 +296,24 @@ describe('edge joins', () => {
           { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: false },
         ] as never,
       })),
+      describeCredentials: refs => Promise.resolve(remoteOk(
+        Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
+      )),
     })
     /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = new ModelsSettingsStore(face, settingsSchema, mirror)
     await store.load()
-    expect(seenRefs).toEqual([])
-    expect(store.store.getSnapshot().status).toBe('ready')
+    // The dormant row names no reference, so the join asks about the page's
+    // own derived <ROUTE>_API_KEY — what the editor would display for it.
+    expect(seenRefs).toEqual([['ANTHROPIC_API_KEY']])
+    const state = store.store.getSnapshot()
+    expect(state.status).toBe('ready')
+    expect(state.rows[0]?.credential).toBeUndefined()
+    expect(state.rows[0]?.derivedCredential).toMatchObject({ configured: true })
   })
 
   it('surfaces a settings describe failure', async () => {
-    /** 中文说明：测试局部值 { face, mirror }，由紧邻初始化决定。 */
-    const { face, mirror } = api({ describeSettings: () => Promise.resolve(fail('settings down')) })
-    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
+    const { face, mirror } = api({ describeSettings: () => Promise.resolve(remoteFail('settings down')) })
     const store = new ModelsSettingsStore(face, settingsSchema, mirror)
     await store.load()
     expect(store.store.getSnapshot()).toMatchObject({ status: 'error', error: 'settings down' })
@@ -292,8 +343,8 @@ describe('edge joins', () => {
       describeSettings: () => {
         settingsCall += 1
         return Promise.resolve(settingsCall === 1
-          ? ok({ writable: true, hasDocument: false, namespaces: NAMESPACES })
-          : fail('settings refresh down'))
+          ? remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES })
+          : remoteFail('settings refresh down'))
       },
     })
     /** 中文说明：测试局部值 store，由紧邻初始化决定。 */

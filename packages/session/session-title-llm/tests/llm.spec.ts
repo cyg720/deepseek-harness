@@ -8,7 +8,7 @@
  */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
-import LlmRuntime, { createUserMessage, CallId, isAgentLoopRequest, LlmAdapter  } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { createUserMessage, ToolCallId, isAgentLoopRequest, LlmAdapter  } from '@deepseek-ai/dsh-llm'
 import type { FinishReason, GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionTitleProviderId } from '@deepseek-ai/dsh-session-title'
@@ -331,7 +331,7 @@ describe('generateSessionTitleWithLlm', () => {
     /** 中文说明：变量 toolScript 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const toolScript: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'tool-call' },
-      { type: 'tool-call-delta', index: 0, id: CallId('title-tool'), name: 'unexpected', argumentsDelta: '{}' },
+      { type: 'tool-call-delta', index: 0, id: ToolCallId('title-tool'), name: 'unexpected', argumentsDelta: '{}' },
       { type: 'finish', reason: { kind: 'stop' } },
     ]
     /** 中文说明：变量 tool 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

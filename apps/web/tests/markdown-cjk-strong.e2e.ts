@@ -25,11 +25,8 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景的无障碍快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/markdown-cjk-strong', import.meta.url))
-/** Web 渲染结果的预期无障碍快照。 */
-const UI_EXPECTED = fileURLToPath(new URL('./snapshots/markdown-cjk-strong/ui.expected.md', import.meta.url))
-/** 当前快照运行模式。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/markdown-cjk-strong', import.meta.url))
+const UI_EXPECTED = fileURLToPath(new URL('./expected/markdown-cjk-strong/ui.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
 /** 注入脚手架时使用的稳定会话标识。 */
 const SEED_ID = 'markdown-cjk-strong-web-e2e'
@@ -118,7 +115,7 @@ describe('web e2e: CJK-adjacent Markdown strong emphasis', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 

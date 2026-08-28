@@ -1,4 +1,4 @@
-"""Drive the repo-source JSON-RPC bin through the SDK and a keyless mock SSE server.
+"""Drive the repo-source dsh SDK profile through the SDK and a keyless mock SSE server.
 
 Requires ``pnpm install`` but no build. This manual test is not collected by
 pytest; run ``python tests/manual_sdk_agent_smoke.py``.
@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any
 
 from deepseek_harness import DeepSeekHarness
-from deepseek_harness_runtime import bundled_default_config_path
 
 
 # 中文说明：类 MockCompletionHandler 封装本测试所需的数据和行为，用于表达Python SDK 与捆绑运行时场景。
@@ -56,11 +55,9 @@ class MockCompletionHandler(BaseHTTPRequestHandler):
 
 # 中文说明：函数 run_smoke 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
-    # 中文说明：变量 session_root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    session_root = Path(tempfile.mkdtemp(prefix="dsh-sdk-smoke-sessions-"))
-    # 中文说明：变量 runtime_entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    runtime_entry = repo_root / "packages/examples/jsonrpc-demo/src/bin.ts"
-    # 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+    dsh_home = Path(tempfile.mkdtemp(prefix="dsh-sdk-smoke-home-"))
+    session_root = dsh_home / "sessions"
+    runtime_entry = repo_root / "apps/cli/src/bin.ts"
     server = ThreadingHTTPServer(("127.0.0.1", 0), MockCompletionHandler)
     # 中文说明：变量 thread 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     thread = threading.Thread(target=server.serve_forever, name="mock-openai-compatible-server", daemon=True)
@@ -69,7 +66,7 @@ def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
     base_url = f"http://127.0.0.1:{server.server_address[1]}"
 
     print(f"repo_root={repo_root}")
-    print(f"session_root={session_root}")
+    print(f"dsh_home={dsh_home}")
     print(f"mock_base_url={base_url}")
 
     try:
@@ -80,14 +77,18 @@ def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
             cwd=str(repo_root / "python/sdk"),
             # 中文说明：变量 runtime_cwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
             runtime_cwd=str(repo_root),
-            # 中文说明：变量 session_root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-            session_root=str(session_root),
-            # 中文说明：变量 cordis 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-            cordis=str(bundled_default_config_path()),
-            # 中文说明：变量 launch_args_override 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-            launch_args_override=("node", "--import", "tsx", str(runtime_entry)),
-            # 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+            _launch_args=(
+                "node",
+                "--import",
+                "tsx",
+                str(runtime_entry),
+                "--profile",
+                "sdk",
+            ),
             env={
+                "DSH_HOME": str(dsh_home),
+                "DSH_PERMISSION_MODE": "danger-full-access",
+                "DSH_TELEMETRY_DISABLED": "1",
                 "DEEPSEEK_BASE_URL": base_url,
                 "DEEPSEEK_API_KEY": "sdk-smoke-key",
             },
@@ -124,10 +125,10 @@ def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
         server.server_close()
 
     if keep_sessions:
-        print(f"kept_session_root={session_root}")
+        print(f"kept_dsh_home={dsh_home}")
     else:
-        shutil.rmtree(session_root)
-        print("removed temporary session root")
+        shutil.rmtree(dsh_home)
+        print("removed temporary dsh home")
 
 
 # 中文说明：函数 main 承担本测试的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。

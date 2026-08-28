@@ -35,7 +35,7 @@ it('runs the default config through the source worker', async () => {
   /** 只提供能力声明的保护性提供者；若脚本意外启动子代理，start 会立刻令测试失败。 */
   const provider: SubagentProvider = {
     name: 'spawn',
-    capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: true },
+    capabilities: { agentOptions: true, outputSchema: true, depthLimit: true, toolFilter: true, persona: true },
     inheritsParentContext: false,
     start: () => Promise.reject(new Error('source-worker compat script must not start a child')),
   }

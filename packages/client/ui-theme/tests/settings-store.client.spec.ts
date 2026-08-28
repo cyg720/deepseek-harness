@@ -1,14 +1,6 @@
-/** Appearance row store: snapshot-mirror action and the revision guard. */
-/*
- * 文件职责：验证外观设置存储的初始快照、同步动作和版本号防回退规则。
- * 技术维度：使用 Vitest 直接创建轻量客户端 store 并检查同步后的不可变快照。
- * 产品维度：确保主题偏好正确跟随宿主设置，同时旧消息不会覆盖较新的用户选择。
- * 逻辑维度：分别覆盖默认值、正常递增同步、过期与重复版本写入三条路径。
- * 关键边界：只有严格更大的 revision 才能更新；初始 revision 固定为 -1。
- * 新手阅读建议：按三个 it 顺序观察同一个 store API 在初始化、成功和拒绝场景中的表现。
- */
+/** Appearance and font-size row stores: snapshot-mirror actions and the revision guards. */
 import { describe, expect, it } from 'vitest'
-import { createAppearanceRowStore } from '../src/client/settings-store.ts'
+import { createAppearanceRowStore, createFontSizeRowStore } from '../src/client/settings-store.ts'
 
 // 外观设置 store 测试套件；每个用例创建独立实例，无共享清理状态。
 describe('createAppearanceRowStore', () => {
@@ -38,6 +30,23 @@ describe('createAppearanceRowStore', () => {
     store.actions.sync('system', 2)
     store.actions.sync('system', 3)
     expect(store.getSnapshot().preference).toBe('dark')
+    expect(store.getSnapshot().revision).toBe(3)
+  })
+})
+
+describe('createFontSizeRowStore', () => {
+  it('init shape: default size with revision at -1', () => {
+    const store = createFontSizeRowStore().create()
+    expect(store.getSnapshot()).toEqual({ fontSize: 14, revision: -1 })
+  })
+
+  it('sync mirrors the size; the revision guard drops stale and duplicate writes', () => {
+    const store = createFontSizeRowStore().create()
+    store.actions.sync(16, 3)
+    expect(store.getSnapshot()).toEqual({ fontSize: 16, revision: 3 })
+    store.actions.sync(12, 2)
+    store.actions.sync(12, 3)
+    expect(store.getSnapshot().fontSize).toBe(16)
     expect(store.getSnapshot().revision).toBe(3)
   })
 })

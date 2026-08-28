@@ -41,9 +41,7 @@ interface InsertedRow {
 
 /** 仓库根目录。 */
 const root = resolve(import.meta.dirname, '../../..')
-/** 第三方记忆 MCP 示例目录。 */
-const exampleDir = resolve(root, 'examples/mcp-memory')
-/** 集成测试启动 Cordis Loader 的基础配置。 */
+const exampleDir = resolve(root, 'apps/cli/config/examples/mcp-memory')
 const baseConfig = resolve(import.meta.dirname, 'fixtures/memory-mcp-base.cordis.yml')
 /** 无密钥 MCP 标准输入输出服务器源码。 */
 const fixtureServer = resolve(root, 'packages/mcp/mcp-client/tests/fixture-server.ts')

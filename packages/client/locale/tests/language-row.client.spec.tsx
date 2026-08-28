@@ -1,17 +1,9 @@
 // @vitest-environment jsdom
-/**
- * 文件职责：验证本地化的 language-row 行为与边界。
- * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
- * 产品维度：防止用户可见行为在重构或扩展后发生回归。
- * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
- * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
- * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
- */
-/** LanguageRow behavior: selector pill shows the active locale, the menu
- * opens/closes, and selection drives setLocale. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { createSnapshotStore, type SessionListState, type WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { LanguageRow } from '../src/client/LanguageRow.tsx'
 import type { LanguageRowComponentProps } from '../src/client/LanguageRow.tsx'
@@ -22,8 +14,6 @@ afterEach(cleanup)
 /** 中文说明：按序保存的数据集合 OPTIONS，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const OPTIONS = [{ id: 'zh', label: '中文' }, { id: 'en', label: 'English' }]
 
-/** Empty global standard-kit hooks (the row reads neither). */
-/* 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function emptySessions() {
   /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const store = createSnapshotStore<SessionListState>(
@@ -32,15 +22,16 @@ function emptySessions() {
 }
 /** 中文说明：函数 emptyWorkspaces 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function emptyWorkspaces() {
-  /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
-  const store = createSnapshotStore<WorkspaceListState>({
+  const store = createSnapshotStore<WorkspaceSnapshot>({
     items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-    baselinesReady: true, recentWorkspaceId: undefined,
   })
   return bindSnapshotSelector(store)
 }
 
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+type AttentionSnapshot = Parameters<Parameters<LanguageRowComponentProps['useSessionPendingInteraction']>[0]>[0]
+const noAttention: AttentionSnapshot = new Map()
+const useSessionPendingInteraction: LanguageRowComponentProps['useSessionPendingInteraction'] = selector => selector(noAttention)
+
 function mount(active = 'en') {
   // Real store instance — the sanctioned zero-machinery path for tests.
   /** 中文说明：当前状态或快照 store，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -51,6 +42,7 @@ function mount(active = 'en') {
   /** 中文说明：测试场景的局部值 props，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const props: LanguageRowComponentProps = {
     useSessions: emptySessions(),
+    useSessionPendingInteraction,
     useWorkspaces: emptyWorkspaces(),
     useStore: bindSnapshotSelector(store),
     actions: store.actions,

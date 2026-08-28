@@ -12,7 +12,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import sharp, { type Sharp } from 'sharp'
-import { AttachmentError, ImageVariantId } from '@deepseek-ai/dsh-attachment'
+import { AttachmentError, ImageVariantId, requestImageDimensions } from '@deepseek-ai/dsh-attachment'
 import type {
   ImageMediaType,
   ImageAttachmentRef,
@@ -20,16 +20,17 @@ import type {
   RequestImageAttachment,
   StoredImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
-import { hasLowColourCount } from './normalization.ts'
-import { encodeFirstWithinLimit, isExhaustedEncoding } from './encoding.ts'
+import {
+  IMAGE_ENCODING_QUALITIES,
+  WEBP_ENCODING_EFFORT,
+  encodeFirstWithinLimit,
+  encodingLadder,
+  isExhaustedEncoding,
+} from './encoding.ts'
 import { detectImage, encodedAlphaIsCompatible, probeImage } from './image.ts'
 
 /** Transform version included in every cache and upload-index identity. */
-/* 写入每个缓存和上传索引身份的转换算法版本，算法变化时必须更新。 */
-export const REQUEST_IMAGE_TRANSFORM_VERSION = 'request-image-v4'
-/** DeepSeek request versions normally fit at these two preferred qualities. */
-/* 请求图片有损格式从高到低尝试的两个首选质量。 */
-export const REQUEST_IMAGE_QUALITIES = [85, 80] as const
+export const REQUEST_IMAGE_TRANSFORM_VERSION = 'request-image-v5'
 
 /** 尚未重新解码验证的请求图片编码结果。 */
 interface EncodedRequestImage {
@@ -54,44 +55,6 @@ function digest(value: string | Uint8Array): string {
   return createHash('sha256').update(value).digest('hex')
 }
 
-/**
- * Compute aspect-preserving integer dimensions within a hard total-pixel budget.
- * @param width - positive source width.
- * @param height - positive source height.
- * @param maxPixels - positive width-times-height cap.
- * @returns inward-rounded dimensions; small images are not enlarged.
- */
-export function requestImageDimensions(
-  width: number,
-  height: number,
-  maxPixels: number,
-): { width: number; height: number } {
-  // 不放大来源且使像素总数落入预算的理论比例。
-  const scale = Math.min(1, Math.sqrt(maxPixels / (width * height)))
-  if (scale === 1) return { width, height }
-  if (width >= height) {
-    // 横向图片先向内取整得到候选宽度。
-    let projectedWidth = Math.max(1, Math.floor(width * scale))
-    // 按原宽高比从候选宽度计算高度。
-    let projectedHeight = Math.max(1, Math.round(projectedWidth * height / width))
-    while (projectedWidth * projectedHeight > maxPixels && projectedWidth > 1) {
-      projectedWidth -= 1
-      projectedHeight = Math.max(1, Math.round(projectedWidth * height / width))
-    }
-    return { width: projectedWidth, height: projectedHeight }
-  }
-  // 纵向图片先向内取整得到候选高度。
-  let projectedHeight = Math.max(1, Math.floor(height * scale))
-  // 按原宽高比从候选高度计算宽度。
-  let projectedWidth = Math.max(1, Math.round(projectedHeight * width / height))
-  while (projectedWidth * projectedHeight > maxPixels && projectedHeight > 1) {
-    projectedHeight -= 1
-    projectedWidth = Math.max(1, Math.round(projectedHeight * width / height))
-  }
-  return { width: projectedWidth, height: projectedHeight }
-}
-
-/** 校验策略数值为正安全整数，并返回原值。 */
 function checkedInteger(value: number, name: string): number {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new AttachmentError(`${name} must be a positive integer.`, 'INVALID_ATTACHMENT_REF')
@@ -113,10 +76,10 @@ function descriptor(attachment: ImageAttachmentRef, policy: ImageRequestPolicy):
     routePixelBudget: policy.maxPixels,
     encodedByteBudget: policy.maxBytes,
     encoding: {
-      png: { compressionLevel: 9, palette: 'opaque-only' },
-      webpQualities: REQUEST_IMAGE_QUALITIES,
-      jpegQualities: REQUEST_IMAGE_QUALITIES,
-      order: ['low-colour:png-webp', 'alpha:webp', 'opaque:jpeg'],
+      webpQualities: IMAGE_ENCODING_QUALITIES,
+      webpEffort: WEBP_ENCODING_EFFORT,
+      jpegQualities: IMAGE_ENCODING_QUALITIES,
+      order: ['alpha:webp', 'opaque:jpeg'],
       colourspace: 'srgb',
     },
   })
@@ -146,53 +109,12 @@ function sourcePipeline(attachment: StoredImageAttachment): Sharp {
   return sharp(attachment.data, { failOn: 'error', limitInputPixels: false }).toColourspace('srgb')
 }
 
-/** 按目标格式和质量编码请求图片，并返回真实尺寸。 */
-async function encoded(
-  image: Sharp,
-  mediaType: 'image/png' | 'image/jpeg' | 'image/webp',
-  quality?: number,
-  palette = true,
-): Promise<EncodedRequestImage> {
-  // 根据目标格式配置的sharp输出管线。
-  const output = mediaType === 'image/png'
-    ? image.png({ compressionLevel: 9, palette })
-    : mediaType === 'image/webp'
-      ? image.webp({ quality })
-      : image.jpeg({ quality })
-  // 编码后的字节和最终尺寸信息。
-  const { data, info } = await output.toBuffer({ resolveWithObject: true })
-  return { data: new Uint8Array(data), mediaType, width: info.width, height: info.height }
-}
-
-/** 根据透明度与低色彩分类构造当前尺寸的惰性编码顺序。 */
-function encodingAttempts(
-  attachment: StoredImageAttachment,
-  width: number,
-  height: number,
-  hasAlpha: boolean,
-  lowColour: boolean,
-): Array<() => Promise<EncodedRequestImage>> {
-  // 当前尺寸可重复克隆的基础管线。
-  const prepared = pipeline(attachment, width, height)
-  // 保留透明度能力的WebP质量尝试列表。
-  const webp = REQUEST_IMAGE_QUALITIES.map(quality => (
-    () => encoded(prepared.clone(), 'image/webp', quality)
-  ))
-  if (lowColour) return [() => encoded(prepared.clone(), 'image/png', undefined, !hasAlpha), ...webp]
-  if (hasAlpha) return webp
-  return REQUEST_IMAGE_QUALITIES.map(quality => (
-    () => encoded(prepared.clone(), 'image/jpeg', quality)
-  ))
-}
-
-/** 根据路由策略复用来源或生成一个满足预算的请求图片。 */
 async function createRequestImage(
   attachment: StoredImageAttachment,
   policy: ImageRequestPolicy,
   hasAlpha: boolean,
 ): Promise<EncodedRequestImage> {
-  // 当前轮次尝试使用的预算内宽高，超出字节上限时会继续缩小。
-  let dimensions = requestImageDimensions(attachment.ref.width, attachment.ref.height, policy.maxPixels)
+  const dimensions = requestImageDimensions(attachment.ref.width, attachment.ref.height, policy.maxPixels)
   if (dimensions.width === attachment.ref.width
     && dimensions.height === attachment.ref.height
     && attachment.data.byteLength <= policy.maxBytes) {
@@ -203,24 +125,11 @@ async function createRequestImage(
       height: attachment.ref.height,
     }
   }
-  // 是否优先尝试低色彩图片的无损PNG编码。
-  const lowColour = await hasLowColourCount(sourcePipeline(attachment))
-  for (;;) {
-    // 当前尺寸首个符合字节预算的结果，或所有失败尝试中最小者。
-    const encodedVersion = await encodeFirstWithinLimit(
-      encodingAttempts(attachment, dimensions.width, dimensions.height, hasAlpha, lowColour),
-      policy.maxBytes,
-    )
-    if (!isExhaustedEncoding(encodedVersion)) return encodedVersion
-    if (dimensions.width === 1 && dimensions.height === 1) break
-    // 根据超限比例估算的下一轮缩放，且至少缩小10%。
-    const scale = Math.min(0.9, Math.sqrt(policy.maxBytes / encodedVersion.smallest.data.byteLength) * 0.95)
-    dimensions = {
-      width: Math.max(1, Math.floor(dimensions.width * scale)),
-      height: Math.max(1, Math.floor(dimensions.height * scale)),
-    }
-  }
-  throw new AttachmentError('Image cannot be encoded within the model-request byte budget.', 'IMAGE_TOO_LARGE')
+  const encodedVersion = await encodeFirstWithinLimit(
+    encodingLadder(pipeline(attachment, dimensions.width, dimensions.height), hasAlpha),
+    policy.maxBytes,
+  )
+  return isExhaustedEncoding(encodedVersion) ? encodedVersion.smallest : encodedVersion
 }
 
 /** 根据变体摘要构造两级分桶缓存路径。 */
@@ -243,7 +152,7 @@ async function readCached(
     const detected = await probeImage(data)
     // 当前策略允许的最大宽高。
     const maximum = requestImageDimensions(attachment.ref.width, attachment.ref.height, policy.maxPixels)
-    if (data.byteLength > policy.maxBytes || detected.depth !== 'uchar' || detected.space !== 'srgb'
+    if (detected.depth !== 'uchar' || detected.space !== 'srgb'
       || detected.width > maximum.width || detected.height > maximum.height
       || !encodedAlphaIsCompatible(expectedAlpha, detected)) return undefined
     return { data, mediaType: detected.mediaType, width: detected.width, height: detected.height, hasAlpha: detected.hasAlpha }

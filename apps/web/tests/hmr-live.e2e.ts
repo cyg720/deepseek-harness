@@ -156,8 +156,9 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
     await page.getByText(oldText, { exact: true }).waitFor({ timeout: 15_000 })
     /** 写入 window 的身份值；更新后保留即说明未整页刷新。 */
     const pageIdentity = await page.evaluate(() => {
-      /** 当前文档实例独有的随机标识。 */
-      const identity = crypto.randomUUID()
+      // In-page code: an import would not survive serialization, and the page
+      // entropy source available in every context is getRandomValues.
+      const identity = Array.from(crypto.getRandomValues(new Uint8Array(8)), byte => byte.toString(16).padStart(2, '0')).join('')
       Object.defineProperty(window, '__dshHmrPageIdentity', { value: identity })
       return identity
     })

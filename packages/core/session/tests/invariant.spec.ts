@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createScope, scopeTarget } from '@deepseek-ai/dsh-scope'
-import { createUserMessage, CallId, createMessage, createToolResultMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId, createMessage, createToolResultMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId, TOOL_NOT_STARTED } from '@deepseek-ai/dsh-session'
 import * as SessionInvariant from '@deepseek-ai/dsh-session/invariant'
 import InvariantRegistry, { InvariantError } from '@deepseek-ai/dsh-invariants'
@@ -62,18 +62,18 @@ describe('session-log invariants', () => {
         step: 1,
         message: createMessage({
           role: 'assistant',
-          content: [{ type: 'tool-call', id: CallId('c1'), name: 'echo', arguments: '{}' }],
+          content: [{ type: 'tool-call', id: ToolCallId('c1'), name: 'echo', arguments: '{}' }],
           source: {
             kind: 'model',
             ...{ provider: 'mock', model: 'mock' },
           },
         }),
       }, { surfaceOp: 'append' })
-      session.append('tool/call', { turn: 1, step: 1, callId: CallId('c1'), name: 'echo', arguments: '{}' })
+      session.append('tool/call', { turn: 1, step: 1, callId: ToolCallId('c1'), name: 'echo', arguments: '{}' })
       session.append('tool/result', {
         turn: 1, step: 1,
         message: createToolResultMessage({
-          callId: CallId('c1'),
+          callId: ToolCallId('c1'),
           content: [],
           isError: false,
         }),
@@ -170,7 +170,6 @@ describe('session-log invariants', () => {
     const enclosed = (await setup()).ctx.sessions.create()
     enclosed.append('turn/start', { turn: 1 })
     enclosed.append('step/start', { turn: 1, step: 1 })
-    expect(() => enclosed.append('todo/write', { todos: [] })).not.toThrow()
     expect(() => enclosed.append('request/header', {
       header: { config: { provider: 'mock', model: 'mock' } },
       reason: 'initial',
@@ -259,7 +258,7 @@ describe('session-log invariants', () => {
       turn: 1,
       step: 1,
       message: createToolResultMessage({
-        callId: CallId('ghost'),
+        callId: ToolCallId('ghost'),
         content: [],
         isError: false,
       }),
@@ -276,7 +275,7 @@ describe('session-log invariants', () => {
       turn: 1,
       step: 1,
       message: createToolResultMessage({
-        callId: CallId('closed'),
+        callId: ToolCallId('closed'),
         content: [],
         isError: false,
       }),
@@ -293,7 +292,7 @@ describe('session-log invariants', () => {
     session.append('tool/call', {
       turn: 1,
       step: 1,
-      callId: CallId('rewrite'),
+      callId: ToolCallId('rewrite'),
       name: 'echo',
       arguments: '{}',
     })
@@ -302,7 +301,7 @@ describe('session-log invariants', () => {
       turn: 1,
       step: 1,
       message: createToolResultMessage({
-        callId: CallId('rewrite'),
+        callId: ToolCallId('rewrite'),
         content: [{ type: 'text', text: 'original' }],
         isError: false,
       }),
@@ -336,7 +335,7 @@ describe('session-log invariants', () => {
     session.append('tool/call', {
       turn: 1,
       step: 1,
-      callId: CallId('rewrite'),
+      callId: ToolCallId('rewrite'),
       name: 'echo',
       arguments: '{}',
     })
@@ -345,7 +344,7 @@ describe('session-log invariants', () => {
       turn: 1,
       step: 1,
       message: createToolResultMessage({
-        callId: CallId('rewrite'),
+        callId: ToolCallId('rewrite'),
         content: [{ type: 'text', text: 'original' }],
         isError: false,
       }),
@@ -378,7 +377,7 @@ describe('session-log invariants', () => {
         turn: 1,
         step: 1,
         message: createToolResultMessage({
-          callId: CallId('crashed'),
+          callId: ToolCallId('crashed'),
           content: [],
           isError: true,
         }),
@@ -393,7 +392,7 @@ describe('session-log invariants', () => {
     expect(() => {
       unresolved.append('turn/start', { turn: 1 })
       unresolved.append('step/start', { turn: 1, step: 1 })
-      unresolved.append('tool/call', { turn: 1, step: 1, callId: CallId('c1'), name: 'echo', arguments: '{}' })
+      unresolved.append('tool/call', { turn: 1, step: 1, callId: ToolCallId('c1'), name: 'echo', arguments: '{}' })
       unresolved.append('step/end', { turn: 1, step: 1 })
       unresolved.append('turn/end', { turn: 1, reason: { kind: 'error', error: { message: 'boom', code: 'UNKNOWN' } } })
     }).not.toThrow()
@@ -406,14 +405,14 @@ describe('session-log invariants', () => {
     const session = ctx.sessions.create()
     session.append('turn/start', { turn: 1 })
     session.append('step/start', { turn: 1, step: 1 })
-    session.append('tool/call', { turn: 1, step: 1, callId: CallId('c1'), name: 'echo', arguments: '{}' })
+    session.append('tool/call', { turn: 1, step: 1, callId: ToolCallId('c1'), name: 'echo', arguments: '{}' })
     session.append('step/end', { turn: 1, step: 1 })
     session.append('step/start', { turn: 1, step: 2 })
     expect(() => session.append('tool/result', {
       turn: 1,
       step: 2,
       message: createToolResultMessage({
-        callId: CallId('c1'),
+        callId: ToolCallId('c1'),
         content: [],
         isError: false,
       }),

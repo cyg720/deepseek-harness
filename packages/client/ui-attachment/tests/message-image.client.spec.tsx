@@ -11,7 +11,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { MessageImagesProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { EMPTY_CHAT_SNAPSHOT, type MessageImagesProps } from '@deepseek-ai/dsh-client-ui-chat/client'
+import { EMPTY_CONVERSATION_SNAPSHOT } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { ImageGallery, MessageImage } from '../src/MessageImage.tsx'
 import type { MessageImageLabels } from '../src/MessageImage.tsx'
 import { MessageImages } from '../src/client/MessageImages.tsx'
@@ -38,13 +39,38 @@ const attachment = {
   name: 'history.png',
 }
 
+type AttentionSnapshot = Parameters<Parameters<MessageImagesProps['useSessionPendingInteraction']>[0]>[0]
+type TrajectorySnapshot = Parameters<Parameters<MessageImagesProps['useTrajectory']>[0]>[0]
+
+const noAttention: AttentionSnapshot = new Map()
+const emptyTrajectory: TrajectorySnapshot = {
+  eventNodes: [],
+  eventLocations: new Map(),
+  requests: [],
+  callSchemas: new Map(),
+  partial: null,
+  runningCalls: [],
+}
+const useSessionPendingInteraction: MessageImagesProps['useSessionPendingInteraction'] = selector => selector(noAttention)
+const useConversation: MessageImagesProps['useConversation'] = selector => selector(EMPTY_CONVERSATION_SNAPSHOT)
+const useChat: MessageImagesProps['useChat'] = selector => selector(EMPTY_CHAT_SNAPSHOT)
+const useTrajectory: MessageImagesProps['useTrajectory'] = selector => selector(emptyTrajectory)
+
 describe('MessageImage', () => {
+  it('renders a cached URL on the first frame while refreshing it', () => {
+    const load = Object.assign(vi.fn(() => new Promise<string>(() => {})), {
+      peek: vi.fn(() => 'blob:seeded'),
+    })
+    const view = render(<MessageImage image={{ attachment }} load={load} variant="single" labels={labels} />)
+    expect(view.queryByText('图片加载中…')).toBeNull()
+    expect((view.getByAltText('history.png') as HTMLImageElement).src).toContain('blob:seeded')
+    expect(load).toHaveBeenCalledWith(attachment)
+  })
+
   it('loads a session-authorized URL, bounds the thumbnail, and clicks into the original', async () => {
     /** 中文说明：测试场景的局部值 load，由紧邻初始化决定。 */
     const load = vi.fn().mockResolvedValue('blob:history')
-    /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
-    const view = render(<MessageImage attachment={attachment} load={load} variant="single" labels={labels} />)
-    /** 中文说明：测试场景的局部值 frame，由紧邻初始化决定。 */
+    const view = render(<MessageImage image={{ attachment }} load={load} variant="single" labels={labels} />)
     const frame = view.getByRole('button', { name: 'history.png，点击查看原图' })
     expect(frame.getAttribute('style')).toContain('width: 240px')
     expect(frame.getAttribute('style')).toContain('height: 120px')
@@ -60,9 +86,7 @@ describe('MessageImage', () => {
   it('ignores a click while the thumbnail is still loading', () => {
     /** 中文说明：测试场景的局部值 load，由紧邻初始化决定。 */
     const load = vi.fn(() => new Promise<string>(() => {}))
-    /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
-    const view = render(<MessageImage attachment={attachment} load={load} variant="single" labels={labels} />)
-    /** 中文说明：测试场景的局部值 frame，由紧邻初始化决定。 */
+    const view = render(<MessageImage image={{ attachment }} load={load} variant="single" labels={labels} />)
     const frame = view.getByRole('button', { name: 'history.png，点击查看原图' })
     expect(view.getByText('图片加载中…')).toBeTruthy()
     fireEvent.click(frame)
@@ -74,8 +98,7 @@ describe('MessageImage', () => {
     const { name: _named, ...unnamed } = attachment
     /** 中文说明：测试场景的局部值 load，由紧邻初始化决定。 */
     const load = vi.fn().mockResolvedValue('blob:unnamed')
-    /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
-    const view = render(<MessageImage attachment={unnamed} load={load} variant="single" labels={labels} />)
+    const view = render(<MessageImage image={{ attachment: unnamed }} load={load} variant="single" labels={labels} />)
     await waitFor(() => { expect(view.getByAltText('图片')).toBeTruthy() })
     expect(view.getByRole('button', { name: '图片，点击查看原图' })).toBeTruthy()
   })
@@ -86,9 +109,7 @@ describe('MessageImage', () => {
       .mockRejectedValueOnce(new Error('offline'))
       .mockRejectedValueOnce(new Error('still offline'))
       .mockResolvedValueOnce('blob:retry')
-    /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
-    const view = render(<MessageImage attachment={attachment} load={load} variant="single" labels={labels} />)
-    /** 中文说明：测试场景的局部值 retry，由紧邻初始化决定。 */
+    const view = render(<MessageImage image={{ attachment }} load={load} variant="single" labels={labels} />)
     const retry = await view.findByRole('button', { name: '图片加载失败，点击重试' })
     fireEvent.click(retry)
     /** 中文说明：测试场景的局部值 retryAgain，由紧邻初始化决定。 */
@@ -103,7 +124,7 @@ describe('MessageImage', () => {
     const load = vi.fn().mockResolvedValue('blob:ratio')
     /** 中文说明：测试场景的局部值 tall，由紧邻初始化决定。 */
     const tall = render(
-      <MessageImage attachment={{ ...attachment, width: 100, height: 2000 }} load={load} variant="single" labels={labels} />,
+      <MessageImage image={{ attachment: { ...attachment, width: 100, height: 2000 } }} load={load} variant="single" labels={labels} />,
     )
     /** 中文说明：测试场景的局部值 tallFrame，由紧邻初始化决定。 */
     const tallFrame = tall.getByRole('button', { name: 'history.png，点击查看原图' })
@@ -114,7 +135,7 @@ describe('MessageImage', () => {
     tall.unmount()
     /** 中文说明：测试场景的局部值 wide，由紧邻初始化决定。 */
     const wide = render(
-      <MessageImage attachment={{ ...attachment, width: 4000, height: 100 }} load={load} variant="single" labels={labels} />,
+      <MessageImage image={{ attachment: { ...attachment, width: 4000, height: 100 } }} load={load} variant="single" labels={labels} />,
     )
     /** 中文说明：测试场景的局部值 wideFrame，由紧邻初始化决定。 */
     const wideFrame = wide.getByRole('button', { name: 'history.png，点击查看原图' })
@@ -125,7 +146,7 @@ describe('MessageImage', () => {
     wide.unmount()
     /** 中文说明：测试场景的局部值 small，由紧邻初始化决定。 */
     const small = render(
-      <MessageImage attachment={{ ...attachment, width: 100, height: 100 }} load={load} variant="single" labels={labels} />,
+      <MessageImage image={{ attachment: { ...attachment, width: 100, height: 100 } }} load={load} variant="single" labels={labels} />,
     )
     /** 中文说明：测试场景的局部值 smallFrame，由紧邻初始化决定。 */
     const smallFrame = small.getByRole('button', { name: 'history.png，点击查看原图' })
@@ -136,9 +157,7 @@ describe('MessageImage', () => {
   it('renders a tile at the fixed square without inline sizing', () => {
     /** 中文说明：测试场景的局部值 load，由紧邻初始化决定。 */
     const load = vi.fn(() => new Promise<string>(() => {}))
-    /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
-    const view = render(<MessageImage attachment={attachment} load={load} variant="tile" labels={labels} />)
-    /** 中文说明：测试场景的局部值 frame，由紧邻初始化决定。 */
+    const view = render(<MessageImage image={{ attachment }} load={load} variant="tile" labels={labels} />)
     const frame = view.getByRole('button', { name: 'history.png，点击查看原图' })
     expect(frame.getAttribute('data-variant')).toBe('tile')
     expect(frame.getAttribute('style')).toBeNull()
@@ -147,9 +166,7 @@ describe('MessageImage', () => {
   it('keeps the tile variant on the failed-load retry control', async () => {
     /** 中文说明：测试场景的局部值 load，由紧邻初始化决定。 */
     const load = vi.fn().mockRejectedValue(new Error('offline'))
-    /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
-    const view = render(<MessageImage attachment={attachment} load={load} variant="tile" labels={labels} />)
-    /** 中文说明：测试场景的局部值 retry，由紧邻初始化决定。 */
+    const view = render(<MessageImage image={{ attachment }} load={load} variant="tile" labels={labels} />)
     const retry = await view.findByRole('button', { name: '图片加载失败，点击重试' })
     expect(retry.getAttribute('data-variant')).toBe('tile')
   })
@@ -159,8 +176,7 @@ describe('MessageImage', () => {
     let resolve: ((url: string) => void) | undefined
     /** 中文说明：测试场景的局部值 load，由紧邻初始化决定。 */
     const load = vi.fn(() => new Promise<string>((r) => { resolve = r }))
-    /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
-    const view = render(<MessageImage attachment={attachment} load={load} variant="single" labels={labels} />)
+    const view = render(<MessageImage image={{ attachment }} load={load} variant="single" labels={labels} />)
     view.unmount()
     resolve?.('blob:late')
     await Promise.resolve()
@@ -168,11 +184,49 @@ describe('MessageImage', () => {
     let reject: ((error: Error) => void) | undefined
     /** 中文说明：测试场景的局部值 failing，由紧邻初始化决定。 */
     const failing = vi.fn(() => new Promise<string>((_r, rej) => { reject = rej }))
-    /** 中文说明：测试场景的局部值 second，由紧邻初始化决定。 */
-    const second = render(<MessageImage attachment={attachment} load={failing} variant="single" labels={labels} />)
+    const second = render(<MessageImage image={{ attachment }} load={failing} variant="single" labels={labels} />)
     second.unmount()
     reject?.(new Error('late failure'))
     await Promise.resolve()
+  })
+})
+
+describe('MessageImage preview arm', () => {
+  it('displays a local preview immediately, without the loader, sized by its probed dimensions', () => {
+    const load = vi.fn()
+    const view = render(
+      <MessageImage
+        image={{ preview: { url: 'blob:echo', name: 'echo.png', width: 640, height: 320 } }}
+        load={load}
+        variant="single"
+        labels={labels}
+      />,
+    )
+    expect(load).not.toHaveBeenCalled()
+    const img = view.getByAltText('echo.png') as HTMLImageElement
+    expect(img.src).toContain('blob:echo')
+    const frame = img.closest('button') as HTMLButtonElement
+    expect(frame.style.width).toBe('240px')
+    expect(frame.style.height).toBe('120px')
+  })
+
+  it('sizes an unprobed lone preview as a square crop and falls back to the image label', () => {
+    const load = vi.fn()
+    const view = render(
+      <MessageImage image={{ preview: { url: 'blob:unprobed' } }} load={load} variant="single" labels={labels} />,
+    )
+    const img = view.getByAltText('图片') as HTMLImageElement
+    const frame = img.closest('button') as HTMLButtonElement
+    expect(frame.style.width).toBe('240px')
+    expect(frame.style.height).toBe('240px')
+  })
+
+  it('opens the lightbox from a preview thumbnail', () => {
+    const view = render(
+      <MessageImage image={{ preview: { url: 'blob:box' } }} load={vi.fn(async () => '')} variant="tile" labels={labels} />,
+    )
+    fireEvent.click(view.getByRole('button', { name: '图片，点击查看原图' }))
+    expect(view.getByRole('dialog', { name: '原图预览' })).toBeTruthy()
   })
 })
 
@@ -185,10 +239,16 @@ describe('ImageGallery', () => {
     expect(empty.container.firstChild).toBeNull()
     /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
     const view = render(
-      <ImageGallery images={[{ attachment }, { attachment }]} load={load} align="end" labels={labels} />,
+      <ImageGallery
+        images={[{ attachment }, { preview: { url: 'blob:echo', name: 'echo.png' } }, { attachment }]}
+        load={load}
+        align="end"
+        labels={labels}
+      />,
     )
     expect(view.container.querySelector('[data-align="end"]')).not.toBeNull()
     await waitFor(() => { expect(view.getAllByAltText('history.png')).toHaveLength(2) })
+    expect(view.getByAltText('echo.png')).toBeTruthy()
   })
 
   it('renders a lone image large and several images as square tiles', () => {
@@ -247,8 +307,12 @@ describe('ImageGallery', () => {
       sessionId: 'message-images-test' as MessageImagesProps['sessionId'],
       useSession,
       useSessions,
+      useSessionPendingInteraction,
       useWorkspaces,
       useProjection: () => undefined,
+      useConversation,
+      useChat,
+      useTrajectory,
       useInput,
       inputActions: {
         setDraft: vi.fn(),

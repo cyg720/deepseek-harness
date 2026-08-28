@@ -13,31 +13,33 @@
  * binding, session pair, global useSessions, store pair), inject execution
  * point (inside component bodies, contained per entry) and parameter
  * derivation, and cache granularity (entry x scope key). Ledger semantics
- * (declaration conflicts, store instance accounting) belong to the runtime
+ * (declaration conflicts, store instance accounting) belong to the renderer
  * SlotRegistry suite, not here.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render } from '@testing-library/react'
 import { useEffect, useState, type ReactNode } from 'react'
+import { Context } from '@deepseek-ai/cordis'
 import {
   SlotOwnershipError, StaleAuthorizationError,
-  /** 中文说明：类型或类 ActionsDecl 约束模块数据或职责。 */
-  type ActionsDecl, type SlotEntryDef, type SlotSpec, type StoreHandle, type StoredEntry,
+  type ActionsDecl, type SessionProviderComponent, type SlotEntryDef,
+  type SlotSpec, type StoreHandle, type StoredEntry,
 } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionMaybeProvideInfo } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  RenderOpts, SessionProvideInfo, SlotRendererHost, StoreInstanceLike,
+  RenderOpts, ScopedStandardSourceBinding, SlotRendererHost, SlotScopeAdapter,
+  StandardSourceBinding, StoreInstanceLike,
 } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { createSlotRenderer } from '../src/client/scoped-slots.tsx'
-import { SessionProvider } from '../src/client/session-provider.tsx'
 
 /** 中文说明：类型或类 AnyProps 约束模块数据或职责。 */
 type AnyProps = Record<string, unknown>
 /** 中文说明：类型或类 RenderSlotFn 约束模块数据或职责。 */
 type RenderSlotFn = (key: string, owner: object, opts?: RenderOpts) => ReactNode
-/** 中文说明：类型或类 RenderSlotChainFn 约束模块数据或职责。 */
-type RenderSlotChainFn = (key: string, owner: object, opts?: { fallback?: ReactNode; overlay?: boolean }) => ReactNode
-/** 中文说明：类型或类 DeclaredSpec 约束模块数据或职责。 */
+type RenderSlotChainFn = (
+  key: string,
+  owner: object,
+  opts?: { fallback?: ReactNode; fallbackOnly?: boolean; overlay?: boolean },
+) => ReactNode
 type DeclaredSpec = SlotSpec<SlotEntryDef>
 /** Entry literal helper: fake entries default the mandatory options bag. */
 /* 中文说明：测试局部值 entryOf，由紧邻初始化决定。 */
@@ -49,7 +51,7 @@ const entryOf = (partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry
  * create(scopeKey?) + instance with clearPersisted): the machinery consumes
  * only the StoreInstanceLike face (bare snapshot source + baked actions),
  * but entry.store is typed to the full contract — the real defineStore lives
- * in runtime, which UI-renderer tests must not import (dependency direction).
+ * in client-store, which UI-renderer tests must not import (dependency direction).
  */
 /* 中文说明：函数 miniStore 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function miniStore<T extends object>(
@@ -99,13 +101,13 @@ function observable<T>(initial: T) {
 /**
  * Behavioral SlotRendererHost fake: registration mutates entries, bumps the
  * key version, and notifies synchronously (batching semantics belong to the
- * runtime host, not this package's outlets). Store instances resolve through
+ * registry host, not this package's outlets). Store instances resolve through
  * the entry's real handle, cached per (entry x scope key) like the real
- * ledger; session cells are identity-stable per id.
+ * ledger; session bindings are identity-stable per id.
  */
 /* 中文说明：函数 makeHost 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeHost() {
-  /** 中文说明：测试局部值 entries，由紧邻初始化决定。 */
+  const scopeCtx = new Context()
   const entries = new Map<string, StoredEntry[]>()
   /** 中文说明：测试局部值 specs，由紧邻初始化决定。 */
   const specs = new Map<string, DeclaredSpec>()
@@ -123,16 +125,31 @@ function makeHost() {
   const list = observable<{ ids: string[] }>({ ids: [] })
   /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
   const workspaces = observable<{ ids: string[] }>({ ids: [] })
-  /** 中文说明：测试局部值 absentInfo，由紧邻初始化决定。 */
-  const absentInfo: SessionMaybeProvideInfo = { sessionId: undefined, hooks: {}, props: {} }
-  /** 中文说明：测试局部值 provide，由紧邻初始化决定。 */
-  const provide = observable<SessionMaybeProvideInfo>(absentInfo)
-  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
+  const absentBinding: StandardSourceBinding = {
+    key: undefined,
+    hooks: { session: undefined },
+    keyedHooks: {},
+    props: { sessionId: undefined },
+  }
+  const currentBinding = observable<StandardSourceBinding>(absentBinding)
   let currentId: string | undefined
-  /** 中文说明：测试局部值 infos，由紧邻初始化决定。 */
-  const infos = new Map<string, SessionProvideInfo>()
-  /** 中文说明：测试局部值 sessionSources，由紧邻初始化决定。 */
+  const bindings = new Map<string, ScopedStandardSourceBinding>()
   const sessionSources = new Map<string, ReturnType<typeof observable<unknown>>>()
+  const root = observable<StandardSourceBinding>({
+    key: undefined,
+    hooks: { sessions: list, workspaces },
+    keyedHooks: {},
+    props: {},
+  })
+  const sessionAdapter: SlotScopeAdapter = {
+    current: currentBinding,
+    resolve: key => bindings.get(key),
+    renderArea: (binding, { empty, children }) => binding.key === undefined
+      ? <>{empty?.() ?? null}</>
+      : <>{children}</>,
+  }
+  const scopeRevision = observable(0)
+  let activeScopeAdapter = sessionAdapter
 
   /** 中文说明：测试局部值 bump，由紧邻初始化决定。 */
   const bump = (key: string) => {
@@ -181,7 +198,7 @@ function makeHost() {
     },
     specOf: key => specs.get(key),
     isLive: entry => live.has(entry),
-    storeOf: (entry, scopeKey) => {
+    storeOf: (entry, scopeBinding) => {
       if (entry.store === undefined) return undefined
       /** 中文说明：测试局部值 perScope，由紧邻初始化决定。 */
       let perScope = storeCache.get(entry)
@@ -189,36 +206,32 @@ function makeHost() {
         perScope = new Map()
         storeCache.set(entry, perScope)
       }
-      /** 中文说明：测试局部值 cacheKey，由紧邻初始化决定。 */
-      const cacheKey = scopeKey ?? ''
-      /** 中文说明：测试局部值 instance，由紧邻初始化决定。 */
+      const cacheKey = scopeBinding?.key ?? ''
       let instance = perScope.get(cacheKey)
       if (!instance) {
         // Fake entries always carry engine handles (never factories), and the
         // engine create() takes the scope key (persist suffixing).
         /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
         const handle = entry.store as { create(scopeKey?: string): StoreInstanceLike }
-        instance = handle.create(scopeKey)
+        instance = handle.create(scopeBinding?.key)
         perScope.set(cacheKey, instance)
       }
       return instance
     },
-    sessions: {
-      list,
-      provideInfo: provide,
-    },
-    workspaces: { list: workspaces },
+    root,
+    scopeRevision,
+    scope: () => activeScopeAdapter,
   }
   return {
     host,
     list,
     workspaces,
-    // Driver surface: set(id) publishes the resolved bundle (or the absent
-    // projection) through the provide source.
+    // Driver surface: set(id) publishes the resolved binding (or the absent
+    // projection) through the scope adapter.
     current: {
       set: (id: string | undefined) => {
         currentId = id
-        provide.set((id === undefined ? undefined : infos.get(id)) ?? absentInfo)
+        currentBinding.set((id === undefined ? undefined : bindings.get(id)) ?? absentBinding)
       },
     },
     declare: (key: string, spec: DeclaredSpec) => { specs.set(key, spec); bump(key) },
@@ -242,26 +255,30 @@ function makeHost() {
         bump(key)
       }
     },
-    addSession: (id: string, initial: unknown = { sid: id }): SessionProvideInfo => {
-      // Bare source per bundle (identity-stable): the machinery binds useSession from it.
-      /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
+    addSession: (id: string, initial: unknown = { sid: id }): ScopedStandardSourceBinding => {
+      // Bare source per binding (identity-stable): the machinery binds useSession from it.
       const session = observable<unknown>(initial)
-      /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
-      const info: SessionProvideInfo = {
-        sessionId: id,
+      const binding: ScopedStandardSourceBinding = {
+        key: id,
+        ctx: scopeCtx,
         hooks: { session },
-        props: {},
+        keyedHooks: {},
+        props: { sessionId: id },
       }
       sessionSources.set(id, session)
-      infos.set(id, info)
-      if (currentId === id) provide.set(info)
-      return info
+      bindings.set(id, binding)
+      if (currentId === id) currentBinding.set(binding)
+      return binding
     },
     setSession: (id: string, snapshot: unknown) => {
       /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
       const source = sessionSources.get(id)
       if (source === undefined) throw new Error(`unknown test session: ${id}`)
       source.set(snapshot)
+    },
+    replaceScope: (adapter: SlotScopeAdapter) => {
+      activeScopeAdapter = adapter
+      scopeRevision.set(scopeRevision.getSnapshot() + 1)
     },
   }
 }
@@ -270,11 +287,16 @@ function makeHost() {
 type Fake = ReturnType<typeof makeHost>
 
 /** Mount a root entry whose component renders `body` with its kit renderSlot. */
-/* 中文说明：函数 mountRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function mountRoot(h: Fake, children: Record<string, DeclaredSpec>, body: (renderSlot: RenderSlotFn) => ReactNode) {
-  /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
+function mountRoot(
+  h: Fake,
+  children: Record<string, DeclaredSpec>,
+  body: (renderSlot: RenderSlotFn, SessionProvider: SessionProviderComponent) => ReactNode,
+) {
   const dispose = h.add('root', {
-    component: (props: { renderSlot: RenderSlotFn }) => <>{body(props.renderSlot)}</>,
+    component: (props: {
+      renderSlot: RenderSlotFn
+      SessionProvider: SessionProviderComponent
+    }) => <>{body(props.renderSlot, props.SessionProvider)}</>,
     children,
   })
   /** 中文说明：测试局部值 renderer，由紧邻初始化决定。 */
@@ -290,6 +312,7 @@ const SINGLE_ROOT: DeclaredSpec = { kind: 'single', scope: 'root' }
 const SINGLE_SESSION: DeclaredSpec = { kind: 'single', scope: 'session' }
 /** 中文说明：测试局部值 CHAIN_ROOT，由紧邻初始化决定。 */
 const CHAIN_ROOT: DeclaredSpec = { kind: 'chain', scope: 'root' }
+const CHAIN_SESSION: DeclaredSpec = { kind: 'chain', scope: 'session' }
 
 /** Chain entry literal: top-level select, priority in the options bag (the StoredEntry chain shape). */
 /* 中文说明：测试局部值 chainEntryOf，由紧邻初始化决定。 */
@@ -690,6 +713,31 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
     expect(mounted).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps an explicit fallback-only strict chain mounted until its Session scope exists', () => {
+    const h = makeHost()
+    h.declare('k.chain', CHAIN_SESSION)
+    h.addSession('s1')
+    const select = vi.fn(() => null)
+    h.add('k.chain', chainEntryOf({ component: () => <b>never</b>, select }))
+    let fallbackOnly = true
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_SESSION },
+      renderSlotChain => renderSlotChain(
+        'k.chain',
+        {},
+        { fallback: <input aria-label="resident" />, fallbackOnly, overlay: true },
+      ))
+    const input = view.getByRole('textbox', { name: 'resident' })
+    expect(select).not.toHaveBeenCalled()
+
+    fallbackOnly = false
+    act(() => {
+      h.current.set('s1')
+      h.add('root', { component: () => null })
+    })
+    expect(view.getByRole('textbox', { name: 'resident' })).toBe(input)
+    expect(select).toHaveBeenCalledOnce()
+  })
+
   it('leaves non-overlay chains on the unmount path: a takeover discards fallback state', () => {
     /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
     const h = makeHost()
@@ -797,9 +845,9 @@ describe('standard-kit synthesis', () => {
         return null
       },
     })
-    mountRoot(h, { 'k.session': SINGLE_SESSION }, renderSlot => (
+    mountRoot(h, { 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => (
       <SessionProvider empty={() => <i>empty</i>}>
-        {() => renderSlot('k.session', {})}
+        {renderSlot('k.session', {})}
       </SessionProvider>
     ))
     act(() => { h.current.set('s1') })
@@ -848,12 +896,11 @@ describe('standard-kit synthesis', () => {
         return <b data-turn={label}>{String(useTurnData('tail'))}</b>
       },
     })
-    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
-    const { view } = mountRoot(h, { 'k.session': sessionSpec }, renderSlot => (
-      <SessionProvider>{() => <>
+    const { view } = mountRoot(h, { 'k.session': sessionSpec }, (renderSlot, SessionProvider) => (
+      <SessionProvider><>
         {renderSlot('k.session', { label: 'one' }, { hookContext: 1 })}
         {renderSlot('k.session', { label: 'two' }, { hookContext: 2 })}
-      </>}
+      </>
       </SessionProvider>
     ))
     act(() => { h.current.set('s1') })
@@ -899,13 +946,11 @@ describe('standard-kit synthesis', () => {
     h.add('root', {
       component: (props: AnyProps) => {
         rootSeen.push(props)
-        /** 中文说明：测试局部值 Provider，由紧邻初始化决定。 */
-        const Provider = props['SessionProvider'] as typeof SessionProvider
-        /** 中文说明：测试局部值 renderSlot，由紧邻初始化决定。 */
+        const Provider = props['SessionProvider'] as SessionProviderComponent
         const renderSlot = props['renderSlot'] as RenderSlotFn
         return (
           <Provider empty={() => <i>empty</i>}>
-            {() => renderSlot('k.session', {})}
+            {renderSlot('k.session', {})}
           </Provider>
         )
       },
@@ -931,17 +976,15 @@ describe('standard-kit synthesis', () => {
     expect(seen2.at(-1)!['SessionProvider']).toBeUndefined()
   })
 
-  it('renders nothing for a strict session slot while no session is current', () => {
-    // Strict session entries decline (render null) without a session; the
-    // loud path is reserved for a missing root binding provider.
-    /** 中文说明：测试局部值 h，由紧邻初始化决定。 */
+  it('fails loud for a strict session slot while no session is current', () => {
     const h = makeHost()
     h.declare('k.session', SINGLE_SESSION)
     h.add('k.session', { component: () => <b>x</b> })
-    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
-    const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION },
-      renderSlot => renderSlot('k.session', {}))
-    expect(view.container.querySelector('b')).toBeNull()
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => mountRoot(h, { 'k.session': SINGLE_SESSION },
+      renderSlot => renderSlot('k.session', {})))
+      .toThrow("strict session slot 'k.session' rendered without a scope binding")
+    spy.mockRestore()
   })
 
   it('delivers the store pair for store-declaring entries and writes through baked actions', () => {
@@ -989,9 +1032,8 @@ describe('standard-kit synthesis', () => {
       },
       store: handle,
     })
-    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
-    const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION }, renderSlot => (
-      <SessionProvider>{() => renderSlot('k.session', {})}</SessionProvider>
+    const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => (
+      <SessionProvider>{renderSlot('k.session', {})}</SessionProvider>
     ))
     act(() => { h.current.set('s1') })
     act(() => { setDraft('draft-one') })
@@ -1053,9 +1095,8 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
       component: ({ sid }: { sid?: string }) => <b>{sid}</b>,
       inject: inject,
     })
-    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
-    const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION }, renderSlot => (
-      <SessionProvider>{() => renderSlot('k.session', {})}</SessionProvider>
+    const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => (
+      <SessionProvider>{renderSlot('k.session', {})}</SessionProvider>
     ))
     act(() => { h.current.set('s1') })
     expect(view.container.textContent).toBe('s1')
@@ -1095,9 +1136,9 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
       inject: sessionInject,
       store: handle,
     })
-    mountRoot(h, { 'k.single': SINGLE_ROOT, 'k.session': SINGLE_SESSION }, renderSlot => <>
+    mountRoot(h, { 'k.single': SINGLE_ROOT, 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => <>
       {renderSlot('k.single', {})}
-      <SessionProvider>{() => renderSlot('k.session', {})}</SessionProvider>
+      <SessionProvider>{renderSlot('k.session', {})}</SessionProvider>
     </>)
     act(() => { h.current.set('s1') })
     // The inject-received actions are the same baked callbacks the component
@@ -1231,5 +1272,25 @@ describe('session-maybe adoption identity', () => {
     act(() => { h.current.set('s1') })
     act(() => { h.current.set('s1') })
     expect(view.container.textContent).toBe('s1#1')
+  })
+
+  it('rebinds mounted scope consumers when the installed adapter changes', () => {
+    const h = makeHost()
+    const { view } = mountMaybeCounter(h)
+    expect(view.container.textContent).toBe('blank#1')
+    const binding: ScopedStandardSourceBinding = {
+      key: 'replacement',
+      ctx: new Context(),
+      hooks: { session: observable({ sid: 'replacement' }) },
+      keyedHooks: {},
+      props: { sessionId: 'replacement' },
+    }
+    act(() => {
+      h.replaceScope({
+        current: observable(binding),
+        resolve: key => key === binding.key ? binding : undefined,
+      })
+    })
+    expect(view.container.textContent).toBe('replacement#1')
   })
 })

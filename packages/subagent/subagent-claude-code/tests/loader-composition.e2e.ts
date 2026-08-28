@@ -17,7 +17,7 @@ import {
 
 /** 中文说明：变量 fixtureDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fixtureDir = fileURLToPath(new URL(
-  '../../../../examples/acp-agent/tests/fixtures/subagent/subagent-claude-code/',
+  './fixtures/loader/',
   import.meta.url,
 ))
 /** 中文说明：变量 driver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -56,11 +56,12 @@ describe('product-provider public Loader composition', () => {
 
     expect(stderr).toBe('')
     expect(JSON.parse(stdout)).toEqual({
-      registeredProviders: ['codex', 'claude-primary', 'claude-secondary', 'claude-code'],
+      registeredProviders: ['claude-code', 'claude-primary', 'claude-secondary', 'codex'],
       providers: [
         {
           name: 'codex',
           capabilities: {
+            agentOptions: false,
             outputSchema: false,
             depthLimit: false,
             toolFilter: false,
@@ -71,6 +72,7 @@ describe('product-provider public Loader composition', () => {
         {
           name: 'claude-code',
           capabilities: {
+            agentOptions: false,
             outputSchema: false,
             depthLimit: false,
             toolFilter: false,
@@ -81,6 +83,7 @@ describe('product-provider public Loader composition', () => {
         {
           name: 'claude-primary',
           capabilities: {
+            agentOptions: false,
             outputSchema: false,
             depthLimit: false,
             toolFilter: false,
@@ -91,6 +94,7 @@ describe('product-provider public Loader composition', () => {
         {
           name: 'claude-secondary',
           capabilities: {
+            agentOptions: false,
             outputSchema: false,
             depthLimit: false,
             toolFilter: false,

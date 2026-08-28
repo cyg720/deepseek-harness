@@ -48,8 +48,7 @@ export interface OxlintInvocation {
 export function resolveOxlintInvocation(args: readonly string[], env: NodeJS.ProcessEnv): OxlintInvocation {
   /** 中文说明：变量 resolvedArgs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolvedArgs = [...args]
-  if (env.CI === 'true' && !hasOutputFormat(args)) resolvedArgs.push('--format=unix')
-  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  if (env.CI === 'true' && !hasOutputFormat(args)) resolvedArgs.push('--format=default')
   const raw = env.DSH_OXLINT_THREADS
   if (raw === undefined || raw === '') return { args: resolvedArgs, env: { ...env } }
   /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

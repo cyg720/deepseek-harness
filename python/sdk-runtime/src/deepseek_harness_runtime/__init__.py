@@ -1,22 +1,22 @@
-"""Locate the bundled DeepSeek Harness SDK runtime shipped with this package.
+"""Locate and execute the bundled dsh CLI shipped with the Python SDK runtime.
 
 Two runtime carriers coexist under ``runtime/``, both injected by the repo's
 ``scripts/build-exe-for-python-sdk.ts`` build (neither is checked into git):
 
 - **exe (production)**: single-file Node executables named
-  ``dsh-jsonrpc-agent-pkg-<platform>-<arch>`` (platform in {linux, macos}, arch in
-  {x64, arm64}) with a sibling ``-rg`` executable; macOS also uses a sibling
-  ``-spawn-helper``. The target machine needs no Node installation.
+  ``deepseek-harness-sdk-runtime-<platform>-<arch>`` for Linux/macOS and an
+  ``.exe`` counterpart for Windows. Each has a sibling ripgrep executable;
+  macOS also uses a sibling ``-spawn-helper``. The target machine needs no
+  Node installation.
 - **node (dev-only)**: the full deploy closure under ``runtime/node/``
   (``package.json`` + ``node_modules/``), executed as ``node
-  runtime/node/node_modules/@deepseek-ai/dsh-sdk-jsonrpc-demo/lib/packaged-bin.js`` on a
+  runtime/node/node_modules/@deepseek-ai/dsh/lib/bin.js`` on a
   system Node >= 22.19. It is the current checkout's source build, never
   selected automatically, and excluded from wheel/sdist distributions.
 
-``runtime/cordis.yml`` IS checked in: it is the default agent configuration
-the client SDK injects via ``$DSH_CORDIS_CONFIG`` for zero-config runs — the
-runtime itself always requires an explicit config and has no built-in
-fallback.
+Both carriers execute the same dsh command grammar. The Python SDK selects the
+``sdk`` profile and requires an explicit Harness home; the installed ``dsh``
+console command requires ``DSH_HOME`` for the same reason.
 """
 # 文件职责：实现 __init__.py 覆盖的Python SDK 与捆绑运行时职责。
 # 技术维度：使用 Python、异步 I/O、JSON-RPC、构建后端或标准库文件与进程接口。
@@ -39,9 +39,7 @@ PACKAGE_METADATA_FILENAME = "deepseek-harness-runtime.json"
 # 中文说明：常量 RUNTIME_MODE_ENV_VAR 保存本模块共享的固定值；取值由紧邻初始化或后续赋值决定。
 RUNTIME_MODE_ENV_VAR = "DSH_RUNTIME_MODE"
 
-# 中文说明：变量 _PLATFORM_TAGS 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-_PLATFORM_TAGS = {"linux": "linux", "darwin": "macos"}
-# 中文说明：变量 _ARCH_TAGS 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+_PLATFORM_TAGS = {"linux": "linux", "darwin": "macos", "win32": "win"}
 _ARCH_TAGS = {"x86_64": "x64", "amd64": "x64", "arm64": "arm64", "aarch64": "arm64"}
 
 # 中文说明：变量 _EXE_ACQUISITION_HINT 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
@@ -66,24 +64,6 @@ def bundled_package_dir() -> Path:
     return root
 
 
-# 中文说明：函数 bundled_default_config_path 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
-def bundled_default_config_path() -> Path:
-    """Path of the checked-in default runtime configuration (``runtime/cordis.yml``).
-
-    The client SDK injects this path via ``$DSH_CORDIS_CONFIG`` when the caller
-    supplies no config and the launch resolves to the bundled runtime — the
-    runtime binary itself always demands an explicit config.
-    """
-    # 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    path = bundled_package_dir() / "runtime" / "cordis.yml"
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"deepseek-harness-runtime-bin is missing the default runtime config at {path}"
-        )
-    return path
-
-
-# 中文说明：函数 bundled_runtime_path 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def bundled_runtime_path() -> Path:
     """Absolute path of the bundled single-file runtime executable for the current platform.
 
@@ -96,15 +76,18 @@ def bundled_runtime_path() -> Path:
     """
     # 中文说明：变量 tag 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     tag = _current_platform_tag()
-    # 中文说明：变量 path 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    path = bundled_package_dir() / "runtime" / f"dsh-jsonrpc-agent-pkg-{tag}"
+    extension = ".exe" if tag.startswith("win-") else ""
+    path = bundled_package_dir() / "runtime" / f"deepseek-harness-sdk-runtime-{tag}{extension}"
     if not path.is_file():
         raise FileNotFoundError(
             f"deepseek-harness-runtime-bin is missing the runtime executable at {path}. "
             + _EXE_ACQUISITION_HINT
         )
-    # 中文说明：变量 ripgrep 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    ripgrep = Path(f"{path}-rg")
+    ripgrep = (
+        path.with_name(f"{path.stem}-rg.exe")
+        if tag.startswith("win-")
+        else Path(f"{path}-rg")
+    )
     if not ripgrep.is_file():
         raise FileNotFoundError(
             f"deepseek-harness-runtime-bin is missing the ripgrep sidecar at {ripgrep}. "
@@ -152,11 +135,16 @@ def _current_platform_tag() -> str:
     plat = _PLATFORM_TAGS.get(sys.platform)
     # 中文说明：变量 arch 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     arch = _ARCH_TAGS.get(platform.machine().lower())
-    if plat is None or arch is None:
+    if (
+        plat is None
+        or arch is None
+        or (plat == "win" and arch != "x64")
+        or (plat == "macos" and arch != "arm64")
+    ):
         raise FileNotFoundError(
-            "no bundled dsh-jsonrpc-agent executable exists for this platform "
+            "no bundled DeepSeek Harness SDK runtime exists for this platform "
             f"(sys.platform={sys.platform!r}, machine={platform.machine()!r}); supported: "
-            "linux/macos on x64/arm64. " + _EXE_ACQUISITION_HINT
+            "Linux x64/arm64, macOS arm64, and Windows x64. " + _EXE_ACQUISITION_HINT
         )
     return f"{plat}-{arch}"
 
@@ -170,9 +158,9 @@ def _node_launch_args() -> tuple[str, str]:
         node_root
         / "node_modules"
         / "@deepseek-ai"
-        / "dsh-sdk-jsonrpc-demo"
+        / "dsh"
         / "lib"
-        / "packaged-bin.js"
+        / "bin.js"
     )
     if not bin_js.is_file():
         raise FileNotFoundError(
@@ -191,12 +179,24 @@ def _node_launch_args() -> tuple[str, str]:
     return (node, str(bin_js))
 
 
-# 中文说明：变量 __all__ 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+def main() -> None:
+    """Execute the bundled dsh CLI with an explicitly selected Harness home."""
+    if not os.environ.get("DSH_HOME", "").strip():
+        print(
+            "dsh: the Python runtime command requires an explicit DSH_HOME; "
+            "it never uses ~/.dsh implicitly",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    argv = (*resolve_bundled_launch_args(), *sys.argv[1:])
+    os.execvpe(argv[0], argv, os.environ)
+
+
 __all__ = [
     "PACKAGE_METADATA_FILENAME",
     "RUNTIME_MODE_ENV_VAR",
-    "bundled_default_config_path",
     "bundled_package_dir",
     "bundled_runtime_path",
+    "main",
     "resolve_bundled_launch_args",
 ]

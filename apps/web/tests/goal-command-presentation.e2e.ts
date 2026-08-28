@@ -23,11 +23,9 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景黄金文件目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/goal-command-presentation', import.meta.url))
-/** 命令输入气泡和结果行的 ARIA 快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/goal-command-presentation', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL(
-  './snapshots/goal-command-presentation/ui.expected.md', import.meta.url,
+  './expected/goal-command-presentation/ui.expected.md', import.meta.url,
 ))
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
@@ -50,7 +48,7 @@ describe('web e2e: /goal human transcript presentation', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -65,11 +63,10 @@ describe('web e2e: /goal human transcript presentation', () => {
     await expect.poll(() => page.getByText('Into the Unknown', { exact: false }).count(), {
       timeout: 15_000,
     }).toBe(1)
-    /** 当前聊天编辑器。 */
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.fill('/goal')
     await input.press('Enter')
-    await expect.poll(() => input.inputValue()).toBe('/goal ')
+    await expect.poll(() => input.textContent()).toBe('/goal ')
     await input.press('Enter')
 
     /** 人类可见的 /goal 命令输入气泡。 */

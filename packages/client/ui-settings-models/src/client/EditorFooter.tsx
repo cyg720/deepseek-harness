@@ -39,14 +39,11 @@ export interface EditorFooterProps {
   /* 中文：拥有卡片判定的提交禁用状态。 */
   submitDisabled: boolean
   /** Commit label while idle. */
-  /* 中文：空闲时的提交按钮本地化键。 */
-  submitLabel: keyof typeof en
+  submitLabelKey: keyof typeof en
   /** Commit label while a commit is in flight. */
-  /* 中文：提交进行中显示的本地化键。 */
-  submitBusyLabel: keyof typeof en
+  submitBusyLabelKey: keyof typeof en
   /** Dismiss label; defaults to the settings editor copy. */
-  /* 中文：取消按钮本地化键；省略时使用 cancel。 */
-  cancelLabel?: keyof typeof en
+  cancelLabelKey?: keyof typeof en
   /** Dismiss the card without committing. */
   /* 中文：不提交并关闭卡片的回调。 */
   onCancel: () => void
@@ -72,7 +69,7 @@ export function EditorFooter(props: EditorFooterProps): ReactNode {
         disabled={props.busy}
         onClick={props.onCancel}
       >
-        {t(props.cancelLabel ?? 'cancel')}
+        {t(props.cancelLabelKey ?? 'cancel')}
       </button>
       <button
         type="button"
@@ -80,7 +77,7 @@ export function EditorFooter(props: EditorFooterProps): ReactNode {
         disabled={props.submitDisabled}
         onClick={props.onSubmit}
       >
-        {props.busy ? t(props.submitBusyLabel) : t(props.submitLabel)}
+        {props.busy ? t(props.submitBusyLabelKey) : t(props.submitLabelKey)}
       </button>
     </div>
   )

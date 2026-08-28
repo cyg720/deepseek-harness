@@ -160,11 +160,7 @@ export interface TranslationPairingManifest {
 
 /** 中文说明：常量 README_ARTIFACT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const README_ARTIFACT = /(?:^|\/)readme(?:\.md|\.zh\.md|\.i18n\.yaml)$/i
-/** 中文说明：常量 ROOT_CONTRIBUTING_ARTIFACT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const ROOT_CONTRIBUTING_ARTIFACT = /^contributing(?:\.md|\.zh\.md|\.i18n\.yaml)$/i
-/** 中文说明：常量 ROOT_BRAND_GUIDELINES_ARTIFACT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const ROOT_BRAND_GUIDELINES_ARTIFACT = /^brand_guidelines(?:\.md|\.zh\.md|\.i18n\.yaml)$/i
-/** 中文说明：常量 NON_SOURCE_DIRECTORIES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+const ROOT_PAIRED_DOCUMENT_ARTIFACT = /^(?:brand_guidelines|contributing|safety)(?:\.md|\.zh\.md|\.i18n\.yaml)$/i
 const NON_SOURCE_DIRECTORIES = new Set([
   'node_modules',
   'lib',
@@ -200,7 +196,7 @@ export const TRANSLATION_SCOPE_GLOB_EXCLUDES = [
   '**/.pytest_cache/**',
   'apps/web/dist/**',
   '.artifacts/**',
-  'python/sdk-runtime/src/deepseek_harness_runtime/runtime/dsh-jsonrpc-agent-*/**',
+  'python/sdk-runtime/src/deepseek_harness_runtime/runtime/deepseek-harness-sdk-runtime-*/**',
   'python/sdk-runtime/src/deepseek_harness_runtime/runtime/node/**',
   'vendor/**',
 ]
@@ -214,7 +210,7 @@ function isTranslationSourceExcluded(file: string): boolean {
       || segment.startsWith('.doc-typecheck-')
     || segment.startsWith('.node-next-types-'))
     || file.startsWith('apps/web/dist/')
-    || file.startsWith('python/sdk-runtime/src/deepseek_harness_runtime/runtime/dsh-jsonrpc-agent-')
+    || file.startsWith('python/sdk-runtime/src/deepseek_harness_runtime/runtime/deepseek-harness-sdk-runtime-')
     || file.startsWith('python/sdk-runtime/src/deepseek_harness_runtime/runtime/node/')
 }
 
@@ -223,8 +219,7 @@ function isTranslationSourceExcluded(file: string): boolean {
 export function isTranslationScopeFile(file: string): boolean {
   return !file.startsWith('.agents/notes/archived/')
     && !isTranslationSourceExcluded(file) && (README_ARTIFACT.test(file)
-    || ROOT_CONTRIBUTING_ARTIFACT.test(file)
-    || ROOT_BRAND_GUIDELINES_ARTIFACT.test(file)
+    || ROOT_PAIRED_DOCUMENT_ARTIFACT.test(file)
     || file.startsWith('.agents/notes/')
     || file.startsWith('docs/')
     || file.startsWith('python/'))

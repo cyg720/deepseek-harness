@@ -7,7 +7,6 @@
  * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { RpcResponse } from '@deepseek-ai/dsh-api-remotes/client'
 import { Context } from '@deepseek-ai/cordis'
 import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -20,11 +19,9 @@ import {
 /** 中文说明：测试局部值 schemaService，由紧邻初始化决定。 */
 const schemaService = new SettingsSchemaService(new Context())
 
-/** 中文说明：测试局部值 rpc，由紧邻初始化决定。 */
-let rpc = 0
-/** 中文说明：函数 ok 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
-function ok<T>(value: T): RpcResponse<T> {
-  return { rpcId: `welcome-${rpc++}` as never, result: { ok: true, value } }
+/** The settings namespace answers over the Remote carrier, which has no envelope. */
+function ok<T>(value: T) {
+  return { ok: true as const, value }
 }
 
 /** 中文说明：函数 namespace 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
@@ -66,8 +63,7 @@ function buildWelcome(
 }
 
 describe('WelcomeNoticeStore', () => {
-  it('acknowledges in memory without calling loopback-only settings APIs', async () => {
-    /** 中文说明：测试局部值 describeCall，由紧邻初始化决定。 */
+  it('acknowledges in memory while Host settings persistence is disabled', async () => {
     const describeCall = vi.fn()
     /** 中文说明：测试局部值 mutate，由紧邻初始化决定。 */
     const mutate = vi.fn()
@@ -117,11 +113,11 @@ describe('WelcomeNoticeStore', () => {
     await mirror.load()
     await controller.load()
     await expect(controller.acknowledge()).resolves.toBe(true)
-    expect(mutate).toHaveBeenCalledWith({
-      ns: WELCOME_NOTICE_SETTINGS_NAMESPACE,
-      ops: [{ op: 'set', path: [WELCOME_NOTICE_ACK_FIELD], value: WELCOME_NOTICE_VERSION }],
-      expectedRevision: 3,
-    })
+    expect(mutate).toHaveBeenCalledWith(
+      WELCOME_NOTICE_SETTINGS_NAMESPACE,
+      [{ op: 'set', path: [WELCOME_NOTICE_ACK_FIELD], value: WELCOME_NOTICE_VERSION }],
+      3,
+    )
     expect(controller.store.getSnapshot()).toMatchObject({ status: 'ready', acknowledged: true })
     // The write answer folded into the mirror; no re-read followed.
     expect(describeCall).toHaveBeenCalledTimes(1)

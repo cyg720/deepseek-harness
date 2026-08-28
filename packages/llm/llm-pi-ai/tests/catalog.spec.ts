@@ -734,7 +734,7 @@ describe('per-model reasoning efforts', () => {
     /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
-    expect(getSupportedThinkingLevels(catalogModel as Model<Api>)).toEqual(['off', 'high', 'max'])
+    expect(getSupportedThinkingLevels(catalogModel as Model<Api>)).toEqual(['off', 'low', 'high', 'max'])
 
     /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = modelOf({
@@ -1053,6 +1053,31 @@ describe('compat switches', () => {
     })
   })
 
+  it('carries private-endpoint stream and reasoning controls', () => {
+    const models = modelsOf({
+      'acme-baseten': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test',
+        models: [{
+          id: 'reasoning-local',
+          compat: {
+            supportsFinishReason: false,
+            thinkingFormat: 'baseten',
+            chatTemplateArgs: { enable_thinking: { $var: 'thinking.enabled' } },
+            supportsThinkingTokenBudget: true,
+          },
+        }],
+      },
+    }, 'acme-baseten')
+
+    expect(models.get('reasoning-local')?.compat).toEqual({
+      supportsFinishReason: false,
+      thinkingFormat: 'baseten',
+      chatTemplateArgs: { enable_thinking: { $var: 'thinking.enabled' } },
+      supportsThinkingTokenBudget: true,
+    })
+  })
+
   it('rejects a model switch on an unrecognized protocol as having no configurable compat', () => {
     expect(() => resolveProfiles({
       'acme-gateway': {
@@ -1176,8 +1201,8 @@ describe('compat switches', () => {
   })
 
   it('refuses a compat key no wire protocol declares instead of dropping it', () => {
-    // The silent drop is what let an unreadable switch look applied: schemastery
-    // passes unknown keys through, and resolution used to read only two fields.
+    // Schemastery passes unknown keys through, so silently dropping one would
+    // make an unreadable switch look applied; the resolver must refuse it.
     expect(() => resolveProfiles({
       'acme-gateway': {
         api: 'openai-completions',
@@ -1188,14 +1213,16 @@ describe('compat switches', () => {
     })).toThrow(/compat "supportsDevelperRole", which no wire protocol declares; the configurable switches are .*\bsupportsDeveloperRole\b/)
   })
 
-  it('refuses a compat key pi-ai’s catalog owns, pointing at the catalog route', () => {
-    expect(() => resolveProfiles({
-      'acme-gateway': {
-        api: 'openai-completions',
-        baseURL: 'https://acme.test',
-        models: [{ id: 'acme-a', compat: { openRouterRouting: {} } as never }],
-      },
-    })).toThrow(/compat "openRouterRouting", which is not configurable here/)
+  it('refuses compat keys pi-ai’s catalog owns, pointing at the catalog route', () => {
+    for (const compat of [{ openRouterRouting: {} }, { supportsAdditionalTools: true }]) {
+      expect(() => resolveProfiles({
+        'acme-gateway': {
+          api: 'openai-completions',
+          baseURL: 'https://acme.test',
+          models: [{ id: 'acme-a', compat: compat as never }],
+        },
+      })).toThrow(/which is not configurable here/)
+    }
   })
 })
 
@@ -1279,7 +1306,6 @@ describe('configurable-provider directory', () => {
     const dir = await home()
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootWithSettings(dir, {})
-    // Another adapter family owns this route id, exactly as llm-deepseek does.
     ctx.llm.registerConfigurableProviders([
       { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [] },
     ])

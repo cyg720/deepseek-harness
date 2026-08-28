@@ -8,19 +8,20 @@
  */
 import { defineConfig } from 'vitest/config'
 import webConfig from './vitest.web.config.ts'
+import { vitestExecArgv } from './vitest.shared.ts'
 
-// Manual high-cardinality diagnostics stay outside vitest.web.config.ts's
-// .e2e.ts/.snapshot.ts inventory and therefore outside the CI web gate.
-// 手动高基数诊断使用独立 .perf.ts 清单，因此不会进入常规 Web CI 门禁。
-/**
- * 导出性能诊断配置；继承基础 Web 配置并返回覆盖后的 Vitest 对象。
- * 使用示例：`pnpm exec vitest run --config vitest.web.perf.config.ts`。
- */
+// Manual high-cardinality diagnostics stay outside every default Vitest
+// inventory and therefore outside CI's executed test lanes.
 export default defineConfig({
   ...webConfig,
   test: {
     ...webConfig.test,
-    include: ['apps/web/tests/**/*.perf.ts'],
+    // Memory diagnostics use forced-GC baselines only in this manual inventory.
+    execArgv: [...vitestExecArgv, '--expose-gc'],
+    include: [
+      'apps/web/tests/**/*.perf.ts',
+      'packages/client/ui-conversation/tests/**/*.perf.client.ts',
+    ],
     disableConsoleIntercept: true,
     hookTimeout: 180_000,
     testTimeout: 600_000,

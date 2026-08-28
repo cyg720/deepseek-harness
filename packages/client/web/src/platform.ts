@@ -28,6 +28,7 @@
 /* shell 共享进冻结模块表的模块说明符（种子表键）。 */
 export const PLATFORM_MODULES = [
   'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
+  '@deepseek-ai/dsh-client-store',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-primitives',
 ] as const
@@ -35,7 +36,6 @@ export const PLATFORM_MODULES = [
 /** Client-bundle specifiers whose factories the parser preloads before the shell starts. */
 /* 解析器在 shell 启动前预载其工厂的客户端 bundle 说明符。 */
 export const PRELOADED_CLIENT_EXTERNALS = [
-  '@deepseek-ai/dsh-client-runtime/client',
 ] as const
 
 /** One platform module specifier (a seed-table key). */

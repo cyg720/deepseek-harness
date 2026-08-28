@@ -18,7 +18,7 @@ const DIST_ROOT = fileURLToPath(new URL('../dist', import.meta.url))
 it('ships install metadata with the built web application', async () => {
   // 构建后的入口 HTML 文本。
   const index = await readFile(join(DIST_ROOT, 'index.html'), 'utf8')
-  expect(index).toContain('<link rel="manifest" href="/manifest.webmanifest" />')
+  expect(index).toContain('<link rel="manifest" href="./manifest.webmanifest" />')
 
   // JSON 解析后的清单未知值；用完整结构断言收窄其内容。
   const manifest: unknown = JSON.parse(await readFile(join(DIST_ROOT, 'manifest.webmanifest'), 'utf8'))

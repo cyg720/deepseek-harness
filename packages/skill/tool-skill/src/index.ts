@@ -242,7 +242,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       }))
     }
     if (injections.length === 0) return decision
-    return { kind: 'enter', messages: [...decision.messages, ...injections] }
+    return { ...decision, messages: [...decision.messages, ...injections] }
   })
 
   // Register after the tool so reverse teardown removes guidance first. Exact definition
@@ -277,19 +277,19 @@ export function apply(ctx: Context, config: Config = {}): void {
     if (history.visibleDigest === digest) {
       return existing === undefined
         ? decision
-        : { kind: 'enter', messages: decision.messages.filter(message => message.id !== existing.message.id) }
+        : { ...decision, messages: decision.messages.filter(message => message.id !== existing.message.id) }
     }
     if (existing !== undefined && digestCatalogEntries(existing.entries) === digest) return decision
     if (!history.published && skills.length === 0) {
       return existing === undefined
         ? decision
-        : { kind: 'enter', messages: decision.messages.filter(message => message.id !== existing.message.id) }
+        : { ...decision, messages: decision.messages.filter(message => message.id !== existing.message.id) }
     }
     const catalog = history.published
       ? renderCatalogUpdate(entries)
       : renderCatalogMessage(entries)
     return {
-      kind: 'enter',
+      ...decision,
       messages: existing === undefined
         ? [...decision.messages, catalog]
         : decision.messages.map(message => message.id === existing.message.id ? catalog : message),
@@ -449,8 +449,6 @@ function catalogMessage(
   return undefined
 }
 
-/** Normalized, length-bounded description exactly as the catalog publishes it (unescaped). */
-// 与目录发布完全一致的归一化、定长描述（未转义）。
 function catalogDescription(value: string, maxLength: number): string {
   const normalized = value.replaceAll(/\s+/g, ' ').trim()
   return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 3)}...`

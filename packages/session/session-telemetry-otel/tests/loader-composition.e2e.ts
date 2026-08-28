@@ -23,12 +23,12 @@ import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-l
 
 /** 中文说明：变量 driver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const driver = fileURLToPath(new URL(
-  '../../../../examples/headless-agent/tests/fixtures/session-telemetry-otel-driver.ts',
+  './fixtures/driver.ts',
   import.meta.url,
 ))
 /** 中文说明：变量 configPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const configPath = fileURLToPath(new URL(
-  '../../../../examples/headless-agent/tests/fixtures/session-telemetry-otel.cordis.yml',
+  './fixtures/cordis.yml',
   import.meta.url,
 ))
 /** 中文说明：变量 repoTsconfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

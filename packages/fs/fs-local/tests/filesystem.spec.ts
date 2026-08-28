@@ -77,6 +77,12 @@ describe('registration', () => {
     await bareFiber.dispose()
   })
 
+  it('maps only absolute host paths into its process path namespace', () => {
+    const path = join(dir, 'image.png')
+    expect(fs.processPathFromHostPath(path)).toBe(path)
+    expect(fs.processPathFromHostPath('image.png')).toBeUndefined()
+  })
+
   it('rejects non-positive, fractional, unsafe, or unallocatable diff-basis limits', async () => {
     /** 中文说明：测试局部值 maxDiffBasisBytes，由紧邻初始化决定。 */
     const maxDiffBasisBytes = Math.min(

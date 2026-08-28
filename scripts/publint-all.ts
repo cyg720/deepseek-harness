@@ -221,7 +221,22 @@ function relativeImports(file: string, sourceText: string): RelativeImport[] {
   return imports
 }
 
-/** 中文说明：函数 runPublint 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/**
+ * publint reads the CommonJS interop preamble inside the prebuilt browser
+ * bundles and reports CJS-written-as-ESM. Node never resolves those files:
+ * `lib/client.js` is evaluated by the page module system as a classic script,
+ * and `lib/worker.js` by `new Worker(url, { type: 'module' })` — both outside
+ * the Node resolution publint models. Exactly that verdict on exactly those
+ * files is suppressed; every other publint error stays fatal.
+ */
+function isBrowserBundleFormatFalsePositive(message: Message): boolean {
+  if (message.code !== 'FILE_INVALID_FORMAT') return false
+  const filePath = (message.args as { actualFilePath?: string }).actualFilePath ?? ''
+  const exportKey = Array.isArray(message.path) ? message.path.join('/') : ''
+  return /(^|\/)lib\/(client|worker)\.js$/.test(filePath)
+    || /(^|\/)\.\/(client|worker)$/.test(exportKey)
+}
+
 async function runPublint(target: PackageTarget): Promise<PublintResult> {
   try {
     /** 中文说明：变量 files 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -235,9 +250,10 @@ async function runPublint(target: PackageTarget): Promise<PublintResult> {
     })
     /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = result.pkg as Record<string, unknown>
-    return result.messages.some(message => message.type === 'error') || closureViolations.length > 0
-      ? { path: target.path, status: 'failed', messages: result.messages, closureViolations, manifest }
-      : { path: target.path, status: 'passed', messages: result.messages, closureViolations, manifest }
+    const messages = result.messages.filter(message => !isBrowserBundleFormatFalsePositive(message))
+    return messages.some(message => message.type === 'error') || closureViolations.length > 0
+      ? { path: target.path, status: 'failed', messages, closureViolations, manifest }
+      : { path: target.path, status: 'passed', messages, closureViolations, manifest }
   } catch (error: unknown) {
     return {
       path: target.path,

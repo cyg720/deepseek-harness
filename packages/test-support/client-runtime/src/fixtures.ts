@@ -1,18 +1,17 @@
-/** Session/workspace fixture shapes and snapshot defaults for the test runtime. */
-/*
- * 文件职责：实现 fixtures.ts 覆盖的客户端运行时测试支持行为与测试协作。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
- * 产品维度：通过可复现的客户端运行时测试支持能力保障 Agent 功能在集成层稳定。
- * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
- * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
- */
+/** Controller and UI-domain fixture shapes for the client test runtime. */
 import type {
-  ConversationSnapshot, ISession, SessionId, SessionSummary, WorkspaceListState,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  ISession, SessionEventLikeEntry, SessionSnapshot, SessionSummary,
+} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
-  EMPTY_CHAT_SNAPSHOT, EMPTY_CONVERSATION_VIEWS,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  EMPTY_CONVERSATION_SNAPSHOT,
+  type ConversationSnapshot,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import {
+  EMPTY_CHAT_SNAPSHOT,
+  type ChatSnapshot,
+} from '@deepseek-ai/dsh-client-ui-chat/client'
 
 /**
  * Fixture overrides for the session behavior face: any subset of the
@@ -34,6 +33,12 @@ export type SessionBehaviorOverrides = Partial<ISession> & Record<string, unknow
 /* 中文说明：type Stabilizer 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export type Stabilizer = (fn: () => void | Promise<void>) => Promise<void>
 
+/** Mutable top-level snapshot fields accepted by fixture update callbacks. */
+export type FixtureSnapshot<T> = { -readonly [Key in keyof T]: T[Key] }
+
+/** Writable test representation of the immutable Session Controller snapshot. */
+export type SessionFixtureSnapshot = FixtureSnapshot<SessionSnapshot>
+
 /**
  * Session fixture accepted by {@link TestSessions.add}: identity plus optional
  * snapshot/list-row overrides and the session behavior face the feature under
@@ -43,39 +48,30 @@ export type Stabilizer = (fn: () => void | Promise<void>) => Promise<void>
 /* 中文说明：interface SessionFixture 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export interface SessionFixture {
   id: string
-  /** Overrides merged over {@link conversationSnapshot} (sessionId comes from `id`). */
-  snapshot?: Partial<Omit<ConversationSnapshot, 'sessionId'>>
+  /** Overrides merged over {@link sessionSnapshot}; Conversation data arrives through the event feed. */
+  snapshot?: Partial<Omit<SessionSnapshot, 'sessionId'>>
   /** List-row overrides merged over the defaults derived from `id`. */
   summary?: Partial<Omit<SessionSummary, 'id'>>
   /** Session behavior face: exactly the methods the feature under test calls (ISession subset + extras). */
   session?: SessionBehaviorOverrides
+  /** Initial contiguous event window consumed by Conversation assembly. */
+  events?: readonly SessionEventLikeEntry[]
+  /** Whether the initial event window has an older page. */
+  hasMore?: boolean
 }
 
 /**
- * A complete quiescent conversation snapshot (open window, no traffic).
+ * A complete quiescent Session Controller snapshot.
  * @param sessionId - owning session id.
  * @returns the snapshot; spread fixture overrides on top.
  */
-/*
- * 中文说明：函数 conversationSnapshot 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
-export function conversationSnapshot(sessionId: SessionId): ConversationSnapshot {
+export function sessionSnapshot(sessionId: SessionId): SessionSnapshot {
   return {
     sessionId,
-    views: EMPTY_CONVERSATION_VIEWS,
-    chat: EMPTY_CHAT_SNAPSHOT,
-    nodes: [],
-    turnTimings: new Map(),
-    turnEnds: new Map(),
-    partial: null,
-    runningCalls: [],
-    pending: [],
     queue: [],
+    pendingSubmissions: [],
     running: false,
     subagent: null,
-    composerPhase: 'active',
     removed: false,
     openState: 'open',
     openError: null,
@@ -84,26 +80,41 @@ export function conversationSnapshot(sessionId: SessionId): ConversationSnapshot
     promptError: null,
     blank: false,
     lastAgentError: null,
+    promptAttempted: false,
+    awaitingFirstTurn: false,
   }
 }
 
 /**
- * A ready workspace list with no workspaces (the shape WorkspaceRuntime
- * projects after both baselines land).
- * @returns the initial state of the test workspaces store.
+ * A target-neutral Conversation snapshot.
+ * @param overrides - target roster or activity overrides.
+ * @returns an immutable fixture value.
  */
-/*
- * 中文说明：函数 workspaceListState 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+export function conversationSnapshot(
+  overrides: Partial<ConversationSnapshot> = {},
+): ConversationSnapshot {
+  return { ...EMPTY_CONVERSATION_SNAPSHOT, ...overrides }
+}
+
+/**
+ * A Chat target snapshot.
+ * @param overrides - Chat target overrides.
+ * @returns an immutable fixture value.
  */
-export function workspaceListState(): WorkspaceListState {
+export function chatSnapshot(overrides: Partial<ChatSnapshot> = {}): ChatSnapshot {
+  return { ...EMPTY_CHAT_SNAPSHOT, ...overrides }
+}
+
+/**
+ * A ready Workspace Controller snapshot with no Workspace rows.
+ * @returns the initial state of the test Workspace source.
+ */
+export function workspaceSnapshot(): WorkspaceSnapshot {
   return {
     items: [],
     archivedSessionIds: [],
     state: 'idle',
     phase: 'ready',
     error: null,
-    baselinesReady: true,
-    recentWorkspaceId: undefined,
   }
 }

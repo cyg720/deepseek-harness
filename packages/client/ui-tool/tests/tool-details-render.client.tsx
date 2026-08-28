@@ -1,23 +1,32 @@
 /** Test adapter for the production conversation.details.tool registration. */
-/*
- * 文件职责：验证工具调用的 tool-details-render.client.tsx 行为。
- * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
- * 产品维度：防止工具调用展示与展开交互回归。
- * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
- * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
- * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
- */
-import type { HostDescription } from '@deepseek-ai/dsh-client-connection/client'
+import type { ConnectionGeneration } from '@deepseek-ai/dsh-client-connection/client'
+import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'
+import { isJsonValue, type JsonValue } from '@deepseek-ai/dsh-session'
 import type {
-  ChatConversationViewNode, ChatSnapshot, ConversationNode, RunningToolCall, SessionId,
-} from '@deepseek-ai/dsh-client-runtime/client'
-import type { SessionProviderComponent, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type { DetailsSlotProps, DetailsToolOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/src/client/contract/slots.ts'
+  ChatConversationViewNode, ChatSnapshot, ConversationNode, DetailsSlotProps,
+  DetailsToolOwnerProps, RunningToolCall, ToolResultNode,
+} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { ToolDetails } from '../src/client/tool/ToolDetails.tsx'
 
-/** Framework session-area seat used by direct DetailsPanel tests. */
-/* 中文说明：测试局部值 SessionProviderStub，由紧邻初始化决定。 */
-export const SessionProviderStub: SessionProviderComponent = ({ children }) => children('s1' as SessionId)
+type TrajectorySnapshot = Parameters<Parameters<DetailsSlotProps['useTrajectory']>[0]>[0]
+
+const emptyTrajectory: TrajectorySnapshot = {
+  eventNodes: [],
+  eventLocations: new Map(),
+  requests: [],
+  callSchemas: new Map(),
+  partial: null,
+  runningCalls: [],
+}
+
+/** Stable empty Trajectory source for DetailsPanel fixtures. */
+export const useEmptyTrajectory: DetailsSlotProps['useTrajectory'] = selector => selector(emptyTrajectory)
+
+function jsonFixture(value: unknown): JsonValue {
+  if (!isJsonValue(value)) throw new Error('tool event fixture must be lossless JSON')
+  return value as JsonValue
+}
 
 /** Build the canonical Chat slice consumed by Tool rows and details tests. */
 /* 中文说明：函数 toolChatSnapshot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
@@ -52,6 +61,7 @@ export function toolChatSnapshot(
       getTurn: () => empty,
       getStep: () => empty,
     },
+    navigation: { items: () => [] },
     timeline: { turnOrder: [], turns: new Map() },
     legacy: {
       nodes: settled,
@@ -63,16 +73,89 @@ export function toolChatSnapshot(
   }
 }
 
+/** Build the Session event window that projects settled root Tool calls into Chat. */
+export function toolSessionEvents(nodes: readonly ToolResultNode[]): readonly SessionLiveEventEntry[] {
+  const firstTime = nodes[0]?.callTime ?? nodes[0]?.time ?? 0
+  const entries: SessionLiveEventEntry[] = [
+    {
+      type: 'event',
+      event: {
+        seq: 1,
+        time: firstTime - 2,
+        type: 'turn/start',
+        data: { turn: 1 },
+      },
+    },
+    {
+      type: 'event',
+      event: {
+        seq: 2,
+        time: firstTime - 1,
+        type: 'step/start',
+        data: { turn: 1, step: 1 },
+      },
+    },
+  ]
+  for (const [index, node] of nodes.entries()) {
+    if (node.call === null) throw new Error(`tool fixture "${node.callId}" requires its call event`)
+    const callSeq = 3 + index * 2
+    const callEntry: SessionLiveEventEntry = {
+      type: 'event',
+      event: {
+        seq: callSeq,
+        time: node.callTime ?? node.time - 1,
+        type: 'tool/call',
+        data: {
+          turn: 1,
+          step: 1,
+          callId: node.callId,
+          name: node.call.name,
+          arguments: node.call.argsRaw,
+        },
+      } as unknown as SessionLiveEventEntry['event'],
+    }
+    entries.push(callEntry)
+    const resultEntry: SessionLiveEventEntry = {
+      type: 'event',
+      event: {
+        seq: callSeq + 1,
+        time: node.time,
+        type: 'tool/result',
+        data: jsonFixture({
+          turn: 1,
+          step: 1,
+          message: {
+            id: `result-${node.callId}`,
+            role: 'user',
+            source: { kind: 'tool', callId: node.callId },
+            content: [{
+              type: 'tool-result',
+              toolCallId: node.callId,
+              content: node.content.map(block => ({ ...block })),
+              isError: node.isError,
+            }],
+          },
+          ...(node.error === undefined ? {} : { error: node.error }),
+          ...(node.meta === undefined ? {} : { meta: node.meta }),
+        }),
+        surfaceOp: 'append',
+      } as unknown as SessionLiveEventEntry['event'],
+    }
+    entries.push(resultEntry)
+  }
+  return entries
+}
+
 /**
  * Bind ui-tool's details renderer to the conversation slot callback shape.
  * @param t - conversation locale seat used by Tool cards.
- * @param description - optional Host description so the details card can abbreviate home paths.
+ * @param generation - optional Connection generation carrying the Host home.
  * @returns a direct-test renderSlot implementation.
  */
 /* 中文说明：函数 renderToolDetails 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function renderToolDetails(
   t: TranslateNS<'conversation'>,
-  description?: HostDescription,
+  generation?: ConnectionGeneration,
 ): DetailsSlotProps['renderSlot'] {
   return (_key, owner) => {
     // PropsRenderSlots keeps its key generic even for this one-key share;
@@ -82,7 +165,7 @@ export function renderToolDetails(
     return <ToolDetails
       block={details.block}
       cwd={details.cwd}
-      useHostDescription={selector => selector(description)}
+      useConnectionGeneration={selector => selector(generation)}
       t={t}
     />
   }

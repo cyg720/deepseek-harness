@@ -71,11 +71,8 @@ type QueryFactory = (params: {
 /** 中文说明：函数值 queryMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const queryMock = vi.hoisted(() => vi.fn<QueryFactory>())
 
-/** 中文说明：常量 CLAUDE_AGENT_SDK_VERSION 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const CLAUDE_AGENT_SDK_VERSION = '0.3.220'
-/** 中文说明：常量 CLAUDE_CODE_VERSION 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const CLAUDE_CODE_VERSION = '2.1.220'
-/** 中文说明：常量 CLAUDE_PLATFORM_PACKAGES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+const CLAUDE_AGENT_SDK_VERSION = '0.3.241'
+const CLAUDE_CODE_VERSION = '2.1.241'
 const CLAUDE_PLATFORM_PACKAGES = [
   '@anthropic-ai/claude-agent-sdk-darwin-arm64',
   '@anthropic-ai/claude-agent-sdk-darwin-x64',
@@ -553,6 +550,7 @@ describe('task admission and package contracts', () => {
     /** 中文说明：变量 safeFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeFiber = await ctx.plugin(claudeCode, {
       providerName: 'claude-safe',
+      model: 'claude-safe-model',
       env: { DSH_CLAUDE_INSTANCE: 'safe' },
       permissionMode: 'dontAsk',
       disposeGraceMs: 11,
@@ -560,6 +558,7 @@ describe('task admission and package contracts', () => {
     /** 中文说明：变量 bypassFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassFiber = await ctx.plugin(claudeCode, {
       providerName: 'claude-bypass',
+      model: 'claude-bypass-model',
       env: { DSH_CLAUDE_INSTANCE: 'bypass' },
       permissionMode: 'bypassPermissions',
       disposeGraceMs: 29,
@@ -590,10 +589,11 @@ describe('task admission and package contracts', () => {
     })
     expect(queryOptions.map(options => ({
       instance: options.env?.DSH_CLAUDE_INSTANCE,
+      model: options.model,
       permissionMode: options.permissionMode,
     }))).toEqual([
-      { instance: 'safe', permissionMode: 'dontAsk' },
-      { instance: 'bypass', permissionMode: 'bypassPermissions' },
+      { instance: 'safe', model: 'claude-safe-model', permissionMode: 'dontAsk' },
+      { instance: 'bypass', model: 'claude-bypass-model', permissionMode: 'bypassPermissions' },
     ])
     expect(spawnSpecs.map(spec => ({
       instance: spec.env?.DSH_CLAUDE_INSTANCE,
@@ -634,11 +634,14 @@ describe('task admission and package contracts', () => {
     await ctx.fiber.dispose()
   })
 
-  it('accepts only the five fixed non-interactive permission modes', () => {
+  it('accepts an optional non-empty model and the five fixed permission modes', () => {
     expect(claudeCode.Config({}).providerName).toBe('claude-code')
+    expect(claudeCode.Config({}).model).toBeUndefined()
     expect(claudeCode.Config({ providerName: 'claude-safe' }).providerName)
       .toBe('claude-safe')
     expect(() => claudeCode.Config({ providerName: '' })).toThrow()
+    expect(claudeCode.Config({ model: 'claude-opus' }).model).toBe('claude-opus')
+    expect(() => claudeCode.Config({ model: '' })).toThrow()
     expect(claudeCode.Config({}).permissionMode)
       .toBe(DEFAULT_CLAUDE_CODE_PERMISSION_MODE)
     /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
@@ -657,8 +660,22 @@ describe('task admission and package contracts', () => {
     const ctx = new Context()
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
+    const child = fakeChild()
+    vi.spyOn(ctx.subprocess, 'spawn').mockReturnValue(child.handle)
+    queryMock.mockImplementation(({ options }) => {
+      expect(options).not.toHaveProperty('model')
+      expect(options.permissionMode).toBe(DEFAULT_CLAUDE_CODE_PERMISSION_MODE)
+      options.spawnClaudeCodeProcess!(sdkSpawnOptions())
+      return queryFrom([success('native model answer')])
+    })
     claudeCode.apply(ctx, { env: {}, disposeGraceMs: 3_000 })
     expect(ctx.subagents.getProvider('claude-code')).toBeDefined()
+    const run = await ctx.subagents.start('claude-code', request())
+    await expect(run.result).resolves.toEqual({
+      output: [{ type: 'text', text: 'native model answer' }],
+      stopReason: 'completed',
+    })
+    await run.dispose()
     await ctx.fiber.dispose()
   })
 
@@ -679,6 +696,7 @@ describe('task admission and package contracts', () => {
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     await ctx.plugin(claudeCode, {
       providerName: 'claude-diagnostic',
+      model: 'claude-diagnostic-model',
       env: {
         ANTHROPIC_API_KEY: 'provider-fake-key',
         CLAUDE_CONFIG_DIR: '/private/tmp/dsh-claude-code-unit-config',
@@ -756,7 +774,7 @@ describe('task admission and package contracts', () => {
     child.stdout.end()
     await expect(run.result).resolves.toEqual({
       output: [],
-      diagnostic: expectedFailureDiagnostic('query-run', 'missing-result'),
+      diagnostic: expectedFailureDiagnostic('query-run', 'invalid-result'),
       stopReason: 'error',
     })
     expect(warn).toHaveBeenCalledWith(
@@ -769,6 +787,8 @@ describe('task admission and package contracts', () => {
     expect(queryMock.mock.calls[1]?.[0].options)
       .not.toHaveProperty('pathToClaudeCodeExecutable')
     expect(queryMock.mock.calls[1]?.[0].options.permissionMode).toBe('auto')
+    expect(queryMock.mock.calls[1]?.[0].options.model)
+      .toBe('claude-diagnostic-model')
     expect(spawn).toHaveBeenCalledWith(expect.objectContaining({
       cwd: process.cwd(),
       graceMs: 29,
@@ -958,6 +978,7 @@ describe('query options and result mapping', () => {
     /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec: ClaudeCodeRunSpec = {
       cwd: '/workspace',
+      model: 'claude-explicit-model',
       permissionMode: 'acceptEdits',
       env: {
         HOST_VISIBLE: 'overridden',
@@ -981,6 +1002,7 @@ describe('query options and result mapping', () => {
     expect(options).toMatchObject({
       abortController: controller,
       cwd: '/workspace',
+      model: 'claude-explicit-model',
       persistSession: false,
       disallowedTools: ['AskUserQuestion'],
       permissionMode: 'acceptEdits',
@@ -1018,14 +1040,14 @@ describe('query options and result mapping', () => {
         message: 'enter SECRET_TOKEN',
         requestedSchema: { secret: true },
       },
-      { signal: callbackSignal },
+      { signal: callbackSignal, requestId: 'request-2' },
     )).resolves.toEqual({ action: 'decline' })
     await expect(options.onUserDialog!(
       {
         dialogKind: 'refusal_fallback_prompt',
         payload: { path: '/private/secret.txt', token: 'SECRET_TOKEN' },
       },
-      { signal: callbackSignal },
+      { signal: callbackSignal, requestId: 'request-3' },
     )).resolves.toEqual({ behavior: 'cancelled' })
     expect(diagnostics).toEqual([
       'Claude Code unattended decision (mode: acceptEdits; request: tool permission; decision: denied): the provider does not request human approval',
@@ -1060,6 +1082,7 @@ describe('query options and result mapping', () => {
         spawn: () => child.handle,
       }, new AbortController(), () => {}, () => {})
       expect(options.permissionMode).toBe(permissionMode)
+      expect(options).not.toHaveProperty('model')
       expect(options.disallowedTools).toEqual(permissionMode === 'plan'
         ? ['AskUserQuestion', 'ExitPlanMode']
         : ['AskUserQuestion'])
@@ -1093,24 +1116,23 @@ describe('query options and result mapping', () => {
   it('accepts only a non-error success with a non-blank final result', () => {
     expect(successfulResult(success('exact final'))).toBe('exact final')
     expect(() => successfulResult(success('answer', true)))
-      .toThrow(expectedFailureDiagnostic('query-run', 'invalid-success'))
+      .toThrow(expectedFailureDiagnostic('query-run', 'invalid-result'))
     expect(() => successfulResult(success(' \n ')))
-      .toThrow(expectedFailureDiagnostic('query-run', 'invalid-success'))
-    /** 中文说明：函数值 sdkFailure 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+      .toThrow(expectedFailureDiagnostic('query-run', 'invalid-result'))
     const sdkFailure = () => successfulResult(failure(
       'error_during_execution',
       ['SECRET_TOKEN', '/private/secret.txt'],
     ))
     expect(sdkFailure).toThrow(expectedFailureDiagnostic(
       'query-run',
-      'error_during_execution',
+      'product-error',
     ))
     expect(sdkFailure).not.toThrow('SECRET_TOKEN')
     expect(sdkFailure).not.toThrow('/private/secret.txt')
     expect(() => successfulResult(failure(
       'error_max_turns',
       [],
-    ))).toThrow(expectedFailureDiagnostic('query-run', 'error_max_turns'))
+    ))).toThrow(expectedFailureDiagnostic('query-run', 'limit'))
 
     /** 中文说明：变量 unknown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unknown = {
@@ -1138,7 +1160,7 @@ describe('query options and result mapping', () => {
     })
     await expect(consumeClaudeQuery(
       queryFrom([{ type: 'system', subtype: 'init' } as SDKMessage]),
-    )).rejects.toThrow(expectedFailureDiagnostic('query-run', 'missing-result'))
+    )).rejects.toThrow(expectedFailureDiagnostic('query-run', 'invalid-result'))
 
     /** 中文说明：变量 onPermissionDenied 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const onPermissionDenied = vi.fn()
@@ -1181,17 +1203,14 @@ describe('run publication, cancellation, and settlement', () => {
     expect(fixture.child.terminate).toHaveBeenCalledOnce()
   })
 
-  it('flattens every SDK error result without inventing shared stop reasons', async () => {
-    /** 中文说明：变量 subtypes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const subtypes: ErrorSubtype[] = [
-      'error_during_execution',
-      'error_max_turns',
-      'error_max_budget_usd',
-      'error_max_structured_output_retries',
+  it('groups SDK errors by parent-action category without changing stop reasons', async () => {
+    const cases: Array<readonly [ErrorSubtype, string]> = [
+      ['error_during_execution', 'product-error'],
+      ['error_max_turns', 'limit'],
+      ['error_max_budget_usd', 'limit'],
+      ['error_max_structured_output_retries', 'limit'],
     ]
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
-    for (const subtype of subtypes) {
-      /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    for (const [subtype, category] of cases) {
       const fixture = fakeRun([failure(subtype)])
       /** 中文说明：变量 onError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const onError = vi.fn()
@@ -1202,7 +1221,7 @@ describe('run publication, cancellation, and settlement', () => {
       )
       await expect(run.result).resolves.toEqual({
         output: [],
-        diagnostic: expectedFailureDiagnostic('query-run', subtype),
+        diagnostic: expectedFailureDiagnostic('query-run', category),
         stopReason: 'error',
       })
       expect(onError).toHaveBeenCalledWith(
@@ -1225,7 +1244,7 @@ describe('run publication, cancellation, and settlement', () => {
     const result = await run.result
     expect(result).toEqual({
       output: [],
-      diagnostic: `${expectedFailureDiagnostic('query-run', 'error_during_execution')}\nClaude Code unattended decision (mode: dontAsk; request: tool permission; decision: denied): Claude Code denied the request before an interactive prompt`,
+      diagnostic: `${expectedFailureDiagnostic('query-run', 'product-error')}\nClaude Code unattended decision (mode: dontAsk; request: tool permission; decision: denied): Claude Code denied the request before an interactive prompt`,
       stopReason: 'error',
     })
     expect(result.diagnostic).not.toContain('SECRET_TOKEN')
@@ -1271,7 +1290,7 @@ describe('run publication, cancellation, and settlement', () => {
       output: [],
       diagnostic: expectedFailureDiagnostic(
         'query-run',
-        'error_during_execution',
+        'product-error',
       ),
       stopReason: 'error',
     })
@@ -1312,9 +1331,9 @@ describe('run publication, cancellation, and settlement', () => {
   it('maps invalid success and missing result to fixed query-run facts', async () => {
     /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const [messages, category] of [
-      [[success('answer', true)], 'invalid-success'],
-      [[success('')], 'invalid-success'],
-      [[{ type: 'system', subtype: 'init' } as SDKMessage], 'missing-result'],
+      [[success('answer', true)], 'invalid-result'],
+      [[success('')], 'invalid-result'],
+      [[{ type: 'system', subtype: 'init' } as SDKMessage], 'invalid-result'],
     ] as const) {
       /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fixture = fakeRun(messages)
@@ -1363,7 +1382,7 @@ describe('run publication, cancellation, and settlement', () => {
         output: [],
         diagnostic: expectedFailureDiagnostic(
           'process',
-          'process-exit',
+          'process',
           outcome,
         ),
         stopReason: 'error',

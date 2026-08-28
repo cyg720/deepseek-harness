@@ -7,15 +7,19 @@
 // 新手阅读建议：先看 COLUMN_LABELS 如何映射为 span，再看 aria-hidden 为何放在列容器上。
 
 import css from './TrajectoryTurnHeader.module.css'
+import type { TrajectoryKey, TrajectoryTranslate } from './locales.ts'
 
-// COLUMN_LABELS：指标列固定顺序，只读限定为 Input、Output、Think、Time。
-const COLUMN_LABELS = ['Input', 'Output', 'Think', 'Time'] as const
+const COLUMN_LABEL_KEYS: readonly TrajectoryKey[] = [
+  'column.input', 'column.output', 'column.think', 'column.time',
+]
 
 /** 每轮粘性标题栏属性，只包含从 1 开始的轮次序号。 */
 export interface TrajectoryTurnHeaderProps {
   /** 1-based turn index shown as `Turn N`. */
   /* 从 1 开始并显示为 Turn N 的轮次序号。 */
   turn: number
+  /** Trajectory locale seat. */
+  t: TrajectoryTranslate
 }
 
 /**
@@ -23,20 +27,14 @@ export interface TrajectoryTurnHeaderProps {
  * @param props.turn - turn index.
  * @returns the sticky header element.
  */
-/*
- * 渲染当前轮次的粘性标题行。
- * @param props.turn - 从 1 开始的轮次序号。
- * @returns 包含 Turn 标题和四个指标标签的粘性栏元素。
- * @example <TrajectoryTurnHeader turn={2} />
- */
-export function TrajectoryTurnHeader({ turn }: TrajectoryTurnHeaderProps) {
+export function TrajectoryTurnHeader({ turn, t }: TrajectoryTurnHeaderProps) {
   return (
     <div className={css.root}>
       <div className={css.inner}>
-        <span className={css.title}>Turn {turn}</span>
+        <span className={css.title}>{t('turn.label', { turn })}</span>
         <div className={css.columns} aria-hidden="true">
-          {COLUMN_LABELS.map(label => (
-            <span key={label} className={css.column}>{label}</span>
+          {COLUMN_LABEL_KEYS.map(key => (
+            <span key={key} className={css.column}>{t(key)}</span>
           ))}
         </div>
       </div>

@@ -12,7 +12,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { agentEvents } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import * as toolSchedule from '../src/index.ts'
 
@@ -70,7 +70,7 @@ describe('Schedule plugin composition', () => {
     /** 中文说明：函数值 created 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const created = await ctx.agents.withInitiator(root.agent, () => ctx.tools.execute({
       signal: new AbortController().signal,
-      callId: CallId('schedule-plugin-create'),
+      callId: ToolCallId('schedule-plugin-create'),
       name: 'schedule_create',
       arguments: { prompt: 'future reminder', after_seconds: 3_600 },
       agent: root.agent,

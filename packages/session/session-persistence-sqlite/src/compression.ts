@@ -13,6 +13,7 @@
  * 新手阅读建议：先看数据类型和辅助函数，再读写入/投影主流程，最后关注恢复、脱敏和失败场景。
  */
 
+import { readFileSync } from 'node:fs'
 import { TextDecoder } from 'node:util'
 import { constants, zstdCompressSync, zstdDecompressSync } from 'node:zlib'
 import type { SessionEvent, SurfaceEventType } from '@deepseek-ai/dsh-session'
@@ -35,25 +36,28 @@ export interface BoundRecord {
   readonly data: string | Uint8Array
   readonly sourceEventSeqs: Uint8Array | null
   readonly surfaceOp: string | null
-  readonly ignorable: number | null
+  readonly isPacked: 0 | 1
 }
 
-/** Small values stay as SQLite text to avoid per-frame CPU and byte overhead. */
-/* 中文说明：常量 ZSTD_DATA_THRESHOLD_BYTES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-export const ZSTD_DATA_THRESHOLD_BYTES = 4_096
-
-/** 中文说明：常量 MAX_SAFE_INTEGER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const MAX_SAFE_INTEGER = BigInt(Number.MAX_SAFE_INTEGER)
-/** 中文说明：常量 MAX_ZIGZAG_INTEGER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const MAX_ZIGZAG_INTEGER = MAX_SAFE_INTEGER * 2n
-/** 中文说明：常量 UTF8_DECODER 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true })
 /** 中文说明：常量 ZSTD_COMPRESSION_LEVEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ZSTD_COMPRESSION_LEVEL = 3
-/** 中文说明：常量 PACKED_ROW_SENTINEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const PACKED_ROW_SENTINEL = 0
+const DELTA_TAG = 0
+const RUN_TAG = 1
+const MAX_SAFE_INTEGER = BigInt(Number.MAX_SAFE_INTEGER)
+const MAX_ZIGZAG_INTEGER = MAX_SAFE_INTEGER * 2n
+/**
+ * Schema-19 raw-content zstd dictionary for independently decodable data rows.
+ * Its exact bytes are part of the physical format; changing the resource
+ * requires a schema-version bump.
+ */
+const ZSTD_DICTIONARY = readFileSync(new URL('../resources/zstd-dictionary.bin', import.meta.url))
 
-/** 中文说明：常量 CHUNK_TAGS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+/** Compress options shared by every data-column frame. */
+const DATA_ZSTD_OPTIONS = {
+  dictionary: ZSTD_DICTIONARY,
+  params: { [constants.ZSTD_c_compressionLevel]: ZSTD_COMPRESSION_LEVEL },
+} as const
 const CHUNK_TAGS = ['text-chunks', 'reasoning-chunks', 'tool-call-chunks'] as const
 /** 中文说明：type ChunkTag 定义本模块所需的数据或行为，用于表达会话持久化场景。 */
 type ChunkTag = typeof CHUNK_TAGS[number]
@@ -74,7 +78,7 @@ function isChunkTag(value: string): value is ChunkTag {
  * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function decodeRow(row: EventRow): SessionEvent[] {
-  if (row.ignorable !== PACKED_ROW_SENTINEL) return [decodeScalarRow(row)]
+  if (row.is_packed === 0) return [decodeScalarRow(row)]
   if (!isChunkTag(row.type)) {
     throw new Error(`malformed ${row.type} storage row: packed discriminator requires a chunk tag`)
   }
@@ -108,7 +112,7 @@ export function bindRecord(record: StorageRecord): BoundRecord {
       data: encodeData(JSON.stringify(record.data)),
       sourceEventSeqs: null,
       surfaceOp: null,
-      ignorable: PACKED_ROW_SENTINEL,
+      isPacked: 1,
     }
   }
   /** 中文说明：变量 event 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -124,7 +128,7 @@ export function bindRecord(record: StorageRecord): BoundRecord {
       ? null
       : encodeSourceEventSeqs(surface.sourceEventSeqs),
     surfaceOp: surface.surfaceOp === undefined ? null : JSON.stringify(surface.surfaceOp),
-    ignorable: event.ignorable === true ? 1 : null,
+    isPacked: 0,
   }
 }
 
@@ -132,11 +136,7 @@ export function bindRecord(record: StorageRecord): BoundRecord {
 function encodeData(serialized: string): string | Uint8Array {
   /** 中文说明：变量 bytes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bytes = Buffer.from(serialized)
-  if (bytes.length < ZSTD_DATA_THRESHOLD_BYTES) return serialized
-  /** 中文说明：变量 compressed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const compressed = zstdCompressSync(bytes, {
-    params: { [constants.ZSTD_c_compressionLevel]: ZSTD_COMPRESSION_LEVEL },
-  })
+  const compressed = zstdCompressSync(bytes, DATA_ZSTD_OPTIONS)
   return compressed.length < bytes.length ? compressed : serialized
 }
 
@@ -145,36 +145,54 @@ function decodeData(value: string | Uint8Array, maxOutputLength?: number): strin
   if (typeof value === 'string') return value
   /** 中文说明：变量 decoded 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const decoded = maxOutputLength === undefined
-    ? zstdDecompressSync(value)
-    : zstdDecompressSync(value, { maxOutputLength })
+    ? zstdDecompressSync(value, { dictionary: ZSTD_DICTIONARY })
+    : zstdDecompressSync(value, { dictionary: ZSTD_DICTIONARY, maxOutputLength })
   return UTF8_DECODER.decode(decoded)
 }
 
 /** 中文说明：函数 encodeSourceEventSeqs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function encodeSourceEventSeqs(values: readonly number[]): Uint8Array {
-  /** 中文说明：变量 bytes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const bytes: number[] = []
-  /** 中文说明：变量 previous 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  if (values.length === 0) return new Uint8Array()
+  const deltas = [DELTA_TAG]
   let previous = 0n
   /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
   for (let index = 0; index < values.length; index += 1) {
-    /** 中文说明：变量 sourceSeq 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const sourceSeq = values[index] as number
-    if (!Number.isSafeInteger(sourceSeq) || sourceSeq < 0) {
+    const value = values[index] as number
+    if (!Number.isSafeInteger(value) || value < 0) {
       throw new TypeError('sourceEventSeqs must contain non-negative safe integers')
     }
-    /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const value = BigInt(sourceSeq)
-    /** 中文说明：变量 encoded 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const current = BigInt(value)
     const encoded = index === 0
-      ? value
-      : value >= previous
-        ? (value - previous) * 2n
-        : ((previous - value) * 2n) - 1n
-    appendVarint(bytes, encoded)
-    previous = value
+      ? current
+      : current >= previous
+        ? (current - previous) * 2n
+        : ((previous - current) * 2n) - 1n
+    appendVarint(deltas, encoded)
+    previous = current
   }
-  return Buffer.from(bytes)
+  if (!isStrictlyIncreasing(values)) return Uint8Array.from(deltas)
+
+  const runs = [RUN_TAG]
+  let start = values[0] as number
+  let end = start
+  for (let index = 1; index < values.length; index += 1) {
+    const value = values[index] as number
+    if (value === end + 1) {
+      end = value
+      continue
+    }
+    appendVarint(runs, BigInt(start))
+    appendVarint(runs, BigInt(end - start + 1))
+    start = value
+    end = start
+  }
+  appendVarint(runs, BigInt(start))
+  appendVarint(runs, BigInt(end - start + 1))
+  return Uint8Array.from(runs.length < deltas.length ? runs : deltas)
+}
+
+function isStrictlyIncreasing(values: readonly number[]): boolean {
+  return values.every((value, index) => index === 0 || value > (values[index - 1] as number))
 }
 
 /** 中文说明：函数 appendVarint 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
@@ -188,14 +206,22 @@ function appendVarint(bytes: number[], value: bigint): void {
   bytes.push(Number(remaining))
 }
 
-/** 中文说明：函数 decodeSourceEventSeqs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function decodeSourceEventSeqs(bytes: Uint8Array): number[] {
-  /** 中文说明：变量 values 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+function decodeSourceEventSeqs(bytes: Uint8Array, maxEntries: number): number[] {
+  if (bytes.length === 0) return []
+  if (bytes.length === 1) {
+    throw new Error('malformed source_event_seqs storage value: truncated tagged payload')
+  }
+  switch (bytes[0]) {
+    case DELTA_TAG: return decodeDeltaVarints(bytes, 1)
+    case RUN_TAG: return decodeRunVarints(bytes, 1, maxEntries)
+    default: throw new Error('malformed source_event_seqs storage value: unknown encoding tag')
+  }
+}
+
+function decodeDeltaVarints(bytes: Uint8Array, offset: number): number[] {
   const values: number[] = []
   /** 中文说明：变量 previous 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let previous = 0n
-  /** 中文说明：变量 offset 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  let offset = 0
   while (offset < bytes.length) {
     /** 中文说明：变量 first 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = values.length === 0
@@ -219,7 +245,30 @@ function decodeSourceEventSeqs(bytes: Uint8Array): number[] {
   return values
 }
 
-/** 中文说明：函数 readVarint 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
+function decodeRunVarints(bytes: Uint8Array, offset: number, maxEntries: number): number[] {
+  const values: number[] = []
+  let previousEnd = -1
+  while (offset < bytes.length) {
+    const start = readVarint(bytes, offset, MAX_SAFE_INTEGER)
+    const count = readVarint(bytes, start.offset, MAX_SAFE_INTEGER)
+    offset = count.offset
+    const first = Number(start.value)
+    const length = Number(count.value)
+    if (length < 1) {
+      throw new Error('malformed source_event_seqs storage value: run count must be positive')
+    }
+    if (first <= previousEnd || !Number.isSafeInteger(first + length - 1)) {
+      throw new Error('malformed source_event_seqs storage value: runs must ascend within safe integers')
+    }
+    if (length > maxEntries - values.length) {
+      throw new Error('malformed source_event_seqs storage value: run exceeds its event sequence')
+    }
+    for (let index = 0; index < length; index += 1) values.push(first + index)
+    previousEnd = first + length - 1
+  }
+  return values
+}
+
 function readVarint(
   bytes: Uint8Array,
   offset: number,
@@ -262,7 +311,7 @@ function decodeScalarRow(row: EventRow): SessionEvent {
   const surfaceFields = {
     ...row.source_event_seqs === null
       ? {}
-      : { sourceEventSeqs: decodeSourceEventSeqs(row.source_event_seqs) },
+      : { sourceEventSeqs: decodeSourceEventSeqs(row.source_event_seqs, row.seq) },
     ...row.surface_op === null
       ? {}
       : { surfaceOp: JSON.parse(row.surface_op) as SessionEvent<SurfaceEventType>['surfaceOp'] },
@@ -273,7 +322,6 @@ function decodeScalarRow(row: EventRow): SessionEvent {
     time: row.time,
     data: JSON.parse(decodeData(row.data)) as SessionEvent['data'],
     ...surfaceFields,
-    ...row.ignorable === 1 ? { ignorable: true as const } : {},
   } as SessionEvent
 }
 

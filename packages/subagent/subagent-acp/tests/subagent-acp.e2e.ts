@@ -19,33 +19,33 @@ import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
 import * as acp from '../src/index.ts'
 
 /**
- * With-key cross-process boundary proof: the backend spawns the real acp-agent example, speaks ACP over
+ * With-key cross-process boundary proof: the backend spawns the real dsh ACP profile, speaks ACP over
  * stdio, and returns its real model answer. This is the out-of-process counterpart to in-process
  * spawn coverage and self-skips without `DEEPSEEK_API_KEY`.
  */
 
-// The real acp-agent example: its bin + cordis.yml (the live DeepSeek config).
-/** 中文说明：变量 binScript 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-const binScript = fileURLToPath(new URL('../../../examples/acp-demo/src/bin.ts', import.meta.url))
-/** 中文说明：变量 exampleConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-const exampleConfig = fileURLToPath(new URL('../../../../examples/acp-agent/cordis.yml', import.meta.url))
-/** 中文说明：变量 repoTsconfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+// The real ACP profile: dsh plus the example's live DeepSeek patch.
+const binScript = fileURLToPath(new URL('../../../../apps/cli/src/bin.ts', import.meta.url))
+const exampleConfig = fileURLToPath(new URL('../../../../snapshots/acp/escalation-approved/cordis.yml', import.meta.url))
 const repoTsconfig = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))
 
-// How to launch the child acp-agent (src via tsx / lib via plain node, per DSH_EXAMPLE_MODE).
+// How to launch the child ACP profile (src via tsx / lib via plain node, per DSH_EXAMPLE_MODE).
 // The subprocess seam scrubs ambient creds while spec.env merges after it, so the model key is
 // forwarded explicitly; TSX_TSCONFIG_PATH is added by the resolver in src mode only.
-/** 中文说明：变量 childLaunch 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-const childLaunch = resolveExampleLaunch({
-  srcBin: binScript,
-  configArgs: ['--config', exampleConfig],
-  tsconfigPath: repoTsconfig,
-  env: {
-    ...process.env.DEEPSEEK_API_KEY !== undefined ? { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY } : {},
-    ...process.env.DEEPSEEK_BASE_URL !== undefined ? { DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL } : {},
-    DSH_PERMISSION_MODE: 'danger-full-access',
-  },
-})
+function resolveChildLaunch(dshHome: string) {
+  return resolveExampleLaunch({
+    srcBin: binScript,
+    sourceImport: 'tsx/esm',
+    configArgs: ['--profile', 'acp', '--patch', exampleConfig],
+    tsconfigPath: repoTsconfig,
+    env: {
+      ...process.env.DEEPSEEK_API_KEY !== undefined ? { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY } : {},
+      ...process.env.DEEPSEEK_BASE_URL !== undefined ? { DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL } : {},
+      DSH_HOME: dshHome,
+      DSH_PERMISSION_MODE: 'danger-full-access',
+    },
+  })
+}
 
 /** The ACP backend ignores the parent, but the seam requires one. */
 /* 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -66,6 +66,7 @@ afterEach(async () => {
 describe.skipIf(!process.env.DEEPSEEK_API_KEY)('ACP backend with-key e2e (drive our own acp-agent)', () => {
   it('drives the real acp-agent example process to answer a prompt', async () => {
     workdir = await mkdtemp(join(tmpdir(), 'dsh-subagent-acp-e2e-'))
+    const childLaunch = resolveChildLaunch(join(workdir, '.dsh-child'))
     ctx = new Context()
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
@@ -99,6 +100,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('ACP backend with-key e2e (drive 
 
   it('drives the child to do real file work via its own bash tool', async () => {
     workdir = await mkdtemp(join(tmpdir(), 'dsh-subagent-acp-e2e-'))
+    const childLaunch = resolveChildLaunch(join(workdir, '.dsh-child'))
     ctx = new Context()
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)

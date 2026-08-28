@@ -54,6 +54,8 @@ interface PreparedCompaction extends SurfaceSelection {
   readonly measurement: TokenMeasurement
   readonly selectedNodes: TokenMeasurement['nodes']
   readonly shadowedTokenCount: number
+  /** Route-priced total of the selected span; the shrink comparison's unit. */
+  readonly shadowedRouteTokenCount: number
   readonly input: SummarizationInput
 }
 
@@ -425,7 +427,12 @@ function prepareCompaction(
     ...selection,
     measurement,
     selectedNodes,
-    shadowedTokenCount: selectedNodes.reduce((total, node) => total + node.tokens, 0),
+    // The shadow-price protocol prices replacements with the fixed heuristic
+    // so the O(1) projection fold stays in agreement with its own appends;
+    // retention, range selection, and the shrink comparison read the
+    // route-priced `tokens` instead.
+    shadowedTokenCount: selectedNodes.reduce((total, node) => total + node.heuristicTokens, 0),
+    shadowedRouteTokenCount: selectedNodes.reduce((total, node) => total + node.tokens, 0),
     input: buildSummarizationInput(session, selection.shadowedSeqs),
   }
 }
@@ -447,11 +454,13 @@ async function summarizeCompaction(
     content: frameSummary(summaryResult.summary),
     source: compactCheckpointSource(compactionId, sourceCommandId),
   })
-  /** 中文说明：运行时局部值 framedSummaryTokenCount，由紧邻初始化决定。 */
+  // The checkpoint is text-only, so its fixed-heuristic price IS its route
+  // price; comparing it against the span's route price asks the real
+  // question — does the replacement lower the next request's pressure.
   const framedSummaryTokenCount = dependencies.meter.estimateMessage(checkpointMessage)
-  if (framedSummaryTokenCount >= prepared.shadowedTokenCount) {
+  if (framedSummaryTokenCount >= prepared.shadowedRouteTokenCount) {
     throw new Error(
-      `summary is not smaller than the shadowed content (${framedSummaryTokenCount} estimated framed tokens >= ${prepared.shadowedTokenCount})`,
+      `summary is not smaller than the shadowed content (${framedSummaryTokenCount} estimated framed tokens >= ${prepared.shadowedRouteTokenCount})`,
     )
   }
   return {

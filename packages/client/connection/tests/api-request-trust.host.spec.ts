@@ -81,6 +81,13 @@ describe('isTrustedApiRequest', () => {
     expect(isTrustedApiRequest(request({ host: 'localhost:3080', 'sec-fetch-site': 'same-origin' }), [])).toBe(true)
   })
 
+  it('reads Fetch Headers while preserving absent browser markers', () => {
+    expect(isTrustedApiRequest({ headers: new Headers({ host: '127.0.0.1:3080' }) }, [])).toBe(true)
+    expect(isTrustedApiRequest({
+      headers: new Headers({ host: '127.0.0.1:3080', origin: 'http://evil.example' }),
+    }, [])).toBe(false)
+  })
+
   it('assertTrustedAuthority accepts bare authorities and throws on anything more', () => {
     /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `entry` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const entry of ['harness.internal', 'harness.internal:3080', 'HARNESS.internal:80', '10.0.0.9', '[::1]:3080']) {

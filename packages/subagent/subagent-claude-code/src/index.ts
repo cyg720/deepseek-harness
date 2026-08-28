@@ -50,11 +50,12 @@ const DEFAULT_PROVIDER_NAME = 'claude-code'
 
 /* jscpd:ignore-start -- sibling product providers intentionally expose
  * overlapping deployment-owned fields without adding a shared config owner. */
-/** Deployment-owned permission, environment, and process-release settings. */
-/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
+/** Deployment-owned model, permission, environment, and process-release settings. */
 export interface Config {
   /** Provider name on `ctx.subagents` (default `claude-code`). */
   providerName?: string
+  /** Native Claude model fixed for this instance; omitted to inherit Claude settings. */
+  model?: string
   /**
    * Explicit environment entries layered over the subprocess seam's
    * credential-scrubbed parent environment.
@@ -74,14 +75,14 @@ export interface Config {
 /** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   providerName: z.string().min(1).default(DEFAULT_PROVIDER_NAME),
+  model: z.string().min(1),
   env: z.dict(z.string()).default({}),
   permissionMode: z.union([...CLAUDE_CODE_PERMISSION_MODES])
     .default(DEFAULT_CLAUDE_CODE_PERMISSION_MODE),
   disposeGraceMs: z.number().default(DEFAULT_DISPOSE_GRACE_MS),
 })
 
-/** 中文说明：type ResolvedConfig 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
-type ResolvedConfig = Required<Config>
+type ResolvedConfig = Omit<Required<Config>, 'model'> & Pick<Config, 'model'>
 /* jscpd:ignore-end */
 
 /* jscpd:ignore-start -- Cordis registration and shared-seam plumbing mirror
@@ -130,6 +131,7 @@ class ClaudeCodeProvider implements SubagentProvider {
     /** 中文说明：变量 spec 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec: ClaudeCodeRunSpec = {
       cwd,
+      ...this.config.model === undefined ? {} : { model: this.config.model },
       permissionMode: this.config.permissionMode,
       env: this.config.env,
       disposeGraceMs: this.config.disposeGraceMs,
@@ -148,13 +150,14 @@ class ClaudeCodeProvider implements SubagentProvider {
 /**
  * Register one Profile-named Claude Code provider.
  * @param ctx - context carrying shared subagent and subprocess services.
- * @param config - registry name, permission mode, child environment, and disposal grace.
+ * @param config - registry name, optional model, permission mode, child environment, and disposal grace.
  */
 /* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   /** 中文说明：变量 resolved 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolved: ResolvedConfig = {
     providerName: config.providerName ?? DEFAULT_PROVIDER_NAME,
+    ...config.model === undefined ? {} : { model: config.model },
     env: config.env as Record<string, string>,
     permissionMode: config.permissionMode ?? DEFAULT_CLAUDE_CODE_PERMISSION_MODE,
     disposeGraceMs: config.disposeGraceMs as number,

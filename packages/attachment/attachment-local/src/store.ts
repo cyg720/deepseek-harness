@@ -50,12 +50,6 @@ function displayName(value: string | undefined): string | undefined {
   return clean === '' ? undefined : clean
 }
 
-/** 根据摘要前两位分桶构造持久对象路径。 */
-function objectPath(root: string, sha256: string): string {
-  return join(root, 'objects', sha256.slice(0, 2), sha256)
-}
-
-/** 验证附件引用格式并返回其中的纯SHA-256摘要。 */
 function ensureReference(ref: ImageAttachmentRef): string {
   // 对品牌标识执行严格格式匹配的结果。
   const match = ID_PATTERN.exec(String(ref.attachmentId))
@@ -63,7 +57,17 @@ function ensureReference(ref: ImageAttachmentRef): string {
   return match[1]
 }
 
-/** 完整解码来源图片并确认真实媒体类型与声明一致。 */
+/**
+ * Derive the absolute immutable-object path for one normalized attachment.
+ * @param root - absolute `DSH_HOME/attachments/v1` root.
+ * @param ref - durable normalized attachment reference.
+ * @returns provider-local path without reading the object.
+ */
+export function normalizedImagePath(root: string, ref: ImageAttachmentRef): string {
+  const sha256 = ensureReference(ref)
+  return join(root, 'objects', sha256.slice(0, 2), sha256)
+}
+
 async function inspectMetadata(
   data: Uint8Array,
   declaredMediaType: ImageAttachmentRef['mediaType'],
@@ -238,9 +242,7 @@ export async function commitPreparedImageFile(
   await ensureDurableDirectory(staging, boundary)
   // 使用随机名称且以独占方式创建的暂存文件路径。
   const temporary = join(staging, randomUUID())
-  // 内容寻址对象的最终目标路径。
-  const target = objectPath(root, sha256)
-  // 可能仍需在异常清理中关闭的暂存文件句柄。
+  const target = normalizedImagePath(root, prepared.ref)
   let handle
   try {
     handle = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600)
@@ -257,13 +259,18 @@ export async function commitPreparedImageFile(
       const existing = new Uint8Array(await readFile(target))
       if (digest(existing) !== sha256) throw new AttachmentError('Stored attachment failed integrity verification.', 'ATTACHMENT_CORRUPT')
     }
+    // Windows shares the read-only attribute across hard links and refuses to
+    // unlink either name once it is set, so discard the staging name first.
+    await unlink(temporary)
+    // The target remains the sole link for a new object; this also restores
+    // read-only mode when the deduplication path observes an existing object.
+    await chmod(target, 0o400)
     // Persist the target entry and close a concurrent bucket-creation window
     // before the reference can reach a session checkpoint. The dedup path
     // repeats both syncs because it may observe another writer's link before
     // that writer reaches its own durability boundary.
     await syncDirectory(bucket)
     await syncDirectory(join(root, 'objects'))
-    await unlink(temporary)
   } catch (error) {
     /* v8 ignore next -- A descriptor can remain open only when the underlying write/sync/close operation fails. */
     if (handle !== undefined) await handle.close().catch(
@@ -319,7 +326,7 @@ export async function readImageFile(
   // 从对象存储读取的图片字节。
   let data: Uint8Array
   try {
-    data = new Uint8Array(await readFile(objectPath(root, sha256), { signal }))
+    data = new Uint8Array(await readFile(normalizedImagePath(root, ref), { signal }))
   } catch (error) {
     signal?.throwIfAborted()
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') throw new AttachmentError('Attachment object is missing.', 'ATTACHMENT_NOT_FOUND')

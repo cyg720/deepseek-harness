@@ -79,7 +79,7 @@ export interface CommandDescriptor {
 /**
  * Producer record for one command invocation (the `command/run` event's
  * source slot). Merge-extensible sum type mirroring `MessageSourceMap`'s
- * shape; minimal today because every executor caller is a human-facing UI
+ * shape; minimal because every executor caller is a human-facing UI
  * surface dispatching a human-typed line, so the sole variant is `user`.
  */
 // 命令发起者的来源映射（可扩展和类型）：目前只有 user——所有执行器调用方都是人在 UI 上敲的命令行。

@@ -1,18 +1,3 @@
-/**
- * LayoutController behavior: the cross-plugin panel-action face. Geometry
- * lives in the entry store (layout-store.spec.ts) — here we assert the
- * delegation contract: attachPanels wiring, the three actions forwarding, the
- * unwired fail-loud, and re-attach overwriting a stale action set.
- */
-/*
- * 中文说明：
- * - 文件职责：验证 LayoutController 对面板操作的挂接、转发、未接线报错和重新挂接行为。
- * - 技术维度：使用 Vitest 模拟函数和客户端服务类的真实方法调用。
- * - 产品维度：保障侧栏与详情面板操作总是送到当前布局入口，不会调用已卸载界面。
- * - 逻辑维度：fakePanels 生成操作探针，再分别测试正常转发、无绑定失败和新绑定覆盖旧绑定。
- * - 关键边界：几何状态由其他测试负责；此处只验证跨插件动作接口，不测试渲染。
- * - 新手阅读建议：先看 PanelActions 的六个探针，再比较 stale/fresh 用例如何证明覆盖关系。
- */
 import { describe, expect, it, vi } from 'vitest'
 import { LayoutController } from '@deepseek-ai/dsh-client-ui-layout/src/client/service.ts'
 import type { PanelActions } from '@deepseek-ai/dsh-client-ui-layout/src/client/service.ts'

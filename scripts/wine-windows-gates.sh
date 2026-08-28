@@ -287,7 +287,7 @@ grep -q '^smoke: win32 x64' "$scratch/logs/smoke.log" || { echo 'wine-windows-ga
 # Both statuses are captured so one failure cannot hide the other's result.
 # 中文说明：函数 build_gate 执行一个独立门禁步骤；参数通过位置参数或环境读取，退出状态表示成功或失败；示例见本脚本调用。
 build_gate() {
-  wine_node "$scratch/logs/host-tsc.log" "$tsc_js" -b tsconfig.host.json --pretty false || return $?
+  wine_node "$scratch/logs/host-tsc.log" --max-old-space-size=4096 "$tsc_js" -b tsconfig.host.json --pretty false || return $?
   wine_node "$scratch/logs/host-tsdown.log" "$tsdown_js" --env.DSH_BUILD_FACE host || return $?
   wine_node "$scratch/logs/client-tsc.log" "$tsc_js" -b tsconfig.client.json --pretty false || return $?
   wine_node "$scratch/logs/client-tsdown.log" "$tsdown_js" --env.DSH_BUILD_FACE client

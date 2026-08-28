@@ -29,7 +29,10 @@ const SEAT_CONTENT: Record<string, string> = {
   'settings.close': 'Close',
 }
 
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+type AttentionSnapshot = Parameters<Parameters<SettingsRootComponentProps['useSessionPendingInteraction']>[0]>[0]
+const noAttention: AttentionSnapshot = new Map()
+const useSessionPendingInteraction: SettingsRootComponentProps['useSessionPendingInteraction'] = selector => selector(noAttention)
+
 function mount({
   wide = true,
   onboardingActive = true,
@@ -69,6 +72,7 @@ function mount({
   /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props: SettingsRootComponentProps = {
     useSessions,
+    useSessionPendingInteraction,
     useWorkspaces: unusedHook,
     wide,
     useOnboardingSteps: select => select(steps),

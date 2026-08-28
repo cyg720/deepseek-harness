@@ -12,15 +12,11 @@
  */
 import type { ReactNode } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
-import { bindSnapshotSelector } from './bind.ts'
-import { DocumentTitle } from './DocumentTitle.tsx'
-import type {} from '@deepseek-ai/dsh-client-runtime/client'
 
 /** Inputs available after the UI renderer's inject set activates. */
 /* UI renderer 的注入集合激活后可用的装配依赖。 */
 export interface AssemblyDeps {
-  /** Client context carrying the slots and sessions services. */
-  /* 提供 slots 与 sessions 服务的客户端 Cordis 上下文。 */
+  /** Client context carrying the renderer-owned Slot registry. */
   ctx: Context
 }
 
@@ -38,25 +34,5 @@ export interface AssemblyDeps {
 export function buildRenderApp(deps: AssemblyDeps): () => ReactNode {
   // 客户端 Cordis 上下文。
   const { ctx } = deps
-  // 会话列表服务；缺失表示装配顺序错误，必须立即抛错。
-  const sessions = ctx.get('sessions')
-  if (sessions === undefined) throw new Error('ui renderer: sessions service unavailable')
-  // 与 sessions.list 绑定的 React 快照选择 hook。
-  const useSessions = bindSnapshotSelector(sessions.list)
-  // 会话标题子组件；读取当前会话标题并投影到 document.title。
-  const SessionDocumentTitle = (): ReactNode => {
-    // 当前会话的可选标题；无当前会话或标题缺失时为 undefined。
-    const title = useSessions((state) => {
-      // 当前会话 id；可能尚未选择。
-      const id = state.current
-      return id === undefined ? undefined : state.byId[id]?.title
-    })
-    return <DocumentTitle {...title === undefined ? {} : { title }} />
-  }
-  return () => (
-    <>
-      <SessionDocumentTitle />
-      {ctx.slots.renderSlot('root', {})}
-    </>
-  )
+  return () => ctx.slots.renderSlot('root', {})
 }

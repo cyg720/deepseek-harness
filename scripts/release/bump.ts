@@ -53,13 +53,9 @@ const ROOT_MANIFEST = 'package.json'
 /** One manifest the bump rewrites, and the tag its new version will carry. */
 /* 中文说明：interface PlannedVersion 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface PlannedVersion {
-  /** Repository-relative manifest path. */
   readonly manifestPath: string
-  /** Label for the log line. */
   readonly label: string
-  /** The version the manifest currently carries. */
   readonly from: string
-  /** The version to write. */
   readonly to: string
   /** The tag this version publishes from, or undefined for a non-published manifest. */
   readonly tag: string | undefined

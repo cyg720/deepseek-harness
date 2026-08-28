@@ -27,9 +27,7 @@ class MemorySettings extends SettingsProvider {
 
 // 本地化宿主测试套件。
 describe('locale host', () => {
-  // 验证语言设置的注册、合法更新、拒绝和释放；异步返回 Promise<void>。
-  it('registers an optional explicit locale preference with the Host settings lifecycle', async () => {
-    // 本用例独立 Cordis 上下文。
+  it('registers an open locale preference with the Host settings lifecycle', async () => {
     const ctx = new Context()
     await ctx.plugin(MemorySettings).await()
     // 被测插件 fiber，用于等待装配并在末尾显式释放。
@@ -40,7 +38,10 @@ describe('locale host', () => {
     expect(ctx.settings.get(ns)).toEqual({})
     await ctx.settings.update(ns, { preference: 'en' })
     expect(ctx.settings.get(ns)).toEqual({ preference: 'en' })
-    await expect(ctx.settings.update(ns, { preference: 'fr' })).rejects.toThrow()
+    await ctx.settings.update(ns, { preference: 'pt-BR' })
+    expect(ctx.settings.get(ns)).toEqual({ preference: 'pt-BR' })
+    await expect(ctx.settings.update(ns, { preference: 'bad locale' })).rejects.toThrow()
+    await expect(ctx.settings.update(ns, { preference: '123' })).rejects.toThrow()
     await fiber.dispose()
     // row 是单个已注册设置描述；释放后其 ns 不得等于目标命名空间。
     expect(ctx.settings.describe().map(row => row.ns)).not.toContain(ns)

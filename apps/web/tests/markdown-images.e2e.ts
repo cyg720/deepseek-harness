@@ -35,11 +35,8 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景预期快照所在目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/markdown-images', import.meta.url))
-/** 图片渲染界面的预期无障碍快照。 */
-const UI_EXPECTED = fileURLToPath(new URL('./snapshots/markdown-images/ui.expected.md', import.meta.url))
-/** 当前快照录制或校验模式。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/markdown-images', import.meta.url))
+const UI_EXPECTED = fileURLToPath(new URL('./expected/markdown-images/ui.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
 /** 注入测试会话时使用的稳定标识。 */
 const SEED_ID = 'markdown-images-web-e2e'
@@ -177,7 +174,7 @@ describe('web e2e: remote Markdown image rendering', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 

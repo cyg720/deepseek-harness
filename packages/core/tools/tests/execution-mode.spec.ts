@@ -10,7 +10,7 @@
 
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, {
   defineContentToolFixture,
@@ -36,7 +36,7 @@ async function setup() {
 
 /** 中文说明：函数 exec 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function exec(name: string, args: unknown): ToolExecutionInput {
-  return { signal: testToolSignal, callId: CallId('c1'), name, arguments: args }
+  return { signal: testToolSignal, callId: ToolCallId('c1'), name, arguments: args }
 }
 
 describe('ToolRuntime.executionMode', () => {

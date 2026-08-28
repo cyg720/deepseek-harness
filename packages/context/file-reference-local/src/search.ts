@@ -37,11 +37,36 @@ export { activeAtToken, formatFileMention } from '@deepseek-ai/dsh-file-referenc
 /* 单次查询默认最多返回 20 个候选（避免补全面板过长）。 */
 export const DEFAULT_FILE_SEARCH_MAX_RESULTS = 20
 /** Default maximum entries retained in one workspace search index. */
-/* 单个工作区索引默认最多保留 1 万个条目（大仓库的扫盘上限）。 */
-export const DEFAULT_FILE_SEARCH_MAX_ENTRIES = 10_000
-/** Directory basenames omitted from traversal unless the deployment overrides them. */
-/* 默认跳过这些目录名：遍历与候选展示都忽略，部署方可在配置中覆盖。 */
-export const DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES = ['.git', 'node_modules'] as const
+export const DEFAULT_FILE_SEARCH_MAX_ENTRIES = 50_000
+/**
+ * Directory basenames omitted from traversal unless the deployment overrides
+ * them: version-control and dependency stores plus build-output names that no
+ * ecosystem also uses for sources. Generated files carry the basenames of the
+ * sources that produced them, so an unfiltered tree both spends the entry
+ * budget twice and ranks `dist/x.js` beside `src/x.ts` for every query.
+ *
+ * `lib` is deliberately absent: Ruby gems and many npm packages keep their
+ * sources there, and excluding it would make `@` miss those sources entirely
+ * and silently. A workspace that builds into `lib` adds it through
+ * `excludedDirectories`.
+ */
+export const DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES = [
+  '.git',
+  'node_modules',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  'target',
+  '.next',
+  '.nuxt',
+  '.turbo',
+  '.venv',
+  '__pycache__',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.gradle',
+] as const
 
 /** Resolved limits and exclusions for one workspace index. */
 /* 单个工作区索引生效的解析后配置（已合并默认值）。 */
@@ -72,10 +97,18 @@ interface IndexGeneration {
   promise: Promise<IndexedPath[]>
 }
 
+/** A completed traversal and the invalidation counter it observed at its start. */
+interface SettledIndex {
+  entries: IndexedPath[]
+  startedAt: number
+}
+
 /**
  * Cancellable, reusable fuzzy index rooted at one agent working directory.
  * Directory-scoped queries list live state; bare fuzzy queries share one
- * bounded traversal until the `@` interaction ends or a tool result invalidates it.
+ * bounded traversal. Only the first query of a workspace waits for that
+ * traversal — an invalidated index keeps answering while its replacement
+ * builds behind the caret.
  */
 /*
  * 以某个 agent 工作目录为根的、可取消可复用的模糊索引。
@@ -85,9 +118,10 @@ interface IndexGeneration {
 export class WorkspaceFileSearch {
   /** 排除目录的集合化视图，遍历时用 has() 判断，O(1) 查询。 */
   private readonly excludedDirectories: ReadonlySet<string>
-  /** 当前这一代索引；undefined 表示尚未建立或被失效。 */
+  private settled: SettledIndex | undefined
   private generation: IndexGeneration | undefined
-  /** 销毁标记：dispose 后所有查询返回空列表。 */
+  /** Monotonic invalidation counter; a settled index below it is stale. */
+  private invalidations = 0
   private disposed = false
 
   constructor(
@@ -132,8 +166,7 @@ export class WorkspaceFileSearch {
       const fragment = slash < 0 ? '' : query.slice(slash + 1)
       return this.listDirectory(directory, fragment, signal)
     }
-    // 裸关键字查询：确保索引就绪（可复用），过滤隐藏文件后排序截断
-    const indexed = await waitForPromise(this.ensureIndex(), signal)
+    const indexed = await this.indexFor(signal)
     return rankCandidates(
       indexed.filter(candidate => visibleForGlobalQuery(candidate.path, query)),
       query,
@@ -141,11 +174,15 @@ export class WorkspaceFileSearch {
     )
   }
 
-  /** Discard the current index so the next bare query observes a fresh tree. */
-  /* 丢弃当前索引：下一次裸查询会重新扫描文件树，反映最新状态。 */
+  /**
+   * Mark the index stale so a later bare query observes a fresh tree.
+   *
+   * The stale entries are kept and keep answering: a rebuild costs one
+   * traversal of the whole workspace, and putting that in front of the caret
+   * is what a caller invalidating on every tool result would otherwise pay.
+   */
   invalidate(): void {
-    this.generation?.controller.abort(new Error('file search index invalidated'))
-    this.generation = undefined
+    this.invalidations += 1
   }
 
   /** Abort traversal and make later queries return no candidates. */
@@ -153,7 +190,29 @@ export class WorkspaceFileSearch {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
-    this.invalidate()
+    this.generation?.controller.abort(new Error('file search index disposed'))
+    this.generation = undefined
+    this.settled = undefined
+  }
+
+  /**
+   * The entries a bare fuzzy query ranks. Only the first query of a workspace
+   * waits for a traversal; afterwards a stale index answers immediately and
+   * its replacement builds in the background.
+   * @param signal - cancels this caller's wait without killing a shared traversal.
+   * @returns indexed paths, at most one invalidation behind the tree.
+   */
+  private async indexFor(signal: AbortSignal): Promise<readonly IndexedPath[]> {
+    const settled = this.settled
+    if (settled === undefined) return waitForPromise(this.ensureIndex(), signal)
+    if (settled.startedAt < this.invalidations) {
+      void this.ensureIndex().catch(() => {
+        // A background refresh failure is not this caller's error: the stale
+        // entries still answer and `settled.startedAt` stays behind, so the
+        // next bare query starts a fresh attempt.
+      })
+    }
+    return settled.entries
   }
 
   /**
@@ -164,15 +223,28 @@ export class WorkspaceFileSearch {
   private ensureIndex(): Promise<IndexedPath[]> {
     if (this.generation !== undefined) return this.generation.promise
     const controller = new AbortController()
+    const startedAt = this.invalidations
     const generation = {
       controller,
       promise: Promise.resolve([] as IndexedPath[]),
     } satisfies IndexGeneration
-    generation.promise = this.scanWorkspace(controller.signal).catch((error: unknown) => {
-      /* v8 ignore next -- every owned abort clears `generation` synchronously; this only protects an unexpected scan failure */
-      if (this.generation === generation) this.generation = undefined
-      throw error
-    })
+    generation.promise = this.scanWorkspace(controller.signal).then(
+      (entries) => {
+        /* v8 ignore next -- disposal aborts this traversal, so it reaches the
+         * rejection handler instead; the guard only covers a scan that finished
+         * its last directory in the instant before the abort landed, and must
+         * not hand a disposed index its entries back. */
+        if (this.disposed) return entries
+        this.generation = undefined
+        this.settled = { entries, startedAt }
+        return entries
+      },
+      (error: unknown) => {
+        /* v8 ignore next -- dispose clears `generation` synchronously; this only protects an unexpected scan failure */
+        if (this.generation === generation) this.generation = undefined
+        throw error
+      },
+    )
     this.generation = generation
     return generation.promise
   }
@@ -194,7 +266,13 @@ export class WorkspaceFileSearch {
       if (directory === undefined) {
         throw new Error('file search selected a missing directory')
       }
-      const entries = await readDirectory(directory.absolute, signal)
+      // The root is not a subtree: an unreadable branch costs its own
+      // candidates, but an unreadable root means the traversal learned
+      // nothing. Letting that settle would publish an empty index over
+      // entries that are still good and leave no invalidation to retry from.
+      const entries = cursor === 0
+        ? await readWorkspaceRoot(directory.absolute, signal)
+        : await readDirectory(directory.absolute, signal)
       for (const entry of entries) {
         signal.throwIfAborted()
         // 相对展示路径：根目录直接取名，否则父目录相对路径 + / + 名字
@@ -283,14 +361,13 @@ async function resolveDisplayDirectory(
   return absolute
 }
 
-/**
- * 读取一个目录的全部条目并按名称排序（保证候选顺序确定性）。
- * 目录不可读/不存在时静默返回空数组：补全只是建议性辅助，不应因
- * 某个子树损坏而打断整个交互。
- * @param absolute 目录绝对路径
- * @param signal 取消信号
- * @returns 排序后的目录条目；读取失败返回空数组
- */
+async function readWorkspaceRoot(absolute: string, signal: AbortSignal) {
+  signal.throwIfAborted()
+  const entries = await readdir(absolute, { withFileTypes: true })
+  signal.throwIfAborted()
+  return entries.sort((left, right) => compareText(left.name, right.name))
+}
+
 async function readDirectory(absolute: string, signal: AbortSignal) {
   signal.throwIfAborted()
   try {

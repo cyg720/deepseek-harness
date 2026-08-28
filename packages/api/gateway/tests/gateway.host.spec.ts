@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest'
 import { Context, Service, symbols } from '@deepseek-ai/cordis'
 import { z } from 'zod'
 import { apply as applyConnection, inject as connectionInject } from '@deepseek-ai/dsh-client-connection'
+import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import type { WebServer, WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import {
   bindTypertRemote,
@@ -25,6 +26,7 @@ import {
 } from '@deepseek-ai/dsh-typert-protocol'
 import TypertRegistry, { type TypertContribution } from '@deepseek-ai/dsh-typert-registry'
 import TypertGatewayService, { TypertGatewayError } from '@deepseek-ai/dsh-api-gateway'
+import { provideBrowserCredentials } from './browser-credentials.ts'
 
 /** 网关查找测试使用的最小代理业务对象。 */
 interface FixtureAgent {
@@ -119,7 +121,6 @@ type FakeRpcHandler = (endpoint: string, payload: unknown, signal: AbortSignal) 
 /** 记录网关注册的频道、认领函数和处理器的连接服务夹具。 */
 class FakeConnectionService extends Service {
   channel: string | undefined
-  authority: string | undefined
   matches: ((endpoint: string) => boolean) | undefined
   handler: FakeRpcHandler | undefined
 
@@ -134,21 +135,22 @@ class FakeConnectionService extends Service {
         channel: string,
         matches: (endpoint: string) => boolean,
         handler: FakeRpcHandler,
-        options: { readonly authority: string },
       ) =>
         owner.effect(() => {
           this.channel = channel
-          this.authority = options.authority
           this.matches = matches
           this.handler = handler
           return () => {
             this.channel = undefined
-            this.authority = undefined
             this.matches = undefined
             this.handler = undefined
           }
         }),
     }
+  }
+
+  requestRejection(): undefined {
+    return undefined
   }
 }
 
@@ -185,7 +187,22 @@ async function serveRoute(route: WebRoute): Promise<{ readonly origin: string; c
   }
 }
 
-/** 第一个共享命名空间服务，用于验证多服务所有权冲突。 */
+/** Exchange a Connection launch token without mounting the frontend fallback. */
+function browserCookie(connection: HostConnectionHandle, origin: string): string {
+  const target = new URL(connection.authenticatedUrl(origin))
+  let setCookie: string | undefined
+  connection.authorizeIndex({
+    method: 'GET',
+    url: `${target.pathname}${target.search}`,
+    headers: { host: target.host },
+  }, {
+    writeHead(_status, headers) { setCookie = headers?.['set-cookie'] },
+    end() {},
+  })
+  if (setCookie === undefined) throw new Error('gateway fixture did not receive an authentication cookie')
+  return setCookie.split(';', 1)[0]!
+}
+
 class FirstSharedService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'firstShared', { namespace: 'shared' })
 
@@ -768,7 +785,7 @@ describe('TypertGatewayService', () => {
     expect(service.calls).toEqual([])
   })
 
-  it('distinguishes strict input and result validation failures', async () => {
+  it('validates strict input without decoding the business result', async () => {
     const { ctx, service } = await setup()
     registerStrict(ctx, [strictOnlyDescriptor()])
 
@@ -779,27 +796,23 @@ describe('TypertGatewayService', () => {
     }), 'input-invalid')
 
     service.nextResult = { title: 1 }
-    await expectCode(ctx.typertGateway.invoke({
+    await expect(ctx.typertGateway.invoke({
       namespace: 'goals',
       method: 'strictOnly',
       args: { request: { title: 'ship' } },
-    }), 'result-invalid')
+    })).resolves.toEqual({ title: 1 })
   })
 
-  it('rejects non-JSON values after strict codec validation', async () => {
+  it('does not inspect non-JSON business results', async () => {
     const { ctx, service } = await setup()
-    const descriptor = strictOnlyDescriptor()
-    registerStrict(ctx, [{
-      ...descriptor,
-      result: strictCodec('@fixture/gateway#UnknownResult', z.unknown()),
-    }])
+    registerStrict(ctx, [strictOnlyDescriptor()])
     service.nextResult = 1n
 
-    await expectCode(ctx.typertGateway.invoke({
+    await expect(ctx.typertGateway.invoke({
       namespace: 'goals',
       method: 'strictOnly',
       args: { request: { title: 'ship' } },
-    }), 'result-invalid')
+    })).resolves.toBe(1n)
   })
 
   it.each([
@@ -834,7 +847,7 @@ describe('TypertGatewayService', () => {
     expect(service.calls).toContain('passthrough')
   })
 
-  it('rejects cyclic SRC input and non-JSON SRC results', async () => {
+  it('rejects cyclic SRC input without inspecting SRC results', async () => {
     const { ctx, service } = await setup()
     const cyclic: { self?: unknown } = {}
     cyclic.self = cyclic
@@ -844,12 +857,13 @@ describe('TypertGatewayService', () => {
       args: { value: cyclic },
     }), 'input-invalid')
 
-    service.nextResult = new Date(0)
-    await expectCode(ctx.typertGateway.invoke({
+    const result = new Date(0)
+    service.nextResult = result
+    await expect(ctx.typertGateway.invoke({
       namespace: 'goals',
       method: 'passthrough',
       args: { value: null },
-    }), 'result-invalid')
+    })).resolves.toBe(result)
   })
 
   it('accepts dense JSON and rejects decorated arrays and object properties', async () => {
@@ -994,7 +1008,7 @@ describe('TypertGatewayService', () => {
     await gatewayFiber
     await ctx.plugin(GoalService)
     const connection = rawConnection(ctx)
-    expect(connection).toMatchObject({ channel: '/api', authority: 'trusted-host' })
+    expect(connection).toMatchObject({ channel: '/api' })
 
     registerAgentLookup(ctx, { id: 'agent-1' })
     registerStrict(ctx, [createDescriptor(), maybeDescriptor()])
@@ -1079,6 +1093,59 @@ describe('TypertGatewayService', () => {
     expect(connection.handler).toBeUndefined()
   })
 
+  it('claims and validates in-process Remote event results for the active Client generation', async () => {
+    const ctx = new Context()
+    await ctx.plugin(TypertRegistry)
+    await ctx.plugin(FakeConnectionService)
+    await ctx.plugin(TypertGatewayService)
+    const connection = rawConnection(ctx)
+    const handler = connection.handler
+    if (handler === undefined) throw new Error('fixture Connection did not retain the /api interceptor')
+    expect(connection.matches?.('$events/result')).toBe(true)
+
+    const result = {
+      args: { clientId: 'missing-client', eventId: 'missing', outcome: { kind: 'next' } },
+    }
+    const inactive = await handler('$events/result', result, new AbortController().signal)
+    expect(inactive).toMatchObject({ ok: false, error: { code: 'internal' } })
+    if (inactive.ok) throw new Error('inactive Remote event result unexpectedly succeeded')
+    expect(inactive.error.message).toContain('identifies no active event stream')
+
+    const unregister = ctx.typertGateway.registerRemoteEvents(signal => (async function* () {
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve()
+        else signal.addEventListener('abort', () => { resolve() }, { once: true })
+      })
+    })(), { home: '/home/fixture' })
+    const carrier = new AbortController()
+    const events = rawGatewayEventHarness(ctx).openRemoteEvents({ args: {} }, carrier.signal)
+    const opening = await events.next()
+    expect(opening).toMatchObject({
+      done: false,
+      value: { type: 'ready', host: { home: '/home/fixture' } },
+    })
+    if (opening.done) throw new Error('Remote event stream ended before ready')
+    const clientId: unknown = Reflect.get(opening.value as object, 'clientId')
+    if (typeof clientId !== 'string') throw new Error('Remote event stream omitted its Client id')
+
+    for (const payload of [null, [], {}, { other: {} }]) {
+      const invalid = await handler('$events/result', payload, carrier.signal)
+      expect(invalid).toMatchObject({ ok: false, error: { code: 'internal' } })
+      if (invalid.ok) throw new Error('invalid Remote event result payload unexpectedly succeeded')
+      expect(invalid.error.message).toContain('requires exactly one plain-object args field')
+    }
+    await expect(handler('$events/result', {
+      args: { clientId, eventId: 'missing', outcome: { kind: 'next' } },
+    }, carrier.signal)).resolves.toEqual({
+      ok: true,
+      value: undefined,
+    })
+
+    await events.return(undefined)
+    await unregister()
+    await ctx.fiber.dispose()
+  })
+
   it('preserves a lookup policy rejection through the Connection RPC result', async () => {
     const ctx = new Context()
     await ctx.plugin(TypertRegistry)
@@ -1136,6 +1203,7 @@ describe('TypertGatewayService', () => {
   it('dispatches claimed invocations through /api and leaves unclaimed endpoints to its fallback', async () => {
     const ctx = new Context().extend({ fixtureScope: 'http-caller' })
     const routes: WebRoute[] = []
+    provideBrowserCredentials(ctx)
     ctx.provide('webServer', fakeHttpServer(routes) as WebServer)
     const connectionFiber = ctx.plugin({ inject: [...connectionInject], apply: applyConnection })
     await connectionFiber
@@ -1149,11 +1217,12 @@ describe('TypertGatewayService', () => {
     let strictActive = true
     expect(routes).toHaveLength(1)
     const server = await serveRoute(routes[0]!)
+    const cookie = browserCookie(ctx.connection, server.origin)
 
     try {
       const response = await fetch(`${server.origin}/api/goals/create`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', cookie },
         body: JSON.stringify({
           type: 'client-request',
           rpcId: 'rpc-http',
@@ -1173,7 +1242,7 @@ describe('TypertGatewayService', () => {
 
       const invalid = await fetch(`${server.origin}/api/goals/create`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', cookie },
         body: JSON.stringify({
           type: 'client-request',
           rpcId: 'rpc-invalid',
@@ -1197,7 +1266,7 @@ describe('TypertGatewayService', () => {
       strictActive = false
       const withdrawn = await fetch(`${server.origin}/api/goals/create`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', cookie },
         body: JSON.stringify({
           type: 'client-request',
           rpcId: 'rpc-withdrawn',
@@ -1217,7 +1286,10 @@ describe('TypertGatewayService', () => {
       })
       expect(JSON.stringify(withdrawnBody)).toContain('strict definition was withdrawn')
 
-      const unclaimed = await fetch(`${server.origin}/api/legacy/list`, { method: 'POST' })
+      const unclaimed = await fetch(`${server.origin}/api/legacy/list`, {
+        method: 'POST',
+        headers: { cookie },
+      })
       expect(unclaimed.status).toBe(404)
     } finally {
       await server.close()
@@ -1265,7 +1337,17 @@ function rawConnection(ctx: Context): FakeConnectionService {
   return receiver[symbols.original] ?? receiver
 }
 
-/** 向 Host 面注册一组严格调用描述符并返回异步注销器。 */
+interface GatewayEventHarness {
+  openRemoteEvents(payload: unknown, signal: AbortSignal): AsyncGenerator
+}
+
+function rawGatewayEventHarness(ctx: Context): GatewayEventHarness {
+  const receiver = ctx.get('typertGateway') as unknown as GatewayEventHarness & {
+    [symbols.original]?: GatewayEventHarness
+  }
+  return receiver[symbols.original] ?? receiver
+}
+
 function registerStrict(ctx: Context, descriptors: readonly InvocationDescriptor[]): () => Promise<void> {
   return ctx.typert.register({
     package: '@fixture/gateway',
@@ -1297,6 +1379,7 @@ function contextProvider(context: Context) {
   return {
     wire: 'agentId',
     wireTypeSymbol: '@fixture/domain#AgentId',
+    identity: (candidate: Context) => candidate === context ? 'agent-1' : undefined,
     resolve: (id: string) => id === 'agent-1' ? context : undefined,
   }
 }

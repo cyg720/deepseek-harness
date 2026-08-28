@@ -16,7 +16,7 @@ import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 import type {} from '@deepseek-ai/dsh-commands/types'
 import type {
   ConversationNodeDefinition,
-} from '@deepseek-ai/dsh-client-runtime/client'
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /** Goal-owned human command input projected independently of model messages. */
 // 目标命令输入投影数据：命令 id、可见文本与时间，独立于模型消息渲染。
@@ -26,7 +26,7 @@ export interface GoalCommandInputData {
   readonly time: number
 }
 
-declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
+declare module '@deepseek-ai/dsh-client-ui-chat/client' {
   interface ChatNodeDataMap {
     /** Human-entered `/goal` command input. */
     'command-input': GoalCommandInputData

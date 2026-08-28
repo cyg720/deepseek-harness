@@ -15,8 +15,9 @@ import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import {
   CLIENT_BUILD_RECORD_PATH,
+  CLIENT_BUILD_PROFILE_SELECTOR,
   clientBuildProcessEnvironment,
-  repositoryCommitHash,
+  repositoryClientBuildEnvironment,
   resolveClientBuildEnvironment,
   writeClientBuildRecord,
 } from './client-build-environment.ts'
@@ -49,15 +50,10 @@ function main(): void {
   })
   /** 仓库根目录绝对路径。 */
   const root = resolve(import.meta.dirname, '..')
-  /** 继承当前环境并补入仓库提交哈希的父构建环境。 */
-  const parentEnvironment = {
-    ...process.env,
-    DSH_CLIENT_COMMIT_HASH: repositoryCommitHash(root, process.env),
-  }
-  /** 解析 profile 后允许公开给客户端的构建环境。 */
-  const clientEnvironment = resolveClientBuildEnvironment(parentEnvironment, values.profile)
-  /** 真正传给构建子进程的环境，包含客户端公开值。 */
-  const buildEnvironment = clientBuildProcessEnvironment(parentEnvironment, clientEnvironment)
+  const repositoryEnvironment = repositoryClientBuildEnvironment(root, process.env)
+  const profile = values.profile ?? process.env[CLIENT_BUILD_PROFILE_SELECTOR]
+  const clientEnvironment = resolveClientBuildEnvironment(repositoryEnvironment, profile)
+  const buildEnvironment = clientBuildProcessEnvironment(process.env, clientEnvironment)
 
   rmSync(resolve(root, CLIENT_BUILD_RECORD_PATH), { force: true })
   runScript('build:lib', buildEnvironment)

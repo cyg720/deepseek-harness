@@ -22,9 +22,7 @@ import {
 } from './scaffold.ts'
 import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
 
-/** 本场景快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/access-confirmation', import.meta.url))
-/** Full access 风险对话框的稳定 ARIA 快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/access-confirmation', import.meta.url))
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
 /** 当前快照运行模式：比较、刷新或记录。 */
 const MODE = webSnapshotMode()
@@ -54,7 +52,7 @@ describe('web e2e: Full access confirmation', () => {
     // 使用真实中文词典而非测试翻译回调，使快照覆盖正式本地化注册。
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspaceZh(page, scaffold.workspaceCwd)
   }, 120_000)

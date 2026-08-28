@@ -39,6 +39,7 @@
 
 import { snapshotJsonValue } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import type { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
 
 declare module '@deepseek-ai/dsh-session/types' {
@@ -60,9 +61,7 @@ declare module '@deepseek-ai/dsh-session/types' {
  * Supporting another composition input is a deliberate version change, never
  * an implicit extra field.
  */
-// 中文：当前描述符格式版本，写进每条 subagent/descriptor 事件并被 fold 严格校验；
-// 新增组成字段必须显式升版本，而不是悄悄加字段。
-export const SUBAGENT_DESCRIPTOR_VERSION = 2
+export const SUBAGENT_DESCRIPTOR_VERSION = 3
 
 /** Fields shared by every supported `subagent/descriptor` payload. */
 // 中文：所有描述符载荷共享的公共字段：版本、模式（one-shot/continuable）、建立它的提供者名。
@@ -99,6 +98,8 @@ export interface ContinuableSubagentDescriptorData extends SubagentDescriptorBas
   readonly agentProvider?: string
   /** Resolved child `agentOptions.model`, when one was declared. */
   readonly agentModel?: string
+  /** Resolved child `agentOptions.reasoningEffort`, when one was declared. */
+  readonly agentReasoningEffort?: ReasoningEffortId
   /** Per-child persona that shadows the deployment persona on resume. */
   readonly persona?: string
   /** Child tool scoping reapplied on resume. */
@@ -140,6 +141,8 @@ export interface ContinuableSubagentDescriptorInput extends SubagentDescriptorIn
   readonly agentProvider?: string
   /** Requested child `agentOptions.model`. */
   readonly agentModel?: string
+  /** Requested child `agentOptions.reasoningEffort`. */
+  readonly agentReasoningEffort?: ReasoningEffortId
   /** Requested per-child persona. */
   readonly persona?: string
   /** Requested child tool scoping. */
@@ -165,6 +168,7 @@ const CONTINUABLE_DESCRIPTOR_KEYS = new Set([
   ...DESCRIPTOR_BASE_KEYS,
   'agentProvider',
   'agentModel',
+  'agentReasoningEffort',
   'persona',
   'toolFilter',
 ])
@@ -269,6 +273,7 @@ function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undef
   }
   const agentProvider = optionalString(value, 'agentProvider')
   const agentModel = optionalString(value, 'agentModel')
+  const agentReasoningEffort = optionalString(value, 'agentReasoningEffort') as ReasoningEffortId | undefined
   const persona = optionalString(value, 'persona')
   const toolFilter = Object.hasOwn(value, 'toolFilter')
     ? parseToolFilter(value['toolFilter'])
@@ -280,6 +285,7 @@ function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undef
     label,
     ...agentProvider !== undefined ? { agentProvider } : {},
     ...agentModel !== undefined ? { agentModel } : {},
+    ...agentReasoningEffort !== undefined ? { agentReasoningEffort } : {},
     ...persona !== undefined ? { persona } : {},
     ...toolFilter !== undefined ? { toolFilter } : {},
   }
@@ -323,6 +329,7 @@ export function snapshotSubagentDescriptor(input: SubagentDescriptorInput): Suba
       label: input.label,
       ...input.agentProvider !== undefined ? { agentProvider: input.agentProvider } : {},
       ...input.agentModel !== undefined ? { agentModel: input.agentModel } : {},
+      ...input.agentReasoningEffort !== undefined ? { agentReasoningEffort: input.agentReasoningEffort } : {},
       ...input.persona !== undefined ? { persona: input.persona } : {},
       ...input.toolFilter !== undefined ? { toolFilter: input.toolFilter } : {},
     }

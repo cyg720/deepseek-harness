@@ -1,16 +1,4 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证插件配置的 fields.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
- * 产品维度：防止插件配置保存、发现和错误提示回归。
- * 逻辑维度：构造配置状态，触发操作并断言请求与界面。
- * 关键边界：敏感值不得意外回显；异步发现和保存必须清理。
- * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
- */
-/**
- * Field-control behavior: what a control renders for a staged draft, how an
- * overridden field offers its reset, and that a control never writes on its own.
- */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'

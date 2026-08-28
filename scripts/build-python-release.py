@@ -62,11 +62,12 @@ def load_platforms(path: Path = PLATFORM_MANIFEST) -> dict[str, tuple[str, str]]
 PLATFORMS = load_platforms()
 
 
-# 中文说明：函数 runtime_suffixes 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
-def runtime_suffixes(executable_name: str) -> tuple[str, ...]:
-    # 中文说明：变量 suffixes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    suffixes = ("", "-rg")
-    return (*suffixes, "-spawn-helper") if "-macos-" in executable_name else suffixes
+def runtime_filenames(executable_name: str) -> tuple[str, ...]:
+    """Return the exact platform payload names for one runtime executable."""
+    if executable_name.endswith(".exe"):
+        return (executable_name, f"{executable_name.removesuffix('.exe')}-rg.exe")
+    names = (executable_name, f"{executable_name}-rg")
+    return (*names, f"{executable_name}-spawn-helper") if "-macos-" in executable_name else names
 
 
 # 中文说明：函数 main 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
@@ -191,7 +192,7 @@ def copy_package(source: Path, destination: Path) -> None:
             "*.pyc",
             "dist",
             "node_modules",
-            "dsh-jsonrpc-agent-pkg-*",
+            "deepseek-harness-sdk-runtime-*",
         ),
     )
 
@@ -259,15 +260,19 @@ def stage_sdk(destination: Path, version: str) -> None:
 
 # 中文说明：函数 stage_runtime 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def stage_runtime(destination: Path, version: str, executable: Path, executable_name: str) -> None:
+    if executable.name != executable_name:
+        raise ValueError(
+            f"runtime executable must be named {executable_name}, got {executable.name}"
+        )
     copy_package(ROOT / "python" / "sdk-runtime", destination)
     stage_license_files(destination, include_notices=True)
     rewrite_version(destination / "pyproject.toml", version)
     # 中文说明：变量 runtime_dir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     runtime_dir = destination / "src" / "deepseek_harness_runtime" / "runtime"
     runtime_dir.mkdir(parents=True, exist_ok=True)
-    # 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。
-    for suffix in runtime_suffixes(executable_name):
-        shutil.copy2(Path(f"{executable}{suffix}"), runtime_dir / f"{executable_name}{suffix}")
+    source_directory = executable.parent
+    for filename in runtime_filenames(executable_name):
+        shutil.copy2(source_directory / filename, runtime_dir / filename)
 
 
 # 中文说明：函数 verify_wheel 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
@@ -312,13 +317,11 @@ def verify_wheel(
             )
         # 中文说明：变量 runtime_files 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
         runtime_files = [
-            name for name in archive.namelist() if "/runtime/dsh-jsonrpc-agent-pkg-" in name
+            name for name in archive.namelist() if "/runtime/deepseek-harness-sdk-runtime-" in name
         ]
         if package == "runtime":
             assert platform is not None
-            # 中文说明：变量 expected_files 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-            expected_files = [f"{platform[1]}{suffix}" for suffix in runtime_suffixes(platform[1])]
-            # 中文说明：变量 found_files 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+            expected_files = sorted(runtime_filenames(platform[1]))
             found_files = sorted(Path(name).name for name in runtime_files)
             if found_files != expected_files:
                 raise RuntimeError(f"{wheel} runtime payload must be {expected_files}, found {found_files}")
@@ -326,7 +329,7 @@ def verify_wheel(
             for runtime_file in runtime_files:
                 # 中文说明：变量 mode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
                 mode = archive.getinfo(runtime_file).external_attr >> 16
-                if mode & stat.S_IXUSR == 0:
+                if platform[0] != "win_amd64" and mode & stat.S_IXUSR == 0:
                     raise RuntimeError(f"{wheel} runtime executable lost its executable bit: {runtime_file}")
         elif runtime_files:
             raise RuntimeError(f"SDK wheel unexpectedly contains runtime executables: {runtime_files}")

@@ -1,31 +1,509 @@
-/**
- * Fixture impl semantics: the demo data source must honor the same contract
- * shapes as the real host (paging boundaries, rpcId echo, replay lifecycle,
- * baseline replay, timing hooks) — this is the vitest-side drift detector for
- * the hand-written fixture/host parallel implementations.
- */
-/*
- * 文件职责：验证连接夹具的 fixture 行为与边界。
- * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
- * 产品维度：防止用户可见行为在重构或扩展后发生回归。
- * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
- * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
- * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { SessionId, WorkspaceId } from '../src/client/api.ts'
+import type {
+  RpcRequest,
+  RpcResponse,
+  RpcResult,
+  SessionEvent,
+  SessionId,
+} from '../src/client/api.ts'
 import { RpcId } from '../src/client/api.ts'
-import type { HostFrame, MuxFrame, RpcMessage, RpcRequest } from '../src/client/api.ts'
-import { FixtureApiClient, createFixtureApi } from '../src/client/fixture.ts'
+import { decodeStorageRecord } from '@deepseek-ai/dsh-session/chunk-rows'
+import type { ChunkRow } from '@deepseek-ai/dsh-session/chunk-rows'
+import {
+  createFixtureConnectionRpc,
+  createFixtureFaces,
+  type FixtureOptions,
+} from '../src/client/fixture.ts'
+import type {
+  ClientConnectionRpc, ConnectionRpcResult,
+} from '../src/rpc.ts'
+import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
+import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
+import type { ModelSelection } from '@deepseek-ai/dsh-api-session-controller/types'
 
 /** 中文说明：标识或顺序值 sid，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const sid = (id: string): SessionId => id as SessionId
-/** 中文说明：测试场景的局部值 req，取值由紧邻初始化决定，仅在当前作用域使用。 */
+type WorkspaceId = string & { readonly __fixtureWorkspaceId: 'WorkspaceId' }
 const req = <P>(payload: P): RpcRequest<P> => ({ rpcId: RpcId(`t-${Math.abs(Math.sin(reqCount++)).toString(36).slice(2, 10)}`), payload })
 /** 中文说明：标识或顺序值 reqCount，取值由紧邻初始化决定，仅在当前作用域使用。 */
 let reqCount = 0
 
-/** 中文说明：类型 TimingHooks 约束本文件数据字段及允许取值。 */
+interface FixtureSessionSummary {
+  sessionId: SessionId
+  updatedAt: number
+  running: boolean
+  blank: boolean
+  parentSessionId?: SessionId
+  origin?: 'subagent'
+  cwd?: string
+  agentPreset?: string
+}
+
+interface FixtureHistoryEntry {
+  readonly type: 'event'
+  readonly event: SessionEvent
+}
+
+type FixtureChunkRowEvent = {
+  [Kind in ChunkRow['type']]: {
+    readonly type: `chunkrow/${Kind}`
+    readonly seq: number
+    readonly time: number
+    readonly data: Extract<ChunkRow, { readonly type: Kind }>['data']
+  }
+}[ChunkRow['type']]
+
+interface FixtureHistoryChunkRun {
+  readonly type: 'chunks'
+  readonly event: FixtureChunkRowEvent
+}
+
+type FixtureHistoryRecord = FixtureHistoryEntry | FixtureHistoryChunkRun
+
+interface FixturePage {
+  readonly records: readonly FixtureHistoryRecord[]
+  readonly hasMore: boolean
+}
+
+function historyEvents(records: readonly FixtureHistoryRecord[]): SessionEvent[] {
+  return records.flatMap(record => record.type === 'event'
+    ? [record.event]
+    : decodeStorageRecord(chunkRow(record.event)))
+}
+
+function chunkRow(event: FixtureChunkRowEvent): ChunkRow {
+  switch (event.type) {
+    case 'chunkrow/text-chunks':
+      return { type: 'text-chunks', seq0: event.seq, time0: event.time, data: event.data }
+    case 'chunkrow/reasoning-chunks':
+      return { type: 'reasoning-chunks', seq0: event.seq, time0: event.time, data: event.data }
+    case 'chunkrow/tool-call-chunks':
+      return { type: 'tool-call-chunks', seq0: event.seq, time0: event.time, data: event.data }
+  }
+}
+
+type FixtureFollowFrame =
+  | {
+    readonly type: 'snapshot'
+    readonly cursor: number
+    readonly records: readonly FixtureHistoryRecord[]
+    readonly hasMore: boolean
+    readonly projections: {
+      readonly asOfSeq: number
+      readonly values: Readonly<Record<string, unknown>>
+    }
+  }
+  | FixtureHistoryEntry
+
+type FixtureControlFrame =
+  | {
+    readonly type: 'baseline'
+    readonly value: {
+      readonly queues: Readonly<Record<string, readonly unknown[]>>
+      readonly jobs: Readonly<Record<string, readonly unknown[]>>
+      readonly approvals: readonly unknown[]
+      readonly questions: readonly unknown[]
+      readonly projections: Readonly<Record<string, {
+        readonly asOfSeq: number
+        readonly values: Readonly<Record<string, unknown>>
+      }>>
+    }
+  }
+  | {
+    readonly type: 'projection'
+    readonly sessionId: SessionId
+    readonly key: string
+    readonly value: unknown
+    readonly seq: number
+  }
+
+interface FixtureSessionRequests {
+  list: { readonly cursor?: string }
+  search: { readonly query: string }
+  create: {
+    readonly workspaceId?: WorkspaceId
+    readonly cwd?: string
+    readonly sessionId?: SessionId
+    readonly agentPreset?: string
+  }
+  history: {
+    readonly sessionId: SessionId
+    readonly beforeSeq?: number
+    readonly maxMessages?: number
+  }
+  selectModel: {
+    readonly sessionId: SessionId
+    readonly provider: string
+    readonly model: string
+    readonly reasoningEffort?: string
+  }
+  prompt: {
+    readonly sessionId: SessionId
+    readonly mode: 'queue' | 'steer'
+    readonly content: readonly ({ readonly type: 'text'; readonly text: string } | {
+      readonly type: 'image'
+      readonly mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+      readonly data: string
+      readonly name?: string
+    })[]
+  }
+  cancel: { readonly sessionId: SessionId }
+  rename: { readonly sessionId: SessionId; readonly title: string }
+}
+
+interface FixtureSessionValues {
+  list: { readonly items: FixtureSessionSummary[] }
+  search: { readonly items: readonly { readonly sessionId: SessionId; readonly snippet: string }[]; readonly hasMore: boolean }
+  create: { readonly sessionId: SessionId }
+  history: FixturePage
+  selectModel: { readonly selected: ModelSelection }
+  prompt: { readonly accepted: true }
+  cancel: Record<never, never>
+  rename: { readonly title: string; readonly seq: number }
+}
+
+type FixtureSessionApi = {
+  [K in keyof FixtureSessionRequests]: (
+    request: RpcRequest<FixtureSessionRequests[K]>,
+    signal?: AbortSignal,
+  ) => Promise<RpcResponse<FixtureSessionValues[K]>>
+}
+
+type FixtureSessionClient = {
+  [K in keyof FixtureSessionRequests]: (
+    request: FixtureSessionRequests[K],
+    signal?: AbortSignal,
+  ) => Promise<RpcResponse<FixtureSessionValues[K]>>
+}
+
+interface FixtureSessionRemote {
+  modelCatalog(): Promise<ConnectionRpcResult<ModelCatalog>>
+  follow(sessionId: SessionId, signal: AbortSignal): AsyncIterable<FixtureFollowFrame>
+  control(signal: AbortSignal): AsyncIterable<FixtureControlFrame>
+}
+
+interface FixtureWorkspaceView {
+  readonly workspaceId: WorkspaceId
+  readonly path: string
+  readonly title: string
+  readonly sessionIds: readonly SessionId[]
+  readonly createdAt: string
+  readonly updatedAt: string
+}
+
+interface FixtureWorkspaceRequests {
+  create: { readonly path: string }
+  rename: { readonly workspaceId: WorkspaceId; readonly title: string }
+  delete: { readonly workspaceId: WorkspaceId }
+  insertBefore: { readonly workspaceId: WorkspaceId; readonly beforeWorkspaceId?: WorkspaceId }
+  insertSessionBefore: {
+    readonly workspaceId: WorkspaceId
+    readonly sessionId: SessionId
+    readonly beforeSessionId?: SessionId
+  }
+  archiveSession: { readonly sessionId: SessionId }
+}
+
+interface FixtureWorkspaceValues {
+  create: { readonly workspace: FixtureWorkspaceView; readonly created: boolean }
+  rename: { readonly workspace: FixtureWorkspaceView }
+  delete: { readonly deleted: true }
+  insertBefore: { readonly workspaceIds: readonly WorkspaceId[] }
+  insertSessionBefore: { readonly workspace: FixtureWorkspaceView }
+  archiveSession: { readonly archivedSessionIds: readonly SessionId[] }
+}
+
+type FixtureWorkspaceApi = {
+  [K in keyof FixtureWorkspaceRequests]: (
+    request: RpcRequest<FixtureWorkspaceRequests[K]>,
+    signal?: AbortSignal,
+  ) => Promise<RpcResponse<FixtureWorkspaceValues[K]>>
+}
+
+type FixtureWorkspaceClient = {
+  [K in keyof FixtureWorkspaceRequests]: (
+    request: FixtureWorkspaceRequests[K],
+    signal?: AbortSignal,
+  ) => Promise<RpcResponse<FixtureWorkspaceValues[K]>>
+}
+
+type FixtureWorkspaceFrame =
+  | {
+    readonly type: 'baseline'
+    readonly value: {
+      readonly items: readonly FixtureWorkspaceView[]
+      readonly archivedSessionIds: readonly SessionId[]
+    }
+  }
+  | { readonly type: 'upsert'; readonly workspace: FixtureWorkspaceView }
+  | { readonly type: 'remove'; readonly workspaceId: WorkspaceId }
+  | { readonly type: 'order'; readonly workspaceIds: readonly WorkspaceId[] }
+  | { readonly type: 'archived'; readonly archivedSessionIds: readonly SessionId[] }
+
+interface FixtureWorkspaceRemote {
+  follow(signal: AbortSignal): AsyncIterable<FixtureWorkspaceFrame>
+}
+
+interface FixtureRemoteEventNotificationFrame {
+  readonly type: 'emit'
+  readonly event: string
+  readonly args: readonly unknown[]
+}
+
+interface FixtureRemoteEventRequestFrame {
+  readonly type: 'waterfall'
+  readonly event: string
+  readonly eventId: string
+  readonly agentId: SessionId
+  readonly request: Readonly<Record<string, unknown>>
+}
+
+interface FixtureRemoteEventCancellationFrame {
+  readonly type: 'cancel'
+  readonly eventId: string
+}
+
+type FixtureRemoteEventFrame =
+  | FixtureRemoteEventNotificationFrame
+  | FixtureRemoteEventRequestFrame
+  | FixtureRemoteEventCancellationFrame
+
+interface FixtureRemoteEventResult {
+  readonly clientId: string
+  readonly eventId: string
+  readonly outcome:
+    | { readonly kind: 'next' }
+    | { readonly kind: 'result'; readonly value?: unknown }
+    | {
+      readonly kind: 'rejected'
+      readonly error: {
+        readonly name: string
+        readonly message: string
+        readonly code?: string
+        readonly details?: unknown
+      }
+    }
+}
+
+interface FixtureRemoteEventStream extends AsyncIterable<FixtureRemoteEventFrame> {
+  readonly clientId: Promise<string>
+}
+
+type FixtureTestApi = {
+  /** The directory-picking Remote namespace as the fixture serves it. */
+  readonly directoryPickerRemote: {
+    pick: () => Promise<ConnectionRpcResult<string | null>>
+    list: (path?: string) => Promise<ConnectionRpcResult<DirectoryListing>>
+    createDirectory: (path: string, name: string) => Promise<ConnectionRpcResult<string>>
+  }
+  readonly sessions: FixtureSessionApi
+  readonly sessionRemote: FixtureSessionRemote
+  readonly workspace: FixtureWorkspaceApi
+  readonly workspaceRemote: FixtureWorkspaceRemote
+  readonly credentialRemote: FixtureCredentialRemote
+  readonly settingsRemote: FixtureSettingsRemote
+  readonly remoteEvents: (signal: AbortSignal) => FixtureRemoteEventStream
+  readonly answerRemoteEvent: (result: FixtureRemoteEventResult) => Promise<unknown>
+}
+
+/** Keep existing fixture assertions compact while driving only the new Session Remote endpoints. */
+function createFixtureApi(options: FixtureOptions = {}): FixtureTestApi {
+  const { rpc } = createFixtureFaces(options)
+  return {
+    directoryPickerRemote: {
+      pick: () => rpc.call('/api', 'directoryPicker/pick', { args: {} }) as
+        Promise<ConnectionRpcResult<string | null>>,
+      list: (path?: string) => rpc.call('/api', 'directoryPicker/list', { args: { path } }) as
+        Promise<ConnectionRpcResult<DirectoryListing>>,
+      createDirectory: (path: string, name: string) =>
+        rpc.call('/api', 'directoryPicker/createDirectory', { args: { path, name } }) as
+          Promise<ConnectionRpcResult<string>>,
+    },
+    sessions: createSessionApi(rpc),
+    sessionRemote: createSessionRemote(rpc),
+    workspace: createWorkspaceApi(rpc),
+    workspaceRemote: createWorkspaceRemote(rpc),
+    credentialRemote: createCredentialRemote(rpc),
+    settingsRemote: createSettingsRemote(rpc),
+    remoteEvents: (signal: AbortSignal) => openFixtureRemoteEvents(rpc, signal),
+    answerRemoteEvent: (result: FixtureRemoteEventResult) =>
+      rpc.call('/api', '$events/result', { args: result }),
+  }
+}
+
+/** The fixture's Credentials Remote endpoints over the shared RPC carrier. */
+interface FixtureCredentialRemote {
+  describe(refs: readonly string[]): Promise<ConnectionRpcResult<unknown>>
+  set(ref: string, value: string): Promise<ConnectionRpcResult<unknown>>
+  unset(ref: string): Promise<ConnectionRpcResult<unknown>>
+}
+
+/** The settings Remote reads the fixture serves, addressed like the credential half. */
+interface FixtureSettingsRemote {
+  describe(): Promise<ConnectionRpcResult<unknown>>
+  update(ns: string, patch: unknown, expectedRevision?: number): Promise<ConnectionRpcResult<unknown>>
+  replace(ns: string, section: unknown, expectedRevision?: number): Promise<ConnectionRpcResult<unknown>>
+}
+
+function createSettingsRemote(rpc: ClientConnectionRpc): FixtureSettingsRemote {
+  return {
+    describe: () => rpc.call('/api', 'settings/describe', { args: {} }),
+    update: (ns, patch, expectedRevision) => rpc.call('/api', 'settings/update', {
+      args: { ns, patch, expectedRevision },
+    }),
+    replace: (ns, section, expectedRevision) => rpc.call('/api', 'settings/replace', {
+      args: { ns, section, expectedRevision },
+    }),
+  }
+}
+
+function createCredentialRemote(rpc: ClientConnectionRpc): FixtureCredentialRemote {
+  return {
+    describe: refs => rpc.call('/api', 'credentials/describe', { args: { refs } }),
+    set: (ref, value) => rpc.call('/api', 'credentials/set', { args: { ref, value } }),
+    unset: ref => rpc.call('/api', 'credentials/unset', { args: { ref } }),
+  }
+}
+
+function openFixtureRemoteEvents(
+  rpc: ClientConnectionRpc,
+  signal: AbortSignal,
+): FixtureRemoteEventStream {
+  const ready = Promise.withResolvers<string>()
+  const source = (async function* (): AsyncGenerator<FixtureRemoteEventFrame> {
+    const stream = rpc.open?.('/api', '$events', { args: {} }, signal)
+    if (stream === undefined) throw new Error('fixture forwarded-event stream is unavailable')
+    let opened = false
+    for await (const value of stream) {
+      if (!opened) {
+        expect(value).toMatchObject({ type: 'ready' })
+        const clientId: unknown = Reflect.get(value as object, 'clientId')
+        if (typeof clientId !== 'string') throw new Error('fixture forwarded-event stream omitted its Client id')
+        ready.resolve(clientId)
+        opened = true
+        continue
+      }
+      yield value as FixtureRemoteEventFrame
+    }
+  })()
+  return Object.assign(source, { clientId: ready.promise })
+}
+
+function createSessionApi(rpc: ClientConnectionRpc): FixtureSessionApi {
+  const call = async <K extends keyof FixtureSessionRequests>(
+    endpoint: K,
+    request: RpcRequest<FixtureSessionRequests[K]>,
+    signal?: AbortSignal,
+  ): Promise<RpcResponse<FixtureSessionValues[K]>> => {
+    const page = endpoint === 'history'
+      ? request.payload as FixtureSessionRequests['history']
+      : undefined
+    const args = endpoint === 'list'
+      ? { _request: request.payload }
+      : endpoint === 'history'
+        ? {
+          request: {
+            address: { kind: 'session', sessionId: page?.sessionId },
+            ...page?.beforeSeq === undefined ? {} : { beforeSeq: page.beforeSeq },
+            ...page?.maxMessages === undefined ? {} : { maxMessages: page.maxMessages },
+          },
+        }
+        : { request: request.payload }
+    const remoteEndpoint = endpoint === 'history' ? 'page' : endpoint
+    const result = await rpc.call('/api', `session/${remoteEndpoint}`, { args }, signal)
+    return {
+      rpcId: request.rpcId,
+      result: result as unknown as RpcResult<FixtureSessionValues[K]>,
+    }
+  }
+  return {
+    list: (request, signal) => call('list', request, signal),
+    search: (request, signal) => call('search', request, signal),
+    create: (request, signal) => call('create', request, signal),
+    history: (request, signal) => call('history', request, signal),
+    selectModel: (request, signal) => call('selectModel', request, signal),
+    prompt: (request, signal) => call('prompt', request, signal),
+    cancel: (request, signal) => call('cancel', request, signal),
+    rename: (request, signal) => call('rename', request, signal),
+  }
+}
+
+function createSessionClient(rpc: ClientConnectionRpc): FixtureSessionClient {
+  const api = createSessionApi(rpc)
+  return {
+    list: (request, signal) => api.list(req(request), signal),
+    search: (request, signal) => api.search(req(request), signal),
+    create: (request, signal) => api.create(req(request), signal),
+    history: (request, signal) => api.history(req(request), signal),
+    selectModel: (request, signal) => api.selectModel(req(request), signal),
+    prompt: (request, signal) => api.prompt(req(request), signal),
+    cancel: (request, signal) => api.cancel(req(request), signal),
+    rename: (request, signal) => api.rename(req(request), signal),
+  }
+}
+
+function createSessionRemote(rpc: ClientConnectionRpc): FixtureSessionRemote {
+  const open = <F>(endpoint: string, args: object, signal: AbortSignal): AsyncIterable<F> => {
+    const stream = rpc.open?.('/api', endpoint, { args }, signal)
+    if (stream === undefined) throw new Error(`fixture ${endpoint} stream is unavailable`)
+    return stream as AsyncIterable<F>
+  }
+  return {
+    modelCatalog: () => rpc.call('/api', 'session/modelCatalog', { args: {} }) as
+      Promise<ConnectionRpcResult<ModelCatalog>>,
+    follow: (sessionId, signal) => open<FixtureFollowFrame>('session/follow', {
+      request: { address: { kind: 'session', sessionId } },
+    }, signal),
+    control: signal => open<FixtureControlFrame>('session/control', {}, signal),
+  }
+}
+
+function createWorkspaceApi(rpc: ClientConnectionRpc): FixtureWorkspaceApi {
+  const call = async <K extends keyof FixtureWorkspaceRequests>(
+    endpoint: K,
+    request: RpcRequest<FixtureWorkspaceRequests[K]>,
+    signal?: AbortSignal,
+  ): Promise<RpcResponse<FixtureWorkspaceValues[K]>> => {
+    const result = await rpc.call('/api', `workspace/${endpoint}`, {
+      args: { request: request.payload },
+    }, signal)
+    return {
+      rpcId: request.rpcId,
+      result: result as unknown as RpcResult<FixtureWorkspaceValues[K]>,
+    }
+  }
+  return {
+    create: (request, signal) => call('create', request, signal),
+    rename: (request, signal) => call('rename', request, signal),
+    delete: (request, signal) => call('delete', request, signal),
+    insertBefore: (request, signal) => call('insertBefore', request, signal),
+    insertSessionBefore: (request, signal) => call('insertSessionBefore', request, signal),
+    archiveSession: (request, signal) => call('archiveSession', request, signal),
+  }
+}
+
+function createWorkspaceClient(rpc: ClientConnectionRpc): FixtureWorkspaceClient {
+  const api = createWorkspaceApi(rpc)
+  return {
+    create: (request, signal) => api.create(req(request), signal),
+    rename: (request, signal) => api.rename(req(request), signal),
+    delete: (request, signal) => api.delete(req(request), signal),
+    insertBefore: (request, signal) => api.insertBefore(req(request), signal),
+    insertSessionBefore: (request, signal) => api.insertSessionBefore(req(request), signal),
+    archiveSession: (request, signal) => api.archiveSession(req(request), signal),
+  }
+}
+
+function createWorkspaceRemote(rpc: ClientConnectionRpc): FixtureWorkspaceRemote {
+  return {
+    follow(signal) {
+      const stream = rpc.open?.('/api', 'workspace/follow', { args: {} }, signal)
+      if (stream === undefined) throw new Error('fixture workspace/follow stream is unavailable')
+      return stream as AsyncIterable<FixtureWorkspaceFrame>
+    },
+  }
+}
+
 interface TimingHooks {
   /** 中文说明：方法 setHistoryDelay 的参数见签名，返回值供调用方使用；示例见本文件调用处。 */
   setHistoryDelay(ms: number): void
@@ -63,20 +541,81 @@ interface TimingHooks {
 /** 中文说明：测试场景的局部值 timing，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const timing = (): TimingHooks => (globalThis as Record<string, unknown>).__fxTiming as TimingHooks
 
-/** Collect stream frames until the predicate or a soft cap; abort ends the stream. */
-/* 中文说明：函数 collect 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
-async function collect<F>(stream: AsyncIterable<RpcRequest<F>>, abort: AbortController, done: (frames: F[]) => boolean): Promise<F[]> {
-  /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
+/** Collect value-stream frames until the predicate or a soft cap; abort ends the stream. */
+async function collectValues<F>(stream: AsyncIterable<F>, abort: AbortController, done: (frames: F[]) => boolean): Promise<F[]> {
   const frames: F[] = []
-  /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-  for await (const envelope of stream) {
-    frames.push(envelope.payload)
+  for await (const frame of stream) {
+    frames.push(frame)
     if (done(frames) || frames.length > 500) {
       abort.abort()
       break
     }
   }
   return frames
+}
+
+async function readControlBaseline(remote: FixtureSessionRemote): Promise<Extract<FixtureControlFrame, { type: 'baseline' }>> {
+  const abort = new AbortController()
+  for await (const frame of remote.control(abort.signal)) {
+    if (frame.type !== 'baseline') continue
+    abort.abort()
+    return frame
+  }
+  throw new Error('fixture control baseline missing')
+}
+
+function isRemoteEventRequest(frame: FixtureRemoteEventFrame): frame is FixtureRemoteEventRequestFrame {
+  return frame.type === 'waterfall'
+}
+
+function isRemoteEventCancellation(frame: FixtureRemoteEventFrame): frame is FixtureRemoteEventCancellationFrame {
+  return frame.type === 'cancel'
+}
+
+async function readResidentRemoteEvents(
+  api: FixtureTestApi,
+  count: number,
+): Promise<FixtureRemoteEventRequestFrame[]> {
+  const abort = new AbortController()
+  const frames = await collectValues(
+    api.remoteEvents(abort.signal),
+    abort,
+    seen => seen.filter(isRemoteEventRequest).length >= count,
+  )
+  return frames.filter(isRemoteEventRequest)
+}
+
+async function nextRemoteEvent(
+  iterator: AsyncIterator<FixtureRemoteEventFrame>,
+  predicate: (frame: FixtureRemoteEventFrame) => boolean,
+): Promise<FixtureRemoteEventFrame> {
+  for (;;) {
+    const item = await iterator.next()
+    if (item.done) throw new Error('fixture Remote Event stream ended before the expected frame')
+    if (predicate(item.value)) return item.value
+  }
+}
+
+async function readOpeningCursor(remote: FixtureSessionRemote, sessionId: SessionId): Promise<number> {
+  const abort = new AbortController()
+  for await (const frame of remote.follow(sessionId, abort.signal)) {
+    if (frame.type !== 'snapshot') continue
+    abort.abort()
+    return frame.cursor
+  }
+  throw new Error('fixture follow opening cursor missing')
+}
+
+async function readWorkspaceBaseline(
+  remote: FixtureWorkspaceRemote,
+): Promise<Extract<FixtureWorkspaceFrame, { type: 'baseline' }>['value']> {
+  const abort = new AbortController()
+  for await (const frame of remote.follow(abort.signal)) {
+    if (frame.type !== 'baseline') continue
+    abort.abort()
+    return frame.value
+  }
+  throw new Error('fixture Workspace baseline missing')
 }
 
 describe('createFixtureApi', () => {
@@ -165,68 +704,65 @@ describe('createFixtureApi', () => {
     /** 中文说明：测试场景的局部值 tailPage，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const tailPage = tail.result.value
     expect(tailPage.hasMore).toBe(true)
-    expect(tailPage.events[0]?.event.type).toBe('turn/start') // cut lands on a turn boundary
-    /** 中文说明：测试场景的局部值 boundary，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const boundary = tailPage.events[0]?.event.seq ?? 0
+    const tailEvents = historyEvents(tailPage.records)
+    expect(tailEvents[0]?.type).toBe('turn/start') // cut lands on a turn boundary
+    const boundary = tailEvents[0]?.seq ?? 0
     expect(boundary).toBeGreaterThan(0)
     /** 中文说明：测试场景的局部值 older，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const older = await api.sessions.history(req({ sessionId: sid('fx-alpha'), beforeSeq: boundary, maxMessages: 10 }))
     if (!older.result.ok) throw new Error('older failed')
-    /** 中文说明：测试场景的局部值 olderTail，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const olderTail = older.result.value.events.at(-1)?.event
+    const olderTail = historyEvents(older.result.value.records).at(-1)
     expect((olderTail?.seq ?? -1) + 1).toBe(boundary) // pages stitch with no hole/overlap
     // Out-of-range beforeSeq clamps instead of exploding.
     /** 中文说明：测试场景的局部值 clamped，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const clamped = await api.sessions.history(req({ sessionId: sid('fx-alpha'), beforeSeq: -5, maxMessages: 10 }))
     if (!clamped.result.ok) throw new Error('clamped failed')
-    expect(clamped.result.value.events).toEqual([])
-    // Unknown session: empty page, not an error (history of a bare id). The
-    // tail block still rides it — empty-log cut at -1, the host convention.
-    /** 中文说明：测试场景的局部值 empty，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    expect(clamped.result.value.records).toEqual([])
+    // Unknown session: empty page, not an error (history of a bare id).
     const empty = await api.sessions.history(req({ sessionId: sid('no-such'), maxMessages: 10 }))
     if (!empty.result.ok) throw new Error('empty failed')
-    // Fixture composes the todos + plan units (host parallel when tool-todo
-    // and plan-mode are mounted): the empty-log values.
-    expect(empty.result.value).toEqual({
-      events: [], hasMore: false, projections: { asOfSeq: -1, values: {
-        todos: null,
-        // Permission unit composed: the composition-default select.
-        permissions: {
-          options: [
-            { value: 'workspace-write', name: 'workspace-write', description: 'Write inside the workspace and permitted temporary directories; wider retries require approval.' },
-            { value: 'danger-full-access', name: 'danger-full-access', description: 'Full file access without approval prompts.' },
+    expect(empty.result.value).toEqual({ records: [], hasMore: false })
+  })
+
+  it('serves raw history entries with replayable tool-result metadata', async () => {
+    const api = createFixtureApi()
+    const response = await api.sessions.history(req({ sessionId: sid('fx-alpha'), maxMessages: 200 }))
+    if (!response.result.ok) throw new Error('history failed')
+
+    const records = response.result.value.records
+    const results = historyEvents(records)
+      .filter(event => event.type === 'tool/result')
+
+    expect(results.find(event => event.data.turn === 64)).toMatchObject({
+      data: {
+        meta: {
+          diffs: [
+            { path: 'src/config.ts', oldText: 'const timeout = 30', newText: 'const timeout = 60' },
+            { path: 'src/config.ts', oldText: 'retries: 1', newText: 'retries: 3' },
           ],
-          currentValue: 'workspace-write',
         },
-        plan: { active: false, pending: false },
-        goal: null,
-        tokenUsage: {
-          uncachedInputTokens: 0,
-          outputTokens: 0,
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-        },
-        // No request ran, so neither pressure nor capacity is known yet.
-        contextPressure: {},
-        contextBreakdown: {
-          systemTokens: 0,
-          toolsTokens: 0,
-          messageTokens: 0,
-        },
-        // Session-stats unit composed: no figure accrues on the empty log.
-        sessionStats: {
-          turns: 0, steps: 0, llmMs: 0, toolMs: 0, ttftMs: 0, ttftSteps: 0, decodeMs: 0, decodeTokens: 0,
-        },
-        imageLimits: {
-          maxImageBytes: 5 * 1024 * 1024,
-          maxImagesPerMessage: 20,
-          maxMessageImageBytes: 100 * 1024 * 1024,
-          maxImagePixels: 40_000_000,
-          maxImageDimension: 2000,
-          mediaTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
-        },
-      } },
+      },
     })
+    expect(results.find(event => event.data.turn === 67)).toMatchObject({
+      data: { meta: { shape: 'matches', truncated: true, total: 42 } },
+    })
+    expect(results.find(event => event.data.turn === 69)).toMatchObject({
+      data: { meta: { path: 'packages/client/ui-primitives/src/ReadBlock.tsx', offset: 41, totalLines: 180 } },
+    })
+    const webSearch = results.find(event => event.data.turn === 70)
+    expect(webSearch).toHaveProperty('data.meta.truncated', true)
+    expect(webSearch).toHaveProperty('data.meta.sources', expect.arrayContaining([
+      expect.objectContaining({ url: 'https://github.com/deepseek-ai/deepseek-harness' }),
+    ]))
+    expect(results.find(event => event.data.turn === 71)).toMatchObject({
+      data: { meta: { url: 'https://www.deepseek.com/blog/harness-architecture', statusCode: 200 } },
+    })
+    const terminal = results.find(event => event.data.turn === 66)
+    expect(terminal).toHaveProperty('data.message.content.0.content.0.type', 'text')
+    expect(terminal).toHaveProperty(
+      'data.message.content.0.content.0.text',
+      expect.stringContaining('\n[exit code: 1]'),
+    )
   })
 
   it('serves grouped models and keeps a selection for later history and fixture requests', async () => {
@@ -234,11 +770,10 @@ describe('createFixtureApi', () => {
     const api = createFixtureApi()
     /** 中文说明：标识或顺序值 sessionId，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessionId = sid('fx-alpha')
-    /** 中文说明：测试场景的局部值 catalog，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const catalog = await api.sessions.models(req({ sessionId }))
-    if (!catalog.result.ok) throw new Error('models failed')
-    expect(catalog.result.value.groups.map(group => group.name)).toEqual(['DeepSeek', 'OpenAI'])
-    expect(catalog.result.value.groups[0]?.models.map(model => model.id))
+    const catalog = await api.sessionRemote.modelCatalog()
+    if (!catalog.ok) throw new Error('models failed')
+    expect(catalog.value.groups.map(group => group.name)).toEqual(['DeepSeek', 'OpenAI'])
+    expect(catalog.value.groups[0]?.models.map(model => model.id))
       .toEqual(['deepseek-v4-flash', 'deepseek-v4-pro'])
 
     /** 中文说明：测试场景的局部值 selected，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -264,42 +799,46 @@ describe('createFixtureApi', () => {
     /** 中文说明：测试场景的局部值 after，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const after = await api.sessions.history(req({ sessionId }))
     if (!after.result.ok) throw new Error('history failed')
-    expect(JSON.stringify(after.result.value.events)).toContain('openai/gpt-5')
+    expect(JSON.stringify(after.result.value.records)).toContain('openai/gpt-5')
   })
 
   it('serves configured DeepSeek readiness and keeps credential values write-only', async () => {
     /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = createFixtureApi()
-    /** 中文说明：测试场景的局部值 settings，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const settings = await api.settings.describe(req({}))
-    if (!settings.result.ok) throw new Error('settings describe failed')
-    expect(settings.result.value.namespaces).toMatchObject([{
+    const settings = await api.settingsRemote.describe()
+    if (!settings.ok) throw new Error('settings describe failed')
+    expect((settings.value as { namespaces: unknown[] }).namespaces).toMatchObject([{
       ns: 'llm-deepseek',
       value: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
       secrets: [{ path: ['apiKey'], set: false }],
     }])
+    for (const result of [
+      await api.settingsRemote.update('llm-deepseek', {}, undefined),
+      await api.settingsRemote.replace('llm-deepseek', {}, undefined),
+    ]) {
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'settings-rejected', message: 'fixture: the minimal readiness settings descriptor is read-only' },
+      })
+    }
 
-    /** 中文说明：测试场景的局部值 initial，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const initial = await api.credentials.describe(req({ refs: ['DEEPSEEK_API_KEY', 'TEST_API_KEY'] }))
-    if (!initial.result.ok) throw new Error('credential describe failed')
-    expect(initial.result.value.credentials).toEqual({
+    const describe = async (refs: readonly string[]): Promise<Record<string, unknown>> => {
+      const result = await api.credentialRemote.describe(refs)
+      if (!result.ok) throw new Error('credential describe failed')
+      return result.value as Record<string, unknown>
+    }
+    expect(await describe(['DEEPSEEK_API_KEY', 'TEST_API_KEY'])).toEqual({
       DEEPSEEK_API_KEY: { configured: true, source: 'file', writable: true },
       TEST_API_KEY: { configured: false, writable: true },
     })
-    await api.credentials.set(req({ ref: 'TEST_API_KEY', value: 'write-only-fixture-secret' }))
-    /** 中文说明：测试场景的局部值 configured，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const configured = await api.credentials.describe(req({ refs: ['TEST_API_KEY'] }))
-    if (!configured.result.ok) throw new Error('credential describe failed')
-    expect(configured.result.value.credentials.TEST_API_KEY).toEqual({
+    await api.credentialRemote.set('TEST_API_KEY', 'write-only-fixture-secret')
+    expect((await describe(['TEST_API_KEY'])).TEST_API_KEY).toEqual({
       configured: true,
       source: 'file',
       writable: true,
     })
-    await api.credentials.unset(req({ ref: 'TEST_API_KEY' }))
-    /** 中文说明：测试场景的局部值 cleared，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const cleared = await api.credentials.describe(req({ refs: ['TEST_API_KEY'] }))
-    if (!cleared.result.ok) throw new Error('credential describe failed')
-    expect(cleared.result.value.credentials.TEST_API_KEY).toEqual({ configured: false, writable: true })
+    await api.credentialRemote.unset('TEST_API_KEY')
+    expect((await describe(['TEST_API_KEY'])).TEST_API_KEY).toEqual({ configured: false, writable: true })
   })
 
   it('emits the todo/write snapshot at the real tool boundary: between tool/call and tool/result, timestamps monotonic', async () => {
@@ -308,9 +847,7 @@ describe('createFixtureApi', () => {
     /** 中文说明：测试场景的局部值 tail，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const tail = await api.sessions.history(req({ sessionId: sid('fx-alpha'), maxMessages: 10 }))
     if (!tail.result.ok) throw new Error('history failed')
-    /** 中文说明：当前传输或投影数据 events，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const events = tail.result.value.events.map(e => e.event)
-    /** 中文说明：测试场景的局部值 todoAt，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    const events = historyEvents(tail.result.value.records)
     const todoAt = events.findIndex(e => e.type === 'todo/write')
     expect(todoAt).toBeGreaterThan(0)
     // Production ordering (the tool appends mid-execution): call → snapshot → result.
@@ -327,19 +864,17 @@ describe('createFixtureApi', () => {
     expect(snapshot.data.todos.filter(t => t.status === 'in_progress')).toHaveLength(2)
   })
 
-  it('create adds a session and pushes host/session-added to open host streams', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('create adds a session and announces it through the Host Remote event stream', async () => {
     const api = createFixtureApi()
     /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const seen: HostFrame[] = []
-    /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    const seen: FixtureRemoteEventNotificationFrame[] = []
     const consuming = (async () => {
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.host(req({}), abort.signal)) {
-        seen.push(envelope.payload)
-        if (seen.length >= 1) abort.abort()
+      for await (const frame of api.remoteEvents(abort.signal)) {
+        if (frame.type !== 'emit' || frame.event !== 'api-session/added') continue
+        seen.push(frame)
+        abort.abort()
+        break
       }
     })()
     await new Promise(resolve => setTimeout(resolve, 10)) // let the stream register
@@ -353,9 +888,9 @@ describe('createFixtureApi', () => {
     expect(seen).toHaveLength(1)
     /** 中文说明：测试场景的局部值 added，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const added = seen[0]
-    if (added?.type !== 'host/session-added') throw new Error('session-added frame missing')
-    expect(added).toEqual({
-      type: 'host/session-added', sessionId: createdId, blank: true, cwd: '/tmp/fixture',
+    expect(added).toMatchObject({
+      event: 'api-session/added',
+      args: [{ sessionId: createdId, blank: true, cwd: '/tmp/fixture' }],
     })
     /** 中文说明：按序保存的数据集合 list，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const list = await api.sessions.list(req({}))
@@ -371,21 +906,16 @@ describe('createFixtureApi', () => {
     if (!created.result.ok) throw new Error('create failed')
     /** 中文说明：标识或顺序值 id，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const id = created.result.value.sessionId
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort = new AbortController()
-    /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const frames: MuxFrame[] = []
-    /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const consuming = (async () => {
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.mux(req({}), abort.signal)) {
-        frames.push(envelope.payload)
-        /** 中文说明：测试场景的局部值 last，取值由紧邻初始化决定，仅在当前作用域使用。 */
-        const last = envelope.payload
-        if (last.type === 'session/event' && last.event.type === 'turn/end') {
-          abort.abort()
-        }
-      }
+    const followAbort = new AbortController()
+    const controlAbort = new AbortController()
+    const controlFrames: FixtureControlFrame[] = []
+    const followPromise = collectValues(
+      api.sessionRemote.follow(id, followAbort.signal),
+      followAbort,
+      frames => frames.some(frame => frame.type === 'event' && frame.event.type === 'turn/end'),
+    )
+    const controlPromise = (async () => {
+      for await (const frame of api.sessionRemote.control(controlAbort.signal)) controlFrames.push(frame)
     })()
     await new Promise(resolve => setTimeout(resolve, 10))
     // Unknown session → session-not-found with the id echoed in details.
@@ -398,9 +928,8 @@ describe('createFixtureApi', () => {
     expect(accepted.result).toMatchObject({ ok: true, value: { accepted: true } })
     await new Promise(resolve => setTimeout(resolve, 120)) // a couple of typewriter ticks
     await api.sessions.cancel(req({ sessionId: id }))
-    await consuming
-    /** 中文说明：测试场景的局部值 types，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const types = frames.filter((f): f is Extract<MuxFrame, { type: 'session/event' }> => f.type === 'session/event').map(f => f.event.type)
+    const frames = await followPromise
+    const types = frames.flatMap(frame => frame.type === 'event' ? [frame.event.type] : [])
     expect(types).toContain('turn/start')
     expect(types).toContain('user/message')
     expect(types).toContain('assistant/chunk')
@@ -409,21 +938,25 @@ describe('createFixtureApi', () => {
     // Capacity is durable log state, not a transient frame: the prompt path
     // records request/context and the projection carries it to the client.
     expect(types).toContain('request/context')
-    expect(frames.some(frame =>
-      frame.type === 'session/projection'
+    await vi.waitFor(() => {
+      expect(controlFrames.some(frame =>
+        frame.type === 'projection'
+        && frame.key === 'contextBreakdown'
+        && (frame.value as { messageTokens?: number }).messageTokens! > 0)).toBe(true)
+    })
+    expect(controlFrames.some(frame =>
+      frame.type === 'projection'
       && frame.key === 'tokenUsage'
       && (frame.value as { outputTokens?: number }).outputTokens === 8)).toBe(true)
-    expect(frames.some(frame =>
-      frame.type === 'session/projection'
+    expect(controlFrames.some(frame =>
+      frame.type === 'projection'
       && frame.key === 'contextPressure'
       && (frame.value as { contextWindow?: number }).contextWindow === 128_000)).toBe(true)
-    expect(frames.some(frame =>
-      frame.type === 'session/projection'
-      && frame.key === 'contextBreakdown'
-      && (frame.value as { messageTokens?: number }).messageTokens! > 0)).toBe(true)
-    /** 中文说明：测试场景的局部值 finalize，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const finalize = frames.find((f): f is Extract<MuxFrame, { type: 'session/event' }> => f.type === 'session/event' && f.event.type === 'assistant/message')
+    const finalize = frames.find(frame => frame.type === 'event' && frame.event.type === 'assistant/message')
+    if (finalize?.type !== 'event') throw new Error('assistant final event missing')
     expect(JSON.stringify(finalize?.event.data)).toContain('（已中断）')
+    controlAbort.abort()
+    await controlPromise
     // Idle cancel: no replay in flight, must not explode; running flips false.
     /** 中文说明：标识或顺序值 idleCancel，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const idleCancel = await api.sessions.cancel(req({ sessionId: id }))
@@ -440,79 +973,69 @@ describe('createFixtureApi', () => {
     const id = created.result.value.sessionId
     /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：当前传输或投影数据 framesPromise，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const framesPromise = collect<MuxFrame>(api.events.mux(req({}), abort.signal), abort,
-      frames => frames.some(f => f.type === 'session/event' && f.event.type === 'turn/end'))
+    const framesPromise = collectValues(api.sessionRemote.follow(id, abort.signal), abort,
+      frames => frames.some(frame => frame.type === 'event' && frame.event.type === 'turn/end'))
     await new Promise(resolve => setTimeout(resolve, 10))
     await api.sessions.prompt(req({ sessionId: id, mode: 'queue' as const, content: [{ type: 'text' as const, text: '短' }] }))
     await api.sessions.prompt(req({ sessionId: id, mode: 'steer' as const, content: [{ type: 'text' as const, text: '插话' }] }))
     /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const frames = await framesPromise
-    /** 中文说明：测试场景的局部值 types，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const types = frames.filter((f): f is Extract<MuxFrame, { type: 'session/event' }> => f.type === 'session/event').map(f => f.event.type)
+    const types = frames.flatMap(frame => frame.type === 'event' ? [frame.event.type] : [])
     expect(JSON.stringify(frames)).toContain('插话')
     expect(types.at(-1)).toBe('turn/end') // steer did not restart the turn
   })
 
-  it('mux open replays subscribed sessions and resident interactions with stable rpcIds', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('control replays projections while resident Remote Events retain ids across reconnects', async () => {
     const api = createFixtureApi()
-    /** 中文说明：测试场景的局部值 openOnce，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const openOnce = async (): Promise<RpcRequest<MuxFrame>[]> => {
-      /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const abort = new AbortController()
-      /** 中文说明：测试场景的局部值 envelopes，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const envelopes: RpcRequest<MuxFrame>[] = []
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.mux(req({}), abort.signal)) {
-        envelopes.push(envelope)
-        if (envelopes.length >= 13) abort.abort()
-      }
-      return envelopes
-    }
-    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const first = await openOnce()
-    /** 中文说明：测试场景的局部值 second，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const second = await openOnce()
-    expect(first[0]?.payload).toMatchObject({ type: 'session/subscribed', sessionId: 'fx-alpha' })
-    expect((first[0]?.payload as { lastSeq: number }).lastSeq).toBeGreaterThan(0)
-    // Projection baseline frames follow subscribed (domain units + token usage).
-    expect(first[1]?.payload).toMatchObject({ type: 'session/projection', sessionId: 'fx-alpha', key: 'title', value: 'Fixture 历史会话' })
-    expect(first[2]?.payload).toMatchObject({ type: 'session/projection', sessionId: 'fx-alpha', key: 'todos' })
-    expect(first[3]?.payload).toMatchObject({ type: 'session/projection', sessionId: 'fx-alpha', key: 'permissions' })
-    expect(first[4]?.payload).toMatchObject({ type: 'session/projection', sessionId: 'fx-alpha', key: 'plan', value: { active: false, pending: false } })
-    expect(first[5]?.payload).toMatchObject({ type: 'session/projection', sessionId: 'fx-alpha', key: 'goal', value: null })
-    expect(first[6]?.payload).toMatchObject({ type: 'session/projection', sessionId: 'fx-alpha', key: 'tokenUsage' })
-    expect(first[7]?.payload).toMatchObject({ type: 'session/projection', sessionId: 'fx-alpha', key: 'contextPressure' })
-    expect(first[8]?.payload).toMatchObject({
-      type: 'session/projection', sessionId: 'fx-alpha', key: 'contextBreakdown',
-      value: { systemTokens: 0, toolsTokens: 0 },
+    const first = await readControlBaseline(api.sessionRemote)
+    const second = await readControlBaseline(api.sessionRemote)
+    expect(first.value.approvals).toEqual([])
+    expect(first.value.questions).toEqual([])
+    const alpha = first.value.projections['fx-alpha']
+    expect(alpha?.asOfSeq).toBeGreaterThan(0)
+    expect(alpha?.values).toMatchObject({
+      title: 'Fixture 历史会话',
+      plan: { active: false, pending: false },
+      goal: null,
+      imageLimits: { maxImagesPerMessage: 20, maxImageBytes: 5 * 1024 * 1024 },
     })
-    expect((first[8]?.payload as { value: { messageTokens: number } }).value.messageTokens).toBeGreaterThan(0)
-    expect(first[9]?.payload).toMatchObject({ type: 'session/projection', sessionId: 'fx-alpha', key: 'sessionStats' })
-    expect((first[9]?.payload as { value: { turns: number; steps: number } }).value.steps).toBeGreaterThan(0)
-    expect(first[10]?.payload).toMatchObject({
-      type: 'session/projection', sessionId: 'fx-alpha', key: 'imageLimits',
-      value: { maxImagesPerMessage: 20, maxImageBytes: 5 * 1024 * 1024 },
+    expect((alpha?.values['contextBreakdown'] as { messageTokens: number }).messageTokens).toBeGreaterThan(0)
+    expect((alpha?.values['sessionStats'] as { steps: number }).steps).toBeGreaterThan(0)
+    expect(second.value.projections['fx-alpha']).toEqual(alpha)
+
+    const firstEvents = await readResidentRemoteEvents(api, 2)
+    const secondEvents = await readResidentRemoteEvents(api, 2)
+    const firstApproval = firstEvents.find(frame => frame.event === 'approval/request')
+    const firstQuestion = firstEvents.find(frame => frame.event === 'user-questions/request')
+    const secondApproval = secondEvents.find(frame => frame.event === 'approval/request')
+    const secondQuestion = secondEvents.find(frame => frame.event === 'user-questions/request')
+    expect(firstApproval).toMatchObject({
+      type: 'waterfall',
+      request: { toolName: 'dangerous_tool' },
+      agentId: 'fx-alpha',
     })
-    expect(first[11]?.payload).toMatchObject({ type: 'approval/requested', toolName: 'dangerous_tool' })
-    expect(second[11]?.rpcId).toBe(first[11]?.rpcId) // stable rpcId across replays (host replay semantics)
-    expect(first[12]?.payload).toMatchObject({ type: 'question/requested', sessionId: 'fx-alpha' })
-    expect(second[12]?.rpcId).toBe(first[12]?.rpcId)
+    expect(firstQuestion).toMatchObject({
+      type: 'waterfall',
+      agentId: 'fx-alpha',
+    })
+    expect(Array.isArray(firstQuestion?.request.questions)).toBe(true)
+    expect(secondApproval?.eventId).toBe(firstApproval?.eventId)
+    expect(secondQuestion?.eventId).toBe(firstQuestion?.eventId)
+    expect(await readOpeningCursor(api.sessionRemote, sid('fx-alpha'))).toBeGreaterThan(0)
   })
 
   it('steer with no replay in flight falls through to a fresh queued turn; non-text blocks stringify empty', async () => {
     /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = createFixtureApi()
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort = new AbortController()
-    /** 中文说明：当前传输或投影数据 framesPromise，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const framesPromise = collect<MuxFrame>(api.events.mux(req({}), abort.signal), abort,
-      frames => frames.some(f => f.type === 'session/event' && f.event.type === 'turn/end'))
-    await new Promise(resolve => setTimeout(resolve, 10))
-    /** 中文说明：测试场景的局部值 created，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const created = await api.sessions.create(req({}))
     if (!created.result.ok) throw new Error('create failed')
+    const abort = new AbortController()
+    const framesPromise = collectValues(
+      api.sessionRemote.follow(created.result.value.sessionId, abort.signal),
+      abort,
+      frames => frames.some(frame => frame.type === 'event' && frame.event.type === 'turn/end'),
+    )
+    await new Promise(resolve => setTimeout(resolve, 10))
     // steer while idle + a non-text content block (covers the '' arm of the text join).
     await api.sessions.prompt(req({
       sessionId: created.result.value.sessionId, mode: 'steer' as const,
@@ -520,44 +1043,28 @@ describe('createFixtureApi', () => {
     }))
     /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const frames = await framesPromise
-    /** 中文说明：测试场景的局部值 types，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const types = frames.filter((f): f is Extract<MuxFrame, { type: 'session/event' }> => f.type === 'session/event').map(f => f.event.type)
+    const types = frames.flatMap(frame => frame.type === 'event' ? [frame.event.type] : [])
     expect(types[0]).toBe('turn/start') // idle steer degraded to a queued turn, not an in-turn insert
   })
 
-  it('gamma interval flip emits host/session-status and a running log-less session subscribes at lastSeq -1', async () => {
+  it('gamma interval flip emits a Remote status event and its empty follow source opens at -1', async () => {
     vi.useFakeTimers()
     try {
       /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const api = createFixtureApi()
       /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const abort = new AbortController()
-      /** 中文说明：按序保存的数据集合 hostSeen，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const hostSeen: HostFrame[] = []
-      /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
+      const hostSeen: FixtureRemoteEventFrame[] = []
       const consuming = (async () => {
-        /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-        for await (const envelope of api.events.host(req({}), abort.signal)) hostSeen.push(envelope.payload)
+        for await (const frame of api.remoteEvents(abort.signal)) hostSeen.push(frame)
       })()
       await vi.advanceTimersByTimeAsync(5001) // interval fires: fx-gamma flips running=true (no log exists)
-      expect(hostSeen).toContainEqual({ type: 'host/session-status', sessionId: sid('fx-gamma'), running: true })
-      // A mux stream opened now sees gamma in the baseline with lastSeq = -1 (empty log arm).
-      /** 中文说明：异步取消状态 mabort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const mabort = new AbortController()
-      /** 中文说明：测试场景的局部值 baseline，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const baseline: MuxFrame[] = []
-      /** 中文说明：测试场景的局部值 muxConsuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const muxConsuming = (async () => {
-        /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-        for await (const envelope of api.events.mux(req({}), mabort.signal)) {
-          baseline.push(envelope.payload)
-          if (baseline.length >= 3) mabort.abort()
-        }
-      })()
-      await vi.advanceTimersByTimeAsync(10)
-      mabort.abort()
-      await muxConsuming
-      expect(baseline).toContainEqual({ type: 'session/subscribed', sessionId: sid('fx-gamma'), lastSeq: -1 })
+      expect(hostSeen).toContainEqual({
+        type: 'emit',
+        event: 'api-session/status',
+        args: [sid('fx-gamma'), true],
+      })
+      expect(await readOpeningCursor(api.sessionRemote, sid('fx-gamma'))).toBe(-1)
       abort.abort()
       await vi.advanceTimersByTimeAsync(10)
       await consuming
@@ -566,138 +1073,122 @@ describe('createFixtureApi', () => {
     }
   })
 
-  it('respond resolves the resident question once and rejects duplicate or unrelated ids', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('answers a resident question through its Remote Event id and stops replaying it', async () => {
     const api = createFixtureApi()
-    expect(await api.respond({ type: 'client-response', rpcId: RpcId('x'), result: { ok: true, value: {} } })).toEqual({ accepted: false, reason: 'not-pending' })
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：测试场景的局部值 解构结果，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    let question: RpcRequest<MuxFrame> | undefined
-    /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    for await (const envelope of api.events.mux(req({}), abort.signal)) {
-      if (envelope.payload.type !== 'question/requested') continue
-      question = envelope
-      abort.abort()
-    }
-    if (question === undefined) throw new Error('fixture question missing')
-    /** 中文说明：当前传输或投影数据 response，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const response = { type: 'client-response' as const, rpcId: question.rpcId, result: { ok: true as const, value: {} } }
-    expect(await api.respond(response)).toEqual({ accepted: true })
-    expect(await api.respond(response)).toEqual({ accepted: false, reason: 'not-pending' })
+    const stream = api.remoteEvents(abort.signal)
+    const iterator = stream[Symbol.asyncIterator]()
+    const question = await nextRemoteEvent(
+      iterator,
+      frame => isRemoteEventRequest(frame) && frame.event === 'user-questions/request',
+    )
+    if (!isRemoteEventRequest(question)) throw new Error('fixture question Remote Event missing')
+    const clientId = await stream.clientId
+    await expect(api.answerRemoteEvent({
+      clientId,
+      eventId: 'unrelated',
+      outcome: { kind: 'result', value: {} },
+    })).resolves.toEqual({ ok: true, value: undefined })
+    await expect(api.answerRemoteEvent({
+      clientId,
+      eventId: question.eventId,
+      outcome: { kind: 'result', value: { answers: {} } },
+    })).resolves.toEqual({ ok: true, value: undefined })
+    const cancelled = await nextRemoteEvent(
+      iterator,
+      frame => isRemoteEventCancellation(frame) && frame.eventId === question.eventId,
+    )
+    expect(cancelled).toEqual({ type: 'cancel', eventId: question.eventId })
+    abort.abort()
+    await iterator.return?.()
 
-    /** 中文说明：异步取消状态 replayAbort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const replayAbort = new AbortController()
-    /** 中文说明：测试场景的局部值 replayed，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const replayed = await collect(api.events.mux(req({}), replayAbort.signal), replayAbort, frames => frames.length === 2)
-    expect(replayed.every(frame => frame.type !== 'question/requested')).toBe(true)
+    await expect(api.answerRemoteEvent({
+      clientId,
+      eventId: question.eventId,
+      outcome: { kind: 'result', value: { answers: {} } },
+    })).resolves.toMatchObject({ ok: false, error: { code: 'invocation-unavailable' } })
+    const remaining = await readResidentRemoteEvents(api, 1)
+    expect(remaining.map(frame => frame.event)).toEqual(['approval/request'])
 
     /** 中文说明：当前服务或测试对象 cancelledApi，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const cancelledApi = createFixtureApi()
     /** 中文说明：异步取消状态 cancelAbort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const cancelAbort = new AbortController()
-    /** 中文说明：测试场景的局部值 解构结果，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    let cancelQuestion: RpcRequest<MuxFrame> | undefined
-    /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    for await (const envelope of cancelledApi.events.mux(req({}), cancelAbort.signal)) {
-      if (envelope.payload.type !== 'question/requested') continue
-      cancelQuestion = envelope
-      cancelAbort.abort()
-    }
-    if (cancelQuestion === undefined) throw new Error('fixture cancellation question missing')
-    expect(await cancelledApi.respond({
-      type: 'client-response', rpcId: cancelQuestion.rpcId,
-      result: { ok: false, error: { code: 'cancelled', message: 'skip', details: {} } },
-    })).toEqual({ accepted: true })
+    const cancelStream = cancelledApi.remoteEvents(cancelAbort.signal)
+    const cancelIterator = cancelStream[Symbol.asyncIterator]()
+    const cancelQuestion = await nextRemoteEvent(
+      cancelIterator,
+      frame => isRemoteEventRequest(frame) && frame.event === 'user-questions/request',
+    )
+    if (!isRemoteEventRequest(cancelQuestion)) throw new Error('fixture cancellation question missing')
+    await expect(cancelledApi.answerRemoteEvent({
+      clientId: await cancelStream.clientId,
+      eventId: cancelQuestion.eventId,
+      outcome: {
+        kind: 'rejected',
+        error: { name: 'UserQuestionError', message: 'skip', code: 'ASK_CANCELLED' },
+      },
+    })).resolves.toEqual({ ok: true, value: undefined })
+    cancelAbort.abort()
+    await cancelIterator.return?.()
+    const afterCancellation = await readResidentRemoteEvents(cancelledApi, 1)
+    expect(afterCancellation.map(frame => frame.event)).toEqual(['approval/request'])
   })
 
-  it('respond answers the resident approval once: routing, validation, resolved broadcast, then not-pending', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('answers a resident approval and broadcasts cancellation to its active delivery', async () => {
     const api = createFixtureApi()
-    // Discover the resident approval's stable rpcId from the mux baseline.
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const seen: { rpcId: string; frame: MuxFrame }[] = []
-    /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const consuming = (async () => {
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.mux(req({}), abort.signal)) seen.push({ rpcId: envelope.rpcId, frame: envelope.payload })
-    })()
-    await vi.waitFor(() => {
-      expect(seen.some(s => s.frame.type === 'approval/requested')).toBe(true)
-    })
-    /** 中文说明：当前传输或投影数据 requested，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const requested = seen.find(s => s.frame.type === 'approval/requested')
-    if (requested === undefined || requested.frame.type !== 'approval/requested') throw new Error('unreachable')
-    /** 中文说明：标识或顺序值 approvalId，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const approvalId = requested.frame.approvalId
+    const stream = api.remoteEvents(abort.signal)
+    const iterator = stream[Symbol.asyncIterator]()
+    const approval = await nextRemoteEvent(
+      iterator,
+      frame => isRemoteEventRequest(frame) && frame.event === 'approval/request',
+    )
+    if (!isRemoteEventRequest(approval)) throw new Error('fixture approval Remote Event missing')
 
-    // Routed but malformed answers.
-    expect(await api.respond({ type: 'client-response', rpcId: RpcId(requested.rpcId), result: { ok: false, error: { code: 'internal', message: 'x', details: {} } } }))
-      .toEqual({ accepted: false, reason: 'bad-response' })
-    expect(await api.respond({ type: 'client-response', rpcId: RpcId(requested.rpcId), result: { ok: true, value: { approvalId: 'wrong', outcome: 'rejected' } } }))
-      .toEqual({ accepted: false, reason: 'bad-response' })
-    expect(await api.respond({ type: 'client-response', rpcId: RpcId(requested.rpcId), result: { ok: true, value: { approvalId, outcome: 'maybe' } } }))
-      .toEqual({ accepted: false, reason: 'bad-response' })
-    // The real answer settles the question and broadcasts resolved.
-    expect(await api.respond({ type: 'client-response', rpcId: RpcId(requested.rpcId), result: { ok: true, value: { sessionId: sid('fx-alpha'), approvalId, outcome: 'allowed-once' } } }))
-      .toEqual({ accepted: true })
-    await vi.waitFor(() => {
-      expect(seen.some(s => s.frame.type === 'approval/resolved' && s.frame.outcome === 'allowed-once')).toBe(true)
-    })
-    // Settled: a duplicate answer is late, and a fresh mux open replays nothing.
-    expect(await api.respond({ type: 'client-response', rpcId: RpcId(requested.rpcId), result: { ok: true, value: { sessionId: sid('fx-alpha'), approvalId, outcome: 'rejected' } } }))
-      .toEqual({ accepted: false, reason: 'not-pending' })
+    await expect(api.answerRemoteEvent({
+      clientId: await stream.clientId,
+      eventId: approval.eventId,
+      outcome: { kind: 'result', value: 'allowed-once' },
+    })).resolves.toEqual({ ok: true, value: undefined })
+    const cancelled = await nextRemoteEvent(
+      iterator,
+      frame => isRemoteEventCancellation(frame) && frame.eventId === approval.eventId,
+    )
+    expect(cancelled).toEqual({ type: 'cancel', eventId: approval.eventId })
     abort.abort()
-    await consuming
-    /** 中文说明：异步取消状态 abort2，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort2 = new AbortController()
-    /** 中文说明：测试场景的局部值 replayed，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const replayed = await collect(api.events.mux(req({}), abort2.signal), abort2, frames => frames.length === 2)
-    expect(replayed.some(f => f.type === 'approval/requested')).toBe(false)
-  })
+    await iterator.return?.()
 
-  it('describe answers the fixture identity', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const api = createFixtureApi()
-    /** 中文说明：当前传输或投影数据 response，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const response = await api.host.describe(req({}))
-    expect(response.result).toMatchObject({
-      ok: true, value: { version: '0.0.0-fixture', attachedSessions: 1, home: '/home/fixture' },
-    })
-    /** 中文说明：测试场景的局部值 empty，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const empty = await createFixtureApi({ empty: true }).host.describe(req({}))
-    expect(empty.result).toMatchObject({ ok: true, value: { attachedSessions: 0 } })
+    await expect(api.answerRemoteEvent({
+      clientId: await stream.clientId,
+      eventId: approval.eventId,
+      outcome: { kind: 'next' },
+    })).resolves.toMatchObject({ ok: false, error: { code: 'invocation-unavailable' } })
+    const remaining = await readResidentRemoteEvents(api, 1)
+    expect(remaining.map(frame => frame.event)).toEqual(['user-questions/request'])
   })
 
   it('createDirectory under the root mints /name whose listing and crumbs share the identity', async () => {
     /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = createFixtureApi()
-    /** 中文说明：测试场景的局部值 created，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const created = await api.host.createDirectory(req({ path: '/', name: 'srv' }))
-    if (!created.result.ok) throw new Error('create failed')
-    expect(created.result.value.path).toBe('/srv')
-    /** 中文说明：按序保存的数据集合 listed，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const listed = await api.host.listDirectory(req({ path: '/srv' }), new AbortController().signal)
-    if (!listed.result.ok) throw new Error('list failed')
-    expect(listed.result.value.crumbs).toEqual([
+    const created = await api.directoryPickerRemote.createDirectory('/', 'srv')
+    if (!created.ok) throw new Error('create failed')
+    expect(created.value).toBe('/srv')
+    const listed = await api.directoryPickerRemote.list('/srv')
+    if (!listed.ok) throw new Error('list failed')
+    expect(listed.value.crumbs).toEqual([
       { name: '/', path: '/', hidden: false },
       { name: 'srv', path: '/srv', hidden: false },
     ])
-    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const root = await api.host.listDirectory(req({ path: '/' }), new AbortController().signal)
-    if (!root.result.ok) throw new Error('root list failed')
-    expect(root.result.value.entries).toContainEqual({ name: 'srv', path: '/srv', hidden: false })
+    const root = await api.directoryPickerRemote.list('/')
+    if (!root.ok) throw new Error('root list failed')
+    expect(root.value.entries).toContainEqual({ name: 'srv', path: '/srv', hidden: false })
   })
 
-  it('workspace.list serves the resident account and create reuses on path collision', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('workspace/follow serves the resident baseline and create reuses on path collision', async () => {
     const api = createFixtureApi()
-    /** 中文说明：按序保存的数据集合 listed，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const listed = await api.workspace.list(req({}))
-    if (!listed.result.ok) throw new Error('list failed')
-    expect(listed.result.value.items).toEqual([
+    const baseline = await readWorkspaceBaseline(api.workspaceRemote)
+    expect(baseline.items).toEqual([
       expect.objectContaining({
         workspaceId: 'fx-ws-fixture', path: '/tmp/fixture', title: 'fixture',
         sessionIds: ['fx-alpha', 'fx-beta', 'fx-gamma'],
@@ -714,21 +1205,16 @@ describe('createFixtureApi', () => {
     expect(reused.result.value).toMatchObject({ created: false, workspace: { workspaceId: 'fx-ws-fixture' } })
   })
 
-  it('workspace.create on a fresh path mints a new entity and pushes host/workspace-changed', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('workspace.create on a fresh path mints a new entity and pushes an upsert', async () => {
     const api = createFixtureApi()
     /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const seen: HostFrame[] = []
-    /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const consuming = (async () => {
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.host(req({}), abort.signal)) {
-        seen.push(envelope.payload)
-        abort.abort()
-      }
-    })()
+    const consuming = collectValues(
+      api.workspaceRemote.follow(abort.signal),
+      abort,
+      frames => frames.some(frame => frame.type === 'upsert'
+        && frame.workspace.path === '/tmp/fixture-workspaces/nova'),
+    )
     await new Promise(resolve => setTimeout(resolve, 10))
     /** 中文说明：测试场景的局部值 created，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const created = await api.workspace.create(req({ path: '/tmp/fixture-workspaces/nova' }))
@@ -737,8 +1223,8 @@ describe('createFixtureApi', () => {
     expect(created.result.value.workspace).toMatchObject({
       path: '/tmp/fixture-workspaces/nova', title: 'nova', sessionIds: [],
     })
-    await consuming
-    expect(seen).toEqual([{ type: 'host/workspace-changed', workspace: created.result.value.workspace }])
+    const frames = await consuming
+    expect(frames.at(-1)).toEqual({ type: 'upsert', workspace: created.result.value.workspace })
     // A basename-less path serves as its own title.
     /** 中文说明：测试场景的局部值 rootPath，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const rootPath = await api.workspace.create(req({ path: '/' }))
@@ -751,16 +1237,11 @@ describe('createFixtureApi', () => {
     const api = createFixtureApi()
     /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const seen: HostFrame[] = []
-    /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const consuming = (async () => {
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.host(req({}), abort.signal)) {
-        seen.push(envelope.payload)
-        if (seen.length >= 2) abort.abort()
-      }
-    })()
+    const consuming = collectValues(
+      api.workspaceRemote.follow(abort.signal),
+      abort,
+      frames => frames.filter(frame => frame.type === 'upsert').length >= 2,
+    )
     await new Promise(resolve => setTimeout(resolve, 10))
     /** 中文说明：标识或顺序值 wsid，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const wsid = 'fx-ws-fixture' as WorkspaceId
@@ -782,27 +1263,29 @@ describe('createFixtureApi', () => {
     const renamed = await api.workspace.rename(req({ workspaceId: wsid, title: 'renamed' }))
     if (!renamed.result.ok) throw new Error('rename failed')
     expect(renamed.result.value.workspace.title).toBe('renamed')
-    await consuming
+    const frames = await consuming
     // Only the create and the effective rename emit frames; the no-op stays silent.
-    expect(seen.map(f => f.type)).toEqual(['host/workspace-changed', 'host/workspace-changed'])
+    const upserts = frames.filter(frame => frame.type === 'upsert')
+    expect(upserts).toHaveLength(2)
+    expect(upserts[1]).toMatchObject({ workspace: { workspaceId: wsid, title: 'renamed' } })
   })
 
   it('session.rename covers not-found, blank title, and the accepted append + title frame', async () => {
     /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = createFixtureApi()
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort = new AbortController()
-    /** 中文说明：当前传输或投影数据 framesPromise，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const framesPromise = (async () => {
-      /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const frames: MuxFrame[] = []
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.mux(req({}), abort.signal)) {
-        frames.push(envelope.payload)
-        if (frames.some(f => f.type === 'session/projection' && f.key === 'title' && f.value === '重命名')) abort.abort()
-      }
-      return frames
-    })()
+    const followAbort = new AbortController()
+    const controlAbort = new AbortController()
+    const followPromise = collectValues(
+      api.sessionRemote.follow(sid('fx-alpha'), followAbort.signal),
+      followAbort,
+      frames => frames.some(frame => frame.type === 'event'
+        && (frame.event as { type: string }).type === 'session/title'),
+    )
+    const controlPromise = collectValues(
+      api.sessionRemote.control(controlAbort.signal),
+      controlAbort,
+      frames => frames.some(frame => frame.type === 'projection' && frame.key === 'title' && frame.value === '重命名'),
+    )
     await new Promise(resolve => setTimeout(resolve, 10))
 
     /** 中文说明：测试场景的局部值 missing，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -825,18 +1308,21 @@ describe('createFixtureApi', () => {
     /** 中文说明：测试场景的局部值 history，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const history = await api.sessions.history(req({ sessionId: sid('fx-alpha'), maxMessages: 100 }))
     if (!history.result.ok) throw new Error('history failed')
-    /** 中文说明：测试场景的局部值 appended，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const appended = history.result.value.events.find(entry => entry.event.seq === acceptedSeq)
-    expect(appended?.event).toMatchObject({
+    const appended = historyEvents(history.result.value.records).find(event => event.seq === acceptedSeq)
+    expect(appended).toMatchObject({
       type: 'session/title',
       data: { title: '重命名', messageSeqs: [], source: { kind: 'user' } },
     })
-    // Beyond the subscribe-time baseline replay, the append emitted exactly
-    // one title projection frame carrying the new value at the response seq.
-    /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const frames = await framesPromise
-    /** 中文说明：当前传输或投影数据 titleFrames，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const titleFrames = frames.filter(f => f.type === 'session/projection' && f.key === 'title' && f.sessionId === sid('fx-alpha') && f.value === '重命名')
+    const followed = await followPromise
+    expect(followed.some(frame => frame.type === 'event'
+      && frame.event.seq === acceptedSeq
+      && (frame.event as { readonly type: string }).type === 'session/title')).toBe(true)
+    const frames = await controlPromise
+    const titleFrames = frames.filter(frame =>
+      frame.type === 'projection'
+      && frame.key === 'title'
+      && frame.sessionId === sid('fx-alpha')
+      && frame.value === '重命名')
     expect(titleFrames).toHaveLength(1)
     expect(titleFrames[0]).toMatchObject({ seq: acceptedSeq })
   })
@@ -878,16 +1364,11 @@ describe('createFixtureApi', () => {
     const api = createFixtureApi()
     /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const abort = new AbortController()
-    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const seen: HostFrame[] = []
-    /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const consuming = (async () => {
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.host(req({}), abort.signal)) {
-        seen.push(envelope.payload)
-        abort.abort()
-      }
-    })()
+    const consuming = collectValues(
+      api.workspaceRemote.follow(abort.signal),
+      abort,
+      frames => frames.some(frame => frame.type === 'remove'),
+    )
     await new Promise(resolve => setTimeout(resolve, 10))
     /** 中文说明：测试场景的局部值 missing，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const missing = await api.workspace.delete(req({ workspaceId: 'fx-ws-void' as WorkspaceId }))
@@ -895,13 +1376,10 @@ describe('createFixtureApi', () => {
     /** 中文说明：测试场景的局部值 deleted，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const deleted = await api.workspace.delete(req({ workspaceId: 'fx-ws-fixture' as WorkspaceId }))
     expect(deleted.result).toEqual({ ok: true, value: { deleted: true } })
-    await consuming
-    expect(seen).toEqual([{ type: 'host/workspace-removed', workspaceId: 'fx-ws-fixture' }])
-    /** 中文说明：按序保存的数据集合 list，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const list = await api.workspace.list(req({}))
-    if (!list.result.ok) throw new Error('workspace list failed')
-    expect(list.result.value.items.some(workspace => workspace.workspaceId === 'fx-ws-fixture')).toBe(false)
-    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    const frames = await consuming
+    expect(frames.at(-1)).toEqual({ type: 'remove', workspaceId: 'fx-ws-fixture' })
+    const baseline = await readWorkspaceBaseline(api.workspaceRemote)
+    expect(baseline.items.some(workspace => workspace.workspaceId === 'fx-ws-fixture')).toBe(false)
     const sessions = await api.sessions.list(req({}))
     if (!sessions.result.ok) throw new Error('session list failed')
     expect(sessions.result.value.items.map(session => session.sessionId)).toContain('fx-alpha')
@@ -910,18 +1388,23 @@ describe('createFixtureApi', () => {
   it('session.create({workspaceId}) lands on the account and unknown ids error', async () => {
     /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = createFixtureApi()
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort = new AbortController()
-    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const seen: HostFrame[] = []
-    /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    const hostAbort = new AbortController()
+    const workspaceAbort = new AbortController()
+    const seen: FixtureRemoteEventNotificationFrame[] = []
     const consuming = (async () => {
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.host(req({}), abort.signal)) {
-        seen.push(envelope.payload)
-        if (seen.length >= 2) abort.abort()
+      for await (const frame of api.remoteEvents(hostAbort.signal)) {
+        if (frame.type !== 'emit' || frame.event !== 'api-session/added') continue
+        seen.push(frame)
+        hostAbort.abort()
+        break
       }
     })()
+    const workspaceFrames = collectValues(
+      api.workspaceRemote.follow(workspaceAbort.signal),
+      workspaceAbort,
+      frames => frames.some(frame => frame.type === 'upsert'
+        && frame.workspace.sessionIds.length === 4),
+    )
     await new Promise(resolve => setTimeout(resolve, 10))
     /** 中文说明：测试场景的局部值 missing，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const missing = await api.sessions.create(req({ workspaceId: 'fx-ws-void' as WorkspaceId }))
@@ -932,37 +1415,46 @@ describe('createFixtureApi', () => {
     /** 中文说明：标识或顺序值 id，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const id = created.result.value.sessionId
     await consuming
-    // The session lands with the workspace's path as cwd, and the account
-    // write pushes the fresh workspace snapshot after session-added.
-    /** 中文说明：测试场景的局部值 added，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const added = seen[0]
-    if (added?.type !== 'host/session-added') throw new Error('session-added frame missing')
-    expect(added).toEqual({
-      type: 'host/session-added', sessionId: id, blank: true, cwd: '/tmp/fixture',
+    expect(added).toMatchObject({
+      event: 'api-session/added',
+      args: [{ sessionId: id, blank: true, cwd: '/tmp/fixture' }],
     })
-    expect(seen[1]).toMatchObject({
-      type: 'host/workspace-changed',
-      workspace: { workspaceId: 'fx-ws-fixture', sessionIds: [id, 'fx-alpha', 'fx-beta', 'fx-gamma'] },
+    expect((await workspaceFrames).at(-1)).toMatchObject({
+      type: 'upsert',
+      workspace: {
+        workspaceId: 'fx-ws-fixture',
+        sessionIds: [id, 'fx-alpha', 'fx-beta', 'fx-gamma'],
+      },
     })
   })
 
-  it('supports an empty baseline, preallocated ids, workspace-first frames, and idempotent retry', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('supports an empty baseline, preallocated ids, independent streams, and idempotent retry', async () => {
     const api = createFixtureApi({ empty: true, createFrameOrder: 'workspace-first' })
     /** 中文说明：测试场景的局部值 initialSessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const initialSessions = await api.sessions.list(req({}))
-    /** 中文说明：测试场景的局部值 initialWorkspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const initialWorkspaces = await api.workspace.list(req({}))
     expect(initialSessions.result).toMatchObject({ ok: true, value: { items: [] } })
-    expect(initialWorkspaces.result).toMatchObject({ ok: true, value: { items: [] } })
+    expect(await readWorkspaceBaseline(api.workspaceRemote)).toEqual({
+      items: [],
+      archivedSessionIds: [],
+    })
 
     /** 中文说明：测试场景的局部值 made，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const made = await api.workspace.create(req({ path: '/tmp/fixture-workspaces/nova' }))
     if (!made.result.ok) throw new Error('workspace create failed')
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort = new AbortController()
-    /** 中文说明：当前传输或投影数据 framesPromise，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const framesPromise = collect(api.events.host(req({}), abort.signal), abort, frames => frames.length === 2)
+    const hostAbort = new AbortController()
+    const workspaceAbort = new AbortController()
+    const hostFrames = collectValues(
+      api.remoteEvents(hostAbort.signal),
+      hostAbort,
+      frames => frames.length === 1,
+    )
+    const workspaceFrames = collectValues(
+      api.workspaceRemote.follow(workspaceAbort.signal),
+      workspaceAbort,
+      frames => frames.some(frame => frame.type === 'upsert'
+        && frame.workspace.sessionIds.includes(sid('fx-preallocated'))),
+    )
     await new Promise(resolve => setTimeout(resolve, 10))
     /** 中文说明：测试场景的局部值 preallocated，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const preallocated = sid('fx-preallocated')
@@ -972,17 +1464,17 @@ describe('createFixtureApi', () => {
       sessionId: preallocated,
     }))
     expect(created.result).toEqual({ ok: true, value: { sessionId: preallocated } })
-    /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const frames = await framesPromise
-    expect(frames[0]).toMatchObject({
-      type: 'host/workspace-changed', workspace: { sessionIds: [preallocated] },
+    expect((await workspaceFrames).at(-1)).toMatchObject({
+      type: 'upsert', workspace: { sessionIds: [preallocated] },
     })
-    /** 中文说明：测试场景的局部值 added，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const added = frames[1]
-    if (added?.type !== 'host/session-added') throw new Error('session-added frame missing')
-    expect(added).toEqual({
-      type: 'host/session-added', sessionId: preallocated, blank: true,
-      cwd: made.result.value.workspace.path,
+    const added = (await hostFrames)[0]
+    expect(added).toMatchObject({
+      event: 'api-session/added',
+      args: [{
+        sessionId: preallocated,
+        blank: true,
+        cwd: made.result.value.workspace.path,
+      }],
     })
 
     /** 中文说明：测试场景的局部值 retried，取值由紧邻初始化决定，仅在当前作用域使用。 */
@@ -1018,10 +1510,8 @@ describe('createFixtureApi', () => {
       workspaceId: 'fx-ws-fixture' as WorkspaceId,
     }))).resolves.toMatchObject({ result: { ok: true, value: { sessionId } } })
 
-    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const workspaces = await api.workspace.list(req({}))
-    if (!workspaces.result.ok) throw new Error('workspace list failed')
-    expect(workspaces.result.value.items[0]?.sessionIds).toContain(sessionId)
+    const workspaces = await readWorkspaceBaseline(api.workspaceRemote)
+    expect(workspaces.items[0]?.sessionIds).toContain(sessionId)
   })
 
   it('reports a conflict without an existing cwd detail for an unrecorded cwd', async () => {
@@ -1063,11 +1553,10 @@ describe('createFixtureApi', () => {
     })
     /** 中文说明：按序保存的数据集合 listed，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const listed = await api.sessions.list(req({}))
-    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const workspaces = await api.workspace.list(req({}))
-    if (!listed.result.ok || !workspaces.result.ok) throw new Error('list failed')
+    const workspaces = await readWorkspaceBaseline(api.workspaceRemote)
+    if (!listed.result.ok) throw new Error('list failed')
     expect(listed.result.value.items.filter(item => item.sessionId === sessionId)).toHaveLength(1)
-    expect(workspaces.result.value.items[0]?.sessionIds).not.toContain(sessionId)
+    expect(workspaces.items[0]?.sessionIds).not.toContain(sessionId)
 
     /** 中文说明：测试场景的局部值 retried，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const retried = await api.sessions.create(req({
@@ -1092,11 +1581,10 @@ describe('createFixtureApi', () => {
     })))).rejects.toThrow(/dropped session\.create response/)
     /** 中文说明：按序保存的数据集合 listed，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const listed = await dropped.sessions.list(req({}))
-    /** 中文说明：测试场景的局部值 workspaces，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const workspaces = await dropped.workspace.list(req({}))
-    if (!listed.result.ok || !workspaces.result.ok) throw new Error('list failed')
+    const workspaces = await readWorkspaceBaseline(dropped.workspaceRemote)
+    if (!listed.result.ok) throw new Error('list failed')
     expect(listed.result.value.items.some(item => item.sessionId === sessionId)).toBe(true)
-    expect(workspaces.result.value.items[0]?.sessionIds).toContain(sessionId)
+    expect(workspaces.items[0]?.sessionIds).toContain(sessionId)
     await expect(dropped.sessions.create(req({
       workspaceId: 'fx-ws-fixture' as WorkspaceId,
       sessionId,
@@ -1140,19 +1628,35 @@ describe('createFixtureApi', () => {
     /** 中文说明：测试场景的局部值 ok，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const ok = await api.sessions.history(req({ sessionId: sid('fx-alpha'), maxMessages: 5 }))
     expect(ok.result.ok).toBe(true)
-    // appendUser emits on the mux stream; appendSilent only lands in the log (lost frame).
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort = new AbortController()
-    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const seen: MuxFrame[] = []
-    /** 中文说明：测试场景的局部值 consuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const consuming = (async () => {
-      /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const envelope of api.events.mux(req({}), abort.signal)) seen.push(envelope.payload)
-    })()
-    await new Promise(resolve => setTimeout(resolve, 10))
+    // A durable append without a live frame creates a detectable seq gap.
+    const gapAbort = new AbortController()
+    const gapIterator = api.sessionRemote.follow(sid('fx-alpha'), gapAbort.signal)[Symbol.asyncIterator]()
+    const opening = await gapIterator.next()
+    if (opening.done || opening.value.type !== 'snapshot') throw new Error('follow opening snapshot missing')
     hooks.appendSilent('fx-alpha', '静默丢帧')
     hooks.appendUser('fx-alpha', '正常直播')
+    await expect(gapIterator.next()).rejects.toThrow(/stream skipped seq/)
+
+    // Reopening replaces the window with a complete snapshot containing both durable events.
+    const followAbort = new AbortController()
+    const controlAbort = new AbortController()
+    const followed: FixtureFollowFrame[] = []
+    const controlled: FixtureControlFrame[] = []
+    const following = (async () => {
+      for await (const frame of api.sessionRemote.follow(sid('fx-alpha'), followAbort.signal)) {
+        followed.push(frame)
+      }
+    })()
+    const controlling = (async () => {
+      for await (const frame of api.sessionRemote.control(controlAbort.signal)) controlled.push(frame)
+    })()
+    await new Promise(resolve => setTimeout(resolve, 10))
+    await vi.waitFor(() => {
+      const snapshot = followed.find(frame => frame.type === 'snapshot')
+      const events = snapshot === undefined ? [] : historyEvents(snapshot.records)
+      expect(events.some(event => JSON.stringify(event.data).includes('静默丢帧'))).toBe(true)
+      expect(events.some(event => JSON.stringify(event.data).includes('正常直播'))).toBe(true)
+    })
     hooks.appendTitle('fx-alpha', 'Fixture 修订标题')
     hooks.beginModelRetry('fx-alpha')
     hooks.scheduleModelRetry('fx-alpha')
@@ -1160,39 +1664,27 @@ describe('createFixtureApi', () => {
     hooks.beginModelRetry('fx-alpha')
     hooks.cancelModelRetryDuringBackoff('fx-alpha')
     await vi.waitFor(() => {
-      expect(seen.some(f => f.type === 'session/event' && JSON.stringify(f.event.data).includes('正常直播'))).toBe(true)
-      expect(seen.some(f => f.type === 'session/event' && (f.event as { type: string }).type === 'llm/retry')).toBe(true)
-      expect(seen.some(f => f.type === 'session/event' && JSON.stringify(f.event.data).includes('重试后的完整回复'))).toBe(true)
-      expect(seen.some(f => f.type === 'session/event'
-        && f.event.type === 'turn/end'
-        && f.event.data.reason.kind === 'aborted')).toBe(true)
-      expect(seen.some(f => f.type === 'session/projection' && f.key === 'title' && f.value === 'Fixture 修订标题')).toBe(true)
+      expect(followed.some(frame => frame.type === 'event' && (frame.event as { type: string }).type === 'llm/retry')).toBe(true)
+      expect(followed.some(frame => frame.type === 'event' && JSON.stringify(frame.event.data).includes('重试后的完整回复'))).toBe(true)
+      expect(followed.some(frame => frame.type === 'event'
+        && frame.event.type === 'turn/end'
+        && frame.event.data.reason.kind === 'aborted')).toBe(true)
+      expect(controlled.some(frame => frame.type === 'projection'
+        && frame.key === 'title'
+        && frame.value === 'Fixture 修订标题')).toBe(true)
     })
-    expect(seen.some(f => f.type === 'session/event' && JSON.stringify(f.event.data).includes('静默丢帧'))).toBe(false)
-    /** 中文说明：标识或顺序值 rawTitleIndex，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const rawTitleIndex = seen.findIndex(f => f.type === 'session/event' && (f.event as { type: string }).type === 'session/title')
-    /** 中文说明：标识或顺序值 titleControlIndex，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const titleControlIndex = seen.findIndex(f => f.type === 'session/projection' && f.key === 'title' && f.value === 'Fixture 修订标题')
-    expect(titleControlIndex).toBe(rawTitleIndex + 1)
-    // But history serves the silent event (the client's repull finds it).
-    /** 中文说明：测试场景的局部值 repull，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    expect(followed.some(frame => frame.type === 'event' && (frame.event as { type: string }).type === 'session/title')).toBe(true)
+    // Paging and resumed follow agree on the recovered durable event.
     const repull = await api.sessions.history(req({ sessionId: sid('fx-alpha'), maxMessages: 5 }))
     if (!repull.result.ok) throw new Error('repull failed')
-    expect(JSON.stringify(repull.result.value.events)).toContain('静默丢帧')
-    // breakStreams force-ends BOTH stream kinds without the client abort.
-    /** 中文说明：异步取消状态 habort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const habort = new AbortController()
-    /** 中文说明：测试场景的局部值 hostConsuming，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const hostConsuming = (async () => {
-      /** 中文说明：测试场景的局部值 _，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      for await (const _ of api.events.host(req({}), habort.signal)) { /* drain */ }
-    })()
+    expect(JSON.stringify(repull.result.value.records)).toContain('静默丢帧')
+    // breakStreams force-ends follow and control without client aborts.
     await new Promise(resolve => setTimeout(resolve, 10))
     hooks.breakStreams()
-    await consuming // returns because the stream broke, not because we aborted
-    await hostConsuming
-    expect(abort.signal.aborted).toBe(false)
-    expect(habort.signal.aborted).toBe(false)
+    await following
+    await controlling
+    expect(followAbort.signal.aborted).toBe(false)
+    expect(controlAbort.signal.aborted).toBe(false)
   })
 
   it('paces the opt-in reasoning stress hook from an external interval', async () => {
@@ -1209,9 +1701,8 @@ describe('createFixtureApi', () => {
     /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const abort = new AbortController()
     try {
-      /** 中文说明：测试场景的局部值 streamed，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const streamed = collect(api.events.mux(req({}), abort.signal), abort, frames => frames.some(frame => (
-        frame.type === 'session/event'
+      const streamed = collectValues(api.sessionRemote.follow(sid('fx-alpha'), abort.signal), abort, frames => frames.some(frame => (
+        frame.type === 'event'
         && frame.event.type === 'assistant/chunk'
         && frame.event.data.chunk.type === 'reasoning-delta'
         && frame.event.data.chunk.text.includes('REASONING_STRESS_COMPLETE')
@@ -1233,7 +1724,7 @@ describe('createFixtureApi', () => {
       const frames = await streamed
       /** 中文说明：测试场景的局部值 deltas，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const deltas = frames.flatMap(frame => (
-        frame.type === 'session/event'
+        frame.type === 'event'
         && frame.event.type === 'assistant/chunk'
         && frame.event.data.chunk.type === 'reasoning-delta'
           ? [frame.event.data.chunk.text]
@@ -1247,112 +1738,72 @@ describe('createFixtureApi', () => {
   })
 })
 
-describe('FixtureApiClient (protocol-level fake carrier)', () => {
+describe('fixture Connection RPC', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
-  it('doFetch is an unreachable tripwire (all protocol paths overridden)', () => {
-    /** 中文说明：当前服务或测试对象 client，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const client = new FixtureApiClient()
-    // Protected at compile time only; reach it directly to pin the tripwire message.
-    expect(() => (client as unknown as { doFetch(): Promise<Response> }).doFetch()).toThrow(/doFetch must be unreachable/)
-  })
-
-  it('mints request ids, taps all four full forms, and never touches doFetch', async () => {
-    /** 中文说明：当前服务或测试对象 client，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const client = new FixtureApiClient()
-    /** 中文说明：测试场景的局部值 tapped，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const tapped: RpcMessage[] = []
-    client.subscribeEnvelopes(batch => tapped.push(...batch))
-    /** 中文说明：当前传输或投影数据 response，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const response = await client.sessions.list({})
-    expect(response.result.ok).toBe(true)
-    await client.respond({ type: 'client-response', rpcId: RpcId('r-x'), result: { ok: true, value: {} } })
-    await vi.waitFor(() => {
-      /** 中文说明：测试场景的局部值 kinds，取值由紧邻初始化决定，仅在当前作用域使用。 */
-      const kinds = tapped.map(m => m.type)
-      expect(kinds).toContain('client-request')
-      expect(kinds).toContain('server-response')
-      expect(kinds).toContain('client-response')
-    })
-    /** 中文说明：当前传输或投影数据 request，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const request = tapped.find(m => m.type === 'client-request')
-    /** 中文说明：测试场景的局部值 reply，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const reply = tapped.find(m => m.type === 'server-response')
-    expect(request?.rpcId).toBe(reply?.rpcId) // echo discipline holds through the fake carrier
-  })
-
-  it('covers the whole unary dispatch table', async () => {
-    /** 中文说明：当前服务或测试对象 client，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const client = new FixtureApiClient()
-    expect((await client.sessions.search(
+  it('covers the migrated Remote dispatch table', async () => {
+    const rpc = createFixtureConnectionRpc()
+    const sessions = createSessionClient(rpc)
+    const workspaces = createWorkspaceClient(rpc)
+    expect((await sessions.search(
       { query: 'fixture' },
       new AbortController().signal,
     )).result.ok).toBe(true)
-    /** 中文说明：测试场景的局部值 created，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const created = await client.sessions.create({})
+    const created = await sessions.create({})
     if (!created.result.ok) throw new Error('create failed')
     /** 中文说明：标识或顺序值 id，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const id = created.result.value.sessionId
-    expect((await client.sessions.history({ sessionId: id })).result.ok).toBe(true)
-    expect((await client.sessions.prompt({ sessionId: id, mode: 'queue', content: [{ type: 'text', text: '嗨' }] })).result.ok).toBe(true)
-    expect((await client.sessions.cancel({ sessionId: id })).result.ok).toBe(true)
-    expect((await client.host.describe({})).result.ok).toBe(true)
-    expect((await client.workspace.list({})).result.ok).toBe(true)
-    /** 中文说明：测试场景的局部值 workspace，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const workspace = await client.workspace.create({ path: '/tmp/fixture-workspaces/via-client' })
+    expect((await sessions.history({ sessionId: id })).result.ok).toBe(true)
+    expect((await sessions.prompt({ sessionId: id, mode: 'queue', content: [{ type: 'text', text: '嗨' }] })).result.ok).toBe(true)
+    expect((await sessions.cancel({ sessionId: id })).result.ok).toBe(true)
+    expect((await readWorkspaceBaseline(createWorkspaceRemote(rpc))).items).not.toHaveLength(0)
+    const workspace = await workspaces.create({ path: '/tmp/fixture-workspaces/via-client' })
     if (!workspace.result.ok) throw new Error('workspace create failed')
     expect(workspace.result.value.workspace.title).toBe('via-client')
     /** 中文说明：标识或顺序值 wsid，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const wsid = workspace.result.value.workspace.workspaceId
-    /** 中文说明：测试场景的局部值 renamed，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const renamed = await client.workspace.rename({ workspaceId: wsid, title: 'via-client-2' })
+    const renamed = await workspaces.rename({ workspaceId: wsid, title: 'via-client-2' })
     if (!renamed.result.ok) throw new Error('workspace rename failed')
     expect(renamed.result.value.workspace.title).toBe('via-client-2')
-    /** 中文说明：测试场景的局部值 attached，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const attached = await client.sessions.create({ workspaceId: wsid })
+    const attached = await sessions.create({ workspaceId: wsid })
     if (!attached.result.ok) throw new Error('attached create failed')
-    /** 中文说明：测试场景的局部值 moved，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const moved = await client.workspace.insertSessionBefore({ workspaceId: wsid, sessionId: attached.result.value.sessionId })
+    const moved = await workspaces.insertSessionBefore({ workspaceId: wsid, sessionId: attached.result.value.sessionId })
     if (!moved.result.ok) throw new Error('workspace move failed')
     expect(moved.result.value.workspace.sessionIds).toEqual([attached.result.value.sessionId])
-    // Goal lifecycle over the fixture fold: create → edit → pause → resume → complete → clear;
-    // every mutation acknowledges with the NEW CAS ref (state rides the projection frames).
-    /** 中文说明：测试场景的局部值 goalCreated，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const goalCreated = await client.goals.create({ sessionId: id, objective: 'ship it' })
-    if (!goalCreated.result.ok) throw new Error('goal create failed')
-    /** 中文说明：测试场景的局部值 ref，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    let ref = goalCreated.result.value.ref
-    expect(ref.revision).toBe(1)
-    /** 中文说明：测试场景的局部值 edited，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const edited = await client.goals.edit({ sessionId: id, ref, objective: 'ship it v2' })
-    if (!edited.result.ok) throw new Error('goal edit failed')
-    ref = edited.result.value.ref
-    /** 中文说明：测试场景的局部值 paused，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const paused = await client.goals.pause({ sessionId: id, ref })
-    if (!paused.result.ok) throw new Error('goal pause failed')
-    ref = paused.result.value.ref
-    /** 中文说明：测试场景的局部值 resumed，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const resumed = await client.goals.resume({ sessionId: id, ref })
-    if (!resumed.result.ok) throw new Error('goal resume failed')
-    ref = resumed.result.value.ref
-    // A stale ref loses the CAS check.
-    expect((await client.goals.pause({ sessionId: id, ref: { ...ref, revision: 1 } })).result.ok).toBe(false)
-    /** 中文说明：测试场景的局部值 completed，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const completed = await client.goals.complete({ sessionId: id, ref })
-    if (!completed.result.ok) throw new Error('goal complete failed')
-    ref = completed.result.value.ref
-    // complete → complete is an invalid transition.
-    expect((await client.goals.complete({ sessionId: id, ref })).result.ok).toBe(false)
-    expect((await client.goals.clear({ sessionId: id, ref })).result).toEqual({ ok: true, value: { cleared: true } })
+  })
 
-    /** 中文说明：测试场景的局部值 goalHistory，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const goalHistory = await client.sessions.history({ sessionId: id })
+  it('folds the goal lifecycle over the Goal Remotes', async () => {
+    const rpc = createFixtureConnectionRpc()
+    const sessions = createSessionClient(rpc)
+    const created = await sessions.create({})
+    if (!created.result.ok) throw new Error('create failed')
+    const id = created.result.value.sessionId
+    const goal = (endpoint: string, args: Record<string, unknown>) =>
+      rpc.call('/api', endpoint, { args: { agentId: id, ...args } })
+
+    // create → edit → pause → resume → complete → clear; each mutation advances the CAS
+    // revision by one (state rides the projection frames).
+    const goalCreated = await goal('goals/create', { request: { objective: 'ship it' } })
+    if (!goalCreated.ok) throw new Error('goal create failed')
+    const { id: goalId, revision } = (goalCreated.value as { ref: { id: string; revision: number } }).ref
+    expect(revision).toBe(1)
+    const ref = (at: number) => ({ id: goalId, revision: at })
+    expect((await goal('goals/edit', { ref: ref(1), request: { objective: 'ship it v2' } })).ok).toBe(true)
+    expect((await goal('goals/pause', { ref: ref(2) })).ok).toBe(true)
+    expect((await goal('goals/resume', { ref: ref(3) })).ok).toBe(true)
+    // A stale ref loses the CAS check.
+    expect((await goal('goals/pause', { ref: ref(1) })).ok).toBe(false)
+    expect((await goal('goals/complete', { ref: ref(4) })).ok).toBe(true)
+    // complete → complete is an invalid transition.
+    expect((await goal('goals/complete', { ref: ref(5) })).ok).toBe(false)
+    expect(await goal('goals/clear', { ref: ref(5) })).toEqual({ ok: true, value: ref(6) })
+
+    const goalHistory = await sessions.history({ sessionId: id })
     if (!goalHistory.result.ok) throw new Error('goal history failed')
-    /** 中文说明：当前传输或投影数据 goalEvents，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const goalEvents = goalHistory.result.value.events.map(entry => entry.event as unknown as {
+    const goalEvents = historyEvents(goalHistory.result.value.records).map(event => event as unknown as {
       type: string
       data: {
         operation?: string
@@ -1371,30 +1822,42 @@ describe('FixtureApiClient (protocol-level fake carrier)', () => {
     vi.stubGlobal('location', {
       search: '?fixture=empty&fixturePrompt=reject&fixtureFrames=workspace-first',
     })
-    /** 中文说明：当前服务或测试对象 client，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const client = new FixtureApiClient()
-    await expect(client.sessions.list({})).resolves.toMatchObject({ result: { ok: true, value: { items: [] } } })
-    /** 中文说明：测试场景的局部值 made，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const made = await client.workspace.create({ path: '/tmp/fixture-workspaces/query-workspace' })
+    const rpc = createFixtureConnectionRpc()
+    const sessions = createSessionClient(rpc)
+    const workspaces = createWorkspaceClient(rpc)
+    const workspaceRemote = createWorkspaceRemote(rpc)
+    await expect(sessions.list({})).resolves.toMatchObject({ result: { ok: true, value: { items: [] } } })
+    const made = await workspaces.create({ path: '/tmp/fixture-workspaces/query-workspace' })
     if (!made.result.ok) throw new Error('workspace create failed')
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort = new AbortController()
-    /** 中文说明：当前传输或投影数据 framesPromise，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const framesPromise = collect(client.events.host({}, abort.signal), abort, frames => frames.length === 2)
+    const hostAbort = new AbortController()
+    const workspaceAbort = new AbortController()
+    const hostFrames = collectValues(
+      openFixtureRemoteEvents(rpc, hostAbort.signal),
+      hostAbort,
+      frames => frames.length === 1,
+    )
+    const workspaceFrames = collectValues(
+      workspaceRemote.follow(workspaceAbort.signal),
+      workspaceAbort,
+      frames => frames.some(frame => frame.type === 'upsert'
+        && frame.workspace.sessionIds.includes(sid('fx-query-session'))),
+    )
     await new Promise(resolve => setTimeout(resolve, 10))
     /** 中文说明：标识或顺序值 sessionId，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessionId = sid('fx-query-session')
-    /** 中文说明：测试场景的局部值 created，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const created = await client.sessions.create({
+    const created = await sessions.create({
       workspaceId: made.result.value.workspace.workspaceId,
       sessionId,
     })
     expect(created.result).toMatchObject({ ok: true, value: { sessionId } })
-    /** 中文说明：当前传输或投影数据 frames，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const frames = await framesPromise
-    expect(frames.map(frame => frame.type)).toEqual(['host/workspace-changed', 'host/session-added'])
-    /** 中文说明：测试场景的局部值 rejected，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const rejected = await client.sessions.prompt({
+    expect((await workspaceFrames).at(-1)).toMatchObject({
+      type: 'upsert',
+      workspace: { sessionIds: [sessionId] },
+    })
+    expect((await hostFrames)[0]).toMatchObject({
+      event: 'api-session/added',
+    })
+    const rejected = await sessions.prompt({
       sessionId,
       mode: 'queue',
       content: [{ type: 'text', text: 'retain' }],
@@ -1404,10 +1867,8 @@ describe('FixtureApiClient (protocol-level fake carrier)', () => {
 
   it('maps attach-failure and dropped-response query scenarios', async () => {
     vi.stubGlobal('location', { search: '?fixture&fixtureAttach=fail' })
-    /** 中文说明：测试场景的局部值 partial，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const partial = new FixtureApiClient()
-    /** 中文说明：测试场景的局部值 partialResult，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const partialResult = await partial.sessions.create({
+    const partial = createFixtureConnectionRpc()
+    const partialResult = await createSessionClient(partial).create({
       workspaceId: 'fx-ws-fixture' as WorkspaceId,
       sessionId: sid('fx-query-partial'),
     })
@@ -1417,45 +1878,11 @@ describe('FixtureApiClient (protocol-level fake carrier)', () => {
     })
 
     vi.stubGlobal('location', { search: '?fixture&fixtureSessionCreate=drop-response' })
-    /** 中文说明：测试场景的局部值 dropped，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const dropped = new FixtureApiClient()
-    await expect(dropped.sessions.create({
+    const dropped = createFixtureConnectionRpc()
+    await expect(createSessionClient(dropped).create({
       workspaceId: 'fx-ws-fixture' as WorkspaceId,
       sessionId: sid('fx-query-dropped'),
     })).rejects.toThrow(/dropped session\.create response/)
   })
 
-  it('fires onOpen at stream-iteration start and taps server-request full forms', async () => {
-    /** 中文说明：当前服务或测试对象 client，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const client = new FixtureApiClient()
-    /** 中文说明：测试场景的局部值 tapped，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const tapped: RpcMessage[] = []
-    client.subscribeEnvelopes(batch => tapped.push(...batch))
-    /** 中文说明：测试场景的局部值 order，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const order: string[] = []
-    /** 中文说明：异步取消状态 abort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const abort = new AbortController()
-    /** 中文说明：测试场景的局部值 envelope，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    for await (const envelope of client.events.mux({}, abort.signal, () => order.push('open'))) {
-      order.push(envelope.payload.type)
-      abort.abort()
-    }
-    expect(order[0]).toBe('open')
-    expect(order[1]).toBe('session/subscribed')
-    await vi.waitFor(() => {
-      expect(tapped.some(m => m.type === 'server-request')).toBe(true)
-    })
-    // Host stream side of the pair (same tap path).
-    /** 中文说明：异步取消状态 habort，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const habort = new AbortController()
-    /** 中文说明：测试场景的局部值 hostOrder，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const hostOrder: string[] = []
-    /** 中文说明：测试场景的局部值 hostIterator，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const hostIterator = client.events.host({}, habort.signal, () => hostOrder.push('open'))[Symbol.asyncIterator]()
-    /** 中文说明：测试场景的局部值 raced，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const raced = await Promise.race([hostIterator.next(), new Promise<'idle'>(resolve => setTimeout(() => { resolve('idle') }, 50))])
-    expect(hostOrder).toEqual(['open']) // established even though the host stream stays silent
-    habort.abort()
-    if (raced === 'idle') await hostIterator.return?.(undefined)
-  })
 })

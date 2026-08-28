@@ -15,6 +15,14 @@ import { resolve } from 'node:path'
 import { packChunkRuns, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 
+/** Physical persistence artifacts validated by the WebWorker runtime fixture spec. */
+const WEBWORKER_PHYSICAL_SESSION_FIXTURE_ROOT =
+  'packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/'
+
+/** Installed-runtime snapshots that preserve the JSONL writer's physical encoding. */
+const PYTHON_RUNTIME_PHYSICAL_SESSION_FIXTURE_ROOT =
+  'scripts/snapshots/python-sdk-single-exe/'
+
 /** One repository session fixture and its canonical projected representation. */
 /* 中文说明：interface SessionFixtureLayout 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface SessionFixtureLayout {
@@ -26,7 +34,20 @@ export interface SessionFixtureLayout {
   canonical: string
 }
 
-/** 中文说明：函数 isSessionHeader 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/**
+ * Whether a repository JSONL preserves physical persistence encoding rather
+ * than the logical event projection owned by this script.
+ * @param path - Repository-relative path with `/` separators.
+ * @returns True for physical WebWorker and installed-runtime session logs.
+ */
+export function isPhysicalSessionFixture(path: string): boolean {
+  if (path.startsWith(WEBWORKER_PHYSICAL_SESSION_FIXTURE_ROOT)) {
+    return path.endsWith('/session.jsonl')
+  }
+  return path.startsWith(PYTHON_RUNTIME_PHYSICAL_SESSION_FIXTURE_ROOT)
+    && /\/session(?:\.\d+)?\.jsonl$/.test(path)
+}
+
 function isSessionHeader(value: unknown): boolean {
   return value !== null && typeof value === 'object' && (value as { type?: unknown }).type === 'session'
 }
@@ -131,7 +152,7 @@ function discoverJsonlFiles(root: string): string[] {
 /* 中文说明：函数 inspectSessionFixtureLayouts 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function inspectSessionFixtureLayouts(root: string): SessionFixtureLayout[] {
   return discoverJsonlFiles(root).flatMap((path) => {
-    /** 中文说明：变量 source 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    if (isPhysicalSessionFixture(path)) return []
     const source = readFileSync(resolve(root, path), 'utf8')
     /** 中文说明：变量 canonical 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const canonical = canonicalSessionFixture(source, path)

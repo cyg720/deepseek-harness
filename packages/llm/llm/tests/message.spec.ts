@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
-  CallId,
+  ToolCallId,
   createAssistantMessage,
   createToolResultMessage,
   createUserMessage,
@@ -89,9 +89,7 @@ describe('message construction', () => {
   })
 
   it('couples tool-result content and its cited call seq to one call identity', () => {
-    /** 中文说明：变量 callId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const callId = CallId('call-1')
-    /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const callId = ToolCallId('call-1')
     const message = createToolResultMessage({
       callId,
       content: [{ type: 'text', text: 'result' }],

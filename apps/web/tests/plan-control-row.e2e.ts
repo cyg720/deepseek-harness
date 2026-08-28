@@ -45,9 +45,7 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 窄视口计划控件场景的 fixture 与快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/plan-narrow-viewport', import.meta.url))
-/** 只提供回放模型目录而不含响应脚本的 fixture。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/plan-narrow-viewport', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 /** 两个控件几何关系的预期快照。 */
 const LAYOUT_EXPECTED = join(SNAPSHOT_DIR, 'layout.expected.md')
@@ -84,7 +82,7 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser, VIEWPORT.height)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
     await page.setViewportSize(VIEWPORT)
@@ -97,7 +95,7 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
 
   it('keeps the plan chip and model trigger disjoint and exits plan mode by click', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-plan-narrow-viewport'))
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
     await input.fill('/plan ')
     await input.press('Enter')

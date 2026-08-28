@@ -46,8 +46,7 @@ export interface ToolBridgeOptions {
 /* 中文说明：type ToolDisposers 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export type ToolDisposers = Map<string, () => void>
 
-/** Canonical MCP result exposed to Code Mode without discarding protocol blocks. */
-/* 中文说明：type McpResult 定义本模块所需的数据或行为，用于表达当前协议场景。 */
+/** Canonical MCP result exposed to PTC mode without discarding protocol blocks. */
 export type McpResult<Structured extends JsonValue = JsonValue> = {
   content: JsonValue[]
   structuredContent?: Structured

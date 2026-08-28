@@ -34,7 +34,12 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { createUserMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, UserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionSurfaceSnapshot, SessionTitleObservationResult } from '@deepseek-ai/dsh-session-query'
+// Type-only: the `title` projection key plus the live registry and durable
+// cache Context merges — the two projection faces discovery labels from.
+import type { ProjectionSnapshot } from '@deepseek-ai/dsh-session-projection'
+import type {} from '@deepseek-ai/dsh-session-projection-cache'
+import type {} from '@deepseek-ai/dsh-session-title'
+import type { SessionRecord, SessionSurfaceSnapshot } from '@deepseek-ai/dsh-session-query'
 import {
   DEFAULT_CANDIDATE_LIMIT,
   DEFAULT_MAX_REFERENCE_BYTES,
@@ -139,7 +144,7 @@ export class SessionReferenceResolver extends TypertRemoteService {
       const decision = await next()
       if (decision.kind === 'reject') return decision
       return {
-        kind: 'enter',
+        ...decision,
         messages: await this.prepareDirectMessages(agent, decision.messages, signal),
       }
     }, { prepend: true })
@@ -192,6 +197,10 @@ export class SessionReferenceResolver extends TypertRemoteService {
 
   /**
    * List reference candidates, ranked by working-directory affinity.
+   *
+   * Discovery runs at keystroke rate, so a title only ever comes from a
+   * projection read: see {@link SessionReferenceResolver.projectedTitle} for
+   * which sessions can answer one and which fall back to their id.
    * @param agent - target agent; self is excluded and its cwd drives ranking.
    * @param query - optional case-insensitive session-id/cwd/title substring.
    * @param limit - optional positive result cap.
@@ -223,29 +232,12 @@ export class SessionReferenceResolver extends TypertRemoteService {
     const records = (await settleWithCancellation(this.ctx.sessionQuery.listSessions(signal), signal))
       .filter(record => record.header.id !== agent.id)
       .map((record, index) => ({ record, index }))
-    // 空查询时按 cwd 亲和度排序截断；带关键字时先全量读标题再过滤
-    const inspected = needle === ''
-      ? records
-        .sort((a, b) => candidateRank(a.record.header.cwd, targetCwd) - candidateRank(b.record.header.cwd, targetCwd)
-          || a.index - b.index)
-        .slice(0, limit)
-      : records
-    // 并发读标题快照（部分可能失败，observation 逐个处理）
-    const observations = await settleWithCancellation(
-      this.ctx.sessionQuery.readTitleSnapshots(inspected.map(({ record }) => record.header.id), signal),
-      signal,
-    )
-    return inspected.map(({ record, index }, observationIndex) => {
-      const observation = observations[observationIndex] as SessionTitleObservationResult
-      return {
-        record,
-        index,
-        label: observation.status === 'fulfilled'
-          ? observation.value.title?.title ?? record.header.id
-          : record.header.id,
-      }
-    }).filter(({ record, label }) => {
-      // 关键字过滤：会话 id / cwd / 标题任一命中即保留
+    const labelled = records.map(({ record, index }) => ({
+      record,
+      index,
+      label: this.projectedTitle(record) ?? record.header.id,
+    }))
+    return labelled.filter(({ record, label }) => {
       if (needle === '') return true
       return record.header.id.toLocaleLowerCase().includes(needle)
         || record.header.cwd?.toLocaleLowerCase().includes(needle) === true
@@ -257,8 +249,40 @@ export class SessionReferenceResolver extends TypertRemoteService {
         sessionId: record.header.id,
         label,
         ...record.header.cwd === undefined ? {} : { cwd: record.header.cwd },
+        sameWorkspace: record.header.cwd !== undefined && record.header.cwd === targetCwd,
         createdAt: record.header.createdAt,
       }))
+  }
+
+  /**
+   * The title a session's projections can answer without reading its log.
+   *
+   * Attachment is decided by the store at read time, not by the listing:
+   * a session that attached in between would otherwise be answered from a
+   * checkpoint its live log has already moved past.
+   *
+   * An attached session answers from its live registry cut, which advances
+   * with every committed event, so a rename or a just-generated title is
+   * visible immediately; its events are already in memory, so the lazy fold
+   * costs no I/O. A cold session answers from the durable checkpoint the
+   * projection cache wrote when it went cold.
+   *
+   * Nothing else is attempted. Folding a title from a log costs the whole
+   * log, and this call sits under every keystroke of `@` completion. A
+   * session that no projection can answer for — one persisted before the
+   * cache was composed, or seeded straight to disk — is labeled by its id
+   * and cannot be found by its title until it is opened once, which
+   * checkpoints it.
+   * @param record - the listed session, live or cold.
+   * @returns the projected title, or undefined when no projection holds one.
+   */
+  private projectedTitle(record: SessionRecord): string | undefined {
+    const attached = this.ctx.get('sessions')?.get(record.header.id)
+    const projections = this.ctx.get('sessionProjections')
+    if (attached !== undefined && projections !== undefined) {
+      return titleOf(projections.snapshot(attached, ['title']))
+    }
+    return titleOf(this.ctx.get('sessionProjectionCache')?.cachedSnapshot(record.header, ['title']))
   }
 
   /**
@@ -425,10 +449,12 @@ function renderPrompt(data: readonly ReferencedSessionData[]): string {
   return `${PROMPT_PREFIX}${stringifyTagSafeJson(data)}${PROMPT_SUFFIX}`
 }
 
-/**
- * 候选 cwd 与目标 cwd 的亲和度排序：相同 0（最前）、候选无 cwd 1、其他 2。
- * 同工作目录的历史会话排最前，让用户最常引用"正在做的项目"里的会话。
- */
+/** The title in one projection snapshot; undefined when the unit is absent or still untitled. */
+function titleOf(snapshot: ProjectionSnapshot | undefined): string | undefined {
+  const title = snapshot?.values.title
+  return title === undefined || title === null ? undefined : title
+}
+
 function candidateRank(candidateCwd: string | undefined, targetCwd: string | undefined): number {
   if (candidateCwd !== undefined && targetCwd !== undefined && candidateCwd === targetCwd) return 0
   if (candidateCwd === undefined) return 1

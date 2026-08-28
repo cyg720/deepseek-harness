@@ -19,7 +19,7 @@ describe('preset display copy', () => {
   // 参数化四个内置 preset；id、nameKey、descriptionKey 分别表示标识和两类翻译键。
   it.each([
     ['standard', 'presetStandardName', 'presetStandardDescription'],
-    ['code', 'presetCodeName', 'presetCodeDescription'],
+    ['ptc', 'presetPtcName', 'presetPtcDescription'],
     ['minimal', 'presetMinimalName', 'presetMinimalDescription'],
     ['cordis', 'presetCordisName', 'presetCordisDescription'],
   ] as const)('localizes the shipped %s preset in English and Chinese', (id, nameKey, descriptionKey) => {

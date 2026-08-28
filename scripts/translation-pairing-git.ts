@@ -57,9 +57,7 @@ export function runGit(root: string, args: string[], operation: string, input?: 
 /** One regular stage-zero Git index entry and its exact blob bytes. */
 /* 中文说明：interface GitIndexBlob 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface GitIndexBlob {
-  /** Object ID recorded in the index. */
   objectId: string
-  /** Blob bytes stored under that object ID. */
   content: Buffer
 }
 

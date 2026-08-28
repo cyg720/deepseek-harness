@@ -1,24 +1,5 @@
 /**
- * ================================ 文件注释 ================================
- * 【文件职责】定义并强制执行本项目统一使用的 JSON Schema 子集：工具输出、Code Mode
- *   生成类型、子代理与工作流共享这一份"受支持的 schema"判定与"值校验"实现。
- * 【技术维度】两阶段设计：① assertSupportedJsonSchema 校验 schema 本身（拒绝子集之外
- *   的关键字，而不是静默不校验）；② validateJsonSchemaValue 用显式栈（非递归）校验
- *   具体值并返回路径化违规列表。另含跨 JS realm 的纯 JSON 记录/数组判定。
- * 【产品维度】模型给出的工具参数、工具产出的规范值都经这里把关；schema 错误一次性
- *   列出全部违规路径，便于作者一次修完。
- * 【逻辑维度】类型与错误类 → realm 无关的纯度判定 → schema 树校验（栈式遍历）→
- *   两个断言入口 → 值校验（帧式遍历，oneOf 精确匹配一次）→ 导出的验证函数。
- * 【关键边界】只支持单标量 type、对象三件套、数组 items、enum/const、恰好一个分支的
- *   oneOf；注解关键字（description 等）不参与校验但必须是无损 JSON。所有遍历刻意
- *   不用递归调用栈，深 schema 不会栈溢出。
- * 【新手阅读建议】先读 JsonSchemaNode 了解子集形状，再看 checkSchemaNode 的任务类型
- *   （enter/leave/*-tail）理解栈式遍历套路，最后看 checkValue 的 ValueFrame 对照。
- * ==========================================================================
- */
-
-/**
- * Enforced JSON Schema subset shared by tool outputs, generated Code Mode
+ * Enforced JSON Schema subset shared by tool outputs, generated PTC mode
  * types, subagents, and workflows. The subset accepts any JSON root, an
  * annotation-only schema for unconstrained JSON, one scalar `type`, object
  * `properties`/`required`/boolean `additionalProperties`, array `items`,

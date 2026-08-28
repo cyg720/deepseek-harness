@@ -140,8 +140,8 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)(
       const version = await execFileAsync(process.execPath, [codexEntry, '--version'], {
         env: { ...process.env, ...env },
       })
-      expect(codexPackage.version).toBe('0.147.0')
-      expect(version.stdout.trim()).toBe('codex-cli 0.147.0')
+      expect(codexPackage.version).toBe('0.149.1')
+      expect(version.stdout.trim()).toBe('codex-cli 0.149.1')
 
       /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = {

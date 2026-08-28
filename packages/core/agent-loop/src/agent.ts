@@ -62,7 +62,12 @@ type StepEndReason = Extract<TurnEndReason, { kind: 'completed' | 'max-tokens' }
 // 一步的准备结果：reject = 该步骤被拒（轮次以 blocked 收尾）；enter = 带着消息与组装好的提示词进入模型调用。
 type PreparedStep =
   | { kind: 'reject' }
-  | { kind: 'enter'; messages: UserMessage[]; assembly: PromptAssembly }
+  | {
+    kind: 'enter'
+    messages: UserMessage[]
+    startsRequestSeries?: true
+    assembly: PromptAssembly
+  }
 
 /** Remove adapter-derived values before plugins propose the next request config. */
 // 在把上一请求头交给 agent/request 瀑布前，先剥掉由适配器派生（adapterDefaults 标记）的字段，
@@ -98,7 +103,8 @@ export class ReactLoopAgent implements Agent {
   /** Whether this loop instance has appended its initial/resume request anchor. */
   // 是否已写入过首个 request/header 锚点：决定后续请求头是“首次写入”还是“变更写入”。
   private requestHeaderLogged = false
-  // 动态运行时上下文的持久化投影（追踪 dsh-system-prompt 快照，见 runtime-context.ts）。
+  /** Surface generation of the preceding built request. */
+  private requestSurfaceGeneration: number | undefined
   private readonly runtimeContext: RuntimeContextProjection
 
   // 构造：建分发器/收件箱/作用域/投影，并从会话日志恢复轮次计数。
@@ -344,8 +350,7 @@ export class ReactLoopAgent implements Agent {
           }
           // max-tokens is sticky: once any step hits the ceiling, later steps
           // that complete normally must not downgrade the turn outcome.
-          // max-tokens 具有粘性：一旦某步撞上限，后续正常完成的步骤不得把轮次结论降级。
-          const stepEnd = await this.step(decision.assembly)
+          const stepEnd = await this.step(decision.assembly, decision.startsRequestSeries === true)
           // max-tokens stays sticky: a later completed step must not
           // downgrade the turn outcome.
           // 再次强调粘性：后完成的步骤不得降级轮次结论。
@@ -397,8 +402,7 @@ export class ReactLoopAgent implements Agent {
     return true
   }
 
-  // 单步执行：组装请求 → 流式接收模型输出 → 处理错误/撞限 → 执行工具调用，直到步骤有结论。
-  private async step(assembly: PromptAssembly): Promise<StepEndReason | null> {
+  private async step(assembly: PromptAssembly, startsRequestSeries: boolean): Promise<StepEndReason | null> {
     /* v8 ignore next -- private callers establish the running phase before executing a step */
     if (this.phase.kind !== 'running') throw new Error(`agent "${this.id}": step outside running phase`)
     const { turn, step, abort: { signal } } = this.phase
@@ -407,10 +411,18 @@ export class ReactLoopAgent implements Agent {
     const system = renderPrompt(assembly)
 
     while (true) {
-      // 组装并冻结请求（提供方/模型/工具/消息/会话 id）。
+      const surfaceGeneration = this.session.surface.replaceGeneration
       const { request, preparedCall } = await this.buildRequest(
-        turn, step, assembly.tools, system, this.session.deriveMessages(), signal,
+        turn,
+        step,
+        assembly.tools,
+        system,
+        this.session.deriveMessages(),
+        startsRequestSeries,
+        surfaceGeneration,
+        signal,
       )
+      startsRequestSeries = false
       const assembler = new BlockAssembler()
       // chunkSeqs：本步所有 assistant/chunk 的序号，供最终 assistant/message 引用溯源。
       const chunkSeqs: number[] = []
@@ -510,6 +522,8 @@ export class ReactLoopAgent implements Agent {
     tools: GenerateOptions['tools'] & object,
     system: string,
     boundaryMessages: Message[],
+    startsRequestSeries: boolean,
+    surfaceGeneration: number,
     signal: AbortSignal,
   ): Promise<{ request: GenerateOptions; preparedCall?: PreparedLlmCall }> {
     const { session } = this
@@ -521,11 +535,12 @@ export class ReactLoopAgent implements Agent {
     const persistedHeader = session.requestHeader()
     const persistedConfig = persistedHeader?.config
     const route = { provider: this.options.provider ?? '', model: this.options.model ?? '' }
-    const reasoningEffort = persistedConfig?.provider === route.provider
+    const persistedReasoningEffort = persistedConfig?.provider === route.provider
       && persistedConfig.model === route.model
       && persistedHeader?.adapterDefaults?.reasoningEffort !== true
       ? persistedConfig.reasoningEffort
       : undefined
+    const reasoningEffort = this.options.reasoningEffort ?? persistedReasoningEffort
     const maxTokens = this.options.maxTokens
     // 种子配置：首次请求用 route + 恢复的 effort/maxTokens；之后从上一个请求头派生（去掉适配器派生字段）。
     const seedConfig = deepFreeze(structuredClone(
@@ -570,14 +585,22 @@ export class ReactLoopAgent implements Agent {
       ...tools.length > 0 ? { tools } : {},
     })
     const baseline = this.session.requestHeader()
+    const startsSeries = startsRequestSeries
+      || this.requestSurfaceGeneration !== surfaceGeneration
     if (!this.requestHeaderLogged) {
       // 首次（或 resume 恢复后第一次）：写“initial/resume”锚点。
       this.session.append('request/header', { header, reason: baseline === undefined ? 'initial' : 'resume' })
       this.requestHeaderLogged = true
     } else if (baseline === undefined || !headerEquals(baseline, header)) {
-      // 配置有变化：写“change”请求头（模型可见的配置变化必须可追溯）。
-      this.session.append('request/header', { header, reason: 'change' })
+      this.session.append('request/header', {
+        header,
+        reason: 'change',
+        ...startsSeries ? { startsSeries: true } : {},
+      })
+    } else if (startsSeries) {
+      this.session.append('request/header', { header, reason: 'series' })
     }
+    this.requestSurfaceGeneration = surfaceGeneration
 
     // 请求上下文（provider/model/上下文窗口）：有变化才落盘 request/context。
     const contextWindow = preparedCall?.context?.contextWindow

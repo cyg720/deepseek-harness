@@ -101,7 +101,7 @@ export interface RemoteFailure {
  * What every generated Remote method resolves to. The Remote face itself folds
  * carrier failures into the error branch, so no consumer wraps a call to
  * recover one; only assembly faults (arity, an unmounted method, a missing
- * Context binder) still reject.
+ * Context adapter) still reject.
  * @template T - the Host method's business result.
  */
 // 中文：所有生成的 Remote 方法统一返回的"结果信封"：成功时 ok: true 携带业务值，
@@ -117,18 +117,58 @@ export type RemoteResult<T> =
 // `ContextKey:Namespace/方法`，供按调用上下文区分的远程调用使用。
 export interface TypertRemoteScopeMap {}
 
+type TypertEventParameters<Event extends keyof Events> =
+  Events[Event] extends (...args: infer Args) => unknown ? Args : never
+
+type TypertEventResult<Event extends keyof Events> =
+  Events[Event] extends (...args: never[]) => infer Result ? Result : never
+
+type TypertProjectedContextKey = Extract<keyof TypertLookupMap, keyof TypertContextMap>
+
+type TypertProjectedContextSubject = {
+  [Key in TypertProjectedContextKey]: TypertLookupHost<TypertLookupMap[Key]>
+}[TypertProjectedContextKey]
+
+type TypertAgentScopedRequest<Request> = Request extends object
+  ? 'agent' extends keyof Request
+    ? Exclude<Request['agent'], undefined> extends TypertProjectedContextSubject ? Request : never
+    : never
+  : never
+
+type TypertWaterfallEvent<Event extends keyof Events> =
+  unknown extends ThisParameterType<Events[Event]>
+    ? never
+    : TypertEventParameters<Event> extends [infer Request, infer Next]
+      ? Next extends () => TypertEventResult<Event>
+        ? TypertEventResult<Event> extends Promise<unknown>
+          ? TypertAgentScopedRequest<Request> extends never ? never : Event
+          : never
+        : never
+      : never
+
+type TypertForwardingMode<Event extends keyof Events> =
+  unknown extends ThisParameterType<Events[Event]>
+    ? TypertEventResult<Event> extends void ? 'emit' : never
+    : TypertWaterfallEvent<Event> extends never ? never : 'waterfall'
+
 /**
- * Cordis event names whose shape a one-way Remote delivery can carry: unbound
- * from any Scope and returning `void`. Which ones are actually forwarded is the
- * Host assembly's selection; this predicate only excludes shapes the carrier
- * cannot represent.
+ * Cordis event names the Remote Event carrier can preserve without a second
+ * signature declaration: unscoped `void` notifications and scoped async
+ * waterfalls whose final parameter is their same-result `next()` callback.
  */
 // 中文：筛选出"可以被单向远程转发"的 Cordis 事件名集合：用条件类型遍历 Events 映射表，
 // 只保留『this 类型为 unknown（不绑定具体作用域）且返回 void』的事件。具体转发哪些由
 // Host 装配方决定，这里只是排除 carrier 无法表达的事件形态。
 export type TypertForwardableEvent = {
-  [Event in keyof Events]: unknown extends ThisParameterType<Events[Event]>
-    ? ReturnType<Events[Event]> extends void ? Event : never
+  [Event in keyof Events]: TypertForwardingMode<Event> extends never ? never : Event
+}[keyof Events]
+
+/** Event and dispatch mode accepted by the Remote Event source. */
+export type TypertForwardableEventEntry = {
+  [Event in keyof Events]: TypertForwardingMode<Event> extends infer Mode
+    ? Mode extends 'emit' | 'waterfall'
+      ? { readonly event: Event; readonly mode: Mode }
+      : never
     : never
 }[keyof Events]
 
@@ -137,9 +177,37 @@ export type TypertForwardableEvent = {
 // 消费端才能用 $on 订阅到对应事件。
 export interface TypertRemoteEventSelection {}
 
-/** Legal `$on` keys: selected events that exist in the current compilation face. */
-// 中文：$on 允许订阅的事件名 = 「已声明转发」与「当前编译面中真实存在」两个集合的交集。
-export type TypertRemoteEvent = Extract<keyof Events, keyof TypertRemoteEventSelection>
+/** Legal `$on` keys selected from the carrier-compatible Cordis event declarations. */
+export type TypertRemoteEvent = Extract<TypertForwardableEvent, keyof TypertRemoteEventSelection>
+
+type TypertClientAgent<Value> =
+  Exclude<Value, undefined> extends TypertProjectedContextSubject
+    ? Context | Extract<Value, undefined>
+    : Value
+
+type TypertClientEventRequest<Request> = Request extends object
+  ? { [Key in keyof Request]: Key extends 'agent' ? TypertClientAgent<Request[Key]> : Request[Key] }
+  : never
+
+type TypertScopedClientEventListener<Event extends TypertRemoteEvent> =
+  Events[Event] extends (request: infer Request, next: infer Next) => infer Result
+    ? (
+      this: Context,
+      request: TypertClientEventRequest<Request>,
+      next: Next,
+    ) => Result
+    : never
+
+/**
+ * Listener derived from one selected Cordis event declaration. Scoped Host
+ * subjects become the resolved Client `Context`; one-way notifications retain
+ * their declaration unchanged.
+ * @template Event - selected Remote Event name.
+ */
+export type TypertClientEventListener<Event extends TypertRemoteEvent> =
+  unknown extends ThisParameterType<Events[Event]>
+    ? Events[Event]
+    : TypertScopedClientEventListener<Event>
 
 /**
  * Resolve one direct Remote namespace from the generated flat endpoint map.
@@ -278,6 +346,8 @@ export interface InvocationDescriptor {
   /** Service member invoked when the exported method name is an alias. */
   // 中文：当导出的方法名是别名时，记录真正承载实现的成员名。
   readonly implementation?: string
+  /** Absent for unary calls; stream calls validate and deliver every yielded item. */
+  readonly mode?: 'stream'
   /** Receiver selection mode. */
   // 中文：接收者选择方式：direct = 直接调用服务实例；context = 先从调用上下文解析出具体对象。
   readonly invocation:
@@ -295,8 +365,7 @@ export interface InvocationDescriptor {
   // 中文：可选的作用域投影：把某一个 lookup 参数替换成调用方 Context 提供的身份，
   // 这样调用方不必显式传 id，系统从调用上下文自动带入。
   readonly scope?: {
-    /** Context kind whose Client binder supplies the identity. */
-    // 中文：提供身份的 Context 种类（由 Client 侧 binder 负责解析）。
+    /** Context kind whose Client adapter supplies the identity. */
     readonly context: string
     /** Lookup parameter wire field replaced by the Context identity. */
     // 中文：被替换掉的 lookup 参数的线上字段名。
@@ -312,8 +381,7 @@ export interface InvocationDescriptor {
     // 中文：保留参数名固定为 signal。
     readonly parameter: 'signal'
   }
-  /** Codec for the resolved method result. */
-  // 中文：返回值的边界编解码器。
+  /** Codec for the unary result or each yielded stream item. */
   readonly result: TypertCodec
   /** Source declaration used only for diagnostics. */
   // 中文：源声明位置，仅供诊断。
@@ -346,31 +414,15 @@ export interface TypertClientRemote extends TypertRemoteNamespaceMap {
   // disposer 在命名空间服务与具体方法就绪后可用，调用它即可精确卸载这份贡献。
   $mount(contribution: TypertRemoteContribution): Promise<TypertDisposer>
   /**
-   * Subscribe to one forwarded Host event; delivery is one-way, in registration
-   * order, and isolates a throwing listener from the rest.
+   * Subscribe to one forwarded Host event. Notifications run in registration
+   * order and isolate failures; scoped waterfalls return, delegate through
+   * `next()`, or reject the Host dispatch.
    * @template Event - forwarded event name selected by the Host assembly.
    * @param event - forwarded Host event name, unchanged on the wire.
-   * @param listener - receives the Host's argument list as declared by Cordis `Events`.
+   * @param listener - receives the Client projection of the Cordis `Events` declaration.
    * @returns disposer owned by the calling fiber.
    */
-  // 中文：订阅一个被转发过来的 Host 事件。投递是单向的、按注册顺序进行，且某个监听器
-  // 抛错不会影响其他监听器。返回的 disposer 属于调用方纤维（随纤维销毁而撤销）。
-  $on<Event extends TypertRemoteEvent>(event: Event, listener: Events[Event]): () => void
-  /**
-   * Hand one decoded forwarded frame to the subscription table. The carrier
-   * owning the Host frame sink calls this; a consumer subscribes with
-   * {@link TypertClientRemote.$on} and never calls it.
-   *
-   * `event` is a plain string because this is the wire boundary: the name is
-   * whatever the Host assembly's allowlist selected, and one nobody subscribed
-   * to is dropped silently.
-   * @param event - forwarded Host event name, exactly as the Host emitted it.
-   * @param args - the Host argument list, already JSON-decoded.
-   */
-  // 中文：把一帧已解码的转发数据交给订阅表。只有 carrier 的 Host 帧汇入口会调用它，
-  // 消费方请用 $on 订阅、不要直接调用。event 用普通 string 是因为这里是线边界：
-  // 名字就是 Host 装配白名单放行的那个，没人订阅的名字会被静默丢弃。
-  $dispatch(event: string, args: readonly unknown[]): void
+  $on<Event extends TypertRemoteEvent>(event: Event, listener: TypertClientEventListener<Event>): () => void
 }
 
 /**
@@ -432,43 +484,60 @@ export interface TypertLookupDefinition {
   readonly wireTypeSymbol: string
 }
 
-/** Host resolver for one scoped Remote kind. */
-// 中文：某个作用域化 Remote 种类的 Host 解析器：把线格式的 Context 身份解析成
-// 活着的 Cordis 作用域 Context 对象，供 context 模式的远程调用定位接收者。
-export interface TypertHostContextProvider<Wire = unknown> {
-  /** Wire field carrying the Context identity. */
-  // 中文：承载 Context 身份的线上字段名。
-  readonly wire: string
-  /** Canonical wire type symbol used by strict generation. */
-  // 中文：规范线格式类型符号（strict 生成时引用）。
-  readonly wireTypeSymbol: string
+/** Bidirectional projection between one environment's Context and its wire identity. */
+export interface TypertContextAdapter<Wire = unknown> {
   /**
-   * Resolve a wire identity to its live scoped Context.
+   * Read the identity represented by a live Context.
+   * @param ctx - Context in this adapter's environment.
+   * @returns the wire identity, or `undefined` when the Context has another kind.
+   */
+  identity(ctx: Context): Wire | undefined
+  /**
+   * Resolve a wire identity to a live Context in this adapter's environment.
+   * An asynchronous Client resolver may wait for its owner to create the Context.
    * @param id - validated wire identity.
-   * @returns the scoped Context, or `undefined` when unavailable.
+   * @returns the Context, or `undefined` when it is unavailable.
    */
   // 中文：把线格式身份解析成活的作用域 Context；解析不到时返回 undefined。
   resolve(id: Wire): Context | undefined | Promise<Context | undefined>
 }
 
-/** Composition-owned resolver replacing one Host Context provider's default lookup policy. */
-// 中文：由组合（composition，即装配方）拥有的解析器函数：通过 configureHost 临时替换
-// 某个 Host Context 提供者的默认解析策略（例如换成自定义鉴权后的解析逻辑）。
+/** Host Context adapter plus the wire declaration used by strict Remote methods. */
+export interface TypertHostContextAdapter<Wire = unknown> extends TypertContextAdapter<Wire> {
+  /** Wire field carrying the Context identity. */
+  readonly wire: string
+  /** Canonical wire type symbol used by strict generation. */
+  readonly wireTypeSymbol: string
+}
+
+/** Composition-owned resolver replacing one Host Context adapter's default lookup policy. */
 export type TypertHostContextResolver<Wire = unknown> = (
   id: Wire,
 ) => Context | undefined | Promise<Context | undefined>
 
-/** Client resolver for the identity carried by the calling scoped Context. */
-// 中文：客户端侧的"身份绑定器"：从调用方的作用域 Context 里读出远程身份，
-// 由每个接入方实现（例如从 ctx 的会话字段里取用户 id）。
-export interface TypertClientContextBinder<Wire = unknown> {
+/** Client-side bidirectional Context adapter. */
+export interface TypertClientContextAdapter<Wire = unknown> {
   /**
-   * Read the Remote identity represented by a calling Context.
-   * @param ctx - Context rebound by the Cordis service tracker.
-   * @returns the wire identity, or `undefined` when the Context has the wrong scope.
+   * Read the identity represented by a live Client Context.
+   * @param ctx - Client Context inspected by a scoped Remote caller.
+   * @returns the wire identity, or `undefined` for another Context kind.
    */
   // 中文：读取调用方 Context 所代表的远程身份；当 Context 作用域不对时返回 undefined。
   identity(ctx: Context): Wire | undefined
+  /**
+   * Resolve a wire identity from the Client's currently materialized Contexts.
+   * @param id - validated wire identity.
+   * @returns the Client Context, or `undefined` when unavailable.
+   */
+  resolve(id: Wire): Context | undefined
+}
+
+/** Host Context identity selected from the registered adapter set. */
+export interface TypertHostContextIdentity {
+  /** Merge-declared Context kind whose adapter recognized the Context. */
+  readonly kind: string
+  /** Wire identity returned by that adapter. */
+  readonly identity: unknown
 }
 
 /** Notification emitted after a Typert runtime registry changes. */
@@ -600,23 +669,21 @@ export interface TypertLookupRegistry {
   subscribe(listener: TypertRegistryListener): TypertDisposer
 }
 
-/** Runtime registry for Host Context resolvers and Client Context binders. */
-// 中文：Context 解析器的运行时注册中心：Host 侧 registerHost / configureHost 管理
-// "按 id 还原 Context"，Client 侧 registerClient 管理"从调用 Context 读出身份"。
+/** Runtime registry for the Host and Client adapters of each Context kind. */
 export interface TypertContextRegistry {
   /**
-   * Register a Host Context resolver.
+   * Register a Host Context adapter.
    * @param key - merge-declared Context key.
-   * @param provider - owning package's Host resolver.
-   * @returns disposer withdrawing the exact provider.
+   * @param adapter - owning package's bidirectional Host projection.
+   * @returns disposer withdrawing the exact adapter.
    */
   // 中文：注册一个 Host Context 解析器（按 id 还原 Context）；返回撤销它的 disposer。
   registerHost<K extends StringKeyOf<TypertContextMap>>(
     key: K,
-    provider: TypertHostContextProvider<TypertContextWire<TypertContextMap[K]>>,
+    adapter: TypertHostContextAdapter<TypertContextWire<TypertContextMap[K]>>,
   ): TypertDisposer
   /**
-   * Override one Host Context key's identity policy for the calling fiber.
+   * Override one Host Context key's resolution policy for the calling fiber.
    * Configuration may precede provider registration and restores the provider's default resolver on disposal.
    * @param key - merge-declared Context key.
    * @param resolver - composition-owned resolver used by every Host Context lookup of this key.
@@ -629,32 +696,37 @@ export interface TypertContextRegistry {
     resolver: TypertHostContextResolver<TypertContextWire<TypertContextMap[K]>>,
   ): TypertDisposer
   /**
-   * Register a Client Context identity binder.
+   * Register a Client Context adapter.
    * @param key - merge-declared Context key.
-   * @param binder - Client scope identity resolver.
-   * @returns disposer withdrawing the exact binder.
+   * @param adapter - owning package's bidirectional Client projection.
+   * @returns disposer withdrawing the exact adapter.
    */
   // 中文：注册一个 Client Context 身份绑定器（从调用 Context 读出身份）；返回撤销它的 disposer。
   registerClient<K extends StringKeyOf<TypertContextMap>>(
     key: K,
-    binder: TypertClientContextBinder<TypertContextWire<TypertContextMap[K]>>,
+    adapter: TypertClientContextAdapter<TypertContextWire<TypertContextMap[K]>>,
   ): TypertDisposer
   /**
-   * Look up a Host Context resolver.
-   * @param key - descriptor Context key.
-   * @returns the provider, or `undefined` when absent.
+   * Identify a live Host Context through the sole registered adapter set.
+   * @param ctx - Context projected by a Host-to-Client scoped event.
+   * @returns its kind and wire identity, or `undefined` when no adapter recognizes it.
+   * @throws when more than one Context kind recognizes the same Context.
    */
-  // 中文：按 key 查 Host Context 解析器；不存在时返回 undefined。
-  getHost(key: string): TypertHostContextProvider | undefined
+  identifyHost(ctx: Context): TypertHostContextIdentity | undefined
   /**
-   * Look up a Client Context binder.
+   * Look up a Host Context adapter.
    * @param key - descriptor Context key.
-   * @returns the binder, or `undefined` when absent.
+   * @returns the adapter, or `undefined` when absent.
    */
-  // 中文：按 key 查 Client Context 绑定器；不存在时返回 undefined。
-  getClient(key: string): TypertClientContextBinder | undefined
+  getHost(key: string): TypertHostContextAdapter | undefined
   /**
-   * Observe later Context provider changes.
+   * Look up a Client Context adapter.
+   * @param key - descriptor Context key.
+   * @returns the adapter, or `undefined` when absent.
+   */
+  getClient(key: string): TypertClientContextAdapter | undefined
+  /**
+   * Observe later Context adapter changes.
    * @param listener - synchronous contained observer.
    * @returns disposer for this subscription.
    */

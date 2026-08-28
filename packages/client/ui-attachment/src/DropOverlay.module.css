@@ -1,14 +1,5 @@
-/* Full-viewport drop invitation (DeepSeek Chat DragMask). pointer-events:
-   none — the layer is decoration; drag events must keep hitting the page so
-   the owner's enter/leave count stays balanced. The frosted sheet color is
-   the theme's drop-mask alias (dark override lives with the theme owner). */
-/* 文件职责：定义附件拖入页面时全屏遮罩、插图和说明文字的视觉样式。
- * 技术维度：使用 CSS Module、主题变量、背景模糊、关键帧动画和减少动态效果媒体查询。
- * 产品维度：明确提示用户可释放文件上传，同时保持页面继续接收拖拽进入和离开事件。
- * 逻辑维度：mask 构建固定遮罩，fade-in 控制入场，wrap 与子元素负责居中排版。
- * 关键边界：mask 必须保持 pointer-events: none；深色颜色覆盖由主题包负责。
- * 新手阅读建议：先看 mask 的定位和事件策略，再看动画降级，最后阅读内部文字布局。 */
-/* 全屏装饰遮罩；z-index 为 1000，且不截获任何指针事件。 */
+/* Drag events must keep reaching the page so the owner's enter/leave count
+   stays balanced. */
 .mask {
   position: fixed;
   inset: 0;

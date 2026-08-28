@@ -33,11 +33,8 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** PowerShell 会话记录和预期快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/pwsh-terminal', import.meta.url))
-/** 手写的失败 pwsh 调用会话日志。 */
-const SEED = join(SNAPSHOT_DIR, 'seed.jsonl')
-/** 终端卡片的预期无障碍快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/pwsh-terminal', import.meta.url))
+const SEED = join(SNAPSHOT_DIR, 'session.jsonl')
 const TERMINAL_EXPECTED = join(SNAPSHOT_DIR, 'terminal-card.expected.md')
 /** 用 pwsh 栈替换默认 bash 栈的组合覆盖文件。 */
 const OVERLAY = fileURLToPath(new URL('./pwsh-terminal.overlay.yml', import.meta.url))
@@ -76,7 +73,7 @@ describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bas
     await seedSession(scaffold, fixture, SEED_ID)
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
 
@@ -122,6 +119,6 @@ describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bas
   }, 60_000)
 
   it('guards the lane fixture inventory', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, ['seed.jsonl', 'terminal-card.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['session.jsonl', 'terminal-card.expected.md'])
   })
 })

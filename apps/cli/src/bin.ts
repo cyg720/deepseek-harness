@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 /**
- * dsh — command-line entry. Dynamic imports per mode keep unrelated modes out
- * of each dispatch path; the adapter prints and exits for
- * `--help`/`--version`/a parse error, so only a valid mode reaches the switch.
+ * Command-line entry for dsh.
  * @module @deepseek-ai/dsh/bin
  */
 /*
@@ -26,9 +24,6 @@ import { parseDshArgs } from './args.ts'
 // Both the source tree (apps/cli/src) and the bundled bin (apps/cli/lib) sit
 // one directory under apps/cli, so the checked-in manifest resolves with the
 // same relative hop from either artifact.
-// 中文：源码目录和构建目录都位于 apps/cli 下一层，因此都能用同一个 ../package.json 相对路径读取版本。
-/** This app's version, read from its checked-in package.json. */
-/* 中文：读取当前 CLI 包清单中的版本；无参数，返回版本字符串，字段异常时返回 0.0.0。示例：readVersion()。 */
 function readVersion(): string {
   /** 解析后的包清单；version 在外部 JSON 输入中可能不是字符串，因此先保留 unknown 类型。 */
   const manifest = JSON.parse(

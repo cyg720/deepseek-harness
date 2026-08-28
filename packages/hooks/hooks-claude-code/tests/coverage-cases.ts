@@ -211,10 +211,8 @@ export function defineCoverageCases(group: CoverageGroup): void {
       /** 中文说明：测试局部值 ran，由紧邻初始化决定。 */
       let ran = false
       ctx.tools.register(defineContentToolFixture({ name: 'echo', description: 'e', parameters: {}, async execute() { ran = true; return [{ type: 'text', text: 'x' }] } }))
-      /** 中文说明：测试局部值 { CallId }，由紧邻初始化决定。 */
-      const { CallId } = await import('@deepseek-ai/dsh-llm')
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-      const result = await ctx.tools.execute({ signal: testToolSignal, callId: CallId('c1'), name: 'echo', arguments: {} })
+      const { ToolCallId } = await import('@deepseek-ai/dsh-llm')
+      const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'echo', arguments: {} })
       expect(ran).toBe(false)
       expect(result.isError).toBe(true)
     })

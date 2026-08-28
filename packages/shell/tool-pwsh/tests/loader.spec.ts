@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
-import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
+import { runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 import { resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local'
 
 // The probe follows the executor's own resolution (Program Files installs on
@@ -30,12 +30,12 @@ const hasPwsh = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInte
 
 /** 中文说明：变量 driver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const driver = fileURLToPath(new URL(
-  '../../../../examples/acp-agent/tests/fixtures/shell/tool-pwsh/driver.ts',
+  './fixtures/loader/driver.ts',
   import.meta.url,
 ))
 /** 中文说明：变量 configPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const configPath = fileURLToPath(new URL(
-  '../../../../examples/acp-agent/tests/fixtures/shell/tool-pwsh/cordis.yml',
+  './fixtures/loader/cordis.yml',
   import.meta.url,
 ))
 /** 中文说明：变量 repoTsconfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -50,6 +50,11 @@ interface PwshLoaderReport {
 }
 
 describe.skipIf(!hasPwsh)('tool-pwsh through a real Loader composition', () => {
+  // Self-hosted Windows runners reach ~40s for this smoke under the full
+  // coverage load (measured on the 192-thread CI pool), against the
+  // 30s default process deadline. Give the subprocess headroom so the
+  // assembled boot completes instead of being SIGKILLed mid-load.
+  const processTimeoutMs = 90_000
   it('registers the pwsh surface and renders real foreground and background results', async () => {
     /** 中文说明：变量 report 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let report: PwshLoaderReport | undefined
@@ -60,6 +65,7 @@ describe.skipIf(!hasPwsh)('tool-pwsh through a real Loader composition', () => {
       libBinScript: driver,
       configPath,
       tsconfigPath: repoTsconfig,
+      processTimeoutMs,
       inspect: async (cwd) => {
         report = JSON.parse(await readFile(join(cwd, 'pwsh-loader-report.json'), 'utf8')) as PwshLoaderReport
       },
@@ -73,5 +79,7 @@ describe.skipIf(!hasPwsh)('tool-pwsh through a real Loader composition', () => {
     expect(report?.foregroundText).toBe('loader-ok\n')
     expect(report?.backgroundText).toContain('loader-bg-ok')
     expect(report?.backgroundText).toContain('[status: completed, exit code: 0]')
-  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
+    // 15s of vitest headroom past the subprocess deadline, mirroring
+    // LOADER_SMOKE_TEST_TIMEOUT_MS's margin over its process window.
+  }, processTimeoutMs + 15_000)
 })

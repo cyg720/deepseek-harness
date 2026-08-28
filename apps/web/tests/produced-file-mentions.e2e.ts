@@ -18,7 +18,7 @@
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import { CallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
@@ -64,7 +64,7 @@ function mentionFixture(): string {
   /** 每个写入路径对应的稳定工具调用元数据。 */
   const calls = WRITES.map((path, index) => ({
     path,
-    callId: CallId(`file-mention-${String(index)}`),
+    callId: ToolCallId(`file-mention-${String(index)}`),
     args: JSON.stringify({ file_path: path, content: `content of ${path}\n` }),
   }))
   session.append('assistant/message', {
@@ -145,7 +145,7 @@ describe('web e2e: inline-code mentions of produced files', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 

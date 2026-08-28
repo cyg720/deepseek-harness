@@ -28,11 +28,8 @@ import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './s
 /** Starts the shipped default on this scenario's declared reasoning model. */
 /* 将发布默认模型指向本场景自定义推理模型的覆盖配置。 */
 const OVERLAY = fileURLToPath(new URL('./declared-reasoning.overlay.yml', import.meta.url))
-/** 本场景黄金文件目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/declared-reasoning', import.meta.url))
-/** 推理等级菜单的中文 ARIA 快照。 */
-const UI_EXPECTED = fileURLToPath(new URL('./snapshots/declared-reasoning/ui.expected.md', import.meta.url))
-/** 当前快照运行模式。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/declared-reasoning', import.meta.url))
+const UI_EXPECTED = fileURLToPath(new URL('./expected/declared-reasoning/ui.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
 
 describe.skipIf(MODE === 'record')('web e2e: declared reasoning efforts reach the composer', () => {
@@ -69,7 +66,7 @@ describe.skipIf(MODE === 'record')('web e2e: declared reasoning efforts reach th
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspaceZh(page, scaffold.workspaceCwd)
   }, 120_000)

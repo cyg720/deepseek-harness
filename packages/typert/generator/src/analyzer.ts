@@ -1166,7 +1166,7 @@ class FaceAnalyzer {
     binding: GatewayBinding,
     method: ts.MethodDeclaration,
     invocation:
-      | { readonly kind: 'direct'; readonly exportName?: string }
+      | { readonly kind: 'direct'; readonly exportName?: string; readonly mode?: 'stream' }
       | { readonly kind: 'context'; readonly context: string; readonly exportName?: string },
   ): InvocationModel {
     if (visibilityOf(method) !== 'public' || hasModifier(method, ts.SyntaxKind.StaticKeyword)) {
@@ -1304,13 +1304,15 @@ class FaceAnalyzer {
       }
     }
 
-    const resultType = this.remoteResultType(method)
+    const mode = invocation.kind === 'direct' ? invocation.mode : undefined
+    const resultType = this.remoteResultType(method, mode)
     return {
       id: `${registration.name}#${binding.namespace}/${exportedMethod}`,
       service: binding.service,
       namespace: binding.namespace,
       method: exportedMethod,
       ...(exportedMethod === methodName ? {} : { implementation: methodName }),
+      ...(mode === undefined ? {} : { mode }),
       invocation: receiver,
       ...(scope === undefined ? {} : { scope }),
       parameters,
@@ -1425,11 +1427,11 @@ class FaceAnalyzer {
   private remoteMarker(
     member: ts.ClassElement,
   ):
-    | { readonly kind: 'direct'; readonly exportName?: string }
+    | { readonly kind: 'direct'; readonly exportName?: string; readonly mode?: 'stream' }
     | { readonly kind: 'context'; readonly context: string; readonly exportName?: string }
     | undefined {
     let found:
-      | { readonly kind: 'direct'; readonly exportName?: string }
+      | { readonly kind: 'direct'; readonly exportName?: string; readonly mode?: 'stream' }
       | { readonly kind: 'context'; readonly context: string; readonly exportName?: string }
       | undefined
     for (const decorator of ts.canHaveDecorators(member) ? ts.getDecorators(member) ?? [] : []) {
@@ -1440,13 +1442,28 @@ class FaceAnalyzer {
         marker = { kind: 'direct' }
       } else if (ts.isCallExpression(expression)
         && this.isTypeMetaSymbol(expression.expression, 'Remote')) {
-        // 中文：@Remote('导出名') 用法：必须一个字符串字面量参数且是合法分段。
-        if (expression.arguments.length !== 1) this.fail(expression, 'Remote() requires one exported method name')
-        const exportName = stringLiteralValue(expression.arguments[0])
-        if (exportName === undefined || !isRemoteSegment(exportName)) {
-          this.fail(expression.arguments[0] ?? expression, 'Remote() name must be a string literal containing only RPC endpoint segment characters')
+        if (expression.arguments.length !== 1) this.fail(expression, 'Remote() requires one name or options object')
+        const argument = expression.arguments[0]
+        if (argument === undefined) this.fail(expression, 'Remote() requires one name or options object')
+        const exportName = stringLiteralValue(argument)
+        if (exportName !== undefined) {
+          if (!isRemoteSegment(exportName)) {
+            this.fail(argument, 'Remote() name must contain only RPC endpoint segment characters')
+          }
+          marker = { kind: 'direct', exportName }
+        } else {
+          if (!ts.isObjectLiteralExpression(argument) || argument.properties.length !== 1) {
+            this.fail(argument, 'Remote() options must contain exactly mode: "stream"')
+          }
+          const [property] = argument.properties
+          if (property === undefined) this.fail(argument, 'Remote() options must contain exactly mode: "stream"')
+          if (!ts.isPropertyAssignment(property)
+            || memberName(property.name) !== 'mode'
+            || stringLiteralValue(property.initializer) !== 'stream') {
+            this.fail(property, 'Remote() options must contain exactly mode: "stream"')
+          }
+          marker = { kind: 'direct', mode: 'stream' }
         }
-        marker = { kind: 'direct', exportName }
       } else if (ts.isCallExpression(expression)
         && this.isTypeMetaSymbol(expression.expression, 'RemoteScope')) {
         // 中文：@RemoteScope(key[, 导出名]) 用法：key 必须已声明、可选导出名合法。
@@ -1472,18 +1489,27 @@ class FaceAnalyzer {
     return found
   }
 
-  // 中文：取远程方法的返回类型：若作者写的是 `Promise<T>`（且 Promise 来自标准库），
-  // 剥掉 Promise 包装返回 T；否则原样返回（结果边界统一按 undefined-or-void 处理）。
-  private remoteResultType(method: ts.MethodDeclaration): ts.TypeNode {
+  private remoteResultType(method: ts.MethodDeclaration, mode?: 'stream'): ts.TypeNode {
     const authored = this.requiredType(method, method.type, 'return')
-    if (!ts.isTypeReferenceNode(authored)) return authored
-    const symbol = this.checker.getSymbolAtLocation(authored.typeName)
-    const resolved = symbol === undefined ? undefined : this.resolveSymbol(symbol)
-    const resultType = authored.typeArguments?.[0]
-    if (resolved?.name !== 'Promise' || resultType === undefined || authored.typeArguments?.length !== 1) return authored
-    const declaration = preferredDeclaration(resolved)
-    if (declaration === undefined || !isStandardLibraryFile(declaration.getSourceFile().fileName)) return authored
-    return resultType
+    if (ts.isTypeReferenceNode(authored)) {
+      const symbol = this.checker.getSymbolAtLocation(authored.typeName)
+      const resolved = symbol === undefined ? undefined : this.resolveSymbol(symbol)
+      const resultType = authored.typeArguments?.[0]
+      const wrappers = mode === 'stream' ? ['Iterable', 'AsyncIterable'] : ['Promise']
+      const declaration = resolved === undefined ? undefined : preferredDeclaration(resolved)
+      if (resolved !== undefined
+        && wrappers.includes(resolved.name)
+        && resultType !== undefined
+        && authored.typeArguments?.length === 1
+        && declaration !== undefined
+        && isStandardLibraryFile(declaration.getSourceFile().fileName)) {
+        return resultType
+      }
+    }
+    if (mode === 'stream') {
+      this.fail(method, 'stream Remote methods must return Iterable<T> or AsyncIterable<T>')
+    }
+    return authored
   }
 
   // 中文：判断类型节点是否引用"全局标准库的 AbortSignal"。

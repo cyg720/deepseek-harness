@@ -1,32 +1,19 @@
 // @vitest-environment jsdom
-// The Tool presentation package's acceptance chain on the REAL machinery stack:
-// SlotTestRuntime (cordis Context + SlotRegistry ledger + the ui-renderer
-// renderer) + ui-conversation and ui-tool apply — no outlet twins. Proves the
-// keyed 'tool.call.toolview' hole end to end: registered rows dispatch by
-// entryKey (the bash sample lands through its plugin), unregistered tools
-// fall back to GenericToolCard at the render site, live registration/unload
-// flips rows in place, duplicate keys fail loud, the inject channel feeds
-// (sessionId) => I into row components, and a registrant can activate before
-// the declaration then land through slots.inject when the chat entry appears.
-/**
- * 文件职责：验证工具调用的 toolview-slot.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
- * 产品维度：防止工具调用展示与展开交互回归。
- * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
- * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
- * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
-import type { ISession, SessionId, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import {
+  apply as applyChat, inject as injectChat, type ToolResultNode,
+} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotTestRuntime, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, TestRemote, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply as applyConversation, inject as injectConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { apply as applyTool, inject as injectTool } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
-import { toolChatSnapshot } from './tool-details-render.client.tsx'
+import { toolSessionEvents } from './tool-details-render.client.tsx'
 
 /** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
@@ -54,7 +41,7 @@ const toolResult = (seq: number, callId: string, name: string, args = '{"command
   kind: 'tool-result', seq, time: seq * 1_000, callId,
   call: { name, argsRaw: args },
   callTime: seq * 1_000 - 500,
-  content: [], isError: false, callView: null, resultView: null, subCalls: [],
+  content: [], isError: false, subCalls: [],
 })
 
 /** Test-owned AppFrame role: declares and renders the resident conversation area. */
@@ -80,25 +67,25 @@ const LAYOUT_CHILDREN = {
 async function bench(nodes: ToolResultNode[]) {
   /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()
-  runtime.provide('connection', {
-    api: { settings: {} },
+  runtime.ctx.provide('connection', {
     isLoopback: false,
-    hostDescription: { getSnapshot: () => undefined, subscribe: () => () => {} },
+    generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
   })
-  // ui-theme's Appearance row binds a durable scope through these two.
-  runtime.provide('remote', { $on: () => () => {} })
-  runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
-  /** 中文说明：测试局部值 layout，由紧邻初始化决定。 */
+  const openWorkspacePath = vi.fn(async () => ({ ok: true, value: { opened: true } }))
+  new TestRemote(runtime.ctx, { session: { openWorkspacePath } })
+  runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   const layout = { openDetails: vi.fn(), closeDetails: vi.fn() }
-  runtime.provide('layout', layout)
-  /** 中文说明：测试局部值 locale，由紧邻初始化决定。 */
+  runtime.ctx.provide('layout', layout)
+  runtime.ctx.provide('uiWorkspace', {
+    connectWorkspace: vi.fn(async () => SID),
+  } as never)
   const locale = new LocaleRuntime(runtime.ctx)
-  runtime.provide('locale', locale)
+  runtime.ctx.provide('locale', locale)
   runtime.slots.installLocale(locale)
   await runtime.sessions.add({
     id: SID,
     summary: { title: 'S', displayTitle: 'S' },
-    snapshot: { nodes, chat: toolChatSnapshot(nodes) },
+    events: toolSessionEvents(nodes),
     session: {
       loadOlder: vi.fn<ISession['loadOlder']>(),
       prompt: vi.fn<ISession['prompt']>(async () => ({ ok: true, value: { accepted: true } })),
@@ -106,8 +93,9 @@ async function bench(nodes: ToolResultNode[]) {
   })
   await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
   await runtime.mount({ inject: [...injectConversation], apply: applyConversation })
+  await runtime.mount({ inject: [...injectChat], apply: applyChat })
   await runtime.mount({ inject: [...injectTool], apply: applyTool })
-  return { runtime, slots: runtime.slots, layout }
+  return { runtime, slots: runtime.slots, layout, openWorkspacePath }
 }
 
 describe('keyed toolview hole through the real machinery', () => {
@@ -155,15 +143,14 @@ describe('keyed toolview hole through the real machinery', () => {
     await b.runtime.dispose()
   })
 
-  it('file-path clicks travel owner openFile → chat inject → workspaces.openPath', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
+  it('file-path clicks travel owner openFile → chat inject → session.openWorkspacePath', async () => {
     const b = await bench([toolResult(3, 'c1', 'read', '{"path":"src/a.ts"}')])
     /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = b.runtime.renderRoot()
     view.getByText('src/a.ts').click()
     expect(b.layout.openDetails).not.toHaveBeenCalled()
     await vi.waitFor(() => {
-      expect(b.runtime.workspaces.calls).toContainEqual({ method: 'openPath', args: ['src/a.ts'] })
+      expect(b.openWorkspacePath).toHaveBeenCalledWith({ path: 'src/a.ts' })
     })
     await b.runtime.dispose()
   })
@@ -175,7 +162,7 @@ describe('keyed toolview hole through the real machinery', () => {
     const view = b.runtime.renderRoot()
     view.getByText('Build').click()
     expect(b.layout.openDetails).not.toHaveBeenCalled()
-    expect(b.runtime.workspaces.calls.some(c => c.method === 'openPath')).toBe(false)
+    expect(b.openWorkspacePath).not.toHaveBeenCalled()
     await b.runtime.dispose()
   })
 
@@ -243,18 +230,22 @@ describe('registrant declaration injection', () => {
   it('runs a registrant before ui-tool and waits on the actual toolview declaration', async () => {
     /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
     const runtime = await SlotTestRuntime.create()
-    runtime.provide('connection', {
-      api: { settings: {} },
+    runtime.ctx.provide('connection', {
       isLoopback: false,
-      hostDescription: { getSnapshot: () => undefined, subscribe: () => () => {} },
+      generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
     })
-    // ui-theme's Appearance row binds a durable scope through these two.
-    runtime.provide('remote', { $on: () => () => {} })
-    runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
-    runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-    /** 中文说明：测试局部值 locale，由紧邻初始化决定。 */
+    new TestRemote(runtime.ctx, {
+      session: {
+        openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })),
+      },
+    })
+    runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
+    runtime.ctx.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
+    runtime.ctx.provide('uiWorkspace', {
+      connectWorkspace: vi.fn(async () => SID),
+    } as never)
     const locale = new LocaleRuntime(runtime.ctx)
-    runtime.provide('locale', locale)
+    runtime.ctx.provide('locale', locale)
     runtime.slots.installLocale(locale)
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
 
@@ -281,6 +272,7 @@ describe('registrant declaration injection', () => {
 
     // Mounting the package declares the slot and activates the waiting entry.
     await runtime.mount({ inject: [...injectConversation], apply: applyConversation })
+    await runtime.mount({ inject: [...injectChat], apply: applyChat })
     await runtime.mount({ inject: [...injectTool], apply: applyTool })
     expect(runtime.slots.entries('tool.call.toolview').map(e => e.options.key))
       .toEqual(expect.arrayContaining(['bash', 'late']))

@@ -56,18 +56,21 @@ function view(defaultPreset: string, revision = 0): SettingsNamespaceView {
   }
 }
 
-/** 中文说明：函数 ok 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/** The settings namespace answers over the Remote carrier, which has no envelope. */
 function ok<T>(value: T) {
-  return { rpcId: 'test', result: { ok: true as const, value } }
+  return { ok: true as const, value }
 }
 
 /** 中文说明：测试局部值 dictionary，由紧邻初始化决定。 */
 const dictionary: Record<string, string> = en
 /** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: PermissionRowProps['t'] = key => dictionary[key] ?? key
-/** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
+type AttentionSnapshot = Parameters<Parameters<PermissionRowProps['useSessionPendingInteraction']>[0]>[0]
+const noAttention: AttentionSnapshot = new Map()
+const useSessionPendingInteraction: PermissionRowProps['useSessionPendingInteraction'] = selector => selector(noAttention)
 const runtime = {
   useSessions: (() => { throw new Error('unused') }) as never,
+  useSessionPendingInteraction,
   useWorkspaces: (() => { throw new Error('unused') }) as never,
 }
 
@@ -179,11 +182,8 @@ describe('PermissionRow', () => {
       settings: {
         describe: () => describe.promise,
         mutate: () => Promise.resolve({
-          rpcId: 'test',
-          result: {
-            ok: false as const,
-            error: { code: 'settings-conflict', message: 'changed elsewhere', details: {} },
-          },
+          ok: false as const,
+          error: { code: 'settings-conflict', message: 'changed elsewhere', details: {} },
         }),
       },
     })

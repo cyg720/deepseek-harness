@@ -1,23 +1,10 @@
-// Queue dock entry: renders the authoritative transient inbox snapshot and
-// addresses per-row mutations through the session-scoped conversation face.
-//
-// The 'conversation.input.dock' SlotMap declaration lives in
-// ../contract/slots.ts beside the other input-region slots.
-/**
- * 文件职责：实现会话队列中的 QueueDock 组件。
- * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
- * 产品维度：支持用户查看和操作会话队列。
- * 逻辑维度：读取属性与服务，派生显示状态，处理事件并渲染界面。
- * 关键边界：空状态、禁用状态、异步取消和可访问性属性必须一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
- */
 import type { Context } from '@deepseek-ai/cordis'
 import { useEffect, useId, useMemo, useState } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
   IconCheckOutline16, IconChevronDownOutline14, IconChevronUpOutline14, IconCloseOutline16,
-  IconEditOutline16, IconQueueOutline14, IconSendOutline14, IconTrashOutline16, Tooltip,
+  IconEditOutline16, IconQueueOutline14, IconSendOutline14, IconTrashOutline16, projectUserText, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { QueueAction, QueueItemId } from '../contract/queue.ts'
 import { NS } from '../locales.ts'
@@ -143,7 +130,7 @@ export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps
                     }}
                   />
                 )
-                : <span className={css.preview}>{row.preview}</span>}
+                : <span className={css.preview}>{projectUserText(row.preview, [])}</span>}
               {queueMutable && <div className={css.actions}>
                 {editing?.id === row.id
                   ? (
@@ -236,18 +223,10 @@ export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps
   )
 }
 
-/**
- * The dock entry as a plain registrant plugin. The conversation service is
- * the action contract; the slot declaration has an independent lifecycle boundary.
- */
-/* 中文说明：组件局部值 queueDockEntry，取值由紧邻初始化决定。 */
+/** Registers queue actions backed by the session-scoped conversation service. */
 export const queueDockEntry = {
   name: 'conversation-queue-dock',
   inject: ['slots', 'conversation', 'sessions'],
-  /**
-   * Register the queue strip as the terminal input-dock entry (order 20).
-   * @param ctx - registrant context (disposal rides ctx.effect inside slots.register).
-   */
   apply(ctx: Context): void {
     ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
       name: 'conversation.input.dock',

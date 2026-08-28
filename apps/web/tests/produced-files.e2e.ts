@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed, vi } from 'vitest'
-import { CallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
@@ -67,7 +67,7 @@ function producedFixture(): string {
   /** 每个生成路径对应的稳定写工具调用元数据。 */
   const calls = PRODUCED.map((path, index) => ({
     path,
-    callId: CallId(`produced-files-${String(index)}`),
+    callId: ToolCallId(`produced-files-${String(index)}`),
     args: JSON.stringify({ file_path: path, content: `content of ${path}\n` }),
   }))
   session.append('assistant/message', {
@@ -136,7 +136,7 @@ describe('web e2e: a finished turn ends with the files it produced', () => {
     // the assertion itself narrows the conversation after navigation.
     await page.setViewportSize({ width: 1280, height: 900 })
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
 
@@ -167,19 +167,16 @@ describe('web e2e: a finished turn ends with the files it produced', () => {
     expect(await showFolder.count()).toBe(1)
     expect(await page.getByText('Produced', { exact: true }).count()).toBe(1)
 
-    const openPath = vi.spyOn(scaffold.ctx.apiProxy.host, 'openPath')
-      .mockImplementation(async (request, _signal) => ({
-        rpcId: request.rpcId,
-        result: { ok: true, value: { opened: true as const } },
-      }))
+    const openPath = vi.spyOn(scaffold.ctx.sessionController, 'openWorkspacePath')
+      .mockResolvedValue({ opened: true })
     try {
       const [response] = await Promise.all([
-        page.waitForResponse(response => new URL(response.url()).pathname === '/api/host.openPath'),
+        page.waitForResponse(response => new URL(response.url()).pathname === '/api/session/openWorkspacePath'),
         showFolder.click({ clickCount: 1 }),
       ])
       expect(response.status()).toBe(200)
       expect(openPath).toHaveBeenCalledTimes(1)
-      expect(openPath.mock.calls[0]![0].payload).toEqual({ path: `${scaffold.workspaceCwd}/.` })
+      expect(openPath.mock.calls[0]![0]).toMatchObject({ path: `${scaffold.workspaceCwd}/.` })
     } finally {
       openPath.mockRestore()
     }

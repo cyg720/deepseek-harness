@@ -26,11 +26,12 @@ export const name = 'client-connection-invariant'
 export const inject = ['invariants']
 
 /**
- * No runtime invariant: the wire layer emits no cordis events and owns no
- * mutable cross-plugin relation — stream/reconnect sequencing is exercised
- * directly by its behavior specs, rpcId round-trip discipline is owned by the
- * apiproxy contract layer, and the node half's single route registration's
- * register/dispose symmetry is audited by the webserver package's invariant.
+ * No runtime invariant: browser-session verification reads the credential
+ * record asynchronously at the request that authorizes work, while the
+ * credentials companion owns record commit-event lifetime. Stream/reconnect
+ * sequencing and rpcId round-trip discipline are exercised directly by
+ * behavior specs, and route register/dispose symmetry is
+ * audited by the webserver companion.
  */
 // 本包没有可独立观察的运行时关系，因此安装器不增加检查。
 const install: InvariantInstaller = () => {}

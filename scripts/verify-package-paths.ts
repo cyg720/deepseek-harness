@@ -37,7 +37,6 @@ const PATTERNS = [
   'AGENTS.md',
   'packages/AGENTS.md',
   'packages/**/*.ts',
-  'examples/**/*.ts',
 ]
 
 /** Paths excluded from the scan: built output and vendored upstream source. */

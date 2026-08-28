@@ -1,22 +1,15 @@
 // @vitest-environment jsdom
-// CodeBlock + the shiki singleton: registered grammars highlight into token
-// spans colored by --shiki-* custom properties; unknown/absent languages take
-// the identical-geometry plain arm; aliases resolve; the trailing newline is
-// display-trimmed. MarkdownText's fence route is pinned in markdown.spec.tsx
-// alongside the rest of the markdown family.
-/**
- * 文件职责：验证 UI 基础组件的 code-block.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染和 DOM 事件模拟。
- * 产品维度：防止复用组件的显示和交互回归。
- * 逻辑维度：构造属性，渲染组件并断言 DOM 与事件。
- * 关键边界：测试必须清理 DOM；快照不能替代关键交互断言。
- * 新手阅读建议：先读渲染辅助函数，再按组件场景阅读。
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { CodeBlock } from '../src/markdown/CodeBlock.tsx'
+import type { ComponentProps } from 'react'
+import { CodeBlock as LocalizedCodeBlock } from '../src/markdown/CodeBlock.tsx'
 import { highlightToHtml } from '../src/markdown/highlight.ts'
+import { markdownLabels } from './labels.client.ts'
+
+function CodeBlock(props: Omit<ComponentProps<typeof LocalizedCodeBlock>, 'copyLabel' | 'copiedLabel'>) {
+  return <LocalizedCodeBlock {...props} {...markdownLabels.code} />
+}
 
 afterEach(cleanup)
 

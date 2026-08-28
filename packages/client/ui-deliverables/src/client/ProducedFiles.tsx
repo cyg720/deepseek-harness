@@ -1,21 +1,6 @@
-// ProducedFiles: the produced-file row a finished turn ends with. The paths
-// come pre-matched by the turn-tail chain from the mutation tools'
-// follow-along locations, never from the closing prose. Clicking one goes
-// through the same openFile the tool rows use — the Host's own opener, on the
-// Host machine.
-/**
- * 文件职责：实现产出文件的 ProducedFiles 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：支持用户查看或操作产出文件。
- * 逻辑维度：读取状态，派生显示数据并响应交互。
- * 关键边界：空状态、错误状态和可访问性属性必须一致。
- * 新手阅读建议：先读 Props，再看局部状态和 JSX。
- */
-
-import { useLayoutEffect, useRef, useState } from 'react'
-import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
-import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { HostObservable, InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { basename } from './turn-deliverables.ts'
 import type { NS } from './locales.ts'
 import css from './ProducedFiles.module.css'
@@ -69,9 +54,11 @@ export function fitProducedFiles(
 export interface ProducedFilesInjected {
   /** Whether the browser itself is connected over loopback. */
   isLoopback: boolean
+  /** Load the opener capability when this row first reaches the page. */
+  ensureWorkspacePathOpen(): void
   hooks: {
-    /** Current generation's Host description, bound by the slot renderer. */
-    hostDescription: HostDescriptionSource
+    /** Current generation's Session workspace opener capability. */
+    workspacePathOpen: HostObservable<boolean | undefined>
   }
 }
 
@@ -93,11 +80,10 @@ function moreLabel(t: ProducedFilesProps['t'], count: number): string {
  */
 /* 中文说明：函数 ProducedFiles 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function ProducedFiles({
-  matched: paths, openFile, isLoopback, useHostDescription, t,
+  matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, t,
 }: ProducedFilesProps) {
-  /** 中文说明：组件局部值 hostCanOpenPath，由紧邻初始化决定。 */
-  const hostCanOpenPath = useHostDescription(description => description?.canOpenPath === true)
-  /** 中文说明：组件局部值 canOpenPath，由紧邻初始化决定。 */
+  useEffect(() => { ensureWorkspacePathOpen() }, [ensureWorkspacePathOpen])
+  const hostCanOpenPath = useWorkspacePathOpen(available => available === true)
   const canOpenPath = isLoopback && hostCanOpenPath
   /** 中文说明：组件局部值 limit，由紧邻初始化决定。 */
   const limit = Math.min(paths.length, SHOWN_LIMIT)

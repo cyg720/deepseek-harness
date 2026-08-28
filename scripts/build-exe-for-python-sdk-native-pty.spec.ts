@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { resolveLinuxNodePtyAddon } from './build-exe-for-python-sdk-native-pty.ts'
+import { resolveLinuxNodePtyAddon, resolveWindowsNodePtyAddons } from './build-exe-for-python-sdk-native-pty.ts'
 
 // 测试创建的临时包根目录，供后置清理。
 const roots: string[] = []
@@ -45,7 +45,24 @@ describe('resolveLinuxNodePtyAddon', () => {
   })
 })
 
-/** 创建临时包。@returns 已记录以供清理的目录。@example temporaryPackage()。 */
+describe('resolveWindowsNodePtyAddons', () => {
+  it('requires both ConPTY addons from the x64 prebuild', () => {
+    const root = temporaryPackage()
+    const conpty = createAddon(root, 'prebuilds', 'win32-x64', 'conpty.node')
+    const consoleList = createAddon(root, 'prebuilds', 'win32-x64', 'conpty_console_list.node')
+
+    expect(resolveWindowsNodePtyAddons(root, 'x64')).toEqual([conpty, consoleList])
+  })
+
+  it('names every missing Windows addon', () => {
+    const root = temporaryPackage()
+
+    expect(() => resolveWindowsNodePtyAddons(root, 'x64')).toThrow(
+      `Windows node-pty addons are missing: ${join(root, 'prebuilds', 'win32-x64', 'conpty.node')}, ${join(root, 'prebuilds', 'win32-x64', 'conpty_console_list.node')}`,
+    )
+  })
+})
+
 function temporaryPackage(): string {
   // 随机临时包根。
   const root = mkdtempSync(join(tmpdir(), 'dsh-node-pty-addon-'))

@@ -37,7 +37,13 @@ function mount(props: {
 } = {}) {
   /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(
-    <HoverCard anchor={<span>row</span>} content={<div>card body</div>} {...props} />,
+    <HoverCard
+      anchor={<span>row</span>}
+      content={<div>card body</div>}
+      copyLabel={props.copyLabel ?? 'Copy'}
+      copiedLabel={props.copiedLabel ?? 'Copied'}
+      {...props}
+    />,
   )
   /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
   const anchor = screen.getByText('row')
@@ -436,7 +442,15 @@ describe('HoverCard', () => {
     fireEvent.pointerEnter(wrapper)
     act(() => { vi.advanceTimersByTime(500) })
     expect(screen.getByText('card body')).toBeTruthy()
-    view.rerender(<HoverCard anchor={<span>row</span>} content={<div>card body</div>} disabled />)
+    view.rerender(
+      <HoverCard
+        anchor={<span>row</span>}
+        content={<div>card body</div>}
+        copyLabel="Copy"
+        copiedLabel="Copied"
+        disabled
+      />,
+    )
     expect(screen.queryByText('card body')).toBeNull()
   })
 

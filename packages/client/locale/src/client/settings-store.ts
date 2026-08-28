@@ -17,11 +17,7 @@
  * plugin's apply-world change listener is the only writer; the row component
  * reads via props.useStore.
  */
-/*
- * 语言行槽位存储：locale 服务快照的镜像。插件的 apply 世界变更监听器是
- * 唯一写入者；行组件经 props.useStore 读取。
- */
-import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
+import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 
 /** One selectable locale row (id + self-described label). */
 /* 一个可选择的语言行（id + 自述标签）。 */

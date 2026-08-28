@@ -36,10 +36,13 @@
 // 中文：导入 Cordis 的 Service 基类与类型，以及 Connection 载体的句柄类型、
 // typert 协议层描述符 / 结果 / 编解码器 / 贡献集等类型，供本模块使用。
 import { Service } from '@deepseek-ai/cordis'
-import type { Context, Events } from '@deepseek-ai/cordis'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type { Context } from '@deepseek-ai/cordis'
+import type {
+  ConnectionHandle,
+} from '@deepseek-ai/dsh-client-connection/client'
 import type {
   InvocationDescriptor,
+  TypertClientEventListener,
   TypertClientRemote,
   RemoteResult,
   TypertCodec,
@@ -47,6 +50,29 @@ import type {
   TypertRemoteContribution,
   TypertRemoteEvent,
 } from '@deepseek-ai/dsh-typert-protocol'
+import {
+  RemoteStreamCarrierError,
+  RemoteStreamError,
+  RemoteStreamMuxClient,
+} from './stream-client.ts'
+import { ClientRemoteEvents } from './remote-events.ts'
+import {
+  RemoteStream,
+  type RemoteStreamOptions,
+} from './remote-stream.ts'
+
+export { RemoteStreamCarrierError, RemoteStreamError } from './stream-client.ts'
+export { RemoteJournalStream } from './journal-stream.ts'
+export type {
+  RemoteJournalChange,
+  RemoteJournalFrame,
+  RemoteJournalStreamOptions,
+  RemoteStreamFactory,
+} from './journal-stream.ts'
+export { RemoteStream } from './remote-stream.ts'
+export type { RemoteStreamItem, RemoteStreamOptions } from './remote-stream.ts'
+export { RemoteSnapshotStream } from './snapshot-stream.ts'
+export type { RemoteSnapshotStreamOptions } from './snapshot-stream.ts'
 
 // 中文：挂载令牌——记录某个方法当前是否仍处于挂载状态；active 为 false
 // 时调用会被拒绝（方法已随 effect 注销），abort 用于中止在途调用。
@@ -89,11 +115,19 @@ interface BoundContextIdentity {
   readonly value: unknown
 }
 
-// 中文：一个已安装命名空间的服务句柄：service 是命名空间服务本身，
-// dispose 用于在命名空间清空后卸载整个服务。
+interface PreparedClientInvocation {
+  readonly endpoint: string
+  readonly args: Readonly<Record<string, unknown>>
+  readonly signal: AbortSignal
+}
+
 interface RemoteNamespaceHandle {
   readonly service: RemoteNamespaceService
   readonly dispose: TypertDisposer
+}
+
+interface LoaderReadiness {
+  await(): Promise<unknown>
 }
 
 /** One descriptor's mounted variants, for the group disposer to unwind. */
@@ -106,10 +140,15 @@ interface InstalledMethod {
   scoped: boolean
 }
 
-/** Typed Remote service augmented by generated direct namespaces. */
-// 中文：客户端可用的类型化远程服务（即 ctx.remote 的类型），由生成器直接
-// 命名空间类型扩充而成。
-export type ClientRemote = TypertClientRemote
+/** Typed Remote service augmented by generated direct namespaces and Gateway stream supervision. */
+export interface ClientRemote extends TypertClientRemote {
+  /**
+   * Create one independently cancellable, reconnecting logical stream.
+   * @param options - domain-owned opener and generation-end classification.
+   * @returns a single-consumer stream annotated with physical generation ids.
+   */
+  $stream<Item>(options: RemoteStreamOptions<Item>): RemoteStream<Item>
+}
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -134,43 +173,46 @@ export function apply(ctx: Context): void {
   new ClientRemoteService(ctx)
 }
 
-/** One subscribed listener after `$on` erased its per-event argument list. */
-// 中文：订阅者监听函数的擦除形态：$on 只记录"可被任意参数调用的函数"，
-// 具体的事件参数列表由 $dispatch 派发时还原。
-type RemoteEventListener = (...args: never[]) => void
-
-/**
- * One subscription, identified by the registration rather than by its listener:
- * two fibers may subscribe the same function object to the same event, and each
- * disposer must retire only its own registration.
- */
-// 中文：一次订阅记录，按"注册本身"而非"监听函数"区分：两个协程可能把同一
-// 函数对象订阅到同一事件上，各自的注销函数必须只移除自己的那一条记录。
-interface RemoteEventSubscription {
-  readonly listener: RemoteEventListener
-}
-
-// 中文：客户端远程服务本体——实现 TypertClientRemote 接口并作为 Cordis
-// Service（键 'remote'）注册。职责：挂载贡献集、管理命名空间服务、维护
-// 事件订阅并派发、把本地方法调用转发给 Connection 载体。
-class ClientRemoteService extends Service implements TypertClientRemote {
-  // 中文：创建本服务的根上下文（与调用方上下文区分，用于注册命名空间服务
-  // 与访问 typert / connection 等依赖）。
+class ClientRemoteService extends Service implements ClientRemote {
   private readonly ownerCtx: Context
-  // 中文：已安装的命名空间名 → 服务句柄，命名空间卸载（清空）后移除。
+  private readonly connection: ConnectionHandle
   private readonly namespaces = new Map<string, RemoteNamespaceHandle>()
-  // 中文：事件名 → 订阅记录数组，供 $dispatch 按注册顺序派发。
-  private readonly subscriptions = new Map<string, RemoteEventSubscription[]>()
-  // 中文：挂载 / 卸载操作的串行化链：保证贡献集的挂载与卸载按提交顺序
-  // 逐个执行，避免并发交错破坏命名空间状态。
+  private readonly streams = new RemoteStreamMuxClient()
+  private readonly events: ClientRemoteEvents
   private mutations = Promise.resolve()
 
   constructor(ctx: Context) {
     super(ctx, 'remote')
     this.ownerCtx = ctx
-    // 中文：注册一个根级 effect：根上下文销毁时清空全部事件订阅，
-    // 防止监听器与已卸载的 Host 帧残留。
-    ctx.effect(() => () => { this.subscriptions.clear() }, 'api-gateway.client.subscriptions')
+    const connection = ctx.get('connection') as ConnectionHandle
+    this.connection = connection
+    this.events = new ClientRemoteEvents(
+      ctx,
+      connection,
+      (endpoint, payload, signal) => this.openRemoteStream(endpoint, payload, signal),
+    )
+    if (connection.rpc.open === undefined) this.streams.start()
+    let disposed = false
+    let loop: ReturnType<ConnectionHandle['start']> | undefined
+    const start = (): void => {
+      if (disposed) return
+      loop = connection.start({
+        onConnected: () => { this.ownerCtx.emit('connection/reset') },
+      })
+    }
+    const loader = ctx.get('loader') as LoaderReadiness | undefined
+    if (loader === undefined) start()
+    else void loader.await().then(start, () => {})
+    ctx.effect(() => async () => {
+      disposed = true
+      loop?.stop()
+      await this.events.dispose()
+      await this.streams.close()
+    }, 'api-gateway.client.transport')
+  }
+
+  $stream<Item>(options: RemoteStreamOptions<Item>): RemoteStream<Item> {
+    return new RemoteStream(this.connection, options)
   }
 
   // 中文：挂载一个贡献集（插件入口调用）。整个挂载过程放在调用方上下文的
@@ -190,71 +232,24 @@ class ClientRemoteService extends Service implements TypertClientRemote {
   // 返回的注销函数只移除自己那一条记录；注销由 effect 生命周期驱动。
   $on<Event extends TypertRemoteEvent>(
     event: Event,
-    listener: Events[Event],
-  ): ReturnType<TypertClientRemote['$on']> {
-    // The table is keyed by the runtime event name, so the argument list this
-    // signature pins per event cannot survive in it; `$deliver` restores it
-    // from the frame the Host emitted for that same name.
-    // 中文：订阅表只按"运行时事件名"做键，签名里按事件固定的参数列表无法
-    // 存进表里；派发时由 $dispatch 按 Host 发出的同名帧还原参数。
-    const subscription: RemoteEventSubscription = { listener }
-    const owned = this.ctx.effect(() => {
-      const listeners = this.listeners(event)
-      listeners.push(subscription)
-      return () => {
-        const at = listeners.indexOf(subscription)
-        /* v8 ignore next -- listener */
-        if (at >= 0) listeners.splice(at, 1)
-      }
-    }, `api-gateway.client.$on(${JSON.stringify(event)})`)
-    return () => { void owned() }
+    listener: TypertClientEventListener<Event>,
+  ): () => void {
+    return this.events.subscribe(this.ctx, event, listener)
   }
 
-  /**
-   * Deliver one forwarded event in registration order, isolating a listener
-   * that fails either synchronously or by rejecting a returned promise; see
-   * {@link TypertClientRemote.$dispatch} for the caller contract.
-   */
-  // 中文：按注册顺序派发一条被转发的事件。先取快照再遍历：派发过程中新订阅
-  // 或注销的监听器不影响本轮；单个监听器无论同步抛错还是返回的 Promise
-  // 拒绝，都被隔离记录，不中断其余监听器。
-  $dispatch(event: string, args: readonly unknown[]): void {
-    const listeners = this.subscriptions.get(event)
-    if (listeners === undefined) return
-    // Snapshot: a listener may subscribe or dispose during delivery, and this
-    // round's recipients are the ones registered when the frame arrived.
-    // 中文：先复制一份监听器数组作快照——派发途中可能有监听器订阅或注销，
-    // 本轮只投递给"帧到达时已注册"的那些。
-    for (const { listener } of [...listeners]) {
-      // 中文：单条监听器的错误兜底：把异常打印到控制台并继续，防止
-      // 一条监听器拖垮整轮派发。
-      const report = (error: unknown): void => {
-        console.error(`client api: Remote event ${JSON.stringify(event)} listener threw:`, error)
-      }
-      try {
-        /* oxlint-disable-next-line typescript/no-confusing-void-expression --
-         * The declared return is void, so nobody awaits an async listener; the
-         * runtime value is still a promise, and reading it is the only way to
-         * keep its rejection inside this containment instead of surfacing as an
-         * unhandled one. */
-        const settled: unknown = listener(...args as never[])
-        if (settled instanceof Promise) settled.catch(report)
-      } catch (error) {
-        report(error)
-      }
-    }
-  }
-
-  /** Subscriptions for one event name; empty arrays are retained, bounded by the Host's selection. */
-  // 中文：取某事件名的订阅数组；没有则创建空数组并保留（空数组也占位，
-  // 数量受 Host 允许转发的选择范围限制）。
-  private listeners(event: string): RemoteEventSubscription[] {
-    let listeners = this.subscriptions.get(event)
-    if (listeners === undefined) {
-      listeners = []
-      this.subscriptions.set(event, listeners)
-    }
-    return listeners
+  /** Open one Remote stream and normalize a worker-local carrier's structural failures. */
+  private openRemoteStream(
+    endpoint: string,
+    payload: unknown,
+    signal: AbortSignal,
+    noConnection = `client api: ${endpoint} has no active Connection`,
+  ): AsyncIterable<unknown> {
+    const connection = this.ownerCtx.get('connection') as ConnectionHandle | undefined
+    if (connection === undefined) throw new Error(noConnection)
+    const local = connection.rpc.open?.('/api', endpoint, payload, signal)
+    return local === undefined
+      ? this.streams.open(endpoint, payload, signal)
+      : normalizeConnectionStream(local)
   }
 
   // 中文：把操作串行进 mutations 链：无论前序操作成功与否都执行本次操作，
@@ -447,13 +442,12 @@ class ClientRemoteService extends Service implements TypertClientRemote {
     scoped: ScopedMethod | undefined,
     callerCtx: Context,
     values: readonly unknown[],
-  ): Promise<RemoteResult<unknown>> {
+  ): Promise<RemoteResult<unknown>> | AsyncIterable<unknown> {
     if (scoped !== undefined) {
-      // 中文：尝试从调用方上下文解析 scoped 上下文身份，命中即绑定该身份调用。
-      const binder = this.ownerCtx.typert.contexts.getClient(scoped.projection.context)
-      const identity = binder?.identity(callerCtx)
+      const adapter = this.ownerCtx.typert.contexts.getClient(scoped.projection.context)
+      const identity = adapter?.identity(callerCtx)
       if (identity !== undefined) {
-        return this.invoke(
+        return this.invokeSelected(
           scoped.descriptor,
           scoped.projection,
           scoped.token,
@@ -464,18 +458,28 @@ class ClientRemoteService extends Service implements TypertClientRemote {
       }
     }
     if (direct !== undefined) {
-      return this.invoke(direct.descriptor, undefined, direct.token, callerCtx, values)
+      return this.invokeSelected(direct.descriptor, undefined, direct.token, callerCtx, values)
     }
     if (scoped !== undefined) {
-      return this.invoke(scoped.descriptor, scoped.projection, scoped.token, callerCtx, values)
+      return this.invokeSelected(scoped.descriptor, scoped.projection, scoped.token, callerCtx, values)
     }
     throw new Error('client api: Remote method is no longer mounted')
   }
 
-  // 中文：执行一次远程调用的最终落点。流程：检查挂载状态 → 校验实参数目
-  // → 组装命名参数对象（scoped 身份 + 业务参数，逐一经 codec 严格解析）→
-  // 取 Connection 载体发起 /api RPC → 校验挂载是否仍存活 → 解析结果；
-  // 调用方信号与挂载令牌信号合并（AbortSignal.any），任一中止即中止调用。
+  private invokeSelected(
+    descriptor: InvocationDescriptor,
+    projection: ScopedProjection | undefined,
+    token: MountToken,
+    callerCtx: Context,
+    values: readonly unknown[],
+    boundIdentity?: BoundContextIdentity,
+  ): Promise<RemoteResult<unknown>> | AsyncIterable<unknown> {
+    if (descriptor.mode === 'stream') {
+      return this.invokeStream(descriptor, projection, token, callerCtx, values, boundIdentity)
+    }
+    return this.invoke(descriptor, projection, token, callerCtx, values, boundIdentity)
+  }
+
   private async invoke(
     descriptor: InvocationDescriptor,
     projection: ScopedProjection | undefined,
@@ -485,9 +489,49 @@ class ClientRemoteService extends Service implements TypertClientRemote {
     boundIdentity?: BoundContextIdentity,
   ): Promise<RemoteResult<unknown>> {
     const endpoint = endpointOf(descriptor)
-    if (!token.active) return withdrawn(endpoint) // 中文：方法已随 effect 注销，直接按"已撤回"处理
-    // 中文：期望的业务参数个数 = 参数总数减去 scoped 身份参数（不入参数组）；
-    // 若描述符支持取消且实参多一个，则末位是调用方提供的 AbortSignal。
+    if (!token.active) return withdrawn(endpoint)
+    const prepared = this.prepareInvocation(descriptor, projection, token, callerCtx, values, boundIdentity)
+    const connection = this.ownerCtx.get('connection') as ConnectionHandle | undefined
+    if (connection === undefined) throw new Error(`client api: ${endpoint} has no active Connection`)
+    try {
+      const result = await connection.rpc.call('/api', endpoint, { args: prepared.args }, prepared.signal)
+      if (!mountActive(token)) return withdrawn(endpoint)
+      if (!result.ok) return { ok: false, error: result.error }
+      return { ok: true, value: result.value }
+    } catch (error) {
+      // Carrier throws (offline or abort) are outcomes of the call, not assembly
+      // faults, so they join the same error branch.
+      return carrierFailure(endpoint, error)
+    }
+  }
+
+  private async *invokeStream(
+    descriptor: InvocationDescriptor,
+    projection: ScopedProjection | undefined,
+    token: MountToken,
+    callerCtx: Context,
+    values: readonly unknown[],
+    boundIdentity?: BoundContextIdentity,
+  ): AsyncGenerator {
+    const endpoint = endpointOf(descriptor)
+    if (!token.active) throw new Error(withdrawn(endpoint).error.message)
+    const prepared = this.prepareInvocation(descriptor, projection, token, callerCtx, values, boundIdentity)
+    const stream = this.openRemoteStream(endpoint, { args: prepared.args }, prepared.signal)
+    for await (const value of stream) {
+      if (!mountActive(token)) throw new Error(withdrawn(endpoint).error.message)
+      yield value
+    }
+  }
+
+  private prepareInvocation(
+    descriptor: InvocationDescriptor,
+    projection: ScopedProjection | undefined,
+    token: MountToken,
+    callerCtx: Context,
+    values: readonly unknown[],
+    boundIdentity?: BoundContextIdentity,
+  ): PreparedClientInvocation {
+    const endpoint = endpointOf(descriptor)
     const expected = descriptor.parameters.length - (projection?.parameterIndex === undefined ? 0 : 1)
     const hasCallerSignal = descriptor.cancellation !== undefined && values.length === expected + 1
     if (values.length !== expected && !hasCallerSignal) {
@@ -500,49 +544,32 @@ class ClientRemoteService extends Service implements TypertClientRemote {
     }
     const args = Object.create(null) as Record<string, unknown> // 中文：命名参数对象（无原型，避免键名碰撞）
     if (projection !== undefined) {
-      // 中文：scoped 调用需要把上下文身份作为参数带上：优先用调用方传入的
-      // 绑定身份，否则从调用方上下文现场解析；两种途径都拿不到身份就报错。
-      const binder = boundIdentity === undefined
+      const adapter = boundIdentity === undefined
         ? this.ownerCtx.typert.contexts.getClient(projection.context)
         : undefined
-      if (boundIdentity === undefined && binder === undefined) {
-        throw new Error(`client api: ${endpoint} has no Client Context binder for ${JSON.stringify(projection.context)}`)
+      if (boundIdentity === undefined && adapter === undefined) {
+        throw new Error(`client api: ${endpoint} has no Client Context adapter for ${JSON.stringify(projection.context)}`)
       }
       const identity = boundIdentity === undefined
-        ? binder?.identity(callerCtx)
+        ? adapter?.identity(callerCtx)
         : boundIdentity.value
       if (identity === undefined) {
         throw new Error(`client api: ${endpoint} requires a ${JSON.stringify(projection.context)} Context`)
       }
-      args[projection.wire] = parse(projection.codec, identity, endpoint, projection.wire)
+      args[projection.wire] = parseInput(projection.codec, identity, endpoint, projection.wire)
     }
     let valueIndex = 0 // 中文：实参数组下标（跳过 scoped 身份参数对应的那个位置）
     descriptor.parameters.forEach((parameter, parameterIndex) => {
       if (parameterIndex === projection?.parameterIndex) return
-      const value = parse(parameter.codec, values[valueIndex], endpoint, parameter.wire)
-      if (value !== undefined) args[parameter.wire] = value // 中文：undefined 参数不写入，等价于线上缺席
+      const value = parseInput(parameter.codec, values[valueIndex], endpoint, parameter.wire)
+      if (value !== undefined) args[parameter.wire] = value
       valueIndex += 1
     })
-    const connection = this.ownerCtx.get('connection') as ConnectionHandle | undefined
-    if (connection === undefined) throw new Error(`client api: ${endpoint} has no active Connection`)
-    // 中文：合并"挂载令牌信号"与"调用方信号"：挂载撤销或调用方取消任一发生
-    // 都中止请求；仅当方法支持取消时调用方信号才存在。
     const callerSignal = hasCallerSignal ? values[expected] as AbortSignal | undefined : undefined
     const signal = callerSignal === undefined
       ? token.abort.signal
       : AbortSignal.any([token.abort.signal, callerSignal])
-    try {
-      const result = await connection.rpc.call('/api', endpoint, { args }, signal)
-      if (!mountActive(token)) return withdrawn(endpoint) // 中文：调用期间被卸载，结果作废
-      if (!result.ok) return { ok: false, error: result.error }
-      return { ok: true, value: parse(descriptor.result, result.value, endpoint, 'result') }
-    } catch (error) {
-      // Carrier throws (offline, abort, a rejected result payload) are outcomes
-      // of the call, not assembly faults, so they join the same error branch.
-      // 中文：载体抛错（离线、中止、结果载荷被拒）都是"调用的结果"而非
-      // 装配故障，因此统一并入同一错误分支处理。
-      return carrierFailure(endpoint, error)
-    }
+    return { endpoint, args, signal }
   }
 }
 
@@ -553,7 +580,7 @@ type InvokeRemote = (
   scoped: ScopedMethod | undefined,
   callerCtx: Context,
   args: readonly unknown[],
-) => Promise<RemoteResult<unknown>>
+) => Promise<RemoteResult<unknown>> | AsyncIterable<unknown>
 
 // 中文：单个命名空间的服务对象（Service 键为 remote.<ns>）：把该命名空间
 // 的方法作为自身属性暴露（getter 形式），属性读取时动态捕获当前变体并
@@ -625,8 +652,7 @@ class RemoteNamespaceService extends Service {
       Object.defineProperty(this, method, {
         configurable: true,
         enumerable: true,
-        get: function (this: RemoteNamespaceService): (...args: unknown[]) => Promise<RemoteResult<unknown>> {
-          // 中文：getter 每次读取都取当前记录的快照，保证闭包看到最新变体。
+        get: function (this: RemoteNamespaceService): (...args: unknown[]) => unknown {
           const callerCtx = this.ctx
           const current = this.methods.get(method)
           const direct = current?.direct
@@ -761,7 +787,6 @@ function scopedProjection(descriptor: InvocationDescriptor): ScopedProjection | 
 // 的身份字段都必须声明为 strict，否则拒绝安装（客户端只信任严格描述符）。
 function requireStrictDescriptor(descriptor: InvocationDescriptor): void {
   const endpoint = endpointOf(descriptor)
-  requireStrictCodec(descriptor.result, endpoint, 'result')
   for (const parameter of descriptor.parameters) {
     requireStrictCodec(parameter.codec, endpoint, parameter.wire)
   }
@@ -777,9 +802,7 @@ function requireStrictCodec(codec: TypertCodec, endpoint: string, field: string)
   }
 }
 
-// 中文：用严格 schema 解析一个 wire 值（参数 / 结果 / 身份共用）；解析失败
-// 包装成带端点与字段信息的错误，便于定位是哪个字段被拒。
-function parse(codec: TypertCodec, value: unknown, endpoint: string, field: string): unknown {
+function parseInput(codec: TypertCodec, value: unknown, endpoint: string, field: string): unknown {
   if (codec.mode !== 'strict') {
     throw new Error(`client api: generated Remote ${endpoint} field ${JSON.stringify(field)} has no strict codec`)
   }
@@ -791,18 +814,37 @@ function parse(codec: TypertCodec, value: unknown, endpoint: string, field: stri
 }
 
 /** The namespace retired before or during the call, so no request outcome exists. */
-// 中文：命名空间在调用前或调用期间已注销，因此不存在任何请求结果——
-// 一律返回 internal 失败的 RemoteResult（错误消息标明方法已卸载）。
-function withdrawn(endpoint: string): RemoteResult<never> {
+function withdrawn(endpoint: string): Extract<RemoteResult<never>, { readonly ok: false }> {
   return internalFailure(`client api: Remote method ${endpoint} is no longer mounted`)
 }
 
-// 中文：载体调用失败（抛错）的映射：取错误的 message 生成 internal 失败结果。
-function carrierFailure(endpoint: string, error: unknown): RemoteResult<never> {
+function carrierFailure(endpoint: string, error: unknown): Extract<RemoteResult<never>, { readonly ok: false }> {
   return internalFailure(`client api: ${endpoint} failed: ${error instanceof Error ? error.message : String(error)}`)
 }
 
-// 中文：构造 internal 失败结果的统一出口（ok: false + code 'internal'）。
-function internalFailure(message: string): RemoteResult<never> {
+function internalFailure(message: string): Extract<RemoteResult<never>, { readonly ok: false }> {
   return { ok: false, error: { code: 'internal', message, details: {} } }
+}
+
+type MarkedConnectionStreamFailure = Error & {
+  readonly dshRemoteStreamFailure?:
+    | { readonly kind: 'remote'; readonly code: string; readonly details: object }
+    | { readonly kind: 'carrier' }
+}
+
+/** Preserve Gateway error classes across a worker transport's separately bundled page half. */
+async function *normalizeConnectionStream(source: AsyncIterable<unknown>): AsyncGenerator {
+  try {
+    yield * source
+  } catch (error) {
+    if (!(error instanceof Error)) throw error
+    const marker = (error as MarkedConnectionStreamFailure).dshRemoteStreamFailure
+    if (marker?.kind === 'remote') {
+      throw new RemoteStreamError(marker.code, error.message, marker.details)
+    }
+    if (marker?.kind === 'carrier') {
+      throw new RemoteStreamCarrierError(error.message, { cause: error })
+    }
+    throw error
+  }
 }

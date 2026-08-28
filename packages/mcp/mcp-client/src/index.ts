@@ -23,6 +23,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { scopeOf } from '@deepseek-ai/dsh-scope'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { RECONNECT_DEFAULTS, resolveReconnectPolicy, startConnection } from './connection.ts'
 import type { ReconnectConfig } from './connection.ts'
@@ -49,13 +50,11 @@ const DEFAULT_TOOL_CALL_TIMEOUT_MS = 60_000
 const SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/
 
 /**
- * Live `serverName` reservations per app, keyed off `ctx.root` (multiple apps
- * in one process — tests — must not see each other's names). A duplicate
- * namespace is a configuration error surfaced at plugin load, never silent
- * shadowing.
+ * Live `serverName` reservations per registration scope. Agent-scoped MCP
+ * servers may reuse a namespace in another Agent, while global instances and
+ * duplicates inside one Agent remain mutually exclusive.
  */
-/* 中文说明：变量 activeServerNames 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-const activeServerNames = new WeakMap<Context, Set<string>>()
+const activeServerNames = new WeakMap<object, Set<string>>()
 
 // ---- Config ----
 
@@ -113,7 +112,12 @@ export interface StreamableHttpConfig {
 /* 中文说明：type Config 定义本模块所需的数据或行为，用于表达当前协议场景。 */
 export type Config = StdioConfig | StreamableHttpConfig
 
-/** 中文说明：变量 Reconnect 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+type StdioConfigInput = Omit<StdioConfig, 'args' | 'env' | 'cwd' | 'toolCallTimeoutMs' | 'failOnStartupError'>
+  & Partial<Pick<StdioConfig, 'args' | 'env' | 'cwd' | 'toolCallTimeoutMs' | 'failOnStartupError'>>
+type StreamableHttpConfigInput = Omit<StreamableHttpConfig, 'headers' | 'toolCallTimeoutMs' | 'failOnStartupError'>
+  & Partial<Pick<StreamableHttpConfig, 'headers' | 'toolCallTimeoutMs' | 'failOnStartupError'>>
+type ConfigInput = StdioConfigInput | StreamableHttpConfigInput
+
 const Reconnect: z<ReconnectConfig> = z.object({
   enabled: z.boolean().default(RECONNECT_DEFAULTS.enabled),
   initialDelayMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(RECONNECT_DEFAULTS.initialDelayMs),
@@ -143,7 +147,7 @@ export const Config = z.union([
     failOnStartupError: z.boolean().default(false),
     reconnect: Reconnect,
   }),
-]) as unknown as z<Config>
+]) as unknown as z<ConfigInput, Config>
 
 // ---- Plugin apply ----
 
@@ -166,11 +170,11 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   // Reserve the namespace next: a duplicate `serverName` fails THIS instance
   // at load with an actionable error and leaves the earlier instance intact.
   ctx.effect(() => {
-    /** 中文说明：变量 names 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    let names = activeServerNames.get(ctx.root)
+    const owner = scopeOf(ctx) ?? ctx.root
+    let names = activeServerNames.get(owner)
     if (!names) {
       names = new Set()
-      activeServerNames.set(ctx.root, names)
+      activeServerNames.set(owner, names)
     }
     if (names.has(config.serverName)) {
       throw new Error(

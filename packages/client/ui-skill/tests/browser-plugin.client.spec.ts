@@ -23,8 +23,8 @@
  */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
-import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { InputTriggerService } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ClientSessionContext, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
@@ -37,14 +37,7 @@ type SkillRow = { name: string; description: string; whenToUse?: string; modelIn
 type ListResult =
   | { ok: true; value: { skills: SkillRow[] } }
   | { ok: false; error: { code: string; message: string; details: object } }
-/** 中文说明：类型或类 ListFn 约束模块数据或组件职责。 */
-type ListFn = (payload: object, signal?: AbortSignal) => Promise<{ result: ListResult }>
-/** 中文说明：类型或类 InvokeResult 约束模块数据或组件职责。 */
-type InvokeResult =
-  | { ok: true; value: { accepted: true } }
-  | { ok: false; error: { code: string; message: string; details: object } }
-/** 中文说明：类型或类 InvokeFn 约束模块数据或组件职责。 */
-type InvokeFn = (payload: object) => Promise<{ result: InvokeResult }>
+type ListFn = (payload: object, signal?: AbortSignal) => Promise<ListResult>
 
 /** 中文说明：类型或类 PresentationCapture 约束模块数据或组件职责。 */
 interface PresentationCapture {
@@ -80,25 +73,21 @@ function providePresentation(ctx: Context): PresentationCapture {
 }
 
 /** Boot the plugin over fake slash/connection faces; returns the captured source and its ctx. */
-/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-async function bench(list: ListFn, addressed?: SessionId, invoke?: InvokeFn) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
+async function bench(list: ListFn, addressed?: SessionId) {
   const ctx = new Context()
   /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   let captured: InputTriggerSource | undefined
   ctx.provide('inputTriggers', { registerSource: (src: InputTriggerSource) => { captured = src; return () => {} } })
-  /** 中文说明：测试局部值 defaultInvoke，由紧邻初始化决定。 */
-  const defaultInvoke: InvokeFn = () => Promise.resolve({ result: { ok: true as const, value: { accepted: true as const } } })
-  ctx.provide('connection', { api: { skills: { list, invoke: invoke ?? defaultInvoke } } })
+  ctx.provide('connection', {})
   ctx.provide('sessions', {
     subagentAddress: (id: SessionId) => id === addressed
       ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const }
       : undefined,
   })
-  new TestRemote(ctx)
+  const remote = new TestRemote(ctx, { skills: { list } })
   providePresentation(ctx)
   await ctx.plugin({ inject: [...inject], apply }).await()
-  return { ctx, source: captured! }
+  return { ctx, source: captured!, remote }
 }
 
 /** 中文说明：测试局部值 CATALOG，由紧邻初始化决定。 */
@@ -108,8 +97,7 @@ const CATALOG: SkillRow[] = [
   { name: 'deploy', description: 'deploy flow', modelInvocable: true },
 ]
 
-/** 中文说明：测试局部值 listOk，由紧邻初始化决定。 */
-const listOk = (skills: SkillRow[]): ListFn => () => Promise.resolve({ result: { ok: true as const, value: { skills } } })
+const listOk = (skills: SkillRow[]): ListFn => () => Promise.resolve({ ok: true as const, value: { skills } })
 
 /** Counting fake: records payloads, resolves the shared catalog. */
 /* 中文说明：函数 countingList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
@@ -132,21 +120,20 @@ const proj = (id: string): ClientSessionContext => ({ sessionId: sid(id) })
 
 /** 中文说明：测试局部值 req，由紧邻初始化决定。 */
 const req = (query: string, signal?: AbortSignal) =>
-  ({ query, position: 'leading' as const, signal: signal ?? new AbortController().signal })
+  ({ query, position: 'leading' as const, drilled: false, signal: signal ?? new AbortController().signal })
 
 describe('apply', () => {
   it('declares the services it binds', () => {
-    expect(inject).toEqual(['inputTriggers', 'connection', 'sessions', 'slots', 'locale', 'remote'])
+    expect(inject).toEqual(['inputTriggers', 'connection', 'sessions', 'slots', 'locale', 'remote', 'remote.skills'])
   })
 
   it('registers the dedicated skill row and its locale dictionaries', async () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     ctx.provide('inputTriggers', { registerSource: () => () => {} })
-    ctx.provide('connection', { api: { skills: { list: listOk(CATALOG) } } })
+    ctx.provide('connection', {})
     ctx.provide('sessions', { subagentAddress: () => undefined })
-    new TestRemote(ctx)
-    /** 中文说明：测试局部值 presentation，由紧邻初始化决定。 */
+    new TestRemote(ctx, { skills: { list: listOk(CATALOG) } })
     const presentation = providePresentation(ctx)
     await ctx.plugin({ inject: [...inject], apply }).await()
     /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
@@ -157,17 +144,21 @@ describe('apply', () => {
     expect(presentation.dictionaries).toEqual([{
       namespace: 'skill', dictionaries: {
         zh: {
+          'row.title': 'Skill',
           'row.running': '正在加载 skill',
           'row.failed': 'skill 加载失败',
           'row.stopped': 'skill 加载已中止',
           'row.instructions': '说明',
+          'row.inspect': '查看',
           'menu.userOnly': '仅用户',
         },
         en: {
+          'row.title': 'Skill',
           'row.running': 'Loading skill',
           'row.failed': 'Skill load failed',
           'row.stopped': 'Skill load stopped',
           'row.instructions': 'Instructions',
+          'row.inspect': 'Inspect',
           'menu.userOnly': 'user-only',
         },
       },
@@ -180,9 +171,8 @@ describe('apply', () => {
     // InputTriggerService itself injects 'sessions'; the stub unblocks its fiber.
     ctx.provide('sessions', {})
     await ctx.plugin(InputTriggerService).await()
-    ctx.provide('connection', { api: { skills: { list: listOk(CATALOG) } } })
-    new TestRemote(ctx)
-    /** 中文说明：测试局部值 presentation，由紧邻初始化决定。 */
+    ctx.provide('connection', {})
+    new TestRemote(ctx, { skills: { list: listOk(CATALOG) } })
     const presentation = providePresentation(ctx)
     /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
@@ -225,10 +215,10 @@ describe('candidates: sessionId addressing', () => {
   it('rejects on a failed result (the slash shell owns the menu-side fold)', async () => {
     /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(() => Promise.resolve({
-      result: { ok: false, error: { code: 'internal', message: 'boom', details: {} } },
+      ok: false, error: { code: 'internal', message: 'boom', details: {} },
     }))
     await expect(source.candidates(proj('s1'), req('co')))
-      .rejects.toThrow('skill.list failed: internal: boom')
+      .rejects.toThrow('skills/list failed: internal: boom')
   })
 
   it('does not fetch Agent-bound skills for an addressed child', async () => {
@@ -299,7 +289,7 @@ describe('catalog cache', () => {
     const { source } = await bench((payload) => {
       payloads.push(payload)
       return fail
-        ? Promise.resolve({ result: { ok: false as const, error: { code: 'internal', message: 'boom', details: {} } } })
+        ? Promise.resolve({ ok: false as const, error: { code: 'internal', message: 'boom', details: {} } })
         : listOk(CATALOG)(payload)
     })
     await expect(source.candidates(proj('s1'), req(''))).rejects.toThrow('boom')
@@ -327,14 +317,13 @@ describe('catalog cache', () => {
   it('agent-preset/selected clears only the recomposed session', async () => {
     /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
-    /** 中文说明：测试局部值 { ctx, source }，由紧邻初始化决定。 */
-    const { ctx, source } = await bench(list)
+    const { source, remote } = await bench(list)
     await source.candidates(proj('s1'), req(''))
     await source.candidates(proj('s2'), req(''))
     expect(payloads).toHaveLength(2)
     // The catalog a preset supplies is the preset's; the other session's
     // composition did not change, so its cached catalog still holds.
-    ctx.remote.$dispatch('agent-preset/selected', [sid('s1'), 'minimal'])
+    remote.emit('agent-preset/selected', [sid('s1'), 'minimal'])
     await source.candidates(proj('s1'), req(''))
     await source.candidates(proj('s2'), req(''))
     expect(payloads).toHaveLength(3)
@@ -426,6 +415,7 @@ describe('pick lands plain text', () => {
       session: proj('s1'),
       position: 'leading',
       via: 'menu',
+      action: 'pick',
       span: { start: 0, end: 4, draftRev: 7 },
     })
     expect(outcome).toEqual({ text: '/commit-helper ' })

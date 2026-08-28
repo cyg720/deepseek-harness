@@ -12,10 +12,10 @@
  * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import type { InputTriggerController, SubmitOutcome } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import type { Context } from '@deepseek-ai/cordis'
+import type { InputTriggerController, SubmitOutcome } from '../src/client/contract/input.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
-import type { DraftAttachmentId } from '../src/client/input/contract.ts'
+import type { DraftAttachmentId } from '../src/client/contract/input.ts'
 
 /** 中文说明：测试局部值 mention，由紧邻初始化决定。 */
 const mention = '@[Research](dsh-session:InNvdXJjZSI)'
@@ -51,7 +51,7 @@ describe('reference submission', () => {
     const mirror = vi.fn()
     /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = new SessionInputShell({
-      actx: {} as ClientContext,
+      actx: {} as Context,
       defaultSink: vi.fn(),
       commandImages,
     })
@@ -68,14 +68,16 @@ describe('reference submission', () => {
       end: 4,
       draftRev: first.snapshot.draftRev,
     })).toBe(true)
-    expect(first.snapshot.draft).toBe('@Research notes ')
+    // InputState.draft IS the clipboard projection now (chips expand to their
+    // canonical text); the display label lives in the chip's decorator DOM.
+    expect(first.snapshot.draft).toBe(`${spacedMention} `)
     expect(mirror).toHaveBeenLastCalledWith(`${spacedMention} `)
 
     /** 中文说明：测试局部值 sink，由紧邻初始化决定。 */
     const sink = vi.fn(() => Promise.resolve<SubmitOutcome>({ kind: 'success' }))
     /** 中文说明：测试局部值 restored，由紧邻初始化决定。 */
     const restored = new SessionInputShell({
-      actx: {} as ClientContext,
+      actx: {} as Context,
       defaultSink: sink,
       commandImages,
     })
@@ -102,29 +104,33 @@ describe('reference submission', () => {
     const inputTriggers = {
       serializeReference,
       track: vi.fn(),
+      lexicon: { getSnapshot: () => new Map(), subscribe: () => () => {} },
     } as unknown as InputTriggerController
     /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
     const shell = new SessionInputShell({
-      actx: {} as ClientContext,
+      actx: {} as Context,
       inputTriggers: () => inputTriggers,
       defaultSink: sink,
       commandImages,
     })
     chip(shell)
     expect(shell.snapshot).toMatchObject({
-      draft: '@Research ',
-      occurrences: [{ source: 'reference', ref: mention, label: 'Research', offset: 0, length: 9 }],
+      draft: `${mention} `,
+      occurrences: [{ source: 'reference', ref: mention, label: 'Research', offset: 0, length: mention.length }],
     })
 
     shell.submit('queue')
-    expect(shell.snapshot.phase).toBe('submitting')
+    // Optimistic commit: the composer clears at enter and stays unlocked
+    // while the detached flight runs.
+    expect(shell.snapshot.phase).toBe('plain')
+    expect(shell.snapshot.draft).toBe('')
     await vi.waitFor(() => {
-      expect(shell.snapshot.phase).toBe('plain')
+      expect(shell.snapshot.draft).toBe(`${mention} `)
     })
     expect(sink).toHaveBeenNthCalledWith(1, mention, [], 'queue', expect.any(AbortSignal))
     expect(shell.snapshot).toMatchObject({
-      draft: '@Research ',
-      occurrences: [{ source: 'reference', ref: mention, label: 'Research', offset: 0, length: 9 }],
+      draft: `${mention} `,
+      occurrences: [{ source: 'reference', ref: mention, label: 'Research', offset: 0, length: mention.length }],
     })
     expect(shell.notices.getSnapshot()).toMatchObject({
       level: 'error',
@@ -132,10 +138,10 @@ describe('reference submission', () => {
     })
 
     shell.submit('queue')
+    expect(shell.snapshot.draft).toBe('')
     await vi.waitFor(() => {
-      expect(shell.snapshot.draft).toBe('')
+      expect(sink).toHaveBeenNthCalledWith(2, mention, [], 'queue', expect.any(AbortSignal))
     })
-    expect(sink).toHaveBeenNthCalledWith(2, mention, [], 'queue', expect.any(AbortSignal))
     expect(shell.snapshot.occurrences).toEqual([])
     expect(serializeReference).toHaveBeenCalledTimes(2)
   })
@@ -147,21 +153,22 @@ describe('reference submission', () => {
     const inputTriggers = {
       serializeReference: () => Promise.reject(new Error('reference codec unavailable')),
       track: vi.fn(),
+      lexicon: { getSnapshot: () => new Map(), subscribe: () => () => {} },
     } as unknown as InputTriggerController
     /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
     const shell = new SessionInputShell({
-      actx: {} as ClientContext,
+      actx: {} as Context,
       inputTriggers: () => inputTriggers,
       defaultSink: sink,
       commandImages,
     })
     chip(shell)
     shell.submit()
+    // The serializer rejection restores the optimistic commit with its chip.
     await vi.waitFor(() => {
-      expect(shell.snapshot.phase).toBe('plain')
+      expect(shell.snapshot.draft).toBe(`${mention} `)
     })
     expect(sink).not.toHaveBeenCalled()
-    expect(shell.snapshot.draft).toBe('@Research ')
     expect(shell.snapshot.occurrences).toHaveLength(1)
     expect(shell.notices.getSnapshot()).toMatchObject({
       level: 'error',
@@ -174,7 +181,7 @@ describe('reference submission', () => {
     let signal: AbortSignal | undefined
     /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
     const shell = new SessionInputShell({
-      actx: {} as ClientContext,
+      actx: {} as Context,
       defaultSink: (_text, _imageIds, _mode, received) => {
         signal = received
         return new Promise<SubmitOutcome>(() => {})
@@ -187,13 +194,15 @@ describe('reference submission', () => {
     shell.dispose()
     expect(signal?.aborted).toBe(true)
     expect(shell.snapshot.phase).toBe('plain')
-    expect(shell.snapshot.draft).toBe('send this')
+    // The optimistic commit stands: disposal drops the settlement, so the
+    // sent draft is not restored into the dying composer.
+    expect(shell.snapshot.draft).toBe('')
   })
 
   it('retains a rejected default message without duplicating its prompt error notice', async () => {
     /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
     const shell = new SessionInputShell({
-      actx: {} as ClientContext,
+      actx: {} as Context,
       defaultSink: () => Promise.resolve({ kind: 'error' }),
       commandImages,
     })
@@ -205,6 +214,25 @@ describe('reference submission', () => {
     expect(shell.snapshot.draft).toBe('retry this')
     expect(shell.notices.getSnapshot()).toBeNull()
   })
+
+  it('restores concurrent failed messages in submission order', async () => {
+    const settlements: Array<(outcome: SubmitOutcome) => void> = []
+    const shell = new SessionInputShell({
+      actx: {} as Context,
+      defaultSink: () => new Promise<SubmitOutcome>((resolve) => { settlements.push(resolve) }),
+      commandImages,
+    })
+    shell.setDraft('first')
+    shell.submit()
+    shell.setDraft('second')
+    shell.submit()
+    expect(shell.snapshot.draft).toBe('')
+
+    settlements[0]?.({ kind: 'error' })
+    await vi.waitFor(() => { expect(shell.snapshot.draft).toBe('first') })
+    settlements[1]?.({ kind: 'error' })
+    await vi.waitFor(() => { expect(shell.snapshot.draft).toBe('first\n\nsecond') })
+  })
 })
 
 describe('submit transaction hardening', () => {
@@ -215,7 +243,7 @@ describe('submit transaction hardening', () => {
     const sink = vi.fn(() => new Promise<SubmitOutcome>((resolve) => { settle = resolve }))
     /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
     const shell = new SessionInputShell({
-      actx: {} as ClientContext,
+      actx: {} as Context,
       defaultSink: sink,
       commandImages,
     })
@@ -238,7 +266,7 @@ describe('submit transaction hardening', () => {
     const sink = vi.fn(() => Promise.resolve<SubmitOutcome>({ kind: 'error' }))
     /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
     const shell = new SessionInputShell({
-      actx: {} as ClientContext,
+      actx: {} as Context,
       defaultSink: sink,
       commandImages,
     })
@@ -252,13 +280,30 @@ describe('submit transaction hardening', () => {
     expect(shell.notices.getSnapshot()).toBeNull()
   })
 
-  it('re-tracks at the caret when a continuing insert-text splice lands (directory descent)', () => {
-    /** 中文说明：测试局部值 track，由紧邻初始化决定。 */
-    const track = vi.fn()
-    /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
+  it('aborts an unsettled image-only send and returns its image id at disposal', () => {
+    let signal: AbortSignal | undefined
+    const imageId = 'img-flight' as DraftAttachmentId
     const shell = new SessionInputShell({
-      actx: {} as ClientContext,
-      inputTriggers: () => ({ track } as unknown as InputTriggerController),
+      actx: {} as Context,
+      defaultSink: (_text, _ids, _mode, received) => {
+        signal = received
+        return new Promise<SubmitOutcome>(() => {})
+      },
+      commandImages,
+    })
+    shell.addImages([imageId])
+    shell.submit()
+    expect(signal?.aborted).toBe(false)
+    expect(shell.dispose()).toEqual([imageId])
+    expect(signal?.aborted).toBe(true)
+  })
+
+  it('re-tracks at the caret when an insert-text splice lands (directory descent reopens the menu)', () => {
+    const track = vi.fn()
+    const lexicon = { getSnapshot: () => new Map(), subscribe: () => () => {} }
+    const shell = new SessionInputShell({
+      actx: {} as Context,
+      inputTriggers: () => ({ track, lexicon } as unknown as InputTriggerController),
       defaultSink: vi.fn(),
       commandImages,
     })
@@ -267,10 +312,8 @@ describe('submit transaction hardening', () => {
     const applied = shell.insertText('@src/', { start: 0, end: 3, draftRev: shell.snapshot.draftRev }, true)
     expect(applied).toBe(true)
     expect(shell.snapshot.draft).toBe('@src/')
+    // Every editor commit re-tracks at the settled caret (the continue flag
+    // is a contract passenger now): a trailing '/' keeps the menu open.
     expect(track).toHaveBeenCalledWith('@src/', 5, { tier: 'plain' }, shell.snapshot.draftRev)
-
-    track.mockClear()
-    shell.insertText(' plain ', { start: 0, end: 0, draftRev: shell.snapshot.draftRev })
-    expect(track).not.toHaveBeenCalled()
   })
 })

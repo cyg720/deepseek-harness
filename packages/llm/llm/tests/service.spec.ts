@@ -607,8 +607,13 @@ describe('LlmRuntime', () => {
     await ctx.plugin(LlmRuntime)
     /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = { id: 'catalog', name: 'Catalog Provider' }
-    /** 中文说明：变量 model 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const model = { provider: 'catalog', id: 'fast', name: 'Fast', description: 'Low latency' }
+    const model = {
+      provider: 'catalog',
+      id: 'fast',
+      name: 'Fast',
+      description: 'Low latency',
+      inputModalities: ['text'] as const,
+    }
     ctx.llm.registerAdapter(['catalog'], new CatalogAdapter(provider, [model]))
 
     /** 中文说明：变量 providers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -617,6 +622,7 @@ describe('LlmRuntime', () => {
     const models = await ctx.llm.listModels('catalog')
     expect(providers).toEqual([provider])
     expect(models).toEqual([model])
+    expect(models[0]!.inputModalities).not.toBe(model.inputModalities)
 
     providers[0]!.name = 'mutated'
     models[0]!.name = 'mutated'
@@ -624,7 +630,7 @@ describe('LlmRuntime', () => {
     model.name = 'source mutated'
     expect(ctx.llm.listProviders()).toEqual([{ id: 'catalog', name: 'Catalog Provider' }])
     await expect(ctx.llm.listModels('catalog')).resolves.toEqual([{
-      provider: 'catalog', id: 'fast', name: 'source mutated', description: 'Low latency',
+      provider: 'catalog', id: 'fast', name: 'source mutated', description: 'Low latency', inputModalities: ['text'],
     }])
   })
 

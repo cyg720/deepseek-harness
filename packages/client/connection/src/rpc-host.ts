@@ -11,21 +11,27 @@
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import {
-  clientRequestSchema,
   RpcId,
   type ClientRequest,
-  type RpcError,
-  type RpcErrorDetailsMap,
   type RpcId as RpcIdType,
-  type ServerResponse as RpcServerResponse,
-} from '@deepseek-ai/dsh-host-apiproxy/api'
+} from './rpc.ts'
+import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge, type FetchHandler } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
+import type { BrowserAuth } from './browser-auth.ts'
 import type {
+  ConnectionIndexRequest,
+  ConnectionIndexResponse,
+  ConnectionFetchRoute,
+  ConnectionFetchHandler,
+  HostConnectionFetch,
   ConnectionRpcEndpointMatcher,
+  ConnectionRpcFailure,
   ConnectionRpcHandler,
-  ConnectionRpcHandlerOptions,
+  ConnectionRpcResult,
+  ConnectionRequestRejection,
+  ConnectionTrustRequest,
   HostConnectionHandle,
   HostConnectionRpc,
 } from './rpc.ts'
@@ -43,8 +49,17 @@ interface ConnectionRpcInterceptor {
   readonly matches: ConnectionRpcEndpointMatcher
   /** 中文说明：已经包装好信封校验与响应编码的 Fetch 处理器。 */
   readonly fetchHandler: FetchHandler
-  /** 中文说明：拦截端点统一采用的访问策略。 */
-  readonly options: ConnectionRpcHandlerOptions
+}
+
+interface RegisteredFetchRoute {
+  readonly methods: ReadonlySet<string>
+  readonly fetch: ConnectionFetchRoute['fetch']
+}
+
+interface ConnectionServerResponse {
+  readonly type: 'server-response'
+  readonly rpcId: RpcIdType
+  readonly result: ConnectionRpcResult<unknown>
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -60,14 +75,19 @@ declare module '@deepseek-ai/cordis' {
 export class HostConnectionService extends Service implements HostConnectionHandle {
   /** 中文说明：按共享通道保存当前拦截器；同一通道最多一个。 */
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
+  private readonly fetchRoutes = new Map<string, RegisteredFetchRoute>()
 
   /**
    * Provide the Host half over the active HTTP server.
    * @param ctx - owning Connection plugin context.
-   * @param trustedHosts - deployment authorities accepted by trusted-host channels.
+   * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
+   * @param browserAuth - process token and persistent browser-session owner.
    */
-  /* 中文说明：创建宿主连接服务；`ctx` 是所属插件上下文，`trustedHosts` 是可信宿主通道允许的地址；例如 `new HostConnectionService(ctx, [])`。 */
-  constructor(ctx: Context, private readonly trustedHosts: readonly string[]) {
+  constructor(
+    ctx: Context,
+    private readonly trustedHosts: readonly string[],
+    private readonly browserAuth: BrowserAuth,
+  ) {
     super(ctx, 'connection')
   }
 
@@ -77,17 +97,40 @@ export class HostConnectionService extends Service implements HostConnectionHand
     /** 中文说明：读取服务时的调用者 Context，后续 effect 和路由都归它所有。 */
     const owner = this.ctx
     return {
-      handle: (channel, handler, options) => this.register(owner, channel, handler, options),
-      intercept: (channel, matches, handler, options) =>
-        this.registerInterceptor(owner, channel, matches, handler, options),
+      handle: (channel, handler) => this.register(owner, channel, handler),
+      intercept: (channel, matches, handler) =>
+        this.registerInterceptor(owner, channel, matches, handler),
     }
   }
 
+  /** Exact Fetch-route registry scoped to the Context reading this service. */
+  get fetch(): HostConnectionFetch {
+    const owner = this.ctx
+    return {
+      register: route => this.registerFetchRoute(owner, route),
+    }
+  }
+
+  /** Apply the configured Host/Origin fence, then browser authentication. */
+  requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
+    if (!isTrustedApiRequest(request, this.trustedHosts)) return 403
+    return this.browserAuth.isAuthenticated(request) ? undefined : 401
+  }
+
+  /** Authenticate an index request through the process-token exchange or cookie. */
+  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
+    return this.browserAuth.authorizeIndex(request, response)
+  }
+
+  /** Add this process's launch token to the clean application URL. */
+  authenticatedUrl(baseUrl: string): string {
+    return this.browserAuth.authenticatedUrl(baseUrl)
+  }
+
   /**
-   * Compose one shared-channel Fetch handler from its interceptor and fallback.
+   * Compose one shared-channel Fetch handler from exact routes and its interceptor.
    * @param channel - shared channel mounted by Connection.
-   * @param fallback - handler for endpoints not claimed by the interceptor.
-   * @returns Fetch handler that selects exactly one target for each request.
+   * @returns Fetch handler that selects one owner or returns 404.
    */
   /*
    * 中文说明：组合共享通道拦截器和回退处理器；参数为 `/api` 及回退处理器；返回每次只选择一个目标的 Fetch 处理器。
@@ -97,45 +140,56 @@ export class HostConnectionService extends Service implements HostConnectionHand
    */
   createSharedFetchHandler(
     channel: '/api',
-    fallback: FetchHandler,
-  ): FetchHandler {
+  ): ConnectionFetchHandler {
     return {
       fetch: (request) => {
-        /** 中文说明：从请求路径提取出的相对端点；非法路径得到 undefined。 */
-        const endpoint = endpointFromPath(channel, new URL(request.url).pathname)
-        /** 中文说明：当前共享通道已注册的拦截器；可能不存在。 */
+        const pathname = new URL(request.url).pathname
+        const route = this.fetchRoutes.get(pathname)
+        if (route?.methods.has(request.method) === true) return route.fetch(request)
+        const endpoint = endpointFromPath(channel, pathname)
         const interceptor = this.interceptors.get(channel)
         if (endpoint === undefined || interceptor === undefined || !interceptor.matches(endpoint)) {
-          return fallback.fetch(request)
-        }
-        if (interceptor.options.authority === 'loopback' && !isTrustedApiRequest(request, [])) {
-          return Promise.resolve(new Response('forbidden', { status: 403 }))
+          return Promise.resolve(new Response('not found', { status: 404 }))
         }
         return interceptor.fetchHandler.fetch(request)
       },
     }
   }
 
-  /** 中文说明：注册独占 HTTP 通道；参数含所有者、通道、处理器和策略；返回路由清理函数，例如由 `rpc.handle` 间接调用。 */
+  private registerFetchRoute(
+    owner: Context,
+    route: ConnectionFetchRoute,
+  ): () => Promise<void> {
+    assertFetchRoute(route)
+    const registered: RegisteredFetchRoute = {
+      methods: new Set(route.methods),
+      fetch: route.fetch,
+    }
+    return owner.effect(() => {
+      if (this.fetchRoutes.has(route.path)) {
+        throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} is already registered`)
+      }
+      this.fetchRoutes.set(route.path, registered)
+      return () => { this.fetchRoutes.delete(route.path) }
+    }, `client-connection: ${route.path} Fetch route`)
+  }
+
   private register(
     owner: Context,
     channel: string,
     handler: ConnectionRpcHandler,
-    options: ConnectionRpcHandlerOptions,
   ): () => Promise<void> {
     assertChannel(channel)
-    /** 中文说明：本通道实际接受的宿主列表；回环策略用空列表强制仅本机。 */
-    const trustedHosts = options.authority === 'loopback' ? [] : this.trustedHosts
-    /** 中文说明：把业务处理器包装为负责协议校验和响应编码的 Fetch 处理器。 */
     const fetchHandler = rpcFetchHandler(channel, handler)
     /** 中文说明：向 Web 服务器注册的前缀路由，负责访问检查和 HTTP 桥接。 */
     const route: WebRoute = {
       kind: 'prefix',
       path: channel,
       handler: async (req, res) => {
-        if (!isTrustedApiRequest(req, trustedHosts)) {
-          res.writeHead(403)
-          res.end('forbidden')
+        const rejection = this.requestRejection(req)
+        if (rejection !== undefined) {
+          res.writeHead(rejection)
+          res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
         await bridge(req, res, fetchHandler)
@@ -153,7 +207,6 @@ export class HostConnectionService extends Service implements HostConnectionHand
     channel: string,
     matches: ConnectionRpcEndpointMatcher,
     handler: ConnectionRpcHandler,
-    options: ConnectionRpcHandlerOptions,
   ): () => Promise<void> {
     if (channel !== API_PATH) {
       throw new Error(`connection: invalid shared RPC channel ${JSON.stringify(channel)}`)
@@ -162,7 +215,6 @@ export class HostConnectionService extends Service implements HostConnectionHand
     const interceptor: ConnectionRpcInterceptor = {
       matches,
       fetchHandler: rpcFetchHandler(channel, handler),
-      options,
     }
     return owner.effect(() => {
       if (this.interceptors.has(channel)) {
@@ -228,9 +280,7 @@ function rpcFetchHandler(
   }
 }
 
-/** 中文说明：为非法信封生成坏请求响应；参数是原始正文和校验问题；返回结构完整的 Response，例如解析失败分支直接返回它。 */
-function invalidEnvelopeResponse(body: unknown, issues: RpcErrorDetailsMap['bad-request']['issues']): Response {
-  /** 中文说明：尝试从未校验正文中读取的原始 RPC 编号。 */
+function invalidEnvelopeResponse(body: unknown, issues: readonly object[]): Response {
   const rawId = (body as { rpcId?: unknown } | null)?.rpcId
   /** 中文说明：字符串编号会保留，否则使用固定的 invalid-request 编号。 */
   const rpcId = typeof rawId === 'string' ? RpcId(rawId) : INVALID_REQUEST_RPC_ID
@@ -255,15 +305,12 @@ function endpointFromPath(channel: string, pathname: string): string | undefined
   return endpoint
 }
 
-/** 中文说明：把 RPC 错误包装为完整响应；参数是关联编号和错误；返回 JSON Response。 */
-function errorResponse(rpcId: RpcIdType, error: RpcError): Response {
+function errorResponse(rpcId: RpcIdType, error: ConnectionRpcFailure): Response {
   return fullResponse(rpcId, { ok: false, error })
 }
 
-/** 中文说明：编码完整服务端响应；参数是关联编号与结果；返回 JSON Response，例如 `fullResponse(id, result)`。 */
-function fullResponse(rpcId: RpcIdType, result: RpcServerResponse['result']): Response {
-  /** 中文说明：符合 API Proxy 协议的服务端响应正文。 */
-  const body: RpcServerResponse = { type: 'server-response', rpcId, result }
+function fullResponse(rpcId: RpcIdType, result: ConnectionRpcResult<unknown>): Response {
+  const body: ConnectionServerResponse = { type: 'server-response', rpcId, result }
   return Response.json(body)
 }
 
@@ -271,5 +318,18 @@ function fullResponse(rpcId: RpcIdType, result: RpcServerResponse['result']): Re
 function assertChannel(channel: string): void {
   if (!CHANNEL_PATTERN.test(channel) || channel === '/api') {
     throw new Error(`connection: invalid or reserved RPC channel ${JSON.stringify(channel)}`)
+  }
+}
+
+function assertFetchRoute(route: ConnectionFetchRoute): void {
+  if (endpointFromPath(API_PATH, route.path) === undefined) {
+    throw new Error(`connection: invalid exact Fetch route ${JSON.stringify(route.path)}`)
+  }
+  if (route.methods.length === 0) {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} declares no methods`)
+  }
+  const methods = new Set(route.methods)
+  if (methods.size !== route.methods.length) {
+    throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} repeats a method`)
   }
 }

@@ -39,12 +39,12 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import { z } from 'zod'
 import type {
   InvocationDescriptor,
-  TypertClientContextBinder,
+  TypertClientContextAdapter,
   TypertContextMap,
   TypertContextRegistry,
   TypertContextWire,
   TypertDisposer,
-  TypertHostContextProvider,
+  TypertHostContextAdapter,
   TypertHostContextResolver,
   TypertLocalRegistry,
   TypertLookupHost,
@@ -409,9 +409,9 @@ function lookupDefinitionEquals(left: TypertLookupDefinition, right: TypertLooku
 // 组合方 configureHost 的覆盖解析器；clients 是 Client 侧"从调用 Context 读出身份"
 // 的绑定器。
 class ContextStore {
-  private readonly hosts = new Map<string, ProviderEntry<TypertHostContextProvider>>()
+  private readonly hosts = new Map<string, ProviderEntry<TypertHostContextAdapter>>()
   private readonly hostResolvers = new Map<string, ProviderEntry<HostContextResolverEntry>>()
-  private readonly clients = new Map<string, ProviderEntry<TypertClientContextBinder>>()
+  private readonly clients = new Map<string, ProviderEntry<TypertClientContextAdapter>>()
   private readonly changes: ChangeSource
 
   constructor(report: ReportObserverError) {
@@ -423,37 +423,51 @@ class ContextStore {
     return {
       registerHost: <K extends Extract<keyof TypertContextMap, string>>(
         key: K,
-        provider: TypertHostContextProvider<TypertContextWire<TypertContextMap[K]>>,
-      ) => this.registerHost(ctx, key, provider),
+        adapter: TypertHostContextAdapter<TypertContextWire<TypertContextMap[K]>>,
+      ) => this.registerHost(ctx, key, adapter),
       configureHost: <K extends Extract<keyof TypertContextMap, string>>(
         key: K,
         resolver: TypertHostContextResolver<TypertContextWire<TypertContextMap[K]>>,
       ) => this.configureHost(ctx, key, resolver),
       registerClient: <K extends Extract<keyof TypertContextMap, string>>(
         key: K,
-        binder: TypertClientContextBinder<TypertContextWire<TypertContextMap[K]>>,
-      ) => this.registerClient(ctx, key, binder),
+        adapter: TypertClientContextAdapter<TypertContextWire<TypertContextMap[K]>>,
+      ) => this.registerClient(ctx, key, adapter),
+      identifyHost: context => this.identifyHost(context),
       getHost: key => this.getHost(key),
       getClient: key => this.clients.get(key)?.provider,
       subscribe: listener => this.changes.subscribe(ctx, listener),
     }
   }
 
-  // 中文：查一个 key 的生效 Host 提供者：有覆盖解析器时返回"静态字段 + 覆盖 resolve"
-  // 的合成提供者，否则返回默认提供者。
-  private getHost(key: string): TypertHostContextProvider | undefined {
-    const provider = this.hosts.get(key)?.provider
-    if (provider === undefined) return undefined
+  private getHost(key: string): TypertHostContextAdapter | undefined {
+    const adapter = this.hosts.get(key)?.provider
+    if (adapter === undefined) return undefined
     const resolver = this.hostResolvers.get(key)?.provider
-    if (resolver === undefined) return provider
+    if (resolver === undefined) return adapter
     return {
-      wire: provider.wire,
-      wireTypeSymbol: provider.wireTypeSymbol,
+      wire: adapter.wire,
+      wireTypeSymbol: adapter.wireTypeSymbol,
+      identity: context => adapter.identity(context),
       resolve: id => resolver.resolve(id),
     }
   }
 
-  // 中文：临时覆盖某 key 的 Host 解析策略（只能配置一次，撤销后恢复默认）。
+  private identifyHost(ctx: Context): ReturnType<TypertContextRegistry['identifyHost']> {
+    let match: ReturnType<TypertContextRegistry['identifyHost']>
+    for (const key of this.hosts.keys()) {
+      const identity = this.getHost(key)?.identity(ctx)
+      if (identity === undefined) continue
+      if (match !== undefined) {
+        throw new Error(
+          `typert: Host Context is recognized by both ${JSON.stringify(match.kind)} and ${JSON.stringify(key)}`,
+        )
+      }
+      match = { kind: key, identity }
+    }
+    return match
+  }
+
   private configureHost<Wire>(
     ctx: Context,
     key: string,
@@ -478,18 +492,16 @@ class ContextStore {
     }, `typert.contexts.configureHost(${JSON.stringify(key)})`)
   }
 
-  // 中文：注册 Host 侧提供者（按 id 还原 Context）：校验 key 与线字段名 / 类型符号。
-  private registerHost<Wire>(ctx: Context, key: string, provider: TypertHostContextProvider<Wire>): TypertDisposer {
+  private registerHost<Wire>(ctx: Context, key: string, adapter: TypertHostContextAdapter<Wire>): TypertDisposer {
     validateSegment('Context key', key)
-    validateWireName('Context wire field', provider.wire)
-    validateNonempty('Context wire type symbol', provider.wireTypeSymbol)
-    return this.registerProvider(ctx, this.hosts, 'host-context', key, provider)
+    validateWireName('Context wire field', adapter.wire)
+    validateNonempty('Context wire type symbol', adapter.wireTypeSymbol)
+    return this.registerProvider(ctx, this.hosts, 'host-context', key, adapter)
   }
 
-  // 中文：注册 Client 侧绑定器（从调用 Context 读出身份）：只需校验 key。
-  private registerClient<Wire>(ctx: Context, key: string, binder: TypertClientContextBinder<Wire>): TypertDisposer {
+  private registerClient<Wire>(ctx: Context, key: string, adapter: TypertClientContextAdapter<Wire>): TypertDisposer {
     validateSegment('Context key', key)
-    return this.registerProvider(ctx, this.clients, 'client-context', key, binder)
+    return this.registerProvider(ctx, this.clients, 'client-context', key, adapter)
   }
 
   // 中文：通用提供者注册：同 key 重复注册失败；写入表 + 广播，撤销时校验归属后清理。
@@ -577,8 +589,7 @@ export class TypertRegistry extends Service implements TypertRegistryContract {
     return this.lookupStore.view(this.ctx)
   }
 
-  /** Host Context providers and Client Context binders. */
-  // 中文：Host Context 提供者与 Client Context 绑定器视图。
+  /** Host and Client Context adapters. */
   get contexts(): TypertContextRegistry {
     return this.contextStore.view(this.ctx)
   }

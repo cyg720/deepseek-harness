@@ -33,7 +33,6 @@ const PATTERNS = [
   'docs/**/*.md',
   'packages/*/*.md',
   'packages/*/*/*.md',
-  'examples/**/*.md',
   'AGENTS.md',
   'packages/AGENTS.md',
   '.agents/skills/**/*.md',
@@ -236,7 +235,6 @@ export function findViolations(
   return out
 }
 
-// Run only when invoked as a script, not when imported by the spec.
 if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   // Archived notes remain valid link targets, but their historical outbound links are frozen.
   /** 中文说明：变量 files 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

@@ -54,8 +54,7 @@ async function setupPresetHost(): Promise<{ ctx: Context; adapter: MockAdapter; 
   ctx.loader.builtins.include = Include
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(AgentPresets, { default: 'coding', roots: ROOTS, includeUserRoot: false })
-  /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  await ctx.plugin(AgentPresets, { default: 'coding', roots: ROOTS, includeShippedRoot: false, includeUserRoot: false })
   const adapter = new MockAdapter([textResponse('parent idle'), textResponse('child done')])
   ctx.llm.registerAdapter(['mock'], adapter)
   /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

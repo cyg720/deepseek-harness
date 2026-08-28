@@ -18,8 +18,8 @@
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { z } from 'zod'
-import SessionStore from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 
@@ -45,6 +45,11 @@ declare module '@deepseek-ai/dsh-session/types' {
 
 /** 中文说明：type MarksState 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
 type MarksState = { marks: string[] } | null
+const RESTORE_HEADER: SessionHeader = {
+  version: 0,
+  id: SessionId('projection-restore'),
+  createdAt: 0,
+}
 /** Whole-value unit: latest test/mark event wins; unrelated events return the same reference. */
 /* 中文说明：变量 marksUnit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const marksUnit = (): Omit<ProjectionDefinition<'test/marks', MarksState>, 'wire'>
@@ -177,9 +182,9 @@ describe('SessionProjectionRegistry drive', () => {
 
     first()
 
-    // The regression this counts against: one session ending used to strip
-    // the projection from every other live session, because the first
-    // registrant owned the only disposer.
+    // The regression this counts against: without last-release semantics, one
+    // session ending strips the projection from every other live session,
+    // because the first registrant owns the only disposer.
     expect(ctx.sessionProjections.snapshot(session).values['test/marks']).toEqual({ marks: ['kept'] })
     second()
     expect(ctx.sessionProjections.snapshot(session).values).toEqual({})
@@ -314,7 +319,7 @@ describe('SessionProjectionRegistry drive', () => {
     expect(() => ctx.sessionProjections.restore({
       'test/marks': { ver: 1, seq: 2, val: { marks: ['old'] } },
       'test/count': { ver: 99, seq: 2, val: 3 },
-    }, tail, 3)).toThrow(/re-read from seq 0/)
+    }, tail, 3, RESTORE_HEADER)).toThrow(/re-read from seq 0/)
     // The full-log re-read (baseSeq 0) refolds the mismatched key from init.
     /** 中文说明：变量 full 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const full: SessionEvent[] = [
@@ -326,7 +331,7 @@ describe('SessionProjectionRegistry drive', () => {
     const { snapshot, checkpoint } = ctx.sessionProjections.restore({
       'test/marks': { ver: 1, seq: 2, val: { marks: ['old', '2'] } },
       'test/count': { ver: 99, seq: 2, val: 3 },
-    }, full, 0)
+    }, full, 0, RESTORE_HEADER)
     expect(snapshot.asOfSeq).toBe(4)
     expect(snapshot.values['test/marks']).toEqual({ marks: ['new'] })
     expect('test/count' in snapshot.values).toBe(false)
@@ -349,7 +354,7 @@ describe('SessionProjectionRegistry drive', () => {
       { type: 'turn/start', seq: 3, time: 3, data: { turn: 2 } },
       { type: 'turn/end', seq: 4, time: 4, data: { turn: 2, reason: { kind: 'completed' } } },
     ]
-    const { snapshot, checkpoint } = ctx.sessionProjections.restore(rows, tail, 3)
+    const { snapshot, checkpoint } = ctx.sessionProjections.restore(rows, tail, 3, RESTORE_HEADER)
     expect(snapshot.asOfSeq).toBe(4)
     // marks already covers the tail (watermark 4): nothing re-applied.
     expect(snapshot.values['test/marks']).toEqual({ marks: ['done'] })
@@ -361,7 +366,7 @@ describe('SessionProjectionRegistry drive', () => {
     const { snapshot: current, checkpoint: currentCheckpoint } = ctx.sessionProjections.restore({
       'test/marks': { ver: 1, seq: 4, val: { marks: ['done'] } },
       'test/count': { ver: 1, seq: 4, val: 5 },
-    }, [], 5)
+    }, [], 5, RESTORE_HEADER)
     expect(current.asOfSeq).toBe(4)
     expect('test/count' in current.values).toBe(false)
     expect(currentCheckpoint['test/count']).toEqual({ ver: 1, seq: 4, val: 5 })
@@ -394,8 +399,7 @@ describe('SessionProjectionRegistry drive', () => {
       'test/marks': { marks: ['stored'] },
     })
 
-    /** 中文说明：变量 restored 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const restored = ctx.sessionProjections.restore(rows, [], 5)
+    const restored = ctx.sessionProjections.restore(rows, [], 5, RESTORE_HEADER)
     expect(restored.snapshot.values).toEqual({
       'test/marks': { marks: ['stored'] },
     })
@@ -411,7 +415,7 @@ describe('SessionProjectionRegistry drive', () => {
     }
 
     expect(ctx.sessionProjections.viewCheckpoint(drifted)).toEqual({})
-    expect(() => ctx.sessionProjections.restore(drifted, [], 3)).toThrow()
+    expect(() => ctx.sessionProjections.restore(drifted, [], 3, RESTORE_HEADER)).toThrow()
   })
 
   it('restore rejects a row claiming events past the supplied log end (shrunk log ⇒ re-read)', async () => {
@@ -427,20 +431,19 @@ describe('SessionProjectionRegistry drive', () => {
     // …an intact log serves the anchor event and the checkpoint stands as-is.
     /** 中文说明：变量 anchor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const anchor: SessionEvent = { type: 'turn/end', seq: 9, time: 9, data: { turn: 2, reason: { kind: 'completed' } } }
-    /** 中文说明：变量 anchored 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const anchored = ctx.sessionProjections.restore(rows, [anchor], 9)
+    const anchored = ctx.sessionProjections.restore(rows, [anchor], 9, RESTORE_HEADER)
     expect(anchored.snapshot.values).toEqual({})
     expect(anchored.checkpoint['test/count']).toEqual({ ver: 1, seq: 9, val: 10 })
     // …while a log crash-repaired down to fewer events returns an empty tail:
     // the row overreaches the proven end and a tail read cannot fix this key.
-    expect(() => ctx.sessionProjections.restore(rows, [], 9)).toThrow(/re-read from seq 0/)
+    expect(() => ctx.sessionProjections.restore(rows, [], 9, RESTORE_HEADER)).toThrow(/re-read from seq 0/)
     // The full re-read discards the overreaching row and refolds from init.
     /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       { type: 'turn/start', seq: 0, time: 0, data: { turn: 1 } },
       { type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } } },
     ]
-    const { snapshot, checkpoint } = ctx.sessionProjections.restore(rows, events, 0)
+    const { snapshot, checkpoint } = ctx.sessionProjections.restore(rows, events, 0, RESTORE_HEADER)
     expect(snapshot.asOfSeq).toBe(1)
     expect(snapshot.values).toEqual({})
     expect(checkpoint['test/count']).toEqual({ ver: 1, seq: 1, val: 2 })

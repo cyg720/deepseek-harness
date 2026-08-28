@@ -16,7 +16,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
 import { resolveRgPath, runRipgrep } from '@deepseek-ai/dsh-tool-fs-search'
 
@@ -38,8 +38,7 @@ describe('lazy packaged-ripgrep resolution', () => {
     // 解析在启动子进程前拒绝，因此无需装配 subprocess 服务。
     // 搜索调用的取消控制器。
     const controller = new AbortController()
-    // 最小工具执行上下文，提供信号、工具名和品牌化调用 id。
-    const exec = { signal: controller.signal, name: 'glob', callId: CallId('missing-platform-package') } as unknown as ToolExecution
+    const exec = { signal: controller.signal, name: 'glob', callId: ToolCallId('missing-platform-package') } as unknown as ToolExecution
 
     await expect(runRipgrep(new Context(), exec, 'glob', ['--files'], 1_000_000, 3_000, 64 * 1024))
       .rejects.toMatchObject({ name: 'SearchError', code: 'SEARCH_FAILED' })

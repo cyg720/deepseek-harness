@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -126,7 +126,7 @@ describe('tool-todo real Loader composition through cordis.yml', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: new AbortController().signal,
-      callId: CallId('parallel'),
+      callId: ToolCallId('parallel'),
       name: 'todo_write',
       arguments: { todos: PARALLEL_TODOS },
       agent: owner,
@@ -148,7 +148,7 @@ describe('tool-todo real Loader composition through cordis.yml', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: new AbortController().signal,
-      callId: CallId('parallel-enabled'),
+      callId: ToolCallId('parallel-enabled'),
       name: 'todo_write',
       arguments: { todos: PARALLEL_TODOS },
       agent: owner,

@@ -10,10 +10,10 @@
 
 import {
   RpcId,
-  serverResponseSchema,
   type ClientRequest,
-} from '@deepseek-ai/dsh-host-apiproxy/api'
-import type { ClientConnectionRpc } from '../rpc.ts'
+  type RpcId as RpcIdType,
+} from '../rpc.ts'
+import type { ClientConnectionRpc, ConnectionRpcResult } from '../rpc.ts'
 import { randomUuid } from './random-uuid.ts'
 
 // 无页面origin的Worker或测试环境用于构造URL的内部占位基址。
@@ -27,13 +27,20 @@ const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
 /* 调用器使用的fetch兼容POST传输签名。 */
 export type RpcFetch = (input: URL, init: RequestInit) => Promise<Response>
 
+/** Worker-local opener for decoded Gateway Remote streams. */
+export type RpcStreamOpen = (
+  endpoint: string,
+  payload: unknown,
+  signal: AbortSignal,
+) => AsyncIterable<unknown>
+
 /**
  * Create the browser-backed generic RPC caller.
  * @param doFetch - transport override; defaults to the page's global fetch.
+ * @param openStream - optional worker-local Gateway stream carrier.
  * @returns caller that owns request correlation and response-envelope validation.
  */
-export function createWebConnectionRpc(doFetch?: RpcFetch): ClientConnectionRpc {
-  // 调用者传入的载体，省略时使用页面全局fetch。
+export function createWebConnectionRpc(doFetch?: RpcFetch, openStream?: RpcStreamOpen): ClientConnectionRpc {
   const send: RpcFetch = doFetch ?? ((input, init) => globalThis.fetch(input, init))
   return {
     async call(channel, endpoint, payload, signal) {
@@ -60,17 +67,59 @@ export function createWebConnectionRpc(doFetch?: RpcFetch): ClientConnectionRpc 
       if (!response.ok) {
         throw new Error(`transport failure for ${channel}/${endpoint}: HTTP ${response.status}`)
       }
-      // 经过协议模式验证的完整服务端响应信封。
-      const full = serverResponseSchema.parse(await response.json())
+      const full = parseConnectionResponse(await response.json())
       if (full.rpcId !== rpcId) {
         throw new Error(`rpcId mismatch for ${endpoint}: sent ${rpcId}, got ${full.rpcId}`)
       }
       return full.result
     },
+    ...openStream === undefined ? {} : {
+      open(channel, endpoint, payload, signal) {
+        assertTarget(channel, endpoint)
+        if (channel !== '/api') {
+          throw new Error(`connection: worker-local streams require the /api channel, got ${JSON.stringify(channel)}`)
+        }
+        return openStream(endpoint, payload, signal)
+      },
+    },
   }
 }
 
-/** 取得当前页面origin，无有效页面时返回内部占位基址。 */
+function parseConnectionResponse(value: unknown): {
+  readonly rpcId: RpcIdType
+  readonly result: ConnectionRpcResult<unknown>
+} {
+  if (!isRecord(value) || value.type !== 'server-response' || typeof value.rpcId !== 'string') {
+    throw new TypeError('connection: invalid server-response envelope')
+  }
+  const result = value.result
+  if (!isRecord(result)) throw new TypeError('connection: invalid server-response result')
+  if (result.ok === true) {
+    return {
+      rpcId: RpcId(value.rpcId),
+      result: { ok: true, value: result.value },
+    }
+  }
+  if (result.ok !== false || !isRecord(result.error)) {
+    throw new TypeError('connection: invalid server-response result')
+  }
+  const error = result.error
+  if (typeof error.code !== 'string' || typeof error.message !== 'string' || !isRecord(error.details)) {
+    throw new TypeError('connection: invalid server-response failure')
+  }
+  return {
+    rpcId: RpcId(value.rpcId),
+    result: {
+      ok: false,
+      error: { code: error.code, message: error.message, details: error.details },
+    },
+  }
+}
+
+function isRecord(value: unknown): value is Record<PropertyKey, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 function resolveBase(): string {
   // 浏览器或宿主可能提供的最小location对象。
   const location = (globalThis as { location?: { origin?: string } }).location

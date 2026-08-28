@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
 import {
   checkExperimentalDependencyIsolation,
   checkExperimentalManifest,
-  /** 中文说明：type WorkspaceManifest 定义本测试所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
+  expectedDshPackageFiles,
   type WorkspaceManifest,
 } from './check-workspace-constraints.ts'
 
@@ -82,6 +82,20 @@ describe('experimental workspace constraints', () => {
 
     expect(checkExperimentalDependencyIsolation(manifests)).toEqual([
       '@deepseek-ai/dsh-python-runtime: dependencies.@deepseek-ai/dsh-experimental-prototype must not reference an experimental package',
+    ])
+  })
+})
+
+describe('package payload constraints', () => {
+  it('includes a declared profile patch without a package-name allowlist', () => {
+    expect(expectedDshPackageFiles({
+      name: '@deepseek-ai/dsh-private-profile',
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    })).toEqual([
+      'lib/index.js',
+      'lib/invariant.js',
+      'cordis.patch.yml',
+      'lib/types/**/*.d.ts',
     ])
   })
 })

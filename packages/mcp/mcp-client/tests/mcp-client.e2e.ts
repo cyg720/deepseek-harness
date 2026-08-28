@@ -30,7 +30,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { CallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { apply } from '@deepseek-ai/dsh-mcp-client/src/index.ts'
 import { publicToolName } from '@deepseek-ai/dsh-mcp-client/src/tools.ts'
@@ -109,9 +109,8 @@ function textOf(block: unknown): string {
 
 /** 中文说明：变量 callSeq 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let callSeq = 0
-/** 中文说明：函数 nextCallId 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-function nextCallId(): CallId {
-  return CallId(`e2e-${++callSeq}`)
+function nextCallId(): ToolCallId {
+  return ToolCallId(`e2e-${++callSeq}`)
 }
 
 // ---- Fixture server tests ----

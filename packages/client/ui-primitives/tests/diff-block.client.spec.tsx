@@ -1,23 +1,14 @@
 // @vitest-environment jsdom
-// DiffBlock: the per-file hunk rows (path header, removed block, added block),
-// the same-file second-hunk gap separator, the `+A -R · N file(s)` footer and
-// its singular/plural, the head/tail height cap and its expand control, the
-// empty-diffs null render, and the copy control writing the prefixed diff text
-// on both the accepted and the refused clipboard paths. writeClipboard's own
-// return contract is pinned in terminal-block.spec.tsx (the shared return contract), so
-// only its DOM consequence is asserted here.
-/**
- * 文件职责：验证 UI 基础组件的 diff-block.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染和 DOM 事件模拟。
- * 产品维度：防止复用组件的显示和交互回归。
- * 逻辑维度：构造属性，渲染组件并断言 DOM 与事件。
- * 关键边界：测试必须清理 DOM；快照不能替代关键交互断言。
- * 新手阅读建议：先读渲染辅助函数，再按组件场景阅读。
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { DEFAULT_DIFF_MAX_LINES, DiffBlock, type DiffHunk } from '../src/index.ts'
+import type { ComponentProps } from 'react'
+import { DEFAULT_DIFF_MAX_LINES, DiffBlock as LocalizedDiffBlock, type DiffHunk } from '../src/index.ts'
+import { diffBlockLabels } from './labels.client.ts'
+
+function DiffBlock(props: Omit<ComponentProps<typeof LocalizedDiffBlock>, 'labels'>) {
+  return <LocalizedDiffBlock {...props} labels={diffBlockLabels} />
+}
 
 afterEach(cleanup)
 
@@ -25,20 +16,14 @@ beforeEach(() => {
   vi.useRealTimers()
 })
 
-/** The rendered body rows, one string per visible line (CSS-module class prefix). */
-/* 中文说明：函数 bodyRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function bodyRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class*="_line_"]')].map(row => row.textContent ?? '')
 }
 
-/** Only the changed rows (add/del), excluding the path header and gap chrome. */
-/* 中文说明：函数 changeRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function changeRows(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class*="_del_"], [class*="_add_"]')].map(row => row.textContent ?? '')
 }
 
-/** `count` numbered added lines as one hunk's newText. */
-/* 中文说明：函数 added 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function added(count: number): string {
   return Array.from({ length: count }, (_v, i) => `line ${i + 1}`).join('\n')
 }

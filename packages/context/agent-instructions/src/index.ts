@@ -433,7 +433,7 @@ export function apply(ctx: Context, config: Config): void {
     const lastClaimedIndex = decision.messages.findLastIndex(message => messages.includes(message))
     /** 中文说明：上下文局部值 entered，由紧邻初始化决定。 */
     const entered = decision.messages.toSpliced(lastClaimedIndex + 1, 0, desired)
-    return { kind: 'enter', messages: entered }
+    return { ...decision, messages: entered }
   })
 
   ctx.on('tools/result', (exec: ToolExecution, result: ToolExecutionResult) => {

@@ -23,15 +23,10 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景快照目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/details-session-lifecycle', import.meta.url))
-/** 两个列尺寸把手的稳定关系快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/details-session-lifecycle', import.meta.url))
 const HANDLES_EXPECTED = join(SNAPSHOT_DIR, 'handles.expected.md')
-/** 驱动 LIGHTHOUSE 回复的生命周期回放夹具。 */
-const FIXTURE = fileURLToPath(new URL('./snapshots/lifecycle-chrome/session.jsonl', import.meta.url))
-/** 用于验证切换所有者的已有历史会话夹具。 */
-const SEED_FIXTURE = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
-/** 回放夹具中唯一用户提示。 */
+const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/lifecycle-chrome/session.jsonl', import.meta.url))
+const SEED_FIXTURE = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.jsonl', import.meta.url))
 const PROMPT = 'Reply with the single word LIGHTHOUSE and stop.'
 /** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
@@ -100,12 +95,12 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     /** 已提交回放夹具的完整日志。 */
     const fixture = await readFile(FIXTURE, 'utf8')
     expect(fixtureUserPrompts(fixture)).toEqual([PROMPT])
-    scaffold = await launchWebScaffold({ replayFixture: FIXTURE, paceMs: 5 })
+    scaffold = await launchWebScaffold({ replayFixture: FIXTURE, paceMs: 5, compareReplaySession: false })
     await seedSession(scaffold, await readFile(SEED_FIXTURE, 'utf8'), 'details-session-lifecycle-seed')
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await appFrame(page).waitFor({ timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -119,8 +114,7 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     onTestFailed(() => saveFailureShot(page, 'web-e2e-details-session-lifecycle'))
     /** 等待当前提示轮次结束的 Promise。 */
     const settled = scaffold.whenTurnSettled()
-    /** 当前聊天编辑器。 */
-    const input = page.locator('textarea').first()
+    const input = page.locator('[data-composer-input]').first()
     await input.fill(PROMPT)
     await input.press('Enter')
     await settled

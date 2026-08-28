@@ -62,8 +62,7 @@ async function captureIdentities(inspector: ProcessInspector, state: TreeState):
   return vi.waitFor(() => {
     /** 中文说明：变量 expected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expected = new Set([state.root, state.descendant])
-    /** 中文说明：函数值 identities 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-    const identities = inspector.processTree(state.root).filter(identity => expected.has(identity.pid))
+    const identities = inspector.snapshot().tree(state.root).filter(identity => expected.has(identity.pid))
     if (identities.length !== expected.size) throw new Error('managed tree is not fully observable yet')
     return identities
   }, { interval: 10, timeout: scenarioTimeoutMs })

@@ -15,8 +15,7 @@
  */
 export function builtDeclarationPath(candidate: string): string {
   // Two workspace path forms exist: whole-package entries end in /src, subpath
-  // wildcards (apiproxy's browser-safe /api and /client channels) in /src/*.
-  // 工作区包根以 /src 结尾，子路径通配别名以 /src/* 结尾。
+  // wildcards (browser-safe /types and /client channels) in /src/*.
   if (candidate.endsWith('/src')) {
     return `${candidate.slice(0, -'/src'.length)}/lib/types`
   }

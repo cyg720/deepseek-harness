@@ -1,19 +1,3 @@
-/**
- * PopupSelectController behavior: one options load per
- * open with local search filtering, filtered highlight movement,
- * single-flight select with open-time context, consume-on-success (CAS miss
- * benign), failure-keeps-open retry semantics for both options and onSelect,
- * and binding-identity revocation of late settlements after
- * dismiss/reopen/dispose.
- */
-/*
- * 文件职责：验证命令弹层的 popup.client.spec.ts 行为。
- * 技术维度：Vitest、React 测试渲染和可控替身。
- * 产品维度：防止命令弹层用户流程发生回归。
- * 逻辑维度：构造输入、触发交互并断言输出与清理。
- * 关键边界：全局替身和异步任务必须在用例后清理。
- * 新手阅读建议：先读辅助函数，再按测试场景顺序阅读。
- */
 import { describe, expect, it, vi } from 'vitest'
 import type { SelectOption } from '../src/client/contract.ts'
 import type { PopupSpec, TokenSegment } from '../src/client/popup.ts'

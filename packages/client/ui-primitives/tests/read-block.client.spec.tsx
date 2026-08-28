@@ -1,24 +1,15 @@
 // @vitest-environment jsdom
-// ReadBlock + the highlightLines token path: the banner (label, language, the
-// "showing N of M" note only when the read is a window, copy control), the
-// gutter-numbered rows keeping the file's own line numbers, the shiki per-line
-// highlighting resolved to css-variables token spans with an identical-geometry
-// plain fallback for an unknown/absent language, the head/tail height cap and
-// its expand control, and the copy control writing the raw window text on both
-// the accepted and refused clipboard paths.
-/**
- * 文件职责：验证UI 基础组件的 read-block.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
- * 产品维度：防止UI 基础组件的展示、作用域或交互回归。
- * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
- * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
- * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { DEFAULT_READ_MAX_LINES, ReadBlock, type ReadBlockLine } from '../src/index.ts'
+import type { ComponentProps } from 'react'
+import { DEFAULT_READ_MAX_LINES, ReadBlock as LocalizedReadBlock, type ReadBlockLine } from '../src/index.ts'
 import { grammarLoadCount, highlightLines, subscribeGrammarLoaded } from '../src/markdown/highlight.ts'
+import { readBlockLabels } from './labels.client.ts'
+
+function ReadBlock(props: Omit<ComponentProps<typeof LocalizedReadBlock>, 'labels'>) {
+  return <LocalizedReadBlock {...props} labels={readBlockLabels} />
+}
 
 afterEach(cleanup)
 
@@ -26,20 +17,14 @@ beforeEach(() => {
   vi.useRealTimers()
 })
 
-/** `count` lines starting at `first`, each with distinct text. */
-/* 中文说明：函数 lines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function lines(count: number, first = 1): ReadBlockLine[] {
   return Array.from({ length: count }, (_value, index) => ({ number: first + index, text: `line ${first + index}` }))
 }
 
-/** The rendered rows as `<gutter><content>` strings (CSS-module class prefix). */
-/* 中文说明：函数 rowTexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rowTexts(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
 }
 
-/** The gutter numbers of the rendered rows, in order. */
-/* 中文说明：函数 gutters 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function gutters(container: HTMLElement): string[] {
   return [...container.querySelectorAll('[class^="_gutter_"]')].map(cell => cell.textContent ?? '')
 }

@@ -1,23 +1,12 @@
-// Hero chrome for the blank-draft phase of ConversationRoot: fish headline,
-// glow backdrop, and the workspace row. Pure presentation — the resident
-// composer is NOT rendered here (it keeps its own stable tree position in
-// ConversationRoot so the textarea survives the hero → composer flip); CSS
-// positions it over this shell's glow area during the hero phase.
-/**
- * 文件职责：实现会话骨架中的 EmptyHero 组件。
- * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
- * 产品维度：支持用户查看和操作会话骨架。
- * 逻辑维度：读取属性与服务，派生显示状态，处理事件并渲染界面。
- * 关键边界：空状态、禁用状态、异步取消和可访问性属性必须一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
- */
+// The composer remains in ConversationRoot so switching out of the blank-draft
+// phase does not remount its textarea.
 
 import { useId } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import {
   FishLogo, IconChevronDownOutline14, IconFolderClose16, IconFolderOpen16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { workspaceTitleOf } from '@deepseek-ai/dsh-client-runtime/client'
+import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { ConversationSlotProps } from '../contract/slots.ts'
 import css from './HeroShell.module.css'
 
@@ -135,7 +124,6 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
     <div className={css.root}>
       <div className={css.stack}>
         <div className={css.headline}>
-          {/* figma 34:10412: fish 34×25 leading the headline, gap 10. */}
           <span className={css.fishHitbox}>
             {renderSlot('conversation.hero.brand.mark', { size: 34, className: css.fish }, {
               fallback: <FishLogo size={34} className={css.fish} />,
@@ -145,10 +133,7 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
           <span className={css.previewBadge}>{t('hero.preview')}</span>
         </div>
         <div className={css.body}>
-          {/* The resident composer (ConversationRoot's root-owned scrollport;
-              the workspace row rides the stack above the card) is CSS-centered
-              in that scroll body during hero — see
-              ConversationRoot.module.css [data-phase='hero']. */}
+          {/* The composer remains mounted outside this component. */}
         </div>
       </div>
       {children}

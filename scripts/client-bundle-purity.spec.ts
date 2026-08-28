@@ -1,15 +1,10 @@
 /**
- * Pins shared client-bundle preset rules: the module-edge purity gate and
- * the physical watch dependencies hidden behind virtual CSS Modules.
+ * Pins shared client-bundle preset rules: module-edge purity, source-map
+ * chaining, and physical watch dependencies hidden behind virtual CSS Modules.
  */
-/*
- * 文件职责：验证 client-bundle-purity.spec.ts 覆盖的仓库构建、校验或维护脚本职责。
- * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
- * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
- * 逻辑维度：解析参数和文件，执行检查或转换，再输出结果并处理错误。
- * 关键边界：脚本可能修改构建产物；路径和子进程输出不可信；失败必须以非零状态显式报告。
- * 新手阅读建议：先看命令入口和参数，再读文件遍历或转换，最后关注错误码和平台差异。
- */
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { clientBundle, requestedExternals } from '../packages/client/tsdown.client.ts'
@@ -22,6 +17,11 @@ interface CssModulePlugin {
   name: string
   resolveId?: (source: string, importer: string | undefined) => null | string
   load?: (this: { addWatchFile: (id: string) => void }, id: string) => Promise<unknown>
+}
+
+interface SourceMapPlugin {
+  name: string
+  load?: (id: string) => Promise<unknown>
 }
 
 /** A representative dynamic bundle using the shared client baseline. */
@@ -83,14 +83,22 @@ function cssModulePlugin(): CssModulePlugin {
   return plugin
 }
 
+function sourceMapPlugin(): SourceMapPlugin {
+  const configs = clientConfigs()
+  const plugins = (configs[0] as { plugins: SourceMapPlugin[] }).plugins
+  const plugin = plugins.find(candidate => candidate.name === 'dsh-tsc-sourcemap')
+  if (plugin?.load === undefined) throw new Error('tsc sourcemap plugin missing from client config')
+  return plugin
+}
+
 describe('client bundle purity gate', () => {
   /** 中文说明：变量 resolveId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const resolveId = purityResolveId()
 
   it('leaves default externals and non-scoped specifiers alone', () => {
+    expect(resolveId('@deepseek-ai/dsh-client-store')).toBeNull()
     expect(resolveId('@deepseek-ai/dsh-client-ui-slots')).toBeNull()
     expect(resolveId('@deepseek-ai/dsh-client-ui-primitives')).toBeNull()
-    expect(resolveId('@deepseek-ai/dsh-client-runtime/client')).toBeNull()
     expect(resolveId('react')).toBeNull()
     expect(resolveId('zod')).toBeNull()
   })
@@ -101,9 +109,11 @@ describe('client bundle purity gate', () => {
   })
 
   it('lets inline-safe wire layers inline', () => {
-    expect(resolveId('@deepseek-ai/dsh-host-apiproxy/api')).toBeNull()
     expect(resolveId('@deepseek-ai/dsh-session/surface')).toBeNull()
     expect(resolveId('@deepseek-ai/dsh-brand')).toBeNull()
+    expect(resolveId('@deepseek-ai/dsh-token-meter/client')).toBeNull()
+    expect(() => resolveId('@deepseek-ai/dsh-token-meter')).toThrow(/purity/)
+    expect(() => resolveId('@deepseek-ai/dsh-token-meter/client/internal')).toThrow(/purity/)
   })
 
   it('lets exact generated Remote contributions inline without admitting their package implementation', () => {
@@ -120,15 +130,14 @@ describe('client bundle purity gate', () => {
 
   it('throws on cross-plugin value imports — bare plugin names and /client subpaths alike', () => {
     expect(() => resolveId('@deepseek-ai/dsh-client-connection')).toThrow(/purity/)
-    expect(() => resolveId('@deepseek-ai/dsh-client-runtime')).toThrow(/purity/)
+    expect(() => resolveId('@deepseek-ai/dsh-client-ui-session')).toThrow(/purity/)
     expect(() => resolveId('@deepseek-ai/dsh-client-ui-layout/client')).toThrow(/purity/)
   })
 
-  it('admits the parser-preloaded runtime for every dynamic bundle', () => {
-    expect(resolveId('@deepseek-ai/dsh-client-runtime/client')).toBeNull()
-    /** 中文说明：变量 withoutRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const withoutRequest = purityResolveId('@deepseek-ai/dsh-client-ui-goal')
-    expect(withoutRequest('@deepseek-ai/dsh-client-runtime/client')).toBeNull()
+  it('admits package-specific requests only for the declaring bundle', () => {
+    const requesting = purityResolveId('@deepseek-ai/dsh-api-session-controller')
+    expect(requesting('@deepseek-ai/dsh-api-gateway/client')).toBeNull()
+    expect(() => resolveId('@deepseek-ai/dsh-api-gateway/client')).toThrow(/purity/)
   })
 
   it('externalizes the baseline independently of each package manifest', () => {
@@ -142,7 +151,7 @@ describe('client bundle purity gate', () => {
     expect(requesting.neverBundle('react')).toBe(true)
     expect(requesting.neverBundle('zod')).toBe(false)
     expect(plain.neverBundle('react')).toBe(true)
-    expect(plain.neverBundle('@deepseek-ai/dsh-client-runtime/client')).toBe(true)
+    expect(plain.neverBundle('@deepseek-ai/dsh-client-store')).toBe(true)
   })
 })
 
@@ -173,6 +182,28 @@ describe('client bundle debug artifacts', () => {
     /** 中文说明：变量 configs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configs = clientConfigs()
     expect(configs[0]?.sourcemap).toBe(true)
+    expect(configs[0]?.outputOptions).toMatchObject({ sourcemapExcludeSources: false })
+  })
+
+  it('chains emitted tsc maps when the production Client build consumes lib/types', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-client-sourcemap-'))
+    try {
+      const entry = join(root, 'lib', 'types', 'client', 'index.js')
+      const source = join(root, 'src', 'client', 'index.ts')
+      const map = { version: 3, names: [], mappings: 'AAAA', sources: ['../../../src/client/index.ts'] }
+      mkdirSync(join(root, 'lib', 'types', 'client'), { recursive: true })
+      mkdirSync(join(root, 'src', 'client'), { recursive: true })
+      writeFileSync(entry, 'export const marker = true\n//# sourceMappingURL=index.js.map\n')
+      writeFileSync(`${entry}.map`, JSON.stringify(map))
+      writeFileSync(source, 'export const marker: true = true\n')
+
+      await expect(sourceMapPlugin().load!(entry)).resolves.toEqual({
+        code: 'export const marker = true',
+        map: { ...map, sourcesContent: ['export const marker: true = true\n'] },
+      })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it('maps first-party sources to their repository package paths', () => {
@@ -220,12 +251,10 @@ describe('client bundle debug artifacts', () => {
 
     /** 中文说明：变量 sourceMapPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourceMapPath = clientSourceMapPath('client/connection')
-    /** 中文说明：变量 workspaceSource 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const workspaceSource = transform('../../../host/apiproxy/src/api/rpc.ts', sourceMapPath)
-    expect(workspaceSource).toBe('../../../packages/host/apiproxy/src/api/rpc.ts')
-    /** 中文说明：变量 resolved 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const workspaceSource = transform('../src/rpc.ts', sourceMapPath)
+    expect(workspaceSource).toBe('../../../packages/client/connection/src/rpc.ts')
     const resolved = new URL(workspaceSource, 'https://dsh.test/plugins/@deepseek-ai/dsh-client-connection/client.js.map')
-    expect(resolved.pathname).toBe('/packages/host/apiproxy/src/api/rpc.ts')
+    expect(resolved.pathname).toBe('/packages/client/connection/src/rpc.ts')
 
     /** 中文说明：变量 dependencySource 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dependencySource = '../../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/index.js'

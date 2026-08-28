@@ -160,7 +160,7 @@ async function measureWriteTraffic(
     readonly data: string | Uint8Array
     readonly source_event_seqs: Uint8Array | null
     readonly surface_op: string | null
-    readonly ignorable: number | null
+    readonly is_packed: number
   }
   /** 中文说明：函数值 sameValue 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const sameValue = (left: string | Uint8Array | null, right: string | Uint8Array | null): boolean => (
@@ -177,7 +177,7 @@ async function measureWriteTraffic(
       && sameValue(left.data, right.data)
       && sameValue(left.source_event_seqs, right.source_event_seqs)
       && left.surface_op === right.surface_op
-      && left.ignorable === right.ignorable
+      && left.is_packed === right.is_packed
   )
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -274,7 +274,7 @@ runCoordinatorContract('sqlite', async (): Promise<CoordinatorFixture> => {
       /** 中文说明：变量 next 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const next = last.seq + logicalLength
       db.prepare(testSql('insert-corrupt-event'))
-        .run(id, next, 'assistant/chunk', 99, '{not valid json', null)
+        .run(id, next, 'assistant/chunk', 99, '{not valid json', 0)
       db.close()
     },
     cleanup: async () => { await rm(directory, { recursive: true, force: true }) },
@@ -367,6 +367,7 @@ describe('SessionPersistenceSqlite physical packing', () => {
     /** 中文说明：变量 db 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const db = new DatabaseSync(path)
     expect(db.prepare(testSql('select-user-version')).get()).toEqual({ user_version: SCHEMA_VERSION })
+    expect(db.prepare(testSql('select-page-size')).get()).toEqual({ page_size: 65_536 })
     expect(db.prepare(testSql('count-events')).get()).toEqual({ count: 7 })
     expect(db.prepare(testSql('count-packed-events')).get())
       .toEqual({ count: 1 })
@@ -399,7 +400,7 @@ describe('SessionPersistenceSqlite physical packing', () => {
     /** 中文说明：变量 db 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const db = new DatabaseSync(path)
     db.prepare(testSql('insert-corrupt-event'))
-      .run(header.id, 1, 'assistant/chunk', 2, JSON.stringify(chunk(1).data), null)
+      .run(header.id, 1, 'assistant/chunk', 2, JSON.stringify(chunk(1).data), 0)
     db.close()
 
     expect((await store.loadStoredFrom(header.id, 2))?.events).toEqual([chunk(2)])
@@ -408,7 +409,7 @@ describe('SessionPersistenceSqlite physical packing', () => {
     const malformed = new DatabaseSync(path)
     malformed.prepare(testSql('delete-session-events')).run(header.id)
     malformed.prepare(testSql('insert-corrupt-event'))
-      .run(header.id, 0, 'text-chunks', 1, '{not json', 0)
+      .run(header.id, 0, 'text-chunks', 1, '{not json', 1)
     malformed.close()
     expect((await store.loadStoredFrom(header.id, 2))?.events).toEqual([])
     await store.close()
@@ -454,11 +455,27 @@ describe('SessionPersistenceSqlite physical packing', () => {
     const path = await freshDbPath('dsh-sqlite-old-schema-')
     /** 中文说明：变量 seed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seed = await openDatabase(DatabaseSync, path, 'wal', DEFAULT_BUSY_TIMEOUT_MS)
-    seed.exec(testSql('set-user-version-16'))
+    seed.exec(testSql('set-user-version-17'))
     seed.close()
     await chmod(path, 0o600)
     await expect(openDatabase(DatabaseSync, path, 'wal', DEFAULT_BUSY_TIMEOUT_MS))
-      .rejects.toThrow(/schema version 16.*incompatible/)
+      .rejects.toThrow(/schema version 17.*incompatible/)
+  })
+
+  it('keeps the page size of an established schema 19 database', async () => {
+    const path = await freshDbPath('dsh-sqlite-page-size-')
+    const seed = await openDatabase(DatabaseSync, path, 'delete', DEFAULT_BUSY_TIMEOUT_MS)
+    seed.close()
+
+    const resize = new DatabaseSync(path)
+    resize.exec(testSql('set-page-size-4096'))
+    resize.exec(testSql('vacuum'))
+    expect(resize.prepare(testSql('select-page-size')).get()).toEqual({ page_size: 4_096 })
+    resize.close()
+
+    const reopened = await openDatabase(DatabaseSync, path, 'wal', DEFAULT_BUSY_TIMEOUT_MS)
+    expect(reopened.prepare(testSql('select-page-size')).get()).toEqual({ page_size: 4_096 })
+    reopened.close()
   })
 
   it('rejects a stale physical append without replacing the winning tail', async () => {
@@ -478,6 +495,21 @@ describe('SessionPersistenceSqlite physical packing', () => {
     await second.close()
   })
 
+  it('rolls back lazy integer-key materialization after a rejected append', async () => {
+    const store = new SqliteStore({
+      path: await freshDbPath('dsh-sqlite-key-rollback-'),
+      journalMode: 'wal',
+      busyTimeoutMs: DEFAULT_BUSY_TIMEOUT_MS,
+    })
+    const header = meta(SessionId('key-rollback'))
+
+    await expect(store.appendBatch(header, [chunk(1)], false)).rejects.toThrow(/stored next seq is 0/)
+    await expect(store.appendBatch(header, [chunk(0)], true)).rejects.toThrow(/metadata row is missing/)
+    await expect(store.appendBatch(header, [chunk(0)], false)).resolves.toBeUndefined()
+    expect((await store.loadStored(header.id))?.events).toEqual([chunk(0)])
+    await store.close()
+  })
+
   it('rejects a stale repair without deleting a newer winning tail', async () => {
     /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = await freshDbPath('dsh-sqlite-stale-repair-')
@@ -490,7 +522,7 @@ describe('SessionPersistenceSqlite physical packing', () => {
     await stale.appendBatch(header, [chunk(0)], false)
     /** 中文说明：变量 db 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const db = new DatabaseSync(path)
-    db.prepare(testSql('insert-corrupt-event')).run(header.id, 1, 'assistant/chunk', 2, '{not json', null)
+    db.prepare(testSql('insert-corrupt-event')).run(header.id, 1, 'assistant/chunk', 2, '{not json', 0)
     db.close()
     expect((await stale.loadStored(header.id))?.tornMarker).toBe(1)
     await winner.commitRepair(header, 1, [])
@@ -603,21 +635,28 @@ describe('SessionPersistenceSqlite schema ownership', () => {
   })
 
   it('paces repeated busy journal-mode attempts', async () => {
-    /** 中文说明：变量 attempts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    let attempts = 0
-    /** 中文说明：函数值 BusyDatabase 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-    const BusyDatabase = databaseWithJournalFailure(() => {
-      attempts += 1
-      return Object.assign(new Error('database is locked'), { errcode: 5 })
+    const attemptedAt: number[] = []
+    const BusyTwiceDatabase = databaseWithJournalFailure(() => {
+      attemptedAt.push(performance.now())
+      return attemptedAt.length <= 2
+        ? Object.assign(new Error('database is locked'), { errcode: 5 })
+        : undefined
     })
-    await expect(openDatabase(
-      BusyDatabase,
+    const db = await openDatabase(
+      BusyTwiceDatabase,
       await freshDbPath('dsh-sqlite-journal-paced-'),
       'wal',
-      50,
-    )).rejects.toThrow('database is locked')
-    expect(attempts).toBeGreaterThan(1)
-    expect(attempts).toBeLessThanOrEqual(6)
+      DEFAULT_BUSY_TIMEOUT_MS,
+    )
+    db.close()
+
+    expect(attemptedAt).toHaveLength(3)
+    for (let index = 1; index < attemptedAt.length; index += 1) {
+      const previous = attemptedAt[index - 1]
+      const current = attemptedAt[index]
+      if (previous === undefined || current === undefined) throw new Error('missing journal attempt timestamp')
+      expect(current - previous).toBeGreaterThanOrEqual(5)
+    }
   })
 
   it('rejects unversioned, incompatible, and foreign-application databases', async () => {
@@ -633,7 +672,7 @@ describe('SessionPersistenceSqlite schema ownership', () => {
     const incompatiblePath = await freshDbPath('dsh-sqlite-incompatible-')
     /** 中文说明：变量 incompatible 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const incompatible = new DatabaseSync(incompatiblePath)
-    incompatible.exec(testSql('set-user-version-16'))
+    incompatible.exec(testSql('set-user-version-17'))
     incompatible.close()
     await expect(openDatabase(DatabaseSync, incompatiblePath, 'wal', DEFAULT_BUSY_TIMEOUT_MS)).rejects.toThrow(/incompatible with this build/)
 
@@ -641,7 +680,7 @@ describe('SessionPersistenceSqlite schema ownership', () => {
     const foreignPath = await freshDbPath('dsh-sqlite-foreign-')
     /** 中文说明：变量 foreign 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const foreign = new DatabaseSync(foreignPath)
-    foreign.exec(testSql('set-user-version-17'))
+    foreign.exec(testSql('set-user-version-19'))
     foreign.exec(testSql('set-application-id-12345'))
     foreign.close()
     await expect(openDatabase(DatabaseSync, foreignPath, 'wal', DEFAULT_BUSY_TIMEOUT_MS)).rejects.toThrow(/has application id 12345/)
@@ -678,7 +717,7 @@ describe('SessionPersistenceSqlite schema ownership', () => {
   it('rejects schema ownership changes observed at mutation time', async () => {
     /** 中文说明：变量 changedVersion 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const changedVersion = await openDatabase(DatabaseSync, ':memory:', 'wal', DEFAULT_BUSY_TIMEOUT_MS)
-    changedVersion.exec(testSql('set-user-version-16'))
+    changedVersion.exec(testSql('set-user-version-17'))
     expect(() => { validateSchemaForMutation(DatabaseSync, changedVersion, ':memory:') })
       .toThrow(/schema changed before mutation/)
     changedVersion.close()
@@ -752,7 +791,7 @@ describe('SessionPersistenceSqlite schema ownership', () => {
     /** 中文说明：变量 eventRow 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const eventRow = {
       seq: 0, type: 'turn/start', time: 1, data: '{}',
-      source_event_seqs: null, surface_op: null, ignorable: null,
+      source_event_seqs: null, surface_op: null, is_packed: 0,
     }
     /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
     for (const [value, message] of [
@@ -762,7 +801,7 @@ describe('SessionPersistenceSqlite schema ownership', () => {
       [{ ...eventRow, time: '1' }, /time.*safe integer/],
       [{ ...eventRow, data: 1 }, /data.*string or blob/],
       [{ ...eventRow, source_event_seqs: 1 }, /source_event_seqs.*blob or null/],
-      [{ ...eventRow, ignorable: 2 }, /ignorable.*0, 1, or null/],
+      [{ ...eventRow, is_packed: 2 }, /is_packed.*0 or 1/],
     ] as const) {
       expect(() => decodeEventRow(value)).toThrow(message)
     }
@@ -792,6 +831,20 @@ describe('SessionPersistenceSqlite schema ownership', () => {
 })
 
 describe('SessionPersistenceSqlite edge behavior', () => {
+  it('materializes an explicitly durable empty live session', async () => {
+    const path = await freshDbPath('dsh-sqlite-empty-')
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionPersistenceSqlite, { path })
+    const session = ctx.sessions.create(SessionId('empty'), { meta: { cwd: '/workspace' } })
+
+    await ctx.sessionPersistence.ensureMaterialized(session)
+
+    await expect(ctx.sessionPersistence.list()).resolves.toEqual([session.header])
+    await expect(ctx.sessionPersistence.load(session.id)).resolves.toEqual({ meta: session.header, events: [] })
+    await ctx.fiber.dispose()
+  })
+
   it('keeps a fresh database unopened until the first persistence operation', async () => {
     /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = await freshDbPath('dsh-sqlite-lazy-')
@@ -880,7 +933,7 @@ describe('SessionPersistenceSqlite edge behavior', () => {
     await store.appendBatch(header, [chunk(0)], false)
     /** 中文说明：变量 db 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const db = new DatabaseSync(path)
-    db.prepare(testSql('insert-corrupt-event')).run(header.id, 1, 'assistant/chunk', 2, '{not json', null)
+    db.prepare(testSql('insert-corrupt-event')).run(header.id, 1, 'assistant/chunk', 2, '{not json', 0)
     db.close()
     await expect(store.commitRepair(header, undefined, [chunk(1)])).rejects.toThrow(/omitted current torn tail/)
     await store.commitRepair(header, 1, [])
@@ -906,7 +959,7 @@ describe('SessionPersistenceSqlite edge behavior', () => {
     /** 中文说明：变量 db 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const db = new DatabaseSync(path)
     db.prepare(testSql('insert-corrupt-event'))
-      .run(header.id, 1, 'assistant/chunk', 2, '{not json', null)
+      .run(header.id, 1, 'assistant/chunk', 2, '{not json', 0)
     db.close()
 
     await expect(store.appendBatch(header, [chunk(2)], true)).rejects.toThrow(/invalid physical tail/)

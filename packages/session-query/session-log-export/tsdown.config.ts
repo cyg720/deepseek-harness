@@ -8,8 +8,8 @@
  */
 import { clientBundle } from '../../client/tsdown.client.ts'
 
-/**
- * 生成会话日志导出包的构建配置；参数是包标识和 Node 端入口，返回配置函数。
- * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-session-log-export bundle` 时自动加载。
- */
-export default clientBundle('@deepseek-ai/dsh-session-log-export', ['lib/types/index.js', 'lib/types/invariant.js'])
+export default clientBundle(
+  '@deepseek-ai/dsh-session-log-export',
+  ['lib/types/index.js', 'lib/types/invariant.js'],
+  { hostPhase: true },
+)

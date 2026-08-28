@@ -16,10 +16,29 @@
  * 新手阅读建议：先区分 null 与空数组，再沿 todo/write 事件查看投影如何更新。
  */
 
-import type { TodoItem } from '@deepseek-ai/dsh-session/types'
+/**
+ * One entry in an agent's todo list — the unit of the `todo/write`
+ * whole-list snapshot declared by this package.
+ *
+ * Deliberately minimal: a human-readable `content` line and a three-state
+ * `status`. No id, priority, or `activeForm` — the list is replaced wholesale
+ * on every write (last-write-wins), so entries need no stable identity. The
+ * three statuses describe the complete portable lifecycle needed by model and
+ * UI consumers.
+ */
+export interface TodoItem {
+  /** What this task is — a short imperative line shown in the UI. */
+  content: string
+  /** Lifecycle state. `in_progress` marks a task being worked now; parallel work may mark several. */
+  status: 'pending' | 'in_progress' | 'completed'
+}
 
-// TodoItem 类型重导出：让调用方无需直接依赖 session/types 即可使用同一条目定义。
-export type { TodoItem } from '@deepseek-ai/dsh-session/types'
+declare module '@deepseek-ai/dsh-session/types' {
+  interface SessionEventMap {
+    /** Whole-list snapshot; latest write wins on replay. Log-only UI state; never derived history. */
+    'todo/write': { todos: TodoItem[] }
+  }
+}
 
 // 模块扩充：为会话投影类型注册待办领域拥有的 todos 键。
 declare module '@deepseek-ai/dsh-session-projection/types' {

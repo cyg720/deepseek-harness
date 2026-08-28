@@ -35,11 +35,12 @@ export interface PackageGraphNode {
 }
 
 /**
- * Read every harness package manifest and return dependency-safe graph nodes.
+ * Read every harness package manifest and return dependency-first graph nodes.
  * @param root - absolute repository root.
  * @param groupOrder - caller-specific tiebreak order for packages in the same dependency layer.
  * @param gate - command name used in structural error messages.
- * @returns package nodes ordered after all of their in-repo dependencies.
+ * @returns package nodes ordered after their in-repo dependencies, except for
+ *   stable back edges inside a dependency cycle.
  */
 /* 中文说明：函数 collectPackageGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectPackageGraph(root: string, groupOrder: readonly string[], gate: string): PackageGraphNode[] {
@@ -73,19 +74,29 @@ export function collectPackageGraph(root: string, groupOrder: readonly string[],
 
 /** 中文说明：函数 topoSort 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function topoSort(packages: PackageGraphNode[], groupOrder: readonly string[], gate: string): PackageGraphNode[] {
-  /** 中文说明：函数值 remaining 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-  const remaining = new Map(packages.map(pkg => [pkg.short, pkg]))
-  /** 中文说明：变量 placed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  const byName = new Map(packages.map(pkg => [pkg.short, pkg]))
+  for (const pkg of packages) {
+    for (const dependency of pkg.deps) {
+      if (!byName.has(dependency)) {
+        throw new Error(`${gate}: ${pkg.name} references missing in-repo peer ${SCOPE}${dependency}`)
+      }
+    }
+  }
+  const remaining = new Map(byName)
   const placed = new Set<string>()
   /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out: PackageGraphNode[] = []
   while (remaining.size > 0) {
-    /** 中文说明：变量 ready 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ready = [...remaining.values()]
+    let ready = [...remaining.values()]
       .filter(pkg => pkg.deps.every(dep => placed.has(dep)))
       .sort((a, b) => comparePackages(a, b, groupOrder))
-    if (ready.length === 0) throw new Error(`${gate}: dependency cycle among ${[...remaining.keys()].join(', ')}`)
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
+    if (ready.length === 0) {
+      const cycle = sinkCycles(remaining)
+        .map(component => component.sort((a, b) => comparePackages(a, b, groupOrder)))
+        .sort((a, b) => comparePackages(a[0], b[0], groupOrder))[0]
+      if (cycle === undefined) throw new Error(`${gate}: could not order package dependency graph`)
+      ready = cycle
+    }
     for (const pkg of ready) {
       out.push(pkg)
       placed.add(pkg.short)
@@ -95,7 +106,66 @@ function topoSort(packages: PackageGraphNode[], groupOrder: readonly string[], g
   return out
 }
 
-/** 中文说明：函数 comparePackages 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+type PackageGraphComponent = [PackageGraphNode, ...PackageGraphNode[]]
+
+function sinkCycles(remaining: ReadonlyMap<string, PackageGraphNode>): PackageGraphComponent[] {
+  let nextIndex = 0
+  const indices = new Map<string, number>()
+  const lowLinks = new Map<string, number>()
+  const stack: PackageGraphNode[] = []
+  const stacked = new Set<string>()
+  const components: PackageGraphComponent[] = []
+
+  const visit = (pkg: PackageGraphNode): void => {
+    const index = nextIndex
+    nextIndex += 1
+    indices.set(pkg.short, index)
+    lowLinks.set(pkg.short, index)
+    stack.push(pkg)
+    stacked.add(pkg.short)
+    for (const dependency of pkg.deps) {
+      const target = remaining.get(dependency)
+      if (target === undefined) continue
+      if (!indices.has(target.short)) {
+        visit(target)
+        lowLinks.set(pkg.short, Math.min(requiredValue(lowLinks, pkg.short), requiredValue(lowLinks, target.short)))
+      } else if (stacked.has(target.short)) {
+        lowLinks.set(pkg.short, Math.min(requiredValue(lowLinks, pkg.short), requiredValue(indices, target.short)))
+      }
+    }
+    if (lowLinks.get(pkg.short) !== indices.get(pkg.short)) return
+    const first = stack.pop()
+    if (first === undefined) throw new Error('package graph traversal lost its active component')
+    stacked.delete(first.short)
+    const component: PackageGraphComponent = [first]
+    let member = first
+    while (member !== pkg) {
+      const next = stack.pop()
+      if (next === undefined) throw new Error('package graph traversal lost its active component')
+      stacked.delete(next.short)
+      component.push(next)
+      member = next
+    }
+    components.push(component)
+  }
+
+  for (const pkg of remaining.values()) {
+    if (!indices.has(pkg.short)) visit(pkg)
+  }
+  return components.filter((component) => {
+    const names = new Set(component.map(pkg => pkg.short))
+    const first = component[0]
+    const cyclic = component.length > 1 || first.deps.includes(first.short)
+    return cyclic && component.every(pkg => pkg.deps.every(dep => !remaining.has(dep) || names.has(dep)))
+  })
+}
+
+function requiredValue<K, V>(values: ReadonlyMap<K, V>, key: K): V {
+  const value = values.get(key)
+  if (value === undefined) throw new Error('package graph traversal lost an indexed node')
+  return value
+}
+
 function comparePackages(a: PackageGraphNode, b: PackageGraphNode, groupOrder: readonly string[]): number {
   /** 中文说明：变量 groupA 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const groupA = groupOrder.indexOf(a.group)

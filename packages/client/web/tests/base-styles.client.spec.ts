@@ -34,6 +34,17 @@ function importOrder(css: string): string[] {
 
 // imports：base.css 中按声明顺序出现的所有静态导入路径。
 const imports = importOrder(baseCss)
+const normalizedCss = baseCss
+  .replaceAll(/\/\*[\s\S]*?\*\//g, '')
+  .replaceAll(/\s+/g, ' ')
+const literalContentSelectors = [
+  'code',
+  'pre',
+  '[data-diff]',
+  '[data-read]',
+  '[data-search]',
+  '[data-terminal]',
+]
 
 // 测试组：描述 Web 壳基础样式与动态主题的依赖隔离。
 describe('web shell base.css', () => {
@@ -41,5 +52,12 @@ describe('web shell base.css', () => {
   it('leaves theme styles to the dynamic ui-theme client entry', () => {
     expect(imports).toEqual([])
     expect(baseCss).not.toContain(THEME_PACKAGE)
+  })
+
+  it('auto-spaces prose while preserving literal content', () => {
+    expect(baseCss).toMatch(/body\s*\{[^}]*text-autospace:\s*normal;/)
+    expect(normalizedCss).toContain(
+      `${literalContentSelectors.join(', ')} { text-autospace: no-autospace; }`,
+    )
   })
 })

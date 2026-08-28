@@ -33,7 +33,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { DiffCallView, DiffResultView, ToolResult } from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-fs'
-import type {} from '@deepseek-ai/dsh-system-prompt'
+import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import { computeHunkDiffs, diffsFromMeta } from './diff.ts'
 import { remediateFsError } from './error.ts'
 import { sessionResolveOptions } from './session-cwd.ts'
@@ -122,7 +122,7 @@ export function formatEditOutput(displayPath: string, replaceAll: boolean): stri
 export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void {
   ctx.systemPrompt.section({
     name: 'tool:edit',
-    order: 102,
+    order: FIRST_PARTY_SECTION_ORDER.TOOL_EDIT,
     text: 'Use the edit tool for targeted changes to existing UTF-8 text files. It replaces literal old_string with new_string; by default old_string must appear exactly once. If old_string appears multiple times, provide a more specific old_string or set replace_all to true. Read the file first (the default fs-observation-policy requires it), unless you just created or edited it in this session.',
   })
 
@@ -192,8 +192,6 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
         // 模型侧补救；其它错误穿透。
         throw remediateFsError(sandbox.mapError(error, sandboxPolicy))
       }
-      // Record the present observation (a no-op when no policy plugin listens).
-      // 中文说明：记录 present 观察（没有策略插件监听时是空操作）。
       ctx.emit('fs/observed', target, { kind: 'present', version: outcome.version }, exec)
       return {
         path: target.displayPath,

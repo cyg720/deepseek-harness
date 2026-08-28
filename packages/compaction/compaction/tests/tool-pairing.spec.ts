@@ -7,7 +7,7 @@
  * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
  */
 import { describe, expect, it } from 'vitest'
-import { createUserMessage, CallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import { toolPairingBalancedAfter, toolPairingBalancedBefore } from '@deepseek-ai/dsh-compaction'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -51,7 +51,7 @@ function closedToolStep(): Session {
     step: 1,
     message: createMessage({
       role: 'assistant',
-      content: [{ type: 'tool-call', id: CallId('c1'), name: 'bash', arguments: '{}' }],
+      content: [{ type: 'tool-call', id: ToolCallId('c1'), name: 'bash', arguments: '{}' }],
       source: {
         kind: 'model',
         ...{ provider: 'mock', model: 'mock' },
@@ -62,7 +62,7 @@ function closedToolStep(): Session {
     turn: 1,
     step: 1,
     message: createToolResultMessage({
-      callId: CallId('c1'),
+      callId: ToolCallId('c1'),
       content: [{ type: 'text', text: 'done' }],
       isError: false,
     }),
@@ -88,7 +88,7 @@ describe('tool-pairing boundaries', () => {
       step: 1,
       message: createMessage({
         role: 'assistant',
-        content: [{ type: 'tool-call', id: CallId('open'), name: 'bash', arguments: '{}' }],
+        content: [{ type: 'tool-call', id: ToolCallId('open'), name: 'bash', arguments: '{}' }],
         source: {
           kind: 'model',
           ...{ provider: 'mock', model: 'mock' },
@@ -107,8 +107,8 @@ describe('tool-pairing boundaries', () => {
       message: createMessage({
         role: 'assistant',
         content: [
-          { type: 'tool-call', id: CallId('c1'), name: 'one', arguments: '{}' },
-          { type: 'tool-call', id: CallId('c2'), name: 'two', arguments: '{}' },
+          { type: 'tool-call', id: ToolCallId('c1'), name: 'one', arguments: '{}' },
+          { type: 'tool-call', id: ToolCallId('c2'), name: 'two', arguments: '{}' },
         ],
         source: {
           kind: 'model',
@@ -119,7 +119,7 @@ describe('tool-pairing boundaries', () => {
     session.append('tool/result', {
       turn: 1, step: 1,
       message: createToolResultMessage({
-        callId: CallId('c1'),
+        callId: ToolCallId('c1'),
         content: [],
         isError: false,
       }),
@@ -127,7 +127,7 @@ describe('tool-pairing boundaries', () => {
     session.append('tool/result', {
       turn: 1, step: 1,
       message: createToolResultMessage({
-        callId: CallId('c2'),
+        callId: ToolCallId('c2'),
         content: [],
         isError: false,
       }),
@@ -145,7 +145,7 @@ describe('tool-pairing boundaries', () => {
       step: 1,
       message: createMessage({
         role: 'assistant',
-        content: [{ type: 'tool-call', id: CallId('c1'), name: 'bash', arguments: '{}' }],
+        content: [{ type: 'tool-call', id: ToolCallId('c1'), name: 'bash', arguments: '{}' }],
         source: {
           kind: 'model',
           ...{ provider: 'mock', model: 'mock' },
@@ -159,7 +159,7 @@ describe('tool-pairing boundaries', () => {
     midStep.append('tool/result', {
       turn: 1, step: 1,
       message: createToolResultMessage({
-        callId: CallId('c1'),
+        callId: ToolCallId('c1'),
         content: [],
         isError: false,
       }),
@@ -247,7 +247,7 @@ describe('tool-pairing cache refresh', () => {
           step: 1,
           message: createMessage({
             role: 'assistant',
-            content: [{ type: 'tool-call', id: CallId('c1'), name: 'one', arguments: '{}' }],
+            content: [{ type: 'tool-call', id: ToolCallId('c1'), name: 'one', arguments: '{}' }],
             source: {
               kind: 'model',
               ...{ provider: 'mock', model: 'mock' },
@@ -261,7 +261,7 @@ describe('tool-pairing cache refresh', () => {
         data: {
           turn: 1, step: 1,
           message: createToolResultMessage({
-            callId: CallId('c1'),
+            callId: ToolCallId('c1'),
             content: [],
             isError: false,
           }),
@@ -334,7 +334,7 @@ describe('tool-pairing cache refresh', () => {
           step: 1,
           message: createMessage({
             role: 'assistant',
-            content: [{ type: 'tool-call', id: CallId('c2'), name: 'two', arguments: '{}' }],
+            content: [{ type: 'tool-call', id: ToolCallId('c2'), name: 'two', arguments: '{}' }],
             source: {
               kind: 'model',
               ...{ provider: 'mock', model: 'mock' },
@@ -348,7 +348,7 @@ describe('tool-pairing cache refresh', () => {
         data: {
           turn: 2, step: 1,
           message: createToolResultMessage({
-            callId: CallId('c2'),
+            callId: ToolCallId('c2'),
             content: [],
             isError: false,
           }),
@@ -411,7 +411,7 @@ describe('tool-pairing corrupt surfaces', () => {
     session.append('tool/result', {
       turn: 1, step: 1,
       message: createToolResultMessage({
-        callId: CallId('orphan'),
+        callId: ToolCallId('orphan'),
         content: [],
         isError: false,
       }),
@@ -429,7 +429,7 @@ describe('tool-pairing corrupt surfaces', () => {
     session.append('tool/result', {
       turn: 1, step: 1,
       message: createToolResultMessage({
-        callId: CallId('orphan'),
+        callId: ToolCallId('orphan'),
         content: [],
         isError: false,
       }),

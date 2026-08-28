@@ -22,9 +22,7 @@ const ROOT = resolve(import.meta.dirname, '..')
 /** Shipped Cordis configuration these rules apply to. */
 /* 中文：本门禁覆盖的随产品发布 Cordis 配置 glob。 */
 const SHIPPED_CONFIG_GLOBS = [
-  'apps/*/config/*.yml',
-  'examples/*/*.cordis.yml',
-  'examples/*/cordis.yml',
+  'apps/*/config/**/*.yml',
   // Bundle identity comes from the package manifest, not the domain directory.
   // 中文：bundle 身份来自包清单而不是上级领域目录，因此使用两级包 glob。
   'packages/*/*/cordis.patch.yml',

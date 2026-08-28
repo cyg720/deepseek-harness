@@ -23,14 +23,14 @@ import type {
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { NormalizationPolicy } from './normalization.ts'
 import { CompressionLimiter } from './compression-limiter.ts'
-import { commitPreparedImageFile, prepareImageFile, readImageFile, validateImageFile } from './store.ts'
+import { commitPreparedImageFile, normalizedImagePath, prepareImageFile, readImageFile, validateImageFile } from './store.ts'
 import { readRequestImageFile, requestImageVariantId } from './request-image.ts'
 
 export { canPassThroughNormalization, normalizeImage } from './normalization.ts'
 export type { NormalizedImage, NormalizationPolicy } from './normalization.ts'
 export { commitPreparedImageFile, prepareImageFile, readImageFile, saveImageFile, validateImageFile } from './store.ts'
 export type { PreparedImageFile } from './store.ts'
-export { readRequestImageFile, requestImageDimensions, requestImageVariantId } from './request-image.ts'
+export { readRequestImageFile, requestImageVariantId } from './request-image.ts'
 
 /** Default maximum encoded bytes for one submitted image; oversized sources are refused, not shrunk. */
 /* 单张来源图片默认最大编码字节数，超过20 MiB会在规范化前拒绝。 */
@@ -48,14 +48,16 @@ export const DEFAULT_MAX_IMAGE_PIXELS = 64_000_000
 /* 单张来源图片宽或高的默认最大像素数。 */
 export const DEFAULT_MAX_IMAGE_DIMENSION = 8192
 /**
- * Default long-edge target of the stored normalized image. A larger source
- * is admitted and downscaled to this edge, so admission bounds what rides
- * every later model request without refusing ordinary large sources.
+ * Default total-pixel budget of the stored normalized image. A larger source
+ * is admitted and downscaled proportionally, so admission bounds what rides
+ * every later model request without refusing ordinary large sources; extreme
+ * aspect ratios keep their short-edge resolution instead of collapsing under
+ * a long-edge rule.
  */
-/* 持久规范化图片的默认长边目标，较大来源会等比缩小至2048像素。 */
-export const DEFAULT_NORMALIZED_IMAGE_MAX_DIMENSION = 2048
-/** Default independent safety cap for one stored normalized image. */
-/* 单个持久规范化图片的独立默认编码字节上限，为4 MiB。 */
+export const DEFAULT_NORMALIZED_IMAGE_MAX_PIXELS = 2048 * 2048
+/** Default long-edge cap of the stored normalized image, applied after the total-pixel budget. */
+export const DEFAULT_NORMALIZED_IMAGE_MAX_DIMENSION = 8192
+/** Default encoded-byte target for one stored normalized image. */
 export const DEFAULT_NORMALIZED_IMAGE_MAX_BYTES = 4 * 1024 * 1024
 /** Conservative default number of simultaneous native image transformations per store. */
 /* 每个存储实例默认同时执行两个原生图片转换任务。 */
@@ -85,11 +87,14 @@ export interface Config {
   /** Maximum intrinsic width and maximum intrinsic height accepted for one submitted image. Default: 8192px. */
   /* 单张图片宽和高分别允许的最大像素数。 */
   maxImageDimension?: number
-  /** Long-edge pixel cap of the stored provider-independent normalized image. */
-  /* 持久规范化图片的长边像素上限。 */
+  /** Total-pixel budget of the stored provider-independent normalized image. */
+  normalizedImageMaxPixels?: number
+  /** Long-edge pixel cap of the stored provider-independent normalized image, applied after the total-pixel budget. */
   normalizedImageMaxDimension?: number
-  /** Encoded-byte safety cap of the stored provider-independent normalized image. */
-  /* 持久规范化图片的编码字节安全上限。 */
+  /**
+   * Encoded-byte target of the stored provider-independent normalized image;
+   * the smallest quality-ladder output is kept when no quality fits.
+   */
   normalizedImageMaxBytes?: number
   /** Maximum simultaneous normalization or request-image transformations in this service instance. */
   /* 当前服务实例同时执行规范化或请求图片转换的最大数量。 */
@@ -195,6 +200,7 @@ export class LocalAttachmentStore extends AttachmentStore {
     maxMessageImageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_MESSAGE_IMAGE_BYTES),
     maxImagePixels: z.number().step(1).min(1).default(DEFAULT_MAX_IMAGE_PIXELS),
     maxImageDimension: z.number().step(1).min(1).default(DEFAULT_MAX_IMAGE_DIMENSION),
+    normalizedImageMaxPixels: z.number().step(1).min(1).default(DEFAULT_NORMALIZED_IMAGE_MAX_PIXELS),
     normalizedImageMaxDimension: z.number().step(1).min(1).default(DEFAULT_NORMALIZED_IMAGE_MAX_DIMENSION),
     normalizedImageMaxBytes: z.number().step(1).min(1).default(DEFAULT_NORMALIZED_IMAGE_MAX_BYTES),
     imageCompressionConcurrency: z.number().step(1).min(1).max(MAX_IMAGE_COMPRESSION_CONCURRENCY)
@@ -235,6 +241,7 @@ export class LocalAttachmentStore extends AttachmentStore {
       mediaTypes: Object.freeze(['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const),
     })
     this.normalizationPolicy = Object.freeze({
+      maxPixels: config.normalizedImageMaxPixels ?? DEFAULT_NORMALIZED_IMAGE_MAX_PIXELS,
       maxDimension: config.normalizedImageMaxDimension ?? DEFAULT_NORMALIZED_IMAGE_MAX_DIMENSION,
       maxBytes: config.normalizedImageMaxBytes ?? DEFAULT_NORMALIZED_IMAGE_MAX_BYTES,
     })
@@ -283,7 +290,10 @@ export class LocalAttachmentStore extends AttachmentStore {
     return readImageFile(this.root, ref, signal)
   }
 
-  /** 按路由策略读取或生成模型请求所用图片版本。 */
+  override imageHostPath(ref: ImageAttachmentRef): string {
+    return normalizedImagePath(this.root, ref)
+  }
+
   override async readImageRequest(
     ref: ImageAttachmentRef,
     policy: ImageRequestPolicy,
@@ -311,13 +321,15 @@ export class LocalAttachmentStore extends AttachmentStore {
       operation = undefined
     }
     if (operation === undefined) {
-      // 首个调用者创建的受并发限制共享读取或转换任务。
-      const shared = new SharedRequest<RequestImageAttachment>(sharedSignal => this.compression.run(async () => readRequestImageFile(
-        this.root,
-        stored ?? await this.readImage(ref, sharedSignal),
-        policy,
-        sharedSignal,
-      )))
+      const shared = new SharedRequest<RequestImageAttachment>(sharedSignal => this.compression.run(async () => {
+        const request = await readRequestImageFile(
+          this.root,
+          stored ?? await this.readImage(ref, sharedSignal),
+          policy,
+          sharedSignal,
+        )
+        return request
+      }))
       operation = shared
       this.requestInflight.set(key, shared)
       void shared.promise.finally(() => {

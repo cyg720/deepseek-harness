@@ -8,12 +8,11 @@
  * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
  */
 import { describe, expect, it } from 'vitest'
-import type { CredentialView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { CredentialInfo } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ModelsSettingsState, ProviderRow } from '../src/client/store.ts'
 import { onboardingReadiness, providerUsable } from '../src/client/store.ts'
 
-/** 中文说明：测试局部值 missingCredential，由紧邻初始化决定。 */
-const missingCredential: CredentialView = { configured: false, writable: true }
+const missingCredential: CredentialInfo = { configured: false, writable: true }
 
 /** 中文说明：函数 row 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function row(overrides: Partial<ProviderRow> = {}): ProviderRow {

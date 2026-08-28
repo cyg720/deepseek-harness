@@ -1,19 +1,8 @@
-// SlotCore terminal-design behavior: the single register composition API —
-// a-priori 'root', children declaration/authorization, load-time validation,
-// one-axis lifecycle cascade, store scope pinning, subscription API.
-/**
- * 文件职责：验证界面插槽的 core.client.spec.ts 行为。
- * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
- * 产品维度：防止界面插槽显示、导航或生命周期回归。
- * 逻辑维度：构造状态，触发交互并断言输出和清理。
- * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
- * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
- */
 import { describe, expect, it, vi } from 'vitest'
 import type { SlotComponent, StoreHandle } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 
-// 'root' is NOT merged here: the runtime package owns the built-in row, and
+// 'root' is NOT merged here: ui-renderer owns the built-in row, and
 // the client aggregate program would see both merges collide.
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   /** 中文说明：类型或类 SlotMap 约束模块数据或组件职责。 */
@@ -33,8 +22,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** 中文说明：测试局部值 Comp，由紧邻初始化决定。 */
 const Comp: SlotComponent<object> = () => null
 
-/** A minimal structurally-valid store handle (identity is what the ledger tracks). */
-/* 中文说明：函数 fakeHandle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeHandle(): StoreHandle<{ n: number }, Record<string, (d: { n: number }) => void>> {
   return {
     spec: { init: () => ({ n: 0 }), actions: {} },
@@ -42,8 +29,6 @@ function fakeHandle(): StoreHandle<{ n: number }, Record<string, (d: { n: number
   }
 }
 
-/** Register a root-frame entry declaring the four test child slots. */
-/* 中文说明：函数 mountFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mountFrame(core: SlotCore) {
   return core.register({
     name: 'root',

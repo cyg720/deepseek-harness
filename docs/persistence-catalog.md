@@ -7,23 +7,18 @@ Every event type that can appear in a session's durable event log: the complete 
 
 This file is GENERATED from source (`scripts/gen-persistence-catalog.ts`) and verified fresh by `pnpm run verify-persistence-catalog` (part of `doc-sync`) — do not edit it by hand. Declaration blocks retain the source declaration and nested property JSDoc, removing only the indentation imposed by a containing interface/module, and use a `ts persistence-catalog` fence (skipped by doc-typecheck because declarations reference types from their owning modules). Type names in a payload link to the page that documents them. See [the persistence-log-catalog Agent Note](../.agents/notes/archived/process/2026-07-04-persistence-log-catalog.md).
 
-The envelope declarations below compose each event's `type`, monotonic `seq`, epoch-ms `time`, `data`, the optional `ignorable` unknown-type skip marker, and the conditional `surfaceOp`/`sourceEventSeqs` fields. **surface** marks a `SurfaceEventType` member: it produces an LLM message and declares how it joins the surface list. **log-only** marks everything else: a durable, replayable record with no derived-history contribution. Every payload is JSON-serializable (enforced at `Session.append`), and the whole format is pinned at `SESSION_FORMAT_VERSION = 0` — pre-release, no compatibility implied ([the version stance](subsystems/persistence.md)). Scope: the packages in this repo; a downstream plugin can merge further event types, which are outside this catalog by construction.
+The envelope declarations below compose each event's `type`, monotonic `seq`, epoch-ms `time`, `data`, and the conditional `surfaceOp`/`sourceEventSeqs` fields. **surface** marks a `SurfaceEventType` member: it produces an LLM message and declares how it joins the surface list. **log-only** marks everything else: a durable, replayable record with no derived-history contribution. Every payload is JSON-serializable (enforced at `Session.append`), and the whole format is pinned at `SESSION_FORMAT_VERSION = 0` — pre-release, no compatibility implied ([the version stance](subsystems/persistence.md)). Scope: the packages in this repo; a downstream plugin can merge further event types, which are outside this catalog by construction.
 
 ## Event envelope
 
 ```ts persistence-catalog
 /** The appendable event-type keys of {@link SessionEventMap}, plugin-merged extensions included. */
-/* {@link SessionEventMap} 全部可追加的事件类型键（含插件声明合并进来的扩展）。 */
 export type SessionEventType = keyof SessionEventMap
 
 /**
  * The subset of {@link SessionEventType} values whose events produce LLM
  * messages and are eligible to appear on the ordered surface. Only these
  * event types may carry {@link SurfaceOp} and {@link SessionEvent.sourceEventSeqs}.
- */
-/*
- * {@link SessionEventType} 中“会产生 LLM 消息、因而有资格进入有序表面”的那部分事件类型。
- * 也只有它们可以携带 {@link SurfaceOp} 与 {@link SessionEvent.sourceEventSeqs}。
  */
 export type SurfaceEventType =
   | 'user/message'
@@ -43,14 +38,6 @@ export type SurfaceEventType =
  *   shadowed surface node. Used by compaction; any surface-replacing producer
  *   may use it.
  */
-/*
- * 一个会话事件如何进入有序表面（仅对表面事件类型合法）：
- * - 'append'：追加到尾部——用户/助手/工具消息的正常路径；
- * - { op:'replace', start, end }：用本节点替换表面上 [start, end]（闭区间）内的既有节点，
- *   start 与 end 都必须已是当前表面上的节点；start === end 即替换单个节点；
- *   本事件的 {@link SessionEvent.sourceEventSeqs} 必须涵盖全部被遮蔽的表面节点。
- * compaction（历史压缩）使用它；任何产生表面替换的生产者也可使用。
- */
 export type SurfaceOp =
   | 'append'
   | { op: 'replace'; start: number; end: number }
@@ -68,42 +55,14 @@ export type SurfaceOp =
  * surface metadata — the compiler enforces this at `Session.append()`
  * call sites.
  */
-/*
- * 会话日志中的一条不可变条目。
- * 这是按 type 划分的正规判别联合（而非独立的 type/data 两个联合），
- * 因此 switch (event.type) 无需类型断言即可收窄 event.data。
- * {@link sourceEventSeqs} 与 {@link surfaceOp} 是条件字段：只存在于三类表面事件变体上；
- * 非表面事件（边界标记、chunk、usage、错误）永不携带表面元数据——编译器在
- * Session.append() 调用点强制这一点。
- */
 export type SessionEvent<T extends SessionEventType = SessionEventType> = {
   [K in SessionEventType]: {
     type: K
     /** Monotonic sequence number within the session. */
-    // 会话内单调递增的序号；恒等于追加时日志的长度。
     seq: number
     /** Unix epoch milliseconds. */
-    // Unix 纪元毫秒时间戳（事件写入时刻）。
     time: number
-    // 事件载荷，形状由 SessionEventMap 中该类型的成员决定。
     data: SessionEventMap[K]
-    /**
-     * Marks an event a reader may safely skip when it does not recognize
-     * `type`. Absent means required: a reader meeting an unrecognized type
-     * without this marker MUST refuse to reconstruct the session instead of
-     * silently dropping the event, because an unrecognized required event may
-     * change how the rest of the log is interpreted. A writer sets `true` only
-     * on purely informational records whose loss cannot affect reconstruction;
-     * defaulting to required means a forgotten marker over-refuses (an
-     * inconvenience) rather than silently resuming a gutted session.
-     */
-    /*
-     * 标记“读者不认识该 type 时可以安全跳过”。缺省即必需：读到不认识的必需事件必须拒绝重建会话，
-     * 而不是悄悄丢弃——因为不认识的必需事件可能改变日志其余部分的解读方式。写方只在纯资讯性记录上
-     * 设 true（丢失它不可能影响重建）。默认必需意味着漏写标记只会导致“过度拒绝”（麻烦一点），
-     * 而不是静默地续读一个被掏空的会话。
-     */
-    ignorable?: true
   } & (K extends SurfaceEventType ? {
     /**
      * Seq numbers of earlier events that this event cites as sources
@@ -113,20 +72,14 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * provider stream; when the field is absent, the event does not record which
      * earlier events produced the message.
      */
-    /*
-     * 本事件引用为来源的更早事件的 seq 集合（例如拼出 assistant/message 的那些
-     * assistant/chunk 的 seq，或被 compaction 替换节点遮蔽的表面节点）。
-     * assistant/message 可用显式空数组表示已知为空的提供方流；缺省则不记录来源。
-     */
     sourceEventSeqs?: number[]
     /** How this event entered the surface; absent for non-surface events. */
-    /* 本事件进入表面的方式；非表面事件缺省。 */
     surfaceOp?: SurfaceOp
   } : object)
 }[T]
 ```
 
-Sources: [`packages/core/session/src/types.ts:495`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:506`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:548`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:591`](../packages/core/session/src/types.ts)
+Sources: [`packages/core/session/src/types.ts:328`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:335`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:364`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
 
 ## Events
 
@@ -151,7 +104,7 @@ Sources: [`packages/core/session/src/types.ts:495`](../packages/core/session/src
 }
 ```
 
-Source: [`packages/core/agent/src/types.ts:31`](../packages/core/agent/src/types.ts)
+Source: [`packages/core/agent/src/types.ts:38`](../packages/core/agent/src/types.ts)
 
 ### `agent-preset/*`
 
@@ -166,11 +119,10 @@ Source: [`packages/core/agent/src/types.ts:31`](../packages/core/agent/src/types
  * under, so a resumed or forked session rebuilds the same one instead of
  * the header's creation-time value.
  */
-/* 会话仍为空白时选择的新预设，用于之后恢复相同的代理组合。 */
 'agent-preset/selected': { agentPreset: string }
 ```
 
-Source: [`packages/preset/agent-presets/src/session.ts:37`](../packages/preset/agent-presets/src/session.ts)
+Source: [`packages/preset/agent-presets/src/session.ts:28`](../packages/preset/agent-presets/src/session.ts)
 
 ### `approval/*`
 
@@ -190,14 +142,14 @@ Source: [`packages/preset/agent-presets/src/session.ts:37`](../packages/preset/a
 'approval/asked': {
   id: ApprovalRequestId
   toolName: string
-  callId?: CallId
+  callId?: ToolCallId
   reason?: string
 }
 ```
 
-Types: [CallId](subsystems/core.md)
+Types: [ToolCallId](subsystems/core.md)
 
-Source: [`packages/interaction/user-approval/src/index.ts:55`](../packages/interaction/user-approval/src/index.ts)
+Source: [`packages/interaction/user-approval/src/types.ts:44`](../packages/interaction/user-approval/src/types.ts)
 
 <a id="approvaldecided--log-only"></a>
 
@@ -215,7 +167,7 @@ Source: [`packages/interaction/user-approval/src/index.ts:55`](../packages/inter
 }
 ```
 
-Source: [`packages/interaction/user-approval/src/index.ts:66`](../packages/interaction/user-approval/src/index.ts)
+Source: [`packages/interaction/user-approval/src/types.ts:55`](../packages/interaction/user-approval/src/types.ts)
 
 <a id="approvalpolicy--log-only"></a>
 
@@ -237,7 +189,7 @@ Source: [`packages/interaction/user-approval/src/index.ts:66`](../packages/inter
 }
 ```
 
-Source: [`packages/interaction/user-approval/src/index.ts:78`](../packages/interaction/user-approval/src/index.ts)
+Source: [`packages/interaction/user-approval/src/index.ts:32`](../packages/interaction/user-approval/src/index.ts)
 
 ### `assistant/*`
 
@@ -247,13 +199,12 @@ Source: [`packages/interaction/user-approval/src/index.ts:78`](../packages/inter
 
 ```ts persistence-catalog
 /** Raw stream chunk — token-level replay fidelity. */
-/* 原始流块——保证 token 级重放保真的数据。 */
 'assistant/chunk': { turn: number; step: number; chunk: StreamChunk }
 ```
 
 Types: [StreamChunk](subsystems/llm-streaming.md)
 
-Source: [`packages/core/session/src/types.ts:395`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:251`](../packages/core/session/src/types.ts)
 
 <a id="assistantmessage--surface"></a>
 
@@ -270,19 +221,12 @@ Source: [`packages/core/session/src/types.ts:395`](../packages/core/session/src/
  * marker distinguishes that prefix without re-deriving interruption from turn
  * boundaries. An aborted turn with no such event streamed no visible content.
  */
-/*
- * 一步组装完成的 assistant 消息（派生历史使用它）。适配器报告了 token 统计
- * 就随事件携带 usage（没有单独的用量记录，输出与账目同行）。中途取消的轮次
- * 会把已送达的文本/推理前缀以此事件落盘并标 interrupted: true，未派发的
- * 工具调用不会出现——该标记无需从轮次边界重新推断中断。被中止的轮次若没有
- * 此事件，说明没有流出任何可见内容。
- */
 'assistant/message': { turn: number; step: number; message: AssistantMessage; usage?: TokenUsage; interrupted?: true }
 ```
 
 Types: [TokenUsage](subsystems/llm-streaming.md)
 
-Source: [`packages/core/session/src/types.ts:413`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:262`](../packages/core/session/src/types.ts)
 
 ### `command/*`
 
@@ -305,7 +249,7 @@ Source: [`packages/core/session/src/types.ts:413`](../packages/core/session/src/
 }
 ```
 
-Source: [`packages/interaction/commands/src/types.ts:125`](../packages/interaction/commands/src/types.ts)
+Source: [`packages/interaction/commands/src/types.ts:103`](../packages/interaction/commands/src/types.ts)
 
 <a id="commandrun--log-only"></a>
 
@@ -325,7 +269,7 @@ Source: [`packages/interaction/commands/src/types.ts:125`](../packages/interacti
 'command/run': { commandId: CommandId; name: string; args?: string; source: CommandSource }
 ```
 
-Source: [`packages/interaction/commands/src/types.ts:118`](../packages/interaction/commands/src/types.ts)
+Source: [`packages/interaction/commands/src/types.ts:96`](../packages/interaction/commands/src/types.ts)
 
 ### `compaction/*`
 
@@ -341,7 +285,7 @@ Source: [`packages/interaction/commands/src/types.ts:118`](../packages/interacti
 'compaction/end': { compactionId: CompactionId; sourceCommandId?: CommandId; turn: number | null; error?: string }
 ```
 
-Source: [`packages/compaction/compaction/src/types.ts:80`](../packages/compaction/compaction/src/types.ts)
+Source: [`packages/compaction/compaction/src/types.ts:71`](../packages/compaction/compaction/src/types.ts)
 
 <a id="compactionprune--log-only"></a>
 
@@ -367,7 +311,7 @@ Source: [`packages/compaction/compaction/src/types.ts:80`](../packages/compactio
 }
 ```
 
-Source: [`packages/compaction/compaction/src/types.ts:90`](../packages/compaction/compaction/src/types.ts)
+Source: [`packages/compaction/compaction/src/types.ts:81`](../packages/compaction/compaction/src/types.ts)
 
 <a id="compactionstart--log-only"></a>
 
@@ -382,7 +326,7 @@ Source: [`packages/compaction/compaction/src/types.ts:90`](../packages/compactio
 'compaction/start': { compactionId: CompactionId; sourceCommandId?: CommandId; turn: number | null }
 ```
 
-Source: [`packages/compaction/compaction/src/types.ts:32`](../packages/compaction/compaction/src/types.ts)
+Source: [`packages/compaction/compaction/src/types.ts:23`](../packages/compaction/compaction/src/types.ts)
 
 <a id="compactionsummary--log-only"></a>
 
@@ -436,7 +380,7 @@ Source: [`packages/compaction/compaction/src/types.ts:32`](../packages/compactio
 
 Types: [ContentBlock](subsystems/core.md) · [TokenUsage](subsystems/llm-streaming.md)
 
-Source: [`packages/compaction/compaction/src/types.ts:42`](../packages/compaction/compaction/src/types.ts)
+Source: [`packages/compaction/compaction/src/types.ts:33`](../packages/compaction/compaction/src/types.ts)
 
 ### `feedback/*`
 
@@ -452,7 +396,7 @@ Source: [`packages/compaction/compaction/src/types.ts:42`](../packages/compactio
 'feedback/record': { text: string }
 ```
 
-Source: [`packages/feedback/command-feedback/src/index.ts:77`](../packages/feedback/command-feedback/src/index.ts)
+Source: [`packages/feedback/command-feedback/src/index.ts:62`](../packages/feedback/command-feedback/src/index.ts)
 
 ### `goal/*`
 
@@ -467,7 +411,7 @@ Source: [`packages/feedback/command-feedback/src/index.ts:77`](../packages/feedb
 'goal/change': GoalChangeMeta
 ```
 
-Source: [`packages/goal/goal/src/domain.ts:81`](../packages/goal/goal/src/domain.ts)
+Source: [`packages/goal/goal/src/domain.ts:66`](../packages/goal/goal/src/domain.ts)
 
 ### `hook/*`
 
@@ -494,7 +438,7 @@ Source: [`packages/goal/goal/src/domain.ts:81`](../packages/goal/goal/src/domain
 }
 ```
 
-Source: [`packages/hooks/hook-protocol/src/types.ts:28`](../packages/hooks/hook-protocol/src/types.ts)
+Source: [`packages/hooks/hook-protocol/src/types.ts:19`](../packages/hooks/hook-protocol/src/types.ts)
 
 <a id="hookresult--log-only"></a>
 
@@ -517,7 +461,7 @@ Source: [`packages/hooks/hook-protocol/src/types.ts:28`](../packages/hooks/hook-
 }
 ```
 
-Source: [`packages/hooks/hook-protocol/src/types.ts:40`](../packages/hooks/hook-protocol/src/types.ts)
+Source: [`packages/hooks/hook-protocol/src/types.ts:31`](../packages/hooks/hook-protocol/src/types.ts)
 
 ### `llm/*`
 
@@ -527,11 +471,10 @@ Source: [`packages/hooks/hook-protocol/src/types.ts:40`](../packages/hooks/hook-
 
 ```ts persistence-catalog
 /** Durable, non-surface record of one provider-routed retry scheduled after a failed request attempt. */
-// 中文：一次请求尝试失败后、按 provider 路由调度重试的持久（非展示面）记录。
 'llm/retry': LlmRetryEventData
 ```
 
-Source: [`packages/llm/llm-retry/src/types.ts:27`](../packages/llm/llm-retry/src/types.ts)
+Source: [`packages/llm/llm-retry/src/types.ts:9`](../packages/llm/llm-retry/src/types.ts)
 
 <a id="llmretry-started--log-only"></a>
 
@@ -539,11 +482,26 @@ Source: [`packages/llm/llm-retry/src/types.ts:27`](../packages/llm/llm-retry/src
 
 ```ts persistence-catalog
 /** Durable transition written after a retry wait succeeds and before the next request attempt starts. */
-// 中文：重试等待成功、下一次请求尝试开始之前写入的持久转换记录。
 'llm/retry-started': LlmRetryStartedEventData
 ```
 
-Source: [`packages/llm/llm-retry/src/types.ts:30`](../packages/llm/llm-retry/src/types.ts)
+Source: [`packages/llm/llm-retry/src/types.ts:11`](../packages/llm/llm-retry/src/types.ts)
+
+### `model/*`
+
+<a id="modelselection--log-only"></a>
+
+#### `model/selection` — log-only
+
+```ts persistence-catalog
+/**
+ * Complete validated model selection requested for subsequent prompt
+ * assembly. Log-only: it never enters derived model history.
+ */
+'model/selection': ModelSelection
+```
+
+Source: [`packages/api/session-controller/src/types.ts:40`](../packages/api/session-controller/src/types.ts)
 
 ### `permission/*`
 
@@ -561,7 +519,7 @@ Source: [`packages/llm/llm-retry/src/types.ts:30`](../packages/llm/llm-retry/src
 'permission/preset': { preset: string }
 ```
 
-Source: [`packages/interaction/permission-presets/src/index.ts:60`](../packages/interaction/permission-presets/src/index.ts)
+Source: [`packages/interaction/permission-presets/src/index.ts:50`](../packages/interaction/permission-presets/src/index.ts)
 
 ### `plan/*`
 
@@ -578,7 +536,7 @@ Source: [`packages/interaction/permission-presets/src/index.ts:60`](../packages/
 'plan/mode': { active: boolean }
 ```
 
-Source: [`packages/plan/plan-mode/src/index.ts:62`](../packages/plan/plan-mode/src/index.ts)
+Source: [`packages/plan/plan-mode/src/index.ts:53`](../packages/plan/plan-mode/src/index.ts)
 
 ### `request/*`
 
@@ -591,11 +549,10 @@ Source: [`packages/plan/plan-mode/src/index.ts:62`](../packages/plan/plan-mode/s
  * Route metadata for the next request, logged only when the route or capacity
  * changes. It does not participate in request reconstruction or header equality.
  */
-/* 下一次请求的路由元数据；仅在路由或容量变化时记录。不参与请求重建，也不参与头部相等性比较。 */
 'request/context': RequestContext
 ```
 
-Source: [`packages/core/session/src/types.ts:460`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
 
 <a id="requestheader--log-only"></a>
 
@@ -606,11 +563,15 @@ Source: [`packages/core/session/src/types.ts:460`](../packages/core/session/src/
  * Full header for the next request, appended inside its step before dispatch.
  * It is log-only; the latest snapshot reconstructs the request header.
  */
-/* 下一次请求的完整头部，在其 step 内、派发之前追加。仅供日志使用；最新一份快照即重建结果。 */
-'request/header': { header: EpochHeader; reason: RequestHeaderReason }
+'request/header': {
+  header: EpochHeader
+  reason: RequestHeaderReason
+  /** A changed header also begins a distinct model-message series. */
+  startsSeries?: true
+}
 ```
 
-Source: [`packages/core/session/src/types.ts:454`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:291`](../packages/core/session/src/types.ts)
 
 ### `sandbox/*`
 
@@ -633,7 +594,7 @@ Source: [`packages/core/session/src/types.ts:454`](../packages/core/session/src/
 }
 ```
 
-Source: [`packages/sandbox/sandbox-policy/src/session-mode.ts:42`](../packages/sandbox/sandbox-policy/src/session-mode.ts)
+Source: [`packages/sandbox/sandbox-policy/src/session-mode.ts:33`](../packages/sandbox/sandbox-policy/src/session-mode.ts)
 
 ### `schedule/*`
 
@@ -651,7 +612,7 @@ Source: [`packages/sandbox/sandbox-policy/src/session-mode.ts:42`](../packages/s
 
 Types: [ScheduleChange](subsystems/schedule.md)
 
-Source: [`packages/schedule/schedule/src/types.ts:261`](../packages/schedule/schedule/src/types.ts)
+Source: [`packages/schedule/schedule/src/types.ts:219`](../packages/schedule/schedule/src/types.ts)
 
 ### `session/*`
 
@@ -682,17 +643,10 @@ Source: [`packages/schedule/schedule/src/types.ts:261`](../packages/schedule/sch
  * writers — a concurrently live session holds its own boundary elsewhere,
  * so tolerating concurrent writers needs a signal beyond the log.
  */
-/*
- * 标记构造种子的终点：它之前（seq 更小）的事件都来自种子（resume/fork/replay），
- * 本生命周期从未产生过它们。这是 Session.firstLiveSeq 在日志中的持久化投影，
- * 载荷为空——位置和时间本身就是含义。读取存储历史时应定位“最后一条”该事件：
- * 种子若已以其结尾则不再重复标注，避免每次打开未动过的会话都让日志增长。
- * 只有 Session 的构造函数有权写入此事件。
- */
 'session/end-seed': Record<string, never>
 ```
 
-Source: [`packages/core/session/src/types.ts:490`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:324`](../packages/core/session/src/types.ts)
 
 <a id="sessiontitle--log-only"></a>
 
@@ -708,7 +662,7 @@ Source: [`packages/core/session/src/types.ts:490`](../packages/core/session/src/
 
 Types: [SessionTitleEventData](subsystems/session-title.md)
 
-Source: [`packages/session/session-title/src/index.ts:125`](../packages/session/session-title/src/index.ts)
+Source: [`packages/session/session-title/src/index.ts:100`](../packages/session/session-title/src/index.ts)
 
 <a id="sessiontitle-llm-request--log-only"></a>
 
@@ -721,7 +675,25 @@ Source: [`packages/session/session-title/src/index.ts:125`](../packages/session/
 
 Types: [SessionTitleLlmRequestEventData](subsystems/session-title.md)
 
-Source: [`packages/session/session-title-llm/src/index.ts:62`](../packages/session/session-title-llm/src/index.ts)
+Source: [`packages/session/session-title-llm/src/index.ts:43`](../packages/session/session-title-llm/src/index.ts)
+
+### `session-log-deepseek/*`
+
+<a id="session-log-deepseekdelivery-accepted--log-only"></a>
+
+#### `session-log-deepseek/delivery-accepted` — log-only
+
+```ts persistence-catalog
+/** Records that the configured endpoint accepted one delivery through `throughSeq`. */
+'session-log-deepseek/delivery-accepted': {
+  /** Session identity the accepted delivery carried; inherited fork markers retain the parent's id. */
+  sessionId: import('@deepseek-ai/dsh-session/types').SessionId
+  /** Last canonical event included in the accepted request. */
+  throughSeq: number
+}
+```
+
+Source: [`packages/session/session-log-deepseek/src/types.ts:26`](../packages/session/session-log-deepseek/src/types.ts)
 
 ### `step/*`
 
@@ -731,11 +703,10 @@ Source: [`packages/session/session-title-llm/src/index.ts:62`](../packages/sessi
 
 ```ts persistence-catalog
 /** Closes step `step` of turn `turn`. */
-/* 关闭第 turn 轮的第 step 步。 */
 'step/end': { turn: number; step: number }
 ```
 
-Source: [`packages/core/session/src/types.ts:378`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:241`](../packages/core/session/src/types.ts)
 
 <a id="stepstart--log-only"></a>
 
@@ -743,11 +714,10 @@ Source: [`packages/core/session/src/types.ts:378`](../packages/core/session/src/
 
 ```ts persistence-catalog
 /** Opens step `step` of turn `turn` — one model call plus the tool executions it requested. */
-/* 打开第 turn 轮的第 step 步——一次模型调用加上它要求的全部工具执行。 */
 'step/start': { turn: number; step: number }
 ```
 
-Source: [`packages/core/session/src/types.ts:375`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:239`](../packages/core/session/src/types.ts)
 
 ### `subagent/*`
 
@@ -766,7 +736,26 @@ Source: [`packages/core/session/src/types.ts:375`](../packages/core/session/src/
 'subagent/descriptor': SubagentDescriptorData
 ```
 
-Source: [`packages/subagent/subagent/src/descriptor.ts:53`](../packages/subagent/subagent/src/descriptor.ts)
+Source: [`packages/subagent/subagent/src/descriptor.ts:38`](../packages/subagent/subagent/src/descriptor.ts)
+
+<a id="subagentmodel-selection-policy--log-only"></a>
+
+#### `subagent/model-selection-policy` — log-only
+
+```ts persistence-catalog
+/**
+ * Records that this session's delegation tool exposes child provider,
+ * model, and reasoning-effort selection. Appended before the first model
+ * request; absence means the fixed-route definition. Log-only: it carries
+ * no `surfaceOp` and never enters model history.
+ */
+'subagent/model-selection-policy': {
+  /** Exact routes this Session may select explicitly for a child. */
+  allowedModels: AllowedModelRoute[]
+}
+```
+
+Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:14`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
 
 ### `team/*`
 
@@ -781,7 +770,7 @@ Source: [`packages/subagent/subagent/src/descriptor.ts:53`](../packages/subagent
 
 Types: [TeamId](subsystems/agent-team.md) · [TeamMemberSnapshot](subsystems/agent-team.md)
 
-Source: [`packages/experimental/agent-team/src/types.ts:220`](../packages/experimental/agent-team/src/types.ts)
+Source: [`packages/experimental/agent-team/src/types.ts:223`](../packages/experimental/agent-team/src/types.ts)
 
 <a id="teammessagedelivered--log-only"></a>
 
@@ -799,7 +788,7 @@ Source: [`packages/experimental/agent-team/src/types.ts:220`](../packages/experi
 
 Types: [TeamId](subsystems/agent-team.md) · [TeamMessageId](subsystems/agent-team.md)
 
-Source: [`packages/experimental/agent-team/src/types.ts:226`](../packages/experimental/agent-team/src/types.ts)
+Source: [`packages/experimental/agent-team/src/types.ts:229`](../packages/experimental/agent-team/src/types.ts)
 
 <a id="teammessagequeued--log-only"></a>
 
@@ -812,7 +801,7 @@ Source: [`packages/experimental/agent-team/src/types.ts:226`](../packages/experi
 
 Types: [TeamId](subsystems/agent-team.md) · [TeamMessageSnapshot](subsystems/agent-team.md)
 
-Source: [`packages/experimental/agent-team/src/types.ts:224`](../packages/experimental/agent-team/src/types.ts)
+Source: [`packages/experimental/agent-team/src/types.ts:227`](../packages/experimental/agent-team/src/types.ts)
 
 <a id="teamtask--log-only"></a>
 
@@ -825,7 +814,7 @@ Source: [`packages/experimental/agent-team/src/types.ts:224`](../packages/experi
 
 Types: [TeamId](subsystems/agent-team.md) · [TeamTaskSnapshot](subsystems/agent-team.md)
 
-Source: [`packages/experimental/agent-team/src/types.ts:222`](../packages/experimental/agent-team/src/types.ts)
+Source: [`packages/experimental/agent-team/src/types.ts:225`](../packages/experimental/agent-team/src/types.ts)
 
 ### `todo/*`
 
@@ -835,13 +824,12 @@ Source: [`packages/experimental/agent-team/src/types.ts:222`](../packages/experi
 
 ```ts persistence-catalog
 /** Whole-list snapshot; latest write wins on replay. Log-only UI state; never derived history. */
-/* 整张待办清单的快照；重放时最新一次写入生效。只用于日志/UI 状态，绝不进入派生历史。 */
 'todo/write': { todos: TodoItem[] }
 ```
 
-Types: [TodoItem](subsystems/session.md)
+Types: [TodoItem](subsystems/todo.md)
 
-Source: [`packages/core/session/src/types.ts:448`](../packages/core/session/src/types.ts)
+Source: [`packages/todo/tool-todo/src/types.ts:31`](../packages/todo/tool-todo/src/types.ts)
 
 ### `tool/*`
 
@@ -855,13 +843,12 @@ Source: [`packages/core/session/src/types.ts:448`](../packages/core/session/src/
  * JSON string exactly as the model produced it (unparsed). `callId` pairs the
  * call with its `tool/result`.
  */
-/* 模型请求一次工具调用：name 加上模型原始产出的 arguments JSON 字符串（不解析）；callId 用于与对应的 tool/result 配对。 */
-'tool/call': { turn: number; step: number; callId: CallId; name: string; arguments: string }
+'tool/call': { turn: number; step: number; callId: ToolCallId; name: string; arguments: string }
 ```
 
-Types: [CallId](subsystems/core.md)
+Types: [ToolCallId](subsystems/core.md)
 
-Source: [`packages/core/session/src/types.ts:420`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:268`](../packages/core/session/src/types.ts)
 
 <a id="toolcode-dispatch--log-only"></a>
 
@@ -883,16 +870,10 @@ Source: [`packages/core/session/src/types.ts:420`](../packages/core/session/src/
  * before returning), so its execution-enclosure relation holds by
  * construction.
  */
-/*
- * 【中文】子调用落定事件：每个已开始的子调用恰好对应一条（中止亦然），按
- *   subCallId 与对应的开始事件配对。同样仅入日志——子调用结果不会重新进入
- *   模型上下文；它在父 `run_code` 执行内部被追加（桥接层在返回前排空所有在途
- *   分派），因此"落定发生在父调用执行区间内"这一封闭关系由构造保证。
- */
-'tool/code-dispatch': CodeDispatchEventData
+'tool/code-dispatch': PtcDispatchEventData
 ```
 
-Source: [`packages/core/tools/src/types.ts:94`](../packages/core/tools/src/types.ts)
+Source: [`packages/core/tools/src/types.ts:56`](../packages/core/tools/src/types.ts)
 
 <a id="toolcode-dispatch-start--log-only"></a>
 
@@ -912,16 +893,10 @@ Source: [`packages/core/tools/src/types.ts:94`](../packages/core/tools/src/types
  * with `tool/code-dispatch` by `subCallId` (timing = the two events'
  * `time` fields).
  */
-/*
- * 【中文】子调用开始事件：调度器真正启动该调用时才写入（提交时不算），
- *   因此它的出现意味着工具体流水线已进入；仅在队列里被放弃的调用不产生日志。
- *   仅入日志、不进入模型消息（deriveMessages 忽略它）；UI 用它展示逐子调用的
- *   运行中状态，并按 subCallId 与落定事件配对。
- */
-'tool/code-dispatch-start': CodeDispatchStartEventData
+'tool/code-dispatch-start': PtcDispatchStartEventData
 ```
 
-Source: [`packages/core/tools/src/types.ts:72`](../packages/core/tools/src/types.ts)
+Source: [`packages/core/tools/src/types.ts:40`](../packages/core/tools/src/types.ts)
 
 <a id="toolresult--surface"></a>
 
@@ -939,13 +914,6 @@ Source: [`packages/core/tools/src/types.ts:72`](../packages/core/tools/src/types
  * unless the tool attaches one (e.g. `dsh-tool-fs` carries its result-time
  * contextual diff here).
  */
-/*
- * 已完成工具调用的模型侧结果 message、可选的内部失败标识 error、可选的
- * 工具私有展示载荷 meta。meta 对核心不透明（由产生它的工具定义形状并在
- * presentResult 读回），但必须可 JSON 序列化——Session.append 会用
- * isJsonValue 校验，不可序列化的 meta 在源头就被拒绝，耐久日志重放时能
- * 还原出完全相同的卡片。
- */
 'tool/result': {
   turn: number
   step: number
@@ -955,7 +923,7 @@ Source: [`packages/core/tools/src/types.ts:72`](../packages/core/tools/src/types
 }
 ```
 
-Source: [`packages/core/session/src/types.ts:439`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:280`](../packages/core/session/src/types.ts)
 
 ### `tool-workflow/*`
 
@@ -968,11 +936,10 @@ Source: [`packages/core/session/src/types.ts:439`](../packages/core/session/src/
  * Records one member settlement.
  * @param data - run identity, paired member sequence, and outcome.
  */
-/* 中文：记录成员结算；data 包含运行标识、配对序号和结果。 */
 'tool-workflow/agent-end': ToolWorkflowAgentEndData
 ```
 
-Source: [`packages/workflow/tool-workflow/src/types.ts:83`](../packages/workflow/tool-workflow/src/types.ts)
+Source: [`packages/workflow/tool-workflow/src/types.ts:57`](../packages/workflow/tool-workflow/src/types.ts)
 
 <a id="tool-workflowagent-start--log-only"></a>
 
@@ -983,11 +950,10 @@ Source: [`packages/workflow/tool-workflow/src/types.ts:83`](../packages/workflow
  * Records one published workflow member.
  * @param data - run identity, member sequence, display identity, and child Session.
  */
-/* 中文：记录已发布成员；data 包含运行、序号、显示信息和子会话。 */
 'tool-workflow/agent-start': ToolWorkflowAgentStartData
 ```
 
-Source: [`packages/workflow/tool-workflow/src/types.ts:77`](../packages/workflow/tool-workflow/src/types.ts)
+Source: [`packages/workflow/tool-workflow/src/types.ts:52`](../packages/workflow/tool-workflow/src/types.ts)
 
 <a id="tool-workflowrun-end--log-only"></a>
 
@@ -998,11 +964,10 @@ Source: [`packages/workflow/tool-workflow/src/types.ts:77`](../packages/workflow
  * Closes one workflow record after cleanup.
  * @param data - stable run identity and terminal reason.
  */
-/* 中文：关闭工作流记录；data 包含运行标识和终止原因。 */
 'tool-workflow/run-end': ToolWorkflowRunEndData
 ```
 
-Source: [`packages/workflow/tool-workflow/src/types.ts:89`](../packages/workflow/tool-workflow/src/types.ts)
+Source: [`packages/workflow/tool-workflow/src/types.ts:62`](../packages/workflow/tool-workflow/src/types.ts)
 
 <a id="tool-workflowrun-start--log-only"></a>
 
@@ -1013,11 +978,10 @@ Source: [`packages/workflow/tool-workflow/src/types.ts:89`](../packages/workflow
  * Opens one top-level workflow record.
  * @param data - stable run identity and display name.
  */
-/* 中文：打开工作流记录；data 包含运行标识和显示名称。 */
 'tool-workflow/run-start': ToolWorkflowRunStartData
 ```
 
-Source: [`packages/workflow/tool-workflow/src/types.ts:71`](../packages/workflow/tool-workflow/src/types.ts)
+Source: [`packages/workflow/tool-workflow/src/types.ts:47`](../packages/workflow/tool-workflow/src/types.ts)
 
 ### `turn/*`
 
@@ -1034,13 +998,12 @@ Source: [`packages/workflow/tool-workflow/src/types.ts:71`](../packages/workflow
  * `whenIdle()` flush themselves. Success commits the turn; rejection is
  * reported live and does not prevent later work.
  */
-/* 以结束原因关闭第 turn 个轮次；没有进入过 step 的轮次就没有 step/start 与 step/end。轮边界处循环不等待落盘：由 checkpoint-policy 插件负责每请求的持久化检查点，读完存储的消费者自行冲刷。 */
 'turn/end': { turn: number; reason: TurnEndReason }
 ```
 
 Types: [TurnEndReason](subsystems/session.md)
 
-Source: [`packages/core/session/src/types.ts:372`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:237`](../packages/core/session/src/types.ts)
 
 <a id="turnstart--log-only"></a>
 
@@ -1053,11 +1016,10 @@ Source: [`packages/core/session/src/types.ts:372`](../packages/core/session/src/
  * step; otherwise the following identified `user/message` event or batch
  * records the messages entering the step.
  */
-/* 在循环认领排队输入或执行前置步骤之前，打开第 turn 个轮次；被拒绝、空输入、取消或失败都可能让该轮没有任何 step 就关闭。 */
 'turn/start': { turn: number }
 ```
 
-Source: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:228`](../packages/core/session/src/types.ts)
 
 ### `user/*`
 
@@ -1073,16 +1035,10 @@ Source: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/
  * notifications, …), or an entered goal continuation round. All three
  * project their `content` verbatim; `source` tells them apart.
  */
-/*
- * 模型可见表面上的一条 user 角色消息：可能是人类直接输入（本轮认领的排队
- * 消息）、agent.inject() 注入的合成上下文（文件变更通知、子目录 AGENTS.md、
- * 技能内容、定时通知等）、或目标延续回合。三者都原样投影 content，用
- * source 区分来源。
- */
 'user/message': UserMessage
 ```
 
-Source: [`packages/core/session/src/types.ts:392`](../packages/core/session/src/types.ts)
+Source: [`packages/core/session/src/types.ts:249`](../packages/core/session/src/types.ts)
 
 ### `web/*`
 
@@ -1092,8 +1048,7 @@ Source: [`packages/core/session/src/types.ts:392`](../packages/core/session/src/
 
 ```ts persistence-catalog
 /** Secret-free auxiliary DeepSeek search request recorded before dispatch. */
-// 派发前记录的、去密钥的 DeepSeek 辅助搜索请求。
 'web/deepseek-search-llm-request': DeepSeekSearchLlmRequest
 ```
 
-Source: [`packages/web/web-search-deepseek/src/provider.ts:115`](../packages/web/web-search-deepseek/src/provider.ts)
+Source: [`packages/web/web-search-deepseek/src/provider.ts:83`](../packages/web/web-search-deepseek/src/provider.ts)

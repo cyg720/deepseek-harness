@@ -2,9 +2,6 @@
  * Fresh-process ACP subagent client. Drives one child session and owns cancellation and
  * quiescent disposal.
  *
- * TODO(acp-subagent-replay): add snapshot-tier coverage with a separate replay fixture and
- * sessions root inside each child process. Current keyless coverage uses a scripted ACP child;
- * with-key coverage drives the real ACP example.
  * @module @deepseek-ai/dsh-subagent-acp/run
  */
 /*
@@ -19,29 +16,19 @@
 import { randomUUID } from 'node:crypto'
 import { Readable as NodeReadable, Writable as NodeWritable } from 'node:stream'
 import {
-  ClientSideConnection,
+  client as createAcpClientApp,
+  methods,
   ndJsonStream,
   PROTOCOL_VERSION,
-  /** 中文说明：type Agent 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
-  type Agent as AcpAgent,
-  /** 中文说明：type Client 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
-  type Client,
-  /** 中文说明：type ContentBlock 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
   type ContentBlock as AcpContentBlock,
-  /** 中文说明：type RequestPermissionRequest 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
-  type RequestPermissionRequest,
-  /** 中文说明：type RequestPermissionResponse 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
-  type RequestPermissionResponse,
-  /** 中文说明：type SessionNotification 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
-  type SessionNotification,
-  /** 中文说明：type StopReason 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
   type StopReason,
+  type ToolKind,
 } from '@agentclientprotocol/sdk'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { AssistantOutputFold } from '@deepseek-ai/dsh-subagent'
+import { AssistantOutputFold, settleRunResult, subprocessRunHandle } from '@deepseek-ai/dsh-subagent'
 import type { SubagentResult, SubagentRun, SubagentStartRequest, SubagentStopReason } from '@deepseek-ai/dsh-subagent'
-import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
+import type { SubprocessHandle, SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 
 /** Fixed response to child permission requests: reject by default, or select the first allow option. */
 /* 中文说明：type PermissionPolicy 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
@@ -80,9 +67,11 @@ export interface AcpRunSpec {
    */
   disposeEofGraceMs: number
   /**
-   * Termination-escalation grace (ms) in {@link SubagentRun.dispose}; POSIX
-   * waits this long after `SIGTERM` before `SIGKILL`, while Windows
-   * force-terminates directly. The plugin fills it from `disposeGraceMs`.
+   * Process-observation and termination-escalation grace (ms). Failure
+   * classification waits at most this long for structured exit facts; POSIX
+   * dispose also waits this long after `SIGTERM` before `SIGKILL`, while
+   * Windows force-terminates directly. The plugin fills it from
+   * `disposeGraceMs`.
    */
   disposeGraceMs: number
   /**
@@ -92,12 +81,9 @@ export interface AcpRunSpec {
    */
   spawn: (spec: SubprocessSpawnSpec) => SubprocessHandle
   /**
-   * Sink for a child-level failure that the run flattened into a stop reason
-   * (the seam contract forbids `result` rejecting). The driver calls this with
-   * the original error and the chosen stop reason so the fault is preserved
-   * rather than silently lost; the provider wires it to `ctx.logger.warn`.
-   * A throw from the sink itself is contained — it cannot reject `result`.
-   * Optional — omitted in a unit test that asserts the stop reason directly.
+   * Host sink for startup, published-run, or teardown failures. Model-visible
+   * text uses fixed safe facts, while this callback retains the original Error
+   * when one exists. A throw from the sink itself is contained.
    */
   onError?: (error: Error, stopReason: SubagentStopReason) => void
 }
@@ -109,6 +95,91 @@ export const DEFAULT_DISPOSE_EOF_GRACE_MS = 6_000
 /** Default POSIX grace between SIGTERM and SIGKILL on dispose (the `disposeGraceMs` config). */
 /* 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
+
+type AcpFailureStage = 'initialize' | 'new-session' | 'prompt' | 'process' | 'teardown'
+
+type AcpFailureCategory =
+  | 'protocol'
+  | 'configuration'
+  | 'transport'
+  | 'process-start'
+  | 'process-exit'
+  | 'remote-limit'
+  | 'unknown'
+
+interface AcpFailureFacts {
+  readonly stage: AcpFailureStage
+  readonly category: AcpFailureCategory
+  readonly stopReason?: StopReason | 'unknown'
+  readonly outcome?: SubprocessOutcome | undefined
+}
+
+interface AcpPermissionDecision {
+  readonly policy: PermissionPolicy
+  readonly request: ToolKind | 'unknown'
+  readonly decision: 'allowed' | 'denied'
+}
+
+const ACP_TOOL_KINDS: ReadonlySet<string> = new Set([
+  'read', 'edit', 'delete', 'move', 'search',
+  'execute', 'think', 'fetch', 'switch_mode', 'other',
+])
+
+/** Fixed safe failure text derived only from provider-owned structured facts. */
+function failureDiagnostic(facts: AcpFailureFacts): string {
+  const fields = [
+    'provider: ACP',
+    `stage: ${facts.stage}`,
+    `category: ${facts.category}`,
+  ]
+  if (facts.stopReason !== undefined) fields.push(`stop reason: ${facts.stopReason}`)
+  if (facts.outcome?.exitCode !== null && facts.outcome?.exitCode !== undefined) {
+    fields.push(`exit code: ${facts.outcome.exitCode}`)
+  }
+  /* v8 ignore next -- Windows does not report POSIX child signals in SubprocessOutcome. */
+  if (facts.outcome?.signal !== null && facts.outcome?.signal !== undefined) {
+    fields.push(`signal: ${facts.outcome.signal}`)
+  }
+  return `Subagent failure (${fields.join('; ')})`
+}
+
+/** Fixed permission fact; ACP tool titles and option text never enter it. */
+function permissionDiagnostic(permission: AcpPermissionDecision): string {
+  return `ACP unattended decision (policy: ${permission.policy}; request: ${permission.request}; decision: ${permission.decision})`
+}
+
+/** Put the operation failure first, followed by the latest permission decision. */
+function diagnosticText(facts: AcpFailureFacts, permission?: AcpPermissionDecision): string {
+  const failure = failureDiagnostic(facts)
+  return permission === undefined ? failure : `${failure}\n${permissionDiagnostic(permission)}`
+}
+
+class AcpRunFailure extends Error {
+  constructor(facts: AcpFailureFacts, cause: unknown) {
+    super(
+      `subagent-acp: ${failureDiagnostic(facts)}`,
+      { cause },
+    )
+    this.name = 'AcpRunFailure'
+  }
+}
+
+/**
+ * Hide a pre-spawn workspace/configuration failure behind fixed safe facts.
+ * @param cause - original Host failure retained on the Error cause chain.
+ * @returns an Error whose message contains only the fixed ACP failure line.
+ */
+export function acpConfigurationFailure(cause: unknown): Error {
+  return new AcpRunFailure({ stage: 'initialize', category: 'configuration' }, cause)
+}
+
+/** Keep only the closed ACP tool-kind vocabulary; future values use a fixed fallback. */
+function permissionRequestKind(kind: ToolKind | null | undefined): ToolKind | 'unknown' {
+  const candidate = kind ?? 'unknown'
+  return ACP_TOOL_KINDS.has(candidate)
+    ? candidate
+    : 'unknown'
+}
 
 /** Bounded whole-tree exit wait: polls the handle's tree liveness until it exits or `ms` elapses. */
 /* 中文说明：函数 treeExitsWithin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
@@ -232,10 +303,66 @@ function toError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value))
 }
 
+/** Report an original Host failure without letting the observation sink replace it. */
+function reportFailure(spec: AcpRunSpec, error: unknown): void {
+  try {
+    spec.onError?.(toError(error), 'error')
+  } catch {
+    // Host diagnostic logging cannot replace the child failure.
+  }
+}
+
+/** Classify an unpublished failure from the active protocol operation and observed process facts. */
+function startupFailure(
+  error: unknown,
+  stage: Extract<AcpFailureStage, 'initialize' | 'new-session'>,
+  child: SubprocessHandle,
+  outcome: SubprocessOutcome | undefined,
+): AcpRunFailure {
+  if (child.pid <= 0) {
+    return new AcpRunFailure({ stage: 'process', category: 'process-start' }, error)
+  }
+  return new AcpRunFailure(
+    /* v8 ignore next -- Windows anonymous pipes cannot expose a live-child protocol close during startup. */
+    outcome === undefined
+      ? { stage, category: 'transport' }
+      : { stage, category: 'process-exit', outcome },
+    error,
+  )
+}
+
+/** Map one remote terminal reason to the optional safe failure line it needs. */
+function terminalFailure(
+  reason: StopReason,
+  permission: AcpPermissionDecision | undefined,
+): string | undefined {
+  switch (reason) {
+    case 'end_turn':
+      return undefined
+    case 'max_turn_requests':
+      return diagnosticText({
+        stage: 'prompt',
+        category: 'remote-limit',
+        stopReason: 'max_turn_requests',
+      }, permission)
+    case 'max_tokens':
+    case 'refusal':
+    case 'cancelled':
+      return permission === undefined
+        ? undefined
+        : permissionDiagnostic(permission)
+    default:
+      return diagnosticText({ stage: 'prompt', category: 'unknown', stopReason: 'unknown' }, permission)
+  }
+}
+
 /**
  * Start and publish one ACP child after initialization and session creation.
- * Child failures resolve through the run result; startup failures reject after
- * process reap. Disposal cancels, kills, and reaps the child.
+ * Child failures resolve through the run result. Startup rejects with fixed
+ * safe facts after provider-owned cleanup; successful cleanup proves process
+ * reap. Cleanup failure preserves startup plus teardown facts for an ordinary
+ * failure, or teardown alone after cancellation, without claiming quiescence.
+ * Disposal cancels, kills, and reaps the child.
  * @param request - the start request; its signal is the cancellation channel.
  * @param spec - the resolved spawn spec: command/args/cwd, env, permission
  * policy, dispose graces, and the optional error sink.
@@ -258,30 +385,61 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
   // Keep diagnostics on parent stderr ('inherit'); only ACP output contributes
   // to the result. The seam's scrub drops ambient credentials and DSH_* names
   // while spec.env (the child's own key, its deployment facts) merges after it.
-  /** 中文说明：变量 child 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const child = spec.spawn({
-    argv: [spec.command, ...spec.args],
-    cwd: spec.cwd,
-    stdio: { stdin: 'pipe', stdout: 'pipe', stderr: 'inherit' },
-    graceMs: spec.disposeGraceMs,
-    env: spec.env,
-  })
+  let child: SubprocessHandle
+  try {
+    child = spec.spawn({
+      argv: [spec.command, ...spec.args],
+      cwd: spec.cwd,
+      stdio: { stdin: 'pipe', stdout: 'pipe', stderr: 'inherit' },
+      graceMs: spec.disposeGraceMs,
+      env: spec.env,
+    })
+  } catch (error: unknown) {
+    reportFailure(spec, error)
+    throw new AcpRunFailure({ stage: 'process', category: 'process-start' }, error)
+  }
   /* v8 ignore start -- 'pipe' dispositions expose both streams by the seam contract; defensive. */
   if (child.stdin === undefined || child.stdout === undefined) {
     throw new Error('subagent-acp: subprocess implementation dropped a piped protocol stream')
   }
   /* v8 ignore stop */
+  let processOutcome: SubprocessOutcome | undefined
+  const processDone = child.done.then((outcome) => {
+    processOutcome = outcome
+    return outcome
+  })
+
   // Spawn-level failure surfaces as `done` rejecting into the startup race; a
   // clean exit must never win it, so the success arm parks forever. (The ACP
   // connection observing its streams closing bounds a child that exits
   // without speaking the protocol.)
-  /** 中文说明：变量 spawnFailed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const spawnFailed: Promise<never> = child.done.then(
+  const spawnFailed: Promise<never> = processDone.then(
     /* v8 ignore next -- the success arm's never-settling executor is intentionally empty. */
     () => new Promise<never>(() => {}),
     (err: unknown) => Promise.reject(toError(err)),
   )
   spawnFailed.catch(() => { /* observed by the startup race; never unhandled */ })
+
+  const observeProcessOutcome = async (signal?: AbortSignal): Promise<SubprocessOutcome | undefined> => {
+    if (processOutcome !== undefined || child.pid <= 0) return processOutcome
+    const timeout = AbortSignal.timeout(Math.ceil(spec.disposeGraceMs))
+    const bound = signal === undefined ? timeout : AbortSignal.any([signal, timeout])
+    const aborted = Promise.withResolvers<undefined>()
+    /* v8 ignore next -- Windows cannot expose the live-child protocol close needed to await this abort. */
+    const onObservationAbort = (): void => { aborted.resolve(undefined) }
+    bound.addEventListener('abort', onObservationAbort, { once: true })
+    /* v8 ignore next -- closes the event-loop race between listener registration and the preceding derived-signal check. */
+    if (bound.aborted) onObservationAbort()
+    try {
+      return await Promise.race([processDone, aborted.promise])
+    } catch {
+      // The active protocol failure remains authoritative when exit observation fails.
+      /* v8 ignore next -- a published child.done cannot reject; spawn rejection is consumed before publication. */
+      return processOutcome
+    } finally {
+      bound.removeEventListener('abort', onObservationAbort)
+    }
+  }
 
   // Startup rollback and the published handle share one process teardown.
   /** 中文说明：变量 processDisposal 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -296,11 +454,10 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
   // Shared mutable state keeps cancellation visible across async closures.
   /** 中文说明：变量 flags 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const flags = { cancelled: false }
+  let latestPermission: AcpPermissionDecision | undefined
 
-  /** 中文说明：函数值 makeClient 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
-  const makeClient = (_agent: AcpAgent): Client => ({
-    sessionUpdate(params: SessionNotification): Promise<void> {
-      /** 中文说明：变量 update 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  const clientApp = createAcpClientApp({ name: 'deepseek-harness-subagent-acp' })
+    .onNotification(methods.client.session.update, ({ params }) => {
       const update = params.update
       if (update.sessionUpdate === 'agent_message_chunk') {
         fold.pushText(acpContentText(update.content))
@@ -308,8 +465,8 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
       // Other updates (thoughts, tool calls, plans) are consumed but not
       // surfaced — the subagent returns only its final answer.
       return Promise.resolve()
-    },
-    requestPermission(params: RequestPermissionRequest): Promise<RequestPermissionResponse> {
+    })
+    .onRequest(methods.client.session.requestPermission, ({ params }) => {
       // Auto-answer by the configured policy. `allow` selects the first option
       // whose kind is `allow_once` or `allow_always`; if the child offered none (or we
       // reject), answer `cancelled` so the child does not proceed.
@@ -317,24 +474,31 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
         /** 中文说明：函数值 allow 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const allow = params.options.find(o => o.kind === 'allow_once' || o.kind === 'allow_always')
         if (allow !== undefined) {
+          latestPermission = {
+            policy: 'allow',
+            request: permissionRequestKind(params.toolCall.kind),
+            decision: 'allowed',
+          }
           return Promise.resolve({ outcome: { outcome: 'selected', optionId: allow.optionId } })
         }
       }
+      latestPermission = {
+        policy: spec.permission,
+        request: permissionRequestKind(params.toolCall.kind),
+        decision: 'denied',
+      }
       return Promise.resolve({ outcome: { outcome: 'cancelled' } })
-    },
-  })
+    })
 
-  /** 中文说明：变量 conn 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const conn = new ClientSideConnection(
-    makeClient,
-    ndJsonStream(
-      NodeWritable.toWeb(child.stdin) as WritableStream<Uint8Array>,
-      NodeReadable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
-    ),
-  )
+  const connection = clientApp.connect(ndJsonStream(
+    NodeWritable.toWeb(child.stdin) as WritableStream<Uint8Array>,
+    NodeReadable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
+  ))
+  const agent = connection.agent
 
   /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let sessionId: string | undefined
+  let startupStage: Extract<AcpFailureStage, 'initialize' | 'new-session'> = 'initialize'
   // Cancellation settles the result without waiting for a cooperative child.
   /** 中文说明：函数值 signalCancelSettled 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   let signalCancelSettled!: () => void
@@ -347,7 +511,9 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
     signalCancelSettled()
     // Best-effort ACP cancel; process teardown remains authoritative.
     /* v8 ignore next */
-    if (sessionId !== undefined) void conn.cancel({ sessionId }).catch(() => { /* child gone / no session */ })
+    if (sessionId !== undefined) {
+      void agent.notify(methods.agent.session.cancel, { sessionId }).catch(() => { /* child gone / no session */ })
+    }
   }
   /** 中文说明：函数值 onAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const onAbort = (): void => { requestCancel() }
@@ -362,18 +528,23 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
   try {
     await Promise.race([
       (async (): Promise<void> => {
-        await conn.initialize({
+        await agent.request(methods.agent.initialize, {
           protocolVersion: PROTOCOL_VERSION,
           // Advertise NO optional client capabilities (no fs, no terminal): the
           // child self-serves in its own process.
           clientCapabilities: {},
         })
-        /** 中文说明：变量 session 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-        const session = await conn.newSession({ cwd: spec.cwd, mcpServers: [] })
-        /** 中文说明：变量 returnedSessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+        startupStage = 'new-session'
+        const session = await agent.request(methods.agent.session.new, { cwd: spec.cwd, mcpServers: [] })
         const returnedSessionId: unknown = Reflect.get(session, 'sessionId')
-        if (typeof returnedSessionId !== 'string') throw new Error('ACP child published without a session id')
+        if (typeof returnedSessionId !== 'string') {
+          throw new AcpRunFailure(
+            { stage: 'new-session', category: 'protocol' },
+            new Error('ACP child published without a session id'),
+          )
+        }
         sessionId = returnedSessionId
+        /* v8 ignore next -- cancelSettled wins the startup race before this post-response guard can settle it. */
         if (flags.cancelled) throw new Error('subagent cancelled before the ACP session started')
       })(),
       spawnFailed,
@@ -381,9 +552,47 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
     ])
   } catch (error: unknown) {
     request.signal.removeEventListener('abort', onAbort)
-    await disposeProcess()
-    if (flags.cancelled) throw new Error('subagent request was aborted before the ACP child started')
-    throw toError(error)
+    const cancelledBeforeCleanup = flags.cancelled
+    // A child closing its protocol stream can precede whole-tree exit
+    // observation. Local cancellation does not need the discarded startup
+    // classification; other failures use the configured process grace.
+    const startup = cancelledBeforeCleanup
+      ? { kind: 'cancelled' } as const
+      : {
+        kind: 'failed',
+        failure: error instanceof AcpRunFailure
+          ? error
+          : startupFailure(error, startupStage, child, await observeProcessOutcome()),
+      } as const
+    if (startup.kind === 'cancelled') {
+      // Local cancellation owns the startup outcome; only cleanup failure is
+      // reported below when teardown itself rejects.
+    } else {
+      reportFailure(spec, error instanceof AcpRunFailure
+        ? error.cause
+        : error)
+    }
+    try {
+      await disposeProcess()
+    } catch (cleanupError: unknown) {
+      reportFailure(spec, cleanupError)
+      const cleanupFailure = new AcpRunFailure({
+        stage: 'teardown',
+        category: processOutcome === undefined ? 'unknown' : 'process-exit',
+        ...(processOutcome === undefined ? {} : { outcome: processOutcome }),
+      }, cleanupError)
+      if (startup.kind === 'cancelled') {
+        throw new AggregateError([cleanupFailure], cleanupFailure.message)
+      }
+      throw new AggregateError(
+        [startup.failure, cleanupFailure],
+        `${startup.failure.message}; ${cleanupFailure.message}`,
+      )
+    }
+    if (startup.kind === 'cancelled') {
+      throw new Error('subagent request was aborted before the ACP child started')
+    }
+    throw startup.failure
   }
   // The startup transaction validates the returned id before it can fulfill.
   // This assertion carries that cross-closure invariant into TypeScript.
@@ -392,52 +601,63 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
   /** 中文说明：变量 remoteSessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const remoteSessionId = sessionId
 
-  /** 中文说明：函数值 result 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
-  const result: Promise<SubagentResult> = (async (): Promise<SubagentResult> => {
-    try {
-      // Race the remote turn against local cancellation.
-      /** 中文说明：函数值 prompt 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
-      const prompt = async (): Promise<SubagentResult> => {
-        // The startup phase cannot fulfill without assigning the session id.
-        /** 中文说明：变量 promptResult 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-        const promptResult = await conn.prompt({ sessionId: remoteSessionId, prompt: toAcpPrompt(request.prompt) })
-        return { output: collectOutput(), stopReason: acpStopReason(promptResult.stopReason) }
-      }
-      return await Promise.race([
-        prompt(),
-        cancelSettled.then((): SubagentResult => ({ output: collectOutput(), stopReason: 'aborted' })),
-      ])
-    } catch (error: unknown) {
-      // Cover a process rejection already queued when cancellation arrives.
-      /* v8 ignore next */
-      if (flags.cancelled) return { output: collectOutput(), stopReason: 'aborted' }
-      // Flatten post-publication transport failures while preserving diagnostics.
+  let diagnostic: string | undefined
+  const result: Promise<SubagentResult> = settleRunResult({
+    attempt: async (): Promise<SubagentResult> => {
       try {
-        spec.onError?.(toError(error), 'error')
-      } catch {
-        // The diagnostic sink cannot reject the run result.
+        const promptResult = await Promise.race([
+          agent.request(methods.agent.session.prompt, {
+            sessionId: remoteSessionId,
+            prompt: toAcpPrompt(request.prompt),
+          }),
+          cancelSettled.then((): never => { throw new Error('subagent cancelled while the ACP prompt was running') }),
+        ])
+        const stopReason = acpStopReason(promptResult.stopReason)
+        diagnostic = terminalFailure(promptResult.stopReason, latestPermission)
+        return {
+          output: collectOutput(),
+          ...(diagnostic === undefined ? {} : { diagnostic }),
+          stopReason,
+        }
+      } catch (error: unknown) {
+        if (!flags.cancelled) {
+          const outcome = await observeProcessOutcome(request.signal)
+          /* v8 ignore next -- Windows anonymous pipes cannot expose a live-child prompt transport failure. */
+          const facts = outcome === undefined
+            ? { stage: 'prompt', category: 'transport' } as const
+            : { stage: 'process', category: 'process-exit', outcome } as const
+          diagnostic = diagnosticText(facts, latestPermission)
+        }
+        throw error
       }
-      return { output: collectOutput(), stopReason: 'error' }
-    } finally {
-      request.signal.removeEventListener('abort', onAbort)
-    }
-  })()
-
-  /** 中文说明：变量 disposal 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  let disposal: Promise<void> | undefined
-  return {
-    id,
-    localAgent: undefined,
-    result,
-    dispose(): Promise<void> {
-      if (disposal !== undefined) return disposal
-      request.signal.removeEventListener('abort', onAbort)
-      requestCancel()
-      // The shared platform-aware ladder awaits exit. ACP normally quiesces from
-      // stdin EOF, including the final flush, so this backend uses a wider EOF
-      // grace before process termination escalates.
-      disposal = disposeProcess()
-      return disposal
     },
-  }
+    collectOutput,
+    collectDiagnostic: () => diagnostic,
+    cancelled: () => flags.cancelled,
+    onError: spec.onError,
+    signal: request.signal,
+    onAbort,
+  })
+
+  return subprocessRunHandle({
+    id,
+    result,
+    signal: request.signal,
+    onAbort,
+    requestCancel,
+    teardown: async () => {
+      try {
+        // ACP normally quiesces from stdin EOF, including the final flush, so
+        // this backend uses a wider EOF grace before process termination.
+        await disposeProcess()
+      } catch (error: unknown) {
+        reportFailure(spec, error)
+        throw new AcpRunFailure({
+          stage: 'teardown',
+          category: processOutcome === undefined ? 'unknown' : 'process-exit',
+          ...(processOutcome === undefined ? {} : { outcome: processOutcome }),
+        }, error)
+      }
+    },
+  })
 }

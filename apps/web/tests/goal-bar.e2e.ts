@@ -1,5 +1,5 @@
 // Keyless assembled-browser coverage for the goal bar over the shipped Web
-// bundles and FixtureApiClient wire. The command creates a real projected
+// bundles and the fixture Connection RPC. The command creates a real projected
 // goal in the fixture session; the golden pins the active strip, while the
 // clear gesture proves the acknowledged tombstone leaves neither stale chrome
 // nor a duplicate-mutation error.
@@ -23,9 +23,7 @@ import {
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 本场景黄金文件目录。 */
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/goal-bar', import.meta.url))
-/** 活动目标条的 ARIA 快照。 */
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/goal-bar', import.meta.url))
 const ACTIVE_EXPECTED = join(SNAPSHOT_DIR, 'active.expected.md')
 /** 为夹具启用目标能力的附加配置。 */
 const OVERLAY = fileURLToPath(new URL('./goal-bar.overlay.yml', import.meta.url))
@@ -47,6 +45,8 @@ describe('web e2e: goal bar clear convergence', () => {
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
+    const login = await page.context().request.get(scaffold.authenticatedUrl, { maxRedirects: 0 })
+    expect(login.status()).toBe(303)
     await page.goto(`${scaffold.baseUrl}?fixture`, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   }, 120_000)
@@ -60,9 +60,7 @@ describe('web e2e: goal bar clear convergence', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-goal-bar-clear'))
     // Startup reuses the fixture workspace's blank session, keeping this
     // command independent of alpha's running replay and pending question.
-    // 启动复用夹具工作区的空白会话，使目标命令与 alpha 的回放和问题隔离。
-    /** fixture 空白会话的实时编辑器。 */
-    const input = page.getByPlaceholder('Describe what you want to build')
+    const input = page.locator('[data-composer-input][data-placeholder="Describe what you want to build... / commands, @ files or sessions"]')
     await input.waitFor({ timeout: 10_000 })
     await input.fill('/goal guard rapid clear clicks')
     await input.press('Enter')

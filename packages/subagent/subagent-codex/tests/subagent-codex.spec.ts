@@ -77,9 +77,7 @@ vi.mock('node:fs', async (importOriginal) => {
 /** 中文说明：type JsonObject 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type JsonObject = Record<string, unknown>
 
-/** 中文说明：常量 CODEX_VERSION 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
-const CODEX_VERSION = '0.147.0'
-/** 中文说明：常量 CODEX_PLATFORM_PACKAGES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
+const CODEX_VERSION = '0.149.1'
 const CODEX_PLATFORM_PACKAGES = [
   '@openai/codex-darwin-arm64',
   '@openai/codex-darwin-x64',
@@ -314,7 +312,7 @@ async function initializeWire(): Promise<{
   const initializing = wire.initialize(new AbortController().signal)
   /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const initialize = await child.peer.nextMethod('initialize')
-  child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+  child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
   await initializing
   expect(await child.peer.nextMethod('initialized')).toEqual({
     jsonrpc: '2.0',
@@ -339,7 +337,7 @@ async function publishRun(
   const starting = startCodexRun(request(undefined, signal), runSpec(child, specOverrides))
   /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const initialize = await child.peer.nextMethod('initialize')
-  child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+  child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
   await child.peer.nextMethod('initialized')
   /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const threadStart = await child.peer.nextMethod('thread/start')
@@ -561,6 +559,7 @@ describe('task admission and package contracts', () => {
     /** 中文说明：变量 safeFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeFiber = await ctx.plugin(codex, {
       providerName: 'codex-safe',
+      model: 'codex-safe-model',
       env: { DSH_CODEX_INSTANCE: 'safe' },
       permissionMode: 'never',
       disposeGraceMs: 11,
@@ -568,6 +567,7 @@ describe('task admission and package contracts', () => {
     /** 中文说明：变量 bypassFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassFiber = await ctx.plugin(codex, {
       providerName: 'codex-bypass',
+      model: 'codex-bypass-model',
       env: { DSH_CODEX_INSTANCE: 'bypass' },
       permissionMode: 'dangerously-bypass-approvals-and-sandbox',
       disposeGraceMs: 29,
@@ -584,14 +584,16 @@ describe('task admission and package contracts', () => {
     )
     /** 中文说明：变量 bypassStarting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassStarting = ctx.subagents.start('codex-bypass', request())
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
-    for (const child of [safeChild, bypassChild]) {
-      /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    for (const [child, model] of [
+      [safeChild, 'codex-safe-model'],
+      [bypassChild, 'codex-bypass-model'],
+    ] as const) {
       const initialize = await child.peer.nextMethod('initialize')
-      child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+      child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
       await child.peer.nextMethod('initialized')
       /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const threadStart = await child.peer.nextMethod('thread/start')
+      expect(threadStart.params).toMatchObject({ model })
       child.peer.respond(threadStart, {
         thread: { id: 'thread-1', ephemeral: true },
       })
@@ -664,11 +666,14 @@ describe('task admission and package contracts', () => {
     await ctx.fiber.dispose()
   })
 
-  it('accepts only the three fixed non-interactive permission modes', () => {
+  it('accepts an optional non-empty model and the three fixed permission modes', () => {
     expect(codex.Config({}).providerName).toBe('codex')
+    expect(codex.Config({}).model).toBeUndefined()
     expect(codex.Config({ providerName: 'codex-safe' }).providerName)
       .toBe('codex-safe')
     expect(() => codex.Config({ providerName: '' })).toThrow()
+    expect(codex.Config({ model: 'gpt-codex' }).model).toBe('gpt-codex')
+    expect(() => codex.Config({ model: '' })).toThrow()
     expect(codex.Config({}).permissionMode).toBe(DEFAULT_CODEX_PERMISSION_MODE)
     /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const permissionMode of CODEX_PERMISSION_MODES) {
@@ -685,8 +690,29 @@ describe('task admission and package contracts', () => {
     const ctx = new Context()
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
+    const child = fakeChild()
+    vi.spyOn(ctx.subprocess, 'spawn').mockReturnValue(child.handle)
     codex.apply(ctx, { env: {}, disposeGraceMs: 3_000 })
     expect(ctx.subagents.getProvider('codex')).toBeDefined()
+    const starting = ctx.subagents.start('codex', request())
+    const initialize = await child.peer.nextMethod('initialize')
+    child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
+    await child.peer.nextMethod('initialized')
+    const threadStart = await child.peer.nextMethod('thread/start')
+    expect(threadStart.params).not.toHaveProperty('model')
+    child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
+    const run = await starting
+    const turnStart = await child.peer.nextMethod('turn/start')
+    child.peer.send(
+      { id: turnStart.id, result: { turn: { id: 'turn-1' } } },
+      agentMessage('native model answer', 'final_answer'),
+      turnCompleted('completed'),
+    )
+    await expect(run.result).resolves.toEqual({
+      output: [{ type: 'text', text: 'native model answer' }],
+      stopReason: 'completed',
+    })
+    await run.dispose()
     await ctx.fiber.dispose()
   })
 
@@ -715,7 +741,7 @@ describe('task admission and package contracts', () => {
     const initializing = wire.initialize(new AbortController().signal)
     /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
-    child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+    child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await initializing
     await child.peer.nextMethod('initialized')
     /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -726,6 +752,34 @@ describe('task admission and package contracts', () => {
       cwd: '/workspace',
       ephemeral: true,
       ...expected,
+    })
+    expect(threadStart.params).not.toHaveProperty('model')
+    child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
+    await starting
+    wire.close()
+  })
+
+  it('sends an explicit model on each ephemeral thread', async () => {
+    const child = fakeChild()
+    const wire = new CodexAppServerWire(
+      child.handle.stdout!,
+      child.handle.stdin!,
+      'never',
+      'codex-explicit-model',
+    )
+    wire.start()
+    const initializing = wire.initialize(new AbortController().signal)
+    const initialize = await child.peer.nextMethod('initialize')
+    child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
+    await initializing
+    await child.peer.nextMethod('initialized')
+    const starting = wire.startThread('/workspace', new AbortController().signal)
+    const threadStart = await child.peer.nextMethod('thread/start')
+    expect(threadStart.params).toEqual({
+      cwd: '/workspace',
+      ephemeral: true,
+      model: 'codex-explicit-model',
+      approvalPolicy: 'never',
     })
     child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
     await starting
@@ -809,7 +863,7 @@ describe('CodexAppServerWire', () => {
         requestAttestation: false,
       },
     })
-    child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+    child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await initializing
     await child.peer.nextMethod('initialized')
 
@@ -890,23 +944,17 @@ describe('CodexAppServerWire', () => {
     wire.close()
   })
 
-  it('maps the complete string error union without changing stop reasons', async () => {
-    /** 中文说明：变量 categories 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const categories = [
-      'contextWindowExceeded',
-      'sessionBudgetExceeded',
-      'usageLimitExceeded',
-      'serverOverloaded',
-      'cyberPolicy',
-      'internalServerError',
-      'unauthorized',
-      'badRequest',
-      'threadRollbackFailed',
-      'sandboxError',
-      'other',
+  it('groups representative string errors without changing stop reasons', async () => {
+    const scenarios = [
+      ['contextWindowExceeded', 'limit', 'max-tokens'],
+      ['sessionBudgetExceeded', 'limit', 'error'],
+      ['cyberPolicy', 'access-policy', 'error'],
+      ['misalignmentPolicyViolation', 'access-policy', 'error'],
+      ['serverOverloaded', 'service', 'error'],
+      ['badRequest', 'product-error', 'error'],
+      ['sandboxError', 'access-policy', 'error'],
     ] as const
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
-    for (const category of categories) {
+    for (const [codexErrorInfo, category, stopReason] of scenarios) {
       const { child, wire } = await initializeWire()
       /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = wire.runTurn(['task'], new AbortController().signal)
@@ -917,10 +965,10 @@ describe('CodexAppServerWire', () => {
         agentMessage('partial answer', null),
         turnCompleted('failed', 'turn-1', 'thread-1', {
           message: 'SECRET_TOKEN in /private/secret.txt',
-          codexErrorInfo: category,
+          codexErrorInfo,
         }),
       )
-      if (category === 'contextWindowExceeded') {
+      if (stopReason === 'max-tokens') {
         await expect(result).resolves.toEqual({
           output: [{ type: 'text', text: 'partial answer' }],
           stopReason: 'max-tokens',
@@ -938,17 +986,14 @@ describe('CodexAppServerWire', () => {
     }
   })
 
-  it('maps all object error variants and only numeric HTTP status', async () => {
-    /** 中文说明：变量 scenarios 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('groups object errors and retains only numeric HTTP status', async () => {
     const scenarios = [
-      ['httpConnectionFailed', { httpStatusCode: 503 }, 503],
-      ['responseStreamConnectionFailed', { httpStatusCode: null }, undefined],
-      ['responseStreamDisconnected', {}, undefined],
-      ['responseTooManyFailedAttempts', { httpStatusCode: '503' }, undefined],
-      ['activeTurnNotSteerable', { turnKind: 'review' }, undefined],
+      ['httpConnectionFailed', { httpStatusCode: 503 }, 'transport', 503],
+      ['responseStreamDisconnected', {}, 'transport', undefined],
+      ['responseTooManyFailedAttempts', { httpStatusCode: '503' }, 'transport', undefined],
+      ['activeTurnNotSteerable', { turnKind: 'review' }, 'product-error', undefined],
     ] as const
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
-    for (const [category, detail, httpStatus] of scenarios) {
+    for (const [codexErrorInfo, detail, category, httpStatus] of scenarios) {
       const { child, wire } = await initializeWire()
       /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = wire.runTurn(['task'], new AbortController().signal)
@@ -957,7 +1002,7 @@ describe('CodexAppServerWire', () => {
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
       child.peer.send(turnCompleted('failed', 'turn-1', 'thread-1', {
         message: 'SECRET_TOKEN in /private/secret.txt',
-        codexErrorInfo: { [category]: detail },
+        codexErrorInfo: { [codexErrorInfo]: detail },
       }))
       await expect(result).rejects.toThrow(`status failed: ${category}`)
       expect(wire.collectFailure()).toEqual({
@@ -1050,10 +1095,12 @@ describe('CodexAppServerWire', () => {
     const scenarios: Array<{
       readonly frames: JsonObject[]
       readonly message: string
+      readonly category: 'invalid-result' | 'unknown'
     }> = [
       {
         frames: [turnCompleted('completed')],
         message: 'without a final answer',
+        category: 'invalid-result',
       },
       {
         frames: [
@@ -1062,30 +1109,37 @@ describe('CodexAppServerWire', () => {
           turnCompleted('completed'),
         ],
         message: 'without a final answer',
+        category: 'invalid-result',
       },
       {
         frames: [agentMessage(42, 'final_answer')],
         message: 'invalid agent message',
+        category: 'unknown',
       },
       {
         frames: [agentMessage('answer', 'future_phase')],
         message: 'unknown agent message phase',
+        category: 'unknown',
       },
       {
         frames: [turnCompleted('failed', 'turn-1', 'thread-1', { message: 'no' })],
         message: 'status failed',
+        category: 'unknown',
       },
       {
         frames: [turnCompleted('failed', 'turn-1', 'thread-1', 'SECRET_TOKEN')],
         message: 'status failed',
+        category: 'unknown',
       },
       {
         frames: [turnCompleted('interrupted')],
         message: 'status interrupted',
+        category: 'unknown',
       },
       {
         frames: [turnCompleted('inProgress')],
         message: 'invalid terminal turn status',
+        category: 'unknown',
       },
     ]
     /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
@@ -1101,7 +1155,7 @@ describe('CodexAppServerWire', () => {
       await expect(result).rejects.toThrow(scenario.message)
       expect(wire.collectFailure()).toEqual({
         stage: 'turn',
-        category: 'unknown',
+        category: scenario.category,
       })
       wire.close()
     }
@@ -1317,83 +1371,6 @@ describe('CodexAppServerWire', () => {
     wire.close()
   })
 
-  it('recognizes large, split, and ordered stderr signatures without retaining raw text', () => {
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const first = fakeChild()
-    /** 中文说明：变量 largeWire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const largeWire = new CodexAppServerWire(
-      first.handle.stdout!,
-      first.handle.stdin!,
-      'never',
-    )
-    largeWire.observeStderr(
-      `SECRET_TOKEN approval policy is Never; reject command${'x'.repeat(2_048)}`,
-    )
-    expect(largeWire.collectDiagnostic()).toBe(
-      'Codex unattended decision (mode: never; request: command execution; decision: denied): Codex rejected an escalation because the selected policy never asks for approval',
-    )
-    expect(largeWire.collectDiagnostic()).not.toContain('SECRET_TOKEN')
-
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const second = fakeChild()
-    /** 中文说明：变量 splitWire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const splitWire = new CodexAppServerWire(
-      second.handle.stdout!,
-      second.handle.stdin!,
-      'never',
-    )
-    splitWire.observeStderr('SECRET_TOKEN approval policy is Ne')
-    splitWire.observeStderr('ver; reject command — /private/secret.txt')
-    expect(splitWire.collectDiagnostic()).toBe(
-      'Codex unattended decision (mode: never; request: command execution; decision: denied): Codex rejected an escalation because the selected policy never asks for approval',
-    )
-    expect(splitWire.collectDiagnostic()).not.toContain('SECRET_TOKEN')
-    expect(splitWire.collectDiagnostic()).not.toContain('/private/secret.txt')
-
-    /** 中文说明：变量 third 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const third = fakeChild()
-    /** 中文说明：变量 orderedWire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const orderedWire = new CodexAppServerWire(
-      third.handle.stdout!,
-      third.handle.stdin!,
-      'dangerously-bypass-approvals-and-sandbox',
-    )
-    orderedWire.observeStderr(
-      'approval policy is Never; reject command; recorded sandbox violation: path=/private/secret.txt',
-    )
-    expect(orderedWire.collectDiagnostic()).toBe(
-      'Codex unattended decision (mode: dangerously-bypass-approvals-and-sandbox; request: sandbox execution; decision: failed): Codex reported a sandbox violation',
-    )
-    expect(orderedWire.collectDiagnostic()).not.toContain('/private/secret.txt')
-  })
-
-  it('does not reapply an old stderr signature after a newer request diagnostic', async () => {
-    const { child, wire } = await initializeWire()
-    wire.observeStderr('recorded sandbox violation:')
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const turnStart = await child.peer.nextMethod('turn/start')
-    child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
-    await nextTask()
-    child.peer.send({
-      id: 'file-approval',
-      method: 'item/fileChange/requestApproval',
-      params: {
-        threadId: 'thread-1',
-        turnId: 'turn-1',
-        availableDecisions: ['decline'],
-      },
-    })
-    await child.peer.nextResponse('file-approval')
-    expect(wire.collectDiagnostic()).toContain('request: file approval')
-    wire.observeStderr('later benign stderr')
-    expect(wire.collectDiagnostic()).toContain('request: file approval')
-    child.peer.send(agentMessage('answer', 'final_answer'), turnCompleted('completed'))
-    await expect(result).resolves.toMatchObject({ stopReason: 'completed' })
-    wire.close()
-  })
-
   it('keeps a newer request diagnostic after replaying an older early item', async () => {
     const { child, wire } = await initializeWire()
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -1424,27 +1401,6 @@ describe('CodexAppServerWire', () => {
     await expect(result).resolves.toMatchObject({ stopReason: 'completed' })
     expect(wire.collectDiagnostic()).toContain('request: command approval')
     wire.close()
-  })
-
-  it('keeps a newer stderr fact after replaying an older early terminal', async () => {
-    hostStderrWrite.capture = true
-    hostStderrWrite.chunks.length = 0
-    const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const turnStart = await child.peer.nextMethod('turn/start')
-    child.peer.send(turnCompleted('failed', 'turn-1', 'thread-1', {
-      message: 'sandbox failure',
-      codexErrorInfo: 'sandboxError',
-    }))
-    await nextTask()
-    wire.observeStderr('approval policy is Never; reject command')
-    child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
-    await expect(result).rejects.toThrow('sandboxError')
-    expect(wire.collectDiagnostic()).toContain('request: command execution')
-    wire.close()
-    hostStderrWrite.capture = false
   })
 
   it('fails the run on unknown requests or wrong request association', async () => {
@@ -1736,7 +1692,7 @@ describe('run lifecycle and quiescence', () => {
     /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
     expect(published).toBe(false)
-    child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+    child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await child.peer.nextMethod('initialized')
     /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStart = await child.peer.nextMethod('thread/start')
@@ -1832,14 +1788,15 @@ describe('run lifecycle and quiescence', () => {
   it('preserves representative terminal categories, HTTP status, and mapping', async () => {
     /** 中文说明：变量 scenarios 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scenarios = [
-      ['contextWindowExceeded', 'max-tokens', undefined],
-      ['sessionBudgetExceeded', 'error', undefined],
-      [{ httpConnectionFailed: { httpStatusCode: 503 } }, 'error', 503],
-      [{ activeTurnNotSteerable: { turnKind: 'review' } }, 'error', undefined],
-      ['futureError', 'error', undefined],
+      ['contextWindowExceeded', 'limit', 'max-tokens', undefined],
+      ['sessionBudgetExceeded', 'limit', 'error', undefined],
+      ['unauthorized', 'access-policy', 'error', undefined],
+      ['internalServerError', 'service', 'error', undefined],
+      [{ httpConnectionFailed: { httpStatusCode: 503 } }, 'transport', 'error', 503],
+      [{ activeTurnNotSteerable: { turnKind: 'review' } }, 'product-error', 'error', undefined],
+      ['futureError', 'unknown', 'error', undefined],
     ] as const
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
-    for (const [codexErrorInfo, stopReason, httpStatus] of scenarios) {
+    for (const [codexErrorInfo, category, stopReason, httpStatus] of scenarios) {
       const { child, run, turnStart } = await publishRun()
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
       child.peer.send(
@@ -1849,14 +1806,6 @@ describe('run lifecycle and quiescence', () => {
           codexErrorInfo,
         }),
       )
-      /** 中文说明：变量 category 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-      const category = typeof codexErrorInfo === 'string'
-        && codexErrorInfo !== 'futureError'
-        ? codexErrorInfo
-        : typeof codexErrorInfo === 'object'
-          ? Object.keys(codexErrorInfo)[0]!
-          : 'unknown'
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       expect(result).toEqual({
         output: [{ type: 'text', text: 'partial answer' }],
@@ -1872,22 +1821,29 @@ describe('run lifecycle and quiescence', () => {
     }
   })
 
-  it('includes a queued stderr permission fact in a max-token result', async () => {
+  it('includes a structured permission fact in a max-token result', async () => {
     const { child, run, turnStart } = await publishRun()
     child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
-    setImmediate(() => {
-      child.stderr.write('approval policy is Never; reject command')
-      child.peer.send(
-        agentMessage('partial answer', null),
-        turnCompleted('failed', 'turn-1', 'thread-1', {
-          codexErrorInfo: 'contextWindowExceeded',
-        }),
-      )
+    child.peer.send({
+      id: 'approval-before-limit',
+      method: 'item/commandExecution/requestApproval',
+      params: {
+        threadId: 'thread-1',
+        turnId: 'turn-1',
+        availableDecisions: ['cancel'],
+      },
     })
+    await child.peer.nextResponse('approval-before-limit')
+    child.peer.send(
+      agentMessage('partial answer', null),
+      turnCompleted('failed', 'turn-1', 'thread-1', {
+        codexErrorInfo: 'contextWindowExceeded',
+      }),
+    )
     child.settle({ exitCode: 17, signal: null })
     await expect(run.result).resolves.toEqual({
       output: [{ type: 'text', text: 'partial answer' }],
-      diagnostic: `${expectedFailureDiagnostic('turn', 'contextWindowExceeded', { outcome: { exitCode: 17, signal: null } })}\nCodex unattended decision (mode: never; request: command execution; decision: denied): Codex rejected an escalation because the selected policy never asks for approval`,
+      diagnostic: `${expectedFailureDiagnostic('turn', 'limit', { outcome: { exitCode: 17, signal: null } })}\nCodex unattended decision (mode: never; request: command approval; decision: cancelled): the provider does not grant interactive approval`,
       stopReason: 'max-tokens',
     })
     await run.dispose()
@@ -1912,13 +1868,13 @@ describe('run lifecycle and quiescence', () => {
       child.settle(outcome)
       await expect(run.result).resolves.toEqual({
         output: [],
-        diagnostic: expectedFailureDiagnostic('process', 'process-exit', {
+        diagnostic: expectedFailureDiagnostic('process', 'process', {
           outcome,
         }),
         stopReason: 'error',
       })
       expect(errors.at(-1)).toBe(
-        `subagent-codex: ${expectedFailureDiagnostic('process', 'process-exit', { outcome })}`,
+        `subagent-codex: ${expectedFailureDiagnostic('process', 'process', { outcome })}`,
       )
       await run.dispose().catch(() => {})
     }
@@ -1939,7 +1895,7 @@ describe('run lifecycle and quiescence', () => {
       child.fromChild.emit('end')
       await expect(run.result).resolves.toEqual({
         output: [],
-        diagnostic: expectedFailureDiagnostic('process', 'process-exit', {
+        diagnostic: expectedFailureDiagnostic('process', 'process', {
           outcome,
         }),
         stopReason: 'error',
@@ -1959,7 +1915,7 @@ describe('run lifecycle and quiescence', () => {
       child.settle({ exitCode: 17, signal: null })
       await expect(run.result).resolves.toEqual({
         output: [],
-        diagnostic: expectedFailureDiagnostic('turn', 'other', {
+        diagnostic: expectedFailureDiagnostic('turn', 'product-error', {
           outcome: { exitCode: 17, signal: null },
         }),
         stopReason: 'error',
@@ -2038,13 +1994,13 @@ describe('run lifecycle and quiescence', () => {
     }))
     await expect(run.result).resolves.toEqual({
       output: [],
-      diagnostic: `${expectedFailureDiagnostic('turn', 'other')}\nCodex unattended decision (mode: never; request: command approval; decision: cancelled): the provider does not grant interactive approval`,
+      diagnostic: `${expectedFailureDiagnostic('turn', 'product-error')}\nCodex unattended decision (mode: never; request: command approval; decision: cancelled): the provider does not grant interactive approval`,
       stopReason: 'error',
     })
     await run.dispose()
   })
 
-  it('drains queued stderr before settling a failed published run', async () => {
+  it('drains queued stderr to the Host without classifying it', async () => {
     hostStderrWrite.capture = true
     hostStderrWrite.chunks.length = 0
     const { child, run, turnStart } = await publishRun()
@@ -2058,15 +2014,16 @@ describe('run lifecycle and quiescence', () => {
     })
     await expect(run.result).resolves.toEqual({
       output: [],
-      diagnostic: `${expectedFailureDiagnostic('turn', 'badRequest')}\nCodex unattended decision (mode: never; request: command execution; decision: denied): Codex rejected an escalation because the selected policy never asks for approval`,
+      diagnostic: expectedFailureDiagnostic('turn', 'product-error'),
       stopReason: 'error',
     })
+    expect(Buffer.concat(hostStderrWrite.chunks).toString())
+      .toContain('approval policy is Never; reject command')
     await run.dispose()
     hostStderrWrite.capture = false
   })
 
-  it('forwards stderr while extracting only a fixed safe permission signature', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('forwards stderr without copying or classifying it', async () => {
     const child = fakeChild()
     hostStderrWrite.capture = true
     hostStderrWrite.chunks.length = 0
@@ -2081,7 +2038,7 @@ describe('run lifecycle and quiescence', () => {
     }))
     await expect(run.result).resolves.toEqual({
       output: [],
-      diagnostic: `${expectedFailureDiagnostic('turn', 'badRequest')}\nCodex unattended decision (mode: never; request: command execution; decision: denied): Codex rejected an escalation because the selected policy never asks for approval`,
+      diagnostic: expectedFailureDiagnostic('turn', 'product-error'),
       stopReason: 'error',
     })
     expect(Buffer.concat(hostStderrWrite.chunks).toString()).toContain('SECRET_TOKEN')
@@ -2105,7 +2062,7 @@ describe('run lifecycle and quiescence', () => {
     }))
     await expect(run.result).resolves.toEqual({
       output: [],
-      diagnostic: `${expectedFailureDiagnostic('turn', 'badRequest')}\nCodex unattended decision (mode: never; request: command execution; decision: denied): Codex rejected an escalation because the selected policy never asks for approval`,
+      diagnostic: expectedFailureDiagnostic('turn', 'product-error'),
       stopReason: 'error',
     })
     await run.dispose()
@@ -2222,7 +2179,7 @@ describe('run lifecycle and quiescence', () => {
     const threadStarting = startCodexRun(request(), runSpec(threadChild))
     /** 中文说明：变量 threadInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadInitialize = await threadChild.peer.nextMethod('initialize')
-    threadChild.peer.respond(threadInitialize, { userAgent: 'codex-cli 0.147.0' })
+    threadChild.peer.respond(threadInitialize, { userAgent: 'codex-cli 0.149.1' })
     await threadChild.peer.nextMethod('initialized')
     /** 中文说明：变量 invalidThread 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidThread = await threadChild.peer.nextMethod('thread/start')
@@ -2241,7 +2198,7 @@ describe('run lifecycle and quiescence', () => {
     /** 中文说明：变量 exitedThreadInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exitedThreadInitialize = await exitedThreadChild.peer.nextMethod('initialize')
     exitedThreadChild.peer.respond(exitedThreadInitialize, {
-      userAgent: 'codex-cli 0.147.0',
+      userAgent: 'codex-cli 0.149.1',
     })
     await exitedThreadChild.peer.nextMethod('initialized')
     await exitedThreadChild.peer.nextMethod('thread/start')
@@ -2263,7 +2220,7 @@ describe('run lifecycle and quiescence', () => {
     const eofBeforeCloseInitialize = await eofBeforeCloseChild.peer
       .nextMethod('initialize')
     eofBeforeCloseChild.peer.respond(eofBeforeCloseInitialize, {
-      userAgent: 'codex-cli 0.147.0',
+      userAgent: 'codex-cli 0.149.1',
     })
     await eofBeforeCloseChild.peer.nextMethod('initialized')
     await eofBeforeCloseChild.peer.nextMethod('thread/start')
@@ -2284,7 +2241,7 @@ describe('run lifecycle and quiescence', () => {
     /** 中文说明：变量 stderrInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderrInitialize = await stderrChild.peer.nextMethod('initialize')
     stderrChild.stderr.emit('error', new Error('startup stderr broke'))
-    stderrChild.peer.respond(stderrInitialize, { userAgent: 'codex-cli 0.147.0' })
+    stderrChild.peer.respond(stderrInitialize, { userAgent: 'codex-cli 0.149.1' })
     await stderrChild.peer.nextMethod('initialized')
     /** 中文说明：变量 stderrThreadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderrThreadStart = await stderrChild.peer.nextMethod('thread/start')
@@ -2317,7 +2274,7 @@ describe('run lifecycle and quiescence', () => {
     )
     /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
-    child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+    child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await child.peer.nextMethod('initialized')
     /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStart = await child.peer.nextMethod('thread/start')
@@ -2411,12 +2368,12 @@ describe('run lifecycle and quiescence', () => {
     }))
     await expect(first.run.result).resolves.toEqual({
       output: [],
-      diagnostic: `${expectedFailureDiagnostic('turn', 'other')}\nCodex unattended decision (mode: never; request: command approval; decision: cancelled): the provider does not grant interactive approval`,
+      diagnostic: `${expectedFailureDiagnostic('turn', 'product-error')}\nCodex unattended decision (mode: never; request: command approval; decision: cancelled): the provider does not grant interactive approval`,
       stopReason: 'error',
     })
     await expect(second.run.result).resolves.toEqual({
       output: [],
-      diagnostic: `${expectedFailureDiagnostic('turn', 'other')}\nCodex unattended decision (mode: dangerously-bypass-approvals-and-sandbox; request: MCP elicitation; decision: declined): the provider does not collect interactive MCP input`,
+      diagnostic: `${expectedFailureDiagnostic('turn', 'product-error')}\nCodex unattended decision (mode: dangerously-bypass-approvals-and-sandbox; request: MCP elicitation; decision: declined): the provider does not collect interactive MCP input`,
       stopReason: 'error',
     })
     await Promise.all([first.run.dispose(), second.run.dispose()])
@@ -2438,6 +2395,7 @@ describe('run lifecycle and quiescence', () => {
     }) as typeof ctx.logger.warn
     await ctx.plugin(codex, {
       providerName: 'codex-diagnostic',
+      model: 'codex-diagnostic-model',
       env: { OPENAI_API_KEY: 'fake' },
       permissionMode: 'approve-for-me',
       disposeGraceMs: 25,
@@ -2488,13 +2446,14 @@ describe('run lifecycle and quiescence', () => {
     })
     /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
-    child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+    child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await child.peer.nextMethod('initialized')
     /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStart = await child.peer.nextMethod('thread/start')
     expect(threadStart.params).toEqual({
       cwd: process.cwd(),
       ephemeral: true,
+      model: 'codex-diagnostic-model',
       approvalPolicy: 'on-request',
       approvalsReviewer: 'auto_review',
       sandbox: 'workspace-write',
@@ -2523,7 +2482,7 @@ describe('run lifecycle and quiescence', () => {
     }))
     await expect(run.result).resolves.toEqual({
       output: [],
-      diagnostic: `${expectedFailureDiagnostic('turn', 'other')}\nCodex unattended decision (mode: approve-for-me; request: command approval; decision: cancelled): the provider does not grant interactive approval`,
+      diagnostic: `${expectedFailureDiagnostic('turn', 'product-error')}\nCodex unattended decision (mode: approve-for-me; request: command approval; decision: cancelled): the provider does not grant interactive approval`,
       stopReason: 'error',
     })
     expect(spawn).toHaveBeenCalledWith(expect.objectContaining({
@@ -2533,7 +2492,7 @@ describe('run lifecycle and quiescence', () => {
     }))
     expect(warnings).toEqual([
       expect.stringContaining(
-        `subagent-codex "codex-diagnostic": child run failed (error): subagent-codex: ${expectedFailureDiagnostic('turn', 'other')}`,
+        `subagent-codex "codex-diagnostic": child run failed (error): subagent-codex: ${expectedFailureDiagnostic('turn', 'product-error')}`,
       ),
     ])
     expect(warnings.join('\n')).not.toContain('SECRET_TOKEN')

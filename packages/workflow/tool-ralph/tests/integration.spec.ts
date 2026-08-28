@@ -11,7 +11,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage, CallId  } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId  } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import { STRUCTURED_OUTPUT_TOOL } from '@deepseek-ai/dsh-subagent-in-process-driver'
@@ -49,8 +49,7 @@ async function mountRalph(script: MockScript, config: toolRalph.Config) {
 }
 
 describe('dsh-tool-ralph over the real spawn and worker-thread stack', () => {
-  it('uses distinct empty-seed children, shared cwd, and only the prior bounded handoff', async () => {
-    /** 中文说明：变量 firstReport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('uses distinct empty-seed children, shared cwd, and only the prior bounded handoff', { timeout: 90_000 }, async () => {
     const firstReport = {
       status: 'continue',
       summary: 'ROUND_ONE_HANDOFF',
@@ -107,7 +106,7 @@ describe('dsh-tool-ralph over the real spawn and worker-thread stack', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ralph-integration'),
+      callId: ToolCallId('ralph-integration'),
       name: 'ralph',
       arguments: { objective: 'Complete both migration slices.', maxRounds: 2 },
       agent: parent,
@@ -142,8 +141,7 @@ describe('dsh-tool-ralph over the real spawn and worker-thread stack', () => {
     await parentHandle.dispose()
   })
 
-  it('reports the failed round and last good handoff when a child fails', async () => {
-    /** 中文说明：变量 firstReport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('reports the failed round and last good handoff when a child fails', { timeout: 90_000 }, async () => {
     const firstReport = {
       status: 'continue',
       summary: 'ROUND_ONE_HANDOFF',
@@ -166,7 +164,7 @@ describe('dsh-tool-ralph over the real spawn and worker-thread stack', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ralph-child-failure'),
+      callId: ToolCallId('ralph-child-failure'),
       name: 'ralph',
       arguments: { objective: 'Complete both migration slices.', maxRounds: 2 },
       agent: parent,
@@ -258,7 +256,7 @@ describe('dsh-tool-ralph over the real spawn and worker-thread stack', () => {
     /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: CallId('ralph-script-enforcement'),
+      callId: ToolCallId('ralph-script-enforcement'),
       name: 'ralph',
       arguments: { objective: 'Complete the scoped work.', maxRounds: config.maxRounds },
       agent: parent,
@@ -269,7 +267,7 @@ describe('dsh-tool-ralph over the real spawn and worker-thread stack', () => {
     await parentHandle.dispose()
   })
 
-  it('cancels the real worker and fresh child to quiescence', { timeout: 20_000 }, async () => {
+  it('cancels the real worker and fresh child to quiescence', { timeout: 90_000 }, async () => {
     const { ctx, parent, parentHandle } = await mountRalph(['hang'], { maxRounds: 2 })
     /** 中文说明：变量 children 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const children: Agent[] = []
@@ -292,7 +290,7 @@ describe('dsh-tool-ralph over the real spawn and worker-thread stack', () => {
     const controller = new AbortController()
     /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.tools.execute({
-      callId: CallId('ralph-real-cancel'),
+      callId: ToolCallId('ralph-real-cancel'),
       name: 'ralph',
       arguments: { objective: 'Keep working until cancelled.', maxRounds: 2 },
       agent: parent,

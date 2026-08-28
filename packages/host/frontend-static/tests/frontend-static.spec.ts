@@ -22,6 +22,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
+import * as Connection from '@deepseek-ai/dsh-client-connection'
+import LocalCredentials from '@deepseek-ai/dsh-credentials-local'
 import HttpServer from '@deepseek-ai/dsh-host-webserver'
 import * as FrontendStatic from '../src/index.ts'
 
@@ -37,8 +39,7 @@ afterEach(async () => {
   root = undefined
 })
 
-/** Write a dist fixture and a two-row cordis.yml, then boot it through the real Loader. */
-/* 中文说明：函数 loadComposition 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/** Write a dist fixture and the authenticated Web rows, then boot them through the real Loader. */
 async function loadComposition(): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-frontend-static-'))
   /** 中文说明：测试局部值 dist，由紧邻初始化决定。 */
@@ -54,10 +55,15 @@ async function loadComposition(): Promise<Context> {
   /** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
   const configPath = join(root, 'cordis.yml')
   await writeFile(configPath, [
+    "- name: '@deepseek-ai/dsh-credentials-local'",
+    '  config:',
+    `    path: '${join(root, '.credentials.yaml')}'`,
+    '    watch: false',
     "- name: '@deepseek-ai/dsh-host-webserver'",
     '  config:',
     "    host: '127.0.0.1'",
     '    port: 0',
+    "- name: '@deepseek-ai/dsh-client-connection'",
     '- id: frontend',
     "  name: '@deepseek-ai/dsh-host-frontend-static'",
     '  config:',
@@ -71,7 +77,9 @@ async function loadComposition(): Promise<Context> {
   context.loader.builtins.include = Include
   /** 中文说明：测试局部值 modules，由紧邻初始化决定。 */
   const modules = new Map<string, unknown>([
+    ['@deepseek-ai/dsh-credentials-local', LocalCredentials],
     ['@deepseek-ai/dsh-host-webserver', HttpServer],
+    ['@deepseek-ai/dsh-client-connection', Connection],
     ['@deepseek-ai/dsh-host-frontend-static', FrontendStatic],
   ])
   context.loader.internal = {
@@ -97,7 +105,9 @@ async function request(port: number, path: string, init?: RequestInit): Promise<
   return {
     status: response.status,
     type: response.headers.get('content-type'),
-    body: (await response.text()).slice(0, 80),
+    // Window wide enough to keep index body markers visible behind the
+    // served prelude (base anchor + injection rows + boot-readiness tail).
+    body: (await response.text()).slice(0, 200),
   }
 }
 
@@ -114,6 +124,24 @@ describe('real Loader composition', () => {
     const server = loaded.webServer
     /** 中文说明：测试局部值 port，由紧邻初始化决定。 */
     const port = server.port
+    const launchUrl = loaded.connection.authenticatedUrl(`http://127.0.0.1:${String(port)}`)
+    const exchange = await fetch(launchUrl, { redirect: 'manual' })
+    expect(exchange.status).toBe(303)
+    expect(exchange.headers.get('location')).toBe('/')
+    const setCookie = exchange.headers.get('set-cookie')
+    if (setCookie === null) throw new Error('authenticated frontend did not set a cookie')
+    const cookie = setCookie.split(';', 1)[0]!
+    const authenticated = (init?: RequestInit): RequestInit => {
+      const headers = new Headers(init?.headers)
+      headers.set('cookie', cookie)
+      return { ...init, headers }
+    }
+
+    expect(await request(port, '/')).toMatchObject({
+      status: 401,
+      type: 'text/plain; charset=utf-8',
+      body: 'dsh web authentication required; reopen the URL printed by dsh web.\n',
+    })
 
     // Real assets with their MIME types; a live rebuild is served on the next read.
     expect(await request(port, '/app.js')).toMatchObject({ status: 200, type: 'text/javascript; charset=utf-8', body: 'export {}' })
@@ -138,39 +166,34 @@ describe('real Loader composition', () => {
     const untap = server.tapIndex(html => html.replace('<head>', '<head><script>window.__T__=1</script>'))
     /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     for (const path of ['/', '/index.html', '/?fixture']) {
-      /** 中文说明：测试局部值 got，由紧邻初始化决定。 */
-      const got = await request(port, path)
+      const got = await request(port, path, authenticated())
       expect(got.status).toBe(200)
       expect(got.type).toBe('text/html; charset=utf-8')
       expect(got.body).toContain('__T__')
       expect(got.body).toContain('shell')
     }
-    expect(await request(port, '/', { method: 'HEAD' })).toEqual({
+    expect(await request(port, '/', authenticated({ method: 'HEAD' }))).toEqual({
       status: 200,
       type: 'text/html; charset=utf-8',
       body: '',
     })
     untap()
-    expect((await request(port, '/')).body).not.toContain('__T__')
+    expect((await request(port, '/', authenticated())).body).not.toContain('__T__')
 
     // A missing configured index follows the same empty-404 contract for both
     // of its public entry paths and for both supported methods.
     await rm(join(root!, 'dist', 'index.html'))
     /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     for (const path of ['/', '/index.html']) {
-      /** 中文说明：测试局部值 get，由紧邻初始化决定。 */
-      const get = await request(port, path)
-      /** 中文说明：测试局部值 head，由紧邻初始化决定。 */
-      const head = await request(port, path, { method: 'HEAD' })
+      const get = await request(port, path, authenticated())
+      const head = await request(port, path, authenticated({ method: 'HEAD' }))
       expect(get).toEqual({ status: 404, type: null, body: '' })
       expect(head).toEqual(get)
     }
 
     // Ordinary unknown paths and static-resource misses are empty 404s for
     // both GET and HEAD; neither class can be mistaken for the HTML shell.
-    /** 中文说明：测试局部值 ordinaryMisses，由紧邻初始化决定。 */
-    const ordinaryMisses = ['/no/such/route', '/api/no/such/route', '/empty', '/app.js/child']
-    /** 中文说明：测试局部值 assetMisses，由紧邻初始化决定。 */
+    const ordinaryMisses = ['/no/such/route', '/empty', '/app.js/child']
     const assetMisses = [
       '/missing.js',
       '/missing.css',
@@ -188,6 +211,11 @@ describe('real Loader composition', () => {
       expect(get).toEqual({ status: 404, type: null, body: '' })
       expect(head).toEqual(get)
     }
+    expect(await request(port, '/api/no/such/route', authenticated())).toEqual({
+      status: 404,
+      type: 'text/plain;charset=UTF-8',
+      body: 'not found',
+    })
 
     // Traversal outside the dist root is 403, non-GET/HEAD is 405, and a
     // malformed filesystem target still reaches the webserver's 400 guard.

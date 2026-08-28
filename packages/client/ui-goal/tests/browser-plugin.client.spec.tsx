@@ -22,8 +22,9 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import { afterEach } from 'vitest'
-import { SlotRegistry, type SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import { ConversationEventRegistry } from '@deepseek-ai/dsh-client-runtime/src/client/conversation/event-registry.ts'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
+import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { GoalProjection } from '@deepseek-ai/dsh-goal/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -65,9 +66,18 @@ async function bench(options: {
   const ctx = new Context()
   /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
   const calls: { method: string; args: unknown[] }[] = []
-  /** 中文说明：测试局部值 conversationEvents，由紧邻初始化决定。 */
-  const conversationEvents = new ConversationEventRegistry(ctx)
-  /** 中文说明：函数 answer 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+  const sessions = {
+    binding: (id: SessionId) => ({
+      sessionId: id,
+      session: { projections: { faceOf: (key: string) => ({
+        getSnapshot: () => (key === 'goal' ? options.projection : undefined),
+        subscribe: () => () => {},
+      }) } },
+      ctx,
+    }),
+  }
+  ctx.provide('sessions', sessions)
+  const conversationEvents = new UiConversation(ctx, sessions as never).events
   function answer<T>(method: string, value: T) {
     return (...args: unknown[]) => {
       calls.push({ method, args })
@@ -107,17 +117,6 @@ async function bench(options: {
     },
   } as never, (() => null) as never)
   ctx.provide('locale', new LocaleRuntime(ctx))
-  ctx.provide('sessions', {
-    binding: (id: SessionId) => ({
-      sessionId: id,
-      session: { projections: { faceOf: (key: string) => ({
-        getSnapshot: () => (key === 'goal' ? options.projection : undefined),
-        subscribe: () => () => {},
-      }) } },
-      ctx,
-    }),
-  })
-  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = ctx.plugin({ inject: [...inject], apply })
   return {
     ctx,

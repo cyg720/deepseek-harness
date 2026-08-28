@@ -1,13 +1,3 @@
-// menuReduce generation gating, auto-close, silent group removal, cyclic
-// highlight movement, stale/no-op reference identity; exactMatch lookup.
-/**
- * 文件职责：验证输入触发菜单的 core-menu.client.spec.ts 行为。
- * 技术维度：Vitest、React 渲染和可控服务替身。
- * 产品维度：防止输入触发菜单用户流程回归。
- * 逻辑维度：构造状态，触发交互并断言输出与清理。
- * 关键边界：全局替身和异步任务必须在用例后恢复。
- * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
- */
 import { describe, expect, it } from 'vitest'
 import type { MenuState, TriggerHit } from '../src/core/contract.ts'
 import { exactMatch, MENU_CLOSED, menuReduce, seedGroups } from '../src/core/menu.ts'
@@ -21,14 +11,20 @@ const hit = (query = ''): TriggerHit => ({
   span: { start: 0, end: 1 + query.length, draftRev: 1 },
 })
 
-/** Seed sources onto the closed state and open a first generation. */
-/* 中文说明：函数 open 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function open(sources: readonly string[], h: TriggerHit = hit()): MenuState {
   return menuReduce(seedGroups(MENU_CLOSED, sources.map(name => ({ name }))), { type: 'hit', hit: h })
 }
 
 /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
 const item = (name: string) => ({ name })
+
+/** Two ready groups: command [goal, model], skill [commit]. */
+function ready(): MenuState {
+  let s = open(['command', 'skill'])
+  s = menuReduce(s, { type: 'source-settled', generation: 1, source: 'command', items: [item('goal'), item('model')] })
+  s = menuReduce(s, { type: 'source-settled', generation: 1, source: 'skill', items: [item('commit')] })
+  return s
+}
 
 describe('menuReduce hit', () => {
   it('opens a new generation with all groups pending', () => {
@@ -180,16 +176,6 @@ describe('menuReduce source-failed', () => {
 })
 
 describe('menuReduce move', () => {
-  /** Two ready groups: command [goal, model], skill [commit]. */
-  /* 中文说明：函数 ready 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-  function ready(): MenuState {
-    /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
-    let s = open(['command', 'skill'])
-    s = menuReduce(s, { type: 'source-settled', generation: 1, source: 'command', items: [item('goal'), item('model')] })
-    s = menuReduce(s, { type: 'source-settled', generation: 1, source: 'skill', items: [item('commit')] })
-    return s
-  }
-
   it('cycles forward across groups and wraps', () => {
     /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
     let s = ready()
@@ -234,6 +220,28 @@ describe('menuReduce move', () => {
     let single = open(['command'])
     single = menuReduce(single, { type: 'source-settled', generation: 1, source: 'command', items: [item('goal')] })
     expect(menuReduce(single, { type: 'move', dir: 1 })).toBe(single)
+  })
+})
+
+describe('menuReduce hover', () => {
+  it('parks the highlight on the hovered ready item', () => {
+    const s = menuReduce(ready(), { type: 'hover', source: 'skill', index: 0 })
+    expect(s.highlight).toEqual({ source: 'skill', index: 0 })
+  })
+
+  it('is a no-op reference when closed, on invalid targets, and on the current highlight', () => {
+    const closed = menuReduce(ready(), { type: 'close' })
+    expect(menuReduce(closed, { type: 'hover', source: 'command', index: 0 })).toBe(closed)
+    const s = ready()
+    expect(menuReduce(s, { type: 'hover', source: 'ghost', index: 0 })).toBe(s)
+    expect(menuReduce(s, { type: 'hover', source: 'command', index: 5 })).toBe(s)
+    expect(menuReduce(s, { type: 'hover', source: 'command', index: 0 })).toBe(s)
+  })
+
+  it('ignores a hover into a still-pending group', () => {
+    let s = open(['command', 'skill'])
+    s = menuReduce(s, { type: 'source-settled', generation: 1, source: 'command', items: [item('goal')] })
+    expect(menuReduce(s, { type: 'hover', source: 'skill', index: 0 })).toBe(s)
   })
 })
 

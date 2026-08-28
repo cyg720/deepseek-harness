@@ -9,7 +9,8 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
-import type { SessionId, WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { RowDragProps } from '../src/client/rows/Rows.tsx'
@@ -19,8 +20,6 @@ import { zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-// Standard locale seat stub mirroring the real ns → common → key chain (zh default).
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t = makeTranslate(zh, commonZh) as never
 
 /** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
