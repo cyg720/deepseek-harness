@@ -165,10 +165,10 @@ function runBody(
    * 常量说明：module 用于处理 module 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
    */
   const module = { exports }
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the wrapper contract under test is a `new Function` body
   /**
    * 常量说明：factory 用于处理 factory 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
    */
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the wrapper contract under test is a `new Function` body
   const factory = new Function(...WRAPPER_PARAMS, code) as (...args: unknown[]) => void
   factory(exports, require, module, '/vfs/probe.js', '/vfs', { url: 'file:///vfs/probe.js' }, als)
   return exports

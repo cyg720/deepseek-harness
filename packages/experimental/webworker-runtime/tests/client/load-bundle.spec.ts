@@ -48,6 +48,9 @@ function stubWorker(): {
    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(frame)，并按返回类型处理结果。
    */
+  /**
+  * 变量说明：listener 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+  */
   return {
     worker: {
       addEventListener: (type: string, listener: StubListener) => {
@@ -56,10 +59,7 @@ function stubWorker(): {
       postMessage: (frame: unknown) => { sent.push(frame as { t: string; id: number; url: string }) },
     } as unknown as Worker,
     sent,
-    deliver: (frame) => { /**
- * 变量说明：listener 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
- */
-for (const listener of listeners) listener({ data: frame }) },
+    deliver: (frame) => { for (const listener of listeners) listener({ data: frame }) },
   }
 }
 
@@ -137,11 +137,11 @@ it('loads a combo map through the tunnel and embeds it in the blob script', asyn
      * 变量说明：node 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
      */
     for (const node of nodes) {
-      if (typeof node !== 'string') /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-queueMicrotask(() => { node.dispatchEvent(new Event('load')) })
+      /**
+      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+      */
+      if (typeof node !== 'string') queueMicrotask(() => { node.dispatchEvent(new Event('load')) })
     }
   })
 

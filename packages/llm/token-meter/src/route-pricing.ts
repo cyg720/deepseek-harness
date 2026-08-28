@@ -112,10 +112,10 @@ export function priceSurface(
        * 变量说明：occurrence 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
        */
       for (let occurrence = 0; occurrence < node.images.length; occurrence += 1) {
-        // oxlint-disable-next-line typescript/no-non-null-assertion -- length equality is asserted above
         /**
          * 常量说明：price 用于处理 price 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
          */
+        // oxlint-disable-next-line typescript/no-non-null-assertion -- length equality is asserted above
         const price = prices[cursor]!
         cursor += 1
         tokens += price.visualTokens + estimateContent([{ type: 'text', text: price.text }])

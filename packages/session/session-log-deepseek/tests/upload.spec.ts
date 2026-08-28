@@ -274,12 +274,12 @@ describe('incremental DeepSeek session-log upload', () => {
     /**
      * 常量说明：session 用于处理 session 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-    const session = { id, /**
- * 功能说明：处理 events 相关流程；使用场景由所在模块及调用位置决定。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 events()，并按返回类型处理结果。
- */
-get events() { return observed } } as unknown as Session
+    /**
+    * 功能说明：处理 events 相关流程；使用场景由所在模块及调用位置决定。
+    * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
+    * @example 在完成前置校验后调用 events()，并按返回类型处理结果。
+    */
+    const session = { id, get events() { return observed } } as unknown as Session
 
     expect(SessionLogDeepSeek.acceptedThrough(session)).toBe(0)
     expect(reads).toBe(2)

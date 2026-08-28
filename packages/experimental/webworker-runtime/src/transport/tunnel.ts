@@ -96,10 +96,10 @@ export function describeFailure(reason: unknown): string {
       return
     }
     lines.push(`${indent}${value.name}: ${value.message}`)
-    if (value instanceof AggregateError) /**
- * 变量说明：inner 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
- */
-for (const inner of value.errors) walk(inner, depth + 1)
+    /**
+    * 变量说明：inner 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+    */
+    if (value instanceof AggregateError) for (const inner of value.errors) walk(inner, depth + 1)
     walk(value.cause, depth + 1)
   }
   walk(reason, 0)
@@ -221,6 +221,10 @@ type QueuedFrame = TunnelRequestFrame | TunnelStreamOpenFrame
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(message)，并按返回类型处理结果。
  */
+/**
+* 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+* 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+*/
 class BufferedSink {
   /**
    * 常量说明：calls 用于处理 calls 相关数据，作用于成员；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -252,11 +256,7 @@ class BufferedSink {
       this.record(() => { this.target?.head(status, headers) })
       this.settle?.({ streamed: true, status })
     },
-    chunk: (bytes) => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-this.record(() => { this.target?.chunk(bytes) }) },
+    chunk: (bytes) => { this.record(() => { this.target?.chunk(bytes) }) },
     end: (payload) => {
       /**
        * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -769,11 +769,11 @@ export class TunnelServer {
      * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(resolve)，并按返回类型处理结果。
      */
-    const aborted = new Promise<'aborted'>((resolve) => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-settleAborted = () => { resolve('aborted') } })
+    /**
+    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+    */
+    const aborted = new Promise<'aborted'>((resolve) => { settleAborted = () => { resolve('aborted') } })
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。

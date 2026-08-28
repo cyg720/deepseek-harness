@@ -39,11 +39,11 @@ import { DSH_HOME, DSH_TMP } from '../../src/storage/paths.ts'
  * @remarks 中文说明：常量说明：quiet 用于处理 quiet 相关数据，作用于当前作用域；初始化后不可重新赋值，
  * 但对象内部是否可变仍由其类型决定。；功能说明：处理 quiet 相关流程；使用场景由所在模块及调用位置决定。；返回值：void；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 quiet()，并按返回类型处理结果。 */
-const quiet = (): void => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-vi.spyOn(console, 'error').mockImplementation(() => {}) }
+/**
+* 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+* 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+*/
+const quiet = (): void => { vi.spyOn(console, 'error').mockImplementation(() => {}) }
 
 /** Symbols that refuse when called.
  * @remarks 中文说明：常量说明：CALLED 用于处理 CALLED 相关数据，作用于当前作用域；初始化后不可重新赋值，

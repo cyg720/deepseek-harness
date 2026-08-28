@@ -303,11 +303,11 @@ describe('DeepSeek plugin package inventory', () => {
     ctx.loader.internal = {
       version: 'v2',
       import: async (specifier: string, ...args: unknown[]) => {
-        if (specifier === 'https://plugins.example/test.mjs') /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-return { default: () => {} }
+        /**
+        * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+        * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+        */
+        if (specifier === 'https://plugins.example/test.mjs') return { default: () => {} }
         // Node ESM on Windows requires a file URL; retain the raw Loader name for package attribution.
         /**
          * 常量说明：portableSpecifier 用于处理 portableSpecifier 相关数据，作用于当前作用域；初始化后不可重新赋值，

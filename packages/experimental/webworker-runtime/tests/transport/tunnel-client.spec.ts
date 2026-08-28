@@ -114,17 +114,17 @@ function stubWorker(): {
    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(message)，并按返回类型处理结果。
    */
+  /**
+  * 变量说明：listener 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+  */
+  /**
+  * 变量说明：listener 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
+  */
   return {
     worker,
     sent,
-    deliver: (frame) => { /**
- * 变量说明：listener 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
- */
-for (const listener of listeners) listener({ data: frame }) },
-    fail: (message) => { /**
- * 变量说明：listener 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
- */
-for (const listener of errorListeners) listener({ message }) },
+    deliver: (frame) => { for (const listener of listeners) listener({ data: frame }) },
+    fail: (message) => { for (const listener of errorListeners) listener({ message }) },
   }
 }
 

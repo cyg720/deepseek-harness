@@ -715,11 +715,11 @@ const cut: ShellProgram = async (argv, io, state, fs) => {
  * 参数说明：set（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：string[]；调用方应按声明类型处理，
  * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 characterSet(set)，并按返回类型处理结果。 */
 function characterSet(set: string): string[] {
-  // oxlint-disable-next-line typescript/no-misused-spread -- a `tr` set names characters, and code points are that unit.
   /**
    * 常量说明：characters 用于处理 characters 相关数据，作用于当前作用域；初始化后不可重新赋值，
    * 但对象内部是否可变仍由其类型决定。
    */
+  // oxlint-disable-next-line typescript/no-misused-spread -- a `tr` set names characters, and code points are that unit.
   const characters = [...set]
   /**
    * 常量说明：expanded 用于处理 expanded 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -783,12 +783,12 @@ const tr: ShellProgram = (argv, io) => {
     return 2
   }
   if (options.flags.has('d')) {
-    // oxlint-disable-next-line typescript/no-misused-spread -- `tr` deletes per character, and code points are the unit it deletes.
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：character（由 TypeScript
      * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(character)，并按返回类型处理结果。
      */
+    // oxlint-disable-next-line typescript/no-misused-spread -- `tr` deletes per character, and code points are the unit it deletes.
     io.out([...io.stdin].filter(character => !from.includes(character)).join(''))
     return 0
   }
@@ -796,12 +796,12 @@ const tr: ShellProgram = (argv, io) => {
     io.err('tr: expected a replacement set\n')
     return 2
   }
-  // oxlint-disable-next-line typescript/no-misused-spread -- `tr` translates per character, and code points are the unit it maps.
   /**
    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：character（由 TypeScript
    * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(character)，并按返回类型处理结果。
    */
+  // oxlint-disable-next-line typescript/no-misused-spread -- `tr` translates per character, and code points are the unit it maps.
   io.out([...io.stdin].map((character) => {
     /**
      * 常量说明：index 用于处理 index 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。

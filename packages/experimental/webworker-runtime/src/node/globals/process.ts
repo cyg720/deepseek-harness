@@ -297,6 +297,10 @@ export function installProcessGlobal(options: ProcessShimOptions): ProcessShim {
    * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；
    * 典型用法：在完成前置校验后调用 匿名回调(code)，并按返回类型处理结果。
    */
+  /**
+  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
+  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
+  */
   const shim: ProcessShim = {
     env: { ...options.env },
     argv: [...(options.argv ?? ['node', 'dsh-webworker'])],
@@ -336,11 +340,7 @@ export function installProcessGlobal(options: ProcessShimOptions): ProcessShim {
       }
       return signalProcess(pid, signal)
     },
-    nextTick: (callback, ...args) => { /**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-queueMicrotask(() => { callback(...args) }) },
+    nextTick: (callback, ...args) => { queueMicrotask(() => { callback(...args) }) },
     stdout: { write: write('log') },
     stderr: { write: write('error') },
     on: () => shim,
